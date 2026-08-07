@@ -1,14 +1,30 @@
 # Build and deploy the SvelteKit dashboard to GitHub Pages.
 #
-# The `guard` job short-circuits the run while web/ has no package.json, so this
-# workflow is green from the day it lands rather than failing until the app is
-# scaffolded.
+# The `guard` job short-circuits the run when the payload the app reads is not
+# present, so this workflow is green rather than red while that question is
+# still open.
+#
+# **The payload is not in the repository and cannot be.** `web/static/data/` is
+# 483 MB — 6,595 meeting files of full speech text, plus the concordance — and
+# it is gitignored. Until one of these is chosen, a deploy would publish a site
+# whose every chart 404s:
+#
+#   1. Run scripts 00-09 plus export_web.py in this workflow. ~630 MB from
+#      Dataverse and a few minutes per deploy, cacheable on the DOI. Fully
+#      reproducible from source; slowest CI.
+#   2. Publish the payload as a release asset or a Hugging Face dataset and
+#      fetch it in the build step. One upload per data version, fast CI, and the
+#      artefact becomes something to version deliberately.
+#   3. Build locally and deploy the built site. No CI data step, but
+#      reproducibility then rests on one machine — the weakest option for a
+#      project meant to be citable.
+#
+# GitHub Pages allows 1 GB, so the size is not the obstacle; where the bytes
+# come from at build time is. See notes/09_export_speeches.md.
 #
 # Before the first real deployment:
-#   1. Scaffold web/ with @sveltejs/adapter-static
-#   2. Set `paths.base` in svelte.config.js to '/un-security-council-debates'
-#      (project pages are served from a subpath)
-#   3. Settings -> Pages -> Source: GitHub Actions
+#   1. Choose one of the three above and implement it in the `build` job
+#   2. Settings -> Pages -> Source: GitHub Actions
 #
 # Note: Pages from a *private* repository requires a paid GitHub plan. On a free
 # account the repository must be public for the site to publish.
@@ -42,11 +58,16 @@ jobs:
 
       - id: check
         run: |
-          if [ -f web/package.json ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
+          if [ ! -f web/package.json ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Skipped::web/ is not scaffolded yet — nothing to build."
+            echo "::notice title=Skipped::web/ is not scaffolded yet."
+          elif [ ! -f web/static/data/manifest.json ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Skipped::web/static/data is empty. The 483 MB payload is \
+            gitignored and no build-time source is configured yet — see the comment at the \
+            top of this file. Deploying now would publish a site with no data."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
   build:
@@ -66,8 +87,6 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - run: npm ci
-      - run: npm run lint --if-present
-      - run: npm run check --if-present
       - run: npm run build
 
       - uses: actions/upload-pages-artifact@v5

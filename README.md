@@ -7,6 +7,10 @@ been used at the Council: when, by whom, about what, and to what end.
 The dashboard will be published openly as a static site. This repository holds the data
 pipeline, the analysis scripts and the web application.
 
+Five views, and every chart on them states what it answers, how to read its marks, what it
+does **not** show, and which script produced the file behind it. A chart without that
+account is a decoration.
+
 ---
 
 ## Status
@@ -21,8 +25,9 @@ pipeline, the analysis scripts and the web application.
 | Temporal series & change points | ✅ `scripts/04` · [`config/events.csv`](config/events.csv) |
 | Lexicometry — collocates, keyness, network | ✅ `scripts/05` · [`config/stopwords.txt`](config/stopwords.txt) |
 | Concordance (80,011 lines, 22 terms) | ✅ `scripts/08` |
-| Topics & embeddings | ⬜ next — `scripts/06`–`07` |
-| Dashboard (SvelteKit) | ⬜ |
+| Speech export & web payload | ✅ `scripts/09`, `scripts/export_web.py` |
+| Dashboard — 5 views, SvelteKit 2 / Svelte 5 | ✅ [`web/`](web/) (deployment source for the 483 MB payload still to choose) |
+| Topics & embeddings | ⬜ `scripts/06`–`07` — needs the `torch` decision in [`docs/PLAN.md` §1.1](docs/PLAN.md) |
 | LLM structured extraction | ⬜ |
 
 ---
@@ -43,6 +48,14 @@ python scripts/03_lexicon.py         # → speeches_flagged.parquet (lexicon cou
 python scripts/04_series.py          # → derived/series/*.json    (rates, change points)
 python scripts/05_lexical.py         # → derived/lexical/*.json   (collocates, keyness, PMI)
 python scripts/08_kwic.py            # → derived/kwic/*.json      (80,011 concordance lines)
+python scripts/09_export_speeches.py # → web/static/data/speeches (6,595 meeting files)
+python scripts/export_web.py         # → web/static/data          (assembles the payload)
+```
+
+Then the dashboard:
+
+```bash
+npm --prefix web ci && npm --prefix web run dev
 ```
 
 Each step asserts its output and exits non-zero on any mismatch rather than leaving a
@@ -60,8 +73,9 @@ module layout.
 python -m pytest
 ```
 
-179 tests, no data required — including integrity checks on the hand-edited files in
-`config/`. These and `ruff check` run on every push and pull request via
+185 tests, no data required — including integrity checks on the hand-edited files in
+`config/`. These, `ruff check`, and the dashboard's `prettier` / `eslint` / `svelte-check`
+run on every push and pull request via
 [`.github/workflows/checks.yml`](.github/workflows/checks.yml), so a bad edit to a config
 file fails in CI rather than halfway through someone's pipeline run.
 
@@ -70,7 +84,7 @@ file fails in CI rather than halfway through someone's pipeline run.
 ## Layout
 
 ```
-├── .github/workflows/   checks.yml (ruff + pytest) · deploy.yml (Pages)
+├── .github/workflows/   checks.yml (pipeline + dashboard) · deploy.yml (Pages)
 ├── config/              Versioned analysis inputs — edit these, not the scripts
 │   ├── lexicon.yml           Genocide lexicon: patterns, tiers, discursive registers
 │   ├── entities.csv          country_org → type · ISO3 · UN group · centroid
@@ -92,7 +106,8 @@ file fails in CI rather than halfway through someone's pipeline run.
 │   └── lib/               The tested modules the steps orchestrate
 ├── tests/               pytest; runs against the real config/, needs no data
 ├── tools/               One-off maintenance helpers (entity crosswalk bootstrap)
-└── web/                 SvelteKit dashboard (not yet scaffolded)
+└── web/                 SvelteKit dashboard — src/routes is one file per view
+    └── static/data/       Gitignored. 483 MB, built by scripts/09 and export_web.py
 ```
 
 ---

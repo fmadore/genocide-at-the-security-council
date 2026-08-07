@@ -1,0 +1,4 @@
+build/
+.svelte-kit/
+static/data/
+package-lock.json

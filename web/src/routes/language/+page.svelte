@@ -1,0 +1,525 @@
+<script lang="ts">
+	import { resolve } from '$app/paths';
+	import Chart from '$lib/Chart.svelte';
+	import Figure from '$lib/Figure.svelte';
+	import { count, decimal, percent, shortCountry, signed, termLabel } from '$lib/format';
+	import { axisX, axisY, grid, palette, registerColour, textStyle, tooltip } from '$lib/theme';
+	import type { CollocateBlock, Word } from '$lib/types';
+	import type { EChartsOption } from 'echarts';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+
+	let node = $state('genocide');
+	let width = $state('5');
+	let sliceKind = $state<'by_country' | 'by_period' | 'by_speaker_group'>('by_country');
+	let sliceA = $state('Rwanda');
+	let sliceB = $state('United States Of America');
+	let period = $state('whole');
+	let keynessView = $state<'matched' | 'unmatched'>('matched');
+
+	const nodes = $derived(Object.keys(data.collocates.nodes));
+	const widths = $derived(data.collocates.widths.map(String));
+	const block = $derived(data.collocates.nodes[node].widths[width]);
+
+	const sliceOptions = $derived(Object.keys(data.sliced[sliceKind]));
+	const blockA = $derived<CollocateBlock | undefined>(data.sliced[sliceKind][sliceA]);
+	const blockB = $derived<CollocateBlock | undefined>(data.sliced[sliceKind][sliceB]);
+
+	$effect(() => {
+		// Switching the kind of slice invalidates the two chosen members.
+		const options = Object.keys(data.sliced[sliceKind]);
+		if (!options.includes(sliceA)) sliceA = options[0];
+		if (!options.includes(sliceB)) sliceB = options[1] ?? options[0];
+	});
+
+	const keywords = $derived(
+		keynessView === 'matched' ? data.keyness.keywords : data.keyness.keywords_unmatched
+	);
+	const matchedByWord = $derived(new Map(data.keyness.keywords.map((w) => [w.word, w.log_ratio])));
+
+	/* Effect size against significance. Every word is a point; the ones that
+	   matter are up and to the right, and the ones that only look significant
+	   are far right and low. */
+	const scatter: EChartsOption = $derived.by(() => {
+		const p = palette();
+		const words = block.collocates;
+		return {
+			textStyle,
+			grid: { ...grid(), top: 20, right: 28 },
+			tooltip: {
+				...tooltip(p),
+				trigger: 'item',
+				formatter: (params) => {
+					const d = params as unknown as { data: [number, number, string, number] };
+					return (
+						`<b>${d.data[2]}</b><br>${count(d.data[3])} in window` +
+						`<br>G² ${count(Math.round(d.data[0]))}<br>log ratio ${signed(d.data[1])}`
+					);
+				}
+			},
+			xAxis: {
+				...axisX(p),
+				type: 'log',
+				name: 'G² (confidence)',
+				nameLocation: 'middle',
+				nameGap: 28,
+				nameTextStyle: { color: p.inkFaint, fontSize: 11 },
+				splitLine: { show: true, lineStyle: { color: p.ruleSoft } }
+			},
+			yAxis: {
+				...axisY(p),
+				type: 'value',
+				name: 'log ratio (size of the effect)',
+				nameLocation: 'middle',
+				nameGap: 34,
+				nameTextStyle: { color: p.inkFaint, fontSize: 11 }
+			},
+			series: [
+				{
+					type: 'scatter',
+					symbolSize: 7,
+					data: words.map((w) => [Math.max(w.g2, 1), w.log_ratio, w.word, w.target]),
+					itemStyle: { color: p.accent, opacity: 0.55 },
+					label: {
+						show: true,
+						formatter: (params) =>
+							String((params as unknown as { data: [number, number, string] }).data[2]),
+						position: 'right',
+						color: p.inkSoft,
+						fontSize: 11
+					},
+					labelLayout: { hideOverlap: true },
+					emphasis: { itemStyle: { opacity: 1 } }
+				}
+			]
+		};
+	});
+
+	/* The lexicon as a graph. Edge weight is normalised PMI so a rare term
+	   cannot buy a thick edge with rarity alone. */
+	const graph: EChartsOption = $derived.by(() => {
+		const p = palette();
+		const edges = period === 'whole' ? data.network.edges : (data.network.by_period[period] ?? []);
+		const used = new Set(edges.flatMap((e) => [e.source, e.target]));
+		const terms = data.network.terms.filter((t) => used.has(t.name));
+		const maxSpeeches = Math.max(1, ...terms.map((t) => t.speeches));
+		return {
+			textStyle,
+			tooltip: {
+				...tooltip(p),
+				trigger: 'item',
+				formatter: (params) => {
+					const d = params as unknown as { dataType?: string; data: Record<string, unknown> };
+					return d.dataType === 'edge'
+						? `<b>${termLabel(String(d.data.source))}</b> &amp; <b>${termLabel(String(d.data.target))}</b>` +
+								`<br>${count(Number(d.data.speeches))} speeches use both` +
+								`<br>nPMI ${decimal(Number(d.data.npmi))}`
+						: `<b>${termLabel(String(d.data.name))}</b><br>${count(Number(d.data.speeches))} speeches`;
+				}
+			},
+			series: [
+				{
+					type: 'graph',
+					layout: 'force',
+					roam: true,
+					draggable: true,
+					center: ['50%', '50%'],
+					force: { repulsion: 340, edgeLength: [60, 190], gravity: 0.16 },
+					label: {
+						show: true,
+						position: 'right',
+						color: p.ink,
+						fontSize: 12,
+						formatter: (params) => termLabel(String((params as unknown as { name: string }).name))
+					},
+					labelLayout: { hideOverlap: true },
+					emphasis: { focus: 'adjacency', lineStyle: { width: 5 } },
+					data: terms.map((t) => ({
+						name: t.name,
+						speeches: t.speeches,
+						symbolSize: 10 + 30 * Math.sqrt(t.speeches / maxSpeeches),
+						itemStyle: { color: registerColour(t.register, p) }
+					})),
+					links: edges.map((e) => ({
+						source: e.source,
+						target: e.target,
+						speeches: e.speeches,
+						npmi: e.npmi,
+						lineStyle: {
+							width: Math.max(0.6, e.npmi * 7),
+							opacity: 0.25 + e.npmi * 0.5,
+							color: p.inkFaint,
+							curveness: 0.06
+						}
+					}))
+				}
+			]
+		};
+	});
+
+	const periods = $derived(['whole', ...Object.keys(data.network.by_period)]);
+
+	function topWords(b: CollocateBlock | undefined, n = 18): Word[] {
+		return b?.collocates.slice(0, n) ?? [];
+	}
+
+	const sliceLabel = (name: string) => (sliceKind === 'by_country' ? shortCountry(name) : name);
+</script>
+
+<svelte:head>
+	<title>Language — Genocide at the Security Council</title>
+</svelte:head>
+
+<article>
+	<header class="lede">
+		<h1>Language</h1>
+		<p class="standfirst">
+			What the word keeps company with. Every table here ranks by
+			<strong>log-likelihood</strong> and reports <strong>log ratio</strong> beside it: on
+			{count(data.collocates.meta.corpus_tokens as number)} words almost anything is statistically significant,
+			so significance alone is not a finding.
+		</p>
+	</header>
+
+	<Figure
+		title="Collocates of the node term"
+		question="Which words appear near this term far more often than chance would put them there?"
+		source="05_lexical.py → lexical/collocates.json"
+	>
+		{#snippet controls()}
+			<label>
+				Term
+				<select bind:value={node}>
+					{#each nodes as n (n)}<option value={n}>{termLabel(n)}</option>{/each}
+				</select>
+			</label>
+			<label>
+				Window
+				<select bind:value={width}>
+					{#each widths as w (w)}<option value={w}>&plusmn;{w} words</option>{/each}
+				</select>
+			</label>
+			<span class="unit-note"
+				>{count(block.occurrences)} occurrences, {count(block.window_tokens)} words in window</span
+			>
+		{/snippet}
+
+		{#snippet reading()}
+			<p>
+				Each point is a word. <strong>Rightwards</strong> means we are more confident its rate near
+				the node differs from its rate in the rest of the corpus (G², log scale).
+				<strong>Upwards</strong> means the difference is larger &mdash; a log ratio of +3 is eight times
+				the corpus rate, +7 is over a hundred times.
+			</p>
+			<p>
+				The interesting words are high <em>and</em> right. A word far right but low is common enough that
+				a small difference is measurable; that is a property of the sample size, not of the discourse.
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>
+				A wider window changes the question rather than refining it: &plusmn;5 words catches the
+				phrase the term sits in, &plusmn;15 the argument. Compare them; do not average them.
+			</p>
+			<p>
+				Function words are removed by a stated stoplist. Genre words &mdash; <em>council</em>,
+				<em>resolution</em>, <em>president</em> &mdash; are deliberately <strong>not</strong>,
+				because whether they sit close to the node is one of the things being asked.
+			</p>
+		{/snippet}
+
+		<Chart
+			option={scatter}
+			height="440px"
+			description="Scatter plot of collocate words by log-likelihood against log ratio."
+		/>
+	</Figure>
+
+	<Figure
+		title="The same word in two mouths"
+		question="Do different speakers, groups or decades use it to do different work?"
+		source="05_lexical.py → lexical/collocates_sliced.json"
+	>
+		{#snippet controls()}
+			<label>
+				Compare by
+				<select bind:value={sliceKind}>
+					<option value="by_country">Speaker</option>
+					<option value="by_speaker_group">Speaker group</option>
+					<option value="by_period">Period</option>
+				</select>
+			</label>
+			<label>
+				Left
+				<select bind:value={sliceA}>
+					{#each sliceOptions as o (o)}<option value={o}>{sliceLabel(o)}</option>{/each}
+				</select>
+			</label>
+			<label>
+				Right
+				<select bind:value={sliceB}>
+					{#each sliceOptions as o (o)}<option value={o}>{sliceLabel(o)}</option>{/each}
+				</select>
+			</label>
+		{/snippet}
+
+		{#snippet reading()}
+			<p>
+				Two collocate profiles side by side, each computed on its own subset at &plusmn;{data.sliced
+					.width} words but against the <em>same</em> whole-corpus reference. A word in one column and
+				not the other is doing work in one mouth that it is not doing in the other.
+			</p>
+			<p>
+				Try <strong>Rwanda</strong> against any other speaker: almost everyone's profile is the Rome Statute
+				triad, and Rwanda's is a vocabulary of denial and prosecution.
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>
+				Subsets differ enormously in size &mdash; the speech counts under each heading are there for
+				that reason. A profile drawn from fifty speeches is a sketch, not a portrait.
+			</p>
+			<p>
+				Comparing periods conflates who was speaking with when: Council membership turns over, and
+				so does the agenda.
+			</p>
+		{/snippet}
+
+		<div class="compare">
+			{#each [{ key: sliceA, b: blockA }, { key: sliceB, b: blockB }] as side (side.key)}
+				<div>
+					<h4>
+						{sliceLabel(side.key)}
+						<span
+							>{count(side.b?.speeches ?? 0)} speeches · {count(side.b?.occurrences ?? 0)} occurrences</span
+						>
+					</h4>
+					<table>
+						<thead>
+							<tr
+								><th>Word</th><th class="num">Near</th><th class="num">G²</th><th class="num"
+									>Log ratio</th
+								></tr
+							>
+						</thead>
+						<tbody>
+							{#each topWords(side.b) as w (w.word)}
+								<tr>
+									<td>{w.word}</td>
+									<td class="num">{count(w.target)}</td>
+									<td class="num">{count(Math.round(w.g2))}</td>
+									<td class="num">{signed(w.log_ratio)}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/each}
+		</div>
+	</Figure>
+
+	<Figure
+		title="Keyness against a matched control"
+		question="Setting aside what the debate was about, what distinguishes a speech that says genocide?"
+		source="05_lexical.py → lexical/keyness.json"
+	>
+		{#snippet controls()}
+			<label>
+				Comparison
+				<select bind:value={keynessView}>
+					<option value="matched">Matched control</option>
+					<option value="unmatched">Whole corpus (unmatched)</option>
+				</select>
+			</label>
+			<span class="unit-note">
+				{count(data.keyness.control_speeches)} of {count(data.keyness.target_speeches)} targets matched
+				({percent(data.keyness.coverage)})
+			</span>
+		{/snippet}
+
+		{#snippet reading()}
+			<p>
+				Each of the {count(data.keyness.target_speeches)} genocide-bearing speeches was paired with a
+				speech from the same <strong>{data.keyness.matched_on.join(', ')}</strong> that does not use the
+				term. What survives that comparison is closer to the vocabulary of the concept than of the occasion.
+			</p>
+			<p>
+				Switch to <strong>unmatched</strong> to see what the matching removed. Watch
+				<em>bosnia</em>, <em>herzegovina</em> and <em>tribunals</em>: near the top unmatched, gone
+				once year and agenda item are held constant.
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>
+				{data.keyness.short_strata.length} strata could not be filled &mdash; debates in which nearly
+				everyone used the word, so no control existed. They are left short rather than back-filled from
+				elsewhere, which would have quietly biased the table towards the crisis years.
+			</p>
+			<p>
+				The unmatched column is <strong>not a result</strong>. It is the comparison the matching
+				exists to improve on, shown so the improvement can be checked.
+			</p>
+		{/snippet}
+
+		<table>
+			<thead>
+				<tr>
+					<th>#</th>
+					<th>Word</th>
+					<th class="num">In target</th>
+					<th class="num">G²</th>
+					<th class="num">Log ratio</th>
+					{#if keynessView === 'unmatched'}<th class="num">Matched</th>{/if}
+				</tr>
+			</thead>
+			<tbody>
+				{#each keywords.slice(0, 30) as w, i (w.word)}
+					<tr>
+						<td class="num rank">{i + 1}</td>
+						<td>{w.word}</td>
+						<td class="num">{count(w.target)}</td>
+						<td class="num">{count(Math.round(w.g2))}</td>
+						<td class="num">{signed(w.log_ratio)}</td>
+						{#if keynessView === 'unmatched'}
+							<td class="num" class:gone={!matchedByWord.has(w.word)}>
+								{matchedByWord.has(w.word) ? signed(matchedByWord.get(w.word)!) : 'drops out'}
+							</td>
+						{/if}
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</Figure>
+
+	<Figure
+		title="Which terms travel together"
+		question="Does the lexicon have structure, or is it a list?"
+		source="05_lexical.py → lexical/network.json"
+	>
+		{#snippet controls()}
+			<label>
+				Period
+				<select bind:value={period}>
+					{#each periods as p (p)}
+						<option value={p}>{p === 'whole' ? 'Whole corpus' : p}</option>
+					{/each}
+				</select>
+			</label>
+			<span class="unit-note">
+				edge drawn where at least {data.network.min_speeches} speeches use both terms
+			</span>
+		{/snippet}
+
+		{#snippet reading()}
+			<p>
+				Each circle is a lexicon term, sized by how many speeches use it and coloured by its
+				register. An edge joins two terms used in the <em>same speech</em>, and its thickness is
+				normalised pointwise mutual information: how much more often they co-occur than two
+				independent terms of the same frequency would.
+			</p>
+			<p>Drag to rearrange, scroll to zoom, hover an edge for its numbers.</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>
+				Co-occurrence is at the level of the whole speech, so two terms count as linked even if they
+				appear four hundred words apart and in unrelated sentences. This is a map of vocabularies
+				that get used together, not of phrases.
+			</p>
+			<p>
+				Normalising PMI is what stops a term used in thirty speeches dominating the graph; the raw
+				measure rewards rarity.
+			</p>
+		{/snippet}
+
+		<Chart
+			option={graph}
+			height="520px"
+			description="Force-directed graph of lexicon terms linked by co-occurrence within speeches."
+		/>
+	</Figure>
+
+	<p class="onward">
+		Every word above is an entry point: the <a href={resolve('/concordance')}>concordance</a> holds
+		all {count(data.keyness.target_speeches)} speeches these numbers were counted from.
+	</p>
+</article>
+
+<style>
+	.lede {
+		max-width: 46rem;
+		margin-bottom: 2rem;
+	}
+
+	.standfirst {
+		font-size: 1.08rem;
+		color: var(--ink-soft);
+	}
+
+	label {
+		font-size: 0.83rem;
+		color: var(--ink-faint);
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45rem;
+	}
+
+	select {
+		background: var(--panel);
+		color: var(--ink);
+		border: 1px solid var(--rule);
+		border-radius: 4px;
+		padding: 0.25rem 0.4rem;
+		font-size: 0.85rem;
+		max-width: 15rem;
+	}
+
+	.unit-note {
+		font-size: 0.78rem;
+		color: var(--ink-faint);
+		font-style: italic;
+		margin-left: auto;
+	}
+
+	.compare {
+		display: grid;
+		gap: 1.5rem;
+	}
+
+	@media (min-width: 46rem) {
+		.compare {
+			grid-template-columns: 1fr 1fr;
+		}
+	}
+
+	.compare h4 {
+		font-size: 1rem;
+		margin-bottom: 0.4rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0.6rem;
+	}
+
+	.compare h4 span {
+		font-family: var(--sans);
+		font-size: 0.75rem;
+		font-weight: 400;
+		color: var(--ink-faint);
+	}
+
+	.rank {
+		color: var(--ink-faint);
+		width: 2rem;
+	}
+
+	.gone {
+		color: var(--ink-faint);
+		font-style: italic;
+	}
+
+	.onward {
+		font-size: 0.9rem;
+		color: var(--ink-soft);
+	}
+</style>

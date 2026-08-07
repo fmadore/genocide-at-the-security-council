@@ -179,3 +179,46 @@ class TestExtract:
     def test_a_frame_without_the_needed_columns_is_refused(self):
         with pytest.raises(KeyError, match="extract\\(\\) needs"):
             list(kwic.extract(pd.DataFrame({"filename": ["a.txt"]}), term()))
+
+
+class TestOffsets:
+    """What the reader view highlights from. These have to agree with what
+    `extract` counted, or the speech would light up in places the concordance
+    does not list."""
+
+    def test_spans_are_whole_text_offsets(self):
+        source = ADDRESS + "The genocide of 1994."
+        found = kwic.offsets(source, len(ADDRESS), [term()])
+        start, end = found["genocide"][0]
+        assert source[start:end] == "genocide"
+
+    def test_the_form_of_address_is_not_searched(self):
+        source = "Mr. GENOCIDE (Rwanda): Nothing here."
+        assert kwic.offsets(source, len("Mr. GENOCIDE (Rwanda): "), [term()]) == {}
+
+    def test_a_term_with_no_match_is_absent_not_empty(self):
+        """An empty list per unused term would be 21 wasted keys on every one of
+        106,302 speeches."""
+        found = kwic.offsets(ADDRESS + "Nothing here.", len(ADDRESS), [term()])
+        assert found == {}
+
+    def test_every_occurrence_is_recorded(self):
+        source = ADDRESS + "Genocide, genocide, and genocidal intent."
+        assert len(kwic.offsets(source, len(ADDRESS), [term()])["genocide"]) == 3
+
+    def test_terms_are_keyed_separately(self):
+        source = ADDRESS + "genocide and war crimes"
+        found = kwic.offsets(
+            source, len(ADDRESS), [term(), term("war_crimes", r"\bwar\s+crimes?\b")]
+        )
+        assert sorted(found) == ["genocide", "war_crimes"]
+
+    def test_offsets_agree_with_what_extract_counts(self):
+        """The two run the same regexes over the same body; if they ever
+        disagreed, the highlight and the concordance would tell different
+        stories about the same speech."""
+        body = "Genocide here, and genocidal intent there."
+        frame = speech(body)
+        counted = [(line.start, line.end) for line in kwic.extract(frame, term())]
+        found = kwic.offsets(ADDRESS + body, len(ADDRESS), [term()])["genocide"]
+        assert counted == [tuple(span) for span in found]

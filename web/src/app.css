@@ -1,0 +1,177 @@
+/* Design tokens.
+   One accent, a neutral ground, and a categorical ramp reserved for the
+   lexicon's six registers. Charts read their colours from these too, so a
+   change here moves the whole instrument rather than half of it. */
+
+:root {
+	--ink: #16181d;
+	--ink-soft: #4a4f5a;
+	--ink-faint: #767c88;
+	--paper: #fbfbf9;
+	--panel: #ffffff;
+	--rule: #e2e2dd;
+	--rule-soft: #efefea;
+
+	--accent: #8a2b2b;
+	--accent-soft: #f3e6e4;
+
+	/* Lexicon registers. Distinguishable in both themes and in greyscale. */
+	--register-core: #8a2b2b;
+	--register-legal: #1f5673;
+	--register-preventive: #2d6a4f;
+	--register-commemorative: #7a5195;
+	--register-contentious: #bc5090;
+	--register-accountability: #a5751a;
+
+	--positive: #2d6a4f;
+	--negative: #8a2b2b;
+
+	--serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+	--sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+	--mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+
+	--measure: 34rem;
+	--wide: 78rem;
+
+	color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--ink: #e8e8e4;
+		--ink-soft: #b0b4bd;
+		--ink-faint: #838994;
+		--paper: #14161a;
+		--panel: #1b1e23;
+		--rule: #2e3238;
+		--rule-soft: #24272c;
+
+		--accent: #d98080;
+		--accent-soft: #2e2022;
+
+		--register-core: #d98080;
+		--register-legal: #6ba8cc;
+		--register-preventive: #6fbf99;
+		--register-commemorative: #b795d0;
+		--register-contentious: #e390c0;
+		--register-accountability: #d8ad4f;
+
+		--positive: #6fbf99;
+		--negative: #d98080;
+	}
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+}
+
+body {
+	margin: 0;
+	background: var(--paper);
+	color: var(--ink);
+	font-family: var(--sans);
+	font-size: 16px;
+	line-height: 1.6;
+	-webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+	font-family: var(--serif);
+	font-weight: 600;
+	line-height: 1.2;
+	margin: 0 0 0.4em;
+	letter-spacing: -0.01em;
+}
+
+h1 {
+	font-size: clamp(1.9rem, 1.4rem + 2vw, 2.9rem);
+}
+h2 {
+	font-size: clamp(1.35rem, 1.1rem + 1vw, 1.75rem);
+}
+h3 {
+	font-size: 1.15rem;
+}
+
+p {
+	margin: 0 0 1em;
+}
+
+a {
+	color: var(--accent);
+	text-underline-offset: 0.15em;
+	text-decoration-thickness: 1px;
+}
+
+a:hover {
+	text-decoration-thickness: 2px;
+}
+
+code,
+kbd {
+	font-family: var(--mono);
+	font-size: 0.87em;
+	background: var(--rule-soft);
+	padding: 0.1em 0.32em;
+	border-radius: 3px;
+}
+
+button,
+select,
+input {
+	font: inherit;
+	color: inherit;
+}
+
+table {
+	border-collapse: collapse;
+	width: 100%;
+	font-size: 0.9rem;
+}
+
+th,
+td {
+	text-align: left;
+	padding: 0.45rem 0.7rem;
+	border-bottom: 1px solid var(--rule-soft);
+}
+
+th {
+	font-weight: 600;
+	font-size: 0.78rem;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--ink-faint);
+	border-bottom: 1px solid var(--rule);
+	white-space: nowrap;
+}
+
+td.num,
+th.num {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
+}

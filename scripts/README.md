@@ -29,7 +29,8 @@ C:/Users/frede/AppData/Local/Programs/Python/Python312/python.exe
 | 06 | `06_topics.py` | `speeches_flagged.parquet` | `derived/topics/*.json` | ⬜ |
 | 07 | `07_embed.py` | `speeches_flagged.parquet` | `derived/embeddings/*.json` | ⬜ |
 | 08 | `08_kwic.py` | `speeches_flagged.parquet` | `derived/kwic/*.json` | ✅ |
-| 09 | `09_export_speeches.py` | `speeches_flagged.parquet` | `web/static/data/speeches/*.json` | ⬜ |
+| 09 | `09_export_speeches.py` | `speeches_flagged.parquet`, `meetings.parquet` | `web/static/data/speeches/*.json` | ✅ |
+| — | `export_web.py` | `derived/{series,lexical,kwic}/` | `web/static/data/` | ✅ |
 | 10 | `10_llm_open.py` | sample of 200 | `derived/llm/open/*.json` | ⬜ |
 | 11 | `11_llm_extract.py` | `docs/CODEBOOK.md` + subset | `derived/llm/extractions.parquet` | ⬜ |
 | 12 | `12_llm_validate.py` | extractions + gold standard | `notes/12_validation.md` | ⬜ |
@@ -64,7 +65,8 @@ python -m pytest
 ```
 
 About a second, no data required, and run in CI on every push and pull request
-([`checks.yml`](../.github/workflows/checks.yml)).
+([`checks.yml`](../.github/workflows/checks.yml), alongside the dashboard's own
+`prettier`, `eslint` and `svelte-check`).
 [`tests/test_config.py`](../tests/test_config.py) runs against the real `config/` files, so
 a bad alias or a mistyped Council term fails here rather than halfway through a pipeline
 run. [`tests/test_series.py`](../tests/test_series.py) checks the change-point detector

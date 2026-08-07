@@ -455,11 +455,17 @@ def run(
     console.info(f"{len(events)} events, {events['year'].min()}-{events['year'].max()}")
 
     console.step("Writing")
+    # Corpus-level totals travel with every artefact so the dashboard can state
+    # a denominator without hard-coding one; a headline figure that drifts from
+    # the data behind it is the easiest kind of error to ship.
     meta = {
         "script": "04_series.py",
         "generated": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "lexicon_version": lex.version,
         "speeches": len(speeches),
+        "meetings": int(speeches["meeting_symbol"].nunique()),
+        "tokens": int(speeches["tokens"].sum()),
+        "speakers": int(speeches["country_org"].nunique()),
         "rate_per_tokens": series.RATE_PER,
     }
     write_json(annual, SERIES / "annual.json", meta)

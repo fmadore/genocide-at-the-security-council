@@ -1,10 +1,10 @@
-# Lint and test the Python pipeline.
+# Lint and test both halves of the project.
 #
-# Deliberately *not* path-filtered. The failure this guards against is a bad edit
+# Deliberately not path-filtered. The failure this guards against is a bad edit
 # to config/entities.csv, config/lexicon.yml or config/council_membership.csv —
 # tests/test_config.py runs against those real files — and any path filter that
-# forgets one reintroduces exactly the gap it was meant to close. The suite needs
-# no data and no network, and finishes in about a second.
+# forgets one reintroduces exactly the gap it was meant to close. Neither job
+# needs data or network beyond its own package installs.
 
 name: Checks
 
@@ -22,7 +22,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  checks:
+  python:
+    name: Pipeline
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -42,3 +43,29 @@ jobs:
 
       - name: pytest
         run: python -m pytest
+
+  web:
+    name: Dashboard
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      # svelte-check needs the generated types, which `npm ci` does not produce.
+      - run: npx svelte-kit sync
+
+      - name: prettier and eslint
+        run: npm run lint
+
+      - name: svelte-check
+        run: npm run check

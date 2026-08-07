@@ -22,7 +22,7 @@ one function to swap.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 
 import pandas as pd
@@ -164,6 +164,31 @@ class Line:
             "right": self.right,
             "sent": self.sent,
         }
+
+
+def offsets(
+    source: str, body_start: int, terms: Iterable[Term]
+) -> dict[str, list[list[int]]]:
+    """Whole-text spans of every occurrence of each term in one speech.
+
+    The reader view highlights from these rather than re-running the lexicon in
+    the browser: the regexes are the analysis, and a second implementation of
+    them in JavaScript would be a second thing to keep true.
+
+    Matching runs on the body and the spans are shifted back, so what is
+    highlighted is exactly what was counted. A term with no occurrence is left
+    out rather than mapped to an empty list.
+    """
+    body = source[body_start:]
+    found: dict[str, list[list[int]]] = {}
+    for term in terms:
+        spans = [
+            [body_start + match.start(), body_start + match.end()]
+            for match in term.regex.finditer(body)
+        ]
+        if spans:
+            found[term.name] = spans
+    return found
 
 
 #: Columns :func:`extract` needs. Named so a caller can read only these from the
