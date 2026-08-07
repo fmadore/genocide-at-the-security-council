@@ -1,0 +1,488 @@
+arXiv:1906.10969v3 [cs.DL] 17 Mar 2025
+
+The UN Security Council debates
+1992-2023
+
+Mirco Schoenfeld \( ^{*} \)  Steffen Eckhard \( ^{\dagger} \)  Ronny Patz \( ^{\ddagger} \)
+
+Hilde van Meegdenburg \( ^{§} \)  Antonio Pires \( ^{¶} \)
+
+March 2025
+
+Abstract
+
+This paper presents an updated dataset containing 106,302 speeches held in the public meetings of the UN Security Council (UNSC) between 1992 and 2023. The dataset is based on publicly available meeting transcripts with the S/PV document symbol and includes the full substance of individual speeches as well as automatically extracted and manually corrected metadata on the speaker, the position of the speech in the sequence of speeches of a meeting, and the date of the speech. After contextualizing the dataset in recent research on the UNSC, the paper presents descriptive statistics on UNSC meetings and speeches that characterize the period covered by the dataset. Data highlight the extensive presence of the UN bureaucracy in UNSC meetings as well as an emerging trend towards more lengthy open UNSC debates. These open debates cover key issues that have emerged only during the period that is covered by the dataset, for example the debates relating to Women, Peace and Security or Climate-related Disasters.
+
+Corpus
+
+The UN Security Council Debates corpus is available online at https://doi.org/10.7910/DVN/KGVSYH
+
+Citation
+
+Schönfeld, M., Eckhard, S., Patz, R., van Meegdenburg, H. & Pires, A. (2025). The UN Security Council Debates 1995-2023. Retrieved from: https://arxiv.org/abs/1906.10969.
+
+Acknowledgements
+
+This paper presents an updated version of the publication "Schönfeld, M., Eckhard, S., Patz, R., & Van Meegdenburg, H. (2019). The UN Security Council debates 1995-2017. arXiv preprint arXiv:1906.10969". In 2021, Antonio Pires joined the author team and was mostly responsible for the updated version of the dataset (years 2018-2023). New features include detailed information on agenda items based on the Repertoire of the Practice of the Security Council and variables that identify whether a speech was delivered in person or via video-teleconference (VTC).
+
+*mirco.schoenfeld@tum.de
+\( ^{\dagger} \) steffen.eckhard@zu.de
+\( ^{\ddagger} \) science@ronny-patz.de
+§h.van.meegdenburg@fsw.leidenuniv.nl
+antonio.hps26@gmail.com
+1
+
+--- Page 2 ---
+
+1 Introduction
+
+The creation of the United Nations (UN) on the ruins of the League of Nations has profoundly shaped the post-World War II global order. At the center of the UN system with its myriad of agencies, committees, and conferences in New York, Geneva, Nairobi or Vienna thrones the most visible of UN institutions and key body in the global security architecture: the United Nations Security Council (UNSC).
+
+After intensive debates ahead of its creation (Bosco, 2009, pp. 10–38), the UNSC met for the first time on January 17, 1946 (Bosco, 2009, p. 41). Initially composed of five permanent members (the P5) and six elected members, the UNSC since 1966 has 15 member countries, ten of which are non-permanent and represent the five regional groupings of the UN.¹ The UNSC meets regularly in a public format allowing for the global public to follow key debates and votes. Although public meetings are only the visible tip of the iceberg, as meetings are held under various formal and informal procedures (Sievers & Daws, 2014), these meetings are among the best reported regular activities of the United Nations. This is particularly true when the Council meets on emerging crises or on matters of significant geopolitical tensions. Studying the substance of these debates therefore gives insights into developments of historical importance. The emergence of new themes and topics indicates that the world is changing and that states address new global challenges such as climate change. Furthermore, shifts in attention to particular topics or conflicts discussed in the Council can reveal emerging power constellations. And the shifts in tone of speeches and in the intensity of blame exchanged between speakers can reflect growing or declining geopolitical tensions. Thus, even when major decisions are taken behind closed doors, the language used in the public documents captures the dynamics of international politics as well as the evolution of multilateralism well.
+
+The dataset presented in this paper (Schoenfeld et al., 2019)² allows to trace all public UNSC debates over a 32-year period from 1992 until 2023 through qualitative and quantitative text analysis. As the unit of analysis, the dataset includes each individual speech contribution made by a participant of a public UNSC meeting. Overall, the data set covers 6,233 public meetings and includes 106,302 individual speech contributions.
+
+Earlier and preliminary version of the dataset have been used or cited to study a wide variety of research questions around the UNSC and speechmaking in the Council (for instance Eckhard, Patz, et al., 2023; Jankauskas and Eckhard, 2023; Jankin et al., 2024; Mesquita and Pires, 2024; Rødven-Eide et al., 2023; Sakamoto, 2023; Scherzinger, 2022; Turco, 2024; Verbeek, 2024).
+
+Participants to public UNSC meetings are typically representatives of member states, the UN bureaucracy, or other international governmental and non-governmental organizations.
+
+The dataset complements ongoing efforts to advance text-as-data research on political texts (Grimmer and Stewart 2013) and to systematize text-based and automated analyses of international conflicts (King & Lowe, 2003). Focusing specifically on text and speech-based analyses of the politics and administration of international organizations, this corpus thus complements the speech transcripts of the UN General Debate corpus (1946-2023) (Baturo et al., 2017), the corpus of speeches of the UN Committee on the Peaceful Uses of Outer Space (Pomeroy, 2017) and research that works with speech as the output of international organizations (Squatrito et al., 2019). Given that the dataset allows distinguishing speech contributions by member states from speech contributions by the bureaucracy, the UNSC debate corpus also provides a new source of evidence for the study of the power, authority and influence of international public administrations (IPAs) in global policy-making (Abbott et al., 2014; Barnett & Finnemore, 2004; Bauer et al., 2017; Biermann & Siebenhüner, 2014; Eckhard & Ege, 2016; Eckhard & Jankauskas, 2022; Eckhard, Jankauskas, et al., 2023; Eckhard et al., 2018; Hawkins et al., 2006; Hooghe &
+
+¹These are: African Group; Asia and the Pacific Group; Eastern European Group; Latin American and Caribbean Group; Western European and Others Group
+
+²The data is available online at https://doi.org/10.7910/DVN/KGVSYH
+
+--- Page 3 ---
+
+Marks, 2015; Knill & Steinebach, 2022; Reinalda, 2024; Rittberger et al., 2019; Thorvaldsdottir et al., 2021; Trondal et al., 2014).
+
+The first descriptive statistics included in this paper indicate three broad trends in the UNSC debates since 1992. Firstly, debates in the UNSC are by no means dominated by the exclusive circle of the Permanent Five (the UNSC veto powers). Instead, the largest share of speech contributions comes from non-permanent UNSC member states and invited speakers. Secondly, UNSC meetings are becoming increasingly lengthy and complex. Beginning in the 2010s, we see a growing number of very long “open debate” meetings with an extraordinary high number of speakers. During an open debate all interested states are invited to participate and contribute. Topics discussed are usually of general importance such as “Women, Peace and Security” or the “Impacts of Climate-related Disasters”. This trend might reflect the growing concern about such globalized policy challenges. A third and final observation regards the role of the UN administration, i.e., the Secretary General and her staff. Between 1992 and 2023, the UN administration was the sixth most frequent speaker in the UNSC, with a share of speech contribution similar to each of the P5 members. If speech would equalize influence, one could even speak of the P6 UNSC members, the UN administration being one of them (Eckhard, Patz, et al., 2023).
+
+In the following sections, we first discuss how we constructed the UN Security Council Debates corpus through automated and semi-automated text extraction (Section 2). After that we present the dataset through descriptive statistics (Section 3) and we show how the descriptive statistics reveal both typical UNSC meetings as well as emerging patterns since 2014 (Section 4). We conclude with suggestions for future analyses based on the corpus.
+
+2 Constructing the UN Security Council Debates corpus
+
+In order to compile a corpus of single speeches from UNSC meeting protocols several processing steps were necessary. All these steps were conducted on publicly available PDF-documents which we downloaded from the website of the UN³. Fortunately, these PDF-documents are well-structured and formatted consistently throughout the years allowing us to automate extraction of speeches as well as basic metadata to a great extent. Between 1992 and 2023 there were over 500 official communiqués listed by the UN. These communiqués were left out of the analysis. Preprocessing and compilation of the corpus consisted of the following steps which are described in depth in the following:
+
+1. Extracting raw text from PDF-documents;
+2. Cleaning up raw text;
+3. Splitting up raw text into distinct speeches;
+4. Labeling speeches by speaker’s names and countries (or affiliations).
+
+Extracting raw text from PDF-documents: Conversion of PDF-documents into raw text required a conversion of the two-column layout used for the protocols into a one-column representation. This conversion was done with a tool called k2pdfopt that is specifically developed to support re-flow of multi-column PDF texts.⁴ From input PDF-documents it produces an image-file of high resolution with a continuous paragraph of text with all white borders removed. To facilitate the next steps, k2pdfopt also allows for cropping page headers and footers that contain identifiers of meetings or page-numbers. These image-files were then fed into a tool for optical character recognition (OCR) in order to convert them into text documents. The OCR-tool of
+
+³http://research.un.org/en/docs/sc/quick/meetings/2019 (last accessed May 2019)
+
+⁴http://www.willus.com/k2pdfopt/ (last accessed May 2019)
+
+--- Page 4 ---
+
+choice is called tesseract, an open-source tool representing state-of-the-art in translating image files to text documents.⁵ It benefits from dictionary-like language models that are used to increase translation performance (Smith, 2007; Smith et al., 2009).
+
+For recent documents that contain digital text rather than images, converting PDFs to raw text was more straightforward using PDF editors to export them to the DOCX format. DOCX is particularly useful as it effectively detects headers and footers — elements that need to be removed from the transcript — while also preserving the flow of speeches despite the two-column layout. Furthermore, since OCR is not required, this approach allows for faster text import into programming languages such as R.
+
+Cleaning up raw text: The resulting text documents included some minor errors that had to be corrected. One example were ligatures, long dashes and special space characters. These are non-ASCII characters might hinder further processing since they cause two character strings to look different in machine-consumed Byte-code representation when in fact both character strings contain the exact same words. Hence, such special characters were removed using pattern matching.
+
+Splitting up raw text into distinct speeches: Since UNSC protocols are consistently well-structured they can be divided into distinct speeches using certain recurring patterns of text that mark the beginning of a speech. This pattern describes a form of address or the noun-marker “The” at the beginning of a line followed by at least one word up to a colon. Optionally, before the colon, there are one or two insertions in parentheses containing a country and/or a hint in which language the speech was held. A few examples illustrate this pattern:
+
+- “The President:”
+- “The Secretary-General”
+- “Mr. Levitte (France) (spoke in French):”
+- “Ms. Schoulgin Nyoni (Sweden):”
+
+The adresses were used to identify the beginning of a speech:
+
+The President	Baron	Monsignor	Prince	Dr.
+The Secretary-General	Baroness	Sir	Crown Prince
+Lieutnant	Nana	Miss	Princess
+Major	Dato	Mr.	Lord
+General	Datuk	Ms.	Sheikh
+Judge	Archbishop	Mrs.	King
+
+Table 1: Words that mark beginning of new speeches
+
+Sometimes the insertions in parentheses spanned across two lines. Therefore, we first removed line-breaks from lines that contained an opening but no closing parenthesis. Also, line-breaks before a parenthetical insertions containing “spoke in . . .” were removed. Both steps helped the above-mentioned pattern matching to focus on single lines.
+
+The matching itself was conducted using regular expressions. For every match a text-document was created containing all text up to the next match or the end of the document. The text-document was given a sequential number to keep the order of the speeches.
+
+Sometimes, speeches were interrupted by a vote initiated by the speaker. In these cases the protocols would list the corresponding results and the speech continued afterwards. To
+
+⁵https://github.com/tesseract-ocr/tesseract (last accessed May 2019)
+
+--- Page 5 ---
+
+prevent such speeches from being split across two documents, two consecutive speech-documents containing a speech from the same speaker were combined. This resulted in 106,302 speech documents.
+
+Labeling speeches by speakers' names and countries or affiliations: In order to be able to annotate speeches with countries or affiliations two approaches were necessary. First, for regular attendees countries had to be extracted from the first page of every protocol that contained the official list of participants. Second, for external speakers invited by the UNSC presidency during a session indications in parentheses in the text had to be evaluated.
+
+From the first page of every protocol the list of attendees was extracted using pattern matching. To be able to do this the first page was separated from the rest of the protocol before applying the OCR procedure, mainly because the first page required slightly different parameter settings. After applying a tailored OCR to the first page, the speaker-to-country-mapping was extracted. This resulted in a dictionary associating speakers to the nation they represent. As a result, every speech in the corpus could be associated with a country name. This was especially useful for cases in which the country was not indicated after the speaker's name at the beginning of a speech.
+
+Labeling attendees who were invited during the meeting and did not appear in the official list of participants on the first page was less straightforward. In some debates the number of this type of attendees even exceeded the number of regular UNSC members. These other attendees were invited by the UNSC President chairing a meeting to "take a seat at the table". For some of these attendees a country or affiliation was given in parentheses at the beginning of the speech that could be automatically extracted. For other invited speakers we had to enter their affiliation manually.
+
+3 Descriptive Statistics of the UN Security Council Debates Corpus
+
+The UNSC corpus consists of 106,302 speeches that were held between January 6, 1992, and December 30, 2023. This timeframe covers 6,233 meetings. Figure 1a shows how the meetings distribute over the years. It can be seen that the number of meetings per year increased over time – in 1992 our dataset contains 130 meetings whereas for 2023 we count 271 meetings – but there is variation from year to year. At the same time, the average length of the meetings – represented by the average number of speeches per meeting – increased as well from 1992 until the 2020s. A first peak is visible around the Iraq war in 2003 and then there is a steady increase from the mid-2000s until the 2020s, with a notable gap in the Covid-19 years 2020. Since 2020, both the number of meetings and the length of meetings seem to have reached a plateau. (see Figure 1b).
+
+The absolute number of UNSC speeches per year is depicted in Figure 2a. One can identify five major periods: The years from 1992 to 1999; the period from 2000 until 2004; the years 2005 until 2007; the period from 2008 until 2013; and the period starting in 2014. With a view to the number of meetings per year (see Figure 1), one can see that the UN Security Council met less frequently during the first period than during most of the other years, and the total number of speeches reflects this with only about 1,400 speeches per year. Beginning in 2000, a few years into the tenure of UN Secretary-General Kofi Annan, the number of meetings as well as the length of the meetings increased. Most notably, this period includes the wars in Afghanistan and Iraq. For the five years from 2000 up to and including 2004, our dataset lists more than 2500 speeches annually. After 2004, the length of meetings drops briefly (Figure 2a) and so does the number of speeches. From 2008 onwards, with the average length of meeting increasing again, the number of speeches is stable around 3,000 per year. After 2013, the total number of speeches increases significantly, reaching 4,757 in 2014 and 7,621 by 2023, with a drop during the Covid-19 years just before. This could reflect an increasing importance of the
+
+--- Page 6 ---
+
+(a) Numbers of meetings per year
+
+(b) Average number of speeches per meeting
+
+Figure 1: Meetings over time.
+
+UNSC over the past years as well as a higher level of conflict so that there is more need for debate. During this period, we also see an increasing number of open debates, many with a very high number of invited speakers who represent states who were not a member of the UNSC at the time or from other international governmental and non-governmental organizations. Thus, the nature of UNSC meetings appears to have shifted fundamentally since 2014.
+
+Using the metadata that allows us to identify the country or affiliation of each speaker, Charts a) and b) in Figure 2 provide insights about the distribution of speakers over time and across countries. In Figure 2a, the number of speeches of the five permanent members of the UNSC (the P5) is highlighted in black. The relative share of P5 speeches broadly follows the total number of speeches in each year until 2013. From 2014 onwards, however, the increase of the total number of speeches is not followed with a similar increase in the share of P5-speeches. As indicated above, this reflects an increased activity of the elected 10 (E10) UNSC members and the increasing number of open debates in which non-UNSC members are invited to speak.
+
+(a) Numbers of speeches per year.
+
+(b) The 25 most frequent speaker affiliations
+
+Figure 2: Numbers of speeches per year.
+
+Overall, the P5 are also the top 5 speakers during the 1995-2023 period as can be seen in Chart b) of Figure 2. While this is not surprising given the permanent presence of the P5 in the UNSC, it is noticeable that speakers representing the United Nations bureaucracy – the Secretaries-General, their Special Representatives or other high-level officials from other UN agencies and bodies – speak almost as often as the P5 members and much more frequently
+
+--- Page 7 ---
+
+than even important non-permanent members of the UNSC such as Japan or Germany. \( ^{6} \)  This underlines that the UN bureaucracy could have a significant influence on shaping UNSC debates. We know however that the degree to which UN Secretaries-General have made use of this potential to influence the debates varies significantly over time (see the contributions to a recent edited volume on the UNSC-SG relationship (Fröhlich & Williams, 2018)). The present dataset can provide insights into how this influence potential extends beyond the Secretaries-General.
+
+Next, Figure 3 illustrates the evolving focus of the United Nations Security Council (UNSC) over time, highlighting the number of meetings dedicated to specific agenda items across different periods from 1992 to 2023. The agenda item labels shown in the graph are standardized and summarized versions of the official agenda items, based on the Repertoire of the Practice of the Security Council. For instance, items such as "Report of the Secretary-General in Sudan", "Sudan", and "Report of the Secretary-General on the Sudan and South Sudan" have been consolidated under the label "Sudan/South Sudan", following the terminology used in the Repertoire, which categorizes them as "Reports of the Secretary-General on the Sudan and South Sudan". The label "Others" encompasses meetings on various topics, including the admission of new members, commemorative events, ICJ elections, and similar matters.
+
+The early 1990s were dominated by discussions on Bosnia and Herzegovina, reflecting the intense conflicts in the Balkans during that time. As the years progressed, African issues such as those related to Sudan, the Democratic Republic of Congo (DRC), and Somalia became increasingly prominent, particularly from 1997 to 2011. Thematic issues like terrorism and non-proliferation emerged as significant topics in the early 2000s and have maintained consistent attention in subsequent years. Post-2018, the agenda reflects ongoing global concerns, with Ukraine appearing as a key focus alongside continued discussions on Syria, Sudan, and thematic issues such as the "Maintenance of International Peace and Security." This progression underscores the dynamic nature of the UNSC's priorities, shaped by shifting geopolitical crises and global security challenges.
+
+Figure 3: Number of meetings per agenda item and time period.
+
+In Figure 4, we show the evolution of the lengths of meetings in terms of the number of tokens of speeches. Tokens allow analysis and comparisons of the length of each speech in more detail. To obtain their number a standard tokenization procedure is applied which means sentences are split at punctuation marks as well as at whitespaces. We rely on the excellent R-library
+
+--- Page 8 ---
+
+quanteda to apply this technique (Benoit et al., 2018).
+
+(a) Average number of tokens per speech per year.
+
+(b) Tokens per meeting - logarithmic scale.
+
+Figure 4: Numbers of tokens over time.
+
+In Figure 4a the numbers of tokens are aggregated over the years and the mean is calculated for every year separately. It can be seen that the length of speeches remains quite stable over time. However, when representing the number of tokens per meeting in Figure 4b, where each dot represents the length of a single meeting measured in the number of tokens, there are two trends observable: First, the total number of tokens is increasing, which mirrors observations on the increasing number of meetings and speeches per meeting summarized above. This is also reflected in the detailed aggregation of the numbers of tokens per year in Table 2.
+
+Year	Tokens	Year	Tokens	Year	Tokens	Year	Tokens
+1992	551916	2000	1239341	2008	1409027	2016	3024848
+1993	585099	2001	1210568	2009	1321240	2017	3301461
+1994	730739	2002	1184092	2010	1400897	2018	3985512
+1995	649778	2003	1453367	2011	1475236	2019	3739808
+1996	774510	2004	1377188	2012	1570675	2020	3157480
+1997	404183	2005	1007380	2013	1635915	2021	3615885
+1998	575870	2006	1325446	2014	2794699	2022	3698668
+1999	643819	2007	1022082	2015	2665481	2023	3621860
+
+Table 2: Number of Tokens per Year
+
+Second, the diversity of UNSC meeting types increases over time: in the second half of the 1990s, there are either very short (with 1,000 or less tokens) or longer meetings (with around 10,000 tokens); from the mid-2000s onward a medium-size type of meeting (with around 5,000 tokens) emerges between the long and very short meetings; and starting in the mid-2010s the length of meetings starts to spread considerably, from extremely short to a new type of very long meeting with around 80,000 tokens. The latter confirms the observation of the increasing use of open debates in the UNSC with a large number of speakers.
+
+4 Meeting Patterns of the UNSC: From Formalized Discussions to Open Debates?
+
+The descriptive statistics outlined above reveal interesting meeting patterns that we can see from the UN Security Council Debate corpus.
+
+--- Page 9 ---
+
+Figure 5: Numbers of speeches per meeting – dots indicate the number of meetings with a certain number of speeches. Logarithmic scaling on the y-axis.
+
+They show (see Figure 5) that there are, broadly speaking, four types of meetings, with the first two being by far the most frequent:
+
+- the adoption meeting with a single speech. In this meeting type the Presidency simply calls for a vote on a resolution negotiated behind closed doors without any further discussion;
+- the information meeting with 2-3 speeches. In this meeting type the Presidency invites a member or other speakers, such as a representative from the UN bureaucracy, to present a point of view, an explanation of vote, or a report but without any discussion;
+- the limited formal debate with 15 to 40 speeches which peak in frequency around 20 speeches per session. These are meetings in which some, or all, members and a limited number of UN bureaucracy speakers or other guests each hold one substantive speech, each introduced by a short formal intervention of the presidency inviting the next speaker;
+- the intensive or open debate which extends from shorter meetings with 40-60 speeches to very long debates with 100-180 speeches. These meetings, excluding the usual, formal interventions by the presidency between each speech, include about 50-90 substantive interventions. This also includes meetings with more intensive back-and-forth between members on controversial topics such as the Iraq war and the overall Situation in the Middle East, and open debates in which all UN members as well as invited non-members (e.g. non-governmental actors) can speak.
+
+As discussed in the previous section, the diversity of meeting patterns also increases over time. Questions that remain open for now are when and why these patterns emerge and how they change the UNSC debates. For example, with the number of intensive and open debate meetings increasing visibly between 2013 and 2020 – with all of the sessions with 100 speeches and more taking place in these years (see Figure 6) – the dataset in this period includes a much higher diversity of speakers. After 2020, the length of meetings falls back to the pre 2013 pattern, with no extremely long meetings but a high density of intermediate-length meetings.
+
+These patterns make the present dataset interesting for research beyond the P5, and even beyond the non-permanent members, as it may reveal how new arguments, topics and debate styles emerge and disappear and how they relate to broader geopolitical dynamics.
+
+5 Conclusions and outlook
+
+The UN Security Council Debates corpus presented in this paper offers a further step towards a quantified understanding of speech and language used in international organizations in general
+
+--- Page 10 ---
+
+Figure 6: Numbers of speeches over time – dots indicate the number of speeches held in a meeting
+
+and in the United Nations in particular. It invites research that uses the entire corpus or relevant subsets of the corpus, such as the “The UN Security Council debates on Afghanistan corpus” (Schoenfeld, Eckhard, Patz, & Meegdenburg, 2018) that we have analyzed elsewhere (Schoenfeld, Eckhard, Patz, & van Meegdenburg, 2018). Beyond a focus on UNSC member states and non-governmental organisations, the corpus should also be of interests to research on the policy-making influence of international bureaucracies (Abbott et al., 2014; Barnett & Finnemore, 2004; Bauer et al., 2017; Biermann & Siebenhüner, 2014; Eckhard & Ege, 2016; Eckhard & Jankauskas, 2022; Eckhard, Jankauskas, et al., 2023; Eckhard, Patz, et al., 2023; Eckhard et al., 2018; Hawkins et al., 2006; Hooghe & Marks, 2015; Jankauskas & Eckhard, 2023; Knill & Steinebach, 2022; Reinalda, 2024; Rittberger et al., 2019; Thorvaldsdottir et al., 2021; Trondal et al., 2014).
+
+As noted before, the 2023 UNSC corpus complements and extends the established UN-related speech corpora, such as the UN General Debate corpus (Baturo et al., 2017) yet offers interesting new possibilities and avenues for research. First, the UNSC debates represent the everyday high-level diplomatic politics of the UN, whereas the UN General Debates takes place only once a year and rather reflect national leaders’ broad visions of global politics. Second, the UNSC Debates corpus allows to focus on specific topics of international security where all speakers relate to this topic but may show different levels of interest, emotion or sub-topic focus, such as the topics “Women, Peace and Security” and the “Impacts of Climate-related Disasters”. We expect that this will allow for more fine-grained analyses of the trends in international politics as well as better research into the dynamics of state coalitions over time and across different topics.
+
+Overall, further analyses of the UNSC corpus making use of the full range of natural language processing and quantitative text analysis methods can provide a new understanding of the history and dynamics of international politics as reflected in the debates of the UNSC. This corpus also allows for specific types of analyses, given that actors’ speeches in this body constitute carefully crafted foreign policy statements. Rather than a downside, this makes analyses of UNSC debates particularly interesting. Future research may answer a range of unexplored questions, such as: Who speaks about which (common) topics; which topics and meetings arouse emotions more than others; which actors are more diplomatic; who is influential in framing debates; to what extent do speech contributions reflect voting patterns; and, finally, which issues and trends extend beyond specific meeting topics and spread across all or even beyond UNSC debates? In short, we are convinced this new corpus offers great potential for further research into international security in general and the role of international organisations and the UNSC in specific.
+
+--- Page 11 ---
+
+References
+
+Abbott, K. W., Genschel, P., Snidal, D., & Zangl, B. (Eds.). (2014). International organizations as orchestrators. Cambridge University Press. https://doi.org/10.1017/cbo9781139979696
+
+Barnett, M., & Finnemore, M. (2004). Rules for the world. Cornell University Press.
+
+Baturo, A., Dasandi, N., & Mikhaylov, S. J. (2017). Understanding state preferences with text as data: Introducing the UN General Debate corpus. Research & Politics, 4(2), 2053168017712821. https://doi.org/10.1177/2053168017712821
+
+Bauer, M. W., Knill, C., & Eckhard, S. (Eds.). (2017). International bureaucracy. Palgrave Macmillan UK. https://doi.org/10.1057/978-1-349-94977-9
+
+Benoit, K., Watanabe, K., Wang, H., Nulty, P., Obeng, A., Müller, S., & Matsuo, A. (2018). Quanteda: An R package for the quantitative analysis of textual data. Journal of Open Source Software, 3(30), 774. https://doi.org/10.21105/joss.00774
+
+Biermann, F., & Siebenhüner, B. (Eds.). (2014). Managers of global change. MIT Press.
+
+Bosco, D. L. (2009). Five to rule them all: The UN Security Council and the making of the modern world. Oxford University Press.
+
+Eckhard, S., & Ege, J. (2016). International bureaucracies and their influence on policy-making: A review of empirical evidence. Journal of European Public Policy, 23(7), 960–978. https://doi.org/10.1080/13501763.2016.1162837
+
+Eckhard, S., & Jankauskas, V. (2022). The politics of evaluation in international organizations. In International public administrations in global public policy (pp. 183–198). Routledge.
+
+Eckhard, S., Jankauskas, V., Leuschner, E., Burton, I., Kerl, T., & Sevastjanova, R. (2023). The performance of international organizations: A new measure and dataset based on computational text analysis of evaluation reports. The Review of International Organizations, 18(4), 753–776. https://doi.org/10.1007/s11558-023-09489-1
+
+Eckhard, S., Patz, R., & Schmidt, S. (2018). Reform efforts, synchronization failure, and international bureaucracy: The case of the UNESCO budget crisis. Journal of European Public Policy, 0(0), 1–18. https://doi.org/10.1080/13501763.2018.1539116
+
+Eckhard, S., Patz, R., Schönfeld, M., & van Meegdenburg, H. (2023). International bureaucrats in the un security council debates: A speaker-topic network analysis. Journal of European public policy, 30(2), 214–233.
+
+Fröhlich, M., & Williams, A. (2018). The UN Secretary-General and the Security Council: A dynamic relationship. Oxford University Press.
+
+Hawkins, D. G., Lake, D. A., Nielson, D. L., & Tierney, M. J. (Eds.). (2006). Delegation and agency in international organizations. Cambridge University Press. https://doi.org/10.1017/cbo9780511491368
+
+Hooghe, L., & Marks, G. (2015). Delegation and pooling in international organizations. The Review of International Organizations, 10(3), 305–328. https://doi.org/10.1007/s11558-014-9194-4
+
+Jankauskas, V., & Eckhard, S. (2023, May). The politics of evaluation in international organizations. Oxford University Press. https://doi.org/10.1093/oso/9780192855206.001.0001
+
+Jankin, S., Baturo, A., & Dasandi, N. (2024). Words to unite nations: The complete united nations general debate corpus, 1946–present. Journal of Peace Research. https://doi.org/10.1177/00223433241275335
+
+King, G., & Lowe, W. (2003). An automated information extraction tool for international conflict data with performance as good as human coders: A rare events evaluation design. International Organization, 57(3), 617–642. https://doi.org/10.1017/S0020818303573064
+
+Knill, C., & Steinebach, Y. (2022, November). International public administrations in global public policy: Sources and effects of bureaucratic influence. Routledge. https://doi.org/10.4324/9781003323297
+
+--- Page 12 ---
+
+Mesquita, R., & Pires, A. (2024). The references of the nations: Introducing a corpus of united nations general assembly resolutions since 1946 and their citation network. Journal of Peace Research. https://doi.org/10.1177/00223433241254997
+Pomeroy, C. (2017). Spacetexts: A new corpus of speeches in the UN committee on the peaceful uses of outer space. 2017 International Conference on the Frontiers and Advances in Data Science (FADS), 41–46. https://doi.org/10.1109/FADS.2017.8253191
+Reinalda, B. (2024). Routledge handbook of international organization. Routledge London.
+Rittberger, V., Zangl, B., Kruck, A., & Dijkstra, H. (2019). International organization. Bloomsbury Publishing.
+Rødven-Eide, S., Zaczynska, K., Pires, A., Patz, R., & Stede, M. (2023, September). The UNSC-graph: An extensible knowledge graph for the UNSC corpus. In C. Klamm, G. Lapesa, V. Gold, T. Gessler, & S. P. Ponzetto (Eds.), Proceedings of the 3rd workshop on computational linguistics for the political and social sciences (pp. 69–74). Association for Computational Linguistics. https://aclanthology.org/2023.cpss-1.7
+Sakamoto, T. (2023). Threat conceptions in global security discourse: Analyzing the speech records of the united nations security council, 1990–2019. International Studies Quarterly, 67(3). https://doi.org/10.1093/isq/sqad067
+Scherzinger, J. (2022). Unbowed, unbent, unbroken? examining the validity of the responsibility to protect. Cooperation and Conflict, 58(1), 81–101. https://doi.org/10.1177/00108367221093155
+Schoenfeld, M., Eckhard, S., Patz, R., & Meegdenburg, H. v. (2018). The UN Security Council debates on Afghanistan. https://doi.org/10.7910/DVN/OM9RG8
+Schoenfeld, M., Eckhard, S., Patz, R., & Meegdenburg, H. v. (2019). The UN Security Council debates. https://doi.org/10.7910/DVN/KGVSYH
+Schoenfeld, M., Eckhard, S., Patz, R., & van Meegdenburg, H. (2018). Discursive landscapes and unsupervised topic modeling in IR: A validation of text-as-data approaches through a new corpus of UN Security Council speeches on afghanistan.
+Sievers, L., & Daws, S. (2014). The procedure of the UN Security Council. Oxford University Press.
+Smith, R. (2007). An overview of the tesseract OCR engine. Ninth International Conference on Document Analysis and Recognition (ICDAR 2007), 2, 629–633. https://doi.org/10.1109/ICDAR.2007.4376991
+Smith, R., Antonova, D., & Lee, D.-S. (2009). Adapting the tesseract open source OCR engine for multilingual OCR. Proceedings of the International Workshop on Multilingual OCR, 1:1–1:8. https://doi.org/10.1145/1577802.1577804
+Squatrito, T., Lundgren, M., & Sommerer, T. (2019). Shaming by international organizations: Mapping condemnatory speech acts across 27 international organizations, 1980–2015. Cooperation and Conflict. https://doi.org/10.1177/0010836719832339
+Thorvaldsdottir, S., Patz, R., & Eckhard, S. (2021). International bureaucracy and the united nations system: Introduction. International Review of Administrative Sciences, 87(4), 695–700. https://doi.org/10.1177/00208523211038730
+Trondal, J., Marcussen, M., Larsson, T., & Veggeland, F. (2014). Unpacking international organisations. Manchester University Press.
+Turco, L. R. (2024). Speaking volumes: Introducing the unga speech corpus. International Studies Quarterly, 68(1), sqae001.
+Verbeek, N. (2024). ‘wolf warriors’ in the UN Security Council? investigating power shifts through blaming. Global Policy, 15(S2), 38–50. https://doi.org/10.1111/1758-5899.13372
+
+--- Page 13 ---
+
+Appendix
+
+Table 3: Countries and the number of speeches
+
+Country	Count	Country	Count	Country	Count	Country	Count
+Abductees' Mothers Association	1	ACADESAN	1	ACCORD	2	Action Against Hunger	1
+ADVOX	1	Afghan High Peace Council	1	Afghan Independent Human Rights Commission	1	Afghan Institute For Strategic Studies	1
+Afghan Women Skills Development Centre	1	Afghan Women's Network	2	Afghan Youth	2	Afghanistan	191
+Afghanistan Independent Human Rights Commission	3	Afghanistan Research And Evaluation Unit	1	Afghans For Progressive Thinking	1	Afia Mama (Organization : Democratic Republic of Congo)	1
+African Development Bank	1	African National Congress	2	African Union	266	African Unity	5
+African Women In Dialogue	1	African Women Leaders Network	1	Al Amal Fund	1	Al Azhar Islamic Research Academy	1
+Al-Amal Association	1	Albania	962	Algeria	326	Alliance of Civilizations	1
+Alliance Of Small Island States	1	Amal-Tikva	1	Amani Africa	2	Andorra	10
+Angaza Institute	1	Angola	590	Anthropic (Firm)	1	Antigua And Barbuda	7
+Arab American Institute	1	Arab Human Rights Foundation	2	Arab Maghreb Union	1	Argentina	1329
+Armenia	124	ASEAN	6	Asha Gelle Foundation	1	Assistance Mission For Africa	1
+Association Alliance For Peace And Security	1	Association Des Femmes Peules Autochtones Du Tchad	1	Association IMAD pour la jeunesse et la paix	1	Association Of African Women For Research And Development	1
+Association Of Central African Women Lawyers	1	Association Of Indigenous Cabildos Of The North Of Cauca	1	Association Protection Sahel	1	Asuda for Combating Violence Against Women (Organization : Iraq)	1
+Australia	694	Austria	429	Azerbaijan	478	B'tselem	1
+Bahamas	6	Bahrain	216	Bangladesh	602	Barbados	8
+Belarus	59	Belgium	995	Belize	7	Benin	257
+Bhutan	1	Bolivia (Plurinational State Of)	751	Bosnia And Herzegovina	404	Botswana	266
+Brazil	1937	Brian Urquhart Center For Peace Operations	1	Brunei Darussalam	11	Bulgaria	276
+Burkina Faso	320	Burundi	97	Butterflies With New Wings	1	Cabo Verde	2
+Cambodia	34	Cameroon	334	Canada	686	Cape Verde	125
+Carabinieri Command For The Protection Of Cultural Heritage	1	CARE	9	Caribbean Community	2	Carnegie Endowment for International Peace (Washington, D.C.)	1
+Center For Civil Liberties	1	Center For Civil Society And Democracy	1	Center For Civilians In Conflict	1	Center For Geostrategic Studies	1
+Center On International Cooperation	1	Central African Republic	83	Centre For Energy And Climate Of The French Institute Of International Relations	1	Centre For Inclusive Governance, Peace And Justice	2
+
+--- Page 14 ---
+
+Table 3: Countries and the number of speeches (continued)
+
+Country	Count	Country	Count	Country	Count	Country	Count
+Centre For Strategic Communication And Information Security	1	Centre National D'études Stratégiques Et De Sécurité	1	Chad	347	Challenges Forum	1
+Charmaghz	1	Chile	962	China	4737	Chinese Academy of Sciences	1
+Civil Society	135	Coalition Des Femmes Leaders Nord, Sud Et Centre Du Mali	1	Coalition Des Organisations De La Société Civile D'afrique Centrale Pour La Préservation De La Paix, La Prévention Des Conflits, La Resolution Et La Transformation Des Crises	1	Collective Security Treaty Organization	5
+Colombia	856	Columbia University	2	Commission Electorale Nationale Indépendante	3	Commission For The Clarification Of Truth, Coexistence And Non-Repetition Of Colombia	1
+Commission of the Gulf of Guinea	1	Committee On The Exercise Of The Inalienable Rights Of The Palestinian People	56	Common Cause Network	1	Commonwealth	2
+Commonwealth Of Independent States	5	Commonwealth Of Nations	3	Communauté économique des Etats de l'Afrique centrale	2	Community Development Association Of The Sudan	1
+Community Empowerment For Progress Organization	2	Community Of Portuguese-Speaking Countries	11	Community Of Sant'egidio	2	Community-Based Initiative	1
+Comoros	7	Comprehensive Nuclear-Test-Ban Treaty Organization	1	Comunità di Sant'Egidio	1	Concertation des collectifs des associations féminines de la région des Grands-Lacs	1
+Conference Episcopale Nationale Du Congo	1	Conflict Armament Research	1	Congo	242	Congolese Association For Access To Justice	1
+Conseil National De La Jeunesse Centrafricaine	1	Consortium of International Agricultural Research	1	Control Arms Governance Board	2	Cook Islands	1
+Coordinating Bureau of the Non-Aligned Countries	3	Coordination Centre Of Serbia And Montenegro And Of The Republic Of Serbia For Kosovo And Metohija	1	Corporacion De Investigacion Y Accion Social Y Economica	2	Costa Rica	448
+Cote D'ivoire	603	Council Of Europe	2	Council of the European Union	3	COVID-19 Vaccine Country Readiness And Delivery	2
+Croatia	461	CTBTO Youth Group	1	Cuba	233	Cyprus	52
+Czech Republic	197	Czechia	10	Democratic Party Of South Africa	1	Democratic People's Republic Of Korea	32
+Democratic Republic Of The Congo	173	Denmark	373	Deutsche Post DHL Group	1	Djibouti	196
+Dominica	2	Dominican Republic	550	Dominican Republic/Germany	1	Dushirehamwe Association	1
+
+--- Page 15 ---
+
+Table 3: Countries and the number of speeches (continued)
+
+Country	Count	Country	Count	Country	Count	Country	Count
+East African Community	1	Economic Community Of Central African States	13	Economic Community Of West African States	30	Ecopeace Middle East	4
+Ecuador	628	Edesia (Organization)	1	Egypt	974	El Salvador	70
+Elman Peace And Human Rights Centre	3	Encadrement Des Femmes Indigenes Et Des Menages Vulnerables	1	Enda Energie (Organization : Senegal)	1	Enough Project	1
+Equatorial Guinea	522	Eritrea	22	Estonia	591	Ethiopia	529
+European Centre For Conflict Prevention	1	European Council	1	European Union	882	Facilitation For Peace And Development	1
+Families For Freedom	2	Farida Global Organization	1	Federated States Of Micronesia	4	Female Solidarity For Integrated Peace And Development	1
+Femmes Africa Solidarite	1	Fezzan Libya Organization	1	Fiji	76	Financial Action Task Force	2
+Finland	64	Flyktningerad (Norway)	1	Fondasyon Je Klere	2	Food For Humanity	1
+Former Yugoslav Republic Of Macedonia	23	Foundation For Human Rights In South Africa	1	Founder And Chairwoman Of The Somali Gender Equity Movement	1	France	4973
+Freedom Fund	1	Freedom Now (United States)	1	French Red Cross	1	Fuerzas Armadas Revolucionarias de Colombia	1
+Fundación para la Conservación y el Desarrollo Sostenible (Colombia)	1	Gabon	948	Gambia	180	Gazprom	2
+Gbowee Peace Foundation Africa	1	Geneva Academy Of International Humanitarian Law And Human Rights	1	Geneva International Centre For Humanitarian Demining	3	Georgia	141
+Germany	1928	Ghana	823	Gisha	2	Global Center on Cooperative Security	1
+Global Coalition To Protect Education From Attacks	1	Global Initiative Against Transnational Organized Crime	1	Global Vaccine Alliance	1	Goldman Sachs	1
+Governing Council Of Iraq	1	Grand Imam of Al-Azhar Al-Sharif	1	Greece	338	Grenada	1
+Gro Intelligence	1	Group of Five for the Sahel	1	Group Of Five For The Sahel	5	Group of Friends of Accountability	1
+Group of Friends of Action on Conflict and Hunger	1	Group Of Friends Of Children And Armed Conflict	1	Group Of Friends Of The African Women Leaders Network	1	Group of Friends of the Responsibility to Protect	2
+Group Of Friends Of Women In Afghanistan	1	Group of Friends on Children and Armed Conflict	1	Group of Friends on Climate and Security	1	Group Of Friends On Climate And Security	1
+Groupe De Recherche, D'etude Et De Formation Femme-Action	1	Groupe Lotus And International Federation For Human Rights	1	Guatemala	450	Guinea	362
+Guinea-Bissau	148	Gulf Cooperation Council	4	Gulf Of Guinea Commission	4	Guyana	16
+Haiti	100	Haiti Liberté	1	Haitian Bars Federation	1	Haki Africa	1
+
+--- Page 16 ---
+
+Table 3: Countries and the number of speeches (continued)
+
+Country	Count	Country	Count	Country	Count	Country	Count
+Harvard University (Cambridge, Mass.)	1	Hashemite Kingdom Of Jordan	1	High Representative For Bosnia And Herzegovina	1	High Representative for the Implementation of the Peace Agreement on Bosnia and Herzegovina	1
+Holy See	90	Honduras	166	Hope Restoration South Sudan	1	Hudson Institute	1
+Human Rights Watch	1	Hungary	332	Huquqyat	1	IAEA	17
+ICAO	1	Iceland	61	ICJ	1	IMF	3
+IMPACT - Civil Society Research and Development	1	Independent Anti-Slavery Commissioner	1	Independent Commission For Overseeing The Implementation Of The Constitution	1	India	1371
+Indonesia	1208	Inkatha Freedom Party	1	Insight Strategy Partners	1	Instancia Especial de Alto Nivel Pueblos Étnicos	1
+Institute For Security Studies	1	Instituto Rio Branco	1	Intando Yesizwe Party	1	Inter-American Development Bank	2
+Inter- Governmental Action Group Against Money Laundering In West Africa	1	Inter- Parliamentary Union	1	Intergovernmental Authority On Development	2	International Center For Transitional Justice	1
+International Centre For The Study Of Radicalisation And Political Violence	2	International Committee Of The Red Cross	72	International Conference On The Great Lakes Region	4	International Court Of Justice	12
+International Criminal Court	36	International Crisis Group	3	International Federation Of Red Cross And Red Crescent Societies	2	International Humanitarian Fact-Finding Commission	1
+International Institute For Justice And The Rule Of Law	1	International Labour Organization	1	International Maritime Organization	1	International Organization for Migration	2
+International Organization Of La Francophonie	11	International Peace Institute	3	International Rescue Committee	2	International Residual Mechanism For Criminal Tribunals	16
+Interpol	12	INTERPOL	1	IOM	1	Ir Amim	1
+Iran (Islamic Republic of)	457	Iraq	246	Iraq Foundation	1	Iraqi Al-Amal Association	1
+Iraqi Health and Social Care Organization	1	Iraqi Women's Network	1	IRC	1	Ireland	825
+Ireland And Mexico	1	Israel	430	Italian Ministry Of Culture	1	Italy	922
+Jamaica	385	Japan	2055	Jerusalem Legal Aid And Human Rights	1	Jeunesse en Marche pour le Développement en Centrafrique	1
+Jigsaw	1	Joan B. Kroc Institute for International Peace Studies (Notre Dame, Indiana)	1	Johns Hopkins University (Baltimore, Md.). School of Advanced International Studies (Washington, D.C.)	1	Joint Monitoring And Evaluation Commission	8
+Jordan	675	Kaladan Press	1	Kazakhstan	585	Keeping Children Safe	1
+
+--- Page 17 ---
+
+Table 3: Countries and the number of speeches (continued)
+
+Country	Count	Country	Count	Country	Count	Country	Count
+Kenya	659	King's College London	1	Kiribati	2	Kofi Annan International Peacekeeping Training Centre	2
+Kosovo	84	Kuwait	740	Kyrgyzstan	36	La Strada-Ukraine	1
+Lake Chad Basin Commission	1	Lao People's Democratic Republic	6	Latvia	68	Lawyers For Justice In Libya	2
+League Of Arab States	95	Lebanon	471	Lesotho	15	Liberia	63
+Liberty And Justice	1	Libya	439	Libyan Political Dialogue Forum	1	Liechtenstein	217
+Liga Internacional de Mujeres por la Paz y Libertad (Colombia)	1	Lithuania	560	Lutte Pour Le Changement	1	Luxembourg	388
+Ma'rib Girls Foundation For Development	1	Malala Fund	1	Malawi	24	Malaysia	914
+Maldives	70	Mali	351	Mali Musso	1	Malta	449
+Marshall Islands	8	Mastercard	1	Mauritania	26	Mauritius	258
+Médecins Du Monde	3	Medecins Sans Frontieres	2	Mexico	1412	Micronesia (Federated States of)	2
+Microsoft	1	Missile Technology Control Regime	1	Moby Group	1	Monaco	7
+Mongolia	15	Montenegro	40	Morocco	586	Movement Of Non-Aligned Countries	1
+Mozambique	437	Municipal Association Of Women And Defender Of Afro-Colombian Territorial And Human Rights	1	Musahala	1	Mwatana Organization For Human Rights	2
+Myanmar	75	Namibia	404	National Constitution Amendment Committee	2	National Council Of Timorese Resistance	2
+National Independent Electoral Commission Of Somalia	2	National People's Party	1	NATO	30	Nauru	6
+Naweza	1	Neem Foundation	1	Nepal	98	Netherlands	867
+Network For Women's Leadership In The Central African Republic	1	Network Of Civil Society Organizations In Borno State	1	Network on Peace and Security for Women in the ECOWAS Region	2	Networkd of Women-led Organizations of the Lake Chad Basin	1
+New Development Bank	1	New Zealand	838	NGO Working Group On Women, Peace And Security	15	Nicaragua	52
+Niger	463	Nigeria	1114	Niue	1	North Macedonia	8
+North West Syria NGO Forum	1	Norway	1121	Norwegian Refugee Council	2	Nuclear Suppliers Group	1
+Office Of The Director Of Public Prosecutions In Kenya	1	Oman	189	OPCW	4	Organisation of Islamic Cooperation	3
+Organization For Democracy And Economic Development - Guam	1	Organization For Policy Research And Development Studies	2	Organization For Responsive Governance	1	Organization for the Prohibition of Chemical Weapons	4
+Organization Of American States	19	Organization Of Islamic Cooperation	13	Organization Of The Islamic Conference	37	OSCE	78
+
+--- Page 18 ---
+
+Table 3: Countries and the number of speeches (continued)
+
+Country	Count	Country	Count	Country	Count	Country	Count
+Oxfam	2	Pacific Community	1	Pacific Islands Forum	1	Pacific Small Island Developing States	2
+Paiman Alumni Trust	1	Paix Pour L'enfance	1	Pakistan	1205	Palau	5
+Palestine	248	Palestine Red Crescent Society	1	Palestinian Center For Policy And Survey Research	1	Pan Africanist Congress Of Azania	1
+Panama	234	Papua New Guinea	30	Paraguay	25	Parents Circle	1
+Peace Track Initiative	1	Peace Track Initiative Yemen	1	Peru	1102	Philippines	407
+Physicians For Human Rights	2	Plan International Nigeria	1	Plurielles Haiti	1	Plurinational State Of Bolivia	2
+Poland	1001	Policité	1	Policy And Senior Adviser At Physicians For Human Rights	1	Portugal	688
+Programme For Coordination And Assistance For Security And Development (Pcased)	4	Project Renew, Norwegian People's Aid Viet Nam	1	Qatar	408	Rawadari	1
+Reconstituted Joint Monitoring And Evaluation Commission	2	Reconstituted Joint Monitoring and Evaluation Commission (South Sudan)	1	Rede Feto	1	Regional Center for Human Rights	1
+Regional Centre On Small Arms In The Great Lakes Region, The Horn Of Africa And Bordering States	1	Release Me	1	Reporters Without Borders	1	Republic Of Korea	774
+Republic Of Moldova	10	Reseau Des Femmes Pour La Defense Des Droits Et La Paix	1	Réseau des jeunes leaders pour la gestion durable des écosystèmes forestiers et humides d'Afrique Centrale	1	Réseau Ivoirien Pour La Défense Des Droits De L'enfant Et De La Femme	1
+Rien Sans Les Femmes	1	Right To Protection	1	Rights And Resources Initiative/Group	1	Romania	371
+Rossiya Segodnya	1	Russian Federation	5101	Russian Reconciliation Center For Syria	2	Russkaia pravoslavnaia tserkov	2
+Rwanda	697	Sahel Alliance	1	Saint Kitts And Nevis	1	Saint Lucia	4
+Saint Vincent And The Grenadines	297	Samoa	6	San Marino	11	Sana'a Center For Strategic Studies	2
+Sao Tome And Principe	3	Saudi Arabia	150	Sauti Ya Mama Mukongo-mani/Voice Of Congolese Women	1	Save Act Mine	1
+Save The Children	5	Save Ukraine	5	Sawa For Development And Aid	1	School of Leadership, Afghanistan	1
+Search For Common Ground	2	Security Council Procedure	3	Security Council Report	8	Senegal	510
+Serbia	177	Serbia And Montenegro	31	Sesame Workshop	1	Seychelles	3
+Shanghai Cooperation Organization	3	Sheba Youth Foundation For Development	1	Siemens	2	Sierra Leone	122
+Similar Ground	1	Singapore	416	Slovak Republic	334	Slovenia	308
+Small Arms Survey	1	Solidarité Féminine pour la paix et le Développement intégral	1	Solidarity Party	1	Solomon Islands	14
+
+--- Page 19 ---
+
+Table 3: Countries and the number of speeches (continued)
+
+Country	Count	Country	Count	Country	Count	Country	Count
+Solutions For Sustainable Society	1	Somali National Women's Organization	1	Somali Women Development Centre	1	Somali Women's Leadership Initiative	1
+Somali Women's Studies Centre	1	Somalia	130	Somalia Youth Development Network	1	Sos Center For Youth Capabilities Development	1
+South Africa	1347	South African Communist Party	1	South Sudan	109	South Sudan Women With Disabilities Network	1
+South Sudan Women's Empowerment Network	1	South Sudan Women's Monthly Forum	1	Sovereign Order of Malta	5	Spain	1352
+Sri Lanka	102	Stimson Center	2	Strategic Foresight Group	1	Strategic Initiative For Women In The Horn Of Africa	2
+Sudan	319	Sudan People's Liberation Movement	4	Sudan Social Development Organization	1	Suriname	3
+Sustainable Pacific Consultancy Niue	1	Swaziland	6	Sweden	889	Switzerland	596
+Synergy Of Women For Victims Of Sexual Violence	1	Syria Bright Future	1	Syria Relief And Development	2	Syrian American Medical Society	3
+Syrian Arab Red Crescent	2	Syrian Arab Republic	712	Syrian Center For Media And Freedom Of Expression	1	Syrian Emergency Task Force	1
+Syrian National Conference	1	Syrian Women's League	1	Syrian Women's Political Movement	2	Tajikistan	37
+Tamazight Women's Movement	3	Thailand	137	The Elders	4	The Grayzone (Firm)	1
+The Liaison Office	1	Timor-Leste	49	Together We Build It	2	Togo	319
+Tonga	7	Trial International	2	Trinidad And Tobago	21	Tunisia	592
+Turkey	732	Türkiye	61	Turkmenistan	5	Tuvalu	7
+U.S./Middle East Project	3	Uganda	529	Ukraine	983	Ukrainian Trade Union of Law Workers	2
+Ukrainian Women's Fund	1	UN	4709	UN High Commissioner for Human Rights	2	UN High Commissioner for Refugees	2
+UN Institute for Disarmament Research	1	UN Interim Force in Lebanon	2	UN Mission in South Sudan	2	UN Multidimensional Integrated Stabilization Mission in the Central African Republic	2
+UN Office on Drugs and Crime	3	UN Organization Stabilization Mission in the Democratic Republic of the Congo	1	UN-Women	7	UNFPA	1
+UNHCR	1	UNICEF	4	United Arab Emirates	944	United Democratic Movement	1
+United Kingdom Of Great Britain And Northern Ireland	5518	United Nations Office On Drugs And Crime	1	United Nations University	1	United Republic Of Tanzania	236
+United States Of America	5484	University of Oxford	1	UNRWA	2	URU	2
+Uruguay	752	Uzbekistan	35	Vanuatu	1	Venezuela (Bolivarian Republic Of)	680
+Viet Nam	976	Viva La Vida	1	Voice Amplified	1	Voice Of Libyan Women	1
+
+--- Page 20 ---
+
+Table 3: Countries and the number of speeches (continued)
+
+Country	Count	Country	Count	Country	Count	Country	Count
+Volontariat Pour Le Développement D’haïti	1	WASHM Center for Women’s Studies	1	Watchlist On Children And Armed Conflict	4	West African Action Network On Small Arms	1
+WHO	2	Women And Children Legal Research Foundation	1	Women And Peace Studies Organization	2	Women Empowerment Organization	1
+Women For Women International	2	Women in Action for Women	1	Women In Law And Development In Africa	1	Women In Peacebuilding Network	1
+Women Now for Development (Syrian Arab Republic)	1	Women’s Centre For Legal Aid And Counselling	1	Women’s Empowerment Network	1	Women’s Initiatives For Gender Justice	1
+Women’s Institute for Alternative Development	1	Women’s International League For Peace And Freedom	1	Women’s League of Burma	1	Women’s Monthly Forum On Peace And Political Processes In South Sudan	1
+Women’s Refugee Route	1	Women’s Solidarity For Peace And Integral Development	1	World Bank	30	World Customs Organization	1
+World Food Programme	3	World Health Organization	2	World Meteorological Organization	1	World Wildlife And One Young World	1
+World Young Women Christian Association	1	Yale University (New Haven, Conn.)	2	Yemen	143	Youth Association For Active Citizenship And Democracy	1
+Youth Initiative For Human Rights In Bosnia And Herzegovina	1	Yugoslavia	54	Zaire	5	Zambia	39
+Zan Times	1	Zanele Mbeki Development Trust	1	Zanmi Lasante	2	Zimbabwe	99
+Zone Of Peace And Cooperation Of The South Atlantic	1

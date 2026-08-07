@@ -1,0 +1,22 @@
+# Normalise line endings: LF in the repository, native in the working copy.
+* text=auto eol=lf
+
+# Windows-only files keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binaries — never touched
+*.pdf   binary
+*.tar   binary
+*.parquet binary
+*.RData binary
+*.png   binary
+*.jpg   binary
+*.woff2 binary
+
+# Keep generated/vendored files out of language stats and diffs
+web/static/data/**   linguist-generated=true
+docs/reference/**    linguist-documentation=true
+*.lock               -diff
+package-lock.json    -diff linguist-generated=true

@@ -1,0 +1,47 @@
+# ---------------------------------------------------------------------------
+# Data — never committed.
+# The raw corpus (626 MB) is CC0 and DOI-addressable; `scripts/00_fetch_data.py`
+# re-downloads it. Everything under data/derived/ is rebuilt by the pipeline.
+# ---------------------------------------------------------------------------
+data/raw/*
+data/derived/*
+data/interim/*
+!data/**/.gitkeep
+
+# Script findings notes are regenerated on every run
+notes/*
+!notes/.gitkeep
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ---------------------------------------------------------------------------
+# Node / SvelteKit
+# ---------------------------------------------------------------------------
+node_modules/
+web/.svelte-kit/
+web/build/
+web/.vercel/
+web/.netlify/
+.DS_Store
+
+# Generated dashboard payloads (built by scripts/1x_export_*.py)
+web/static/data/
+
+# ---------------------------------------------------------------------------
+# Editors / OS
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+Thumbs.db
+*.swp

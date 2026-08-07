@@ -1,0 +1,149 @@
+# Genocide lexicon — versioned, auditable, register-tagged.
+#
+# Consumed by scripts/03_lexicon.py. Patterns are Python regex, applied
+# case-insensitively to the speech body (after the opening form of address has
+# been stripped).
+#
+# `register` groups terms into the four discursive families that emerged from
+# the collocate analysis (see docs/CORPUS.md §8.5). `tier` marks how central a
+# term is to the object of study:
+#   core     — the word itself
+#   atrocity — the Rome Statute / R2P cluster it travels inside
+#   adjacent — the accountability vocabulary that surrounds both
+#
+# Changing this file changes every downstream count. Bump `version` and record
+# what moved.
+
+version: 1
+updated: 2026-08-07
+
+terms:
+  genocide:
+    pattern: '\bgenocid\w*'
+    tier: core
+    register: core
+    note: >
+      Matches genocide, genocidal, genocides, genocidaire(s). 6,092 occurrences
+      across 3,273 speeches.
+
+  genocide_ocr_variants:
+    pattern: '\b(?:gen[eo]cid|senocid|qenocid)\w*'
+    tier: core
+    register: core
+    enabled: false
+    note: >
+      OCR-tolerant net. Keep disabled by default and report the delta against
+      `genocide` separately — silently absorbing OCR noise into the headline
+      count would be dishonest.
+
+  ethnic_cleansing:
+    pattern: '\bethnic(?:ally)?[\s-]+cleans\w*'
+    tier: atrocity
+    register: legal
+
+  crimes_against_humanity:
+    pattern: '\bcrimes?\s+against\s+humanity'
+    tier: atrocity
+    register: legal
+
+  war_crimes:
+    pattern: '\bwar\s+crimes?\b'
+    tier: atrocity
+    register: legal
+
+  mass_atrocity:
+    pattern: '\bmass\s+atrociti?e?s?\b'
+    tier: atrocity
+    register: legal
+
+  atrocity:
+    pattern: '\batrociti?e?s?\b'
+    tier: adjacent
+    register: legal
+
+  extermination:
+    pattern: '\bexterminat\w*'
+    tier: adjacent
+    register: legal
+
+  genocide_convention:
+    pattern: '\bgenocide\s+convention\b|\bconvention\s+on\s+the\s+prevention\s+and\s+punishment'
+    tier: core
+    register: legal
+
+  responsibility_to_protect:
+    pattern: '\bresponsibility\s+to\s+protect\b|\bR2P\b'
+    tier: atrocity
+    register: preventive
+
+  prevention_of_genocide:
+    pattern: '\b(?:prevention|preventing)\s+of\s+genocide\b|special\s+adviser\s+on\s+the\s+prevention'
+    tier: core
+    register: preventive
+
+  early_warning:
+    pattern: '\bearly\s+warning\b'
+    tier: adjacent
+    register: preventive
+
+  never_again:
+    pattern: '\bnever\s+again\b'
+    tier: adjacent
+    register: commemorative
+
+  holocaust:
+    pattern: '\bholocaust\b|\bshoah\b'
+    tier: adjacent
+    register: commemorative
+
+  commemoration:
+    pattern: '\bcommemorat\w*|\banniversar\w+'
+    tier: adjacent
+    register: commemorative
+
+  survivors:
+    pattern: '\bsurvivors?\b'
+    tier: adjacent
+    register: commemorative
+
+  denial:
+    pattern: '\bdenial\b|\bdeny\w*\s+(?:the\s+)?genocid\w*|\bgenocide\s+denial\b'
+    tier: adjacent
+    register: contentious
+
+  glorification:
+    pattern: '\bglorif\w+'
+    tier: adjacent
+    register: contentious
+
+  genocidal_ideology:
+    pattern: '\bgenocidal\s+ideolog\w+|\bideolog\w+\s+of\s+genocide\b'
+    tier: core
+    register: contentious
+
+  ethnic_hatred:
+    pattern: '\bethnic\s+(?:hatred|violence|conflict)'
+    tier: adjacent
+    register: contentious
+
+  impunity:
+    pattern: '\bimpunity\b'
+    tier: adjacent
+    register: accountability
+
+  icc:
+    pattern: '\binternational\s+criminal\s+court\b|\bICC\b'
+    tier: adjacent
+    register: accountability
+
+  tribunals:
+    pattern: '\b(?:ICTR|ICTY)\b|international\s+(?:criminal\s+)?tribunal'
+    tier: adjacent
+    register: accountability
+
+# Convenience groupings used by the dashboard's filter chips.
+sets:
+  core: [genocide, genocide_convention, prevention_of_genocide, genocidal_ideology]
+  atrocity_core: [genocide, ethnic_cleansing, crimes_against_humanity, war_crimes, mass_atrocity]
+  rome_triad: [genocide, war_crimes, crimes_against_humanity]
+  r2p_quartet: [genocide, war_crimes, crimes_against_humanity, ethnic_cleansing]

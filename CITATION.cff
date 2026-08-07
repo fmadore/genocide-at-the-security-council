@@ -1,0 +1,55 @@
+cff-version: 1.2.0
+title: "UN Security Council Debates — genocide discourse dashboard"
+message: "If you use this software or its derived analyses, please cite both this repository and the underlying corpus."
+type: software
+authors:
+  # TODO: add orcid: "https://orcid.org/...." and any co-authors
+  - family-names: Madore
+    given-names: Frédérick
+repository-code: "https://github.com/fmadore/un-security-council-debates"
+abstract: >-
+  Data pipeline, computational analysis and interactive dashboard studying the
+  use of the word "genocide" and its semantic neighbourhood in United Nations
+  Security Council debates, 1992-2023.
+keywords:
+  - United Nations Security Council
+  - genocide
+  - digital humanities
+  - corpus linguistics
+  - text as data
+references:
+  - type: database
+    title: "The UN Security Council Debates"
+    version: "6.1"
+    doi: "10.7910/DVN/KGVSYH"
+    year: 2019
+    publisher:
+      name: "Harvard Dataverse"
+    license: CC0-1.0
+    authors:
+      - family-names: Schoenfeld
+        given-names: Mirco
+        orcid: "https://orcid.org/0000-0002-2843-3137"
+      - family-names: Eckhard
+        given-names: Steffen
+      - family-names: Patz
+        given-names: Ronny
+      - family-names: van Meegdenburg
+        given-names: Hilde
+      - family-names: Pires
+        given-names: Antonio
+  - type: article
+    title: "The UN Security Council debates 1992-2023"
+    year: 2025
+    url: "https://arxiv.org/abs/1906.10969"
+    authors:
+      - family-names: Schoenfeld
+        given-names: Mirco
+      - family-names: Eckhard
+        given-names: Steffen
+      - family-names: Patz
+        given-names: Ronny
+      - family-names: van Meegdenburg
+        given-names: Hilde
+      - family-names: Pires
+        given-names: Antonio
