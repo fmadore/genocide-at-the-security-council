@@ -19,7 +19,8 @@ pipeline, the analysis scripts and the web application.
 | Normalisation & country crosswalk | ✅ `scripts/02` · [`config/entities.csv`](config/entities.csv) |
 | Lexicon flagging & precision audit | ✅ `scripts/03` (audit sample awaiting a human verdict) |
 | Temporal series & change points | ✅ `scripts/04` · [`config/events.csv`](config/events.csv) |
-| Lexicometry / topics / KWIC | ⬜ next — `scripts/05`–`08` |
+| Concordance (80,011 lines, 22 terms) | ✅ `scripts/08` |
+| Lexicometry / topics / embeddings | ⬜ next — `scripts/05`–`07` |
 | Dashboard (SvelteKit) | ⬜ |
 | LLM structured extraction | ⬜ |
 
@@ -39,6 +40,7 @@ python scripts/01_build_parquet.py   # → data/derived/speeches.parquet (131 MB
 python scripts/02_normalise.py       # → speeches_norm.parquet    (aliases, entities, groups)
 python scripts/03_lexicon.py         # → speeches_flagged.parquet (lexicon counts)
 python scripts/04_series.py          # → derived/series/*.json    (rates, change points)
+python scripts/08_kwic.py            # → derived/kwic/*.json      (80,011 concordance lines)
 ```
 
 Each step asserts its output and exits non-zero on any mismatch rather than leaving a
@@ -56,7 +58,7 @@ module layout.
 python -m pytest
 ```
 
-122 tests, no data required — including integrity checks on the hand-edited files in
+147 tests, no data required — including integrity checks on the hand-edited files in
 `config/`. These and `ruff check` run on every push and pull request via
 [`.github/workflows/checks.yml`](.github/workflows/checks.yml), so a bad edit to a config
 file fails in CI rather than halfway through someone's pipeline run.
@@ -76,7 +78,7 @@ file fails in CI rather than halfway through someone's pipeline run.
 ├── data/                Gitignored. Rebuilt from the DOI by scripts/00 and 01.
 │   ├── raw/               As downloaded from Dataverse — never modified
 │   ├── interim/           Intermediate artefacts, reference downloads, audit samples
-│   └── derived/           speeches.parquet, the normalised/flagged tables, series/
+│   └── derived/           speeches.parquet, the flagged table, series/, kwic/
 ├── docs/
 │   ├── CORPUS.md          Corpus documentation: variables, traps, first findings
 │   ├── PLAN.md            Five-phase action plan

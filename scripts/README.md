@@ -28,7 +28,7 @@ C:/Users/frede/AppData/Local/Programs/Python/Python312/python.exe
 | 05 | `05_lexical.py` | `speeches_flagged.parquet` | `derived/lexical/*.json` | ⬜ |
 | 06 | `06_topics.py` | `speeches_flagged.parquet` | `derived/topics/*.json` | ⬜ |
 | 07 | `07_embed.py` | `speeches_flagged.parquet` | `derived/embeddings/*.json` | ⬜ |
-| 08 | `08_kwic.py` | `speeches_flagged.parquet` | `derived/kwic/*.json` | ⬜ |
+| 08 | `08_kwic.py` | `speeches_flagged.parquet` | `derived/kwic/*.json` | ✅ |
 | 09 | `09_export_speeches.py` | `speeches_flagged.parquet` | `web/static/data/speeches/*.json` | ⬜ |
 | 10 | `10_llm_open.py` | sample of 200 | `derived/llm/open/*.json` | ⬜ |
 | 11 | `11_llm_extract.py` | `docs/CODEBOOK.md` + subset | `derived/llm/extractions.parquet` | ⬜ |
@@ -48,6 +48,7 @@ See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establis
 | [`lib/council.py`](lib/council.py) | Council membership by year; the P5 / E10 / non-member / UN / non-state split. |
 | [`lib/lexicon.py`](lib/lexicon.py) | Loads, compiles and counts `config/lexicon.yml`. |
 | [`lib/series.py`](lib/series.py) | Periods, denominators, rates, breakdowns; change-point detection; the event overlay. |
+| [`lib/kwic.py`](lib/kwic.py) | Sentence segmentation for the genre, and concordance-line extraction. |
 
 ## Tools
 

@@ -207,9 +207,30 @@ modelling at paragraph level within the subset, and report the choice.
 - UMAP → 2D, coloured by year / speaker group / topic / (later) LLM-extracted frame.
 - Exported as a JSON of 3,273-6,092 points; ECharts scatter handles this comfortably.
 
-### 3.5 `08_kwic.py` — concordance
+### 3.5 `08_kwic.py` — concordance ✅
 
 **The core of the "quotes in context" requirement.**
+
+Done, and it came out larger than estimated: **80,011 lines across 22 terms, 61.7 MB**
+(the estimate below assumed ~40k lines at 450 bytes and did not price the sentence).
+`genocide` alone is 6,092 lines / 4.8 MB, which still ships eagerly; the rest stay lazy.
+
+Two departures from what follows:
+
+- **Sentence segmentation is rule-based, not spaCy.** The genre's traps are specific and
+  enumerable — `Mr.`, `para.`, `No.`, `U.S.`, `S/PV.3453`, `resolution 955 (1994).`, and
+  initials in a name — and a general model has no particular advantage on them. The rules
+  are in `lib/kwic.py`, unit-tested against exactly those cases, and add nothing to
+  install or to CI. Median sentence 173-222 characters by term, 95th percentile ~400,
+  with 1-5% over 500 characters flagged in the note for a human to look at. If that
+  distribution ever looks wrong, it is one function to swap.
+- **`file` is not stored per line.** It is `id` up to the `#`, plus `.txt`. At 80,000
+  lines that redundancy is several megabytes for nothing.
+
+The run **fails** rather than writing anything if a term's line count disagrees with the
+occurrence count in `speeches_flagged.parquet`. All 22 reproduce exactly. A concordance
+that does not add up to the totals printed beside it is worse than none: the reader has
+no way to tell which number is wrong.
 
 For every occurrence of every lexicon term:
 
