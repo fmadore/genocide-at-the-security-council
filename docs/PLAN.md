@@ -43,8 +43,26 @@ scan results this plan builds on.
 
 *Versions checked upstream on 2026-08-07. Re-verify before pinning.*
 
-Python packages to add: `scikit-learn`, `spacy` (+ `en_core_web_sm`), `umap-learn`,
-`sentence-transformers`, `bertopic`, `anthropic`.
+Python dependencies live in `requirements.txt` (`numpy`, `pandas`, `pyarrow`, `PyYAML`) and
+`requirements-dev.txt` (`pytest`, `ruff`). Steps 00-05 and 08 need nothing beyond those,
+which is why `.github/workflows/checks.yml` can lint and test the whole pipeline in under
+40 seconds.
+
+Still to add, and which step each one gates:
+
+| Package | Gates | Weight |
+|---|---|---|
+| `scikit-learn` | §3.3 LDA/NMF | small |
+| `sentence-transformers`, `umap-learn`, `bertopic` | §3.3 BERTopic, §3.4 semantic map | **large** — pulls `torch`, ~2.5 GB, and a model download at first run |
+| `anthropic` | §5 the LLM layer | small |
+
+`spacy` + `en_core_web_sm` is **no longer needed**. It was in the plan for sentence
+segmentation in §3.5; `08_kwic.py` uses rule-based segmentation instead, for the reasons
+set out there.
+
+The BERTopic group is the only real decision in this table: it changes the install from
+"pip install and go" to a multi-gigabyte environment, and it makes CI a different
+proposition. Worth taking deliberately rather than as a side effect of running `06`.
 
 ### 1.2 Data flow
 
@@ -445,17 +463,27 @@ distinguishing it from directly-measured data.
 
 ## 6. Sequencing
 
-| Phase | Content | Rough effort | Depends on |
-|---|---|---|---|
-| **1** | Normalisation, entity crosswalk, lexicon YAML, audit | ~3 days | — |
-| **2** | Series, lexicometry, KWIC, topics, embeddings | ~5 days | 1 |
-| **3a** | SvelteKit scaffold + Overview / Chronology / Concordance / Reader | ~6 days | 2 |
-| **3b** | Actors, Language, Maps | ~5 days | 2, entity crosswalk |
-| **4** | LLM stages A→E | ~6 days, spread over calendar time | 2 |
-| **5** | Integration of LLM layer, methods page, deployment | ~3 days | 3, 4 |
+| Phase | Content | Rough effort | Depends on | State |
+|---|---|---|---|---|
+| **1** | Normalisation, entity crosswalk, lexicon YAML, audit | ~3 days | — | ✅ bar the audit verdict |
+| **2a** | Series (`04`), lexicometry (`05`), KWIC (`08`) | ~3 days | 1 | ✅ |
+| **2b** | Topics (`06`), embeddings (`07`), speech export (`09`) | ~2 days | 1, and the `torch` decision in §1.1 | ⬜ |
+| **3a** | SvelteKit scaffold + Overview / Chronology / Concordance / Reader | ~6 days | 2a | ⬜ |
+| **3b** | Actors, Language, Maps | ~5 days | 2a, entity crosswalk | ⬜ |
+| **4** | LLM stages A→E | ~6 days, spread over calendar time | 2 | ⬜ |
+| **5** | Integration of LLM layer, methods page, deployment | ~3 days | 3, 4 | ⬜ |
 
 Phases 3a and 4 can run in parallel — Stage A of the LLM work needs nothing from the
 dashboard.
+
+**2a is done, and 3a no longer waits on 2b.** The Overview, Chronology, Concordance and
+Reader views need `series/`, `lexical/` and `kwic/`, all of which now exist. Topics and
+embeddings feed the Language and semantic-map views, which come later — so the dashboard
+scaffold can start immediately, without first committing to a 2.5 GB install.
+
+`09_export_speeches.py` is the one gap in 2b that 3a genuinely needs: the Reader view has
+no full text without it, and it depends on nothing but the parquet. It should be pulled
+forward ahead of `06` and `07`.
 
 **Suggested first milestone:** finish Phase 1 + `08_kwic.py` + a minimal Chronology and
 Concordance view. That combination alone is already a usable research instrument, and it
