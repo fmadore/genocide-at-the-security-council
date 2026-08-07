@@ -1,12 +1,14 @@
 # Build and deploy the SvelteKit dashboard to GitHub Pages.
 #
-# Inactive until web/ is scaffolded: the path filter means no run is triggered
-# by pipeline or documentation commits.
+# The `guard` job short-circuits the run while web/ has no package.json, so this
+# workflow is green from the day it lands rather than failing until the app is
+# scaffolded.
 #
 # Before the first real deployment:
 #   1. Scaffold web/ with @sveltejs/adapter-static
-#   2. Set `paths.base` in svelte.config.js to '/<repo-name>' for project pages
-#   3. Settings → Pages → Source: GitHub Actions
+#   2. Set `paths.base` in svelte.config.js to '/un-security-council-debates'
+#      (project pages are served from a subpath)
+#   3. Settings -> Pages -> Source: GitHub Actions
 #
 # Note: Pages from a *private* repository requires a paid GitHub plan. On a free
 # account the repository must be public for the site to publish.
@@ -31,7 +33,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: check
+        run: |
+          if [ -f web/package.json ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Skipped::web/ is not scaffolded yet — nothing to build."
+          fi
+
   build:
+    needs: guard
+    if: needs.guard.outputs.ready == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
