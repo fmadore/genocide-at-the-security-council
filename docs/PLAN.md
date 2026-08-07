@@ -306,6 +306,30 @@ Seven views. Everything cross-filters through a shared URL-encoded filter state
 (period · term/register · speaker group · agenda item · entity type), so any view is
 shareable and citable as a link.
 
+**Built: §4.1, §4.2, §4.5, §4.6, §4.7, plus a Methods page.** SvelteKit 2 / Svelte 5,
+ECharts 6, `adapter-static`; see [`web/README.md`](../web/README.md).
+
+Two things the plan below did not anticipate, both worth keeping:
+
+- **Every figure explains itself, structurally.** `Figure.svelte` will not render a chart
+  without a *question*, a *how to read this*, a *what it does not show*, and the *script
+  and file* behind it. The caveats do real work: a share of speeches is not intensity, the
+  register lines overlap and must not be stacked, a rate on twenty speeches swings on one
+  mention, the unmatched keyness column is not a result. Each is a misreading the figure
+  would otherwise invite.
+- **URL-encoded filter state exists on the concordance only.** Extending it to a shared
+  cross-view state, as the paragraph above envisages, is still to do.
+
+**Still to do here:** §4.3 Actors, §4.4 Maps, and the shared filter state. Maps need the
+`entity_type` / `iso3` / centroid columns that `config/entities.csv` already provides, so
+they are unblocked — they are the natural next piece of dashboard work.
+
+**Blocking the deploy, and not a code problem:** `web/static/data/` is 483 MB and
+gitignored, so `deploy.yml` skips rather than publishing a site whose every chart 404s.
+Three ways to give the build its data, set out in the workflow header and
+`notes/09_export_speeches.md`: run the pipeline in CI, publish the payload as a release
+asset or Hugging Face dataset, or build locally. This is a decision to take deliberately.
+
 ### 4.1 Overview
 
 Headline figures (3,273 speeches · 6,092 occurrences · 3.08% · 630 entities), the
