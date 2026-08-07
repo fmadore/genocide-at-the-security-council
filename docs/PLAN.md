@@ -140,17 +140,34 @@ and `03` run clean on top of it.
 Each script writes both a JSON artefact for the dashboard and a Markdown findings note for
 the team.
 
-### 3.1 `04_series.py` — temporal
+### 3.1 `04_series.py` — temporal ✅
 
-- Counts and rates per year / per quarter, per term, per register.
-- Breakdowns crossed with: `agenda_item1`, `agenda_item_manual`, `participanttype`,
-  P5/E10/guest, `entity_type`.
-- **Change-point detection** on the normalised series (`ruptures` or a simple binary
-  segmentation) to date the regime shifts empirically rather than by eye.
-- Event overlay table: a hand-curated list of ~30 reference dates (Rwanda 1994, Srebrenica
-  1995, Rome Statute 1998, World Summit/R2P 2005, Darfur ICC referral 2005, Syria 2011,
-  ISIS/Yazidis 2014, Crimea 2014, Myanmar 2017, Ukraine 2022, Gaza 2023) to annotate the
-  chart.
+- [x] Counts and rates per year / per quarter, per term, per register.
+      → 32 measures (22 terms, 6 registers, 4 sets) x 32 years and 128 quarters. Sets carry
+      no occurrence count on purpose: a set is a union, and summing its members would count
+      a speech saying both *genocide* and *war crimes* twice.
+- [x] Breakdowns crossed with `agenda_item1`, `agenda_item_manual` (top 20), `participanttype`,
+      speaker group, `entity_type` — plus **delivery language**, which §7.4 asks about.
+- [x] **Change-point detection** on the normalised series. Not `ruptures`, and not plain
+      binary segmentation either: the latter only ever splits a segment as a whole, which
+      makes it blind to a bump, and this corpus is bump-shaped (1993-96, 2013-15). The scan
+      runs over sub-intervals — Wild Binary Segmentation — with a permutation test on every
+      accepted split. ~200 lines in `lib/series.py`, unit-tested against series whose answer
+      is known by construction.
+- [x] Event overlay: **`config/events.csv`**, 35 reference dates across six kinds, with a
+      UN document symbol wherever one exists. **Machine-drafted and unverified** — logged in
+      `docs/VALIDATION.md` §5 as the highest-priority item there, because a chart annotation
+      carries the authority of the chart.
+
+**The result the plan was built to find.** `genocide` breaks on the raw count (speeches
+2013, occurrences 2014) and **nowhere on either rate**. The famous 2014 peak is the corpus
+growing: speeches per year roughly doubled over the same span, and the largest normalised
+year in the corpus is still 1994.
+
+**The result it was not.** The wider `atrocity_core` set *does* break on the rate — 1996
+(x0.70), 2013 (x1.24), 2017 (x0.74). The normalised structure lives in the atrocity
+vocabulary as a whole, not in `genocide` alone. That is direct evidence on open question 3
+below, and it argues for the 7,936-speech set as the real object of study.
 
 ### 3.2 `05_lexical.py` — lexicometry
 
@@ -421,6 +438,11 @@ puts the corpus in the team's hands early enough to shape everything after it.
    "atrocity" be first-class subjects alongside genocide, or context for it? §8.4 suggests
    they are inseparable in practice — which argues for treating the atrocity-core set
    (7,936 speeches) as the real object.
+   **Evidence from `04_series.py`:** the `genocide` rate has no detectable regime shift
+   across 1992-2023; the `atrocity_core` rate has three. Whatever changes in this
+   discourse, it does not change at the level of the single word. That is an argument for
+   the wider set — though it is one test on one series, and §3.2's keyness pass is the
+   better place to settle it.
 4. **Multilingualism.** The corpus is English-only by construction (§10.4). Worth stating
    as a limitation, or worth attempting to recover original-language records for a subset?
    The latter is a substantial separate project.

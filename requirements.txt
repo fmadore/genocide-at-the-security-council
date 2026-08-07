@@ -8,6 +8,7 @@
 # Install with the x64 Python that has a pyarrow wheel:
 #     C:/Users/frede/AppData/Local/Programs/Python/Python312/python.exe -m pip install -r requirements.txt
 
+numpy>=2.3,<3
 pandas>=3.0,<4
 pyarrow>=23,<26
 PyYAML>=6.0.3,<7

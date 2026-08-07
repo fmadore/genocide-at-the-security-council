@@ -37,6 +37,17 @@ LEXICON = CONFIG / "lexicon.yml"
 ENTITIES = CONFIG / "entities.csv"
 COUNTRY_ALIASES = CONFIG / "country_aliases.csv"
 COUNCIL_MEMBERSHIP = CONFIG / "council_membership.csv"
+EVENTS = CONFIG / "events.csv"
+
+# --- Analysis artefacts ---------------------------------------------------
+# One directory per step. These are the inputs the dashboard is assembled from;
+# a later export step selects and copies what web/ actually ships, so that the
+# artefacts stay inspectable whether or not the application exists yet.
+SERIES = DERIVED / "series"      # 04
+LEXICAL = DERIVED / "lexical"    # 05
+TOPICS = DERIVED / "topics"      # 06
+EMBEDDINGS = DERIVED / "embeddings"  # 07
+KWIC = DERIVED / "kwic"          # 08
 
 # Harvard Dataverse
 DOI = "doi:10.7910/DVN/KGVSYH"

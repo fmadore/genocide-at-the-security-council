@@ -95,6 +95,34 @@ Role of the Security Council in Humanitarian Crises* and that the meeting has
 
 *Established by: `01_build_parquet.py`.*
 
+## 5. The event overlay is machine-drafted — 35 dates
+
+[`config/events.csv`](../config/events.csv) holds the reference dates that
+annotate every time series in the dashboard. Unlike the rest of `config/`, it
+was **drafted from model knowledge, not read off a source**, and no line of it
+has been confirmed against a primary record.
+
+That makes it the one artefact in the repository whose errors would be
+invisible: a chart annotation carries all the authority of the chart, and a
+date that is wrong by a month or attributed to the wrong resolution will be read
+as established fact by every viewer.
+
+**To verify**, in descending order of exposure:
+
+| Group | Rows | How to check |
+|---|---:|---|
+| Council resolutions and vetoes | 9 | The `source` column gives the symbol (`S/RES/955`, `S/2015/508`). Adoption dates are on the UN Digital Library record. |
+| Legal instruments and ICJ/ICC filings | 10 | Rome Statute, ICJ case numbers, ICC warrant references. |
+| Institutional milestones | 3 | `A/RES/60/1`, `S/1999/1257`, `SG/SM/9245`. |
+| Atrocity and conflict dates | 13 | The ones with an empty `source` — these are the most likely to be off, and the hardest to pin to a single day. |
+
+**Priority: high, before publication.** Nothing downstream depends on these
+dates numerically — they are annotations, not inputs — so the analysis is
+unaffected either way. But they are the most publicly visible claims the
+dashboard will make, and they are currently unsourced.
+
+*Established by: `04_series.py`.*
+
 ---
 
 ## Reconciled

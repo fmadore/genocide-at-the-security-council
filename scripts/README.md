@@ -24,7 +24,7 @@ C:/Users/frede/AppData/Local/Programs/Python/Python312/python.exe
 | 01 | `01_build_parquet.py` | `data/raw/` | `derived/speeches.parquet`, `meetings.parquet` | ✅ |
 | 02 | `02_normalise.py` | `speeches.parquet`, `config/{entities,country_aliases,council_membership}.csv` | `derived/speeches_norm.parquet` | ✅ |
 | 03 | `03_lexicon.py` | `speeches_norm.parquet`, `config/lexicon.yml` | `derived/speeches_flagged.parquet` | ✅ |
-| 04 | `04_series.py` | `speeches_flagged.parquet` | `derived/series/*.json` | ⬜ |
+| 04 | `04_series.py` | `speeches_flagged.parquet`, `config/events.csv` | `derived/series/*.json` | ✅ |
 | 05 | `05_lexical.py` | `speeches_flagged.parquet` | `derived/lexical/*.json` | ⬜ |
 | 06 | `06_topics.py` | `speeches_flagged.parquet` | `derived/topics/*.json` | ⬜ |
 | 07 | `07_embed.py` | `speeches_flagged.parquet` | `derived/embeddings/*.json` | ⬜ |
@@ -47,6 +47,7 @@ See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establis
 | [`lib/entities.py`](lib/entities.py) | The `country_org` crosswalk: aliases in, type/ISO3/centroid out. |
 | [`lib/council.py`](lib/council.py) | Council membership by year; the P5 / E10 / non-member / UN / non-state split. |
 | [`lib/lexicon.py`](lib/lexicon.py) | Loads, compiles and counts `config/lexicon.yml`. |
+| [`lib/series.py`](lib/series.py) | Periods, denominators, rates, breakdowns; change-point detection; the event overlay. |
 
 ## Tools
 
@@ -60,9 +61,13 @@ See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establis
 python -m pytest
 ```
 
-85 tests, about a second, no data required. [`tests/test_config.py`](../tests/test_config.py)
-runs against the real `config/` files, so a bad alias or a mistyped Council term fails
-here rather than halfway through a pipeline run.
+About a second, no data required, and run in CI on every push and pull request
+([`checks.yml`](../.github/workflows/checks.yml)).
+[`tests/test_config.py`](../tests/test_config.py) runs against the real `config/` files, so
+a bad alias or a mistyped Council term fails here rather than halfway through a pipeline
+run. [`tests/test_series.py`](../tests/test_series.py) checks the change-point detector
+against series whose answer is known by construction — a step has to be found at the step,
+noise has to yield nothing, and a bump has to be found at both its edges.
 
 ## Conventions
 

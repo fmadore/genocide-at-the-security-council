@@ -9,8 +9,8 @@ halfway through a pipeline run.
 from __future__ import annotations
 
 import pytest
-from lib import council, entities, lexicon
-from lib.paths import COUNCIL_MEMBERSHIP, COUNTRY_ALIASES, ENTITIES, LEXICON
+from lib import council, entities, lexicon, series
+from lib.paths import COUNCIL_MEMBERSHIP, COUNTRY_ALIASES, ENTITIES, EVENTS, LEXICON
 
 CORPUS_FIRST_YEAR = 1992
 CORPUS_LAST_YEAR = 2023
@@ -18,7 +18,7 @@ CORPUS_LAST_YEAR = 2023
 
 class TestFilesExist:
     @pytest.mark.parametrize(
-        "path", [LEXICON, ENTITIES, COUNTRY_ALIASES, COUNCIL_MEMBERSHIP]
+        "path", [LEXICON, ENTITIES, COUNTRY_ALIASES, COUNCIL_MEMBERSHIP, EVENTS]
     )
     def test_present(self, path):
         assert path.exists(), f"{path} is missing"
@@ -42,6 +42,11 @@ def membership():
 @pytest.fixture(scope="module")
 def lex():
     return lexicon.load()
+
+
+@pytest.fixture(scope="module")
+def events():
+    return series.load_events()
 
 
 class TestEntities:
@@ -104,6 +109,35 @@ class TestCouncilMembership:
 
     def test_seat_values_are_closed(self, membership):
         assert set(membership["seat"]) == {"permanent", "elected"}
+
+
+class TestEvents:
+    """The chart overlay. Its dates are unverified (docs/VALIDATION.md §5), so
+    these tests check only what can be checked mechanically — that every row is
+    well-formed and lands somewhere the corpus can show it."""
+
+    def test_it_loads(self, events):
+        assert len(events) > 0
+
+    def test_every_event_falls_inside_the_corpus_period(self, events):
+        """An annotation outside 1992-2023 would be drawn off the end of every
+        axis in the dashboard, or silently dropped."""
+        assert events["year"].between(CORPUS_FIRST_YEAR, CORPUS_LAST_YEAR).all()
+
+    def test_kinds_are_closed(self, events):
+        """`kind` drives the legend and the colour, so a typo becomes a
+        seventh category nobody has styled."""
+        assert set(events["kind"]) <= series.EVENT_KINDS
+
+    def test_no_two_events_share_a_date_and_label(self, events):
+        assert not events.duplicated(subset=["date", "label"]).any()
+
+    def test_every_event_is_labelled(self, events):
+        assert (events["label"].str.len() > 0).all()
+
+    def test_dates_are_sorted_on_load(self, events):
+        """Downstream code renders them in order without re-sorting."""
+        assert events["date"].is_monotonic_increasing
 
 
 class TestLexicon:

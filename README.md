@@ -18,7 +18,8 @@ pipeline, the analysis scripts and the web application.
 | Data pipeline — build & validate | ✅ `scripts/00`, `scripts/01` |
 | Normalisation & country crosswalk | ✅ `scripts/02` · [`config/entities.csv`](config/entities.csv) |
 | Lexicon flagging & precision audit | ✅ `scripts/03` (audit sample awaiting a human verdict) |
-| Series / lexicometry / topics / KWIC | ⬜ next — `scripts/04`–`08` |
+| Temporal series & change points | ✅ `scripts/04` · [`config/events.csv`](config/events.csv) |
+| Lexicometry / topics / KWIC | ⬜ next — `scripts/05`–`08` |
 | Dashboard (SvelteKit) | ⬜ |
 | LLM structured extraction | ⬜ |
 
@@ -37,6 +38,7 @@ python scripts/00_fetch_data.py      # ~500 MB from Harvard Dataverse into data/
 python scripts/01_build_parquet.py   # → data/derived/speeches.parquet (131 MB)
 python scripts/02_normalise.py       # → speeches_norm.parquet    (aliases, entities, groups)
 python scripts/03_lexicon.py         # → speeches_flagged.parquet (lexicon counts)
+python scripts/04_series.py          # → derived/series/*.json    (rates, change points)
 ```
 
 Each step asserts its output and exits non-zero on any mismatch rather than leaving a
@@ -54,7 +56,7 @@ module layout.
 python -m pytest
 ```
 
-85 tests, no data required — including integrity checks on the hand-edited files in
+122 tests, no data required — including integrity checks on the hand-edited files in
 `config/`. These and `ruff check` run on every push and pull request via
 [`.github/workflows/checks.yml`](.github/workflows/checks.yml), so a bad edit to a config
 file fails in CI rather than halfway through someone's pipeline run.
@@ -69,11 +71,12 @@ file fails in CI rather than halfway through someone's pipeline run.
 │   ├── lexicon.yml           Genocide lexicon: patterns, tiers, discursive registers
 │   ├── entities.csv          country_org → type · ISO3 · UN group · centroid
 │   ├── country_aliases.csv   Labels denoting the same speaker
-│   └── council_membership.csv  P5 and E10 terms, 1992-2023
+│   ├── council_membership.csv  P5 and E10 terms, 1992-2023
+│   └── events.csv            35 reference dates for the chart overlay (unverified)
 ├── data/                Gitignored. Rebuilt from the DOI by scripts/00 and 01.
 │   ├── raw/               As downloaded from Dataverse — never modified
 │   ├── interim/           Intermediate artefacts, reference downloads, audit samples
-│   └── derived/           speeches.parquet and the normalised/flagged tables
+│   └── derived/           speeches.parquet, the normalised/flagged tables, series/
 ├── docs/
 │   ├── CORPUS.md          Corpus documentation: variables, traps, first findings
 │   ├── PLAN.md            Five-phase action plan
@@ -144,6 +147,27 @@ published in [`docs/CORPUS.md` §8](docs/CORPUS.md) exactly, `genocid*` among th
 no real words. Three terms exceed their documented *occurrence* count because the lexicon
 matches an acronym the reconnaissance scan did not (`ICC`, `R2P`, `shoah`); the
 arithmetic is set out in [`docs/VALIDATION.md`](docs/VALIDATION.md).
+
+### What the 2014 peak turns out to be
+
+The first finding above — *the 2014 peak exceeds 1994 in absolute volume* — does not
+survive normalisation, and `scripts/04` is where that gets settled rather than argued.
+
+Change points are located by scanning every sub-interval of the annual series for the
+split that most reduces residual variance, then testing it against 2,000 reorderings of
+the same values. On the raw series the answer is unambiguous: **speeches break at 2013,
+occurrences at 2014**, both roughly a factor of 2.4. On either rate — per speech, per
+100k tokens — **there is no detectable break anywhere in thirty-two years**. Speeches per
+year roughly doubled over the same span; the word kept pace with the Council, and nothing
+more. The most genocide-dense year in the corpus is still **1994**, at 6.46% of speeches
+against 2014's 5.35%.
+
+The same pass returned something the plan did not anticipate. The wider *atrocity core* —
+genocide, ethnic cleansing, crimes against humanity, war crimes, mass atrocity — **does**
+break on the rate, three times: 1996 (×0.70), 2013 (×1.24), 2017 (×0.74). Whatever moves
+in this discourse does not move at the level of the single word. That is evidence for
+treating the 7,936-speech atrocity set as the object of study rather than as context, which
+is [`docs/PLAN.md` §7](docs/PLAN.md)'s third open question.
 
 ---
 
