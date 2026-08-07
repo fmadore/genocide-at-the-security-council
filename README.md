@@ -19,8 +19,9 @@ pipeline, the analysis scripts and the web application.
 | Normalisation & country crosswalk | ✅ `scripts/02` · [`config/entities.csv`](config/entities.csv) |
 | Lexicon flagging & precision audit | ✅ `scripts/03` (audit sample awaiting a human verdict) |
 | Temporal series & change points | ✅ `scripts/04` · [`config/events.csv`](config/events.csv) |
+| Lexicometry — collocates, keyness, network | ✅ `scripts/05` · [`config/stopwords.txt`](config/stopwords.txt) |
 | Concordance (80,011 lines, 22 terms) | ✅ `scripts/08` |
-| Lexicometry / topics / embeddings | ⬜ next — `scripts/05`–`07` |
+| Topics & embeddings | ⬜ next — `scripts/06`–`07` |
 | Dashboard (SvelteKit) | ⬜ |
 | LLM structured extraction | ⬜ |
 
@@ -40,6 +41,7 @@ python scripts/01_build_parquet.py   # → data/derived/speeches.parquet (131 MB
 python scripts/02_normalise.py       # → speeches_norm.parquet    (aliases, entities, groups)
 python scripts/03_lexicon.py         # → speeches_flagged.parquet (lexicon counts)
 python scripts/04_series.py          # → derived/series/*.json    (rates, change points)
+python scripts/05_lexical.py         # → derived/lexical/*.json   (collocates, keyness, PMI)
 python scripts/08_kwic.py            # → derived/kwic/*.json      (80,011 concordance lines)
 ```
 
@@ -58,7 +60,7 @@ module layout.
 python -m pytest
 ```
 
-147 tests, no data required — including integrity checks on the hand-edited files in
+179 tests, no data required — including integrity checks on the hand-edited files in
 `config/`. These and `ruff check` run on every push and pull request via
 [`.github/workflows/checks.yml`](.github/workflows/checks.yml), so a bad edit to a config
 file fails in CI rather than halfway through someone's pipeline run.
@@ -74,11 +76,12 @@ file fails in CI rather than halfway through someone's pipeline run.
 │   ├── entities.csv          country_org → type · ISO3 · UN group · centroid
 │   ├── country_aliases.csv   Labels denoting the same speaker
 │   ├── council_membership.csv  P5 and E10 terms, 1992-2023
+│   ├── stopwords.txt         Function words only — the file argues for the boundary
 │   └── events.csv            35 reference dates for the chart overlay (unverified)
 ├── data/                Gitignored. Rebuilt from the DOI by scripts/00 and 01.
 │   ├── raw/               As downloaded from Dataverse — never modified
 │   ├── interim/           Intermediate artefacts, reference downloads, audit samples
-│   └── derived/           speeches.parquet, the flagged table, series/, kwic/
+│   └── derived/           speeches.parquet, the flagged table, series/, lexical/, kwic/
 ├── docs/
 │   ├── CORPUS.md          Corpus documentation: variables, traps, first findings
 │   ├── PLAN.md            Five-phase action plan
@@ -170,6 +173,30 @@ break on the rate, three times: 1996 (×0.70), 2013 (×1.24), 2017 (×0.74). Wha
 in this discourse does not move at the level of the single word. That is evidence for
 treating the 7,936-speech atrocity set as the object of study rather than as context, which
 is [`docs/PLAN.md` §7](docs/PLAN.md)'s third open question.
+
+### The same word, doing different work
+
+`scripts/05` profiles what `genocide` travels with — by log-likelihood over a stated
+function-word stoplist, with log ratio beside every figure, because on 59 million tokens
+significance is cheap and effect size is not.
+
+Almost every speaker's strongest collocates are the Rome Statute triad: `crimes`,
+`humanity`, `war`. **Rwanda's are not.** Across its 187 genocide-bearing speeches the
+profile is `tutsi`, `denial`, `ideology`, `convicts`, `fdlr`, `fugitives` — a register of
+accountability and denial rather than of legal qualification. Bosnia's is a third thing
+again: `srebrenica`, `cleansing`, `aggression`.
+
+The vocabulary also turns over in time. In 1992–1999 the word sits among `aggression`,
+`punishment`, `acts`; by 2020–2023 among `denial`, `glorification`, `criminals`. It moves
+from qualifying an event to contesting a memory of one.
+
+Keyness is measured against a control matched on year × agenda item × speaker group —
+94.8% of targets found a partner, and the 100 strata that could not be filled are listed
+rather than back-filled. The unmatched comparison ships alongside it, not as a result but
+as the thing the matching is meant to improve on: median effect size across the top
+unmatched keywords falls by a factor of 3.6 once the occasion is held constant. `bosnia`,
+`herzegovina` and `tribunals` drop out entirely; `genocide`, `humanity` and `rwandan`
+survive.
 
 ---
 

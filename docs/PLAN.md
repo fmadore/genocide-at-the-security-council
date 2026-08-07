@@ -169,21 +169,42 @@ year in the corpus is still 1994.
 vocabulary as a whole, not in `genocide` alone. That is direct evidence on open question 3
 below, and it argues for the 7,936-speech set as the real object of study.
 
-### 3.2 `05_lexical.py` — lexicometry
+### 3.2 `05_lexical.py` — lexicometry ✅
 
-- **Collocates** by log-likelihood at several windows (±5, ±8, ±15), sliced by period and
-  by speaker group. The collocate profile of Rwanda vs Russia vs Liechtenstein is likely a
-  headline result.
-- **Keyness**: which words distinguish genocide-bearing speeches from a matched control
-  set (same year, same agenda item, same speaker type)? Matching matters — an unmatched
-  comparison just recovers "these are speeches about Rwanda".
-- **Word clouds** — requested, and worth shipping, but scoped honestly: they go in as a
-  *secondary* rendering of the collocate/keyness tables, never as the primary evidence.
-  A cloud sorted by log-likelihood with a stated stoplist is defensible; a raw-frequency
-  cloud is not.
-- **Co-occurrence network** of the 14 lexicon terms (ECharts graph layout), edge weight =
-  pointwise mutual information, sliceable by decade. This should make the Rome Statute
-  triad and the R2P quartet visible as structure.
+- [x] **Collocates** by log-likelihood at ±5, ±8 and ±15, sliced by period, speaker group
+      and speaker. Every row also carries **log ratio** (Hardie 2014): on 59 M tokens
+      almost everything is significant, and the effect size is what decides whether a row
+      is a finding.
+      → **The speaker slice is the headline the plan predicted.** Rwanda's profile is
+      unlike anyone's: `tutsi`, `denial`, `ideology`, `convicts`, `fdlr`, `fugitives` — an
+      accountability-and-denial register. Everyone else's top collocates are the Rome
+      Statute triad. Bosnia's are `srebrenica`, `cleansing`, `aggression`.
+      → **The period slice shows the register turning over.** 1992-1999 runs on
+      `aggression`, `punishment`, `acts`; 2020-2023 on `denial`, `glorification`,
+      `criminals`. The word moves from qualifying an event to contesting a memory.
+- [x] **Keyness** against a control matched on year × agenda item × speaker group.
+      3,104 of 3,273 targets matched (94.8%); the 100 strata that could not be filled are
+      listed rather than back-filled, since they are the debates where nearly everyone
+      used the word.
+      → The unmatched comparison ships alongside, **not as a result but as the thing the
+      matching is meant to improve on**. Median effect size across the top 15 unmatched
+      keywords falls by 1.85 on the log2 scale — a factor of 3.6 in rate. `bosnia`,
+      `herzegovina` and `tribunals` drop out entirely; `genocide`, `humanity` and
+      `rwandan` survive. That is the occasion being subtracted from the concept, shown
+      rather than asserted.
+- [x] **Word clouds** are a *rendering* of these tables, not a separate artefact. Shipping
+      them as their own file would invite them to drift from the numbers they depict.
+- [x] **Co-occurrence network**, PMI at speech level, whole corpus and per period, with
+      **normalised** PMI as the edge weight so a term appearing in 30 speeches cannot buy
+      an edge with rarity alone.
+      → It does make the predicted structure visible: `crimes_against_humanity`↔`war_crimes`
+      (nPMI 0.735) and `genocide`↔both are the three strongest edges in the graph, and
+      `denial`↔`glorification` (0.470) shows up as its own pair.
+
+**`config/stopwords.txt` is function words only**, and the file says why at length: whether
+`council` sits disproportionately close to `genocide` is exactly what the collocate
+analysis exists to find out, and a stoplist that removed it would answer the question by
+assumption.
 
 ### 3.3 `06_topics.py` — topic modelling
 

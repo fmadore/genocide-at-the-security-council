@@ -25,7 +25,7 @@ C:/Users/frede/AppData/Local/Programs/Python/Python312/python.exe
 | 02 | `02_normalise.py` | `speeches.parquet`, `config/{entities,country_aliases,council_membership}.csv` | `derived/speeches_norm.parquet` | ✅ |
 | 03 | `03_lexicon.py` | `speeches_norm.parquet`, `config/lexicon.yml` | `derived/speeches_flagged.parquet` | ✅ |
 | 04 | `04_series.py` | `speeches_flagged.parquet`, `config/events.csv` | `derived/series/*.json` | ✅ |
-| 05 | `05_lexical.py` | `speeches_flagged.parquet` | `derived/lexical/*.json` | ⬜ |
+| 05 | `05_lexical.py` | `speeches_flagged.parquet`, `config/stopwords.txt` | `derived/lexical/*.json` | ✅ |
 | 06 | `06_topics.py` | `speeches_flagged.parquet` | `derived/topics/*.json` | ⬜ |
 | 07 | `07_embed.py` | `speeches_flagged.parquet` | `derived/embeddings/*.json` | ⬜ |
 | 08 | `08_kwic.py` | `speeches_flagged.parquet` | `derived/kwic/*.json` | ✅ |
@@ -49,6 +49,7 @@ See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establis
 | [`lib/lexicon.py`](lib/lexicon.py) | Loads, compiles and counts `config/lexicon.yml`. |
 | [`lib/series.py`](lib/series.py) | Periods, denominators, rates, breakdowns; change-point detection; the event overlay. |
 | [`lib/kwic.py`](lib/kwic.py) | Sentence segmentation for the genre, and concordance-line extraction. |
+| [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood and log ratio, matched controls, PMI. |
 
 ## Tools
 

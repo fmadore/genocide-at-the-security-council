@@ -38,6 +38,7 @@ ENTITIES = CONFIG / "entities.csv"
 COUNTRY_ALIASES = CONFIG / "country_aliases.csv"
 COUNCIL_MEMBERSHIP = CONFIG / "council_membership.csv"
 EVENTS = CONFIG / "events.csv"
+STOPWORDS = CONFIG / "stopwords.txt"
 
 # --- Analysis artefacts ---------------------------------------------------
 # One directory per step. These are the inputs the dashboard is assembled from;
