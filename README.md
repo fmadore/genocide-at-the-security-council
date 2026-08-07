@@ -26,7 +26,11 @@ pipeline, the analysis scripts and the web application.
 
 ## Quick start
 
-Requires **Python 3.12 (x64)** with `pandas` and `pyarrow`.
+Requires **Python 3.12 (x64)** — on Windows, the installation that has a `pyarrow` wheel.
+
+```bash
+python -m pip install -r requirements.txt
+```
 
 ```bash
 python scripts/00_fetch_data.py      # ~500 MB from Harvard Dataverse into data/raw/
@@ -51,13 +55,16 @@ python -m pytest
 ```
 
 85 tests, no data required — including integrity checks on the hand-edited files in
-`config/`.
+`config/`. These and `ruff check` run on every push and pull request via
+[`.github/workflows/checks.yml`](.github/workflows/checks.yml), so a bad edit to a config
+file fails in CI rather than halfway through someone's pipeline run.
 
 ---
 
 ## Layout
 
 ```
+├── .github/workflows/   checks.yml (ruff + pytest) · deploy.yml (Pages)
 ├── config/              Versioned analysis inputs — edit these, not the scripts
 │   ├── lexicon.yml           Genocide lexicon: patterns, tiers, discursive registers
 │   ├── entities.csv          country_org → type · ISO3 · UN group · centroid

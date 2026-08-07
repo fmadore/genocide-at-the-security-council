@@ -1,0 +1,44 @@
+# Lint and test the Python pipeline.
+#
+# Deliberately *not* path-filtered. The failure this guards against is a bad edit
+# to config/entities.csv, config/lexicon.yml or config/council_membership.csv —
+# tests/test_config.py runs against those real files — and any path filter that
+# forgets one reintroduces exactly the gap it was meant to close. The suite needs
+# no data and no network, and finishes in about a second.
+
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - run: python -m pip install -r requirements-dev.txt
+
+      # `ruff format --check` is not run: the source is hand-formatted and
+      # reformatting it wholesale is a separate decision, not a CI failure.
+      - name: ruff
+        run: ruff check --output-format=github .
+
+      - name: pytest
+        run: python -m pytest
