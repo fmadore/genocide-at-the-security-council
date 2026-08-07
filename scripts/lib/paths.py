@@ -23,8 +23,20 @@ DOCS = ROOT / "docs"
 NOTES = ROOT / "notes"      # Markdown findings notes emitted by scripts
 WEB_DATA = ROOT / "web" / "static" / "data"  # dashboard payloads
 
-SPEECHES = DERIVED / "speeches.parquet"
-MEETINGS = DERIVED / "meetings.parquet"
+# --- Canonical data -------------------------------------------------------
+SPEECHES = DERIVED / "speeches.parquet"           # 01 — raw join, never edited
+MEETINGS = DERIVED / "meetings.parquet"           # 01
+SPEECHES_NORM = DERIVED / "speeches_norm.parquet"      # 02 — normalised
+SPEECHES_FLAGGED = DERIVED / "speeches_flagged.parquet"  # 03 — lexicon columns
+
+# --- Hand-checked analysis inputs -----------------------------------------
+# These are curated artefacts under version control, not computed outputs.
+# A script that consumes one must fail loudly on any value it has never seen,
+# otherwise new data silently drops out of the analysis.
+LEXICON = CONFIG / "lexicon.yml"
+ENTITIES = CONFIG / "entities.csv"
+COUNTRY_ALIASES = CONFIG / "country_aliases.csv"
+COUNCIL_MEMBERSHIP = CONFIG / "council_membership.csv"
 
 # Harvard Dataverse
 DOI = "doi:10.7910/DVN/KGVSYH"
@@ -47,3 +59,11 @@ def write_note(name: str, body: str) -> Path:
     path = NOTES / name
     path.write_text(body, encoding="utf-8")
     return path
+
+
+def rel(path: Path) -> str:
+    """Render a path relative to the repository root, for readable logs."""
+    try:
+        return path.relative_to(ROOT).as_posix()
+    except ValueError:
+        return str(path)

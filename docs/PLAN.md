@@ -79,42 +79,59 @@ line.
 
 ## 2. Phase 1 — Data preparation
 
-**Status: substantially done during reconnaissance.** `01_build_parquet.py` exists and
-validates clean (106,302 rows, 0 missing texts, 0 orphans).
+**Status: complete**, bar one item that needs a human (the precision audit verdict).
+`01_build_parquet.py` validates clean (106,302 rows, 0 missing texts, 0 orphans); `02`
+and `03` run clean on top of it.
 
-Remaining work:
+### 2.1 `scripts/02_normalise.py` ✅
 
-### 2.1 `scripts/02_normalise.py`
-
-- [ ] Merge `country_org` aliases (§5.3 of the README) via an explicit, version-controlled
-      mapping file — not a fuzzy matcher. Around a dozen pairs; auditable by hand.
-- [ ] Normalise case on `agenda_item2/3/4` and `participanttype` (`The PRESIDENT` → `The President`).
-- [ ] Build **`config/entities.csv`**: one row per distinct `country_org`, with
+- [x] Merge `country_org` aliases (§5.3 of the README) via an explicit, version-controlled
+      mapping file — not a fuzzy matcher. → **`config/country_aliases.csv`**, 32 entries,
+      629 raw labels to 601 canonical. Renames are merged (Türkiye/Turkey); successions
+      are not (Zaire, Yugoslavia, Serbia and Montenegro keep their own rows).
+- [x] Normalise case on `agenda_item2/3/4` and `participanttype` (`The PRESIDENT` → `The President`).
+      → `text.modal_case` collapses onto the *most frequent* spelling rather than imposing
+      a title-case rule. `agenda_item2` 124 → 108, matching the 16 collisions documented
+      in CORPUS.md; `topic` 590 → 546.
+- [x] Build **`config/entities.csv`**: one row per distinct `country_org`, with
       `iso3` · `entity_type` (state / IGO / UN agency / NGO / civil society / academia /
       company / other) · `lat` · `lon` · `un_regional_group`.
-      ~195 states can be matched automatically against an ISO list; the ~435 remaining
-      entities need manual typing. Budget half a day. **This is the single most
-      labour-intensive prep task and it gates the map.**
-      *Confirmed in scope: all countries will be mapped.* Since the crosswalk is a
-      hand-checked artefact rather than a computed one, it lives in `config/` under
-      version control, and the script that consumes it must fail loudly on any
-      `country_org` value it has never seen — otherwise new data silently drops off the
-      map.
-- [ ] Strip the opening form of address from each text into a `text_body` column, keeping
-      the raw text for display. Regex on the segmentation pattern the authors used.
-- [ ] Flag P5 / E10 / non-member / UN / non-state per speech, per year (Council membership
-      changes annually — needs an E10 roster table by year).
+      → 601 rows: 200 states (all with ISO3, centroid and UN regional group), 166 civil
+      society, 59 IGO, 50 NGO, 49 other, 33 academia, 27 UN, 17 company.
+      `tools/bootstrap_entities.py` proposes rows from ISO 3166 + a centroid dataset and
+      never edits the checked-in file; `--missing` re-proposes only new speakers.
+      `entities.validate_coverage` fails the run on any untyped `country_org`, and the
+      tests assert that no non-state carries a centroid.
+- [x] Strip the opening form of address from each text into a `text_body` column, keeping
+      the raw text for display. → stored as a `body_start` **offset** rather than a second
+      129 MB copy of the text; `frames.body()` reconstitutes it in one call, and offsets
+      stay valid into the full text for the reader's highlighting. Matches 95.13%; the
+      remaining 4.87% are continuation speeches with no address and are left untruncated.
+- [x] Flag P5 / E10 / non-member / UN / non-state per speech, per year.
+      → **`config/council_membership.csv`**, one row per term. Validated two ways: every
+      year 1992-2023 must hold exactly 5 permanent and 10 elected seats, and every
+      recorded member must actually speak in the year it served. Both pass.
+- [x] *Bonus, not in the original plan:* **delivery language** recovered for 42,765
+      speeches (40.2%) from the `(spoke in …)` markers — see §7 open question 4, which
+      this partly answers.
 
-### 2.2 `scripts/03_lexicon.py`
+### 2.2 `scripts/03_lexicon.py` ✅
 
-- [ ] Formalise the lexicon as a versioned YAML file: term → regex → register
-      (legal / preventive / commemorative / contentious / adjacent).
-- [ ] Add OCR-tolerant variants (`gen[eo]cid`, `s[eg]nocide`) and measure how many extra
+- [x] Formalise the lexicon as a versioned YAML file: term → regex → register
+      (legal / preventive / commemorative / contentious / adjacent). → 22 active terms,
+      compiled with their tier and register; sets validated against defined terms.
+- [x] Add OCR-tolerant variants (`gen[eo]cid`, `s[eg]nocide`) and measure how many extra
       matches they yield — report the number, don't silently absorb it.
-- [ ] Emit per-speech boolean + count columns for each term into `speeches_flagged.parquet`.
+      → **exactly 1** extra speech across the whole corpus (`genecide`, S/PV.3137, 1992).
+      The pattern stays disabled; the case is logged in `docs/VALIDATION.md`.
+- [x] Emit per-speech boolean + count columns for each term into `speeches_flagged.parquet`.
+      → 62 lexicon columns: `n_`/`has_` per term, per register and per set.
+      Counting on the body reproduces the documented 3,273 speeches / 6,092 occurrences
+      exactly, which confirms the form of address holds no real words.
 - [ ] **Sanity audit**: hand-check a random 100 matches for false positives (e.g. "genocide"
       inside a quoted resolution title, or a treaty name). Report a precision estimate in
-      the README.
+      the README. → **sample emitted** to `data/interim/lexicon_audit_sample.csv` with an
+      empty `verdict` column, reproducible via `--seed`. *Awaiting a human verdict.*
 
 ---
 
@@ -407,6 +424,13 @@ puts the corpus in the team's hands early enough to shape everything after it.
 4. **Multilingualism.** The corpus is English-only by construction (§10.4). Worth stating
    as a limitation, or worth attempting to recover original-language records for a subset?
    The latter is a substantial separate project.
+   **Partly answered by Phase 1:** the *delivery language* is now known for 42,765
+   speeches (40.2%), read off the form of address. So the limitation can be stated
+   quantitatively rather than vaguely — two speeches in five are translations — and the
+   subset worth recovering originals for is now identifiable rather than hypothetical.
+   It also opens a question the plan did not anticipate: does invocation of "genocide"
+   vary with the language a speech was delivered in, holding speaker and period constant?
+   That is a cheap crosstab on data we already have.
 5. **Should the LLM layer read whole speeches or windows?** Whole speeches give context and
    political intent; ±300-word windows give the *use* of the word and cost a fifth as much.
    Stage A should test both on the same 30 speeches before Stage C commits.

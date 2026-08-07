@@ -1,0 +1,23 @@
+# Tooling configuration only — this repository is a pipeline, not a package.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["data", "web"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF"]
+ignore = [
+    "E501",  # long lines are checked by the formatter's judgement, not a hard stop
+]
+
+[tool.ruff.lint.per-file-ignores]
+# The numbered scripts and tools insert scripts/ on sys.path before importing
+# lib, so their imports cannot sit at the top of the file.
+"scripts/[0-9]*.py" = ["E402"]
+"tools/*.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["error::DeprecationWarning"]

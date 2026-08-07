@@ -19,7 +19,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib.paths import DATAVERSE, DOI, RAW  # noqa: E402
+from lib.paths import DATAVERSE, DOI, RAW
 
 # The pipeline reads only these three. docs.RData / docs_meta.RData are
 # redundant R serialisations of the same content (119 MB) — opt in with --all.

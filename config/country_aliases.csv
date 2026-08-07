@@ -1,0 +1,47 @@
+alias,canonical,reason
+# Labels in speaker.tsv that denote the same speaker under a different name.
+# Applied by scripts/02_normalise.py before any aggregation; config/entities.csv
+# is keyed on the canonical form.
+#
+# Merged here: spelling and case collisions, transliterations, and official
+# renamings of a state that did not change its identity (Turkey/Türkiye).
+#
+# NOT merged, and deliberately so: Zaire, Yugoslavia and Serbia And Montenegro,
+# where the state itself changed rather than its name. Those keep their own rows
+# in config/entities.csv and carry a successor iso3 so the map can still place
+# them. Organization of African Unity is likewise kept apart from African Union.
+#
+# The canonical form is the current official name where one exists, otherwise
+# the most frequent spelling.
+Türkiye,Turkey,Official renaming (2022); Turkey is the form used in 92% of this corpus
+Czechia,Czech Republic,Official renaming (2016); Czech Republic dominates this period
+Cabo Verde,Cape Verde,Official renaming (2013); Cape Verde dominates this period
+Plurinational State Of Bolivia,Bolivia (Plurinational State Of),Word-order variant
+Federated States Of Micronesia,Micronesia (Federated States of),Word-order variant
+Hashemite Kingdom Of Jordan,Jordan,Long-form title of the same state
+North Macedonia,Former Yugoslav Republic Of Macedonia,Renamed 2019; kept under the form used for most of the period
+Interpol,INTERPOL,Case collision
+Group Of Five For The Sahel,Group of Five for the Sahel,Case collision
+Organization Of The Islamic Conference,Organization of Islamic Cooperation,Renamed 2011
+Organization Of Islamic Cooperation,Organization of Islamic Cooperation,Case collision
+Organisation of Islamic Cooperation,Organization of Islamic Cooperation,Spelling variant
+Organization for the Prohibition of Chemical Weapons,OPCW,Expanded form of the same body
+ICJ,International Court Of Justice,Initialism
+WHO,World Health Organization,Initialism
+IOM,International Organization for Migration,Initialism
+UNHCR,UN High Commissioner for Refugees,Initialism
+IRC,International Rescue Committee,Initialism
+IMF,International Monetary Fund,Initialism
+United Nations Office On Drugs And Crime,UN Office on Drugs and Crime,Expanded form
+Communauté économique des Etats de l'Afrique centrale,Economic Community Of Central African States,French name of ECCAS
+Commission of the Gulf of Guinea,Gulf Of Guinea Commission,Word-order variant
+Commonwealth,Commonwealth Of Nations,Short form
+Comunità di Sant'Egidio,Community Of Sant'Egidio,Italian name
+Community Of Sant'egidio,Community Of Sant'Egidio,Case collision
+Reconstituted Joint Monitoring and Evaluation Commission (South Sudan),Reconstituted Joint Monitoring And Evaluation Commission,Qualified form
+Policy And Senior Adviser At Physicians For Human Rights,Physicians For Human Rights,Speaker role captured instead of the organisation
+Peace Track Initiative Yemen,Peace Track Initiative,Qualified form
+Flyktningerad (Norway),Norwegian Refugee Council,Norwegian name of the same organisation
+Afghan Independent Human Rights Commission,Afghanistan Independent Human Rights Commission,Short form
+Group of Friends on Climate and Security,Group Of Friends On Climate And Security,Case collision
+African Unity,Organization Of African Unity,Truncated label; the OAU preceded the African Union until 2002
