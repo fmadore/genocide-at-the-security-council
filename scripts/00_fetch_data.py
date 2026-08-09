@@ -27,13 +27,29 @@ from lib.paths import DATASET_VERSION, DATAVERSE, DOI, RAW
 # The pipeline reads only these three. docs.RData / docs_meta.RData are
 # redundant R serialisations of the same content (119 MB) — opt in with --all.
 REQUIRED = {"speeches.tar", "speaker.tsv", "meta.tsv"}
+USER_AGENT = (
+    "un-security-council-debates/1.0 "
+    "(+https://github.com/fmadore/un-security-council-debates)"
+)
+
+
+def dataverse_request(url: str, *, accept: str) -> urllib.request.Request:
+    """Identify this project to Dataverse instead of using urllib's blocked default."""
+    return urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept": accept,
+        },
+    )
 
 
 def dataset_version(version: str) -> dict:
     """Read one explicit published dataset version, including its file list."""
     query = urlencode({"persistentId": DOI, "excludeFiles": "false"})
     url = f"{DATAVERSE}/api/datasets/:persistentId/versions/{quote(version)}?{query}"
-    with urllib.request.urlopen(url, timeout=60) as resp:
+    request = dataverse_request(url, accept="application/json")
+    with urllib.request.urlopen(request, timeout=60) as resp:
         payload = json.load(resp)
     return payload["data"]
 
@@ -57,7 +73,8 @@ def download(file_id: int, dest: Path, size: int) -> None:
     url = f"{DATAVERSE}/api/access/datafile/{file_id}"
     tmp = dest.with_suffix(dest.suffix + ".part")
     done = 0
-    with urllib.request.urlopen(url, timeout=120) as resp, tmp.open("wb") as out:
+    request = dataverse_request(url, accept="application/octet-stream")
+    with urllib.request.urlopen(request, timeout=120) as resp, tmp.open("wb") as out:
         while chunk := resp.read(1 << 20):
             out.write(chunk)
             done += len(chunk)
