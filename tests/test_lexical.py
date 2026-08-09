@@ -76,6 +76,12 @@ class TestAround:
         span = (source.index("crimes"), source.index("humanity") + len("humanity"))
         assert tokens.around(span, 3) == ["the", "were"]
 
+    def test_overlapping_windows_count_shared_context_once(self):
+        source = "one genocide shared genocide two"
+        tokens = lexical.tokenise(source)
+        starts = [m.span() for m in re.finditer("genocide", source)]
+        assert tokens.context(starts, 2) == ["one", "shared", "two"]
+
 
 class TestLogLikelihood:
     def test_a_word_at_the_same_rate_in_both_scores_zero(self):
@@ -164,13 +170,23 @@ class TestMatchedControl:
 
     def test_controls_come_from_the_target_stratum(self, frame):
         control = lexical.matched_control(frame, "hit", ["year", "agenda"])
-        picked = frame.loc[control.index]
+        picked = frame.loc[control.control_index]
         assert (~picked["hit"]).all()
         assert sorted(picked["year"].value_counts().to_dict().items()) == [(1994, 3), (2000, 1)]
 
     def test_no_control_is_used_twice(self, frame):
         control = lexical.matched_control(frame, "hit", ["year", "agenda"])
-        assert len(set(control.index)) == len(control.index)
+        assert len(set(control.control_index)) == len(control.control_index)
+
+    def test_targets_and_controls_are_true_pairs(self, frame):
+        control = lexical.matched_control(frame, "hit", ["year", "agenda"])
+        targets = frame.loc[control.target_index].reset_index(drop=True)
+        controls = frame.loc[control.control_index].reset_index(drop=True)
+        assert len(targets) == len(controls) == control.matched
+        assert targets["hit"].all() and (~controls["hit"]).all()
+        assert list(zip(targets["year"], targets["agenda"], strict=True)) == list(
+            zip(controls["year"], controls["agenda"], strict=True)
+        )
 
     def test_a_stratum_that_cannot_be_filled_is_reported(self, frame):
         """A debate where nearly everyone said the word. Silently under-covering
@@ -184,12 +200,13 @@ class TestMatchedControl:
     def test_the_same_seed_draws_the_same_controls(self, frame):
         first = lexical.matched_control(frame, "hit", ["year", "agenda"], seed=3)
         second = lexical.matched_control(frame, "hit", ["year", "agenda"], seed=3)
-        assert list(first.index) == list(second.index)
+        assert list(first.target_index) == list(second.target_index)
+        assert list(first.control_index) == list(second.control_index)
 
     def test_a_stratum_with_no_controls_at_all_contributes_none(self):
         frame = pd.DataFrame([{"year": 1994, "agenda": "Rwanda", "hit": True}])
         control = lexical.matched_control(frame, "hit", ["year", "agenda"])
-        assert len(control.index) == 0
+        assert len(control.target_index) == len(control.control_index) == 0
         assert control.coverage == 0.0
 
 
@@ -238,6 +255,20 @@ class TestPmiNetwork:
     def test_an_empty_frame_yields_no_edges(self):
         empty = pd.DataFrame({"has_a": pd.Series(dtype=bool), "has_b": pd.Series(dtype=bool)})
         assert lexical.pmi_network(empty, self.lex("a", "b")) == []
+
+    def test_declared_nested_terms_do_not_create_definitional_edges(self):
+        parent = term("parent", "parent")
+        child = Term(
+            name="child",
+            pattern="child",
+            tier="core",
+            register="core",
+            nested_under="parent",
+            regex=re.compile("child"),
+        )
+        lex = Lexicon(version=1, updated="2026-08-09", terms={"parent": parent, "child": child}, sets={})
+        frame = pd.DataFrame({"has_parent": [True] * 4, "has_child": [True] * 4})
+        assert lexical.pmi_network(frame, lex, min_speeches=1) == []
 
 
 class TestStopwords:

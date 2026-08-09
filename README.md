@@ -24,11 +24,11 @@ account is a decoration.
 | Lexicon flagging & precision audit | ✅ `scripts/03` (audit sample awaiting a human verdict) |
 | Temporal series & change points | ✅ `scripts/04` · [`config/events.csv`](config/events.csv) |
 | Lexicometry — collocates, keyness, network | ✅ `scripts/05` · [`config/stopwords.txt`](config/stopwords.txt) |
-| Concordance (80,011 lines, 22 terms) | ✅ `scripts/08` |
+| Concordance (79,569 lines, 22 terms) | ✅ `scripts/08` |
 | Speech export & web payload | ✅ `scripts/09`, `scripts/export_web.py` |
-| Dashboard — 5 views, SvelteKit 2 / Svelte 5 | ✅ [`web/`](web/) (deployment source for the 483 MB payload still to choose) |
-| Topics & embeddings | ⬜ `scripts/06`–`07` — needs the `torch` decision in [`docs/PLAN.md` §1.1](docs/PLAN.md) |
-| LLM structured extraction | ⬜ |
+| Dashboard — 5 views, SvelteKit 2 / Svelte 5 | ✅ [`web/`](web/); Pages rebuilds the 488 MB payload from v6.1 |
+| Actor view | ⬜ gated after the first validated release |
+| Topics, embeddings, LLM extraction | ⏸ deferred behind evaluation gates in [`docs/PLAN.md`](docs/PLAN.md) |
 
 ---
 
@@ -37,7 +37,7 @@ account is a decoration.
 Requires **Python 3.12 (x64)** — on Windows, the installation that has a `pyarrow` wheel.
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install --require-hashes -r requirements.lock
 ```
 
 ```bash
@@ -47,8 +47,8 @@ python scripts/02_normalise.py       # → speeches_norm.parquet    (aliases, en
 python scripts/03_lexicon.py         # → speeches_flagged.parquet (lexicon counts)
 python scripts/04_series.py          # → derived/series/*.json    (rates, change points)
 python scripts/05_lexical.py         # → derived/lexical/*.json   (collocates, keyness, PMI)
-python scripts/08_kwic.py            # → derived/kwic/*.json      (80,011 concordance lines)
-python scripts/09_export_speeches.py # → web/static/data/speeches (6,595 meeting files)
+python scripts/08_kwic.py            # → derived/kwic/*.json      (79,569 concordance lines)
+python scripts/09_export_speeches.py # → web/static/data/speeches (6,595 document files)
 python scripts/export_web.py         # → web/static/data          (assembles the payload)
 ```
 
@@ -62,7 +62,7 @@ Each step asserts its output and exits non-zero on any mismatch rather than leav
 plausible-looking artefact behind. A clean `01` reports:
 
 ```
-106,302 speeches | 6,595 meetings | 1992-01-06 to 2023-12-30 | 66,392,703 tokens
+106,302 speeches | 6,595 documents | 6,582 meeting symbols | 66,392,703 tokens
 ```
 
 Everything downstream reads the parquet and never touches the raw files again.
@@ -73,7 +73,7 @@ module layout.
 python -m pytest
 ```
 
-185 tests, no data required — including integrity checks on the hand-edited files in
+More than 200 tests, no data required — including integrity checks on the hand-edited files in
 `config/`. These, `ruff check`, and the dashboard's `prettier` / `eslint` / `svelte-check`
 run on every push and pull request via
 [`.github/workflows/checks.yml`](.github/workflows/checks.yml), so a bad edit to a config
@@ -91,7 +91,7 @@ file fails in CI rather than halfway through someone's pipeline run.
 │   ├── country_aliases.csv   Labels denoting the same speaker
 │   ├── council_membership.csv  P5 and E10 terms, 1992-2023
 │   ├── stopwords.txt         Function words only — the file argues for the boundary
-│   └── events.csv            35 reference dates for the chart overlay (unverified)
+│   └── events.csv            35 primary-sourced reference dates for the chart overlay
 ├── data/                Gitignored. Rebuilt from the DOI by scripts/00 and 01.
 │   ├── raw/               As downloaded from Dataverse — never modified
 │   ├── interim/           Intermediate artefacts, reference downloads, audit samples
@@ -107,7 +107,7 @@ file fails in CI rather than halfway through someone's pipeline run.
 ├── tests/               pytest; runs against the real config/, needs no data
 ├── tools/               One-off maintenance helpers (entity crosswalk bootstrap)
 └── web/                 SvelteKit dashboard — src/routes is one file per view
-    └── static/data/       Gitignored. 483 MB, built by scripts/09 and export_web.py
+    └── static/data/       Gitignored. 488 MB, built by scripts/09 and export_web.py
 ```
 
 ---
@@ -118,7 +118,7 @@ file fails in CI rather than halfway through someone's pipeline run.
 |---|---|
 | **Source** | Schoenfeld, Eckhard, Patz, van Meegdenburg & Pires — [doi:10.7910/DVN/KGVSYH](https://doi.org/10.7910/DVN/KGVSYH), v6.1 |
 | **Licence** | **CC0 1.0** — public domain |
-| **Coverage** | 1992-01-06 → 2023-12-30 · 106,302 speeches · 6,582 meetings · 66.4 M tokens |
+| **Coverage** | 1992-01-06 → 2023-12-30 · 106,302 speeches · 6,595 documents / 6,582 meeting symbols · 66.4 M tokens |
 | **Paper** | [arXiv:1906.10969](https://arxiv.org/abs/1906.10969) |
 
 The raw distribution has two undocumented defects that silently corrupt a naive read — a
@@ -146,7 +146,7 @@ Full results in [`docs/CORPUS.md` §8](docs/CORPUS.md).
 
 Three things the pipeline established that were not visible in the raw distribution:
 
-- **Delivery language is recoverable for 42,765 speeches (40.2%)**, read off the
+- **A non-English delivery language is explicit for 42,765 speeches (40.2%)**, read off the
   `(spoke in French)` / `(interpretation from Arabic)` markers in the form of address and
   resolved against a closed 26-language vocabulary. French (14,603), Spanish (12,287),
   Arabic (6,157), Russian (5,015) and Chinese (4,500) dominate, with a long tail down to
@@ -161,33 +161,26 @@ Three things the pipeline established that were not visible in the raw distribut
   (`genecide`, S/PV.3137, 1992). The headline count is robust; the case is logged in
   [`docs/VALIDATION.md`](docs/VALIDATION.md) to be checked against the printed record.
 
-Counting on the speech body rather than the raw text reproduces **all fourteen** figures
-published in [`docs/CORPUS.md` §8](docs/CORPUS.md) exactly, `genocid*` among them at
-3,273 speeches and 6,092 occurrences. That confirms stripping the form of address removes
-no real words. Three terms exceed their documented *occurrence* count because the lexicon
-matches an acronym the reconnaissance scan did not (`ICC`, `R2P`, `shoah`); the
-arithmetic is set out in [`docs/VALIDATION.md`](docs/VALIDATION.md).
+Lexicon v2 makes each pattern auditable with declared examples and literal candidate
+filters, fixes singular/plural matching for `atrocity` and `mass atrocity`, and validates
+all 22 concordances against the annotation table. The generated counts supersede the
+earlier reconnaissance table; the differences are recorded in
+[`docs/VALIDATION.md`](docs/VALIDATION.md).
 
 ### What the 2014 peak turns out to be
 
 The first finding above — *the 2014 peak exceeds 1994 in absolute volume* — does not
 survive normalisation, and `scripts/04` is where that gets settled rather than argued.
 
-Change points are located by scanning every sub-interval of the annual series for the
-split that most reduces residual variance, then testing it against 2,000 reorderings of
-the same values. On the raw series the answer is unambiguous: **speeches break at 2013,
-occurrences at 2014**, both roughly a factor of 2.4. On either rate — per speech, per
-100k tokens — **there is no detectable break anywhere in thirty-two years**. Speeches per
-year roughly doubled over the same span; the word kept pace with the Council, and nothing
-more. The most genocide-dense year in the corpus is still **1994**, at 6.46% of speeches
-against 2014's 5.35%.
-
-The same pass returned something the plan did not anticipate. The wider *atrocity core* —
-genocide, ethnic cleansing, crimes against humanity, war crimes, mass atrocity — **does**
-break on the rate, three times: 1996 (×0.70), 2013 (×1.24), 2017 (×0.74). Whatever moves
-in this discourse does not move at the level of the single word. That is evidence for
-treating the 7,936-speech atrocity set as the object of study rather than as context, which
-is [`docs/PLAN.md` §7](docs/PLAN.md)'s third open question.
+The primary inferential layer scans one annual two-rate partition with the denominator intact:
+binomial likelihood for speech prevalence and Poisson likelihood for occurrences with
+token exposure. Two thousand no-change simulations repeat the complete breakpoint search,
+with Bonferroni correction across the three planned rate tests. The strongest partitions
+start in 2017 for genocide speech prevalence (later/earlier rate ratio 0.71), 2016 for its
+token rate (0.65), and 1996 for atrocity-core speech prevalence (0.71). Rejecting a constant
+rate does not prove an abrupt historical break: smooth trends, meeting-level clustering and
+Poisson overdispersion remain limitations. The raw-count breaks and wild binary segmentation
+remain visible as explicitly exploratory descriptions.
 
 ### The same word, doing different work
 
@@ -205,9 +198,10 @@ The vocabulary also turns over in time. In 1992–1999 the word sits among `aggr
 `punishment`, `acts`; by 2020–2023 among `denial`, `glorification`, `criminals`. It moves
 from qualifying an event to contesting a memory of one.
 
-Keyness is measured against a control matched on year × agenda item × speaker group —
-94.8% of targets found a partner, and the 100 strata that could not be filled are listed
-rather than back-filled. The unmatched comparison ships alongside it, not as a result but
+Keyness is measured with true target/control pairs matched on year × agenda item × speaker
+group — 3,104 of 3,273 targets found a partner (94.8%), and the 100 short strata are listed
+rather than back-filled. Twenty consecutive seeds quantify sampling sensitivity. The
+unmatched comparison ships alongside it, not as a result but
 as the thing the matching is meant to improve on: median effect size across the top
 unmatched keywords falls by a factor of 3.6 once the occasion is held constant. `bosnia`,
 `herzegovina` and `tribunals` drop out entirely; `genocide`, `humanity` and `rwandan`
@@ -229,5 +223,5 @@ This repository: see [`CITATION.cff`](CITATION.cff).
 
 ## Licence
 
-Corpus data is CC0 (Harvard Dataverse). A licence for the code and derived artefacts in
-this repository is **not yet set** — see the open items in [`docs/PLAN.md` §7](docs/PLAN.md).
+Corpus data is CC0 (Harvard Dataverse). A licence for the code and project-authored derived
+artefacts is **not yet set** — see the release gate in [`docs/PLAN.md`](docs/PLAN.md#13-release-metadata).

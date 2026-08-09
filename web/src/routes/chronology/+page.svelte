@@ -1,11 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import Chart from '$lib/Chart.svelte';
 	import Figure from '$lib/Figure.svelte';
-	import { count, decimal, isoDate, percent, termLabel } from '$lib/format';
+	import { count, decimal, escapeHtml, isoDate, percent, termLabel } from '$lib/format';
 	import {
 		axisX,
 		axisY,
 		categorical,
+		colourScheme,
 		grid,
 		legend,
 		palette,
@@ -19,6 +22,10 @@
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+	const colours = $derived.by(() => {
+		void $colourScheme;
+		return palette();
+	});
 
 	type Unit = 'speech_rate' | 'token_rate' | 'occurrences' | 'speeches';
 
@@ -75,7 +82,7 @@
 				? `${termLabel(name.slice(4))} (set)`
 				: termLabel(name);
 
-	const colourOf = (name: string, p = palette()) =>
+	const colourOf = (name: string, p = colours) =>
 		name.startsWith('register:')
 			? registerColour(name.slice(9), p)
 			: allMeasures[name]?.register
@@ -101,7 +108,7 @@
 	const byYearLookup = $derived(new SvelteMap(eventMarks));
 
 	const main: EChartsOption = $derived.by(() => {
-		const p = palette();
+		const p = colours;
 		const usable = selected.filter((n) => allMeasures[n] && !unavailable.includes(n));
 		return {
 			textStyle,
@@ -158,7 +165,7 @@
 								tooltip: {
 									formatter: (params) =>
 										(byYearLookup.get(String((params as { name?: string }).name)) ?? [])
-											.map((e) => `<b>${isoDate(e.date)}</b><br>${e.label}`)
+											.map((e) => `<b>${isoDate(e.date)}</b><br>${escapeHtml(e.label)}`)
 											.join('<hr style="opacity:.2">')
 								},
 								data: eventMarks.map(([year]) => ({ xAxis: year, name: year }))
@@ -182,7 +189,7 @@
 		if (split === 'none') return null;
 		const block = data.splits.measures.genocide?.[split];
 		if (!block) return null;
-		const p = palette();
+		const p = colours;
 		const ramp = categorical(p);
 		const years = [...new Set(block.rows.map((r) => String(r.period)))].sort();
 		return {
@@ -207,12 +214,13 @@
 			series: block.categories.map((category, i) => ({
 				name: category,
 				type: 'line',
-				data: years.map(
-					(y) =>
-						block.rows.find((r) => String(r.period) === y && r.category === category)
-							?.speech_rate ?? null
-				),
-				connectNulls: true,
+				data: years.map((y) => {
+					const row = block.rows.find(
+						(candidate) => String(candidate.period) === y && candidate.category === category
+					);
+					return row ? { value: row.speech_rate, held: row.held } : null;
+				}),
+				connectNulls: false,
 				symbol: 'none',
 				lineStyle: { width: 2, color: ramp[i % ramp.length] },
 				itemStyle: { color: ramp[i % ramp.length] },
@@ -222,6 +230,15 @@
 	});
 
 	const genocideBreaks = $derived(data.breaks.series.genocide ?? {});
+	const genocideInference = $derived(data.breaks.inference.series.genocide ?? {});
+
+	function drillChronology(params: { name?: string; seriesName?: string }) {
+		if (!params.name || !params.seriesName) return;
+		const internal = Object.keys(allMeasures).find((name) => label(name) === params.seriesName);
+		if (!internal || internal.startsWith('set:') || internal.startsWith('register:')) return;
+		const year = params.name.slice(0, 4);
+		void goto(`${resolve('/concordance')}?term=${internal}&from=${year}&to=${year}`);
+	}
 </script>
 
 <svelte:head>
@@ -280,11 +297,11 @@
 		{#snippet caveat()}
 			<p>
 				<strong>The two raw units measure the corpus, not the discourse.</strong> The Council held {count(
-					data.year.corpus.speeches[0]
-				)} speeches in {periods[0]} and
-				{count(data.year.corpus.speeches[data.year.corpus.speeches.length - 1])} in
-				{periods[periods.length - 1]}; any series not divided by that is mostly a picture of that
-				growth.
+					source.corpus.speeches[0]
+				)} speeches in {source.periods[0]} and
+				{count(source.corpus.speeches[source.corpus.speeches.length - 1])} in
+				{source.periods[source.periods.length - 1]}; any series not divided by that is mostly a
+				picture of that growth.
 			</p>
 			<p>
 				Sets (<em>atrocity core</em>, <em>Rome triad</em>) have no occurrence count of their own,
@@ -297,7 +314,34 @@
 			option={main}
 			height="420px"
 			description="Time series of selected lexicon terms in the chosen unit."
+			onclick={drillChronology}
 		/>
+		<details class="data-table">
+			<summary>View the plotted values as a table</summary>
+			<table>
+				<thead
+					><tr
+						><th>Period</th
+						>{#each selected.filter((name) => !unavailable.includes(name)) as name (name)}<th
+								class="num">{label(name)}</th
+							>{/each}</tr
+					></thead
+				>
+				<tbody>
+					{#each periods as period, index (period)}
+						<tr
+							><td>{period}</td
+							>{#each selected.filter((name) => !unavailable.includes(name)) as name (name)}<td
+									class="num"
+									>{unit === 'speech_rate'
+										? percent(Number(allMeasures[name][unit]?.[index] ?? 0))
+										: decimal(Number(allMeasures[name][unit]?.[index] ?? 0))}</td
+								>{/each}</tr
+						>
+					{/each}
+				</tbody>
+			</table>
+		</details>
 	</Figure>
 
 	{#if unavailable.length}
@@ -329,24 +373,26 @@
 	</section>
 
 	<Figure
-		title="Change points in the genocide series"
-		question="Where does the series actually shift, rather than merely look as though it does?"
+		title="Rate heterogeneity in the genocide series"
+		question="Where is the strongest denominator-aware two-rate contrast?"
 		source="04_series.py → series/change_points.json"
 	>
 		{#snippet reading()}
 			<p>
-				Each row is one unit of the same series. A <strong>break</strong> is a point where splitting
-				the series most reduces its residual variance, and where fewer than
-				{percent(data.breaks.parameters.alpha)}
-				of {count(data.breaks.parameters.trials)} random reorderings of the same values do as well.
+				Each row is a denominator-aware two-rate model of the same annual series. Speech prevalence
+				uses a
+				<strong>binomial</strong> likelihood; occurrences use a <strong>Poisson</strong> likelihood
+				with annual token counts as exposure. The reported p-value is from
+				{count(data.breaks.inference.trials)} no-change simulations that repeat the full breakpoint search.
 			</p>
 			<p>
-				The method scans every sub-interval, not only the series as a whole, so a rise that subsides
-				again is found at both its edges rather than missed entirely.
+				The acceptance threshold is {percent(data.breaks.inference.per_test_alpha)} after
+				{data.breaks.inference.correction.toLowerCase()}. Confidence intervals describe the
+				aggregated rate on each side of the selected partition.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
-			<p>{data.breaks.caveat}</p>
+			<p>{data.breaks.inference.caveat}</p>
 			<p>
 				Minimum segment {data.breaks.parameters.min_size} periods, so a single anomalous year cannot be
 				reported as a regime.
@@ -357,37 +403,60 @@
 			<thead>
 				<tr>
 					<th>Unit</th>
-					<th>Break</th>
-					<th class="num">Before</th>
-					<th class="num">After</th>
+					<th>Partition</th>
+					<th class="num">Earlier</th>
+					<th class="num">Later</th>
 					<th class="num">Ratio</th>
 					<th class="num">p</th>
 				</tr>
 			</thead>
 			<tbody>
-				{#each Object.entries(genocideBreaks) as [name, breaks] (name)}
-					{#if breaks.length === 0}
+				{#each Object.entries(genocideInference) as [name, result] (name)}
+					{#if !result || !result.accepted}
 						<tr class="none">
 							<td>{UNITS.find((u) => u.id === name)?.label ?? name}</td>
-							<td colspan="5">no significant break in {periods.length} years</td>
+							<td colspan="5">constant annual rate not rejected after correction</td>
 						</tr>
 					{:else}
-						{#each breaks as b (b.label)}
-							<tr>
-								<td>{UNITS.find((u) => u.id === name)?.label ?? name}</td>
-								<td><strong>{b.label}</strong></td>
-								<td class="num">{decimal(b.before)}</td>
-								<td class="num">{decimal(b.after)}</td>
-								<td class="num" class:up={b.ratio > 1} class:down={b.ratio < 1}>
-									{decimal(b.ratio)}&times;
-								</td>
-								<td class="num">{b.p_value.toFixed(4)}</td>
-							</tr>
-						{/each}
+						<tr>
+							<td>{UNITS.find((u) => u.id === name)?.label ?? name}</td>
+							<td><strong>{result.label}</strong></td>
+							<td class="num"
+								>{name === 'speech_rate'
+									? percent(result.before)
+									: decimal(result.before * 100000)}</td
+							>
+							<td class="num"
+								>{name === 'speech_rate'
+									? percent(result.after)
+									: decimal(result.after * 100000)}</td
+							>
+							<td
+								class="num"
+								class:up={(result.ratio ?? 0) > 1}
+								class:down={(result.ratio ?? 1) < 1}
+								>{result.ratio == null ? '—' : `${decimal(result.ratio)}×`}</td
+							>
+							<td class="num">{result.p_value.toFixed(4)}</td>
+						</tr>
 					{/if}
 				{/each}
 			</tbody>
 		</table>
+		<details class="data-table">
+			<summary>View the exploratory WBS diagnostics</summary>
+			<p>{data.breaks.caveat}</p>
+			<table>
+				<thead><tr><th>Unit</th><th>Candidate</th><th class="num">Diagnostic p</th></tr></thead>
+				<tbody
+					>{#each Object.entries(genocideBreaks) as [name, breaks] (name)}{#each breaks as item (item.index)}<tr
+								><td>{UNITS.find((unit) => unit.id === name)?.label ?? name}</td><td
+									>{item.label}</td
+								><td class="num">{item.p_value.toFixed(4)}</td></tr
+							>{/each}{/each}</tbody
+				>
+			</table>
+		</details>
 	</Figure>
 
 	<Figure
@@ -417,9 +486,8 @@
 				held no speeches at all that year.
 			</p>
 			<p>
-				Delivery language is very nearly a restatement of who is speaking &mdash; essentially every
-				Russian-language speech is Russia's &mdash; so read that split as a speaker effect wearing a
-				linguistic label.
+				Delivery language partly restates who is speaking. VTC records are shown as unknown rather
+				than inferred English because their document format carries no language marker.
 			</p>
 		{/snippet}
 
@@ -437,26 +505,30 @@
 	<section class="events">
 		<h2>Reference dates</h2>
 		<p class="hint">
-			{data.overlay.events.length} hand-curated dates used to annotate the chart above. They are
-			<strong>drafted and not yet verified against primary records</strong> &mdash; see Methods.
+			{data.overlay.events.length} hand-curated dates used to annotate the chart above. Each links to
+			the primary institutional record used to verify its date and description. The overlay is context,
+			not evidence that an event caused a change in Council language.
 		</p>
-		<table>
-			<thead>
-				<tr><th>Date</th><th>Event</th><th>Kind</th><th>Source</th></tr>
-			</thead>
-			<tbody>
-				{#each data.overlay.events as e (e.date + e.label)}
-					<tr>
-						<td class="date">{isoDate(e.date)}</td>
-						<td
-							>{e.label}{#if e.note}<span class="note"> — {e.note}</span>{/if}</td
-						>
-						<td><span class="kind">{e.kind}</span></td>
-						<td><code class="sym">{e.source || '—'}</code></td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
+		<div class="table-scroll" role="region" aria-label="Reference dates table" tabindex="0">
+			<table>
+				<thead>
+					<tr><th>Date</th><th>Event</th><th>Kind</th><th>Source</th></tr>
+				</thead>
+				<tbody>
+					{#each data.overlay.events as e (e.date + e.label)}
+						<tr>
+							<td class="date">{isoDate(e.date)}</td>
+							<td
+								>{e.label}{#if e.note}<span class="note"> — {e.note}</span>{/if}</td
+							>
+							<td><span class="kind">{e.kind}</span></td>
+							<td><a href={e.source_url}>{e.source}</a></td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
 	</section>
 </article>
 
@@ -544,7 +616,7 @@
 	.warn {
 		margin: -2rem 0 2.5rem;
 		padding: 0.6rem 0.9rem;
-		border-left: 3px solid var(--accent);
+		border-left: 1px solid var(--accent);
 		background: var(--accent-soft);
 		font-size: 0.87rem;
 	}
@@ -577,6 +649,16 @@
 		font-size: 1.05rem;
 	}
 
+	.table-scroll {
+		max-width: 100%;
+		overflow-x: auto;
+	}
+
+	.table-scroll:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+
 	.date {
 		white-space: nowrap;
 		font-variant-numeric: tabular-nums;
@@ -593,10 +675,13 @@
 		color: var(--ink-faint);
 	}
 
-	.sym {
-		background: none;
-		padding: 0;
-		font-size: 0.78rem;
-		color: var(--ink-faint);
+	.data-table {
+		margin-top: 1rem;
+	}
+
+	.data-table summary {
+		cursor: pointer;
+		color: var(--accent);
+		font-size: 0.85rem;
 	}
 </style>

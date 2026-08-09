@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .artifacts import atomic_write_text
+
 ROOT = Path(__file__).resolve().parents[2]
 
 DATA = ROOT / "data"
@@ -49,10 +51,12 @@ LEXICAL = DERIVED / "lexical"    # 05
 TOPICS = DERIVED / "topics"      # 06
 EMBEDDINGS = DERIVED / "embeddings"  # 07
 KWIC = DERIVED / "kwic"          # 08
+MANIFESTS = DERIVED / "manifests"  # machine-readable provenance, all stages
 
 # Harvard Dataverse
 DOI = "doi:10.7910/DVN/KGVSYH"
 DATAVERSE = "https://dataverse.harvard.edu"
+DATASET_VERSION = "6.1"
 
 # Ground truth from the codebook, asserted by the build.
 EXPECTED_SPEECHES = 106_302
@@ -69,7 +73,7 @@ def write_note(name: str, body: str) -> Path:
     """Write a Markdown findings note into notes/ and return its path."""
     NOTES.mkdir(parents=True, exist_ok=True)
     path = NOTES / name
-    path.write_text(body, encoding="utf-8")
+    atomic_write_text(path, body)
     return path
 
 

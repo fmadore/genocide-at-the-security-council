@@ -66,9 +66,10 @@
 			<a href={resolve('/methods')}>Methods</a>.
 		</p>
 		<p class="quiet">
-			The corpus is English-only by construction, and roughly two speeches in five are translations.
-			Nothing here is a measure of what was said in the room &mdash; it is a measure of what the
-			verbatim record says was said.
+			The corpus is English-only by construction. At least 40.2% of speeches are explicit
+			translations; missing in-person markers are classified as inferred English under the record
+			convention, while VTC delivery language remains unknown. Nothing here measures what was said
+			in the room &mdash; it measures what the English verbatim record says was said.
 		</p>
 	</div>
 </footer>

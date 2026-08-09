@@ -7,14 +7,15 @@ series here therefore ships with two denominators:
     speech_rate  speeches containing the term / speeches held
     token_rate   occurrences / tokens, per 100,000
 
-Change points are found by **binary segmentation**: split the series where the
+Exploratory change points are found by **binary segmentation**: split the series where the
 split most reduces the residual sum of squares, keep the split only if a
-permutation test says a reordering of the same values rarely does as well, then
-recurse into the two halves. The permutation null is "these values in no
-particular order", which is the right null for *is there a regime shift?* and
-the wrong one for *is there a trend* — a smoothly rising series will hand back a
-break at its midpoint. That caveat travels with the output rather than being
-left for a reader to trip over.
+permutation diagnostic says a reordering of the same values rarely does as well,
+then recurse into the two halves. That exchangeability null does not represent
+trend or serial dependence — a smoothly rising series will hand back a break at
+its midpoint — and repeated recursive tests are not a family-wise-error guarantee.
+Those caveats travel with the output. Denominator-aware modelling is provided
+separately by denominator-aware binomial and Poisson likelihood scans; the
+exploratory detector must not be presented as confirmatory evidence.
 
 No `ruptures` dependency: on 32 annual points the whole search is a few
 milliseconds of numpy, and a method this consequential is better read than
@@ -181,6 +182,8 @@ class Break:
     p_value: float  #: permutation test against a reordering of the same values
     before: float  #: mean of the segment left of the break
     after: float  #: mean of the segment right of it
+    interval_start: int  #: start of the sub-interval whose gain was tested
+    interval_stop: int  #: exclusive stop of that sub-interval
 
     @property
     def ratio(self) -> float:
@@ -196,6 +199,8 @@ class Break:
             "before": self.before,
             "after": self.after,
             "ratio": self.ratio,
+            "interval_start": self.interval_start,
+            "interval_stop": self.interval_stop,
         }
 
 
@@ -300,14 +305,27 @@ def gains(values: np.ndarray, plan: SplitPlan) -> np.ndarray:
     return plan.left * plan.right / (plan.left + plan.right) * difference**2
 
 
-def best_split(values: np.ndarray, plan: SplitPlan) -> tuple[int, float]:
-    """The strongest split anywhere in the plan, or ``(-1, 0.0)`` if none."""
+def best_candidate(values: np.ndarray, plan: SplitPlan) -> tuple[int, int, int, float]:
+    """The strongest ``(start, split, stop, gain)`` in a plan."""
     found = gains(values, plan)
     if found.size == 0:
-        return -1, 0.0
+        return -1, -1, -1, 0.0
     best = int(np.argmax(found))
     gain = float(found[best])
-    return (int(plan.splits[best]), gain) if gain > 0 else (-1, 0.0)
+    if gain <= 0:
+        return -1, -1, -1, 0.0
+    return (
+        int(plan.starts[best]),
+        int(plan.splits[best]),
+        int(plan.stops[best]),
+        gain,
+    )
+
+
+def best_split(values: np.ndarray, plan: SplitPlan) -> tuple[int, float]:
+    """The strongest split anywhere in the plan, or ``(-1, 0.0)`` if none."""
+    _, split, _, gain = best_candidate(values, plan)
+    return split, gain
 
 
 def permutation_p(
@@ -349,9 +367,9 @@ def change_points(
     """Segment a series, testing every split before accepting it.
 
     Greedy: take the strongest split available anywhere, test it, and only
-    recurse into a segment that yielded a significant one. A segment whose best
-    split fails the test is closed — its own halves are not examined, which is
-    what keeps the family-wise error from running away over a 32-point series.
+    recurse into a segment that yielded a diagnostic split. A segment whose best
+    split fails is closed, which bounds the number of follow-up tests but does not
+    turn the exploratory recursion into family-wise-error-controlled inference.
     """
     raw = np.asarray(values, dtype=float)
     labels = list(labels)
@@ -375,13 +393,17 @@ def change_points(
     while segments and len(found) < max_breaks:
         candidates = []
         for start, stop in segments:
-            at, gain = best_split(centred[start:stop], plan_for(stop - start))
+            left, at, right, gain = best_candidate(
+                centred[start:stop], plan_for(stop - start)
+            )
             if at >= 0:
-                candidates.append((gain, start, stop, start + at))
+                candidates.append(
+                    (gain, start, stop, start + left, start + at, start + right)
+                )
         if not candidates:
             break
 
-        gain, start, stop, at = max(candidates)
+        gain, start, stop, interval_start, at, interval_stop = max(candidates)
         segments.remove((start, stop))
 
         # Tested once: a second call would advance the generator and report a
@@ -396,8 +418,10 @@ def change_points(
                 label=str(labels[at]),
                 gain=gain,
                 p_value=p_value,
-                before=float(raw[start:at].mean()),
-                after=float(raw[at:stop].mean()),
+                before=float(raw[interval_start:at].mean()),
+                after=float(raw[at:interval_stop].mean()),
+                interval_start=interval_start,
+                interval_stop=interval_stop,
             )
         )
         segments += [(start, at), (at, stop)]
@@ -405,11 +429,151 @@ def change_points(
     return sorted(found, key=lambda b: b.index)
 
 
+# --- Denominator-aware change inference -----------------------------------
+
+
+def _binomial_log_likelihood(successes: np.ndarray, trials: np.ndarray) -> float:
+    total = float(trials.sum())
+    if total <= 0:
+        return 0.0
+    probability = float(successes.sum()) / total
+    probability = min(max(probability, np.finfo(float).eps), 1 - np.finfo(float).eps)
+    return float(
+        (successes * np.log(probability) + (trials - successes) * np.log1p(-probability)).sum()
+    )
+
+
+def _poisson_log_likelihood(counts: np.ndarray, exposure: np.ndarray) -> float:
+    total = float(exposure.sum())
+    if total <= 0:
+        return 0.0
+    rate = max(float(counts.sum()) / total, np.finfo(float).eps)
+    # Terms independent of the fitted rate cancel in every split comparison.
+    return float((counts * np.log(rate) - rate * exposure).sum())
+
+
+def likelihood_gains(
+    counts: np.ndarray,
+    exposure: np.ndarray,
+    candidates: np.ndarray,
+    family: str,
+) -> np.ndarray:
+    """Likelihood-ratio gain for each candidate breakpoint."""
+    likelihood = {
+        "binomial": _binomial_log_likelihood,
+        "poisson": _poisson_log_likelihood,
+    }.get(family)
+    if likelihood is None:
+        raise ValueError("family must be 'binomial' or 'poisson'")
+    null = likelihood(counts, exposure)
+    return np.asarray(
+        [
+            2
+            * (
+                likelihood(counts[:split], exposure[:split])
+                + likelihood(counts[split:], exposure[split:])
+                - null
+            )
+            for split in candidates
+        ],
+        dtype=float,
+    )
+
+
+def _rate_interval(count: int, exposure: int, family: str) -> tuple[float, float]:
+    """Approximate 95% interval for one aggregated segment rate."""
+    if exposure <= 0:
+        return float("nan"), float("nan")
+    if family == "binomial":
+        z = 1.959963984540054
+        p = count / exposure
+        denominator = 1 + z**2 / exposure
+        centre = (p + z**2 / (2 * exposure)) / denominator
+        margin = z * np.sqrt(p * (1 - p) / exposure + z**2 / (4 * exposure**2)) / denominator
+        return max(0.0, centre - margin), min(1.0, centre + margin)
+    rate = count / exposure
+    if count == 0:
+        return 0.0, -np.log(0.05) / exposure
+    factor = np.exp(1.959963984540054 / np.sqrt(count))
+    return rate / factor, rate * factor
+
+
+def rate_change_point(
+    counts,
+    exposure,
+    labels,
+    *,
+    family: str,
+    min_size: int = 4,
+    trials: int = 2_000,
+    alpha: float = 0.05,
+    seed: int = 20_260_807,
+) -> dict[str, object] | None:
+    """Test the strongest single rate change while preserving denominators.
+
+    The bootstrap simulates the no-change model with the observed exposure in
+    every period and recalculates the maximum over all candidate years. Thus
+    denominator variation and breakpoint search are both represented in the
+    null. ``alpha`` is supplied by the caller after across-series correction.
+    """
+    observed = np.asarray(counts, dtype=np.int64)
+    held = np.asarray(exposure, dtype=np.int64)
+    labels = list(labels)
+    if observed.size != held.size or observed.size != len(labels):
+        raise ValueError("counts, exposure and labels must have the same length")
+    if (held <= 0).any() or (observed < 0).any():
+        raise ValueError("counts must be non-negative and exposure positive")
+    if family == "binomial" and (observed > held).any():
+        raise ValueError("binomial successes cannot exceed trials")
+    candidates = np.arange(min_size, observed.size - min_size + 1, dtype=np.int64)
+    if candidates.size == 0:
+        return None
+
+    gains_found = likelihood_gains(observed, held, candidates, family)
+    best_position = int(np.argmax(gains_found))
+    split = int(candidates[best_position])
+    gain = float(gains_found[best_position])
+    if gain <= 0:
+        return None
+
+    rng = np.random.default_rng(seed)
+    null_rate = float(observed.sum()) / float(held.sum())
+    exceed = 1
+    for _ in range(trials):
+        if family == "binomial":
+            simulated = rng.binomial(held, null_rate)
+        else:
+            simulated = rng.poisson(held * null_rate)
+        if likelihood_gains(simulated, held, candidates, family).max() >= gain:
+            exceed += 1
+    p_value = exceed / (trials + 1)
+
+    left_count, right_count = int(observed[:split].sum()), int(observed[split:].sum())
+    left_exposure, right_exposure = int(held[:split].sum()), int(held[split:].sum())
+    before, after = left_count / left_exposure, right_count / right_exposure
+    return {
+        "index": split,
+        "label": str(labels[split]),
+        "family": family,
+        "gain": round(gain, 8),
+        "p_value": round(p_value, 5),
+        "alpha": alpha,
+        "accepted": p_value <= alpha,
+        "before": before,
+        "before_ci95": list(_rate_interval(left_count, left_exposure, family)),
+        "after": after,
+        "after_ci95": list(_rate_interval(right_count, right_exposure, family)),
+        "ratio": after / before if before else None,
+        "counts": [left_count, right_count],
+        "exposure": [left_exposure, right_exposure],
+    }
+
+
 # --- Event overlay ---------------------------------------------------------
 
 
 def load_events() -> pd.DataFrame:
-    """Read `config/events.csv`, the hand-curated chart annotations.
+    """Read the primary-sourced chart annotations in `config/events.csv`.
 
     Fails on an unknown `kind` rather than letting a typo quietly become a
     seventh category that no legend accounts for.
@@ -418,7 +582,7 @@ def load_events() -> pd.DataFrame:
         raise FileNotFoundError(f"{rel(EVENTS)} is missing")
     frame = pd.read_csv(EVENTS, dtype="string", keep_default_na=False)
 
-    required = {"date", "label", "kind", "source"}
+    required = {"date", "label", "kind", "source", "source_url"}
     if missing := required - set(frame.columns):
         raise ValueError(f"{rel(EVENTS)}: missing column(s) {', '.join(sorted(missing))}")
 
@@ -428,6 +592,11 @@ def load_events() -> pd.DataFrame:
 
     if unknown := set(frame["kind"]) - EVENT_KINDS:
         raise ValueError(f"{rel(EVENTS)}: unknown kind(s) {sorted(unknown)}")
+
+    invalid_sources = ~frame["source_url"].str.startswith("https://")
+    if invalid_sources.any():
+        labels = frame.loc[invalid_sources, "label"].tolist()
+        raise ValueError(f"{rel(EVENTS)}: missing primary-source URL(s) for {labels}")
 
     frame["year"] = frame["date"].dt.year.astype("int64")
     return frame.sort_values("date").reset_index(drop=True)

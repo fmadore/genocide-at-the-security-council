@@ -26,12 +26,15 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib import artifacts, frames
 from lib.paths import (
     DERIVED,
     EXPECTED_SPEECHES,
     EXPECTED_TOKENS,
+    MANIFESTS,
     MEETINGS,
     RAW,
+    ROOT,
     SPEECHES,
     ensure_dirs,
     write_note,
@@ -42,7 +45,7 @@ SPEAKER_TABS = 25
 META_TABS = 8
 
 
-def repair_lines(path: Path, n_tabs: int) -> list[str]:
+def repair_lines(path: Path, n_tabs: int) -> tuple[list[str], int]:
     """Read a TSV whose fields may contain literal newlines.
 
     Meeting S/PV.5225 has a newline inside agenda_item3, splitting each of its
@@ -51,18 +54,30 @@ def repair_lines(path: Path, n_tabs: int) -> list[str]:
     """
     text = path.read_text(encoding="utf-8")
     out: list[str] = []
+    repaired = 0
     buf = ""
-    for line in text.split("\n"):
+    parts = 0
+    for physical_lines, line in enumerate(text.split("\n"), start=1):
+        parts += 1
         buf = line if not buf else f"{buf} {line}"
-        if buf.count("\t") >= n_tabs:
+        tabs = buf.count("\t")
+        if tabs > n_tabs:
+            raise ValueError(
+                f"{path}: logical row ending near physical line {physical_lines} has "
+                f"{tabs} tabs; expected exactly {n_tabs}"
+            )
+        if tabs == n_tabs:
+            if parts > 1:
+                repaired += 1
             out.append(buf)
             buf = ""
+            parts = 0
     if buf.strip():
-        out.append(buf)
-    return out
+        raise ValueError(f"{path}: incomplete final logical row with {buf.count(chr(9))} tabs")
+    return out, repaired
 
 
-def read_tsv(path: Path, n_tabs: int) -> pd.DataFrame:
+def read_tsv(path: Path, n_tabs: int) -> tuple[pd.DataFrame, int]:
     """Read a repaired TSV as strings, with encoding and quoting forced.
 
     quoting=3 (QUOTE_NONE) is required: fields carry R-style doubled
@@ -70,7 +85,7 @@ def read_tsv(path: Path, n_tabs: int) -> pd.DataFrame:
     is required because Windows would otherwise fall back to cp1252 and
     silently mangle every accented place name.
     """
-    lines = repair_lines(path, n_tabs)
+    lines, repaired = repair_lines(path, n_tabs)
     df = pd.read_csv(
         io.StringIO("\n".join(lines)),
         sep="\t",
@@ -81,10 +96,12 @@ def read_tsv(path: Path, n_tabs: int) -> pd.DataFrame:
         encoding="utf-8",
     )
     df.rename(columns={df.columns[0]: "row_id"}, inplace=True)
+    if len(df.columns) != n_tabs + 1:
+        raise ValueError(f"{path}: read {len(df.columns)} columns; expected {n_tabs + 1}")
     # Blank strings are missing values, not empty categories.
     for col in df.columns:
         df[col] = df[col].replace("", pd.NA)
-    return df
+    return df, repaired
 
 
 def load_texts(tar_path: Path) -> dict[str, str]:
@@ -97,7 +114,16 @@ def load_texts(tar_path: Path) -> dict[str, str]:
             fh = tf.extractfile(member)
             if fh is None:
                 continue
-            texts[member.name.split("/")[-1]] = fh.read().decode("utf-8", errors="replace")
+            try:
+                texts[member.name.split("/")[-1]] = fh.read().decode("utf-8", errors="strict")
+            except UnicodeDecodeError as exc:
+                raise UnicodeDecodeError(
+                    exc.encoding,
+                    exc.object,
+                    exc.start,
+                    exc.end,
+                    f"{member.name}: {exc.reason}",
+                ) from exc
     return texts
 
 
@@ -134,9 +160,9 @@ def build() -> None:
         sys.exit(1)
 
     print("Reading speaker.tsv ...")
-    speeches = read_tsv(RAW / "speaker.tsv", SPEAKER_TABS)
+    speeches, speaker_repairs = read_tsv(RAW / "speaker.tsv", SPEAKER_TABS)
     print("Reading meta.tsv ...")
-    meetings = read_tsv(RAW / "meta.tsv", META_TABS)
+    meetings, meta_repairs = read_tsv(RAW / "meta.tsv", META_TABS)
     print(f"  speeches={speeches.shape}  meetings={meetings.shape}")
 
     # Derived join key back to meta.tsv.basename
@@ -164,11 +190,12 @@ def build() -> None:
         sys.exit(1)
     print("Validation passed.")
 
-    speeches.to_parquet(SPEECHES, index=False, compression="zstd")
-    meetings.to_parquet(MEETINGS, index=False, compression="zstd")
+    frames.write(speeches, SPEECHES)
+    frames.write(meetings, MEETINGS)
 
     summary = (
-        f"{len(speeches):,} speeches | {speeches['basename'].nunique():,} meetings | "
+        f"{len(speeches):,} speeches | {speeches['basename'].nunique():,} documents | "
+        f"{speeches['meeting_symbol'].nunique():,} meeting symbols | "
         f"{speeches['date'].min():%Y-%m-%d} to {speeches['date'].max():%Y-%m-%d} | "
         f"{int(speeches['tokens'].sum()):,} tokens"
     )
@@ -181,10 +208,29 @@ def build() -> None:
     write_note(
         "01_build.md",
         f"# 01 — Build\n\n{summary}\n\n"
-        f"- Repaired 36 rows split by a literal newline in meeting S/PV.5225\n"
+        f"- Repaired {speaker_repairs + meta_repairs:,} logical rows split across physical "
+        "lines\n"
         f"- Token sum matches the codebook exactly ({EXPECTED_TOKENS:,})\n"
         f"- 0 missing texts, 0 orphan tar members, 0 unparsed dates\n",
     )
+
+    manifest = artifacts.provenance(
+        ROOT,
+        "01_build_parquet.py",
+        inputs=[RAW / "speaker.tsv", RAW / "meta.tsv", RAW / "speeches.tar"],
+        extra={
+            "outputs": [
+                artifacts.describe_file(SPEECHES, ROOT),
+                artifacts.describe_file(MEETINGS, ROOT),
+            ],
+            "repairs": speaker_repairs + meta_repairs,
+            "speeches": len(speeches),
+            "documents": speeches["basename"].nunique(),
+            "meeting_symbols": speeches["meeting_symbol"].nunique(),
+            "tokens": int(speeches["tokens"].sum()),
+        },
+    )
+    artifacts.atomic_write_json(MANIFESTS / "01_build_parquet.json", manifest, indent=1)
 
 
 def main() -> None:

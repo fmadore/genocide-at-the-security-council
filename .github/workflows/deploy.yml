@@ -1,33 +1,9 @@
-# Build and deploy the SvelteKit dashboard to GitHub Pages.
+# Rebuild the pinned corpus and static dashboard, then deploy it to GitHub Pages.
 #
-# The `guard` job short-circuits the run when the payload the app reads is not
-# present, so this workflow is green rather than red while that question is
-# still open.
-#
-# **The payload is not in the repository and cannot be.** `web/static/data/` is
-# 483 MB — 6,595 meeting files of full speech text, plus the concordance — and
-# it is gitignored. Until one of these is chosen, a deploy would publish a site
-# whose every chart 404s:
-#
-#   1. Run scripts 00-09 plus export_web.py in this workflow. ~630 MB from
-#      Dataverse and a few minutes per deploy, cacheable on the DOI. Fully
-#      reproducible from source; slowest CI.
-#   2. Publish the payload as a release asset or a Hugging Face dataset and
-#      fetch it in the build step. One upload per data version, fast CI, and the
-#      artefact becomes something to version deliberately.
-#   3. Build locally and deploy the built site. No CI data step, but
-#      reproducibility then rests on one machine — the weakest option for a
-#      project meant to be citable.
-#
-# GitHub Pages allows 1 GB, so the size is not the obstacle; where the bytes
-# come from at build time is. See notes/09_export_speeches.md.
-#
-# Before the first real deployment:
-#   1. Choose one of the three above and implement it in the `build` job
-#   2. Settings -> Pages -> Source: GitHub Actions
-#
-# Note: Pages from a *private* repository requires a paid GitHub plan. On a free
-# account the repository must be public for the site to publish.
+# The 488 MB web payload is intentionally not committed. Each deployment starts
+# from Harvard Dataverse v6.1, verifies its checksums, runs the versioned pipeline,
+# and publishes the resulting static site. This costs build time, but makes a
+# release reproducible from the DOI and the repository alone.
 
 name: Deploy dashboard
 
@@ -35,7 +11,10 @@ on:
   push:
     branches: [main]
     paths:
+      - 'config/**'
+      - 'scripts/**'
       - 'web/**'
+      - 'requirements.lock'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
@@ -49,36 +28,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  guard:
-    runs-on: ubuntu-latest
-    outputs:
-      ready: ${{ steps.check.outputs.ready }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - id: check
-        run: |
-          if [ ! -f web/package.json ]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Skipped::web/ is not scaffolded yet."
-          elif [ ! -f web/static/data/manifest.json ]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Skipped::web/static/data is empty. The 483 MB payload is \
-            gitignored and no build-time source is configured yet — see the comment at the \
-            top of this file. Deploying now would publish a site with no data."
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          fi
-
   build:
-    needs: guard
-    if: needs.guard.outputs.ready == 'true'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.lock
+
+      - run: python -m pip install --require-hashes -r requirements.lock
+
+      - name: Rebuild data payload from Dataverse v6.1
+        run: |
+          python scripts/00_fetch_data.py
+          python scripts/01_build_parquet.py
+          python scripts/02_normalise.py
+          python scripts/03_lexicon.py
+          python scripts/04_series.py
+          python scripts/05_lexical.py
+          python scripts/08_kwic.py
+          python scripts/09_export_speeches.py
+          python scripts/export_web.py
 
       - uses: actions/setup-node@v7
         with:
@@ -86,8 +60,8 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      - run: npm ci
-      - run: npm run build
+      - run: npm --prefix web ci
+      - run: npm --prefix web run build
 
       - uses: actions/upload-pages-artifact@v5
         with:

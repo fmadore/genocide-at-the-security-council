@@ -16,6 +16,14 @@ export const percent = (n: number) => percents.format(n);
 export const decimal = (n: number) => decimals.format(n);
 export const signed = (n: number) => (n >= 0 ? `+${decimals.format(n)}` : decimals.format(n));
 
+/** Escape corpus-derived labels before interpolating them into ECharts HTML tooltips. */
+export const escapeHtml = (value: unknown): string =>
+	String(value).replace(
+		/[&<>'"]/g,
+		(character) =>
+			({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]!
+	);
+
 export function bytes(n: number): string {
 	if (n >= 1e9) return `${(n / 1e9).toFixed(1)} GB`;
 	if (n >= 1e6) return `${(n / 1e6).toFixed(1)} MB`;

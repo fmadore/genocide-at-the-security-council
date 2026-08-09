@@ -14,12 +14,14 @@
 # Changing this file changes every downstream count. Bump `version` and record
 # what moved.
 
-version: 1
-updated: 2026-08-07
+version: 2
+updated: 2026-08-09
 
 terms:
   genocide:
     pattern: '\bgenocid\w*'
+    prefilters: [genocid]
+    examples: [genocide, genocidal, genocides, genocidaires]
     tier: core
     register: core
     note: >
@@ -28,6 +30,8 @@ terms:
 
   genocide_ocr_variants:
     pattern: '\b(?:gen[eo]cid|senocid|qenocid)\w*'
+    prefilters: [genocid, genecid, senocid, qenocid]
+    examples: [genecide, senocide, qenocidal]
     tier: core
     register: core
     enabled: false
@@ -38,106 +42,152 @@ terms:
 
   ethnic_cleansing:
     pattern: '\bethnic(?:ally)?[\s-]+cleans\w*'
+    prefilters: [cleans]
+    examples: [ethnic cleansing, ethnically-cleansed]
     tier: atrocity
     register: legal
 
   crimes_against_humanity:
     pattern: '\bcrimes?\s+against\s+humanity'
+    prefilters: [humanity]
+    examples: [crime against humanity, crimes against humanity]
     tier: atrocity
     register: legal
 
   war_crimes:
     pattern: '\bwar\s+crimes?\b'
+    prefilters: [war crime]
+    examples: [war crime, war crimes]
     tier: atrocity
     register: legal
 
   mass_atrocity:
-    pattern: '\bmass\s+atrociti?e?s?\b'
+    pattern: '\bmass\s+atrocit(?:y|ies)\b'
+    prefilters: [mass atroc]
+    examples: [mass atrocity, mass atrocities]
     tier: atrocity
     register: legal
+    nested_under: atrocity
 
   atrocity:
-    pattern: '\batrociti?e?s?\b'
+    pattern: '\batrocit(?:y|ies)\b'
+    prefilters: [atroc]
+    examples: [atrocity, atrocities]
     tier: adjacent
     register: legal
 
   extermination:
     pattern: '\bexterminat\w*'
+    prefilters: [exterminat]
+    examples: [exterminate, extermination, exterminating]
     tier: adjacent
     register: legal
 
   genocide_convention:
     pattern: '\bgenocide\s+convention\b|\bconvention\s+on\s+the\s+prevention\s+and\s+punishment'
+    prefilters: [genocide convention, convention on the prevention and punishment]
+    examples: [Genocide Convention, Convention on the Prevention and Punishment]
     tier: core
     register: legal
+    nested_under: genocide
 
   responsibility_to_protect:
     pattern: '\bresponsibility\s+to\s+protect\b|\bR2P\b'
+    prefilters: [responsibility to protect, r2p]
+    examples: [responsibility to protect, R2P]
     tier: atrocity
     register: preventive
 
   prevention_of_genocide:
     pattern: '\b(?:prevention|preventing)\s+of\s+genocide\b|special\s+adviser\s+on\s+the\s+prevention'
+    prefilters: [prevention of genocide, preventing of genocide, special adviser on the prevention]
+    examples: [prevention of genocide, Special Adviser on the Prevention]
     tier: core
     register: preventive
+    nested_under: genocide
 
   early_warning:
     pattern: '\bearly\s+warning\b'
+    prefilters: [early warning]
+    examples: [early warning]
     tier: adjacent
     register: preventive
 
   never_again:
     pattern: '\bnever\s+again\b'
+    prefilters: [never again]
+    examples: [never again]
     tier: adjacent
     register: commemorative
 
   holocaust:
     pattern: '\bholocaust\b|\bshoah\b'
+    prefilters: [holocaust, shoah]
+    examples: [Holocaust, Shoah]
     tier: adjacent
     register: commemorative
 
   commemoration:
     pattern: '\bcommemorat\w*|\banniversar\w+'
+    prefilters: [commemorat, anniversar]
+    examples: [commemoration, commemorating, anniversary]
     tier: adjacent
     register: commemorative
 
   survivors:
     pattern: '\bsurvivors?\b'
+    prefilters: [survivor]
+    examples: [survivor, survivors]
     tier: adjacent
     register: commemorative
 
   denial:
     pattern: '\bdenial\b|\bdeny\w*\s+(?:the\s+)?genocid\w*|\bgenocide\s+denial\b'
+    prefilters: [denial, deny]
+    examples: [denial, denying the genocide, genocide denial]
     tier: adjacent
     register: contentious
 
   glorification:
     pattern: '\bglorif\w+'
+    prefilters: [glorif]
+    examples: [glorification, glorifying]
     tier: adjacent
     register: contentious
 
   genocidal_ideology:
     pattern: '\bgenocidal\s+ideolog\w+|\bideolog\w+\s+of\s+genocide\b'
+    prefilters: [ideolog]
+    examples: [genocidal ideology, ideology of genocide]
     tier: core
     register: contentious
+    nested_under: genocide
 
   ethnic_hatred:
     pattern: '\bethnic\s+(?:hatred|violence|conflict)'
+    prefilters: [ethnic]
+    examples: [ethnic hatred, ethnic violence, ethnic conflict]
     tier: adjacent
     register: contentious
 
   impunity:
     pattern: '\bimpunity\b'
+    prefilters: [impunity]
+    examples: [impunity]
     tier: adjacent
     register: accountability
 
   icc:
     pattern: '\binternational\s+criminal\s+court\b|\bICC\b'
+    prefilters: [international criminal court, icc]
+    examples: [International Criminal Court, ICC]
     tier: adjacent
     register: accountability
 
   tribunals:
     pattern: '\b(?:ICTR|ICTY)\b|international\s+(?:criminal\s+)?tribunal'
+    prefilters: [ictr, icty, tribunal]
+    examples: [ICTR, ICTY, international criminal tribunal, international tribunal]
     tier: adjacent
     register: accountability
 

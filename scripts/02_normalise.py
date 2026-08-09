@@ -31,8 +31,13 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import console, council, entities, frames, text
+from lib import artifacts, console, council, entities, frames, language, text
 from lib.paths import (
+    COUNCIL_MEMBERSHIP,
+    COUNTRY_ALIASES,
+    ENTITIES,
+    MANIFESTS,
+    ROOT,
     SPEECHES,
     SPEECHES_NORM,
     ensure_dirs,
@@ -63,6 +68,7 @@ def normalise_text(speeches: pd.DataFrame) -> dict[str, int]:
 
     resolved = addresses.map(lambda a: text.spoken_language(a.address))
     speeches["spoken_language"] = resolved.map(lambda r: r[0]).astype("string")
+    speeches["delivery_language"] = language.delivery_language(speeches)
 
     return {
         "addressed": int(addresses.map(lambda a: a.matched).sum()),
@@ -126,7 +132,7 @@ def build_note(speeches: pd.DataFrame, counts: dict[str, int], case_changes) -> 
     total = len(speeches)
     groups = speeches["speaker_group"].value_counts()
     types = speeches["entity_type"].value_counts()
-    languages = speeches["spoken_language"].value_counts()
+    languages = speeches["delivery_language"].value_counts()
 
     lines = [
         "# 02 — Normalise",
@@ -138,7 +144,8 @@ def build_note(speeches: pd.DataFrame, counts: dict[str, int], case_changes) -> 
         f"- Matched in **{counts['addressed']:,}** speeches "
         f"({counts['addressed'] / total:.2%}).",
         f"- The remaining {total - counts['addressed']:,} open straight into prose and are "
-        "read as continuation speeches; they are left untruncated.",
+        "left untruncated. Most belong to the separate VTC record format rather than being "
+        "continuations.",
         "",
         "## Delivery language",
         "",
@@ -146,8 +153,8 @@ def build_note(speeches: pd.DataFrame, counts: dict[str, int], case_changes) -> 
         f"({counts['languages'] / total:.1%}) from `(spoke in …)` markers.",
         f"- {counts['fuzzy']:,} needed approximate matching against OCR damage; every case "
         "is listed in `docs/VALIDATION.md`.",
-        "- A speech with no marker was delivered in English, which the Secretariat does not "
-        "mark.",
+        "- Missing markers in in-person verbatim records are classified as inferred English.",
+        "- VTC records carry no delivery-language marker and remain `Unknown (VTC)`.",
         "",
         "| Language | Speeches |",
         "|---|---:|",
@@ -223,6 +230,21 @@ def normalise() -> None:
     frames.write(speeches, SPEECHES_NORM)
     note = write_note("02_normalise.md", build_note(speeches, counts, case_changes))
     console.info(f"wrote {note.name}")
+    manifest = artifacts.provenance(
+        ROOT,
+        "02_normalise.py",
+        inputs=[SPEECHES],
+        configs=[COUNTRY_ALIASES, ENTITIES, COUNCIL_MEMBERSHIP],
+        extra={
+            "outputs": [artifacts.describe_file(SPEECHES_NORM, ROOT)],
+            "speeches": len(speeches),
+            "delivery_languages": {
+                str(name): int(value)
+                for name, value in speeches["delivery_language"].value_counts().items()
+            },
+        },
+    )
+    artifacts.atomic_write_json(MANIFESTS / "02_normalise.json", manifest, indent=1)
 
 
 def main() -> None:

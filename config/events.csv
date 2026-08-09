@@ -1,36 +1,36 @@
-date,label,kind,source,note
-1992-05-30,Sanctions on the Federal Republic of Yugoslavia,council,S/RES/757,First Council enforcement action of the Bosnian war
-1993-05-25,International Criminal Tribunal for the former Yugoslavia established,legal,S/RES/827,First international criminal tribunal since Nuremberg
-1994-04-06,Rwandan genocide begins,atrocity,,Habyarimana's aircraft shot down over Kigali
-1994-04-21,UNAMIR cut to 270 troops,council,S/RES/912,The Council's withdrawal at the height of the killing
-1994-06-22,Operation Turquoise authorised,council,S/RES/929,French-led intervention under Chapter VII
-1994-07-04,RPF takes Kigali,atrocity,,End of the hundred days
-1994-11-08,International Criminal Tribunal for Rwanda established,legal,S/RES/955,Rwanda voted against the resolution creating it
-1995-07-11,Fall of Srebrenica,atrocity,,Later ruled genocide by the ICTY and the ICJ
-1995-12-14,Dayton Agreement signed in Paris,conflict,,
-1998-07-17,Rome Statute adopted,legal,A/CONF.183/9,Genocide as the first of the four core crimes
-1999-03-24,NATO air campaign over Kosovo begins,conflict,,Intervention without Council authorisation
-1999-12-15,Independent inquiry into UN action in Rwanda,institutional,S/1999/1257,The Carlsson report
-2002-07-01,Rome Statute enters into force,legal,,
-2004-04-07,Action Plan to Prevent Genocide,institutional,SG/SM/9245,Announced on the tenth anniversary of Rwanda
-2004-07-30,Darfur: arms embargo and demands on the Janjaweed,council,S/RES/1556,
-2004-09-09,US Secretary of State names Darfur a genocide,contested,,A state qualification the Council did not adopt
-2005-03-31,Darfur referred to the International Criminal Court,legal,S/RES/1593,First Council referral to the ICC
-2005-09-16,World Summit Outcome adopts the responsibility to protect,institutional,A/RES/60/1,Paragraphs 138-139
-2006-04-28,Responsibility to protect reaffirmed by the Council,council,S/RES/1674,Protection of civilians in armed conflict
-2008-08-08,Russia-Georgia war,contested,,Competing genocide claims over South Ossetia
-2010-07-12,ICC issues a genocide warrant for al-Bashir,legal,ICC-02/05-01/09,Genocide added to the 2009 warrant
-2011-03-17,Libya: all necessary measures,council,S/RES/1973,The high-water mark of R2P
-2011-10-04,First Russian and Chinese veto on Syria,council,S/2011/612,
-2013-08-21,Ghouta chemical attack,atrocity,,
-2014-03-15,Crimea draft resolution vetoed,council,S/2014/189,
-2014-08-03,Sinjar: ISIL attacks the Yazidis,atrocity,,
-2014-08-15,Sanctions on ISIL and the Al-Nusrah Front,council,S/RES/2170,
-2015-07-08,Srebrenica genocide resolution vetoed,contested,S/2015/508,Russia's veto on the twentieth anniversary
-2017-08-25,Rakhine: the Rohingya exodus begins,atrocity,,
-2019-11-11,The Gambia v. Myanmar filed at the ICJ,legal,ICJ 178,First Genocide Convention case brought by a non-injured state
-2020-01-23,Provisional measures ordered in The Gambia v. Myanmar,legal,ICJ 178,
-2022-02-24,Russia invades Ukraine,conflict,,Invasion justified in part by a genocide claim in Donbas
-2022-03-16,Provisional measures ordered in Ukraine v. Russia,legal,ICJ 182,Brought under the Genocide Convention
-2023-10-07,Hamas attack on Israel,conflict,,
-2023-12-29,South Africa v. Israel filed at the ICJ,legal,ICJ 192,Two days before the corpus ends
+date,label,kind,source,source_url,note
+1992-05-30,Sanctions on the Federal Republic of Yugoslavia,council,S/RES/757,https://docs.un.org/en/S/RES/757(1992),First Council enforcement action of the Bosnian war
+1993-05-25,International Criminal Tribunal for the former Yugoslavia established,legal,S/RES/827,https://docs.un.org/en/S/RES/827(1993),First international criminal tribunal since Nuremberg
+1994-04-06,Rwandan genocide begins,atrocity,UN Rwanda outreach,https://www.un.org/en/preventgenocide/rwanda/historical-background.shtml,Habyarimana's aircraft shot down over Kigali
+1994-04-21,UNAMIR cut to 270 troops,council,S/RES/912,https://docs.un.org/en/S/RES/912(1994),The Council's withdrawal at the height of the killing
+1994-06-22,Operation Turquoise authorised,council,S/RES/929,https://docs.un.org/en/S/RES/929(1994),French-led intervention under Chapter VII
+1994-07-04,RPF takes Kigali,atrocity,UN Rwanda outreach,https://www.un.org/en/preventgenocide/rwanda/historical-background.shtml,End of the hundred days
+1994-11-08,International Criminal Tribunal for Rwanda established,legal,S/RES/955,https://docs.un.org/en/S/RES/955(1994),Rwanda voted against the resolution creating it
+1995-07-11,Fall of Srebrenica,atrocity,UN Srebrenica outreach,https://www.un.org/en/observances/srebrenica-genocide-commemoration-day/about,Later ruled genocide by the ICTY and the ICJ
+1995-12-14,Dayton Agreement signed in Paris,conflict,S/1996/1017,https://docs.un.org/en/S/1996/1017,
+1998-07-17,Rome Statute adopted,legal,A/CONF.183/9,https://docs.un.org/en/A/CONF.183/9,Genocide as the first of the four core crimes
+1999-03-24,NATO air campaign over Kosovo begins,conflict,SC/6657,https://press.un.org/en/1999/19990324.sc6657.html,Intervention without Council authorisation
+1999-12-15,Independent inquiry into UN action in Rwanda,institutional,S/1999/1257,https://docs.un.org/en/S/1999/1257,The Carlsson report
+2002-07-01,Rome Statute enters into force,legal,ICC-ASP/14/30,https://asp.icc-cpi.int/sites/asp/files/asp_docs/ASP14/ICC-ASP-14-30-ENG.pdf,
+2004-04-07,Action Plan to Prevent Genocide,institutional,SG/SM/9245,https://press.un.org/en/2004/sgsm9245.doc.htm,Announced on the tenth anniversary of Rwanda
+2004-07-30,Darfur: arms embargo and demands on the Janjaweed,council,S/RES/1556,https://docs.un.org/en/S/RES/1556(2004),
+2004-09-09,US Secretary of State names Darfur a genocide,contested,US State Department,https://2001-2009.state.gov/secretary/former/powell/remarks/c12827.htm,A state qualification the Council did not adopt
+2005-03-31,Darfur referred to the International Criminal Court,legal,S/RES/1593,https://docs.un.org/en/S/RES/1593(2005),First Council referral to the ICC
+2005-09-16,World Summit Outcome adopts the responsibility to protect,institutional,A/RES/60/1,https://docs.un.org/en/A/RES/60/1,Paragraphs 138-139
+2006-04-28,Responsibility to protect reaffirmed by the Council,council,S/RES/1674,https://docs.un.org/en/S/RES/1674(2006),Protection of civilians in armed conflict
+2008-08-08,Russia-Georgia war,contested,SC/9417,https://press.un.org/en/2008/sc9417.doc.htm,Competing genocide claims over South Ossetia
+2010-07-12,ICC issues a genocide warrant for al-Bashir,legal,ICC-02/05-01/09,https://www.icc-cpi.int/darfur/albashir,Genocide added to the 2009 warrant
+2011-03-17,Libya: all necessary measures,council,S/RES/1973,https://docs.un.org/en/S/RES/1973(2011),The high-water mark of R2P
+2011-10-04,First Russian and Chinese veto on Syria,council,SC/10403,https://press.un.org/en/2011/sc10403.doc.htm,
+2013-08-21,Ghouta chemical attack,atrocity,A/67/997-S/2013/553,https://digitallibrary.un.org/record/756814?ln=en&v=pdf,
+2014-03-15,Crimea draft resolution vetoed,council,S/2014/189,https://docs.un.org/en/S/2014/189,
+2014-08-03,Sinjar: ISIL attacks the Yazidis,atrocity,A/HRC/32/CRP.2,https://www.ohchr.org/Documents/HRBodies/HRCouncil/CoISyria/A_HRC_32_CRP.2_en.pdf,
+2014-08-15,Sanctions on ISIL and the Al-Nusrah Front,council,S/RES/2170,https://docs.un.org/en/S/RES/2170(2014),
+2015-07-08,Srebrenica genocide resolution vetoed,contested,SC/11961,https://press.un.org/en/2015/sc11961.doc.htm,Russia's veto on the twentieth anniversary
+2017-08-25,Rakhine: the Rohingya exodus begins,atrocity,OHCHR mission report,https://www.ohchr.org/sites/default/files/Documents/Countries/MM/CXBMissionSummaryFindingsOctober2017.pdf,
+2019-11-11,The Gambia v. Myanmar filed at the ICJ,legal,ICJ 178,https://www.icj-cij.org/case/178,First Genocide Convention case brought by a non-injured state
+2020-01-23,Provisional measures ordered in The Gambia v. Myanmar,legal,ICJ 178,https://www.icj-cij.org/case/178,
+2022-02-24,Russia invades Ukraine,conflict,SG/SM/21158,https://press.un.org/en/2022/sgsm21158.doc.htm,Invasion justified in part by a genocide claim in Donbas
+2022-03-16,Provisional measures ordered in Ukraine v. Russia,legal,ICJ 182,https://www.icj-cij.org/case/182,Brought under the Genocide Convention
+2023-10-07,Hamas attack on Israel,conflict,SG/SM/22021,https://press.un.org/en/2023/sgsm22021.doc.htm,
+2023-12-29,South Africa v. Israel filed at the ICJ,legal,ICJ 192,https://www.icj-cij.org/case/192,Two days before the corpus ends

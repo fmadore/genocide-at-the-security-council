@@ -3,59 +3,71 @@
 	 * An ECharts canvas that resizes with its container, follows the colour
 	 * scheme, and tears itself down.
 	 *
-	 * ECharts is imported dynamically so a page with no chart on it does not
-	 * download 1 MB of charting library, and so the module never runs during
-	 * prerendering, where there is no DOM.
+	 * Only the chart and component types used by the dashboard are registered;
+	 * this keeps ECharts tree-shakeable while `init` remains browser-only.
 	 */
+	import { BarChart, GraphChart, LineChart, ScatterChart } from 'echarts/charts';
+	import {
+		AriaComponent,
+		DataZoomComponent,
+		GridComponent,
+		LegendComponent,
+		MarkLineComponent,
+		TooltipComponent
+	} from 'echarts/components';
+	import { init, use } from 'echarts/core';
 	import { onMount } from 'svelte';
-	import type { ECharts, EChartsOption } from 'echarts';
+	import type { EChartsOption } from 'echarts';
+	import type { EChartsType } from 'echarts/core';
+	import { CanvasRenderer } from 'echarts/renderers';
+
+	use([
+		BarChart,
+		LineChart,
+		ScatterChart,
+		GraphChart,
+		GridComponent,
+		TooltipComponent,
+		LegendComponent,
+		DataZoomComponent,
+		MarkLineComponent,
+		AriaComponent,
+		CanvasRenderer
+	]);
 
 	interface Props {
 		option: EChartsOption;
 		height?: string;
 		/** Announced to screen readers in place of the canvas. */
 		description: string;
-		onclick?: (params: { name?: string; seriesName?: string; value?: unknown }) => void;
+		onclick?: (params: {
+			name?: string;
+			seriesName?: string;
+			value?: unknown;
+			dataType?: string;
+			data?: unknown;
+		}) => void;
 	}
 
 	let { option, height = '340px', description, onclick }: Props = $props();
 
 	let element: HTMLDivElement;
-	let chart: ECharts | undefined;
+	let chart: EChartsType | undefined;
 	let ready = $state(false);
 
 	onMount(() => {
-		let disposed = false;
-		let observer: ResizeObserver | undefined;
-		const scheme = window.matchMedia('(prefers-color-scheme: dark)');
-
-		const redraw = () => {
-			// The palette is read from CSS at build time of the option object, so
-			// a scheme change has to rebuild it from the caller's side; disposing
-			// and recreating is the honest way to pick up new custom properties.
-			chart?.dispose();
-			chart = undefined;
-			void start();
-		};
-
-		async function start() {
-			const echarts = await import('echarts');
-			if (disposed || !element) return;
-			chart = echarts.init(element, undefined, { renderer: 'canvas' });
-			chart.setOption(option);
-			if (onclick) chart.on('click', (params) => onclick(params as never));
-			observer = new ResizeObserver(() => chart?.resize());
-			observer.observe(element);
-			ready = true;
-		}
-
-		void start();
-		scheme.addEventListener('change', redraw);
-
+		chart = init(element, undefined, { renderer: 'canvas' });
+		chart.setOption({
+			animation: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+			aria: { enabled: true, decal: { show: true } },
+			...option
+		});
+		if (onclick) chart.on('click', (params) => onclick(params as never));
+		const observer = new ResizeObserver(() => chart?.resize());
+		observer.observe(element);
+		ready = true;
 		return () => {
-			disposed = true;
-			observer?.disconnect();
-			scheme.removeEventListener('change', redraw);
+			observer.disconnect();
 			chart?.dispose();
 		};
 	});
@@ -63,7 +75,16 @@
 	// `notMerge` so a series removed by a filter actually disappears rather than
 	// lingering underneath the new one.
 	$effect(() => {
-		if (chart && ready) chart.setOption(option, { notMerge: true });
+		if (chart && ready) {
+			chart.setOption(
+				{
+					animation: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+					aria: { enabled: true, decal: { show: true } },
+					...option
+				},
+				{ notMerge: true }
+			);
+		}
 	});
 </script>
 

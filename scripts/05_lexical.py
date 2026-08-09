@@ -20,21 +20,24 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import console, frames, lexical, lexicon
+from lib import artifacts, console, frames, lexical, lexicon
 from lib.paths import (
     LEXICAL,
+    ROOT,
     SPEECHES_FLAGGED,
+    STOPWORDS,
     ensure_dirs,
     rel,
     write_note,
+)
+from lib.paths import (
+    LEXICON as LEXICON_CONFIG,
 )
 
 #: Nodes to profile. `genocide` is the object; the two neighbours are there to
@@ -45,6 +48,7 @@ NODES = ["genocide", "ethnic_cleansing", "crimes_against_humanity"]
 #: argument the phrase sits in; ±8 is the compromise the slices use.
 WIDTHS = [5, 8, 15]
 SLICE_WIDTH = 8
+MIN_PROFILE_SPEECHES = 20
 
 #: Periods for the sliced views. Round decades, so the boundaries are not
 #: chosen to flatter a result — 04's change points are the empirical dating,
@@ -153,7 +157,8 @@ def build_slices(
         by_group[str(group)] = profile(subset)
         console.info(f"group {group}: {len(subset):,} speeches")
 
-    ranked = holders["country_org"].value_counts().head(countries)
+    ranked = holders["country_org"].value_counts()
+    ranked = ranked[ranked >= MIN_PROFILE_SPEECHES].head(countries)
     by_country = {}
     for country, count in ranked.items():
         by_country[str(country)] = profile(holders[holders["country_org"] == country])
@@ -162,6 +167,7 @@ def build_slices(
     return {
         "term": term.name,
         "width": SLICE_WIDTH,
+        "minimum_speeches": MIN_PROFILE_SPEECHES,
         "by_period": by_period,
         "by_speaker_group": by_group,
         "by_country": by_country,
@@ -176,6 +182,7 @@ def build_keyness(
     stopwords: frozenset[str],
     limit: int,
     seed: int,
+    repetitions: int,
 ) -> dict[str, object]:
     """Genocide speeches against a year/agenda/group-matched control set.
 
@@ -190,8 +197,8 @@ def build_keyness(
         f"({control.coverage:.1%}); {len(control.short_strata)} strata short"
     )
 
-    target_body = frames.body(speeches[speeches[flag]])
-    control_body = frames.body(speeches.loc[control.index])
+    target_body = frames.body(speeches.loc[control.target_index])
+    control_body = frames.body(speeches.loc[control.control_index])
 
     target_counts = lexical.vocabulary(target_body)
     control_counts = lexical.vocabulary(control_body)
@@ -219,11 +226,42 @@ def build_keyness(
         limit=limit,
     )
 
+    primary_words = [str(row["word"]) for row in rows]
+    effects = {word: [] for word in primary_words}
+    coverages = []
+    for repetition in range(repetitions):
+        sampled = lexical.matched_control(speeches, flag, MATCH_ON, seed + repetition)
+        sampled_targets = lexical.vocabulary(frames.body(speeches.loc[sampled.target_index]))
+        sampled_controls = lexical.vocabulary(frames.body(speeches.loc[sampled.control_index]))
+        target_size = sum(sampled_targets.values())
+        control_size = sum(sampled_controls.values())
+        coverages.append(sampled.coverage)
+        for word in primary_words:
+            effects[word].append(
+                lexical.log_ratio(
+                    sampled_targets.get(word, 0),
+                    sampled_controls.get(word, 0),
+                    target_size,
+                    control_size,
+                )
+            )
+
+    stability = [
+        {
+            "word": word,
+            "median": round(float(pd.Series(values).median()), 3),
+            "p05": round(float(pd.Series(values).quantile(0.05)), 3),
+            "p95": round(float(pd.Series(values).quantile(0.95)), 3),
+        }
+        for word, values in effects.items()
+    ]
+
     return {
         "term": term.name,
         "matched_on": MATCH_ON,
         "seed": seed,
-        "target_speeches": int(speeches[flag].sum()),
+        "target_speeches": control.matched,
+        "eligible_target_speeches": control.wanted,
         "control_speeches": control.matched,
         "coverage": round(control.coverage, 4),
         "target_tokens": target_total,
@@ -234,6 +272,13 @@ def build_keyness(
         ],
         "keywords": rows,
         "keywords_unmatched": unmatched,
+        "stability": {
+            "repetitions": repetitions,
+            "seed_first": seed,
+            "coverage_min": round(min(coverages), 4) if coverages else 0.0,
+            "coverage_max": round(max(coverages), 4) if coverages else 0.0,
+            "keyword_log_ratio": stability,
+        },
     }
 
 
@@ -246,7 +291,16 @@ def build_network(speeches: pd.DataFrame, lex: lexicon.Lexicon, minimum: int) ->
     for label, first, last in PERIODS:
         subset = speeches[speeches["year"].between(first, last)]
         edges = lexical.pmi_network(subset, lex, minimum)
-        by_period[label] = edges
+        by_period[label] = {
+            "terms": [
+                {
+                    "name": term.name,
+                    "speeches": int(subset[f"{lexicon.HAS}{term.name}"].sum()),
+                }
+                for term in lex.active
+            ],
+            "edges": edges,
+        }
         console.info(f"{label}: {len(edges)} edges over {len(subset):,} speeches")
 
     return {
@@ -262,15 +316,17 @@ def build_network(speeches: pd.DataFrame, lex: lexicon.Lexicon, minimum: int) ->
         ],
         "edges": whole,
         "by_period": by_period,
+        "suppressed_nested_edges": [
+            {"source": term.nested_under, "target": term.name}
+            for term in lex.active
+            if term.nested_under is not None
+        ],
     }
 
 
 def write_json(payload: dict, path: Path, meta: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps({"meta": meta, **payload}, ensure_ascii=False, separators=(",", ":")),
-        encoding="utf-8",
-    )
+    artifacts.atomic_write_json(path, {"meta": meta, **payload})
     console.info(f"wrote {rel(path)}  ({path.stat().st_size / 1e3:,.0f} kB)")
 
 
@@ -388,17 +444,20 @@ def build_note(
             "",
             "## Keyness against a matched control",
             "",
-            f"Each of the {keyness['target_speeches']:,} genocide-bearing speeches was paired "
+            f"The comparison uses {keyness['target_speeches']:,} complete target-control pairs, "
             f"with a speech from the same **{'**, **'.join(keyness['matched_on'])}** that does "
             "not use the term.",
             "",
-            f"- **{keyness['control_speeches']:,} matched** "
+            f"- **{keyness['control_speeches']:,} of "
+            f"{keyness['eligible_target_speeches']:,} eligible targets matched** "
             f"({keyness['coverage']:.1%} coverage), seed {keyness['seed']}.",
             f"- {len(short)} strata could not be filled, {shortfall:,} speeches short. These "
             "are debates in which nearly everyone used the word — which is itself informative, "
             "and is why the shortfall is reported rather than back-filled from elsewhere.",
             f"- {keyness['target_tokens']:,} target tokens against "
             f"{keyness['control_tokens']:,} control tokens.",
+            f"- Stability rerun across {keyness['stability']['repetitions']:,} consecutive "
+            "seeds; the JSON reports the 5th, median and 95th percentile log ratios.",
             "",
             "| # | Word | In target | G² | Log ratio |",
             "|---:|---|---:|---:|---:|",
@@ -439,7 +498,7 @@ def build_note(
     ) + "\n"
 
 
-def run(limit: int, countries: int, seed: int, min_edge: int) -> None:
+def run(limit: int, countries: int, seed: int, min_edge: int, repetitions: int) -> None:
     ensure_dirs()
 
     lex = lexicon.load()
@@ -474,27 +533,41 @@ def run(limit: int, countries: int, seed: int, min_edge: int) -> None:
 
     console.step("Keyness against a matched control")
     keyness = build_keyness(
-        speeches, lex.terms["genocide"], reference, reference_total, stopwords, limit, seed
+        speeches,
+        lex.terms["genocide"],
+        reference,
+        reference_total,
+        stopwords,
+        limit,
+        seed,
+        repetitions,
     )
 
     console.step("Co-occurrence network")
     network = build_network(speeches, lex, min_edge)
 
     console.step("Writing")
-    meta = {
-        "script": "05_lexical.py",
-        "generated": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "lexicon_version": lex.version,
-        "corpus_tokens": reference_total,
-        "corpus_types": len(reference),
-        "stopwords": len(stopwords),
-        "min_count": lexical.MIN_COUNT,
-        "limit": limit,
-    }
-    write_json({"nodes": collocate_payload, "widths": WIDTHS}, LEXICAL / "collocates.json", meta)
-    write_json(slices, LEXICAL / "collocates_sliced.json", meta)
-    write_json(keyness, LEXICAL / "keyness.json", meta)
-    write_json(network, LEXICAL / "network.json", meta)
+    meta = artifacts.provenance(
+        ROOT,
+        "05_lexical.py",
+        inputs=[SPEECHES_FLAGGED],
+        configs=[LEXICON_CONFIG, STOPWORDS],
+        extra={
+            "lexicon_version": lex.version,
+            "corpus_tokens": reference_total,
+            "corpus_types": len(reference),
+            "stopwords": len(stopwords),
+            "min_count": lexical.MIN_COUNT,
+            "limit": limit,
+        },
+    )
+    with artifacts.atomic_directory(LEXICAL) as staged:
+        write_json(
+            {"nodes": collocate_payload, "widths": WIDTHS}, staged / "collocates.json", meta
+        )
+        write_json(slices, staged / "collocates_sliced.json", meta)
+        write_json(keyness, staged / "keyness.json", meta)
+        write_json(network, staged / "network.json", meta)
 
     note = write_note(
         "05_lexical.md",
@@ -509,8 +582,14 @@ def main() -> None:
     parser.add_argument("--countries", type=int, default=8, help="speakers profiled")
     parser.add_argument("--seed", type=int, default=20_260_807, help="control-sampling seed")
     parser.add_argument("--min-edge", type=int, default=20, help="shared speeches for an edge")
+    parser.add_argument(
+        "--matching-repetitions",
+        type=int,
+        default=20,
+        help="consecutive seeds used for matched-keyness stability intervals",
+    )
     args = parser.parse_args()
-    run(args.limit, args.countries, args.seed, args.min_edge)
+    run(args.limit, args.countries, args.seed, args.min_edge, args.matching_repetitions)
 
 
 if __name__ == "__main__":

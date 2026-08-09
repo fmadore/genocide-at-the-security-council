@@ -61,6 +61,25 @@ export interface Break {
 	before: number;
 	after: number;
 	ratio: number;
+	interval_start: number;
+	interval_stop: number;
+}
+
+export interface RateBreak {
+	index: number;
+	label: string;
+	family: 'binomial' | 'poisson';
+	gain: number;
+	p_value: number;
+	alpha: number;
+	accepted: boolean;
+	before: number;
+	before_ci95: [number, number];
+	after: number;
+	after_ci95: [number, number];
+	ratio: number | null;
+	counts: [number, number];
+	exposure: [number, number];
 }
 
 export interface ChangePoints {
@@ -69,6 +88,15 @@ export interface ChangePoints {
 	parameters: Record<string, number>;
 	caveat: string;
 	series: Record<string, Record<string, Break[]>>;
+	inference: {
+		method: string;
+		familywise_alpha: number;
+		per_test_alpha: number;
+		correction: string;
+		trials: number;
+		caveat: string;
+		series: Record<string, Record<string, RateBreak | null>>;
+	};
 }
 
 export type EventKind =
@@ -80,6 +108,7 @@ export interface CouncilEvent {
 	label: string;
 	kind: EventKind;
 	source: string;
+	source_url: string;
 	note: string;
 }
 
@@ -118,6 +147,7 @@ export interface SlicedCollocates {
 	meta: Meta;
 	term: string;
 	width: number;
+	minimum_speeches: number;
 	by_period: Record<string, CollocateBlock>;
 	by_speaker_group: Record<string, CollocateBlock>;
 	by_country: Record<string, CollocateBlock>;
@@ -129,6 +159,7 @@ export interface Keyness {
 	matched_on: string[];
 	seed: number;
 	target_speeches: number;
+	eligible_target_speeches: number;
 	control_speeches: number;
 	coverage: number;
 	target_tokens: number;
@@ -136,6 +167,13 @@ export interface Keyness {
 	short_strata: { key: string[]; wanted: number; found: number }[];
 	keywords: Word[];
 	keywords_unmatched: Word[];
+	stability: {
+		repetitions: number;
+		seed_first: number;
+		coverage_min: number;
+		coverage_max: number;
+		keyword_log_ratio: { word: string; median: number; p05: number; p95: number }[];
+	};
 }
 
 export interface Edge {
@@ -151,7 +189,8 @@ export interface Network {
 	min_speeches: number;
 	terms: { name: string; tier: string; register: string; speeches: number }[];
 	edges: Edge[];
-	by_period: Record<string, Edge[]>;
+	by_period: Record<string, { terms: { name: string; speeches: number }[]; edges: Edge[] }>;
+	suppressed_nested_edges: { source: string; target: string }[];
 }
 
 /* --- 08_kwic.py ---------------------------------------------------------- */

@@ -40,13 +40,26 @@ class Term:
     register: str
     enabled: bool = True
     note: str = ""
+    examples: tuple[str, ...] = ()
+    prefilters: tuple[str, ...] = ()
+    nested_under: str | None = None
     regex: re.Pattern[str] = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
 
     def count(self, texts: pd.Series) -> pd.Series:
         """Occurrences of this term in each text."""
-        return pd.Series(
-            [len(self.regex.findall(t)) for t in texts], index=texts.index, dtype="int32"
-        )
+        candidates = pd.Series(False, index=texts.index)
+        for literal in self.prefilters:
+            candidates |= texts.str.contains(literal, case=False, regex=False, na=False)
+        counts = pd.Series(0, index=texts.index, dtype="int64")
+        if candidates.any():
+            sources = texts.loc[candidates]
+            matched = pd.Series(
+                [len(self.regex.findall(source)) for source in sources],
+                index=sources.index,
+                dtype="int64",
+            )
+            counts.loc[candidates] = matched
+        return counts
 
 
 @dataclass(frozen=True)
@@ -100,8 +113,30 @@ def load() -> Lexicon:
             register=spec.get("register", "other"),
             enabled=spec.get("enabled", True),
             note=(spec.get("note") or "").strip(),
+            examples=tuple(str(example) for example in spec.get("examples", [])),
+            prefilters=tuple(str(literal) for literal in spec.get("prefilters", [])),
+            nested_under=spec.get("nested_under"),
             regex=regex,
         )
+
+        if not terms[name].examples:
+            raise ValueError(f"{rel(LEXICON)}: term '{name}' needs at least one example")
+        if not terms[name].prefilters:
+            raise ValueError(f"{rel(LEXICON)}: term '{name}' needs at least one prefilter")
+        missed = [example for example in terms[name].examples if not regex.search(example)]
+        if missed:
+            raise ValueError(
+                f"{rel(LEXICON)}: term '{name}' does not match its examples: {missed}"
+            )
+        unfiltered = [
+            example
+            for example in terms[name].examples
+            if not any(literal.lower() in example.lower() for literal in terms[name].prefilters)
+        ]
+        if unfiltered:
+            raise ValueError(
+                f"{rel(LEXICON)}: term '{name}' prefilters miss its examples: {unfiltered}"
+            )
 
     sets = raw.get("sets", {})
     unknown = {
@@ -109,6 +144,14 @@ def load() -> Lexicon:
     }
     if bad := {k: v for k, v in unknown.items() if v}:
         raise ValueError(f"{rel(LEXICON)}: sets reference undefined terms: {bad}")
+
+    bad_parents = {
+        term.name: term.nested_under
+        for term in terms.values()
+        if term.nested_under is not None and term.nested_under not in terms
+    }
+    if bad_parents:
+        raise ValueError(f"{rel(LEXICON)}: nested terms reference undefined parents: {bad_parents}")
 
     return Lexicon(
         version=raw.get("version", 0),

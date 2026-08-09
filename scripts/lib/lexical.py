@@ -82,6 +82,22 @@ class Tokens:
         past = bisect.bisect_left(self.starts, span[1])
         return self.words[max(0, first - width) : first] + self.words[past : past + width]
 
+    def context(self, spans: list[tuple[int, int]], width: int) -> list[str]:
+        """Unique context tokens around several nodes in one speech.
+
+        Overlapping windows are merged at token level and every node token is
+        excluded. This prevents a phrase repeated in one sentence from counting
+        the shared context once per occurrence.
+        """
+        context_indices: set[int] = set()
+        node_indices: set[int] = set()
+        for start, stop in spans:
+            first = bisect.bisect_left(self.starts, start)
+            past = bisect.bisect_left(self.starts, stop)
+            node_indices.update(range(first, past))
+            context_indices.update(range(max(0, first - width), min(len(self), past + width)))
+        return [self.words[index] for index in sorted(context_indices - node_indices)]
+
 
 def tokenise(source: str) -> Tokens:
     """Lower-case word tokens with their offsets into `source`."""
@@ -202,9 +218,8 @@ def collocates(
         if not matches:
             continue
         tokens = tokenise(source)
-        for match in matches:
-            occurrences += 1
-            window.update(tokens.around((match.start(), match.end()), width))
+        occurrences += len(matches)
+        window.update(tokens.context([(match.start(), match.end()) for match in matches], width))
 
     window_total = sum(window.values())
     rows = compare(
@@ -223,10 +238,11 @@ def collocates(
 
 
 @dataclass(frozen=True)
-class Control:
-    """A control set drawn to match the target on the strata that matter."""
+class MatchedPairs:
+    """Aligned target and control indices drawn from the same strata."""
 
-    index: pd.Index
+    target_index: pd.Index
+    control_index: pd.Index
     matched: int  #: target speeches that found a partner
     wanted: int  #: target speeches in total
     short_strata: list[tuple[tuple, int, int]]  #: (key, wanted, found)
@@ -238,7 +254,7 @@ class Control:
 
 def matched_control(
     frame: pd.DataFrame, flag: str, keys: list[str], seed: int = 20_260_807
-) -> Control:
+) -> MatchedPairs:
     """One non-target speech per target, from the same stratum.
 
     Sampling is without replacement inside a stratum, so no control speech is
@@ -252,7 +268,8 @@ def matched_control(
     pool = frame[~frame[flag]]
     available = {key: list(idx) for key, idx in pool.groupby(keys, sort=True).groups.items()}
 
-    picked: list = []
+    picked_targets: list = []
+    picked_controls: list = []
     short: list[tuple[tuple, int, int]] = []
     for key, group in targets.groupby(keys, sort=True):
         wanted = len(group)
@@ -261,11 +278,18 @@ def matched_control(
         if take < wanted:
             short.append((key if isinstance(key, tuple) else (key,), wanted, take))
         if take:
-            picked.extend(rng.choice(np.asarray(candidates), take, replace=False))
+            target_indices = np.asarray(group.index)
+            if take < wanted:
+                target_indices = rng.choice(target_indices, take, replace=False)
+            picked_targets.extend(target_indices.tolist())
+            picked_controls.extend(
+                rng.choice(np.asarray(candidates), take, replace=False).tolist()
+            )
 
-    return Control(
-        index=pd.Index(picked),
-        matched=len(picked),
+    return MatchedPairs(
+        target_index=pd.Index(picked_targets),
+        control_index=pd.Index(picked_controls),
+        matched=len(picked_controls),
         wanted=len(targets),
         short_strata=short,
     )
@@ -294,6 +318,10 @@ def pmi_network(
     edges = []
     for i, left in enumerate(names):
         for right in names[i + 1 :]:
+            left_term = lex.terms[left]
+            right_term = lex.terms[right]
+            if left_term.nested_under == right or right_term.nested_under == left:
+                continue
             together = int((present[left] & present[right]).sum())
             if together < min_speeches:
                 continue

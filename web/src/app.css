@@ -69,6 +69,12 @@
 
 html {
 	-webkit-text-size-adjust: 100%;
+	scrollbar-color: var(--ink-faint) var(--paper);
+}
+
+::selection {
+	background: var(--accent);
+	color: var(--panel);
 }
 
 body {
@@ -130,6 +136,12 @@ select,
 input {
 	font: inherit;
 	color: inherit;
+	min-height: 2.5rem;
+}
+
+input,
+textarea {
+	caret-color: var(--accent);
 }
 
 table {
@@ -168,10 +180,7 @@ th.num {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	*,
-	*::before,
-	*::after {
-		animation-duration: 0.01ms !important;
-		transition-duration: 0.01ms !important;
+	html {
+		scroll-behavior: auto;
 	}
 }

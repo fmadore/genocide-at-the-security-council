@@ -30,9 +30,12 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import console, frames, lexicon, text
+from lib import artifacts, console, frames, lexicon, text
 from lib.paths import (
     INTERIM,
+    LEXICON,
+    MANIFESTS,
+    ROOT,
     SPEECHES_FLAGGED,
     SPEECHES_NORM,
     ensure_dirs,
@@ -89,32 +92,74 @@ def check_documented(counts: pd.DataFrame) -> list[tuple[str, int, int, int, int
     return rows
 
 
+def _period(year: int) -> str:
+    return f"{year // 10 * 10}s"
+
+
+def _stratified_sample(frame: pd.DataFrame, size: int, seed: int) -> pd.DataFrame:
+    """Cover term-period strata once, then fill remaining places at random."""
+    anchors = frame.groupby(["term", "period"], sort=True, group_keys=False).sample(
+        n=1, random_state=seed
+    )
+    if len(anchors) > size:
+        anchors = anchors.sample(size, random_state=seed)
+    remaining = frame.drop(index=anchors.index)
+    needed = min(max(size - len(anchors), 0), len(remaining))
+    if needed:
+        anchors = pd.concat([anchors, remaining.sample(needed, random_state=seed + 1)])
+    return anchors.sort_values(["term", "index", "start"])
+
+
 def audit_sample(
     speeches: pd.DataFrame,
     bodies: pd.Series,
+    counts: pd.DataFrame,
     lex: lexicon.Lexicon,
-    term_name: str,
     size: int,
     seed: int,
 ) -> pd.DataFrame:
-    """A random sample of occurrences with context, for the precision audit."""
-    term = lex.terms[term_name]
+    """Term/period-stratified occurrence and speech samples for human review."""
     rows = []
-    for index, body in bodies.items():
-        for match in term.regex.finditer(body):
-            rows.append((index, match.start(), match.end()))
+    years = speeches["year"].to_dict()
+    for term in lex.active:
+        holders = counts.index[counts[f"{lexicon.HAS}{term.name}"]]
+        for index, body in bodies.loc[holders].items():
+            for match in term.regex.finditer(body):
+                rows.append(
+                    {
+                        "term": term.name,
+                        "tier": term.tier,
+                        "register": term.register,
+                        "index": index,
+                        "start": match.start(),
+                        "end": match.end(),
+                        "period": _period(int(years[index])),
+                    }
+                )
     if not rows:
         return pd.DataFrame()
 
-    frame = pd.DataFrame(rows, columns=["index", "start", "end"])
-    frame = frame.sample(min(size, len(frame)), random_state=seed).sort_values("index")
+    occurrences = pd.DataFrame(rows)
+    occurrence_sample = _stratified_sample(occurrences, size, seed).assign(
+        unit="occurrence", strategy="term-period stratified"
+    )
+    speech_candidates = occurrences.drop_duplicates(["term", "index"], keep="first")
+    speech_sample = _stratified_sample(speech_candidates, size, seed + 2).assign(
+        unit="speech", strategy="term-period stratified"
+    )
 
     out = []
-    for row in frame.itertuples():
+    for row in pd.concat([occurrence_sample, speech_sample]).itertuples():
         left, keyword, right = text.window(bodies.loc[row.index], row.start, row.end)
         meta = speeches.loc[row.index]
         out.append(
             {
+                "unit": row.unit,
+                "strategy": row.strategy,
+                "term": row.term,
+                "tier": row.tier,
+                "register": row.register,
+                "period": row.period,
                 "filename": meta["filename"],
                 "meeting_symbol": meta["meeting_symbol"],
                 "date": f"{meta['date']:%Y-%m-%d}",
@@ -124,6 +169,8 @@ def audit_sample(
                 "keyword": keyword,
                 "right": right,
                 "verdict": "",  # fill in: ok / false-positive
+                "source_checked": "",  # yes / no
+                "phenomenon": "",  # direct / quoted / title / negated / OCR / other
                 "comment": "",
             }
         )
@@ -219,9 +266,10 @@ def build_note(
             "",
             "## Precision audit",
             "",
-            f"{sample_size} random occurrences written to `{rel(AUDIT_SAMPLE)}` with an",
-            "empty `verdict` column. Fill it in with `ok` or `false-positive`, then report",
-            "the precision estimate in the README, as docs/PLAN.md §2.2 requires.",
+            f"Up to {sample_size} occurrence-level and {sample_size} speech-level cases were",
+            f"written to `{rel(AUDIT_SAMPLE)}`. Sampling covers each term-period stratum before",
+            "filling the remainder randomly. Human reviewers must fill `verdict`, record whether",
+            "the primary source was checked, and classify quotation, title, negation and OCR cases.",
             "",
         ]
     ) + "\n"
@@ -267,9 +315,9 @@ def run(sample_size: int, seed: int) -> None:
             console.info(f"    {row['meeting_symbol']} {row['date']:%Y-%m-%d} {row['country_org']}")
 
     console.step("Drawing the precision sample")
-    sample = audit_sample(speeches, bodies, lex, "genocide", sample_size, seed)
+    sample = audit_sample(speeches, bodies, counts, lex, sample_size, seed)
     AUDIT_SAMPLE.parent.mkdir(parents=True, exist_ok=True)
-    sample.to_csv(AUDIT_SAMPLE, index=False, encoding="utf-8")
+    artifacts.atomic_write_text(AUDIT_SAMPLE, sample.to_csv(index=False))
     console.info(f"wrote {rel(AUDIT_SAMPLE)} ({len(sample)} rows, seed {seed})")
 
     console.step("Writing")
@@ -281,6 +329,24 @@ def run(sample_size: int, seed: int) -> None:
         build_note(speeches, counts, lex, documented, ocr, len(sample)),
     )
     console.info(f"wrote {note.name}")
+    manifest = artifacts.provenance(
+        ROOT,
+        "03_lexicon.py",
+        inputs=[SPEECHES_NORM],
+        configs=[LEXICON],
+        extra={
+            "outputs": [artifacts.describe_file(SPEECHES_FLAGGED, ROOT)],
+            "lexicon_version": lex.version,
+            "terms": {
+                term.name: {
+                    "speeches": int(counts[f"{lexicon.HAS}{term.name}"].sum()),
+                    "occurrences": int(counts[f"{lexicon.COUNT}{term.name}"].sum()),
+                }
+                for term in lex.active
+            },
+        },
+    )
+    artifacts.atomic_write_json(MANIFESTS / "03_lexicon.json", manifest, indent=1)
 
 
 def main() -> None:

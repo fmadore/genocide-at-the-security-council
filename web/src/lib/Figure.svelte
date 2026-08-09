@@ -111,7 +111,7 @@
 	}
 
 	.note {
-		border-left: 2px solid var(--accent);
+		border-left: 1px solid var(--accent);
 		padding-left: 0.85rem;
 	}
 

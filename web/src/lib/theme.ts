@@ -13,6 +13,18 @@
  * annotated `EChartsOption`, they type-check exactly.
  */
 
+import { readable } from 'svelte/store';
+
+/** Reactive colour-scheme signal; chart option builders subscribe to this. */
+export const colourScheme = readable<'light' | 'dark'>('light', (set) => {
+	if (typeof window === 'undefined') return;
+	const query = window.matchMedia('(prefers-color-scheme: dark)');
+	const update = () => set(query.matches ? 'dark' : 'light');
+	update();
+	query.addEventListener('change', update);
+	return () => query.removeEventListener('change', update);
+});
+
 const REGISTERS = ['core', 'legal', 'preventive', 'commemorative', 'contentious', 'accountability'];
 
 export interface Palette {

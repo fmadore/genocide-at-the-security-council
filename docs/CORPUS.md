@@ -15,7 +15,7 @@ word **genocide** in the Security Council.
 | **Repository** | Harvard Dataverse — [doi:10.7910/DVN/KGVSYH](https://doi.org/10.7910/DVN/KGVSYH) |
 | **Version used** | **6.1**, released 19 February 2025 |
 | **Licence** | **CC0 1.0** (public domain) — no reuse restrictions |
-| **Primary source** | `S/PV.*` verbatim records, <http://research.un.org/en/docs/sc/quick/meetings/> |
+| **Primary source** | `S/PV.*` verbatim records, <https://research.un.org/en/docs/sc/quick/meetings/> |
 | **Companion paper** | Schoenfeld *et al.* (2025), *The UN Security Council debates 1992-2023*, [arXiv:1906.10969v3](https://arxiv.org/abs/1906.10969) (cs.DL, 17 March 2025) |
 | **Contact** | mirco.schoenfeld@tum.de |
 | **Related dataset** | [UNSC debates on Afghanistan](https://doi.org/10.7910/DVN/OM9RG8) |
@@ -241,24 +241,28 @@ Findings worth knowing, since they frame how the corpus can be read:
 
 ## 8. First findings — the semantic field of genocide
 
+This section began as a reconnaissance scan. The table is now aligned with lexicon v2;
+generated artifacts and [`VALIDATION.md`](VALIDATION.md) remain the authority if a future
+lexicon version changes these figures.
+
 Scan across all 106,302 speeches (case-insensitive regex; total occurrences).
 
 | Term | Speeches | % corpus | Occurrences |
 |---|---:|---:|---:|
 | `impunity` | 9,662 | 9.09% | 13,616 |
-| `international criminal court` / `ICC` | 4,744 | 4.46% | 6,590 |
-| `war crime(s)` | 4,664 | 4.39% | 6,588 |
-| `atrocit*` | 3,775 | 3.55% | 5,087 |
+| `international criminal court` / `ICC` | 4,057 | 3.82% | 11,739 |
+| `war crime(s)` | 4,326 | 4.07% | 6,241 |
+| `atrocity` / `atrocities` | 4,244 | 3.99% | 6,120 |
 | `crimes against humanity` | 3,465 | 3.26% | 4,136 |
 | **`genocid*`** | **3,273** | **3.08%** | **6,092** |
-| `responsibility to protect` / `R2P` | 1,353 | 1.27% | 1,773 |
+| `responsibility to protect` / `R2P` | 1,144 | 1.08% | 1,577 |
 | `ethnic cleansing` | 1,229 | 1.16% | 1,705 |
-| `mass atrocit*` | 532 | 0.50% | 649 |
+| `mass atrocity` / `mass atrocities` | 573 | 0.54% | 733 |
 | `ethnic hatred/violence/conflict` | 477 | 0.45% | 523 |
-| `never again` | 305 | 0.29% | 338 |
+| `never again` | 287 | 0.27% | 320 |
 | `exterminat*` | 224 | 0.21% | 281 |
-| `holocaust` | 181 | 0.17% | 242 |
-| `genocide convention` | 135 | 0.13% | 153 |
+| `holocaust` / `shoah` | 181 | 0.17% | 244 |
+| `genocide convention` | 92 | 0.09% | 110 |
 
 Forms of `genocid*`: `genocide` (5,685), `genocidal` (313), `genocides` (62),
 `genocidaires` (29), `genocidaire` (2), `genocida` (1). Marginal OCR variants (`genecide`)
@@ -272,8 +276,8 @@ should be caught by a tolerant regex.
 | ≥ 2 occurrences | 1,061 | 1,264,919 |
 | ≥ 3 occurrences | 518 | 685,911 |
 | ≥ 5 occurrences | 208 | 302,824 |
-| Atrocity core (genocide ∪ ethnic cleansing ∪ CAH ∪ war crimes ∪ mass atrocity) | 7,936 | — |
-| Extended lexicon (14 terms) | 17,966 | — |
+| Atrocity core (genocide ∪ ethnic cleansing ∪ CAH ∪ war crimes ∪ mass atrocity) | 7,814 | — |
+| Active lexicon (22 terms) | 23,271 | — |
 
 ### 8.1 Chronology
 
@@ -444,11 +448,12 @@ files are never read again.
    absent. The corpus documents official speech, not negotiation.
 2. **OCR noise**, unquantified by the authors and unevenly distributed over time.
 3. **Semi-automatic speaker attribution**, with an unaudited manual component.
-4. **Translation.** Records are in English; speeches delivered in French, Arabic, Russian,
-   Chinese or Spanish are official translations. Any stylistic analysis partly measures the
-   work of UN translation services, not only the speaker's.
-5. **Partly stale Dataverse metadata** (§1) and a **meeting count inconsistent** with the
-   paper (§4).
+4. **Translation.** Records are in English; 40.2% carry an explicit non-English delivery
+   marker and are official translations. Missing in-person markers imply English under the
+   record convention, while 5,072 VTC speeches remain unknown. Stylistic analysis partly
+   measures UN translation services, not only the speaker.
+5. **Partly stale Dataverse metadata** (§1) and two valid counting units: 6,595 corpus
+   documents versus 6,582 distinct meeting symbols (§4).
 6. **`role` is empty in 86% of rows**: analyses by UN function rest on a non-random subset.
 
 ---

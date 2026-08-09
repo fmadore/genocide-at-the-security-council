@@ -20,16 +20,17 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import console, frames, lexicon, series
+from lib import artifacts, console, frames, language, lexicon, series
 from lib.paths import (
+    EVENTS,
+    LEXICON,
+    ROOT,
     SERIES,
     SPEECHES_FLAGGED,
     ensure_dirs,
@@ -53,16 +54,9 @@ BREAKDOWNS: list[tuple[str, int | None]] = [
     ("delivery_language", 10),
 ]
 
-#: The Secretariat marks a speech's language only when it is not English, so an
-#: absent marker is a positive fact about the speech, not missing data.
-UNMARKED_LANGUAGE = "English (unmarked)"
-
-
 def prepare(speeches: pd.DataFrame) -> pd.DataFrame:
     """Add the derived columns the breakdowns need."""
-    speeches["delivery_language"] = (
-        speeches["spoken_language"].astype("string").fillna(UNMARKED_LANGUAGE)
-    )
+    speeches["delivery_language"] = language.delivery_language(speeches)
     return speeches
 
 
@@ -179,13 +173,14 @@ def build_breakdowns(
 def build_change_points(
     computed: dict[str, dict[str, pd.DataFrame]],
     periods: list[int],
+    corpus: dict[str, list[int]],
     trials: int,
     seed: int,
     min_size: int,
     alpha: float,
     max_breaks: int = 4,
 ) -> dict[str, object]:
-    """Date the regime shifts, on the raw count and on both rates.
+    """Explore regime shifts and triangulate them with rate-aware inference.
 
     Running all three is the point: a break present in `occurrences` and absent
     in `speech_rate` says the Council said the word more often because it said
@@ -193,8 +188,8 @@ def build_change_points(
     """
     out: dict[str, object] = {
         "method": (
-            "Wild binary segmentation (sub-interval scan, CUSUM-equivalent gain), "
-            "permutation test per accepted split"
+            "Exploratory wild binary segmentation (sub-interval scan, "
+            "CUSUM-equivalent gain), with a permutation diagnostic"
         ),
         "parameters": {
             "min_size": min_size,
@@ -204,7 +199,8 @@ def build_change_points(
             "max_breaks": max_breaks,
         },
         "caveat": (
-            "The permutation null is a reordering of the same values, which tests for a "
+            "Exploratory only: the permutation null is a reordering of the same values, "
+            "which tests for a "
             "level shift and not for a trend. A smoothly rising series will return a "
             "break at its midpoint; read these against the plotted series, not instead "
             "of it."
@@ -231,15 +227,58 @@ def build_change_points(
             found[column] = [b.as_dict() for b in breaks]
         out["series"][name] = found  # type: ignore[index]
 
+    model_specs = [
+        (kind, name, "speech_rate", "speeches", "speeches", "binomial")
+        for kind, name in TRACKED
+    ]
+    model_specs.append(
+        ("terms", "genocide", "token_rate", "occurrences", "tokens", "poisson")
+    )
+    adjusted_alpha = alpha / len(model_specs)
+    inferred: dict[str, dict[str, object]] = {}
+    for offset, (kind, name, measure, count_column, exposure_name, family) in enumerate(
+        model_specs
+    ):
+        frame = computed[kind][name]
+        result = series.rate_change_point(
+            frame[count_column].to_numpy(dtype=int),
+            corpus[exposure_name],
+            periods,
+            family=family,
+            min_size=min_size,
+            trials=trials,
+            alpha=adjusted_alpha,
+            seed=seed + offset,
+        )
+        inferred.setdefault(name, {})[measure] = result
+
+    out["inference"] = {
+        "method": (
+            "Single two-rate maximum likelihood partition: binomial for speech prevalence; "
+            "Poisson for occurrences with token exposure; parametric maximum-search "
+            "bootstrap under a constant-rate null"
+        ),
+        "familywise_alpha": alpha,
+        "per_test_alpha": adjusted_alpha,
+        "correction": f"Bonferroni across {len(model_specs)} planned rate tests",
+        "trials": trials,
+        "caveat": (
+            "The scan preserves annual denominators and the breakpoint search, but rejecting "
+            "a constant rate does not prove an abrupt historical break: a smooth trend can "
+            "also yield a best two-rate partition. Annual bins are treated as independent, "
+            "speech clustering and Poisson overdispersion are not modelled, and confidence "
+            "intervals are conditional on the selected partition. Read effect sizes with the "
+            "trajectory and concordance evidence; do not interpret the date causally."
+        ),
+        "series": inferred,
+    }
+
     return out
 
 
 def write_json(payload: dict, path: Path, meta: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps({"meta": meta, **payload}, ensure_ascii=False, separators=(",", ":")),
-        encoding="utf-8",
-    )
+    artifacts.atomic_write_json(path, {"meta": meta, **payload})
     console.info(f"wrote {rel(path)}  ({path.stat().st_size / 1e3:,.0f} kB)")
 
 
@@ -438,7 +477,14 @@ def run(
 
     console.step("Detecting change points")
     change = build_change_points(
-        computed, annual["periods"], trials, seed, min_size, alpha, max_breaks
+        computed,
+        annual["periods"],
+        annual["corpus"],
+        trials,
+        seed,
+        min_size,
+        alpha,
+        max_breaks,
     )
     for name, found in change["series"].items():  # type: ignore[union-attr]
         for column, breaks in found.items():
@@ -458,37 +504,43 @@ def run(
     # Corpus-level totals travel with every artefact so the dashboard can state
     # a denominator without hard-coding one; a headline figure that drifts from
     # the data behind it is the easiest kind of error to ship.
-    meta = {
-        "script": "04_series.py",
-        "generated": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "lexicon_version": lex.version,
-        "speeches": len(speeches),
-        "meetings": int(speeches["meeting_symbol"].nunique()),
-        "tokens": int(speeches["tokens"].sum()),
-        "speakers": int(speeches["country_org"].nunique()),
-        "rate_per_tokens": series.RATE_PER,
-    }
-    write_json(annual, SERIES / "annual.json", meta)
-    write_json(quarterly, SERIES / "quarterly.json", meta)
-    write_json(breakdowns, SERIES / "breakdowns.json", meta)
-    write_json(change, SERIES / "change_points.json", meta)
-    write_json(
-        {
-            "events": [
-                {
-                    "date": f"{row.date:%Y-%m-%d}",
-                    "year": int(row.year),
-                    "label": row.label,
-                    "kind": row.kind,
-                    "source": row.source,
-                    "note": row.note,
-                }
-                for row in events.itertuples()
-            ]
+    meta = artifacts.provenance(
+        ROOT,
+        "04_series.py",
+        inputs=[SPEECHES_FLAGGED],
+        configs=[LEXICON, EVENTS],
+        extra={
+            "lexicon_version": lex.version,
+            "speeches": len(speeches),
+            "meetings": int(speeches["meeting_symbol"].nunique()),
+            "tokens": int(speeches["tokens"].sum()),
+            "speakers": int(speeches["country_org"].nunique()),
+            "rate_per_tokens": series.RATE_PER,
         },
-        SERIES / "events.json",
-        meta,
     )
+    with artifacts.atomic_directory(SERIES) as staged:
+        write_json(annual, staged / "annual.json", meta)
+        write_json(quarterly, staged / "quarterly.json", meta)
+        write_json(breakdowns, staged / "breakdowns.json", meta)
+        write_json(change, staged / "change_points.json", meta)
+        write_json(
+            {
+                "events": [
+                    {
+                        "date": f"{row.date:%Y-%m-%d}",
+                        "year": int(row.year),
+                        "label": row.label,
+                        "kind": row.kind,
+                        "source": row.source,
+                        "source_url": row.source_url,
+                        "note": row.note,
+                    }
+                    for row in events.itertuples()
+                ]
+            },
+            staged / "events.json",
+            meta,
+        )
 
     note = write_note(
         "04_series.md", build_note(speeches, annual, computed, change, events, lex)

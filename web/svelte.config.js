@@ -10,9 +10,9 @@ export default {
 	preprocess: vitePreprocess(),
 	kit: {
 		// `fallback` makes the reader an SPA route. Prerendering it would mean
-		// generating 6,595 pages to display text that is already fetched as JSON.
-		adapter: adapter({ fallback: '404.html', strict: false }),
+		// generating 6,595 document pages to display text already fetched as JSON.
+		adapter: adapter({ fallback: '404.html', strict: true }),
 		paths: { base },
-		prerender: { handleHttpError: 'warn' }
+		prerender: { handleHttpError: 'fail' }
 	}
 };

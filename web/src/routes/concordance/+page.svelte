@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
+	import { onMount, tick } from 'svelte';
 	import { kwic, meetingOf, speechOf } from '$lib/data';
 	import Figure from '$lib/Figure.svelte';
 	import { bytes, count, isoDate, shortCountry, termLabel, unSearch } from '$lib/format';
@@ -15,28 +16,50 @@
 
 	const PAGE = 60;
 
-	const params = page.url.searchParams;
-	let term = $state(params.get('term') ?? 'genocide');
-	let query = $state(params.get('q') ?? '');
-	let group = $state(params.get('group') ?? '');
-	let country = $state(params.get('country') ?? '');
-	let agenda = $state(params.get('agenda') ?? '');
-	let from = $state(Number(params.get('from') ?? 1992));
-	let to = $state(Number(params.get('to') ?? 2023));
-	let sort = $state<Sort>((params.get('sort') as Sort) ?? 'date');
-	let regex = $state(params.get('re') === '1');
+	let term = $state('genocide');
+	let query = $state('');
+	let group = $state('');
+	let country = $state('');
+	let agenda = $state('');
+	let from = $state(1992);
+	let to = $state(2023);
+	let sort = $state<Sort>('date');
+	let regex = $state(false);
+	let urlReady = $state(false);
 	let shown = $state(PAGE);
 	let expanded = $state<string | null>(null);
 
 	let file = $state<KwicFile | null>(null);
 	let loading = $state(false);
 	let failure = $state<string | null>(null);
+	let retry = $state(0);
+
+	onMount(() => {
+		const params = page.url.searchParams;
+		term = params.get('term') ?? 'genocide';
+		query = params.get('q') ?? '';
+		group = params.get('group') ?? '';
+		country = params.get('country') ?? '';
+		agenda = params.get('agenda') ?? '';
+		from = Number(params.get('from') ?? 1992);
+		to = Number(params.get('to') ?? 2023);
+		sort = (params.get('sort') as Sort) ?? 'date';
+		regex = params.get('re') === '1';
+		// The first replaceState must wait until SvelteKit has assigned its root.
+		// Running it inside the initial mount callback reaches the client router
+		// before that assignment is complete.
+		void tick().then(() => {
+			urlReady = true;
+		});
+	});
 
 	const entries = $derived([...data.index.terms].sort((a, b) => b.count - a.count));
 	const entry = $derived(entries.find((e) => e.term === term));
 
 	$effect(() => {
+		if (!urlReady) return;
 		const wanted = term;
+		void retry;
 		loading = true;
 		failure = null;
 		kwic(wanted)
@@ -53,6 +76,7 @@
 
 	/** Keep the URL in step, so any view of the concordance is citable. */
 	$effect(() => {
+		if (!urlReady) return;
 		const next = new SvelteURLSearchParams();
 		if (term !== 'genocide') next.set('term', term);
 		if (query) next.set('q', query);
@@ -130,6 +154,7 @@
 		from = 1992;
 		to = 2023;
 		sort = 'date';
+		regex = false;
 	}
 
 	function toCsv(rows: KwicLine[]): string {
@@ -160,9 +185,9 @@
 	<header class="lede">
 		<h1>Concordance</h1>
 		<p class="standfirst">
-			Every occurrence of every lexicon term, with the words either side of it. This is where an
-			aggregate stops being an aggregate: each line opens to its full sentence, and from there to
-			the speech it came from.
+			Every occurrence of every lexicon term, with a searchable ±150-character context. This is
+			where an aggregate stops being an aggregate: each line opens to its full sentence, and from
+			there to the speech it came from.
 		</p>
 	</header>
 
@@ -187,6 +212,8 @@
 					bind:value={query}
 					placeholder="within the line…"
 					class:bad={badRegex}
+					aria-invalid={badRegex}
+					aria-describedby={badRegex ? 'regex-error' : undefined}
 				/>
 			</label>
 			<label class="check">
@@ -259,11 +286,12 @@
 			<button class="ghost" onclick={reset}>Reset</button>
 		</div>
 
-		<div class="status">
+		<div class="status" aria-live="polite">
 			{#if loading}
 				<span>Loading {termLabel(term)} — {bytes(entry?.bytes ?? 0)}…</span>
 			{:else if failure}
 				<span class="error">{failure}</span>
+				<button class="ghost" onclick={() => (retry += 1)}>Try again</button>
 			{:else}
 				<span>
 					<strong>{count(filtered.length)}</strong> of {count(lines.length)} lines
@@ -273,7 +301,7 @@
 					Export {count(filtered.length)} to CSV
 				</button>
 			{/if}
-			{#if badRegex}<span class="error">Not a valid regular expression.</span>{/if}
+			{#if badRegex}<span id="regex-error" class="error">Not a valid regular expression.</span>{/if}
 		</div>
 
 		<div class="kwic" role="list">
@@ -352,32 +380,36 @@
 			{count(entries.reduce((a, e) => a + e.count, 0))} lines across {entries.length} terms. Each term
 			is a separate file, fetched when you choose it.
 		</p>
-		<table>
-			<thead>
-				<tr>
-					<th>Term</th>
-					<th>Register</th>
-					<th class="num">Lines</th>
-					<th class="num">Speeches</th>
-					<th class="num">Size</th>
-					<th class="num">Median sentence</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each entries as e (e.term)}
-					<tr class:current={e.term === term}>
-						<td
-							><button class="link" onclick={() => (term = e.term)}>{termLabel(e.term)}</button></td
-						>
-						<td>{e.register}</td>
-						<td class="num">{count(e.count)}</td>
-						<td class="num">{count(e.speeches)}</td>
-						<td class="num">{bytes(e.bytes)}</td>
-						<td class="num">{e.sentence_median} chars</td>
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
+		<div class="table-scroll" role="region" aria-label="Available terms table" tabindex="0">
+			<table>
+				<thead>
+					<tr>
+						<th>Term</th>
+						<th>Register</th>
+						<th class="num">Lines</th>
+						<th class="num">Speeches</th>
+						<th class="num">Size</th>
+						<th class="num">Median sentence</th>
 					</tr>
-				{/each}
-			</tbody>
-		</table>
+				</thead>
+				<tbody>
+					{#each entries as e (e.term)}
+						<tr class:current={e.term === term}>
+							<td
+								><button class="link" onclick={() => (term = e.term)}>{termLabel(e.term)}</button
+								></td
+							>
+							<td>{e.register}</td>
+							<td class="num">{count(e.count)}</td>
+							<td class="num">{count(e.speeches)}</td>
+							<td class="num">{bytes(e.bytes)}</td>
+							<td class="num">{e.sentence_median} chars</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
 	</section>
 </article>
 
@@ -448,7 +480,8 @@
 		background: none;
 		border: 1px solid var(--rule);
 		border-radius: 4px;
-		padding: 0.2rem 0.6rem;
+		padding: 0.45rem 0.7rem;
+		min-height: 2.5rem;
 		font-size: 0.8rem;
 		color: var(--ink-soft);
 		cursor: pointer;
@@ -463,6 +496,7 @@
 	.link {
 		border: none;
 		padding: 0;
+		min-height: 2rem;
 		color: var(--accent);
 		text-decoration: underline;
 		text-underline-offset: 0.15em;
@@ -573,7 +607,7 @@
 	blockquote {
 		margin: 0 0 0.8rem;
 		padding-left: 0.9rem;
-		border-left: 3px solid var(--accent);
+		border-left: 1px solid var(--accent);
 		font-family: var(--serif);
 		font-size: 1rem;
 		line-height: 1.55;
@@ -647,6 +681,16 @@
 	.hint {
 		font-size: 0.85rem;
 		color: var(--ink-soft);
+	}
+
+	.table-scroll {
+		max-width: 100%;
+		overflow-x: auto;
+	}
+
+	.table-scroll:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
 	}
 
 	tr.current td {

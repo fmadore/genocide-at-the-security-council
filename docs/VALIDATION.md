@@ -1,52 +1,58 @@
-# Open items to verify against the original records
+# Validation register
 
-The corpus is OCR'd from two-column `S/PV.*` verbatim records (see
-[`CORPUS.md` §3](CORPUS.md)). Where the pipeline resolves damaged text
-automatically, the resolution is recorded here rather than silently absorbed,
-so it can be checked against the source PDF.
+The corpus is OCR-derived from two-column `S/PV.*` verbatim records. This register keeps
+approximations, human-review tasks and resolved discrepancies visible instead of silently
+absorbing them into the pipeline.
 
-**This is a living list.** Each pipeline step appends the cases it could not
-decide on its own, or decided by approximate means.
+Status: 9 August 2026. “Mechanically reconciled” means code and source metadata agree; it
+does not mean a person has inspected the original PDF.
 
-## How to pull an original record
+## How to inspect an original record
 
-Records are addressed by their `meeting_symbol` (`S/PV.3137`). Resumptions
-carry a suffix in the corpus (`S/PV.3745Resumption1`) that becomes
-`S/PV.3745 (Resumption 1)` in the library.
+Records are addressed by `meeting_symbol` (`S/PV.3137`). Resumptions carry a corpus suffix
+such as `S/PV.3745Resumption1`, rendered by the UN as `S/PV.3745 (Resumption 1)`.
 
-- UN Digital Library search: <https://digitallibrary.un.org/search?ln=en&p=S%2FPV.3137>
-- Security Council meeting records index: <https://research.un.org/en/docs/sc/quick/meetings/>
+- UN Digital Library: <https://digitallibrary.un.org/search?ln=en&p=S%2FPV.3137>
+- Security Council records index: <https://research.un.org/en/docs/sc/quick/meetings/>
 
-The `filename` column locates the individual speech within the meeting
-(`UNSC_1992_SPV.3137_spch0009.txt` → the 9th speech of that record).
+The `filename` identifies the speech (`UNSC_1992_SPV.3137_spch0009.txt` is the ninth
+speech record in that document).
 
----
+## Open human checks
 
-## 1. OCR variants of `genocid*` — 1 case
+### 1. OCR variant of `genocid*` — one case
 
-The OCR-tolerant net (`gen[eo]cid|senocid|qenocid`, `lexicon.yml:
-genocide_ocr_variants`, disabled by default) finds **exactly one** speech that
-the plain `genocid*` pattern misses across all 106,302 speeches.
+The disabled tolerant pattern (`gen[eo]cid|senocid|qenocid`) finds one speech not covered
+by the headline `genocid*` pattern:
 
-| Record | Date | Speaker | Reading |
+| Record | Date | Speaker | Corpus reading |
 |---|---|---|---|
-| `S/PV.3137` | 1992-11-16 | Bosnia and Herzegovina | `…abhorrent "ethnic cleansing" and **genecide** in Bosnia…` |
+| `S/PV.3137` | 1992-11-16 | Bosnia and Herzegovina | `…ethnic cleansing and genecide in Bosnia…` |
 
-**To verify:** does the printed record read "genocide"? If so this is an OCR
-slip and the tolerant pattern is correct to catch it. The headline figure of
-3,273 speeches is unaffected either way — one speech is 0.03%.
+Check whether the printed record reads “genocide.” The headline count remains 3,273
+speeches either way because the tolerant pattern is reported separately.
 
-*Established by: `03_lexicon.py`.*
+### 2. Human precision audit — 200 rows
 
-## 2. Delivery language read off the form of address — 27 approximate
+`data/interim/lexicon_audit_sample.csv` contains deterministic occurrence-level,
+speech-level and term × period samples. A human reviewer must fill:
 
-`(spoke in French)` / `(interpretation from Arabic)` yields a delivery language
-for **42,765 speeches (40.2%)**. Of those, 27 needed approximate matching
-because the language name itself is OCR-damaged. Every one is listed so the
-reading can be confirmed:
+- `verdict`: true positive, false positive or uncertain;
+- `source_checked`: whether the original record was consulted;
+- `phenomenon`: legal allegation, commemoration, denial, quotation, OCR damage, etc.
+
+Report precision separately for the core term and extended lexicon, with denominators and
+uncertain cases. Any regex change invalidates the verdicts for that term and requires a new
+lexicon version.
+
+### 3. Approximate delivery-language readings — 27 forms
+
+Explicit `(spoke in French)` / `(interpretation from Arabic)` markers recover a
+non-English language for 42,765 speeches (40.2%). Twenty-seven damaged forms require the
+closed-vocabulary corrections below:
 
 | Printed | Read as | Speeches |
-|---|---|---|
+|---|---|---:|
 | `inArabic`, `fromArabic` | Arabic | 8 |
 | `inFrench`, `Prench`, `Frenci.`, `Frerch`, `Fcench`, `F reach` | French | 8 |
 | `inRussian`, `Russiar`, `Rassian` | Russian | 4 |
@@ -54,108 +60,57 @@ reading can be confirmed:
 | `Chiness`, `Cht'nese`, `Ch[nese` | Chinese | 3 |
 | `Acabic` | Arabic | 1 |
 
-Matching is confined to a closed 26-language vocabulary, so a damaged spelling
-can only ever resolve to a language the corpus already attests — it cannot
-invent one. Two spellings too mangled for the similarity threshold
-(`Snaniah` → Spanish, `Preach` → French) are corrected by name in
-`scripts/lib/text.py: _SPELLING_FIXES`.
+Missing in-person markers are labelled `English (inferred, in-person)`. Missing markers
+for 5,072 VTC speeches are `Unknown (VTC)`, because the VTC format does not carry the same
+evidence. Priority: low; inspect the 27 explicit repairs if language-based claims become a
+publication focus.
 
-**Priority: low.** The mapping is unambiguous to a reader in all 27 cases.
+### 4. No opening form of address — 5,172 speeches
 
-*Established by: `02_normalise.py`.*
+These records open directly into prose and are treated as continuations without trimming.
+Sample about twenty against the source PDF. If some are segmentation failures, their
+speaker attribution is weaker even though lexical counts remain intact. Priority: medium.
 
-## 3. Speeches with no opening form of address — 5,172 (4.9%)
+### 5. Repaired rows in `S/PV.5225` — 36 speeches
 
-`split_address` matches a form of address in 101,130 of 106,302 speeches. The
-remainder open straight into prose ("I thank the President for organizing
-today's debate…"). These are read as genuine continuation speeches and are
-left untruncated.
+A literal newline inside `agenda_item3` splits 36 TSV records. The parser rejoins records by
+the exact column count; row count and total tokens then match the codebook. Confirm in the
+source that the agenda is *The Role of the Security Council in Humanitarian Crises* and the
+document contains 36 corpus speech records. Priority: low.
 
-**To verify:** sample ~20 and confirm the printed record really does lack a
-speaker line at that point, rather than the segmentation having dropped one.
-If some are missed segmentation, `country_org` attribution for those speeches
-should be treated as less reliable.
+## Mechanically reconciled
 
-**Priority: medium** — it bears on speaker attribution, not on lexical counts.
+### Primary-source chronology overlay
 
-*Established by: `02_normalise.py`.*
+All 35 entries in `config/events.csv` now have a non-empty `source` and an HTTPS
+`source_url` pointing to the relevant UN, ICC, ICJ, OHCHR or archived government record.
+The config loader rejects missing source URLs, and the dashboard links directly to them.
+These dates are contextual annotations only; the models do not use them and the interface
+does not imply causal attribution.
 
-## 4. The 36 rows repaired in `S/PV.5225`
+### Lexicon v2 replaces reconnaissance counts
 
-A literal newline inside `agenda_item3` splits each of this meeting's 36
-speeches across two physical lines ([`CORPUS.md` §5.2](CORPUS.md)). The repair
-rejoins them by tab count and the token sum then matches the codebook exactly,
-which is strong evidence it is correct.
+The earlier prose treated a mixture of primary phrases, acronyms and buggy singular/plural
+patterns as one comparable set. Lexicon v2 fixes `atrocity/atrocities` and `mass
+atrocity/atrocities`, declares examples and candidate literals, and treats the generated
+concordance as the count authority. Current exact counts are:
 
-**To verify:** confirm the agenda item of S/PV.5225 (2005-07-12) reads *The
-Role of the Security Council in Humanitarian Crises* and that the meeting has
-36 speeches.
+| Term | Speeches | Occurrences |
+|---|---:|---:|
+| `genocide` | 3,273 | 6,092 |
+| `war_crimes` | 4,326 | 6,241 |
+| `crimes_against_humanity` | 3,465 | 4,136 |
+| `atrocity` | 4,244 | 6,120 |
+| `mass_atrocity` | 573 | 733 |
+| `responsibility_to_protect` | 1,144 | 1,577 |
+| `icc` | 4,057 | 11,739 |
 
-**Priority: low** — the token-sum check already corroborates this.
+`scripts/08_kwic.py` independently fails unless every one of the 22 term files reproduces
+the occurrence count in `speeches_flagged.parquet`; all 22 currently agree. Differences
+from old narrative counts are documented changes, not silently forced “reproductions.”
 
-*Established by: `01_build_parquet.py`.*
+### Documents versus meeting symbols
 
-## 5. The event overlay is machine-drafted — 35 dates
-
-[`config/events.csv`](../config/events.csv) holds the reference dates that
-annotate every time series in the dashboard. Unlike the rest of `config/`, it
-was **drafted from model knowledge, not read off a source**, and no line of it
-has been confirmed against a primary record.
-
-That makes it the one artefact in the repository whose errors would be
-invisible: a chart annotation carries all the authority of the chart, and a
-date that is wrong by a month or attributed to the wrong resolution will be read
-as established fact by every viewer.
-
-**To verify**, in descending order of exposure:
-
-| Group | Rows | How to check |
-|---|---:|---|
-| Council resolutions and vetoes | 9 | The `source` column gives the symbol (`S/RES/955`, `S/2015/508`). Adoption dates are on the UN Digital Library record. |
-| Legal instruments and ICJ/ICC filings | 10 | Rome Statute, ICJ case numbers, ICC warrant references. |
-| Institutional milestones | 3 | `A/RES/60/1`, `S/1999/1257`, `SG/SM/9245`. |
-| Atrocity and conflict dates | 13 | The ones with an empty `source` — these are the most likely to be off, and the hardest to pin to a single day. |
-
-**Priority: high, before publication.** Nothing downstream depends on these
-dates numerically — they are annotations, not inputs — so the analysis is
-unaffected either way. But they are the most publicly visible claims the
-dashboard will make, and they are currently unsourced.
-
-*Established by: `04_series.py`.*
-
----
-
-## Reconciled
-
-### Three lexicon terms exceed their documented occurrence counts
-
-`03_lexicon.py` checks all 14 terms for which [`CORPUS.md` §8](CORPUS.md)
-published a figure. Eleven reproduce exactly. The other three exceed it, and
-the cause is the same in each case: **the reconnaissance scan counted only the
-primary phrase, while the lexicon also matches the acronym or synonym.**
-
-| Term | Primary phrase alone | Documented | Second alternative | Combined |
-|---|---|---:|---|---|
-| `icc` | `international criminal court` → 6,590 / 4,744 | 6,590 / 4,744 | `\bICC\b` → +5,886 occ. | 12,476 / 4,766 |
-| `responsibility_to_protect` | `responsibility to protect` → 1,773 / 1,353 | 1,773 / 1,353 | `\bR2P\b` → +22 occ. | 1,795 / 1,353 |
-| `holocaust` | `holocaust` → 242 / 181 | 242 / 181 | `\bshoah\b` → +2 occ. | 244 / 181 |
-
-*(occurrences / speeches)*
-
-So **all 14 documented figures are reproduced exactly by their primary
-pattern**; the differences are additions the lexicon makes deliberately, not
-drift. Note that for `responsibility_to_protect` and `holocaust` the speech
-counts are unchanged — the acronym and the synonym only ever appear in speeches
-that already use the full form. `ICC` alone reaches 22 speeches that never
-spell the Court out.
-
-**No action needed.** Recorded here so the difference between the README's
-reconnaissance figures and the pipeline's is accounted for rather than
-puzzling.
-
----
-
-## Verified against the printed record
-
-*(Nothing yet — move items here with the date and who checked, once confirmed
-against the original PDF.)*
+The source distribution contains 6,595 document records but 6,582 distinct
+`meeting_symbol` values. The web reader therefore exports 6,595 files; aggregate Council
+statistics use 6,582 distinct symbols. Documentation and UI must name the relevant unit.

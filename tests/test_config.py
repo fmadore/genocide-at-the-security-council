@@ -112,9 +112,7 @@ class TestCouncilMembership:
 
 
 class TestEvents:
-    """The chart overlay. Its dates are unverified (docs/VALIDATION.md §5), so
-    these tests check only what can be checked mechanically — that every row is
-    well-formed and lands somewhere the corpus can show it."""
+    """The primary-sourced chart overlay."""
 
     def test_it_loads(self, events):
         assert len(events) > 0
@@ -135,6 +133,10 @@ class TestEvents:
     def test_every_event_is_labelled(self, events):
         assert (events["label"].str.len() > 0).all()
 
+    def test_every_event_has_a_primary_source(self, events):
+        assert (events["source"].str.len() > 0).all()
+        assert events["source_url"].str.startswith("https://").all()
+
     def test_dates_are_sorted_on_load(self, events):
         """Downstream code renders them in order without re-sorting."""
         assert events["date"].is_monotonic_increasing
@@ -143,6 +145,18 @@ class TestEvents:
 class TestLexicon:
     def test_every_pattern_compiles(self, lex):
         assert len(lex.terms) > 0
+
+    def test_every_pattern_matches_its_declared_examples(self, lex):
+        for term in lex.terms.values():
+            assert term.examples, term.name
+            for example in term.examples:
+                assert term.regex.search(example), f"{term.name}: {example}"
+
+    def test_every_example_passes_a_literal_prefilter(self, lex):
+        for term in lex.terms.values():
+            assert term.prefilters, term.name
+            for example in term.examples:
+                assert any(literal.lower() in example.lower() for literal in term.prefilters)
 
     def test_tiers_and_registers_are_populated(self, lex):
         for term in lex.terms.values():
@@ -153,6 +167,10 @@ class TestLexicon:
         for name, members in lex.sets.items():
             missing = [m for m in members if m not in lex.terms]
             assert missing == [], f"set '{name}' references {missing}"
+
+    def test_nested_terms_reference_defined_parents(self, lex):
+        for term in lex.terms.values():
+            assert term.nested_under is None or term.nested_under in lex.terms
 
     def test_the_core_term_matches_its_own_word(self, lex):
         regex = lex.terms["genocide"].regex

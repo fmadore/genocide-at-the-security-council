@@ -277,7 +277,7 @@
 	.note {
 		font-size: 0.82rem;
 		color: var(--ink-faint);
-		border-left: 2px solid var(--rule);
+		border-left: 1px solid var(--rule);
 		padding-left: 0.8rem;
 		max-width: 42rem;
 	}
@@ -349,7 +349,7 @@
 	}
 
 	.speeches li.target {
-		border-left: 3px solid var(--accent);
+		border-left: 1px solid var(--accent);
 		padding-left: 0.9rem;
 		margin-left: -1.2rem;
 	}

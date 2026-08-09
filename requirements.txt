@@ -1,12 +1,13 @@
 # Pipeline runtime dependencies (scripts/, tools/).
 #
-# Ranges rather than exact pins: this is a research pipeline, not a deployed
-# service, and the validation assertions in scripts/01 and 02 are what actually
-# guarantee the output. Majors are capped because pandas 3 and pyarrow both make
-# breaking changes across them.
+# This file declares supported ranges for maintainers. Reproducible runs and CI
+# install `requirements.lock`, which is generated with hashes from these ranges.
+# Majors stay capped because pandas and pyarrow make breaking changes across them.
 #
 # Install with the x64 Python that has a pyarrow wheel:
 #     C:/Users/frede/AppData/Local/Programs/Python/Python312/python.exe -m pip install -r requirements.txt
+# Exact environment:
+#     python -m pip install --require-hashes -r requirements.lock
 
 numpy>=2.3,<3
 pandas>=3.0,<4

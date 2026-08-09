@@ -16,6 +16,10 @@ Use the x64 Python that has `pyarrow`:
 C:/Users/frede/AppData/Local/Programs/Python/Python312/python.exe
 ```
 
+Install the exact, hashed environment with `python -m pip install --require-hashes -r
+requirements.lock` from the repository root. `requirements.txt` and
+`requirements-dev.txt` declare supported ranges; the lock is the reproducibility record.
+
 ## Steps
 
 | # | Script | Reads | Writes | State |
@@ -26,14 +30,13 @@ C:/Users/frede/AppData/Local/Programs/Python/Python312/python.exe
 | 03 | `03_lexicon.py` | `speeches_norm.parquet`, `config/lexicon.yml` | `derived/speeches_flagged.parquet` | ✅ |
 | 04 | `04_series.py` | `speeches_flagged.parquet`, `config/events.csv` | `derived/series/*.json` | ✅ |
 | 05 | `05_lexical.py` | `speeches_flagged.parquet`, `config/stopwords.txt` | `derived/lexical/*.json` | ✅ |
-| 06 | `06_topics.py` | `speeches_flagged.parquet` | `derived/topics/*.json` | ⬜ |
-| 07 | `07_embed.py` | `speeches_flagged.parquet` | `derived/embeddings/*.json` | ⬜ |
 | 08 | `08_kwic.py` | `speeches_flagged.parquet` | `derived/kwic/*.json` | ✅ |
 | 09 | `09_export_speeches.py` | `speeches_flagged.parquet`, `meetings.parquet` | `web/static/data/speeches/*.json` | ✅ |
 | — | `export_web.py` | `derived/{series,lexical,kwic}/` | `web/static/data/` | ✅ |
-| 10 | `10_llm_open.py` | sample of 200 | `derived/llm/open/*.json` | ⬜ |
-| 11 | `11_llm_extract.py` | `docs/CODEBOOK.md` + subset | `derived/llm/extractions.parquet` | ⬜ |
-| 12 | `12_llm_validate.py` | extractions + gold standard | `notes/12_validation.md` | ⬜ |
+
+Topics, embeddings and LLM extraction are research proposals, not missing pipeline steps.
+Their evaluation gates are specified in [`../docs/PLAN.md`](../docs/PLAN.md); they should
+receive script numbers only if those gates are approved.
 
 See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establish.
 
@@ -43,8 +46,10 @@ See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establis
 |---|---|
 | [`lib/paths.py`](lib/paths.py) | Where everything lives. One definition, imported everywhere. |
 | [`lib/console.py`](lib/console.py) | Uniform reporting, and UTF-8 stdout on Windows. |
+| [`lib/artifacts.py`](lib/artifacts.py) | Atomic files/directories, hashes and provenance manifests. |
 | [`lib/frames.py`](lib/frames.py) | Parquet read/write; `body()` reconstructs a speech minus its form of address. |
 | [`lib/text.py`](lib/text.py) | Line endings, the opening form of address, delivery language, case collisions. |
+| [`lib/language.py`](lib/language.py) | Explicit, inferred and unknown delivery-language policy. |
 | [`lib/entities.py`](lib/entities.py) | The `country_org` crosswalk: aliases in, type/ISO3/centroid out. |
 | [`lib/council.py`](lib/council.py) | Council membership by year; the P5 / E10 / non-member / UN / non-state split. |
 | [`lib/lexicon.py`](lib/lexicon.py) | Loads, compiles and counts `config/lexicon.yml`. |
@@ -69,9 +74,9 @@ About a second, no data required, and run in CI on every push and pull request
 `prettier`, `eslint` and `svelte-check`).
 [`tests/test_config.py`](../tests/test_config.py) runs against the real `config/` files, so
 a bad alias or a mistyped Council term fails here rather than halfway through a pipeline
-run. [`tests/test_series.py`](../tests/test_series.py) checks the change-point detector
-against series whose answer is known by construction — a step has to be found at the step,
-noise has to yield nothing, and a bump has to be found at both its edges.
+run. [`tests/test_series.py`](../tests/test_series.py) checks exploratory segmentation and
+the denominator-aware binomial/Poisson breakpoint models against constructed series with
+known answers.
 
 ## Conventions
 
@@ -82,9 +87,9 @@ noise has to yield nothing, and a bump has to be found at both its edges.
   five permanent and ten elected members.
 - **No magic constants in scripts.** Lexicons, aliases and thresholds live in `config/`
   under version control, so a changed number is a reviewable diff.
-- **Record parameters in outputs.** Topic models and LLM runs write their settings
-  alongside their results; a figure that cannot be traced to its parameters is not usable
-  in a publication.
+- **Record parameters and lineage in outputs.** Every stage records settings, input and
+  config hashes, package versions, Git commit and generation time. A figure that cannot be
+  traced to its inputs is not usable in a publication.
 - **Report the approximate path.** Where a step resolves OCR damage by fuzzy means, it
   counts and lists what it absorbed, and the cases go to
   [`../docs/VALIDATION.md`](../docs/VALIDATION.md) to be checked against the original

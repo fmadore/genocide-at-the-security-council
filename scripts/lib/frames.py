@@ -11,6 +11,8 @@ back into strings in one call, so downstream steps never re-implement it.
 
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -29,9 +31,18 @@ def read(path: Path, columns: list[str] | None = None) -> pd.DataFrame:
 
 
 def write(frame: pd.DataFrame, path: Path) -> None:
-    """Write a parquet file, reporting its size."""
+    """Atomically write a parquet file, reporting its size."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_parquet(path, index=False, compression="zstd")
+    handle, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    os.close(handle)
+    Path(name).unlink()
+    temp = Path(name)
+    try:
+        frame.to_parquet(temp, index=False, compression="zstd")
+        temp.replace(path)
+    except BaseException:
+        temp.unlink(missing_ok=True)
+        raise
     size = path.stat().st_size / 1e6
     console.info(f"wrote {rel(path)}  {frame.shape[0]:,} x {frame.shape[1]}  ({size:.1f} MB)")
 

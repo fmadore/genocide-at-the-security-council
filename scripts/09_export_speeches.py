@@ -24,18 +24,17 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
-import shutil
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import console, frames, kwic, lexicon
+from lib import artifacts, console, frames, kwic, lexicon
 from lib.paths import (
+    LEXICON,
     MEETINGS,
+    ROOT,
     SPEECHES_FLAGGED,
     WEB_DATA,
     ensure_dirs,
@@ -61,6 +60,7 @@ COLUMNS = [
     "speaker_group",
     "participanttype",
     "spoken_language",
+    "delivery_language",
     "agenda_item1",
     "agenda_item_manual",
     "tokens",
@@ -89,7 +89,7 @@ def build_speech(row, terms: list[lexicon.Term]) -> dict[str, object]:
         "entity_type": row.entity_type,
         "group": row.speaker_group,
         "type": row.participanttype,
-        "language": clean(row.spoken_language),
+        "language": clean(row.delivery_language),
         "tokens": int(row.tokens),
         "body_start": int(row.body_start),
         "text": row.text,
@@ -203,7 +203,7 @@ def build_note(
     ) + "\n"
 
 
-def run(scope: str, indent: int | None, clean_first: bool) -> None:
+def run(scope: str, indent: int | None) -> None:
     ensure_dirs()
 
     lex = lexicon.load()
@@ -223,60 +223,50 @@ def run(scope: str, indent: int | None, clean_first: bool) -> None:
         speeches.loc[speeches["basename"].isin(set(meetings["basename"])), "n_lexicon_total"].sum()
     ) if "n_lexicon_total" in speeches.columns else None
 
-    if clean_first and SPEECH_DIR.exists():
-        console.info(f"clearing {rel(SPEECH_DIR)}")
-        shutil.rmtree(SPEECH_DIR)
-    SPEECH_DIR.mkdir(parents=True, exist_ok=True)
-
-    meta = {
-        "script": "09_export_speeches.py",
-        "generated": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "lexicon_version": lex.version,
-        "scope": scope,
-    }
+    meta = artifacts.provenance(
+        ROOT,
+        "09_export_speeches.py",
+        inputs=[SPEECHES_FLAGGED, MEETINGS],
+        configs=[LEXICON],
+        extra={"lexicon_version": lex.version, "scope": scope},
+    )
 
     console.step("Writing one file per meeting")
     grouped = dict(list(speeches.groupby("basename", sort=False)))
     rows, total_bytes, written = [], 0, 0
-    for meeting in meetings.itertuples():
-        group = grouped.get(meeting.basename)
-        if group is None:
-            console.warn(f"{meeting.basename} has no speeches — skipped")
-            continue
-        built = build_meeting(meeting, group, lex)
-        path = SPEECH_DIR / f"{meeting.basename}.json"
-        path.write_text(
-            json.dumps({"meta": meta, **built}, ensure_ascii=False,
-                       indent=indent, separators=None if indent else (",", ":")),
-            encoding="utf-8",
-        )
-        total_bytes += path.stat().st_size
-        written += len(built["speeches"])
-        rows.append(summarise(built))
-        if len(rows) % 1_000 == 0:
-            console.info(f"{len(rows):,} meetings, {total_bytes / 1e6:.0f} MB")
+    with artifacts.atomic_directory(SPEECH_DIR) as staged:
+        for meeting in meetings.itertuples():
+            group = grouped.get(meeting.basename)
+            if group is None:
+                console.warn(f"{meeting.basename} has no speeches — skipped")
+                continue
+            built = build_meeting(meeting, group, lex)
+            path = staged / f"{meeting.basename}.json"
+            artifacts.atomic_write_json(path, {"meta": meta, **built}, indent=indent)
+            total_bytes += path.stat().st_size
+            written += len(built["speeches"])
+            rows.append(summarise(built))
+            if len(rows) % 1_000 == 0:
+                console.info(f"{len(rows):,} meetings, {total_bytes / 1e6:.0f} MB")
 
-    console.step("Checking against the parquet")
-    problems = []
-    if written != expected_speeches:
-        problems.append(f"exported {written:,} speeches, expected {expected_speeches:,}")
-    exported_occurrences = sum(int(r["occurrences"]) for r in rows)
-    if expected_occurrences is not None and exported_occurrences != expected_occurrences:
-        problems.append(
-            f"exported {exported_occurrences:,} occurrence offsets, expected "
-            f"{expected_occurrences:,} from the lexicon counts"
+        console.step("Checking against the parquet")
+        problems = []
+        if written != expected_speeches:
+            problems.append(f"exported {written:,} speeches, expected {expected_speeches:,}")
+        exported_occurrences = sum(int(r["occurrences"]) for r in rows)
+        if expected_occurrences is not None and exported_occurrences != expected_occurrences:
+            problems.append(
+                f"exported {exported_occurrences:,} occurrence offsets, expected "
+                f"{expected_occurrences:,} from the lexicon counts"
+            )
+        if problems:
+            console.fail("the export does not match speeches_flagged.parquet", problems)
+        console.info(
+            f"{written:,} speeches and {exported_occurrences:,} occurrence offsets, both matching"
         )
-    if problems:
-        console.fail("the export does not match speeches_flagged.parquet", problems)
-    console.info(
-        f"{written:,} speeches and {exported_occurrences:,} occurrence offsets, both matching"
-    )
 
     console.step("Writing the index")
-    INDEX.write_text(
-        json.dumps({"meta": meta, "meetings": rows}, ensure_ascii=False, separators=(",", ":")),
-        encoding="utf-8",
-    )
+    artifacts.atomic_write_json(INDEX, {"meta": meta, "meetings": rows})
     console.info(f"wrote {rel(INDEX)}  ({INDEX.stat().st_size / 1e6:.1f} MB)")
     console.info(f"wrote {len(rows):,} files to {rel(SPEECH_DIR)}  ({total_bytes / 1e6:.0f} MB)")
 
@@ -297,11 +287,8 @@ def main() -> None:
         "leaves the reader with dead ends)",
     )
     parser.add_argument("--indent", action="store_true", help="pretty-print, for debugging")
-    parser.add_argument(
-        "--no-clean", action="store_true", help="keep files from a previous, wider run"
-    )
     args = parser.parse_args()
-    run(args.scope, 1 if args.indent else None, not args.no_clean)
+    run(args.scope, 1 if args.indent else None)
 
 
 if __name__ == "__main__":

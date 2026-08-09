@@ -246,3 +246,58 @@ class TestChangePoints:
     def test_mismatched_labels_are_refused(self):
         with pytest.raises(ValueError, match="values against"):
             series.change_points([1.0, 2.0, 3.0], ["a", "b"])
+
+    def test_reported_means_belong_to_the_interval_that_won(self):
+        values = [0.0] * 8 + [5.0] * 8 + [0.0] * 16
+        found = series.change_points(values, YEARS, trials=200)
+        assert found
+        first = found[0]
+        assert first.before == pytest.approx(
+            np.mean(values[first.interval_start : first.index])
+        )
+        assert first.after == pytest.approx(
+            np.mean(values[first.index : first.interval_stop])
+        )
+
+
+class TestRateChangePoint:
+    def test_binomial_scan_uses_the_varying_denominators(self):
+        exposure = np.asarray([100] * 16 + [1_000] * 16)
+        counts = np.asarray([5] * 16 + [200] * 16)
+        found = series.rate_change_point(
+            counts, exposure, YEARS, family="binomial", trials=199, seed=4
+        )
+        assert found is not None
+        assert found["label"] == "2008"
+        assert found["accepted"] is True
+        assert found["before"] == pytest.approx(0.05)
+        assert found["after"] == pytest.approx(0.2)
+
+    def test_poisson_scan_uses_token_exposure(self):
+        exposure = np.asarray([100_000] * 32)
+        counts = np.asarray([2] * 16 + [20] * 16)
+        found = series.rate_change_point(
+            counts, exposure, YEARS, family="poisson", trials=199, seed=5
+        )
+        assert found is not None
+        assert found["label"] == "2008"
+        assert found["accepted"] is True
+
+    def test_constant_rate_with_growing_exposure_is_not_a_change(self):
+        exposure = np.arange(100, 3_300, 100)
+        counts = exposure // 20
+        found = series.rate_change_point(
+            counts, exposure, YEARS, family="binomial", trials=199, seed=6
+        )
+        assert found is None or found["accepted"] is False
+
+    def test_binomial_counts_cannot_exceed_trials(self):
+        with pytest.raises(ValueError, match="cannot exceed"):
+            series.rate_change_point(
+                [2] * 8,
+                [1] * 8,
+                range(8),
+                family="binomial",
+                min_size=2,
+                trials=10,
+            )

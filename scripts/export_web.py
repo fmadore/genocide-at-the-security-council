@@ -22,15 +22,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import shutil
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import console
-from lib.paths import KWIC, LEXICAL, SERIES, WEB_DATA, ensure_dirs, rel
+from lib import artifacts, console
+from lib.paths import KWIC, LEXICAL, ROOT, SERIES, WEB_DATA, ensure_dirs, rel
 
 #: (source directory, destination name, the step that produces it).
 PARTS = [
@@ -44,41 +43,37 @@ PARTS = [
 IN_PLACE = [("speeches", "09_export_speeches.py"), ("meetings.json", "09_export_speeches.py")]
 
 
-def copy_part(source: Path, name: str) -> tuple[int, int]:
-    """Mirror one directory into the payload. Returns (files, bytes)."""
+def copy_part(source: Path, name: str) -> dict[str, object]:
+    """Atomically mirror one directory into the payload and describe it."""
     destination = WEB_DATA / name
-    if destination.exists():
-        shutil.rmtree(destination)
     if not source.exists():
         console.fail(f"{rel(source)} is missing — run the step that writes it first")
-    shutil.copytree(source, destination)
-    files = sorted(destination.glob("*.json"))
-    return len(files), sum(f.stat().st_size for f in files)
+    with artifacts.atomic_directory(destination) as staged:
+        shutil.copytree(source, staged, dirs_exist_ok=True)
+    return artifacts.describe_tree(destination)
 
 
-def measure(path: Path) -> tuple[int, int]:
+def measure(path: Path) -> dict[str, object]:
     if not path.exists():
-        return 0, 0
-    if path.is_file():
-        return 1, path.stat().st_size
-    files = list(path.rglob("*.json"))
-    return len(files), sum(f.stat().st_size for f in files)
+        return {"files": 0, "bytes": 0, "sha256": None}
+    return artifacts.describe_tree(path)
 
 
 def run() -> None:
     ensure_dirs()
     manifest: dict[str, object] = {
         "generated": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "git_commit": artifacts.git_commit(ROOT),
         "parts": {},
     }
     total_files = total_bytes = 0
 
     console.step("Copying analysis artefacts into the payload")
     for source, name, producer in PARTS:
-        files, size = copy_part(source, name)
+        measured = copy_part(source, name)
+        files, size = int(measured["files"]), int(measured["bytes"])
         manifest["parts"][name] = {  # type: ignore[index]
-            "files": files,
-            "bytes": size,
+            **measured,
             "produced_by": producer,
         }
         total_files += files
@@ -87,12 +82,12 @@ def run() -> None:
 
     console.step("Measuring what 09 wrote in place")
     for name, producer in IN_PLACE:
-        files, size = measure(WEB_DATA / name)
+        measured = measure(WEB_DATA / name)
+        files, size = int(measured["files"]), int(measured["bytes"])
         if not files:
             console.warn(f"{name} is missing — run {producer}; the reader view will 404")
         manifest["parts"][name] = {  # type: ignore[index]
-            "files": files,
-            "bytes": size,
+            **measured,
             "produced_by": producer,
         }
         total_files += files
@@ -101,9 +96,7 @@ def run() -> None:
 
     manifest["files"] = total_files
     manifest["bytes"] = total_bytes
-    (WEB_DATA / "manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8"
-    )
+    artifacts.atomic_write_json(WEB_DATA / "manifest.json", manifest, indent=1)
     console.step("Done")
     console.info(f"{total_files:,} files, {total_bytes / 1e6:.0f} MB in {rel(WEB_DATA)}")
     console.info(f"wrote {rel(WEB_DATA / 'manifest.json')}")

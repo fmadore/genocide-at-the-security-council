@@ -86,6 +86,10 @@ def validate(entities: pd.DataFrame) -> list[str]:
     if len(duplicated):
         problems.append(f"duplicate rows for: {', '.join(sorted(set(duplicated))[:5])}")
 
+    if int(entities["entity_type"].isna().sum()):
+        missing = entities.loc[entities["entity_type"].isna(), "country_org"].tolist()
+        problems.append(f"entities with no entity_type: {', '.join(missing[:5])}")
+
     unknown_types = set(entities["entity_type"].dropna()) - ENTITY_TYPES
     if unknown_types:
         problems.append(f"unknown entity_type: {', '.join(sorted(unknown_types))}")
@@ -98,13 +102,19 @@ def validate(entities: pd.DataFrame) -> list[str]:
     if int(states["iso3"].isna().sum()):
         missing = states.loc[states["iso3"].isna(), "country_org"].tolist()
         problems.append(f"states with no iso3: {', '.join(missing[:5])}")
-    if int(states["lat"].isna().sum()):
-        missing = states.loc[states["lat"].isna(), "country_org"].tolist()
+    missing_centroid = states["lat"].isna() | states["lon"].isna()
+    if int(missing_centroid.sum()):
+        missing = states.loc[missing_centroid, "country_org"].tolist()
         problems.append(f"states with no centroid: {', '.join(missing[:5])}")
+    invalid_centroid = (~states["lat"].between(-90, 90)) | (~states["lon"].between(-180, 180))
+    if int(invalid_centroid.fillna(False).sum()):
+        invalid = states.loc[invalid_centroid.fillna(False), "country_org"].tolist()
+        problems.append(f"states with invalid centroid: {', '.join(invalid[:5])}")
 
     non_states = entities[entities["entity_type"] != "state"]
-    if int(non_states["lat"].notna().sum()):
-        named = non_states.loc[non_states["lat"].notna(), "country_org"].tolist()
+    non_state_centroid = non_states["lat"].notna() | non_states["lon"].notna()
+    if int(non_state_centroid.sum()):
+        named = non_states.loc[non_state_centroid, "country_org"].tolist()
         problems.append(
             "non-state entities carry a centroid, which would put a fake point "
             f"on the map: {', '.join(named[:5])}"

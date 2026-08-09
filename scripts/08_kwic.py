@@ -20,17 +20,17 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import console, frames, kwic, lexicon
+from lib import artifacts, console, frames, kwic, lexicon
 from lib.paths import (
     KWIC,
+    LEXICON,
+    ROOT,
     SPEECHES_FLAGGED,
     ensure_dirs,
     rel,
@@ -44,30 +44,26 @@ def columns_needed(lex: lexicon.Lexicon) -> list[str]:
 
 
 def write_term(
-    speeches: pd.DataFrame, term: lexicon.Term, width: int, meta: dict
+    speeches: pd.DataFrame, term: lexicon.Term, width: int, meta: dict, output: Path
 ) -> dict[str, object]:
     """Extract and write one term's lines. Returns its index entry."""
     lines = [line.as_dict() for line in kwic.extract(speeches, term, width)]
-    path = KWIC / f"{term.name}.json"
+    path = output / f"{term.name}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            {
-                "meta": meta,
-                "term": term.name,
-                "pattern": term.pattern,
-                "tier": term.tier,
-                "register": term.register,
-                "count": len(lines),
-                # `file` is not stored per line: it is `id` up to the '#', plus
-                # '.txt'. At 70,000 lines that redundancy is megabytes.
-                "id_format": "<speech filename without .txt>#<occurrence ordinal>",
-                "lines": lines,
-            },
-            ensure_ascii=False,
-            separators=(",", ":"),
-        ),
-        encoding="utf-8",
+    artifacts.atomic_write_json(
+        path,
+        {
+            "meta": meta,
+            "term": term.name,
+            "pattern": term.pattern,
+            "tier": term.tier,
+            "register": term.register,
+            "count": len(lines),
+            # `file` is not stored per line: it is `id` up to the '#', plus
+            # '.txt'. At 70,000 lines that redundancy is megabytes.
+            "id_format": "<speech filename without .txt>#<occurrence ordinal>",
+            "lines": lines,
+        },
     )
 
     sentences = pd.Series([len(line["sent"]) for line in lines], dtype="int64")
@@ -184,34 +180,34 @@ def run(terms: list[str] | None, width: int) -> None:
     console.step("Reading the flagged corpus")
     speeches = frames.read(SPEECHES_FLAGGED, columns=columns_needed(lex))
 
-    meta = {
-        "script": "08_kwic.py",
-        "generated": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "lexicon_version": lex.version,
-        "width": width,
-    }
+    meta = artifacts.provenance(
+        ROOT,
+        "08_kwic.py",
+        inputs=[SPEECHES_FLAGGED],
+        configs=[LEXICON],
+        extra={"lexicon_version": lex.version, "width": width},
+    )
 
     console.step("Extracting concordance lines")
     entries = []
-    for term in wanted:
-        entry = write_term(speeches, term, width, meta)
-        entries.append(entry)
-        console.info(
-            f"{term.name:28s} {entry['count']:>7,} lines  "
-            f"{entry['speeches']:>6,} speeches  {entry['bytes'] / 1e6:>5.1f} MB"
-        )
+    with artifacts.atomic_directory(KWIC) as staged:
+        for term in wanted:
+            entry = write_term(speeches, term, width, meta, staged)
+            entries.append(entry)
+            console.info(
+                f"{term.name:28s} {entry['count']:>7,} lines  "
+                f"{entry['speeches']:>6,} speeches  {entry['bytes'] / 1e6:>5.1f} MB"
+            )
 
-    console.step("Checking against the lexicon counts")
-    if problems := check_against_flags(speeches, entries):
-        console.fail("the concordance disagrees with speeches_flagged.parquet", problems)
-    console.info(f"all {len(entries)} terms reproduce their occurrence count exactly")
+        console.step("Checking against the lexicon counts")
+        if problems := check_against_flags(speeches, entries):
+            console.fail("the concordance disagrees with speeches_flagged.parquet", problems)
+        console.info(f"all {len(entries)} terms reproduce their occurrence count exactly")
 
-    console.step("Writing")
+        console.step("Writing")
+        artifacts.atomic_write_json(staged / "index.json", {"meta": meta, "terms": entries}, indent=1)
+
     index = KWIC / "index.json"
-    index.write_text(
-        json.dumps({"meta": meta, "terms": entries}, ensure_ascii=False, indent=1),
-        encoding="utf-8",
-    )
     console.info(
         f"wrote {rel(index)}  ({sum(e['count'] for e in entries):,} lines, "
         f"{sum(e['bytes'] for e in entries) / 1e6:.1f} MB across {len(entries)} files)"

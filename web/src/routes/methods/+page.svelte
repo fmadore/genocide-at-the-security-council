@@ -33,19 +33,19 @@
 			id: '03_lexicon.py',
 			does: 'Counts every lexicon term in every speech body.',
 			checks:
-				'All fourteen figures published in the corpus documentation are reproduced exactly. An OCR-tolerant pattern is measured and reported separately rather than folded in — it adds one speech in 106,302.'
+				'Every pattern must match declared examples and pass a literal prefilter before exact regex counting. A stratified 200-row audit sample covers occurrences, speeches, terms and periods. An OCR-tolerant pattern is reported separately; it adds one speech in 106,302.'
 		},
 		{
 			id: '04_series.py',
-			does: 'Rates per year and quarter, breakdowns, change points, event overlay.',
+			does: 'Rates per year and quarter, breakdowns, rate-change inference, event overlay.',
 			checks:
-				'Change points are permutation-tested; the raw and normalised series are both reported so the difference between them is visible rather than chosen.'
+				'Speech prevalence uses a binomial model; occurrences use a Poisson model with token exposure. A parametric maximum-search bootstrap preserves the breakpoint search and a Bonferroni correction covers three planned tests. WBS remains visible only as an exploratory diagnostic.'
 		},
 		{
 			id: '05_lexical.py',
 			does: 'Collocates, keyness against a matched control, co-occurrence network.',
 			checks:
-				'The unmatched comparison ships alongside the matched one, so the effect of matching can be checked instead of assumed.'
+				'Target and control speeches are true pairs within year × agenda × speaker group. Twenty consecutive random seeds quantify matching sensitivity; the unmatched comparison remains a diagnostic. Overlapping context windows are merged and lexical parent–child edges are suppressed.'
 		},
 		{
 			id: '08_kwic.py',
@@ -55,7 +55,7 @@
 		},
 		{
 			id: '09_export_speeches.py',
-			does: 'One JSON per meeting with full text and per-term occurrence offsets.',
+			does: 'One JSON per corpus document with speech text and per-term occurrence offsets.',
 			checks:
 				'Speech count and offset count are both asserted against the parquet before anything is written.'
 		}
@@ -71,7 +71,7 @@
 	<p class="standfirst">
 		Every number on this site is produced by a versioned script from a single parquet file, and
 		every script writes a findings note saying what it found rather than only what it did. This page
-		says how, and what is still unverified.
+		says how, what is sourced, and what still requires human validation.
 	</p>
 
 	<h2>The corpus</h2>
@@ -79,7 +79,7 @@
 		<a href="https://doi.org/10.7910/DVN/KGVSYH">UN Security Council Debates</a> (Schoenfeld,
 		Eckhard, Patz, van Meegdenburg &amp; Pires), Harvard Dataverse v6.1, CC0 &mdash; public domain. {count(
 			totals.speeches
-		)} speeches from {count(totals.meetings)} meetings,
+		)} speeches from {count(totals.meetings)} distinct meeting symbols,
 		{count(totals.tokens)} words, 6 January 1992 to 30 December 2023. A fresh clone of the
 		<a href={REPO}>repository</a> plus two scripts rebuilds the canonical table from the DOI; nothing
 		derived is committed.
@@ -90,20 +90,23 @@
 		Numbered, idempotent, each reading the previous step's output. A step that cannot assert its own
 		output is correct exits non-zero rather than leaving a plausible-looking artefact behind.
 	</p>
-	<table>
-		<thead>
-			<tr><th>Step</th><th>What it does</th><th>What it checks</th></tr>
-		</thead>
-		<tbody>
-			{#each steps as step (step.id)}
-				<tr>
-					<td><code>{step.id}</code></td>
-					<td>{step.does}</td>
-					<td class="quiet">{step.checks}</td>
-				</tr>
-			{/each}
-		</tbody>
-	</table>
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
+	<div class="table-scroll" role="region" aria-label="Pipeline steps table" tabindex="0">
+		<table>
+			<thead>
+				<tr><th>Step</th><th>What it does</th><th>What it checks</th></tr>
+			</thead>
+			<tbody>
+				{#each steps as step (step.id)}
+					<tr>
+						<td><code>{step.id}</code></td>
+						<td>{step.does}</td>
+						<td class="quiet">{step.checks}</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
 
 	<h2>Choices that shape what you see</h2>
 
@@ -126,11 +129,17 @@
 
 	<h3>Change points</h3>
 	<p>
-		{data.breaks.method}. Minimum segment {data.breaks.parameters.min_size} periods,
-		{count(data.breaks.parameters.trials)} permutations per accepted split, α =
-		{data.breaks.parameters.alpha}, seed {data.breaks.parameters.seed}.
+		The inferential layer is a single two-rate maximum-likelihood partition. Speech prevalence is
+		binomial; occurrences are Poisson with token count as exposure. Its
+		{count(data.breaks.inference.trials)} parametric simulations repeat the complete breakpoint search
+		under a constant-rate model. The per-test threshold is
+		{percent(data.breaks.inference.per_test_alpha)} after
+		{data.breaks.inference.correction.toLowerCase()}.
 	</p>
-	<p class="caveat">{data.breaks.caveat}</p>
+	<p class="caveat">
+		{data.breaks.inference.caveat} The separate wild-binary-segmentation output is exploratory:
+		{data.breaks.caveat}
+	</p>
 
 	<h3>Keyness and its control</h3>
 	<p>
@@ -138,9 +147,11 @@
 		occasion rather than of the concept. Each target is therefore paired with a speech from the same {data.keyness.matched_on.join(
 			', '
 		)} that does not use the term.
-		{count(data.keyness.control_speeches)} of {count(data.keyness.target_speeches)} targets found a partner
-		({percent(data.keyness.coverage)}); the {data.keyness.short_strata.length} strata that could not be
-		filled are debates in which nearly everyone used the word, and are left short rather than back-filled.
+		{count(data.keyness.target_speeches)} of {count(data.keyness.eligible_target_speeches)} targets found
+		a partner ({percent(data.keyness.coverage)}); the {data.keyness.short_strata.length} strata that could
+		not be filled are left short rather than back-filled. Target and control corpora therefore contain
+		the same {count(data.keyness.control_speeches)} paired speeches. The displayed sensitivity interval
+		repeats sampling across {data.keyness.stability.repetitions} consecutive seeds.
 	</p>
 
 	<h3>Sentence segmentation</h3>
@@ -154,23 +165,24 @@
 		counted here.
 	</p>
 
-	<h2>What is not verified</h2>
+	<h2>Limits and open validation</h2>
 	<ul class="open">
 		<li>
-			<strong>The reference dates on the chronology chart are drafted, not sourced.</strong> They carry
-			a UN document symbol where one exists, but no line has been confirmed against a primary record.
-			A chart annotation carries the authority of the chart, so this is the highest-priority open item.
+			<strong>The reference dates are contextual, not causal variables.</strong> Every date now links
+			to the primary institutional record used to verify it, but temporal proximity does not show that
+			an event caused a change in Council language.
 		</li>
 		<li>
-			<strong>The precision of the lexicon has not been hand-audited.</strong> A random sample of
-			100 occurrences is drawn and awaits a human verdict; until then there is no measured
-			false-positive rate for <code>genocid*</code>.
+			<strong>The precision of the lexicon has not been hand-audited.</strong> A random sample of 200
+			rows, stratified across occurrence- and speech-level sampling and term × period anchors, awaits
+			a human verdict; until then there is no measured false-positive rate.
 		</li>
 		<li>
-			<strong>Roughly two speeches in five are translations.</strong> Delivery language is
-			recoverable for 40.2% of the corpus from the <code>(spoke in …)</code> markers; the rest were delivered
-			in English, which the Secretariat does not mark. Nothing here measures what was said in the room,
-			only what the English verbatim record says was said.
+			<strong>At least two speeches in five are translations.</strong> A non-English delivery language
+			is explicitly recoverable for 40.2% of speeches. Missing in-person markers are classified as inferred
+			English under the document convention; 5,072 VTC speeches remain unknown because that format does
+			not carry the marker. Nothing here measures what was said in the room, only what the English verbatim
+			record says was said.
 		</li>
 		<li>
 			<strong>Speaker attribution is weaker for 4.9% of speeches</strong> that open with no form of address
@@ -181,8 +193,8 @@
 	<h2>Reproducing this</h2>
 	<p>
 		The <a href={REPO}>repository</a> holds the pipeline, the analysis scripts and this application.
-		<code>ruff</code>
-		and {188} unit tests run on every push. The tests include the hand-edited files in
+		<code>ruff</code>, locked Python dependencies, and more than 200 unit tests run on every push.
+		The tests include the hand-edited files in
 		<code>config/</code>, so a bad country alias or a mistyped Council term fails in continuous
 		integration rather than halfway through someone's run.
 	</p>
@@ -216,6 +228,16 @@
 		font-size: 0.85rem;
 	}
 
+	.table-scroll {
+		max-width: 100%;
+		overflow-x: auto;
+	}
+
+	.table-scroll:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+
 	td.quiet,
 	p.quiet {
 		color: var(--ink-faint);
@@ -227,7 +249,7 @@
 	}
 
 	.caveat {
-		border-left: 2px solid var(--rule);
+		border-left: 1px solid var(--rule);
 		padding-left: 0.9rem;
 		font-size: 0.9rem;
 		color: var(--ink-soft);

@@ -1,14 +1,37 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import Chart from '$lib/Chart.svelte';
 	import Figure from '$lib/Figure.svelte';
-	import { count, decimal, percent, shortCountry, signed, termLabel } from '$lib/format';
-	import { axisX, axisY, grid, palette, registerColour, textStyle, tooltip } from '$lib/theme';
+	import {
+		count,
+		decimal,
+		escapeHtml,
+		percent,
+		shortCountry,
+		signed,
+		termLabel
+	} from '$lib/format';
+	import {
+		axisX,
+		axisY,
+		colourScheme,
+		grid,
+		palette,
+		registerColour,
+		textStyle,
+		tooltip
+	} from '$lib/theme';
 	import type { CollocateBlock, Word } from '$lib/types';
 	import type { EChartsOption } from 'echarts';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+	const colours = $derived.by(() => {
+		void $colourScheme;
+		return palette();
+	});
 
 	let node = $state('genocide');
 	let width = $state('5');
@@ -42,7 +65,7 @@
 	   matter are up and to the right, and the ones that only look significant
 	   are far right and low. */
 	const scatter: EChartsOption = $derived.by(() => {
-		const p = palette();
+		const p = colours;
 		const words = block.collocates;
 		return {
 			textStyle,
@@ -53,7 +76,7 @@
 				formatter: (params) => {
 					const d = params as unknown as { data: [number, number, string, number] };
 					return (
-						`<b>${d.data[2]}</b><br>${count(d.data[3])} in window` +
+						`<b>${escapeHtml(d.data[2])}</b><br>${count(d.data[3])} in window` +
 						`<br>G² ${count(Math.round(d.data[0]))}<br>log ratio ${signed(d.data[1])}`
 					);
 				}
@@ -99,10 +122,14 @@
 	/* The lexicon as a graph. Edge weight is normalised PMI so a rare term
 	   cannot buy a thick edge with rarity alone. */
 	const graph: EChartsOption = $derived.by(() => {
-		const p = palette();
-		const edges = period === 'whole' ? data.network.edges : (data.network.by_period[period] ?? []);
+		const p = colours;
+		const periodBlock = period === 'whole' ? null : data.network.by_period[period];
+		const edges = periodBlock?.edges ?? data.network.edges;
 		const used = new Set(edges.flatMap((e) => [e.source, e.target]));
-		const terms = data.network.terms.filter((t) => used.has(t.name));
+		const periodCounts = new Map(periodBlock?.terms.map((term) => [term.name, term.speeches]));
+		const terms = data.network.terms
+			.filter((term) => used.has(term.name))
+			.map((term) => ({ ...term, speeches: periodCounts.get(term.name) ?? term.speeches }));
 		const maxSpeeches = Math.max(1, ...terms.map((t) => t.speeches));
 		return {
 			textStyle,
@@ -112,10 +139,10 @@
 				formatter: (params) => {
 					const d = params as unknown as { dataType?: string; data: Record<string, unknown> };
 					return d.dataType === 'edge'
-						? `<b>${termLabel(String(d.data.source))}</b> &amp; <b>${termLabel(String(d.data.target))}</b>` +
+						? `<b>${escapeHtml(termLabel(String(d.data.source)))}</b> &amp; <b>${escapeHtml(termLabel(String(d.data.target)))}</b>` +
 								`<br>${count(Number(d.data.speeches))} speeches use both` +
 								`<br>nPMI ${decimal(Number(d.data.npmi))}`
-						: `<b>${termLabel(String(d.data.name))}</b><br>${count(Number(d.data.speeches))} speeches`;
+						: `<b>${escapeHtml(termLabel(String(d.data.name)))}</b><br>${count(Number(d.data.speeches))} speeches`;
 				}
 			},
 			series: [
@@ -165,6 +192,18 @@
 	}
 
 	const sliceLabel = (name: string) => (sliceKind === 'by_country' ? shortCountry(name) : name);
+	const concordanceHref = (term: string, query = '') => {
+		const params = new SvelteURLSearchParams({ term });
+		if (query) params.set('q', query);
+		return `${resolve('/concordance')}?${params}`;
+	};
+	const openCollocate = (params: { value?: unknown }) => {
+		const value = params.value as [number, number, string] | undefined;
+		if (value?.[2]) void goto(concordanceHref(node, value[2]));
+	};
+	const openNetworkTerm = (params: { name?: string; dataType?: string }) => {
+		if (params.dataType !== 'edge' && params.name) void goto(concordanceHref(params.name));
+	};
 </script>
 
 <svelte:head>
@@ -233,7 +272,30 @@
 			option={scatter}
 			height="440px"
 			description="Scatter plot of collocate words by log-likelihood against log ratio."
+			onclick={openCollocate}
 		/>
+		<details class="data-table">
+			<summary>View the leading collocates as a table</summary>
+			<table>
+				<thead
+					><tr
+						><th>Word</th><th class="num">Near</th><th class="num">G²</th><th class="num"
+							>Log ratio</th
+						></tr
+					></thead
+				>
+				<tbody>
+					{#each block.collocates.slice(0, 30) as word (word.word)}
+						<tr>
+							<td><a href={concordanceHref(node, word.word)}>{word.word}</a></td>
+							<td class="num">{count(word.target)}</td>
+							<td class="num">{count(Math.round(word.g2))}</td>
+							<td class="num">{signed(word.log_ratio)}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</details>
 	</Figure>
 
 	<Figure
@@ -306,7 +368,7 @@
 						<tbody>
 							{#each topWords(side.b) as w (w.word)}
 								<tr>
-									<td>{w.word}</td>
+									<td><a href={concordanceHref('genocide', w.word)}>{w.word}</a></td>
 									<td class="num">{count(w.target)}</td>
 									<td class="num">{count(Math.round(w.g2))}</td>
 									<td class="num">{signed(w.log_ratio)}</td>
@@ -333,16 +395,18 @@
 				</select>
 			</label>
 			<span class="unit-note">
-				{count(data.keyness.control_speeches)} of {count(data.keyness.target_speeches)} targets matched
-				({percent(data.keyness.coverage)})
+				{count(data.keyness.control_speeches)} of {count(data.keyness.eligible_target_speeches)} targets
+				matched ({percent(data.keyness.coverage)})
 			</span>
 		{/snippet}
 
 		{#snippet reading()}
 			<p>
-				Each of the {count(data.keyness.target_speeches)} genocide-bearing speeches was paired with a
-				speech from the same <strong>{data.keyness.matched_on.join(', ')}</strong> that does not use the
-				term. What survives that comparison is closer to the vocabulary of the concept than of the occasion.
+				The table uses {count(data.keyness.target_speeches)} complete pairs drawn from
+				{count(data.keyness.eligible_target_speeches)} eligible genocide-bearing speeches. Each target
+				is paired with a speech from the same <strong>{data.keyness.matched_on.join(', ')}</strong> that
+				does not use the term. What survives that comparison is closer to the vocabulary of the concept
+				than of the occasion.
 			</p>
 			<p>
 				Switch to <strong>unmatched</strong> to see what the matching removed. Watch
@@ -359,6 +423,10 @@
 			<p>
 				The unmatched column is <strong>not a result</strong>. It is the comparison the matching
 				exists to improve on, shown so the improvement can be checked.
+			</p>
+			<p>
+				The match was repeated across {data.keyness.stability.repetitions} consecutive seeds; the artefact
+				reports 5th–95th percentile effect sizes for every displayed keyword.
 			</p>
 		{/snippet}
 
@@ -377,7 +445,7 @@
 				{#each keywords.slice(0, 30) as w, i (w.word)}
 					<tr>
 						<td class="num rank">{i + 1}</td>
-						<td>{w.word}</td>
+						<td><a href={concordanceHref('genocide', w.word)}>{w.word}</a></td>
 						<td class="num">{count(w.target)}</td>
 						<td class="num">{count(Math.round(w.g2))}</td>
 						<td class="num">{signed(w.log_ratio)}</td>
@@ -430,18 +498,46 @@
 				Normalising PMI is what stops a term used in thirty speeches dominating the graph; the raw
 				measure rewards rarity.
 			</p>
+			<p>
+				Declared nesting relationships are suppressed: for example, <em>mass atrocity</em> is not
+				drawn as evidence of association with <em>atrocity</em> when the latter is already contained inside
+				the phrase.
+			</p>
 		{/snippet}
 
 		<Chart
 			option={graph}
 			height="520px"
 			description="Force-directed graph of lexicon terms linked by co-occurrence within speeches."
+			onclick={openNetworkTerm}
 		/>
+		<details class="data-table">
+			<summary>View the strongest network edges as a table</summary>
+			<table>
+				<thead
+					><tr
+						><th>Source</th><th>Target</th><th class="num">Shared speeches</th><th class="num"
+							>nPMI</th
+						></tr
+					></thead
+				>
+				<tbody>
+					{#each (period === 'whole' ? data.network.edges : (data.network.by_period[period]?.edges ?? [])).slice(0, 30) as edge (edge.source + edge.target)}
+						<tr>
+							<td><a href={concordanceHref(edge.source)}>{termLabel(edge.source)}</a></td>
+							<td><a href={concordanceHref(edge.target)}>{termLabel(edge.target)}</a></td>
+							<td class="num">{count(edge.speeches)}</td>
+							<td class="num">{decimal(edge.npmi)}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</details>
 	</Figure>
 
 	<p class="onward">
 		Every word above is an entry point: the <a href={resolve('/concordance')}>concordance</a> holds
-		all {count(data.keyness.target_speeches)} speeches these numbers were counted from.
+		all {count(data.keyness.eligible_target_speeches)} speeches in the eligible target set.
 	</p>
 </article>
 
@@ -521,5 +617,15 @@
 	.onward {
 		font-size: 0.9rem;
 		color: var(--ink-soft);
+	}
+
+	.data-table {
+		margin-top: 1rem;
+	}
+
+	.data-table summary {
+		cursor: pointer;
+		color: var(--accent);
+		font-size: 0.85rem;
 	}
 </style>

@@ -64,7 +64,7 @@ def validate(membership: pd.DataFrame, first_year: int, last_year: int) -> list[
     window = membership[membership["year"].between(first_year, last_year)]
     counts = window.pivot_table(
         index="year", columns="seat", values="country_org", aggfunc="count"
-    ).fillna(0).astype(int)
+    ).reindex(range(first_year, last_year + 1), fill_value=0).fillna(0).astype(int)
 
     for seat, expected in (("permanent", N_PERMANENT), ("elected", N_ELECTED)):
         if seat not in counts.columns:

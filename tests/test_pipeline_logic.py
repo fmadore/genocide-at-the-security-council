@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-from lib import council, entities, frames, lexicon
+from lib import council, entities, frames, language, lexicon
 
 
 @pytest.fixture(scope="module")
@@ -92,6 +92,20 @@ class TestCouncilValidation:
         problems = council.validate_against_corpus(membership, spoke)
         assert problems and "Rwanda" in problems[0]
 
+    def test_flags_a_year_missing_from_the_roster(self, membership):
+        complete = pd.DataFrame(
+            [
+                {"year": 1994, "country_org": f"P{i}", "seat": "permanent"}
+                for i in range(5)
+            ]
+            + [
+                {"year": 1994, "country_org": f"E{i}", "seat": "elected"}
+                for i in range(10)
+            ]
+        )
+        problems = council.validate(complete, 1994, 1995)
+        assert any(problem.startswith("1995:") for problem in problems)
+
 
 class TestCanonicalise:
     def test_applies_aliases_and_passes_others_through(self):
@@ -137,6 +151,14 @@ class TestLexiconCounting:
         bodies = pd.Series(["… crimes against\nhumanity were committed …"])
         assert lexicon.apply(bodies, lex)["n_crimes_against_humanity"].iloc[0] == 1
 
+    def test_atrocity_matches_singular_and_plural(self, lex):
+        counts = lexicon.apply(pd.Series(["an atrocity and several atrocities"]), lex)
+        assert counts["n_atrocity"].iloc[0] == 2
+
+    def test_mass_atrocity_matches_singular_and_plural(self, lex):
+        counts = lexicon.apply(pd.Series(["mass atrocity and mass atrocities"]), lex)
+        assert counts["n_mass_atrocity"].iloc[0] == 2
+
     def test_register_rollups_sum_their_terms(self, lex):
         bodies = pd.Series(["genocide and war crimes and crimes against humanity"])
         counts = lexicon.apply(bodies, lex)
@@ -154,3 +176,21 @@ class TestLexiconCounting:
         variants = report["genocide_ocr_variants"]
         assert variants["speeches"] == 2
         assert variants["extra"] == 1  # only the misspelled one is new
+
+
+class TestDeliveryLanguage:
+    def test_explicit_marker_is_preserved(self):
+        frame = pd.DataFrame(
+            {"spoken_language": ["French"], "speech_format": ["In-Person"]}
+        )
+        assert language.delivery_language(frame).iloc[0] == "French"
+
+    def test_in_person_missing_marker_is_inferred_english(self):
+        frame = pd.DataFrame(
+            {"spoken_language": [pd.NA], "speech_format": ["In-Person"]}
+        )
+        assert language.delivery_language(frame).iloc[0] == language.ENGLISH_INFERRED
+
+    def test_vtc_missing_marker_remains_unknown(self):
+        frame = pd.DataFrame({"spoken_language": [pd.NA], "speech_format": ["VTC"]})
+        assert language.delivery_language(frame).iloc[0] == language.UNKNOWN_VTC
