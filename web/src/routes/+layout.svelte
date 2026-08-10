@@ -3,6 +3,7 @@
 	import serifRoman from '../fonts/SourceSerif4Variable-Roman.woff2?url';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import BackToTop from '$lib/BackToTop.svelte';
 	import ThemeToggle from '$lib/ThemeToggle.svelte';
 	import type { Snippet } from 'svelte';
 
@@ -38,6 +39,14 @@
 	<link rel="preload" href={serifRoman} as="font" type="font/woff2" crossorigin="anonymous" />
 </svelte:head>
 
+<!-- The first point in the document, and what `BackToTop` links to. It is a
+     marker of its own rather than the masthead, because the masthead is sticky:
+     it is never out of view, so scrolling it into view moves nothing. Zero
+     height and `tabindex="-1"`, so it takes the focus the jump brings without
+     occupying space or entering the tab order — the next Tab from here offers
+     the skip link, which is the right thing to be offered at the top. -->
+<span id="top" tabindex="-1"></span>
+
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="masthead">
@@ -69,6 +78,8 @@
 	{@render children()}
 </main>
 
+<BackToTop />
+
 <footer>
 	<div class="inner">
 		<p>
@@ -94,6 +105,11 @@
 </footer>
 
 <style>
+	#top {
+		display: block;
+		height: 0;
+	}
+
 	.skip {
 		position: absolute;
 		left: -9999px;
