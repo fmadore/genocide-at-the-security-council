@@ -16,8 +16,9 @@ finishes the corpus in about 25 minutes.
 ## Nothing identifying is committed
 
 The repository contains no account name, no hostname, no home directory and no
-key. That is a property worth keeping, because this repository is intended to
-become public with a citable release.
+key. **This repository is public**, so that is no longer a precaution against a
+future mistake — it is the current state of a published record, and every commit
+from here on is published the moment it is pushed.
 
 | Where it belongs | What |
 |---|---|

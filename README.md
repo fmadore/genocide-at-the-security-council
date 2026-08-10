@@ -5,8 +5,13 @@ the UN Security Council: when, by whom, about what, and to what end. Built over 
 **UN Security Council Debates** corpus (Schoenfeld et al., 1992–2023, 106,302 speeches) —
 this repository is a study *of* that corpus, not a copy of it.
 
-The dashboard will be published openly as a static site. This repository holds the data
-pipeline, the analysis scripts and the web application.
+**Live: <https://fmadore.github.io/genocide-at-the-security-council/>** — rebuilt from the
+Harvard Dataverse DOI by a workflow on every push, never uploaded from a workstation. This
+repository holds the data pipeline, the analysis scripts and the web application.
+
+The site is published; **no version is tagged**, because the human lexicon audit that the
+first citable release is gated on has not been done. Read [Methods](https://fmadore.github.io/genocide-at-the-security-council/methods/)
+before quoting a number from it.
 
 Five views, and every chart on them states what it answers, how to read its marks, what it
 does **not** show, and which script produced the file behind it. A chart without that
@@ -29,7 +34,8 @@ account is a decoration.
 | Speech export & web payload | ✅ `scripts/09`, `scripts/export_web.py` |
 | Dashboard — 5 views, SvelteKit 2 / Svelte 5 | ✅ [`web/`](web/); Pages rebuilds the 488 MB payload from v6.1 |
 | Licence & citation metadata | ✅ [MIT](LICENSE) + [CC BY 4.0](LICENSE-DATA.md), [`CITATION.cff`](CITATION.cff) confirmed |
-| Public deployment | ⬜ repository private, Pages not enabled — the build job passes, the deploy step has nothing to deploy to |
+| Public deployment | ✅ [live](https://fmadore.github.io/genocide-at-the-security-council/); Pages source is GitHub Actions, payload rebuilt from the DOI each run |
+| First citable release | ⬜ untagged — gated on the §1.1 audit, **0 of 200 rows verdicted** |
 | Speech embeddings | ✅ `scripts/06` on a GPU cluster ([`docs/CLUSTER.md`](docs/CLUSTER.md)); **not read by the dashboard** |
 | Topic comparison & its evaluation | ✅ `scripts/07` — evidence for a decision, not a result; adoption still deferred |
 | Lemma layer & lemma lexicometry | ✅ `scripts/10`, `scripts/05 --vocabulary lemma`; built, **not adopted** — see Phase 6 |
