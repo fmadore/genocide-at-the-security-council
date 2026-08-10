@@ -168,11 +168,60 @@ not imply that a diplomatic speaker is geographically located at that point.
 
 ## Phase 4 — Optional topics and semantic projection
 
-Status: adoption still deferred by design; the evaluation is now runnable.
+Status: **evaluated on 10 August 2026, and not adopted.** The apparatus was run in full on
+20,000 speeches with five stability seeds; the numbers are below and in
+`data/derived/topics/evaluation.json`. One gate remains open by design — the blinded
+intrusion task needs a person — but the measured gates do not support adoption, so the
+open one is not what is holding it back.
 
 Do not make a topic model part of the release pipeline until there is a written research
 question that collocates and agenda labels cannot answer. That question does not yet exist,
 and nothing below creates one.
+
+### What the run found
+
+**Neither model is stable under a 10% resample.** Adjusted Rand index across five seeds:
+the NMF baseline averages **0.532** (worst pair 0.454), the embedding model **0.697**
+(worst 0.643). Both sit below the 0.7 the script treats as stable, and the embedding model
+does not agree with itself about how many topics exist — 62, 61, 64, 66, 62 across the five
+fits. A partition that moves that much under a change of sample is a property of a fit.
+
+**The coherence advantage does not survive equal abstention.** Left to their own thresholds
+the embedding model leads by 0.037 NPMI. Forced to HDBSCAN's own 15.0% abstention, the
+baseline scores **+0.240** against **+0.281** — a gap of **0.041**, below the 0.05 this
+phase declares as too small to justify preferring an opaque model over one whose topics can
+be checked against a concordance. That comparison is the reason the abstention threshold had
+to be calibrated; at the old constant it could not have been made at all.
+
+**Nearly half the sample has no topic more concentrated than noise.** The calibrated
+threshold is **0.490** against a floor of 1/k = 0.040, and it leaves **43.8%** of documents
+unassigned. The corpus does beat the null — real documents concentrate at a median share of
+0.53 against 0.22 for the same words dealt at random, so the model is finding something —
+but for 44% of speeches what it finds is not more concentrated than shuffled text.
+
+**The space groups by agenda item, not by speaker.** This is the one result that runs
+*against* the caution in this section, and it is recorded as such. In the 2D diagnostic,
+74.3% of a point's 25 nearest neighbours share its hand-coded agenda item — a lift of 22.9
+over chance — while only 1.8% share its speaker (lift 11.8) and 19.9% its year (lift 4.8).
+06's finding that a genocide-bearing speech's nearest neighbour is the same delegation 55.4%
+of the time had suggested the space recovered the occasion through the speaker; over 25
+neighbours in the projection it does not. An agenda item is still substantially the
+occasion, so this does not license a thematic reading — but it is a better result than this
+section anticipated, and the next person to weigh adoption should weigh it rather than
+inherit the earlier expectation.
+
+**The picture is faithful to the space that was clustered**, which removes one objection
+rather than confirming it: trustworthiness of the 2D projection against the 5D reduction is
+**0.981**, though 29.1% of each point's 5D neighbours are still absent from its 2D
+neighbourhood.
+
+**What would change the decision.** A research question first, per the paragraph above.
+Then: stability at or above 0.7 for whichever model is proposed, a coherence margin at
+equal abstention that clears 0.05, and a completed intrusion task showing a reader can pick
+the intruder well above the 1-in-6 chance rate. Failing stability is the binding constraint
+today, and the k sweep suggests it is not a matter of choosing k better: coherence rises
+only from +0.210 to +0.249 across k = 15, 25, 40 while the unassigned share falls from 50.7%
+to 38.8%.
 
 What has been built is the apparatus for deciding, not the decision. `scripts/06_embed.py`
 encodes the corpus on a GPU and `scripts/07_topics.py` runs the comparison this phase
@@ -187,9 +236,24 @@ Required evaluation, and where it now stands:
   between refits that resample 90% of the frozen sample and change the solver seed, plus a
   sweep over k;
 - topic coherence plus blinded human interpretability — NPMI coherence is computed against
-  this corpus; the interpretability half is emitted as `intrusion_task.csv`, a word-intrusion
-  task with its answer key, and **remains open until a human completes it**. A score
-  generated automatically here would repeat the error §1.1 forbids for the lexicon audit;
+  this corpus; the interpretability half is a word-intrusion task, and **remains open until
+  a human completes it**. A score generated automatically here would repeat the error §1.1
+  forbids for the lexicon audit. The task was blinded properly on 10 August 2026, and the
+  correction is worth recording because the first version was not. 07 wrote one file whose
+  columns were `topic, words, intruder, intruder_position, intruder_from_topic, verdict` —
+  the answer three columns left of the blank a reader fills in, which is not a blinded task
+  whatever this section called it. Two further leaks sat behind that one: `nmf.json` and
+  `embedding.json` publish every topic's top words, so an item labelled with its model and
+  topic was answerable by subtraction without reading the six words; and the two models'
+  items were concatenated rather than interleaved, so the file changed register halfway
+  through. It is now `intrusion_task.csv` (an opaque id, the words, a blank) beside
+  `intrusion_key.csv`, with the items shuffled together and each carrying the model it came
+  from. That last column is not tidiness: both models label topics from zero, so without it
+  a completed task scores the pair jointly and cannot say which model a reader could read —
+  which is the comparison this whole section exists to make. `scripts/score_intrusion.py`
+  joins the two afterwards and reports accuracy per model, with its denominator and beside
+  the 1-in-6 chance rate, counting abstentions and answers that were never offered
+  separately rather than as wrong;
 - sensitivity to long speeches, formulaic Council language and time period — reported per
   topic as median and p90 length, the share of words appearing in over half of all speeches,
   and the dominant period;
@@ -446,7 +510,9 @@ can take away, not what the figures say, and it is not worth building against fi
 6. Add the faceted word cloud, generated from the artifact it depicts. (The co-occurrence
    graph that stood beside it here is shipped — see §7.2.)
 7. Add CSV and image export beside every chart and generated table (§7.5).
-8. Decide whether topics answer a question the current methods cannot.
+8. ~~Decide whether topics answer a question the current methods cannot.~~ Decided on
+   10 August 2026: not on this evidence — see §4. Reopen only with a research question and
+   a model that clears stability, not by rerunning the same comparison.
 9. Consider the LLM evaluation only after a human coding protocol exists.
 
 Steps 5 and 6 are deliberately after the release, not before it: both change or add to
