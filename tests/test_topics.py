@@ -329,8 +329,16 @@ def words(n_topics: int) -> dict[int, list[tuple[str, float]]]:
     }
 
 
+def both_models(n_topics: int = 8) -> list[dict[str, object]]:
+    return topics.blind(
+        topics.word_intrusion(words(n_topics), seed=1, model="nmf")
+        + topics.word_intrusion(words(n_topics), seed=2, model="embedding"),
+        seed=3,
+    )
+
+
 def test_the_intruder_comes_from_another_topic() -> None:
-    tasks = topics.word_intrusion(words(4), seed=5)
+    tasks = topics.word_intrusion(words(4), seed=5, model="nmf")
     assert tasks
     for task in tasks:
         assert task["intruder"].startswith(f"t{task['intruder_from_topic']}")
@@ -338,18 +346,128 @@ def test_the_intruder_comes_from_another_topic() -> None:
 
 
 def test_the_recorded_position_locates_the_intruder() -> None:
-    for task in topics.word_intrusion(words(4), seed=5):
+    for task in topics.word_intrusion(words(4), seed=5, model="nmf"):
         assert task["words"][task["intruder_position"] - 1] == task["intruder"]
 
 
 def test_the_task_ships_unanswered() -> None:
     """The file is a task for a human. A verdict invented here would be the
     error docs/PLAN.md §1.1 forbids for the lexicon audit."""
-    assert all(task["verdict"] == "" for task in topics.word_intrusion(words(3), seed=1))
+    assert all(row["intruder_guess"] == "" for row in topics.intrusion_task(both_models()))
 
 
 def test_one_topic_cannot_produce_an_intrusion_task() -> None:
-    assert topics.word_intrusion(words(1), seed=1) == []
+    assert topics.word_intrusion(words(1), seed=1, model="nmf") == []
+
+
+def test_the_task_file_carries_no_answer() -> None:
+    """The whole reason there are two files. A task shipped with `intruder` in
+    the next column is not blinded, whatever docs/PLAN.md §4 calls it."""
+    rows = topics.intrusion_task(both_models())
+    assert rows
+    for row in rows:
+        assert tuple(row) == topics.INTRUSION_TASK_FIELDS
+        for leak in ("intruder", "intruder_position", "intruder_from_topic", "model", "topic"):
+            assert leak not in row
+
+
+def test_the_item_id_names_neither_the_model_nor_the_topic() -> None:
+    """`nmf.json` publishes every topic's top words, so an id a reader can
+    decode into a model and a topic is answerable without reading the six
+    words at all."""
+    for item in both_models():
+        assert item["item"] not in (str(item["model"]), str(item["topic"]))
+        assert str(item["model"]) not in str(item["item"])
+        assert f"topic{item['topic']}" not in str(item["item"])
+
+
+def test_the_two_models_are_interleaved() -> None:
+    """Emitted model by model, the items arrive in unbroken blocks, which tells
+    a reader partway through the file that the register has changed."""
+    sequence = [item["model"] for item in both_models()]
+    assert len(sequence) == 16
+    assert len(set(sequence[:8])) == 2, "one model's items arrive in an unbroken block"
+
+
+def test_the_key_resolves_every_item_exactly_once() -> None:
+    items = both_models()
+    task = topics.intrusion_task(items)
+    key = topics.intrusion_key(items)
+    assert [tuple(row) for row in key] == [topics.INTRUSION_KEY_FIELDS] * len(key)
+    assert sorted(row["item"] for row in key) == sorted(row["item"] for row in task)
+    assert len({row["item"] for row in key}) == len(key)
+
+
+# --- Scoring the completed task --------------------------------------------
+
+
+def answered(items: list[dict[str, object]], guess) -> list[dict[str, object]]:
+    """A filled-in task file, where `guess(item)` decides what was written."""
+    return [
+        {"item": item["item"], "words": item["words"], "intruder_guess": guess(item)}
+        for item in items
+    ]
+
+
+def test_a_perfect_reader_scores_one_per_model_against_chance() -> None:
+    items = both_models()
+    score = topics.score_intrusion(
+        answered(items, lambda item: item["intruder"]), topics.intrusion_key(items)
+    )
+    assert score["models"]["nmf"]["accuracy"] == 1.0
+    assert score["models"]["embedding"]["accuracy"] == 1.0
+    assert score["overall"]["answered"] == 16
+    assert score["chance"] == round(1 / 6, 4)
+
+
+def test_accuracy_is_reported_per_model_not_only_jointly() -> None:
+    """The comparison is what §4 asks for; a joint number cannot serve it."""
+    items = both_models()
+    score = topics.score_intrusion(
+        answered(items, lambda item: item["intruder"] if item["model"] == "nmf" else item["words"][0]),
+        topics.intrusion_key(items),
+    )
+    assert score["models"]["nmf"]["accuracy"] == 1.0
+    assert score["models"]["embedding"]["accuracy"] < 1.0
+    assert score["models"]["nmf"]["answered"] == 8
+
+
+def test_a_blank_is_an_abstention_and_leaves_the_denominator() -> None:
+    items = both_models()
+    score = topics.score_intrusion(answered(items, lambda _: ""), topics.intrusion_key(items))
+    assert score["overall"]["abstained"] == 16
+    assert score["overall"]["answered"] == 0
+    assert score["overall"]["accuracy"] is None
+
+
+def test_a_word_that_was_never_shown_is_invalid_rather_than_wrong() -> None:
+    """Counting a typo as a wrong answer measures the reader, not the model."""
+    items = both_models()
+    score = topics.score_intrusion(
+        answered(items, lambda _: "notoneoftheoptions"), topics.intrusion_key(items)
+    )
+    assert score["overall"]["invalid"] == 16
+    assert score["overall"]["answered"] == 0
+
+
+def test_case_and_padding_do_not_decide_a_verdict() -> None:
+    items = both_models()
+    score = topics.score_intrusion(
+        answered(items, lambda item: f"  {str(item['intruder']).upper()} "),
+        topics.intrusion_key(items),
+    )
+    assert score["overall"]["accuracy"] == 1.0
+
+
+def test_an_id_with_no_key_row_is_reported_rather_than_scored() -> None:
+    """A task and a key from different runs of 07 do not describe the same
+    items, and a score that quietly ignored the mismatch would hide it."""
+    items = both_models()
+    responses = answered(items, lambda item: item["intruder"])
+    responses.append({"item": "item-999", "words": ["a", "b"], "intruder_guess": "a"})
+    score = topics.score_intrusion(responses, topics.intrusion_key(items))
+    assert score["unmatched"] == ["item-999"]
+    assert score["overall"]["answered"] == 16
 
 
 # --- Tokenising ------------------------------------------------------------

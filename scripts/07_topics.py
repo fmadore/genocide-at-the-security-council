@@ -665,10 +665,15 @@ def build_note(nmf: dict, embedding: dict, evaluation: dict, sample: pd.DataFram
             "## What is still missing",
             "",
             "- **Blinded human interpretability.** `intrusion_task.csv` holds "
-            f"{evaluation['intrusion_tasks']} word-intrusion items with their answer key. "
-            "It is a task, not a score: until a person has completed it, this gate is "
-            "open. Generating a number here would be the same error §1.1 forbids for the "
-            "lexicon audit — an automatic judgement recorded as a human verdict.",
+            f"{evaluation['intrusion_tasks']} word-intrusion items: an opaque id, six "
+            "words and a blank. Fill `intruder_guess` with the word that does not "
+            "belong, then run `scripts/score_intrusion.py` — the answers live in "
+            "`intrusion_key.csv`, which is the file not to open first. Items from both "
+            "models are interleaved and their ids carry no arithmetic, so the task "
+            "cannot be answered from `nmf.json` instead of from the words. It is a task, "
+            "not a score: until a person has completed it, this gate is open. Generating "
+            "a number here would be the same error §1.1 forbids for the lexicon audit — "
+            "an automatic judgement recorded as a human verdict.",
             "- **A research question.** §4 requires one before any of this enters the "
             "release pipeline.",
             "",
@@ -918,8 +923,10 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
     nmf_payload = model_payload(nmf_model, sample, documents, terms)
     embedding_payload = model_payload(embedding_model, sample, documents, terms)
     stability_scores = {"nmf": nmf_stability, "embedding": embedding_stability}
-    intrusion = topics.word_intrusion(nmf_model.words, seed) + topics.word_intrusion(
-        embedding_model.words, seed + 1
+    intrusion = topics.blind(
+        topics.word_intrusion(nmf_model.words, seed, model="nmf")
+        + topics.word_intrusion(embedding_model.words, seed + 1, model="embedding"),
+        seed + 2,
     )
     matched_coherence = topics.npmi_coherence(matched.words, documents)
     equal_abstention = {
@@ -998,7 +1005,8 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
         for name, payload, _ in figures:
             artifacts.atomic_write_bytes(staged / name, payload)
         assignments.to_parquet(staged / "assignments.parquet", index=False, compression="zstd")
-        write_csv(staged / "intrusion_task.csv", intrusion)
+        write_csv(staged / "intrusion_task.csv", topics.intrusion_task(intrusion))
+        write_csv(staged / "intrusion_key.csv", topics.intrusion_key(intrusion))
         artifacts.atomic_write_json(staged / "manifest.json", meta, indent=2)
     console.info(f"wrote {rel(TOPICS)}")
 

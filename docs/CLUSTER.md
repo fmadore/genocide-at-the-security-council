@@ -275,6 +275,25 @@ evidence needed to decide that — coherence, stability under resampling,
 sensitivity to `k`, topic composition, and a blinded word-intrusion task for a
 human to complete. Read `evaluation.json` before either model's own output.
 
+The intrusion task comes back as two files, and the split is the point.
+`intrusion_task.csv` is what you fill in: an opaque item id, six words, and a
+blank `intruder_guess` for the word that does not belong. `intrusion_key.csv`
+holds the answers — **do not open it first**, and do not open `nmf.json` either,
+because it publishes the topic word lists the task is drawn from. Items from
+both models are shuffled together and their ids decode to nothing, so the file
+cannot be answered except by reading the words. Leave a row blank to abstain;
+an abstention is reported separately rather than counted wrong. Then, locally:
+
+```bash
+python scripts/score_intrusion.py
+```
+
+That writes `intrusion_score.json` beside the task and `notes/07_intrusion.md`,
+with accuracy per model, its denominator, and the 1-in-6 chance rate to read it
+against. Pass `--task` if the completed file lives outside the repository; it is
+recorded by name and hash rather than by path, so a note never carries a home
+directory off the cluster.
+
 Its `calibration` block is worth reading first. NMF's abstention threshold is not
 a setting: the job refits the baseline on the frozen sample dealt out at random
 and takes the 95th percentile of the shares that produces, so "unassigned" means

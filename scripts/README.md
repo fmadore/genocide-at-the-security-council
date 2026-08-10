@@ -34,6 +34,7 @@ requirements.lock` from the repository root. `requirements.txt` and
 | 10 | `10_lemmatise.py` | `speeches_flagged.parquet` | `derived/lemmas/` | 🔬 optional |
 | 11 | `11_countries.py` | `speeches_flagged.parquet`, `config/entities.csv` | `derived/countries/countries.json` | ✅ |
 | — | `export_web.py` | `derived/{series,lexical,kwic,countries}/` | `web/static/data/` | ✅ |
+| — | `score_intrusion.py` | `derived/topics/intrusion_{task,key}.csv` | `derived/topics/intrusion_score.json` | 🔬 after a human |
 
 **06, 07 and 10 are not part of the release pipeline.** They need the extra dependencies in
 [`../requirements-cluster.txt`](../requirements-cluster.txt) — and, for 06, a GPU — and they
@@ -60,6 +61,11 @@ coherence, stability under resampling, sensitivity to `k`, topic composition, an
 blinded word-intrusion task for a human to complete. §4 still defers adoption: a topic
 model enters the release only once there is a research question collocates and agenda
 labels cannot answer. LLM extraction (§5) remains a proposal with no script.
+
+`score_intrusion.py` is unnumbered and deliberately a separate run: it turns a completed
+intrusion task into the interpretability number §4 wants, and keeping it out of 07 means no
+unattended job can ever produce one as a side effect of fitting a model. 07 writes the task
+and its key as two files so that the file a human opens does not contain the answer.
 
 See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establish.
 

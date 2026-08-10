@@ -1,0 +1,186 @@
+"""Score a completed word-intrusion task against its key.
+
+Unnumbered on purpose: this is not a step in the analysis. `07_topics.py` emits
+`intrusion_task.csv` and stops, because docs/PLAN.md §4 asks for *blinded human*
+interpretability and the score does not exist until a person has done the task.
+This is what turns their filled-in file into the number the gate wants — and it
+is deliberately a separate run, so that no unattended job can ever produce an
+interpretability score as a side effect of fitting a model.
+
+The task file carries an opaque item id, six words and a blank. Fill
+`intruder_guess` with the word that does not belong; leave it empty to abstain.
+Do not open `intrusion_key.csv` first — it holds the answers, and it is the
+reason the two files exist separately.
+
+    python scripts/score_intrusion.py
+    python scripts/score_intrusion.py --task ~/completed.csv
+
+Accuracy is reported per model with its denominator and beside the chance rate:
+six words shown means blind guessing scores 1/6, so 30% is near nothing rather
+than near a third of the way there. Abstentions, guesses that are not one of the
+words shown, and ids with no key row are counted separately instead of being
+folded into wrong answers, which would measure the reader rather than the model.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib import artifacts, console
+from lib.paths import ROOT, TOPICS, rel, write_note
+from lib.topics import INTRUSION_KEY_FIELDS, INTRUSION_TASK_FIELDS, score_intrusion
+
+TASK = TOPICS / "intrusion_task.csv"
+KEY = TOPICS / "intrusion_key.csv"
+RESULT = TOPICS / "intrusion_score.json"
+
+
+def read_csv(path: Path, required: tuple[str, ...]) -> list[dict[str, object]]:
+    """Read one of the two files, failing on a header that is not the contract.
+
+    A missing column here is nearly always a spreadsheet round-trip that dropped
+    or renamed one, and silently scoring the remainder would report a confident
+    accuracy over whatever survived.
+    """
+    if not path.exists():
+        console.fail(f"{rel(path)} does not exist — run 07_topics.py, or pass --task/--key")
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    if not rows:
+        console.fail(f"{rel(path)} has no rows")
+    missing = [field for field in required if field not in rows[0]]
+    if missing:
+        console.fail(f"{rel(path)} is missing {', '.join(missing)}", problems=list(rows[0]))
+    # `write_csv` joins the shown words with a pipe; split them back so the
+    # scorer can check that a guess is one of the words actually offered.
+    for row in rows:
+        if isinstance(row.get("words"), str):
+            row["words"] = [word for word in row["words"].split("|") if word]
+    return rows
+
+
+def describe_input(path: Path) -> dict[str, object]:
+    """Describe an input that may legitimately live outside the repository.
+
+    `artifacts.describe_file` raises on anything it cannot make relative to the
+    root, and it should: every numbered step reads inputs the repository owns,
+    and a manifest naming an absolute path on one machine is not provenance.
+    A completed task file is the exception — a human fills it in, and it arrives
+    from a download folder or an email attachment. The hash is what identifies
+    it, so record that and the name, and say plainly that the path is external
+    rather than inventing a repository-relative one.
+    """
+    try:
+        return artifacts.describe_file(path, ROOT)
+    except ValueError:
+        return {
+            "path": path.name,
+            "external": True,
+            "bytes": path.stat().st_size,
+            "sha256": artifacts.sha256(path),
+        }
+
+
+def cite(described: dict[str, object]) -> str:
+    """Name an input in prose without writing a home directory into a note.
+
+    Notes are archived off the cluster and read outside this repository, so the
+    rule `tests/test_privacy.py` enforces on tracked files is worth keeping here
+    too: an external file is identified by its name and its hash, which is what
+    makes a score checkable anyway, and never by the path it happened to sit at.
+    """
+    name = described["path"]
+    if described.get("external"):
+        return f"`{name}` (external, sha256 {str(described['sha256'])[:12]}…)"
+    return f"`{name}`"
+
+
+def build_note(score: dict[str, object], inputs: list[dict[str, object]]) -> str:
+    models = score["models"]
+    chance = score["chance"]
+    task, key = inputs
+    lines = [
+        "# Word-intrusion task — score",
+        "",
+        "docs/PLAN.md §4 requires blinded human interpretability beside the NPMI",
+        "coherence numbers. This is the human half. It was produced by",
+        "`scripts/score_intrusion.py` from a completed task file; nothing here was",
+        "generated by a model.",
+        "",
+        f"- task: {cite(task)}",
+        f"- key: {cite(key)}",
+        f"- items: {score['items']}, responses read: {score['responses']}",
+        f"- chance rate: {f'{chance:.1%}' if chance else 'mixed — no single rate'}",
+        "",
+        "| Model | Answered | Correct | Accuracy | Abstained | Invalid |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for name, counts in [*sorted(models.items()), ("**all**", score["overall"])]:
+        accuracy = counts["accuracy"]
+        lines.append(
+            f"| {name} | {counts['answered']} | {counts['correct']} | "
+            f"{f'{accuracy:.1%}' if accuracy is not None else '—'} | "
+            f"{counts['abstained']} | {counts['invalid']} |"
+        )
+    lines += [
+        "",
+        "Read the accuracy against the chance rate, not against 100%. A model whose",
+        "items a reader cannot pick apart better than guessing has topics that mean",
+        "nothing to a reader, however well they score on NPMI — which is the whole",
+        "reason §4 asks for this task and not only for coherence.",
+    ]
+    if score["unmatched"]:
+        lines += [
+            "",
+            f"**{len(score['unmatched'])} response ids had no key row** and were scored as",
+            "nothing at all: " + ", ".join(f"`{item}`" for item in score["unmatched"][:10])
+            + ("…" if len(score["unmatched"]) > 10 else "")
+            + ". A task and a key from different runs of 07 do not describe the same items.",
+        ]
+    return "\n".join(lines) + "\n"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--task", type=Path, default=TASK, help="the completed task file")
+    parser.add_argument("--key", type=Path, default=KEY, help="the answer key 07 wrote")
+    parser.add_argument("--out", type=Path, default=RESULT, help="where to write the score")
+    args = parser.parse_args()
+
+    console.step("Reading")
+    responses = read_csv(args.task, INTRUSION_TASK_FIELDS)
+    key = read_csv(args.key, INTRUSION_KEY_FIELDS)
+    console.info(f"{len(responses)} responses, {len(key)} key rows")
+
+    console.step("Scoring")
+    score = score_intrusion(responses, key)
+    if not score["overall"]["answered"]:
+        console.warn("no answered items — the task file is still blank")
+    for name, counts in score["models"].items():
+        accuracy = counts["accuracy"]
+        console.info(
+            f"{name}: {counts['correct']}/{counts['answered']} "
+            f"({f'{accuracy:.1%}' if accuracy is not None else 'no answers'})"
+        )
+    if score["unmatched"]:
+        console.warn(f"{len(score['unmatched'])} response ids are not in the key")
+
+    console.step("Writing")
+    inputs = [describe_input(args.task), describe_input(args.key)]
+    meta = artifacts.provenance(
+        ROOT,
+        "score_intrusion.py",
+        extra={"release_artefact": False, "human_completed": True, "inputs": inputs},
+    )
+    artifacts.atomic_write_json(args.out, {"meta": meta, **score}, indent=2)
+    console.info(f"wrote {rel(args.out)}")
+    note = write_note("07_intrusion.md", build_note(score, inputs))
+    console.info(f"wrote {note.name}")
+
+
+if __name__ == "__main__":
+    main()

@@ -689,18 +689,42 @@ def _length_correlation(table: pd.DataFrame) -> float:
     return float(medians.rank().corr(pd.Series(medians.index, index=medians.index).rank()))
 
 
+#: What a human opens. The answer is not in it, and that is the entire point of
+#: there being two files rather than one.
+INTRUSION_TASK_FIELDS = ("item", "words", "intruder_guess")
+
+#: What scores it afterwards. Never give this to the reader doing the task.
+INTRUSION_KEY_FIELDS = (
+    "item",
+    "model",
+    "topic",
+    "intruder",
+    "intruder_position",
+    "intruder_from_topic",
+)
+
+
 def word_intrusion(
-    topic_words: dict[int, list[tuple[str, float]]], seed: int, words_shown: int = 5
+    topic_words: dict[int, list[tuple[str, float]]],
+    seed: int,
+    model: str,
+    words_shown: int = 5,
 ) -> list[dict[str, object]]:
     """A blinded interpretability task, as rows for a human to fill in.
 
     Each row shows a topic's top words with one word from a different topic
     mixed in. A reader who can reliably pick the intruder is a reader for whom
-    the topic means something. This emits the task and its answer key; it does
-    not emit a score, because the score does not exist until a person has sat
-    down with the file. docs/PLAN.md §4 asks for blinded human interpretability,
-    and a number invented here would be exactly the "AI review presented as a
-    human verdict" §1.1 forbids.
+    the topic means something. This emits the items; :func:`blind` splits them
+    into the task and its key, and nothing here emits a score, because the score
+    does not exist until a person has sat down with the file. docs/PLAN.md §4
+    asks for blinded human interpretability, and a number invented here would be
+    exactly the "AI review presented as a human verdict" §1.1 forbids.
+
+    `model` names the fit an item came from. Without it the two models' items are
+    indistinguishable once concatenated — both label topics from zero — so a
+    completed task scores the pair jointly and answers a question §4 never asked.
+    The comparison is the point; an interpretability number that cannot be
+    attributed to a model does not serve it.
     """
     labels = sorted(topic_words)
     if len(labels) < 2:
@@ -723,15 +747,111 @@ def word_intrusion(
         order = rng.permutation(len(shown))
         tasks.append(
             {
+                "model": model,
                 "topic": label,
                 "words": [shown[i] for i in order],
                 "intruder": intruder,
                 "intruder_position": int(np.argmax(order == len(shown) - 1)) + 1,
                 "intruder_from_topic": source,
-                "verdict": "",
             }
         )
     return tasks
+
+
+def blind(items: list[dict[str, object]], seed: int) -> list[dict[str, object]]:
+    """Interleave the models' items and give each an opaque identifier.
+
+    Two leaks close here, and both let a reader answer without reading the six
+    words. `nmf.json` and `embedding.json` publish every topic's top words, so an
+    item labelled "nmf, topic 7" is answerable by subtraction. And items emitted
+    model by model arrive in unbroken blocks, which tells a reader partway
+    through the file that the register has changed.
+
+    The identifier is a position in a shuffled order and carries no arithmetic:
+    the key is the only way back from it to a model or a topic.
+    """
+    rng = np.random.default_rng(seed)
+    order = rng.permutation(len(items))
+    return [
+        {"item": f"item-{position:03d}", **items[int(index)]}
+        for position, index in enumerate(order, start=1)
+    ]
+
+
+def intrusion_task(items: list[dict[str, object]]) -> list[dict[str, object]]:
+    """The rows a human fills in: six words, and nowhere the answer."""
+    return [
+        {"item": item["item"], "words": item["words"], "intruder_guess": ""}
+        for item in items
+    ]
+
+
+def intrusion_key(items: list[dict[str, object]]) -> list[dict[str, object]]:
+    """The rows that score the task afterwards."""
+    return [{field: item[field] for field in INTRUSION_KEY_FIELDS} for item in items]
+
+
+def score_intrusion(
+    responses: list[dict[str, object]], key: list[dict[str, object]]
+) -> dict[str, object]:
+    """Join a completed task to its key and report accuracy per model.
+
+    Reported with its denominator, as the research contract requires, and with
+    the chance rate beside it — six words shown means a reader who guesses
+    blindly scores 1/6, so a bare accuracy of 30% is close to nothing rather than
+    close to a third of the way there.
+
+    Three outcomes are kept apart from wrong answers instead of being folded into
+    them. A blank is an abstention, a guess that is not one of the words shown is
+    invalid, and an item id with no key row is unmatched. Counting any of them as
+    incorrect would understate a model by however sloppily the file was filled
+    in, which is a measurement of the reader.
+    """
+    fields = ("answered", "correct", "abstained", "invalid")
+    keyed = {str(row["item"]): row for row in key}
+    tallies: dict[str, Counter[str]] = {}
+    unmatched: list[str] = []
+    shown_counts: set[int] = set()
+
+    for response in responses:
+        item = str(response.get("item", "")).strip()
+        answer = keyed.get(item)
+        if answer is None:
+            unmatched.append(item)
+            continue
+        words = [str(word).strip().casefold() for word in response.get("words", []) or []]
+        if words:
+            shown_counts.add(len(words))
+        counts = tallies.setdefault(str(answer["model"]), Counter())
+        guess = str(response.get("intruder_guess", "")).strip().casefold()
+        if not guess:
+            counts["abstained"] += 1
+        elif guess not in words:
+            counts["invalid"] += 1
+        else:
+            counts["answered"] += 1
+            counts["correct"] += int(guess == str(answer["intruder"]).strip().casefold())
+
+    def report(counts: Counter[str]) -> dict[str, object]:
+        summary: dict[str, object] = {field: counts[field] for field in fields}
+        summary["accuracy"] = (
+            round(counts["correct"] / counts["answered"], 4) if counts["answered"] else None
+        )
+        return summary
+
+    total: Counter[str] = Counter()
+    for counts in tallies.values():
+        total.update(counts)
+    return {
+        "items": len(key),
+        "responses": len(responses),
+        # One chance rate only when every row showed the same number of words; a
+        # mixed file has no single one and should not be handed one anyway.
+        "chance": round(1 / shown_counts.pop(), 4) if len(shown_counts) == 1 else None,
+        "models": {model: report(counts) for model, counts in sorted(tallies.items())},
+        "overall": report(total),
+        "unmatched": sorted(unmatched),
+    }
 
 
 # --- The 2D projection: a diagnostic, not a map ----------------------------

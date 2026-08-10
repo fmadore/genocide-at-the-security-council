@@ -209,6 +209,7 @@ TOPIC_FILES = [
     "projection_cluster.png",
     "assignments.parquet",
     "intrusion_task.csv",
+    "intrusion_key.csv",
 ]
 
 
