@@ -8,13 +8,21 @@ data/derived/lexical/, plus a findings note.
     keyness.json            genocide speeches against a matched control set
     network.json            PMI between the lexicon's terms, whole corpus and by period
 
-The word clouds docs/PLAN.md §3.2 asks for are a rendering of these tables, not
+The word clouds docs/PLAN.md §7 asks for are a rendering of these tables, not
 a separate artefact: a cloud sized by log-likelihood over a stated stoplist is
 the collocate table drawn differently, and shipping it as its own file would
 invite it to drift from the numbers it claims to depict.
 
+`--vocabulary lemma` counts the lemma layer from `10_lemmatise.py` instead of
+surface forms, so `killing`, `killed` and `kills` share one row rather than
+competing for three. It writes to `data/derived/lexical_lemma/` and never touches
+the surface tables: those are what the dashboard reads and what the
+docs/PLAN.md §1.1 audit is being conducted against. Node spans are still found in
+the original text, so a window still excludes the node's own words exactly.
+
 Usage:
     python scripts/05_lexical.py [--limit 100] [--countries 8] [--seed 20260807]
+    python scripts/05_lexical.py --vocabulary lemma
 """
 
 from __future__ import annotations
@@ -26,9 +34,11 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, console, frames, lexical, lexicon
+from lib import artifacts, console, frames, lemmas, lexical, lexicon
 from lib.paths import (
+    LEMMAS,
     LEXICAL,
+    LEXICAL_LEMMA,
     ROOT,
     SPEECHES_FLAGGED,
     STOPWORDS,
@@ -40,11 +50,73 @@ from lib.paths import (
     LEXICON as LEXICON_CONFIG,
 )
 
+
+class Counting:
+    """Surface forms or lemmas — the two ways this step can count one corpus.
+
+    Everything below asks a `Counting` for a frame's token counts and for the
+    tokeniser to hand `lexical.collocates`, so the difference between the two
+    vocabularies lives here and nowhere else. Lemma mode never writes over the
+    surface tables: it has its own output directory, because those tables are
+    what the dashboard reads and what the docs/PLAN.md §1.1 audit is being
+    conducted against.
+    """
+
+    def __init__(self, mode: str, rows: pd.Series | None = None) -> None:
+        self.mode = mode
+        self.rows = rows
+
+    @property
+    def directory(self) -> Path:
+        return LEXICAL if self.mode == "surface" else LEXICAL_LEMMA
+
+    @property
+    def suffix(self) -> str:
+        return "" if self.mode == "surface" else "_lemma"
+
+    def counts(self, frame: pd.DataFrame) -> object:
+        if self.mode == "surface":
+            return lexical.vocabulary(frames.body(frame))
+        return lemmas.vocabulary(self.rows.loc[frame.index])
+
+    def tokeniser(self, frame: pd.DataFrame):
+        """A callback for `lexical.collocates`, or None for surface counting."""
+        if self.mode == "surface":
+            return None
+        rows = self.rows.loc[frame.index].tolist()
+        return lambda index, source: lemmas.tokens(source, rows[index])
+
+
+def load_lemmas(speeches: pd.DataFrame) -> pd.Series:
+    """The lemma layer, aligned to the corpus by row_id.
+
+    Positional alignment between two parquet files is the kind of assumption
+    that yields a beautiful, meaningless table, so the join is on row_id and any
+    gap is fatal.
+    """
+    path = LEMMAS / "lemmas.parquet"
+    if not path.exists():
+        console.fail(
+            f"{rel(path)} is missing — run 10_lemmatise.py first",
+            ["it needs spaCy; see docs/CLUSTER.md"],
+        )
+    table = pd.read_parquet(path)
+    console.info(f"read {rel(path)}  {len(table):,} rows")
+    series = pd.Series(table["lemmas"].to_numpy(), index=table["row_id"].to_numpy())
+    missing = int((~speeches["row_id"].isin(series.index)).sum())
+    if missing:
+        console.fail(
+            f"{missing:,} speeches have no lemma row",
+            ["the lemma layer is stale — re-run 10_lemmatise.py without --limit"],
+        )
+    return pd.Series(series.loc[speeches["row_id"]].to_numpy(), index=speeches.index)
+
+
 #: Nodes to profile. `genocide` is the object; the two neighbours are there to
 #: give its profile something to be different from.
 NODES = ["genocide", "ethnic_cleansing", "crimes_against_humanity"]
 
-#: docs/PLAN.md §3.2 asks for several windows. ±5 is the phrase, ±15 the
+#: Several windows, deliberately. ±5 is the phrase, ±15 the
 #: argument the phrase sits in; ±8 is the compromise the slices use.
 WIDTHS = [5, 8, 15]
 SLICE_WIDTH = 8
@@ -89,6 +161,7 @@ def build_collocates(
     reference_total: int,
     stopwords: frozenset[str],
     limit: int,
+    tokeniser=None,
 ) -> dict[str, object]:
     """Each node at each window width, over the whole corpus."""
     out: dict[str, object] = {}
@@ -96,7 +169,14 @@ def build_collocates(
         widths: dict[str, object] = {}
         for width in WIDTHS:
             rows, occurrences, tokens = lexical.collocates(
-                bodies, term, width, reference, reference_total, stopwords, limit=limit
+                bodies,
+                term,
+                width,
+                reference,
+                reference_total,
+                stopwords,
+                limit=limit,
+                tokeniser=tokeniser,
             )
             widths[str(width)] = {
                 "occurrences": occurrences,
@@ -119,10 +199,11 @@ def build_slices(
     stopwords: frozenset[str],
     limit: int,
     countries: int,
+    counting: Counting,
 ) -> dict[str, object]:
     """`genocide` sliced by period, speaker group and speaker.
 
-    The per-speaker slice is the one docs/PLAN.md §3.2 expects to be a headline:
+    The per-speaker slice is the one expected to be a headline:
     Rwanda, Russia and Liechtenstein use the same word to do different things.
     """
     flag = f"{lexicon.HAS}{term.name}"
@@ -137,6 +218,7 @@ def build_slices(
             reference_total,
             stopwords,
             limit=limit,
+            tokeniser=counting.tokeniser(subset),
         )
         return {
             "speeches": len(subset),
@@ -183,6 +265,7 @@ def build_keyness(
     limit: int,
     seed: int,
     repetitions: int,
+    counting: Counting,
 ) -> dict[str, object]:
     """Genocide speeches against a year/agenda/group-matched control set.
 
@@ -197,11 +280,8 @@ def build_keyness(
         f"({control.coverage:.1%}); {len(control.short_strata)} strata short"
     )
 
-    target_body = frames.body(speeches.loc[control.target_index])
-    control_body = frames.body(speeches.loc[control.control_index])
-
-    target_counts = lexical.vocabulary(target_body)
-    control_counts = lexical.vocabulary(control_body)
+    target_counts = counting.counts(speeches.loc[control.target_index])
+    control_counts = counting.counts(speeches.loc[control.control_index])
     target_total = sum(target_counts.values())
     control_total = sum(control_counts.values())
 
@@ -231,8 +311,8 @@ def build_keyness(
     coverages = []
     for repetition in range(repetitions):
         sampled = lexical.matched_control(speeches, flag, MATCH_ON, seed + repetition)
-        sampled_targets = lexical.vocabulary(frames.body(speeches.loc[sampled.target_index]))
-        sampled_controls = lexical.vocabulary(frames.body(speeches.loc[sampled.control_index]))
+        sampled_targets = counting.counts(speeches.loc[sampled.target_index])
+        sampled_controls = counting.counts(speeches.loc[sampled.control_index])
         target_size = sum(sampled_targets.values())
         control_size = sum(sampled_controls.values())
         coverages.append(sampled.coverage)
@@ -365,6 +445,7 @@ def build_note(
     network: dict,
     stopwords: frozenset[str],
     limit: int,
+    counting: Counting,
 ) -> str:
     def table(rows: list[dict], top: int = 15) -> list[str]:
         return [
@@ -397,8 +478,23 @@ def build_note(
 
     return "\n".join(
         [
-            "# 05 — Lexicometry",
+            f"# 05 — Lexicometry{' (lemmas)' if counting.mode == 'lemma' else ''}",
             "",
+            *(
+                []
+                if counting.mode == "surface"
+                else [
+                    "Counted over **lemmas**, from the layer `10_lemmatise.py` builds. Every row",
+                    "below is a lemma, so `killing`, `killed` and `kills` share one row instead of",
+                    "competing for three. `data/derived/lemmas/mapping.csv` records exactly which",
+                    "surface forms were merged into which, most frequent first.",
+                    "",
+                    "Node spans are still found in the original text, so a window still excludes the",
+                    "node's own words exactly. The surface tables in `data/derived/lexical/` are",
+                    "untouched — this is a second reading of the same corpus, not a replacement.",
+                    "",
+                ]
+            ),
             f"Stoplist: {len(stopwords)} function words "
             "(`config/stopwords.txt` — function words only, and the file says why).",
             f"Top {limit} rows kept per table. Every row carries **G²** (how confidently the",
@@ -435,7 +531,7 @@ def build_note(
             "",
             "## Collocates by speaker",
             "",
-            "docs/PLAN.md §3.2 expects this to be a headline: the same word, doing different",
+            "Expected to be a headline: the same word, doing different",
             "work in different mouths.",
             "",
             "| Speaker | Speeches | Strongest collocates |",
@@ -498,7 +594,14 @@ def build_note(
     ) + "\n"
 
 
-def run(limit: int, countries: int, seed: int, min_edge: int, repetitions: int) -> None:
+def run(
+    limit: int,
+    countries: int,
+    seed: int,
+    min_edge: int,
+    repetitions: int,
+    vocabulary: str = "surface",
+) -> None:
     ensure_dirs()
 
     lex = lexicon.load()
@@ -512,9 +615,13 @@ def run(limit: int, countries: int, seed: int, min_edge: int, repetitions: int) 
     flags = [f"{lexicon.HAS}{t.name}" for t in lex.active]
     speeches = frames.read(SPEECHES_FLAGGED, columns=[*COLUMNS, *flags])
 
-    console.step("Counting the corpus vocabulary")
-    bodies = frames.body(speeches)
-    reference = lexical.vocabulary(bodies)
+    counting = Counting(vocabulary)
+    if vocabulary == "lemma":
+        console.step("Reading the lemma layer")
+        counting = Counting(vocabulary, load_lemmas(speeches))
+
+    console.step(f"Counting the corpus vocabulary ({vocabulary})")
+    reference = counting.counts(speeches)
     reference_total = sum(reference.values())
     console.info(f"{reference_total:,} tokens, {len(reference):,} types")
 
@@ -523,12 +630,25 @@ def run(limit: int, countries: int, seed: int, min_edge: int, repetitions: int) 
     console.step("Collocates, whole corpus")
     holders = speeches[speeches[[f"{lexicon.HAS}{t.name}" for t in terms]].any(axis=1)]
     collocate_payload = build_collocates(
-        frames.body(holders), terms, reference, reference_total, stopwords, limit
+        frames.body(holders),
+        terms,
+        reference,
+        reference_total,
+        stopwords,
+        limit,
+        tokeniser=counting.tokeniser(holders),
     )
 
     console.step("Collocates, sliced")
     slices = build_slices(
-        speeches, lex.terms["genocide"], reference, reference_total, stopwords, limit, countries
+        speeches,
+        lex.terms["genocide"],
+        reference,
+        reference_total,
+        stopwords,
+        limit,
+        countries,
+        counting,
     )
 
     console.step("Keyness against a matched control")
@@ -541,6 +661,7 @@ def run(limit: int, countries: int, seed: int, min_edge: int, repetitions: int) 
         limit,
         seed,
         repetitions,
+        counting,
     )
 
     console.step("Co-occurrence network")
@@ -559,9 +680,15 @@ def run(limit: int, countries: int, seed: int, min_edge: int, repetitions: int) 
             "stopwords": len(stopwords),
             "min_count": lexical.MIN_COUNT,
             "limit": limit,
+            "vocabulary": vocabulary,
+            **(
+                {}
+                if vocabulary == "surface"
+                else {"lemma_manifest": str(rel(LEMMAS / "manifest.json"))}
+            ),
         },
     )
-    with artifacts.atomic_directory(LEXICAL) as staged:
+    with artifacts.atomic_directory(counting.directory) as staged:
         write_json(
             {"nodes": collocate_payload, "widths": WIDTHS}, staged / "collocates.json", meta
         )
@@ -570,8 +697,8 @@ def run(limit: int, countries: int, seed: int, min_edge: int, repetitions: int) 
         write_json(network, staged / "network.json", meta)
 
     note = write_note(
-        "05_lexical.md",
-        build_note(collocate_payload, slices, keyness, network, stopwords, limit),
+        f"05_lexical{counting.suffix}.md",
+        build_note(collocate_payload, slices, keyness, network, stopwords, limit, counting),
     )
     console.info(f"wrote {note.name}")
 
@@ -588,8 +715,24 @@ def main() -> None:
         default=20,
         help="consecutive seeds used for matched-keyness stability intervals",
     )
+    parser.add_argument(
+        "--vocabulary",
+        default="surface",
+        choices=["surface", "lemma"],
+        help=(
+            "what to count. `lemma` needs the layer from 10_lemmatise.py and writes to "
+            "derived/lexical_lemma/, leaving the surface tables alone"
+        ),
+    )
     args = parser.parse_args()
-    run(args.limit, args.countries, args.seed, args.min_edge, args.matching_repetitions)
+    run(
+        args.limit,
+        args.countries,
+        args.seed,
+        args.min_edge,
+        args.matching_repetitions,
+        args.vocabulary,
+    )
 
 
 if __name__ == "__main__":

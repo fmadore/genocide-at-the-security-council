@@ -39,8 +39,8 @@ from lib.paths import (
 )
 
 #: Measures the change-point pass and the breakdowns run on, as (kind, name).
-#: `genocide` is the object of study; `atrocity_core` is the set docs/PLAN.md §7.3
-#: argues may be the real one, so both are dated rather than one being assumed.
+#: `genocide` is the object of study; `atrocity_core` is the set that may be the
+#: real one, so both are dated rather than one being assumed.
 TRACKED = [("terms", "genocide"), ("sets", "atrocity_core")]
 
 #: Categorical splits worth a per-period breakdown, with an optional cap on
@@ -330,7 +330,7 @@ def build_note(
     else:
         verdict = ["Neither the raw series nor the rate carries a detectable break.", ""]
 
-    # The comparison docs/PLAN.md §7.3 asks for: is the object `genocide`, or the
+    # The comparison that matters: is the object `genocide`, or the
     # atrocity vocabulary it travels inside? If only the wider set has normalised
     # structure, that is an argument, and it should not have to be noticed by eye.
     wider = change["series"].get("atrocity_core", {}).get("speech_rate", [])
@@ -339,8 +339,8 @@ def build_note(
             "The wider `atrocity_core` set *does* break on the rate, at "
             + ", ".join(f"**{b['label']}** (x{b['ratio']:.2f})" for b in wider)
             + ". The normalised structure is in the atrocity vocabulary as a whole rather "
-            "than in `genocide` alone. docs/PLAN.md §7.3 asks whether that set is the real "
-            "object of study; this is evidence that it is.",
+            "than in `genocide` alone. Whether that wider set is the real object of study is "
+            "an open question; this is evidence that it may be.",
             "",
         ]
 
@@ -416,8 +416,8 @@ def build_note(
             "",
             "## Rate by delivery language",
             "",
-            "docs/PLAN.md §7.4 asks whether invocation varies with the language a speech was",
-            "delivered in. It is a crosstab on data the pipeline already has, and this is it.",
+            "Whether invocation varies with the language a speech was delivered in is a",
+            "crosstab on data the pipeline already has, and this is it.",
             "An unmarked speech was delivered in English.",
             "",
             "| Language | Speeches | With `genocid*` | Rate |",

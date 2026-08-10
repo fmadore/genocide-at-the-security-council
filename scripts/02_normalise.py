@@ -18,8 +18,7 @@ missing from the crosswalk, or if the Council roster does not add up.
 Usage:
     python scripts/02_normalise.py
 
-Requires the x64 Python that has pyarrow:
-    C:/Users/frede/AppData/Local/Programs/Python/Python312/python.exe
+Requires an x64 Python 3.12 — pyarrow publishes no 32-bit wheel.
 """
 
 from __future__ import annotations

@@ -204,20 +204,27 @@ def collocates(
     stopwords: frozenset[str],
     min_count: int = MIN_COUNT,
     limit: int | None = 100,
+    tokeniser=None,
 ) -> tuple[list[dict[str, object]], int, int]:
     """Words attracted to `term` within `width` tokens.
 
     Returns the ranked rows, the number of node occurrences behind them, and the
     total tokens in the windows — both needed to say how much evidence a table
     rests on.
+
+    `tokeniser(index, source) -> Tokens` overrides how a speech is turned into
+    countable units; `lib.lemmas` supplies one that yields lemmas while keeping
+    the surface offsets. It is a callback rather than a second parameter holding
+    the lemma rows because `lemmas` imports this module, and the node spans below
+    must go on being found in the original text whatever is being counted.
     """
     window: Counter[str] = Counter()
     occurrences = 0
-    for source in bodies:
+    for index, source in enumerate(bodies):
         matches = list(term.regex.finditer(source))
         if not matches:
             continue
-        tokens = tokenise(source)
+        tokens = tokenise(source) if tokeniser is None else tokeniser(index, source)
         occurrences += len(matches)
         window.update(tokens.context([(match.start(), match.end()) for match in matches], width))
 

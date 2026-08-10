@@ -69,11 +69,19 @@ Everything downstream reads the parquet and never touches the raw files again.
 Findings notes land in `notes/`; see [`scripts/README.md`](scripts/README.md) for the
 module layout.
 
+Steps **06**, **07** and **10** are missing from that list on purpose. They need the extra
+dependencies in `requirements-cluster.txt` — and, for 06, a GPU — and they run on the
+University of Bayreuth cluster; [`docs/CLUSTER.md`](docs/CLUSTER.md) is the walkthrough. 06
+encodes the corpus; 07 runs the topic-model comparison that [`docs/PLAN.md`](docs/PLAN.md)
+§4 requires before a topic model may be believed; 10 builds a lemma layer that an optional
+re-run of 05 can count instead of surface forms. None of the three is part of the release:
+`export_web.py` does not read their output, and the dashboard does not know it exists.
+
 ```bash
 python -m pytest
 ```
 
-More than 200 tests, no data required — including integrity checks on the hand-edited files in
+More than 300 tests, no data required — including integrity checks on the hand-edited files in
 `config/`. These, `ruff check`, and the dashboard's `prettier` / `eslint` / `svelte-check`
 run on every push and pull request via
 [`.github/workflows/checks.yml`](.github/workflows/checks.yml), so a bad edit to a config
@@ -87,6 +95,7 @@ file fails in CI rather than halfway through someone's pipeline run.
 ├── .github/workflows/   checks.yml (pipeline + dashboard) · deploy.yml (Pages)
 ├── config/              Versioned analysis inputs — edit these, not the scripts
 │   ├── lexicon.yml           Genocide lexicon: patterns, tiers, discursive registers
+│   ├── embedding_models.yml  Encoders for step 06, and why each one is on the list
 │   ├── entities.csv          country_org → type · ISO3 · UN group · centroid
 │   ├── country_aliases.csv   Labels denoting the same speaker
 │   ├── council_membership.csv  P5 and E10 terms, 1992-2023
@@ -99,11 +108,13 @@ file fails in CI rather than halfway through someone's pipeline run.
 ├── docs/
 │   ├── CORPUS.md          Corpus documentation: variables, traps, first findings
 │   ├── PLAN.md            Five-phase action plan
+│   ├── CLUSTER.md         Running the GPU steps on the Bayreuth cluster
 │   ├── VALIDATION.md      Readings to confirm against the original S/PV PDFs
 │   └── reference/         Codebook PDF, companion paper
 ├── notes/               Gitignored. Markdown findings notes emitted by each script.
 ├── scripts/             Numbered, idempotent pipeline steps — see scripts/README.md
-│   └── lib/               The tested modules the steps orchestrate
+│   ├── lib/               The tested modules the steps orchestrate
+│   └── cluster/           Slurm harness for the GPU steps — see docs/CLUSTER.md
 ├── tests/               pytest; runs against the real config/, needs no data
 ├── tools/               One-off maintenance helpers (entity crosswalk bootstrap)
 └── web/                 SvelteKit dashboard — src/routes is one file per view

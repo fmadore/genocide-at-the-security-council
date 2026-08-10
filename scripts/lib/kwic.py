@@ -10,8 +10,7 @@ Offsets are recorded against the *whole* speech text, not the body the match was
 found in, so the reader view can highlight a match without re-running any regex
 and without knowing where the form of address ended.
 
-Sentence segmentation is rule-based rather than spaCy, which docs/PLAN.md §3.5
-suggested. The genre is full of traps a general model has no particular
+Sentence segmentation is rule-based rather than spaCy. The genre is full of traps a general model has no particular
 advantage on — `Mr.`, `No.`, `para.`, `U.S.`, `S/PV.7481`, `resolution 955
 (1994).`, and initials like `Mr. B. Traoré` — and here the rules are visible,
 unit-tested against those exact cases, and add nothing to install. If the

@@ -4,7 +4,7 @@ This roadmap separates work that makes the existing claims trustworthy from opti
 analyses that would create new claims. The order is deliberate: a topic model, map or LLM
 layer is not a substitute for validating the corpus, lexicon and denominators it consumes.
 
-Status: 9 August 2026.
+Status: 10 August 2026.
 
 ## Research contract
 
@@ -21,6 +21,27 @@ Every public quantitative claim must have:
 - a readable table or concordance path behind any chart;
 - a stated uncertainty or limitation;
 - a test that fails when its data contract changes unexpectedly.
+
+## Where the work runs
+
+Steps 00–05, 08 and 09 run on a laptop. Steps 06 (embeddings), 07 (the topic
+comparison) and 10 (the lemma layer) run on the University of Bayreuth GPU cluster;
+`docs/CLUSTER.md` is the walkthrough, and nothing in the repository names an account
+or a host.
+
+Two environments, deliberately: the release pipeline installs `requirements.lock`
+with hashes and nothing else, while the optional steps install `requirements-cluster.txt`
+resolved freely. They cannot be shared — `umap-learn` needs `numba`, which does not
+support the numpy the lock pins, and pip resolves that by silently downgrading numpy.
+Splitting them means an optional step can never move the environment that produces a
+published figure. The consequence is intended and visible: a manifest from step 06 or
+10 names a different numpy from one written by step 01. Lift the split when numba
+catches up.
+
+Reduced-precision GPU arithmetic is not bit-exact across devices. Embedding artifacts
+are reproducible against the device and package versions their manifest records, not
+by hash — which is a weaker guarantee than the corpus has, and is why nothing in the
+release depends on them.
 
 ## Phase 0 — Correct and harden the existing pipeline
 
@@ -121,22 +142,45 @@ not imply that a diplomatic speaker is geographically located at that point.
 
 ## Phase 4 — Optional topics and semantic projection
 
-Status: deferred by design.
+Status: adoption still deferred by design; the evaluation is now runnable.
 
 Do not make a topic model part of the release pipeline until there is a written research
-question that collocates and agenda labels cannot answer. If approved, compare at least one
-transparent count-based baseline with one embedding-based approach on a frozen sample.
+question that collocates and agenda labels cannot answer. That question does not yet exist,
+and nothing below creates one.
 
-Required evaluation:
+What has been built is the apparatus for deciding, not the decision. `scripts/06_embed.py`
+encodes the corpus on a GPU and `scripts/07_topics.py` runs the comparison this phase
+requires — a count-based NMF baseline against a UMAP/HDBSCAN approach on a frozen,
+period-stratified sample, both seeing the same documents. Neither writes a release
+artifact: `export_web.py` does not read `data/derived/topics/`, and the dashboard does not
+know it exists. Both run on the Bayreuth cluster; see `docs/CLUSTER.md`.
 
-- stability across seeds and plausible topic counts;
-- topic coherence plus blinded human interpretability;
-- sensitivity to long speeches, formulaic Council language and time period;
-- nearest-neighbour inspection for the 3,273 genocide-bearing speeches;
-- an explicit “unassigned/uncertain” outcome rather than forced labels.
+Required evaluation, and where it now stands:
 
-A 2D projection is exploratory navigation only. Distances on a UMAP plot are not evidence
-of historical influence or categorical separation.
+- stability across seeds and plausible topic counts — measured, as the adjusted Rand index
+  between refits that resample 90% of the frozen sample and change the solver seed, plus a
+  sweep over k;
+- topic coherence plus blinded human interpretability — NPMI coherence is computed against
+  this corpus; the interpretability half is emitted as `intrusion_task.csv`, a word-intrusion
+  task with its answer key, and **remains open until a human completes it**. A score
+  generated automatically here would repeat the error §1.1 forbids for the lexicon audit;
+- sensitivity to long speeches, formulaic Council language and time period — reported per
+  topic as median and p90 length, the share of words appearing in over half of all speeches,
+  and the dominant period;
+- nearest-neighbour inspection for the 3,273 genocide-bearing speeches — written by 06.
+  Read the same-year and same-speaker shares first: if the neighbours are mostly the same
+  debate, the space has recovered the occasion, and a topic model built on it will return
+  agenda items dressed as themes;
+- an explicit “unassigned/uncertain” outcome rather than forced labels — HDBSCAN's noise
+  label is kept, and the NMF baseline is given the same abstention through a minimum
+  document-topic weight, so the comparison does not reward one model for a candour the
+  other was never offered.
+
+Two limits on what a passing evaluation would license. Reduced-precision GPU arithmetic is
+not bit-exact across devices, so embedding artifacts are reproducible only against the
+device and package versions their manifest records, not by hash. And a 2D projection remains
+exploratory navigation only — distances on a UMAP plot are not evidence of historical
+influence or categorical separation, which is why 07 writes no map.
 
 ## Phase 5 — Optional LLM structured extraction
 
@@ -160,14 +204,99 @@ corpus-wide run:
 
 No model output may overwrite corpus text, lexicon counts or human annotations.
 
+## Phase 6 — Lemma-based lexicometry
+
+Status: built and runnable; not adopted, and not part of the release.
+
+Inflection splits every table in 05: `crimes` and `crime` occupy two of the hundred rows
+a collocate list has, each carrying a fraction of the evidence they jointly support.
+`scripts/10_lemmatise.py` builds a lemma layer over the corpus and
+`05_lexical.py --vocabulary lemma` counts it, writing to `data/derived/lexical_lemma/`.
+Measured on the full corpus: 15.3% of running text collapses (9.0M of 58.9M tokens), and
+merging `crimes`/`crime` and `committed`/`commit` promotes `punishment` into the top
+collocates of `genocide` — the Convention's own title, previously held below the cutoff
+by inflection alone.
+
+Three constraints are structural, not incidental:
+
+- **The lexicon is never lemmatised.** `config/lexicon.yml` matches surface forms and
+  §1.1 gates a human audit on those patterns. Folding `genocides` into `genocide` before
+  step 03 would move every published count and restart that audit.
+- **The surface tables are never overwritten.** Lemma mode writes to its own directory.
+  The dashboard reads the surface tables, and so does the audit in progress.
+- **A missed merge is preferred to a wrong one.** A lemma is accepted only when the
+  tagger and `lib.lexical.tokenise` agree on the token's extent *and* the lemma is itself
+  a word. Both rules were added after a run produced wrong output rather than an error:
+  hyphenated compounds inheriting their first fragment's lemma (`Secretary-General` →
+  `secretary`, 71,703 occurrences) and document symbols entering the vocabulary
+  (`S/24232`). Hyphenated compounds consequently do not collapse. 1.7% of tokens have a
+  lemma offered and refused, and that figure is reported.
+
+Every merge is recorded in `data/derived/lemmas/mapping.csv`, most frequent first, so a
+reader who distrusts a lemma table can see what was merged into what without rerunning
+anything.
+
+Open decisions before this could become the default reading:
+
+- `further` lemmatises to `far`, which the stoplist does not cover. Adding `far` to
+  `config/stopwords.txt` would also change the surface tables, so the leak is reported
+  and left for a human.
+- Adoption would change published collocate and keyness figures, so it cannot precede
+  the §1.1 audit closing.
+
+Gate: adopt as the default only with the audit closed, the mapping table reviewed at
+least down to the frequency where a wrong merge stops mattering, and both readings
+published side by side for the release they first appear in.
+
+## Phase 7 — Visualisation
+
+Status: planned. Nothing here may precede the table it depicts.
+
+The project's charts are currently rates over time, the event overlay and the
+concordance. Four additions are worth building, in this order:
+
+1. **Word clouds over the lemma collocate table.** 05 has always argued that a cloud is
+   a rendering of the collocate table rather than a separate artifact, and that shipping
+   it as its own file would invite it to drift from the numbers it claims to depict. That
+   argument stands: a cloud must be generated from `collocates.json` at render time,
+   sized by log ratio over a stated stoplist, with the table reachable from it. The lemma
+   layer is what makes it worth drawing — a cloud showing `crimes` and `crime` as two
+   words is a picture of English morphology, not of the Council.
+2. **The co-occurrence network as a graph.** `network.json` already carries PMI and nPMI
+   edges between lexicon terms, whole-corpus and per period. Edge weight must be nPMI,
+   not raw PMI, or rare terms buy prominence with rarity alone; suppressed nested edges
+   must stay suppressed and be shown as such.
+3. **Actor-view visuals** (Phase 3): speech and term-bearing rates per speaker with
+   membership shading, and matched keyness with minimum-sample disclosure. Country
+   centroids may support navigation but must never imply that a diplomat is located at
+   that point.
+4. **A 2D semantic projection**, only if Phase 4 is approved, and only as exploratory
+   navigation. Distance on a UMAP plot is not evidence of influence or of categorical
+   separation, and any such map must carry that statement in the interface rather than
+   in a methods note nobody opens.
+
+Requirements that apply to all four:
+
+- every visual links to the table behind it, and the two are generated from one artifact;
+- no visual introduces a number that does not exist in a JSON artifact with a manifest;
+- colour must not encode a quantity the underlying table does not support;
+- a slice below the declared minimum sample is not drawn, in any of them.
+
 ## Priority order
 
 1. Complete the human audit and source-document spot checks.
 2. Select the code/derived-artifact licence and confirm citation identities.
 3. Run the first reproducible Pages release and archive its manifest.
 4. Build the actor view.
-5. Decide whether topics answer a question the current methods cannot.
-6. Consider the LLM evaluation only after a human coding protocol exists.
+5. Review the lemma mapping table and decide whether the lemma reading becomes the
+   default, or stays a second reading published beside the surface one.
+6. Add the word cloud and the co-occurrence graph, each generated from the artifact it
+   depicts.
+7. Decide whether topics answer a question the current methods cannot.
+8. Consider the LLM evaluation only after a human coding protocol exists.
+
+Steps 5 and 6 are deliberately after the release, not before it: both change or add to
+what a reader sees, and neither is worth doing on figures the audit has not yet cleared.
 
 This ordering keeps the next release modest and defensible while leaving clear gates for
 more ambitious digital-humanities work.

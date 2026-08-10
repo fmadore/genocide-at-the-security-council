@@ -1,0 +1,45 @@
+# Dependencies for the steps that do not run on a laptop — 06, 07 and 10.
+# Installed on the cluster by scripts/cluster/setup_env.sh, on top of the hashed
+# lock. Steps 00-05, 08 and 09 need none of it, and `requirements.lock` remains
+# the reproducibility record for the corpus itself.
+#
+# NOT hash-pinned, unlike requirements.lock. The torch wheel pip resolves depends
+# on the CUDA runtime of the machine installing it, so a hash lock made on a
+# Windows workstation would be uninstallable on a compute node and one made on
+# the cluster would be uninstallable in CI. Pinning the hashes would describe one
+# node, not the environment.
+#
+# What is recorded instead: 06, 07 and 10 write the resolved version of every
+# package here, plus the CUDA runtime, driver and GPU model, into their
+# manifests. An environment is reconstructed from the manifest of a run, not from
+# this file. `setup_env.sh` additionally asserts that installing these did not
+# move numpy, pandas or pyarrow off the versions the lock pinned.
+#
+# Ranges verified against PyPI on 9 August 2026; the lower bound of each is the
+# then-current release, so a fresh install gets it and a rebuild a year from now
+# does not silently jump a major.
+
+# --- Embedding (step 06) ---------------------------------------------------
+torch>=2.13,<3
+transformers>=5.14,<6
+sentence-transformers>=5.7,<6
+accelerate>=1.14,<2
+# Used directly by scripts/lib/download_models.py, not only via transformers.
+huggingface_hub>=1.27,<2
+
+# --- Topics (step 07) ------------------------------------------------------
+# scikit-learn provides NMF, TF-IDF and — since 1.3 — HDBSCAN, so the separate
+# `hdbscan` package with its compiled extension is not needed.
+scikit-learn>=1.9,<2
+umap-learn>=0.5.12,<0.6
+
+# --- Lemmatisation (step 10) -----------------------------------------------
+# CPU work, but it lives here because it is the same category: outside the
+# hashed lock, and only ever installed on the cluster.
+#
+# The model is pinned by URL rather than fetched with `spacy download`, so the
+# exact artefact is named in this file and a compute node with no internet can
+# still have it. spaCy 3.8 pairs with model version 3.8.0 (the upstream
+# compatibility table is the authority; re-check it when bumping spaCy).
+spacy>=3.8.15,<4
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

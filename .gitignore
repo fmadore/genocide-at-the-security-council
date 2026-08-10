@@ -13,6 +13,15 @@ notes/*
 !notes/.gitkeep
 
 # ---------------------------------------------------------------------------
+# Cluster runtime artefacts. Slurm writes job logs here; `.env` holds the paths
+# and ssh alias specific to one account and must never be committed
+# (tests/test_privacy.py enforces that). See docs/CLUSTER.md.
+# ---------------------------------------------------------------------------
+logs/
+*.out
+*.err
+
+# ---------------------------------------------------------------------------
 # Python
 # ---------------------------------------------------------------------------
 __pycache__/

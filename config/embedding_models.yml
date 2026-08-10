@@ -1,0 +1,83 @@
+# Embedding models available to scripts/06_embed.py.
+#
+# A hand-edited analysis input, like config/lexicon.yml: changing a model changes
+# every number downstream of it, so the choice is versioned here rather than
+# passed as a flag someone forgets they used. `06_embed.py` asserts the declared
+# `dimensions` against the model it actually loaded and fails on a mismatch — a
+# wrong number here must not become a silently wrong artefact.
+#
+# Two kinds of repository are deliberately absent, and the reasons are selection
+# criteria rather than oversights:
+#
+#   - **Gated models** (google/embeddinggemma-300m). A model needing an access
+#     token cannot be prefetched by an unattended login-node job, and the token
+#     would be one more secret to keep out of this repository.
+#   - **Models requiring `trust_remote_code`** (jinaai/jina-embeddings-v5-*,
+#     LiquidAI/LFM2.5-Embedding-350M). Executing arbitrary repository code on a
+#     shared cluster account is a poor trade for a marginal benchmark gain, and
+#     it makes the environment harder to reconstruct from a manifest. The jina v5
+#     line is additionally CC-BY-NC, which is an awkward licence to inherit into
+#     a citable artefact.
+#
+# Hub survey, 9 August 2026: Qwen3-Embedding (June 2025) is still the newest text
+# embedding line Qwen has published — the January 2026 additions to that
+# namespace are vision-language. Everything more recent that beats it on
+# benchmarks is either gated, non-commercial, remote-code, or too new to have
+# been used by anyone (hotchpotch/bekko-embedding-v1, July 2026, a few thousand
+# downloads). Re-run that survey before a release rather than trusting this note.
+#
+# Bump `version` whenever a model entry changes. It is recorded in every manifest.
+
+version: 1
+
+# Used when 06_embed.py is called without --model.
+default: qwen3-0.6b
+
+models:
+  qwen3-0.6b:
+    repo: Qwen/Qwen3-Embedding-0.6B
+    revision: main
+    dimensions: 1024
+    # The model handles 32k, but the longest speech in the corpus is 13,569
+    # words (~18k subword tokens) and only 4 exceed 8,192 words at all. An 8k
+    # window keeps activation memory predictable and chunks a handful of
+    # speeches rather than sizing every batch for the worst case.
+    max_tokens: 8192
+    batch_size: 16
+    torch_dtype: bfloat16
+    # Qwen3-Embedding pools the last token, so padding must go on the left.
+    tokenizer_kwargs:
+      padding_side: left
+    licence: apache-2.0
+    note: >-
+      Default. 596M parameters, strong on MTEB clustering, permissive licence.
+      Measured: 16 minutes for the whole corpus on one H100 (9 August 2026),
+      106,311 encoded pieces for 106,302 speeches.
+
+  qwen3-4b:
+    repo: Qwen/Qwen3-Embedding-4B
+    revision: main
+    dimensions: 2560
+    max_tokens: 8192
+    batch_size: 8
+    torch_dtype: bfloat16
+    tokenizer_kwargs:
+      padding_side: left
+    licence: apache-2.0
+    note: >-
+      Same family, 4B parameters. Use it to check whether a finding survives a
+      change of encoder, not as the default — it costs roughly six times the
+      wall-clock for a difference that has to be demonstrated, not assumed.
+
+  granite-small-en:
+    repo: ibm-granite/granite-embedding-small-english-r2
+    revision: main
+    dimensions: 384
+    max_tokens: 8192
+    batch_size: 64
+    torch_dtype: float32
+    licence: apache-2.0
+    note: >-
+      48M-parameter ModernBERT, English-only. The cheap control: it runs on a
+      CPU node in about an hour, so it can establish whether a result needs a
+      large encoder at all.

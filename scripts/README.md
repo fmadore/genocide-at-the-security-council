@@ -10,11 +10,8 @@ operations themselves can be checked without a 131 MB parquet.
 Analysis inputs that are meant to be edited by hand live in [`../config/`](../config/);
 one-off maintenance helpers live in [`../tools/`](../tools).
 
-Use the x64 Python that has `pyarrow`:
-
-```
-C:/Users/frede/AppData/Local/Programs/Python/Python312/python.exe
-```
+Use an x64 Python 3.12 — `pyarrow` publishes no 32-bit wheel, and a 32-bit interpreter
+fails at install time rather than at import.
 
 Install the exact, hashed environment with `python -m pip install --require-hashes -r
 requirements.lock` from the repository root. `requirements.txt` and
@@ -30,13 +27,31 @@ requirements.lock` from the repository root. `requirements.txt` and
 | 03 | `03_lexicon.py` | `speeches_norm.parquet`, `config/lexicon.yml` | `derived/speeches_flagged.parquet` | ✅ |
 | 04 | `04_series.py` | `speeches_flagged.parquet`, `config/events.csv` | `derived/series/*.json` | ✅ |
 | 05 | `05_lexical.py` | `speeches_flagged.parquet`, `config/stopwords.txt` | `derived/lexical/*.json` | ✅ |
+| 06 | `06_embed.py` | `speeches_flagged.parquet`, `config/embedding_models.yml` | `derived/embeddings/` | 🖥️ GPU |
+| 07 | `07_topics.py` | `speeches_flagged.parquet`, `derived/embeddings/` | `derived/topics/` | 🔬 evaluation only |
 | 08 | `08_kwic.py` | `speeches_flagged.parquet` | `derived/kwic/*.json` | ✅ |
 | 09 | `09_export_speeches.py` | `speeches_flagged.parquet`, `meetings.parquet` | `web/static/data/speeches/*.json` | ✅ |
+| 10 | `10_lemmatise.py` | `speeches_flagged.parquet` | `derived/lemmas/` | 🔬 optional |
 | — | `export_web.py` | `derived/{series,lexical,kwic}/` | `web/static/data/` | ✅ |
 
-Topics, embeddings and LLM extraction are research proposals, not missing pipeline steps.
-Their evaluation gates are specified in [`../docs/PLAN.md`](../docs/PLAN.md); they should
-receive script numbers only if those gates are approved.
+**06, 07 and 10 are not part of the release pipeline.** They need the extra dependencies in
+[`../requirements-cluster.txt`](../requirements-cluster.txt) — and, for 06, a GPU — and they
+run on the Bayreuth cluster; see [`../docs/CLUSTER.md`](../docs/CLUSTER.md). None is read by
+`export_web.py`, and the dashboard does not know they exist.
+
+**10 is numbered after 09 although it feeds 05.** The numbers are creation order, and 00–09
+were already referenced from the dashboard, the notes and CI before it existed; renumbering
+would have moved five committed steps to make room for an optional one. Its dependency is
+stated instead — it needs 03, and it enables `05_lexical.py --vocabulary lemma`, which
+writes to `derived/lexical_lemma/` and never touches the surface tables.
+
+06 produces vectors. 07 produces the *comparison and the evaluation*
+[`../docs/PLAN.md`](../docs/PLAN.md) §4 requires before a topic model may be believed —
+a count-based baseline against an embedding-based approach on a frozen sample, with
+coherence, stability under resampling, sensitivity to `k`, topic composition, and a
+blinded word-intrusion task for a human to complete. §4 still defers adoption: a topic
+model enters the release only once there is a research question collocates and agenda
+labels cannot answer. LLM extraction (§5) remains a proposal with no script.
 
 See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establish.
 
@@ -56,6 +71,24 @@ See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establis
 | [`lib/series.py`](lib/series.py) | Periods, denominators, rates, breakdowns; change-point detection; the event overlay. |
 | [`lib/kwic.py`](lib/kwic.py) | Sentence segmentation for the genre, and concordance-line extraction. |
 | [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood and log ratio, matched controls, PMI. |
+| [`lib/embeddings.py`](lib/embeddings.py) | The model registry, the chunking policy for long speeches, pooling, neighbours. |
+| [`lib/topics.py`](lib/topics.py) | The frozen sample, both topic models, and the evaluation: NPMI coherence, adjusted Rand, c-TF-IDF, word intrusion. |
+| [`lib/lemmas.py`](lib/lemmas.py) | The lemma layer: offset alignment to `lexical.tokenise`, the stored form, the audit mapping. |
+| [`lib/download_models.py`](lib/download_models.py) | Prefetches weights on the cluster login node. |
+
+`embeddings.py`, `topics.py` and `lemmas.py` import torch, scikit-learn, umap-learn and
+spaCy *inside* the functions that need them, so the test suite and steps 00–05 run without
+the cluster extras installed. Everything that decides what a model sees, and what is done
+with what it returns, is plain Python and is tested on any machine.
+
+## Cluster
+
+[`cluster/`](cluster) holds the Slurm harness for steps 06 and 07 —
+`setup_env.sh`, `download_models.sh`, `submit_*.sh`, plus `push_code.sh` and
+`fetch_results.sh`, which run on your own machine. Nothing in it names an account or a
+host: the cluster is addressed through an ssh alias you define in `~/.ssh/config`, and
+machine-specific paths live in `.env` (git-ignored; copy `.env.example`).
+[`../docs/CLUSTER.md`](../docs/CLUSTER.md) is the walkthrough.
 
 ## Tools
 

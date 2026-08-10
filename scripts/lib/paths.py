@@ -48,8 +48,17 @@ STOPWORDS = CONFIG / "stopwords.txt"
 # artefacts stay inspectable whether or not the application exists yet.
 SERIES = DERIVED / "series"      # 04
 LEXICAL = DERIVED / "lexical"    # 05
-TOPICS = DERIVED / "topics"      # 06
-EMBEDDINGS = DERIVED / "embeddings"  # 07
+# 06 before 07: the embedding-based half of the topic comparison reads the
+# vectors, so topics-then-embeddings would have made an earlier step depend on a
+# later one. These comments were the other way round when the directories were
+# only reserved names; nothing had been built against that order.
+EMBEDDINGS = DERIVED / "embeddings"  # 06 — GPU, see docs/CLUSTER.md
+TOPICS = DERIVED / "topics"      # 07 — evaluation only, not a release artefact
+LEMMAS = DERIVED / "lemmas"      # 10 — the lemma layer; feeds an optional re-run of 05
+# 05 again, over lemmas instead of surface forms. A separate directory, never a
+# replacement: the surface tables are what the dashboard reads and what the
+# docs/PLAN.md §1.1 audit is being conducted against.
+LEXICAL_LEMMA = DERIVED / "lexical_lemma"
 KWIC = DERIVED / "kwic"          # 08
 MANIFESTS = DERIVED / "manifests"  # machine-readable provenance, all stages
 

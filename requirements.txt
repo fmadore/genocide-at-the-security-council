@@ -4,8 +4,9 @@
 # install `requirements.lock`, which is generated with hashes from these ranges.
 # Majors stay capped because pandas and pyarrow make breaking changes across them.
 #
-# Install with the x64 Python that has a pyarrow wheel:
-#     C:/Users/frede/AppData/Local/Programs/Python/Python312/python.exe -m pip install -r requirements.txt
+# Install with an x64 Python 3.12 — a 32-bit interpreter has no pyarrow wheel and
+# will fail to build one:
+#     python -m pip install -r requirements.txt
 # Exact environment:
 #     python -m pip install --require-hashes -r requirements.lock
 
