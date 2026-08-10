@@ -3,6 +3,8 @@
 	import { goto } from '$app/navigation';
 	import Chart from '$lib/Chart.svelte';
 	import Figure from '$lib/Figure.svelte';
+	import WordCloud from '$lib/WordCloud.svelte';
+	import { plan } from '$lib/wordcloud';
 	import {
 		count,
 		decimal,
@@ -24,6 +26,7 @@
 	} from '$lib/theme';
 	import type { CollocateBlock, Word } from '$lib/types';
 	import type { EChartsOption } from 'echarts';
+	import { untrack } from 'svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 
@@ -55,6 +58,74 @@
 		if (!options.includes(sliceA)) sliceA = options[0];
 		if (!options.includes(sliceB)) sliceB = options[1] ?? options[0];
 	});
+
+	/* The sliced artefact declares the fewest speeches it will stand a profile
+	   on. Below it nothing is drawn — neither a cloud nor a table, and never the
+	   whole corpus quietly substituted for the slice that was asked for. */
+	const minimumSpeeches = $derived(data.sliced.minimum_speeches);
+
+	/** Members of a slice read by their kind; only countries need shortening. */
+	const memberLabel = (kind: string, name: string) =>
+		kind === 'by_country' ? shortCountry(name) : name;
+
+	/* --- The same table, drawn as a cloud --------------------------------- */
+
+	type Facet = 'whole' | 'by_country' | 'by_period' | 'by_speaker_group';
+	let cloudFacet = $state<Facet>('whole');
+	/* Opened on the term and window the sliced artefact was counted at, so that
+	   the whole-corpus cloud and any facet of it are the same question put to
+	   different populations rather than two different questions. Read once and
+	   untracked: these are the initial positions of controls the reader then
+	   owns, not a derivation of the payload. */
+	let cloudNode = $state(untrack(() => data.sliced.term));
+	let cloudWidth = $state(untrack(() => String(data.sliced.width)));
+	let cloudMember = $state('');
+	let cloudLimit = $state('40');
+	let cloudFloor = $state('0');
+
+	const cloudMembers = $derived(cloudFacet === 'whole' ? [] : Object.keys(data.sliced[cloudFacet]));
+
+	$effect(() => {
+		// Changing the facet invalidates the member chosen inside the old one.
+		const options = cloudFacet === 'whole' ? [] : Object.keys(data.sliced[cloudFacet]);
+		if (options.length > 0 && !options.includes(cloudMember)) cloudMember = options[0];
+	});
+
+	const cloudBlock = $derived<CollocateBlock | undefined>(
+		cloudFacet === 'whole'
+			? data.collocates.nodes[cloudNode]?.widths[cloudWidth]
+			: data.sliced[cloudFacet][cloudMember]
+	);
+
+	/* One call chooses the rows. The cloud draws them and the table lists them,
+	   so there is no arrangement of the controls under which the two disagree. */
+	const cloudSelection = $derived(
+		plan({
+			block: cloudBlock,
+			minimumSpeeches: cloudFacet === 'whole' ? null : minimumSpeeches,
+			limit: Number(cloudLimit),
+			floor: Number(cloudFloor)
+		})
+	);
+
+	/* The slice's own name, so one selection always draws one picture. */
+	const cloudSeed = $derived(
+		cloudFacet === 'whole' ? `whole:${cloudNode}:${cloudWidth}` : `${cloudFacet}:${cloudMember}`
+	);
+	/* Slices exist for one term at one width only, and the controls say so
+	   rather than implying the facet follows the Term and Window above. */
+	const cloudTerm = $derived(cloudFacet === 'whole' ? cloudNode : data.sliced.term);
+	const cloudSource = $derived(
+		cloudFacet === 'whole'
+			? '05_lexical.py → lexical/collocates.json'
+			: '05_lexical.py → lexical/collocates_sliced.json'
+	);
+	const cloudLabel = (word: Word) =>
+		`${word.word}: ${count(word.target)} near ${termLabel(cloudTerm)}, ` +
+		`G² ${count(Math.round(word.g2))}, log ratio ${signed(word.log_ratio)}`;
+	const cloudScope = $derived(
+		cloudFacet === 'whole' ? 'the whole corpus' : memberLabel(cloudFacet, cloudMember)
+	);
 
 	const keywords = $derived(
 		keynessView === 'matched' ? data.keyness.keywords : data.keyness.keywords_unmatched
@@ -224,7 +295,7 @@
 		return b?.collocates.slice(0, n) ?? [];
 	}
 
-	const sliceLabel = (name: string) => (sliceKind === 'by_country' ? shortCountry(name) : name);
+	const sliceLabel = (name: string) => memberLabel(sliceKind, name);
 	const concordanceHref = (term: string, query = '') => {
 		const params = new SvelteURLSearchParams({ term });
 		if (query) params.set('q', query);
@@ -339,6 +410,163 @@
 	</Figure>
 
 	<Figure
+		title="The same table as a cloud"
+		question="What is the shape of that neighbourhood, and does it hold in one mouth or one decade?"
+		source={cloudSource}
+	>
+		{#snippet controls()}
+			<label>
+				Drawn from
+				<select bind:value={cloudFacet}>
+					<option value="whole">Whole corpus</option>
+					<option value="by_country">One speaker</option>
+					<option value="by_speaker_group">One speaker group</option>
+					<option value="by_period">One period</option>
+				</select>
+			</label>
+			{#if cloudFacet === 'whole'}
+				<label>
+					Term
+					<select bind:value={cloudNode}>
+						{#each nodes as n (n)}<option value={n}>{termLabel(n)}</option>{/each}
+					</select>
+				</label>
+				<label>
+					Window
+					<select bind:value={cloudWidth}>
+						{#each widths as w (w)}<option value={w}>&plusmn;{w} words</option>{/each}
+					</select>
+				</label>
+			{:else}
+				<label>
+					Which
+					<select bind:value={cloudMember}>
+						{#each cloudMembers as m (m)}<option value={m}>{memberLabel(cloudFacet, m)}</option
+							>{/each}
+					</select>
+				</label>
+				<span class="fixed"
+					>{termLabel(data.sliced.term)} at &plusmn;{data.sliced.width} words &mdash; the only term and
+					window the slices were counted at</span
+				>
+			{/if}
+			<label>
+				Words
+				<select bind:value={cloudLimit}>
+					<option value="25">25</option>
+					<option value="40">40</option>
+					<option value="60">60</option>
+					<option value="100">100</option>
+				</select>
+			</label>
+			<label>
+				At least
+				<select bind:value={cloudFloor}>
+					<option value="0">any frequency</option>
+					<option value="10">10 beside the term</option>
+					<option value="25">25 beside the term</option>
+					<option value="50">50 beside the term</option>
+				</select>
+			</label>
+			<span class="unit-note">no slice under {count(minimumSpeeches)} speeches is drawn</span>
+		{/snippet}
+
+		{#snippet reading()}
+			<p>
+				Every word here is a row of the table beneath it, and one call chooses both: what the cloud
+				will not draw, the table does not list. <strong>Size is the log ratio</strong> &mdash; how many
+				times a word's rate beside the node exceeds its rate in the rest of the corpus. Which words appear
+				at all is the artefact's own ranking, by log-likelihood.
+			</p>
+			<p>
+				A large word is therefore not a common word. The list is chosen by confidence and drawn by
+				effect, so a word used two hundred times can sit beside one used thirty times and be the
+				smaller of the two. <em>At least</em> raises the frequency floor, if you would rather the cloud
+				stopped rewarding words the corpus barely contains.
+			</p>
+			<p>
+				Every word is a link to its lines in the concordance, and reachable by keyboard. The scale
+				is relative to what is on screen &mdash; the largest word in view holds the largest log
+				ratio in view &mdash; so compare within a cloud rather than between two.
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>
+				This is drawn on <strong>surface forms</strong>. <em>crimes</em> and <em>crime</em> are two
+				words here, each holding a share of the evidence they jointly support and each smaller than
+				the merged word would be. A lemma layer that merges them is built and runnable but
+				deliberately not adopted, because adopting it would move published figures before the human
+				audit closes &mdash; <code>docs/PLAN.md</code> Phase 6. Until it is, a cloud of this corpus is
+				partly a picture of English morphology rather than of the Council, and the words to trust least
+				are the ones with the commonest inflections.
+			</p>
+			<p>
+				Position and colour carry nothing. Two words are adjacent because the packer found room
+				there, not because they occur together; the network figure below is the one that answers
+				that. Area is not a quantity either &mdash; size is set on the height of a word, so a long
+				word takes far more of the picture than a short one of the same log ratio.
+			</p>
+			<p>
+				{count(data.collocates.meta.stopwords as number)} function words are removed by
+				<code>config/stopwords.txt</code>, and no word occurring fewer than
+				{count(data.collocates.meta.min_count as number)} times beside the node enters the table at all.
+				Genre words &mdash; <em>council</em>, <em>resolution</em> &mdash; are deliberately kept.
+			</p>
+		{/snippet}
+
+		{#if cloudSelection.refusal?.kind === 'below-minimum'}
+			<p class="withheld">
+				<strong>{memberLabel(cloudFacet, cloudMember)}</strong> holds
+				{count(cloudSelection.refusal.speeches ?? 0)} speeches using the term, under the
+				{count(cloudSelection.refusal.minimum ?? 0)} this artefact declares as the fewest it will stand
+				a profile on. Nothing is drawn and nothing is tabulated. The whole corpus is a different population,
+				and is not put in its place.
+			</p>
+		{:else if cloudSelection.refusal}
+			<p class="withheld">
+				Nothing in {cloudScope} occurs at least {cloudFloor} times beside the term, so there is nothing
+				to draw. Lower the floor.
+			</p>
+		{:else}
+			<WordCloud
+				words={cloudSelection.rows}
+				href={(word) => concordanceHref(cloudTerm, word.word)}
+				label={cloudLabel}
+				seed={cloudSeed}
+				description="Word cloud of the leading collocates, each word sized by its log ratio and linking to its lines in the concordance."
+			/>
+			<p class="stated">
+				{count(cloudSelection.rows.length)} words drawn, of the {count(cloudSelection.available)} rows
+				this artefact holds for {cloudScope}: {count(cloudSelection.filtered)} fall below the frequency
+				floor and {count(cloudSelection.truncated)} beyond the number asked for. The table below is those
+				same {count(cloudSelection.rows.length)} words, in the same order.
+			</p>
+			<details class="data-table">
+				<summary>View the same words as a table</summary>
+				<table>
+					<thead
+						><tr
+							><th>Word</th><th class="num">Near</th><th class="num">G²</th><th class="num"
+								>Log ratio</th
+							></tr
+						></thead
+					>
+					<tbody>
+						{#each cloudSelection.rows as word (word.word)}
+							<tr>
+								<td><a href={concordanceHref(cloudTerm, word.word)}>{word.word}</a></td>
+								<td class="num">{count(word.target)}</td>
+								<td class="num">{count(Math.round(word.g2))}</td>
+								<td class="num">{signed(word.log_ratio)}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</details>
+		{/if}
+	</Figure>
+
+	<Figure
 		title="The same word in two mouths"
 		question="Do different speakers, groups or decades use it to do different work?"
 		source="05_lexical.py → lexical/collocates_sliced.json"
@@ -364,6 +592,7 @@
 					{#each sliceOptions as o (o)}<option value={o}>{sliceLabel(o)}</option>{/each}
 				</select>
 			</label>
+			<span class="unit-note">no slice under {count(minimumSpeeches)} speeches is drawn</span>
 		{/snippet}
 
 		{#snippet reading()}
@@ -397,25 +626,32 @@
 							>{count(side.b?.speeches ?? 0)} speeches · {count(side.b?.occurrences ?? 0)} occurrences</span
 						>
 					</h4>
-					<table>
-						<thead>
-							<tr
-								><th>Word</th><th class="num">Near</th><th class="num">G²</th><th class="num"
-									>Log ratio</th
-								></tr
-							>
-						</thead>
-						<tbody>
-							{#each topWords(side.b) as w (w.word)}
-								<tr>
-									<td><a href={concordanceHref('genocide', w.word)}>{w.word}</a></td>
-									<td class="num">{count(w.target)}</td>
-									<td class="num">{count(Math.round(w.g2))}</td>
-									<td class="num">{signed(w.log_ratio)}</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
+					{#if (side.b?.speeches ?? 0) < minimumSpeeches}
+						<p class="withheld">
+							{count(side.b?.speeches ?? 0)} speeches, under the {count(minimumSpeeches)} this artefact
+							declares as its minimum. No profile is drawn for it.
+						</p>
+					{:else}
+						<table>
+							<thead>
+								<tr
+									><th>Word</th><th class="num">Near</th><th class="num">G²</th><th class="num"
+										>Log ratio</th
+									></tr
+								>
+							</thead>
+							<tbody>
+								{#each topWords(side.b) as w (w.word)}
+									<tr>
+										<td><a href={concordanceHref('genocide', w.word)}>{w.word}</a></td>
+										<td class="num">{count(w.target)}</td>
+										<td class="num">{count(Math.round(w.g2))}</td>
+										<td class="num">{signed(w.log_ratio)}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					{/if}
 				</div>
 			{/each}
 		</div>
@@ -615,6 +851,30 @@
 		color: var(--ink-faint);
 		font-style: italic;
 		margin-left: auto;
+	}
+
+	/* What the Term and Window selects would say, were the slices computed at
+	   more than one of each. Stated rather than implied. */
+	.fixed {
+		font-size: 0.78rem;
+		color: var(--ink-faint);
+		font-style: italic;
+		max-width: 22rem;
+	}
+
+	.withheld {
+		margin: 0.4rem 0;
+		padding: 0.8rem 1rem;
+		border-left: 2px solid var(--rule);
+		background: var(--rule-soft);
+		font-size: 0.88rem;
+		color: var(--ink-soft);
+	}
+
+	.stated {
+		margin: 0.9rem 0 0;
+		font-size: 0.78rem;
+		color: var(--ink-faint);
 	}
 
 	.ghost {

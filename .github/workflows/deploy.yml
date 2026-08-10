@@ -52,6 +52,7 @@ jobs:
           python scripts/05_lexical.py
           python scripts/08_kwic.py
           python scripts/09_export_speeches.py
+          python scripts/11_countries.py
           python scripts/export_web.py
 
       - uses: actions/setup-node@v7

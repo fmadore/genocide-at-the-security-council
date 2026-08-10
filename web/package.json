@@ -8,7 +8,8 @@
 		"build": "vite build && node scripts/verify-static.mjs",
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"lint": "prettier --check . && eslint ."
+		"lint": "prettier --check . && eslint .",
+		"test": "vitest run"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
@@ -25,9 +26,11 @@
 		"svelte-check": "^4.7.5",
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.46.4",
-		"vite": "^8.2.1"
+		"vite": "^8.2.1",
+		"vitest": "4.1.10"
 	},
 	"dependencies": {
+		"d3-cloud": "1.2.9",
 		"echarts": "^6.1.0"
 	}
 }

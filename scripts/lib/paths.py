@@ -60,6 +60,11 @@ LEMMAS = DERIVED / "lemmas"      # 10 — the lemma layer; feeds an optional re-
 # docs/PLAN.md §1.1 audit is being conducted against.
 LEXICAL_LEMMA = DERIVED / "lexical_lemma"
 KWIC = DERIVED / "kwic"          # 08
+# 11 writes per-speaker rates, which are the actor view's and any map's only
+# honest source. A directory of its own rather than another file in series/:
+# series/ is cut by period, this is cut by speaker, and folding the two would
+# put a table nobody asked for inside an artefact everyone already reads.
+COUNTRIES = DERIVED / "countries"  # 11
 MANIFESTS = DERIVED / "manifests"  # machine-readable provenance, all stages
 
 # Harvard Dataverse

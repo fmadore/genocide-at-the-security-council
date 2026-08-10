@@ -133,7 +133,26 @@ Operational checks:
 
 ## Phase 3 — Actor view
 
-Status: planned after the first validated release.
+Status: the table exists; the view does not, and waits on the first validated release.
+
+`scripts/11_countries.py` writes `data/derived/countries/countries.json`: per canonical
+`country_org` and per period, the speaker's own denominator, its `genocide`-bearing
+speeches and occurrences, both rates computed by the same `lib/series.py` helpers 04 uses,
+its ISO3, UN group and centroid where `config/entities.csv` has them, and a `sufficient`
+flag. This is what §7 requires to exist before anything is drawn, and it is deliberately
+all that was built — a table is not a profile, and publishing one does not license the
+other.
+
+Three decisions in it are the gate's, not the author's. **The minimum is derived rather
+than declared**: 100 speeches, because at the corpus prevalence of 3.1% a country needs
+about 96 before a *zero* means "quieter than the Council" rather than "not heard from
+enough". Below it the rates are written as null, so a slice under the minimum cannot be
+drawn by a consumer that forgot to check. **Historical states stay separate**: Yugoslavia,
+Serbia and Montenegro and Zaire carry a successor's ISO3 so they can be placed at all,
+which makes the code ambiguous; merging them would build a denominator no state ever had,
+so the collisions are published in `iso3_collisions` instead. **Centroids are labelled as
+navigation**, in the artifact rather than only here, and every row carries a `mappable`
+flag so the UN Secretariat is excluded on purpose rather than by having no coordinate.
 
 An actor profile is the strongest next addition because the normalized corpus already has
 speaker identity, Council status and denominators. It should show:
@@ -319,7 +338,11 @@ concordance. Four additions are worth building, in this order:
 3. **Actor-view visuals** (Phase 3): speech and term-bearing rates per speaker with
    membership shading, and matched keyness with minimum-sample disclosure. Country
    centroids may support navigation but must never imply that a diplomat is located at
-   that point.
+   that point. **The table now exists** — `countries.json`, written by
+   `11_countries.py` — and nothing is drawn from it yet. Read its `minimum_speeches` and
+   `iso3_collisions` before drawing anything: 468 of 601 speakers carry no rate by
+   design, and two ISO3 codes are shared by more than one speaker, so a choropleth keyed
+   on the code without reading that block will silently paint one row over another.
 4. **A 2D semantic projection**, only if Phase 4 is approved, and only as exploratory
    navigation. Distance on a UMAP plot is not evidence of influence or of categorical
    separation, and any such map must carry that statement in the interface rather than

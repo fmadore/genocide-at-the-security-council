@@ -69,3 +69,6 @@ jobs:
 
       - name: svelte-check
         run: npm run check
+
+      - name: vitest
+        run: npm test

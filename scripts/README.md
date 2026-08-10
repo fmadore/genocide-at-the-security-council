@@ -32,12 +32,20 @@ requirements.lock` from the repository root. `requirements.txt` and
 | 08 | `08_kwic.py` | `speeches_flagged.parquet` | `derived/kwic/*.json` | ✅ |
 | 09 | `09_export_speeches.py` | `speeches_flagged.parquet`, `meetings.parquet` | `web/static/data/speeches/*.json` | ✅ |
 | 10 | `10_lemmatise.py` | `speeches_flagged.parquet` | `derived/lemmas/` | 🔬 optional |
-| — | `export_web.py` | `derived/{series,lexical,kwic}/` | `web/static/data/` | ✅ |
+| 11 | `11_countries.py` | `speeches_flagged.parquet`, `config/entities.csv` | `derived/countries/countries.json` | ✅ |
+| — | `export_web.py` | `derived/{series,lexical,kwic,countries}/` | `web/static/data/` | ✅ |
 
 **06, 07 and 10 are not part of the release pipeline.** They need the extra dependencies in
 [`../requirements-cluster.txt`](../requirements-cluster.txt) — and, for 06, a GPU — and they
 run on the Bayreuth cluster; see [`../docs/CLUSTER.md`](../docs/CLUSTER.md). None is read by
 `export_web.py`, and the dashboard does not know they exist.
+
+**11 builds the table [`../docs/PLAN.md`](../docs/PLAN.md) §7 requires before anything is
+drawn on a map.** Per speaker and per period: the speaker's own denominator, its
+term-bearing speeches and occurrences, both rates, its ISO3 and centroid where the
+crosswalk has them, and a `sufficient` flag against a declared minimum sample. It draws
+nothing and changes nothing 04 wrote — a rate is *withheld* below the minimum rather than
+published small, because the alternative is a map whose brightest country spoke twice.
 
 **10 is numbered after 09 although it feeds 05.** The numbers are creation order, and 00–09
 were already referenced from the dashboard, the notes and CI before it existed; renumbering
@@ -69,6 +77,7 @@ See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establis
 | [`lib/council.py`](lib/council.py) | Council membership by year; the P5 / E10 / non-member / UN / non-state split. |
 | [`lib/lexicon.py`](lib/lexicon.py) | Loads, compiles and counts `config/lexicon.yml`. |
 | [`lib/series.py`](lib/series.py) | Periods, denominators, rates, breakdowns; change-point detection; the event overlay. |
+| [`lib/actors.py`](lib/actors.py) | Per-speaker aggregation over `lib/series.py`'s arithmetic; the minimum-sample rule; ISO3 collisions and what may be mapped. |
 | [`lib/kwic.py`](lib/kwic.py) | Sentence segmentation for the genre, and concordance-line extraction. |
 | [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood and log ratio, matched controls, PMI. |
 | [`lib/embeddings.py`](lib/embeddings.py) | The model registry, the chunking policy for long speeches, pooling, neighbours. |
@@ -109,7 +118,10 @@ About a second, no data required, and run in CI on every push and pull request
 a bad alias or a mistyped Council term fails here rather than halfway through a pipeline
 run. [`tests/test_series.py`](../tests/test_series.py) checks exploratory segmentation and
 the denominator-aware binomial/Poisson breakpoint models against constructed series with
-known answers.
+known answers. [`tests/test_actors.py`](../tests/test_actors.py) does the same for the
+per-country table, on the cases that would leave it looking right while being wrong: an
+untyped speaker, a blank ISO3, a denominator one short of the minimum, and a historical
+state sharing a living one's code.
 
 ## Conventions
 

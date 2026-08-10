@@ -7,9 +7,10 @@ diffed and archived independently of whether a web application exists. This
 copies the parts the dashboard actually loads into `web/static/data/` and
 writes a manifest of what it took.
 
-    derived/series/*.json   → static/data/series/
-    derived/lexical/*.json  → static/data/lexical/
-    derived/kwic/*.json     → static/data/kwic/
+    derived/series/*.json     → static/data/series/
+    derived/lexical/*.json    → static/data/lexical/
+    derived/kwic/*.json       → static/data/kwic/
+    derived/countries/*.json  → static/data/countries/
 
 `09_export_speeches.py` is the one exception and writes its 419 MB straight to
 `web/static/data/speeches/`. Copying that twice to preserve a symmetry nobody
@@ -29,13 +30,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import artifacts, console
-from lib.paths import KWIC, LEXICAL, ROOT, SERIES, WEB_DATA, ensure_dirs, rel
+from lib.paths import COUNTRIES, KWIC, LEXICAL, ROOT, SERIES, WEB_DATA, ensure_dirs, rel
 
 #: (source directory, destination name, the step that produces it).
 PARTS = [
     (SERIES, "series", "04_series.py"),
     (LEXICAL, "lexical", "05_lexical.py"),
     (KWIC, "kwic", "08_kwic.py"),
+    (COUNTRIES, "countries", "11_countries.py"),
 ]
 
 #: Written by 09, not copied. Listed so the manifest describes the whole payload

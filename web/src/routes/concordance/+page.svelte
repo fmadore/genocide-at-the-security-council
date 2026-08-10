@@ -6,6 +6,7 @@
 	import { kwic, meetingOf, speechOf } from '$lib/data';
 	import Figure from '$lib/Figure.svelte';
 	import { bytes, count, isoDate, shortCountry, termLabel, unSearch } from '$lib/format';
+	import { segments } from '$lib/highlight';
 	import type { KwicFile, KwicLine } from '$lib/types';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
@@ -316,14 +317,30 @@
 							<span class="year">{line.date.slice(0, 4)}</span>
 							<span class="who">{shortCountry(line.country)}</span>
 						</span>
-						<span class="left">{line.left}</span>
-						<span class="kw">{line.kw}</span>
-						<span class="right">{line.right}</span>
+						<span class="left"
+							>{#each segments(line.left, query, regex) as part, i (i)}{#if part.hit}<mark
+										>{part.text}</mark
+									>{:else}{part.text}{/if}{/each}</span
+						>
+						<span class="kw"
+							>{#each segments(line.kw, query, regex) as part, i (i)}{#if part.hit}<mark
+										>{part.text}</mark
+									>{:else}{part.text}{/if}{/each}</span
+						>
+						<span class="right"
+							>{#each segments(line.right, query, regex) as part, i (i)}{#if part.hit}<mark
+										>{part.text}</mark
+									>{:else}{part.text}{/if}{/each}</span
+						>
 					</button>
 
 					{#if expanded === line.id}
 						<div class="detail">
-							<blockquote>{line.sent}</blockquote>
+							<blockquote>
+								{#each segments(line.sent, query, regex) as part, i (i)}{#if part.hit}<mark
+											>{part.text}</mark
+										>{:else}{part.text}{/if}{/each}
+							</blockquote>
 							<dl>
 								<div>
 									<dt>Speaker</dt>
@@ -565,6 +582,17 @@
 		font-weight: 600;
 		color: var(--accent);
 		white-space: nowrap;
+	}
+
+	/* The reader's own query, as distinct from the node term. The keyword is
+	   already marked by colour and weight, so a search hit is marked by ground
+	   instead of by figure — otherwise a search for the keyword would style it
+	   twice over and a search for anything else would compete with it. */
+	mark {
+		background: color-mix(in oklab, var(--accent) 26%, transparent);
+		color: inherit;
+		border-radius: 2px;
+		padding: 0 0.08em;
 	}
 
 	.right {
