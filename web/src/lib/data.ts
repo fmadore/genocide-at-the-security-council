@@ -93,7 +93,13 @@ const validateKeyness: Validator = (record, path) => {
 	validateMeta(record, path);
 	requireArray(record, 'keywords', path);
 	requireRecord(record, 'stability', path);
-	if (typeof record.coverage !== 'number') throw new Error(`${path}.coverage must be numeric.`);
+	// `Number.isFinite`, not `typeof === 'number'`: NaN and the infinities are all
+	// of type number, and a coverage that failed to compute upstream would have
+	// passed the boundary and reached the figure as "NaN%". The point of
+	// validating here is to refuse a payload the interface cannot honestly draw.
+	if (!Number.isFinite(record.coverage)) {
+		throw new Error(`${path}.coverage must be a finite number.`);
+	}
 };
 
 const validateNetwork: Validator = (record, path) => {

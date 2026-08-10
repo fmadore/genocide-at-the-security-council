@@ -136,21 +136,37 @@ describe('the validators that are about the research rather than the types', () 
 		await expect(annual(fetcher)).rejects.toThrow(/corpus\.tokens must align with periods/);
 	});
 
-	it('accepts a keyness coverage of NaN, because the check is only a type check', async () => {
+	it.each([
+		['NaN', Number.NaN],
+		['Infinity', Number.POSITIVE_INFINITY],
+		['a string', '0.86']
+	])('refuses a keyness coverage of %s', async (_name, coverage) => {
+		// `typeof NaN` and `typeof Infinity` are both 'number', so a type check
+		// let a coverage that failed to compute through the boundary and into the
+		// figure as "NaN%". A validator exists to refuse what the interface
+		// cannot honestly draw, and a proportion that is not a finite number is
+		// exactly that.
 		const { keyness } = await fresh();
 		const { fetcher } = responder({
 			meta,
 			keywords: [],
 			keywords_unmatched: [],
 			stability: { repetitions: 8 },
-			coverage: Number.NaN
+			coverage
 		});
-		// Pinned as it stands, not as it ought to stand. `typeof NaN` is 'number',
-		// so a coverage that failed to compute passes the boundary and reaches the
-		// figure as "NaN%". Tightening runtime validation changes what the
-		// dashboard refuses to draw, which is a decision to take deliberately
-		// rather than as a side effect of writing a test.
-		await expect(keyness(fetcher)).resolves.toMatchObject({ coverage: Number.NaN });
+		await expect(keyness(fetcher)).rejects.toThrow(/coverage must be a finite number/);
+	});
+
+	it('accepts an ordinary coverage', async () => {
+		const { keyness } = await fresh();
+		const { fetcher } = responder({
+			meta,
+			keywords: [],
+			keywords_unmatched: [],
+			stability: { repetitions: 8 },
+			coverage: 0.8632
+		});
+		await expect(keyness(fetcher)).resolves.toMatchObject({ coverage: 0.8632 });
 	});
 });
 
