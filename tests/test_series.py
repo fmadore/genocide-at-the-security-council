@@ -52,9 +52,117 @@ class TestPeriods:
             "2000Q2",
         ]
 
+    def test_month_gives_sortable_strings(self, corpus):
+        """`YYYY-MM` sorts chronologically as text, which `2000-9` would not."""
+        assert series.period(corpus, "month").tolist()[:4] == [
+            "2000-01",
+            "2000-02",
+            "2000-03",
+            "2000-04",
+        ]
+
     def test_an_unknown_frequency_is_refused(self, corpus):
         with pytest.raises(ValueError, match="unknown frequency"):
             series.period(corpus, "fortnight")
+
+    def test_a_calendar_month_is_not_reachable_as_a_frequency(self, corpus):
+        """Pooling thirty-two Junes has a different denominator from any month.
+        Keeping it out of the frequency vocabulary is what stops a caller getting
+        it by asking for a period and drawing the two on one scale."""
+        with pytest.raises(ValueError, match="unknown frequency"):
+            series.period(corpus, "month_of_year")
+        assert series.month_of_year(corpus).tolist()[:4] == [1, 2, 3, 4]
+
+
+class TestMonthGrid:
+    def test_the_grid_is_every_month_between_two_years(self):
+        grid = series.month_grid(1992, 1993)
+        assert len(grid) == 24
+        assert grid[0] == "1992-01"
+        assert grid[11] == "1992-12"
+        assert grid[-1] == "1993-12"
+
+    def test_the_grid_sorts_as_text(self):
+        grid = series.month_grid(1999, 2001)
+        assert grid == sorted(grid)
+
+    def test_a_backwards_range_is_refused(self):
+        with pytest.raises(ValueError, match="before"):
+            series.month_grid(2001, 2000)
+
+    def test_a_month_nobody_spoke_in_becomes_a_row_of_zeros(self, corpus):
+        """Not an absent key. On a heatmap a missing cell is drawn white, and
+        white is the colour a zero has."""
+        periods = series.period(corpus, "month")
+        totals = series.denominators(corpus, periods, index=series.month_grid(2000, 2001))
+
+        assert len(totals) == 24
+        assert int(totals.loc["2000-01", "speeches"]) == 1
+        assert int(totals.loc["2000-07", "speeches"]) == 0
+        assert int(totals.loc["2000-07", "tokens"]) == 0
+
+
+class TestWithholding:
+    """A rate a denominator cannot carry is withheld, and its count is not."""
+
+    def frame(self, corpus):
+        periods = series.period(corpus, "month")
+        totals = series.denominators(corpus, periods, index=series.month_grid(2000, 2001))
+        measured = series.measure(corpus, periods, totals, "has_genocide", "n_genocide")
+        return measured, totals
+
+    def test_a_short_period_keeps_its_counts_and_loses_its_rates(self, corpus):
+        measured, totals = self.frame(corpus)
+        out = series.withhold_below(measured, totals["speeches"], minimum=100)
+
+        assert not out["sufficient"].any()
+        assert out["speech_rate"].isna().all()
+        assert out["token_rate"].isna().all()
+        # The counts are facts about the record and survive the gate.
+        assert int(out.loc["2000-01", "speeches"]) == 1
+        assert int(out.loc["2000-01", "occurrences"]) == 3
+
+    def test_a_period_that_clears_the_minimum_keeps_its_rates(self, corpus):
+        measured, totals = self.frame(corpus)
+        out = series.withhold_below(measured, totals["speeches"], minimum=1)
+
+        assert out.loc["2000-01", "sufficient"]
+        assert out.loc["2000-01", "speech_rate"] == 1.0
+        # A month with no speeches at all never clears a minimum of one.
+        assert not out.loc["2000-07", "sufficient"]
+
+    def test_sufficient_is_written_for_every_row(self, corpus):
+        """A consumer tests a flag rather than inferring the gate from a null,
+        which is the difference between 'withheld' and 'the pipeline lost it'."""
+        measured, totals = self.frame(corpus)
+        out = series.withhold_below(measured, totals["speeches"], minimum=1)
+        assert out["sufficient"].notna().all()
+        assert len(out) == 24
+
+    def test_a_set_has_no_token_rate_to_withhold(self, corpus):
+        """`token_rate` is already NA for a union; withholding must not invent
+        the column or fail for want of it."""
+        periods = series.period(corpus, "month")
+        totals = series.denominators(corpus, periods)
+        measured = series.measure(corpus, periods, totals, "has_genocide", None)
+        out = series.withhold_below(measured, totals["speeches"], minimum=1)
+        assert out["token_rate"].isna().all()
+        assert out["speech_rate"].notna().any()
+
+
+class TestZeroCeiling:
+    def test_the_minimum_is_derived_from_the_corpus_not_declared(self):
+        """At the corpus prevalence a zero only means 'quieter than the Council'
+        from about 96 speeches, which is where both minimums come from."""
+        assert series.informative_zero_minimum(0.0308) == 96
+
+    def test_actors_re_exports_rather_than_redefines(self):
+        """Two implementations of one threshold would eventually disagree, and
+        nothing in the output would say which was wrong."""
+        from lib import actors
+
+        assert actors.informative_zero_minimum is series.informative_zero_minimum
+        assert actors.zero_ceiling is series.zero_ceiling
 
 
 class TestColumns:

@@ -34,13 +34,19 @@ through a render.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
 
 from . import council, entities, series
+
+#: Re-exported, not redefined. The zero-ceiling arithmetic below :data:`MIN_SPEECHES`
+#: is a fact about denominators rather than about countries and now lives in
+#: `lib.series`, where the monthly grid needs the same rule for the same reason.
+#: The names stay here because this is where the argument for them is written.
+zero_ceiling = series.zero_ceiling
+informative_zero_minimum = series.informative_zero_minimum
 
 #: Speeches a speaker must have delivered in a period before its rates are
 #: published. Not a round number chosen for looking careful: 100 is roughly where
@@ -158,11 +164,12 @@ def withhold_below(frame: pd.DataFrame, minimum: int = MIN_SPEECHES) -> pd.DataF
     did exactly that, and the reader is entitled to the three and the one; what
     they are not entitled to is 33%, which would sit on a map beside Rwanda's
     17% and outrank it.
+
+    The speaker's own denominator is the `held` column this module builds;
+    :func:`lib.series.withhold_below` takes it as an argument because a period's
+    denominator lives beside the measure rather than inside it.
     """
-    out = frame.copy()
-    out["sufficient"] = out["held"] >= minimum
-    out.loc[~out["sufficient"], ["speech_rate", "token_rate"]] = np.nan
-    return out
+    return series.withhold_below(frame, frame["held"], minimum)
 
 
 # --- Who held a seat when they spoke ---------------------------------------
@@ -281,31 +288,6 @@ def standing_as_rows(
         }
         for name, row in frame.iterrows()
     ]
-
-
-def zero_ceiling(n: int, alpha: float = 0.05) -> float:
-    """Upper 95% bound on a rate when none of `n` speeches carried the term.
-
-    Exact rather than the 3/n rule of thumb it is within a few per cent of at
-    these sizes. This is the claim a blank country on a map is making, and
-    :data:`MIN_SPEECHES` exists to keep that claim honest.
-    """
-    if n <= 0:
-        return 1.0
-    return 1.0 - alpha ** (1.0 / n)
-
-
-def informative_zero_minimum(rate: float, alpha: float = 0.05) -> int:
-    """Smallest denominator at which a zero is evidence of running below `rate`.
-
-    The inverse of :func:`zero_ceiling`. Feeding it the corpus's own prevalence
-    turns "how many speeches is enough" from a preference into a number the data
-    supplies, and lets a step check that a declared threshold still earns its
-    justification after the lexicon moves.
-    """
-    if not 0 < rate < 1:
-        raise ValueError(f"rate must lie strictly between 0 and 1, got {rate!r}")
-    return max(1, math.ceil(math.log(alpha) / math.log1p(-rate)))
 
 
 # --- What a map would get wrong -------------------------------------------

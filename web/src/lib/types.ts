@@ -37,6 +37,103 @@ export interface AnnualSeries {
 	sets: Record<string, Measure>;
 }
 
+/**
+ * A measure at month resolution, where a rate can be withheld.
+ *
+ * Deliberately not `Measure`. The annual and quarterly series never need a null
+ * — the thinnest year in the corpus holds a thousand speeches — so widening
+ * that type would make every consumer of a figure that cannot have a gap handle
+ * one. A month can hold four speeches, and 53 of the 384 hold too few to divide
+ * by, so here the null is part of the contract rather than an accident.
+ */
+export interface MonthlyMeasure {
+	speeches: number[];
+	/** Null wherever `MonthlySeries.sufficient` is false. Never `NaN`. */
+	speech_rate: (number | null)[];
+	occurrences?: number[];
+	token_rate?: (number | null)[];
+	tier?: string;
+	register?: string;
+	terms?: string[];
+	members?: string[];
+}
+
+/** One agenda item behind a calendar month's term-bearing speeches. */
+export interface AgendaItem {
+	item: string;
+	speeches: number;
+	/** Of that month's term-bearing speeches — not of everything said in it. */
+	share: number;
+}
+
+interface CalendarReading {
+	held: number[];
+	tokens: number[];
+	speeches: number[];
+	speech_rate: (number | null)[];
+	sufficient: boolean[];
+	occurrences?: number[];
+	token_rate?: (number | null)[];
+}
+
+export interface CalendarMeasure extends CalendarReading {
+	kind: 'terms' | 'registers' | 'sets';
+	tier?: string;
+	register?: string;
+	terms?: string[];
+	members?: string[];
+	/** The same twelve figures with the artefact's control years dropped. */
+	excluding: CalendarReading;
+	/** Twelve entries, largest item first. The confound, per month. */
+	agenda: AgendaItem[][];
+}
+
+/**
+ * The twelve calendar months pooled across every year.
+ *
+ * A second figure beside the grid, never a margin of it: pooling thirty-two
+ * Junes gives a denominator no single cell has, so the two must not share a
+ * colour bar. The artefact says so in `rule`, and the interface prints that
+ * string rather than paraphrasing it.
+ */
+export interface MonthOfYear {
+	months: number[];
+	rule: string;
+	excluded_years: number[];
+	excluding_rule: string;
+	agenda_column: string;
+	agenda_rule: string;
+	measures: Record<string, CalendarMeasure>;
+}
+
+export interface MonthlySeries {
+	meta: Meta;
+	freq: 'month';
+	/** `YYYY-MM`, the complete grid: `years.length * 12` of them, in order. */
+	periods: string[];
+	corpus: { speeches: number[]; tokens: number[]; meetings: number[] };
+	/** Per period, whether its denominator clears `minimum_speeches`. */
+	sufficient: boolean[];
+	terms: Record<string, MonthlyMeasure>;
+	registers: Record<string, MonthlyMeasure>;
+	sets: Record<string, MonthlyMeasure>;
+	years: number[];
+	months: number[];
+	minimum_speeches: number;
+	minimum_speeches_rule: string;
+	informative_zero_minimum: number;
+	corpus_speech_prevalence: number;
+	coverage: {
+		months: number;
+		months_observed: number;
+		months_at_minimum: number;
+		speeches: number;
+		speeches_at_minimum: number;
+		share_at_minimum: number;
+	};
+	month_of_year: MonthOfYear;
+}
+
 export interface BreakdownRow {
 	period: number | string;
 	category: string;
@@ -471,6 +568,37 @@ export interface SpeakerKeyness {
 	speakers: SpeakerKeynessRow[];
 }
 
+/**
+ * How one speaker's own speeches divide across the five speaker groups.
+ *
+ * Counts and `seated_share` are written at every denominator, unlike the rates
+ * in `measures`, and the asymmetry is deliberate rather than an oversight: a
+ * share of a speaker's own known speeches is a fact about the record, not an
+ * estimate from a sample. "Of the twelve speeches it gave, twelve were from a
+ * seat" is exactly true at n=12; "33% of its speeches used the word" over three
+ * speeches is not. The minimum guards the second and has nothing to say about
+ * the first.
+ */
+export interface StandingRow {
+	country_org: string;
+	period: string;
+	/** The speaker's own denominator. The five group counts sum to it. */
+	held: number;
+	seated: number;
+	seated_share: number | null;
+	/** Every declared group, including the zeros. An absent key would mean two things. */
+	groups: Record<string, number>;
+}
+
+export interface Standing {
+	groups: string[];
+	/** The Charter's two kinds of membership. The other three are not one thing. */
+	seated_groups: string[];
+	seated_rule: string;
+	membership_rule: string;
+	rows: StandingRow[];
+}
+
 export interface Countries {
 	meta: Meta;
 	/** Below this many speeches in a period, a speaker's rates are withheld. */
@@ -482,5 +610,6 @@ export interface Countries {
 	iso3_collisions: Record<string, string[]>;
 	periods: CountryPeriod[];
 	countries: Speaker[];
+	standing: Standing;
 	measures: Record<string, CountryMeasure>;
 }

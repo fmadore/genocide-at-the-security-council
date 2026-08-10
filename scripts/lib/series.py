@@ -24,6 +24,7 @@ imported.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -57,30 +58,70 @@ def columns_for(kind: str, name: str) -> tuple[str, str | None]:
 # --- Periods and denominators ---------------------------------------------
 
 
+#: The frequencies :func:`period` understands, coarsest first.
+FREQUENCIES = ("year", "quarter", "month")
+
+
 def period(frame: pd.DataFrame, freq: str) -> pd.Series:
     """Label each speech with the period it falls in.
 
-    ``year`` gives integers, ``quarter`` gives strings like ``2014Q3``; both
-    serialise straight to JSON, which a pandas Period does not.
+    ``year`` gives integers, ``quarter`` gives strings like ``2014Q3`` and
+    ``month`` gives ``2014-07``; all three serialise straight to JSON, which a
+    pandas Period does not, and all three sort chronologically as they are.
     """
     if freq == "year":
         return frame["year"].astype("int64")
     if freq == "quarter":
         return frame["date"].dt.to_period("Q").astype(str)
-    raise ValueError(f"unknown frequency {freq!r}; use 'year' or 'quarter'")
+    if freq == "month":
+        return frame["date"].dt.strftime("%Y-%m")
+    raise ValueError(f"unknown frequency {freq!r}; use one of {', '.join(FREQUENCIES)}")
 
 
-def denominators(frame: pd.DataFrame, periods: pd.Series) -> pd.DataFrame:
+def month_grid(first_year: int, last_year: int) -> list[str]:
+    """Every month between two years, whether or not the Council met in it.
+
+    A grid rather than the observed months, because the figure this feeds is a
+    grid: a cell with no key is drawn by whatever the consumer does with a
+    missing value, and on a heatmap that is white — the colour a *zero* has. An
+    unobserved month is written with a denominator of nothing and withheld by
+    :func:`withhold_below` like any other short month, so "the Council did not
+    meet" and "too few speeches to divide by" arrive as the same refusal rather
+    than as a measurement.
+    """
+    if last_year < first_year:
+        raise ValueError(f"{last_year} is before {first_year}")
+    return [f"{year}-{month:02d}" for year in range(first_year, last_year + 1) for month in range(1, 13)]
+
+
+def month_of_year(frame: pd.DataFrame) -> pd.Series:
+    """The calendar month a speech falls in, 1-12, pooled across the corpus.
+
+    Deliberately not a value :func:`period` returns. Pooling thirty-two Junes
+    is a different question from any single month with a different denominator,
+    and the two must not be drawn on one scale: a column read is a second
+    figure beside the grid, not a margin of it. Keeping it out of the frequency
+    vocabulary is what stops a caller reaching it by asking for a period.
+    """
+    return frame["date"].dt.month.astype("int64")
+
+
+def denominators(frame: pd.DataFrame, periods: pd.Series, index=None) -> pd.DataFrame:
     """Speeches, tokens and meetings held in each period.
 
     This is what every rate divides by, so it is computed once from the whole
     corpus and passed down rather than re-derived per term.
+
+    `index` reindexes onto a declared set of periods — see :func:`month_grid` —
+    so that a period nobody spoke in is a row of zeros rather than an absence.
     """
     out = frame.groupby(periods, sort=True).agg(
         speeches=("row_id", "size"),
         tokens=("tokens", "sum"),
         meetings=("meeting_symbol", "nunique"),
     )
+    if index is not None:
+        out = out.reindex(list(index), fill_value=0)
     out.index.name = "period"
     return out
 
@@ -119,6 +160,61 @@ def measure(
     else:
         out["occurrences"] = grouped["occurrences"].astype("int64")
         out["token_rate"] = out["occurrences"] / totals["tokens"] * RATE_PER
+    return out
+
+
+# --- Withholding a rate the denominator cannot carry -----------------------
+#
+# An annual series never needed this: the thinnest year in the corpus holds a
+# thousand speeches. A month need not, and the shortest here holds four. The
+# arithmetic below is what decides when a rate may be published at all, and it
+# lives here rather than in `lib.actors` — which is where it was first written —
+# because it is a fact about denominators rather than about countries. Both
+# consumers declare their own threshold and derive it from the same function.
+
+
+def zero_ceiling(n: int, alpha: float = 0.05) -> float:
+    """Upper 95% bound on a rate when none of `n` speeches carried the term.
+
+    Exact rather than the 3/n rule of thumb it is within a few per cent of at
+    these sizes. This is the claim a blank cell on a heatmap or a blank country
+    on a map is making, and the minimums built on it keep that claim honest.
+    """
+    if n <= 0:
+        return 1.0
+    return 1.0 - alpha ** (1.0 / n)
+
+
+def informative_zero_minimum(rate: float, alpha: float = 0.05) -> int:
+    """Smallest denominator at which a zero is evidence of running below `rate`.
+
+    The inverse of :func:`zero_ceiling`. Feeding it the corpus's own prevalence
+    turns "how many speeches is enough" from a preference into a number the data
+    supplies, and lets a step check that a declared threshold still earns its
+    justification after the lexicon moves.
+    """
+    if not 0 < rate < 1:
+        raise ValueError(f"rate must lie strictly between 0 and 1, got {rate!r}")
+    return max(1, math.ceil(math.log(alpha) / math.log1p(-rate)))
+
+
+def withhold_below(frame: pd.DataFrame, held: pd.Series, minimum: int) -> pd.DataFrame:
+    """Blank the rates a denominator this small cannot support.
+
+    The counts stay. A month with forty speeches that carried the word once did
+    exactly that, and the reader is entitled to the forty and the one; what they
+    are not entitled to is 2.5%, which would sit on a heatmap beside a figure
+    computed over a thousand speeches and be read off the same colour bar.
+
+    `sufficient` is written for every row rather than only the failing ones, so
+    a consumer has a flag to test instead of inferring the gate from a null —
+    which is the difference between "withheld" and "the pipeline lost it".
+    """
+    out = frame.copy()
+    out["sufficient"] = held.reindex(out.index) >= minimum
+    for column in ("speech_rate", "token_rate"):
+        if column in out.columns:
+            out.loc[~out["sufficient"], column] = np.nan
     return out
 
 

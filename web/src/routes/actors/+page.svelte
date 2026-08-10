@@ -5,6 +5,7 @@
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import SpeakerKeyness from '$lib/SpeakerKeyness.svelte';
+	import Standing from '$lib/Standing.svelte';
 	import { ambiguous, carries, occurrences, orderings, plan, points, scale } from '$lib/actors';
 	import type { ActorRow, MapPoint, Ordering } from '$lib/actors';
 	import { provenanceOf } from '$lib/export';
@@ -374,6 +375,12 @@
 			</table>
 		</div>
 	</section>
+
+	<!-- The same artefact, a different block, and a question the ranking above
+	     cannot answer: not how often a delegation used the word, but what
+	     position it held when it spoke at all. It reads `countries.json`'s
+	     `standing` block and none of the measures beside it. -->
+	<Standing data={artefact} />
 
 	<!-- A second question over a second artefact, on the same page because it is
 	     the same object: what a delegation said, rather than how often it said

@@ -64,6 +64,16 @@ const corpus = (speakers: Speaker[], rows: CountryMeasureRow[], collisions = {})
 		}
 	],
 	countries: speakers,
+	// The membership block is a different question over the same artefact and is
+	// exercised in `standing.test.ts`; it is present here only because the
+	// payload carries it.
+	standing: {
+		groups: ['P5', 'E10', 'Non-member state', 'UN', 'Non-state'],
+		seated_groups: ['P5', 'E10'],
+		seated_rule: 'P5 and E10 are the Charter’s two kinds of membership.',
+		membership_rule: 'Membership is a property of a speech, not of a country.',
+		rows: []
+	},
 	measures: { genocide: { kind: 'terms', tier: 'core', register: 'core', rows } }
 });
 

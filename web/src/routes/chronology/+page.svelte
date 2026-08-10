@@ -4,9 +4,22 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
 	import Figure from '$lib/Figure.svelte';
+	import Heatmap from '$lib/Heatmap.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
+	import {
+		CALENDAR_COLUMNS,
+		GRID_COLUMNS,
+		calendar,
+		calendarRows,
+		grid as monthGrid,
+		gridRows,
+		measures as monthlyMeasures,
+		monthLabel,
+		units as monthlyUnits
+	} from '$lib/heatmap';
+	import type { Cell, Unit as GridUnit } from '$lib/heatmap';
 	import { count, decimal, escapeHtml, isoDate, percent, termLabel } from '$lib/format';
 	import {
 		axisX,
@@ -61,6 +74,89 @@
 	/* Live chart handles, for the image half of the export. */
 	let seriesFigure = $state<Chart | null>(null);
 	let splitFigure = $state<Chart | null>(null);
+	let gridFigure = $state<Heatmap | null>(null);
+
+	/* --- The month resolution ---------------------------------------------
+	   A third resolution rather than more of the same. A year always holds
+	   thousands of speeches and a month need not, so this artefact is the one
+	   that can withhold a figure — and the figure it feeds is the one where a
+	   blank square would be read as a measurement. */
+	let gridMeasure = $state('genocide');
+	let gridUnit = $state<GridUnit>('speech_rate');
+
+	const byMonth = $derived(data.month);
+	const gridMeasures = $derived(Object.keys(monthlyMeasures(byMonth)));
+	const gridUnits = $derived(monthlyUnits(monthlyMeasures(byMonth)[gridMeasure]));
+	const heat = $derived(monthGrid({ data: byMonth, measure: gridMeasure, unit: gridUnit }));
+	const column = $derived(calendar(byMonth, gridMeasure, heat.unit));
+
+	/* `grid()` refuses a unit the measure cannot carry and says which one it
+	   used; the select follows it, so the control never names a figure the grid
+	   is not in. Same rule as the actor view's ranking. */
+	$effect(() => {
+		if (!gridUnits.includes(gridUnit)) gridUnit = heat.unit;
+	});
+
+	const showRate = (value: number | null) =>
+		value === null ? '—' : heat.unit === 'speech_rate' ? percent(value) : decimal(value);
+
+	const unitName = $derived(
+		heat.unit === 'speech_rate' ? 'share of the month’s speeches' : 'per 100k words'
+	);
+
+	/** Every cell says which of the three things it is, rather than only a number. */
+	const cellLabel = (cell: Cell) => {
+		const where = monthLabel(cell.period);
+		if (cell.state === 'unobserved') return `${where}: the Council held no speeches`;
+		if (cell.state === 'withheld') {
+			return (
+				`${where}: ${count(cell.speeches)} of ${count(cell.held)} speeches — withheld, ` +
+				`under the ${count(heat.minimum)}-speech minimum`
+			);
+		}
+		return `${where}: ${showRate(cell.value)} — ${count(cell.speeches)} of ${count(cell.held)} speeches`;
+	};
+
+	const strongest = $derived(
+		[...column.rows].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).slice(0, 2)
+	);
+
+	/** Every measure and every month, including the 53 that carry no rate. */
+	function monthTable(): ExportRequest {
+		return {
+			title: 'Does the vocabulary have a calendar?',
+			columns: GRID_COLUMNS,
+			rows: gridRows(byMonth),
+			provenance: provenanceOf(byMonth.meta, 'series/monthly.json'),
+			filters: [
+				`drawn: ${termLabel(gridMeasure)}`,
+				`unit: ${unitName}`,
+				`minimum: ${byMonth.minimum_speeches} speeches per month`
+			],
+			scope:
+				`all ${byMonth.periods.length} months for every measure the artefact holds, ` +
+				`including the ${heat.withheld} below the ${byMonth.minimum_speeches}-speech ` +
+				`minimum whose rates are null`
+		};
+	}
+
+	/** The pooled months, one row per agenda item so the confound travels too. */
+	function calendarTable(): ExportRequest {
+		return {
+			title: 'The same twelve months, pooled',
+			columns: CALENDAR_COLUMNS,
+			rows: calendarRows(byMonth),
+			provenance: provenanceOf(byMonth.meta, 'series/monthly.json'),
+			filters: [
+				`drawn: ${termLabel(gridMeasure)}`,
+				`unit: ${unitName}`,
+				`control reading excludes: ${column.excludedYears.join(', ')}`
+			],
+			scope:
+				'every calendar month for every measure, with the agenda items behind each ' +
+				'one — a calendar table without them is the misleading half of this figure'
+		};
+	}
 
 	/**
 	 * The series download: every measure and all four units, long-form.
@@ -569,6 +665,203 @@
 	</section>
 
 	<Figure
+		title="Does the vocabulary have a calendar?"
+		question="At month resolution, are there times of year the Council reaches for this vocabulary more than others?"
+		source="04_series.py → series/monthly.json"
+		note="Colour is a rate, never a count. Twice as dark is not twice the rate — read the key. A hatched cell is withheld, not a zero."
+		download={{
+			name: ['unsc', 'month-grid', gridMeasure],
+			table: monthTable,
+			chart: () => gridFigure?.svg() ?? null
+		}}
+	>
+		{#snippet controls()}
+			<label>
+				Measure
+				<select bind:value={gridMeasure}>
+					{#each gridMeasures as name (name)}<option value={name}>{termLabel(name)}</option>{/each}
+				</select>
+			</label>
+			<label>
+				Unit
+				<select bind:value={gridUnit}>
+					{#each gridUnits as u (u)}
+						<option value={u}>{u === 'speech_rate' ? 'Share of speeches' : 'Per 100k words'}</option
+						>
+					{/each}
+				</select>
+			</label>
+			<span class="unit-note">{count(heat.drawn)} of {count(heat.cells.length)} months drawn</span>
+		{/snippet}
+
+		{#snippet reading()}
+			<p>
+				One square per month, {byMonth.years[0]}–{byMonth.years[byMonth.years.length - 1]}, years
+				down and months across. Colour runs from the page's own tone at nothing to the darkest at
+				<strong>{showRate(heat.high)}</strong>, the strongest month in the grid. The ramp starts at
+				zero rather than at the quietest month, so a month in which nobody said the word looks empty
+				— which it was.
+			</p>
+			<p>
+				<strong>The ramp is not proportional.</strong> These rates are skewed — the middle month is
+				around
+				{showRate(byMonth.corpus_speech_prevalence)} and the strongest is {showRate(heat.high)} — so a
+				colour proportional to the value would leave half the grid indistinguishable from the page. The
+				ramp is on the square root instead: the order of every cell is preserved and nothing is capped,
+				but the key, not the darkness, is what a value should be read off.
+			</p>
+			<p>
+				<strong>Hatched squares carry no rate.</strong>
+				{count(heat.withheld)} of the {count(heat.cells.length)} months hold fewer than
+				{count(heat.minimum)} speeches. They keep their counts in the table and the download; what they
+				do not get is a colour, because a pale square would say "quiet" where the record says "barely
+				sat".
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			{#if column.shared}
+				<p>
+					<strong>The bright months are largely a reporting calendar.</strong>
+					{strongest.map((row) => row.name).join(' and ')} are the strongest months, and the largest agenda
+					item behind the speeches in both is
+					<em>{column.shared}</em>. The tribunals reported to the Council semi-annually, so what is
+					most visible here is partly when the Council was scheduled to discuss this, not when it
+					chose to. The table below the pooled figure gives the attribution month by month.
+				</p>
+			{/if}
+			<p>
+				{byMonth.minimum_speeches_rule}
+			</p>
+			<p>
+				A month's vocabulary is the vocabulary of the debates held in it. That is the same confound
+				the <a href="{resolve('/actors')}#speaker-keyness">per-speaker keyness</a> step spends its whole
+				design controlling for, and nothing here controls for it.
+			</p>
+		{/snippet}
+
+		{#if heat.refusal}
+			<p class="empty">
+				{#if heat.refusal === 'none-drawable'}
+					No month in this corpus cleared {count(heat.minimum)} speeches, so there is nothing here that
+					could be drawn honestly.
+				{:else}
+					This measure is not in the artefact.
+				{/if}
+			</p>
+		{:else}
+			<Heatmap
+				bind:this={gridFigure}
+				plan={heat}
+				label={cellLabel}
+				unit={unitName}
+				format={showRate}
+				description="Year by month grid of {termLabel(gridMeasure)}, {byMonth.years[0]}–{byMonth
+					.years[byMonth.years.length - 1]}, as a {unitName}."
+			/>
+			<details class="data-table">
+				<summary><Icon icon={ChevronRight} />View the grid as a table</summary>
+				<p class="hint">
+					A dash is a month with no published rate. Each year links to its lines in the concordance
+					— the year, not the month: the concordance filters by year, so what opens is wider than
+					any one square here.
+				</p>
+				<table>
+					<thead>
+						<tr>
+							<th>Year</th>
+							{#each heat.months as month (month)}
+								<th class="num"
+									>{monthLabel(`2000-${String(month).padStart(2, '0')}`).slice(0, 3)}</th
+								>
+							{/each}
+						</tr>
+					</thead>
+					<tbody>
+						{#each heat.years as year (year)}
+							<tr>
+								<td
+									><a href="{resolve('/concordance')}?term={gridMeasure}&from={year}&to={year}"
+										>{year}</a
+									></td
+								>
+								{#each heat.months as month (month)}
+									{@const cell = heat.cells.find((c) => c.year === year && c.month === month)}
+									<td class="num" title={cell ? cellLabel(cell) : ''}>
+										{cell && cell.state === 'drawn' ? showRate(cell.value) : '—'}
+									</td>
+								{/each}
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</details>
+		{/if}
+	</Figure>
+
+	<Figure
+		title="The same twelve months, pooled"
+		question="Across thirty-two years, which months of the year carry the vocabulary — and what was on the agenda in them?"
+		source="04_series.py → series/monthly.json"
+		note="A different denominator from any square in the grid above. The two do not share a scale."
+		download={{ name: ['unsc', 'month-of-year', gridMeasure], table: calendarTable }}
+	>
+		{#snippet reading()}
+			<p>
+				Each row pools every {byMonth.years.length} instances of that month. The bar in the row's own
+				background is the figure beside it, so there is no second rendering that could drift from the
+				numbers.
+			</p>
+			<p>
+				<strong>Without</strong> repeats the figure with {column.excludedYears.join(' and ')} dropped
+				— the corpus's two largest years for this vocabulary. A calendar pattern that is really one spike
+				seen through a monthly lens would not survive their removal.
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>{byMonth.month_of_year.rule}</p>
+			<p>{byMonth.month_of_year.agenda_rule}</p>
+		{/snippet}
+
+		{#if column.refusal}
+			<p class="empty">This measure is not in the calendar block.</p>
+		{:else}
+			<table class="calendar">
+				<thead>
+					<tr>
+						<th>Month</th>
+						<th class="num">Speeches</th>
+						<th class="num">Bearing</th>
+						<th class="num">Rate</th>
+						<th class="num">Without {column.excludedYears.join('/')}</th>
+						<th>Largest item behind them</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each column.rows as row (row.month)}
+						<tr style:--w="{(row.weight * 100).toFixed(1)}%">
+							<th scope="row">{row.name}</th>
+							<td class="num">{count(row.held)}</td>
+							<td class="num">{count(row.speeches)}</td>
+							<td class="num">{showRate(row.value)}</td>
+							<td class="num soft">{showRate(row.without)}</td>
+							<td class="item">
+								{#if row.agenda.length}
+									{row.agenda[0].item}
+									<span class="soft"
+										>{count(row.agenda[0].speeches)} · {percent(row.agenda[0].share)}</span
+									>
+								{:else}
+									—
+								{/if}
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		{/if}
+	</Figure>
+
+	<Figure
 		title="Rate heterogeneity in the genocide series"
 		question="Where is the strongest denominator-aware two-rate contrast?"
 		source="04_series.py → series/change_points.json"
@@ -835,6 +1128,44 @@
 		font-size: var(--step--1);
 		padding: var(--sp-6) 0;
 		text-align: center;
+	}
+
+	/* The bar *is* the table. Length is drawn in the row's own background, so the
+	   figure and the numbers are one element and there is no second rendering to
+	   drift from the first — the same decision the per-speaker keyness view made.
+	   A tint rather than the full colour, because text sits on top of it. */
+	.calendar tbody tr {
+		/* The zebra stripe `app.css` puts on every other row is switched off: the
+		   bar is translucent, so a stripe behind it would draw the same length in
+		   two different colours down the column. */
+		background-color: transparent;
+		background-image: linear-gradient(
+			to right,
+			color-mix(in oklab, var(--reg-accountability) 24%, transparent) 0 var(--w, 0%),
+			transparent var(--w, 0%)
+		);
+	}
+
+	.calendar tbody th {
+		font-weight: 600;
+		white-space: nowrap;
+		text-transform: none;
+		letter-spacing: 0;
+		font-size: var(--step--1);
+		color: var(--ink);
+	}
+
+	.calendar .item {
+		font-size: var(--step--2);
+	}
+
+	.calendar .soft {
+		color: var(--ink-3);
+	}
+
+	.calendar .item .soft {
+		font-family: var(--mono);
+		margin-inline-start: var(--sp-2);
 	}
 
 	/* Direction, not judgement: a ratio above one is not a bad thing, so these

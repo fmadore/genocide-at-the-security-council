@@ -20,6 +20,7 @@ import type {
 	KwicIndex,
 	Meeting,
 	MeetingIndex,
+	MonthlySeries,
 	Network,
 	SlicedCollocates,
 	SpeakerKeyness
@@ -62,6 +63,48 @@ const validateAnnual: Validator = (record, path) => {
 		}
 	}
 	requireRecord(record, 'terms', path);
+};
+
+const validateMonthly: Validator = (record, path) => {
+	validateAnnual(record, path);
+	const periods = requireArray(record, 'periods', path);
+	const years = requireArray(record, 'years', path);
+	const sufficient = requireArray(record, 'sufficient', path);
+	if (!Number.isFinite(record.minimum_speeches)) {
+		throw new Error(`${path}.minimum_speeches must be a finite number.`);
+	}
+	// The grid must be complete. The view indexes a cell by (year, month) and a
+	// ragged payload would not fail — it would draw January's figure in
+	// February's square for every year after the gap.
+	if (periods.length !== years.length * 12) {
+		throw new Error(
+			`${path} must hold a complete grid: ${years.length} years is ${years.length * 12} ` +
+				`months, and it carries ${periods.length}.`
+		);
+	}
+	if (sufficient.length !== periods.length) {
+		throw new Error(`${path}.sufficient must align with periods.`);
+	}
+	requireRecord(requireRecord(record, 'month_of_year', path), 'measures', `${path}.month_of_year`);
+	// Substantive rather than structural, and the same check `validateCountries`
+	// makes: the figure draws exactly the cells that claim to be sufficient, so a
+	// sufficient cell with no rate would reach the grid as a null — and on a
+	// heatmap a null is drawn in the colour a measured zero has.
+	for (const kind of ['terms', 'registers', 'sets']) {
+		for (const [name, measure] of Object.entries(requireRecord(record, kind, path))) {
+			if (!isRecord(measure)) throw new Error(`${path}.${kind}.${name} must be an object.`);
+			const rates = requireArray(measure, 'speech_rate', `${path}.${kind}.${name}`);
+			if (rates.length !== periods.length) {
+				throw new Error(`${path}.${kind}.${name}.speech_rate must align with periods.`);
+			}
+			const wrong = rates.findIndex((rate, index) => sufficient[index] && !Number.isFinite(rate));
+			if (wrong >= 0) {
+				throw new Error(
+					`${path}.${kind}.${name} claims ${periods[wrong]} is sufficient without a rate.`
+				);
+			}
+		}
+	}
 };
 
 const validateBreakdowns: Validator = (record, path) => {
@@ -122,6 +165,31 @@ const validateCountries: Validator = (record, path) => {
 	requireRecord(record, 'iso3_collisions', path);
 	if (!Number.isFinite(record.minimum_speeches)) {
 		throw new Error(`${path}.minimum_speeches must be a finite number.`);
+	}
+	// The membership block is drawn as a composition: five bands that fill a
+	// speaker's own denominator. If they do not sum to it, the bar comes up short
+	// and the missing speeches are drawn as background — a gap that reads as a
+	// sixth, unnamed status. 11 reconciles this upstream; the interface refuses a
+	// payload it cannot draw honestly rather than trusting that it ran.
+	const standing = requireRecord(record, 'standing', path);
+	const groups = requireArray(standing, 'groups', `${path}.standing`);
+	requireArray(standing, 'seated_groups', `${path}.standing`);
+	for (const [index, row] of requireArray(standing, 'rows', `${path}.standing`).entries()) {
+		if (!isRecord(row)) throw new Error(`${path}.standing.rows[${index}] must be an object.`);
+		const counts = row.groups;
+		if (!isRecord(counts)) {
+			throw new Error(`${path}.standing.rows[${index}] must carry a count for every group.`);
+		}
+		const total = groups.reduce<number>(
+			(sum, group) => sum + Number(counts[String(group)] ?? 0),
+			0
+		);
+		if (total !== row.held) {
+			throw new Error(
+				`${path}.standing.rows[${index}] (${row.country_org}, ${row.period}) has group ` +
+					`counts summing to ${total} against a denominator of ${row.held}.`
+			);
+		}
 	}
 	// Substantive, not structural: the interface draws exactly the rows that
 	// claim to be sufficient, so a sufficient row without a rate would reach a
@@ -245,6 +313,13 @@ export const quarterly = (f?: typeof fetch) =>
 		['meta', 'periods', 'corpus', 'terms'],
 		validateAnnual
 	);
+export const monthly = (f?: typeof fetch) =>
+	json<MonthlySeries>(
+		'series/monthly.json',
+		f,
+		['meta', 'periods', 'corpus', 'sufficient', 'years', 'minimum_speeches', 'month_of_year'],
+		validateMonthly
+	);
 export const breakdowns = (f?: typeof fetch) =>
 	json<Breakdowns>('series/breakdowns.json', f, ['meta', 'measures'], validateBreakdowns);
 export const changePoints = (f?: typeof fetch) =>
@@ -270,7 +345,7 @@ export const countries = (f?: typeof fetch) =>
 	json<Countries>(
 		'countries/countries.json',
 		f,
-		['meta', 'countries', 'periods', 'measures', 'minimum_speeches', 'iso3_collisions'],
+		['meta', 'countries', 'periods', 'measures', 'standing', 'minimum_speeches', 'iso3_collisions'],
 		validateCountries
 	);
 

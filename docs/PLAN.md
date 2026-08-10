@@ -134,11 +134,12 @@ Operational checks:
 ## Phase 3 — Actor view
 
 Status: the table exists and is now drawn — a ranked view and a locator map, shipped on
-10 August 2026. The *profile* this section describes is not built; what is missing is
-listed at the end of the section rather than left to be inferred from what is on screen.
-Of the four things a profile should show, all four now have their table and three are
-drawn: rates over time (coarse), quotations (linked), agenda composition with matched
-keyness (both, 10 August 2026), and membership standing — table only, deliberately.
+10 August 2026. **All four of the things a profile should show now have both their table
+and their view**, the last of them on 10 August 2026: rates over time (coarse),
+quotations (linked), agenda composition with matched keyness, and membership standing.
+That is not the same as saying the profile is built — these are four figures about
+speakers on one page rather than one view of one speaker — but nothing in the list below
+is now a table with nothing drawn from it.
 
 It landed before the first validated release it was queued behind, and the reordering is
 recorded rather than smoothed over. What the release gate protects is the point at which
@@ -183,15 +184,34 @@ at its 960 lines and not at all 79,569. A set measure becomes one link per membe
 the concordance shows one term and a single link would offer a fifth of the evidence as
 all of it. The decision is in `web/src/lib/actors.ts` with tests, not in the component.
 
-**Membership status** now has its table and not yet its view — deliberately, in that order,
-because §7 refuses to let a visual precede the table it depicts. `countries.json` carries a
-`standing` block: per speaker and per period, the five counts that sum to its own
-denominator, plus `seated` and `seated_share`. The E10 rotates, so a row is a composition
-rather than a label, and the numbers say why that matters — **105 of 601 speakers spoke
-both from a seat and from outside one**, 5 only ever from a seat and 491 never. Shading a
-speaker with one membership colour would be wrong about the first group, which is the group
-worth looking at: Japan gave 1,602 of its 2,055 speeches as an elected member and 453 as a
-non-member.
+**Membership status** had its table before its view — deliberately, in that order, because
+§7 refuses to let a visual precede the table it depicts — and the view was drawn on
+10 August 2026. `countries.json` carries a `standing` block: per speaker and per period,
+the five counts that sum to its own denominator, plus `seated` and `seated_share`. The E10
+rotates, so a row is a composition rather than a label, and the numbers say why that
+matters — **105 of 601 speakers spoke both from a seat and from outside one**, 5 only ever
+from a seat and 491 never. Shading a speaker with one membership colour would be wrong
+about the first group, which is the group worth looking at: Japan gave 1,602 of its 2,055
+speeches as an elected member and 453 as a non-member.
+
+The view follows that rather than working around it. Each row is a stacked composition
+painted in the row's own background — the bar *is* the table, as in the keyness figure, so
+there is no second rendering to drift — and the default cut is the 105 speakers whose
+standing changed, because they are the ones a label would misdescribe. Two decisions in
+`web/src/lib/standing.ts` are worth naming. **The three records are told apart on the
+integer counts, never on `seated_share`**: a speaker at 9,999,999 seated speeches out of
+10,000,000 has a share that prints as 1 and is not one, and a float comparison would file
+it with the five that never left their seat. And **five hues rather than a seated family
+and an unseated one** — "not seated" covers three different situations, and a shared
+colour would assert they were one. What groups the two seated positions instead is
+structure: they are listed first, so the seated share is always the left-hand part of a
+row, which is the number printed beside it.
+
+One thing the site's own stylesheet nearly broke, recorded because it would have looked
+like a finding. `app.css` zebra-stripes every table, and these bands are 32% opaque, so
+the stripe showed through and drew the *same* membership position in two alternating
+colours down the column. Decoration and data cannot share a channel; the striping is
+switched off for the two tables whose backgrounds now carry a figure.
 
 Two decisions in that block are the gate's rather than the author's. **All five counts are
 published, not just the seated total**, because "not seated" covers three different
@@ -506,9 +526,11 @@ published side by side for the release they first appear in.
 
 ## Phase 7 — Visualisation
 
-Status: items 1, 2 and 3 shipped; item 4 gated behind a Phase 4 that was not adopted;
-item 5 scoped on 10 August 2026 and not built. Item 3 shipped as a ranking and a map, not
-as the profile §3 describes. Nothing here may precede the table it depicts.
+Status: items 1, 2, 3 and 5 shipped; item 4 gated behind a Phase 4 that was not adopted.
+Item 3 shipped as a ranking, a map, a matched-keyness figure and a membership composition
+rather than as the single profile §3 describes. Nothing here may precede the table it
+depicts, and item 5 was built in that order on purpose: the pipeline step first, the
+figure second, on the same day.
 
 The project's charts are currently rates over time, the event overlay and the
 concordance. Five additions are worth building, in this order:
@@ -551,8 +573,10 @@ concordance. Five additions are worth building, in this order:
 3. **Actor-view visuals** (Phase 3): speech and term-bearing rates per speaker with
    membership shading, and matched keyness with minimum-sample disclosure. Country
    centroids may support navigation but must never imply that a diplomat is located at
-   that point. **The ranking and the map are shipped**, drawn from `countries.json`;
-   membership shading has its table in that file's `standing` block and is not yet drawn.
+   that point. **The ranking and the map are shipped**, drawn from `countries.json`, and
+   **membership is drawn** as of 10 August 2026 over that file's `standing` block — as a
+   composition per row rather than as the shading this item asked for, which the table
+   itself rules out.
    **Matched keyness is drawn** as of 10 August 2026, over `speaker_keyness.json`, on the
    same page and immediately after the table it depicts was written. Its decisions are in
    `web/src/lib/keyness.ts` with tests; the component renders and computes nothing. The bar
@@ -561,9 +585,9 @@ concordance. Five additions are worth building, in this order:
    only the direction of the effect, from the register palette, because `--blue` is reserved
    for interaction. A withheld speaker stays in the picker and refuses with its own reason:
    the UN Secretariat's panel says it found 123 comparable speeches out of 4,709, which is
-   more useful than its absence would have been. §3 says what membership shading would take,
-   and what the standing table rules out: 105 speakers spoke both from a seat and from
-   outside one, so a single colour per speaker is not available as a shading.
+   more useful than its absence would have been. §3 says why membership arrived as a
+   composition instead of the shading named above: 105 speakers spoke both from a seat and
+   from outside one, so a single colour per speaker was never available.
    Both warnings this item raised were honoured rather than discovered late: 133 of 601
    speakers clear the minimum and the other 468 are reported as a withheld count rather
    than ranked low, and nothing is keyed on ISO3 — circles key on `country_org`,
@@ -580,10 +604,14 @@ concordance. Five additions are worth building, in this order:
    is speaker and occasion rather than subject. Shipping it would mean re-deriving the
    coordinates for the dashboard and answering the §4 gates first — not copying a PNG.
 
-5. **A year × month heatmap**, proposed on 10 August 2026 and scoped here before anything
-   is drawn. The chronology is annual and quarterly; a year is a coarse unit for a body
-   that meets some 250 times in one, and the question a month resolution can answer is
-   whether genocide vocabulary has a calendar.
+5. ~~**A year × month heatmap.**~~ **Shipped on 10 August 2026**, the pipeline step first
+   and the figure after it, as this section requires. `04_series.py` writes
+   `series/monthly.json`; the Chronology page draws the grid and, beside it, the pooled
+   calendar. The scoping below was written before either existed and every number in it
+   held when the step ran, so it is kept as written and what the building added is
+   recorded after it. The chronology is annual and quarterly; a year is a coarse unit for
+   a body that meets some 250 times in one, and the question a month resolution can answer
+   is whether genocide vocabulary has a calendar.
 
    It does, and **not the one the question implies** — which is the argument for building
    it. April, the Rwanda commemoration month, is *not* elevated: 2.90% of its speeches
@@ -612,6 +640,39 @@ concordance. Five additions are worth building, in this order:
    takes a frequency and 04 already writes `annual.json` and `quarterly.json`, so `month`
    is a third branch; the real work is the withholding rule, which the annual series never
    needed because a year always has thousands of speeches and a month need not.
+
+   **What building it added.** The withholding rule was the work the scoping expected, and
+   it moved code rather than adding it: the zero-ceiling arithmetic that derives the
+   minimum lived in `lib/actors.py`, and a monthly cell needs the same rule for the same
+   reason, so it now lives in `lib/series.py` — which owns denominators — and `actors`
+   re-exports it. Two implementations of one threshold would eventually disagree and
+   nothing in the output would say which was wrong. The grid is written **complete**, all
+   `years × 12` cells, so a month nobody spoke in is a row of zeros rather than an absent
+   key: on a heatmap a missing cell is drawn by whatever the consumer does with a missing
+   value, and that is white, and white is the colour a zero has. Every month in this
+   corpus is observed, so the state is unreachable today; it exists so the figure does not
+   have to change the day one is not.
+
+   Three decisions were the figure's rather than the table's, and all three are in
+   `web/src/lib/heatmap.ts` with tests. **The ramp is not proportional.** These rates are
+   skewed — the median drawn month is 2.2% against a maximum of 19.2% — so a colour
+   proportional to the value leaves half the grid indistinguishable from the page, which
+   understates what is drawn as badly as exaggeration would. The ramp is on the square
+   root: monotone, nothing clipped, every cell keeping its own colour and its order. It is
+   disclosed in the figure's own note rather than in this file, because the reader who
+   would misread it is the one looking at the picture. **Rates only, no counts.** The
+   chronology offers counts because the contrast between a count and a rate is its
+   argument; here a count would be a picture of when the Council met, which is precisely
+   the confound this figure exists to disclose — and a count needs no minimum, so two of
+   four units would quietly have no withheld cells and no legend for them. **The column
+   read is scaled inside itself**, never against the grid, which is this item's own
+   requirement turned into a test.
+
+   One limitation is recorded rather than left to be discovered. The concordance filters
+   lines by year, so a cell cannot open the evidence behind *itself*; the table under the
+   grid links each year, and the interface says it is the year. Wider than the square, and
+   said so. Adding a month filter to the concordance would fix it and is a change to that
+   view's URL contract, its controls and its export — not to this figure.
 
 Requirements that apply to all five:
 
@@ -682,10 +743,9 @@ both readings with each declaring its scope.
 2. ~~Select the code/derived-artifact licence and confirm citation identities.~~ Done,
    10 August 2026 — see §1.3.
 3. Run the first reproducible Pages release and archive its manifest.
-4. ~~Build the actor view.~~ The ranking, the map, the concordance links and the
-   per-speaker matched keyness are shipped — see §3. What remains is one view over one
-   table that already exists: membership-aware standing, from `countries.json`'s
-   `standing` block.
+4. ~~Build the actor view.~~ Complete as of 10 August 2026: the ranking, the map, the
+   concordance links, the per-speaker matched keyness and the membership composition are
+   all shipped — see §3. Every table this phase wrote now has a figure over it.
 5. Review the lemma mapping table and decide whether the lemma reading becomes the
    default, or stays a second reading published beside the surface one.
 6. ~~Add the faceted word cloud, generated from the artifact it depicts.~~ Shipped over
@@ -696,18 +756,28 @@ both readings with each declaring its scope.
 8. ~~Decide whether topics answer a question the current methods cannot.~~ Decided on
    10 August 2026: not on this evidence — see §4. Reopen only with a research question and
    a model that clears stability, not by rerunning the same comparison.
-9. Add the month resolution: `monthly.json` from 04 with the withholding rule a monthly
-   denominator needs, then the year × month heatmap over it — see §7's fifth item. Scoped on
-   10 August 2026; the tribunal reporting cycle it makes visible is the reason to build
-   it and the caveat it has to carry.
+9. ~~Add the month resolution.~~ Shipped on 10 August 2026: `monthly.json` from 04 with
+   the withholding rule a monthly denominator needs, then the year × month heatmap and the
+   pooled calendar over it — see §7's fifth item. The tribunal reporting cycle it makes
+   visible was the reason to build it and is the caveat it carries, in the figure rather
+   than in a note.
 10. Consider the LLM evaluation only after a human coding protocol exists.
 
-Steps 4, 6 and 7 were built before step 3 rather than after it. The gate they jumped
+Steps 4, 6, 7 and 9 were built before step 3 rather than after it. The gate they jumped
 governs what may be *tagged* as citable, and nothing is tagged; each of them draws from an
 artifact the §1.1 audit can regenerate without touching a line of the view. Step 5 is the
 one that stays behind the audit, and not for sequencing reasons: adopting the lemma
 reading would move published collocate and keyness figures, which is the one thing an
 open audit forbids.
+
+**What is left is what only a person can do.** Steps 1 and 3 — the human lexicon audit
+with its source-document spot checks, and the first reproducible Pages release — are now
+the whole of the near-term list, with step 5 behind the first of them and step 10 behind a
+coding protocol that does not exist. No figure in the release is waiting on a table, and
+no table in the release is waiting on a figure. Two artifact directories remain
+deliberately undrawn and should stay that way: `data/derived/topics/`, whose projection is
+a diagnostic *against* a thematic reading (§4), and `data/derived/lexical_lemma/`, which
+cannot become a default reading before the audit closes (§6).
 
 This ordering keeps the next release modest and defensible while leaving clear gates for
 more ambitious digital-humanities work.

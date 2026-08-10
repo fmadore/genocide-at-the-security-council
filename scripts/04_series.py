@@ -1,7 +1,14 @@
 """Temporal series: how often the lexicon is spoken, and when that changes.
 
-Reads speeches_flagged.parquet and writes five JSON artefacts to
+Reads speeches_flagged.parquet and writes six JSON artefacts to
 data/derived/series/, plus a findings note.
+
+Three resolutions, and the third is not more of the same. A year and a quarter
+always hold thousands of speeches, so an annual series needs no minimum; a month
+need not, and 53 of the corpus's 384 hold too few to divide by. `monthly.json`
+therefore carries a withholding rule the coarser series never needed, and the
+calendar block that says what a month resolution actually recovers — which is
+substantially the Council's own reporting cycle rather than a discourse.
 
 Every series carries three numbers for the same period — speeches, occurrences,
 and both rates — because the three tell different stories and the raw one tells
@@ -43,6 +50,33 @@ from lib.paths import (
 #: real one, so both are dated rather than one being assumed.
 TRACKED = [("terms", "genocide"), ("sets", "atrocity_core")]
 
+#: Speeches a month must hold before its rates are published.
+#:
+#: Derived, not declared: at the corpus prevalence of about 3.1%, observing no
+#: term-bearing speech in n tries only puts a 95% ceiling below that prevalence
+#: once n reaches about 96 (`series.informative_zero_minimum`). Below it, an
+#: empty month means "the Council barely sat" rather than "the Council was
+#: quiet" — and on a heatmap the two are the same white square. `run` recomputes
+#: the requirement against the corpus it loads and says so if 100 stops meeting
+#: it. It is the same number `lib.actors` declares for a speaker's slice, by the
+#: same argument applied to a different denominator, and not by inheritance.
+MIN_SPEECHES_PER_MONTH = 100
+
+#: Dropped in the second reading of the calendar figure. The corpus's two
+#: largest years for this vocabulary: if a calendar pattern is really the Rwanda
+#: spike seen through a monthly lens, it does not survive their removal.
+CALENDAR_CONTROL_YEARS: tuple[int, ...] = (1994, 1995)
+
+#: What each calendar month's term-bearing speeches were debating, and how many
+#: items of it to name.
+CALENDAR_AGENDA_COLUMN = "agenda_item_manual"
+CALENDAR_AGENDA_ITEMS = 3
+
+MONTH_NAMES = (
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+)
+
 #: Categorical splits worth a per-period breakdown, with an optional cap on
 #: how many categories survive before the tail is folded into "Other".
 BREAKDOWNS: list[tuple[str, int | None]] = [
@@ -79,16 +113,38 @@ def measures(lex: lexicon.Lexicon) -> dict[str, dict[str, dict]]:
     }
 
 
+def rates(values, digits: int) -> list[float | None]:
+    """A rate column as JSON.
+
+    A withheld rate is `null`, never `NaN`: `json.dumps` writes the latter
+    happily and no browser will parse it back. This is also the one place the
+    distinction between "withheld" and "zero" is preserved on the way out, which
+    is the whole argument for withholding in the first place.
+    """
+    return [None if pd.isna(v) else round(float(v), digits) for v in values]
+
+
 def build_series(
-    speeches: pd.DataFrame, lex: lexicon.Lexicon, freq: str
+    speeches: pd.DataFrame,
+    lex: lexicon.Lexicon,
+    freq: str,
+    *,
+    index: list[str] | None = None,
+    minimum: int | None = None,
 ) -> tuple[dict, dict[str, dict[str, pd.DataFrame]]]:
     """Compute every measure at one frequency.
 
     Returns the JSON-ready payload and the frames behind it, so the change-point
     pass and the note can work off the same numbers the artefact ships.
+
+    `index` declares the periods to report on, so a period nobody spoke in is a
+    row of zeros rather than a gap. `minimum` withholds the rates a period's own
+    denominator cannot carry, and writes `sufficient` beside them. Both are for
+    the monthly grid: a year always holds thousands of speeches, and a month
+    need not.
     """
     periods = series.period(speeches, freq)
-    totals = series.denominators(speeches, periods)
+    totals = series.denominators(speeches, periods, index=index)
 
     payload: dict[str, object] = {
         "freq": freq,
@@ -101,6 +157,8 @@ def build_series(
             "meetings": totals["meetings"].tolist(),
         },
     }
+    if minimum is not None:
+        payload["sufficient"] = (totals["speeches"] >= minimum).tolist()
 
     computed: dict[str, dict[str, pd.DataFrame]] = {}
     for kind, entries in measures(lex).items():
@@ -109,16 +167,18 @@ def build_series(
         for name, attributes in entries.items():
             has_column, count_column = series.columns_for(kind, name)
             frame = series.measure(speeches, periods, totals, has_column, count_column)
+            if minimum is not None:
+                frame = series.withhold_below(frame, totals["speeches"], minimum)
             computed[kind][name] = frame
             block[name] = {
                 **attributes,
                 "speeches": frame["speeches"].tolist(),
-                "speech_rate": [round(v, 6) for v in frame["speech_rate"]],
+                "speech_rate": rates(frame["speech_rate"], 6),
             }
             if count_column is not None:
                 block[name] |= {  # type: ignore[operator]
                     "occurrences": frame["occurrences"].tolist(),
-                    "token_rate": [round(v, 4) for v in frame["token_rate"]],
+                    "token_rate": rates(frame["token_rate"], 4),
                 }
         payload[kind] = block
 
@@ -168,6 +228,230 @@ def build_breakdowns(
         out["measures"][name] = by_column  # type: ignore[index]
 
     return out
+
+
+def agenda_behind(
+    speeches: pd.DataFrame,
+    months: pd.Series,
+    has_column: str,
+    column: str,
+    top: int,
+) -> list[list[dict[str, object]]]:
+    """What the term-bearing speeches of each calendar month were debating.
+
+    This is the caveat that has to travel *inside* the figure rather than under
+    it. A month's vocabulary is the vocabulary of the debates scheduled in it,
+    and the Council's own reporting calendar is periodic: the tribunals reported
+    semi-annually, so a June or a December is thick with them. Shown a bright
+    June without that beside it, a reader learns something false — that the
+    Council talks about genocide in early summer — when what they are looking at
+    is a diary.
+
+    Shares divide by the month's own term-bearing speeches, not by everything
+    said that month: the question is what the numerator is made of.
+    """
+    bearing = speeches[speeches[has_column].astype(bool)]
+    if bearing.empty or column not in speeches.columns:
+        return [[] for _ in range(12)]
+
+    labels = months.loc[bearing.index]
+    items = bearing[column].astype("string").fillna("Unknown")
+    counts = bearing.groupby([labels.rename("month"), items.rename("item")]).size()
+
+    out: list[list[dict[str, object]]] = []
+    for month in range(1, 13):
+        if month not in counts.index.get_level_values("month"):
+            out.append([])
+            continue
+        found = counts.xs(month, level="month").sort_values(ascending=False)
+        total = int(found.sum())
+        out.append(
+            [
+                {
+                    "item": str(item),
+                    "speeches": int(n),
+                    "share": round(int(n) / total, 6),
+                }
+                for item, n in found.head(top).items()
+            ]
+        )
+    return out
+
+
+def build_month_of_year(
+    speeches: pd.DataFrame,
+    lex: lexicon.Lexicon,
+    minimum: int,
+    excluded: tuple[int, ...],
+    agenda_column: str,
+    top: int,
+) -> dict[str, object]:
+    """The twelve calendar months, pooled across every year in the corpus.
+
+    **A second figure, not a margin of the grid.** Thirty-two Junes pooled have
+    a denominator no cell in the year x month grid has, so drawing this as a
+    strip beside the grid would invite the two to be read off one colour bar.
+    It is written as its own block for the same reason.
+
+    Two readings, because one of them is the obvious objection to the other. The
+    corpus's largest signal by far is 1994; if a calendar effect were that spike
+    leaking into a monthly view, dropping 1994 and 1995 would remove it. Both
+    readings are published so that a reader can see whether it does, rather than
+    being told it does not.
+    """
+    months = series.month_of_year(speeches)
+    kept = speeches[~speeches["year"].isin(excluded)]
+
+    def pooled(frame: pd.DataFrame, has_column: str, count_column: str | None) -> dict:
+        labels = series.month_of_year(frame)
+        totals = series.denominators(frame, labels, index=list(range(1, 13)))
+        measured = series.withhold_below(
+            series.measure(frame, labels, totals, has_column, count_column),
+            totals["speeches"],
+            minimum,
+        )
+        block = {
+            "held": totals["speeches"].tolist(),
+            "tokens": totals["tokens"].tolist(),
+            "speeches": measured["speeches"].tolist(),
+            "speech_rate": rates(measured["speech_rate"], 6),
+            "sufficient": measured["sufficient"].tolist(),
+        }
+        if count_column is not None:
+            block |= {
+                "occurrences": measured["occurrences"].tolist(),
+                "token_rate": rates(measured["token_rate"], 4),
+            }
+        return block
+
+    by_measure: dict[str, object] = {}
+    for kind, entries in measures(lex).items():
+        for name, attributes in entries.items():
+            has_column, count_column = series.columns_for(kind, name)
+            by_measure[name] = {
+                "kind": kind,
+                **attributes,
+                **pooled(speeches, has_column, count_column),
+                "excluding": pooled(kept, has_column, count_column),
+                "agenda": agenda_behind(speeches, months, has_column, agenda_column, top),
+            }
+
+    return {
+        "months": list(range(1, 13)),
+        "rule": (
+            "A calendar month pooled across every year in the corpus. Its denominator "
+            "is not any cell's in the grid above, so the two do not share a scale and "
+            "must not share a colour bar: this is a second figure beside that one, not "
+            "a margin of it."
+        ),
+        "excluded_years": list(excluded),
+        "excluding_rule": (
+            f"The same twelve figures with {' and '.join(str(y) for y in excluded)} "
+            "dropped. Those are the corpus's two largest years for this vocabulary, and "
+            "a calendar pattern that is really one spike seen through a monthly lens "
+            "would not survive their removal. Published beside the first reading rather "
+            "than instead of it, because the comparison is the result."
+        ),
+        "agenda_column": agenda_column,
+        "agenda_rule": (
+            "The agenda items behind each month's term-bearing speeches, largest first, "
+            "as a share of that month's term-bearing speeches. The Council's reporting "
+            "calendar is periodic — the ICTY and ICTR reported semi-annually — so a "
+            "month's vocabulary is partly the vocabulary of whatever was scheduled in "
+            "it. This is the confound, and it belongs in the figure rather than under it."
+        ),
+        "measures": by_measure,
+    }
+
+
+def build_monthly(
+    speeches: pd.DataFrame, lex: lexicon.Lexicon, minimum: int
+) -> dict[str, object]:
+    """The year x month grid, its coverage, and the calendar read beside it.
+
+    The chronology is annual and quarterly, and a year is a coarse unit for a
+    body that meets some 250 times in one. What a month resolution can answer is
+    whether this vocabulary has a calendar.
+
+    It does, and not the one the question implies — which is why the grid has to
+    carry the block that explains it. The months that stand out are not the
+    commemorative ones; they are the ones the tribunals reported in. The
+    `month_of_year` block publishes that attribution beside the figures rather
+    than leaving it to a note.
+
+    Everything a year never needed is here: a complete grid so an unobserved
+    month is not a gap, a minimum so a short month is withheld rather than drawn
+    as a zero, and a coverage block so the exclusion is a stated number instead
+    of 53 quietly pale squares.
+    """
+    prevalence = float(speeches["has_genocide"].mean())
+    required = series.informative_zero_minimum(prevalence)
+    if minimum < required:
+        console.warn(
+            f"the declared monthly minimum {minimum} is below the {required} the corpus "
+            "now requires for a zero to mean anything — re-declare MIN_SPEECHES_PER_MONTH"
+        )
+
+    first, last = int(speeches["year"].min()), int(speeches["year"].max())
+    grid = series.month_grid(first, last)
+    payload, _ = build_series(speeches, lex, "month", index=grid, minimum=minimum)
+
+    held: list[int] = payload["corpus"]["speeches"]  # type: ignore[index,assignment]
+    sufficient: list[bool] = payload["sufficient"]  # type: ignore[assignment]
+    at_minimum = sum(h for h, ok in zip(held, sufficient, strict=True) if ok)
+
+    payload |= {
+        "years": list(range(first, last + 1)),
+        "months": list(range(1, 13)),
+        "minimum_speeches": minimum,
+        "minimum_speeches_rule": (
+            f"A month's rates are withheld — written as null, with sufficient=false — "
+            f"when the Council held fewer than {minimum} speeches in it. The threshold "
+            f"is the denominator at which a zero becomes informative: at the corpus "
+            f"prevalence of {prevalence:.2%}, seeing no term-bearing speech in fewer "
+            f"than {required} tries is consistent with the Council average, so a pale "
+            f"cell would say 'quiet' where the record says 'barely sat'. Counts are "
+            f"written regardless; a count is a fact and a rate is an estimate."
+        ),
+        "informative_zero_minimum": required,
+        "corpus_speech_prevalence": round(prevalence, 6),
+        "coverage": {
+            "months": len(grid),
+            "months_observed": sum(1 for h in held if h > 0),
+            "months_at_minimum": sum(sufficient),
+            "speeches": sum(held),
+            "speeches_at_minimum": at_minimum,
+            "share_at_minimum": round(at_minimum / max(sum(held), 1), 6),
+        },
+        "month_of_year": build_month_of_year(
+            speeches,
+            lex,
+            minimum,
+            CALENDAR_CONTROL_YEARS,
+            CALENDAR_AGENDA_COLUMN,
+            CALENDAR_AGENDA_ITEMS,
+        ),
+    }
+
+    coverage = payload["coverage"]
+    console.info(
+        f"{coverage['months']} months, {coverage['months_at_minimum']} at or above "
+        f"{minimum} speeches ({coverage['share_at_minimum']:.1%} of speeches covered)"
+    )
+    calendar = payload["month_of_year"]["measures"]["genocide"]  # type: ignore[index]
+    ranked = sorted(
+        zip(MONTH_NAMES, calendar["speech_rate"], calendar["agenda"], strict=True),
+        key=lambda row: row[1] or 0.0,
+        reverse=True,
+    )
+    for name, rate, agenda in ranked[:2]:
+        behind = agenda[0] if agenda else None
+        console.info(
+            f"{name:9s} {rate:.2%} of its speeches"
+            + (f"; largest item behind them: {behind['item']} ({behind['speeches']})" if behind else "")
+        )
+
+    return payload
 
 
 def build_change_points(
@@ -282,9 +566,108 @@ def write_json(payload: dict, path: Path, meta: dict) -> None:
     console.info(f"wrote {rel(path)}  ({path.stat().st_size / 1e3:,.0f} kB)")
 
 
+def calendar_lines(monthly: dict) -> list[str]:
+    """The month resolution, said in words derived from what it found.
+
+    Written this way round on purpose: the interesting result is that the
+    commemorative months are *not* the elevated ones, and a sentence asserting
+    that would quietly become false the day the lexicon moves. Everything below
+    is read off the artefact, including which months are named.
+    """
+    calendar = monthly["month_of_year"]["measures"]["genocide"]
+    coverage = monthly["coverage"]
+    rows = [
+        {
+            "month": MONTH_NAMES[i],
+            "held": calendar["held"][i],
+            "speeches": calendar["speeches"][i],
+            "rate": calendar["speech_rate"][i],
+            "without": calendar["excluding"]["speech_rate"][i],
+            "agenda": calendar["agenda"][i],
+        }
+        for i in range(12)
+    ]
+    ranked = sorted(rows, key=lambda row: row["rate"] or 0.0, reverse=True)
+    top = ranked[:2]
+    corpus = sum(calendar["speeches"]) / max(sum(calendar["held"]), 1)
+
+    # Which items sit behind the two strongest months, and whether it is the same
+    # one. If it is, that is the reporting cycle and the note may say so.
+    leaders = [row["agenda"][0]["item"] if row["agenda"] else None for row in top]
+    shared = leaders[0] if len(set(leaders)) == 1 and leaders[0] else None
+
+    verdict = [
+        "**The elevated months are not the commemorative ones.** "
+        + ", ".join(
+            f"{row['month']} is at {row['rate']:.2%}"
+            for row in rows
+            if row["month"] in ("April", "July")
+        )
+        + f", against a corpus rate of {corpus:.2%}. What stands out is "
+        + " and ".join(f"**{row['month']} at {row['rate']:.2%}**" for row in top)
+        + ", and the pattern survives dropping "
+        + " and ".join(str(y) for y in monthly["month_of_year"]["excluded_years"])
+        + " ("
+        + " and ".join(f"{row['without']:.2%}" for row in top)
+        + "), so it is not the largest years leaking into a monthly view.",
+        "",
+    ]
+    if shared:
+        verdict += [
+            f"The agenda items behind those speeches say what it is: **{shared}**, "
+            + " and ".join(
+                f"{row['agenda'][0]['speeches']} of them in {row['month']}" for row in top
+            )
+            + ", the largest item in both. The ICTY and ICTR reported to the Council "
+            "semi-annually. **The most visible feature of a year x month heatmap would "
+            "be the Council's own reporting calendar**, which is the same confound the "
+            "per-speaker keyness step spends its whole design controlling for. That "
+            "belongs in the figure and not in a note, so `month_of_year.agenda` carries "
+            "it per month.",
+            "",
+        ]
+
+    return [
+        "## The calendar",
+        "",
+        f"{coverage['months']} months, of which **{coverage['months_at_minimum']} clear "
+        f"the {monthly['minimum_speeches']}-speech minimum** "
+        f"({coverage['months_at_minimum'] / coverage['months']:.1%}); those hold "
+        f"{coverage['share_at_minimum']:.1%} of all speeches. The other "
+        f"{coverage['months'] - coverage['months_at_minimum']} carry counts and no rate. "
+        "On a heatmap a withheld cell must be drawn as withheld: white reads as zero, "
+        "and this is the same failure as reading a missing key through `?? 0`, in a form "
+        "that covers 53 cells.",
+        "",
+        "| Month | Speeches held | With `genocid*` | Rate | Without "
+        + "/".join(str(y) for y in monthly["month_of_year"]["excluded_years"])
+        + " | Largest item behind them |",
+        "|---|---:|---:|---:|---:|---|",
+        *[
+            f"| {row['month']} | {row['held']:,} | {row['speeches']:,} | "
+            f"{row['rate']:.2%} | {row['without']:.2%} | "
+            + (
+                f"{row['agenda'][0]['item']} ({row['agenda'][0]['speeches']}, "
+                f"{row['agenda'][0]['share']:.0%})"
+                if row["agenda"]
+                else "—"
+            )
+            + " |"
+            for row in rows
+        ],
+        "",
+        *verdict,
+        "**This table is not a margin of the grid.** A calendar month pools thirty-two "
+        "years and has a denominator no single cell has. The two are separate figures "
+        "and must not share a colour bar.",
+        "",
+    ]
+
+
 def build_note(
     speeches: pd.DataFrame,
     annual: dict,
+    monthly: dict,
     computed: dict[str, dict[str, pd.DataFrame]],
     change: dict,
     events: pd.DataFrame,
@@ -399,6 +782,7 @@ def build_note(
             "",
             *verdict,
             *change_lines,
+            *calendar_lines(monthly),
             "## Rate by speaker group",
             "",
             "| Group | Speeches | With `genocid*` | Rate |",
@@ -448,7 +832,13 @@ def build_note(
 
 
 def run(
-    top_agenda: int, trials: int, seed: int, min_size: int, alpha: float, max_breaks: int
+    top_agenda: int,
+    trials: int,
+    seed: int,
+    min_size: int,
+    alpha: float,
+    max_breaks: int,
+    minimum_month: int,
 ) -> None:
     ensure_dirs()
 
@@ -467,6 +857,9 @@ def run(
     console.step("Building quarterly series")
     quarterly, _ = build_series(speeches, lex, "quarter")
     console.info(f"{len(quarterly['periods'])} quarters")
+
+    console.step("Building the monthly grid")
+    monthly = build_monthly(speeches, lex, minimum_month)
 
     console.step("Building breakdowns")
     breakdowns = build_breakdowns(speeches, "year", top_agenda)
@@ -521,6 +914,7 @@ def run(
     with artifacts.atomic_directory(SERIES) as staged:
         write_json(annual, staged / "annual.json", meta)
         write_json(quarterly, staged / "quarterly.json", meta)
+        write_json(monthly, staged / "monthly.json", meta)
         write_json(breakdowns, staged / "breakdowns.json", meta)
         write_json(change, staged / "change_points.json", meta)
         write_json(
@@ -543,7 +937,7 @@ def run(
         )
 
     note = write_note(
-        "04_series.md", build_note(speeches, annual, computed, change, events, lex)
+        "04_series.md", build_note(speeches, annual, monthly, computed, change, events, lex)
     )
     console.info(f"wrote {note.name}")
 
@@ -556,6 +950,12 @@ def main() -> None:
     parser.add_argument("--min-size", type=int, default=4, help="shortest segment, in periods")
     parser.add_argument("--alpha", type=float, default=0.05, help="significance threshold")
     parser.add_argument("--max-breaks", type=int, default=4, help="most breaks per series")
+    parser.add_argument(
+        "--minimum-month",
+        type=int,
+        default=MIN_SPEECHES_PER_MONTH,
+        help="speeches a month needs before its rates are published",
+    )
     args = parser.parse_args()
     run(
         args.top_agenda,
@@ -564,6 +964,7 @@ def main() -> None:
         args.min_size,
         args.alpha,
         args.max_breaks,
+        args.minimum_month,
     )
 
 

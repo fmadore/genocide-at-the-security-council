@@ -57,6 +57,8 @@ export interface Palette {
 	ink: string;
 	inkSoft: string;
 	inkFaint: string;
+	/** The page's own background. The floor of a sequential ramp. */
+	paper: string;
 	panel: string;
 	rule: string;
 	ruleSoft: string;
@@ -78,6 +80,7 @@ export function palette(): Palette {
 		ink: read('--ink', '#14171a'),
 		inkSoft: read('--ink-2', '#3d444c'),
 		inkFaint: read('--ink-3', '#626a74'),
+		paper: read('--paper', '#f1f2ee'),
 		panel: read('--paper-raised', '#fbfbf8'),
 		rule: read('--rule-strong', '#b7bcaf'),
 		ruleSoft: read('--rule', '#d6d9cf'),
@@ -107,6 +110,60 @@ export function categorical(p = palette()): string[] {
 /** Series that carry no category at all: one weight of ink, never the accent. */
 export function neutral(p = palette()): string {
 	return p.inkFaint;
+}
+
+const channels = (hex: string): [number, number, number] => {
+	const value = hex.trim().replace('#', '');
+	const full =
+		value.length === 3
+			? value
+					.split('')
+					.map((c) => c + c)
+					.join('')
+			: value;
+	return [
+		parseInt(full.slice(0, 2), 16) || 0,
+		parseInt(full.slice(2, 4), 16) || 0,
+		parseInt(full.slice(4, 6), 16) || 0
+	];
+};
+
+/**
+ * Two colours mixed, as `#rrggbb`.
+ *
+ * In sRGB, which is only good enough because the ramp below is a single hue:
+ * mixing between two hues in this space runs through a muddy midpoint, and
+ * anything needing that should use CSS `color-mix(in oklab, …)` — as the word
+ * cloud does — rather than reaching for this.
+ */
+export function mix(from: string, to: string, t: number): string {
+	const amount = Math.min(Math.max(t, 0), 1);
+	const [r1, g1, b1] = channels(from);
+	const [r2, g2, b2] = channels(to);
+	const channel = (a: number, b: number) =>
+		Math.round(a + (b - a) * amount)
+			.toString(16)
+			.padStart(2, '0');
+	return `#${channel(r1, r2)}${channel(g1, g2)}${channel(b1, b2)}`;
+}
+
+/**
+ * A sequential ramp for a magnitude: the page's own background at 0, a data
+ * colour at 1.
+ *
+ * Single-hue on purpose. A grid is read for which cells are hot, and a
+ * multi-hue ramp buys discrimination in the middle at the cost of a reader
+ * having to learn an order. Amber rather than the accent, because `--blue`
+ * belongs to what a reader can act on and never to a datum — the same rule the
+ * word cloud follows when it builds its scale out of the register colours.
+ *
+ * Returned as resolved hex rather than a CSS expression: these fills are
+ * written as SVG attributes so that a downloaded figure, which carries none of
+ * this site's stylesheet, is still the colour it was on screen.
+ */
+export function sequential(p = palette()): (t: number) => string {
+	const top = p.registers.accountability ?? p.ink;
+	return (t: number) => mix(p.paper, top, t);
 }
 
 export const FONT = 'Archivo, system-ui, -apple-system, sans-serif';
