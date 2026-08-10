@@ -18,10 +18,16 @@
 	 * well as out of the server's way.
 	 *
 	 * Colour comes from the custom properties in `app.css` rather than from
-	 * `palette()`. The fills are `var(--ink)` and `var(--accent)`, so the cloud
-	 * follows the light/dark switch without being laid out again — and colour
-	 * therefore encodes nothing, which is deliberate. Size is the only quantity
-	 * here, and it is the log ratio.
+	 * `palette()`, so the cloud follows the light/dark switch without being laid
+	 * out again.
+	 *
+	 * The ramp is sequential and redundant with size: both encode the log ratio,
+	 * which is the only quantity here. It is built out of three of the site's
+	 * own data colours — legal, preventive, accountability — because those are
+	 * the data layer, and the accent is not: `--blue` belongs to what a reader
+	 * can act on, so it appears only on hover and focus. Running cool-to-warm
+	 * also puts the least contrasting end of the ramp on the largest words,
+	 * where large-text contrast applies.
 	 */
 	import { onMount } from 'svelte';
 	import { FONT } from '$lib/theme';
@@ -136,7 +142,10 @@
 						y={item.y}
 						font-size={item.size}
 						text-anchor="middle"
-						style:--tone="{Math.round(item.tone * 100)}%">{item.word.word}</text
+						data-segment={item.tone < 0.5 ? 'low' : 'high'}
+						style:--tone="{Math.round(
+							(item.tone < 0.5 ? item.tone * 2 : (item.tone - 0.5) * 2) * 100
+						)}%">{item.word.word}</text
 					>
 				</a>
 			{/each}
@@ -172,25 +181,35 @@
 		text-decoration: none;
 	}
 
-	/* Fill runs from the body colour for the weakest collocate drawn to the
-	   accent for the strongest, mixed by `--tone` — the same position in the
-	   log-ratio range that set the type size. Both ends are theme variables, so
-	   the light/dark switch needs no relayout, and both are already legible
-	   against the page, so no mix of them can fall below the contrast either
-	   end has. `oklab` because mixing in sRGB drives the midpoint muddy. */
+	/* A sequential ramp in two segments, cool to warm, built out of three of the
+	   site's own data colours. `--tone` is the position within its segment, so
+	   the two `color-mix`es below join into one continuous scale without CSS
+	   needing to interpolate three stops at once. `oklab` because mixing in sRGB
+	   drives the midpoint muddy.
+
+	   The warm end is the least contrasting and lands on the largest words,
+	   where the large-text threshold applies; the cool end lands on the smallest,
+	   and clears AA on its own. */
 	.cloud text {
-		fill: color-mix(in oklab, var(--accent) var(--tone, 0%), var(--ink));
+		--lo: var(--reg-legal);
+		--hi: var(--reg-preventive);
+		fill: color-mix(in oklab, var(--hi) var(--tone, 0%), var(--lo));
 		transition: fill 0.12s ease;
+	}
+
+	.cloud text[data-segment='high'] {
+		--lo: var(--reg-preventive);
+		--hi: var(--reg-accountability);
 	}
 
 	.cloud a:hover text,
 	.cloud a:focus-visible text {
-		fill: var(--accent);
+		fill: var(--blue);
 		text-decoration: underline;
 	}
 
 	.cloud a:focus-visible {
-		outline: 2px solid var(--accent);
+		outline: 2px solid var(--blue);
 		outline-offset: 2px;
 	}
 
@@ -202,13 +221,13 @@
 
 	.waiting {
 		margin: auto;
-		color: var(--ink-faint);
+		color: var(--ink-3);
 		font-size: 0.875rem;
 	}
 
 	.refused {
 		margin: 0.6rem 0 0;
 		font-size: 0.78rem;
-		color: var(--ink-faint);
+		color: var(--ink-3);
 	}
 </style>

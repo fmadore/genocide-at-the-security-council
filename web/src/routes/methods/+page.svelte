@@ -16,48 +16,115 @@
 	const lines = $derived(data.kwic.terms.reduce((a, t) => a + t.count, 0));
 	const longSentences = $derived(data.kwic.terms.reduce((a, t) => a + t.long_sentences, 0));
 
-	const steps = [
+	/**
+	 * The ledger. Each row names a step, what it establishes, the artefact it
+	 * leaves behind, and the state of that artefact — including the three steps
+	 * that are built and deliberately not adopted, because a pipeline that omits
+	 * its unused halves from its own accounting is not an accounting.
+	 *
+	 * `state` is the claim a reader should hold this site to. `Verified` means
+	 * the step asserts its own output and the assertions pass in CI; it does not
+	 * mean a person has read the result.
+	 */
+	type State = 'verified' | 'open' | 'unadopted';
+
+	const steps: {
+		id: string;
+		does: string;
+		checks: string;
+		artefact: string;
+		state: State;
+		says: string;
+	}[] = [
 		{
 			id: '01_build_parquet.py',
 			does: 'Joins the three raw files into one table and validates it.',
 			checks:
-				'Row count, token sum, join completeness and date parsing are asserted against the published codebook. Two undocumented defects in the distribution — a UTF-8/cp1252 encoding trap and 36 rows split by a literal newline — are repaired here.'
+				'Row count, token sum, join completeness and date parsing are asserted against the published codebook. Two undocumented defects in the distribution — a UTF-8/cp1252 encoding trap and 36 rows split by a literal newline — are repaired here.',
+			artefact: 'speeches.parquet',
+			state: 'verified',
+			says: 'Verified'
 		},
 		{
 			id: '02_normalise.py',
 			does: 'Canonicalises speaker names, resolves Council membership by year, locates the form of address, recovers delivery language.',
 			checks:
-				'Refuses to run on a speaker missing from the crosswalk, or on a Council year that does not hold exactly five permanent and ten elected seats.'
+				'Refuses to run on a speaker missing from the crosswalk, or on a Council year that does not hold exactly five permanent and ten elected seats.',
+			artefact: 'speeches_normalised',
+			state: 'verified',
+			says: 'Verified'
 		},
 		{
 			id: '03_lexicon.py',
 			does: 'Counts every lexicon term in every speech body.',
 			checks:
-				'Every pattern must match declared examples and pass a literal prefilter before exact regex counting. A stratified 200-row audit sample covers occurrences, speeches, terms and periods. An OCR-tolerant pattern is reported separately; it adds one speech in 106,302.'
+				'Every pattern must match declared examples and pass a literal prefilter before exact regex counting. A stratified 200-row audit sample covers occurrences, speeches, terms and periods. An OCR-tolerant pattern is reported separately; it adds one speech in 106,302.',
+			artefact: 'speeches_flagged',
+			state: 'open',
+			says: '0 / 200 audited'
 		},
 		{
 			id: '04_series.py',
 			does: 'Rates per year and quarter, breakdowns, rate-change inference, event overlay.',
 			checks:
-				'Speech prevalence uses a binomial model; occurrences use a Poisson model with token exposure. A parametric maximum-search bootstrap preserves the breakpoint search and a Bonferroni correction covers three planned tests. WBS remains visible only as an exploratory diagnostic.'
+				'Speech prevalence uses a binomial model; occurrences use a Poisson model with token exposure. A parametric maximum-search bootstrap preserves the breakpoint search and a Bonferroni correction covers three planned tests. WBS remains visible only as an exploratory diagnostic.',
+			artefact: 'series/*.json',
+			state: 'verified',
+			says: 'Verified'
 		},
 		{
 			id: '05_lexical.py',
 			does: 'Collocates, keyness against a matched control, co-occurrence network.',
 			checks:
-				'Target and control speeches are true pairs within year × agenda × speaker group. Twenty consecutive random seeds quantify matching sensitivity; the unmatched comparison remains a diagnostic. Overlapping context windows are merged and lexical parent–child edges are suppressed.'
+				'Target and control speeches are true pairs within year × agenda × speaker group. Twenty consecutive random seeds quantify matching sensitivity; the unmatched comparison remains a diagnostic. Overlapping context windows are merged and lexical parent–child edges are suppressed.',
+			artefact: 'lexical/*.json',
+			state: 'verified',
+			says: 'Verified'
+		},
+		{
+			id: '06_embed.py',
+			does: 'Encodes every speech as a vector.',
+			checks:
+				'Runs on a university cluster rather than in the locked environment, and nothing on this site reads its output.',
+			artefact: 'embeddings',
+			state: 'unadopted',
+			says: 'Built, not adopted'
+		},
+		{
+			id: '07_topics.py',
+			does: 'Compares a count-based topic model against an embedding-based one — evidence for a decision, not a result.',
+			checks:
+				'Waits on a research question that collocates and agenda labels cannot answer, and on an interpretability check a person has to perform.',
+			artefact: 'topics/*.json',
+			state: 'unadopted',
+			says: 'Built, not adopted'
 		},
 		{
 			id: '08_kwic.py',
 			does: 'Concordance lines with a ±150-character window and the full sentence.',
 			checks:
-				'Fails rather than writing anything if a term’s line count disagrees with the occurrence count computed in step 03. All 22 terms reproduce exactly.'
+				'Fails rather than writing anything if a term’s line count disagrees with the occurrence count computed in step 03. All 22 terms reproduce exactly.',
+			artefact: 'kwic/*.json',
+			state: 'verified',
+			says: 'Verified'
 		},
 		{
 			id: '09_export_speeches.py',
 			does: 'One JSON per corpus document with speech text and per-term occurrence offsets.',
 			checks:
-				'Speech count and offset count are both asserted against the parquet before anything is written.'
+				'Speech count and offset count are both asserted against the parquet before anything is written.',
+			artefact: 'speeches/*.json',
+			state: 'verified',
+			says: 'Verified'
+		},
+		{
+			id: '10_lemmatise.py',
+			does: 'Builds a lemma layer so that crime and crimes stop occupying two rows of one table.',
+			checks:
+				'Would move published collocate and keyness figures, so it waits on the lexicon audit below.',
+			artefact: 'lemmas.parquet',
+			state: 'unadopted',
+			says: 'Built, not adopted'
 		}
 	];
 </script>
@@ -85,23 +152,34 @@
 		derived is committed.
 	</p>
 
-	<h2>The pipeline</h2>
+	<h2>How every number was made</h2>
 	<p>
 		Numbered, idempotent, each reading the previous step's output. A step that cannot assert its own
 		output is correct exits non-zero rather than leaving a plausible-looking artefact behind.
+		<strong>Verified</strong> below means the step's own assertions pass in continuous integration; it
+		does not mean a person has read the result.
 	</p>
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-	<div class="table-scroll" role="region" aria-label="Pipeline steps table" tabindex="0">
-		<table>
+	<div class="table-scroll" role="region" aria-label="Pipeline ledger" tabindex="0">
+		<table class="ledger">
 			<thead>
-				<tr><th>Step</th><th>What it does</th><th>What it checks</th></tr>
+				<tr>
+					<th>Step</th>
+					<th>What it establishes</th>
+					<th>Artefact</th>
+					<th>State</th>
+				</tr>
 			</thead>
 			<tbody>
 				{#each steps as step (step.id)}
 					<tr>
-						<td><code>{step.id}</code></td>
-						<td>{step.does}</td>
-						<td class="quiet">{step.checks}</td>
+						<td class="step"><code>{step.id}</code></td>
+						<td>
+							{step.does}
+							<span class="checks">{step.checks}</span>
+						</td>
+						<td><code class="artefact">{step.artefact}</code></td>
+						<td class="state" data-state={step.state}>{step.says}</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -238,61 +316,108 @@
 </article>
 
 <style>
-	.prose {
-		max-width: 44rem;
+	/* One prose measure for the whole site, so the text here sets to the same
+	   width as the text beside every figure. The ledger is the one thing allowed
+	   out of it, because a table is not prose. */
+	.prose > * {
+		max-width: var(--measure);
+	}
+
+	.prose > .table-scroll {
+		max-width: 100%;
 	}
 
 	.standfirst {
-		font-size: 1.08rem;
-		color: var(--ink-soft);
-		margin-bottom: 2rem;
+		font-size: var(--step-1);
+		line-height: 1.5;
+		color: var(--ink-2);
+		margin-bottom: var(--sp-6);
 	}
 
 	h2 {
-		margin-top: 2.4rem;
+		margin-top: var(--sp-7);
 	}
 
 	h3 {
-		margin-top: 1.6rem;
-	}
-
-	table {
-		margin: 1rem 0 1.5rem;
-		font-size: 0.85rem;
+		margin-top: var(--sp-5);
 	}
 
 	.table-scroll {
-		max-width: 100%;
+		margin: var(--sp-4) 0 var(--sp-6);
 		overflow-x: auto;
 	}
 
-	.table-scroll:focus-visible {
-		outline: 2px solid var(--accent);
-		outline-offset: 2px;
+	/* A ledger, not prose: what each step establishes, the artefact it leaves,
+	   and the state a reader should hold that artefact to. */
+	.ledger {
+		min-width: 46rem;
 	}
 
-	td.quiet,
-	p.quiet {
-		color: var(--ink-faint);
+	.ledger td {
+		vertical-align: baseline;
+		padding-right: var(--sp-4);
 	}
 
-	td code {
+	.step code,
+	.artefact {
 		white-space: nowrap;
-		font-size: 0.78rem;
+		font-size: var(--step--2);
+		color: var(--ink-3);
+	}
+
+	.checks {
+		display: block;
+		margin-top: var(--sp-1);
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		line-height: 1.5;
+		color: var(--ink-3);
+	}
+
+	/* Register colours are data, and the state of an artefact is a datum. */
+	.state {
+		font-family: var(--sans);
+		font-weight: 600;
+		font-size: var(--step--1);
+		white-space: nowrap;
+	}
+
+	.state[data-state='verified'] {
+		color: var(--reg-preventive);
+	}
+
+	.state[data-state='open'] {
+		color: var(--reg-contentious);
+	}
+
+	.state[data-state='unadopted'] {
+		color: var(--ink-3);
+	}
+
+	p.quiet {
+		color: var(--ink-3);
 	}
 
 	.caveat {
-		border-left: 1px solid var(--rule);
-		padding-left: 0.9rem;
-		font-size: 0.9rem;
-		color: var(--ink-soft);
+		border-left: var(--hair) solid var(--rule-strong);
+		padding-left: var(--sp-3);
+		font-size: var(--step--1);
+		color: var(--ink-2);
 	}
 
+	/* The one thing on this page that is genuinely open, marked as such. */
 	.open {
-		padding-left: 1.1rem;
+		list-style: none;
+		margin: 0;
+		padding: 0 0 0 var(--sp-4);
+		border-left: 2px solid var(--reg-contentious);
 	}
 
 	.open li {
-		margin-bottom: 0.7rem;
+		margin-bottom: var(--sp-3);
+	}
+
+	.open li:last-child {
+		margin-bottom: 0;
 	}
 </style>

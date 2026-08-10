@@ -1,10 +1,15 @@
 <script lang="ts">
 	/**
-	 * An ECharts canvas that resizes with its container, follows the colour
+	 * An ECharts figure that resizes with its container, follows the colour
 	 * scheme, and tears itself down.
 	 *
 	 * Only the chart and component types used by the dashboard are registered;
 	 * this keeps ECharts tree-shakeable while `init` remains browser-only.
+	 *
+	 * SVG, not canvas. These figures are the part of the site most likely to
+	 * leave it — into a slide, a paper, a printout — and only SVG survives that
+	 * at any size. It also means the text in a chart is real text: selectable,
+	 * searchable, and rendered in the same faces as the page around it.
 	 */
 	import { BarChart, GraphChart, LineChart, ScatterChart } from 'echarts/charts';
 	import {
@@ -19,7 +24,7 @@
 	import { onMount } from 'svelte';
 	import type { EChartsOption } from 'echarts';
 	import type { EChartsType } from 'echarts/core';
-	import { CanvasRenderer } from 'echarts/renderers';
+	import { SVGRenderer } from 'echarts/renderers';
 
 	use([
 		BarChart,
@@ -32,13 +37,13 @@
 		DataZoomComponent,
 		MarkLineComponent,
 		AriaComponent,
-		CanvasRenderer
+		SVGRenderer
 	]);
 
 	interface Props {
 		option: EChartsOption;
 		height?: string;
-		/** Announced to screen readers in place of the canvas. */
+		/** Announced to screen readers in place of the drawing. */
 		description: string;
 		onclick?: (params: {
 			name?: string;
@@ -56,7 +61,7 @@
 	let ready = $state(false);
 
 	onMount(() => {
-		chart = init(element, undefined, { renderer: 'canvas' });
+		chart = init(element, undefined, { renderer: 'svg' });
 		chart.setOption({
 			animation: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
 			aria: { enabled: true, decal: { show: true } },
@@ -89,7 +94,7 @@
 </script>
 
 <figure class="chart" style:height role="img" aria-label={description}>
-	<div bind:this={element} class="canvas"></div>
+	<div bind:this={element} class="plot"></div>
 	{#if !ready}
 		<p class="loading">Drawing…</p>
 	{/if}
@@ -102,7 +107,7 @@
 		width: 100%;
 	}
 
-	.canvas {
+	.plot {
 		width: 100%;
 		height: 100%;
 	}
@@ -113,7 +118,8 @@
 		display: grid;
 		place-items: center;
 		margin: 0;
-		color: var(--ink-faint);
-		font-size: 0.875rem;
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-3);
 	}
 </style>

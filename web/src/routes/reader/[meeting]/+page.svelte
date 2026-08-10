@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import ExternalLink from '@lucide/svelte/icons/external-link';
+	import Icon from '$lib/Icon.svelte';
 	import { kwicIndex, meeting as loadMeeting } from '$lib/data';
 	import { count, isoDate, shortCountry, termLabel, unSearch } from '$lib/format';
-	import { registerColour } from '$lib/theme';
 	import type { Meeting, Speech } from '$lib/types';
 	import { tick } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -142,7 +144,36 @@
 	const preview = (speech: Speech) =>
 		speech.text.slice(speech.body_start, speech.body_start + 180).replace(/\s+/g, ' ') + '…';
 
-	const colourFor = (terms: string[]) => registerColour(registers[terms[0]] ?? 'core');
+	// The register names the mark's rule; `app.css` owns what each one looks
+	// like, so the drawing lives in one place rather than in an inline colour.
+	const registerFor = (terms: string[]) => registers[terms[0]] ?? 'core';
+
+	/**
+	 * The marginal apparatus: what is marked in this record, counted by register,
+	 * and how much of it was spoken in another language before it was written
+	 * down in this one.
+	 *
+	 * Ordered by the lexicon's own order rather than by size, so the same
+	 * registers sit in the same places from one meeting to the next.
+	 */
+	const ORDER = ['core', 'legal', 'preventive', 'commemorative', 'contentious', 'accountability'];
+
+	const marksHere = $derived.by(() => {
+		const tally: Record<string, number> = {};
+		for (const speech of record?.speeches ?? []) {
+			for (const [term, spans] of Object.entries(speech.hits)) {
+				if (filterTerm && term !== filterTerm) continue;
+				const register = registers[term] ?? 'core';
+				tally[register] = (tally[register] ?? 0) + spans.length;
+			}
+		}
+		return ORDER.filter((r) => tally[r]).map((r) => ({ register: r, n: tally[r] }));
+	});
+
+	const interpreted = $derived(
+		(record?.speeches ?? []).filter((s) => s.language && s.language.toLowerCase() !== 'english')
+			.length
+	);
 </script>
 
 <svelte:head>
@@ -160,19 +191,28 @@
 {:else}
 	<article class="reader">
 		<header>
-			<p class="crumb"><a href={resolve('/concordance')}>Concordance</a> → meeting record</p>
-			<h1>{record.topic}</h1>
-			<p class="meta">
-				<a href={unSearch(record.spv)}>{record.spv}</a>
-				· {isoDate(record.date)}
-				· {count(record.speeches.length)} speeches · agenda item <strong>{record.agenda}</strong>
-				({record.region})
+			<p class="crumb">
+				<a href={resolve('/concordance')}>Concordance</a><Icon icon={ChevronRight} />meeting record
 			</p>
-			<p class="note">
-				Text as it appears in the verbatim record, digitised and OCR'd &mdash; occasional character
-				errors are the source's, not a transcription made here. Highlights are drawn from offsets
-				computed by the pipeline, so what is marked is exactly what was counted.
-			</p>
+			<div class="titling">
+				<div>
+					<!-- Rule 06: the symbol is the address, and it is the first thing
+					     on the page because it is what a reader would cite. -->
+					<p class="spv">{record.spv}</p>
+					<h1>{record.topic}</h1>
+					<p class="meta">
+						{isoDate(record.date)} · {count(record.speeches.length)} speeches · agenda item
+						<strong>{record.agenda}</strong>
+						({record.region})
+					</p>
+				</div>
+				<p class="jump">
+					<a href={unSearch(record.spv)}>UN Digital Library<Icon icon={ExternalLink} /></a>
+					<a href="{resolve('/concordance')}?spv={encodeURIComponent(record.spv)}"
+						>Concordance for this meeting</a
+					>
+				</p>
+			</div>
 		</header>
 
 		<div class="toolbar">
@@ -190,224 +230,334 @@
 			<button class="ghost" onclick={openAll}>Open every speech</button>
 		</div>
 
-		<ol class="speeches">
-			{#each record.speeches as speech (speech.id)}
-				{@const hits = Object.entries(speech.hits).filter(([t]) => !filterTerm || t === filterTerm)}
-				{@const marked = hits.reduce((n, [, spans]) => n + spans.length, 0)}
-				<li id={speech.id} class:target={speech.id === wantedSpeech}>
-					<button
-						class="head"
-						onclick={() => toggle(speech.id)}
-						aria-expanded={open.has(speech.id)}
-					>
-						<span class="n">{speech.n}</span>
-						<span class="who">
-							<strong>{speech.speaker ?? shortCountry(speech.country)}</strong>
-							<span class="sub">
-								{shortCountry(speech.country)}
-								· {speech.group}
-								{#if speech.role}· {speech.role}{/if}
-								{#if speech.language}· spoke in {speech.language}{/if}
+		<!-- The document, and its apparatus in the margin beside it. -->
+		<div class="split">
+			<ol class="speeches">
+				{#each record.speeches as speech (speech.id)}
+					{@const hits = Object.entries(speech.hits).filter(
+						([t]) => !filterTerm || t === filterTerm
+					)}
+					{@const marked = hits.reduce((n, [, spans]) => n + spans.length, 0)}
+					<li id={speech.id} class:target={speech.id === wantedSpeech}>
+						<button
+							class="head"
+							onclick={() => toggle(speech.id)}
+							aria-expanded={open.has(speech.id)}
+						>
+							<span class="n symbol">{speech.n}</span>
+							<span class="who">
+								<strong>{speech.speaker ?? shortCountry(speech.country)}</strong>
+								<span class="sub">
+									{shortCountry(speech.country)}
+									· {speech.group}
+									{#if speech.role}· {speech.role}{/if}
+									{#if speech.language}· spoke in {speech.language}{/if}
+								</span>
 							</span>
-						</span>
-						<span class="tags">
-							{#if marked}
-								<span class="count">{marked}</span>
-							{/if}
-							<span class="chev" class:down={open.has(speech.id)}>›</span>
-						</span>
-					</button>
+							<span class="tags">
+								{#if marked}
+									<span class="count">{marked}</span>
+								{/if}
+								<span class="chev" class:down={open.has(speech.id)}
+									><Icon icon={ChevronRight} /></span
+								>
+							</span>
+						</button>
 
-					{#if open.has(speech.id)}
-						<div class="text">
-							{#each visible(speech) as segment, i (i)}
-								{#if segment.terms.length}
-									<mark
-										style:--mark={colourFor(segment.terms)}
-										title={segment.terms.map(termLabel).join(', ')}>{segment.text}</mark
-									>
-								{:else}{segment.text}{/if}
+						{#if open.has(speech.id)}
+							<div class="text">
+								{#each visible(speech) as segment, i (i)}
+									{#if segment.terms.length}
+										<mark
+											data-register={registerFor(segment.terms)}
+											title={segment.terms.map(termLabel).join(', ')}>{segment.text}</mark
+										>
+									{:else}{segment.text}{/if}
+								{/each}
+							</div>
+							<p class="speech-meta symbol">
+								{speech.id} · {count(speech.tokens)} words
+								{#if Object.keys(speech.hits).length}
+									· {Object.keys(speech.hits).map(termLabel).join(', ')}
+								{/if}
+							</p>
+						{:else}
+							<p class="preview">{preview(speech)}</p>
+						{/if}
+					</li>
+				{/each}
+			</ol>
+
+			<aside class="apparatus">
+				<div class="note">
+					<span class="label">Marks in this record</span>
+					{#if marksHere.length}
+						<ul class="tally-list">
+							{#each marksHere as entry (entry.register)}
+								<li>
+									<span class="swatch" data-register={entry.register}></span>
+									<span class="name">{entry.register}</span>
+									<span class="symbol">{count(entry.n)}</span>
+								</li>
 							{/each}
-						</div>
-						<p class="speech-meta">
-							<code>{speech.id}</code> · {count(speech.tokens)} words
-							{#if Object.keys(speech.hits).length}
-								· {Object.keys(speech.hits).map(termLabel).join(', ')}
-							{/if}
-						</p>
+						</ul>
 					{:else}
-						<p class="preview">{preview(speech)}</p>
+						<p class="prose">No lexicon term is marked under the current filter.</p>
 					{/if}
-				</li>
-			{/each}
-		</ol>
+				</div>
+
+				<div class="note">
+					<span class="label">Delivery language</span>
+					<p class="prose">
+						{count(interpreted)} of {count(record.speeches.length)} speeches carry a non-English delivery
+						language. The record is English by construction.
+					</p>
+				</div>
+
+				<div class="note">
+					<span class="label">The text</span>
+					<p class="prose">
+						As it appears in the verbatim record, digitised and OCR'd &mdash; occasional character
+						errors are the source's, not a transcription made here. Marks are drawn from the offsets
+						the pipeline computed, so what is marked is exactly what was counted.
+					</p>
+				</div>
+
+				<div class="note src">
+					<span class="label">Source</span>
+					<p class="symbol">09_export_speeches.py<br />→ speeches/{record.basename}.json</p>
+				</div>
+			</aside>
+		</div>
 	</article>
 {/if}
 
 <style>
 	.notice,
 	.loading {
-		max-width: 40rem;
-		margin: 3rem auto;
+		max-width: var(--measure);
+		margin: var(--sp-7) auto;
 		text-align: center;
-		color: var(--ink-soft);
-	}
-
-	.reader {
-		max-width: 52rem;
-		margin: 0 auto;
+		color: var(--ink-2);
 	}
 
 	.crumb {
-		font-size: 0.8rem;
-		color: var(--ink-faint);
-		margin-bottom: 0.6rem;
+		display: flex;
+		align-items: center;
+		gap: 0.25em;
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-3);
+		margin-bottom: var(--sp-3);
+	}
+
+	.titling {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: var(--sp-6);
+		align-items: start;
+		padding-bottom: var(--sp-4);
+		border-bottom: var(--hair) solid var(--rule-strong);
+	}
+
+	@media (max-width: 44rem) {
+		.titling {
+			grid-template-columns: minmax(0, 1fr);
+			gap: var(--sp-3);
+		}
+	}
+
+	/* Rule 06: the citation that produced the page, in mono, above its title. */
+	.spv {
+		margin: 0;
+		font-family: var(--mono);
+		font-size: var(--step-2);
+		letter-spacing: -0.01em;
+		font-variant-numeric: tabular-nums;
+		color: var(--ink);
 	}
 
 	header h1 {
-		font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.1rem);
+		font-size: var(--step-3);
+		margin: var(--sp-2) 0 0;
+		max-width: 28ch;
 	}
 
 	.meta {
-		font-size: 0.9rem;
-		color: var(--ink-soft);
-		margin-bottom: 0.7rem;
+		margin: var(--sp-1) 0 0;
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-3);
 	}
 
-	.note {
-		font-size: 0.82rem;
-		color: var(--ink-faint);
-		border-left: 1px solid var(--rule);
-		padding-left: 0.8rem;
-		max-width: 42rem;
+	.jump {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: var(--sp-1);
+		margin: 0;
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		text-align: right;
+	}
+
+	.jump a {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3em;
+	}
+
+	@media (max-width: 44rem) {
+		.jump {
+			align-items: flex-start;
+			text-align: left;
+		}
 	}
 
 	.toolbar {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.6rem 1.2rem;
+		gap: var(--sp-3) var(--sp-5);
 		align-items: center;
-		padding: 0.8rem 0;
-		margin-bottom: 1rem;
-		border-top: 1px solid var(--rule);
-		border-bottom: 1px solid var(--rule);
+		padding: var(--sp-3) 0;
+		margin-bottom: var(--sp-5);
+		border-bottom: var(--hair) solid var(--rule-strong);
 		position: sticky;
-		top: 3.6rem;
+		top: 3.4rem;
 		background: var(--paper);
 		z-index: 2;
 	}
 
 	label {
-		font-size: 0.83rem;
-		color: var(--ink-faint);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-3);
 		display: inline-flex;
 		align-items: center;
-		gap: 0.45rem;
+		gap: var(--sp-2);
 	}
 
 	select {
-		background: var(--panel);
-		color: var(--ink);
-		border: 1px solid var(--rule);
-		border-radius: 4px;
-		padding: 0.25rem 0.4rem;
-		font-size: 0.85rem;
+		max-width: 18rem;
 	}
 
 	.tally {
-		font-size: 0.8rem;
-		color: var(--ink-faint);
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink-3);
 		margin-left: auto;
 	}
 
 	.ghost {
 		background: none;
-		border: 1px solid var(--rule);
-		border-radius: 4px;
-		padding: 0.2rem 0.6rem;
-		font-size: 0.8rem;
-		color: var(--ink-soft);
+		border: var(--hair) solid var(--rule-strong);
+		padding: var(--sp-1) var(--sp-3);
+		min-height: 2rem;
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		color: var(--ink-2);
 		cursor: pointer;
 	}
 
 	.ghost:hover {
-		border-color: var(--accent);
-		color: var(--accent);
+		border-color: var(--blue);
+		color: var(--blue);
+	}
+
+	/* The document, and beside it the apparatus. Below 62rem the margin folds
+	   under the record and keeps its rule, exactly as it does in a figure. */
+	.split {
+		display: grid;
+		gap: var(--sp-6);
+	}
+
+	@media (min-width: 62rem) {
+		.split {
+			grid-template-columns: minmax(0, 1fr) var(--measure-note);
+			align-items: start;
+		}
 	}
 
 	.speeches {
 		list-style: none;
 		margin: 0;
 		padding: 0;
+		min-width: 0;
 	}
 
 	.speeches li {
-		border-bottom: 1px solid var(--rule-soft);
-		padding-bottom: 0.6rem;
-		margin-bottom: 0.6rem;
+		border-bottom: var(--hair) solid var(--rule);
+		padding-bottom: var(--sp-3);
+		margin-bottom: var(--sp-3);
 		scroll-margin-top: 8rem;
 	}
 
 	.speeches li.target {
-		border-left: 1px solid var(--accent);
-		padding-left: 0.9rem;
-		margin-left: -1.2rem;
+		box-shadow: inset 2px 0 0 var(--blue-flag);
+		padding-left: var(--sp-3);
+		margin-left: calc(-1 * var(--sp-4));
 	}
 
 	.head {
 		display: grid;
-		grid-template-columns: 2.2rem 1fr auto;
-		gap: 0.7rem;
+		grid-template-columns: 2.2rem minmax(0, 1fr) auto;
+		gap: var(--sp-3);
 		align-items: baseline;
 		width: 100%;
 		text-align: left;
 		background: none;
 		border: none;
-		padding: 0.4rem 0;
+		min-height: 0;
+		padding: var(--sp-2) 0;
 		cursor: pointer;
+		font-family: inherit;
 		color: inherit;
 	}
 
 	.head:hover .who strong {
-		color: var(--accent);
+		color: var(--blue);
 	}
 
 	.n {
-		font-variant-numeric: tabular-nums;
-		color: var(--ink-faint);
-		font-size: 0.78rem;
+		color: var(--ink-3);
+		font-size: var(--step--2);
 	}
 
+	/* The speaker line is apparatus, not text: it names who is talking, in the
+	   voice the sidenotes use, so the record itself stays the only serif. */
 	.who strong {
-		font-family: var(--serif);
-		font-size: 1.02rem;
 		display: block;
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		font-weight: 700;
+		letter-spacing: 0.02em;
 	}
 
 	.sub {
-		font-size: 0.78rem;
-		color: var(--ink-faint);
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		color: var(--ink-3);
 	}
 
 	.tags {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--sp-2);
 	}
 
 	.count {
-		background: var(--accent-soft);
-		color: var(--accent);
-		border-radius: 999px;
-		padding: 0.05rem 0.45rem;
-		font-size: 0.74rem;
+		background: var(--mark);
+		color: var(--ink);
+		padding: 0.05rem 0.4rem;
+		font-family: var(--mono);
+		font-size: var(--step--2);
 		font-variant-numeric: tabular-nums;
 	}
 
 	.chev {
-		color: var(--ink-faint);
-		transition: transform 0.15s;
-		display: inline-block;
+		color: var(--ink-3);
+		display: inline-flex;
+		transition: transform var(--dur) var(--ease);
 	}
 
 	.chev.down {
@@ -416,8 +566,9 @@
 
 	.preview {
 		margin: 0 0 0 2.9rem;
-		font-size: 0.85rem;
-		color: var(--ink-faint);
+		font-size: var(--step--1);
+		color: var(--ink-3);
+		max-width: var(--measure);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		display: -webkit-box;
@@ -427,31 +578,114 @@
 	}
 
 	.text {
-		margin: 0.5rem 0 0.6rem 2.9rem;
+		margin: var(--sp-2) 0 var(--sp-3) 2.9rem;
 		font-family: var(--serif);
-		font-size: 1.02rem;
-		line-height: 1.7;
+		font-size: var(--step-0);
+		line-height: 1.68;
 		white-space: pre-wrap;
 		max-width: var(--measure);
 	}
 
-	mark {
-		background: color-mix(in srgb, var(--mark) 22%, transparent);
-		color: inherit;
-		border-bottom: 2px solid var(--mark);
-		padding: 0 0.05em;
-		border-radius: 2px;
-	}
-
 	.speech-meta {
 		margin: 0 0 0 2.9rem;
-		font-size: 0.75rem;
-		color: var(--ink-faint);
+		font-size: var(--step--2);
+		color: var(--ink-3);
 	}
 
-	.speech-meta code {
-		background: none;
+	/* ---- the apparatus ---------------------------------------------------- */
+
+	.apparatus {
+		display: grid;
+		gap: var(--sp-4);
+		border-left: var(--hair) solid var(--rule-strong);
+		padding-left: var(--sp-4);
+	}
+
+	@media (min-width: 62rem) {
+		.apparatus {
+			position: sticky;
+			top: 7rem;
+		}
+	}
+
+	@media (max-width: 61.999rem) {
+		.apparatus {
+			grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+		}
+	}
+
+	.label {
+		display: block;
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--ink-3);
+		margin-bottom: var(--sp-2);
+	}
+
+	.prose {
+		margin: 0;
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		line-height: 1.5;
+		color: var(--ink-2);
+	}
+
+	.tally-list {
+		list-style: none;
+		margin: 0;
 		padding: 0;
-		font-size: 0.75rem;
+		display: grid;
+		gap: var(--sp-1);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+	}
+
+	.tally-list li {
+		display: grid;
+		grid-template-columns: 0.7rem minmax(0, 1fr) auto;
+		gap: var(--sp-2);
+		align-items: center;
+	}
+
+	.tally-list .symbol {
+		color: var(--ink-3);
+	}
+
+	/* The same six data colours the marks in the text carry. */
+	.swatch {
+		width: 0.7rem;
+		height: 0.7rem;
+		background: var(--ink);
+	}
+
+	.swatch[data-register='legal'] {
+		background: var(--reg-legal);
+	}
+	.swatch[data-register='preventive'] {
+		background: var(--reg-preventive);
+	}
+	.swatch[data-register='commemorative'] {
+		background: var(--reg-commemorative);
+	}
+	.swatch[data-register='contentious'] {
+		background: var(--reg-contentious);
+	}
+	.swatch[data-register='accountability'] {
+		background: var(--reg-accountability);
+	}
+
+	.src {
+		border-top: var(--hair) solid var(--rule);
+		padding-top: var(--sp-3);
+	}
+
+	.src .symbol {
+		margin: 0;
+		line-height: 1.5;
+		color: var(--ink-2);
+		overflow-wrap: anywhere;
 	}
 </style>

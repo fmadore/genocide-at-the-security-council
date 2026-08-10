@@ -3,8 +3,13 @@
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
+	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Download from '@lucide/svelte/icons/download';
+	import ExternalLink from '@lucide/svelte/icons/external-link';
+	import X from '@lucide/svelte/icons/x';
 	import { kwic, meetingOf, speechOf } from '$lib/data';
 	import Figure from '$lib/Figure.svelte';
+	import Icon from '$lib/Icon.svelte';
 	import { bytes, count, isoDate, shortCountry, termLabel, unSearch } from '$lib/format';
 	import { segments } from '$lib/highlight';
 	import type { KwicFile, KwicLine } from '$lib/types';
@@ -15,6 +20,17 @@
 
 	type Sort = 'date' | 'country' | 'agenda' | 'left' | 'right';
 
+	/* A segmented control rather than a select: five short words, all visible at
+	   once, because which sort is in force changes what the column of nodes
+	   means and should never be one click out of sight. */
+	const SORTS: { value: Sort; label: string; hint: string }[] = [
+		{ value: 'date', label: 'Date', hint: 'Chronological, then by speech id' },
+		{ value: 'country', label: 'Speaker', hint: 'Alphabetical by speaker' },
+		{ value: 'agenda', label: 'Agenda', hint: 'Alphabetical by agenda item' },
+		{ value: 'left', label: 'Left', hint: 'Alphabetical on the word before the node, reversed' },
+		{ value: 'right', label: 'Right', hint: 'Alphabetical on the word after the node' }
+	];
+
 	const PAGE = 60;
 
 	let term = $state('genocide');
@@ -22,6 +38,8 @@
 	let group = $state('');
 	let country = $state('');
 	let agenda = $state('');
+	/** One meeting symbol, so the reader can come back the way it sent you. */
+	let spv = $state('');
 	let from = $state(1992);
 	let to = $state(2023);
 	let sort = $state<Sort>('date');
@@ -42,6 +60,7 @@
 		group = params.get('group') ?? '';
 		country = params.get('country') ?? '';
 		agenda = params.get('agenda') ?? '';
+		spv = params.get('spv') ?? '';
 		from = Number(params.get('from') ?? 1992);
 		to = Number(params.get('to') ?? 2023);
 		sort = (params.get('sort') as Sort) ?? 'date';
@@ -85,6 +104,7 @@
 		if (group) next.set('group', group);
 		if (country) next.set('country', country);
 		if (agenda) next.set('agenda', agenda);
+		if (spv) next.set('spv', spv);
 		if (from !== 1992) next.set('from', String(from));
 		if (to !== 2023) next.set('to', String(to));
 		if (sort !== 'date') next.set('sort', sort);
@@ -126,6 +146,7 @@
 			if (group && l.group !== group) return false;
 			if (country && l.country !== country) return false;
 			if (agenda && l.agenda !== agenda) return false;
+			if (spv && l.spv !== spv) return false;
 			return test ? test(l) : true;
 		});
 		const tail = (s: string) => [...s.toLowerCase().replace(/[^a-z ]/g, '')].reverse().join('');
@@ -143,7 +164,7 @@
 
 	$effect(() => {
 		// Any change to the filter resets the page window.
-		void [term, query, group, country, agenda, from, to, sort];
+		void [term, query, group, country, agenda, spv, from, to, sort];
 		shown = PAGE;
 	});
 
@@ -152,6 +173,7 @@
 		group = '';
 		country = '';
 		agenda = '';
+		spv = '';
 		from = 1992;
 		to = 2023;
 		sort = 'date';
@@ -220,16 +242,19 @@
 			<label class="check">
 				<input type="checkbox" bind:checked={regex} /> regex
 			</label>
-			<label>
-				Sort
-				<select bind:value={sort}>
-					<option value="date">Date</option>
-					<option value="country">Speaker</option>
-					<option value="agenda">Agenda item</option>
-					<option value="left">Left context (reversed)</option>
-					<option value="right">Right context</option>
-				</select>
-			</label>
+			<div class="sort">
+				<span class="label" id="sort-label">Sort</span>
+				<div class="segmented" role="group" aria-labelledby="sort-label">
+					{#each SORTS as option (option.value)}
+						<button
+							type="button"
+							title={option.hint}
+							aria-pressed={sort === option.value}
+							onclick={() => (sort = option.value)}>{option.label}</button
+						>
+					{/each}
+				</div>
+			</div>
 		{/snippet}
 
 		{#snippet reading()}
@@ -284,6 +309,13 @@
 				<span>&ndash;</span>
 				<input type="number" min="1992" max="2023" bind:value={to} />
 			</label>
+			{#if spv}
+				<button class="chip" onclick={() => (spv = '')}>
+					<span class="symbol">{spv}</span>
+					<Icon icon={X} />
+					<span class="sr">Clear the meeting filter</span>
+				</button>
+			{/if}
 			<button class="ghost" onclick={reset}>Reset</button>
 		</div>
 
@@ -299,10 +331,18 @@
 					{#if filtered.length !== lines.length}after filtering{/if}
 				</span>
 				<button class="ghost" onclick={download} disabled={!filtered.length}>
+					<Icon icon={Download} />
 					Export {count(filtered.length)} to CSV
 				</button>
 			{/if}
 			{#if badRegex}<span id="regex-error" class="error">Not a valid regular expression.</span>{/if}
+		</div>
+
+		<div class="columns" aria-hidden="true">
+			<span>Symbol &middot; speaker</span>
+			<span class="c-left">Left context</span>
+			<span class="c-node">Node</span>
+			<span>Right context</span>
 		</div>
 
 		<div class="kwic" role="list">
@@ -314,32 +354,44 @@
 						aria-expanded={expanded === line.id}
 					>
 						<span class="meta">
-							<span class="year">{line.date.slice(0, 4)}</span>
+							<span class="spv">{line.spv}</span>
 							<span class="who">{shortCountry(line.country)}</span>
 						</span>
 						<span class="left"
-							>{#each segments(line.left, query, regex) as part, i (i)}{#if part.hit}<mark
-										>{part.text}</mark
-									>{:else}{part.text}{/if}{/each}</span
+							><span class="ltr"
+								>{#each segments(line.left, query, regex) as part, i (i)}{#if part.hit}<mark
+											class="hit">{part.text}</mark
+										>{:else}{part.text}{/if}{/each}</span
+							></span
 						>
 						<span class="kw"
-							>{#each segments(line.kw, query, regex) as part, i (i)}{#if part.hit}<mark
-										>{part.text}</mark
-									>{:else}{part.text}{/if}{/each}</span
+							><mark
+								>{#each segments(line.kw, query, regex) as part, i (i)}{#if part.hit}<mark
+											class="hit">{part.text}</mark
+										>{:else}{part.text}{/if}{/each}</mark
+							></span
 						>
 						<span class="right"
 							>{#each segments(line.right, query, regex) as part, i (i)}{#if part.hit}<mark
-										>{part.text}</mark
+										class="hit">{part.text}</mark
 									>{:else}{part.text}{/if}{/each}</span
 						>
 					</button>
 
 					{#if expanded === line.id}
 						<div class="detail">
+							<!-- Two layers, the same two as the line above: the node carries
+							     the wash, the reader's query carries the rule under the word.
+							     Segmented in that order so a query that matches the node is
+							     drawn as both rather than losing one to the other. -->
 							<blockquote>
-								{#each segments(line.sent, query, regex) as part, i (i)}{#if part.hit}<mark
-											>{part.text}</mark
-										>{:else}{part.text}{/if}{/each}
+								{#each segments(line.sent, line.kw) as part, i (i)}{#if part.hit}<mark
+											>{#each segments(part.text, query, regex) as bit, j (j)}{#if bit.hit}<mark
+														class="hit">{bit.text}</mark
+													>{:else}{bit.text}{/if}{/each}</mark
+										>{:else}{#each segments(part.text, query, regex) as bit, j (j)}{#if bit.hit}<mark
+													class="hit">{bit.text}</mark
+												>{:else}{bit.text}{/if}{/each}{/if}{/each}
 							</blockquote>
 							<dl>
 								<div>
@@ -362,7 +414,11 @@
 								</div>
 								<div>
 									<dt>Record</dt>
-									<dd><a href={unSearch(line.spv)}>{line.spv}</a></dd>
+									<dd>
+										<a class="symbol" href={unSearch(line.spv)}
+											>{line.spv}<Icon icon={ExternalLink} /></a
+										>
+									</dd>
 								</div>
 							</dl>
 							<p class="actions">
@@ -372,7 +428,7 @@
 										meeting: meetingOf(line.id)
 									})}?speech={speechOf(line.id)}&term={term}"
 								>
-									Read the whole speech
+									Read the whole speech<Icon icon={ArrowRight} />
 								</a>
 								<code class="id">{line.id}</code>
 							</p>
@@ -432,181 +488,285 @@
 
 <style>
 	.lede {
-		max-width: 46rem;
-		margin-bottom: 2rem;
+		max-width: var(--measure);
+		margin-bottom: var(--sp-6);
 	}
 
 	.standfirst {
-		font-size: 1.08rem;
-		color: var(--ink-soft);
+		font-size: var(--step-1);
+		line-height: 1.5;
+		color: var(--ink-2);
 	}
 
-	label {
-		font-size: 0.83rem;
-		color: var(--ink-faint);
+	label,
+	.sort {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.45rem;
+		gap: var(--sp-2);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-3);
+	}
+
+	.sort .label {
+		display: inline;
 	}
 
 	select,
 	input {
-		background: var(--panel);
-		color: var(--ink);
-		border: 1px solid var(--rule);
-		border-radius: 4px;
-		padding: 0.25rem 0.4rem;
-		font-size: 0.85rem;
 		max-width: 16rem;
 	}
 
 	input[type='number'] {
-		width: 5rem;
+		width: 5.5rem;
 	}
 
 	input.bad {
-		border-color: var(--negative);
+		border-color: var(--state-bad);
 	}
 
 	.filters {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.6rem 1.2rem;
+		gap: var(--sp-3) var(--sp-5);
 		align-items: center;
-		padding: 0.8rem 0;
+		padding: var(--sp-3) 0;
 	}
 
+	/* The tally is a citation of the view itself: how much of the file the
+	   filters have left, in the same face as every other number that could be
+	   pasted somewhere. */
 	.status {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 1rem;
-		padding: 0.5rem 0 0.9rem;
-		border-bottom: 1px solid var(--rule);
-		font-size: 0.85rem;
-		color: var(--ink-soft);
+		gap: var(--sp-4);
+		padding: var(--sp-2) 0 var(--sp-3);
+		border-bottom: var(--hair) solid var(--rule-strong);
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink-3);
+	}
+
+	.status strong {
+		color: var(--ink);
 	}
 
 	.error {
-		color: var(--negative);
+		color: var(--state-bad);
 	}
 
 	.ghost,
 	.more,
 	.link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4em;
 		background: none;
-		border: 1px solid var(--rule);
-		border-radius: 4px;
-		padding: 0.45rem 0.7rem;
-		min-height: 2.5rem;
-		font-size: 0.8rem;
-		color: var(--ink-soft);
+		border: var(--hair) solid var(--rule-strong);
+		padding: var(--sp-1) var(--sp-3);
+		min-height: 2rem;
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		color: var(--ink-2);
 		cursor: pointer;
 	}
 
 	.ghost:hover,
 	.more:hover {
-		border-color: var(--accent);
-		color: var(--accent);
+		border-color: var(--blue);
+		color: var(--blue);
+	}
+
+	.ghost:disabled {
+		color: var(--ink-3);
+		border-color: var(--rule);
+		cursor: default;
 	}
 
 	.link {
 		border: none;
 		padding: 0;
-		min-height: 2rem;
-		color: var(--accent);
+		min-height: 0;
+		color: var(--blue);
 		text-decoration: underline;
-		text-underline-offset: 0.15em;
+		text-underline-offset: 0.18em;
+	}
+
+	/* An active filter that came in through the URL, and the way back out of it. */
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4em;
+		background: var(--mark);
+		border: var(--hair) solid var(--rule-strong);
+		padding: var(--sp-1) var(--sp-3);
+		min-height: 2rem;
+		color: var(--ink);
+		cursor: pointer;
+	}
+
+	.chip:hover {
+		border-color: var(--blue);
+	}
+
+	.sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 
 	.more {
-		display: block;
-		margin: 1rem auto 0;
-		padding: 0.4rem 1.1rem;
+		display: flex;
+		margin: var(--sp-4) auto 0;
+		padding: var(--sp-2) var(--sp-5);
+	}
+
+	/* ---- the concordance proper -------------------------------------------
+	   A true KWIC: one fixed axis down the middle of the page with the node on
+	   it, the left context right-aligned against it and the right context
+	   running away from it. Sorting on either context then makes recurring
+	   grammatical frames stack up as shapes in the column. */
+
+	.columns,
+	.line {
+		display: grid;
+		grid-template-columns: 7.5rem minmax(0, 1fr) auto minmax(0, 1fr);
+		gap: 0 var(--sp-3);
+		align-items: baseline;
+	}
+
+	.columns {
+		padding: 0 var(--sp-2) var(--sp-2);
+		border-bottom: var(--hair) solid var(--rule-strong);
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--ink-3);
+	}
+
+	.c-left {
+		text-align: right;
+	}
+
+	.c-node {
+		text-align: center;
 	}
 
 	.kwic {
-		font-size: 0.85rem;
+		font-family: var(--serif);
+		font-size: var(--step--1);
+		line-height: 1.9;
 	}
 
 	.row {
-		border-bottom: 1px solid var(--rule-soft);
+		border-bottom: var(--hair) solid var(--rule);
+	}
+
+	.row:nth-child(even) {
+		background: var(--paper-sunk);
 	}
 
 	.line {
-		display: grid;
-		grid-template-columns: 9.5rem 1fr auto 1fr;
-		gap: 0 0.5rem;
-		align-items: baseline;
 		width: 100%;
 		text-align: left;
 		background: none;
 		border: none;
-		padding: 0.32rem 0.2rem;
+		border-radius: 0;
+		min-height: 0;
+		padding: 0.12rem var(--sp-2);
 		cursor: pointer;
+		font-family: inherit;
 		font-size: inherit;
 		color: inherit;
 	}
 
-	.line:hover {
-		background: var(--rule-soft);
+	/* Interaction is the accent's job, and a bar on the leading edge does not
+	   compete with the striping that tells one line from the next. */
+	.line:hover,
+	.line[aria-expanded='true'] {
+		box-shadow: inset 2px 0 0 var(--blue-flag);
 	}
 
 	.meta {
 		display: flex;
-		gap: 0.45rem;
-		color: var(--ink-faint);
-		font-size: 0.76rem;
+		flex-direction: column;
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		line-height: 1.4;
+		color: var(--ink-3);
 		overflow: hidden;
+	}
+
+	.spv {
+		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
 
-	.year {
-		font-variant-numeric: tabular-nums;
-	}
-
 	.who {
+		color: var(--ink-2);
 		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
+	/* `direction: rtl` truncates the left context at its far end rather than at
+	   the node; the inner span puts the text itself back into logical order so
+	   trailing punctuation does not migrate to the wrong side. */
 	.left {
 		text-align: right;
 		white-space: nowrap;
 		overflow: hidden;
+		text-overflow: ellipsis;
 		direction: rtl;
-		color: var(--ink-soft);
+		color: var(--ink-2);
+	}
+
+	.ltr {
+		direction: ltr;
+		unicode-bidi: embed;
 	}
 
 	.kw {
-		font-weight: 600;
-		color: var(--accent);
+		text-align: center;
 		white-space: nowrap;
 	}
 
-	/* The reader's own query, as distinct from the node term. The keyword is
-	   already marked by colour and weight, so a search hit is marked by ground
-	   instead of by figure — otherwise a search for the keyword would style it
-	   twice over and a search for anything else would compete with it. */
-	mark {
-		background: color-mix(in oklab, var(--accent) 26%, transparent);
-		color: inherit;
-		border-radius: 2px;
-		padding: 0 0.08em;
+	.kw mark {
+		font-weight: 600;
+	}
+
+	/* Two marks with two jobs. The node carries the wash, because it is what the
+	   concordance was built around; the reader's own query carries a rule under
+	   the word, so a search for the node itself reads as both at once instead of
+	   styling the same characters twice. */
+	mark.hit {
+		background: none;
+		box-shadow: inset 0 -2px 0 var(--blue-flag);
 	}
 
 	.right {
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		color: var(--ink-soft);
+		color: var(--ink-2);
 	}
 
 	@media (max-width: 60rem) {
+		.columns {
+			display: none;
+		}
+
 		.line {
-			grid-template-columns: 1fr;
-			gap: 0.15rem;
-			padding: 0.6rem 0.2rem;
+			grid-template-columns: minmax(0, 1fr);
+			gap: var(--sp-1);
+			padding: var(--sp-2);
+			line-height: 1.5;
 		}
 
 		.left,
@@ -618,97 +778,122 @@
 		}
 
 		.kw {
-			display: inline;
+			text-align: left;
 		}
 	}
 
 	.detail {
-		padding: 0.6rem 0.2rem 1rem 10rem;
+		padding: var(--sp-3) var(--sp-2) var(--sp-4) 8.25rem;
 	}
 
 	@media (max-width: 60rem) {
 		.detail {
-			padding-left: 0.2rem;
+			padding-left: var(--sp-2);
 		}
 	}
 
 	blockquote {
-		margin: 0 0 0.8rem;
-		padding-left: 0.9rem;
-		border-left: 1px solid var(--accent);
+		margin: 0 0 var(--sp-3);
+		padding-left: var(--sp-3);
+		border-left: var(--hair) solid var(--rule-strong);
 		font-family: var(--serif);
-		font-size: 1rem;
+		font-size: var(--step-0);
 		line-height: 1.55;
+		max-width: var(--measure);
 	}
 
 	.detail dl {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-		gap: 0.5rem 1.2rem;
-		margin: 0 0 0.8rem;
+		gap: var(--sp-2) var(--sp-5);
+		margin: 0 0 var(--sp-3);
 	}
 
 	.detail dt {
-		font-size: 0.7rem;
-		letter-spacing: 0.05em;
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		font-weight: 700;
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
-		color: var(--ink-faint);
+		color: var(--ink-3);
 	}
 
 	.detail dd {
 		margin: 0;
-		font-size: 0.85rem;
+		font-family: var(--sans);
+		font-size: var(--step--1);
+	}
+
+	.detail dd a {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3em;
 	}
 
 	.iso {
-		color: var(--ink-faint);
+		color: var(--ink-3);
 		font-family: var(--mono);
-		font-size: 0.75rem;
+		font-size: var(--step--2);
 	}
 
 	.actions {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.9rem;
+		gap: var(--sp-4);
 		margin: 0;
 	}
 
 	.button {
-		display: inline-block;
-		padding: 0.3rem 0.8rem;
-		border: 1px solid var(--accent);
-		border-radius: 4px;
-		color: var(--accent);
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4em;
+		padding: var(--sp-2) var(--sp-3);
+		border: var(--hair) solid var(--blue);
+		color: var(--blue);
 		text-decoration: none;
-		font-size: 0.83rem;
+		font-family: var(--sans);
+		font-size: var(--step--1);
 	}
 
 	.button:hover {
-		background: var(--accent);
-		color: var(--panel);
+		background: var(--blue);
+		color: var(--paper);
+	}
+
+	.button:hover :global(.icon) {
+		transform: translateX(0.2rem);
+	}
+
+	.button :global(.icon) {
+		transition: transform var(--dur) var(--ease);
 	}
 
 	.id {
-		background: none;
-		padding: 0;
-		font-size: 0.72rem;
-		color: var(--ink-faint);
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink-3);
 	}
 
 	.empty {
 		text-align: center;
-		color: var(--ink-faint);
-		padding: 2.5rem 0;
+		color: var(--ink-3);
+		padding: var(--sp-7) 0;
+	}
+
+	.terms {
+		margin-top: var(--sp-7);
 	}
 
 	.terms h2 {
-		font-size: 1.05rem;
+		font-size: var(--step-2);
 	}
 
 	.hint {
-		font-size: 0.85rem;
-		color: var(--ink-soft);
+		max-width: var(--measure);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-2);
 	}
 
 	.table-scroll {
@@ -716,12 +901,7 @@
 		overflow-x: auto;
 	}
 
-	.table-scroll:focus-visible {
-		outline: 2px solid var(--accent);
-		outline-offset: 2px;
-	}
-
 	tr.current td {
-		background: var(--accent-soft);
+		background: var(--mark);
 	}
 </style>

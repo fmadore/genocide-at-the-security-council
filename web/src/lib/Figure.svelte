@@ -2,30 +2,37 @@
 	/**
 	 * The frame every visualisation on this site sits in.
 	 *
-	 * A chart without an account of itself is a decoration. Each figure therefore
-	 * states four things, and none of them is hidden behind a toggle:
+	 * A chart without an account of itself is a decoration. Each figure states
+	 * four things, and none of them is hidden behind a toggle:
 	 *
 	 *   question   what it is here to answer
 	 *   reading    how to read the marks on it
 	 *   caveat     what it does not show, or what would be wrong to conclude
 	 *   source     the script and the file behind it, so any number can be traced
 	 *
-	 * `caveat` is optional only in the sense that some figures genuinely have
-	 * none. Most do.
+	 * The apparatus is set in the MARGIN, beside the evidence, the way a critical
+	 * edition sets its notes — not queued underneath where it reads as boilerplate.
+	 * Below 62rem the margin folds under the figure and keeps its rule.
+	 *
+	 * No panel, no border, no radius: a figure is separated from the page by a
+	 * rule and by space, like everything else here.
 	 */
 	import type { Snippet } from 'svelte';
 
 	interface Props {
 		title: string;
 		question: string;
+		/** Script and artefact, e.g. "04_series.py → series/annual.json". */
 		source: string;
 		reading: Snippet;
 		caveat?: Snippet;
 		controls?: Snippet;
+		/** Shown under the figure in mono: says the geometry is not the claim. */
+		note?: string;
 		children: Snippet;
 	}
 
-	let { title, question, source, reading, caveat, controls, children }: Props = $props();
+	let { title, question, source, reading, caveat, controls, note, children }: Props = $props();
 </script>
 
 <figure class="figure">
@@ -38,101 +45,127 @@
 		<div class="controls">{@render controls()}</div>
 	{/if}
 
-	<div class="body">{@render children()}</div>
-
-	<div class="notes">
-		<div class="note">
-			<span class="label">How to read this</span>
-			<div class="prose">{@render reading()}</div>
+	<div class="split">
+		<div class="body">
+			{@render children()}
+			{#if note}
+				<p class="note-line">{note}</p>
+			{/if}
 		</div>
-		{#if caveat}
-			<div class="note quiet">
-				<span class="label">What it does not show</span>
-				<div class="prose">{@render caveat()}</div>
-			</div>
-		{/if}
-	</div>
 
-	<p class="source"><span>Source</span> <code>{source}</code></p>
+		<aside class="apparatus">
+			<div class="note">
+				<span class="label lead">How to read this</span>
+				<div class="prose">{@render reading()}</div>
+			</div>
+			{#if caveat}
+				<div class="note">
+					<span class="label">What it does not show</span>
+					<div class="prose">{@render caveat()}</div>
+				</div>
+			{/if}
+			<div class="note src">
+				<span class="label">Source</span>
+				<p class="symbol">{source}</p>
+			</div>
+		</aside>
+	</div>
 </figure>
 
 <style>
 	.figure {
-		margin: 0 0 3.5rem;
-		background: var(--panel);
-		border: 1px solid var(--rule);
-		border-radius: 6px;
-		padding: 1.4rem 1.5rem 1rem;
+		margin: 0 0 var(--sp-8);
+		padding-top: var(--sp-5);
+		border-top: var(--hair) solid var(--rule-strong);
 	}
 
 	.head {
-		margin-bottom: 1rem;
+		margin-bottom: var(--sp-4);
 	}
 
 	.head h3 {
-		margin: 0 0 0.15em;
+		margin: 0 0 0.1em;
+		font-size: var(--step-2);
 	}
 
 	.question {
 		margin: 0;
-		color: var(--ink-soft);
-		font-size: 0.95rem;
-		max-width: 52rem;
+		max-width: var(--measure);
+		color: var(--ink-2);
+		font-size: var(--step-0);
+		line-height: 1.5;
 	}
 
 	.controls {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.6rem 1.2rem;
-		align-items: center;
-		padding: 0.7rem 0;
-		margin-bottom: 0.6rem;
-		border-top: 1px solid var(--rule-soft);
-		border-bottom: 1px solid var(--rule-soft);
+		gap: var(--sp-3) var(--sp-5);
+		align-items: end;
+		padding: var(--sp-3) 0;
+		margin-bottom: var(--sp-4);
+		border-top: var(--hair) solid var(--rule);
+		border-bottom: var(--hair) solid var(--rule);
 	}
 
-	.body {
-		overflow-x: auto;
-	}
-
-	.notes {
+	.split {
 		display: grid;
-		gap: 0.9rem;
-		margin-top: 1.2rem;
-		padding-top: 1rem;
-		border-top: 1px solid var(--rule-soft);
+		gap: var(--sp-5);
 	}
 
-	@media (min-width: 56rem) {
-		.notes {
-			grid-template-columns: 1fr 1fr;
-			gap: 1.8rem;
+	@media (min-width: 62rem) {
+		.split {
+			grid-template-columns: minmax(0, 1fr) var(--measure-note);
+			gap: var(--sp-6);
+			align-items: start;
 		}
 	}
 
-	.note {
-		border-left: 1px solid var(--accent);
-		padding-left: 0.85rem;
+	.body {
+		min-width: 0;
+		overflow-x: auto;
 	}
 
-	.note.quiet {
-		border-left-color: var(--rule);
+	.note-line {
+		margin: var(--sp-2) 0 0;
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink-3);
+	}
+
+	.apparatus {
+		display: grid;
+		gap: var(--sp-4);
+		border-left: var(--hair) solid var(--rule-strong);
+		padding-left: var(--sp-4);
+	}
+
+	@media (max-width: 61.999rem) {
+		.apparatus {
+			grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+		}
 	}
 
 	.label {
 		display: block;
-		font-size: 0.7rem;
-		font-weight: 600;
-		letter-spacing: 0.07em;
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		font-weight: 700;
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
-		color: var(--ink-faint);
-		margin-bottom: 0.25rem;
+		color: var(--ink-3);
+		margin-bottom: var(--sp-1);
+	}
+
+	/* The reading note is the one the reader needs first. */
+	.lead {
+		color: var(--blue);
 	}
 
 	.prose {
-		font-size: 0.9rem;
-		line-height: 1.55;
-		color: var(--ink-soft);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		line-height: 1.5;
+		color: var(--ink-2);
 	}
 
 	.prose :global(p) {
@@ -145,22 +178,25 @@
 
 	.prose :global(strong) {
 		color: var(--ink);
+		font-weight: 600;
 	}
 
-	.source {
-		margin: 1rem 0 0;
-		font-size: 0.75rem;
-		color: var(--ink-faint);
+	.prose :global(code) {
+		font-family: var(--mono);
+		font-size: 0.9em;
 	}
 
-	.source span {
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
+	.src {
+		border-top: var(--hair) solid var(--rule);
+		padding-top: var(--sp-3);
 	}
 
-	.source code {
-		background: none;
-		padding: 0;
-		font-size: 0.75rem;
+	.src .symbol {
+		margin: 0;
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		line-height: 1.5;
+		color: var(--ink-2);
+		overflow-wrap: anywhere;
 	}
 </style>

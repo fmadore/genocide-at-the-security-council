@@ -2,27 +2,53 @@
  * Chart styling, read from the CSS custom properties in `app.css`.
  *
  * ECharts cannot resolve `var(--ink)`, so the values are read off the document
- * once and handed over as literals. That keeps one definition of the palette
- * rather than two that drift, and it means the charts follow the light/dark
- * switch instead of ignoring it.
+ * once and handed over as literals. One definition of the palette, not two that
+ * drift, and the charts follow the theme switch instead of ignoring it.
  *
- * The fragments below are deliberately returned as plain inferred objects
- * rather than as slices of `EChartsOption`. Spreading out of that type widens
- * an axis to `XAXisOption | XAXisOption[]`, and every chart that composed one
- * would then have to be cast back. Composed at the call site into an object
- * annotated `EChartsOption`, they type-check exactly.
+ * Two rules the fragments below enforce:
+ *   1. The accent is for interaction. A datum is never drawn in `--blue`.
+ *   2. Nothing is framed. Axis lines are hairlines in `--rule`; there is no
+ *      chart border, no shadow, no rounded tooltip.
+ *
+ * The `Palette` keys are unchanged from the previous version so existing route
+ * code keeps compiling; only the tokens they read have moved.
  */
 
 import { readable } from 'svelte/store';
 
-/** Reactive colour-scheme signal; chart option builders subscribe to this. */
-export const colourScheme = readable<'light' | 'dark'>('light', (set) => {
+export type Scheme = 'light' | 'dark';
+
+/** Resolve the theme the way app.html's boot script does. */
+function current(): Scheme {
+	if (typeof document === 'undefined') return 'light';
+	const set = document.documentElement.dataset.theme;
+	if (set === 'dark' || set === 'light') return set;
+	return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/**
+ * Reactive colour-scheme signal; chart option builders subscribe to this.
+ * Watches the `data-theme` attribute first and the media query as a fallback,
+ * so an explicit user choice and the OS setting both redraw the charts.
+ */
+export const colourScheme = readable<Scheme>('light', (set) => {
 	if (typeof window === 'undefined') return;
-	const query = window.matchMedia('(prefers-color-scheme: dark)');
-	const update = () => set(query.matches ? 'dark' : 'light');
+	const update = () => set(current());
 	update();
+
+	const observer = new MutationObserver(update);
+	observer.observe(document.documentElement, {
+		attributes: true,
+		attributeFilter: ['data-theme']
+	});
+
+	const query = window.matchMedia('(prefers-color-scheme: dark)');
 	query.addEventListener('change', update);
-	return () => query.removeEventListener('change', update);
+
+	return () => {
+		observer.disconnect();
+		query.removeEventListener('change', update);
+	};
 });
 
 const REGISTERS = ['core', 'legal', 'preventive', 'commemorative', 'contentious', 'accountability'];
@@ -34,6 +60,7 @@ export interface Palette {
 	panel: string;
 	rule: string;
 	ruleSoft: string;
+	/** Interaction only — markLines, brush handles, selected state. Never a series. */
 	accent: string;
 	positive: string;
 	negative: string;
@@ -48,22 +75,28 @@ function read(name: string, fallback: string): string {
 
 export function palette(): Palette {
 	return {
-		ink: read('--ink', '#16181d'),
-		inkSoft: read('--ink-soft', '#4a4f5a'),
-		inkFaint: read('--ink-faint', '#767c88'),
-		panel: read('--panel', '#ffffff'),
-		rule: read('--rule', '#e2e2dd'),
-		ruleSoft: read('--rule-soft', '#efefea'),
-		accent: read('--accent', '#8a2b2b'),
-		positive: read('--positive', '#2d6a4f'),
-		negative: read('--negative', '#8a2b2b'),
-		registers: Object.fromEntries(REGISTERS.map((r) => [r, read(`--register-${r}`, '#8a2b2b')]))
+		ink: read('--ink', '#14171a'),
+		inkSoft: read('--ink-2', '#3d444c'),
+		inkFaint: read('--ink-3', '#626a74'),
+		panel: read('--paper-raised', '#fbfbf8'),
+		rule: read('--rule-strong', '#b7bcaf'),
+		ruleSoft: read('--rule', '#d6d9cf'),
+		accent: read('--blue', '#1b5fa8'),
+		positive: read('--state-ok', '#4a6b2e'),
+		negative: read('--state-bad', '#98333a'),
+		registers: Object.fromEntries(
+			REGISTERS.map((r) => [
+				r,
+				// core resolves to var(--ink); read the computed value, not the var().
+				r === 'core' ? read('--ink', '#14171a') : read(`--reg-${r}`, '#626a74')
+			])
+		)
 	};
 }
 
-/** Colour for a register, falling back to the accent for anything unlisted. */
+/** Colour for a register, falling back to ink for anything unlisted. */
 export function registerColour(register: string, p = palette()): string {
-	return p.registers[register] ?? p.accent;
+	return p.registers[register] ?? p.ink;
 }
 
 /** A categorical ramp for series that are not registers. */
@@ -71,48 +104,90 @@ export function categorical(p = palette()): string[] {
 	return REGISTERS.map((r) => p.registers[r]);
 }
 
-export const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+/** Series that carry no category at all: one weight of ink, never the accent. */
+export function neutral(p = palette()): string {
+	return p.inkFaint;
+}
 
-/** Room for labels, and nothing wasted on chrome. */
-export const grid = () => ({
-	left: 8,
-	right: 16,
-	top: 28,
-	bottom: 8,
-	containLabel: true
+export const FONT = 'Archivo, system-ui, -apple-system, sans-serif';
+export const MONO = 'IBM Plex Mono, ui-monospace, SFMono-Regular, monospace';
+
+/**
+ * Room for labels, and nothing wasted on chrome. `right` is generous because
+ * series are labelled at their right-hand end rather than in a legend.
+ *
+ * `outerBoundsMode`/`outerBoundsContain` are ECharts 6's replacement for
+ * `containLabel`, which it deprecated: the pair below is the documented
+ * equivalent, and it keeps the axis labels inside the rect these numbers
+ * describe rather than letting them hang off the edge of the figure. The
+ * right-hand reservation stays outside that containment, because it is there
+ * for the end labels rather than for the axis.
+ */
+export const grid = (labelled = true) => ({
+	left: 2,
+	right: labelled ? 96 : 16,
+	top: 18,
+	bottom: 4,
+	outerBoundsMode: 'same' as const,
+	outerBoundsContain: 'axisLabel' as const
 });
 
 export const tooltip = (p: Palette) => ({
 	backgroundColor: p.panel,
 	borderColor: p.rule,
 	borderWidth: 1,
-	padding: [8, 11],
-	textStyle: { color: p.ink, fontSize: 13 },
-	extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,0.12); border-radius: 4px;'
+	padding: [8, 11] as [number, number],
+	textStyle: { color: p.ink, fontSize: 13, fontFamily: FONT },
+	extraCssText: 'box-shadow: none; border-radius: 0;'
 });
 
+/**
+ * A legend is a lookup table the reader has to hold in their head. Prefer
+ * `endLabel` on each series; keep this for the few charts that must page
+ * through more series than can be labelled in place.
+ */
 export const legend = (p: Palette) => ({
 	type: 'scroll' as const,
 	top: 0,
-	icon: 'roundRect',
-	itemWidth: 11,
-	itemHeight: 11,
-	textStyle: { color: p.inkSoft, fontSize: 12 }
+	icon: 'rect',
+	itemWidth: 10,
+	itemHeight: 2,
+	itemGap: 18,
+	textStyle: { color: p.inkSoft, fontSize: 12, fontFamily: FONT }
+});
+
+/** Label a line at its right-hand end instead of in a legend. */
+export const endLabel = (colour: string, name: string) => ({
+	show: true,
+	formatter: name,
+	color: colour,
+	fontFamily: FONT,
+	fontSize: 12,
+	fontWeight: 600 as const,
+	distance: 6
 });
 
 /** Axis lines light enough not to compete with the data they frame. */
 export const axisX = (p: Palette) => ({
-	axisLine: { lineStyle: { color: p.rule } },
+	axisLine: { lineStyle: { color: p.rule, width: 1 } },
 	axisTick: { show: false },
-	axisLabel: { color: p.inkFaint, fontSize: 12 },
+	axisLabel: { color: p.inkFaint, fontSize: 12, fontFamily: MONO },
 	splitLine: { show: false }
 });
 
 export const axisY = (p: Palette) => ({
 	axisLine: { show: false },
 	axisTick: { show: false },
-	axisLabel: { color: p.inkFaint, fontSize: 12 },
-	splitLine: { lineStyle: { color: p.ruleSoft } }
+	axisLabel: { color: p.inkFaint, fontSize: 12, fontFamily: MONO },
+	splitLine: { lineStyle: { color: p.ruleSoft, width: 1 } }
+});
+
+/** Reference dates and change points: ink, dashed, never the accent. */
+export const markLine = (p: Palette) => ({
+	silent: true,
+	symbol: 'none' as const,
+	lineStyle: { color: p.inkFaint, width: 1, type: 'dashed' as const },
+	label: { color: p.inkFaint, fontFamily: FONT, fontSize: 11 }
 });
 
 export const textStyle = { fontFamily: FONT };

@@ -1,7 +1,9 @@
 <script lang="ts">
 	import '../app.css';
+	import serifRoman from '../fonts/SourceSerif4Variable-Roman.woff2?url';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import ThemeToggle from '$lib/ThemeToggle.svelte';
 	import type { Snippet } from 'svelte';
 
 	let { children }: { children: Snippet } = $props();
@@ -29,13 +31,19 @@
 	const isReader = $derived(here.includes('/reader/'));
 </script>
 
+<svelte:head>
+	<!-- The text face, preloaded here rather than in `app.html` because Vite
+	     fingerprints it and only the module graph knows the emitted name. -->
+	<link rel="preload" href={serifRoman} as="font" type="font/woff2" crossorigin="anonymous" />
+</svelte:head>
+
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="masthead">
 	<div class="inner">
 		<a class="wordmark" href={resolve('/')}>
-			<strong>Genocide at the Security Council</strong>
-			<span>UN Security Council debates, 1992&ndash;2023</span>
+			<strong><mark>Genocide</mark> at the Security Council</strong>
+			<span class="symbol">1992&ndash;2023</span>
 		</a>
 		<nav aria-label="Sections">
 			<ul>
@@ -50,6 +58,7 @@
 						>
 					</li>
 				{/each}
+				<li class="no-print"><ThemeToggle /></li>
 			</ul>
 		</nav>
 	</div>
@@ -90,27 +99,28 @@
 	}
 
 	.skip:focus {
-		left: 1rem;
-		top: 1rem;
-		z-index: 10;
-		background: var(--panel);
-		padding: 0.5rem 0.9rem;
-		border: 1px solid var(--rule);
-		border-radius: 4px;
+		left: var(--sp-4);
+		top: var(--sp-4);
+		z-index: var(--z-popover);
+		background: var(--paper);
+		border: var(--hair) solid var(--rule-strong);
+		padding: var(--sp-2) var(--sp-3);
 	}
 
+	/* A rule and the ground colour, not a panel. The masthead is the top edge of
+	   the page, not an object sitting on it. */
 	.masthead {
-		border-bottom: 1px solid var(--rule);
-		background: var(--panel);
+		border-bottom: var(--hair) solid var(--rule-strong);
+		background: var(--paper);
 		position: sticky;
 		top: 0;
-		z-index: 5;
+		z-index: var(--z-masthead);
 	}
 
 	.inner {
-		max-width: var(--wide);
+		max-width: var(--page);
 		margin: 0 auto;
-		padding: 0 1.5rem;
+		padding: 0 var(--gutter);
 	}
 
 	.masthead .inner {
@@ -118,34 +128,38 @@
 		flex-wrap: wrap;
 		align-items: baseline;
 		justify-content: space-between;
-		gap: 0.5rem 2rem;
-		padding-top: 0.7rem;
-		padding-bottom: 0.7rem;
+		gap: var(--sp-2) var(--sp-6);
+		padding-top: var(--sp-3);
+		padding-bottom: var(--sp-3);
 	}
 
+	/* The wordmark is the site's one gesture at its own scale: a marked word in
+	   a line of running text. */
 	.wordmark {
 		text-decoration: none;
 		color: inherit;
 		display: flex;
-		flex-direction: column;
-		line-height: 1.25;
+		align-items: baseline;
+		gap: var(--sp-3);
 	}
 
 	.wordmark strong {
 		font-family: var(--serif);
-		font-size: 1.05rem;
+		font-size: var(--step-0);
 		font-weight: 600;
+		letter-spacing: -0.01em;
 	}
 
 	.wordmark span {
-		font-size: 0.75rem;
-		color: var(--ink-faint);
+		color: var(--ink-3);
+		font-size: var(--step--2);
 	}
 
 	nav ul {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.2rem 1.3rem;
+		align-items: baseline;
+		gap: var(--sp-2) var(--sp-5);
 		list-style: none;
 		margin: 0;
 		padding: 0;
@@ -153,32 +167,37 @@
 
 	nav a {
 		text-decoration: none;
-		color: var(--ink-soft);
-		font-size: 0.9rem;
-		padding: 0.2rem 0;
-		border-bottom: 2px solid transparent;
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-3);
+		padding-bottom: 0.15rem;
 	}
 
 	nav a:hover {
 		color: var(--ink);
 	}
 
+	/* An inset shadow rather than a border: it sits inside the box without
+	   adding to the line's height, so nothing moves when it appears. */
 	nav a.active {
 		color: var(--ink);
-		border-bottom-color: var(--accent);
+		font-weight: 600;
+		box-shadow: inset 0 -2px 0 var(--blue-flag);
 	}
 
 	main {
-		max-width: var(--wide);
+		max-width: var(--page);
 		margin: 0 auto;
-		padding: 2.5rem 1.5rem 4rem;
+		padding: var(--sp-7) var(--gutter) var(--sp-9);
 	}
 
 	footer {
-		border-top: 1px solid var(--rule);
-		padding: 2rem 0 3rem;
-		font-size: 0.83rem;
-		color: var(--ink-soft);
+		border-top: var(--hair) solid var(--rule-strong);
+		padding: var(--sp-6) 0 var(--sp-7);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		line-height: 1.55;
+		color: var(--ink-2);
 	}
 
 	footer p {
@@ -186,6 +205,6 @@
 	}
 
 	footer .quiet {
-		color: var(--ink-faint);
+		color: var(--ink-3);
 	}
 </style>

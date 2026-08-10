@@ -1,14 +1,17 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
 	import Figure from '$lib/Figure.svelte';
+	import Icon from '$lib/Icon.svelte';
 	import { count, decimal, escapeHtml, isoDate, percent, termLabel } from '$lib/format';
 	import {
 		axisX,
 		axisY,
 		categorical,
 		colourScheme,
+		endLabel,
 		grid,
 		legend,
 		palette,
@@ -82,12 +85,14 @@
 				? `${termLabel(name.slice(4))} (set)`
 				: termLabel(name);
 
+	// A term with no register of its own is drawn in ink, not in the accent: the
+	// accent belongs to what the reader can act on, never to a series.
 	const colourOf = (name: string, p = colours) =>
 		name.startsWith('register:')
 			? registerColour(name.slice(9), p)
 			: allMeasures[name]?.register
 				? registerColour(allMeasures[name].register!, p)
-				: p.accent;
+				: p.ink;
 
 	function toggle(name: string) {
 		selected = selected.includes(name) ? selected.filter((n) => n !== name) : [...selected, name];
@@ -107,13 +112,23 @@
 
 	const byYearLookup = $derived(new SvelteMap(eventMarks));
 
+	/* Name each line where it ends rather than in a legend — up to the point
+	   where the labels would sit on top of each other. Past that a legend is the
+	   lesser evil, which is the one case `theme.ts` keeps it for. */
+	const LABELLABLE = 8;
+
 	const main: EChartsOption = $derived.by(() => {
 		const p = colours;
 		const usable = selected.filter((n) => allMeasures[n] && !unavailable.includes(n));
+		const named = usable.length <= LABELLABLE;
 		return {
 			textStyle,
-			legend: legend(p),
-			grid: { ...grid(), top: 34, bottom: showEvents && grain === 'year' ? 30 : 8 },
+			legend: named ? undefined : legend(p),
+			grid: {
+				...grid(named),
+				top: named ? 12 : 34,
+				bottom: showEvents && grain === 'year' ? 30 : 8
+			},
 			tooltip: {
 				...tooltip(p),
 				trigger: 'axis',
@@ -180,6 +195,7 @@
 				symbolSize: grain === 'year' ? 5 : 0,
 				lineStyle: { width: 2.2, color: colourOf(name, p) },
 				itemStyle: { color: colourOf(name, p) },
+				endLabel: named ? endLabel(colourOf(name, p), label(name)) : undefined,
 				emphasis: { focus: 'series' },
 				// Silent: the rule is a mark, not a hover target. What it means is read
 				// off the axis tooltip, which fires anywhere in the year's column.
@@ -341,7 +357,7 @@
 			onclick={drillChronology}
 		/>
 		<details class="data-table">
-			<summary>View the plotted values as a table</summary>
+			<summary><Icon icon={ChevronRight} />View the plotted values as a table</summary>
 			<table>
 				<thead
 					><tr
@@ -468,7 +484,7 @@
 			</tbody>
 		</table>
 		<details class="data-table">
-			<summary>View the exploratory WBS diagnostics</summary>
+			<summary><Icon icon={ChevronRight} />View the exploratory WBS diagnostics</summary>
 			<p>{data.breaks.caveat}</p>
 			<table>
 				<thead><tr><th>Unit</th><th>Candidate</th><th class="num">Diagnostic p</th></tr></thead>
@@ -558,119 +574,127 @@
 
 <style>
 	.lede {
-		max-width: 46rem;
-		margin-bottom: 2rem;
+		max-width: var(--measure);
+		margin-bottom: var(--sp-6);
 	}
 
 	.standfirst {
-		font-size: 1.08rem;
-		color: var(--ink-soft);
+		font-size: var(--step-1);
+		line-height: 1.5;
+		color: var(--ink-2);
 	}
 
 	label {
-		font-size: 0.83rem;
-		color: var(--ink-faint);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-3);
 		display: inline-flex;
 		align-items: center;
-		gap: 0.45rem;
+		gap: var(--sp-2);
 	}
 
 	label.check {
-		gap: 0.35rem;
+		gap: var(--sp-2);
 	}
 
 	select {
-		background: var(--panel);
-		color: var(--ink);
-		border: 1px solid var(--rule);
-		border-radius: 4px;
-		padding: 0.25rem 0.4rem;
-		font-size: 0.85rem;
+		max-width: 16rem;
 	}
 
 	.unit-note {
-		font-size: 0.78rem;
-		color: var(--ink-faint);
-		font-style: italic;
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink-3);
 		margin-left: auto;
 	}
 
 	.picker {
-		margin: 0 0 3rem;
+		margin: 0 0 var(--sp-7);
 	}
 
 	.picker h2 {
-		font-size: 1.05rem;
+		font-size: var(--step-2);
 	}
 
 	.hint {
-		font-size: 0.85rem;
-		color: var(--ink-soft);
-		max-width: 46rem;
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-2);
+		max-width: var(--measure);
 	}
 
 	.chips {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.35rem;
+		gap: var(--sp-1);
 	}
 
+	/* A term chip is a control that names a series, so it carries the series'
+	   colour on one edge and takes the ink of a control everywhere else. No
+	   radius, and no filling a button with a data colour. */
 	.chip {
-		border: 1px solid var(--rule);
-		background: var(--panel);
-		color: var(--ink-soft);
-		border-radius: 999px;
-		padding: 0.22rem 0.7rem;
-		font-size: 0.8rem;
+		border: var(--hair) solid var(--rule-strong);
+		border-left: 3px solid var(--chip);
+		background: none;
+		color: var(--ink-2);
+		padding: var(--sp-1) var(--sp-3);
+		min-height: 2rem;
+		font-family: var(--sans);
+		font-size: var(--step--2);
 		cursor: pointer;
 		line-height: 1.5;
 	}
 
 	.chip:hover {
-		border-color: var(--chip);
+		border-color: var(--ink-2);
+		border-left-color: var(--chip);
 		color: var(--ink);
 	}
 
 	.chip.on {
-		background: var(--chip);
-		border-color: var(--chip);
-		color: var(--panel);
+		background: var(--ink);
+		border-color: var(--ink);
+		border-left-color: var(--chip);
+		color: var(--paper);
 	}
 
 	.warn {
-		margin: -2rem 0 2.5rem;
-		padding: 0.6rem 0.9rem;
-		border-left: 1px solid var(--accent);
-		background: var(--accent-soft);
-		font-size: 0.87rem;
+		margin: calc(-1 * var(--sp-6)) 0 var(--sp-6);
+		padding: var(--sp-2) var(--sp-3);
+		border-left: 2px solid var(--reg-contentious);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-2);
 	}
 
 	.empty {
-		color: var(--ink-faint);
-		font-size: 0.9rem;
-		padding: 2rem 0;
+		color: var(--ink-3);
+		font-size: var(--step--1);
+		padding: var(--sp-6) 0;
 		text-align: center;
 	}
 
+	/* Direction, not judgement: a ratio above one is not a bad thing, so these
+	   are the semantic states rather than the register ramp. */
 	.num.up {
-		color: var(--negative);
+		color: var(--state-bad);
 	}
 
 	.num.down {
-		color: var(--positive);
+		color: var(--state-ok);
 	}
 
 	tr.none td {
-		color: var(--ink-faint);
+		color: var(--ink-3);
 		font-style: italic;
 	}
 
 	.events {
-		margin-top: 1rem;
+		margin-top: var(--sp-6);
 	}
 
 	.events h2 {
-		font-size: 1.05rem;
+		font-size: var(--step-2);
 	}
 
 	.table-scroll {
@@ -678,34 +702,22 @@
 		overflow-x: auto;
 	}
 
-	.table-scroll:focus-visible {
-		outline: 2px solid var(--accent);
-		outline-offset: 2px;
-	}
-
 	.date {
 		white-space: nowrap;
+		font-family: var(--mono);
 		font-variant-numeric: tabular-nums;
 	}
 
 	.note {
-		color: var(--ink-faint);
+		color: var(--ink-3);
 	}
 
 	.kind {
-		font-size: 0.72rem;
-		letter-spacing: 0.04em;
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		font-weight: 700;
+		letter-spacing: 0.1em;
 		text-transform: uppercase;
-		color: var(--ink-faint);
-	}
-
-	.data-table {
-		margin-top: 1rem;
-	}
-
-	.data-table summary {
-		cursor: pointer;
-		color: var(--accent);
-		font-size: 0.85rem;
+		color: var(--ink-3);
 	}
 </style>

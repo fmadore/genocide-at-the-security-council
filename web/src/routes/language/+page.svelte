@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
 	import Figure from '$lib/Figure.svelte';
+	import Icon from '$lib/Icon.svelte';
 	import WordCloud from '$lib/WordCloud.svelte';
 	import { plan } from '$lib/wordcloud';
 	import {
@@ -295,6 +297,50 @@
 		return b?.collocates.slice(0, n) ?? [];
 	}
 
+	/**
+	 * Two ways to set the two profiles against each other, because they answer
+	 * different questions.
+	 *
+	 *   rank   each column's own strongest collocates, in its own order. Rows do
+	 *          not correspond, and the finding is that the two *sets* differ.
+	 *   word   one word per row, both sides' figures for it. Rows correspond, and
+	 *          the finding is how far apart the two are on the same word — with
+	 *          an em dash where the word is not in the other profile at all.
+	 */
+	let align = $state<'rank' | 'word'>('rank');
+
+	const alignedRows = $derived.by(() => {
+		const inA = new Map((blockA?.collocates ?? []).map((w) => [w.word, w]));
+		const inB = new Map((blockB?.collocates ?? []).map((w) => [w.word, w]));
+		const words = [
+			...new Set([...topWords(blockA).map((w) => w.word), ...topWords(blockB).map((w) => w.word)])
+		];
+		return words
+			.map((word) => ({ word, a: inA.get(word) ?? null, b: inB.get(word) ?? null }))
+			.sort(
+				(x, y) =>
+					Math.max(y.a?.log_ratio ?? 0, y.b?.log_ratio ?? 0) -
+					Math.max(x.a?.log_ratio ?? 0, x.b?.log_ratio ?? 0)
+			);
+	});
+
+	/**
+	 * One scale for both columns. Normalising each side to its own maximum would
+	 * make two bars of equal length mean two different numbers, which is the one
+	 * thing a side-by-side comparison must not do.
+	 */
+	const compareTop = $derived(
+		Math.max(
+			...(align === 'word'
+				? alignedRows.flatMap((r) => [r.a?.log_ratio ?? 0, r.b?.log_ratio ?? 0])
+				: [...topWords(blockA), ...topWords(blockB)].map((w) => w.log_ratio)),
+			0
+		) || 1
+	);
+
+	const barWidth = (value: number | null | undefined) =>
+		value == null ? '0%' : `${Math.max(1.5, (value / compareTop) * 100)}%`;
+
 	const sliceLabel = (name: string) => memberLabel(sliceKind, name);
 	const concordanceHref = (term: string, query = '') => {
 		const params = new SvelteURLSearchParams({ term });
@@ -386,7 +432,7 @@
 			onclick={openCollocate}
 		/>
 		<details class="data-table">
-			<summary>View the leading collocates as a table</summary>
+			<summary><Icon icon={ChevronRight} />View the leading collocates as a table</summary>
 			<table>
 				<thead
 					><tr
@@ -542,7 +588,7 @@
 				same {count(cloudSelection.rows.length)} words, in the same order.
 			</p>
 			<details class="data-table">
-				<summary>View the same words as a table</summary>
+				<summary><Icon icon={ChevronRight} />View the same words as a table</summary>
 				<table>
 					<thead
 						><tr
@@ -592,14 +638,38 @@
 					{#each sliceOptions as o (o)}<option value={o}>{sliceLabel(o)}</option>{/each}
 				</select>
 			</label>
+			<div class="view">
+				<span class="label" id="align-view">Align</span>
+				<div class="segmented" role="group" aria-labelledby="align-view">
+					<button
+						type="button"
+						aria-pressed={align === 'rank'}
+						title="Each column's own strongest collocates, in its own order"
+						onclick={() => (align = 'rank')}>By rank</button
+					>
+					<button
+						type="button"
+						aria-pressed={align === 'word'}
+						title="One word per row, with both sides' figures for it"
+						onclick={() => (align = 'word')}>By word</button
+					>
+				</div>
+			</div>
 			<span class="unit-note">no slice under {count(minimumSpeeches)} speeches is drawn</span>
 		{/snippet}
 
 		{#snippet reading()}
 			<p>
-				Two collocate profiles side by side, each computed on its own subset at &plusmn;{data.sliced
-					.width} words but against the <em>same</em> whole-corpus reference. A word in one column and
-				not the other is doing work in one mouth that it is not doing in the other.
+				Two collocate profiles, each computed on its own subset at &plusmn;{data.sliced.width} words but
+				against the <em>same</em> whole-corpus reference. Both columns are drawn to
+				<strong>one shared scale</strong>, so a longer bar is a larger log ratio wherever it sits.
+			</p>
+			<p>
+				<strong>By rank</strong> puts each column's own strongest words in its own order — rows do
+				not correspond, and the finding is that the two <em>sets</em> of words differ.
+				<strong>By word</strong> gives every word one row and both sides' figures for it, so the finding
+				is how far apart the two are on the same word; an em dash means the word is not in that profile
+				at all.
 			</p>
 			<p>
 				Try <strong>Rwanda</strong> against any other speaker: almost everyone's profile is the Rome Statute
@@ -617,44 +687,113 @@
 			</p>
 		{/snippet}
 
-		<div class="compare">
-			{#each [{ key: sliceA, b: blockA }, { key: sliceB, b: blockB }] as side (side.key)}
-				<div>
-					<h4>
-						{sliceLabel(side.key)}
-						<span
-							>{count(side.b?.speeches ?? 0)} speeches · {count(side.b?.occurrences ?? 0)} occurrences</span
-						>
-					</h4>
-					{#if (side.b?.speeches ?? 0) < minimumSpeeches}
-						<p class="withheld">
-							{count(side.b?.speeches ?? 0)} speeches, under the {count(minimumSpeeches)} this artefact
-							declares as its minimum. No profile is drawn for it.
-						</p>
-					{:else}
-						<table>
-							<thead>
-								<tr
-									><th>Word</th><th class="num">Near</th><th class="num">G²</th><th class="num"
-										>Log ratio</th
-									></tr
-								>
-							</thead>
-							<tbody>
+		{#if align === 'rank'}
+			<!-- Parallel text: the oldest scholarly layout there is. One profile per
+			     column, a rule down the middle. Rows do not correspond, and the
+			     finding is that the two sets of words differ. -->
+			<div class="compare">
+				{#each [{ key: sliceA, b: blockA }, { key: sliceB, b: blockB }] as side, i (side.key)}
+					{#if i === 1}<div class="gutter" aria-hidden="true"></div>{/if}
+					<div class="side">
+						<h4>
+							<span class="who">{sliceLabel(side.key)}</span>
+							<span class="symbol"
+								>{count(side.b?.speeches ?? 0)} speeches · {count(side.b?.occurrences ?? 0)} occurrences</span
+							>
+						</h4>
+						{#if (side.b?.speeches ?? 0) < minimumSpeeches}
+							<p class="withheld">
+								{count(side.b?.speeches ?? 0)} speeches, under the {count(minimumSpeeches)} this artefact
+								declares as its minimum. No profile is drawn for it.
+							</p>
+						{:else}
+							<ol class="profile">
 								{#each topWords(side.b) as w (w.word)}
-									<tr>
-										<td><a href={concordanceHref('genocide', w.word)}>{w.word}</a></td>
-										<td class="num">{count(w.target)}</td>
-										<td class="num">{count(Math.round(w.g2))}</td>
-										<td class="num">{signed(w.log_ratio)}</td>
-									</tr>
+									<li>
+										<a href={concordanceHref('genocide', w.word)}>{w.word}</a>
+										<span
+											class="bar"
+											style:width={barWidth(w.log_ratio)}
+											title="{count(w.target)} near the node · G² {count(Math.round(w.g2))}"
+										></span>
+										<span class="symbol">{signed(w.log_ratio)}</span>
+									</li>
 								{/each}
-							</tbody>
-						</table>
-					{/if}
+							</ol>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{:else if (blockA?.speeches ?? 0) < minimumSpeeches || (blockB?.speeches ?? 0) < minimumSpeeches}
+			<p class="withheld">
+				One of these slices falls under the {count(minimumSpeeches)} speeches this artefact declares as
+				its minimum, so there is nothing to align against.
+			</p>
+		{:else}
+			<!-- One word per row, read outwards from the middle: the same layout a
+			     parallel text uses for a shared lemma, and the only arrangement in
+			     which the two bars on a row mean the same thing. -->
+			<div class="pyramid">
+				<div class="prow head">
+					<span class="symbol">{count(blockA?.speeches ?? 0)} sp.</span>
+					<span class="who left">{sliceLabel(sliceA)}</span>
+					<span></span>
+					<span class="who">{sliceLabel(sliceB)}</span>
+					<span class="symbol">{count(blockB?.speeches ?? 0)} sp.</span>
 				</div>
-			{/each}
-		</div>
+				{#each alignedRows as row (row.word)}
+					<div class="prow">
+						<span class="symbol">{row.a ? signed(row.a.log_ratio) : '—'}</span>
+						<span class="track left">
+							{#if row.a}
+								<span
+									class="bar"
+									style:width={barWidth(row.a.log_ratio)}
+									title="{count(row.a.target)} near the node · G² {count(Math.round(row.a.g2))}"
+								></span>
+							{/if}
+						</span>
+						<a class="word" href={concordanceHref('genocide', row.word)}>{row.word}</a>
+						<span class="track">
+							{#if row.b}
+								<span
+									class="bar"
+									style:width={barWidth(row.b.log_ratio)}
+									title="{count(row.b.target)} near the node · G² {count(Math.round(row.b.g2))}"
+								></span>
+							{/if}
+						</span>
+						<span class="symbol">{row.b ? signed(row.b.log_ratio) : '—'}</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
+
+		<details class="data-table">
+			<summary><Icon icon={ChevronRight} />View both profiles as a table</summary>
+			<table>
+				<thead>
+					<tr
+						><th>Profile</th><th>Word</th><th class="num">Near</th><th class="num">G²</th><th
+							class="num">Log ratio</th
+						></tr
+					>
+				</thead>
+				<tbody>
+					{#each [{ key: sliceA, b: blockA }, { key: sliceB, b: blockB }] as side (side.key)}
+						{#each topWords(side.b) as w (w.word)}
+							<tr>
+								<td>{sliceLabel(side.key)}</td>
+								<td>{w.word}</td>
+								<td class="num">{count(w.target)}</td>
+								<td class="num">{count(Math.round(w.g2))}</td>
+								<td class="num">{signed(w.log_ratio)}</td>
+							</tr>
+						{/each}
+					{/each}
+				</tbody>
+			</table>
+		</details>
 	</Figure>
 
 	<Figure
@@ -788,7 +927,7 @@
 			onclick={openNetworkTerm}
 		/>
 		<details class="data-table">
-			<summary>View the strongest network edges as a table</summary>
+			<summary><Icon icon={ChevronRight} />View the strongest network edges as a table</summary>
 			<table>
 				<thead
 					><tr
@@ -819,129 +958,287 @@
 
 <style>
 	.lede {
-		max-width: 46rem;
-		margin-bottom: 2rem;
+		max-width: var(--measure);
+		margin-bottom: var(--sp-6);
 	}
 
 	.standfirst {
-		font-size: 1.08rem;
-		color: var(--ink-soft);
+		font-size: var(--step-1);
+		line-height: 1.5;
+		color: var(--ink-2);
 	}
 
 	label {
-		font-size: 0.83rem;
-		color: var(--ink-faint);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-3);
 		display: inline-flex;
 		align-items: center;
-		gap: 0.45rem;
+		gap: var(--sp-2);
 	}
 
 	select {
-		background: var(--panel);
-		color: var(--ink);
-		border: 1px solid var(--rule);
-		border-radius: 4px;
-		padding: 0.25rem 0.4rem;
-		font-size: 0.85rem;
 		max-width: 15rem;
 	}
 
 	.unit-note {
-		font-size: 0.78rem;
-		color: var(--ink-faint);
-		font-style: italic;
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink-3);
 		margin-left: auto;
+	}
+
+	.view {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+	}
+
+	.view .label {
+		display: inline;
 	}
 
 	/* What the Term and Window selects would say, were the slices computed at
 	   more than one of each. Stated rather than implied. */
 	.fixed {
-		font-size: 0.78rem;
-		color: var(--ink-faint);
-		font-style: italic;
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		color: var(--ink-3);
 		max-width: 22rem;
 	}
 
 	.withheld {
-		margin: 0.4rem 0;
-		padding: 0.8rem 1rem;
-		border-left: 2px solid var(--rule);
-		background: var(--rule-soft);
-		font-size: 0.88rem;
-		color: var(--ink-soft);
+		margin: var(--sp-2) 0;
+		padding: var(--sp-3) var(--sp-4);
+		border-left: 2px solid var(--reg-contentious);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-2);
 	}
 
 	.stated {
-		margin: 0.9rem 0 0;
-		font-size: 0.78rem;
-		color: var(--ink-faint);
+		margin: var(--sp-3) 0 0;
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		color: var(--ink-3);
 	}
 
 	.ghost {
 		background: none;
-		border: 1px solid var(--rule);
-		border-radius: 4px;
-		padding: 0.25rem 0.6rem;
-		min-height: 2.1rem;
-		font-size: 0.8rem;
-		color: var(--ink-soft);
+		border: var(--hair) solid var(--rule-strong);
+		padding: var(--sp-1) var(--sp-3);
+		min-height: 2rem;
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		color: var(--ink-2);
 		cursor: pointer;
 	}
 
 	.ghost:hover {
-		border-color: var(--accent);
-		color: var(--accent);
+		border-color: var(--blue);
+		color: var(--blue);
 	}
+
+	/* ---- parallel text ----------------------------------------------------
+	   Two profiles set as facing columns with a rule between them, so the two
+	   rankings are read straight across rather than by scrolling between two
+	   tables. The bars are ink: they are a datum, and the accent is not. */
 
 	.compare {
 		display: grid;
-		gap: 1.5rem;
+		gap: var(--sp-5);
+		border-top: var(--hair) solid var(--rule-strong);
+		padding-top: var(--sp-4);
 	}
 
 	@media (min-width: 46rem) {
 		.compare {
-			grid-template-columns: 1fr 1fr;
+			grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
+			gap: 0;
+		}
+
+		.compare .side:first-of-type {
+			padding-right: var(--sp-5);
+		}
+
+		.compare .side:last-of-type {
+			padding-left: var(--sp-5);
+		}
+	}
+
+	.gutter {
+		display: none;
+		background: var(--rule-strong);
+	}
+
+	@media (min-width: 46rem) {
+		.gutter {
+			display: block;
 		}
 	}
 
 	.compare h4 {
-		font-size: 1rem;
-		margin-bottom: 0.4rem;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: baseline;
-		gap: 0.6rem;
+		justify-content: space-between;
+		gap: var(--sp-3);
+		margin-bottom: var(--sp-3);
 	}
 
-	.compare h4 span {
+	.compare .who {
 		font-family: var(--sans);
-		font-size: 0.75rem;
+		font-size: var(--step--1);
+		font-weight: 700;
+		letter-spacing: 0.02em;
+	}
+
+	.compare h4 .symbol {
 		font-weight: 400;
-		color: var(--ink-faint);
+		color: var(--ink-3);
+	}
+
+	.profile {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: var(--sp-1);
+	}
+
+	.profile li {
+		display: grid;
+		grid-template-columns: 6.5rem minmax(0, 1fr) 3rem;
+		gap: var(--sp-3);
+		align-items: center;
+	}
+
+	.profile a {
+		font-family: var(--serif);
+		font-size: var(--step-0);
+		text-decoration: none;
+		color: var(--ink);
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.profile a:hover {
+		color: var(--blue);
+		text-decoration: underline;
+	}
+
+	.bar {
+		height: 0.5rem;
+		background: var(--ink-3);
+		opacity: 0.55;
+	}
+
+	.profile .symbol {
+		text-align: right;
+		color: var(--ink-3);
+	}
+
+	/* ---- the aligned view -------------------------------------------------
+	   One word per row, both profiles reading outwards from it. Because the two
+	   bars share a scale, the row is a direct comparison rather than two rankings
+	   that happen to be adjacent. */
+
+	.pyramid {
+		border-top: var(--hair) solid var(--rule-strong);
+	}
+
+	.prow {
+		display: grid;
+		grid-template-columns: 3.4rem minmax(0, 1fr) 9rem minmax(0, 1fr) 3.4rem;
+		gap: var(--sp-3);
+		align-items: center;
+		padding: 0.15rem 0;
+		border-bottom: var(--hair) solid var(--rule);
+	}
+
+	.prow:last-child {
+		border-bottom-color: var(--rule-strong);
+	}
+
+	.prow.head {
+		padding-bottom: var(--sp-2);
+		border-bottom-color: var(--rule-strong);
+	}
+
+	.prow.head .who {
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		font-weight: 700;
+		letter-spacing: 0.02em;
+	}
+
+	.prow.head .who.left {
+		text-align: right;
+	}
+
+	.prow.head .symbol {
+		color: var(--ink-3);
+	}
+
+	.prow .symbol {
+		text-align: right;
+		color: var(--ink-3);
+	}
+
+	.prow .symbol:last-child {
+		text-align: left;
+	}
+
+	.track {
+		display: flex;
+		justify-content: flex-start;
+	}
+
+	.track.left {
+		justify-content: flex-end;
+	}
+
+	.word {
+		font-family: var(--serif);
+		font-size: var(--step-0);
+		text-align: center;
+		text-decoration: none;
+		color: var(--ink);
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.word:hover {
+		color: var(--blue);
+		text-decoration: underline;
+	}
+
+	@media (max-width: 46rem) {
+		.prow {
+			grid-template-columns: 3rem minmax(0, 1fr) 7rem minmax(0, 1fr) 3rem;
+			gap: var(--sp-1);
+			font-size: var(--step--1);
+		}
+
+		.word {
+			font-size: var(--step--1);
+		}
 	}
 
 	.rank {
-		color: var(--ink-faint);
+		color: var(--ink-3);
 		width: 2rem;
 	}
 
 	.gone {
-		color: var(--ink-faint);
+		color: var(--ink-3);
 		font-style: italic;
 	}
 
 	.onward {
-		font-size: 0.9rem;
-		color: var(--ink-soft);
-	}
-
-	.data-table {
-		margin-top: 1rem;
-	}
-
-	.data-table summary {
-		cursor: pointer;
-		color: var(--accent);
-		font-size: 0.85rem;
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-2);
+		max-width: var(--measure);
 	}
 </style>

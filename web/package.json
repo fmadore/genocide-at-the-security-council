@@ -30,6 +30,7 @@
 		"vitest": "4.1.10"
 	},
 	"dependencies": {
+		"@lucide/svelte": "^1.31.0",
 		"d3-cloud": "1.2.9",
 		"echarts": "^6.1.0"
 	}
