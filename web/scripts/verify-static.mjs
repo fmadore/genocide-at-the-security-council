@@ -5,6 +5,7 @@ const expected = [
 	'index.html',
 	'chronology/index.html',
 	'language/index.html',
+	'actors/index.html',
 	'concordance/index.html',
 	'methods/index.html',
 	'404.html'

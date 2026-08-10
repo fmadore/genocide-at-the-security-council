@@ -13,6 +13,7 @@ import type {
 	Breakdowns,
 	ChangePoints,
 	Collocates,
+	Countries,
 	Events,
 	Keyness,
 	KwicFile,
@@ -107,6 +108,37 @@ const validateNetwork: Validator = (record, path) => {
 	requireArray(record, 'terms', path);
 	requireArray(record, 'edges', path);
 	requireRecord(record, 'by_period', path);
+};
+
+const validateCountries: Validator = (record, path) => {
+	validateMeta(record, path);
+	requireArray(record, 'countries', path);
+	requireArray(record, 'periods', path);
+	requireRecord(record, 'measures', path);
+	// The two blocks a consumer must read before drawing anything. Absent, a
+	// choropleth keyed on ISO3 paints Zaire under the DRC without saying so, and
+	// the minimum-sample gate silently becomes no gate at all.
+	requireRecord(record, 'iso3_collisions', path);
+	if (!Number.isFinite(record.minimum_speeches)) {
+		throw new Error(`${path}.minimum_speeches must be a finite number.`);
+	}
+	// Substantive, not structural: the interface draws exactly the rows that
+	// claim to be sufficient, so a sufficient row without a rate would reach a
+	// chart as a null and be drawn as a zero.
+	for (const [name, measure] of Object.entries(requireRecord(record, 'measures', path))) {
+		if (!isRecord(measure)) throw new Error(`${path}.measures.${name} must be an object.`);
+		for (const [index, row] of requireArray(
+			measure,
+			'rows',
+			`${path}.measures.${name}`
+		).entries()) {
+			if (isRecord(row) && row.sufficient === true && !Number.isFinite(row.speech_rate)) {
+				throw new Error(
+					`${path}.measures.${name}.rows[${index}] claims to be sufficient without a rate.`
+				);
+			}
+		}
+	}
 };
 
 const validateKwicIndex: Validator = (record, path) => {
@@ -206,6 +238,14 @@ export const keyness = (f?: typeof fetch) =>
 	json<Keyness>('lexical/keyness.json', f, ['meta'], validateKeyness);
 export const network = (f?: typeof fetch) =>
 	json<Network>('lexical/network.json', f, ['meta'], validateNetwork);
+
+export const countries = (f?: typeof fetch) =>
+	json<Countries>(
+		'countries/countries.json',
+		f,
+		['meta', 'countries', 'periods', 'measures', 'minimum_speeches', 'iso3_collisions'],
+		validateCountries
+	);
 
 export const kwicIndex = (f?: typeof fetch) =>
 	json<KwicIndex>('kwic/index.json', f, ['meta'], validateKwicIndex);

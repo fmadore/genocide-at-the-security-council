@@ -293,3 +293,76 @@ export interface MeetingIndex {
 	meta: Meta;
 	meetings: MeetingSummary[];
 }
+
+/* --- 11_countries.py ------------------------------------------------------ */
+
+export interface CountryPeriod {
+	key: string;
+	label: string;
+	first_year: number;
+	last_year: number;
+	speeches: number;
+	tokens: number;
+	speakers: number;
+	/** Speakers in this period that clear `minimum_speeches`. The rest are null. */
+	speakers_at_minimum: number;
+	speeches_at_minimum: number;
+}
+
+export interface Speaker {
+	country_org: string;
+	entity_type: 'state' | 'igo' | 'ngo' | 'un' | 'civil_society' | 'academia' | 'company' | 'other';
+	iso3: string | null;
+	un_regional_group: string | null;
+	/**
+	 * `[latitude, longitude]`, the order `config/entities.csv` records and
+	 * `11_countries.py` writes. MapLibre wants the opposite; `actors.ts` is the
+	 * one place that flips it, so no component has to remember.
+	 */
+	centroid: [number, number] | null;
+	/**
+	 * "Is a state, has a code, and has a centroid" — not "has coordinates". The
+	 * distinction is deliberate upstream: the UN Secretariat is among the largest
+	 * speakers in the corpus and belongs on no globe.
+	 */
+	mappable: boolean;
+	speeches: number;
+	first_year: number;
+	last_year: number;
+}
+
+export interface CountryMeasureRow {
+	country_org: string;
+	period: string;
+	/** The speaker's own denominator: speeches it delivered in this period. */
+	held: number;
+	tokens: number;
+	/** Speeches bearing the measure's terms. */
+	speeches: number;
+	/** Null whenever `sufficient` is false, so a withheld slice cannot be drawn. */
+	speech_rate: number | null;
+	sufficient: boolean;
+	occurrences: number;
+	token_rate: number | null;
+}
+
+export interface CountryMeasure {
+	kind: string;
+	tier: string;
+	register: string;
+	rows: CountryMeasureRow[];
+}
+
+export interface Countries {
+	meta: Meta;
+	/** Below this many speeches in a period, a speaker's rates are withheld. */
+	minimum_speeches: number;
+	minimum_speeches_rule: string;
+	rate_per_tokens: number;
+	centroid_rule: string;
+	/** ISO3 → the speakers sharing it. Never key a drawing on the code alone. */
+	iso3_collisions: Record<string, string[]>;
+	periods: CountryPeriod[];
+	countries: Speaker[];
+	measures: Record<string, CountryMeasure>;
+}

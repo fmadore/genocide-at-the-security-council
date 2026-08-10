@@ -18,6 +18,7 @@
 			blurb: 'When the word was said, and when that changed'
 		},
 		{ href: '/language', label: 'Language', blurb: 'What it travels with' },
+		{ href: '/actors', label: 'Actors', blurb: 'Who said it, against their own denominator' },
 		{ href: '/concordance', label: 'Concordance', blurb: 'Every occurrence, in context' },
 		{ href: '/methods', label: 'Methods', blurb: 'How every number was made' }
 	] as const;

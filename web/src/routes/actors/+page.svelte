@@ -1,0 +1,459 @@
+<script lang="ts">
+	import { resolve } from '$app/paths';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import CountryMap from '$lib/CountryMap.svelte';
+	import Figure from '$lib/Figure.svelte';
+	import Icon from '$lib/Icon.svelte';
+	import { ambiguous, plan, points, scale } from '$lib/actors';
+	import type { MapPoint, Ordering } from '$lib/actors';
+	import { count, decimal, percent, shortCountry, termLabel } from '$lib/format';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+	const artefact = $derived(data.countries);
+
+	let measure = $state('genocide');
+	let period = $state('all');
+	let order = $state<Ordering>('speech_rate');
+	let selected = $state<string | null>(null);
+
+	const measures = $derived(Object.keys(artefact.measures));
+	const shared = $derived(ambiguous(artefact));
+	const result = $derived(plan({ data: artefact, measure, period, order }));
+
+	/* Size stands for the figure the table is ranked by, so a large marker and a
+	   high row are the same statement. Computed over what is on screen, which
+	   makes a marker comparable within one view and not across two. */
+	const drawn = $derived(points(result.rows, shared));
+	const at = $derived(
+		scale(
+			drawn.map((point) =>
+				order === 'token_rate'
+					? (point.speakers[0].row.token_rate ?? 0)
+					: order === 'speeches'
+						? point.speakers[0].row.speeches
+						: order === 'held'
+							? point.speakers[0].row.held
+							: (point.speakers[0].row.speech_rate ?? 0)
+			)
+		)
+	);
+	const weight = (point: MapPoint) =>
+		at(
+			order === 'token_rate'
+				? (point.speakers[0].row.token_rate ?? 0)
+				: order === 'speeches'
+					? point.speakers[0].row.speeches
+					: order === 'held'
+						? point.speakers[0].row.held
+						: (point.speakers[0].row.speech_rate ?? 0)
+		);
+
+	const chosen = $derived(
+		drawn.find((p) => p.speakers[0].speaker.country_org === selected) ?? null
+	);
+
+	/* Speakers the map cannot show at all: the UN Secretariat is among the
+	   largest in the corpus and belongs on no globe. Stated rather than left for
+	   a reader to notice that a table row has no marker. */
+	const unmapped = $derived(result.rows.filter((entry) => !entry.speaker.mappable));
+
+	const collisions = $derived(
+		Object.entries(artefact.iso3_collisions).filter(([, holders]) => holders.length > 1)
+	);
+
+	const label = (o: Ordering) =>
+		o === 'speech_rate'
+			? 'share of its speeches'
+			: o === 'token_rate'
+				? `per ${count(artefact.rate_per_tokens)} words`
+				: o === 'speeches'
+					? 'term-bearing speeches'
+					: 'speeches delivered';
+</script>
+
+<svelte:head>
+	<title>Actors · Genocide at the Security Council</title>
+	<meta
+		name="description"
+		content="Which delegations used genocide vocabulary, at what rate, and how many are heard from too rarely to say."
+	/>
+</svelte:head>
+
+<article class="page">
+	<header class="lede">
+		<h1>Who said it</h1>
+		<p class="standfirst">
+			Every speaker with its own denominator: how much of what a delegation said at the Council
+			carried the vocabulary, rather than how often it appears in the record. Of
+			{count(artefact.countries.length)} speakers, {count(result.rows.length)} are heard from often enough
+			to answer.
+		</p>
+	</header>
+
+	<Figure
+		title="Speakers by rate"
+		question="Which delegations used the vocabulary most, as a share of their own speeches?"
+		source="11_countries.py → countries/countries.json"
+		note="Circle area is not proportional to the rate; radius is. Read the table."
+	>
+		{#snippet controls()}
+			<label>
+				Measure
+				<select bind:value={measure}>
+					{#each measures as name (name)}<option value={name}>{termLabel(name)}</option>{/each}
+				</select>
+			</label>
+			<label>
+				Period
+				<select bind:value={period}>
+					{#each artefact.periods as p (p.key)}<option value={p.key}>{p.label}</option>{/each}
+				</select>
+			</label>
+			<label>
+				Ranked by
+				<select bind:value={order}>
+					<option value="speech_rate">Share of its speeches</option>
+					<option value="token_rate">Per {count(artefact.rate_per_tokens)} words</option>
+					<option value="speeches">Term-bearing speeches</option>
+					<option value="held">Speeches delivered</option>
+				</select>
+			</label>
+		{/snippet}
+
+		{#snippet reading()}
+			<p>
+				One circle per delegation that cleared the minimum. Radius carries the same figure the table
+				is ranked by; colour carries nothing. A heavier ring marks a point whose ISO3 code another
+				speaker also holds.
+			</p>
+			<p>
+				Click a circle to pick out its row, or a row to pick out its circle. Two ISO3 codes are held
+				by more than one speaker, marked with an asterisk in the table; in every period here only
+				one holder of each clears the minimum, so no marker on this map stands for more than one
+				speaker. Markers are grouped by coordinate rather than drawn on top of each other, so that
+				stays true if the corpus grows.
+			</p>
+		{/snippet}
+
+		{#snippet caveat()}
+			<p>{artefact.centroid_rule}</p>
+			<p>
+				{count(result.withheld)} speakers delivered fewer than {count(result.minimum)} speeches in this
+				period and carry no rate. They are not ranked low; they are not ranked. {artefact.minimum_speeches_rule}
+			</p>
+		{/snippet}
+
+		{#if result.refusal}
+			<p class="refusal">
+				{#if result.refusal === 'none-sufficient'}
+					No speaker in this period cleared {count(result.minimum)} speeches, so there is nothing here
+					that could be drawn honestly.
+				{:else}
+					This slice is not in the artefact.
+				{/if}
+			</p>
+		{:else}
+			<CountryMap
+				points={drawn}
+				{weight}
+				{selected}
+				onselect={(point) => (selected = point?.speakers[0].speaker.country_org ?? null)}
+			/>
+		{/if}
+	</Figure>
+
+	{#if chosen}
+		<aside class="picked">
+			<h2>{shortCountry(chosen.speakers[0].speaker.country_org)}</h2>
+			{#if chosen.speakers.length > 1}
+				<p class="stacked">
+					This point carries {chosen.speakers.length} speakers, which share a centroid and an ISO3 code.
+					They are separate rows with separate denominators and are not combined:
+					{chosen.speakers.map((s) => s.speaker.country_org).join(', ')}.
+				</p>
+			{/if}
+			<dl>
+				{#each chosen.speakers as entry (entry.speaker.country_org)}
+					<div>
+						<dt>{shortCountry(entry.speaker.country_org)}</dt>
+						<dd>
+							{percent(entry.row.speech_rate ?? 0)} of {count(entry.row.held)} speeches &middot; {count(
+								entry.row.occurrences
+							)} occurrences &middot; {entry.speaker.first_year}&ndash;{entry.speaker.last_year}
+						</dd>
+					</div>
+				{/each}
+			</dl>
+			<a class="more" href={resolve('/concordance')}>
+				Read the occurrences <Icon icon={ChevronRight} />
+			</a>
+		</aside>
+	{/if}
+
+	<section class="table-wrap">
+		<h2>The table behind the map</h2>
+		<p class="prose">
+			The same {count(result.rows.length)} rows, in the same order. This is the primary presentation:
+			the map is an index into it, and a circle cannot be tabbed to or read aloud.
+		</p>
+		<div class="scroll">
+			<table>
+				<caption class="sr-only">
+					Speakers ranked by {label(order)} for {termLabel(measure)}, {result.period?.label}
+				</caption>
+				<thead>
+					<tr>
+						<th scope="col">Speaker</th>
+						<th scope="col">Group</th>
+						<th scope="col" class="num">Speeches</th>
+						<th scope="col" class="num">Term-bearing</th>
+						<th scope="col" class="num">Share</th>
+						<th scope="col" class="num">Per {count(artefact.rate_per_tokens)} words</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each result.rows as entry (entry.speaker.country_org)}
+						<tr
+							class:picked={entry.speaker.country_org === selected}
+							class:unmapped={!entry.speaker.mappable}
+						>
+							<th scope="row">
+								<button
+									type="button"
+									onclick={() =>
+										(selected =
+											selected === entry.speaker.country_org ? null : entry.speaker.country_org)}
+								>
+									{shortCountry(entry.speaker.country_org)}
+								</button>
+								{#if entry.speaker.iso3 && shared.has(entry.speaker.iso3)}
+									<abbr title="This ISO3 code is held by more than one speaker in the corpus."
+										>{entry.speaker.iso3}*</abbr
+									>
+								{/if}
+							</th>
+							<td>{entry.speaker.un_regional_group ?? entry.speaker.entity_type}</td>
+							<td class="num">{count(entry.row.held)}</td>
+							<td class="num">{count(entry.row.speeches)}</td>
+							<td class="num">{percent(entry.row.speech_rate ?? 0)}</td>
+							<td class="num">{decimal(entry.row.token_rate ?? 0)}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+	</section>
+
+	<section class="apparatus">
+		<h2>What this table will not tell you</h2>
+		<ul>
+			<li>
+				<strong>{count(result.withheld)} speakers are withheld, not ranked low.</strong>
+				{artefact.minimum_speeches_rule}
+			</li>
+			{#if unmapped.length}
+				<li>
+					<strong>{count(unmapped.length)} of the ranked speakers are on no map.</strong>
+					{unmapped
+						.slice(0, 4)
+						.map((entry) => entry.speaker.country_org)
+						.join(', ')}{unmapped.length > 4 ? ', and others' : ''} are not states with a centroid. They
+					are in the table and absent from the figure above, on purpose.
+				</li>
+			{/if}
+			{#each collisions as [code, holders] (code)}
+				<li>
+					<strong>{code} is shared by {holders.length} speakers.</strong>
+					{holders.join(', ')} carry the same code because a successor state's code is the only way to
+					place a historical one at all. They are never merged: a combined denominator would belong to
+					no state that ever spoke.
+				</li>
+			{/each}
+			<li>
+				<strong>A centroid is not where anyone spoke.</strong>
+				{artefact.centroid_rule}
+			</li>
+		</ul>
+	</section>
+</article>
+
+<style>
+	.page {
+		max-width: var(--page);
+		margin: 0 auto;
+		padding: var(--sp-7) var(--gutter) var(--sp-9);
+	}
+
+	.lede {
+		max-width: var(--measure);
+		margin-bottom: var(--sp-7);
+	}
+
+	h1 {
+		font-family: var(--serif);
+		font-size: var(--display);
+		line-height: 1.05;
+		margin: 0 0 var(--sp-4);
+	}
+
+	.standfirst {
+		font-family: var(--serif);
+		font-size: var(--step-1);
+		color: var(--ink-2);
+		margin: 0;
+	}
+
+	.refusal,
+	.prose {
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-3);
+		max-width: var(--measure);
+	}
+
+	.picked {
+		margin: var(--sp-5) 0 0;
+		padding: var(--sp-4) 0;
+		border-top: var(--hair) solid var(--rule);
+		border-bottom: var(--hair) solid var(--rule);
+	}
+
+	.picked h2 {
+		font-family: var(--sans);
+		font-size: var(--step-0);
+		margin: 0 0 var(--sp-2);
+	}
+
+	.stacked {
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-3);
+		max-width: var(--measure);
+	}
+
+	.picked dl {
+		margin: 0;
+	}
+
+	.picked dt {
+		font-family: var(--sans);
+		font-weight: 600;
+		font-size: var(--step--1);
+	}
+
+	.picked dd {
+		margin: 0 0 var(--sp-2);
+		font-family: var(--mono);
+		font-size: var(--step--1);
+		color: var(--ink-2);
+	}
+
+	.more {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-1);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+	}
+
+	.table-wrap,
+	.apparatus {
+		margin-top: var(--sp-7);
+	}
+
+	h2 {
+		font-family: var(--sans);
+		font-size: var(--step-1);
+		margin: 0 0 var(--sp-3);
+	}
+
+	.scroll {
+		overflow-x: auto;
+	}
+
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-family: var(--sans);
+		font-size: var(--step--1);
+	}
+
+	th,
+	td {
+		text-align: start;
+		padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+		border-bottom: var(--hair) solid var(--rule);
+		white-space: nowrap;
+	}
+
+	thead th {
+		color: var(--ink-3);
+		font-weight: 600;
+		border-bottom: var(--hair) solid var(--rule-strong);
+	}
+
+	.num {
+		text-align: end;
+		font-family: var(--mono);
+		font-variant-numeric: tabular-nums;
+	}
+
+	tbody th {
+		font-weight: 400;
+	}
+
+	tbody button {
+		background: none;
+		border: 0;
+		padding: 0;
+		font: inherit;
+		color: var(--blue);
+		cursor: pointer;
+		text-align: start;
+	}
+
+	tbody button:hover {
+		color: var(--blue-mid);
+	}
+
+	tr.picked {
+		background: var(--mark);
+	}
+
+	tr.unmapped th::after {
+		content: ' (not mapped)';
+		color: var(--ink-3);
+		font-size: var(--step--2);
+	}
+
+	abbr {
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink-3);
+		text-decoration: none;
+		margin-inline-start: var(--sp-1);
+	}
+
+	.apparatus ul {
+		max-width: var(--measure);
+		margin: 0;
+		padding-inline-start: var(--sp-4);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-2);
+	}
+
+	.apparatus li {
+		margin-bottom: var(--sp-3);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+</style>
