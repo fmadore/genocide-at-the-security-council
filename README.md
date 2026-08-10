@@ -35,6 +35,7 @@ every chart as SVG or PNG with its filters written into the image.
 | Speech export & web payload | ✅ `scripts/09`, `scripts/export_web.py` |
 | Dashboard — 6 views, SvelteKit 2 / Svelte 5 | ✅ [`web/`](web/); Pages rebuilds the 488 MB payload from v6.1 |
 | Per-speaker table | ✅ `scripts/11`; 133 of 601 speakers clear the 100-speech minimum, the rest carry null rates |
+| Membership composition per speaker | ✅ `scripts/11` → `standing`; 105 speakers spoke both from a seat and from outside one, **not yet drawn** |
 | Licence & citation metadata | ✅ [MIT](LICENSE) + [CC BY 4.0](LICENSE-DATA.md), [`CITATION.cff`](CITATION.cff) confirmed |
 | Public deployment | ✅ [live](https://fmadore.github.io/genocide-at-the-security-council/); Pages source is GitHub Actions, payload rebuilt from the DOI each run |
 | First citable release | ⬜ untagged — gated on the §1.1 audit, **0 of 200 rows verdicted** |

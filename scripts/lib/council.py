@@ -100,6 +100,42 @@ def validate_against_corpus(
     return [f"{len(silent)} recorded members never speak in their term: {shown}{more}"]
 
 
+def drift(speeches: pd.DataFrame, membership: pd.DataFrame | None = None) -> list[str]:
+    """Where the `speaker_group` 02 froze into the corpus no longer matches config/.
+
+    `02_normalise.py` derives the group once and writes it into the parquet, and
+    every step after it reads that column rather than recomputing — which is the
+    right dependency, and also the one that hides an edit. A term corrected in
+    `config/council_membership.csv` after 02 last ran would change nothing in the
+    corpus and nothing in any artefact built from it, while the config file and
+    the published figures quietly disagreed about who sat on the Council.
+
+    The same stance `lib.actors.crosswalk_drift` takes on `entities.csv`: stop,
+    and re-run 02, rather than build one artefact from the new file while the
+    rest of the payload carries the old one.
+    """
+    if "speaker_group" not in speeches.columns:
+        return []
+    recomputed = speaker_group(speeches, membership)
+    disagreeing = speeches.loc[recomputed != speeches["speaker_group"]]
+    if disagreeing.empty:
+        return []
+    pairs = (
+        disagreeing.assign(config=recomputed)
+        .groupby(["country_org", "year", "speaker_group", "config"], sort=True)
+        .size()
+        .reset_index(name="speeches")
+    )
+    shown = [
+        f"{row.country_org} ({row.year}): {row.speaker_group} in the corpus, "
+        f"{row.config} in config/council_membership.csv ({row.speeches:,} speeches)"
+        for row in pairs.head(8).itertuples()
+    ]
+    if len(pairs) > 8:
+        shown.append(f"(+{len(pairs) - 8} more speaker-years)")
+    return shown
+
+
 def speaker_group(
     speeches: pd.DataFrame, membership: pd.DataFrame | None = None
 ) -> pd.Series:

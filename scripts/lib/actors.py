@@ -40,7 +40,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from . import entities, series
+from . import council, entities, series
 
 #: Speeches a speaker must have delivered in a period before its rates are
 #: published. Not a round number chosen for looking careful: 100 is roughly where
@@ -163,6 +163,124 @@ def withhold_below(frame: pd.DataFrame, minimum: int = MIN_SPEECHES) -> pd.DataF
     out["sufficient"] = out["held"] >= minimum
     out.loc[~out["sufficient"], ["speech_rate", "token_rate"]] = np.nan
     return out
+
+
+# --- Who held a seat when they spoke ---------------------------------------
+
+#: The groups that hold a seat. The Charter's two kinds of membership and
+#: nothing else — the UN Secretariat briefs the Council constantly and has never
+#: sat on it, so "not seated" covers three quite different situations and the
+#: per-group counts are published rather than only their sum.
+SEATED: tuple[str, ...] = (council.PERMANENT, council.ELECTED)
+
+
+def standing(
+    speeches: pd.DataFrame, groups: tuple[str, ...] = council.SPEAKER_GROUPS
+) -> pd.DataFrame:
+    """Per speaker: how many of its own speeches it gave in each speaker group.
+
+    `lib.council` opens by saying that P5/E10/non-member is a property of a
+    *speech* and not of a country, and Rwanda is its example: elected in 1994
+    and 2013-2014, a non-member in every other year of the corpus. A row here
+    therefore cannot carry a membership label without erasing the thing most
+    worth looking at. What it carries is the composition of the speaker's own
+    speeches — five counts that sum to its denominator.
+
+    Those counts are always written, whatever the denominator, because they are
+    facts about the record rather than estimates from it: the distinction
+    :func:`withhold_below` draws between a count and a rate. `seated_share` is
+    written on the same grounds, and the grounds are worth stating because it
+    looks like the rates that *are* withheld. It is a proportion of a finite
+    known set, not a sample estimate of a latent propensity: "of the twelve
+    speeches this speaker gave in this period, twelve were given from a seat" is
+    exactly true at n=12, in a way that "33% of its speeches used the word" over
+    three speeches is not.
+
+    A `speaker_group` outside the declared set stops this rather than being
+    dropped. Reindexing it away would leave five counts that no longer sum to
+    the denominator beside them, and every check downstream compares totals.
+    """
+    if "speaker_group" not in speeches.columns:
+        raise KeyError("standing needs a speaker_group column; 02_normalise.py writes it")
+    seen = set(speeches["speaker_group"].dropna().unique())
+    if unknown := sorted(seen - set(groups)):
+        raise ValueError(
+            f"{len(unknown)} speaker groups are not declared in lib.council: "
+            f"{', '.join(unknown)}"
+        )
+    if speeches["speaker_group"].isna().any():
+        raise ValueError("some speeches carry no speaker_group; 02_normalise.py assigns one to all")
+
+    counts = (
+        pd.crosstab(speeches["country_org"], speeches["speaker_group"])
+        .reindex(columns=list(groups), fill_value=0)
+        .astype(int)
+    )
+    counts.index.name = "country_org"
+    out = counts.copy()
+    out["held"] = counts.sum(axis=1)
+    out["seated"] = counts[list(SEATED)].sum(axis=1)
+    out["seated_share"] = out["seated"] / out["held"].where(out["held"] > 0)
+    return out
+
+
+def reconcile_standing(
+    frame: pd.DataFrame, speeches: pd.DataFrame, where: str,
+    groups: tuple[str, ...] = council.SPEAKER_GROUPS,
+) -> list[str]:
+    """Check the composition adds back up to the corpus it was cut from.
+
+    Two ways to be wrong and look right: a speaker lost to a join leaves every
+    published composition correct and the totals short, and a group silently
+    dropped leaves counts that no longer sum to the denominator printed beside
+    them. The first is caught by the total, the second by the per-group rows.
+    """
+    checks: list[tuple[str, int, int]] = [
+        ("speeches held", int(frame["held"].sum()), len(speeches)),
+        *[
+            (
+                f"{group} speeches",
+                int(frame[group].sum()),
+                int((speeches["speaker_group"] == group).sum()),
+            )
+            for group in groups
+        ],
+    ]
+    problems = [
+        f"{where}: {label} sum to {got:,}, the corpus holds {want:,} ({got - want:+,})"
+        for label, got, want in checks
+        if got != want
+    ]
+    short = frame.index[frame[list(groups)].sum(axis=1) != frame["held"]].tolist()
+    problems += [
+        f"{where}: {name}'s group counts do not sum to its denominator" for name in short[:8]
+    ]
+    return problems
+
+
+def standing_as_rows(
+    frame: pd.DataFrame,
+    period_key: str,
+    groups: tuple[str, ...] = council.SPEAKER_GROUPS,
+) -> list[dict[str, object]]:
+    """Long form — one row per (speaker, period) — matching :func:`as_rows`.
+
+    Every group is written, including the zeros. A row that listed only the
+    groups a speaker actually spoke in would be smaller and would make an absent
+    key mean zero here while it means "withheld, never computed" one block away
+    in `measures`; a consumer cannot tell those apart from the JSON alone.
+    """
+    return [
+        {
+            "country_org": str(name),
+            "period": period_key,
+            "held": int(row["held"]),
+            "seated": int(row["seated"]),
+            "seated_share": _rate(row["seated_share"], 6),
+            "groups": {group: int(row[group]) for group in groups},
+        }
+        for name, row in frame.iterrows()
+    ]
 
 
 def zero_ceiling(n: int, alpha: float = 0.05) -> float:

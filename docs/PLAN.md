@@ -170,7 +170,8 @@ speaker identity, Council status and denominators. It should show:
 - agenda composition and matched keyness with minimum-sample disclosure;
 - quotations linked to the concordance and source reader.
 
-Of those four the shipped view has one and a half. **Rates over time** exist at the
+Of those four the shipped view has one and a half, and a second table has since been
+written for a third. **Rates over time** exist at the
 resolution the table was built at — `all` and the four periods `countries.json`
 declares — which answers *when* coarsely and is not a series. **Quotations** are linked
 as of 10 August 2026: every figure in the picked-speaker panel carries that speaker, that
@@ -179,12 +180,35 @@ at its 960 lines and not at all 79,569. A set measure becomes one link per membe
 the concordance shows one term and a single link would offer a fifth of the evidence as
 all of it. The decision is in `web/src/lib/actors.ts` with tests, not in the component.
 
-**Membership status** is not built, and is the cheapest of the three remaining, though not
-free: 02 already derives `speaker_group` — P5, E10, non-member state, UN, non-state — from
-`config/council_membership.csv`, so no new source is needed, but it is *per speech-year*
-and `countries.json` has no column for it. The E10 rotates, so a speaker cannot carry one
-label: what a row can honestly carry is the share of its speeches delivered while seated,
-which is a small addition to 11 rather than a relabelling in the view. **Agenda composition and
+**Membership status** now has its table and not yet its view — deliberately, in that order,
+because §7 refuses to let a visual precede the table it depicts. `countries.json` carries a
+`standing` block: per speaker and per period, the five counts that sum to its own
+denominator, plus `seated` and `seated_share`. The E10 rotates, so a row is a composition
+rather than a label, and the numbers say why that matters — **105 of 601 speakers spoke
+both from a seat and from outside one**, 5 only ever from a seat and 491 never. Shading a
+speaker with one membership colour would be wrong about the first group, which is the group
+worth looking at: Japan gave 1,602 of its 2,055 speeches as an elected member and 453 as a
+non-member.
+
+Two decisions in that block are the gate's rather than the author's. **All five counts are
+published, not just the seated total**, because "not seated" covers three different
+situations — a state that was not on the Council, the UN Secretariat which never can be,
+and an invited non-state speaker — and a single share erases the difference. **The counts
+and the share are written at every denominator**, unlike the rates beside them, and the
+reason is worth stating because it looks like an exception to §1's minimum: a share of a
+speaker's own known speeches is a fact about the record, not an estimate from a sample.
+"Of the twelve speeches it gave, twelve were from a seat" is exactly true at n=12; "33% of
+its speeches used the word" over three speeches is not. The minimum guards the second and
+has nothing to say about the first.
+
+One check came with it. 02 freezes `speaker_group` into the corpus and every later step
+reads that column, which is the right dependency and also the one that hides an edit: a
+term corrected in `config/council_membership.csv` afterwards would change nothing visible
+while the config and the published figures disagreed about who sat on the Council.
+`council.drift()` recomputes the column and stops the run, the same stance
+`actors.crosswalk_drift()` takes on `entities.csv`.
+
+**Agenda composition and
 matched keyness** have no per-speaker artefact at all — 05 computes matched keyness for
 lexicon slices, not for one delegation against the Council — so that one is a pipeline
 step before it is a view.
@@ -483,7 +507,10 @@ concordance. Four additions are worth building, in this order:
    membership shading, and matched keyness with minimum-sample disclosure. Country
    centroids may support navigation but must never imply that a diplomat is located at
    that point. **The ranking and the map are shipped**, drawn from `countries.json`;
-   membership shading and matched keyness are not, and §3 says what each would take.
+   membership shading has its table in that file's `standing` block and is not yet drawn,
+   and matched keyness has neither. §3 says what each would take, and what the standing
+   numbers already rule out: 105 speakers spoke both from a seat and from outside one, so
+   a single colour per speaker is not available as a shading.
    Both warnings this item raised were honoured rather than discovered late: 133 of 601
    speakers clear the minimum and the other 468 are reported as a withheld count rather
    than ranked low, and nothing is keyed on ISO3 — circles key on `country_org`,

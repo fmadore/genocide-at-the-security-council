@@ -38,8 +38,9 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import actors, artifacts, console, entities, frames, lexicon, series
+from lib import actors, artifacts, console, council, entities, frames, lexicon, series
 from lib.paths import (
+    COUNCIL_MEMBERSHIP,
     COUNTRIES,
     COUNTRY_ALIASES,
     ENTITIES,
@@ -70,6 +71,7 @@ COLUMNS = [
     "entity_type",
     "iso3",
     "un_regional_group",
+    "speaker_group",
     "lat",
     "lon",
 ]
@@ -117,12 +119,22 @@ def load_corpus(minimum: int) -> tuple[pd.DataFrame, pd.DataFrame]:
             "config/entities.csv has changed since 02_normalise.py last ran",
             [*problems[:8], "re-run 02_normalise.py and everything after it"],
         )
+    if problems := council.drift(speeches):
+        console.fail(
+            "config/council_membership.csv has changed since 02_normalise.py last ran",
+            [*problems, "re-run 02_normalise.py and everything after it"],
+        )
     if problems := actors.check_coverage(speeches["year"]):
         console.fail("the declared periods do not partition the corpus", problems)
 
     console.info(
         f"{speeches['country_org'].nunique():,} canonical speakers, "
         f"{int((crosswalk['entity_type'] == 'state').sum()):,} of them states in the crosswalk"
+    )
+    seated = int(speeches["speaker_group"].isin(actors.SEATED).sum())
+    console.info(
+        f"{seated:,} of {len(speeches):,} speeches ({seated / len(speeches):.1%}) were "
+        "delivered from a seat on the Council"
     )
     console.info(f"minimum sample {minimum:,} speeches per speaker per period")
     return speeches, crosswalk
@@ -171,6 +183,88 @@ def build_measures(
     return payload, computed
 
 
+def build_standing(
+    speeches: pd.DataFrame,
+    slices: list[actors.Period],
+    computed: dict[str, dict[str, pd.DataFrame]],
+) -> tuple[dict[str, object], dict[str, pd.DataFrame]]:
+    """Who held a seat when they spoke, per speaker and per period.
+
+    This is one block rather than a column on each measure: membership is a
+    property of the speaker's speeches, not of the vocabulary in them, and
+    repeating it inside `genocide` and `atrocity_core` would give the same fact
+    two places to disagree with itself.
+
+    The denominator is checked against the measure rows as well as against the
+    corpus. Both are cut from the same subset by different code — `series` does
+    the measures, `crosstab` does this — so an equal `held` is a real agreement
+    between two paths rather than a comparison of a number with itself.
+    """
+    rows: list[dict[str, object]] = []
+    frames_by_period: dict[str, pd.DataFrame] = {}
+
+    for window in slices:
+        subset = speeches[window.mask(speeches["year"])]
+        frame = actors.standing(subset)
+        if problems := actors.reconcile_standing(frame, subset, window.key):
+            console.fail("the membership composition does not reconcile", problems)
+
+        measured = computed["genocide"][window.key]
+        disagreeing = [
+            f"{name}: {int(frame.loc[name, 'held']):,} speeches here, "
+            f"{int(measured.loc[name, 'held']):,} in the genocide measure"
+            for name in frame.index
+            if name in measured.index and int(frame.loc[name, "held"]) != int(measured.loc[name, "held"])
+        ]
+        if missing := sorted(set(measured.index) ^ set(frame.index)):
+            disagreeing.append(
+                f"{len(missing)} speakers appear in one table and not the other: "
+                f"{', '.join(str(name) for name in missing[:6])}"
+            )
+        if disagreeing:
+            console.fail(
+                f"{window.key}: the composition and the measures disagree about a denominator",
+                disagreeing[:8],
+            )
+
+        frames_by_period[window.key] = frame
+        rows += actors.standing_as_rows(frame, window.key)
+
+    whole = frames_by_period[actors.WHOLE]
+    seated = int(whole["seated"].sum())
+    console.info(
+        f"standing        {len(rows):,} rows over {len(slices)} periods; "
+        f"{seated:,} seated speeches, "
+        f"{int((whole['seated_share'] == 1).sum()):,} speakers always seated, "
+        f"{int((whole['seated'] == 0).sum()):,} never"
+    )
+
+    payload = {
+        "groups": list(council.SPEAKER_GROUPS),
+        "seated_groups": list(actors.SEATED),
+        "seated_rule": (
+            "P5 and E10 are the Charter's two kinds of membership; a speech is "
+            "'seated' when its speaker held one of them in the year it was delivered. "
+            "The other three groups are not one thing: a non-member state was not on "
+            "the Council, the UN Secretariat never can be, and a non-state speaker was "
+            "invited. All five counts are written so that distinction survives, and "
+            "they sum to the speaker's own denominator."
+        ),
+        "membership_rule": (
+            "Membership is a property of a speech, not of a country. The elected ten "
+            "rotate, so a speaker has no single status: Rwanda spoke as an elected "
+            "member in 1994 and 2013-2014 and as a non-member in every other year of "
+            "the corpus. A row here is therefore a composition rather than a label, "
+            "and shading a speaker with one colour would erase the change. Counts and "
+            "seated_share are written at every denominator, unlike the rates in "
+            "measures: a share of a speaker's own known speeches is a fact about the "
+            "record, not an estimate from it."
+        ),
+        "rows": rows,
+    }
+    return payload, frames_by_period
+
+
 def build_periods(
     speeches: pd.DataFrame, slices: list[actors.Period], computed: dict, minimum: int
 ) -> list[dict[str, object]]:
@@ -203,6 +297,7 @@ def build_note(
     speeches: pd.DataFrame,
     payload: dict,
     computed: dict[str, dict[str, pd.DataFrame]],
+    standing_frames: dict[str, pd.DataFrame],
     speakers: list[dict[str, object]],
     minimum: int,
     required: int,
@@ -236,6 +331,18 @@ def build_note(
         ),
         default=0,
     )
+
+    # Who changed standing, and how often. A speaker whose seated share sits
+    # strictly between 0 and 1 spoke on both sides of the table at some point,
+    # which is the case a single membership label would erase.
+    seats = standing_frames[actors.WHOLE]
+    both = seats[(seats["seated_share"] > 0) & (seats["seated_share"] < 1)]
+    always = seats[seats["seated_share"] == 1]
+    never = seats[seats["seated"] == 0]
+    swung = both.assign(
+        elected=lambda f: f[council.ELECTED],
+        outside=lambda f: f[council.NON_MEMBER],
+    ).sort_values("held", ascending=False)
 
     silent = cleared[cleared["speeches"] == 0]
     states = [s for s in speakers if s["entity_type"] == "state"]
@@ -307,6 +414,35 @@ def build_note(
             "",
             f"{len(silent)} speakers clear the minimum and never use the word at all"
             + (f": {', '.join(silent.index[:6])}." if len(silent) else "."),
+            "",
+            "## Who held a seat when they spoke",
+            "",
+            "P5 and E10 are the Charter's two kinds of membership, and both are properties "
+            "of a *speech*: the elected ten rotate, so a speaker has no single status. "
+            f"{len(both):,} speakers spoke both from a seat and from outside one, "
+            f"{len(always):,} only ever from a seat, and {len(never):,} never from one at "
+            "all. A view that shades a speaker with one membership colour is wrong about "
+            f"the first group, which is where the interesting cases are.",
+            "",
+            "| Speaker | Speeches | As E10 | As non-member | Seated share |",
+            "|---|---:|---:|---:|---:|",
+            *[
+                f"| {name} | {int(row.held):,} | {int(row.elected):,} | "
+                f"{int(row.outside):,} | {row.seated_share:.0%} |"
+                for name, row in swung.head(12).iterrows()
+            ],
+            "",
+            "The composition is written per speaker and per period in `standing`, as five "
+            "counts that sum to the speaker's own denominator. All five are kept rather "
+            "than only the seated total, because 'not seated' covers three different "
+            "things: a state that was not on the Council, the UN Secretariat which never "
+            "can be, and an invited non-state speaker.",
+            "",
+            "**These counts are written at every denominator**, unlike the rates above. A "
+            "share of a speaker's own known speeches is a fact about the record — of the "
+            "twelve speeches it gave, twelve were from a seat — not an estimate of a "
+            "latent propensity from a sample of twelve. The minimum guards the second and "
+            "has nothing to say about the first.",
             "",
             "## Non-state speakers",
             "",
@@ -409,6 +545,9 @@ def run(minimum: int) -> None:
     slices = actors.periods(int(speeches["year"].min()), int(speeches["year"].max()))
     measures, computed = build_measures(speeches, lex, slices, minimum)
 
+    console.step("Reading who held a seat")
+    standing, standing_frames = build_standing(speeches, slices, computed)
+
     console.step("Summarising periods")
     period_totals = build_periods(speeches, slices, computed, minimum)
 
@@ -428,7 +567,7 @@ def run(minimum: int) -> None:
         ROOT,
         "11_countries.py",
         inputs=[SPEECHES_FLAGGED],
-        configs=[LEXICON, ENTITIES, COUNTRY_ALIASES],
+        configs=[LEXICON, ENTITIES, COUNTRY_ALIASES, COUNCIL_MEMBERSHIP],
         extra={
             "lexicon_version": lex.version,
             "speeches": len(speeches),
@@ -459,6 +598,7 @@ def run(minimum: int) -> None:
         "iso3_collisions": collisions,
         "periods": period_totals,
         "countries": speakers,
+        "standing": standing,
         "measures": measures,
     }
 
@@ -473,6 +613,7 @@ def run(minimum: int) -> None:
             speeches,
             {**payload, "periods": period_totals},
             computed,
+            standing_frames,
             speakers,
             minimum,
             required,

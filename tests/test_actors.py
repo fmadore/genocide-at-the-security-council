@@ -19,7 +19,7 @@ import json
 
 import pandas as pd
 import pytest
-from lib import actors
+from lib import actors, council
 
 # --- Fixtures --------------------------------------------------------------
 #
@@ -501,6 +501,171 @@ def test_two_missing_values_are_treated_as_agreeing() -> None:
     than a difference between two nulls."""
     frame = with_attributes(corpus(), crosswalk())
     assert actors.crosswalk_drift(frame, crosswalk()) == []
+
+
+# --- Who held a seat when they spoke ---------------------------------------
+#
+# `Loud` speaks 200 times: 120 while holding an elected seat and 80 from
+# outside one. `Quiet` speaks 5 times, all of them as a non-member. The
+# Secretariat speaks twice and can never hold a seat at all. The point of the
+# split is that no single membership label is true of `Loud`, which is the case
+# `lib.council` opens by naming and the one a shaded map would erase.
+
+
+def seated_corpus() -> pd.DataFrame:
+    frame = mixed_corpus()
+    groups = {
+        "Loud": [council.ELECTED] * 120 + [council.NON_MEMBER] * 80,
+        "Quiet": [council.NON_MEMBER] * 5,
+        "Old Federation": [council.NON_MEMBER] * 3,
+        "Secretariat": [council.UN_GROUP] * 2,
+    }
+    seen: dict[str, int] = {}
+    assigned = []
+    for name in frame["country_org"]:
+        index = seen.get(name, 0)
+        seen[name] = index + 1
+        assigned.append(groups[name][index])
+    return frame.assign(speaker_group=assigned)
+
+
+def test_the_composition_sums_to_the_speakers_own_denominator() -> None:
+    frame = actors.standing(seated_corpus())
+    assert int(frame.loc["Loud", "held"]) == 200
+    assert int(frame.loc["Loud", council.ELECTED]) == 120
+    assert int(frame.loc["Loud", council.NON_MEMBER]) == 80
+    assert int(frame.loc["Loud", council.PERMANENT]) == 0
+    assert frame.loc["Loud", list(actors.SEATED)].sum() == 120
+
+
+def test_seated_counts_only_the_two_charter_memberships() -> None:
+    """The UN Secretariat is among the corpus's largest speakers and has never
+    sat on the Council; an invited NGO has not either. Neither is a non-member
+    state, which is why all five counts are published and not just the sum."""
+    frame = actors.standing(seated_corpus())
+    assert int(frame.loc["Secretariat", "seated"]) == 0
+    assert int(frame.loc["Secretariat", council.UN_GROUP]) == 2
+    assert int(frame.loc["Secretariat", council.NON_MEMBER]) == 0
+    assert actors.SEATED == (council.PERMANENT, council.ELECTED)
+
+
+def test_a_share_of_a_known_set_is_written_where_a_rate_would_be_withheld() -> None:
+    """`Quiet` has five speeches: far below the minimum, so its term rate is
+    withheld. Its seated share is not, and the distinction is the point. "None
+    of the five speeches it gave was from a seat" is exactly true at n=5; "40%
+    of its speeches used the word" is an estimate that n=5 cannot carry."""
+    frame = actors.standing(seated_corpus())
+    assert frame.loc["Quiet", "seated_share"] == 0.0
+    assert frame.loc["Loud", "seated_share"] == pytest.approx(120 / 200)
+
+    measured = actors.withhold_below(
+        actors.by_country(seated_corpus(), "has_genocide", "n_genocide")
+    )
+    assert not measured.loc["Quiet", "sufficient"]
+    assert pd.isna(measured.loc["Quiet", "speech_rate"])
+
+
+def test_an_undeclared_speaker_group_stops_the_run() -> None:
+    """Reindexing it away would leave five counts that no longer sum to the
+    denominator printed beside them, and every check downstream compares
+    totals."""
+    frame = seated_corpus()
+    frame.loc[frame.index[0], "speaker_group"] = "Observer"
+    with pytest.raises(ValueError, match="Observer"):
+        actors.standing(frame)
+
+
+def test_a_speech_with_no_group_stops_the_run() -> None:
+    frame = seated_corpus()
+    frame.loc[frame.index[0], "speaker_group"] = None
+    with pytest.raises(ValueError, match="speaker_group"):
+        actors.standing(frame)
+
+
+def test_a_frame_without_the_group_column_is_refused() -> None:
+    with pytest.raises(KeyError, match="speaker_group"):
+        actors.standing(mixed_corpus())
+
+
+def test_a_dropped_speaker_is_caught_by_the_composition_total() -> None:
+    speeches = seated_corpus()
+    frame = actors.standing(speeches)
+    assert actors.reconcile_standing(frame, speeches, "test") == []
+    problems = actors.reconcile_standing(frame.drop(index="Quiet"), speeches, "test")
+    assert problems and "speeches held" in problems[0]
+
+
+def test_a_group_lost_between_the_counts_and_the_total_is_caught() -> None:
+    """The other way this goes wrong: nothing is missing from the table, but a
+    speaker's five counts stop adding up to the denominator beside them."""
+    speeches = seated_corpus()
+    frame = actors.standing(speeches)
+    frame.loc["Loud", council.NON_MEMBER] = 0
+    problems = actors.reconcile_standing(frame, speeches, "test")
+    assert any("do not sum to its denominator" in problem for problem in problems)
+
+
+def test_every_group_is_written_including_the_zeros() -> None:
+    """An absent key would mean zero here while it means "withheld, never
+    computed" one block away in `measures`, and nothing in the JSON would say
+    which."""
+    rows = {
+        row["country_org"]: row
+        for row in actors.standing_as_rows(actors.standing(seated_corpus()), "all")
+    }
+    assert set(rows["Quiet"]["groups"]) == set(council.SPEAKER_GROUPS)
+    assert rows["Quiet"]["groups"][council.PERMANENT] == 0
+    assert rows["Quiet"]["seated"] == 0
+    assert rows["Loud"]["period"] == "all"
+    assert json.loads(json.dumps(rows["Loud"]))["groups"][council.ELECTED] == 120
+
+
+# --- Membership drift ------------------------------------------------------
+
+
+def roster() -> pd.DataFrame:
+    """Two seat-years, in the shape `membership_by_year` returns."""
+    return pd.DataFrame(
+        [
+            {"year": 1995, "country_org": "Quiet", "seat": "elected"},
+            {"year": 2000, "country_org": "Loud", "seat": "permanent"},
+        ]
+    )
+
+
+def typed(frame: pd.DataFrame) -> pd.DataFrame:
+    return frame.assign(
+        entity_type=frame["country_org"].map(
+            {"Loud": "state", "Quiet": "state", "Old Federation": "state", "Secretariat": "un"}
+        )
+    )
+
+
+def test_a_roster_matching_the_frozen_column_reports_no_drift() -> None:
+    speeches = typed(mixed_corpus())
+    speeches = speeches.assign(speaker_group=council.speaker_group(speeches, roster()))
+    assert council.drift(speeches, roster()) == []
+
+
+def test_a_roster_edited_since_02_ran_is_caught() -> None:
+    """02 freezes the group into the parquet and every later step reads that
+    column, which is the right dependency and also the one that hides an edit:
+    a corrected term would change nothing anybody could see."""
+    speeches = typed(mixed_corpus())
+    speeches = speeches.assign(speaker_group=council.speaker_group(speeches, roster()))
+    # A term added in a year Loud actually speaks. Added in a year it does not
+    # would change nothing, and the check would be right to stay silent.
+    corrected = pd.concat(
+        [roster(), pd.DataFrame([{"year": 2001, "country_org": "Loud", "seat": "elected"}])],
+        ignore_index=True,
+    )
+    problems = council.drift(speeches, corrected)
+    assert problems and "Loud" in problems[0]
+    assert council.NON_MEMBER in problems[0] and council.ELECTED in problems[0]
+
+
+def test_a_corpus_without_the_frozen_column_has_nothing_to_drift_from() -> None:
+    assert council.drift(typed(mixed_corpus()), roster()) == []
 
 
 # --- Serialisation ---------------------------------------------------------
