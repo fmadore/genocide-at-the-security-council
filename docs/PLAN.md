@@ -24,7 +24,7 @@ Every public quantitative claim must have:
 
 ## Where the work runs
 
-Steps 00–05, 08 and 09 run on a laptop. Steps 06 (embeddings), 07 (the topic
+Steps 00–05, 08, 09, 11 and 12 run on a laptop. Steps 06 (embeddings), 07 (the topic
 comparison) and 10 (the lemma layer) run on the University of Bayreuth GPU cluster;
 `docs/CLUSTER.md` is the walkthrough, and nothing in the repository names an account
 or a host.
@@ -136,6 +136,9 @@ Operational checks:
 Status: the table exists and is now drawn — a ranked view and a locator map, shipped on
 10 August 2026. The *profile* this section describes is not built; what is missing is
 listed at the end of the section rather than left to be inferred from what is on screen.
+Of the four things a profile should show, all four now have their table and three are
+drawn: rates over time (coarse), quotations (linked), agenda composition with matched
+keyness (both, 10 August 2026), and membership standing — table only, deliberately.
 
 It landed before the first validated release it was queued behind, and the reordering is
 recorded rather than smoothed over. What the release gate protects is the point at which
@@ -208,10 +211,52 @@ while the config and the published figures disagreed about who sat on the Counci
 `council.drift()` recomputes the column and stops the run, the same stance
 `actors.crosswalk_drift()` takes on `entities.csv`.
 
-**Agenda composition and
-matched keyness** have no per-speaker artefact at all — 05 computes matched keyness for
-lexicon slices, not for one delegation against the Council — so that one is a pipeline
-step before it is a view.
+**Agenda composition and matched keyness** now have their table too, written on 10 August
+2026 by `scripts/12_speaker_keyness.py` into `data/derived/countries/speaker_keyness.json`,
+and drawn nowhere. 05 computes matched keyness for lexicon slices — genocide speeches
+against comparable speeches that do not use the word — which is a different question and
+could not be cut into this one, so it was a pipeline step before it could be a view. Each
+of a speaker's speeches is paired with a speech from the same year, agenda item and speaker
+group given by somebody else, and the two vocabularies are compared. **126 of the 133
+speakers that clear the minimum are published**, the same 133 the rate table draws and the
+same 468 it withholds.
+
+The matching is doing real work rather than decorating the claim: across published speakers
+the median top-15 effect size **falls by 1.31 on the log2 scale** — a factor of 2.5 in
+rate — once the occasion is held constant. Both readings are published per speaker, because
+the unmatched one is not a second result but the thing the matching improves on, and the
+pair is what lets a reader see that it did.
+
+Three decisions in it are the gate's rather than the author's. **There are two gates, not
+one**, and the second exists because of a case the first does not catch: the UN Secretariat
+is the only speaker in its speaker group, so the pairing found partners for 123 of its 4,709
+speeches. Those 123 clear a minimum counted in pairs comfortably, and the table they would
+support describes a non-random fortieth of what the Secretariat said. Coverage must reach
+half a speaker's own speeches, `coverage` is published for every speaker either way, and
+`withheld_because` names which gate closed — "too few speeches to compare" and "compared on
+an unrepresentative part of the record" are different objections. **The minimum is inherited
+rather than derived**, which is stated because every other minimum here is derived: 100 is
+the denominator at which a *zero rate* becomes informative, an argument that does not
+transfer to a table with no rate in it. What justifies it here is consistency — profiling a
+delegation beside a blank where its rate should be is the inconsistency §7 forbids — and the
+statistical guard is per row instead, at five occurrences. **Self-reference is marked, never
+removed**: 148 of the 1,008 rows in the top eight of a published table are a word from the
+speaker's own name, which is a fact about the register rather than noise. The rule is
+mechanical and therefore partial — it catches `federation` and misses `french` — and the
+artefact says so, because an unmarked row must not read as a guarantee.
+
+One defect is recorded because it was found by looking at the drawn figure rather than at
+the artefact, and because it read as an error while being none. The view prints a keyword's
+log ratio beside the interval it moved across, and Russia's `believe` came out as
+**`+1.33 [+1.38, +1.53]`** — a value outside its own bracket. Two causes, both fixed on
+10 August 2026. The stability repetitions ran on seeds *after* the published one, so the
+interval described draws that excluded the draw beside it; they now start at the published
+seed. And the bracket was the 5th and 95th percentiles, which at ten draws are interpolated
+*inside* the extremes, so a published draw that is its sample's own minimum sits below its
+own p05 about a fifth of the time. The artefact now carries the observed range beside the
+percentiles — the percentiles stay, so 05's whole-corpus table and this one remain
+comparable — and the figure prints the range, which cannot exclude a member of the sample
+it was computed from.
 
 One thing the shipped view got wrong and now does not, recorded because the failure looked
 exactly like a result. `atrocity_core` is a union of five overlapping terms, so
@@ -461,12 +506,12 @@ published side by side for the release they first appear in.
 
 ## Phase 7 — Visualisation
 
-Status: items 1, 2 and 3 shipped; item 4 gated behind a Phase 4 that was not adopted.
-Item 3 shipped as a ranking and a map, not as the profile §3 describes. Nothing here may
-precede the table it depicts.
+Status: items 1, 2 and 3 shipped; item 4 gated behind a Phase 4 that was not adopted;
+item 5 scoped on 10 August 2026 and not built. Item 3 shipped as a ranking and a map, not
+as the profile §3 describes. Nothing here may precede the table it depicts.
 
 The project's charts are currently rates over time, the event overlay and the
-concordance. Four additions are worth building, in this order:
+concordance. Five additions are worth building, in this order:
 
 1. ~~**Word clouds over the lemma collocate table.**~~ **Shipped**, over the *surface*
    collocate table rather than the lemma one: Phase 6 is not adopted, and adopting it
@@ -507,10 +552,18 @@ concordance. Four additions are worth building, in this order:
    membership shading, and matched keyness with minimum-sample disclosure. Country
    centroids may support navigation but must never imply that a diplomat is located at
    that point. **The ranking and the map are shipped**, drawn from `countries.json`;
-   membership shading has its table in that file's `standing` block and is not yet drawn,
-   and matched keyness has neither. §3 says what each would take, and what the standing
-   numbers already rule out: 105 speakers spoke both from a seat and from outside one, so
-   a single colour per speaker is not available as a shading.
+   membership shading has its table in that file's `standing` block and is not yet drawn.
+   **Matched keyness is drawn** as of 10 August 2026, over `speaker_keyness.json`, on the
+   same page and immediately after the table it depicts was written. Its decisions are in
+   `web/src/lib/keyness.ts` with tests; the component renders and computes nothing. The bar
+   *is* the table — length is drawn in the row's own background, so the figure and the
+   numbers are one element and there is no second rendering to drift — and colour carries
+   only the direction of the effect, from the register palette, because `--blue` is reserved
+   for interaction. A withheld speaker stays in the picker and refuses with its own reason:
+   the UN Secretariat's panel says it found 123 comparable speeches out of 4,709, which is
+   more useful than its absence would have been. §3 says what membership shading would take,
+   and what the standing table rules out: 105 speakers spoke both from a seat and from
+   outside one, so a single colour per speaker is not available as a shading.
    Both warnings this item raised were honoured rather than discovered late: 133 of 601
    speakers clear the minimum and the other 468 are reported as a withheld count rather
    than ranked low, and nothing is keyed on ISO3 — circles key on `country_org`,
@@ -527,7 +580,40 @@ concordance. Four additions are worth building, in this order:
    is speaker and occasion rather than subject. Shipping it would mean re-deriving the
    coordinates for the dashboard and answering the §4 gates first — not copying a PNG.
 
-Requirements that apply to all four:
+5. **A year × month heatmap**, proposed on 10 August 2026 and scoped here before anything
+   is drawn. The chronology is annual and quarterly; a year is a coarse unit for a body
+   that meets some 250 times in one, and the question a month resolution can answer is
+   whether genocide vocabulary has a calendar.
+
+   It does, and **not the one the question implies** — which is the argument for building
+   it. April, the Rwanda commemoration month, is *not* elevated: 2.90% of its speeches
+   carry `genocide` against a corpus rate of 3.08%, and July, for Srebrenica, is 2.32%.
+   What stands out is **June at 5.98% and December at 5.06%**, and the pattern survives
+   dropping 1994 and 1995 (5.87% and 5.00%), so it is not the Rwanda spike leaking into a
+   monthly view. The agenda items behind those speeches say what it is: **International
+   Tribunals**, 213 genocide-bearing speeches in June and 177 in December, the largest item
+   in both months. The ICTY and ICTR reported to the Council semi-annually. The most
+   visible feature of this figure would be the Council's own reporting calendar.
+
+   That is the finding and also the caveat, and it must be in the figure rather than in a
+   note: a month's vocabulary is the vocabulary of the debates scheduled in it, which is
+   the same confound §3's keyness step spends its entire design controlling for. A reader
+   shown a bright June without the tribunal cycle beside it learns something false.
+
+   Two constraints follow from the data. **The gap must be drawn as withheld, not as
+   white.** All 384 months are observed, but only 331 of them (86.2%) clear the 100-speech
+   minimum, and those hold 97.1% of all speeches; white on a heatmap reads as zero, which
+   is the `?? 0` failure recorded below, in a form that covers 53 cells. **The column read
+   is a second figure, not a margin of the first**: month-of-year pooled across thirty-two
+   years has a different denominator from any cell, and drawing it as a strip beside the
+   grid would invite the two to be read off one scale.
+
+   It is a pipeline step before it is a view, like §3's keyness. `lib/series.py` already
+   takes a frequency and 04 already writes `annual.json` and `quarterly.json`, so `month`
+   is a third branch; the real work is the withholding rule, which the annual series never
+   needed because a year always has thousands of speeches and a month need not.
+
+Requirements that apply to all five:
 
 - every visual links to the table behind it, and the two are generated from one artifact;
 - no visual introduces a number that does not exist in a JSON artifact with a manifest.
@@ -596,9 +682,10 @@ both readings with each declaring its scope.
 2. ~~Select the code/derived-artifact licence and confirm citation identities.~~ Done,
    10 August 2026 — see §1.3.
 3. Run the first reproducible Pages release and archive its manifest.
-4. ~~Build the actor view.~~ The ranking, the map and the concordance links are shipped —
-   see §3. What remains of it is membership-aware status and per-speaker matched keyness,
-   and the second of those needs a pipeline step before it needs a view.
+4. ~~Build the actor view.~~ The ranking, the map, the concordance links and the
+   per-speaker matched keyness are shipped — see §3. What remains is one view over one
+   table that already exists: membership-aware standing, from `countries.json`'s
+   `standing` block.
 5. Review the lemma mapping table and decide whether the lemma reading becomes the
    default, or stays a second reading published beside the surface one.
 6. ~~Add the faceted word cloud, generated from the artifact it depicts.~~ Shipped over
@@ -609,7 +696,11 @@ both readings with each declaring its scope.
 8. ~~Decide whether topics answer a question the current methods cannot.~~ Decided on
    10 August 2026: not on this evidence — see §4. Reopen only with a research question and
    a model that clears stability, not by rerunning the same comparison.
-9. Consider the LLM evaluation only after a human coding protocol exists.
+9. Add the month resolution: `monthly.json` from 04 with the withholding rule a monthly
+   denominator needs, then the year × month heatmap over it — see §7's fifth item. Scoped on
+   10 August 2026; the tribunal reporting cycle it makes visible is the reason to build
+   it and the caveat it has to carry.
+10. Consider the LLM evaluation only after a human coding protocol exists.
 
 Steps 4, 6 and 7 were built before step 3 rather than after it. The gate they jumped
 governs what may be *tagged* as citable, and nothing is tagged; each of them draws from an
