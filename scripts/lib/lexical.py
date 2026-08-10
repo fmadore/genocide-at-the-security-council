@@ -259,8 +259,16 @@ class MatchedPairs:
         return self.matched / self.wanted if self.wanted else 0.0
 
 
+def _stratum(key: object) -> tuple:
+    """One group key as a tuple, however many columns it was grouped on."""
+    return key if isinstance(key, tuple) else (key,)
+
+
 def matched_control(
-    frame: pd.DataFrame, flag: str, keys: list[str], seed: int = 20_260_807
+    frame: pd.DataFrame,
+    flag: str | pd.Series,
+    keys: list[str],
+    seed: int = 20_260_807,
 ) -> MatchedPairs:
     """One non-target speech per target, from the same stratum.
 
@@ -269,21 +277,38 @@ def matched_control(
     debate in which almost everyone said the word — the shortfall is recorded
     and returned, because a control set that quietly under-covers the crisis
     years would bias the keyness table towards exactly those years.
+
+    `flag` names a boolean column or is a boolean Series aligned to `frame`.
+    The second form is what `lib.keyness` uses to make one speaker the target:
+    "this delegation" is not a column of the corpus and adding one per speaker
+    would mean a hundred and thirty-three passes writing a hundred and
+    thirty-three columns, but it is the same pairing either way — which is the
+    point of it being this function rather than a second one.
     """
     rng = np.random.default_rng(seed)
-    targets = frame[frame[flag]]
-    pool = frame[~frame[flag]]
-    available = {key: list(idx) for key, idx in pool.groupby(keys, sort=True).groups.items()}
+    mask = frame[flag] if isinstance(flag, str) else flag
+    targets = frame[mask]
+    pool = frame[~mask]
+    # A list of one column is unwrapped, and both sides are keyed through
+    # `_stratum` regardless. Grouping by `["stratum"]` gives a scalar from
+    # `.groups` and a one-tuple from iteration — pandas deprecates the first and
+    # will change it — so the two lookups silently miss each other and every
+    # stratum comes back empty, which reads as "no comparable speech exists"
+    # rather than as a bug.
+    by = keys[0] if len(keys) == 1 else keys
+    available = {
+        _stratum(key): list(idx) for key, idx in pool.groupby(by, sort=True).groups.items()
+    }
 
     picked_targets: list = []
     picked_controls: list = []
     short: list[tuple[tuple, int, int]] = []
-    for key, group in targets.groupby(keys, sort=True):
+    for key, group in targets.groupby(by, sort=True):
         wanted = len(group)
-        candidates = available.get(key, [])
+        candidates = available.get(_stratum(key), [])
         take = min(wanted, len(candidates))
         if take < wanted:
-            short.append((key if isinstance(key, tuple) else (key,), wanted, take))
+            short.append((_stratum(key), wanted, take))
         if take:
             target_indices = np.asarray(group.index)
             if take < wanted:

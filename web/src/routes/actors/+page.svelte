@@ -4,6 +4,7 @@
 	import CountryMap from '$lib/CountryMap.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import SpeakerKeyness from '$lib/SpeakerKeyness.svelte';
 	import { ambiguous, carries, occurrences, orderings, plan, points, scale } from '$lib/actors';
 	import type { ActorRow, MapPoint, Ordering } from '$lib/actors';
 	import { provenanceOf } from '$lib/export';
@@ -373,6 +374,11 @@
 			</table>
 		</div>
 	</section>
+
+	<!-- A second question over a second artefact, on the same page because it is
+	     the same object: what a delegation said, rather than how often it said
+	     one word. It reads `speaker_keyness.json` and nothing above it. -->
+	<SpeakerKeyness data={data.keyness} />
 
 	<section class="apparatus">
 		<h2>What this table will not tell you</h2>

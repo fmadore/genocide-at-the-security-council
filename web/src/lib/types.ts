@@ -172,6 +172,11 @@ export interface Keyness {
 		seed_first: number;
 		coverage_min: number;
 		coverage_max: number;
+		/**
+		 * Percentiles only. 12 writes the observed range beside these for its
+		 * per-speaker tables, because that figure is printed next to one draw;
+		 * this one is not, and 05 has not been re-run.
+		 */
 		keyword_log_ratio: { word: string; median: number; p05: number; p95: number }[];
 	};
 }
@@ -367,6 +372,103 @@ export interface CountryMeasure {
 	/** The lexicon terms a set measure sums. Absent on a term measure. */
 	members?: string[];
 	rows: CountryMeasureRow[];
+}
+
+/** One row of a speaker's keyness table. `self_reference` is a mark, not a filter. */
+export interface Keyword {
+	word: string;
+	/** Occurrences in the speaker's own matched speeches. */
+	target: number;
+	/** Occurrences in the control set, or in the rest of the corpus when unmatched. */
+	reference: number;
+	g2: number;
+	log_ratio: number;
+	/**
+	 * True when the word appears in the speaker's own canonical name. Mechanical
+	 * and therefore partial upstream — it catches `federation` and misses
+	 * `french` — so a false here is not a guarantee, and nothing may filter on it.
+	 */
+	self_reference: boolean;
+}
+
+export interface SpeakerAgenda {
+	held: number;
+	items: number;
+	top: { item: string; speeches: number; share: number }[];
+	other: { speeches: number; share: number };
+	/** Share of the speaker's speeches in its three commonest agenda items. */
+	concentration: number;
+}
+
+export interface SpeakerKeynessRow {
+	country_org: string;
+	/** Target speeches that found a control. The comparison's real denominator. */
+	pairs: number;
+	/** The speaker's own speeches, whether or not they could be matched. */
+	held: number;
+	coverage: number;
+	short_strata: number;
+	shortfall: number;
+	sufficient: boolean;
+	/**
+	 * Which gate closed: `pairs`, `coverage`, or both. Empty when published.
+	 * Two different objections, and a view that reported one for the other would
+	 * tell a reader something untrue.
+	 */
+	withheld_because: string[];
+	/**
+	 * Null — never absent — whenever `sufficient` is false. The artefact writes
+	 * every key at every row so that a missing table and a measured zero cannot
+	 * be confused downstream.
+	 */
+	target_tokens: number | null;
+	control_tokens: number | null;
+	keywords: Keyword[] | null;
+	/** The same target against the whole corpus: what the matching improved on. */
+	keywords_unmatched: Keyword[] | null;
+	stability?: {
+		repetitions: number;
+		coverage_min: number;
+		coverage_max: number;
+		/**
+		 * `low`/`high` are the observed range across the draws, and the figure
+		 * prints those rather than the percentiles: at ten draws `p05` is
+		 * interpolated above the smallest value, so a published draw that is the
+		 * extreme of its own sample would sit outside a bracket beside it. The
+		 * percentiles are kept because 05 reports the same pair for the
+		 * whole-corpus keyness and the two should stay comparable.
+		 */
+		keyword_log_ratio: {
+			word: string;
+			median: number;
+			low: number;
+			high: number;
+			p05: number;
+			p95: number;
+		}[];
+	};
+	agenda: SpeakerAgenda;
+}
+
+export interface SpeakerKeyness {
+	meta: Meta;
+	matched_on: string[];
+	minimum_pairs: number;
+	minimum_pairs_rule: string;
+	minimum_coverage: number;
+	minimum_coverage_rule: string;
+	control_rule: string;
+	unmatched_rule: string;
+	reading_rule: string;
+	self_reference_rule: string;
+	seed: number;
+	repetitions: number;
+	limit: number;
+	speakers_total: number;
+	speakers_considered: number;
+	speakers_published: number;
+	speakers_withheld: number;
+	speakers: SpeakerKeynessRow[];
 }
 
 export interface Countries {

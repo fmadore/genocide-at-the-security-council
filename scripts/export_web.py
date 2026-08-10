@@ -37,7 +37,10 @@ PARTS = [
     (SERIES, "series", "04_series.py"),
     (LEXICAL, "lexical", "05_lexical.py"),
     (KWIC, "kwic", "08_kwic.py"),
-    (COUNTRIES, "countries", "11_countries.py"),
+    # Two producers write here: 11 the rates, 12 the per-speaker keyness. Named
+    # as both rather than as the first, so the manifest does not credit one
+    # step's provenance to the other's file.
+    (COUNTRIES, "countries", "11_countries.py + 12_speaker_keyness.py"),
 ]
 
 #: Written by 09, not copied. Listed so the manifest describes the whole payload

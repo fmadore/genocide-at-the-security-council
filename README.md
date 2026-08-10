@@ -69,6 +69,7 @@ python scripts/05_lexical.py         # → derived/lexical/*.json   (collocates,
 python scripts/08_kwic.py            # → derived/kwic/*.json      (79,569 concordance lines)
 python scripts/09_export_speeches.py # → web/static/data/speeches (6,595 document files)
 python scripts/11_countries.py       # → derived/countries/*.json (per-speaker denominators)
+python scripts/12_speaker_keyness.py # → derived/countries/       (per-speaker matched keyness)
 python scripts/export_web.py         # → web/static/data          (assembles the payload)
 ```
 

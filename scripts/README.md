@@ -33,6 +33,7 @@ requirements.lock` from the repository root. `requirements.txt` and
 | 09 | `09_export_speeches.py` | `speeches_flagged.parquet`, `meetings.parquet` | `web/static/data/speeches/*.json` | ✅ |
 | 10 | `10_lemmatise.py` | `speeches_flagged.parquet` | `derived/lemmas/` | 🔬 optional |
 | 11 | `11_countries.py` | `speeches_flagged.parquet`, `config/entities.csv` | `derived/countries/countries.json` | ✅ |
+| 12 | `12_speaker_keyness.py` | `speeches_flagged.parquet`, `config/stopwords.txt` | `derived/countries/speaker_keyness.json` | ✅ |
 | — | `export_web.py` | `derived/{series,lexical,kwic,countries}/` | `web/static/data/` | ✅ |
 | — | `score_intrusion.py` | `derived/topics/intrusion_{task,key}.csv` | `derived/topics/intrusion_score.json` | 🔬 after a human |
 
@@ -47,6 +48,17 @@ term-bearing speeches and occurrences, both rates, its ISO3 and centroid where t
 crosswalk has them, and a `sufficient` flag against a declared minimum sample. It draws
 nothing and changes nothing 04 wrote — a rate is *withheld* below the minimum rather than
 published small, because the alternative is a map whose brightest country spoke twice.
+
+**12 is the other half of the same requirement, for language rather than rates.** For every
+speaker with enough of a record, it pairs each of that speaker's speeches with one from the
+same year, agenda item and speaker group given by somebody else, and reports what
+distinguishes the two vocabularies — plus the unmatched comparison beside it, so a reader
+can see what holding the occasion constant removed. It draws nothing either. Two gates
+withhold a table rather than publish a weak one, and the second exists because of a case
+the first does not catch: the UN Secretariat is the only speaker in its speaker group, so
+the matching found partners for 2.6% of its 4,709 speeches — comfortably past a minimum
+counted in pairs, and a profile of a delegation resting on a non-random fortieth of what it
+said.
 
 **10 is numbered after 09 although it feeds 05.** The numbers are creation order, and 00–09
 were already referenced from the dashboard, the notes and CI before it existed; renumbering
@@ -86,6 +98,7 @@ See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establis
 | [`lib/actors.py`](lib/actors.py) | Per-speaker aggregation over `lib/series.py`'s arithmetic; the minimum-sample rule; ISO3 collisions and what may be mapped. |
 | [`lib/kwic.py`](lib/kwic.py) | Sentence segmentation for the genre, and concordance-line extraction. |
 | [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood and log ratio, matched controls, PMI. |
+| [`lib/keyness.py`](lib/keyness.py) | One speaker against the room: the corpus as a count matrix, the strata, the two gates, agenda composition. |
 | [`lib/embeddings.py`](lib/embeddings.py) | The model registry, the chunking policy for long speeches, pooling, neighbours. |
 | [`lib/topics.py`](lib/topics.py) | The frozen sample, both topic models, and the evaluation: NPMI coherence, adjusted Rand, c-TF-IDF, word intrusion. |
 | [`lib/lemmas.py`](lib/lemmas.py) | The lemma layer: offset alignment to `lexical.tokenise`, the stored form, the audit mapping. |

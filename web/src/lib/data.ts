@@ -21,7 +21,8 @@ import type {
 	Meeting,
 	MeetingIndex,
 	Network,
-	SlicedCollocates
+	SlicedCollocates,
+	SpeakerKeyness
 } from './types';
 
 const cache = new Map<string, Promise<unknown>>();
@@ -141,6 +142,32 @@ const validateCountries: Validator = (record, path) => {
 	}
 };
 
+const validateSpeakerKeyness: Validator = (record, path) => {
+	validateMeta(record, path);
+	if (!Number.isFinite(record.minimum_pairs) || !Number.isFinite(record.minimum_coverage)) {
+		throw new Error(`${path} must declare both minimums as finite numbers.`);
+	}
+	// Substantive rather than structural, and the same check `validateCountries`
+	// makes for a different reason: the view draws exactly the rows that claim to
+	// be sufficient, so a sufficient row with no table would reach the figure as a
+	// null and be rendered as an empty ranking rather than as a refusal.
+	for (const [index, row] of requireArray(record, 'speakers', path).entries()) {
+		if (!isRecord(row)) throw new Error(`${path}.speakers[${index}] must be an object.`);
+		if (!Number.isFinite(row.coverage)) {
+			throw new Error(`${path}.speakers[${index}].coverage must be a finite number.`);
+		}
+		if (!Array.isArray(row.withheld_because)) {
+			throw new Error(`${path}.speakers[${index}] must say why it was withheld, or say nothing.`);
+		}
+		if (row.sufficient === true && !Array.isArray(row.keywords)) {
+			throw new Error(`${path}.speakers[${index}] claims to be sufficient without a table.`);
+		}
+		if (row.sufficient === false && row.keywords !== null) {
+			throw new Error(`${path}.speakers[${index}] is withheld but carries a table.`);
+		}
+	}
+};
+
 const validateKwicIndex: Validator = (record, path) => {
 	validateMeta(record, path);
 	requireArray(record, 'terms', path);
@@ -245,6 +272,14 @@ export const countries = (f?: typeof fetch) =>
 		f,
 		['meta', 'countries', 'periods', 'measures', 'minimum_speeches', 'iso3_collisions'],
 		validateCountries
+	);
+
+export const speakerKeyness = (f?: typeof fetch) =>
+	json<SpeakerKeyness>(
+		'countries/speaker_keyness.json',
+		f,
+		['meta', 'speakers', 'minimum_pairs', 'minimum_coverage'],
+		validateSpeakerKeyness
 	);
 
 export const kwicIndex = (f?: typeof fetch) =>
