@@ -18,6 +18,8 @@
 	 * rule and by space, like everything else here.
 	 */
 	import type { Snippet } from 'svelte';
+	import DownloadControls from './Download.svelte';
+	import type { DownloadSpec } from './Download.svelte';
 
 	interface Props {
 		title: string;
@@ -29,10 +31,17 @@
 		controls?: Snippet;
 		/** Shown under the figure in mono: says the geometry is not the claim. */
 		note?: string;
+		/**
+		 * CSV and image export, offered beside the source rather than over the
+		 * figure. A figure with nothing exportable simply omits it — the control
+		 * appears only where there is an artefact behind it to hand over.
+		 */
+		download?: DownloadSpec;
 		children: Snippet;
 	}
 
-	let { title, question, source, reading, caveat, controls, note, children }: Props = $props();
+	let { title, question, source, reading, caveat, controls, note, download, children }: Props =
+		$props();
 </script>
 
 <figure class="figure">
@@ -67,6 +76,9 @@
 			<div class="note src">
 				<span class="label">Source</span>
 				<p class="symbol">{source}</p>
+				{#if download}
+					<DownloadControls spec={download} />
+				{/if}
 			</div>
 		</aside>
 	</div>

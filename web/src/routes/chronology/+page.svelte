@@ -5,6 +5,8 @@
 	import Chart from '$lib/Chart.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import { provenanceOf } from '$lib/export';
+	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, escapeHtml, isoDate, percent, termLabel } from '$lib/format';
 	import {
 		axisX,
@@ -55,6 +57,154 @@
 
 	const source = $derived(grain === 'year' ? data.year : data.quarter);
 	const periods = $derived(source.periods.map(String));
+
+	/* Live chart handles, for the image half of the export. */
+	let seriesFigure = $state<Chart | null>(null);
+	let splitFigure = $state<Chart | null>(null);
+
+	/**
+	 * The series download: every measure and all four units, long-form.
+	 *
+	 * Not the selected terms and not the chosen unit. A reader who picked one
+	 * line out of thirty and downloaded it would have a file that agrees with
+	 * their screen and with nothing else, and could not check the normalisation
+	 * argument this figure exists to make without going back for the rest. The
+	 * filter line records what was drawn; the file carries the artefact.
+	 */
+	function seriesTable(): ExportRequest {
+		const rows: (string | number | null)[][] = [];
+		for (const [name, measure] of Object.entries(allMeasures)) {
+			periods.forEach((period, index) => {
+				rows.push([
+					period,
+					name,
+					measure.kind,
+					measure.register ?? null,
+					source.corpus.speeches[index],
+					source.corpus.tokens[index],
+					measure.speeches[index] ?? null,
+					measure.speech_rate[index] ?? null,
+					measure.occurrences?.[index] ?? null,
+					measure.token_rate?.[index] ?? null
+				]);
+			});
+		}
+		return {
+			title: 'The lexicon over time',
+			columns: [
+				'period',
+				'measure',
+				'kind',
+				'register',
+				'corpus_speeches',
+				'corpus_tokens',
+				'speeches',
+				'speech_rate',
+				'occurrences',
+				'token_rate_per_100k'
+			],
+			rows,
+			provenance: provenanceOf(
+				source.meta,
+				grain === 'year' ? 'series/annual.json' : 'series/quarterly.json'
+			),
+			filters: [
+				`drawn: ${selected.map(label).join(', ')}`,
+				`unit: ${UNITS.find((u) => u.id === unit)?.label ?? unit}`,
+				`grain: ${grain}`,
+				`events overlay: ${showEvents ? 'on' : 'off'}`
+			],
+			scope: `every measure in the artefact at ${grain} grain, in all four units`
+		};
+	}
+
+	/** The two-rate models, one row per unit per measure. Sets are absent by design. */
+	function breaksTable(): ExportRequest {
+		const rows: (string | number | null)[][] = [];
+		for (const [measure, units] of Object.entries(data.breaks.series)) {
+			for (const [unitName, found] of Object.entries(units)) {
+				for (const point of found) {
+					rows.push([
+						measure,
+						unitName,
+						point.label,
+						point.index,
+						point.before,
+						point.after,
+						point.ratio,
+						point.gain,
+						point.p_value,
+						point.interval_start,
+						point.interval_stop
+					]);
+				}
+			}
+		}
+		return {
+			title: 'Rate heterogeneity in the genocide series',
+			columns: [
+				'measure',
+				'unit',
+				'label',
+				'index',
+				'rate_before',
+				'rate_after',
+				'ratio',
+				'gain',
+				'p_value',
+				'interval_start',
+				'interval_stop'
+			],
+			rows,
+			provenance: provenanceOf(data.breaks.meta, 'series/change_points.json'),
+			filters: [
+				`threshold: ${percent(data.breaks.inference.per_test_alpha)} after ${data.breaks.inference.correction}`,
+				`simulations: ${data.breaks.inference.trials}`,
+				`minimum segment: ${data.breaks.parameters.min_size} periods`
+			],
+			scope: 'every accepted partition, for every measure and unit the artefact holds'
+		};
+	}
+
+	/** Every split the artefact holds, not the one on screen. */
+	function splitsTable(): ExportRequest {
+		const rows: (string | number | null)[][] = [];
+		for (const [measure, splits] of Object.entries(data.splits.measures)) {
+			for (const [splitName, block] of Object.entries(splits)) {
+				for (const row of block.rows) {
+					rows.push([
+						measure,
+						splitName,
+						row.period,
+						row.category,
+						row.held,
+						row.speeches,
+						row.speech_rate,
+						row.occurrences ?? null,
+						row.token_rate ?? null
+					]);
+				}
+			}
+		}
+		return {
+			title: 'Who says it, and in what debate',
+			columns: [
+				'measure',
+				'split',
+				'period',
+				'category',
+				'held',
+				'speeches',
+				'speech_rate',
+				'occurrences',
+				'token_rate_per_100k'
+			],
+			rows,
+			provenance: provenanceOf(data.splits.meta, 'series/breakdowns.json'),
+			filters: [`split by: ${split}`, `unit: ${UNITS.find((u) => u.id === unit)?.label ?? unit}`],
+			scope: 'every split and every measure the artefact holds'
+		};
+	}
 
 	const allMeasures = $derived<Record<string, Measure & { kind: string }>>({
 		...Object.fromEntries(
@@ -298,6 +448,11 @@
 		title="The lexicon over time"
 		question="When was each term said, and does the answer survive being normalised?"
 		source="04_series.py → series/annual.json, series/quarterly.json, series/events.json"
+		download={{
+			name: ['unsc', 'lexicon-over-time', grain],
+			table: seriesTable,
+			chart: () => seriesFigure?.svg() ?? null
+		}}
 	>
 		{#snippet controls()}
 			<label>
@@ -351,6 +506,7 @@
 		{/snippet}
 
 		<Chart
+			bind:this={seriesFigure}
 			option={main}
 			height="420px"
 			description="Time series of selected lexicon terms in the chosen unit."
@@ -416,6 +572,7 @@
 		title="Rate heterogeneity in the genocide series"
 		question="Where is the strongest denominator-aware two-rate contrast?"
 		source="04_series.py → series/change_points.json"
+		download={{ name: ['unsc', 'rate-heterogeneity'], table: breaksTable }}
 	>
 		{#snippet reading()}
 			<p>
@@ -503,6 +660,11 @@
 		title="Who says it, and in what debate"
 		question="Is the rise or fall concentrated in one kind of speaker, or one part of the agenda?"
 		source="04_series.py → series/breakdowns.json"
+		download={{
+			name: ['unsc', 'breakdowns', split],
+			table: splitsTable,
+			chart: () => splitFigure?.svg() ?? null
+		}}
 	>
 		{#snippet controls()}
 			<label>
@@ -533,6 +695,7 @@
 
 		{#if splitChart}
 			<Chart
+				bind:this={splitFigure}
 				option={splitChart}
 				height="380px"
 				description="Rate of genocide invocation per year, split by the chosen category."

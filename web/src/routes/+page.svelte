@@ -7,6 +7,8 @@
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import SmallMultiples from '$lib/SmallMultiples.svelte';
+	import { provenanceOf } from '$lib/export';
+	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, escapeHtml, isoDate, percent } from '$lib/format';
 	import {
 		axisX,
@@ -20,10 +22,67 @@
 		textStyle,
 		tooltip
 	} from '$lib/theme';
+	import type { Measure } from '$lib/types';
 	import type { EChartsOption } from 'echarts';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	/* Live chart handles, for the image half of the export. */
+	let contrastFigure = $state<Chart | null>(null);
+	let registerFigure = $state<Chart | null>(null);
+
+	/**
+	 * Both overview figures read the same annual artefact, so both export it
+	 * whole: every term, every register, every set, in all four units. The two
+	 * figures are two readings of one table, and handing over two different
+	 * subsets would hide exactly the relationship they are here to show.
+	 */
+	function annualTable(title: string, filters: string[]): ExportRequest {
+		const rows: (string | number | null)[][] = [];
+		const groups: [string, Record<string, Measure>][] = [
+			['term', data.series.terms],
+			['register', data.series.registers],
+			['set', data.series.sets]
+		];
+		for (const [kind, block] of groups) {
+			for (const [name, measure] of Object.entries(block)) {
+				data.series.periods.forEach((period, index) => {
+					rows.push([
+						String(period),
+						name,
+						kind,
+						measure.register ?? null,
+						data.series.corpus.speeches[index],
+						data.series.corpus.tokens[index],
+						measure.speeches[index] ?? null,
+						measure.speech_rate[index] ?? null,
+						measure.occurrences?.[index] ?? null,
+						measure.token_rate?.[index] ?? null
+					]);
+				});
+			}
+		}
+		return {
+			title,
+			columns: [
+				'year',
+				'measure',
+				'kind',
+				'register',
+				'corpus_speeches',
+				'corpus_tokens',
+				'speeches',
+				'speech_rate',
+				'occurrences',
+				'token_rate_per_100k'
+			],
+			rows,
+			provenance: provenanceOf(data.series.meta, 'series/annual.json'),
+			filters,
+			scope: 'every term, register and set in the annual artefact, in all four units'
+		};
+	}
 	const colours = $derived.by(() => {
 		void $colourScheme;
 		return palette();
@@ -328,6 +387,14 @@
 		title="Occurrences and share of speeches, {years[0]}&ndash;{years[years.length - 1]}"
 		question="Did the Council come to talk about genocide more, or simply to talk more?"
 		source="04_series.py → series/annual.json, series/change_points.json"
+		download={{
+			name: ['unsc', 'occurrences-and-share'],
+			table: () =>
+				annualTable('Occurrences and share of speeches', [
+					'drawn: genocide — occurrences and share of speeches'
+				]),
+			chart: () => contrastFigure?.svg() ?? null
+		}}
 	>
 		{#snippet reading()}
 			<p>
@@ -357,6 +424,7 @@
 			</p>
 		{/snippet}
 		<Chart
+			bind:this={contrastFigure}
 			option={contrast}
 			height="400px"
 			description="Bar and line chart. Occurrences of genocide peak in 2014 while the share of speeches peaks in 1994."
@@ -409,6 +477,15 @@
 		note={registerView === 'rows'
 			? 'Each row is scaled to its own maximum · the figure at the right is the period share'
 			: 'One shared scale · hover a year for its values and any reference date it carries'}
+		download={{
+			name: ['unsc', 'register-share', registerView],
+			table: () =>
+				annualTable('Register share', [
+					`view: ${registerView === 'rows' ? 'each row to its own maximum' : 'one shared scale'}`,
+					'drawn: the six registers'
+				]),
+			chart: () => registerFigure?.svg() ?? null
+		}}
 	>
 		{#snippet controls()}
 			<div class="view">
@@ -468,6 +545,7 @@
 			/>
 		{:else}
 			<Chart
+				bind:this={registerFigure}
 				option={registerLines}
 				height="380px"
 				description="Six lines on one shared axis showing the share of speeches per year using each lexical register, with faint rules on the years carrying a reference date."

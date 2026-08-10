@@ -60,6 +60,18 @@
 	let chart: EChartsType | undefined;
 	let ready = $state(false);
 
+	/**
+	 * The figure's live `<svg>`, for export.
+	 *
+	 * Read from the DOM rather than through `getDataURL`, which returns a raster
+	 * only under the canvas renderer and a data URL that would have to be
+	 * unwrapped under this one. The element is what `export.ts` wants anyway: it
+	 * serialises the markup and measures the box the observer last laid out.
+	 */
+	export function svg(): SVGSVGElement | null {
+		return element?.querySelector('svg') ?? null;
+	}
+
 	onMount(() => {
 		chart = init(element, undefined, { renderer: 'svg' });
 		chart.setOption({

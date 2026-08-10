@@ -6,6 +6,8 @@
 	import Icon from '$lib/Icon.svelte';
 	import { ambiguous, plan, points, scale } from '$lib/actors';
 	import type { MapPoint, Ordering } from '$lib/actors';
+	import { provenanceOf } from '$lib/export';
+	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, percent, shortCountry, termLabel } from '$lib/format';
 	import type { PageData } from './$types';
 
@@ -62,6 +64,66 @@
 		Object.entries(artefact.iso3_collisions).filter(([, holders]) => holders.length > 1)
 	);
 
+	/**
+	 * The download: every speaker in the period, not the 133 that are drawn.
+	 *
+	 * The withheld rows go in with their nulls intact and a `sufficient` column
+	 * beside them, so the file carries the minimum-sample gate rather than having
+	 * been quietly filtered by it. A reader who wants only the drawable rows can
+	 * filter on that column; a reader given only those rows cannot recover the
+	 * 468 that were left out, or know that they were.
+	 */
+	function table(): ExportRequest {
+		const speakers = new Map(artefact.countries.map((s) => [s.country_org, s]));
+		const rows = artefact.measures[measure].rows
+			.filter((row) => row.period === period)
+			.map((row) => {
+				const speaker = speakers.get(row.country_org);
+				return [
+					row.country_org,
+					speaker?.entity_type ?? null,
+					speaker?.iso3 ?? null,
+					speaker?.un_regional_group ?? null,
+					row.held,
+					row.tokens,
+					row.speeches,
+					row.occurrences,
+					row.speech_rate,
+					row.token_rate,
+					row.sufficient,
+					speaker?.mappable ?? null
+				];
+			});
+		return {
+			title: `Speakers by rate — ${termLabel(measure)}, ${result.period?.label ?? period}`,
+			columns: [
+				'country_org',
+				'entity_type',
+				'iso3',
+				'un_regional_group',
+				'speeches_held',
+				'tokens',
+				'term_bearing_speeches',
+				'occurrences',
+				'speech_rate',
+				`token_rate_per_${artefact.rate_per_tokens}`,
+				'sufficient',
+				'mappable'
+			],
+			rows,
+			provenance: provenanceOf(artefact.meta, 'countries/countries.json'),
+			filters: [
+				`measure: ${termLabel(measure)}`,
+				`period: ${result.period?.label ?? period}`,
+				`ranked by: ${label(order)}`,
+				`minimum: ${artefact.minimum_speeches} speeches`
+			],
+			scope:
+				`all ${rows.length} speakers in this period, including the ${result.withheld} ` +
+				`below the ${artefact.minimum_speeches}-speech minimum whose rates are null`
+		};
+	}
+
 	const label = (o: Ordering) =>
 		o === 'speech_rate'
 			? 'share of its speeches'
@@ -96,6 +158,7 @@
 		question="Which delegations used the vocabulary most, as a share of their own speeches?"
 		source="11_countries.py → countries/countries.json"
 		note="Circle area is not proportional to the rate; radius is. Read the table."
+		download={{ name: ['unsc', measure, period, 'speakers'], table }}
 	>
 		{#snippet controls()}
 			<label>
@@ -159,6 +222,21 @@
 				{weight}
 				{selected}
 				onselect={(point) => (selected = point?.speakers[0].speaker.country_org ?? null)}
+				describe={(point) => {
+					const { speaker, row } = point.speakers[0];
+					return {
+						heading: shortCountry(speaker.country_org),
+						lines: [
+							`${percent(row.speech_rate ?? 0)} of ${count(row.held)} speeches`,
+							`${decimal(row.token_rate ?? 0)} per ${count(artefact.rate_per_tokens)} words`,
+							`${count(row.occurrences)} occurrences · ${speaker.un_regional_group ?? speaker.entity_type}`,
+							...(point.speakers.length > 1
+								? [`${point.speakers.length} speakers share this point`]
+								: []),
+							...(point.shared ? [`${speaker.iso3} is held by more than one speaker`] : [])
+						]
+					};
+				}}
 			/>
 		{/if}
 	</Figure>

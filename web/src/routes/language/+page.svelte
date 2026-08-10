@@ -7,6 +7,8 @@
 	import Icon from '$lib/Icon.svelte';
 	import WordCloud from '$lib/WordCloud.svelte';
 	import { plan } from '$lib/wordcloud';
+	import { provenanceOf } from '$lib/export';
+	import type { ExportRequest } from '$lib/export';
 	import {
 		count,
 		decimal,
@@ -33,6 +35,152 @@
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	/* Live chart handles, for the image half of the export. */
+	let scatterFigure = $state<Chart | null>(null);
+	let graphFigure = $state<Chart | null>(null);
+
+	/** Every node at every window, not the one pair on screen. */
+	function collocateTable(): ExportRequest {
+		const rows: (string | number | boolean | null)[][] = [];
+		for (const [name, node] of Object.entries(data.collocates.nodes)) {
+			for (const [span, block] of Object.entries(node.widths)) {
+				for (const word of block.collocates) {
+					rows.push([
+						name,
+						span,
+						word.word,
+						word.target,
+						word.reference,
+						word.g2,
+						word.log_ratio,
+						block.occurrences,
+						block.window_tokens
+					]);
+				}
+			}
+		}
+		return {
+			title: 'Collocates of the node term',
+			columns: [
+				'node',
+				'window',
+				'word',
+				'target',
+				'reference',
+				'g2',
+				'log_ratio',
+				'node_occurrences',
+				'window_tokens'
+			],
+			rows,
+			provenance: provenanceOf(data.collocates.meta, 'lexical/collocates.json'),
+			filters: [`node: ${termLabel(node)}`, `window: ±${width}`],
+			scope: 'every node term at every window width the artefact holds'
+		};
+	}
+
+	/** Every slice of every facet, with the speeches behind each so the minimum is checkable. */
+	function slicedTable(): ExportRequest {
+		const rows: (string | number | boolean | null)[][] = [];
+		const facets = ['by_period', 'by_speaker_group', 'by_country'] as const;
+		for (const facet of facets) {
+			for (const [member, block] of Object.entries(data.sliced[facet])) {
+				for (const word of block.collocates) {
+					rows.push([
+						facet,
+						member,
+						block.speeches ?? null,
+						word.word,
+						word.target,
+						word.reference,
+						word.g2,
+						word.log_ratio,
+						block.occurrences,
+						block.window_tokens,
+						(block.speeches ?? 0) >= data.sliced.minimum_speeches
+					]);
+				}
+			}
+		}
+		return {
+			title: 'The same word in two mouths',
+			columns: [
+				'facet',
+				'member',
+				'speeches',
+				'word',
+				'target',
+				'reference',
+				'g2',
+				'log_ratio',
+				'occurrences',
+				'window_tokens',
+				'meets_minimum'
+			],
+			rows,
+			provenance: provenanceOf(data.sliced.meta, 'lexical/collocates_sliced.json'),
+			filters: [`facet: ${sliceKind}`, `compared: ${sliceA} against ${sliceB}`],
+			scope:
+				`every member of every facet, including those under the ` +
+				`${data.sliced.minimum_speeches}-speech minimum that the figure refuses to draw`
+		};
+	}
+
+	/** Both readings — matched and unmatched — so the comparison survives the download. */
+	function keynessTable(): ExportRequest {
+		const rows: (string | number | boolean | null)[][] = [];
+		const readings: [string, typeof data.keyness.keywords][] = [
+			['matched', data.keyness.keywords],
+			['unmatched', data.keyness.keywords_unmatched]
+		];
+		for (const [reading, words] of readings) {
+			for (const word of words ?? []) {
+				rows.push([reading, word.word, word.target, word.reference, word.g2, word.log_ratio]);
+			}
+		}
+		return {
+			title: 'Keyness against a matched control',
+			columns: ['reading', 'word', 'target', 'reference', 'g2', 'log_ratio'],
+			rows,
+			provenance: provenanceOf(data.keyness.meta, 'lexical/keyness.json'),
+			filters: [
+				`reading: ${keynessView}`,
+				`matched on: ${data.keyness.matched_on}`,
+				`seed: ${data.keyness.seed}`,
+				`coverage: ${percent(data.keyness.coverage)}`
+			],
+			scope: 'both the matched and the unmatched reading'
+		};
+	}
+
+	/** Whole-corpus and per-period edges, plus the edges the lexicon nests. */
+	function networkTable(): ExportRequest {
+		const rows: (string | number | boolean | null)[][] = [];
+		for (const edge of data.network.edges) {
+			rows.push(['all', edge.source, edge.target, edge.speeches, edge.pmi, edge.npmi, false]);
+		}
+		for (const [key, block] of Object.entries(data.network.by_period)) {
+			for (const edge of block.edges) {
+				rows.push([key, edge.source, edge.target, edge.speeches, edge.pmi, edge.npmi, false]);
+			}
+		}
+		// A suppressed edge is published as endpoints only — the artefact drops its
+		// statistics rather than shipping a number nothing may draw. Blank, not zero.
+		for (const edge of data.network.suppressed_nested_edges ?? []) {
+			rows.push(['all', edge.source, edge.target, null, null, null, true]);
+		}
+		return {
+			title: 'Which terms travel together',
+			columns: ['period', 'source', 'target', 'speeches', 'pmi', 'npmi', 'suppressed_as_nested'],
+			rows,
+			provenance: provenanceOf(data.network.meta, 'lexical/network.json'),
+			filters: [`minimum: ${data.network.min_speeches} speeches`],
+			scope:
+				'whole-corpus and per-period edges, plus the nested edges the figure suppresses, ' +
+				'flagged rather than omitted'
+		};
+	}
 	const colours = $derived.by(() => {
 		void $colourScheme;
 		return palette();
@@ -375,6 +523,11 @@
 		title="Collocates of the node term"
 		question="Which words appear near this term far more often than chance would put them there?"
 		source="05_lexical.py → lexical/collocates.json"
+		download={{
+			name: ['unsc', 'collocates', node, `w${width}`],
+			table: collocateTable,
+			chart: () => scatterFigure?.svg() ?? null
+		}}
 	>
 		{#snippet controls()}
 			<label>
@@ -426,6 +579,7 @@
 		{/snippet}
 
 		<Chart
+			bind:this={scatterFigure}
 			option={scatter}
 			height="440px"
 			description="Scatter plot of collocate words by log-likelihood against log ratio."
@@ -459,6 +613,7 @@
 		title="The same table as a cloud"
 		question="What is the shape of that neighbourhood, and does it hold in one mouth or one decade?"
 		source={cloudSource}
+		download={{ name: ['unsc', 'collocates', 'cloud', cloudFacet], table: collocateTable }}
 	>
 		{#snippet controls()}
 			<label>
@@ -616,6 +771,7 @@
 		title="The same word in two mouths"
 		question="Do different speakers, groups or decades use it to do different work?"
 		source="05_lexical.py → lexical/collocates_sliced.json"
+		download={{ name: ['unsc', 'collocates-sliced', sliceKind], table: slicedTable }}
 	>
 		{#snippet controls()}
 			<label>
@@ -800,6 +956,7 @@
 		title="Keyness against a matched control"
 		question="Setting aside what the debate was about, what distinguishes a speech that says genocide?"
 		source="05_lexical.py → lexical/keyness.json"
+		download={{ name: ['unsc', 'keyness', keynessView], table: keynessTable }}
 	>
 		{#snippet controls()}
 			<label>
@@ -879,6 +1036,11 @@
 		title="Which terms travel together"
 		question="Does the lexicon have structure, or is it a list?"
 		source="05_lexical.py → lexical/network.json"
+		download={{
+			name: ['unsc', 'network'],
+			table: networkTable,
+			chart: () => graphFigure?.svg() ?? null
+		}}
 	>
 		{#snippet controls()}
 			<label>
@@ -921,6 +1083,7 @@
 		{/snippet}
 
 		<Chart
+			bind:this={graphFigure}
 			option={graph}
 			height="520px"
 			description="Force-directed graph of lexicon terms linked by co-occurrence within speeches."

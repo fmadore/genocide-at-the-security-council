@@ -8,6 +8,8 @@
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import X from '@lucide/svelte/icons/x';
 	import { kwic, meetingOf, speechOf } from '$lib/data';
+	import { filename, provenanceOf, saveCsv, toCsv } from '$lib/export';
+	import type { ExportRequest } from '$lib/export';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import { bytes, count, isoDate, shortCountry, termLabel, unSearch } from '$lib/format';
@@ -180,23 +182,53 @@
 		regex = false;
 	}
 
-	function toCsv(rows: KwicLine[]): string {
-		const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
-		const head = ['id', 'spv', 'date', 'country', 'group', 'agenda', 'keyword', 'sentence'];
-		const body = rows.map((l) =>
-			[l.id, l.spv, l.date, l.country, l.group, l.agenda, l.kw, l.sent].map(escape).join(',')
-		);
-		return [head.join(','), ...body].join('\n');
+	/**
+	 * The concordance is the one export that may legitimately be a subset.
+	 *
+	 * docs/PLAN.md §7.5 forbids exporting "whatever happened to be visible",
+	 * because a figure's top-N cut is a display decision the reader did not make.
+	 * A concordance filter is the opposite: it *is* the reader's question, and
+	 * returning 51,000 lines to someone who asked for Rwanda in 1994 answers a
+	 * different one. So both are offered and each says which it is — the button
+	 * under the results takes the filtered lines, the figure's own control takes
+	 * every line for the term.
+	 */
+	function table(rows: KwicLine[], scope: string, filters: string[]): ExportRequest {
+		return {
+			title: `Keyword in context — ${termLabel(term)}`,
+			columns: ['id', 'spv', 'date', 'country', 'group', 'agenda', 'keyword', 'sentence'],
+			rows: rows.map((l) => [l.id, l.spv, l.date, l.country, l.group, l.agenda, l.kw, l.sent]),
+			// The kwic payload is fetched per term rather than loaded with the page,
+			// so its manifest is on `file` and not on `data`.
+			provenance: provenanceOf(file?.meta ?? data.index.meta, `kwic/${term}.json`),
+			filters,
+			scope
+		};
 	}
 
+	/** What the reader actually narrowed by, for the file's own record. */
+	const applied = () =>
+		[
+			query ? `search: ${query}${regex ? ' (regex)' : ''}` : null,
+			group ? `group: ${group}` : null,
+			country ? `speaker: ${country}` : null,
+			agenda ? `agenda: ${agenda}` : null,
+			spv ? `meeting: ${spv}` : null,
+			from !== 1992 || to !== 2023 ? `years: ${from}–${to}` : null,
+			`sorted by: ${sort}`
+		].filter((line): line is string => line !== null);
+
 	function download() {
-		const blob = new Blob([toCsv(filtered)], { type: 'text/csv;charset=utf-8' });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `unsc-${term}-concordance.csv`;
-		a.click();
-		URL.revokeObjectURL(url);
+		saveCsv(
+			toCsv(
+				table(
+					filtered,
+					`the ${filtered.length} lines matching the filters below, of ${lines.length} for this term`,
+					applied()
+				)
+			),
+			filename(['unsc', term, 'concordance', 'filtered'], 'csv')
+		);
 	}
 </script>
 
