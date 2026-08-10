@@ -81,23 +81,48 @@ Lift the split when numba catches up — nothing else depends on it.
 
 ## The cluster, as it actually is
 
-Verified with `sinfo` and `module avail` on **9 August 2026**. These change;
-re-check before assuming.
+Verified with `sinfo` and `module avail` on **9 August 2026**, and the partition
+availability re-checked on **10 August 2026**. These change; re-check before
+assuming.
 
 ```bash
 sinfo -o "%20P %10G %12N %10l %6D %t"
 ```
 
-| Partition | GPUs | `--gres=` | Time limit |
-|---|---|---|---|
-| `GPU` | 4× H100 on one node | `gpu:h100:N` | 24 h |
-| `normal` (default) | L40, L40S, MI210 — plus many CPU-only nodes | `gpu:l40:N`, `gpu:l40s:N` | 24 h |
-| `dev` | up to 2× L40, one CPU node | `gpu:l40:N` | 90 min |
-| `edu` | L40S | `gpu:l40s:N` | 24 h |
+| Partition | GPUs | `--gres=` | Time limit | Usable by this account |
+|---|---|---|---|---|
+| `GPU` | 4× H100 on one node | `gpu:h100:N` | 24 h | yes |
+| `normal` (default) | L40, L40S, MI210 — plus many CPU-only nodes | `gpu:l40:N`, `gpu:l40s:N` | 24 h | yes |
+| `dev` | up to 2× L40, one CPU node | `gpu:l40:N` | 90 min | yes |
+| `edu` | L40S | `gpu:l40s:N` | 24 h | **no** — rejected as an invalid account/partition combination |
+| `znver5` | none, 128 CPU cores | — | — | **no** — `AVAIL: down` |
 
 There is no lowercase `gpu` partition. The default model needs one card of any
 of these; `GPU` is requested in `submit_embed.sh` for speed, but an L40 on
 `normal` works and usually starts sooner.
+
+**The last two columns matter more than they look.** On 10 August 2026 `normal`
+was fully allocated — 9,408 of 9,408 cores — and a 16-core CPU job queued there
+was scheduled to start **two weeks later**, while `edu` and `znver5` sat
+completely idle. Idle is not the same as available: `edu` refuses this account,
+and `znver5` is administratively down. That leaves `dev` as the only partition
+that can start a job promptly when `normal` is saturated, at the cost of a
+90-minute wall.
+
+Ask before waiting:
+
+```bash
+squeue --me -j <jobid> --start                  # N/A means Slurm cannot even guess
+sinfo -o "%.10P %.10a %.8t %.5D %.14C"          # AVAIL, state, and idle cores
+sbatch --partition=<p> --test-only <script>     # where would this actually land
+```
+
+`--test-only` answers "if this partition ran it, when" — it is not a promise
+that the partition will run anything. It happily estimated a start time on
+`znver5`, which is down; the `AVAIL` column in `sinfo` is the one that decides.
+A job submitted to a down partition sits in `PENDING (PartitionDown)` forever
+rather than failing, so it is worth reading the reason in `squeue` after
+submitting rather than assuming a queued job is a waiting one.
 
 **Storage.** Only `/home` is backed up.
 
