@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import tempfile
@@ -105,13 +106,36 @@ def describe_tree(path: Path) -> dict[str, object]:
     return {"files": len(files), "bytes": total, "sha256": digest.hexdigest()}
 
 
+#: Where the commit lives when `.git` does not. `scripts/cluster/push_code.sh`
+#: copies the working tree without its history, so a job on the cluster has no
+#: repository to ask — and every artefact it wrote recorded "unknown", against a
+#: research contract that requires the generating commit. The stamp is written by
+#: the push, and is git-ignored so a local copy can never be committed.
+COMMIT_STAMP = ".git-commit"
+
+#: A 40-character hex sha, optionally marked dirty. Anything else in the stamp
+#: file is ignored: a manifest that names a commit must name a real one, and a
+#: wrong provenance record is worse than an absent one.
+_COMMIT_RE = re.compile(r"^[0-9a-f]{40}(-dirty)?$")
+
+
 def git_commit(root: Path) -> str:
+    """The commit that produced an artefact, or `unknown` if it cannot be known.
+
+    `-dirty` means the working tree carried uncommitted changes, so the sha
+    locates the neighbourhood of the code that ran rather than the code itself.
+    """
     try:
         return subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=root, text=True, stderr=subprocess.DEVNULL
         ).strip()
     except (OSError, subprocess.CalledProcessError):
-        return "unknown"
+        pass
+    with suppress(OSError):
+        stamped = (root / COMMIT_STAMP).read_text(encoding="utf-8").strip()
+        if _COMMIT_RE.match(stamped):
+            return stamped
+    return "unknown"
 
 
 def provenance(

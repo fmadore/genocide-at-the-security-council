@@ -6,6 +6,8 @@
 
 	let { children }: { children: Snippet } = $props();
 
+	const REPO = 'https://github.com/fmadore/un-security-council-debates';
+
 	const sections = [
 		{ href: '/', label: 'Overview', blurb: 'The question in fifteen seconds' },
 		{
@@ -70,6 +72,13 @@
 			translations; missing in-person markers are classified as inferred English under the record
 			convention, while VTC delivery language remains unknown. Nothing here measures what was said
 			in the room &mdash; it measures what the English verbatim record says was said.
+		</p>
+		<p class="quiet">
+			By <a href="https://orcid.org/0000-0003-0959-2092">Frédérick Madore</a> (University of
+			Bayreuth). Code
+			<a href="{REPO}/blob/main/LICENSE">MIT</a>; the figures and tables on this site
+			<a href="{REPO}/blob/main/LICENSE-DATA.md">CC BY 4.0</a>. Speech text quoted from the record
+			remains CC0.
 		</p>
 	</div>
 </footer>

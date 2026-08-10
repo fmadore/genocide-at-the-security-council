@@ -29,6 +29,10 @@ __pycache__/
 .venv/
 venv/
 .env
+# Written by scripts/cluster/push_code.sh so a checkout without .git can still
+# name the commit that produced an artefact. Never committed: inside a real
+# repository git answers for itself.
+.git-commit
 .ipynb_checkpoints/
 .pytest_cache/
 .ruff_cache/

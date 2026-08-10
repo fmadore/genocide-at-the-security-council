@@ -61,6 +61,17 @@
 	);
 	const matchedByWord = $derived(new Map(data.keyness.keywords.map((w) => [w.word, w.log_ratio])));
 
+	/* Zoom is held here rather than left inside ECharts so that "Reset" can put it
+	   back. Assigning a fresh object rebuilds the option, and Chart.svelte applies
+	   options with `notMerge`, so the chart returns to the full extent even from a
+	   view the reader zoomed by hand. Changing term or window resets it for the
+	   same reason — a window kept across a change of data would frame nothing. */
+	const FULL = { start: 0, end: 100 };
+	let zoomWindow = $state({ x: { ...FULL }, y: { ...FULL } });
+	const resetZoom = () => {
+		zoomWindow = { x: { ...FULL }, y: { ...FULL } };
+	};
+
 	/* Effect size against significance. Every word is a point; the ones that
 	   matter are up and to the right, and the ones that only look significant
 	   are far right and low. */
@@ -69,7 +80,7 @@
 		const words = block.collocates;
 		return {
 			textStyle,
-			grid: { ...grid(), top: 20, right: 28 },
+			grid: { ...grid(), top: 20, right: 28, bottom: 56 },
 			tooltip: {
 				...tooltip(p),
 				trigger: 'item',
@@ -98,6 +109,28 @@
 				nameGap: 34,
 				nameTextStyle: { color: p.inkFaint, fontSize: 11 }
 			},
+			// Most collocates crowd into the low-G² corner, where `hideOverlap` drops
+			// the labels of whatever it has to and the words that survive are chosen
+			// by draw order rather than by interest. Zoom is the honest fix: no point
+			// is removed, and a reader who wants the dense corner can go and read it.
+			// `filterMode: 'none'` clips rather than filters, so the other axis keeps
+			// its scale and a zoomed view stays comparable to the full one.
+			dataZoom: [
+				{ type: 'inside', xAxisIndex: 0, filterMode: 'none', ...zoomWindow.x },
+				{ type: 'inside', yAxisIndex: 0, filterMode: 'none', ...zoomWindow.y },
+				{
+					type: 'slider',
+					xAxisIndex: 0,
+					filterMode: 'none',
+					height: 16,
+					bottom: 4,
+					borderColor: p.rule,
+					fillerColor: p.accent + '22',
+					handleStyle: { color: p.accent },
+					textStyle: { color: p.inkFaint, fontSize: 11 },
+					...zoomWindow.x
+				}
+			],
 			series: [
 				{
 					type: 'scatter',
@@ -239,6 +272,7 @@
 					{#each widths as w (w)}<option value={w}>&plusmn;{w} words</option>{/each}
 				</select>
 			</label>
+			<button type="button" class="ghost" onclick={resetZoom}>Reset zoom</button>
 			<span class="unit-note"
 				>{count(block.occurrences)} occurrences, {count(block.window_tokens)} words in window</span
 			>
@@ -254,6 +288,12 @@
 			<p>
 				The interesting words are high <em>and</em> right. A word far right but low is common enough that
 				a small difference is measurable; that is a property of the sample size, not of the discourse.
+			</p>
+			<p>
+				Most collocates crowd into the lower left, where labels collide and the chart hides some of
+				them. <strong>Scroll on the plot to zoom, drag to pan</strong>, or drag the bar under the
+				axis; <em>Reset zoom</em> returns to the full extent. Nothing is filtered out by zooming &mdash;
+				the axes are the same however far in you go, so a zoomed view is comparable to the whole.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -575,6 +615,22 @@
 		color: var(--ink-faint);
 		font-style: italic;
 		margin-left: auto;
+	}
+
+	.ghost {
+		background: none;
+		border: 1px solid var(--rule);
+		border-radius: 4px;
+		padding: 0.25rem 0.6rem;
+		min-height: 2.1rem;
+		font-size: 0.8rem;
+		color: var(--ink-soft);
+		cursor: pointer;
+	}
+
+	.ghost:hover {
+		border-color: var(--accent);
+		color: var(--accent);
 	}
 
 	.compare {

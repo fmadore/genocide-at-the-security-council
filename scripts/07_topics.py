@@ -5,7 +5,8 @@ data/derived/topics/:
 
     nmf.json           the count-based baseline: topics, words, parameters
     embedding.json     UMAP + HDBSCAN over the speech vectors
-    evaluation.json    coherence, seed stability, k sensitivity, composition
+    evaluation.json    coherence, seed stability, k sensitivity, composition,
+                       and the calibration of the baseline's abstention
     assignments.parquet  row_id -> topic under each model
     intrusion_task.csv   the blinded word-intrusion task, for a human
     manifest.json
@@ -217,6 +218,9 @@ def build_note(nmf: dict, embedding: dict, evaluation: dict, sample: pd.DataFram
         return rows
 
     verdict = evaluation["verdict"]
+    calibration = evaluation["calibration"]
+    equal_abstention = evaluation["equal_abstention"]
+    rule = f"the {calibration['quantile']:.0%} quantile of the same model fitted to noise"
     return "\n".join(
         [
             "# 07 — Topics: a comparison, not a result",
@@ -246,6 +250,60 @@ def build_note(nmf: dict, embedding: dict, evaluation: dict, sample: pd.DataFram
             "and changes the solver's seed, so this measures whether the topics are a "
             "property of the corpus or of one particular fit.",
             "",
+            "## Where the baseline is allowed to abstain",
+            "",
+            "HDBSCAN can decline to assign a document; NMF cannot, unless it is given a "
+            "minimum share of document-topic weight below which it says nothing. That "
+            "threshold is not free. A document's share is its largest topic weight over "
+            f"the sum of them, so it can never fall below 1/k = "
+            f"{calibration['floor']:.4f} — and a constant chosen without reference to k "
+            "is inert at one end of the sweep and binding at the other. An earlier run of "
+            "this script used 0.05 and left 0.0% of documents unassigned at every seed.",
+            "",
+            f"The line is now drawn where the model stops beating chance: {rule}. "
+            f"Every token in the sample is pooled, shuffled and dealt back into documents "
+            f"of the same lengths, the same vocabulary and idf are applied, and the model "
+            f"is refitted. The result is **{calibration['min_weight']:.4f}**"
+            + (
+                f", which leaves {nmf['unassigned_share']:.1%} of documents unassigned."
+                if calibration["binds"]
+                else " — the floor itself, meaning the model concentrates no more on this "
+                "corpus than on randomly dealt words."
+            ),
+            "",
+            "| Share of the best topic | Randomly dealt | This corpus |",
+            "|---|---:|---:|",
+            *[
+                f"| {label} | {calibration['null_shares'][key]:.3f} | "
+                f"{calibration['observed_shares'][key]:.3f} |"
+                for key, label in [
+                    ("median", "median"),
+                    ("p90", "90th percentile"),
+                    ("p95", "95th percentile"),
+                    ("p99", "99th percentile"),
+                ]
+            ],
+            "",
+            "How much the headline depends on where that line sits:",
+            "",
+            "| min_weight | Unassigned |",
+            "|---:|---:|",
+            *[
+                f"| {point['min_weight']:.4f}{' **(chosen)**' if point['chosen'] else ''} | "
+                f"{point['unassigned_share']:.1%} |"
+                for point in calibration["curve"]
+            ],
+            "",
+            "Because the two models otherwise abstain at different rates, the baseline is "
+            "also read a second time at HDBSCAN's own rate — same factorisation, same "
+            f"topics, only the line moved. At min_weight "
+            f"{equal_abstention['min_weight']:.4f} it leaves "
+            f"{equal_abstention['nmf_unassigned_share']:.1%} unassigned and scores "
+            f"{equal_abstention['nmf_coherence_mean']:+.3f} NPMI against the embedding "
+            f"model's {equal_abstention['embedding_coherence_mean']:+.3f}. That is the "
+            "comparison §4 asks for: neither model credited for a candour the other was "
+            "never offered.",
+            "",
             "## Baseline: NMF over TF-IDF",
             "",
             "| Topic | Speeches | NPMI | Procedural | Strongest words |",
@@ -265,10 +323,14 @@ def build_note(nmf: dict, embedding: dict, evaluation: dict, sample: pd.DataFram
             "",
             "## Sensitivity to k",
             "",
-            "| k | Topics | Unassigned | Mean NPMI |",
-            "|---:|---:|---:|---:|",
+            "Each k is calibrated on its own, because the floor it is calibrated against "
+            "is 1/k. The `min_weight` column is a result of the run, not a setting of it.",
+            "",
+            "| k | Topics | min_weight (floor) | Unassigned | Mean NPMI |",
+            "|---:|---:|---:|---:|---:|",
             *[
-                f"| {row['k']} | {row['topics']} | {row['unassigned_share']:.1%} | "
+                f"| {row['k']} | {row['topics']} | {row['min_weight']:.4f} "
+                f"({row['min_weight_floor']:.4f}) | {row['unassigned_share']:.1%} | "
                 f"{row['coherence_mean']:+.3f} |"
                 for row in evaluation["k_sweep"]
             ],
@@ -295,7 +357,13 @@ def build_note(nmf: dict, embedding: dict, evaluation: dict, sample: pd.DataFram
     ) + "\n"
 
 
-def build_verdict(nmf: dict, embedding: dict, stability_scores: dict) -> str:
+def build_verdict(
+    nmf: dict,
+    embedding: dict,
+    stability_scores: dict,
+    calibration: dict,
+    equal_abstention: dict,
+) -> str:
     """State plainly what the numbers do and do not support."""
     weakest = min(
         stability_scores["nmf"]["adjusted_rand_mean"],
@@ -326,6 +394,38 @@ def build_verdict(nmf: dict, embedding: dict, stability_scores: dict) -> str:
         f"On coherence {better} leads by {margin:.3f} NPMI. A margin below roughly 0.05 is "
         "not a reason to prefer an opaque model over one whose topics can be checked "
         "against a concordance."
+    )
+
+    if not calibration["binds"]:
+        parts.append(
+            "The baseline's abstention threshold calibrated to the floor 1/k: its topic "
+            "weights are no more concentrated on this corpus than on the same words dealt "
+            "at random, so an NMF assignment here is a label, not evidence."
+        )
+    else:
+        parts.append(
+            f"The baseline abstains on {nmf['unassigned_share']:.1%} at a threshold "
+            f"calibrated against randomly dealt text ({calibration['min_weight']:.3f}, floor "
+            f"{calibration['floor']:.3f}), against {embedding['unassigned_share']:.1%} for "
+            "HDBSCAN."
+        )
+
+    matched_margin = (
+        equal_abstention["embedding_coherence_mean"] - equal_abstention["nmf_coherence_mean"]
+    )
+    parts.append(
+        "Forced to the same abstention rate as HDBSCAN "
+        f"({equal_abstention['nmf_unassigned_share']:.1%}), the baseline scores "
+        f"{equal_abstention['nmf_coherence_mean']:+.3f} NPMI, "
+        + (
+            f"still {abs(matched_margin):.3f} "
+            + ("behind" if matched_margin > 0 else "ahead of")
+            + " the embedding model."
+            if abs(matched_margin) >= 0.005
+            else "level with the embedding model."
+        )
+        + " Any coherence gap that survives only at unequal abstention is a difference in "
+        "how much each model declined to answer, not in what it found."
     )
     return " ".join(parts)
 
@@ -362,11 +462,29 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
 
     console.step(f"Baseline: NMF over TF-IDF, k={k}")
     started = time.monotonic()
-    nmf_model = topics.fit_nmf([documents[i] for i in positions], k, seed)
+    nmf_model = topics.fit_nmf(documents, k, seed)
+    calibration = nmf_model.params["calibration"]
+    min_weight = float(nmf_model.params["min_weight"])
     console.info(
         f"{len(nmf_model.topics)} topics, {nmf_model.unassigned_share:.1%} unassigned "
         f"({time.monotonic() - started:.0f}s)"
     )
+    console.info(
+        f"min_weight calibrated to {min_weight:.4f} — the {calibration['quantile']:.0%} "
+        f"quantile of the same model on the corpus dealt at random "
+        f"(floor 1/k = {calibration['floor']:.4f})"
+    )
+    if not calibration["binds"]:
+        console.warn(
+            "the calibrated threshold is at the floor: this NMF concentrates no more "
+            "on the corpus than on randomly dealt words, so its assignments carry no "
+            "evidence of topical structure"
+        )
+    elif nmf_model.unassigned_share > 0.5:
+        console.warn(
+            f"{nmf_model.unassigned_share:.0%} of documents fall below the calibrated "
+            "threshold — read the abstention curve in nmf.json before reading the topics"
+        )
 
     console.step("Embedding: UMAP into HDBSCAN")
     started = time.monotonic()
@@ -376,10 +494,22 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
         f"unassigned ({time.monotonic() - started:.0f}s)"
     )
 
+    console.step("Baseline at the embedding model's abstention rate")
+    matched_weight = topics.threshold_for(
+        topics.dominant_share(nmf_model.weights), embedding_model.unassigned_share
+    )
+    matched = topics.relabel(nmf_model, documents, matched_weight)
+    console.info(
+        f"min_weight {matched_weight:.4f} leaves {matched.unassigned_share:.1%} unassigned "
+        f"against HDBSCAN's {embedding_model.unassigned_share:.1%}"
+    )
+
     console.step("Stability under resampling")
-    console.info("NMF:")
+    console.info(f"NMF (threshold held at {min_weight:.4f}):")
     nmf_stability = stability(
-        lambda pos, s: topics.fit_nmf([documents[i] for i in pos], k, s).labels,
+        lambda pos, s: topics.fit_nmf(
+            [documents[i] for i in pos], k, s, min_weight=min_weight
+        ).labels,
         positions,
         [seed + i for i in range(seeds)],
     )
@@ -393,6 +523,10 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
     k_sweep = []
     if sweep:
         console.step("Sensitivity to k")
+        # Each k is calibrated on its own. The share floor is 1/k, so carrying one
+        # threshold across the sweep would compare k=15 at a line it cannot cross
+        # with k=40 at a line that bites — which is the defect this sweep exists
+        # to detect, reintroduced into the instrument detecting it.
         for candidate in K_SWEEP:
             model = nmf_model if candidate == k else topics.fit_nmf(documents, candidate, seed)
             coherence = topics.npmi_coherence(model.words, documents)
@@ -402,11 +536,15 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
                     "topics": len(model.topics),
                     "unassigned_share": round(model.unassigned_share, 4),
                     "coherence_mean": coherence["mean"],
+                    "min_weight": model.params["min_weight"],
+                    "min_weight_floor": model.params["min_weight_floor"],
                 }
             )
             console.info(
                 f"k={candidate}: {len(model.topics)} topics, "
-                f"NPMI {coherence['mean']:+.3f}, {model.unassigned_share:.1%} unassigned"
+                f"NPMI {coherence['mean']:+.3f}, {model.unassigned_share:.1%} unassigned "
+                f"(min_weight {model.params['min_weight']:.4f}, "
+                f"floor {model.params['min_weight_floor']:.4f})"
             )
 
     console.step("Building payloads")
@@ -416,15 +554,29 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
     intrusion = topics.word_intrusion(nmf_model.words, seed) + topics.word_intrusion(
         embedding_model.words, seed + 1
     )
+    matched_coherence = topics.npmi_coherence(matched.words, documents)
+    equal_abstention = {
+        "target": round(embedding_model.unassigned_share, 4),
+        "min_weight": round(matched_weight, 6),
+        "nmf_unassigned_share": round(matched.unassigned_share, 4),
+        "nmf_topics": len(matched.topics),
+        "nmf_coherence_mean": matched_coherence["mean"],
+        "nmf_coherence_min": matched_coherence["min"],
+        "embedding_coherence_mean": embedding_payload["coherence"]["mean"],
+    }
     evaluation = {
         "sample_size": len(sample),
         "sample_seed": seed,
         "min_tokens": topics.MIN_TOKENS,
         "formulaic_document_frequency": FORMULAIC_DF,
+        "calibration": calibration,
+        "equal_abstention": equal_abstention,
         "stability": stability_scores,
         "k_sweep": k_sweep,
         "intrusion_tasks": len(intrusion),
-        "verdict": build_verdict(nmf_payload, embedding_payload, stability_scores),
+        "verdict": build_verdict(
+            nmf_payload, embedding_payload, stability_scores, calibration, equal_abstention
+        ),
     }
 
     console.step("Writing")
@@ -439,6 +591,8 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
             "sample_seed": seed,
             "k": k,
             "stability_seeds": seeds,
+            "nmf_min_weight": min_weight,
+            "nmf_min_weight_rule": calibration["rule"],
             "release_artefact": False,
         },
     )

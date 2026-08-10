@@ -30,6 +30,44 @@ def test_atomic_directory_keeps_the_previous_version_on_failure(tmp_path):
     assert not (target / "new.txt").exists()
 
 
+# --- Recording the commit outside a repository -----------------------------
+#
+# The cluster receives the working tree without `.git`, so `git rev-parse` there
+# answers nothing and every manifest a GPU step wrote said "unknown".
+
+
+SHA = "0123456789abcdef0123456789abcdef01234567"
+
+
+def test_the_stamp_names_the_commit_when_there_is_no_repository(tmp_path):
+    (tmp_path / artifacts.COMMIT_STAMP).write_text(f"{SHA}\n", encoding="utf-8")
+    assert artifacts.git_commit(tmp_path) == SHA
+
+
+def test_an_uncommitted_tree_is_recorded_as_dirty(tmp_path):
+    """The sha then locates the neighbourhood of the code, not the code."""
+    (tmp_path / artifacts.COMMIT_STAMP).write_text(f"{SHA}-dirty\n", encoding="utf-8")
+    assert artifacts.git_commit(tmp_path) == f"{SHA}-dirty"
+
+
+@pytest.mark.parametrize(
+    "content", ["", "unknown", "not-a-sha", "0123abc", f"{SHA} extra", f"{SHA}-DIRTY"]
+)
+def test_a_stamp_that_is_not_a_commit_is_refused(tmp_path, content):
+    """A manifest naming a wrong commit is worse than one naming none."""
+    (tmp_path / artifacts.COMMIT_STAMP).write_text(content, encoding="utf-8")
+    assert artifacts.git_commit(tmp_path) == "unknown"
+
+
+def test_no_repository_and_no_stamp_is_unknown(tmp_path):
+    assert artifacts.git_commit(tmp_path) == "unknown"
+
+
+def test_provenance_carries_the_stamped_commit(tmp_path):
+    (tmp_path / artifacts.COMMIT_STAMP).write_text(SHA, encoding="utf-8")
+    assert artifacts.provenance(tmp_path, "07_topics.py")["git_commit"] == SHA
+
+
 def test_tree_digest_changes_with_content(tmp_path):
     target = tmp_path / "payload"
     target.mkdir()

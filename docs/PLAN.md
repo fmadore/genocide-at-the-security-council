@@ -96,10 +96,17 @@ gate.
 
 ### 1.3 Release metadata
 
-- Choose an explicit licence for repository code and project-authored derived artifacts.
-  The underlying corpus remains CC0 regardless of that choice.
-- Confirm author names, ORCIDs and contributors in `CITATION.cff`; do not guess missing
-  identities.
+- ~~Choose an explicit licence for repository code and project-authored derived
+  artifacts.~~ Settled on 10 August 2026: code MIT (`LICENSE`), derived artifacts CC BY 4.0
+  (`LICENSE-DATA.md`). Three layers, not two — the source corpus remains CC0 by its
+  depositors, and verbatim speech text extracted from a derived table stays CC0 rather than
+  acquiring an attribution requirement it was never under. CC BY covers the selection,
+  arrangement and computation this project contributes, which is the part that has an
+  author.
+- ~~Confirm author names, ORCIDs and contributors in `CITATION.cff`.~~ Confirmed by the
+  author on 10 August 2026: sole author, ORCID 0000-0003-0959-2092, University of Bayreuth.
+  The corpus depositors stay in the `references` block, which is where they belong: they
+  are cited, not credited as contributors here.
 - Tag the release only after all generated notes and dashboard prose match the regenerated
   figures.
 
@@ -175,6 +182,30 @@ Required evaluation, and where it now stands:
   label is kept, and the NMF baseline is given the same abstention through a minimum
   document-topic weight, so the comparison does not reward one model for a candour the
   other was never offered.
+
+The last of those took two attempts, and the first attempt is worth recording. A
+document's NMF share is its largest topic weight over the sum of them, so it can never
+fall below 1/k. The threshold was a constant, 0.05: unreachable at k=15, a rounding error
+above the floor at k=25, and binding only at k=40 — one number meaning three things across
+the sweep it was swept over. The run of 10 August 2026 showed the consequence, 0.0%
+unassigned in every NMF fit against 15–23% for HDBSCAN, which is precisely the asymmetry
+the bullet exists to prevent.
+
+The threshold is now calibrated rather than declared. Every token of the frozen sample is
+pooled, shuffled and dealt back into documents of the same lengths; the same vocabulary and
+idf are applied; the model is refitted; and the threshold is the 95th percentile of the
+shares that null produces. A document is assigned only when its best topic is more
+concentrated than the model manages on text with no co-occurrence structure at all. The
+quantile is declared in `scripts/lib/topics.py` before any run, each k in the sweep is
+calibrated against its own floor, and the threshold is then held fixed across the stability
+refits — recalibrating inside each refit would make the adjusted Rand index measure the
+threshold moving as much as the topics moving.
+
+Because the two models still abstain at different rates, the baseline is read a second time
+at HDBSCAN's rate — same factorisation, same topics, only the line moved — so a coherence
+gap cannot be an artefact of one model having declined to answer more often. Both readings,
+the null and observed share distributions, and the unassigned share across a range of
+thresholds are written to `evaluation.json`.
 
 Two limits on what a passing evaluation would license. Reduced-precision GPU arithmetic is
 not bit-exact across devices, so embedding artifacts are reproducible only against the
@@ -282,18 +313,46 @@ Requirements that apply to all four:
 - colour must not encode a quantity the underlying table does not support;
 - a slice below the declared minimum sample is not drawn, in any of them.
 
+### 7.5 Export what is on screen
+
+Every chart and every generated table should be downloadable — the numbers as CSV, the
+chart as an image — from beside the thing itself. The concordance already does the CSV half
+(`web/src/routes/concordance/+page.svelte` builds a Blob from the filtered rows); nothing
+else does, so a reader who wants to check a collocate table or replot a series has to clone
+the repository and run the pipeline.
+
+Three constraints, or the export becomes a second source of truth:
+
+- **Export the artifact's numbers, not the chart's pixels.** A CSV is written from the same
+  JSON the chart is drawn from, at full precision, including rows a zoom or a top-N cut is
+  currently hiding. A file containing only what happened to be visible is a screenshot with
+  commas in it.
+- **The file carries its own provenance.** Leading comment rows, or a companion column,
+  naming the generating script, the artifact, the lexicon version and the manifest hash —
+  the same identifiers the dashboard shows — so a CSV that outlives the tab it came from
+  can still be traced. A downloaded table with no version is an orphan the moment a figure
+  is regenerated.
+- **Chart images state their filters.** A PNG of a filtered or zoomed view must carry the
+  term, window, unit and period in the rendered image, not only in the filename.
+
+This belongs after the release, with the word cloud and the graph: it changes what a reader
+can take away, not what the figures say, and it is not worth building against figures the
+§1.1 audit has not cleared.
+
 ## Priority order
 
 1. Complete the human audit and source-document spot checks.
-2. Select the code/derived-artifact licence and confirm citation identities.
+2. ~~Select the code/derived-artifact licence and confirm citation identities.~~ Done,
+   10 August 2026 — see §1.3.
 3. Run the first reproducible Pages release and archive its manifest.
 4. Build the actor view.
 5. Review the lemma mapping table and decide whether the lemma reading becomes the
    default, or stays a second reading published beside the surface one.
 6. Add the word cloud and the co-occurrence graph, each generated from the artifact it
    depicts.
-7. Decide whether topics answer a question the current methods cannot.
-8. Consider the LLM evaluation only after a human coding protocol exists.
+7. Add CSV and image export beside every chart and generated table (§7.5).
+8. Decide whether topics answer a question the current methods cannot.
+9. Consider the LLM evaluation only after a human coding protocol exists.
 
 Steps 5 and 6 are deliberately after the release, not before it: both change or add to
 what a reader sees, and neither is worth doing on figures the audit has not yet cleared.

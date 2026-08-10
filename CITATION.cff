@@ -5,7 +5,12 @@ type: software
 authors:
   - family-names: Madore
     given-names: Frédérick
+    orcid: "https://orcid.org/0000-0003-0959-2092"
+    affiliation: "University of Bayreuth"
+    website: "https://www.frederickmadore.com/"
 repository-code: "https://github.com/fmadore/un-security-council-debates"
+url: "https://fmadore.github.io/un-security-council-debates/"
+license: MIT
 abstract: >-
   Data pipeline, computational analysis and interactive dashboard studying the
   use of the word "genocide" and its semantic neighbourhood in United Nations

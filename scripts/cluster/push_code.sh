@@ -61,6 +61,21 @@ else
         "mkdir -p $REMOTE_REPO && tar xzf - -C $REMOTE_REPO"
 fi
 
+# Stamp the commit. `.git` is excluded from the transfer, so a job on the cluster
+# has no repository to ask and every manifest it wrote said "unknown" — against a
+# research contract that requires the generating commit. `-dirty` is recorded
+# honestly when the working tree carries uncommitted changes: the sha then names
+# the neighbourhood of the code that ran, not the code itself.
+COMMIT="$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)"
+if [[ "$COMMIT" != unknown && -n "$(git -C "$REPO" status --porcelain 2>/dev/null)" ]]; then
+  COMMIT="$COMMIT-dirty"
+  echo ">> commit $COMMIT (uncommitted changes — commit before a run you intend to cite)"
+else
+  echo ">> commit $COMMIT"
+fi
+ssh -o BatchMode=yes -o ConnectTimeout=20 "$SSH_TARGET" \
+  "printf '%s\n' '$COMMIT' > $REMOTE_REPO/.git-commit"
+
 # Verify rather than assume. A remote extraction that runs out of quota leaves a
 # *partial* repository — some files new, some stale, none obviously wrong — and
 # the next job then fails somewhere unrelated with a confusing error. Checking a

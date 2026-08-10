@@ -99,6 +99,20 @@ def test_coherence_of_nothing_is_not_an_error() -> None:
     assert topics.npmi_coherence({}, [["a"]])["mean"] == 0.0
 
 
+def test_words_sharing_every_document_score_one_rather_than_dividing_by_zero() -> None:
+    """Council boilerplate co-occurs everywhere; NPMI's limit there is +1."""
+    documents = [["thank", "briefing"], ["thank", "briefing"], ["thank", "briefing"]]
+    result = topics.npmi_coherence({0: [("thank", 1.0), ("briefing", 1.0)]}, documents)
+    assert result["per_topic"]["0"] == pytest.approx(1.0)
+
+
+def test_coherence_always_reports_the_same_keys() -> None:
+    """A model that assigned nothing must not crash the note writer hours later."""
+    empty = topics.npmi_coherence({}, [["a"]])
+    scored = topics.npmi_coherence({0: [("a", 1.0), ("b", 1.0)]}, [["a", "b"], ["a"]])
+    assert set(empty) == set(scored)
+
+
 # --- Topic labelling -------------------------------------------------------
 
 
@@ -182,6 +196,104 @@ def test_a_corpus_of_only_short_speeches_fails_loudly() -> None:
     short = frame().assign(tokens=5)
     with pytest.raises(ValueError, match="tokens or more"):
         topics.frozen_sample(short, 10, seed=1)
+
+
+# --- The abstention threshold ----------------------------------------------
+
+
+def test_the_dominant_share_can_never_fall_below_one_over_k() -> None:
+    """The property that made a hard-coded 0.05 inert at k=25 and impossible at k=15."""
+    rng = np.random.default_rng(0)
+    for k in (5, 15, 25, 40):
+        weights = rng.random((200, k))
+        assert topics.dominant_share(weights).min() >= 1.0 / k - 1e-12
+
+
+def test_a_document_with_no_weight_at_all_scores_zero_not_nan() -> None:
+    shares = topics.dominant_share(np.array([[0.0, 0.0], [1.0, 3.0]]))
+    assert shares[0] == 0.0
+    assert shares[1] == pytest.approx(0.75)
+
+
+def test_dealing_at_random_preserves_lengths_and_vocabulary() -> None:
+    documents = [["a", "b", "c"], ["a", "a"], ["d", "e", "f", "g"]]
+    dealt = topics.deal_at_random(documents, seed=3)
+    assert [len(d) for d in dealt] == [3, 2, 4]
+    assert sorted(w for d in dealt for w in d) == sorted(w for d in documents for w in d)
+
+
+def test_dealing_at_random_is_reproducible_and_actually_shuffles() -> None:
+    documents = [[f"w{i}"] * 4 for i in range(40)]
+    assert topics.deal_at_random(documents, 5) == topics.deal_at_random(documents, 5)
+    assert topics.deal_at_random(documents, 5) != documents
+
+
+def test_calibration_reads_the_threshold_off_the_null_not_the_corpus() -> None:
+    """The rule: assign only what beats what the model does on dealt-out words."""
+    null_shares = np.linspace(0.1, 0.5, 101)
+    observed = np.linspace(0.3, 0.9, 101)
+    result = topics.calibrate(observed, null_shares, k=25, quantile=0.95)
+    assert result["min_weight"] == pytest.approx(np.quantile(null_shares, 0.95), abs=1e-6)
+    assert result["floor"] == pytest.approx(0.04)
+    assert result["binds"] is True
+
+
+def test_a_model_no_better_than_noise_is_reported_as_not_binding() -> None:
+    """If the corpus concentrates no more than dealt-out words, say so."""
+    shares = np.full(50, 0.25)
+    result = topics.calibrate(shares, shares.copy(), k=4, quantile=0.95)
+    assert result["floor"] == pytest.approx(0.25)
+    assert result["binds"] is False
+
+
+def test_the_curve_never_offers_a_threshold_below_the_floor() -> None:
+    result = topics.calibrate(np.linspace(0.2, 0.9, 50), np.linspace(0.2, 0.4, 50), k=5)
+    assert result["curve"]
+    assert all(point["min_weight"] >= result["floor"] for point in result["curve"])
+
+
+def test_the_curve_is_monotonic_in_the_threshold() -> None:
+    result = topics.calibrate(np.linspace(0.1, 0.9, 200), np.linspace(0.1, 0.3, 200), k=25)
+    shares = [point["unassigned_share"] for point in result["curve"]]
+    assert shares == sorted(shares)
+
+
+def test_threshold_for_hits_the_requested_abstention_rate() -> None:
+    shares = np.linspace(0.0, 1.0, 1001)
+    cut = topics.threshold_for(shares, 0.2)
+    assert float((shares < cut).mean()) == pytest.approx(0.2, abs=0.01)
+
+
+def test_asking_for_no_abstention_assigns_everything() -> None:
+    shares = np.array([0.0, 0.4, 0.9])
+    assert float((shares < topics.threshold_for(shares, 0.0)).mean()) == 0.0
+
+
+def test_an_impossible_abstention_rate_is_rejected() -> None:
+    with pytest.raises(ValueError, match=r"\[0, 1\)"):
+        topics.threshold_for(np.array([0.5]), 1.0)
+
+
+def test_relabelling_moves_the_line_without_refitting() -> None:
+    weights = np.array([[9.0, 1.0], [6.0, 4.0], [5.1, 4.9]])
+    documents = [["alpha", "alpha"], ["beta", "beta"], ["gamma", "gamma"]]
+    model = topics.TopicModel(
+        name="nmf",
+        labels=np.array([0, 0, 0]),
+        words={},
+        params={"k": 2, "min_weight": 0.5},
+        weights=weights,
+    )
+    strict = topics.relabel(model, documents, 0.8)
+    assert strict.labels.tolist() == [0, topics.UNASSIGNED, topics.UNASSIGNED]
+    assert strict.params["k"] == 2
+    assert np.shares_memory(strict.weights, weights)
+
+
+def test_relabelling_a_model_without_weights_fails_loudly() -> None:
+    model = topics.TopicModel(name="embedding", labels=np.array([0, 1]), words={})
+    with pytest.raises(ValueError, match="no document-topic weights"):
+        topics.relabel(model, [["a"], ["b"]], 0.5)
 
 
 # --- Periods and resampling ------------------------------------------------

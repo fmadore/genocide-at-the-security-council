@@ -117,12 +117,38 @@
 			tooltip: {
 				...tooltip(p),
 				trigger: 'axis',
-				valueFormatter: (v) =>
-					v == null
-						? '—'
-						: isRate && unit === 'speech_rate'
-							? percent(v as number)
-							: decimal(v as number)
+				// The reference dates are markLines, but a markLine's own tooltip never
+				// fires while the chart tooltip is axis-triggered: hovering a rule gave
+				// the year's values and nothing about the date the rule was there for.
+				// So the axis tooltip carries them, and every year is hoverable rather
+				// than a one-pixel line.
+				formatter: (params) => {
+					const rows = (Array.isArray(params) ? params : [params]) as {
+						axisValue?: string;
+						marker?: string;
+						seriesName?: string;
+						value?: unknown;
+					}[];
+					const year = rows[0]?.axisValue ?? '';
+					const show = (v: unknown) =>
+						v == null
+							? '—'
+							: isRate && unit === 'speech_rate'
+								? percent(v as number)
+								: decimal(v as number);
+					const series = rows
+						.map(
+							(r) => `${r.marker ?? ''}${escapeHtml(r.seriesName ?? '')} <b>${show(r.value)}</b>`
+						)
+						.join('<br>');
+					const events = byYearLookup.get(year) ?? [];
+					const dates = events.length
+						? '<hr style="opacity:.2">' +
+							`<span style="opacity:.7">Reference ${events.length === 1 ? 'date' : 'dates'}</span><br>` +
+							events.map((e) => `<b>${isoDate(e.date)}</b> ${escapeHtml(e.label)}`).join('<br>')
+						: '';
+					return `<b>${escapeHtml(year)}</b><br>${series}${dates}`;
+				}
 			},
 			xAxis: { ...axisX(p), type: 'category', data: periods },
 			yAxis: {
@@ -155,19 +181,15 @@
 				lineStyle: { width: 2.2, color: colourOf(name, p) },
 				itemStyle: { color: colourOf(name, p) },
 				emphasis: { focus: 'series' },
+				// Silent: the rule is a mark, not a hover target. What it means is read
+				// off the axis tooltip, which fires anywhere in the year's column.
 				markLine:
 					i === 0 && eventMarks.length
 						? {
-								silent: false,
+								silent: true,
 								symbol: 'none',
 								lineStyle: { color: p.inkFaint, width: 1, type: 'solid', opacity: 0.35 },
 								label: { show: false },
-								tooltip: {
-									formatter: (params) =>
-										(byYearLookup.get(String((params as { name?: string }).name)) ?? [])
-											.map((e) => `<b>${isoDate(e.date)}</b><br>${escapeHtml(e.label)}`)
-											.join('<hr style="opacity:.2">')
-								},
 								data: eventMarks.map(([year]) => ({ xAxis: year, name: year }))
 							}
 						: undefined
@@ -290,8 +312,10 @@
 			</p>
 			<p>
 				{#if showEvents && grain === 'year'}Faint vertical rules mark years carrying one of the
-					{data.overlay.events.length} reference dates &mdash; hover a rule to read them.{:else}Reference
-					dates are hidden.{/if}
+					{data.overlay.events.length}
+					<a href="#reference-dates">reference dates</a>; hover anywhere in such a year to read the
+					date and what it marks, below that year's values. They annotate the chart and explain
+					nothing in it &mdash; see the caveat below.{:else}Reference dates are hidden.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -502,7 +526,7 @@
 		{/if}
 	</Figure>
 
-	<section class="events">
+	<section class="events" id="reference-dates">
 		<h2>Reference dates</h2>
 		<p class="hint">
 			{data.overlay.events.length} hand-curated dates used to annotate the chart above. Each links to

@@ -18,6 +18,18 @@ the same escape hatch through a minimum document-topic weight, so the two models
 are compared on equal terms rather than one being allowed to abstain and the
 other forced to guess.
 
+**That escape hatch has to be calibrated, not guessed.** A document's share is
+its largest topic weight over the sum of them, and the largest of k numbers is
+never below their mean, so the share has a hard floor at 1/k. A constant written
+into the source — this module used 0.05 — is therefore unreachable at k=15
+(floor 0.067), a rounding error above the floor at k=25, and a real constraint at
+k=40: the same nominal threshold means three different things across the sweep it
+is swept over. The first full run showed exactly what that produces, 0.0%
+unassigned in every NMF fit against 15-23% for HDBSCAN. :func:`fit_nmf` now
+derives the threshold from a null instead — see :func:`calibrate` — and
+:func:`relabel` provides the second reading the comparison needs, both models at
+the same abstention rate.
+
 **Stability is one knob for both.** A seed drives a bootstrap resample of the
 frozen sample *and* the model's own randomness, and agreement is measured with
 the adjusted Rand index over the documents two runs share. This asks the question
@@ -66,6 +78,19 @@ MIN_TOKENS = 120
 
 #: Label for a document the model declines to assign.
 UNASSIGNED = -1
+
+#: Where NMF's abstention threshold is read off the null distribution. At 0.95, a
+#: document is assigned only if its best topic is more concentrated than 95% of
+#: documents manage under a model fitted to text with no co-occurrence structure
+#: at all. Declared here, before any run, because a threshold chosen after seeing
+#: which one produced an agreeable number of topics is not a threshold.
+NULL_QUANTILE = 0.95
+
+#: Thresholds the abstention curve is reported at. The point is not that any of
+#: them is right: it is that a reader can see how much the headline "unassigned"
+#: figure depends on where the line was drawn, instead of taking one number on
+#: trust.
+ABSTENTION_CURVE = [0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50, 0.60, 0.75]
 
 
 def assign_period(years: pd.Series) -> pd.Series:
@@ -181,12 +206,20 @@ def ctfidf(
 
 @dataclass(frozen=True)
 class TopicModel:
-    """One fitted model, in the form the evaluation needs."""
+    """One fitted model, in the form the evaluation needs.
+
+    `weights` is the document-topic matrix where the model has one. It is kept so
+    that a labelling can be redrawn at a different abstention threshold without
+    refitting — which is what makes the equal-abstention comparison affordable,
+    and what stops "we tried a few thresholds" from meaning "we ran the model
+    until we liked it".
+    """
 
     name: str
     labels: np.ndarray
     words: dict[int, list[tuple[str, float]]]
     params: dict[str, object] = field(default_factory=dict)
+    weights: np.ndarray | None = None
 
     @property
     def topics(self) -> list[int]:
@@ -201,6 +234,117 @@ class TopicModel:
         return self.unassigned / len(self.labels) if len(self.labels) else 0.0
 
 
+def dominant_share(weights: np.ndarray) -> np.ndarray:
+    """Each document's largest topic weight as a share of its total.
+
+    Bounded below by 1/k, because the largest of k non-negative numbers is never
+    smaller than their mean. A document the model gave no weight at all — its
+    vocabulary pruned away entirely — scores 0 and is unassignable, which is the
+    right answer rather than a division by zero.
+    """
+    totals = weights.sum(axis=1)
+    return np.divide(
+        weights.max(axis=1), totals, out=np.zeros_like(totals, dtype=np.float64), where=totals > 0
+    )
+
+
+def deal_at_random(documents: list[list[str]], seed: int) -> list[list[str]]:
+    """The same words, the same document lengths, no co-occurrence.
+
+    Every token in the sample is pooled, shuffled and dealt back out into
+    documents of the original lengths. Unigram frequencies and length
+    distribution survive exactly; what does not survive is any tendency of two
+    words to appear in the same speech, which is the only thing a topic model is
+    entitled to find. Documents built this way are the null that
+    :func:`calibrate` measures concentration against.
+    """
+    rng = np.random.default_rng(seed)
+    pool = [word for tokens in documents for word in tokens]
+    order = rng.permutation(len(pool))
+    dealt: list[list[str]] = []
+    cursor = 0
+    for tokens in documents:
+        window = order[cursor : cursor + len(tokens)]
+        dealt.append([pool[i] for i in window])
+        cursor += len(tokens)
+    return dealt
+
+
+def calibrate(
+    shares: np.ndarray,
+    null_shares: np.ndarray,
+    k: int,
+    quantile: float = NULL_QUANTILE,
+) -> dict[str, object]:
+    """Where to draw NMF's abstention line, and the evidence for drawing it there.
+
+    The rule, fixed before the run: assign a document only when its best topic is
+    more concentrated than the same model achieves on structureless text. The
+    threshold is the `quantile` of the null share distribution, so it moves with
+    k, with the vocabulary and with the sample, rather than being a constant that
+    happens to be inert at one k and binding at another.
+
+    Everything needed to disagree with the choice is returned alongside it: the
+    floor 1/k below which no threshold can bite, the null and observed share
+    distributions, and the share of documents left unassigned across a range of
+    thresholds.
+    """
+    floor = 1.0 / k
+    threshold = float(np.quantile(null_shares, quantile))
+
+    def spread(values: np.ndarray) -> dict[str, float]:
+        percentiles = np.quantile(values, [0.05, 0.5, 0.9, 0.95, 0.99])
+        return {
+            "p05": round(float(percentiles[0]), 4),
+            "median": round(float(percentiles[1]), 4),
+            "p90": round(float(percentiles[2]), 4),
+            "p95": round(float(percentiles[3]), 4),
+            "p99": round(float(percentiles[4]), 4),
+            "mean": round(float(values.mean()), 4),
+        }
+
+    return {
+        "rule": (
+            f"share >= the {quantile:.0%} quantile of the same model fitted to the "
+            "corpus dealt at random"
+        ),
+        "quantile": quantile,
+        "min_weight": round(threshold, 6),
+        "floor": round(floor, 6),
+        "binds": bool(threshold > floor),
+        "null_shares": spread(null_shares),
+        "observed_shares": spread(shares),
+        "unassigned_share": round(float((shares < threshold).mean()), 4),
+        # The calibrated threshold joins the declared grid so the table brackets
+        # it. A curve that starts above the line actually used reads as though
+        # the two disagree.
+        "curve": [
+            {
+                "min_weight": round(point, 6),
+                "unassigned_share": round(float((shares < point).mean()), 4),
+                "chosen": point == threshold,
+            }
+            for point in sorted({*ABSTENTION_CURVE, threshold})
+            if point >= floor
+        ],
+    }
+
+
+def threshold_for(shares: np.ndarray, unassigned_share: float) -> float:
+    """The threshold that leaves `unassigned_share` of documents unassigned.
+
+    Used to read the baseline at the embedding model's abstention rate. It is a
+    second reading, never the primary one: a threshold defined by another model's
+    noise share tells you what NMF looks like when forced to be as reticent as
+    HDBSCAN, which is a fair comparison and a bad definition.
+    """
+    if not 0.0 <= unassigned_share < 1.0:
+        raise ValueError(f"unassigned share must be in [0, 1), got {unassigned_share}")
+    if unassigned_share == 0.0:
+        return 0.0
+    return float(np.quantile(shares, unassigned_share))
+
+
 def fit_nmf(
     documents: list[list[str]],
     k: int,
@@ -209,7 +353,8 @@ def fit_nmf(
     min_df: int = 5,
     max_df: float = 0.5,
     max_features: int = 50_000,
-    min_weight: float = 0.05,
+    min_weight: float | None = None,
+    quantile: float = NULL_QUANTILE,
 ) -> TopicModel:
     """NMF over TF-IDF — the transparent baseline.
 
@@ -218,11 +363,17 @@ def fit_nmf(
     allowed the same "I don't know" that HDBSCAN gets for free. Without it the
     comparison rewards the embedding model for a candour the baseline was never
     offered.
+
+    Left as None it is calibrated against a null fitted on the same vocabulary —
+    one extra factorisation, and the difference between a threshold and a number
+    somebody once typed. Pass a float to hold it fixed, which is what the
+    stability battery does: a threshold recalibrated inside every refit would
+    make the adjusted Rand index measure the threshold moving as much as the
+    topics moving.
     """
     from sklearn.decomposition import NMF
     from sklearn.feature_extraction.text import TfidfVectorizer
 
-    joined = [" ".join(tokens) for tokens in documents]
     vectoriser = TfidfVectorizer(
         min_df=min_df,
         max_df=max_df,
@@ -231,18 +382,31 @@ def fit_nmf(
         # this vectoriser from applying a second, different idea of a word.
         analyzer=lambda text: text.split(),
     )
-    matrix = vectoriser.fit_transform(joined)
+    matrix = vectoriser.fit_transform([" ".join(tokens) for tokens in documents])
 
     # init="random" so that `seed` genuinely moves the solution. A deterministic
     # init would make this model reproduce itself exactly, which is a different
     # and much weaker claim than the topics being robust.
-    model = NMF(n_components=k, init="random", random_state=seed, max_iter=600)
-    weights = model.fit_transform(matrix)
+    def factorise(target):
+        model = NMF(n_components=k, init="random", random_state=seed, max_iter=600)
+        return model.fit_transform(target), model
 
-    totals = weights.sum(axis=1)
-    best = weights.argmax(axis=1)
-    share = np.divide(weights.max(axis=1), totals, out=np.zeros_like(totals), where=totals > 0)
-    labels = np.where(share >= min_weight, best, UNASSIGNED).astype(np.int64)
+    weights, model = factorise(matrix)
+    shares = dominant_share(weights)
+
+    calibration: dict[str, object] | None = None
+    if min_weight is None:
+        # `transform`, not `fit_transform`: the null must be scored through the
+        # real corpus's vocabulary and idf, or the two share distributions are
+        # not measured on the same axis and the comparison means nothing.
+        null = vectoriser.transform(
+            [" ".join(tokens) for tokens in deal_at_random(documents, seed)]
+        )
+        null_weights, _ = factorise(null)
+        calibration = calibrate(shares, dominant_share(null_weights), k, quantile)
+        min_weight = float(calibration["min_weight"])
+
+    labels = np.where(shares >= min_weight, weights.argmax(axis=1), UNASSIGNED).astype(np.int64)
 
     return TopicModel(
         name="nmf",
@@ -254,10 +418,35 @@ def fit_nmf(
             "min_df": min_df,
             "max_df": max_df,
             "max_features": max_features,
-            "min_weight": min_weight,
+            "min_weight": round(float(min_weight), 6),
+            "min_weight_floor": round(1.0 / k, 6),
+            "min_weight_calibrated": calibration is not None,
+            "calibration": calibration,
             "vocabulary": int(matrix.shape[1]),
             "reconstruction_error": round(float(model.reconstruction_err_), 4),
         },
+        weights=weights,
+    )
+
+
+def relabel(model: TopicModel, documents: list[list[str]], min_weight: float) -> TopicModel:
+    """The same factorisation, read at a different abstention threshold.
+
+    No refit, so this cannot become a search for a flattering result: the topics
+    are fixed and only the line between "assigned" and "unassigned" moves.
+    """
+    if model.weights is None:
+        raise ValueError(f"{model.name} keeps no document-topic weights to re-threshold")
+    shares = dominant_share(model.weights)
+    labels = np.where(
+        shares >= min_weight, model.weights.argmax(axis=1), UNASSIGNED
+    ).astype(np.int64)
+    return TopicModel(
+        name=model.name,
+        labels=labels,
+        words=ctfidf(documents, labels),
+        params={**model.params, "min_weight": round(float(min_weight), 6), "calibration": None},
+        weights=model.weights,
     )
 
 
@@ -361,8 +550,17 @@ def npmi_coherence(
     sufficient — the Council's formulaic openings are highly coherent and empty,
     which is what :func:`sensitivity` and the intrusion task are there to catch.
     """
+    # A model that assigned nothing still has to report a coherence block with
+    # every key the callers read. Returning a short dict here means a run that
+    # abstains completely fails while writing its note, hours after the fact.
     if not topic_words:
-        return {"per_topic": {}, "mean": 0.0, "documents": len(documents)}
+        return {
+            "per_topic": {},
+            "mean": 0.0,
+            "min": 0.0,
+            "top_n": top_n,
+            "documents": len(documents),
+        }
 
     wanted = {w for words in topic_words.values() for w, _ in words[:top_n]}
     present = [set(tokens) & wanted for tokens in documents]
@@ -388,10 +586,18 @@ def npmi_coherence(
                 key = (first, second) if first < second else (second, first)
                 # +1 smoothing: an unobserved pair is evidence against the
                 # topic, not a division by zero to be dropped from the mean.
-                p_joint = (joint.get(key, 0) + 1) / total
-                p_first = (counts.get(first, 0) + 1) / total
-                p_second = (counts.get(second, 0) + 1) / total
-                scores.append(math.log(p_joint / (p_first * p_second)) / -math.log(p_joint))
+                # Clamped at 1.0, because the smoothing can push a pair present
+                # in every document past a probability of one.
+                p_joint = min((joint.get(key, 0) + 1) / total, 1.0)
+                p_first = min((counts.get(first, 0) + 1) / total, 1.0)
+                p_second = min((counts.get(second, 0) + 1) / total, 1.0)
+                if p_joint >= 1.0:
+                    # Two words that share every document. NPMI tends to +1 here
+                    # and the formula tends to 0/0 — a topic of Council boilerplate
+                    # would otherwise end a run with a ZeroDivisionError.
+                    scores.append(1.0)
+                else:
+                    scores.append(math.log(p_joint / (p_first * p_second)) / -math.log(p_joint))
         per_topic[str(label)] = round(float(np.mean(scores)) if scores else 0.0, 4)
 
     values = list(per_topic.values())

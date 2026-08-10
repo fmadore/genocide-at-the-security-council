@@ -234,5 +234,15 @@ This repository: see [`CITATION.cff`](CITATION.cff).
 
 ## Licence
 
-Corpus data is CC0 (Harvard Dataverse). A licence for the code and project-authored derived
-artefacts is **not yet set** — see the release gate in [`docs/PLAN.md`](docs/PLAN.md#13-release-metadata).
+Three layers, three licences:
+
+| Layer | Licence |
+|---|---|
+| Source corpus (Harvard Dataverse v6.1) | CC0 1.0, by its depositors |
+| Code — `scripts/`, `web/`, `tests/`, `tools/`, `config/` | [MIT](LICENSE) |
+| Derived artefacts — `data/derived/`, `notes/`, the dashboard's figures and tables | [CC BY 4.0](LICENSE-DATA.md) |
+
+The middle row is the ordinary one. The third exists because a derived table is this
+project's contribution rather than the United Nations', and reuse of it should carry the
+attribution that lets a reader find the record behind the number. Verbatim speech text
+extracted from a derived artefact remains CC0 — see [`LICENSE-DATA.md`](LICENSE-DATA.md).

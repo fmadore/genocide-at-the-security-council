@@ -249,6 +249,15 @@ evidence needed to decide that — coherence, stability under resampling,
 sensitivity to `k`, topic composition, and a blinded word-intrusion task for a
 human to complete. Read `evaluation.json` before either model's own output.
 
+Its `calibration` block is worth reading first. NMF's abstention threshold is not
+a setting: the job refits the baseline on the frozen sample dealt out at random
+and takes the 95th percentile of the shares that produces, so "unassigned" means
+"no more concentrated than noise" rather than "below a number somebody typed".
+The block records the threshold, the floor 1/k it must beat, both share
+distributions and the unassigned share across a range of thresholds. A run whose
+`binds` is false found a baseline that concentrates no better on the Council than
+on shuffled words, and its topics should be read as labels rather than findings.
+
 ## Acknowledgement
 
 Work using the cluster carries a DFG funding acknowledgement for the hardware —
