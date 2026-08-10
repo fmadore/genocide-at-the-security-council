@@ -4,9 +4,9 @@
     {
       "name": "dashboard",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "web", "--", "--port", "5173"],
+      "runtimeArgs": ["run", "dev", "--prefix", "web"],
       "port": 5173,
-      "url": "http://localhost:5173"
+      "autoPort": true
     }
   ]
 }
