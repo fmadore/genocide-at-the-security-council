@@ -230,7 +230,42 @@ Two limits on what a passing evaluation would license. Reduced-precision GPU ari
 not bit-exact across devices, so embedding artifacts are reproducible only against the
 device and package versions their manifest records, not by hash. And a 2D projection remains
 exploratory navigation only — distances on a UMAP plot are not evidence of historical
-influence or categorical separation, which is why 07 writes no map.
+influence or categorical separation.
+
+07 does now write a 2D projection, and it is worth being exact about what changed, because
+the sentence that used to stand here said it never would. **The projection is a diagnostic
+whose purpose is inverted from the usual one: it exists to argue against a thematic reading
+of the embedding space, not to support one.** It is fitted after the clustering, from the
+same vectors and the same seed; the five-dimensional reduction HDBSCAN is fitted in is
+untouched; no cluster is fitted on the 2D coordinates, no label is derived from them, and
+the coordinates are not written to disk, so there is no column to join onto a speech and
+call a topic. What is written is `projection.json` and three PNGs, in
+`data/derived/topics/`, which is not a release artefact and which `export_web.py` cannot
+reach — a guarantee `tests/test_cluster.py` now asserts file by file.
+
+What makes it evidence rather than decoration is that it is measured. For each point,
+`projection.json` reports the share of its 25 nearest neighbours **in the 2D coordinates**
+that share its speaker, delegation, year, period, hand-coded agenda item, NMF topic and
+HDBSCAN cluster, each beside the base rate a randomly chosen other speech would give, so
+the figure is a lift rather than a bare fraction. That settles the question the bullet
+above only poses: if purity by speaker greatly exceeds purity by agenda item and by NMF
+topic, the picture is a picture of speakers, and the note says so in words with the numbers
+in them rather than referring a reader to a figure. The HDBSCAN row is reported as a
+ceiling, not as a result — the clusters and the picture are two reductions of the same
+vectors and are bound to agree to some degree.
+
+The same file also measures how far the picture is from the space that was actually
+clustered: trustworthiness of the 2D embedding against the 5D reduction, and the plainer
+figure of what share of each point's nearest neighbours in 5D are absent from its
+neighbourhood in 2D. Both run on a deterministic subsample whose size and seed are recorded
+in the artefact, because the ranks the measure needs are an n-by-n matrix at 20,000 points.
+That is the arithmetic reason a thematic map would mislead: points the clustering called
+neighbours can sit far apart in the figure. The purity and trustworthiness maths is written
+out in numpy, like the adjusted Rand index and the NPMI coherence beside it, so it is
+testable in an environment with no scikit-learn; only the UMAP call and the matplotlib
+figures need the cluster's packages, and both are imported inside the functions that use
+them. `matplotlib` is in `requirements-cluster.txt` for that reason, and the figures select
+the Agg backend explicitly because the compute node has no display.
 
 ## Phase 5 — Optional LLM structured extraction
 
@@ -346,7 +381,12 @@ concordance. Four additions are worth building, in this order:
 4. **A 2D semantic projection**, only if Phase 4 is approved, and only as exploratory
    navigation. Distance on a UMAP plot is not evidence of influence or of categorical
    separation, and any such map must carry that statement in the interface rather than
-   in a methods note nobody opens.
+   in a methods note nobody opens. **The projection 07 writes is not this and must not be
+   promoted into it.** It is a diagnostic against a thematic reading (§4), it lives in
+   `data/derived/topics/`, its coordinates are never written, and its own numbers are the
+   argument for leaving it there: the neighbourhood purities say how much of the picture
+   is speaker and occasion rather than subject. Shipping it would mean re-deriving the
+   coordinates for the dashboard and answering the §4 gates first — not copying a PNG.
 
 Requirements that apply to all four:
 

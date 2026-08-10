@@ -195,6 +195,23 @@ def test_embeddings_are_step_06_and_topics_step_07() -> None:
     assert (ROOT / "scripts" / "07_topics.py").exists()
 
 
+#: Everything 07 writes into data/derived/topics/. The dashboard must be unable
+#: to reach any of it, and the projection files are the ones most likely to be
+#: reached for: a scatter plot of speeches is the single most shippable-looking
+#: thing in this repository, and docs/PLAN.md §4 says it is not evidence.
+TOPIC_FILES = [
+    "nmf.json",
+    "embedding.json",
+    "evaluation.json",
+    "projection.json",
+    "projection_year.png",
+    "projection_speaker.png",
+    "projection_cluster.png",
+    "assignments.parquet",
+    "intrusion_task.csv",
+]
+
+
 def test_topics_stay_out_of_the_dashboard() -> None:
     """docs/PLAN.md §4 defers topic modelling; 07 produces evaluation evidence,
     not a release artefact, and nothing in web/ may read it."""
@@ -202,3 +219,38 @@ def test_topics_stay_out_of_the_dashboard() -> None:
     assert "TOPICS" not in export, "export_web.py must not read data/derived/topics"
     assert "EMBEDDINGS" not in export, "the dashboard ships no vectors"
     assert "derived/topics" not in export
+    for name in TOPIC_FILES:
+        assert name not in export, f"export_web.py must not read {name}"
+
+
+def test_the_step_writes_every_file_the_guarantee_covers() -> None:
+    """The list above is only a guarantee if it is the list of what 07 writes.
+    A new artefact that nothing checks is a new artefact nothing protects."""
+    step = (ROOT / "scripts" / "07_topics.py").read_text(encoding="utf-8")
+    for name in TOPIC_FILES:
+        assert name in step, f"07 no longer writes {name} — update TOPIC_FILES"
+
+
+def test_the_dashboard_never_learns_the_projection_exists() -> None:
+    """Asserted over the source the dashboard is built from, not only over the
+    exporter: a hand-copied PNG would bypass export_web.py entirely."""
+    sources = [
+        path
+        for path in (ROOT / "web" / "src").rglob("*")
+        if path.suffix in {".ts", ".js", ".svelte", ".json", ".html"} and path.is_file()
+    ]
+    assert sources, "web/src should contain the dashboard"
+    for path in sources:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for name in ("projection.json", "projection_year.png", "derived/topics"):
+            assert name not in text, f"{path.name} reaches {name}"
+
+
+def test_the_projection_never_becomes_a_column_of_the_assignments_table() -> None:
+    """Coordinates joined to a row_id are a map waiting to be drawn by someone
+    who never read the note. The parquet carries labels and nothing else."""
+    step = (ROOT / "scripts" / "07_topics.py").read_text(encoding="utf-8")
+    table = step.split("assignments = pd.DataFrame(", 1)[1].split("\n    )", 1)[0]
+    assert "row_id" in table, "the split found the wrong block"
+    for name in ("coordinates", "projection", "umap"):
+        assert name not in table.lower(), f"the assignments table carries `{name}`"

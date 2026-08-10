@@ -7,6 +7,8 @@ data/derived/topics/:
     embedding.json     UMAP + HDBSCAN over the speech vectors
     evaluation.json    coherence, seed stability, k sensitivity, composition,
                        and the calibration of the baseline's abstention
+    projection.json    the 2D projection diagnostic — purity and trustworthiness
+    projection_*.png   the same projection coloured by year, delegation, cluster
     assignments.parquet  row_id -> topic under each model
     intrusion_task.csv   the blinded word-intrusion task, for a human
     manifest.json
@@ -21,6 +23,14 @@ Read `evaluation.json` before either model's own output. A topic model always
 produces topics; the question is whether they survive a change of seed, a change
 of k, and a reader who has to pick the intruder word.
 
+**The projection is not a map of topics and is not a step towards one.** It is
+fitted after the clustering, is never clustered and never labels anything, and it
+is here to be measured: if a speech's neighbours in the picture are mostly the
+same delegation and the same year, then the space has recovered the occasion and
+a topic model over it would return agenda items dressed as themes, which is
+exactly what §4 warns of. `projection.json` reports that as neighbourhood purity
+beside the base rate a random neighbour would give.
+
 Usage:
     python scripts/07_topics.py [--sample 20000] [--k 25] [--seeds 5]
 """
@@ -30,6 +40,7 @@ from __future__ import annotations
 import argparse
 import csv
 import io
+import json
 import sys
 import time
 from pathlib import Path
@@ -72,6 +83,45 @@ FORMULAIC_DF = 0.5
 #: stable structure should survive, and reported whether or not it does.
 K_SWEEP = [15, 25, 40]
 
+#: Categories a figure distinguishes by colour before folding the rest into one
+#: muted group. Past a dozen, a categorical legend is a colour-matching exercise
+#: and a recycled hue invites a reader to see two distant groups as one.
+FIGURE_CATEGORIES = 10
+
+#: Written into every manifest this step produces, beside `release_artefact:
+#: False`. The flag says the directory is not shipped; this says what it is for,
+#: so a file that travels away from the note still carries the argument it
+#: belongs to.
+PURPOSE = (
+    "Evaluation evidence for docs/PLAN.md §4, not a result. The 2D projection in "
+    "this directory is a diagnostic whose purpose is inverted from the usual one: "
+    "it is evidence against reading this embedding space thematically, by "
+    "measuring how much of a speech's neighbourhood in the picture is the same "
+    "speaker and the same occasion rather than the same subject. No cluster is "
+    "fitted on the projection's coordinates and no topic label is derived from "
+    "them."
+)
+
+#: How each purity row is named in the note. Keys are columns of the frozen
+#: sample plus the two models' own labels; a share means nothing without the name
+#: of what it is a share of.
+PURITY_LABELS = {
+    "speaker": "the same named speaker",
+    "country_org": "the same delegation",
+    "year": "the same year",
+    "period": "the same period",
+    "agenda_item_manual": "the same hand-coded agenda item",
+    "nmf_topic": "the same NMF topic",
+    "embedding_topic": "the same HDBSCAN cluster",
+}
+
+#: Which purity rows describe *when and who* and which describe *what about*.
+#: The diagnostic's whole question is which of the two the picture separates
+#: more sharply, so the split is declared here rather than inferred from the
+#: numbers after they arrive.
+OCCASION_ATTRIBUTES = ("speaker", "country_org", "year", "period")
+SUBJECT_ATTRIBUTES = ("agenda_item_manual", "nmf_topic")
+
 
 def load_vectors(row_ids: pd.Series) -> np.ndarray:
     """Vectors for the sampled speeches, aligned by row_id.
@@ -101,6 +151,146 @@ def load_vectors(row_ids: pd.Series) -> np.ndarray:
             [f"first missing row_id: {missing[0]}", "re-run 06_embed.py without --limit"],
         )
     return vectors[position.loc[row_ids].to_numpy()]
+
+
+def neighbour_inspection() -> dict[str, object]:
+    """The shares 06 measured in the full space, if they are on disk.
+
+    07 already depends on 06's vectors; this reads the same step's other output
+    for a second purpose. The projection diagnostic argues that the space has
+    recovered the occasion, and 06 measured exactly that in 1,024 dimensions
+    before anything was reduced — so the note can put the two side by side
+    instead of asking a reader to hold one of them in their head.
+
+    Missing or unreadable, the note simply says less. A diagnostic that refuses
+    to run because a companion file is absent would make the harder half of the
+    evidence hostage to the easier half.
+    """
+    path = EMBEDDINGS / "neighbours.json"
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        console.warn(f"{rel(path)} could not be read; the note will omit 06's own shares")
+        return {}
+    wanted = (
+        "targets",
+        "k",
+        "top1_same_speaker",
+        "top1_same_year",
+        "top1_also_genocide_bearing",
+        "corpus_genocide_bearing_share",
+    )
+    return {key: payload[key] for key in wanted if key in payload}
+
+
+def projection_attributes(
+    sample: pd.DataFrame, nmf_labels: np.ndarray, embedding_labels: np.ndarray
+) -> dict[str, object]:
+    """The columns a neighbourhood in the projection is scored against.
+
+    Occasion first, because that is what the space is suspected of having
+    recovered; subject last, because the comparison between the two is the whole
+    point. `country_org` is here as well as `speaker` because it is the field 06
+    called "same speaker", and the two numbers have to be readable against each
+    other rather than against a footnote explaining that they measure different
+    things.
+    """
+    return {
+        "speaker": sample["speaker"],
+        "country_org": sample["country_org"],
+        "year": sample["year"],
+        "period": topics.assign_period(sample["year"]),
+        "agenda_item_manual": sample["agenda_item_manual"],
+        "nmf_topic": nmf_labels,
+        "embedding_topic": embedding_labels,
+    }
+
+
+def build_figures(
+    coordinates: np.ndarray, sample: pd.DataFrame, labels: np.ndarray
+) -> list[tuple[str, bytes, dict[str, object]]]:
+    """The three PNGs, as (filename, bytes, description).
+
+    One per question a reader puts to a scatter plot of speeches: when, who, and
+    which cluster. Year is a quantity the frozen sample carries, so it gets a
+    continuous scale; delegation and cluster are categories, so they get discrete
+    colours and a stated cut-off. Nothing else is coloured, because nothing else
+    would survive docs/PLAN.md §7's rule that colour must not encode a quantity
+    the underlying table does not support.
+
+    The cluster figure is the one most likely to be misread, so its caption says
+    where the clusters came from: five dimensions, not these two.
+    """
+    delegations = topics.group_others(sample["country_org"], FIGURE_CATEGORIES)
+    clusters = topics.group_others(
+        [
+            topics.UNASSIGNED_LABEL if label == topics.UNASSIGNED else f"topic {label}"
+            for label in labels
+        ],
+        FIGURE_CATEGORIES,
+    )
+
+    def named(values: np.ndarray) -> int:
+        return len({v for v in values if v not in (topics.OTHER_LABEL, topics.UNASSIGNED_LABEL)})
+
+    return [
+        (
+            "projection_year.png",
+            topics.draw_projection(
+                coordinates,
+                sample["year"],
+                title="Speech vectors projected to 2D, coloured by year",
+                colour_label="Year",
+                categorical=False,
+            ),
+            {
+                "file": "projection_year.png",
+                "colour": "year",
+                "scale": "continuous",
+                "categories": None,
+            },
+        ),
+        (
+            "projection_speaker.png",
+            topics.draw_projection(
+                coordinates,
+                delegations,
+                title="The same projection, coloured by delegation",
+                colour_label="Delegation",
+                categorical=True,
+                note=f"The {named(delegations)} delegations with the most speeches in the "
+                "frozen sample; every other delegation is one grey group.",
+            ),
+            {
+                "file": "projection_speaker.png",
+                "colour": "country_org",
+                "scale": "categorical",
+                "categories": named(delegations),
+            },
+        ),
+        (
+            "projection_cluster.png",
+            topics.draw_projection(
+                coordinates,
+                clusters,
+                title="The same projection, coloured by HDBSCAN cluster",
+                colour_label="Cluster",
+                categorical=True,
+                note=f"The {named(clusters)} largest clusters; the rest, and every speech "
+                "the clustering declined to assign, are grey. The clusters were fitted in "
+                "the five-dimensional reduction, not in these coordinates.",
+            ),
+            {
+                "file": "projection_cluster.png",
+                "colour": "embedding_topic",
+                "scale": "categorical",
+                "categories": named(clusters),
+                "fitted_in": "the 5D reduction, not these coordinates",
+            },
+        ),
+    ]
 
 
 def formulaic_terms(documents: list[list[str]], threshold: float) -> frozenset[str]:
@@ -200,6 +390,140 @@ def write_csv(path: Path, rows: list[dict]) -> None:
     for row in rows:
         writer.writerow({k: ("|".join(v) if isinstance(v, list) else v) for k, v in row.items()})
     artifacts.atomic_write_text(path, buffer.getvalue())
+
+
+def strongest(purity: dict, names: tuple[str, ...]) -> str:
+    """The attribute of `names` whose neighbourhoods beat chance by the most.
+
+    Lift, not the raw share: `period` has four values and `speaker` has
+    thousands, so their bare purities are not comparable and the larger one is
+    mostly a statement about how many categories there are.
+    """
+    present = [name for name in names if name in purity]
+    return max(present, key=lambda name: purity[name]["lift"] or 0.0)
+
+
+def projection_section(projection: dict, inspection: dict) -> list[str]:
+    """The diagnostic, stated in words with the numbers inside them.
+
+    A reader who never opens a PNG has to come away knowing what the figures
+    would have shown them and what follows from it. "See the figure" is how a
+    caveat gets lost.
+    """
+    purity = projection["purity"]
+    agreement = projection["agreement"]
+    k = projection["k"]
+    occasion, subject = strongest(purity, OCCASION_ATTRIBUTES), strongest(
+        purity, SUBJECT_ATTRIBUTES
+    )
+    recovered = (purity[occasion]["lift"] or 0.0) > (purity[subject]["lift"] or 0.0)
+
+    def row(name: str) -> str:
+        block = purity[name]
+        lift = f"x{block['lift']:.1f}" if block["lift"] else "—"
+        # Not `capitalize`, which would lowercase the rest and turn NMF and
+        # HDBSCAN into words nobody in this project uses.
+        label = PURITY_LABELS.get(name, name)
+        return (
+            f"| {label[:1].upper()}{label[1:]} | {block['mean']:.1%} | "
+            f"{block['base_rate']:.1%} | {lift} | {block['distinct_values']:,} |"
+        )
+
+    finding = (
+        f"**{purity[occasion]['mean']:.1%} of the {k} speeches nearest a speech in this "
+        f"picture share {PURITY_LABELS[occasion]}**, against the "
+        f"{purity[occasion]['base_rate']:.1%} a randomly chosen other speech would give — a "
+        f"lift of {purity[occasion]['lift']:.1f}. The strongest attribute that is about "
+        f"subject rather than occasion, {PURITY_LABELS[subject]}, reaches "
+        f"{purity[subject]['mean']:.1%} against {purity[subject]['base_rate']:.1%}, a lift of "
+        f"{purity[subject]['lift']:.1f}."
+    )
+    verdict = (
+        "The picture therefore separates speakers and occasions more sharply than it "
+        "separates subjects. A reader shown it and told it was a map of themes would in "
+        "fact be reading a map of who was speaking and when — which is the §4 condition "
+        "for not adopting a topic model over this space: the space has substantially "
+        "recovered the occasion, and topics drawn from it are agenda items dressed as "
+        "themes until something else shows otherwise."
+        if recovered
+        else "On this sample the subject attributes lead, which is the one outcome that "
+        "would weaken the objection. It does not on its own establish anything: read it "
+        "beside the stability battery and 06's neighbour inspection before treating any "
+        "topic as real."
+    )
+
+    context = []
+    if {"top1_same_speaker", "top1_same_year"} <= set(inspection):
+        context = [
+            "",
+            "06 measured the same tendency in the full space, before any reduction: the "
+            f"single nearest neighbour of a genocide-bearing speech is the same delegation "
+            f"{inspection['top1_same_speaker']:.1%} of the time and from the same year "
+            f"{inspection['top1_same_year']:.1%} of the time"
+            + (
+                f", and {inspection['top1_also_genocide_bearing']:.1%} of those neighbours "
+                f"also carry the term against a corpus share of "
+                f"{inspection['corpus_genocide_bearing_share']:.1%}"
+                if {"top1_also_genocide_bearing", "corpus_genocide_bearing_share"}
+                <= set(inspection)
+                else ""
+            )
+            + ". The projection has not introduced the problem; it has made it visible.",
+        ]
+
+    return [
+        "## The 2D projection, and what it is evidence against",
+        "",
+        "`projection.json` and three PNGs sit beside this note. They are a diagnostic, not "
+        "a map of topics and not a step towards one. The projection is fitted after the "
+        "clustering, from the same vectors and the same seed; **no cluster is fitted on "
+        "its coordinates and no topic label is derived from them**, and the "
+        "five-dimensional reduction HDBSCAN was actually fitted in is unchanged. The "
+        "coordinates themselves are not written to disk: what is kept is the measurements "
+        "and the pictures, so there is no column here to join back onto a speech and call "
+        "a topic.",
+        "",
+        f"For each of the {projection['points']:,} points, its {k} nearest points **in the "
+        "2D coordinates**, and how often they share an attribute — beside the share a "
+        "randomly chosen other speech would give, because a purity on its own is "
+        "unreadable:",
+        "",
+        "| Attribute shared with a neighbour | In the projection | At random | Lift | Distinct values |",
+        "|---|---:|---:|---:|---:|",
+        *[row(name) for name in purity],
+        "",
+        finding,
+        "",
+        verdict,
+        *context,
+        "",
+        "The HDBSCAN row is not independent evidence, and is here as a ceiling rather than "
+        "as a result: the clusters and this picture are two reductions of the same "
+        "vectors, so they are bound to agree to some degree. The rows to read against the "
+        "occasion rows are the hand-coded agenda item and the NMF topic, neither of which "
+        "ever saw a vector.",
+        "",
+        "### The picture is not the space that was clustered",
+        "",
+        f"Trustworthiness of the 2D embedding against the {agreement['dimensions']['clustered']}D "
+        f"reduction is **{agreement['trustworthiness']:.3f}**, and "
+        f"**{agreement['neighbours_lost_share']:.1%}** of each point's {agreement['k']} nearest "
+        f"neighbours in that reduction are absent from its {agreement['k']} nearest here. "
+        + (
+            f"Both are measured over {agreement['points']:,} points drawn deterministically "
+            f"from the {agreement['sample_points']:,} in the frozen sample (seed "
+            f"{agreement['subsample_seed']}), because the ranks the measure needs are an "
+            "n-by-n matrix; the subsample is recorded rather than quietly assumed."
+            if agreement["subsampled"]
+            else f"Both are measured over all {agreement['points']:,} points."
+        ),
+        "",
+        "That is the arithmetic reason a thematic map would mislead. Points the clustering "
+        "called neighbours can sit far apart in the figure, and points the figure puts "
+        "together can belong to different clusters, so a cluster drawn as a region of this "
+        "plot would be a claim neither fit supports.",
+        "",
+    ]
 
 
 def build_note(nmf: dict, embedding: dict, evaluation: dict, sample: pd.DataFrame) -> str:
@@ -321,6 +645,9 @@ def build_note(nmf: dict, embedding: dict, evaluation: dict, sample: pd.DataFram
             "the Council's register — thanking briefers, welcoming presidencies — wearing "
             "the appearance of a theme.",
             "",
+            *projection_section(
+                evaluation["projection"], evaluation.get("neighbour_inspection", {})
+            ),
             "## Sensitivity to k",
             "",
             "Each k is calibrated on its own, because the floor it is calibrated against "
@@ -349,9 +676,11 @@ def build_note(nmf: dict, embedding: dict, evaluation: dict, sample: pd.DataFram
             "",
             verdict,
             "",
-            "No 2D projection is written here. §4 permits one as exploratory navigation "
-            "only, and a map is the easiest way for a distance nobody validated to become "
-            "a claim about influence.",
+            "The 2D projection written here is a diagnostic and not the exploratory map §4 "
+            "permits: it is fitted after the clustering, nothing is clustered on it, no "
+            "label comes from it, and it exists so that the claim it would otherwise "
+            "invite can be measured and refused. Nothing in `web/` reads this directory, "
+            "and `export_web.py` does not know it exists.",
             "",
         ]
     ) + "\n"
@@ -494,6 +823,44 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
         f"unassigned ({time.monotonic() - started:.0f}s)"
     )
 
+    console.step("2D projection — a diagnostic, not a map")
+    started = time.monotonic()
+    coordinates = topics.project_2d(vectors, seed)
+    console.info(f"{len(coordinates):,} points projected ({time.monotonic() - started:.0f}s)")
+    projection = topics.projection_diagnostic(
+        coordinates,
+        embedding_model.reduced,
+        projection_attributes(sample, nmf_model.labels, embedding_model.labels),
+        seed=seed,
+    )
+    for name, block in projection["purity"].items():
+        console.info(
+            f"  {name}: {block['mean']:.1%} of the {projection['k']} nearest points in the "
+            f"picture share it, against {block['base_rate']:.1%} at random"
+            + (f" (x{block['lift']:.1f})" if block["lift"] else "")
+        )
+    agreement = projection["agreement"]
+    console.info(
+        f"  trustworthiness against the {agreement['dimensions']['clustered']}D reduction "
+        f"{agreement['trustworthiness']:.3f}; {agreement['neighbours_lost_share']:.1%} of its "
+        f"{agreement['k']} nearest neighbours are absent from the projection's "
+        f"({agreement['points']:,} points"
+        + (f", subsampled from {agreement['sample_points']:,}" if agreement["subsampled"] else "")
+        + ")"
+    )
+    occasion = strongest(projection["purity"], OCCASION_ATTRIBUTES)
+    subject = strongest(projection["purity"], SUBJECT_ATTRIBUTES)
+    if (projection["purity"][occasion]["lift"] or 0.0) > (
+        projection["purity"][subject]["lift"] or 0.0
+    ):
+        console.warn(
+            f"the projection groups by {occasion} more strongly than by {subject} "
+            f"(lift {projection['purity'][occasion]['lift']:.1f} against "
+            f"{projection['purity'][subject]['lift']:.1f}) — the space has substantially "
+            "recovered the occasion, and topics drawn from it are agenda items dressed as "
+            "themes until something else shows otherwise"
+        )
+
     console.step("Baseline at the embedding model's abstention rate")
     matched_weight = topics.threshold_for(
         topics.dominant_share(nmf_model.weights), embedding_model.unassigned_share
@@ -564,6 +931,12 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
         "nmf_coherence_min": matched_coherence["min"],
         "embedding_coherence_mean": embedding_payload["coherence"]["mean"],
     }
+    console.step("Drawing the projection")
+    figures = build_figures(coordinates, sample, embedding_model.labels)
+    projection["figures"] = [description for _, _, description in figures]
+    for name, payload, _ in figures:
+        console.info(f"{name}: {len(payload) / 1024:.0f} KB")
+
     evaluation = {
         "sample_size": len(sample),
         "sample_seed": seed,
@@ -573,6 +946,8 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
         "equal_abstention": equal_abstention,
         "stability": stability_scores,
         "k_sweep": k_sweep,
+        "projection": projection,
+        "neighbour_inspection": neighbour_inspection(),
         "intrusion_tasks": len(intrusion),
         "verdict": build_verdict(
             nmf_payload, embedding_payload, stability_scores, calibration, equal_abstention
@@ -594,6 +969,9 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
             "nmf_min_weight": min_weight,
             "nmf_min_weight_rule": calibration["rule"],
             "release_artefact": False,
+            "diagnostic": True,
+            "purpose": PURPOSE,
+            "projection_clustered_for_labels": False,
         },
     )
     assignments = pd.DataFrame(
@@ -614,6 +992,11 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
         artifacts.atomic_write_json(
             staged / "evaluation.json", {"meta": meta, **evaluation}, indent=2
         )
+        artifacts.atomic_write_json(
+            staged / "projection.json", {"meta": meta, **projection}, indent=2
+        )
+        for name, payload, _ in figures:
+            artifacts.atomic_write_bytes(staged / name, payload)
         assignments.to_parquet(staged / "assignments.parquet", index=False, compression="zstd")
         write_csv(staged / "intrusion_task.csv", intrusion)
         artifacts.atomic_write_json(staged / "manifest.json", meta, indent=2)
