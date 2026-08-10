@@ -6,7 +6,7 @@
 
 	let { children }: { children: Snippet } = $props();
 
-	const REPO = 'https://github.com/fmadore/un-security-council-debates';
+	const REPO = 'https://github.com/fmadore/genocide-at-the-security-council';
 
 	const sections = [
 		{ href: '/', label: 'Overview', blurb: 'The question in fifteen seconds' },

@@ -144,7 +144,7 @@ bash scripts/cluster/push_code.sh
 Then on the cluster:
 
 ```bash
-cd ~/un-security-council-debates
+cd ~/genocide-at-the-security-council
 cp .env.example .env          # edit if the defaults do not suit
 bash scripts/cluster/setup_env.sh
 ```

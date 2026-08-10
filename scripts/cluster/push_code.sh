@@ -3,7 +3,7 @@
 # Copy this repository to the cluster. RUN THIS LOCALLY.
 #
 #   bash scripts/cluster/push_code.sh
-#   bash scripts/cluster/push_code.sh --ssh festus --remote ~/un-security-council-debates
+#   bash scripts/cluster/push_code.sh --ssh festus --remote ~/genocide-at-the-security-council
 #
 # Code only. The corpus is not uploaded: it is 900 MB, it is CC0 and
 # DOI-addressable, and `python scripts/00_fetch_data.py` rebuilds it on the
@@ -16,7 +16,7 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SSH_TARGET="${UNSC_SSH:-festus}"
-REMOTE_REPO="${UNSC_REMOTE_REPO:-~/un-security-council-debates}"
+REMOTE_REPO="${UNSC_REMOTE_REPO:-~/genocide-at-the-security-council}"
 DRY=()
 
 while [[ $# -gt 0 ]]; do

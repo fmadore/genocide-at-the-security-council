@@ -5,7 +5,7 @@ every view reads static JSON written by the pipeline.
 
 ```bash
 npm ci
-npm run dev      # http://localhost:5173/un-security-council-debates/
+npm run dev      # http://localhost:5173/genocide-at-the-security-council/
 npm run check    # svelte-check
 npm run lint     # prettier + eslint
 npm run build    # → build/
@@ -64,6 +64,6 @@ src/
 └── routes/              One directory per view
 ```
 
-`base` is `/un-security-council-debates` for project Pages. Override with `BASE_PATH=''`
+`base` is `/genocide-at-the-security-council` for project Pages. Override with `BASE_PATH=''`
 to serve from a domain root. Internal links use `resolve()` rather than string-joining the
 base, so a renamed route is a type error rather than a broken link.

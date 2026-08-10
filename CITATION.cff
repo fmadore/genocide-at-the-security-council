@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "UN Security Council Debates — genocide discourse dashboard"
+title: "Genocide at the Security Council"
 message: "If you use this software or its derived analyses, please cite both this repository and the underlying corpus."
 type: software
 authors:
@@ -8,8 +8,8 @@ authors:
     orcid: "https://orcid.org/0000-0003-0959-2092"
     affiliation: "University of Bayreuth"
     website: "https://www.frederickmadore.com/"
-repository-code: "https://github.com/fmadore/un-security-council-debates"
-url: "https://fmadore.github.io/un-security-council-debates/"
+repository-code: "https://github.com/fmadore/genocide-at-the-security-council"
+url: "https://fmadore.github.io/genocide-at-the-security-council/"
 license: MIT
 abstract: >-
   Data pipeline, computational analysis and interactive dashboard studying the
@@ -18,9 +18,16 @@ abstract: >-
 keywords:
   - United Nations Security Council
   - genocide
+  - atrocity crimes
   - digital humanities
   - corpus linguistics
+  - lexicometry
+  - concordance
+  - discourse analysis
   - text as data
+  - computational social science
+  - international relations
+  - reproducible research
 references:
   - type: database
     title: "The UN Security Council Debates"

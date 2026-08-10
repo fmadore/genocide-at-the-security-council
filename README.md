@@ -1,8 +1,9 @@
-# UN Security Council Debates — genocide discourse dashboard
+# Genocide at the Security Council
 
-An interactive dashboard over the **UN Security Council Debates** corpus (1992–2023,
-106,302 speeches), studying how the word **genocide** and its semantic neighbourhood have
-been used at the Council: when, by whom, about what, and to what end.
+A corpus study of how the word **genocide** and its semantic neighbourhood have been used at
+the UN Security Council: when, by whom, about what, and to what end. Built over the
+**UN Security Council Debates** corpus (Schoenfeld et al., 1992–2023, 106,302 speeches) —
+this repository is a study *of* that corpus, not a copy of it.
 
 The dashboard will be published openly as a static site. This repository holds the data
 pipeline, the analysis scripts and the web application.
@@ -21,14 +22,23 @@ account is a decoration.
 | Action plan | ✅ [`docs/PLAN.md`](docs/PLAN.md) |
 | Data pipeline — build & validate | ✅ `scripts/00`, `scripts/01` |
 | Normalisation & country crosswalk | ✅ `scripts/02` · [`config/entities.csv`](config/entities.csv) |
-| Lexicon flagging & precision audit | ✅ `scripts/03` (audit sample awaiting a human verdict) |
+| Lexicon flagging & precision audit | ✅ `scripts/03`; audit sample generated, **0 of 200 rows verdicted** |
 | Temporal series & change points | ✅ `scripts/04` · [`config/events.csv`](config/events.csv) |
 | Lexicometry — collocates, keyness, network | ✅ `scripts/05` · [`config/stopwords.txt`](config/stopwords.txt) |
 | Concordance (79,569 lines, 22 terms) | ✅ `scripts/08` |
 | Speech export & web payload | ✅ `scripts/09`, `scripts/export_web.py` |
 | Dashboard — 5 views, SvelteKit 2 / Svelte 5 | ✅ [`web/`](web/); Pages rebuilds the 488 MB payload from v6.1 |
+| Licence & citation metadata | ✅ [MIT](LICENSE) + [CC BY 4.0](LICENSE-DATA.md), [`CITATION.cff`](CITATION.cff) confirmed |
+| Public deployment | ⬜ repository private, Pages not enabled — the build job passes, the deploy step has nothing to deploy to |
+| Speech embeddings | ✅ `scripts/06` on a GPU cluster ([`docs/CLUSTER.md`](docs/CLUSTER.md)); **not read by the dashboard** |
+| Topic comparison & its evaluation | ✅ `scripts/07` — evidence for a decision, not a result; adoption still deferred |
+| Lemma layer & lemma lexicometry | ✅ `scripts/10`, `scripts/05 --vocabulary lemma`; built, **not adopted** — see Phase 6 |
 | Actor view | ⬜ gated after the first validated release |
-| Topics, embeddings, LLM extraction | ⏸ deferred behind evaluation gates in [`docs/PLAN.md`](docs/PLAN.md) |
+| LLM structured extraction | ⏸ deferred until a human coding protocol exists |
+
+The three ✅ rows that say "not adopted" are not a backlog. They are built, run and
+documented so the decision to use them can rest on evidence; [`docs/PLAN.md`](docs/PLAN.md)
+records what each would have to pass first. Nothing in `web/` reads any of them.
 
 ---
 
@@ -81,7 +91,7 @@ re-run of 05 can count instead of surface forms. None of the three is part of th
 python -m pytest
 ```
 
-More than 300 tests, no data required — including integrity checks on the hand-edited files in
+More than 400 tests, no data required — including integrity checks on the hand-edited files in
 `config/`. These, `ruff check`, and the dashboard's `prettier` / `eslint` / `svelte-check`
 run on every push and pull request via
 [`.github/workflows/checks.yml`](.github/workflows/checks.yml), so a bad edit to a config
@@ -228,7 +238,19 @@ The corpus:
 > *The UN Security Council Debates* [Data set]. Harvard Dataverse, V6.1.
 > <https://doi.org/10.7910/DVN/KGVSYH>
 
-This repository: see [`CITATION.cff`](CITATION.cff).
+This repository:
+
+> Madore, F. (2026). *UN Security Council Debates — genocide discourse dashboard*.
+> University of Bayreuth. <https://github.com/fmadore/genocide-at-the-security-council>
+> ORCID [0000-0003-0959-2092](https://orcid.org/0000-0003-0959-2092)
+
+Machine-readable metadata is in [`CITATION.cff`](CITATION.cff). Cite both: a derived table
+is worth nothing without the record it came from.
+
+**No version is tagged yet, and citing an untagged state cites a moving target.** The first
+citable release is gated on the human lexicon audit in
+[`docs/PLAN.md` §1.1](docs/PLAN.md#11-human-lexicon-audit) — 0 of 200 sampled rows currently
+carry a verdict, so no false-positive rate has been measured for any figure here.
 
 ---
 

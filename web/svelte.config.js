@@ -3,7 +3,7 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 // Project Pages are served from a subpath. Override with BASE_PATH='' to serve
 // from a domain root, or to preview the build locally.
-const base = process.env.BASE_PATH ?? '/un-security-council-debates';
+const base = process.env.BASE_PATH ?? '/genocide-at-the-security-council';
 
 /** @type {import('@sveltejs/kit').Config} */
 export default {

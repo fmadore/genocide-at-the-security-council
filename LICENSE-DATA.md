@@ -26,7 +26,7 @@ Attribution should name this repository and its author, and — because a derive
 worth nothing without the record it came from — the source corpus as well:
 
 > Madore, F. (2026). *UN Security Council Debates — genocide discourse dashboard*.
-> <https://github.com/fmadore/un-security-council-debates>. Derived from Schoenfeld, M.,
+> <https://github.com/fmadore/genocide-at-the-security-council>. Derived from Schoenfeld, M.,
 > Eckhard, S., Patz, R., van Meegdenburg, H., & Pires, A. (2019), *The UN Security Council
 > Debates* [Data set], Harvard Dataverse V6.1, <https://doi.org/10.7910/DVN/KGVSYH> (CC0).
 

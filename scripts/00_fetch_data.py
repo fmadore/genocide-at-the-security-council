@@ -28,8 +28,8 @@ from lib.paths import DATASET_VERSION, DATAVERSE, DOI, RAW
 # redundant R serialisations of the same content (119 MB) — opt in with --all.
 REQUIRED = {"speeches.tar", "speaker.tsv", "meta.tsv"}
 USER_AGENT = (
-    "un-security-council-debates/1.0 "
-    "(+https://github.com/fmadore/un-security-council-debates)"
+    "genocide-at-the-security-council/1.0 "
+    "(+https://github.com/fmadore/genocide-at-the-security-council)"
 )
 
 

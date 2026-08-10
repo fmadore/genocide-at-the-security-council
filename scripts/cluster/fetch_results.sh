@@ -24,7 +24,7 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SSH_TARGET="${UNSC_SSH:-festus}"
-REMOTE_REPO="${UNSC_REMOTE_REPO:-~/un-security-council-debates}"
+REMOTE_REPO="${UNSC_REMOTE_REPO:-~/genocide-at-the-security-council}"
 WHAT="all"
 WATCH_JOB=""
 
