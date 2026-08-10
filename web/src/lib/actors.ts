@@ -29,7 +29,7 @@
  * marker that stands for more than one speaker can say how many.
  */
 
-import type { Countries, CountryMeasureRow, CountryPeriod, Speaker } from './types';
+import type { Countries, CountryMeasure, CountryMeasureRow, CountryPeriod, Speaker } from './types';
 
 export interface ActorRow {
 	speaker: Speaker;
@@ -58,6 +58,14 @@ export interface ActorPlan {
 	absent: number;
 	minimum: number;
 	period: CountryPeriod | undefined;
+	/**
+	 * What the rows were actually ranked by, which is not always what was asked
+	 * for: a measure that carries no occurrence count cannot be ranked per token,
+	 * and ranking on the missing figure would order 133 speakers by zero and call
+	 * it a ranking. The caller is told which figure it got so the interface can
+	 * name that one rather than the one in its select.
+	 */
+	order: Ordering;
 	/** Why there is nothing to draw, when there is nothing to draw. */
 	refusal: 'no-measure' | 'no-period' | 'none-sufficient' | null;
 }
@@ -71,13 +79,15 @@ export interface ActorPlan {
  * rule in TypeScript could only ever drift from the one that wrote the data.
  */
 export function plan(request: ActorRequest): ActorPlan {
-	const { data, measure, period, order = 'speech_rate' } = request;
+	const { data, measure, period, order: asked = 'speech_rate' } = request;
 	const found = data.periods.find((candidate) => candidate.key === period);
 	const minimum = data.minimum_speeches;
 	const measured = data.measures[measure];
 
-	if (!measured) return empty('no-measure', minimum, found);
-	if (!found) return empty('no-period', minimum, found);
+	if (!measured) return empty('no-measure', minimum, found, asked);
+	if (!found) return empty('no-period', minimum, found, asked);
+
+	const order = orderings(measured).includes(asked) ? asked : 'speech_rate';
 
 	const speakers = new Map(data.countries.map((speaker) => [speaker.country_org, speaker]));
 	const rows: ActorRow[] = [];
@@ -102,6 +112,7 @@ export function plan(request: ActorRequest): ActorPlan {
 		absent: Math.max(0, data.countries.length - seen),
 		minimum,
 		period: found,
+		order,
 		refusal: rows.length ? null : 'none-sufficient'
 	};
 }
@@ -109,8 +120,9 @@ export function plan(request: ActorRequest): ActorPlan {
 const empty = (
 	refusal: ActorPlan['refusal'],
 	minimum: number,
-	period: CountryPeriod | undefined
-): ActorPlan => ({ rows: [], withheld: 0, absent: 0, minimum, period, refusal });
+	period: CountryPeriod | undefined,
+	order: Ordering
+): ActorPlan => ({ rows: [], withheld: 0, absent: 0, minimum, period, order, refusal });
 
 /**
  * Descending by the chosen figure, then by name.
@@ -195,6 +207,97 @@ export function points(rows: ActorRow[], shared: Set<string>): MapPoint[] {
 		}
 	}
 	return [...grouped.values()];
+}
+
+export interface Figures {
+	/** The measure has an occurrence count, and a rate per token built on it. */
+	occurrences: boolean;
+}
+
+/**
+ * Which figures a measure actually carries.
+ *
+ * `atrocity_core` is a union of five overlapping terms, so a speech that says
+ * both `genocide` and `war crimes` would be counted twice in any sum of their
+ * occurrences. `11_countries.py` says so in as many words and withholds the
+ * count rather than computing a wrong one: a set row has `held`, `speeches` and
+ * `speech_rate` and no `occurrences` or `token_rate` at all.
+ *
+ * Read through `?? 0` — which is how every consumer reads a nullable number here
+ * — a withheld figure becomes `0.00 per 100,000 words`, and a deliberate silence
+ * is published as a measurement. That is the failure §7 names in one line: no
+ * visual may introduce a number that does not exist in the artefact. So the
+ * absence is detected once, here, and the interface drops the column, the
+ * ordering and the tooltip line rather than filling them with a zero.
+ *
+ * Presence is read off the rows rather than inferred from `kind`, so a future
+ * set measure that does carry counts is shown them without editing this.
+ */
+export function carries(measure: CountryMeasure | undefined): Figures {
+	return { occurrences: measure?.rows.some((row) => row.occurrences !== undefined) ?? false };
+}
+
+/** The orderings a measure can honestly be ranked by. */
+export function orderings(measure: CountryMeasure | undefined): Ordering[] {
+	const base: Ordering[] = ['speech_rate', 'speeches', 'held'];
+	return carries(measure).occurrences ? ['speech_rate', 'token_rate', 'speeches', 'held'] : base;
+}
+
+export interface ConcordanceLink {
+	/** The lexicon term the concordance opens at. One per link: it shows one. */
+	term: string;
+	/** Query string for `/concordance`, without the leading `?`. */
+	query: string;
+}
+
+/**
+ * Where to read the occurrences a row counts.
+ *
+ * `docs/PLAN.md` §3 asks for "quotations linked to the concordance and source
+ * reader", and a link that reaches the concordance without carrying the speaker
+ * does not answer it: a reader sent from a rate arrives at every line of the
+ * corpus and has to rebuild the filter by hand. The concordance already reads
+ * `term`, `country`, `from` and `to` from the URL, so the filter is expressible;
+ * what was missing is a caller that expresses it.
+ *
+ * Three rules, all of which can be got wrong in ways that look right:
+ *
+ * **No link when there is nothing to read.** A speaker can clear the minimum and
+ * still never use the term. Offering "read the occurrences" for none of them
+ * sends a reader to an empty table to discover what the row already said. The
+ * test is the term-bearing speech count rather than the occurrence count,
+ * because a set measure has no occurrence count at all — see `carries()` — and
+ * `undefined < 1` is false, so the obvious guard would have let every set row
+ * through while appearing to check.
+ *
+ * **A set becomes one link per member.** `atrocity_core` sums five terms and the
+ * concordance shows one, so a single link would quietly present a fifth of the
+ * evidence as all of it. The members are returned in the artefact's order and
+ * the interface says the reading is term by term. Their individual counts are
+ * not in this artefact, so a member link can land on nothing — which the
+ * concordance states plainly, and which is a smaller cost than a link that
+ * misrepresents its scope.
+ *
+ * **The period travels with the link.** The rate a reader is reading is for one
+ * period, so the years bound the concordance too. Sending them to 1992–2023 from
+ * a 2020–2023 rate would show lines the figure never counted.
+ */
+export function occurrences(data: Countries, measure: string, entry: ActorRow): ConcordanceLink[] {
+	const measured = data.measures[measure];
+	if (!measured || entry.row.speeches < 1) return [];
+	const period = data.periods.find((candidate) => candidate.key === entry.row.period);
+	if (!period) return [];
+
+	const terms = measured.kind === 'sets' ? (measured.members ?? []) : [measure];
+	return terms.map((term) => {
+		const params = new URLSearchParams({
+			term,
+			country: entry.speaker.country_org,
+			from: String(period.first_year),
+			to: String(period.last_year)
+		});
+		return { term, query: params.toString() };
+	});
 }
 
 /**

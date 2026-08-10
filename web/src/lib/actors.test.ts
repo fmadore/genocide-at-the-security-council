@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ambiguous, plan, points, scale } from './actors';
+import { ambiguous, carries, occurrences, orderings, plan, points, scale } from './actors';
 import type { Countries, CountryMeasureRow, Speaker } from './types';
 
 const meta = { script: '11_countries.py', generated: '2026-08-10T00:00:00Z', lexicon_version: 4 };
@@ -225,6 +225,160 @@ describe('what may be drawn on a map', () => {
 			[row('Nowhere')]
 		);
 		expect(points(plan({ data, measure: 'genocide', period: 'all' }).rows, new Set())).toEqual([]);
+	});
+});
+
+describe('figures a measure does not carry', () => {
+	/* `atrocity_core` is a union of overlapping terms. 11_countries.py writes it
+	   with `held`, `speeches` and `speech_rate` and no occurrence count, because
+	   summing the members would count a speech saying two of them twice. Read
+	   through `?? 0`, that withholding is published as 0.00 per 100,000 words. */
+	const union = (rows: CountryMeasureRow[]): Countries => {
+		const data = corpus([speaker('Rwanda'), speaker('Kenya')], rows);
+		data.measures.atrocity_core = {
+			kind: 'sets',
+			members: ['genocide', 'war_crimes'],
+			// Written the way 11 writes a set row: the two keys are absent, not null.
+			rows: rows.map((source) => {
+				const copy = { ...source };
+				delete copy.occurrences;
+				delete copy.token_rate;
+				return copy;
+			})
+		};
+		return data;
+	};
+
+	it('reports what the rows have rather than what the kind implies', () => {
+		const data = union([row('Rwanda'), row('Kenya')]);
+		expect(carries(data.measures.genocide).occurrences).toBe(true);
+		expect(carries(data.measures.atrocity_core).occurrences).toBe(false);
+		expect(carries(undefined).occurrences).toBe(false);
+	});
+
+	it('offers a per-token ranking only where there is a per-token figure', () => {
+		const data = union([row('Rwanda'), row('Kenya')]);
+		expect(orderings(data.measures.genocide)).toContain('token_rate');
+		expect(orderings(data.measures.atrocity_core)).not.toContain('token_rate');
+	});
+
+	it('refuses to rank on the missing figure, and says what it ranked on', () => {
+		// Ranking 133 speakers by a figure none of them has orders them all by
+		// zero and calls the result a ranking.
+		const data = union([row('Rwanda', { speech_rate: 0.28 }), row('Kenya', { speech_rate: 0.11 })]);
+		const result = plan({
+			data,
+			measure: 'atrocity_core',
+			period: 'all',
+			order: 'token_rate'
+		});
+		expect(result.order).toBe('speech_rate');
+		expect(result.rows.map((entry) => entry.speaker.country_org)).toEqual(['Rwanda', 'Kenya']);
+	});
+
+	it('keeps the ordering it was asked for when the measure supports it', () => {
+		const data = union([
+			row('Rwanda', { token_rate: 4 }),
+			row('Kenya', { token_rate: 90, speech_rate: 0.01 })
+		]);
+		const result = plan({ data, measure: 'genocide', period: 'all', order: 'token_rate' });
+		expect(result.order).toBe('token_rate');
+		expect(result.rows[0].speaker.country_org).toBe('Kenya');
+	});
+});
+
+describe('the link into the concordance', () => {
+	const find = (data: Countries, name: string, measure = 'genocide') => {
+		const entry = plan({ data, measure, period: 'all' }).rows.find(
+			(candidate) => candidate.speaker.country_org === name
+		);
+		if (!entry) throw new Error(`${name} is not a drawable row in this fixture.`);
+		return entry;
+	};
+
+	it('carries the speaker, the term and the period', () => {
+		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
+		const [link] = occurrences(data, 'genocide', find(data, 'Rwanda'));
+		const params = new URLSearchParams(link.query);
+		expect(link.term).toBe('genocide');
+		expect(params.get('country')).toBe('Rwanda');
+		expect(params.get('term')).toBe('genocide');
+		expect(params.get('from')).toBe('1992');
+		expect(params.get('to')).toBe('2023');
+	});
+
+	it('bounds the years by the period the rate was read in', () => {
+		// A 2020-2023 rate that opens the whole corpus shows lines the figure
+		// never counted, which reads as the figure having missed them.
+		const data = corpus([speaker('Rwanda')], [row('Rwanda', { period: 'recent' })]);
+		data.periods.push({
+			key: 'recent',
+			label: '2020-2023',
+			first_year: 2020,
+			last_year: 2023,
+			speeches: 24_337,
+			tokens: 15_368_380,
+			speakers: 452,
+			speakers_at_minimum: 36,
+			speeches_at_minimum: 20_223
+		});
+		const entry = plan({ data, measure: 'genocide', period: 'recent' }).rows[0];
+		const params = new URLSearchParams(occurrences(data, 'genocide', entry)[0].query);
+		expect(params.get('from')).toBe('2020');
+		expect(params.get('to')).toBe('2023');
+	});
+
+	it('offers nothing when the speaker never used the term', () => {
+		// Clearing the minimum and never saying it is a real row: the link would
+		// send a reader to an empty table to learn what the row already said.
+		const data = corpus([speaker('Quiet')], [row('Quiet', { speeches: 0, occurrences: 0 })]);
+		expect(occurrences(data, 'genocide', find(data, 'Quiet'))).toEqual([]);
+	});
+
+	it('withholds the link on a set measure too, where there is no occurrence count', () => {
+		// The guard has to be the term-bearing speech count: a set row has no
+		// `occurrences` at all, and `undefined < 1` is false, so a check on the
+		// count would pass every set row through while appearing to check.
+		const data = corpus([speaker('Quiet')], [row('Quiet', { speeches: 0 })]);
+		data.measures.atrocity_core = {
+			kind: 'sets',
+			members: ['genocide', 'war_crimes'],
+			rows: [{ ...row('Quiet', { speeches: 0 }), occurrences: undefined, token_rate: undefined }]
+		};
+		expect(occurrences(data, 'atrocity_core', find(data, 'Quiet', 'atrocity_core'))).toEqual([]);
+	});
+
+	it('gives a set one link per member, in the artefact order', () => {
+		// The concordance shows one term. A single link for a five-term set would
+		// present a fifth of the evidence as all of it.
+		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
+		data.measures.atrocity_core = {
+			kind: 'sets',
+			members: ['genocide', 'ethnic_cleansing', 'war_crimes'],
+			rows: [row('Rwanda')]
+		};
+		const links = occurrences(data, 'atrocity_core', find(data, 'Rwanda', 'atrocity_core'));
+		expect(links.map((link) => link.term)).toEqual(['genocide', 'ethnic_cleansing', 'war_crimes']);
+		for (const link of links) {
+			expect(new URLSearchParams(link.query).get('country')).toBe('Rwanda');
+		}
+	});
+
+	it('escapes a speaker name the URL would otherwise break on', () => {
+		const name = 'Venezuela (Bolivarian Republic Of)';
+		const data = corpus([speaker(name)], [row(name)]);
+		const [link] = occurrences(data, 'genocide', find(data, name));
+		expect(link.query).toContain('country=Venezuela+%28Bolivarian+Republic+Of%29');
+		expect(new URLSearchParams(link.query).get('country')).toBe(name);
+	});
+
+	it('offers nothing for a measure or a period the artefact does not have', () => {
+		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
+		const entry = find(data, 'Rwanda');
+		expect(occurrences(data, 'not_a_measure', entry)).toEqual([]);
+		expect(
+			occurrences(data, 'genocide', { ...entry, row: { ...entry.row, period: 'ghost' } })
+		).toEqual([]);
 	});
 });
 

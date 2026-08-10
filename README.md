@@ -13,9 +13,10 @@ The site is published; **no version is tagged**, because the human lexicon audit
 first citable release is gated on has not been done. Read [Methods](https://fmadore.github.io/genocide-at-the-security-council/methods/)
 before quoting a number from it.
 
-Five views, and every chart on them states what it answers, how to read its marks, what it
+Six views, and every chart on them states what it answers, how to read its marks, what it
 does **not** show, and which script produced the file behind it. A chart without that
-account is a decoration.
+account is a decoration. Every figure's numbers download as CSV with their provenance, and
+every chart as SVG or PNG with its filters written into the image.
 
 ---
 
@@ -32,14 +33,15 @@ account is a decoration.
 | Lexicometry — collocates, keyness, network | ✅ `scripts/05` · [`config/stopwords.txt`](config/stopwords.txt) |
 | Concordance (79,569 lines, 22 terms) | ✅ `scripts/08` |
 | Speech export & web payload | ✅ `scripts/09`, `scripts/export_web.py` |
-| Dashboard — 5 views, SvelteKit 2 / Svelte 5 | ✅ [`web/`](web/); Pages rebuilds the 488 MB payload from v6.1 |
+| Dashboard — 6 views, SvelteKit 2 / Svelte 5 | ✅ [`web/`](web/); Pages rebuilds the 488 MB payload from v6.1 |
+| Per-speaker table | ✅ `scripts/11`; 133 of 601 speakers clear the 100-speech minimum, the rest carry null rates |
 | Licence & citation metadata | ✅ [MIT](LICENSE) + [CC BY 4.0](LICENSE-DATA.md), [`CITATION.cff`](CITATION.cff) confirmed |
 | Public deployment | ✅ [live](https://fmadore.github.io/genocide-at-the-security-council/); Pages source is GitHub Actions, payload rebuilt from the DOI each run |
 | First citable release | ⬜ untagged — gated on the §1.1 audit, **0 of 200 rows verdicted** |
 | Speech embeddings | ✅ `scripts/06` on a GPU cluster ([`docs/CLUSTER.md`](docs/CLUSTER.md)); **not read by the dashboard** |
 | Topic comparison & its evaluation | ✅ `scripts/07` — evidence for a decision, not a result; adoption still deferred |
 | Lemma layer & lemma lexicometry | ✅ `scripts/10`, `scripts/05 --vocabulary lemma`; built, **not adopted** — see Phase 6 |
-| Actor view | ⬜ gated after the first validated release |
+| Actor view — ranking, locator map, concordance links | ✅ `web/src/routes/actors/`; the profile in [`docs/PLAN.md`](docs/PLAN.md) §3 is not built — no membership shading, no per-speaker keyness |
 | LLM structured extraction | ⏸ deferred until a human coding protocol exists |
 
 The three ✅ rows that say "not adopted" are not a backlog. They are built, run and
@@ -65,6 +67,7 @@ python scripts/04_series.py          # → derived/series/*.json    (rates, chan
 python scripts/05_lexical.py         # → derived/lexical/*.json   (collocates, keyness, PMI)
 python scripts/08_kwic.py            # → derived/kwic/*.json      (79,569 concordance lines)
 python scripts/09_export_speeches.py # → web/static/data/speeches (6,595 document files)
+python scripts/11_countries.py       # → derived/countries/*.json (per-speaker denominators)
 python scripts/export_web.py         # → web/static/data          (assembles the payload)
 ```
 

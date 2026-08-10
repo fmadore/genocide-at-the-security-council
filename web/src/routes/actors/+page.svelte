@@ -4,8 +4,8 @@
 	import CountryMap from '$lib/CountryMap.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
-	import { ambiguous, plan, points, scale } from '$lib/actors';
-	import type { MapPoint, Ordering } from '$lib/actors';
+	import { ambiguous, carries, occurrences, orderings, plan, points, scale } from '$lib/actors';
+	import type { ActorRow, MapPoint, Ordering } from '$lib/actors';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, percent, shortCountry, termLabel } from '$lib/format';
@@ -23,33 +23,35 @@
 	const shared = $derived(ambiguous(artefact));
 	const result = $derived(plan({ data: artefact, measure, period, order }));
 
+	/* What this measure has a number for. `atrocity_core` is a union of five
+	   overlapping terms, so 11 withholds its occurrence count rather than
+	   double-counting a speech that uses two of them — and a withheld figure read
+	   through `?? 0` is published as `0.00 per 100,000 words`. Everything below
+	   that would print one is gated on this instead. */
+	const has = $derived(carries(artefact.measures[measure]));
+	const rankings = $derived(orderings(artefact.measures[measure]));
+
+	/* `plan()` refuses an ordering the measure cannot support and says which one
+	   it used; the select follows it, so the control never names a figure the
+	   table is not in. */
+	$effect(() => {
+		if (!rankings.includes(order)) order = result.order;
+	});
+
 	/* Size stands for the figure the table is ranked by, so a large marker and a
 	   high row are the same statement. Computed over what is on screen, which
 	   makes a marker comparable within one view and not across two. */
 	const drawn = $derived(points(result.rows, shared));
-	const at = $derived(
-		scale(
-			drawn.map((point) =>
-				order === 'token_rate'
-					? (point.speakers[0].row.token_rate ?? 0)
-					: order === 'speeches'
-						? point.speakers[0].row.speeches
-						: order === 'held'
-							? point.speakers[0].row.held
-							: (point.speakers[0].row.speech_rate ?? 0)
-			)
-		)
-	);
-	const weight = (point: MapPoint) =>
-		at(
-			order === 'token_rate'
-				? (point.speakers[0].row.token_rate ?? 0)
-				: order === 'speeches'
-					? point.speakers[0].row.speeches
-					: order === 'held'
-						? point.speakers[0].row.held
-						: (point.speakers[0].row.speech_rate ?? 0)
-		);
+	const figure = (entry: ActorRow) =>
+		result.order === 'token_rate'
+			? (entry.row.token_rate ?? 0)
+			: result.order === 'speeches'
+				? entry.row.speeches
+				: result.order === 'held'
+					? entry.row.held
+					: (entry.row.speech_rate ?? 0);
+	const at = $derived(scale(drawn.map((point) => figure(point.speakers[0]))));
+	const weight = (point: MapPoint) => at(figure(point.speakers[0]));
 
 	const chosen = $derived(
 		drawn.find((p) => p.speakers[0].speaker.country_org === selected) ?? null
@@ -87,9 +89,11 @@
 					row.held,
 					row.tokens,
 					row.speeches,
-					row.occurrences,
 					row.speech_rate,
-					row.token_rate,
+					// Two columns a set measure has no figure for. Dropped rather
+					// than written empty: a blank column reads as data that went
+					// missing, and this one was never computed.
+					...(has.occurrences ? [row.occurrences, row.token_rate] : []),
 					row.sufficient,
 					speaker?.mappable ?? null
 				];
@@ -104,9 +108,8 @@
 				'speeches_held',
 				'tokens',
 				'term_bearing_speeches',
-				'occurrences',
 				'speech_rate',
-				`token_rate_per_${artefact.rate_per_tokens}`,
+				...(has.occurrences ? ['occurrences', `token_rate_per_${artefact.rate_per_tokens}`] : []),
 				'sufficient',
 				'mappable'
 			],
@@ -115,8 +118,14 @@
 			filters: [
 				`measure: ${termLabel(measure)}`,
 				`period: ${result.period?.label ?? period}`,
-				`ranked by: ${label(order)}`,
-				`minimum: ${artefact.minimum_speeches} speeches`
+				`ranked by: ${label(result.order)}`,
+				`minimum: ${artefact.minimum_speeches} speeches`,
+				...(has.occurrences
+					? []
+					: [
+							`occurrences and token rate: withheld — ${termLabel(measure)} is a union of ` +
+								`overlapping terms and a sum would double-count`
+						])
 			],
 			scope:
 				`all ${rows.length} speakers in this period, including the ${result.withheld} ` +
@@ -124,14 +133,18 @@
 		};
 	}
 
-	const label = (o: Ordering) =>
-		o === 'speech_rate'
-			? 'share of its speeches'
-			: o === 'token_rate'
-				? `per ${count(artefact.rate_per_tokens)} words`
-				: o === 'speeches'
-					? 'term-bearing speeches'
-					: 'speeches delivered';
+	/** What a ranking is called. `title` capitalises it for a control; prose keeps it low. */
+	const label = (o: Ordering, title = false) => {
+		const text =
+			o === 'speech_rate'
+				? 'share of its speeches'
+				: o === 'token_rate'
+					? `per ${count(artefact.rate_per_tokens)} words`
+					: o === 'speeches'
+						? 'term-bearing speeches'
+						: 'speeches delivered';
+		return title ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+	};
 </script>
 
 <svelte:head>
@@ -176,10 +189,9 @@
 			<label>
 				Ranked by
 				<select bind:value={order}>
-					<option value="speech_rate">Share of its speeches</option>
-					<option value="token_rate">Per {count(artefact.rate_per_tokens)} words</option>
-					<option value="speeches">Term-bearing speeches</option>
-					<option value="held">Speeches delivered</option>
+					{#each rankings as ranking (ranking)}
+						<option value={ranking}>{label(ranking, true)}</option>
+					{/each}
 				</select>
 			</label>
 		{/snippet}
@@ -205,6 +217,15 @@
 				{count(result.withheld)} speakers delivered fewer than {count(result.minimum)} speeches in this
 				period and carry no rate. They are not ranked low; they are not ranked. {artefact.minimum_speeches_rule}
 			</p>
+			{#if !has.occurrences}
+				<p>
+					{termLabel(measure)} is a union of overlapping terms, so this measure counts
+					<em>speeches that used any of them</em> and has no occurrence count: a speech saying both
+					<em>genocide</em> and <em>war crimes</em> would be counted twice by a sum of its members.
+					<code>11_countries.py</code> withholds the figure rather than computing a wrong one, so the
+					per-word column and its ranking are absent here rather than shown as zero.
+				</p>
+			{/if}
 		{/snippet}
 
 		{#if result.refusal}
@@ -228,8 +249,13 @@
 						heading: shortCountry(speaker.country_org),
 						lines: [
 							`${percent(row.speech_rate ?? 0)} of ${count(row.held)} speeches`,
-							`${decimal(row.token_rate ?? 0)} per ${count(artefact.rate_per_tokens)} words`,
-							`${count(row.occurrences)} occurrences · ${speaker.un_regional_group ?? speaker.entity_type}`,
+							// Both of these are figures a set measure does not have.
+							...(has.occurrences
+								? [
+										`${decimal(row.token_rate ?? 0)} per ${count(artefact.rate_per_tokens)} words`,
+										`${count(row.occurrences ?? 0)} occurrences · ${speaker.un_regional_group ?? speaker.entity_type}`
+									]
+								: [`${speaker.un_regional_group ?? speaker.entity_type}`]),
 							...(point.speakers.length > 1
 								? [`${point.speakers.length} speakers share this point`]
 								: []),
@@ -253,19 +279,40 @@
 			{/if}
 			<dl>
 				{#each chosen.speakers as entry (entry.speaker.country_org)}
+					{@const links = occurrences(artefact, measure, entry)}
 					<div>
 						<dt>{shortCountry(entry.speaker.country_org)}</dt>
 						<dd>
-							{percent(entry.row.speech_rate ?? 0)} of {count(entry.row.held)} speeches &middot; {count(
-								entry.row.occurrences
-							)} occurrences &middot; {entry.speaker.first_year}&ndash;{entry.speaker.last_year}
+							{percent(entry.row.speech_rate ?? 0)} of {count(entry.row.held)} speeches
+							{#if has.occurrences}&middot; {count(entry.row.occurrences ?? 0)} occurrences{/if}
+							&middot; {entry.speaker.first_year}&ndash;{entry.speaker.last_year}
 						</dd>
+						{#if links.length === 1}
+							<dd class="read">
+								<a class="more" href="{resolve('/concordance')}?{links[0].query}">
+									Read the occurrences <Icon icon={ChevronRight} />
+								</a>
+							</dd>
+						{:else if links.length > 1}
+							<!-- The concordance shows one term. A single link for a set would
+							     offer a fifth of the evidence as all of it, so the members are
+							     listed and the reading is term by term. -->
+							<dd class="read">
+								<span>Read them one term at a time:</span>
+								{#each links as link, index (link.term)}<a
+										href="{resolve('/concordance')}?{link.query}">{termLabel(link.term)}</a
+									>{#if index < links.length - 1}<span aria-hidden="true">
+											&middot;
+										</span>{/if}{/each}
+							</dd>
+						{/if}
 					</div>
 				{/each}
 			</dl>
-			<a class="more" href={resolve('/concordance')}>
-				Read the occurrences <Icon icon={ChevronRight} />
-			</a>
+			<p class="scoped">
+				Each link carries this speaker and {result.period?.label ?? period} into the concordance, so what
+				opens is the evidence behind the rate above rather than the whole corpus.
+			</p>
 		</aside>
 	{/if}
 
@@ -278,7 +325,7 @@
 		<div class="scroll">
 			<table>
 				<caption class="sr-only">
-					Speakers ranked by {label(order)} for {termLabel(measure)}, {result.period?.label}
+					Speakers ranked by {label(result.order)} for {termLabel(measure)}, {result.period?.label}
 				</caption>
 				<thead>
 					<tr>
@@ -287,7 +334,9 @@
 						<th scope="col" class="num">Speeches</th>
 						<th scope="col" class="num">Term-bearing</th>
 						<th scope="col" class="num">Share</th>
-						<th scope="col" class="num">Per {count(artefact.rate_per_tokens)} words</th>
+						{#if has.occurrences}
+							<th scope="col" class="num">Per {count(artefact.rate_per_tokens)} words</th>
+						{/if}
 					</tr>
 				</thead>
 				<tbody>
@@ -315,7 +364,9 @@
 							<td class="num">{count(entry.row.held)}</td>
 							<td class="num">{count(entry.row.speeches)}</td>
 							<td class="num">{percent(entry.row.speech_rate ?? 0)}</td>
-							<td class="num">{decimal(entry.row.token_rate ?? 0)}</td>
+							{#if has.occurrences}
+								<td class="num">{decimal(entry.row.token_rate ?? 0)}</td>
+							{/if}
 						</tr>
 					{/each}
 				</tbody>
@@ -433,6 +484,24 @@
 		gap: var(--sp-1);
 		font-family: var(--sans);
 		font-size: var(--step--1);
+	}
+
+	.picked dd.read {
+		font-family: var(--sans);
+		margin-bottom: var(--sp-3);
+	}
+
+	.picked dd.read span {
+		color: var(--ink-3);
+		margin-right: var(--sp-1);
+	}
+
+	.scoped {
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-3);
+		max-width: var(--measure);
+		margin: 0;
 	}
 
 	.table-wrap,

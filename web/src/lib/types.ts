@@ -342,14 +342,30 @@ export interface CountryMeasureRow {
 	/** Null whenever `sufficient` is false, so a withheld slice cannot be drawn. */
 	speech_rate: number | null;
 	sufficient: boolean;
-	occurrences: number;
-	token_rate: number | null;
+	/**
+	 * Absent on a set measure, and deliberately so: `atrocity_core` is a union of
+	 * overlapping terms, so a speech saying both `genocide` and `war crimes`
+	 * would be counted twice. `lib/series.py` withholds the count rather than
+	 * summing the members, and these two fields are optional here so that a
+	 * consumer has to decide what to show instead of reading a fabricated zero.
+	 */
+	occurrences?: number;
+	token_rate?: number | null;
 }
 
 export interface CountryMeasure {
-	kind: string;
-	tier: string;
-	register: string;
+	/**
+	 * `terms` for a single lexicon pattern, `sets` for a named group of them.
+	 * The two carry different metadata, which is why the rest is optional: a
+	 * term measure declares the `tier` and `register` its pattern sits in, and a
+	 * set measure declares its `members` instead. Typing both as required would
+	 * promise `atrocity_core.tier` a string it has never had.
+	 */
+	kind: 'terms' | 'sets';
+	tier?: string;
+	register?: string;
+	/** The lexicon terms a set measure sums. Absent on a term measure. */
+	members?: string[];
 	rows: CountryMeasureRow[];
 }
 

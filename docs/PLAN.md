@@ -133,7 +133,15 @@ Operational checks:
 
 ## Phase 3 — Actor view
 
-Status: the table exists; the view does not, and waits on the first validated release.
+Status: the table exists and is now drawn — a ranked view and a locator map, shipped on
+10 August 2026. The *profile* this section describes is not built; what is missing is
+listed at the end of the section rather than left to be inferred from what is on screen.
+
+It landed before the first validated release it was queued behind, and the reordering is
+recorded rather than smoothed over. What the release gate protects is the point at which
+these figures become citable, and that is a tag: nothing is tagged, the audit's state is
+on the methods page, and the view reads `countries.json` and nothing else — so closing
+§1.1 can move every rate in it without touching a line of the view.
 
 `scripts/11_countries.py` writes `data/derived/countries/countries.json`: per canonical
 `country_org` and per period, the speaker's own denominator, its `genocide`-bearing
@@ -161,6 +169,36 @@ speaker identity, Council status and denominators. It should show:
 - membership-aware P5/E10/non-member status;
 - agenda composition and matched keyness with minimum-sample disclosure;
 - quotations linked to the concordance and source reader.
+
+Of those four the shipped view has one and a half. **Rates over time** exist at the
+resolution the table was built at — `all` and the four periods `countries.json`
+declares — which answers *when* coarsely and is not a series. **Quotations** are linked
+as of 10 August 2026: every figure in the picked-speaker panel carries that speaker, that
+term and that period into the concordance, so a reader sent from Rwanda's 26.83% arrives
+at its 960 lines and not at all 79,569. A set measure becomes one link per member, because
+the concordance shows one term and a single link would offer a fifth of the evidence as
+all of it. The decision is in `web/src/lib/actors.ts` with tests, not in the component.
+
+**Membership status** is not built, and is the cheapest of the three remaining, though not
+free: 02 already derives `speaker_group` — P5, E10, non-member state, UN, non-state — from
+`config/council_membership.csv`, so no new source is needed, but it is *per speech-year*
+and `countries.json` has no column for it. The E10 rotates, so a speaker cannot carry one
+label: what a row can honestly carry is the share of its speeches delivered while seated,
+which is a small addition to 11 rather than a relabelling in the view. **Agenda composition and
+matched keyness** have no per-speaker artefact at all — 05 computes matched keyness for
+lexicon slices, not for one delegation against the Council — so that one is a pipeline
+step before it is a view.
+
+One thing the shipped view got wrong and now does not, recorded because the failure looked
+exactly like a result. `atrocity_core` is a union of five overlapping terms, so
+`11_countries.py` withholds its occurrence count rather than double-counting a speech that
+uses two of them; the row simply has no `occurrences` and no `token_rate`. Read through the
+`?? 0` every consumer uses for a nullable number, that withholding was published as
+`0.00 per 100,000 words` and `NaN occurrences`, and the ranking control offered to order
+133 speakers by a figure none of them had. The interface now detects the absence once
+(`carries()`), and drops the column, the ordering and the tooltip line instead of filling
+them — and `plan()` reports which ordering it actually used, so the control cannot name a
+figure the table is not in.
 
 Gate: no profile or ranking for a slice below the declared minimum; aliases and membership
 must pass existing crosswalk tests. Country centroids may support navigation, but they must
@@ -399,21 +437,28 @@ published side by side for the release they first appear in.
 
 ## Phase 7 — Visualisation
 
-Status: item 2 shipped; item 1 in progress; items 3 and 4 gated. Nothing here may precede
-the table it depicts.
+Status: items 1, 2 and 3 shipped; item 4 gated behind a Phase 4 that was not adopted.
+Item 3 shipped as a ranking and a map, not as the profile §3 describes. Nothing here may
+precede the table it depicts.
 
 The project's charts are currently rates over time, the event overlay and the
 concordance. Four additions are worth building, in this order:
 
-1. **Word clouds over the lemma collocate table.** 05 has always argued that a cloud is
-   a rendering of the collocate table rather than a separate artifact, and that shipping
-   it as its own file would invite it to drift from the numbers it claims to depict. That
-   argument stands: a cloud must be generated from `collocates.json` at render time,
-   sized by log ratio over a stated stoplist, with the table reachable from it. The lemma
-   layer is what makes it worth drawing — a cloud showing `crimes` and `crime` as two
-   words is a picture of English morphology, not of the Council.
+1. ~~**Word clouds over the lemma collocate table.**~~ **Shipped**, over the *surface*
+   collocate table rather than the lemma one: Phase 6 is not adopted, and adopting it
+   would move published figures before §1.1 closes. The cost is carried in the figure's
+   own caveat rather than here — `crimes` and `crime` are two words in that cloud, each
+   holding a share of the evidence they jointly support, so the words to trust least are
+   the ones with the commonest inflections, and the cloud is to that extent a picture of
+   English morphology rather than of the Council.
 
-   It must also be **facetable**: `collocates_sliced.json` already carries `by_period`,
+   Everything else the item argued for holds. 05 has always said that a cloud is a
+   rendering of the collocate table rather than a separate artifact, and that shipping it
+   as its own file would invite it to drift from the numbers it claims to depict; it is
+   generated from `collocates.json` at render time, sized by log ratio over a stated
+   stoplist, with the table reachable from it.
+
+   It is also **facetable**: `collocates_sliced.json` already carries `by_period`,
    `by_speaker_group` and `by_country` with a declared `minimum_speeches`, and a cloud
    that cannot be cut by period or speaker is a decoration where a comparison was
    available. The facet is a selection over that artifact, not a property of the renderer.
@@ -437,11 +482,14 @@ concordance. Four additions are worth building, in this order:
 3. **Actor-view visuals** (Phase 3): speech and term-bearing rates per speaker with
    membership shading, and matched keyness with minimum-sample disclosure. Country
    centroids may support navigation but must never imply that a diplomat is located at
-   that point. **The table now exists** — `countries.json`, written by
-   `11_countries.py` — and nothing is drawn from it yet. Read its `minimum_speeches` and
-   `iso3_collisions` before drawing anything: 468 of 601 speakers carry no rate by
-   design, and two ISO3 codes are shared by more than one speaker, so a choropleth keyed
-   on the code without reading that block will silently paint one row over another.
+   that point. **The ranking and the map are shipped**, drawn from `countries.json`;
+   membership shading and matched keyness are not, and §3 says what each would take.
+   Both warnings this item raised were honoured rather than discovered late: 133 of 601
+   speakers clear the minimum and the other 468 are reported as a withheld count rather
+   than ranked low, and nothing is keyed on ISO3 — circles key on `country_org`,
+   coincident centroids group into one marker that knows how many it stands for, and the
+   two shared codes are named in the apparatus and marked in the table. A choropleth would
+   have painted one row over another silently, which is why there is no choropleth.
 4. **A 2D semantic projection**, only if Phase 4 is approved, and only as exploratory
    navigation. Distance on a UMAP plot is not evidence of influence or of categorical
    separation, and any such map must carry that statement in the interface rather than
@@ -455,7 +503,14 @@ concordance. Four additions are worth building, in this order:
 Requirements that apply to all four:
 
 - every visual links to the table behind it, and the two are generated from one artifact;
-- no visual introduces a number that does not exist in a JSON artifact with a manifest;
+- no visual introduces a number that does not exist in a JSON artifact with a manifest.
+  The actor view broke this on 10 August 2026 and was fixed the same day, which is worth
+  keeping because of *how* it broke: nothing invented a number, it read a field that was
+  never written. `atrocity_core` has no occurrence count by design, and `?? 0` — the idiom
+  every consumer here uses for a nullable figure — turned that silence into
+  `0.00 per 100,000 words`. The general lesson is that a missing key and a measured zero
+  are indistinguishable downstream unless something checks, so the check belongs once, in
+  the tested module, and the interface drops what the artifact withholds;
 - colour must not encode a quantity the underlying table does not support;
 - a slice below the declared minimum sample is not drawn, in any of them;
 - **the arithmetic a visual performs at render time is tested.** The research contract
@@ -474,13 +529,18 @@ Requirements that apply to all four:
 
 ### 7.5 Export what is on screen
 
-Every chart and every generated table should be downloadable — the numbers as CSV, the
-chart as an image — from beside the thing itself. The concordance already does the CSV half
-(`web/src/routes/concordance/+page.svelte` builds a Blob from the filtered rows); nothing
-else does, so a reader who wants to check a collocate table or replot a series has to clone
-the repository and run the pipeline.
+Status: **shipped on 10 August 2026**, ahead of the release this section placed it after —
+the same reordering §3 records, for the same reason: it changes what a reader can take
+away, not what any figure says. Every figure now offers its numbers as CSV and, where
+there is a chart, the picture as SVG or PNG, from beside the source rather than over the
+drawing. The decisions live in `web/src/lib/export.ts` with tests; the component decides
+nothing and does the work on click.
 
-Three constraints, or the export becomes a second source of truth:
+Every chart and every generated table should be downloadable — the numbers as CSV, the
+chart as an image — from beside the thing itself.
+
+Three constraints, or the export becomes a second source of truth — each of them now a
+test rather than an intention:
 
 - **Export the artifact's numbers, not the chart's pixels.** A CSV is written from the same
   JSON the chart is drawn from, at full precision, including rows a zoom or a top-N cut is
@@ -494,9 +554,14 @@ Three constraints, or the export becomes a second source of truth:
 - **Chart images state their filters.** A PNG of a filtered or zoomed view must carry the
   term, window, unit and period in the rendered image, not only in the filename.
 
-This belongs after the release, with the word cloud and the graph: it changes what a reader
-can take away, not what the figures say, and it is not worth building against figures the
-§1.1 audit has not cleared.
+The first constraint is the one that shaped the shipped files: nothing in the export module
+can read a chart's state, so a caller hands over the rows the artifact holds and the file
+comes out wider than the figure. The chronology series exports all 32 measures in four
+units; the actor table exports all 601 speakers with the 468 withheld ones' nulls intact
+and a `sufficient` column beside them, because a reader given only the drawable rows cannot
+recover what was left out or know that it was. The concordance is the one legitimate
+subset — a filter there is the reader's question, not a display cut — and it now offers
+both readings with each declaring its scope.
 
 ## Priority order
 
@@ -504,19 +569,27 @@ can take away, not what the figures say, and it is not worth building against fi
 2. ~~Select the code/derived-artifact licence and confirm citation identities.~~ Done,
    10 August 2026 — see §1.3.
 3. Run the first reproducible Pages release and archive its manifest.
-4. Build the actor view.
+4. ~~Build the actor view.~~ The ranking, the map and the concordance links are shipped —
+   see §3. What remains of it is membership-aware status and per-speaker matched keyness,
+   and the second of those needs a pipeline step before it needs a view.
 5. Review the lemma mapping table and decide whether the lemma reading becomes the
    default, or stays a second reading published beside the surface one.
-6. Add the faceted word cloud, generated from the artifact it depicts. (The co-occurrence
-   graph that stood beside it here is shipped — see §7.2.)
-7. Add CSV and image export beside every chart and generated table (§7.5).
+6. ~~Add the faceted word cloud, generated from the artifact it depicts.~~ Shipped over
+   the surface collocate table — see §7.1. (The co-occurrence graph that stood beside it
+   here is shipped too — see §7.2.)
+7. ~~Add CSV and image export beside every chart and generated table.~~ Shipped —
+   see §7.5.
 8. ~~Decide whether topics answer a question the current methods cannot.~~ Decided on
    10 August 2026: not on this evidence — see §4. Reopen only with a research question and
    a model that clears stability, not by rerunning the same comparison.
 9. Consider the LLM evaluation only after a human coding protocol exists.
 
-Steps 5 and 6 are deliberately after the release, not before it: both change or add to
-what a reader sees, and neither is worth doing on figures the audit has not yet cleared.
+Steps 4, 6 and 7 were built before step 3 rather than after it. The gate they jumped
+governs what may be *tagged* as citable, and nothing is tagged; each of them draws from an
+artifact the §1.1 audit can regenerate without touching a line of the view. Step 5 is the
+one that stays behind the audit, and not for sequencing reasons: adopting the lemma
+reading would move published collocate and keyness figures, which is the one thing an
+open audit forbids.
 
 This ordering keeps the next release modest and defensible while leaving clear gates for
 more ambitious digital-humanities work.
