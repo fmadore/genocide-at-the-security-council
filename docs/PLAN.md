@@ -281,7 +281,8 @@ published side by side for the release they first appear in.
 
 ## Phase 7 — Visualisation
 
-Status: planned. Nothing here may precede the table it depicts.
+Status: item 2 shipped; item 1 in progress; items 3 and 4 gated. Nothing here may precede
+the table it depicts.
 
 The project's charts are currently rates over time, the event overlay and the
 concordance. Four additions are worth building, in this order:
@@ -293,10 +294,28 @@ concordance. Four additions are worth building, in this order:
    sized by log ratio over a stated stoplist, with the table reachable from it. The lemma
    layer is what makes it worth drawing — a cloud showing `crimes` and `crime` as two
    words is a picture of English morphology, not of the Council.
-2. **The co-occurrence network as a graph.** `network.json` already carries PMI and nPMI
-   edges between lexicon terms, whole-corpus and per period. Edge weight must be nPMI,
-   not raw PMI, or rare terms buy prominence with rarity alone; suppressed nested edges
-   must stay suppressed and be shown as such.
+
+   It must also be **facetable**: `collocates_sliced.json` already carries `by_period`,
+   `by_speaker_group` and `by_country` with a declared `minimum_speeches`, and a cloud
+   that cannot be cut by period or speaker is a decoration where a comparison was
+   available. The facet is a selection over that artifact, not a property of the renderer.
+   Which is the argument against `echarts-wordcloud`: it is canvas-only, so no word can
+   be a link or be read aloud, it has been unpublished since 2022, and its peer dependency
+   is `echarts ^5` against this project's `^6` — a major downgrade bought for a layout
+   algorithm. Positions come from `d3-cloud` instead, which computes placement and draws
+   nothing, so the words are rendered as SVG anchors that reach the concordance and can be
+   read aloud. Its randomness is seeded from the facet key: a cloud that reshuffles
+   between renders is not a depiction of a table.
+2. ~~**The co-occurrence network as a graph.**~~ **Shipped.** `network.json` carries PMI
+   and nPMI edges between lexicon terms, whole-corpus and per period, and the Language
+   view draws it as a force graph. Both constraints hold in the shipped version: stroke
+   width and opacity derive from **nPMI**, not raw PMI, so a rare term cannot buy
+   prominence with rarity alone; and the four nested edges the lexicon implies
+   (`atrocity`/`mass_atrocity`, `genocide`/`genocide_convention`,
+   `genocide`/`prevention_of_genocide`, `genocide`/`genocidal_ideology`) are suppressed in
+   the artifact, listed there under `suppressed_nested_edges`, and named in the figure's
+   caveat rather than silently dropped. `min_speeches` is 20 and declared in the artifact,
+   so no sub-minimum edge is drawn, and the edge table sits beside the graph.
 3. **Actor-view visuals** (Phase 3): speech and term-bearing rates per speaker with
    membership shading, and matched keyness with minimum-sample disclosure. Country
    centroids may support navigation but must never imply that a diplomat is located at
@@ -311,7 +330,20 @@ Requirements that apply to all four:
 - every visual links to the table behind it, and the two are generated from one artifact;
 - no visual introduces a number that does not exist in a JSON artifact with a manifest;
 - colour must not encode a quantity the underlying table does not support;
-- a slice below the declared minimum sample is not drawn, in any of them.
+- a slice below the declared minimum sample is not drawn, in any of them;
+- **the arithmetic a visual performs at render time is tested.** The research contract
+  requires a test that fails when a data contract changes unexpectedly, and until the word
+  cloud that requirement was met only on the Python side: the dashboard had no test runner,
+  so a filter, a minimum-sample gate or a scale computed in the browser was covered by
+  nothing but `svelte-check`, which checks types rather than behaviour. The rule that
+  follows is architectural — a visual's decisions live in a plain module that can be
+  called from a test, and the Svelte component is a renderer over it. Logic reachable only
+  by mounting a component is logic nobody will test twice. `web/src/lib/data.ts` validates
+  every payload at the fetch boundary and throws on a malformed one; those validators are
+  covered in the same pass. Two of their checks are substantive rather than structural and
+  are worth naming: an event without a primary-source URL is refused there, which is §1.2
+  enforced at the boundary rather than trusted upstream; and a failed request is evicted
+  from the cache, which is the only reason the concordance's retry can ever succeed.
 
 ### 7.5 Export what is on screen
 
@@ -348,8 +380,8 @@ can take away, not what the figures say, and it is not worth building against fi
 4. Build the actor view.
 5. Review the lemma mapping table and decide whether the lemma reading becomes the
    default, or stays a second reading published beside the surface one.
-6. Add the word cloud and the co-occurrence graph, each generated from the artifact it
-   depicts.
+6. Add the faceted word cloud, generated from the artifact it depicts. (The co-occurrence
+   graph that stood beside it here is shipped — see §7.2.)
 7. Add CSV and image export beside every chart and generated table (§7.5).
 8. Decide whether topics answer a question the current methods cannot.
 9. Consider the LLM evaluation only after a human coding protocol exists.
