@@ -13,7 +13,10 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # The numbered scripts and tools insert scripts/ on sys.path before importing
-# lib, so their imports cannot sit at the top of the file.
+# lib, so their imports cannot sit at the top of the file. Fifteen copies of the
+# same four lines, and they stay: a module cannot be named `04_series`, so
+# `python -m` is not available, and every way of removing the duplication hides
+# what the scripts are doing to the path. A known cost, not an unexamined habit.
 "scripts/[0-9]*.py" = ["E402"]
 "tools/*.py" = ["E402"]
 

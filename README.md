@@ -140,7 +140,6 @@ is one the pipeline actually writes.
 │   ├── PLAN.md            Five-phase action plan
 │   ├── CLUSTER.md         Running the GPU steps on the Bayreuth cluster
 │   ├── VALIDATION.md      Readings to confirm against the original S/PV PDFs
-│   ├── REFACTORING.md     Code-health backlog: what is known to be wrong, and why
 │   └── reference/         Codebook PDF, companion paper
 ├── notes/               Gitignored. Markdown findings notes emitted by each script.
 ├── scripts/             Numbered, idempotent pipeline steps — see scripts/README.md
