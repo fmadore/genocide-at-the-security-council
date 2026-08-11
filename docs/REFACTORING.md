@@ -98,6 +98,22 @@ than one per event — each redraw being a whole SVG tree. Not yet seen working:
 `requestAnimationFrame` nor `ResizeObserver` fires in a browser pane that is not
 compositing, which is also why the map cannot be checked there (§3.1).
 
+**The cache had no ceiling.** It kept every parsed payload for the session, which is right
+for the dozen small artefacts a route needs — they are wanted again the moment the reader
+goes back — and unbounded for the two families fetched by name: 22 concordances and 6,595
+speech files, held in a parsed form several times the transferred size. Those now have an
+LRU of 3 and 8, so moving between the last few terms is still free and a session cannot
+accumulate the corpus. Least-recently-*read*, not first-in: returning to a term keeps it.
+
+**The map re-added its speakers on every theme change.** `setStyle` discards what the
+incoming style does not declare, so the source, the layer *and* every event handler were
+rebuilt on `style.load` — which meant three toggles left four click handlers on one layer.
+`transformStyle` carries the source and layer into the style before it is committed:
+`paint()` runs once, the `style.load` handler and its re-entry guards are gone, and the
+paint effect owns both colours that a theme change moves. Verified in a browser: three
+toggles, circles intact each time, a click still picks a speaker (Georgia) and a click on
+the basemap still clears it.
+
 **Two decisions moved out of this file and into the code.** Why ECharts 6's `setTheme()`
 was considered and refused now sits in `theme.ts`, where the next reader meets it as a
 decision rather than as a gap; and `escapeHtml` and `escapeXml` each say why the other
@@ -122,53 +138,21 @@ an unexamined habit, not because it should change today.
 
 ---
 
-## 2 · What a reader can feel
-
-This changes runtime behaviour, so it needs a decision rather than just an edit.
-
-### 2.1 The artefact cache never evicts
-
-`data.ts` caches every payload by URL for the life of the session, deliberately: the
-comment says it exists so a reader moving between views does not pay twice for a 10 MB
-concordance. There is no ceiling. A reader who opens all 22 terms holds every parsed
-payload at once, and the parsed form is several times the transferred size.
-
-The question is not whether to cache but what the ceiling is. An LRU of two or three
-concordances plus every small artefact would keep the property the cache was built for and
-bound the rest.
-
-**Needs a decision:** what a reader is assumed to be able to hold.
-
 ---
 
 ## 3 · The libraries
 
 Checked against upstream documentation on 11 August 2026. The pinned versions are current:
 ECharts 6.1.0, Svelte 5.56.8, SvelteKit 2.70.2, Vite 8.2.1, MapLibre `^6.2.0` resolving to
-6.3.0.
+6.3.0. What is left here is what *not* to change.
 
-### 3.1 `setStyle` should carry the speakers across, not re-add them
-
-`CountryMap.svelte` handles a theme change by letting `setStyle` discard every source and
-layer and re-adding them on `style.load`. That is what the library required before
-`transformStyle`, which injects your source and layer into the incoming style *before* it is
-applied. Adopting it removes the `style.load` handler, the `getLayer` re-entry guard in
-`paint()`, and the blank frame between the two styles.
-
-This one has to be seen rather than reasoned about: the failure mode of getting it wrong is
-a map that looks right until the second toggle, which is exactly the bug the current comment
-records having already been bitten by.
-
-**Done when** toggling the theme three times leaves the circles and the click handling
-intact, verified in a browser.
-
-### 3.2 The worker handling is already right
+### 3.1 The worker handling is already right
 
 `?worker&url` plus `setWorkerUrl`, with a comment explaining why plain `?url` fails. This
 matches the v5-to-v6 migration guide almost sentence for sentence. Recorded here so a
 future tidy-up does not simplify it back into the bug.
 
-### 3.3 TypeScript 7 is out
+### 3.2 TypeScript 7 is out
 
 The native compiler is published as `typescript@7`. It is a large change to the toolchain
 for a benefit — compile speed — that this codebase does not currently feel: `svelte-check`

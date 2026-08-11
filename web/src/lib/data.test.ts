@@ -71,6 +71,43 @@ describe('the cache in front of the artefacts', () => {
 		await annual(fetcher);
 		expect(calls.count).toBe(1);
 	});
+
+	it('holds three concordances and drops the least recently read', async () => {
+		const { kwic } = await fresh();
+		const line = (term: string) => ({ meta, term, lines: [] });
+		const fetchers = Object.fromEntries(
+			['a', 'b', 'c', 'd'].map((term) => [term, responder(line(term))])
+		);
+		const load = (term: string) => kwic(term, fetchers[term].fetcher);
+
+		await load('a');
+		await load('b');
+		await load('c');
+		// `a` is the oldest by insertion but the most recently *read*, and the
+		// ceiling is about what a reader is moving between, not what they opened
+		// first. Reading it again is what keeps it.
+		await load('a');
+		await load('d');
+
+		await load('a');
+		expect(fetchers.a.calls.count, 'a was read most recently and should be held').toBe(1);
+		await load('b');
+		expect(fetchers.b.calls.count, 'b was the least recently read of four').toBe(2);
+	});
+
+	it('keeps every small artefact for the whole session', async () => {
+		const { annual, kwic } = await fresh();
+		const series = responder(annualPayload());
+		await annual(series.fetcher);
+		// The bounded families must not evict anything outside themselves: the
+		// dozen files a route needs to render are small, and every one of them is
+		// wanted again the moment the reader goes back.
+		for (const term of ['a', 'b', 'c', 'd', 'e']) {
+			await kwic(term, responder({ meta, term, lines: [] }).fetcher);
+		}
+		await annual(series.fetcher);
+		expect(series.calls.count).toBe(1);
+	});
 });
 
 describe('what a bad response is turned into', () => {

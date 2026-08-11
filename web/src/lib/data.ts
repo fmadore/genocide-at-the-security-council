@@ -4,7 +4,9 @@
  * Everything is a static JSON file under `static/data/`, so there is no API and
  * no server. What there is instead is a cache: the concordance for one term is
  * up to 10 MB, and a reader who moves between views should not pay for it
- * twice.
+ * twice. It has a ceiling — see `KEEP` — because the two artefacts fetched by
+ * name have no natural one, and a session that opened every term used to hold
+ * all of them.
  */
 
 import { base } from '$app/paths';
@@ -226,6 +228,44 @@ const validateSpeakerKeyness: Validator = (record, path) => {
 	}
 };
 
+/**
+ * How many of the two by-name families a session may hold at once.
+ *
+ * The cache exists so a reader moving between views does not fetch and parse a
+ * 10 MB concordance twice, and for the dozen or so artefacts a route needs to
+ * render at all that property is worth keeping for the whole session: they are
+ * small, and every one of them is wanted again the moment the reader goes back.
+ *
+ * The two families fetched by name are the ones with no ceiling of their own —
+ * 22 concordances and 6,595 speech files — and a reader who opens every term
+ * held all of them at once, in the parsed form, which is several times the
+ * transferred size. Those get a least-recently-used bound instead: enough to
+ * make going back to the previous term or the previous speech free, not enough
+ * to accumulate the corpus in a tab.
+ */
+const KEEP: { matches: (path: string) => boolean; keep: number }[] = [
+	{ matches: (path) => path.startsWith('kwic/') && path !== 'kwic/index.json', keep: 3 },
+	{ matches: (path) => path.startsWith('speeches/'), keep: 8 }
+];
+
+/** Paths in the order they were last asked for, oldest first. Bounded families only. */
+const recent = new Map<string, string>();
+
+function evict(path: string, url: string): void {
+	const family = KEEP.find((f) => f.matches(path));
+	if (!family) return;
+	// Re-inserting moves the key to the end of a Map's iteration order, which is
+	// what makes this least-*recently-used* rather than first-in-first-out: a
+	// reader returning to a term keeps it.
+	recent.delete(url);
+	recent.set(url, path);
+	const mine = [...recent].filter(([, held]) => family.matches(held));
+	for (const [stale] of mine.slice(0, Math.max(0, mine.length - family.keep))) {
+		recent.delete(stale);
+		cache.delete(stale);
+	}
+}
+
 /** Fetch and cache a JSON payload, keyed on its path. */
 export function json<T>(
 	path: string,
@@ -234,6 +274,7 @@ export function json<T>(
 	validate?: Validator
 ): Promise<T> {
 	const url = `${base}/data/${path}`;
+	evict(path, url);
 	if (!cache.has(url)) {
 		const request = fetcher(url)
 			.then((response) => {
@@ -273,6 +314,7 @@ export function json<T>(
 			})
 			.catch((error) => {
 				cache.delete(url);
+				recent.delete(url);
 				throw error;
 			});
 		cache.set(url, request);

@@ -134,11 +134,18 @@
 		$colours.inkSoft
 	];
 
+	/**
+	 * The speakers, added once.
+	 *
+	 * This used to run again on every `style.load`, because `setStyle` discarded
+	 * the source and the layer with the old style and they had to be put back.
+	 * It also put the handlers below back, every time, on top of the ones already
+	 * there: three theme toggles left four click handlers on the same layer.
+	 * `transformStyle` carries the source and layer into the incoming style
+	 * instead, so this runs exactly once and the guards it needed are gone.
+	 */
 	function paint(instance: import('maplibre-gl').Map) {
-		if (!instance.getSource(SOURCE)) {
-			instance.addSource(SOURCE, { type: 'geojson', data: collection() });
-		}
-		if (instance.getLayer(LAYER)) return;
+		instance.addSource(SOURCE, { type: 'geojson', data: collection() });
 		instance.addLayer({
 			id: LAYER,
 			type: 'circle',
@@ -256,12 +263,6 @@
 				instance.on('error', (event) => {
 					if (!dead && !ready) failed = event.error?.message ?? 'The basemap did not load.';
 				});
-				// `setStyle` discards every source and layer the style did not
-				// declare, so the speakers have to be re-added each time the theme
-				// changes. Without this the map goes blank on the second toggle.
-				instance.on('style.load', () => {
-					if (!dead && ready) paint(instance);
-				});
 				map = instance;
 			})
 			.catch((error: unknown) => {
@@ -285,20 +286,47 @@
 		}
 	});
 
-	// Selection and theme both land here: `fill` reads the palette store, so a
-	// toggle repaints the circles without waiting for the new style. The layer
-	// is checked rather than assumed — `setStyle` removes it, and this effect
-	// can run in the gap before `style.load` puts it back.
+	/**
+	 * Everything about the circles that a colour can change.
+	 *
+	 * Selection and theme both land here, and both have to: the layer carried
+	 * across a style swap keeps the paint it was created with, so a stroke left
+	 * un-updated would stay the previous theme's paper colour under the new
+	 * basemap.
+	 */
 	$effect(() => {
-		const paint = fill(selected);
-		if (map && ready && map.getLayer(LAYER)) {
-			map.setPaintProperty(LAYER, 'circle-color', paint);
-		}
+		const circle = fill(selected);
+		const stroke = $colours.paper;
+		if (!map || !ready || !map.getLayer(LAYER)) return;
+		map.setPaintProperty(LAYER, 'circle-color', circle);
+		map.setPaintProperty(LAYER, 'circle-stroke-color', stroke);
 	});
 
+	/**
+	 * A theme change swaps the basemap and keeps the speakers.
+	 *
+	 * `transformStyle` hands us the incoming style before it is committed, so
+	 * the source and the layer move into it rather than being discarded with the
+	 * old one and re-added afterwards. That removes the blank frame between the
+	 * two styles, the `style.load` handler, and the duplicate event handlers it
+	 * registered each time it ran.
+	 */
 	$effect(() => {
 		const scheme = $colourScheme;
-		if (map && ready) map.setStyle(STYLES[scheme]);
+		if (!map || !ready) return;
+		map.setStyle(STYLES[scheme], {
+			transformStyle: (previous, next) => {
+				if (!previous) return next;
+				const source = previous.sources[SOURCE];
+				const layer = previous.layers.find((one) => one.id === LAYER);
+				return {
+					...next,
+					sources: source ? { ...next.sources, [SOURCE]: source } : next.sources,
+					// Appended, so the circles stay above the basemap's own layers.
+					layers: layer ? [...next.layers, layer] : next.layers
+				};
+			}
+		});
 	});
 </script>
 
