@@ -46,6 +46,22 @@ per-speaker keyness were both marked as not built, months after they shipped. Th
 this project's honesty mechanism, so a stale row in it costs more than a stale row
 elsewhere.
 
+**The palette, written down in six places.** `void $colourScheme; return palette();` stood
+verbatim in `Heatmap.svelte` and three routes, and `CountryMap.svelte` skipped `palette()`
+altogether to read `getComputedStyle` itself with `#1b5fa8` and `#3d444c` as its own
+fallbacks. `theme.ts` now exports `colours`, a store derived from the scheme, and the load
+bearing `void` is explained once where it lives rather than copied four times where it looks
+like a mistake. `palette()` resolves the computed style once instead of sixteen times, and
+the map paints from the same two values as every other figure. Verified in a browser: the
+ECharts strokes move from `#2c3134`/`#e7e9e2` to `#d6d9cf`/`#14171a` on the toggle, so the
+figures still follow the theme.
+
+**Two decisions moved out of this file and into the code.** Why ECharts 6's `setTheme()`
+was considered and refused now sits in `theme.ts`, where the next reader meets it as a
+decision rather than as a gap; and `escapeHtml` and `escapeXml` each say why the other
+exists, so the pair is not merged into one function that is subtly wrong in whichever place
+it is not.
+
 ---
 
 ## 1 · Maintainability
@@ -65,27 +81,7 @@ refusals — the alignment checks, the finite-number checks, the standing-block 
 **Done when** a key can be added to `REQUIRED` and nothing else needs editing for the
 boundary to require it.
 
-### 1.2 The reactive palette is written out four times
-
-`void $colourScheme; return palette();` appears verbatim in `Heatmap.svelte`,
-`+page.svelte`, `chronology/+page.svelte` and `language/+page.svelte`. The `void` is load
-bearing and non-obvious — it exists only to make the derivation depend on the store — and
-four copies is four chances to drop it and get a chart that ignores the theme switch.
-
-A `theme.svelte.ts` exporting one reactive palette collapses all four into an import.
-
-**Done when** no route mentions `$colourScheme` to get a colour.
-
-### 1.3 `CountryMap.svelte` re-reads the design tokens itself
-
-`paint()` and the selection effect each call `getComputedStyle` and hardcode `#1b5fa8` and
-`#3d444c` as fallbacks — the third and fourth copies of two values `palette()` already
-returns. `theme.ts` opens by saying it exists so there is "one definition of the palette,
-not two that drift"; this is the drift.
-
-**Done when** the map reads its colours through `palette()` like every other figure.
-
-### 1.4 `frames.write` reimplements the atomic write
+### 1.2 `frames.write` reimplements the atomic write
 
 `artifacts.py` owns atomic replacement, and `frames.write` has its own ten-line copy of the
 temp-file dance because `to_parquet` wants a path rather than bytes. An `atomic_path()`
@@ -94,7 +90,7 @@ argument in one file.
 
 **Done when** `frames.py` no longer imports `tempfile`.
 
-### 1.5 Two `# type: ignore[index]` in `export_web.py`
+### 1.3 Two `# type: ignore[index]` in `export_web.py`
 
 Both are on `manifest["parts"][name]`, and both go away by giving `parts` its own typed
 local instead of building it inside an untyped `dict[str, object]`. A silenced type error is
@@ -102,24 +98,7 @@ a small lie about what the code knows.
 
 **Done when** `export_web.py` has no `type: ignore`.
 
-### 1.6 `palette()` makes sixteen separate style resolutions
-
-`read()` calls `getComputedStyle(document.documentElement)` once per token, sixteen times
-per palette. It runs on a theme toggle rather than per frame, so this is tidiness rather
-than speed — but sixteen resolutions can in principle straddle a change, and one call
-reused is one consistent snapshot.
-
-**Done when** `palette()` resolves the computed style once.
-
-### 1.7 Two escape functions that are nearly one
-
-`format.ts` has `escapeHtml` and `export.ts` has `escapeXml`; they differ only in whether
-an apostrophe becomes `&#39;` or `&apos;`. That difference is real — one writes into an
-ECharts HTML tooltip, the other into a downloaded SVG — so this is a note rather than a
-merge. Worth one sentence in each saying why the other exists, so the next reader does not
-delete one.
-
-### 1.8 Fifteen copies of the `sys.path` bootstrap
+### 1.4 Fifteen copies of the `sys.path` bootstrap
 
 Every numbered script inserts `scripts/` on the path before importing `lib`, and
 `pyproject.toml` carries a per-file `E402` ignore to permit it. It is genuinely awkward to
@@ -191,27 +170,13 @@ records having already been bitten by.
 **Done when** toggling the theme three times leaves the circles and the click handling
 intact, verified in a browser.
 
-### 3.2 ECharts 6 `setTheme()` — considered, not adopted
-
-ECharts 6 added runtime theme switching without re-initialising the instance. It does not
-fit here, and the reason is worth writing into `theme.ts` so it is not rediscovered as an
-oversight: this project's palette lives in CSS custom properties in `app.css`, and
-`theme.ts` exists precisely so that the charts and the page cannot hold two definitions of
-the same colour. Adopting `setTheme` would mean registering an ECharts theme object as a
-second source, which is the thing the current design refuses.
-
-What the option would buy — not re-serialising a whole option on a theme toggle — is worth
-having only if a figure ever gets large enough for the rebuild to be visible. None is.
-
-**Action:** one paragraph in `theme.ts`. Not a change.
-
-### 3.3 The worker handling is already right
+### 3.2 The worker handling is already right
 
 `?worker&url` plus `setWorkerUrl`, with a comment explaining why plain `?url` fails. This
 matches the v5-to-v6 migration guide almost sentence for sentence. Recorded here so a
 future tidy-up does not simplify it back into the bug.
 
-### 3.4 TypeScript 7 is out
+### 3.3 TypeScript 7 is out
 
 The native compiler is published as `typescript@7`. It is a large change to the toolchain
 for a benefit — compile speed — that this codebase does not currently feel: `svelte-check`

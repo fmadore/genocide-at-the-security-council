@@ -13,11 +13,10 @@
 	import {
 		axisX,
 		axisY,
-		colourScheme,
+		colours,
 		endLabel,
 		grid,
 		markLine,
-		palette,
 		registerColour,
 		textStyle,
 		tooltip
@@ -83,10 +82,6 @@
 			scope: 'every term, register and set in the annual artefact, in all four units'
 		};
 	}
-	const colours = $derived.by(() => {
-		void $colourScheme;
-		return palette();
-	});
 
 	const years = $derived(data.series.periods as number[]);
 	const corpus = $derived(data.series.corpus);
@@ -122,7 +117,7 @@
 	   are told apart by mark and by weight, which survives greyscale and print
 	   in a way a two-colour key does not. */
 	const contrast: EChartsOption = $derived.by(() => {
-		const p = colours;
+		const p = $colours;
 		return {
 			textStyle,
 			// No end labels here: the two axis names already sit at the two ends of
@@ -243,7 +238,7 @@
 	let registerView = $state<'rows' | 'lines'>('rows');
 
 	const registerLines: EChartsOption = $derived.by(() => {
-		const p = colours;
+		const p = $colours;
 		const names = registerRows.map((r) => r.name);
 		const byYear: Record<string, string[]> = {};
 		for (const event of data.overlay.events) {

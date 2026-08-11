@@ -16,7 +16,16 @@ export const percent = (n: number) => percents.format(n);
 export const decimal = (n: number) => decimals.format(n);
 export const signed = (n: number) => (n >= 0 ? `+${decimals.format(n)}` : decimals.format(n));
 
-/** Escape corpus-derived labels before interpolating them into ECharts HTML tooltips. */
+/**
+ * Escape corpus-derived labels before interpolating them into ECharts HTML tooltips.
+ *
+ * `export.ts` has a near-twin, `escapeXml`, and the two are not a duplication
+ * to be merged: an apostrophe becomes `&#39;` here and `&apos;` there, because
+ * `&apos;` is XML and not one of HTML 4's named entities. This one writes into
+ * a tooltip the browser parses as HTML; that one writes into a file that leaves
+ * the browser as XML. Deleting either in favour of the other breaks one of the
+ * two consumers in a way no test on this side would show.
+ */
 export const escapeHtml = (value: unknown): string =>
 	String(value).replace(
 		/[&<>'"]/g,

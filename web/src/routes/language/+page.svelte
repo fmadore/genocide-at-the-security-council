@@ -18,16 +18,7 @@
 		signed,
 		termLabel
 	} from '$lib/format';
-	import {
-		axisX,
-		axisY,
-		colourScheme,
-		grid,
-		palette,
-		registerColour,
-		textStyle,
-		tooltip
-	} from '$lib/theme';
+	import { axisX, axisY, colours, grid, registerColour, textStyle, tooltip } from '$lib/theme';
 	import type { CollocateBlock, Word } from '$lib/types';
 	import type { EChartsOption } from 'echarts';
 	import { untrack } from 'svelte';
@@ -181,10 +172,6 @@
 				'flagged rather than omitted'
 		};
 	}
-	const colours = $derived.by(() => {
-		void $colourScheme;
-		return palette();
-	});
 
 	let node = $state('genocide');
 	let width = $state('5');
@@ -297,7 +284,7 @@
 	   matter are up and to the right, and the ones that only look significant
 	   are far right and low. */
 	const scatter: EChartsOption = $derived.by(() => {
-		const p = colours;
+		const p = $colours;
 		const words = block.collocates;
 		return {
 			textStyle,
@@ -376,7 +363,7 @@
 	/* The lexicon as a graph. Edge weight is normalised PMI so a rare term
 	   cannot buy a thick edge with rarity alone. */
 	const graph: EChartsOption = $derived.by(() => {
-		const p = colours;
+		const p = $colours;
 		const periodBlock = period === 'whole' ? null : data.network.by_period[period];
 		const edges = periodBlock?.edges ?? data.network.edges;
 		const used = new Set(edges.flatMap((e) => [e.source, e.target]));

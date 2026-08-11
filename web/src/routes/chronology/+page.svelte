@@ -27,11 +27,10 @@
 		axisX,
 		axisY,
 		categorical,
-		colourScheme,
+		colours,
 		endLabel,
 		grid,
 		legend,
-		palette,
 		registerColour,
 		textStyle,
 		tooltip
@@ -42,10 +41,6 @@
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-	const colours = $derived.by(() => {
-		void $colourScheme;
-		return palette();
-	});
 
 	type Unit = 'speech_rate' | 'token_rate' | 'occurrences' | 'speeches';
 
@@ -349,7 +344,7 @@
 
 	// A term with no register of its own is drawn in ink, not in the accent: the
 	// accent belongs to what the reader can act on, never to a series.
-	const colourOf = (name: string, p = colours) =>
+	const colourOf = (name: string, p = $colours) =>
 		name.startsWith('register:')
 			? registerColour(name.slice(9), p)
 			: allMeasures[name]?.register
@@ -380,7 +375,7 @@
 	const LABELLABLE = 8;
 
 	const main: EChartsOption = $derived.by(() => {
-		const p = colours;
+		const p = $colours;
 		const usable = selected.filter((n) => allMeasures[n] && !unavailable.includes(n));
 		const named = usable.length <= LABELLABLE;
 		return {
@@ -489,7 +484,7 @@
 		if (split === 'none') return null;
 		const block = data.splits.measures.genocide?.[split];
 		if (!block) return null;
-		const p = colours;
+		const p = $colours;
 		const ramp = categorical(p);
 		const years = [...new Set(block.rows.map((r) => String(r.period)))].sort();
 		return {

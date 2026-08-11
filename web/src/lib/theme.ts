@@ -12,9 +12,17 @@
  *
  * The `Palette` keys are unchanged from the previous version so existing route
  * code keeps compiling; only the tokens they read have moved.
+ *
+ * **Why not ECharts 6's `setTheme()`.** It can swap a theme at runtime without
+ * re-initialising the instance, which sounds like exactly what the toggle
+ * wants. Taking it would mean registering an ECharts theme object — a second
+ * place where `--blue` is written down, and the drift this file exists to
+ * prevent. What it would save is re-serialising an option on a theme toggle,
+ * and no figure here is large enough for that rebuild to be visible. Rejected
+ * on purpose, not overlooked.
  */
 
-import { readable } from 'svelte/store';
+import { derived, readable } from 'svelte/store';
 
 export type Scheme = 'light' | 'dark';
 
@@ -69,13 +77,13 @@ export interface Palette {
 	registers: Record<string, string>;
 }
 
-function read(name: string, fallback: string): string {
-	if (typeof document === 'undefined') return fallback;
-	const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-	return value || fallback;
-}
-
 export function palette(): Palette {
+	// One style resolution for the whole palette. Sixteen separate calls to
+	// `getComputedStyle` returned sixteen answers that could in principle
+	// straddle a change; these come from one snapshot of one element.
+	const style = typeof document === 'undefined' ? null : getComputedStyle(document.documentElement);
+	const read = (name: string, fallback: string) => style?.getPropertyValue(name).trim() || fallback;
+
 	return {
 		ink: read('--ink', '#14171a'),
 		inkSoft: read('--ink-2', '#3d444c'),
@@ -96,6 +104,21 @@ export function palette(): Palette {
 		)
 	};
 }
+
+/**
+ * The palette as a store: `$colours` in any component, re-read on every theme
+ * change.
+ *
+ * `palette()` takes no argument and reads nothing that Svelte can track — it
+ * asks the document for computed values, which the toggle has already changed
+ * by the time this runs. The dependency has to be declared, and it used to be
+ * declared four times, as `void $colourScheme; return palette();` in
+ * `Heatmap.svelte` and three routes. The `void` was load-bearing and looked
+ * like a mistake, which is the worst combination: delete it and the chart
+ * silently keeps the colours of the theme the reader has just left. Declared
+ * once here instead.
+ */
+export const colours = derived(colourScheme, () => palette());
 
 /** Colour for a register, falling back to ink for anything unlisted. */
 export function registerColour(register: string, p = palette()): string {

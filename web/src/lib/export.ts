@@ -174,6 +174,13 @@ const XML_ESCAPES: Record<string, string> = {
 	"'": '&apos;'
 };
 
+/**
+ * The XML twin of `escapeHtml` in `format.ts`, and deliberately not the same
+ * function: an apostrophe becomes `&apos;` here and `&#39;` there. `&apos;` is
+ * XML, not HTML 4, so the numeric form is the one a tooltip needs and the named
+ * form is the one belonging in a downloaded `.svg`. Two escapers, one sentence
+ * apart, rather than one that is subtly wrong in whichever place it is not.
+ */
 export const escapeXml = (value: string): string =>
 	value.replace(/[&<>"']/g, (character) => XML_ESCAPES[character]);
 

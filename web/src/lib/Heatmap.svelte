@@ -30,7 +30,7 @@
 	 * leave. What is navigable is the table under the figure, which carries the
 	 * same numbers and the links.
 	 */
-	import { colourScheme, palette, sequential, FONT, MONO } from '$lib/theme';
+	import { colours, sequential, FONT, MONO } from '$lib/theme';
 	import { tone } from '$lib/heatmap';
 	import type { Cell, HeatmapPlan } from '$lib/heatmap';
 
@@ -48,11 +48,7 @@
 
 	let { plan, label, unit, format, description }: Props = $props();
 
-	const colours = $derived.by(() => {
-		void $colourScheme;
-		return palette();
-	});
-	const ramp = $derived(sequential(colours));
+	const ramp = $derived(sequential($colours));
 
 	const captionId = $props.id();
 	const hatchId = `hatch-${captionId}`;
@@ -106,7 +102,7 @@
 			patternUnits="userSpaceOnUse"
 			patternTransform="rotate(45)"
 		>
-			<line x1="0" y1="0" x2="0" y2="4" stroke={colours.rule} stroke-width="1.4" />
+			<line x1="0" y1="0" x2="0" y2="4" stroke={$colours.rule} stroke-width="1.4" />
 		</pattern>
 	</defs>
 
@@ -117,7 +113,7 @@
 			text-anchor="middle"
 			font-family={FONT}
 			font-size="9"
-			fill={colours.inkFaint}>{initial(month)}</text
+			fill={$colours.inkFaint}>{initial(month)}</text
 		>
 	{/each}
 
@@ -128,7 +124,7 @@
 			text-anchor="end"
 			font-family={MONO}
 			font-size="9"
-			fill={colours.inkFaint}>{year}</text
+			fill={$colours.inkFaint}>{year}</text
 		>
 	{/each}
 
@@ -139,7 +135,7 @@
 			width={CELL_W}
 			height={CELL_H}
 			fill={cell.state === 'drawn' ? ramp(cell.tone) : `url(#${hatchId})`}
-			stroke={colours.ruleSoft}
+			stroke={$colours.ruleSoft}
 			stroke-width="0.75"
 		>
 			<title>{label(cell)}</title>
@@ -159,18 +155,19 @@
 				width="14"
 				height="9"
 				fill={ramp(tone((index + 0.5) / STOPS))}
-				stroke={colours.ruleSoft}
+				stroke={$colours.ruleSoft}
 				stroke-width="0.5"
 			/>
 		{/each}
-		<text x={left} y={base + 20} font-family={FONT} font-size="8.5" fill={colours.inkFaint}>0</text>
+		<text x={left} y={base + 20} font-family={FONT} font-size="8.5" fill={$colours.inkFaint}>0</text
+		>
 		<text
 			x={left + (STOPS * 14) / 2}
 			y={base + 20}
 			text-anchor="middle"
 			font-family={FONT}
 			font-size="8.5"
-			fill={colours.inkFaint}>{format(plan.high / 2)}</text
+			fill={$colours.inkFaint}>{format(plan.high / 2)}</text
 		>
 		<text
 			x={left + STOPS * 14}
@@ -178,14 +175,14 @@
 			text-anchor="end"
 			font-family={FONT}
 			font-size="8.5"
-			fill={colours.inkFaint}>{format(plan.high)}</text
+			fill={$colours.inkFaint}>{format(plan.high)}</text
 		>
 		<text
 			x={left + STOPS * 14 + 14}
 			y={base + 8}
 			font-family={FONT}
 			font-size="9"
-			fill={colours.inkFaint}>{unit}</text
+			fill={$colours.inkFaint}>{unit}</text
 		>
 	{/snippet}
 
@@ -197,7 +194,7 @@
 		width="14"
 		height="9"
 		fill="url(#{hatchId})"
-		stroke={colours.ruleSoft}
+		stroke={$colours.ruleSoft}
 		stroke-width="0.5"
 	/>
 	<text
@@ -205,7 +202,7 @@
 		y={HEADER + rows * (CELL_H + GAP) + 20}
 		font-family={FONT}
 		font-size="9"
-		fill={colours.inkFaint}>withheld ({plan.withheld})</text
+		fill={$colours.inkFaint}>withheld ({plan.withheld})</text
 	>
 </svg>
 
