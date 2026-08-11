@@ -1144,11 +1144,12 @@
 		max-width: 15rem;
 	}
 
+	/* Reads on after the controls rather than being flung to the right edge —
+	   see the same note in the chronology page. */
 	.unit-note {
 		font-family: var(--mono);
 		font-size: var(--step--2);
 		color: var(--ink-3);
-		margin-left: auto;
 	}
 
 	.view {
@@ -1186,11 +1187,14 @@
 		color: var(--ink-3);
 	}
 
+	/* 2.5rem is the height every select and button on the site already has.
+	   These sit in the same bar as the selects, so a shorter box put them on a
+	   different centre line and read as crooked next to them. */
 	.ghost {
 		background: none;
 		border: var(--hair) solid var(--rule-strong);
 		padding: var(--sp-1) var(--sp-3);
-		min-height: 2rem;
+		min-height: 2.5rem;
 		font-family: var(--sans);
 		font-size: var(--step--2);
 		color: var(--ink-2);

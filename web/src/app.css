@@ -67,7 +67,13 @@
 
 	/* ---- measure & page ------------------------------------------- */
 	--measure: 34rem; /* ~66 characters. The only prose width on the site. */
-	--measure-note: 15rem; /* the marginal apparatus */
+	/* The marginal apparatus. 21rem is ~44 characters — narrow, as a margin note
+	   should be, but a column rather than the ribbon 15rem produced: at that
+	   width a 450-character caveat ran 700px down the page beside a 500px
+	   figure, and the figure column was left holding the difference as blank
+	   paper. Widening it shortens the taller column and narrows the shorter
+	   one, which closes the gap from both ends at once. */
+	--measure-note: 21rem;
 	--page: 82rem;
 	--gutter: var(--sp-6);
 
@@ -362,10 +368,13 @@ textarea {
 	border: var(--hair) solid var(--rule-strong);
 }
 
+/* 2.5rem, the height of every other control. A segmented group stands in a
+   figure's control bar beside the selects, and a shorter box there sits on its
+   own centre line and reads as crooked. */
 .segmented > * {
 	border: 0;
 	border-left: var(--hair) solid var(--rule-strong);
-	min-height: 2rem;
+	min-height: 2.5rem;
 	padding: 0 var(--sp-3);
 	background: none;
 	color: var(--ink-2);

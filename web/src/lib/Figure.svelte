@@ -73,15 +73,22 @@
 					<div class="prose">{@render caveat()}</div>
 				</div>
 			{/if}
-			<div class="note src">
-				<span class="label">Source</span>
-				<p class="symbol">{source}</p>
-				{#if download}
-					<DownloadControls spec={download} />
-				{/if}
-			</div>
 		</aside>
 	</div>
+
+	<!-- Provenance and the downloads run the full width under the figure rather
+	     than at the foot of the margin. Two reasons, and neither is taste. It is
+	     not a reading note — it is where the numbers came from and how to take
+	     them away — and in a 15rem margin the download row stacked one button per
+	     line while adding 220px to the column that was already the taller of the
+	     two. Everything the reader must hold *while looking* stays in the margin. -->
+	<footer class="src">
+		<span class="label">Source</span>
+		<p class="symbol">{source}</p>
+		{#if download}
+			<DownloadControls spec={download} />
+		{/if}
+	</footer>
 </figure>
 
 <style>
@@ -108,11 +115,17 @@
 		line-height: 1.5;
 	}
 
+	/* Centred, not bottom-aligned. The bar mixes three control idioms — a label
+	   beside a select, a segmented button group, and a mono readout — and they
+	   are not the same height. Aligning their *bottoms* lined up the boxes'
+	   lower edges and left every box centred on a different line, which is what
+	   read as crooked. One centre line is the only alignment that survives
+	   controls of different heights. */
 	.controls {
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--sp-3) var(--sp-5);
-		align-items: end;
+		align-items: center;
 		padding: var(--sp-3) 0;
 		margin-bottom: var(--sp-4);
 		border-top: var(--hair) solid var(--rule);
@@ -198,9 +211,20 @@
 		font-size: 0.9em;
 	}
 
+	/* A strip under the whole figure: label, artefact path, then the downloads,
+	   on one line where there is room for one. */
 	.src {
-		border-top: var(--hair) solid var(--rule);
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: var(--sp-2) var(--sp-4);
+		margin-top: var(--sp-4);
 		padding-top: var(--sp-3);
+		border-top: var(--hair) solid var(--rule);
+	}
+
+	.src .label {
+		margin-bottom: 0;
 	}
 
 	.src .symbol {

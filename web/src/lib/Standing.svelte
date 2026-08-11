@@ -319,7 +319,6 @@
 		font-family: var(--mono);
 		font-size: var(--step--2);
 		color: var(--ink-3);
-		margin-left: auto;
 	}
 
 	.sr-only {

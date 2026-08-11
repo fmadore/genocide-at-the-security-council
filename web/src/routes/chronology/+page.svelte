@@ -1057,11 +1057,14 @@
 		max-width: 16rem;
 	}
 
+	/* Reads on after the controls rather than being flung to the right edge.
+	   `margin-left: auto` put up to 1,000px between this and the control whose
+	   state it reports, and when the bar wrapped it stranded the note alone on a
+	   second line, still hard right — furthest from everything it describes. */
 	.unit-note {
 		font-family: var(--mono);
 		font-size: var(--step--2);
 		color: var(--ink-3);
-		margin-left: auto;
 	}
 
 	.picker {

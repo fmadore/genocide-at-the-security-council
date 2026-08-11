@@ -137,18 +137,22 @@
 </div>
 
 <style>
+	/* Laid out along the figure's source strip rather than stacked in the
+	   margin, where each button took a line of its own. The hint keeps its own
+	   row — it is a sentence, not a control. */
 	.download {
-		margin-top: var(--sp-4);
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: var(--sp-2) var(--sp-3);
 	}
 
 	.label {
-		display: block;
 		font-family: var(--sans);
 		font-size: var(--step--2);
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
 		color: var(--ink-3);
-		margin-bottom: var(--sp-2);
 	}
 
 	.row {
@@ -183,7 +187,9 @@
 
 	.hint,
 	.problem {
-		margin: var(--sp-2) 0 0;
+		flex-basis: 100%;
+		margin: 0;
+		max-width: var(--measure);
 		font-family: var(--sans);
 		font-size: var(--step--2);
 		color: var(--ink-3);
