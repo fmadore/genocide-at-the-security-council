@@ -80,6 +80,24 @@ died — with the crash-safety argument written once, above it. `frames.py` impo
 the end; the generation stamp is still taken at the start, because that is when the payload
 was made.
 
+**A keystroke re-sorted the whole term.** `filtered` was derived from the search box
+directly, so every character re-filtered and re-sorted every line — 6,092 for `genocide` at
+the default, and the left and right sorts are reversed-string comparisons over the whole set
+— and threw the result away when the next character arrived. A `searched` value now lags the
+box by 200 ms and everything downstream reads it: the filter, the highlight, the export and
+the URL, so the view, the file and the citation are one query rather than three at different
+ages. The discrete filters are untouched; a reader who picks a country has finished
+choosing. Verified in a browser: five keystrokes 40 ms apart leave the count at 6,092 of
+6,092 and it settles to 1,677 half a second after the last one.
+
+**`ResizeObserver` called `resize()` synchronously.** The shape that produces "ResizeObserver
+loop completed with undelivered notifications" when the redraw changes the layout the
+observer is watching. It now schedules on `requestAnimationFrame` with a pending-frame
+guard, which also collapses a drag along the window edge into one redraw per frame rather
+than one per event — each redraw being a whole SVG tree. Not yet seen working: neither
+`requestAnimationFrame` nor `ResizeObserver` fires in a browser pane that is not
+compositing, which is also why the map cannot be checked there (§3.1).
+
 **Two decisions moved out of this file and into the code.** Why ECharts 6's `setTheme()`
 was considered and refused now sits in `theme.ts`, where the next reader meets it as a
 decision rather than as a gap; and `escapeHtml` and `escapeXml` each say why the other
@@ -106,7 +124,7 @@ an unexamined habit, not because it should change today.
 
 ## 2 · What a reader can feel
 
-These change runtime behaviour, so each needs a decision rather than just an edit.
+This changes runtime behaviour, so it needs a decision rather than just an edit.
 
 ### 2.1 The artefact cache never evicts
 
@@ -120,28 +138,6 @@ concordances plus every small artefact would keep the property the cache was bui
 bound the rest.
 
 **Needs a decision:** what a reader is assumed to be able to hold.
-
-### 2.2 The concordance re-sorts 51,000 lines per keystroke
-
-`filtered` is derived from every filter *and* the free-text query, so each character typed
-re-filters and re-sorts the whole term. The sorts are the interesting ones — left and right
-context are reversed-string comparisons over the full set — and none of that work survives
-the next keystroke.
-
-Debouncing the query alone would fix it without touching the other filters, which are
-discrete and should stay immediate.
-
-**Done when** typing in the search box does not re-sort until typing stops.
-
-### 2.3 `ResizeObserver` calls `resize()` synchronously
-
-`Chart.svelte` resizes the chart inside the observer callback. This is the shape that
-produces "ResizeObserver loop completed with undelivered notifications" when a resize
-changes layout that the observer then sees again. It has not been observed here — the plot
-is a fixed-height box — but scheduling on `requestAnimationFrame` is the cheap guard, and
-it also coalesces a drag-resize into one redraw per frame instead of one per event.
-
-**Done when** a slow drag on the window edge redraws once a frame.
 
 ---
 

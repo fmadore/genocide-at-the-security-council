@@ -45,7 +45,25 @@
 	const PAGE = 60;
 
 	let term = $state('genocide');
+	/**
+	 * What the reader is typing, and what the lines are actually filtered by.
+	 *
+	 * `filtered` re-filters and re-sorts every line of the term — 51,000 of them
+	 * for `genocide`, and the left and right sorts are reversed-string
+	 * comparisons over the whole set. Deriving that from the box directly did all
+	 * of it per keystroke, and threw away every result but the last. `applied`
+	 * lags the box by `SETTLE` milliseconds and everything downstream reads it:
+	 * the filter, the highlight, the export and the URL, so what is on screen,
+	 * what a reader downloads and what they can cite are one query rather than
+	 * three at different ages. `applied()` below is a different thing: the list
+	 * of every narrowing in force, written into the exported file.
+	 *
+	 * The other controls are deliberately not debounced. They are discrete —
+	 * a country, a sort, a month — and a reader who picks one has finished
+	 * choosing.
+	 */
 	let query = $state('');
+	let searched = $state('');
 	let group = $state('');
 	let country = $state('');
 	let agenda = $state('');
@@ -72,7 +90,7 @@
 	onMount(() => {
 		const params = page.url.searchParams;
 		term = params.get('term') ?? 'genocide';
-		query = params.get('q') ?? '';
+		query = searched = params.get('q') ?? '';
 		group = params.get('group') ?? '';
 		country = params.get('country') ?? '';
 		agenda = params.get('agenda') ?? '';
@@ -88,6 +106,18 @@
 		void tick().then(() => {
 			urlReady = true;
 		});
+	});
+
+	/** Long enough to cover typing, short enough not to feel like a wait. */
+	const SETTLE = 200;
+
+	$effect(() => {
+		const typed = query;
+		if (typed === searched) return;
+		const timer = setTimeout(() => {
+			searched = typed;
+		}, SETTLE);
+		return () => clearTimeout(timer);
 	});
 
 	const entries = $derived([...data.index.terms].sort((a, b) => b.count - a.count));
@@ -116,7 +146,7 @@
 		if (!urlReady) return;
 		const next = new SvelteURLSearchParams();
 		if (term !== 'genocide') next.set('term', term);
-		if (query) next.set('q', query);
+		if (searched) next.set('q', searched);
 		if (regex) next.set('re', '1');
 		if (group) next.set('group', group);
 		if (country) next.set('country', country);
@@ -143,13 +173,13 @@
 	const agendas = $derived([...new Set(lines.map((l) => l.agenda))].sort());
 
 	const matcher = $derived.by(() => {
-		if (!query.trim()) return null;
+		if (!searched.trim()) return null;
 		if (!regex) {
-			const needle = query.toLowerCase();
+			const needle = searched.toLowerCase();
 			return (l: KwicLine) => `${l.left} ${l.kw} ${l.right}`.toLowerCase().includes(needle);
 		}
 		try {
-			const re = new RegExp(query, 'i');
+			const re = new RegExp(searched, 'i');
 			return (l: KwicLine) => re.test(`${l.left} ${l.kw} ${l.right}`);
 		} catch {
 			return 'invalid' as const;
@@ -185,12 +215,14 @@
 
 	$effect(() => {
 		// Any change to the filter resets the page window.
-		void [term, query, group, country, agenda, spv, from, to, month, sort];
+		void [term, searched, group, country, agenda, spv, from, to, month, sort];
 		shown = PAGE;
 	});
 
 	function reset() {
-		query = '';
+		// Immediately, not after `SETTLE`: clearing every filter at once is not
+		// typing, and a reader who asked for the whole term should get it now.
+		query = searched = '';
 		group = '';
 		country = '';
 		agenda = '';
@@ -229,7 +261,7 @@
 	/** What the reader actually narrowed by, for the file's own record. */
 	const applied = () =>
 		[
-			query ? `search: ${query}${regex ? ' (regex)' : ''}` : null,
+			searched ? `search: ${searched}${regex ? ' (regex)' : ''}` : null,
 			group ? `group: ${group}` : null,
 			country ? `speaker: ${country}` : null,
 			agenda ? `agenda: ${agenda}` : null,
@@ -426,20 +458,20 @@
 						</span>
 						<span class="left"
 							><span class="ltr"
-								>{#each segments(line.left, query, regex) as part, i (i)}{#if part.hit}<mark
+								>{#each segments(line.left, searched, regex) as part, i (i)}{#if part.hit}<mark
 											class="hit">{part.text}</mark
 										>{:else}{part.text}{/if}{/each}</span
 							></span
 						>
 						<span class="kw"
 							><mark
-								>{#each segments(line.kw, query, regex) as part, i (i)}{#if part.hit}<mark
+								>{#each segments(line.kw, searched, regex) as part, i (i)}{#if part.hit}<mark
 											class="hit">{part.text}</mark
 										>{:else}{part.text}{/if}{/each}</mark
 							></span
 						>
 						<span class="right"
-							>{#each segments(line.right, query, regex) as part, i (i)}{#if part.hit}<mark
+							>{#each segments(line.right, searched, regex) as part, i (i)}{#if part.hit}<mark
 										class="hit">{part.text}</mark
 									>{:else}{part.text}{/if}{/each}</span
 						>
@@ -453,10 +485,10 @@
 							     drawn as both rather than losing one to the other. -->
 							<blockquote>
 								{#each segments(line.sent, line.kw) as part, i (i)}{#if part.hit}<mark
-											>{#each segments(part.text, query, regex) as bit, j (j)}{#if bit.hit}<mark
+											>{#each segments(part.text, searched, regex) as bit, j (j)}{#if bit.hit}<mark
 														class="hit">{bit.text}</mark
 													>{:else}{bit.text}{/if}{/each}</mark
-										>{:else}{#each segments(part.text, query, regex) as bit, j (j)}{#if bit.hit}<mark
+										>{:else}{#each segments(part.text, searched, regex) as bit, j (j)}{#if bit.hit}<mark
 													class="hit">{bit.text}</mark
 												>{:else}{bit.text}{/if}{/each}{/if}{/each}
 							</blockquote>

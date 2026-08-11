@@ -103,11 +103,30 @@
 	onMount(() => {
 		const instance = init(element, undefined, { renderer: 'svg' });
 		if (onclick) instance.on('click', (params) => onclick(params as never));
-		const observer = new ResizeObserver(() => instance.resize());
+		/**
+		 * Resize on the next frame, not inside the callback.
+		 *
+		 * Resizing synchronously is what produces "ResizeObserver loop completed
+		 * with undelivered notifications": the redraw changes layout, the observer
+		 * sees the change, and the browser gives up part-way through the cycle. It
+		 * has not been seen here — the plot is a fixed-height box — but the guard
+		 * is one frame's delay, and it also collapses a drag along the window edge
+		 * into one redraw per frame instead of one per event, where each redraw is
+		 * a whole SVG tree.
+		 */
+		let frame = 0;
+		const observer = new ResizeObserver(() => {
+			if (frame) return;
+			frame = requestAnimationFrame(() => {
+				frame = 0;
+				instance.resize();
+			});
+		});
 		observer.observe(element);
 		chart = instance;
 		return () => {
 			observer.disconnect();
+			if (frame) cancelAnimationFrame(frame);
 			instance.dispose();
 		};
 	});
