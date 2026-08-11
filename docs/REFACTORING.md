@@ -6,9 +6,15 @@ be wrong with the *code* that produces the claims. Neither is a substitute for t
 figure can be perfectly refactored and still uncited, and an honest figure can sit behind a
 function nobody can safely change.
 
-Status: 11 August 2026. Everything below was found in a full read of the repository against
-a green baseline — 594 pytest, `ruff`, `prettier`, `eslint`, `svelte-check` on 4,090 files,
-233 vitest — so nothing here is a failing test. It is all live code that works.
+Status: 11 August 2026. The list was found in a full read of the repository against a green
+baseline, and everything on it that was work has now been done; the baseline is still green
+and slightly larger for it — 595 pytest, `ruff`, `prettier`, `eslint`, `svelte-check` on
+4,092 files, 252 vitest. Nothing here was ever a failing test. It was all live code that
+worked.
+
+What is left below is the residue: one duplication that is cheaper to keep than to remove,
+and two library decisions recorded so that a future tidy-up does not undo them. The next
+entry will come from the next full read.
 
 The rule for this file is the rule for the rest of the repository: say what is wrong, say
 why it matters, and say what would tell you it was fixed. An item with no third part is a
@@ -18,7 +24,8 @@ preference, and preferences do not belong on a backlog.
 
 ## Done
 
-Recorded so the backlog has a baseline rather than starting mid-sentence.
+Each entry says what was wrong and how it was shown to be fixed, because a backlog that only
+records what is outstanding cannot be audited by anyone who was not there.
 
 **The load waterfalls.** Four route loaders awaited independent artefacts one after
 another; `chronology` cost six round trips for 748 kB that share no dependency on each
@@ -138,30 +145,28 @@ an unexamined habit, not because it should change today.
 
 ---
 
----
-
-## 3 · The libraries
+## 2 · The libraries
 
 Checked against upstream documentation on 11 August 2026. The pinned versions are current:
 ECharts 6.1.0, Svelte 5.56.8, SvelteKit 2.70.2, Vite 8.2.1, MapLibre `^6.2.0` resolving to
 6.3.0. What is left here is what *not* to change.
 
-### 3.1 The worker handling is already right
+### 2.1 The worker handling is already right
 
 `?worker&url` plus `setWorkerUrl`, with a comment explaining why plain `?url` fails. This
 matches the v5-to-v6 migration guide almost sentence for sentence. Recorded here so a
 future tidy-up does not simplify it back into the bug.
 
-### 3.2 TypeScript 7 is out
+### 2.2 TypeScript 7 is out
 
 The native compiler is published as `typescript@7`. It is a large change to the toolchain
 for a benefit — compile speed — that this codebase does not currently feel: `svelte-check`
-covers 4,090 files in well under a second. Worth revisiting when `svelte-check` and
+covers 4,092 files in well under a second. Worth revisiting when `svelte-check` and
 `typescript-eslint` both declare support, not before.
 
 ---
 
-## 4 · Not on this list
+## 3 · Not on this list
 
 Two things a reader of the code might expect to find here, and why they are absent.
 
