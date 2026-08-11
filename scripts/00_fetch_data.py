@@ -16,6 +16,8 @@ import argparse
 import hashlib
 import json
 import sys
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 from urllib.parse import quote, urlencode
@@ -44,14 +46,112 @@ def dataverse_request(url: str, *, accept: str) -> urllib.request.Request:
     )
 
 
+# --- Talking to an archive that sheds load ---------------------------------
+#
+# Harvard Dataverse refuses requests it does not want to serve right now by
+# returning **404 with an HTML error page**, not 429 or 503, and the same URL
+# succeeds seconds later. Observed on 11 August 2026: within one minute,
+# `meta.tsv` returned 303 then 404 and `speaker.tsv` returned 404 then 200 with
+# all 33,027,398 bytes. A single unlucky response used to fail the whole
+# publish, which put the release pipeline at the mercy of one HTTP round trip
+# against a third-party archive.
+#
+# The awkward part is that 404 is also how Dataverse says "there is no such
+# version", which is a real error this script must not paper over — a mistyped
+# pin would otherwise retry for two minutes and then report a network problem.
+# The two are told apart by the body: a genuine refusal is JSON carrying
+# `status: ERROR`, load-shedding is an HTML page. Anything that cannot be read
+# as that JSON is treated as worth another try.
+
+#: Attempts per request, and the first pause between them. Doubling from 2s
+#: gives up after about two minutes — long enough to ride out the shedding seen
+#: above, short enough that a genuinely missing file still fails the run rather
+#: than hanging a workflow.
+MAX_ATTEMPTS = 6
+BACKOFF_SECONDS = 2.0
+MAX_BACKOFF_SECONDS = 32.0
+
+#: Statuses worth another attempt. 404 is here for the reason written above,
+#: and only survives :func:`_shedding` deciding the body was not a real refusal.
+RETRYABLE = frozenset({404, 408, 425, 429, 500, 502, 503, 504})
+
+
+def _shedding(error: urllib.error.HTTPError) -> bool:
+    """Whether this response is the archive declining to answer just now.
+
+    A 404 whose body is Dataverse's own JSON error is the archive answering
+    exactly: the thing asked for does not exist. Every other unreadable 404 —
+    an HTML error page, an empty body, a proxy's notion of a message — is the
+    server shedding load under a status that does not say so.
+    """
+    if error.code not in RETRYABLE:
+        return False
+    if error.code != 404:
+        return True
+    try:
+        payload = json.loads(error.read())
+    except (ValueError, UnicodeDecodeError, OSError):
+        return True
+    return str(payload.get("status", "")).upper() != "ERROR"
+
+
+def _pause(error: urllib.error.HTTPError | None, fallback: float) -> float:
+    """`Retry-After` when the server names a delay, else the caller's backoff."""
+    header = error.headers.get("Retry-After") if error is not None else None
+    try:
+        return max(float(header), 0.0) if header else fallback
+    except (TypeError, ValueError):
+        return fallback
+
+
+def with_retry(operation, describe: str, attempts: int = MAX_ATTEMPTS):
+    """Run a network operation, retrying while the archive is shedding load.
+
+    Takes the whole operation rather than wrapping `urlopen`, so that a
+    connection dropped part-way through a 474 MB download is retried too — the
+    failure this is most likely to meet on the largest file in the dataset.
+    Each attempt restarts from the beginning; the MD5 check every download
+    already passes through is what proves the bytes arrived intact.
+    """
+    delay = BACKOFF_SECONDS
+    for attempt in range(1, attempts + 1):
+        try:
+            return operation()
+        except urllib.error.HTTPError as error:
+            if attempt == attempts or not _shedding(error):
+                raise
+            wait = _pause(error, delay)
+            reason = f"HTTP {error.code}"
+        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as error:
+            if attempt == attempts:
+                raise
+            wait = delay
+            reason = type(error).__name__
+        # ASCII: this line goes to a Windows console as often as to a CI log,
+        # and an em dash arrives there as a replacement character.
+        print(
+            f"\n    {describe}: {reason} - attempt {attempt} of {attempts}, "
+            f"retrying in {wait:.0f}s",
+            file=sys.stderr,
+        )
+        time.sleep(wait)
+        delay = min(delay * 2, MAX_BACKOFF_SECONDS)
+    # `attempts` is validated by the callers; a zero would fall through to here.
+    raise RuntimeError(f"{describe}: gave up after {attempts} attempts")
+
+
 def dataset_version(version: str) -> dict:
     """Read one explicit published dataset version, including its file list."""
     query = urlencode({"persistentId": DOI, "excludeFiles": "false"})
     url = f"{DATAVERSE}/api/datasets/:persistentId/versions/{quote(version)}?{query}"
-    request = dataverse_request(url, accept="application/json")
-    with urllib.request.urlopen(request, timeout=60) as resp:
-        payload = json.load(resp)
-    return payload["data"]
+
+    def once() -> dict:
+        request = dataverse_request(url, accept="application/json")
+        with urllib.request.urlopen(request, timeout=60) as resp:
+            payload = json.load(resp)
+        return payload["data"]
+
+    return with_retry(once, f"dataset version {version}")
 
 
 def expected_md5(data_file: dict) -> str:
@@ -72,15 +172,21 @@ def md5(path: Path, chunk: int = 1 << 20) -> str:
 def download(file_id: int, dest: Path, size: int) -> None:
     url = f"{DATAVERSE}/api/access/datafile/{file_id}"
     tmp = dest.with_suffix(dest.suffix + ".part")
-    done = 0
-    request = dataverse_request(url, accept="application/octet-stream")
-    with urllib.request.urlopen(request, timeout=120) as resp, tmp.open("wb") as out:
-        while chunk := resp.read(1 << 20):
-            out.write(chunk)
-            done += len(chunk)
-            pct = 100 * done / size if size else 0
-            print(f"\r    {done / 1e6:>8.1f} / {size / 1e6:.1f} MB  ({pct:5.1f}%)", end="")
-    print()
+
+    def once() -> None:
+        done = 0
+        request = dataverse_request(url, accept="application/octet-stream")
+        # "wb" truncates, so a retry starts from an empty file rather than
+        # appending to whatever the failed attempt managed to write.
+        with urllib.request.urlopen(request, timeout=120) as resp, tmp.open("wb") as out:
+            while chunk := resp.read(1 << 20):
+                out.write(chunk)
+                done += len(chunk)
+                pct = 100 * done / size if size else 0
+                print(f"\r    {done / 1e6:>8.1f} / {size / 1e6:.1f} MB  ({pct:5.1f}%)", end="")
+        print()
+
+    with_retry(once, f"datafile {file_id}")
     tmp.replace(dest)
 
 
