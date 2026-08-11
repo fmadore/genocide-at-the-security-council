@@ -17,20 +17,51 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 
-def atomic_write_bytes(path: Path, payload: bytes) -> None:
-    """Replace one file only after its complete payload is on the same volume."""
+@contextmanager
+def atomic_path(path: Path) -> Iterator[Path]:
+    """Yield a temporary name beside `path`, then move it into place.
+
+    A half-written artefact that carries the name of a finished one is the
+    failure this whole module exists to prevent: the next stage reads it, the
+    pipeline completes, and nothing anywhere says which number came from a
+    truncated file. Writing beside the target and renaming makes the swap
+    atomic, and the rename is on the same volume so it cannot fall back to a
+    copy.
+
+    This is the form for writers that insist on a filename — ``to_parquet``
+    takes a path, not bytes — and it is what :func:`atomic_write_bytes` is built
+    on, so the argument above is made once rather than in every caller that
+    needs a scratch name.
+
+    The name is reserved with an exclusive ``mkstemp`` and then unlinked,
+    because a writer handed an existing empty file may refuse it or append to
+    it. What re-creates it is the caller, and the callers here open with ``x``
+    or hand the name to a library that creates it itself.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    os.close(handle)
     temp = Path(name)
+    temp.unlink()
     try:
-        with os.fdopen(handle, "wb") as stream:
-            stream.write(payload)
-            stream.flush()
-            os.fsync(stream.fileno())
+        yield temp
         temp.replace(path)
     except BaseException:
         temp.unlink(missing_ok=True)
         raise
+
+
+def atomic_write_bytes(path: Path, payload: bytes) -> None:
+    """Replace one file only after its complete payload is on the same volume."""
+    # `x`: the name was reserved a moment ago, and an exclusive create is what
+    # makes that reservation mean something rather than assuming it. The stream
+    # closes before `atomic_path` renames — Windows refuses to replace a file
+    # that is still open — and `fsync` runs first, so a machine that loses power
+    # between the two does not leave the entry pointing at unwritten blocks.
+    with atomic_path(path) as temp, temp.open("xb") as stream:
+        stream.write(payload)
+        stream.flush()
+        os.fsync(stream.fileno())
 
 
 def atomic_write_text(path: Path, payload: str) -> None:

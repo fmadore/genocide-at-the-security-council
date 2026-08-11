@@ -67,6 +67,19 @@ and a reader repairing an artefact by hand reads. The contract test gained the o
 the check — that the kind the dashboard fetches for is the kind the pipeline writes, so
 `minimum_speeches` cannot become a string upstream and turn a gate into no gate.
 
+**The atomic write, twice.** `artifacts.py` owned atomic replacement and `frames.write`
+carried its own copy of the temp-file dance, because `to_parquet` wants a filename where
+`atomic_write_bytes` wants bytes. `artifacts.atomic_path()` is now the one place that
+reserves a name beside the target, renames it into place and cleans up after a writer that
+died — with the crash-safety argument written once, above it. `frames.py` imports neither
+`tempfile` nor `os` any more, and the property has a test of its own.
+
+**Two silenced type errors in `export_web.py`.** `manifest["parts"][name]` needed a
+`# type: ignore[index]` at each write because `parts` was built inside an untyped
+`dict[str, object]`. It has its own typed local now and the manifest is assembled from it at
+the end; the generation stamp is still taken at the start, because that is when the payload
+was made.
+
 **Two decisions moved out of this file and into the code.** Why ECharts 6's `setTheme()`
 was considered and refused now sits in `theme.ts`, where the next reader meets it as a
 decision rather than as a gap; and `escapeHtml` and `escapeXml` each say why the other
@@ -77,27 +90,11 @@ it is not.
 
 ## 1 · Maintainability
 
-Nothing here changes what a reader sees. Each is a decision written down more than once,
-which is how two copies of it start to disagree.
+Nothing here changes what a reader sees. What is left is the one item on this list that is
+recorded as a known cost rather than as work: the duplication is real, and removing it would
+cost more clarity than it buys.
 
-### 1.1 `frames.write` reimplements the atomic write
-
-`artifacts.py` owns atomic replacement, and `frames.write` has its own ten-line copy of the
-temp-file dance because `to_parquet` wants a path rather than bytes. An `atomic_path()`
-context manager in `artifacts.py` would serve both, and would keep the crash-safety
-argument in one file.
-
-**Done when** `frames.py` no longer imports `tempfile`.
-
-### 1.2 Two `# type: ignore[index]` in `export_web.py`
-
-Both are on `manifest["parts"][name]`, and both go away by giving `parts` its own typed
-local instead of building it inside an untyped `dict[str, object]`. A silenced type error is
-a small lie about what the code knows.
-
-**Done when** `export_web.py` has no `type: ignore`.
-
-### 1.3 Fifteen copies of the `sys.path` bootstrap
+### 1.1 Fifteen copies of the `sys.path` bootstrap
 
 Every numbered script inserts `scripts/` on the path before importing `lib`, and
 `pyproject.toml` carries a per-file `E402` ignore to permit it. It is genuinely awkward to

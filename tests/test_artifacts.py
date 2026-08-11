@@ -14,6 +14,21 @@ def test_atomic_text_replaces_the_complete_file(tmp_path):
     assert not list(tmp_path.glob("*.tmp"))
 
 
+def test_atomic_path_leaves_the_previous_file_and_no_debris_on_failure(tmp_path):
+    # The property `frames.write` now borrows rather than re-implementing: a
+    # writer that dies part-way must leave the last complete artefact in place,
+    # because the next stage cannot tell a truncated parquet from a short one.
+    target = tmp_path / "speeches.parquet"
+    target.write_bytes(b"complete")
+
+    with pytest.raises(RuntimeError, match="stop"), artifacts.atomic_path(target) as temp:
+        temp.write_bytes(b"half a file")
+        raise RuntimeError("stop")
+
+    assert target.read_bytes() == b"complete"
+    assert not list(tmp_path.glob("*.tmp"))
+
+
 def test_atomic_directory_keeps_the_previous_version_on_failure(tmp_path):
     target = tmp_path / "payload"
     target.mkdir()

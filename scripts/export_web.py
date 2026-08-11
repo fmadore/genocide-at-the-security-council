@@ -138,21 +138,20 @@ def update_contract() -> None:
 
 def run() -> None:
     ensure_dirs()
-    manifest: dict[str, object] = {
-        "generated": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "git_commit": artifacts.git_commit(ROOT),
-        "parts": {},
-    }
+    # `parts` gets its own name and its own type. Built inside an untyped
+    # `dict[str, object]`, every write to it needed a `type: ignore[index]`,
+    # which silences the checker by asserting something the code did not know.
+    parts: dict[str, dict[str, object]] = {}
+    # Stamped when the export starts, as it always was: the manifest says when
+    # the payload was made, and the copy below can take minutes.
+    generated = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     total_files = total_bytes = 0
 
     console.step("Copying analysis artefacts into the payload")
     for source, name, producer in PARTS:
         measured = copy_part(source, name)
         files, size = int(measured["files"]), int(measured["bytes"])
-        manifest["parts"][name] = {  # type: ignore[index]
-            **measured,
-            "produced_by": producer,
-        }
+        parts[name] = {**measured, "produced_by": producer}
         total_files += files
         total_bytes += size
         console.info(f"{name:10s} {files:>6,} files  {size / 1e6:>7.1f} MB  (from {producer})")
@@ -163,10 +162,7 @@ def run() -> None:
         files, size = int(measured["files"]), int(measured["bytes"])
         if not files:
             console.warn(f"{name} is missing — run {producer}; the reader view will 404")
-        manifest["parts"][name] = {  # type: ignore[index]
-            **measured,
-            "produced_by": producer,
-        }
+        parts[name] = {**measured, "produced_by": producer}
         total_files += files
         total_bytes += size
         console.info(f"{name:10s} {files:>6,} files  {size / 1e6:>7.1f} MB  (from {producer})")
@@ -176,8 +172,13 @@ def run() -> None:
     console.step("Checking the payload against the shape the dashboard reads")
     check_contract()
 
-    manifest["files"] = total_files
-    manifest["bytes"] = total_bytes
+    manifest = {
+        "generated": generated,
+        "git_commit": artifacts.git_commit(ROOT),
+        "parts": parts,
+        "files": total_files,
+        "bytes": total_bytes,
+    }
     artifacts.atomic_write_json(WEB_DATA / "manifest.json", manifest, indent=1)
     console.step("Done")
     console.info(f"{total_files:,} files, {total_bytes / 1e6:.0f} MB in {rel(WEB_DATA)}")
