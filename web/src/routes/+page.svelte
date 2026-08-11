@@ -331,12 +331,11 @@
 	<header class="lede">
 		<h1>The word, and what it was doing there</h1>
 		<p class="standfirst">
-			Between 1992 and 2023 the corpus contains {count(totals.meetings)} distinct meeting symbols and
-			heard
-			{count(totals.speeches)} speeches. In {count(totals.bearing)} of them &mdash; {percent(
+			Between 1992 and 2023 the UN Security Council produced {count(totals.meetings)} meeting records
+			holding {count(totals.speeches)} speeches. In {count(totals.bearing)} of them &mdash; {percent(
 				totals.bearing / totals.speeches
-			)} &mdash; someone said <em>genocide</em>. This site is about which ones, and what the word
-			was doing when they did.
+			)} &mdash; someone said <em>genocide</em>. This site asks which speeches those were, and what
+			the word was doing in them.
 		</p>
 	</header>
 
@@ -345,13 +344,16 @@
 			<dt class="label">Speeches in the corpus</dt>
 			<dd>{count(totals.speeches)}</dd>
 			<p>
-				across {count(totals.meetings)} meeting symbols, {decimal(totals.tokens / 1e6)} M words
+				across {count(totals.meetings)} meeting records, {decimal(totals.tokens / 1e6)} million words
 			</p>
 		</div>
 		<div>
-			<dt class="label">Containing <code>genocid*</code></dt>
+			<dt class="label">Speeches using <code>genocid*</code></dt>
 			<dd>{count(totals.bearing)}</dd>
-			<p>{percent(totals.bearing / totals.speeches)} of the corpus</p>
+			<p>
+				{percent(totals.bearing / totals.speeches)} of the corpus; the asterisk catches
+				<em>genocide</em>, <em>genocidal</em> and <em>genocides</em> alike
+			</p>
 		</div>
 		<div>
 			<dt class="label">Occurrences of the word</dt>
@@ -359,22 +361,25 @@
 			<p>{decimal(totals.occurrences / totals.bearing)} per speech that uses it</p>
 		</div>
 		<div>
-			<dt class="label">Densest year</dt>
+			<dt class="label">Peak year by share</dt>
 			<dd>{densest}</dd>
-			<p>not {loudest}, which had the most occurrences</p>
+			<p>the largest proportion of speeches; {loudest} had the most occurrences</p>
 		</div>
 	</dl>
 
 	<section class="finding">
-		<h2>The peak that is not there</h2>
+		<h2>Why {loudest} tops the raw count</h2>
 		<p>
-			The best-known fact about this corpus is that 2014 out-says 1994: {count(
+			{loudest} carries more occurrences of the word than 1994 does: {count(
 				Math.max(...(genocide.occurrences ?? []))
-			)} occurrences against {count(genocide.occurrences?.[index1994] ?? 0)}. It is true, and it is
-			an artefact of the Council talking more about everything. Speeches per year roughly
+			)} against {count(genocide.occurrences?.[index1994] ?? 0)}. That is true, and it is mostly a
+			side effect of a Council that talks more about everything. The number of speeches held each
+			year grew roughly
 			<strong
 				>{decimal(corpus.speeches[corpus.speeches.length - 1] / corpus.speeches[0])}&times;</strong
-			> over the period.
+			>
+			across the period, so a raw count can rise while the habit behind it stays flat. Dividing by the
+			speeches actually held is what every figure below does.
 		</p>
 	</section>
 
@@ -393,29 +398,30 @@
 	>
 		{#snippet reading()}
 			<p>
-				<strong>The bars</strong> count every occurrence of <code>genocid*</code> in a year, on the
-				left-hand axis. The <strong>line</strong> is the share of that year's speeches containing it,
-				on the right-hand axis. Select a year to open its concordance evidence.
+				<strong>The bars</strong> count every occurrence of <code>genocid*</code> in a year, against
+				the left-hand axis. The <strong>line</strong> is the share of that year's speeches that use it,
+				against the right-hand axis. Select a year to open the individual lines behind it.
 			</p>
 			<p>
-				The denominator-aware binomial scan
-				{#if rateInference?.accepted}supports its strongest two-rate partition at <strong
+				A statistical test that allows for how many speeches each year held asks whether the line is
+				better described as one steady rate or as two.
+				{#if rateInference?.accepted}It settles on two, splitting at <strong
 						>{rateInference.label}</strong
-					>, with the later aggregate {decimal(rateInference.ratio ?? 0)}&times; the earlier one.{:else}<strong
-						>does not reject a constant annual rate</strong
-					> after the planned correction.{/if}
+					>, with the later rate {decimal(rateInference.ratio ?? 0)}&times; the earlier one.{:else}It
+					finds no split worth reporting: <strong>one steady rate survives the test</strong>.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				A share of speeches is not a measure of intensity: a speech that says the word once counts
-				the same as a speech that repeats it many times. Both views are here for that reason.
+				A share of speeches says nothing about intensity: a speech that says the word once counts
+				the same as a speech that repeats it twenty times. Both views are here for that reason.
 			</p>
 			<p>
-				The scan preserves annual speech denominators and repeats the full search under a
-				constant-rate null. It cannot distinguish an abrupt break from a smooth trend, treats annual
-				bins as independent, and does not model clustering by meeting. The partition is not a causal
-				date.
+				The test re-runs its whole search on {count(data.breaks.inference.trials)} simulated series in
+				which the rate never changes, and reports how often chance alone produces a split this strong.
+				It cannot tell an abrupt break from a gradual trend, treats each year as independent of the last,
+				and ignores the way speeches cluster into meetings. The split describes the series; it is not
+				a date on which something happened.
 			</p>
 		{/snippet}
 		<Chart
@@ -448,29 +454,30 @@
 	</Figure>
 
 	<section class="finding">
-		<h2>What does move</h2>
+		<h2>Where the rate does change</h2>
 		<p>
-			{#if rateInference?.accepted}For <em>genocide</em>, the strongest corrected two-rate partition
-				begins in <strong>{rateInference.label}</strong> and the later aggregate is {decimal(
+			{#if rateInference?.accepted}For <em>genocide</em> on its own, the best-supported split falls
+				at
+				<strong>{rateInference.label}</strong>, and the rate after it is {decimal(
 					rateInference.ratio ?? 0
-				)}&times; the earlier rate.{:else}The single word does not reject a constant annual
-				prevalence after correction.{/if}
-			For the wider <em>atrocity core</em> &mdash; genocide, ethnic cleansing, crimes against
-			humanity, war crimes, mass atrocity &mdash;
-			{#if atrocityInference?.accepted}the corresponding partition begins in <strong
-					>{atrocityInference.label}</strong
-				>, with a ratio of {decimal(atrocityInference.ratio ?? 0)}&times;.{:else}the model likewise
-				finds no corrected two-rate contrast.{/if}
-			These are model-based period contrasts, not proof that discourse changed abruptly in either year.
+				)}&times; the rate before.{:else}For <em>genocide</em> on its own, a single steady rate survives
+				the test.{/if}
+			The wider <em>atrocity core</em> gathers five phrases at once: genocide, ethnic cleansing,
+			crimes against humanity, war crimes and mass atrocity.
+			{#if atrocityInference?.accepted}Its split falls at <strong>{atrocityInference.label}</strong
+				>, with a ratio of {decimal(atrocityInference.ratio ?? 0)}&times;.{:else}It too is best
+				described by one steady rate.{/if}
+			Both results compare one stretch of years with another. Neither shows that Council language turned
+			a corner in the year named.
 		</p>
 	</section>
 
 	<Figure
 		title="Register share, {years[0]}&ndash;{years[years.length - 1]}"
-		question="Which vocabulary is the word embedded in, and does that mix change?"
+		question="Which family of words does genocide sit in, and does that mix change over time?"
 		source="05_lexical.py registers via 03_lexicon.py → series/annual.json"
 		note={registerView === 'rows'
-			? 'Each row is scaled to its own maximum · the figure at the right is the period share'
+			? 'Each row is scaled to its own maximum · the number at the right is the share across the whole period'
 			: 'One shared scale · hover a year for its values and any reference date it carries'}
 		download={{
 			name: ['unsc', 'register-share', registerView],
@@ -504,30 +511,32 @@
 
 		{#snippet reading()}
 			<p>
-				Each row is the share of a year's speeches using at least one term from one of the lexicon's
-				six registers: the <em>core</em> word itself, the
-				<em>legal</em>
-				vocabulary of qualification, <em>preventive</em> language, <em>commemorative</em>,
-				<em>contentious</em> (denial, glorification), and <em>accountability</em> (courts, tribunals,
+				The word list behind this site is sorted into six <em>registers</em> &mdash; families of
+				vocabulary that do similar work in a speech. Each row is the share of a year's speeches
+				using at least one word from one family: the <em>core</em> word itself; <em>legal</em>
+				language that names the crime formally; <em>preventive</em> language;
+				<em>commemorative</em>;
+				<em>contentious</em> (denial, glorification); and <em>accountability</em> (courts, tribunals,
 				impunity).
 			</p>
 			<p>
-				Accountability and legal language dominate throughout; the core word runs an order of
-				magnitude below them.
+				Accountability and legal language dominate throughout. The core word runs about ten times
+				lower than either.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>These rows are not a composition and do not sum to anything.</strong> One speech can use
-				four registers at once and is counted in all four. A stacked version of this figure would be wrong.
+				<strong>These rows do not add up to a whole.</strong> One speech can use four registers at once,
+				and it is counted in all four. Stacking these rows on top of one another would be wrong.
 			</p>
 			<p>
 				<strong>Each row is scaled to its own maximum</strong>, so the shapes are comparable and the
 				levels are not — read the level off the share at the right of each row.
 			</p>
 			<p>
-				Register assignment is a hypothesis about how the vocabulary groups, recorded in
-				<code>config/lexicon.yml</code>, not a finding.
+				Sorting the words into six registers is a proposal about how this vocabulary groups. It is
+				written down in <code>config/lexicon.yml</code>, open to disagreement, and a starting point
+				rather than a result.
 			</p>
 		{/snippet}
 		{#if registerView === 'rows'}
@@ -536,14 +545,14 @@
 				periods={years}
 				events={eventTicks}
 				eventsLabel="{data.overlay.events.length} reference dates"
-				description="Six rows, one per lexical register, each showing the share of speeches per year that use it, scaled to its own maximum."
+				description="Six rows, one per register of vocabulary, each showing the share of speeches per year that use it, scaled to its own maximum."
 			/>
 		{:else}
 			<Chart
 				bind:this={registerFigure}
 				option={registerLines}
 				height="380px"
-				description="Six lines on one shared axis showing the share of speeches per year using each lexical register, with faint rules on the years carrying a reference date."
+				description="Six lines on one shared axis showing the share of speeches per year using each register of vocabulary, with faint rules on the years carrying a reference date."
 			/>
 		{/if}
 		<details class="data-table">
@@ -573,8 +582,8 @@
 				<a href={resolve('/chronology')}>
 					<strong>Chronology</strong>
 					<span
-						>Every term and register over time, against {data.overlay.events.length} reference dates &mdash;
-						{kinds.map(([k, n]) => `${n} ${k}`).join(', ')}.</span
+						>Every word and word family over time, set against {data.overlay.events.length} reference
+						dates: {kinds.map(([k, n]) => `${n} ${k}`).join(', ')}.</span
 					>
 					<Icon icon={ArrowRight} />
 				</a>
@@ -583,8 +592,8 @@
 				<a href={resolve('/language')}>
 					<strong>Language</strong>
 					<span
-						>What the word travels with, how that differs by speaker and period, and which terms
-						co-occur.</span
+						>The words that sit next to <em>genocide</em>, how they differ from one speaker or
+						decade to the next, and which terms turn up in the same speech.</span
 					>
 					<Icon icon={ArrowRight} />
 				</a>
@@ -593,8 +602,8 @@
 				<a href={resolve('/concordance')}>
 					<strong>Concordance</strong>
 					<span
-						>All {count(totals.occurrences)} occurrences in context, sortable, and expandable to the full
-						speech.</span
+						>All {count(totals.occurrences)} occurrences with the text around them, sortable, and openable
+						to the full speech.</span
 					>
 					<Icon icon={ArrowRight} />
 				</a>
@@ -602,7 +611,9 @@
 			<li>
 				<a href={resolve('/methods')}>
 					<strong>Methods</strong>
-					<span>How each figure was produced, sourced and bounded.</span>
+					<span
+						>How each figure was made, where its numbers come from, and what they cannot show.</span
+					>
 					<Icon icon={ArrowRight} />
 				</a>
 			</li>

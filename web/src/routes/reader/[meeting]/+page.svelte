@@ -224,7 +224,7 @@
 				</select>
 			</label>
 			<label class="check">
-				<input type="checkbox" bind:checked={showAddress} /> Show form of address
+				<input type="checkbox" bind:checked={showAddress} /> Show the opening form of address
 			</label>
 			<span class="tally">{count(totalHits)} highlighted occurrences in this meeting</span>
 			<button class="ghost" onclick={openAll}>Open every speech</button>
@@ -290,7 +290,7 @@
 
 			<aside class="apparatus">
 				<div class="note">
-					<span class="label">Marks in this record</span>
+					<span class="label">Highlights in this record</span>
 					{#if marksHere.length}
 						<ul class="tally-list">
 							{#each marksHere as entry (entry.register)}
@@ -302,24 +302,33 @@
 							{/each}
 						</ul>
 					{:else}
-						<p class="prose">No lexicon term is marked under the current filter.</p>
+						<p class="prose">No term from the word list is highlighted under the current filter.</p>
 					{/if}
 				</div>
 
 				<div class="note">
 					<span class="label">Delivery language</span>
 					<p class="prose">
-						{count(interpreted)} of {count(record.speeches.length)} speeches carry a non-English delivery
-						language. The record is English by construction.
+						{#if interpreted === 0}
+							No speech in this record is marked as having been delivered in a language other than
+							English.
+						{:else if interpreted === record.speeches.length}
+							Every speech in this record was delivered in a language other than English.
+						{:else}
+							{count(interpreted)} of {count(record.speeches.length)} speeches were delivered in a language
+							other than English.
+						{/if}
+						The record itself is in English throughout.
 					</p>
 				</div>
 
 				<div class="note">
 					<span class="label">The text</span>
 					<p class="prose">
-						As it appears in the verbatim record, digitised and OCR'd &mdash; occasional character
-						errors are the source's, not a transcription made here. Marks are drawn from the offsets
-						the pipeline computed, so what is marked is exactly what was counted.
+						As it appears in the verbatim record, scanned and read by character-recognition
+						software. The occasional wrong letter comes from that process rather than from any
+						re-typing here. The highlights use the positions the pipeline recorded, so what is
+						marked is exactly what was counted.
 					</p>
 				</div>
 

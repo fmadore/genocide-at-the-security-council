@@ -44,6 +44,51 @@ export function bytes(n: number): string {
 export const termLabel = (name: string) => name.replace(/_/g, ' ');
 
 /**
+ * The columns the pairing holds constant, named the way a reader would name them.
+ *
+ * The artefacts carry the corpus's own column names in `matched_on`, and printing
+ * them raw put "the same year, agenda_item_manual, speaker_group" into a sentence
+ * on two separate pages. Anything unrecognised falls back to `termLabel`, so a new
+ * matching column degrades to readable words rather than to an underscore.
+ */
+const MATCHED_ON: Record<string, string> = {
+	year: 'year',
+	agenda_item_manual: 'agenda item',
+	agenda_item1: 'region of the agenda item',
+	speaker_group: 'speaker group',
+	entity_type: 'kind of speaker'
+};
+
+/**
+ * What kind of speaker this is, for the delegations that sit in no UN regional
+ * group and fall back to `entity_type`.
+ *
+ * The corpus stores those as identifiers, and the table printed `civil_society`
+ * beside "Eastern European Group" in the same column. Anything unrecognised falls
+ * back to the underscores stripped out, so a new type reads as words.
+ */
+const ENTITY_TYPE: Record<string, string> = {
+	academia: 'Academia',
+	civil_society: 'Civil society',
+	company: 'Company',
+	igo: 'Intergovernmental organisation',
+	ngo: 'Non-governmental organisation',
+	other: 'Other',
+	state: 'State',
+	un: 'United Nations'
+};
+
+export const entityType = (name: string) => ENTITY_TYPE[name] ?? termLabel(name);
+
+export function matchedOn(fields: string[]): string {
+	const names = fields.map((field) => MATCHED_ON[field] ?? termLabel(field));
+	if (names.length < 2) return names.join('');
+	// A list inside a sentence, so the last item takes "and" rather than a third
+	// comma: "year, agenda item, speaker group" reads as a truncated list.
+	return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/**
  * The twelve months, here rather than in the figure that first needed them.
  *
  * `$lib/heatmap` owned these while the grid was the only thing that counted in

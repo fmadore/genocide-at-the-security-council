@@ -12,15 +12,19 @@
 	const REPO = 'https://github.com/fmadore/genocide-at-the-security-council';
 
 	const sections = [
-		{ href: '/', label: 'Overview', blurb: 'The question in fifteen seconds' },
+		{ href: '/', label: 'Overview', blurb: 'The question, and the headline numbers' },
 		{
 			href: '/chronology',
 			label: 'Chronology',
 			blurb: 'When the word was said, and when that changed'
 		},
-		{ href: '/language', label: 'Language', blurb: 'What it travels with' },
-		{ href: '/actors', label: 'Actors', blurb: 'Who said it, against their own denominator' },
-		{ href: '/concordance', label: 'Concordance', blurb: 'Every occurrence, in context' },
+		{ href: '/language', label: 'Language', blurb: 'The words it sits next to' },
+		{
+			href: '/actors',
+			label: 'Actors',
+			blurb: 'Who said it, as a share of their own speeches'
+		},
+		{ href: '/concordance', label: 'Concordance', blurb: 'Every occurrence, with its context' },
 		{ href: '/methods', label: 'Methods', blurb: 'How every number was made' }
 	] as const;
 
@@ -85,14 +89,15 @@
 		<p>
 			Built from the <a href="https://doi.org/10.7910/DVN/KGVSYH">UN Security Council Debates</a>
 			corpus (Schoenfeld, Eckhard, Patz, van Meegdenburg &amp; Pires, v6.1, CC0). Every figure on this
-			site is produced by a versioned script from a single parquet file; see
+			site is produced by a versioned script from a single data file; see
 			<a href={resolve('/methods')}>Methods</a>.
 		</p>
 		<p class="quiet">
-			The corpus is English-only by construction. At least 40.2% of speeches are explicit
-			translations; missing in-person markers are classified as inferred English under the record
-			convention, while VTC delivery language remains unknown. Nothing here measures what was said
-			in the room &mdash; it measures what the English verbatim record says was said.
+			The record is in English throughout: a speech given in another language reaches it already
+			translated, and at least 40.2% of speeches are translations of that kind. Where the record
+			carries no marker of how a speech was delivered, an in-person speech is read as English by
+			convention; speeches given by video link carry no marker at all, so their language is unknown.
+			Everything here measures the English verbatim record rather than the room it was written from.
 		</p>
 		<p class="quiet">
 			By <a href="https://orcid.org/0000-0003-0959-2092">Frédérick Madore</a> (University of

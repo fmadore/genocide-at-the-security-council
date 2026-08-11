@@ -13,6 +13,7 @@
 		count,
 		decimal,
 		escapeHtml,
+		matchedOn,
 		percent,
 		shortCountry,
 		signed,
@@ -52,7 +53,7 @@
 			}
 		}
 		return {
-			title: 'Collocates of the node term',
+			title: 'The words that sit near a term',
 			columns: [
 				'node',
 				'window',
@@ -131,17 +132,17 @@
 			}
 		}
 		return {
-			title: 'Keyness against a matched control',
+			title: 'Compared with a like-for-like speech',
 			columns: ['reading', 'word', 'target', 'reference', 'g2', 'log_ratio'],
 			rows,
 			provenance: provenanceOf(data.keyness.meta, 'lexical/keyness.json'),
 			filters: [
-				`reading: ${keynessView}`,
+				`comparison: ${keynessView}`,
 				`matched on: ${data.keyness.matched_on}`,
 				`seed: ${data.keyness.seed}`,
 				`coverage: ${percent(data.keyness.coverage)}`
 			],
-			scope: 'both the matched and the unmatched reading'
+			scope: 'both comparisons: like-for-like and whole corpus'
 		};
 	}
 
@@ -499,15 +500,17 @@
 	<header class="lede">
 		<h1>Language</h1>
 		<p class="standfirst">
-			What the word keeps company with. Every table here ranks by
-			<strong>log-likelihood</strong> and reports <strong>log ratio</strong> beside it: on
-			{count(data.collocates.meta.corpus_tokens as number)} words almost anything is statistically significant,
-			so significance alone is not a finding.
+			The company the word keeps. Every table here uses two measures side by side.
+			<strong>Log-likelihood</strong> (written G²) says how confident we can be that a word turns up
+			at a rate chance alone would not produce; <strong>log ratio</strong> says how large that
+			difference is. Across {count(data.collocates.meta.corpus_tokens as number)} words almost anything
+			reaches statistical significance, so confidence on its own is not a finding &mdash; the tables rank
+			by confidence and report the size beside it.
 		</p>
 	</header>
 
 	<Figure
-		title="Collocates of the node term"
+		title="The words that sit near a term"
 		question="Which words appear near this term far more often than chance would put them there?"
 		source="05_lexical.py → lexical/collocates.json"
 		download={{
@@ -537,31 +540,36 @@
 
 		{#snippet reading()}
 			<p>
-				Each point is a word. <strong>Rightwards</strong> means we are more confident its rate near
-				the node differs from its rate in the rest of the corpus (G², log scale).
-				<strong>Upwards</strong> means the difference is larger &mdash; a log ratio of +3 is eight times
-				the corpus rate, +7 is over a hundred times.
+				Each point is a word that appears within the chosen window of the term &mdash; corpus
+				linguists call such words <em>collocates</em>. <strong>Further right</strong> means more
+				confidence that the word turns up near the term at a different rate from the rest of the
+				corpus. <strong>Further up</strong> means a larger difference: a log ratio of +3 is eight times
+				the corpus rate, +7 is more than a hundred times.
 			</p>
 			<p>
-				The interesting words are high <em>and</em> right. A word far right but low is common enough that
-				a small difference is measurable; that is a property of the sample size, not of the discourse.
+				The words worth attention are high <em>and</em> right. A word far right but low is simply common
+				enough that even a small difference can be measured, which says more about how often it occurs
+				than about how the Council speaks.
 			</p>
 			<p>
 				Most collocates crowd into the lower left, where labels collide and the chart hides some of
 				them. <strong>Scroll on the plot to zoom, drag to pan</strong>, or drag the bar under the
-				axis; <em>Reset zoom</em> returns to the full extent. Nothing is filtered out by zooming &mdash;
-				the axes are the same however far in you go, so a zoomed view is comparable to the whole.
+				axis; <em>Reset zoom</em> returns to the full view. Zooming filters nothing out and the axes never
+				move, so a close-up remains comparable with the whole.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				A wider window changes the question rather than refining it: &plusmn;5 words catches the
-				phrase the term sits in, &plusmn;15 the argument. Compare them; do not average them.
+				A wider window asks a different question rather than a better one: &plusmn;5 words catches
+				the phrase the term sits in, &plusmn;15 catches the argument around it. Compare the two; do
+				not average them.
 			</p>
 			<p>
-				Function words are removed by a stated stoplist. Genre words &mdash; <em>council</em>,
-				<em>resolution</em>, <em>president</em> &mdash; are deliberately <strong>not</strong>,
-				because whether they sit close to the node is one of the things being asked.
+				Function words &mdash; <em>the</em>, <em>of</em>, <em>and</em> &mdash; are removed using a
+				published list. Words belonging to the setting, such as <em>council</em>,
+				<em>resolution</em>
+				and <em>president</em>, are deliberately kept, because whether they sit close to the term is
+				one of the things being asked.
 			</p>
 		{/snippet}
 
@@ -569,7 +577,7 @@
 			bind:this={scatterFigure}
 			option={scatter}
 			height="440px"
-			description="Scatter plot of collocate words by log-likelihood against log ratio."
+			description="Scatter plot of the words near the term, confidence along the horizontal axis and size of effect up the vertical one."
 			onclick={openCollocate}
 		/>
 		<details class="data-table">
@@ -598,7 +606,7 @@
 
 	<Figure
 		title="The same table as a cloud"
-		question="What is the shape of that neighbourhood, and does it hold in one mouth or one decade?"
+		question="What shape does that neighbourhood have, and does it hold for a single speaker or a single decade?"
 		source={cloudSource}
 		download={{ name: ['unsc', 'collocates', 'cloud', cloudFacet], table: collocateTable }}
 	>
@@ -634,8 +642,8 @@
 					</select>
 				</label>
 				<span class="fixed"
-					>{termLabel(data.sliced.term)} at &plusmn;{data.sliced.width} words &mdash; the only term and
-					window the slices were counted at</span
+					>{termLabel(data.sliced.term)} at &plusmn;{data.sliced.width} words, the only term and window
+					these breakdowns were counted at</span
 				>
 			{/if}
 			<label>
@@ -656,64 +664,68 @@
 					<option value="50">50 beside the term</option>
 				</select>
 			</label>
-			<span class="unit-note">no slice under {count(minimumSpeeches)} speeches is drawn</span>
+			<span class="unit-note"
+				>nothing is drawn for a set of fewer than {count(minimumSpeeches)} speeches</span
+			>
 		{/snippet}
 
 		{#snippet reading()}
 			<p>
-				Every word here is a row of the table beneath it, and one call chooses both: what the cloud
-				will not draw, the table does not list. <strong>Size is the log ratio</strong> &mdash; how many
-				times a word's rate beside the node exceeds its rate in the rest of the corpus. Which words appear
-				at all is the artefact's own ranking, by log-likelihood.
+				Every word drawn here is a row of the table beneath it, and one decision governs both: what
+				the cloud leaves out, the table leaves out too. <strong>Size carries the log ratio</strong>
+				&mdash; how many times a word's rate beside the term exceeds its rate in the rest of the corpus.
+				Which words appear at all is decided by the other measure, log-likelihood.
 			</p>
 			<p>
 				A large word is therefore not a common word. The list is chosen by confidence and drawn by
-				effect, so a word used two hundred times can sit beside one used thirty times and be the
-				smaller of the two. <em>At least</em> raises the frequency floor, if you would rather the cloud
-				stopped rewarding words the corpus barely contains.
+				size of effect, so a word used two hundred times can sit beside one used thirty times and be
+				the smaller of the two. <em>At least</em> raises the minimum frequency, if you would rather the
+				cloud stopped rewarding words the corpus barely contains.
 			</p>
 			<p>
-				Every word is a link to its lines in the concordance, and reachable by keyboard. The scale
-				is relative to what is on screen &mdash; the largest word in view holds the largest log
-				ratio in view &mdash; so compare within a cloud rather than between two.
+				Every word links to its lines in the concordance and can be reached by keyboard. The scale
+				is relative to what is on screen: the largest word in view holds the largest log ratio in
+				view, so compare within one cloud rather than between two.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				This is drawn on <strong>surface forms</strong>. <em>crimes</em> and <em>crime</em> are two
-				words here, each holding a share of the evidence they jointly support and each smaller than
-				the merged word would be. A lemma layer that merges them is built and runnable but
-				deliberately not adopted, because adopting it would move published figures before the human
-				audit closes &mdash; <code>docs/PLAN.md</code> Phase 6. Until it is, a cloud of this corpus is
-				partly a picture of English morphology rather than of the Council, and the words to trust least
-				are the ones with the commonest inflections.
+				Words are counted <strong>exactly as they appear</strong>. <em>crime</em> and
+				<em>crimes</em>
+				are two separate words here, each carrying part of the evidence for the same idea and each smaller
+				than a merged entry would be. A step that merges such forms exists and runs, but it is deliberately
+				not used yet: switching it on would move figures already published here before the hand-check
+				of the word list is finished. Until then, a cloud of this corpus is partly a picture of English
+				word endings rather than of the Council, and the words to trust least are those with the commonest
+				variants.
 			</p>
 			<p>
-				Position and colour carry nothing. Two words are adjacent because the packer found room
-				there, not because they occur together; the network figure below is the one that answers
-				that. Area is not a quantity either &mdash; size is set on the height of a word, so a long
-				word takes far more of the picture than a short one of the same log ratio.
+				Position and colour carry nothing. Two words sit next to each other because the layout found
+				room there, not because they occur together; the network figure below is the one that
+				answers that question. Area carries nothing either: size is set on a word's height, so a
+				long word takes up far more of the picture than a short one with the same log ratio.
 			</p>
 			<p>
-				{count(data.collocates.meta.stopwords as number)} function words are removed by
-				<code>config/stopwords.txt</code>, and no word occurring fewer than
-				{count(data.collocates.meta.min_count as number)} times beside the node enters the table at all.
-				Genre words &mdash; <em>council</em>, <em>resolution</em> &mdash; are deliberately kept.
+				{count(data.collocates.meta.stopwords as number)} function words are removed using
+				<code>config/stopwords.txt</code>, and a word occurring fewer than
+				{count(data.collocates.meta.min_count as number)} times beside the term never enters the table
+				at all. Words belonging to the setting &mdash; <em>council</em>, <em>resolution</em> &mdash; are
+				deliberately kept.
 			</p>
 		{/snippet}
 
 		{#if cloudSelection.refusal?.kind === 'below-minimum'}
 			<p class="withheld">
-				<strong>{memberLabel(cloudFacet, cloudMember)}</strong> holds
-				{count(cloudSelection.refusal.speeches ?? 0)} speeches using the term, under the
-				{count(cloudSelection.refusal.minimum ?? 0)} this artefact declares as the fewest it will stand
-				a profile on. Nothing is drawn and nothing is tabulated. The whole corpus is a different population,
-				and is not put in its place.
+				<strong>{memberLabel(cloudFacet, cloudMember)}</strong> has
+				{count(cloudSelection.refusal.speeches ?? 0)} speeches using the term, fewer than the
+				{count(cloudSelection.refusal.minimum ?? 0)} needed before a profile is drawn at all. Nothing
+				is drawn and nothing is listed. The whole corpus is a different set of speeches, so it is not
+				shown here instead.
 			</p>
 		{:else if cloudSelection.refusal}
 			<p class="withheld">
-				Nothing in {cloudScope} occurs at least {cloudFloor} times beside the term, so there is nothing
-				to draw. Lower the floor.
+				No word in {cloudScope} occurs at least {cloudFloor} times beside the term, so there is nothing
+				to draw. Lower the minimum frequency.
 			</p>
 		{:else}
 			<WordCloud
@@ -721,13 +733,14 @@
 				href={(word) => concordanceHref(cloudTerm, word.word)}
 				label={cloudLabel}
 				seed={cloudSeed}
-				description="Word cloud of the leading collocates, each word sized by its log ratio and linking to its lines in the concordance."
+				description="Cloud of the words that sit near the term, each sized by its log ratio and linking to its lines in the concordance."
 			/>
 			<p class="stated">
-				{count(cloudSelection.rows.length)} words drawn, of the {count(cloudSelection.available)} rows
-				this artefact holds for {cloudScope}: {count(cloudSelection.filtered)} fall below the frequency
-				floor and {count(cloudSelection.truncated)} beyond the number asked for. The table below is those
-				same {count(cloudSelection.rows.length)} words, in the same order.
+				{count(cloudSelection.rows.length)} words drawn, out of {count(cloudSelection.available)} held
+				for
+				{cloudScope}: {count(cloudSelection.filtered)} fall below the minimum frequency and
+				{count(cloudSelection.truncated)} fall beyond the number of words asked for. The table below holds
+				those same {count(cloudSelection.rows.length)} words, in the same order.
 			</p>
 			<details class="data-table">
 				<summary><Icon icon={ChevronRight} />View the same words as a table</summary>
@@ -798,35 +811,39 @@
 					>
 				</div>
 			</div>
-			<span class="unit-note">no slice under {count(minimumSpeeches)} speeches is drawn</span>
+			<span class="unit-note"
+				>nothing is drawn for a set of fewer than {count(minimumSpeeches)} speeches</span
+			>
 		{/snippet}
 
 		{#snippet reading()}
 			<p>
-				Two collocate profiles, each computed on its own subset at &plusmn;{data.sliced.width} words but
-				against the <em>same</em> whole-corpus reference. Both columns are drawn to
-				<strong>one shared scale</strong>, so a longer bar is a larger log ratio wherever it sits.
+				Two lists of neighbouring words, each worked out from its own set of speeches at &plusmn;{data
+					.sliced.width} words, but both measured against the <em>same</em> whole-corpus background.
+				The two columns share <strong>one scale</strong>, so a longer bar is a larger log ratio
+				wherever it appears.
 			</p>
 			<p>
-				<strong>By rank</strong> puts each column's own strongest words in its own order — rows do
-				not correspond, and the finding is that the two <em>sets</em> of words differ.
-				<strong>By word</strong> gives every word one row and both sides' figures for it, so the finding
-				is how far apart the two are on the same word; an em dash means the word is not in that profile
-				at all.
+				<strong>By rank</strong> puts each column's own strongest words in its own order. Rows do
+				not line up, and what the figure shows is that the two <em>sets</em> of words differ.
+				<strong>By word</strong> gives each word a single row with both sides' figures on it, so what
+				the figure shows is how far apart the two speakers are on the same word. A dash means the word
+				does not appear in that speaker's list at all.
 			</p>
 			<p>
-				Try <strong>Rwanda</strong> against any other speaker: almost everyone's profile is the Rome Statute
-				triad, and Rwanda's is a vocabulary of denial and prosecution.
+				Try <strong>Rwanda</strong> against any other speaker. Most delegations return the three crimes
+				named in the Rome Statute of the International Criminal Court &mdash; genocide, crimes against
+				humanity, war crimes. Rwanda returns a vocabulary of denial and prosecution.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				Subsets differ enormously in size &mdash; the speech counts under each heading are there for
-				that reason. A profile drawn from fifty speeches is a sketch, not a portrait.
+				These sets of speeches differ enormously in size, which is why the speech count is printed
+				under each heading. A list drawn from fifty speeches is a sketch, not a portrait.
 			</p>
 			<p>
-				Comparing periods conflates who was speaking with when: Council membership turns over, and
-				so does the agenda.
+				Comparing two periods mixes up who was speaking with when they spoke: Council membership
+				turns over, and so does the agenda.
 			</p>
 		{/snippet}
 
@@ -846,8 +863,8 @@
 						</h4>
 						{#if (side.b?.speeches ?? 0) < minimumSpeeches}
 							<p class="withheld">
-								{count(side.b?.speeches ?? 0)} speeches, under the {count(minimumSpeeches)} this artefact
-								declares as its minimum. No profile is drawn for it.
+								{count(side.b?.speeches ?? 0)} speeches, fewer than the {count(minimumSpeeches)} required
+								before a list is drawn. Nothing is shown for this side.
 							</p>
 						{:else}
 							<ol class="profile">
@@ -857,7 +874,7 @@
 										<span
 											class="bar"
 											style:width={barWidth(w.log_ratio)}
-											title="{count(w.target)} near the node · G² {count(Math.round(w.g2))}"
+											title="{count(w.target)} beside the term · G² {count(Math.round(w.g2))}"
 										></span>
 										<span class="symbol">{signed(w.log_ratio)}</span>
 									</li>
@@ -869,8 +886,8 @@
 			</div>
 		{:else if (blockA?.speeches ?? 0) < minimumSpeeches || (blockB?.speeches ?? 0) < minimumSpeeches}
 			<p class="withheld">
-				One of these slices falls under the {count(minimumSpeeches)} speeches this artefact declares as
-				its minimum, so there is nothing to align against.
+				One of these two sets holds fewer than the {count(minimumSpeeches)} speeches required before a
+				list is drawn, so there is nothing to line the other one up against.
 			</p>
 		{:else}
 			<!-- One word per row, read outwards from the middle: the same layout a
@@ -892,7 +909,7 @@
 								<span
 									class="bar"
 									style:width={barWidth(row.a.log_ratio)}
-									title="{count(row.a.target)} near the node · G² {count(Math.round(row.a.g2))}"
+									title="{count(row.a.target)} beside the term · G² {count(Math.round(row.a.g2))}"
 								></span>
 							{/if}
 						</span>
@@ -902,7 +919,7 @@
 								<span
 									class="bar"
 									style:width={barWidth(row.b.log_ratio)}
-									title="{count(row.b.target)} near the node · G² {count(Math.round(row.b.g2))}"
+									title="{count(row.b.target)} beside the term · G² {count(Math.round(row.b.g2))}"
 								></span>
 							{/if}
 						</span>
@@ -940,8 +957,8 @@
 	</Figure>
 
 	<Figure
-		title="Keyness against a matched control"
-		question="Setting aside what the debate was about, what distinguishes a speech that says genocide?"
+		title="Compared with a like-for-like speech"
+		question="Setting aside what the debate was about, what marks out a speech that says genocide?"
 		source="05_lexical.py → lexical/keyness.json"
 		download={{ name: ['unsc', 'keyness', keynessView], table: keynessTable }}
 	>
@@ -949,43 +966,44 @@
 			<label>
 				Comparison
 				<select bind:value={keynessView}>
-					<option value="matched">Matched control</option>
-					<option value="unmatched">Whole corpus (unmatched)</option>
+					<option value="matched">A like-for-like speech</option>
+					<option value="unmatched">The whole corpus</option>
 				</select>
 			</label>
 			<span class="unit-note">
-				{count(data.keyness.control_speeches)} of {count(data.keyness.eligible_target_speeches)} targets
-				matched ({percent(data.keyness.coverage)})
+				{count(data.keyness.control_speeches)} of {count(data.keyness.eligible_target_speeches)} speeches
+				found a partner ({percent(data.keyness.coverage)})
 			</span>
 		{/snippet}
 
 		{#snippet reading()}
 			<p>
-				The table uses {count(data.keyness.target_speeches)} complete pairs drawn from
-				{count(data.keyness.eligible_target_speeches)} eligible genocide-bearing speeches. Each target
-				is paired with a speech from the same <strong>{data.keyness.matched_on.join(', ')}</strong> that
-				does not use the term. What survives that comparison is closer to the vocabulary of the concept
-				than of the occasion.
+				The table rests on {count(data.keyness.target_speeches)} complete pairs, drawn from
+				{count(data.keyness.eligible_target_speeches)} speeches that use the word. Each of those is paired
+				with a speech that does not use it but shares its
+				<strong>{matchedOn(data.keyness.matched_on)}</strong>. What survives the comparison is
+				closer to the vocabulary of the idea than of the occasion.
 			</p>
 			<p>
-				Switch to <strong>unmatched</strong> to see what the matching removed. Watch
-				<em>bosnia</em>, <em>herzegovina</em> and <em>tribunals</em>: near the top unmatched, gone
-				once year and agenda item are held constant.
+				Switch to <strong>the whole corpus</strong> to see what the pairing removed. Watch
+				<em>bosnia</em>, <em>herzegovina</em> and <em>tribunals</em>: near the top of the unpaired
+				table, and gone once year and agenda item are held constant.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				{data.keyness.short_strata.length} strata could not be filled &mdash; debates in which nearly
-				everyone used the word, so no control existed. They are left short rather than back-filled from
-				elsewhere, which would have quietly biased the table towards the crisis years.
+				{data.keyness.short_strata.length} groups could not be filled. These are debates in which nearly
+				everyone used the word, so no comparable speech was left over. They are left short rather than
+				filled from elsewhere, which would have tilted the table quietly towards the crisis years.
 			</p>
 			<p>
-				The unmatched column is <strong>not a result</strong>. It is the comparison the matching
-				exists to improve on, shown so the improvement can be checked.
+				The whole-corpus column is <strong>not a result</strong>. It is the comparison the pairing
+				exists to improve on, shown so that the improvement can be checked.
 			</p>
 			<p>
-				The match was repeated across {data.keyness.stability.repetitions} consecutive seeds; the artefact
-				reports 5th–95th percentile effect sizes for every displayed keyword.
+				Because the partner speech is drawn at random, the pairing was repeated across
+				{data.keyness.stability.repetitions} consecutive draws, and the range those draws produced is
+				available for every word in the table.
 			</p>
 		{/snippet}
 
@@ -994,10 +1012,10 @@
 				<tr>
 					<th>#</th>
 					<th>Word</th>
-					<th class="num">In target</th>
+					<th class="num">In these speeches</th>
 					<th class="num">G²</th>
 					<th class="num">Log ratio</th>
-					{#if keynessView === 'unmatched'}<th class="num">Matched</th>{/if}
+					{#if keynessView === 'unmatched'}<th class="num">Like-for-like</th>{/if}
 				</tr>
 			</thead>
 			<tbody>
@@ -1021,7 +1039,7 @@
 
 	<Figure
 		title="Which terms travel together"
-		question="Does the lexicon have structure, or is it a list?"
+		question="Does this vocabulary hold together in groups, or is it just a list?"
 		source="05_lexical.py → lexical/network.json"
 		download={{
 			name: ['unsc', 'network'],
@@ -1039,33 +1057,35 @@
 				</select>
 			</label>
 			<span class="unit-note">
-				edge drawn where at least {data.network.min_speeches} speeches use both terms
+				a line is drawn where at least {data.network.min_speeches} speeches use both terms
 			</span>
 		{/snippet}
 
 		{#snippet reading()}
 			<p>
-				Each circle is a lexicon term, sized by how many speeches use it and coloured by its
-				register. An edge joins two terms used in the <em>same speech</em>, and its thickness is
-				normalised pointwise mutual information: how much more often they co-occur than two
-				independent terms of the same frequency would.
+				Each circle is a term from the word list, sized by how many speeches use it and coloured by
+				its register. A line joins two terms that appear in the <em>same speech</em>, and its
+				thickness shows how much more often the two turn up together than two unrelated terms of the
+				same frequency would.
 			</p>
-			<p>Drag to rearrange, scroll to zoom, hover an edge for its numbers.</p>
+			<p>Drag to rearrange, scroll to zoom, hover over a line for its numbers.</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				Co-occurrence is at the level of the whole speech, so two terms count as linked even if they
-				appear four hundred words apart and in unrelated sentences. This is a map of vocabularies
-				that get used together, not of phrases.
+				Two terms count as linked if they appear anywhere in the same speech, even four hundred
+				words apart and in unrelated sentences. This is a map of vocabularies used on the same
+				occasion, not of phrases.
 			</p>
 			<p>
-				Normalising PMI is what stops a term used in thirty speeches dominating the graph; the raw
-				measure rewards rarity.
+				The thickness measure is adjusted for how often each term occurs. Without that adjustment, a
+				term appearing in only thirty speeches would dominate the picture, because the raw measure
+				rewards rarity.
 			</p>
 			<p>
-				Declared nesting relationships are suppressed: for example, <em>mass atrocity</em> is not
-				drawn as evidence of association with <em>atrocity</em> when the latter is already contained inside
-				the phrase.
+				A phrase is never drawn as evidence of association with a word already inside it: <em
+					>mass atrocity</em
+				>
+				and <em>atrocity</em> are not linked on the strength of the second sitting within the first.
 			</p>
 		{/snippet}
 
@@ -1073,7 +1093,7 @@
 			bind:this={graphFigure}
 			option={graph}
 			height="520px"
-			description="Force-directed graph of lexicon terms linked by co-occurrence within speeches."
+			description="Network of terms from the word list, with a line joining two terms wherever they appear in the same speech."
 			onclick={openNetworkTerm}
 		/>
 		<details class="data-table">
@@ -1101,8 +1121,8 @@
 	</Figure>
 
 	<p class="onward">
-		Every word above is an entry point: the <a href={resolve('/concordance')}>concordance</a> holds
-		all {count(data.keyness.eligible_target_speeches)} speeches in the eligible target set.
+		Every word above is a way in: the <a href={resolve('/concordance')}>concordance</a> holds all
+		{count(data.keyness.eligible_target_speeches)} speeches these tables were built from.
 	</p>
 </article>
 

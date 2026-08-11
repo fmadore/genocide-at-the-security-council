@@ -157,8 +157,8 @@
 
 {#if drawing && drawing.refused.length > 0}
 	<p class="refused">
-		For want of room rather than want of evidence, not drawn at this width:
-		<em>{drawing.refused.join(', ')}</em>. The table below still carries every row.
+		Left out for want of room rather than want of evidence, at this width:
+		<em>{drawing.refused.join(', ')}</em>. The table below still carries every one of them.
 	</p>
 {/if}
 

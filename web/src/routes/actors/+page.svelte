@@ -12,7 +12,7 @@
 	import type { Patch } from '$lib/choropleth';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
-	import { count, decimal, percent, shortCountry, termLabel } from '$lib/format';
+	import { count, decimal, entityType, percent, shortCountry, termLabel } from '$lib/format';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -166,9 +166,9 @@
 				...(has.occurrences
 					? [
 							`${decimal(row.token_rate ?? 0)} per ${count(artefact.rate_per_tokens)} words`,
-							`${count(row.occurrences ?? 0)} occurrences · ${speaker.un_regional_group ?? speaker.entity_type}`
+							`${count(row.occurrences ?? 0)} occurrences · ${speaker.un_regional_group ?? entityType(speaker.entity_type)}`
 						]
-					: [`${speaker.un_regional_group ?? speaker.entity_type}`]),
+					: [`${speaker.un_regional_group ?? entityType(speaker.entity_type)}`]),
 				...(point.speakers.length > 1
 					? [`${point.speakers.length} speakers share this point`]
 					: []),
@@ -185,7 +185,7 @@
 				: o === 'token_rate'
 					? `per ${count(artefact.rate_per_tokens)} words`
 					: o === 'speeches'
-						? 'term-bearing speeches'
+						? 'speeches using the term'
 						: 'speeches delivered';
 		return title ? text.charAt(0).toUpperCase() + text.slice(1) : text;
 	};
@@ -195,7 +195,7 @@
 	<title>Actors — Genocide at the Security Council</title>
 	<meta
 		name="description"
-		content="Which delegations used genocide vocabulary, at what rate, and how many are heard from too rarely to say."
+		content="Which delegations used the vocabulary of genocide, at what rate, and how many spoke too rarely to tell."
 	/>
 </svelte:head>
 
@@ -203,10 +203,10 @@
 	<header class="lede">
 		<h1>Who said it</h1>
 		<p class="standfirst">
-			Every speaker with its own denominator: how much of what a delegation said at the Council
-			carried the vocabulary, rather than how often it appears in the record. Of
-			{count(artefact.countries.length)} speakers, {count(result.rows.length)} are heard from often enough
-			to answer.
+			Each delegation measured against its own record: what share of its own speeches used this
+			vocabulary, rather than how often it turns up in the corpus overall. Of
+			{count(artefact.countries.length)} speakers, {count(result.rows.length)} spoke often enough for
+			that share to mean anything.
 		</p>
 	</header>
 
@@ -215,8 +215,8 @@
 		question="Which delegations used the vocabulary most, as a share of their own speeches?"
 		source="11_countries.py → countries/countries.json"
 		note={view === 'points'
-			? 'Circle area is not proportional to the rate; radius is. Read the table.'
-			: 'Area is territory, not evidence: a large country is large. Read the table.'}
+			? 'The radius of a circle carries the rate, not its area. Read the table for the numbers.'
+			: 'Area is territory, not evidence: a country is prominent here because it is large. Read the table.'}
 		download={{ name: ['unsc', measure, period, 'speakers'], table }}
 	>
 		{#snippet controls()}
@@ -251,7 +251,7 @@
 					>
 					<button
 						type="button"
-						title="Territory filled by the ranked figure. Keyed on ISO3, so a shared code is refused rather than filled."
+						title="Territory shaded by the ranked figure. A country code held by two speakers is left blank rather than shaded."
 						aria-pressed={view === 'choropleth'}
 						onclick={() => (view = 'choropleth')}>Filled</button
 					>
@@ -262,31 +262,33 @@
 		{#snippet reading()}
 			{#if view === 'points'}
 				<p>
-					One circle per delegation that cleared the minimum. Radius carries the same figure the
-					table is ranked by; colour carries nothing. A heavier ring marks a point whose ISO3 code
-					another speaker also holds.
+					One circle per delegation that spoke often enough to be measured. The radius carries the
+					same figure the table is ranked by; colour carries nothing. A heavier ring marks a
+					delegation whose three-letter country code (ISO3) another speaker shares.
 				</p>
 			{:else}
 				<p>
-					Territory filled by the same figure the table is ranked by, from zero rather than from the
-					lowest country: two delegations here cleared the minimum and never used the word, and a
-					ramp starting at the smallest would paint them as merely quiet. Colour is
-					<strong>square-rooted</strong>, because the median speaker runs at a tenth of the highest
-					and a scale proportional to the value would leave half the world the colour of the page.
-					Grey is a delegation heard from too rarely for a rate; unfilled is a state that did not
-					speak in this period at all.
+					Territory shaded by the same figure the table is ranked by, running up from zero rather
+					than from the lowest country. Two delegations here spoke often enough to be measured and
+					never used the word, and a scale that began at the lowest value would shade them as merely
+					quiet. The shading follows the <strong>square root</strong> of the rate: the middle delegation
+					runs at about a tenth of the highest, so shading in direct proportion would leave half the world
+					the colour of the page. Grey means a delegation heard from too rarely for a rate; blank means
+					a state that did not speak at all in this period.
 				</p>
 			{/if}
 			<p>
-				Click a {view === 'points' ? 'circle' : 'country'} to pick out its row, or a row to pick out its
-				{view === 'points' ? 'circle' : 'country'}. Two ISO3 codes are held by more than one
-				speaker, marked with an asterisk in the table; in every period here only one holder of each
-				clears the minimum, so nothing on this map stands for more than one speaker.
+				Click a {view === 'points' ? 'circle' : 'country'} to pick out its row in the table, or a row
+				to pick out its
+				{view === 'points' ? 'circle' : 'country'}. Two country codes are held by more than one
+				speaker and are marked with an asterisk in the table; in every period shown, only one holder
+				of each has spoken often enough to be measured, so nothing on this map stands for two
+				delegations at once.
 				{#if view === 'points'}
-					Markers are grouped by coordinate rather than drawn on top of each other, so that stays
-					true if the corpus grows.
+					Circles that would land on the same coordinates are grouped rather than stacked, so that
+					stays true as the corpus grows.
 				{:else}
-					A code two drawable speakers ever shared would be outlined and left unfilled rather than
+					A code shared by two measurable speakers would be outlined and left blank rather than
 					given one of their two numbers.
 				{/if}
 			</p>
@@ -296,13 +298,14 @@
 			<p>{artefact.centroid_rule}</p>
 			{#if view === 'choropleth'}
 				<p>
-					<strong>A fill is a claim a circle does not make.</strong> A marker over Kigali is a way
-					to find Rwanda in a list; a filled polygon is the country, and for the historical speakers
-					here the polygon belongs to a successor state — Yugoslavia would fill modern Serbia, Zaire
-					modern Democratic Republic of the Congo. Area is also not evidence: Russia and Canada are
-					large because they are large, and {count(unbounded.length)} delegations are too small for a
-					boundary at this resolution and are marked with a dot instead. The circles and the table are
-					keyed on the speaker and carry none of this.
+					<strong>Shading a country claims more than a circle does.</strong> A marker over Kigali is
+					a way of finding Rwanda in a list; a shaded outline is the country itself, and for the
+					historical speakers here that outline belongs to a successor state. Yugoslavia would shade
+					modern Serbia, Zaire modern Democratic Republic of the Congo. Area carries no evidence
+					either: Russia and Canada draw the eye because they are large, and {count(
+						unbounded.length
+					)} delegations are too small to have an outline at this scale and are marked with a dot instead.
+					The circles and the table are built on the speaker and carry none of this.
 				</p>
 			{/if}
 			<p>
@@ -311,11 +314,13 @@
 			</p>
 			{#if !has.occurrences}
 				<p>
-					{termLabel(measure)} is a union of overlapping terms, so this measure counts
-					<em>speeches that used any of them</em> and has no occurrence count: a speech saying both
-					<em>genocide</em> and <em>war crimes</em> would be counted twice by a sum of its members.
-					<code>11_countries.py</code> withholds the figure rather than computing a wrong one, so the
-					per-word column and its ranking are absent here rather than shown as zero.
+					{termLabel(measure)} gathers several overlapping phrases at once, so it counts
+					<em>speeches that used any of them</em> and has no total for occurrences: a speech saying
+					both
+					<em>genocide</em> and <em>war crimes</em> would be counted twice by adding the members
+					together. <code>11_countries.py</code> withholds that figure rather than publishing a wrong
+					one, which is why the per-word column and the ranking that uses it are missing here instead
+					of showing zero.
 				</p>
 			{/if}
 		{/snippet}
@@ -323,10 +328,10 @@
 		{#if result.refusal}
 			<p class="refusal">
 				{#if result.refusal === 'none-sufficient'}
-					No speaker in this period cleared {count(result.minimum)} speeches, so there is nothing here
+					No speaker in this period reached {count(result.minimum)} speeches, so there is nothing here
 					that could be drawn honestly.
 				{:else}
-					This slice is not in the artefact.
+					This combination is not in the data.
 				{/if}
 			</p>
 		{:else}
@@ -369,8 +374,8 @@
 			<h2>{shortCountry(chosen.speakers[0].speaker.country_org)}</h2>
 			{#if chosen.speakers.length > 1}
 				<p class="stacked">
-					This point carries {chosen.speakers.length} speakers, which share a centroid and an ISO3 code.
-					They are separate rows with separate denominators and are not combined:
+					This point carries {chosen.speakers.length} speakers, which share both a map position and a
+					country code. They stay separate rows, each measured against its own speeches:
 					{chosen.speakers.map((s) => s.speaker.country_org).join(', ')}.
 				</p>
 			{/if}
@@ -395,7 +400,7 @@
 							     offer a fifth of the evidence as all of it, so the members are
 							     listed and the reading is term by term. -->
 							<dd class="read">
-								<span>Read them one term at a time:</span>
+								<span>Read them one word at a time:</span>
 								{#each links as link, index (link.term)}<a
 										href="{resolve('/concordance')}?{link.query}">{termLabel(link.term)}</a
 									>{#if index < links.length - 1}<span aria-hidden="true">
@@ -407,8 +412,8 @@
 				{/each}
 			</dl>
 			<p class="scoped">
-				Each link carries this speaker and {result.period?.label ?? period} into the concordance, so what
-				opens is the evidence behind the rate above rather than the whole corpus.
+				Each link carries this speaker and {result.period?.label ?? period} through to the concordance,
+				so what opens is the evidence behind the rate above rather than the whole corpus.
 			</p>
 		</aside>
 	{/if}
@@ -416,8 +421,9 @@
 	<section class="table-wrap">
 		<h2>The table behind the map</h2>
 		<p class="prose">
-			The same {count(result.rows.length)} rows, in the same order. This is the primary presentation:
-			the map is an index into it, and a circle cannot be tabbed to or read aloud.
+			The same {count(result.rows.length)} rows, in the same order. The table is the main presentation
+			and the map is a way into it: a circle cannot be reached by keyboard or read aloud by a screen reader,
+			and a row can.
 		</p>
 		<div class="scroll">
 			<table>
@@ -429,7 +435,7 @@
 						<th scope="col">Speaker</th>
 						<th scope="col">Group</th>
 						<th scope="col" class="num">Speeches</th>
-						<th scope="col" class="num">Term-bearing</th>
+						<th scope="col" class="num">Using the term</th>
 						<th scope="col" class="num">Share</th>
 						{#if has.occurrences}
 							<th scope="col" class="num">Per {count(artefact.rate_per_tokens)} words</th>
@@ -452,12 +458,13 @@
 									{shortCountry(entry.speaker.country_org)}
 								</button>
 								{#if entry.speaker.iso3 && shared.has(entry.speaker.iso3)}
-									<abbr title="This ISO3 code is held by more than one speaker in the corpus."
+									<abbr
+										title="This three-letter country code is held by more than one speaker in the corpus."
 										>{entry.speaker.iso3}*</abbr
 									>
 								{/if}
 							</th>
-							<td>{entry.speaker.un_regional_group ?? entry.speaker.entity_type}</td>
+							<td>{entry.speaker.un_regional_group ?? entityType(entry.speaker.entity_type)}</td>
 							<td class="num">{count(entry.row.held)}</td>
 							<td class="num">{count(entry.row.speeches)}</td>
 							<td class="num">{percent(entry.row.speech_rate ?? 0)}</td>
@@ -479,46 +486,53 @@
 
 	<!-- A second question over a second artefact, on the same page because it is
 	     the same object: what a delegation said, rather than how often it said
-	     one word. It reads `speaker_keyness.json` and nothing above it. -->
-	<SpeakerKeyness data={data.keyness} />
+	     one word. It reads `speaker_keyness.json` and nothing above it.
+
+	     The id is the landing point for the chronology's link out to this figure,
+	     which had been pointing at a fragment no element carried. It lives on the
+	     wrapper rather than inside the component so that the component stays
+	     placeable more than once on a page without minting a duplicate id. -->
+	<div id="speaker-keyness">
+		<SpeakerKeyness data={data.keyness} />
+	</div>
 
 	<section class="apparatus">
 		<h2>What this table will not tell you</h2>
 		<ul>
 			<li>
-				<strong>{count(result.under.length)} speakers are withheld, not ranked low.</strong>
+				<strong>{count(result.under.length)} speakers have no rate at all.</strong>
 				{artefact.minimum_speeches_rule}
 			</li>
 			{#if unmapped.length}
 				<li>
-					<strong>{count(unmapped.length)} of the ranked speakers are on no map.</strong>
+					<strong>{count(unmapped.length)} of the ranked speakers appear on no map.</strong>
 					{unmapped
 						.slice(0, 4)
 						.map((entry) => entry.speaker.country_org)
-						.join(', ')}{unmapped.length > 4 ? ', and others' : ''} are not states with a centroid. They
-					are in the table and absent from the figure above, on purpose.
+						.join(', ')}{unmapped.length > 4 ? ', and others' : ''} are not states and have no place on
+					a globe. They are in the table and missing from the figure above, on purpose.
 				</li>
 			{/if}
 			{#each collisions as [code, holders] (code)}
 				<li>
 					<strong>{code} is shared by {holders.length} speakers.</strong>
-					{holders.join(', ')} carry the same code because a successor state's code is the only way to
-					place a historical one at all. They are never merged: a combined denominator would belong to
-					no state that ever spoke.
+					{holders.join(', ')} carry the same country code, because using a successor state's code is
+					the only way to place a historical state on a map at all. They are never merged: a combined
+					total would belong to no state that ever spoke.
 				</li>
 			{/each}
 			<li>
-				<strong>A centroid is not where anyone spoke.</strong>
+				<strong>A country's map position is not where anyone spoke.</strong>
 				{artefact.centroid_rule}
 			</li>
 			<li>
-				<strong>The filled map is keyed on territory, and the table is not.</strong>
-				A fill needs an ISO3 code, so it inherits everything a code cannot carry: a historical speaker
-				is drawn inside its successor's borders, a large state is conspicuous for being large, and {count(
+				<strong>The shaded map is built on territory; the table is built on the speaker.</strong>
+				Shading needs a country code, so it inherits everything a code cannot carry: a historical speaker
+				appears inside its successor's borders, a large state draws the eye for being large, and {count(
 					unbounded.length
-				)} delegations have no boundary at this resolution and are marked with a dot. Where two drawable
-				speakers ever share a code the country is outlined and left unfilled rather than given one of
-				their rates. The circles and this table are keyed on the speaker and are free of all of it.
+				)} delegations have no outline at this scale and are marked with a dot. Where two measurable speakers
+				share a code, the country is outlined and left blank rather than given one of their two rates.
+				The circles and this table carry none of these problems.
 			</li>
 		</ul>
 	</section>

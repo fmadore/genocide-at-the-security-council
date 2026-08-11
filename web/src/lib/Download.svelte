@@ -109,7 +109,7 @@
 </script>
 
 <div class="download">
-	<span class="label">Take it away</span>
+	<span class="label">Download</span>
 	<div class="row">
 		{#if spec.table}
 			<button type="button" onclick={csv} disabled={busy !== null}>
@@ -130,8 +130,8 @@
 		<p class="problem" role="status">{problem}</p>
 	{:else}
 		<p class="hint">
-			The CSV holds every row the artefact has, not only what is drawn, and every file names the
-			script and lexicon version behind it.
+			The CSV holds every row behind this figure, not only what is drawn on screen, and each file
+			names the script and word-list version that produced it.
 		</p>
 	{/if}
 </div>

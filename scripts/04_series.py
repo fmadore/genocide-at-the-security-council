@@ -339,26 +339,27 @@ def build_month_of_year(
     return {
         "months": list(range(1, 13)),
         "rule": (
-            "A calendar month pooled across every year in the corpus. Its denominator "
-            "is not any cell's in the grid above, so the two do not share a scale and "
-            "must not share a colour bar: this is a second figure beside that one, not "
-            "a margin of it."
+            "One calendar month, gathered across every year in the corpus. It is "
+            "measured against a different total from any square in the grid above, so "
+            "the two do not share a scale and must not share a colour key. This is a "
+            "second figure standing beside that one rather than a footnote to it."
         ),
         "excluded_years": list(excluded),
         "excluding_rule": (
             f"The same twelve figures with {' and '.join(str(y) for y in excluded)} "
-            "dropped. Those are the corpus's two largest years for this vocabulary, and "
-            "a calendar pattern that is really one spike seen through a monthly lens "
+            "removed. Those are the corpus's two largest years for this vocabulary, and "
+            "a seasonal pattern that is really one spike seen through a monthly lens "
             "would not survive their removal. Published beside the first reading rather "
-            "than instead of it, because the comparison is the result."
+            "than in place of it, because the comparison is the result."
         ),
         "agenda_column": agenda_column,
         "agenda_rule": (
-            "The agenda items behind each month's term-bearing speeches, largest first, "
-            "as a share of that month's term-bearing speeches. The Council's reporting "
-            "calendar is periodic — the ICTY and ICTR reported semi-annually — so a "
-            "month's vocabulary is partly the vocabulary of whatever was scheduled in "
-            "it. This is the confound, and it belongs in the figure rather than under it."
+            "The agenda items behind each month's speeches that use the term, largest "
+            "first, as a share of that month's speeches using it. The Council works to a "
+            "reporting timetable — the tribunals for the former Yugoslavia and for Rwanda "
+            "reported twice a year — so a month's vocabulary is partly the vocabulary of "
+            "whatever was scheduled in it. That is the confusion this figure is exposed "
+            "to, and it belongs inside the figure rather than in a note beneath it."
         ),
         "measures": by_measure,
     }
@@ -405,13 +406,14 @@ def build_monthly(
         "months": list(range(1, 13)),
         "minimum_speeches": minimum,
         "minimum_speeches_rule": (
-            f"A month's rates are withheld — written as null, with sufficient=false — "
-            f"when the Council held fewer than {minimum} speeches in it. The threshold "
-            f"is the denominator at which a zero becomes informative: at the corpus "
-            f"prevalence of {prevalence:.2%}, seeing no term-bearing speech in fewer "
-            f"than {required} tries is consistent with the Council average, so a pale "
-            f"cell would say 'quiet' where the record says 'barely sat'. Counts are "
-            f"written regardless; a count is a fact and a rate is an estimate."
+            f"A month gets no rate at all when the Council held fewer than {minimum} "
+            f"speeches in it. That threshold is the point at which a zero starts to mean "
+            f"something: across the corpus as a whole, {prevalence:.2%} of speeches use "
+            f"this vocabulary, so seeing none of it in fewer than {required} speeches is "
+            f"exactly what the Council average would predict. A pale square would suggest "
+            f"a quiet month where the record shows a Council that barely sat. The counts "
+            f"are published either way, because a count is a fact and a rate is an "
+            f"estimate."
         ),
         "informative_zero_minimum": required,
         "corpus_speech_prevalence": round(prevalence, 6),
@@ -483,11 +485,11 @@ def build_change_points(
             "max_breaks": max_breaks,
         },
         "caveat": (
-            "Exploratory only: the permutation null is a reordering of the same values, "
-            "which tests for a "
-            "level shift and not for a trend. A smoothly rising series will return a "
-            "break at its midpoint; read these against the plotted series, not instead "
-            "of it."
+            "This method shuffles the same yearly values into a new order to see how "
+            "unusual the real ordering is, which detects a step up or down but not a "
+            "gradual trend: a series that rises smoothly will return a break at its "
+            "midpoint regardless. Read these candidates against the plotted series "
+            "rather than in place of it."
         ),
         "series": {},
     }
@@ -547,12 +549,14 @@ def build_change_points(
         "correction": f"Bonferroni across {len(model_specs)} planned rate tests",
         "trials": trials,
         "caveat": (
-            "The scan preserves annual denominators and the breakpoint search, but rejecting "
-            "a constant rate does not prove an abrupt historical break: a smooth trend can "
-            "also yield a best two-rate partition. Annual bins are treated as independent, "
-            "speech clustering and Poisson overdispersion are not modelled, and confidence "
-            "intervals are conditional on the selected partition. Read effect sizes with the "
-            "trajectory and concordance evidence; do not interpret the date causally."
+            "The test allows for how many speeches each year held and repeats its whole "
+            "search under a no-change model, but finding a split does not prove that "
+            "anything changed abruptly: a series that rises gradually will also produce a "
+            "best two-rate split somewhere. Each year is treated as independent of the "
+            "last, the way speeches cluster into meetings is not modelled, and the "
+            "intervals assume the split fell where the search put it. Read the size of "
+            "the change alongside the plotted series and the concordance evidence, and do "
+            "not read the date as a cause."
         ),
         "series": inferred,
     }

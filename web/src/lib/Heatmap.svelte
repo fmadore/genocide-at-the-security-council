@@ -201,7 +201,7 @@
 		y={HEADER + rows * (CELL_H + GAP) + 20}
 		font-family={FONT}
 		font-size="9"
-		fill={$colours.inkFaint}>withheld ({plan.withheld})</text
+		fill={$colours.inkFaint}>no rate ({plan.withheld})</text
 	>
 </svg>
 

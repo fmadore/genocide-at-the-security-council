@@ -48,15 +48,19 @@
 		{
 			id: 'speech_rate',
 			label: 'Share of speeches',
-			note: 'speeches containing the term ÷ speeches held'
+			note: 'speeches using the term ÷ speeches held'
 		},
 		{
 			id: 'token_rate',
 			label: 'Per 100k words',
 			note: 'occurrences ÷ words spoken × 100,000'
 		},
-		{ id: 'occurrences', label: 'Occurrences', note: 'raw count — a measure of corpus growth' },
-		{ id: 'speeches', label: 'Speeches', note: 'raw count — a measure of corpus growth' }
+		{
+			id: 'occurrences',
+			label: 'Occurrences',
+			note: 'raw count — tracks how much the Council spoke'
+		},
+		{ id: 'speeches', label: 'Speeches', note: 'raw count — tracks how much the Council spoke' }
 	];
 
 	let unit = $state<Unit>('speech_rate');
@@ -197,7 +201,7 @@
 			});
 		}
 		return {
-			title: 'The lexicon over time',
+			title: 'The word list over time',
 			columns: [
 				'period',
 				'measure',
@@ -248,7 +252,7 @@
 			}
 		}
 		return {
-			title: 'Rate heterogeneity in the genocide series',
+			title: 'Testing for a change in the rate',
 			columns: [
 				'measure',
 				'unit',
@@ -474,7 +478,7 @@
 	const SPLITS = [
 		{ id: 'none', label: 'No split' },
 		{ id: 'speaker_group', label: 'Speaker group' },
-		{ id: 'entity_type', label: 'Entity type' },
+		{ id: 'entity_type', label: 'Kind of speaker' },
 		{ id: 'agenda_item1', label: 'Region of agenda item' },
 		{ id: 'agenda_item_manual', label: 'Agenda item' },
 		{ id: 'delivery_language', label: 'Delivery language' }
@@ -544,16 +548,16 @@
 	<header class="lede">
 		<h1>Chronology</h1>
 		<p class="standfirst">
-			Every term in the lexicon over {periods.length}
-			{grain === 'year' ? 'years' : 'quarters'}, in whichever unit you ask for. The unit is the
-			argument: the same data reads as a rise or as flat depending on what it is divided by, and
-			both readings are available here on purpose.
+			Every term on the list over {periods.length}
+			{grain === 'year' ? 'years' : 'quarters'}, counted however you ask for it. The choice of unit
+			is itself an argument: the same numbers look like a steep rise or like a flat line depending
+			on what they are divided by, and both readings are offered here on purpose.
 		</p>
 	</header>
 
 	<Figure
-		title="The lexicon over time"
-		question="When was each term said, and does the answer survive being normalised?"
+		title="The word list over time"
+		question="When was each term said, and does the answer hold up once you allow for how much the Council spoke?"
 		source="04_series.py → series/annual.json, series/quarterly.json, series/events.json"
 		download={{
 			name: ['unsc', 'lexicon-over-time', grain],
@@ -584,31 +588,32 @@
 
 		{#snippet reading()}
 			<p>
-				Pick terms below the chart. Drag the bar under the axis to zoom a period; scroll on the plot
-				to do the same. Colour follows the term's <strong>register</strong>, so terms from the same
-				discursive family share a hue.
+				Pick terms from the list below the chart. Drag the bar under the axis to zoom in on a
+				stretch of years, or scroll on the plot itself. Colour follows the term's
+				<strong>register</strong> &mdash; the family of vocabulary it belongs to &mdash; so terms that
+				do similar work in a speech share a hue.
 			</p>
 			<p>
-				{#if showEvents && grain === 'year'}Faint vertical rules mark years carrying one of the
+				{#if showEvents && grain === 'year'}Faint vertical lines mark the years carrying one of the
 					{data.overlay.events.length}
-					<a href="#reference-dates">reference dates</a>; hover anywhere in such a year to read the
-					date and what it marks, below that year's values. They annotate the chart and explain
-					nothing in it &mdash; see the caveat below.{:else}Reference dates are hidden.{/if}
+					<a href="#reference-dates">reference dates</a>. Hover anywhere inside such a year to read
+					the date and what it marks, listed below that year's values. They are there for context
+					and explain nothing in the chart &mdash; see the note below.{:else}Reference dates are
+					hidden.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>The two raw units measure the corpus, not the discourse.</strong> The Council held {count(
-					source.corpus.speeches[0]
-				)} speeches in {source.periods[0]} and
+				<strong>The two raw counts measure the Council's output, not its language.</strong> The
+				Council held {count(source.corpus.speeches[0])} speeches in {source.periods[0]} and
 				{count(source.corpus.speeches[source.corpus.speeches.length - 1])} in
-				{source.periods[source.periods.length - 1]}; any series not divided by that is mostly a
-				picture of that growth.
+				{source.periods[source.periods.length - 1]}. A line that is not divided by that is mostly a
+				picture of the growth.
 			</p>
 			<p>
-				Sets (<em>atrocity core</em>, <em>Rome triad</em>) have no occurrence count of their own,
-				because a speech using two of their members would be counted twice. They appear only in the
-				two share-based units.
+				Sets of terms (<em>atrocity core</em>, <em>Rome triad</em>) have no occurrence count of
+				their own, because a speech using two members of the set would be counted twice. They are
+				available only in the two share-based units.
 			</p>
 		{/snippet}
 
@@ -616,7 +621,7 @@
 			bind:this={seriesFigure}
 			option={main}
 			height="420px"
-			description="Time series of selected lexicon terms in the chosen unit."
+			description="Line chart of the selected terms over time, in the chosen unit."
 			onclick={drillChronology}
 		/>
 		<details class="data-table">
@@ -649,16 +654,16 @@
 
 	{#if unavailable.length}
 		<p class="warn">
-			{unavailable.map(label).join(', ')} cannot be shown in this unit &mdash; a set has no occurrence
-			count of its own. Switch to a share-based unit.
+			{unavailable.map(label).join(', ')} cannot be shown in this unit, because a set of terms has no
+			occurrence count of its own. Switch to a share-based unit to see it.
 		</p>
 	{/if}
 
 	<section class="picker">
 		<h2>Terms</h2>
 		<p class="hint">
-			Grouped by register. <strong>Sets</strong> are unions of terms; <strong>registers</strong>
-			are every term in a discursive family at once.
+			Grouped by register. A <strong>set</strong> counts several terms together; a
+			<strong>register</strong> counts every term in one family of vocabulary at once.
 		</p>
 		<div class="chips">
 			{#each Object.keys(allMeasures) as name (name)}
@@ -677,9 +682,9 @@
 
 	<Figure
 		title="Does the vocabulary have a calendar?"
-		question="At month resolution, are there times of year the Council reaches for this vocabulary more than others?"
+		question="Month by month, are there times of year when the Council reaches for this vocabulary more than others?"
 		source="04_series.py → series/monthly.json"
-		note="Colour is a rate, never a count. Twice as dark is not twice the rate — read the key. A hatched cell is withheld, not a zero."
+		note="Shading always carries a rate, never a count. Twice as dark is not twice the rate — read the key. A hatched square has no rate; it is not a zero."
 		download={{
 			name: ['unsc', 'month-grid', gridMeasure],
 			table: monthTable,
@@ -707,56 +712,58 @@
 
 		{#snippet reading()}
 			<p>
-				One square per month, {byMonth.years[0]}–{byMonth.years[byMonth.years.length - 1]}, years
-				down and months across. Colour runs from the page's own tone at nothing to the darkest at
-				<strong>{showRate(heat.high)}</strong>, the strongest month in the grid. The ramp starts at
-				zero rather than at the quietest month, so a month in which nobody said the word looks empty
-				— which it was.
+				One square per month, {byMonth.years[0]}–{byMonth.years[byMonth.years.length - 1]}, with
+				years running down and months across. The shading runs from the colour of the page at zero
+				to the darkest tone at <strong>{showRate(heat.high)}</strong>, the strongest month in the
+				grid. It starts at zero rather than at the quietest month, so a month in which nobody said
+				the word looks empty, which is what it was.
 			</p>
 			<p>
-				<strong>The ramp is not proportional.</strong> These rates are skewed — the middle month is
-				around
-				{showRate(byMonth.corpus_speech_prevalence)} and the strongest is {showRate(heat.high)} — so a
-				colour proportional to the value would leave half the grid indistinguishable from the page. The
-				ramp is on the square root instead: the order of every cell is preserved and nothing is capped,
-				but the key, not the darkness, is what a value should be read off.
+				<strong>The shading is deliberately not proportional.</strong> A handful of months sit far
+				above the rest: the middle month runs at about
+				{showRate(byMonth.corpus_speech_prevalence)} and the strongest at {showRate(heat.high)}.
+				Shading in direct proportion would leave half the grid indistinguishable from the page, so
+				it follows the square root of the rate instead. Every square keeps its place in the order
+				and nothing is cut off at the top, but the number should be read off the key rather than
+				guessed from the darkness.
 			</p>
 			<p>
 				<strong>Hatched squares carry no rate.</strong>
 				{count(heat.withheld)} of the {count(heat.cells.length)} months hold fewer than
-				{count(heat.minimum)} speeches. They keep their counts in the table and the download; what they
-				do not get is a colour, because a pale square would say "quiet" where the record says "barely
-				sat".
+				{count(heat.minimum)} speeches. Their counts stay in the table and in the download; what they
+				do not get is a shade. The note opposite says why.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			{#if column.shared}
 				<p>
-					<strong>The bright months are largely a reporting calendar.</strong>
-					{strongest.map((row) => row.name).join(' and ')} are the strongest months, and the largest agenda
-					item behind the speeches in both is
-					<em>{column.shared}</em>. The tribunals reported to the Council semi-annually, so what is
-					most visible here is partly when the Council was scheduled to discuss this, not when it
-					chose to. The table below the pooled figure gives the attribution month by month.
+					<strong>The darkest months largely follow a reporting timetable.</strong>
+					{strongest.map((row) => row.name).join(' and ')} are the strongest months, and the agenda item
+					behind most of the speeches in both is
+					<em>{column.shared}</em>. The international tribunals reported to the Council twice a
+					year, so what stands out here is partly when the Council was scheduled to discuss the
+					subject rather than when it chose to. The table under the pooled figure below names the
+					agenda item behind each month.
 				</p>
 			{/if}
 			<p>
 				{byMonth.minimum_speeches_rule}
 			</p>
 			<p>
-				A month's vocabulary is the vocabulary of the debates held in it. That is the same confound
-				the <a href="{resolve('/actors')}#speaker-keyness">per-speaker keyness</a> step spends its whole
-				design controlling for, and nothing here controls for it.
+				A month's vocabulary is the vocabulary of whatever debates were held in it. That is the same
+				problem the
+				<a href="{resolve('/actors')}#speaker-keyness">speaker-by-speaker comparison</a> on the Actors
+				page is designed around, and nothing in this figure corrects for it.
 			</p>
 		{/snippet}
 
 		{#if heat.refusal}
 			<p class="empty">
 				{#if heat.refusal === 'none-drawable'}
-					No month in this corpus cleared {count(heat.minimum)} speeches, so there is nothing here that
+					No month in this corpus reached {count(heat.minimum)} speeches, so there is nothing here that
 					could be drawn honestly.
 				{:else}
-					This measure is not in the artefact.
+					This measure is not in the data.
 				{/if}
 			</p>
 		{:else}
@@ -772,16 +779,16 @@
 			<details class="data-table">
 				<summary><Icon icon={ChevronRight} />View the grid as a table</summary>
 				<p class="hint">
-					A dash is a month with no published rate.
+					A dash marks a month with no published rate.
 					{#if linkable}
-						Each figure opens that month's lines in the concordance — the month itself, not the year
-						around it. A withheld square links too: the minimum governs a rate, and the lines under
-						it are the record rather than an estimate from it.
+						Every number opens that month's lines in the concordance, that month alone rather than
+						the year around it. Months with no rate link too: the minimum applies to the rate, and
+						the lines beneath it are the record itself rather than an estimate drawn from it.
 					{:else}
-						The squares do not link here: the concordance holds one file per term, and
+						The numbers do not link here. The concordance shows one term at a time, and
 						<em>{termLabel(gridMeasure)}</em>
-						is {gridTerms.length} of them ({gridTerms.map(termLabel).join(', ')}). Draw one of those
-						to open a month's lines.
+						gathers {gridTerms.length} of them ({gridTerms.map(termLabel).join(', ')}). Select one
+						of those above to open a month's lines.
 					{/if}
 				</p>
 				<table>
@@ -827,27 +834,26 @@
 		title="The same twelve months, pooled"
 		question="Across thirty-two years, which months of the year carry the vocabulary — and what was on the agenda in them?"
 		source="04_series.py → series/monthly.json"
-		note="A different denominator from any square in the grid above. The two do not share a scale."
+		note="These rows are measured against a different total from any square in the grid above, so the two figures do not share a scale."
 		download={{ name: ['unsc', 'month-of-year', gridMeasure], table: calendarTable }}
 	>
 		{#snippet reading()}
 			<p>
-				Each row pools every {byMonth.years.length} instances of that month. The bar in the row's own
-				background is the figure beside it, so there is no second rendering that could drift from the
-				numbers.
+				Each row gathers all {byMonth.years.length} instances of that month across the corpus. The bar
+				behind a row is drawn from the number printed beside it, so the two cannot drift apart.
 			</p>
 			<p>
-				<strong>Without</strong> repeats the figure with {column.excludedYears.join(' and ')} dropped
-				— the corpus's two largest years for this vocabulary. A calendar pattern that is really one spike
-				seen through a monthly lens would not survive their removal.
+				<strong>Without</strong> repeats the figure with {column.excludedYears.join(' and ')} removed.
+				Those are the corpus's two largest years for this vocabulary, and a seasonal pattern that is really
+				one spike seen through a monthly lens would not survive their removal.
 			</p>
 			<p>
 				{#if linkable}
-					Each month opens every instance of it in the concordance — all {byMonth.years.length} Junes,
-					not one of them, which is the row's own denominator.
+					Each month opens every instance of it in the concordance: all {byMonth.years.length} Junes rather
+					than one of them, which is what the row is measured against.
 				{:else}
-					The months do not link here: <em>{termLabel(gridMeasure)}</em> is {gridTerms.length} concordance
-					terms, and the concordance shows one at a time.
+					The months do not link here. <em>{termLabel(gridMeasure)}</em> gathers {gridTerms.length} terms,
+					and the concordance shows one at a time.
 				{/if}
 			</p>
 		{/snippet}
@@ -857,17 +863,17 @@
 		{/snippet}
 
 		{#if column.refusal}
-			<p class="empty">This measure is not in the calendar block.</p>
+			<p class="empty">This measure has no pooled-month figures.</p>
 		{:else}
 			<table class="calendar">
 				<thead>
 					<tr>
 						<th>Month</th>
 						<th class="num">Speeches</th>
-						<th class="num">Bearing</th>
+						<th class="num">Using the term</th>
 						<th class="num">Rate</th>
 						<th class="num">Without {column.excludedYears.join('/')}</th>
-						<th>Largest item behind them</th>
+						<th>Largest agenda item behind them</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -902,30 +908,32 @@
 	</Figure>
 
 	<Figure
-		title="Rate heterogeneity in the genocide series"
-		question="Where is the strongest denominator-aware two-rate contrast?"
+		title="Testing for a change in the rate"
+		question="Is the genocide series better described by one steady rate, or by two?"
 		source="04_series.py → series/change_points.json"
-		download={{ name: ['unsc', 'rate-heterogeneity'], table: breaksTable }}
+		download={{ name: ['unsc', 'rate-change'], table: breaksTable }}
 	>
 		{#snippet reading()}
 			<p>
-				Each row is a denominator-aware two-rate model of the same annual series. Speech prevalence
-				uses a
-				<strong>binomial</strong> likelihood; occurrences use a <strong>Poisson</strong> likelihood
-				with annual token counts as exposure. The reported p-value is from
-				{count(data.breaks.inference.trials)} no-change simulations that repeat the full breakpoint search.
+				Each row asks the same question of the same annual series in a different unit: split the
+				years at the best possible point, and is the difference between the two halves larger than
+				chance would produce? The share of speeches is modelled as a series of coin flips; the count
+				of occurrences is modelled against the number of words spoken each year, so a talkative year
+				is expected to contain more of everything.
 			</p>
 			<p>
-				The acceptance threshold is {percent(data.breaks.inference.per_test_alpha)} after
-				{data.breaks.inference.correction.toLowerCase()}. Confidence intervals describe the
-				aggregated rate on each side of the selected partition.
+				The p-value comes from {count(data.breaks.inference.trials)} simulated series in which the rate
+				never changes and the whole search is repeated from scratch. A result counts only below
+				{percent(data.breaks.inference.per_test_alpha)}, a threshold already tightened to allow for
+				several tests being run at once ({data.breaks.inference.correction}). The intervals describe
+				the combined rate on either side of the split.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>{data.breaks.inference.caveat}</p>
 			<p>
-				Minimum segment {data.breaks.parameters.min_size} periods, so a single anomalous year cannot be
-				reported as a regime.
+				Each side of a split must cover at least {data.breaks.parameters.min_size} periods, so a single
+				unusual year cannot be reported as a lasting change.
 			</p>
 		{/snippet}
 
@@ -945,7 +953,7 @@
 					{#if !result || !result.accepted}
 						<tr class="none">
 							<td>{UNITS.find((u) => u.id === name)?.label ?? name}</td>
-							<td colspan="5">constant annual rate not rejected after correction</td>
+							<td colspan="5">no change detected; one steady rate survives the test</td>
 						</tr>
 					{:else}
 						<tr>
@@ -974,10 +982,12 @@
 			</tbody>
 		</table>
 		<details class="data-table">
-			<summary><Icon icon={ChevronRight} />View the exploratory WBS diagnostics</summary>
+			<summary><Icon icon={ChevronRight} />View the second, exploratory change-point method</summary
+			>
 			<p>{data.breaks.caveat}</p>
 			<table>
-				<thead><tr><th>Unit</th><th>Candidate</th><th class="num">Diagnostic p</th></tr></thead>
+				<thead><tr><th>Unit</th><th>Candidate year</th><th class="num">Diagnostic p</th></tr></thead
+				>
 				<tbody
 					>{#each Object.entries(genocideBreaks) as [name, breaks] (name)}{#each breaks as item (item.index)}<tr
 								><td>{UNITS.find((unit) => unit.id === name)?.label ?? name}</td><td
@@ -1009,20 +1019,22 @@
 		{/snippet}
 		{#snippet reading()}
 			<p>
-				Each line is one category's own rate: speeches in that category containing
-				<code>genocid*</code>, divided by speeches in that category. Every line therefore has its
-				own denominator, and a small category is not penalised for being small.
+				Each line is one category measured against itself: speeches in that category using
+				<code>genocid*</code>, divided by all speeches in that category. Every line is therefore
+				scaled to its own output, and a category that spoke rarely is not pushed down the chart for
+				having spoken rarely.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
 				<strong>A rate says nothing about how much evidence is behind it.</strong> A category with twenty
-				speeches in a year can swing between 0% and 25% on a single mention. Lines break where a category
+				speeches in a year can swing between 0% and 25% on a single mention. A line breaks where the category
 				held no speeches at all that year.
 			</p>
 			<p>
-				Delivery language partly restates who is speaking. VTC records are shown as unknown rather
-				than inferred English because their document format carries no language marker.
+				Delivery language partly restates who is speaking. Speeches given by video link are shown as
+				unknown rather than assumed to be English, because that document format carries no marker of
+				the language either way.
 			</p>
 		{/snippet}
 
@@ -1031,7 +1043,7 @@
 				bind:this={splitFigure}
 				option={splitChart}
 				height="380px"
-				description="Rate of genocide invocation per year, split by the chosen category."
+				description="Share of speeches using genocide per year, one line per category of the chosen split."
 			/>
 		{:else}
 			<p class="empty">Choose a split above to break the series apart.</p>
@@ -1041,9 +1053,9 @@
 	<section class="events" id="reference-dates">
 		<h2>Reference dates</h2>
 		<p class="hint">
-			{data.overlay.events.length} hand-curated dates used to annotate the chart above. Each links to
-			the primary institutional record used to verify its date and description. The overlay is context,
-			not evidence that an event caused a change in Council language.
+			{data.overlay.events.length} dates, selected by hand, used to mark the chart above. Each links to
+			the official record used to verify its date and description. They are there for context; a date
+			falling near a change in the chart is not evidence that it produced the change.
 		</p>
 		<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
 		<div class="table-scroll" role="region" aria-label="Reference dates table" tabindex="0">

@@ -243,22 +243,24 @@ def build_standing(
         "groups": list(council.SPEAKER_GROUPS),
         "seated_groups": list(actors.SEATED),
         "seated_rule": (
-            "P5 and E10 are the Charter's two kinds of membership; a speech is "
-            "'seated' when its speaker held one of them in the year it was delivered. "
-            "The other three groups are not one thing: a non-member state was not on "
-            "the Council, the UN Secretariat never can be, and a non-state speaker was "
-            "invited. All five counts are written so that distinction survives, and "
-            "they sum to the speaker's own denominator."
+            "The UN Charter provides two kinds of Council membership: five permanent "
+            "members (P5) and ten elected ones (E10). A speech counts as 'seated' when "
+            "its speaker held one of those places in the year it was delivered. The "
+            "other three groups are not a single category: a non-member state was simply "
+            "not on the Council that year, the UN Secretariat never can be, and a "
+            "non-state speaker was invited to address it. All five counts are published "
+            "separately so that distinction survives, and together they add up to every "
+            "speech that speaker gave."
         ),
         "membership_rule": (
-            "Membership is a property of a speech, not of a country. The elected ten "
-            "rotate, so a speaker has no single status: Rwanda spoke as an elected "
-            "member in 1994 and 2013-2014 and as a non-member in every other year of "
-            "the corpus. A row here is therefore a composition rather than a label, "
-            "and shading a speaker with one colour would erase the change. Counts and "
-            "seated_share are written at every denominator, unlike the rates in "
-            "measures: a share of a speaker's own known speeches is a fact about the "
-            "record, not an estimate from it."
+            "Membership belongs to a speech rather than to a country. The ten elected "
+            "seats rotate, so no speaker has a single fixed status: Rwanda spoke as an "
+            "elected member in 1994 and again in 2013-2014, and as a non-member in every "
+            "other year of the corpus. Each row here is therefore a mixture rather than "
+            "a label, and shading a speaker in one colour would erase that change. "
+            "Unlike the rates elsewhere on this page, these figures are published however "
+            "few speeches lie behind them: a share of a speaker's own known speeches is a "
+            "fact about the record rather than an estimate drawn from it."
         ),
         "rows": rows,
     }
@@ -584,18 +586,18 @@ def run(minimum: int) -> None:
     payload = {
         "minimum_speeches": minimum,
         "minimum_speeches_rule": (
-            f"A speaker's rates are withheld — written as null, with sufficient=false — for "
-            f"any period in which it delivered fewer than {minimum} speeches. The threshold is "
-            f"the denominator at which a zero becomes informative: at the corpus prevalence of "
-            f"{prevalence:.2%}, seeing no term-bearing speech in fewer than {required} tries "
-            f"is consistent with the Council average. Counts are written regardless; a count "
-            f"is a fact and a rate is an estimate."
+            f"A speaker gets no rate for any period in which it delivered fewer than "
+            f"{minimum} speeches. That threshold is the point at which a zero starts to "
+            f"mean something: across the corpus as a whole, {prevalence:.2%} of speeches "
+            f"use this vocabulary, so seeing none of it in fewer than {required} speeches "
+            f"is exactly what the Council average would predict. The counts are published "
+            f"either way, because a count is a fact and a rate is an estimate."
         ),
         "rate_per_tokens": series.RATE_PER,
         "centroid_rule": (
-            "Country centroids are navigation aids for finding a country on a map. They do "
-            "not locate the speaker: every speech in this corpus was delivered in the "
-            "Security Council chamber. See docs/PLAN.md §3."
+            "A country's position on this map is a way of finding it, nothing more. It "
+            "does not locate the speaker: every speech in this corpus was delivered in "
+            "the Security Council chamber in New York."
         ),
         "iso3_collisions": collisions,
         "periods": period_totals,

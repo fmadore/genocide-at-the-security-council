@@ -90,7 +90,7 @@
 	title="Who held a seat when they spoke"
 	question="Was a delegation speaking as a member of the Council, or from outside it?"
 	source="11_countries.py → countries/countries.json"
-	note="A row is a composition, not a label. Width is the share of that speaker's own speeches."
+	note="A row is a mixture, not a single label. Width is the share of that speaker's own speeches."
 	download={{ name: ['unsc', 'standing', period, String(category)], table }}
 >
 	{#snippet controls()}
@@ -119,9 +119,10 @@
 
 	{#snippet reading()}
 		<p>
-			Each row is one speaker's own speeches, divided by the position it held when it gave them. The
-			two <strong>seated</strong> bands are the Charter's two kinds of membership; the three unseated
-			ones are kept apart because they are not the same thing.
+			Each row is one speaker's own speeches, divided up by the position it held when it gave them.
+			The two <strong>seated</strong> bands are the UN Charter's two kinds of Council membership: the
+			five permanent members and the ten elected ones. The three unseated bands are kept apart because
+			they are not the same thing as each other.
 		</p>
 		<p>
 			Of {count(result.counts.changed + result.counts.always + result.counts.never)} speakers in this
@@ -142,8 +143,9 @@
 				.standing.seated_rule}
 		</p>
 		<p>
-			A whole-corpus row is not the sum of the period rows, and the two must not be read together: a
-			speaker can be seated through a decade and a non-member across the corpus.
+			A whole-corpus row is not the sum of the period rows, and the two should not be read side by
+			side: a speaker can hold a seat for a decade and still count as a non-member across the corpus
+			as a whole.
 		</p>
 	{/snippet}
 
@@ -152,7 +154,7 @@
 			{#if result.refusal === 'none-in-category'}
 				No speaker in this period has that record.
 			{:else}
-				This slice is not in the artefact.
+				This combination is not in the data.
 			{/if}
 		</p>
 	{:else}

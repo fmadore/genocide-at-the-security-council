@@ -35,11 +35,15 @@
 	   once, because which sort is in force changes what the column of nodes
 	   means and should never be one click out of sight. */
 	const SORTS: { value: Sort; label: string; hint: string }[] = [
-		{ value: 'date', label: 'Date', hint: 'Chronological, then by speech id' },
+		{ value: 'date', label: 'Date', hint: 'Oldest first, then by speech identifier' },
 		{ value: 'country', label: 'Speaker', hint: 'Alphabetical by speaker' },
 		{ value: 'agenda', label: 'Agenda', hint: 'Alphabetical by agenda item' },
-		{ value: 'left', label: 'Left', hint: 'Alphabetical on the word before the node, reversed' },
-		{ value: 'right', label: 'Right', hint: 'Alphabetical on the word after the node' }
+		{
+			value: 'left',
+			label: 'Left',
+			hint: 'Alphabetical on the word before the match, read backwards'
+		},
+		{ value: 'right', label: 'Right', hint: 'Alphabetical on the word after the match' }
 	];
 
 	const PAGE = 60;
@@ -293,9 +297,9 @@
 	<header class="lede">
 		<h1>Concordance</h1>
 		<p class="standfirst">
-			Every occurrence of every lexicon term, with a searchable ±150-character context. This is
-			where an aggregate stops being an aggregate: each line opens to its full sentence, and from
-			there to the speech it came from.
+			Every occurrence of every term on the list, with 150 characters of searchable text either
+			side. This is where the counts elsewhere on the site turn back into speech: each line opens to
+			the full sentence, and from there to the speech it came from.
 		</p>
 	</header>
 
@@ -344,25 +348,28 @@
 
 		{#snippet reading()}
 			<p>
-				The <strong>bold centre</strong> is what the pattern matched; the columns either side are
-				the {data.index.meta.width as number} characters around it, with line breaks flattened. Click
-				any line to open the full sentence and the metadata for citing it.
+				The <strong>bold centre</strong> is what the search pattern matched; corpus linguists call
+				it the <em>node</em>. The columns either side hold the
+				{data.index.meta.width as number} characters around it, with line breaks removed. Click any line
+				to open the full sentence and the details needed to cite it.
 			</p>
 			<p>
-				<strong>Sorting by left or right context</strong> is the classic corpus-linguistic move: it
-				alphabetises the words <em>around</em> the keyword, so recurring constructions line up down the
-				column and become visible as patterns rather than as instances.
+				<strong>Sorting by left or right context</strong> is a standard technique in corpus
+				linguistics, the study of language through large collections of text. It puts the words
+				<em>around</em> the match into alphabetical order, so repeated turns of phrase stack up down the
+				column and can be read as patterns rather than one at a time.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				A concordance line is evidence of a word, not of a position. &ldquo;We reject the claim that
-				this is genocide&rdquo; and &ldquo;this is genocide&rdquo; are one occurrence each. Reading
-				the sentence is the minimum; reading the speech is better, and one click away.
+				A concordance line is evidence that a word was used, not evidence of a position. &ldquo;We
+				reject the claim that this is genocide&rdquo; and &ldquo;this is genocide&rdquo; each count
+				as one occurrence. Reading the sentence is the least you should do; reading the speech is
+				better, and one click away.
 			</p>
 			<p>
-				Counts here match the totals elsewhere on this site exactly &mdash; the export fails rather
-				than ship a concordance that disagrees with its own aggregates.
+				The counts here match the totals elsewhere on this site exactly. The export refuses to run
+				rather than hand over a concordance that disagrees with the figures drawn from it.
 			</p>
 		{/snippet}
 
@@ -438,9 +445,9 @@
 		</div>
 
 		<div class="columns" aria-hidden="true">
-			<span>Symbol &middot; speaker</span>
+			<span>Record &middot; speaker</span>
 			<span class="c-left">Left context</span>
-			<span class="c-node">Node</span>
+			<span class="c-node">Match</span>
 			<span>Right context</span>
 		</div>
 
@@ -549,8 +556,9 @@
 	<section class="terms">
 		<h2>What is available</h2>
 		<p class="hint">
-			{count(entries.reduce((a, e) => a + e.count, 0))} lines across {entries.length} terms. Each term
-			is a separate file, fetched when you choose it.
+			{count(entries.reduce((a, e) => a + e.count, 0))} lines across {entries.length} terms, some of them
+			single words and some short phrases. Each term is held in its own file, downloaded when you select
+			it.
 		</p>
 		<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
 		<div class="table-scroll" role="region" aria-label="Available terms table" tabindex="0">
@@ -561,8 +569,8 @@
 						<th>Register</th>
 						<th class="num">Lines</th>
 						<th class="num">Speeches</th>
-						<th class="num">Size</th>
-						<th class="num">Median sentence</th>
+						<th class="num">File size</th>
+						<th class="num">Median sentence length</th>
 					</tr>
 				</thead>
 				<tbody>

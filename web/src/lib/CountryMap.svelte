@@ -716,7 +716,7 @@
 		class="canvas"
 		bind:this={container}
 		role="group"
-		aria-label="Locator map of the ranked speakers. The ranked table below carries the same rows in the same order."
+		aria-label="Map locating the ranked speakers. The table below carries the same rows in the same order."
 	></div>
 	{#if failed}
 		<p class="state" role="status">
@@ -726,19 +726,19 @@
 	{:else if !ready}
 		<p class="state" role="status">
 			{#if slow}
-				The basemap has not loaded. Every speaker it would show is in the table below, which is the
-				same data in the same order — the map is only an index into it.
+				The background map has not loaded. Every speaker it would show is in the table below, which
+				holds the same data in the same order; the map is only a way into it.
 			{:else}
-				Loading the basemap…
+				Loading the background map…
 			{/if}
 		</p>
 	{:else if view === 'choropleth' && worldFailed}
 		<p class="state" role="status">
-			The boundaries did not load ({worldFailed}), so this is still the circles. They are the same
-			rows, and so is the table below.
+			The country outlines did not load ({worldFailed}), so this is still the circles. They carry
+			the same rows, and so does the table below.
 		</p>
 	{:else if view === 'choropleth' && !layered}
-		<p class="state" role="status">Loading the boundaries…</p>
+		<p class="state" role="status">Loading the country outlines…</p>
 	{/if}
 </div>
 
@@ -762,21 +762,21 @@
 		<p class="states">
 			<span class="pair">
 				<span class="swatch" style:background={mix($colours.paper, $colours.inkFaint, 0.45)}></span>
-				below the minimum ({fills.withheld})
+				spoke too rarely for a rate ({fills.withheld})
 			</span>
 			{#if fills.contested}
 				<span class="pair">
 					<span class="swatch" style:background={mix($colours.paper, $colours.ink, 0.62)}></span>
-					shared code, not filled ({fills.contested})
+					country code shared by two speakers, not shaded ({fills.contested})
 				</span>
 			{/if}
 			{#if unbounded.length}
 				<span class="pair">
 					<span class="dot"></span>
-					too small for a boundary at this scale ({unbounded.length})
+					too small for an outline at this scale ({unbounded.length})
 				</span>
 			{/if}
-			<span class="pair">unfilled: not a speaker in this period</span>
+			<span class="pair">blank: did not speak in this period</span>
 		</p>
 	</div>
 {/if}

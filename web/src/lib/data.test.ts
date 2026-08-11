@@ -114,14 +114,17 @@ describe('what a bad response is turned into', () => {
 	it('names the status and says the pipeline has probably not been run', async () => {
 		const { collocates } = await fresh();
 		const { fetcher } = responder(null, { ok: false, status: 404 });
-		// A 404 here almost always means `static/data/` was never built. Someone
-		// tidying this message would remove the only thing that makes the failure
-		// actionable for a reader who has just cloned the repository.
+		// This message is read by two people and has to serve both. A visitor who
+		// followed a stale link needs to know the record is not in this build;
+		// someone who has just cloned the repository needs the build command.
+		// Tidying either half away removes the only thing that makes the failure
+		// actionable for one of them.
 		await expect(collocates(fetcher)).rejects.toThrow(
-			/lexical\/collocates\.json is missing \(404\)/
+			/No data file at lexical\/collocates\.json \(404\)/
 		);
+		await expect(collocates(fetcher)).rejects.toThrow(/not part of this build/);
 		await expect(collocates(fetcher)).rejects.toThrow(
-			/Run the pipeline and scripts\/export_web\.py/
+			/run the pipeline and scripts\/export_web\.py/
 		);
 	});
 

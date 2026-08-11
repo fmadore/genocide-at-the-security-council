@@ -89,9 +89,9 @@
 
 <Figure
 	title="What a delegation says that the room does not"
-	question="Holding the debate constant, which words distinguish one speaker's language from everybody else's?"
+	question="With the debate held constant, which words set one speaker's language apart from everybody else's?"
 	source="12_speaker_keyness.py → countries/speaker_keyness.json"
-	note="Bar length is log ratio, not significance. Colour is direction, not strength."
+	note="Bar length shows the size of the difference, not the confidence in it. Colour shows which way the difference runs."
 	download={{ name: ['unsc', 'keyness', speaker?.country_org ?? 'none', control], table }}
 >
 	{#snippet controls()}
@@ -107,7 +107,7 @@
 					>
 				{/each}
 				{#if refused.length}
-					<optgroup label="Withheld — no table">
+					<optgroup label="No table available">
 						{#each refused as row (row.country_org)}
 							<option value={row.country_org}>{shortCountry(row.country_org)}</option>
 						{/each}
@@ -118,8 +118,8 @@
 		<label>
 			Compared against
 			<select bind:value={control}>
-				<option value="matched">The same debates (matched)</option>
-				<option value="unmatched">The whole corpus (unmatched)</option>
+				<option value="matched">Speeches from the same debates</option>
+				<option value="unmatched">The whole corpus</option>
 			</select>
 		</label>
 		<label>
@@ -132,22 +132,22 @@
 
 	{#snippet reading()}
 		<p>
-			One row per word, ordered by G² as the artefact orders them. <strong
-				>Length is the log ratio</strong
-			> — how many times more often this speaker used the word than its controls, doubling with every
-			whole number. A word can top the table on a small difference, which is why length carries the effect
-			and not the confidence.
+			One row per word, ordered by how confident the comparison is (G²). <strong
+				>Bar length carries the log ratio</strong
+			>: how many times more often this speaker used the word than the speeches it is compared
+			against, doubling with every whole number. A word can reach the top of the table on a small
+			difference, which is why length carries the size of the effect rather than the confidence.
 		</p>
 		<p>
-			An asterisk marks a word from the speaker's own name. Those rows are marked rather than
-			removed: how often a delegation names itself is a fact about its register, and deleting rows
-			would change the ranking beneath them.
+			An asterisk marks a word taken from the speaker's own name. Those rows are marked rather than
+			deleted: how often a delegation names itself says something about how it speaks, and removing
+			rows would change the ranking of everything below them.
 		</p>
 		{#if control === 'matched'}
 			<p>
 				The bracket after a row is the range its log ratio covered across {data.repetitions} draws of
-				the control set, this one among them. A wide bracket is a property of the draw rather than of
-				the speaker.
+				the comparison set, this one among them. A wide bracket says more about the luck of the draw than
+				about the speaker.
 			</p>
 		{/if}
 	{/snippet}
@@ -156,7 +156,7 @@
 		<p>{data.reading_rule}</p>
 		<p>
 			{#if control === 'unmatched'}
-				<strong>This is the unmatched reading.</strong> {data.unmatched_rule}
+				<strong>This is the whole-corpus comparison.</strong> {data.unmatched_rule}
 			{:else}
 				{data.control_rule}
 			{/if}
@@ -165,7 +165,7 @@
 	{/snippet}
 
 	{#if plan.missing}
-		<p class="refusal">That speaker is not in this artefact.</p>
+		<p class="refusal">That speaker is not in this data.</p>
 	{:else if plan.refusal}
 		<div class="refusal">
 			<p>
@@ -174,19 +174,19 @@
 			</p>
 			{#if plan.refusal.because.includes('coverage')}
 				<p>
-					The matching found a comparable speech for only {count(plan.refusal.pairs)} of its {count(
+					A comparable speech could be found for only {count(plan.refusal.pairs)} of its {count(
 						plan.refusal.held
 					)}
-					— {percent(plan.refusal.coverage)}, against a declared minimum of
-					{percent(data.minimum_coverage)}. A table built on that describes a small and non-random
-					part of what this speaker said: the strata where somebody comparable happened to speak
-					too.
+					&mdash; {percent(plan.refusal.coverage)}, against a declared minimum of
+					{percent(data.minimum_coverage)}. A table built on that would describe a small and
+					lopsided part of what this speaker said: the debates where somebody comparable happened to
+					speak too.
 				</p>
 			{/if}
 			{#if plan.refusal.because.includes('pairs')}
 				<p>
 					Only {count(plan.refusal.pairs)} of its {count(plan.refusal.held)} speeches found a partner,
-					below the {count(data.minimum_pairs)} matched pairs this figure requires.
+					below the {count(data.minimum_pairs)} pairs this figure requires.
 				</p>
 			{/if}
 		</div>
@@ -195,14 +195,14 @@
 		     not, so the line says which. Printing the control's word count under the
 		     unmatched reading would name a denominator that reading never used. -->
 		<p class="denominator">
-			<strong>{count(speaker.pairs)} matched pairs</strong> from {count(speaker.held)} speeches ({percent(
+			<strong>{count(speaker.pairs)} paired speeches</strong> out of {count(speaker.held)} ({percent(
 				speaker.coverage
-			)} coverage) &middot;
+			)} of its record) &middot;
 			{count(speaker.target_tokens ?? 0)} words against
 			{#if control === 'matched'}
-				{count(speaker.control_tokens ?? 0)} in the control
+				{count(speaker.control_tokens ?? 0)} in the comparison set
 				{#if fell !== null}
-					&middot; matching cut the top effect sizes by {decimal(fell)} on the log2 scale
+					&middot; pairing reduced the largest differences by {decimal(fell)} on the log-ratio scale
 				{/if}
 			{:else}
 				the rest of the corpus
@@ -219,8 +219,8 @@
 				<tr>
 					<th scope="col">Word</th>
 					<th scope="col" class="num">Log ratio</th>
-					<th scope="col" class="num">In target</th>
-					<th scope="col" class="num">In control</th>
+					<th scope="col" class="num">This speaker</th>
+					<th scope="col" class="num">Compared with</th>
 					<th scope="col" class="num">G²</th>
 				</tr>
 			</thead>
@@ -258,16 +258,16 @@
 
 		{#if marked.marked}
 			<p class="note-self">
-				{marked.marked} of the {marked.of} rows drawn are this speaker naming itself.
+				{marked.marked} of the {marked.of} rows drawn are the speaker naming itself.
 			</p>
 		{/if}
 
 		<section class="agenda">
 			<h4>What it was heard on</h4>
 			<p>
-				The matching holds the agenda item constant, so this is what was held constant.
-				{shortCountry(speaker.country_org)} spoke on {count(speaker.agenda.items)} items;
-				{percent(speaker.agenda.concentration)} of its speeches were on its three commonest.
+				The pairing holds the agenda item constant, so this is what was held constant.
+				{shortCountry(speaker.country_org)} spoke on {count(speaker.agenda.items)} items, and
+				{percent(speaker.agenda.concentration)} of its speeches fell on its three commonest.
 			</p>
 			<ul>
 				{#each speaker.agenda.top.slice(0, 5) as item (item.item)}
@@ -291,15 +291,16 @@
 	<h3>Who is not here</h3>
 	<ul>
 		<li>
-			<strong>{count(unpaired)} speakers were never paired.</strong> They delivered fewer than
-			{count(data.minimum_pairs)} speeches, so no comparison could be built. They are a number here rather
-			than a list, because there is nothing to show.
+			<strong>{count(unpaired)} speakers were never paired at all.</strong> They delivered fewer
+			than
+			{count(data.minimum_pairs)} speeches, so no comparison could be built. They appear here as a number
+			rather than a list, because there is nothing to show.
 		</li>
 		{#if refused.length}
 			<li>
-				<strong>{count(refused.length)} were paired and then withheld.</strong> Unlike the group
-				above, each has an arithmetic a reader can see, so they stay in the picker and refuse with
-				their reason:
+				<strong>{count(refused.length)} were paired and then held back.</strong> Unlike the group
+				above, each of these has a figure a reader can weigh, so they stay in the picker and give
+				their reason when selected:
 				{#each refused as row, index (row.country_org)}{shortCountry(row.country_org)} ({percent(
 						row.coverage
 					)}){#if index < refused.length - 1},
@@ -307,9 +308,9 @@
 			</li>
 		{/if}
 		<li>
-			<strong>A keyword is not a position.</strong>
+			<strong>A distinctive word is not a position.</strong>
 			{data.reading_rule} A delegation that names a conflict often may be prosecuting it, deploring it,
-			or chairing the debate on it.
+			or chairing the debate about it.
 			<a class="more" href={resolve('/concordance')}>
 				Read the record instead <Icon icon={ChevronRight} />
 			</a>

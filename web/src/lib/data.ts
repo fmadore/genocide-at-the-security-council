@@ -279,11 +279,15 @@ export function json<T>(
 		const request = fetcher(url)
 			.then((response) => {
 				if (!response.ok) {
-					// A 404 here almost always means the pipeline has not been run,
-					// so say that rather than letting a parse error surface.
+					// Two readers, one sentence. A visitor who followed a stale link
+					// needs to know the file is not there and that nothing they did
+					// caused it; whoever is building the site locally needs the
+					// second half, which is why the missing path is named first.
 					throw new Error(
-						`${path} is missing (${response.status}). Run the pipeline and ` +
-							`scripts/export_web.py to build web/static/data/.`
+						`No data file at ${path} (${response.status}). If you followed a link here, ` +
+							`the record it points to is not part of this build. If you are running the ` +
+							`site locally, run the pipeline and scripts/export_web.py to build ` +
+							`web/static/data/.`
 					);
 				}
 				return response.json() as Promise<unknown>;
