@@ -131,6 +131,66 @@ Operational checks:
 - manifest hashes and the visible lexicon version agree;
 - a failed data fetch shows a useful retry state, not a blank chart.
 
+### 2.1 The archive is a dependency, and it is not ours
+
+The sentence at the top of `deploy.yml` — "this costs build time, but makes a release
+reproducible from the DOI and the repository alone" — is the right principle and was, as
+written, also a single point of failure. **On 11 August 2026 the publish workflow failed
+twice in a row inside `00_fetch_data.py`**, once on the dataset version lookup and once
+part-way through the files, after `meta.tsv` had already arrived intact. Nothing about the
+deposit had changed: v6.1 was `RELEASED`, the DOI resolved, and the same URLs answered
+from a laptop while CI was failing.
+
+Harvard Dataverse sheds load by returning **404 with an HTML error page** rather than 429
+or 503, and the same URL succeeds seconds later. Measured at the time: within one minute
+`meta.tsv` gave 303 then 404, and `speaker.tsv` gave 404 then 200 with all 33,027,398
+bytes; across eight consecutive version lookups, all eight succeeded but **seven needed a
+retry**. The pipeline was not unlucky twice — it was riding on one HTTP round trip per
+request, and the odds had turned.
+
+That is fixed: `with_retry` in `00_fetch_data.py` wraps whole operations rather than
+`urlopen`, so a connection dropped mid-stream is retried too, and a real "no such
+version" — which Dataverse answers as JSON carrying `status: ERROR` — still fails on the
+first attempt rather than after two minutes of retries. What is *not* fixed is the shape
+of the dependency, and three things would change it. They are listed cheapest first
+because the first one is also the largest win.
+
+**The pin is immutable, so most of this work is waste.** v6.1 cannot change, and its MD5s
+are recorded in `data/raw/dataset-manifest.json`. Re-downloading 508 MB on every push buys
+nothing — and because `deploy.yml` triggers on `web/**`, a CSS change re-fetches half a
+gigabyte from Harvard to move a grid column. The failed deploy of 11 August was exactly
+that. Two `actions/cache` steps remove it, with no new trust assumption:
+
+- cache `data/raw/` under a key naming the pinned version, which never has to change.
+  `00_fetch_data.py` is already cache-aware: it MD5-checks every local file and prints
+  `ok` rather than downloading, so a hit costs one API call instead of 508 MB;
+- cache `data/derived/` and `web/static/data/` under the hash of `config/**`,
+  `scripts/**`, `requirements.lock` and the raw manifest — which is exactly the set
+  `lib/artifacts.provenance` already claims determines an artifact. On a hit, steps 01–12
+  are skipped and a `web/src/**`-only push deploys with no Dataverse contact at all.
+
+The risk to design against is cache correctness: a key that misses an input ships a
+payload that does not match the code. This repository is unusually well placed to catch
+that, because every artifact already carries its input hashes and generating commit, so a
+mismatch stays detectable after the fact. And eviction is a feature rather than a
+problem — the cache must stay an optimisation, never a dependency, with Dataverse and the
+retry as the backstop.
+
+**A mirror would remove the single point of failure for the corpus.** The three pinned
+files could be held somewhere the project controls and used only when Dataverse fails. The
+source corpus is CC0 by its depositors, so redistribution is permitted, and integrity is
+guaranteed by the MD5s *Harvard* published: a mirror cannot silently substitute different
+bytes without failing the check `00_fetch_data.py` already makes. `speeches.tar` is 474 MB,
+inside GitHub's 2 GB release-asset limit; Zenodo is the better home if the mirror should
+itself be archival. The DOI stays the citable source either way — the mirror is a
+checksum-verified cache, and must be described as one.
+
+**A tagged release should not depend on either.** When §1's gate closes and a version is
+tagged, the derived payload and its manifest should be attached to that release, or
+deposited with their own DOI. Only then is a citable release reproducible if both Harvard's
+copy and the Actions cache have gone. That belongs with §1.3 rather than in the deploy
+workflow, and it is the real answer to depending on an archive nobody here controls.
+
 ## Phase 3 — Actor view
 
 Status: the table exists and is now drawn — a ranked view and a locator map, shipped on
@@ -742,7 +802,12 @@ both readings with each declaring its scope.
 1. Complete the human audit and source-document spot checks.
 2. ~~Select the code/derived-artifact licence and confirm citation identities.~~ Done,
    10 August 2026 — see §1.3.
-3. Run the first reproducible Pages release and archive its manifest.
+3. Run the first reproducible Pages release and archive its manifest. Cache the pinned
+   corpus and the derived payload in the workflow first — see §2.1. The pin is immutable,
+   so a `web/**`-only push currently re-fetches 508 MB from Harvard to change a stylesheet,
+   and on 11 August 2026 that cost a release two failed deploys in a row. Archiving the
+   manifest is also where the payload itself should stop depending on an archive nobody
+   here controls.
 4. ~~Build the actor view.~~ Complete as of 10 August 2026: the ranking, the map, the
    concordance links, the per-speaker matched keyness and the membership composition are
    all shipped — see §3. Every table this phase wrote now has a figure over it.
