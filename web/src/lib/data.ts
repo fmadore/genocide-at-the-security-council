@@ -31,8 +31,43 @@ const cache = new Map<string, Promise<unknown>>();
 type JsonRecord = Record<string, unknown>;
 type Validator = (payload: JsonRecord, path: string) => void;
 
+/**
+ * The four kinds the boundary can check without knowing what an artefact means.
+ *
+ * `REQUIRED` names a kind per key, and `json()` enforces it, which is why the
+ * validators below hold no `must be an array` lines: a structural requirement
+ * stated twice is two statements that can disagree, and the one that loses is
+ * always the one further from the fetch.
+ *
+ * `number` is `Number.isFinite` rather than `typeof === 'number'`: NaN and the
+ * infinities are all of type number, and a coverage that failed to compute
+ * upstream would otherwise pass the boundary and reach a figure as "NaN%".
+ */
+type Kind = 'object' | 'array' | 'number' | 'string';
+type Shape = Readonly<Record<string, Kind>>;
+
 const isRecord = (value: unknown): value is JsonRecord =>
 	typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** The test for each kind, and the sentence a payload that fails it earns. */
+const KINDS: Record<Kind, { holds: (value: unknown) => boolean; must: string }> = {
+	object: { holds: isRecord, must: 'must be an object' },
+	array: { holds: Array.isArray, must: 'must be an array' },
+	number: { holds: (value) => Number.isFinite(value), must: 'must be a finite number' },
+	string: { holds: (value) => typeof value === 'string', must: 'must be a string' }
+};
+
+/**
+ * Read a top-level key the shape has already vouched for.
+ *
+ * Not a check: `json()` has run every entry in the artefact's `REQUIRED` shape
+ * over the record before any validator sees it, so re-testing the kind here
+ * would be the duplication this arrangement removed. Nested keys are a
+ * different matter — `REQUIRED` describes the top level only — and those still
+ * go through `requireRecord`/`requireArray`.
+ */
+const arrayAt = (record: JsonRecord, key: string) => record[key] as unknown[];
+const recordAt = (record: JsonRecord, key: string) => record[key] as JsonRecord;
 
 function requireRecord(record: JsonRecord, key: string, path: string): JsonRecord {
 	const value = record[key];
@@ -46,33 +81,34 @@ function requireArray(record: JsonRecord, key: string, path: string): unknown[] 
 	return value;
 }
 
+/**
+ * Every artefact carries a `meta`, and every one of them must say what wrote it
+ * and when. Run for all of them from `json()` rather than as the first line of
+ * fifteen validators: provenance is the one requirement this project does not
+ * let an artefact opt out of.
+ */
 function validateMeta(record: JsonRecord, path: string): void {
-	const meta = requireRecord(record, 'meta', path);
+	const meta = recordAt(record, 'meta');
 	if (typeof meta.script !== 'string' || typeof meta.generated !== 'string') {
 		throw new Error(`${path}.meta must identify its script and generation time.`);
 	}
 }
 
 const validateAnnual: Validator = (record, path) => {
-	validateMeta(record, path);
-	const periods = requireArray(record, 'periods', path);
-	const corpus = requireRecord(record, 'corpus', path);
+	const periods = arrayAt(record, 'periods');
+	const corpus = recordAt(record, 'corpus');
 	for (const field of ['speeches', 'tokens', 'meetings']) {
 		if (requireArray(corpus, field, `${path}.corpus`).length !== periods.length) {
 			throw new Error(`${path}.corpus.${field} must align with periods.`);
 		}
 	}
-	requireRecord(record, 'terms', path);
 };
 
 const validateMonthly: Validator = (record, path) => {
 	validateAnnual(record, path);
-	const periods = requireArray(record, 'periods', path);
-	const years = requireArray(record, 'years', path);
-	const sufficient = requireArray(record, 'sufficient', path);
-	if (!Number.isFinite(record.minimum_speeches)) {
-		throw new Error(`${path}.minimum_speeches must be a finite number.`);
-	}
+	const periods = arrayAt(record, 'periods');
+	const years = arrayAt(record, 'years');
+	const sufficient = arrayAt(record, 'sufficient');
 	// The grid must be complete. The view indexes a cell by (year, month) and a
 	// ragged payload would not fail — it would draw January's figure in
 	// February's square for every year after the gap.
@@ -85,13 +121,13 @@ const validateMonthly: Validator = (record, path) => {
 	if (sufficient.length !== periods.length) {
 		throw new Error(`${path}.sufficient must align with periods.`);
 	}
-	requireRecord(requireRecord(record, 'month_of_year', path), 'measures', `${path}.month_of_year`);
+	requireRecord(recordAt(record, 'month_of_year'), 'measures', `${path}.month_of_year`);
 	// Substantive rather than structural, and the same check `validateCountries`
 	// makes: the figure draws exactly the cells that claim to be sufficient, so a
 	// sufficient cell with no rate would reach the grid as a null — and on a
 	// heatmap a null is drawn in the colour a measured zero has.
 	for (const kind of ['terms', 'registers', 'sets']) {
-		for (const [name, measure] of Object.entries(requireRecord(record, kind, path))) {
+		for (const [name, measure] of Object.entries(recordAt(record, kind))) {
 			if (!isRecord(measure)) throw new Error(`${path}.${kind}.${name} must be an object.`);
 			const rates = requireArray(measure, 'speech_rate', `${path}.${kind}.${name}`);
 			if (rates.length !== periods.length) {
@@ -107,21 +143,12 @@ const validateMonthly: Validator = (record, path) => {
 	}
 };
 
-const validateBreakdowns: Validator = (record, path) => {
-	validateMeta(record, path);
-	requireRecord(record, 'measures', path);
-};
-
 const validateChangePoints: Validator = (record, path) => {
-	validateMeta(record, path);
-	requireRecord(record, 'series', path);
-	const inference = requireRecord(record, 'inference', path);
-	requireRecord(inference, 'series', `${path}.inference`);
+	requireRecord(recordAt(record, 'inference'), 'series', `${path}.inference`);
 };
 
 const validateEvents: Validator = (record, path) => {
-	validateMeta(record, path);
-	for (const [index, event] of requireArray(record, 'events', path).entries()) {
+	for (const [index, event] of arrayAt(record, 'events').entries()) {
 		if (
 			!isRecord(event) ||
 			typeof event.date !== 'string' ||
@@ -132,46 +159,13 @@ const validateEvents: Validator = (record, path) => {
 	}
 };
 
-const validateLexical: Validator = (record, path) => validateMeta(record, path);
-
-const validateKeyness: Validator = (record, path) => {
-	validateMeta(record, path);
-	requireArray(record, 'keywords', path);
-	requireRecord(record, 'stability', path);
-	// `Number.isFinite`, not `typeof === 'number'`: NaN and the infinities are all
-	// of type number, and a coverage that failed to compute upstream would have
-	// passed the boundary and reached the figure as "NaN%". The point of
-	// validating here is to refuse a payload the interface cannot honestly draw.
-	if (!Number.isFinite(record.coverage)) {
-		throw new Error(`${path}.coverage must be a finite number.`);
-	}
-};
-
-const validateNetwork: Validator = (record, path) => {
-	validateMeta(record, path);
-	requireArray(record, 'terms', path);
-	requireArray(record, 'edges', path);
-	requireRecord(record, 'by_period', path);
-};
-
 const validateCountries: Validator = (record, path) => {
-	validateMeta(record, path);
-	requireArray(record, 'countries', path);
-	requireArray(record, 'periods', path);
-	requireRecord(record, 'measures', path);
-	// The two blocks a consumer must read before drawing anything. Absent, a
-	// choropleth keyed on ISO3 paints Zaire under the DRC without saying so, and
-	// the minimum-sample gate silently becomes no gate at all.
-	requireRecord(record, 'iso3_collisions', path);
-	if (!Number.isFinite(record.minimum_speeches)) {
-		throw new Error(`${path}.minimum_speeches must be a finite number.`);
-	}
 	// The membership block is drawn as a composition: five bands that fill a
 	// speaker's own denominator. If they do not sum to it, the bar comes up short
 	// and the missing speeches are drawn as background — a gap that reads as a
 	// sixth, unnamed status. 11 reconciles this upstream; the interface refuses a
 	// payload it cannot draw honestly rather than trusting that it ran.
-	const standing = requireRecord(record, 'standing', path);
+	const standing = recordAt(record, 'standing');
 	const groups = requireArray(standing, 'groups', `${path}.standing`);
 	requireArray(standing, 'seated_groups', `${path}.standing`);
 	for (const [index, row] of requireArray(standing, 'rows', `${path}.standing`).entries()) {
@@ -194,7 +188,7 @@ const validateCountries: Validator = (record, path) => {
 	// Substantive, not structural: the interface draws exactly the rows that
 	// claim to be sufficient, so a sufficient row without a rate would reach a
 	// chart as a null and be drawn as a zero.
-	for (const [name, measure] of Object.entries(requireRecord(record, 'measures', path))) {
+	for (const [name, measure] of Object.entries(recordAt(record, 'measures'))) {
 		if (!isRecord(measure)) throw new Error(`${path}.measures.${name} must be an object.`);
 		for (const [index, row] of requireArray(
 			measure,
@@ -211,15 +205,11 @@ const validateCountries: Validator = (record, path) => {
 };
 
 const validateSpeakerKeyness: Validator = (record, path) => {
-	validateMeta(record, path);
-	if (!Number.isFinite(record.minimum_pairs) || !Number.isFinite(record.minimum_coverage)) {
-		throw new Error(`${path} must declare both minimums as finite numbers.`);
-	}
 	// Substantive rather than structural, and the same check `validateCountries`
 	// makes for a different reason: the view draws exactly the rows that claim to
 	// be sufficient, so a sufficient row with no table would reach the figure as a
 	// null and be rendered as an empty ranking rather than as a refusal.
-	for (const [index, row] of requireArray(record, 'speakers', path).entries()) {
+	for (const [index, row] of arrayAt(record, 'speakers').entries()) {
 		if (!isRecord(row)) throw new Error(`${path}.speakers[${index}] must be an object.`);
 		if (!Number.isFinite(row.coverage)) {
 			throw new Error(`${path}.speakers[${index}].coverage must be a finite number.`);
@@ -236,32 +226,11 @@ const validateSpeakerKeyness: Validator = (record, path) => {
 	}
 };
 
-const validateKwicIndex: Validator = (record, path) => {
-	validateMeta(record, path);
-	requireArray(record, 'terms', path);
-};
-
-const validateKwic: Validator = (record, path) => {
-	validateMeta(record, path);
-	if (typeof record.term !== 'string') throw new Error(`${path}.term must be a string.`);
-	requireArray(record, 'lines', path);
-};
-
-const validateMeetingIndex: Validator = (record, path) => {
-	validateMeta(record, path);
-	requireArray(record, 'meetings', path);
-};
-
-const validateMeeting: Validator = (record, path) => {
-	validateMeta(record, path);
-	requireArray(record, 'speeches', path);
-};
-
 /** Fetch and cache a JSON payload, keyed on its path. */
 export function json<T>(
 	path: string,
 	fetcher: typeof fetch = fetch,
-	required: readonly string[] = ['meta'],
+	shape: Shape = { meta: 'object' },
 	validate?: Validator
 ): Promise<T> {
 	const url = `${base}/data/${path}`;
@@ -283,10 +252,22 @@ export function json<T>(
 					throw new Error(`${path} is not a JSON object.`);
 				}
 				const record = payload as Record<string, unknown>;
-				const missing = required.filter((key) => !(key in record));
+				const keys = Object.keys(shape);
+				// Absence first, and all of it at once: a reader repairing an
+				// artefact by hand should not have to reload three times to find
+				// out what else is not there.
+				const missing = keys.filter((key) => !(key in record));
 				if (missing.length) {
 					throw new Error(`${path} is missing required field(s): ${missing.join(', ')}.`);
 				}
+				// Then the kinds. Present-but-wrong is a different failure from
+				// absent — a field renamed upstream reads as missing, a field whose
+				// type changed reads as this — so it gets its own sentence.
+				const wrong = keys
+					.filter((key) => !KINDS[shape[key]].holds(record[key]))
+					.map((key) => `${path}.${key} ${KINDS[shape[key]].must}.`);
+				if (wrong.length) throw new Error(wrong.join(' '));
+				validateMeta(record, path);
 				validate?.(record, path);
 				return payload as T;
 			})
@@ -300,7 +281,13 @@ export function json<T>(
 }
 
 /**
- * What each artefact must carry, keyed on its path under `static/data/`.
+ * What each artefact must carry, keyed on its path under `static/data/`, and of
+ * what kind.
+ *
+ * This is the boundary's whole structural requirement: `json()` refuses a
+ * payload that is missing a key or carries it as the wrong kind, and the
+ * validators below start from a record all of that is already true of. Adding a
+ * key here is the entire edit needed to make the dashboard require it.
  *
  * Exported because it is one half of a contract whose other half is written in
  * Python, and until this was a value rather than an argument list nothing could
@@ -314,39 +301,57 @@ export function json<T>(
  * the representative file the contract samples.
  */
 export const REQUIRED = {
-	'series/annual.json': ['meta', 'periods', 'corpus', 'terms'],
-	'series/quarterly.json': ['meta', 'periods', 'corpus', 'terms'],
-	'series/monthly.json': [
-		'meta',
-		'periods',
-		'corpus',
-		'sufficient',
-		'years',
-		'minimum_speeches',
-		'month_of_year'
-	],
-	'series/breakdowns.json': ['meta', 'measures'],
-	'series/change_points.json': ['meta', 'series', 'inference'],
-	'series/events.json': ['meta', 'events'],
-	'lexical/collocates.json': ['meta'],
-	'lexical/collocates_sliced.json': ['meta'],
-	'lexical/keyness.json': ['meta'],
-	'lexical/network.json': ['meta'],
-	'countries/countries.json': [
-		'meta',
-		'countries',
-		'periods',
-		'measures',
-		'standing',
-		'minimum_speeches',
-		'iso3_collisions'
-	],
-	'countries/speaker_keyness.json': ['meta', 'speakers', 'minimum_pairs', 'minimum_coverage'],
-	'kwic/index.json': ['meta'],
-	'kwic/*.json': ['meta', 'term', 'lines'],
-	'meetings.json': ['meta'],
-	'speeches/*.json': ['meta', 'speeches']
-} as const satisfies Record<string, readonly string[]>;
+	'series/annual.json': { meta: 'object', periods: 'array', corpus: 'object', terms: 'object' },
+	'series/quarterly.json': { meta: 'object', periods: 'array', corpus: 'object', terms: 'object' },
+	'series/monthly.json': {
+		meta: 'object',
+		periods: 'array',
+		corpus: 'object',
+		terms: 'object',
+		registers: 'object',
+		sets: 'object',
+		sufficient: 'array',
+		years: 'array',
+		minimum_speeches: 'number',
+		month_of_year: 'object'
+	},
+	'series/breakdowns.json': { meta: 'object', measures: 'object' },
+	'series/change_points.json': { meta: 'object', series: 'object', inference: 'object' },
+	'series/events.json': { meta: 'object', events: 'array' },
+	'lexical/collocates.json': { meta: 'object' },
+	'lexical/collocates_sliced.json': { meta: 'object' },
+	'lexical/keyness.json': {
+		meta: 'object',
+		keywords: 'array',
+		stability: 'object',
+		coverage: 'number'
+	},
+	'lexical/network.json': {
+		meta: 'object',
+		terms: 'array',
+		edges: 'array',
+		by_period: 'object'
+	},
+	'countries/countries.json': {
+		meta: 'object',
+		countries: 'array',
+		periods: 'array',
+		measures: 'object',
+		standing: 'object',
+		minimum_speeches: 'number',
+		iso3_collisions: 'object'
+	},
+	'countries/speaker_keyness.json': {
+		meta: 'object',
+		speakers: 'array',
+		minimum_pairs: 'number',
+		minimum_coverage: 'number'
+	},
+	'kwic/index.json': { meta: 'object', terms: 'array' },
+	'kwic/*.json': { meta: 'object', term: 'string', lines: 'array' },
+	'meetings.json': { meta: 'object', meetings: 'array' },
+	'speeches/*.json': { meta: 'object', speeches: 'array' }
+} as const satisfies Record<string, Shape>;
 
 export type Artefact = keyof typeof REQUIRED;
 
@@ -359,17 +364,14 @@ const at =
 export const annual = at<AnnualSeries>('series/annual.json', validateAnnual);
 export const quarterly = at<AnnualSeries>('series/quarterly.json', validateAnnual);
 export const monthly = at<MonthlySeries>('series/monthly.json', validateMonthly);
-export const breakdowns = at<Breakdowns>('series/breakdowns.json', validateBreakdowns);
+export const breakdowns = at<Breakdowns>('series/breakdowns.json');
 export const changePoints = at<ChangePoints>('series/change_points.json', validateChangePoints);
 export const events = at<Events>('series/events.json', validateEvents);
 
-export const collocates = at<Collocates>('lexical/collocates.json', validateLexical);
-export const slicedCollocates = at<SlicedCollocates>(
-	'lexical/collocates_sliced.json',
-	validateLexical
-);
-export const keyness = at<Keyness>('lexical/keyness.json', validateKeyness);
-export const network = at<Network>('lexical/network.json', validateNetwork);
+export const collocates = at<Collocates>('lexical/collocates.json');
+export const slicedCollocates = at<SlicedCollocates>('lexical/collocates_sliced.json');
+export const keyness = at<Keyness>('lexical/keyness.json');
+export const network = at<Network>('lexical/network.json');
 
 export const countries = at<Countries>('countries/countries.json', validateCountries);
 export const speakerKeyness = at<SpeakerKeyness>(
@@ -377,20 +379,15 @@ export const speakerKeyness = at<SpeakerKeyness>(
 	validateSpeakerKeyness
 );
 
-export const kwicIndex = at<KwicIndex>('kwic/index.json', validateKwicIndex);
-export const meetingIndex = at<MeetingIndex>('meetings.json', validateMeetingIndex);
+export const kwicIndex = at<KwicIndex>('kwic/index.json');
+export const meetingIndex = at<MeetingIndex>('meetings.json');
 
 /* Fetched by name rather than fixed, so the path is built per call. */
 export const kwic = (term: string, f?: typeof fetch) =>
-	json<KwicFile>(`kwic/${encodeURIComponent(term)}.json`, f, REQUIRED['kwic/*.json'], validateKwic);
+	json<KwicFile>(`kwic/${encodeURIComponent(term)}.json`, f, REQUIRED['kwic/*.json']);
 
 export const meeting = (basename: string, f?: typeof fetch) =>
-	json<Meeting>(
-		`speeches/${encodeURIComponent(basename)}.json`,
-		f,
-		REQUIRED['speeches/*.json'],
-		validateMeeting
-	);
+	json<Meeting>(`speeches/${encodeURIComponent(basename)}.json`, f, REQUIRED['speeches/*.json']);
 
 /** `UNSC_2015_SPV.7481_spch0007#3` → the meeting file that speech lives in. */
 export function meetingOf(lineId: string): string {

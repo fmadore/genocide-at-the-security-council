@@ -56,6 +56,17 @@ the map paints from the same two values as every other figure. Verified in a bro
 ECharts strokes move from `#2c3134`/`#e7e9e2` to `#d6d9cf`/`#14171a` on the toggle, so the
 figures still follow the theme.
 
+**The fetch boundary asked for the same thing twice.** `json()` took a key list *and* a
+validator, and every validator re-checked what the list already named. `REQUIRED` now
+carries a kind per key — object, array, finite number, string — `json()` enforces all of it,
+and the validators hold only their substantive refusals: the alignment checks, the complete
+grid, the standing-block sum. Seven of the fifteen turned out to hold nothing else and are
+gone. A key added to `REQUIRED` is now required, with no second edit. The error wording is
+unchanged, deliberately: `coverage must be a finite number` is the sentence the tests pin
+and a reader repairing an artefact by hand reads. The contract test gained the other half of
+the check — that the kind the dashboard fetches for is the kind the pipeline writes, so
+`minimum_speeches` cannot become a string upstream and turn a gate into no gate.
+
 **Two decisions moved out of this file and into the code.** Why ECharts 6's `setTheme()`
 was considered and refused now sits in `theme.ts`, where the next reader meets it as a
 decision rather than as a gap; and `escapeHtml` and `escapeXml` each say why the other
@@ -69,19 +80,7 @@ it is not.
 Nothing here changes what a reader sees. Each is a decision written down more than once,
 which is how two copies of it start to disagree.
 
-### 1.1 The fetch boundary states its requirements twice
-
-`json()` takes a `required` key list *and* a validator, and every validator re-checks the
-same keys: `annual` passes `['meta', 'periods', 'corpus', 'terms']` and `validateAnnual`
-dereferences all four. The list is now a value (`REQUIRED` in `data.ts`, which the contract
-test reads), so the remaining work is to make the validators derive their structural checks
-from it instead of repeating them, leaving each validator holding only its *substantive*
-refusals — the alignment checks, the finite-number checks, the standing-block sum.
-
-**Done when** a key can be added to `REQUIRED` and nothing else needs editing for the
-boundary to require it.
-
-### 1.2 `frames.write` reimplements the atomic write
+### 1.1 `frames.write` reimplements the atomic write
 
 `artifacts.py` owns atomic replacement, and `frames.write` has its own ten-line copy of the
 temp-file dance because `to_parquet` wants a path rather than bytes. An `atomic_path()`
@@ -90,7 +89,7 @@ argument in one file.
 
 **Done when** `frames.py` no longer imports `tempfile`.
 
-### 1.3 Two `# type: ignore[index]` in `export_web.py`
+### 1.2 Two `# type: ignore[index]` in `export_web.py`
 
 Both are on `manifest["parts"][name]`, and both go away by giving `parts` its own typed
 local instead of building it inside an untyped `dict[str, object]`. A silenced type error is
@@ -98,7 +97,7 @@ a small lie about what the code knows.
 
 **Done when** `export_web.py` has no `type: ignore`.
 
-### 1.4 Fifteen copies of the `sys.path` bootstrap
+### 1.3 Fifteen copies of the `sys.path` bootstrap
 
 Every numbered script inserts `scripts/` on the path before importing `lib`, and
 `pyproject.toml` carries a per-file `E402` ignore to permit it. It is genuinely awkward to

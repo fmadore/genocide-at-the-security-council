@@ -96,6 +96,17 @@ describe('what a bad response is turned into', () => {
 		await expect(annual(fetcher)).rejects.toThrow(/missing required field\(s\): corpus, terms/);
 	});
 
+	it('tells a field that is absent from one that is the wrong kind', async () => {
+		const { annual } = await fresh();
+		const { fetcher } = responder(annualPayload({ periods: { 1992: true }, terms: [] }));
+		// Two different repairs: a missing field is usually a renamed one upstream,
+		// a mis-typed field is usually a changed writer. The boundary owns both
+		// checks now — the validators hold no `must be an array` lines at all — so
+		// this is where the wording has to stay useful.
+		await expect(annual(fetcher)).rejects.toThrow(/annual\.json\.periods must be an array/);
+		await expect(annual(fetcher)).rejects.toThrow(/annual\.json\.terms must be an object/);
+	});
+
 	it('reports a JSON array as a missing `meta`, not as "not an object"', async () => {
 		const { json } = await fresh();
 		const { fetcher } = responder([]);

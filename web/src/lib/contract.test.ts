@@ -64,12 +64,44 @@ describe('what the dashboard requires against what the pipeline writes', () => {
 
 	it.each(Object.entries(REQUIRED))(
 		'%s carries every field it is fetched for',
-		(artefact, keys) => {
+		(artefact, required) => {
 			const sampled = resolve(artefact);
 			if (!sampled) return; // Reported by the test above; not worth failing twice.
 			const shape = contract[sampled];
-			const absent = (keys as readonly string[]).filter((key) => !(key in shape));
+			const absent = Object.keys(required).filter((key) => !(key in shape));
 			expect(absent, `${sampled} does not carry ${absent.join(', ')}`).toEqual([]);
+		}
+	);
+
+	/**
+	 * How each kind `data.ts` demands appears in the committed skeleton, which
+	 * writes a scalar as the name of its Python type and a container as itself.
+	 *
+	 * Presence alone was the weaker half of this check: the dashboard can require
+	 * `minimum_speeches` to be a finite number while the pipeline writes it as a
+	 * string, and nothing in either direction would notice until the gate that
+	 * depends on it silently stopped being a gate.
+	 */
+	const WRITTEN_AS: Record<string, (value: unknown) => boolean> = {
+		object: (value) => typeof value === 'object' && value !== null && !Array.isArray(value),
+		array: Array.isArray,
+		number: (value) => value === 'int' || value === 'float',
+		string: (value) => value === 'str'
+	};
+
+	it.each(Object.entries(REQUIRED))(
+		'%s is fetched for the kinds it is written as',
+		(artefact, required) => {
+			const sampled = resolve(artefact);
+			if (!sampled) return;
+			const shape = contract[sampled];
+			const mismatched = Object.entries(required as Record<string, string>)
+				.filter(([key]) => key in shape)
+				.filter(([key, kind]) => !WRITTEN_AS[kind](shape[key]))
+				.map(
+					([key, kind]) => `${key} is fetched as ${kind}, written as ${JSON.stringify(shape[key])}`
+				);
+			expect(mismatched, mismatched.join('; ')).toEqual([]);
 		}
 	);
 
