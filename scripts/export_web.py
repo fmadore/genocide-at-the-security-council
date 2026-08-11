@@ -12,7 +12,7 @@ writes a manifest of what it took.
     derived/kwic/*.json       → static/data/kwic/
     derived/countries/*.json  → static/data/countries/
 
-`09_export_speeches.py` is the one exception and writes its 419 MB straight to
+`09_export_speeches.py` is the one exception and writes its 425 MB straight to
 `web/static/data/speeches/`. Copying that twice to preserve a symmetry nobody
 benefits from would cost a gigabyte of disk.
 
@@ -23,14 +23,25 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, console
-from lib.paths import COUNTRIES, KWIC, LEXICAL, ROOT, SERIES, WEB_DATA, ensure_dirs, rel
+from lib import artifacts, console, contract
+from lib.paths import (
+    CONTRACT,
+    COUNTRIES,
+    KWIC,
+    LEXICAL,
+    ROOT,
+    SERIES,
+    WEB_DATA,
+    ensure_dirs,
+    rel,
+)
 
 #: (source directory, destination name, the step that produces it).
 PARTS = [
@@ -62,6 +73,67 @@ def measure(path: Path) -> dict[str, object]:
     if not path.exists():
         return {"files": 0, "bytes": 0, "sha256": None}
     return artifacts.describe_tree(path)
+
+
+def check_contract() -> None:
+    """Refuse to publish a payload the dashboard was not written for.
+
+    The seam is the honest place for this. Everything upstream asserts its own
+    output against its own inputs; nothing asserted that the shape reaching the
+    application is the shape the application reads, because that contract lived
+    in three hand-kept copies across two languages. It now lives in
+    `tests/contract/payload.json`, and this is where it is enforced — on real
+    data, on every build, including the one GitHub Pages publishes from.
+
+    What it catches is a field renamed, moved or no longer written. It does not
+    check ranges, alignment or any of the substantive refusals
+    `web/src/lib/data.ts` makes at the fetch boundary; those belong there, where
+    a reader can be told why a figure will not be drawn.
+    """
+    if not CONTRACT.exists():
+        console.fail(
+            f"{rel(CONTRACT)} is missing — the payload has no declared shape to be checked "
+            f"against. Regenerate it with `python scripts/export_web.py --update-contract`."
+        )
+    promised = json.loads(CONTRACT.read_text(encoding="utf-8"))
+    problems, absent = contract.check(WEB_DATA, promised)
+    for name in absent:
+        console.warn(f"{name} is not in the payload, so its shape was not checked")
+    if problems:
+        console.fail(
+            f"the payload no longer matches {rel(CONTRACT)}",
+            [
+                *problems[:20],
+                *(
+                    [f"... and {len(problems) - 20} more"]
+                    if len(problems) > 20
+                    else []
+                ),
+                "If the change is intended, re-run with --update-contract and review the diff.",
+            ],
+        )
+    console.info(f"{len(promised) - len(absent)} artefacts match {rel(CONTRACT)}")
+
+
+def update_contract() -> None:
+    """Rewrite the declared shape from the payload that is actually there.
+
+    Deliberately a separate, explicit run rather than something the export does
+    when it notices a mismatch. A contract a script rewrites to match whatever
+    it just produced asserts nothing; the change has to arrive as a diff a
+    person reads.
+    """
+    shapes = contract.payload_skeleton(WEB_DATA)
+    missing = [name for name in [*contract.TRACKED, contract.SPEECH_SAMPLE] if name not in shapes]
+    if missing:
+        console.fail(
+            "refusing to declare a shape for a payload that is not fully built",
+            [f"{name} is absent" for name in missing],
+        )
+    artifacts.atomic_write_text(
+        CONTRACT, json.dumps(shapes, ensure_ascii=False, indent=1, sort_keys=True) + "\n"
+    )
+    console.info(f"wrote {rel(CONTRACT)}  ({len(shapes)} artefacts) — review the diff")
 
 
 def run() -> None:
@@ -99,6 +171,11 @@ def run() -> None:
         total_bytes += size
         console.info(f"{name:10s} {files:>6,} files  {size / 1e6:>7.1f} MB  (from {producer})")
 
+    # Before the manifest, not after: the manifest is what marks a payload
+    # complete, and a payload the dashboard cannot read is not one.
+    console.step("Checking the payload against the shape the dashboard reads")
+    check_contract()
+
     manifest["files"] = total_files
     manifest["bytes"] = total_bytes
     artifacts.atomic_write_json(WEB_DATA / "manifest.json", manifest, indent=1)
@@ -108,7 +185,19 @@ def run() -> None:
 
 
 def main() -> None:
-    argparse.ArgumentParser(description=__doc__).parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--update-contract",
+        action="store_true",
+        help=(
+            "rewrite tests/contract/payload.json from the payload that is already built, "
+            "instead of exporting. Use when a shape change is intended, and read the diff."
+        ),
+    )
+    args = parser.parse_args()
+    if args.update_contract:
+        update_contract()
+        return
     run()
 
 

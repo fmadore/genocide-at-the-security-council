@@ -1,0 +1,1731 @@
+{
+ "countries/countries.json": {
+  "centroid_rule": "str",
+  "countries": [
+   {
+    "centroid": "null|object",
+    "country_org": "str",
+    "entity_type": "str",
+    "first_year": "int",
+    "iso3": "null|str",
+    "last_year": "int",
+    "mappable": "bool",
+    "speeches": "int",
+    "un_regional_group": "null|str"
+   }
+  ],
+  "iso3_collisions": {
+   "*": [
+    "str"
+   ]
+  },
+  "measures": {
+   "*": {
+    "kind": "str",
+    "members": [
+     "str"
+    ],
+    "register": "str",
+    "rows": [
+     {
+      "country_org": "str",
+      "held": "int",
+      "occurrences": "int",
+      "period": "str",
+      "speech_rate": "float|null",
+      "speeches": "int",
+      "sufficient": "bool",
+      "token_rate": "float|null",
+      "tokens": "int"
+     }
+    ],
+    "tier": "str"
+   }
+  },
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "corpus_speech_prevalence": "float",
+   "generated": "str",
+   "git_commit": "str",
+   "informative_zero_minimum": "int",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "minimum_speeches": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "rate_per_tokens": "int",
+   "script": "str",
+   "speakers": "int",
+   "speeches": "int",
+   "tokens": "int"
+  },
+  "minimum_speeches": "int",
+  "minimum_speeches_rule": "str",
+  "periods": [
+   {
+    "first_year": "int",
+    "key": "str",
+    "label": "str",
+    "last_year": "int",
+    "speakers": "int",
+    "speakers_at_minimum": "int",
+    "speeches": "int",
+    "speeches_at_minimum": "int",
+    "tokens": "int"
+   }
+  ],
+  "rate_per_tokens": "int",
+  "standing": {
+   "groups": [
+    "str"
+   ],
+   "membership_rule": "str",
+   "rows": [
+    {
+     "country_org": "str",
+     "groups": {
+      "E10": "int",
+      "Non-member state": "int",
+      "Non-state": "int",
+      "P5": "int",
+      "UN": "int"
+     },
+     "held": "int",
+     "period": "str",
+     "seated": "int",
+     "seated_share": "float"
+    }
+   ],
+   "seated_groups": [
+    "str"
+   ],
+   "seated_rule": "str"
+  }
+ },
+ "countries/speaker_keyness.json": {
+  "control_rule": "str",
+  "corpus_tokens": "int",
+  "corpus_types": "int",
+  "limit": "int",
+  "matched_on": [
+   "str"
+  ],
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "min_count": "int",
+   "minimum_coverage": "float",
+   "minimum_pairs": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "script": "str",
+   "seed": "int",
+   "stopwords": "int"
+  },
+  "minimum_coverage": "float",
+  "minimum_coverage_rule": "str",
+  "minimum_pairs": "int",
+  "minimum_pairs_rule": "str",
+  "reading_rule": "str",
+  "repetitions": "int",
+  "seed": "int",
+  "self_reference_rule": "str",
+  "speakers": [
+   {
+    "agenda": {
+     "concentration": "float",
+     "held": "int",
+     "items": "int",
+     "other": {
+      "share": "float",
+      "speeches": "int"
+     },
+     "top": [
+      {
+       "item": "str",
+       "share": "float",
+       "speeches": "int"
+      }
+     ]
+    },
+    "control_tokens": "int|null",
+    "country_org": "str",
+    "coverage": "float",
+    "held": "int",
+    "keywords": "null|object",
+    "keywords_unmatched": "null|object",
+    "pairs": "int",
+    "short_strata": "int",
+    "shortfall": "int",
+    "stability": {
+     "coverage_max": "float",
+     "coverage_min": "float",
+     "keyword_log_ratio": [
+      {
+       "high": "float",
+       "low": "float",
+       "median": "float",
+       "p05": "float",
+       "p95": "float",
+       "word": "str"
+      }
+     ],
+     "repetitions": "int"
+    },
+    "sufficient": "bool",
+    "target_tokens": "int|null",
+    "withheld_because": [
+     "str"
+    ]
+   }
+  ],
+  "speakers_considered": "int",
+  "speakers_published": "int",
+  "speakers_total": "int",
+  "speakers_withheld": "int",
+  "unmatched_rule": "str"
+ },
+ "kwic/genocide.json": {
+  "count": "int",
+  "id_format": "str",
+  "lines": [
+   {
+    "agenda": "str",
+    "country": "str",
+    "date": "str",
+    "end": "int",
+    "group": "str",
+    "id": "str",
+    "iso3": "null|str",
+    "kw": "str",
+    "left": "str",
+    "right": "str",
+    "sent": "str",
+    "spv": "str",
+    "start": "int",
+    "type": "str"
+   }
+  ],
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "script": "str",
+   "width": "int"
+  },
+  "pattern": "str",
+  "register": "str",
+  "term": "str",
+  "tier": "str"
+ },
+ "kwic/index.json": {
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "script": "str",
+   "width": "int"
+  },
+  "terms": [
+   {
+    "bytes": "int",
+    "count": "int",
+    "file": "str",
+    "long_sentences": "int",
+    "register": "str",
+    "sentence_max": "int",
+    "sentence_median": "int",
+    "sentence_p95": "int",
+    "speeches": "int",
+    "term": "str",
+    "tier": "str"
+   }
+  ]
+ },
+ "lexical/collocates.json": {
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "corpus_tokens": "int",
+   "corpus_types": "int",
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "limit": "int",
+   "min_count": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "script": "str",
+   "stopwords": "int"
+  },
+  "nodes": {
+   "crimes_against_humanity": {
+    "pattern": "str",
+    "register": "str",
+    "widths": {
+     "15": {
+      "collocates": [
+       {
+        "g2": "float",
+        "log_ratio": "float",
+        "reference": "int",
+        "target": "int",
+        "word": "str"
+       }
+      ],
+      "occurrences": "int",
+      "window_tokens": "int"
+     },
+     "5": {
+      "collocates": [
+       {
+        "g2": "float",
+        "log_ratio": "float",
+        "reference": "int",
+        "target": "int",
+        "word": "str"
+       }
+      ],
+      "occurrences": "int",
+      "window_tokens": "int"
+     },
+     "8": {
+      "collocates": [
+       {
+        "g2": "float",
+        "log_ratio": "float",
+        "reference": "int",
+        "target": "int",
+        "word": "str"
+       }
+      ],
+      "occurrences": "int",
+      "window_tokens": "int"
+     }
+    }
+   },
+   "ethnic_cleansing": {
+    "pattern": "str",
+    "register": "str",
+    "widths": {
+     "15": {
+      "collocates": [
+       {
+        "g2": "float",
+        "log_ratio": "float",
+        "reference": "int",
+        "target": "int",
+        "word": "str"
+       }
+      ],
+      "occurrences": "int",
+      "window_tokens": "int"
+     },
+     "5": {
+      "collocates": [
+       {
+        "g2": "float",
+        "log_ratio": "float",
+        "reference": "int",
+        "target": "int",
+        "word": "str"
+       }
+      ],
+      "occurrences": "int",
+      "window_tokens": "int"
+     },
+     "8": {
+      "collocates": [
+       {
+        "g2": "float",
+        "log_ratio": "float",
+        "reference": "int",
+        "target": "int",
+        "word": "str"
+       }
+      ],
+      "occurrences": "int",
+      "window_tokens": "int"
+     }
+    }
+   },
+   "genocide": {
+    "pattern": "str",
+    "register": "str",
+    "widths": {
+     "15": {
+      "collocates": [
+       {
+        "g2": "float",
+        "log_ratio": "float",
+        "reference": "int",
+        "target": "int",
+        "word": "str"
+       }
+      ],
+      "occurrences": "int",
+      "window_tokens": "int"
+     },
+     "5": {
+      "collocates": [
+       {
+        "g2": "float",
+        "log_ratio": "float",
+        "reference": "int",
+        "target": "int",
+        "word": "str"
+       }
+      ],
+      "occurrences": "int",
+      "window_tokens": "int"
+     },
+     "8": {
+      "collocates": [
+       {
+        "g2": "float",
+        "log_ratio": "float",
+        "reference": "int",
+        "target": "int",
+        "word": "str"
+       }
+      ],
+      "occurrences": "int",
+      "window_tokens": "int"
+     }
+    }
+   }
+  },
+  "widths": [
+   "int"
+  ]
+ },
+ "lexical/collocates_sliced.json": {
+  "by_country": {
+   "Argentina": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   },
+   "Bosnia And Herzegovina": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   },
+   "France": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   },
+   "Rwanda": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   },
+   "UN": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   },
+   "Ukraine": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   },
+   "United Kingdom Of Great Britain And Northern Ireland": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   },
+   "United States Of America": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   }
+  },
+  "by_period": {
+   "*": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   }
+  },
+  "by_speaker_group": {
+   "E10": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   },
+   "Non-member state": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   },
+   "Non-state": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   },
+   "P5": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   },
+   "UN": {
+    "collocates": [
+     {
+      "g2": "float",
+      "log_ratio": "float",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   }
+  },
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "corpus_tokens": "int",
+   "corpus_types": "int",
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "limit": "int",
+   "min_count": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "script": "str",
+   "stopwords": "int"
+  },
+  "minimum_speeches": "int",
+  "term": "str",
+  "width": "int"
+ },
+ "lexical/keyness.json": {
+  "control_speeches": "int",
+  "control_tokens": "int",
+  "coverage": "float",
+  "eligible_target_speeches": "int",
+  "keywords": [
+   {
+    "g2": "float",
+    "log_ratio": "float",
+    "reference": "int",
+    "target": "int",
+    "word": "str"
+   }
+  ],
+  "keywords_unmatched": [
+   {
+    "g2": "float",
+    "log_ratio": "float",
+    "reference": "int",
+    "target": "int",
+    "word": "str"
+   }
+  ],
+  "matched_on": [
+   "str"
+  ],
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "corpus_tokens": "int",
+   "corpus_types": "int",
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "limit": "int",
+   "min_count": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "script": "str",
+   "stopwords": "int"
+  },
+  "seed": "int",
+  "short_strata": [
+   {
+    "found": "int",
+    "key": [
+     "str"
+    ],
+    "wanted": "int"
+   }
+  ],
+  "stability": {
+   "coverage_max": "float",
+   "coverage_min": "float",
+   "keyword_log_ratio": [
+    {
+     "median": "float",
+     "p05": "float",
+     "p95": "float",
+     "word": "str"
+    }
+   ],
+   "repetitions": "int",
+   "seed_first": "int"
+  },
+  "target_speeches": "int",
+  "target_tokens": "int",
+  "term": "str"
+ },
+ "lexical/network.json": {
+  "by_period": {
+   "*": {
+    "edges": [
+     {
+      "npmi": "float",
+      "pmi": "float",
+      "source": "str",
+      "speeches": "int",
+      "target": "str"
+     }
+    ],
+    "terms": [
+     {
+      "name": "str",
+      "speeches": "int"
+     }
+    ]
+   }
+  },
+  "edges": [
+   {
+    "npmi": "float",
+    "pmi": "float",
+    "source": "str",
+    "speeches": "int",
+    "target": "str"
+   }
+  ],
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "corpus_tokens": "int",
+   "corpus_types": "int",
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "limit": "int",
+   "min_count": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "script": "str",
+   "stopwords": "int"
+  },
+  "min_speeches": "int",
+  "suppressed_nested_edges": [
+   {
+    "source": "str",
+    "target": "str"
+   }
+  ],
+  "terms": [
+   {
+    "name": "str",
+    "register": "str",
+    "speeches": "int",
+    "tier": "str"
+   }
+  ]
+ },
+ "meetings.json": {
+  "meetings": [
+   {
+    "agenda": "str",
+    "basename": "str",
+    "date": "str",
+    "occurrences": "int",
+    "region": "str",
+    "speeches": "int",
+    "spv": "str",
+    "terms": [
+     "str"
+    ],
+    "topic": "str",
+    "year": "int"
+   }
+  ],
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "scope": "str",
+   "script": "str"
+  }
+ },
+ "series/annual.json": {
+  "corpus": {
+   "meetings": [
+    "int"
+   ],
+   "speeches": [
+    "int"
+   ],
+   "tokens": [
+    "int"
+   ]
+  },
+  "freq": "str",
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "meetings": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "rate_per_tokens": "int",
+   "script": "str",
+   "speakers": "int",
+   "speeches": "int",
+   "tokens": "int"
+  },
+  "periods": [
+   "int"
+  ],
+  "registers": {
+   "*": {
+    "occurrences": [
+     "int"
+    ],
+    "speech_rate": [
+     "float"
+    ],
+    "speeches": [
+     "int"
+    ],
+    "terms": [
+     "str"
+    ],
+    "token_rate": [
+     "float"
+    ]
+   }
+  },
+  "sets": {
+   "*": {
+    "members": [
+     "str"
+    ],
+    "speech_rate": [
+     "float"
+    ],
+    "speeches": [
+     "int"
+    ]
+   }
+  },
+  "terms": {
+   "*": {
+    "occurrences": [
+     "int"
+    ],
+    "register": "str",
+    "speech_rate": [
+     "float"
+    ],
+    "speeches": [
+     "int"
+    ],
+    "tier": "str",
+    "token_rate": [
+     "float"
+    ]
+   }
+  }
+ },
+ "series/breakdowns.json": {
+  "freq": "str",
+  "measures": {
+   "*": {
+    "agenda_item1": {
+     "categories": [
+      "str"
+     ],
+     "rows": [
+      {
+       "category": "str",
+       "held": "int",
+       "occurrences": "int",
+       "period": "int",
+       "speech_rate": "float",
+       "speeches": "int",
+       "token_rate": "float"
+      }
+     ]
+    },
+    "agenda_item_manual": {
+     "categories": [
+      "str"
+     ],
+     "rows": [
+      {
+       "category": "str",
+       "held": "int",
+       "occurrences": "int",
+       "period": "int",
+       "speech_rate": "float",
+       "speeches": "int",
+       "token_rate": "float"
+      }
+     ]
+    },
+    "delivery_language": {
+     "categories": [
+      "str"
+     ],
+     "rows": [
+      {
+       "category": "str",
+       "held": "int",
+       "occurrences": "int",
+       "period": "int",
+       "speech_rate": "float",
+       "speeches": "int",
+       "token_rate": "float"
+      }
+     ]
+    },
+    "entity_type": {
+     "categories": [
+      "str"
+     ],
+     "rows": [
+      {
+       "category": "str",
+       "held": "int",
+       "occurrences": "int",
+       "period": "int",
+       "speech_rate": "float",
+       "speeches": "int",
+       "token_rate": "float"
+      }
+     ]
+    },
+    "participanttype": {
+     "categories": [
+      "str"
+     ],
+     "rows": [
+      {
+       "category": "str",
+       "held": "int",
+       "occurrences": "int",
+       "period": "int",
+       "speech_rate": "float",
+       "speeches": "int",
+       "token_rate": "float"
+      }
+     ]
+    },
+    "speaker_group": {
+     "categories": [
+      "str"
+     ],
+     "rows": [
+      {
+       "category": "str",
+       "held": "int",
+       "occurrences": "int",
+       "period": "int",
+       "speech_rate": "float",
+       "speeches": "int",
+       "token_rate": "float"
+      }
+     ]
+    }
+   }
+  },
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "meetings": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "rate_per_tokens": "int",
+   "script": "str",
+   "speakers": "int",
+   "speeches": "int",
+   "tokens": "int"
+  }
+ },
+ "series/change_points.json": {
+  "caveat": "str",
+  "inference": {
+   "caveat": "str",
+   "correction": "str",
+   "familywise_alpha": "float",
+   "method": "str",
+   "per_test_alpha": "float",
+   "series": {
+    "*": {
+     "speech_rate": {
+      "accepted": "bool",
+      "after": "float",
+      "after_ci95": [
+       "float"
+      ],
+      "alpha": "float",
+      "before": "float",
+      "before_ci95": [
+       "float"
+      ],
+      "counts": [
+       "int"
+      ],
+      "exposure": [
+       "int"
+      ],
+      "family": "str",
+      "gain": "float",
+      "index": "int",
+      "label": "str",
+      "p_value": "float",
+      "ratio": "float"
+     },
+     "token_rate": {
+      "accepted": "bool",
+      "after": "float",
+      "after_ci95": [
+       "float"
+      ],
+      "alpha": "float",
+      "before": "float",
+      "before_ci95": [
+       "float"
+      ],
+      "counts": [
+       "int"
+      ],
+      "exposure": [
+       "int"
+      ],
+      "family": "str",
+      "gain": "float",
+      "index": "int",
+      "label": "str",
+      "p_value": "float",
+      "ratio": "float"
+     }
+    }
+   },
+   "trials": "int"
+  },
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "meetings": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "rate_per_tokens": "int",
+   "script": "str",
+   "speakers": "int",
+   "speeches": "int",
+   "tokens": "int"
+  },
+  "method": "str",
+  "parameters": {
+   "alpha": "float",
+   "max_breaks": "int",
+   "min_size": "int",
+   "seed": "int",
+   "trials": "int"
+  },
+  "series": {
+   "*": {
+    "occurrences": [
+     {
+      "after": "float",
+      "before": "float",
+      "gain": "float",
+      "index": "int",
+      "interval_start": "int",
+      "interval_stop": "int",
+      "label": "str",
+      "p_value": "float",
+      "ratio": "float"
+     }
+    ],
+    "speech_rate": [
+     {
+      "after": "float",
+      "before": "float",
+      "gain": "float",
+      "index": "int",
+      "interval_start": "int",
+      "interval_stop": "int",
+      "label": "str",
+      "p_value": "float",
+      "ratio": "float"
+     }
+    ],
+    "speeches": [
+     {
+      "after": "float",
+      "before": "float",
+      "gain": "float",
+      "index": "int",
+      "interval_start": "int",
+      "interval_stop": "int",
+      "label": "str",
+      "p_value": "float",
+      "ratio": "float"
+     }
+    ],
+    "token_rate": []
+   }
+  }
+ },
+ "series/events.json": {
+  "events": [
+   {
+    "date": "str",
+    "kind": "str",
+    "label": "str",
+    "note": "str",
+    "source": "str",
+    "source_url": "str",
+    "year": "int"
+   }
+  ],
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "meetings": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "rate_per_tokens": "int",
+   "script": "str",
+   "speakers": "int",
+   "speeches": "int",
+   "tokens": "int"
+  }
+ },
+ "series/monthly.json": {
+  "corpus": {
+   "meetings": [
+    "int"
+   ],
+   "speeches": [
+    "int"
+   ],
+   "tokens": [
+    "int"
+   ]
+  },
+  "corpus_speech_prevalence": "float",
+  "coverage": {
+   "months": "int",
+   "months_at_minimum": "int",
+   "months_observed": "int",
+   "share_at_minimum": "float",
+   "speeches": "int",
+   "speeches_at_minimum": "int"
+  },
+  "freq": "str",
+  "informative_zero_minimum": "int",
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "meetings": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "rate_per_tokens": "int",
+   "script": "str",
+   "speakers": "int",
+   "speeches": "int",
+   "tokens": "int"
+  },
+  "minimum_speeches": "int",
+  "minimum_speeches_rule": "str",
+  "month_of_year": {
+   "agenda_column": "str",
+   "agenda_rule": "str",
+   "excluded_years": [
+    "int"
+   ],
+   "excluding_rule": "str",
+   "measures": {
+    "*": {
+     "agenda": [
+      [
+       {
+        "item": "str",
+        "share": "float",
+        "speeches": "int"
+       }
+      ]
+     ],
+     "excluding": {
+      "held": [
+       "int"
+      ],
+      "occurrences": [
+       "int"
+      ],
+      "speech_rate": [
+       "float"
+      ],
+      "speeches": [
+       "int"
+      ],
+      "sufficient": [
+       "bool"
+      ],
+      "token_rate": [
+       "float"
+      ],
+      "tokens": [
+       "int"
+      ]
+     },
+     "held": [
+      "int"
+     ],
+     "kind": "str",
+     "members": [
+      "str"
+     ],
+     "occurrences": [
+      "int"
+     ],
+     "register": "str",
+     "speech_rate": [
+      "float"
+     ],
+     "speeches": [
+      "int"
+     ],
+     "sufficient": [
+      "bool"
+     ],
+     "terms": [
+      "str"
+     ],
+     "tier": "str",
+     "token_rate": [
+      "float"
+     ],
+     "tokens": [
+      "int"
+     ]
+    }
+   },
+   "months": [
+    "int"
+   ],
+   "rule": "str"
+  },
+  "months": [
+   "int"
+  ],
+  "periods": [
+   "str"
+  ],
+  "registers": {
+   "*": {
+    "occurrences": [
+     "int"
+    ],
+    "speech_rate": [
+     "float|null"
+    ],
+    "speeches": [
+     "int"
+    ],
+    "terms": [
+     "str"
+    ],
+    "token_rate": [
+     "float|null"
+    ]
+   }
+  },
+  "sets": {
+   "*": {
+    "members": [
+     "str"
+    ],
+    "speech_rate": [
+     "float|null"
+    ],
+    "speeches": [
+     "int"
+    ]
+   }
+  },
+  "sufficient": [
+   "bool"
+  ],
+  "terms": {
+   "*": {
+    "occurrences": [
+     "int"
+    ],
+    "register": "str",
+    "speech_rate": [
+     "float|null"
+    ],
+    "speeches": [
+     "int"
+    ],
+    "tier": "str",
+    "token_rate": [
+     "float|null"
+    ]
+   }
+  },
+  "years": [
+   "int"
+  ]
+ },
+ "series/quarterly.json": {
+  "corpus": {
+   "meetings": [
+    "int"
+   ],
+   "speeches": [
+    "int"
+   ],
+   "tokens": [
+    "int"
+   ]
+  },
+  "freq": "str",
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "meetings": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "rate_per_tokens": "int",
+   "script": "str",
+   "speakers": "int",
+   "speeches": "int",
+   "tokens": "int"
+  },
+  "periods": [
+   "str"
+  ],
+  "registers": {
+   "*": {
+    "occurrences": [
+     "int"
+    ],
+    "speech_rate": [
+     "float"
+    ],
+    "speeches": [
+     "int"
+    ],
+    "terms": [
+     "str"
+    ],
+    "token_rate": [
+     "float"
+    ]
+   }
+  },
+  "sets": {
+   "*": {
+    "members": [
+     "str"
+    ],
+    "speech_rate": [
+     "float"
+    ],
+    "speeches": [
+     "int"
+    ]
+   }
+  },
+  "terms": {
+   "*": {
+    "occurrences": [
+     "int"
+    ],
+    "register": "str",
+    "speech_rate": [
+     "float"
+    ],
+    "speeches": [
+     "int"
+    ],
+    "tier": "str",
+    "token_rate": [
+     "float"
+    ]
+   }
+  }
+ },
+ "speeches/UNSC_1992_SPV.3137.json": {
+  "agenda": "str",
+  "basename": "str",
+  "date": "str",
+  "meta": {
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "scope": "str",
+   "script": "str"
+  },
+  "region": "str",
+  "speeches": [
+   {
+    "body_start": "int",
+    "country": "str",
+    "entity_type": "str",
+    "group": "str",
+    "hits": {
+     "atrocity": [
+      [
+       "int"
+      ]
+     ],
+     "crimes_against_humanity": [
+      [
+       "int"
+      ]
+     ],
+     "ethnic_cleansing": [
+      [
+       "int"
+      ]
+     ],
+     "ethnic_hatred": [
+      [
+       "int"
+      ]
+     ],
+     "extermination": [
+      [
+       "int"
+      ]
+     ],
+     "genocide": [
+      [
+       "int"
+      ]
+     ],
+     "genocide_convention": [
+      [
+       "int"
+      ]
+     ],
+     "holocaust": [
+      [
+       "int"
+      ]
+     ],
+     "impunity": [
+      [
+       "int"
+      ]
+     ],
+     "tribunals": [
+      [
+       "int"
+      ]
+     ],
+     "war_crimes": [
+      [
+       "int"
+      ]
+     ]
+    },
+    "id": "str",
+    "iso3": "str",
+    "language": "str",
+    "n": "int",
+    "role": "null",
+    "speaker": "str",
+    "text": "str",
+    "tokens": "int",
+    "type": "str"
+   }
+  ],
+  "spv": "str",
+  "topic": "str",
+  "year": "int"
+ }
+}

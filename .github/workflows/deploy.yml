@@ -1,6 +1,6 @@
 # Rebuild the pinned corpus and static dashboard, then deploy it to GitHub Pages.
 #
-# The 488 MB web payload is intentionally not committed. A deployment that has
+# The 491 MB web payload is intentionally not committed. A deployment that has
 # nothing to reuse starts from Harvard Dataverse v6.1, verifies its checksums,
 # runs the versioned pipeline, and publishes the resulting static site. That
 # costs build time, but makes a release reproducible from the DOI and the

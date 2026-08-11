@@ -33,16 +33,16 @@ every chart as SVG or PNG with its filters written into the image.
 | Lexicometry — collocates, keyness, network | ✅ `scripts/05` · [`config/stopwords.txt`](config/stopwords.txt) |
 | Concordance (79,569 lines, 22 terms) | ✅ `scripts/08` |
 | Speech export & web payload | ✅ `scripts/09`, `scripts/export_web.py` |
-| Dashboard — 6 views, SvelteKit 2 / Svelte 5 | ✅ [`web/`](web/); Pages rebuilds the 488 MB payload from v6.1 |
+| Dashboard — 6 views, SvelteKit 2 / Svelte 5 | ✅ [`web/`](web/); Pages rebuilds the 491 MB payload from v6.1 |
 | Per-speaker table | ✅ `scripts/11`; 133 of 601 speakers clear the 100-speech minimum, the rest carry null rates |
-| Membership composition per speaker | ✅ `scripts/11` → `standing`; 105 speakers spoke both from a seat and from outside one, **not yet drawn** |
+| Membership composition per speaker | ✅ `scripts/11` → `standing`, drawn by [`Standing.svelte`](web/src/lib/Standing.svelte); 105 speakers spoke both from a seat and from outside one |
 | Licence & citation metadata | ✅ [MIT](LICENSE) + [CC BY 4.0](LICENSE-DATA.md), [`CITATION.cff`](CITATION.cff) confirmed |
 | Public deployment | ✅ [live](https://fmadore.github.io/genocide-at-the-security-council/); Pages source is GitHub Actions, payload rebuilt from the DOI each run |
 | First citable release | ⬜ untagged — gated on the §1.1 audit, **0 of 200 rows verdicted** |
 | Speech embeddings | ✅ `scripts/06` on a GPU cluster ([`docs/CLUSTER.md`](docs/CLUSTER.md)); **not read by the dashboard** |
 | Topic comparison & its evaluation | ✅ `scripts/07` — evidence for a decision, not a result; adoption still deferred |
 | Lemma layer & lemma lexicometry | ✅ `scripts/10`, `scripts/05 --vocabulary lemma`; built, **not adopted** — see Phase 6 |
-| Actor view — ranking, locator map, concordance links | ✅ `web/src/routes/actors/`; the profile in [`docs/PLAN.md`](docs/PLAN.md) §3 is not built — no membership shading, no per-speaker keyness |
+| Actor view — ranking, locator map, concordance links | ✅ `web/src/routes/actors/`, with the membership composition and the per-speaker keyness [`docs/PLAN.md`](docs/PLAN.md) §3 asks for, each as its own figure rather than as shading on the ranking |
 | LLM structured extraction | ⏸ deferred until a human coding protocol exists |
 
 The three ✅ rows that say "not adopted" are not a backlog. They are built, run and
@@ -108,6 +108,15 @@ run on every push and pull request via
 [`.github/workflows/checks.yml`](.github/workflows/checks.yml), so a bad edit to a config
 file fails in CI rather than halfway through someone's pipeline run.
 
+The two halves are joined by one more thing.
+[`tests/contract/payload.json`](tests/contract/payload.json) records the *shape* of every
+artefact the dashboard fetches — keys, nesting and the type at each leaf, 32 kB standing in
+for 491 MB — because that shape was previously written three times, in two languages, with
+nothing comparing them: a renamed field passed `pytest`, passed `svelte-check`, and was
+found by looking at an empty figure. `export_web.py` now refuses to publish a payload that
+has drifted from it, and the dashboard's own suite checks that every field it fetches for
+is one the pipeline actually writes.
+
 ---
 
 ## Layout
@@ -131,15 +140,17 @@ file fails in CI rather than halfway through someone's pipeline run.
 │   ├── PLAN.md            Five-phase action plan
 │   ├── CLUSTER.md         Running the GPU steps on the Bayreuth cluster
 │   ├── VALIDATION.md      Readings to confirm against the original S/PV PDFs
+│   ├── REFACTORING.md     Code-health backlog: what is known to be wrong, and why
 │   └── reference/         Codebook PDF, companion paper
 ├── notes/               Gitignored. Markdown findings notes emitted by each script.
 ├── scripts/             Numbered, idempotent pipeline steps — see scripts/README.md
 │   ├── lib/               The tested modules the steps orchestrate
 │   └── cluster/           Slurm harness for the GPU steps — see docs/CLUSTER.md
 ├── tests/               pytest; runs against the real config/, needs no data
+│   └── contract/          The shape the dashboard is written against, checked at export
 ├── tools/               One-off maintenance helpers (entity crosswalk bootstrap)
 └── web/                 SvelteKit dashboard — src/routes is one file per view
-    └── static/data/       Gitignored. 488 MB, built by scripts/09 and export_web.py
+    └── static/data/       Gitignored. 491 MB, built by scripts/09 and export_web.py
 ```
 
 ---

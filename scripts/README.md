@@ -88,6 +88,7 @@ See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establis
 | [`lib/paths.py`](lib/paths.py) | Where everything lives. One definition, imported everywhere. |
 | [`lib/console.py`](lib/console.py) | Uniform reporting, and UTF-8 stdout on Windows. |
 | [`lib/artifacts.py`](lib/artifacts.py) | Atomic files/directories, hashes and provenance manifests. |
+| [`lib/contract.py`](lib/contract.py) | The payload's shape, and whether it still has it. Enforced at the export seam. |
 | [`lib/frames.py`](lib/frames.py) | Parquet read/write; `body()` reconstructs a speech minus its form of address. |
 | [`lib/text.py`](lib/text.py) | Line endings, the opening form of address, delivery language, case collisions. |
 | [`lib/language.py`](lib/language.py) | Explicit, inferred and unknown delivery-language policy. |
@@ -158,5 +159,14 @@ state sharing a living one's code.
   counts and lists what it absorbed, and the cases go to
   [`../docs/VALIDATION.md`](../docs/VALIDATION.md) to be checked against the original
   PDFs. A silent fix is unfalsifiable.
+- **The payload's shape is a contract, not a convention.** The dashboard reads these
+  artefacts through hand-written TypeScript types, so a renamed or dropped field used to
+  fail as a blank chart rather than as an error.
+  [`../tests/contract/payload.json`](../tests/contract/payload.json) records the shape —
+  keys, nesting and the type at each leaf, with the data thrown away — and
+  `export_web.py` refuses to publish a payload that has drifted from it. Growth is not
+  drift: a new field passes, and so does a lexicon edit that changes which measures carry
+  what. When a change *is* intended, `python scripts/export_web.py --update-contract`
+  rewrites the file so it arrives as a diff somebody reads.
 - **Notes are for humans.** Every script writes `notes/NN_name.md` summarising what it
   found, not just what it did.

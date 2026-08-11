@@ -118,7 +118,7 @@ and commit metadata.
 
 Status: implemented; first live deployment still depends on repository Pages settings.
 
-The Pages workflow rebuilds the 488 MB payload from Dataverse v6.1 rather than committing
+The Pages workflow rebuilds the 491 MB payload from Dataverse v6.1 rather than committing
 generated data or relying on one workstation. It installs the hashed Python lock, runs steps
 00–09 plus 11, 12 and `export_web.py`, builds every public route and uploads the static
 artifact. Since 11 August 2026 it does that only when it has to: §2.1 records the two caches

@@ -25,6 +25,10 @@ DOCS = ROOT / "docs"
 NOTES = ROOT / "notes"      # Markdown findings notes emitted by scripts
 WEB_DATA = ROOT / "web" / "static" / "data"  # dashboard payloads
 
+# The shape the dashboard is written against, committed and reviewed as a diff.
+# `export_web.py` checks the payload against it at the seam; see lib/contract.py.
+CONTRACT = ROOT / "tests" / "contract" / "payload.json"
+
 # --- Canonical data -------------------------------------------------------
 SPEECHES = DERIVED / "speeches.parquet"           # 01 — raw join, never edited
 MEETINGS = DERIVED / "meetings.parquet"           # 01

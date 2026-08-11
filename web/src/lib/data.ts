@@ -299,81 +299,96 @@ export function json<T>(
 	return cache.get(url) as Promise<T>;
 }
 
-export const annual = (f?: typeof fetch) =>
-	json<AnnualSeries>(
-		'series/annual.json',
-		f,
-		['meta', 'periods', 'corpus', 'terms'],
-		validateAnnual
-	);
-export const quarterly = (f?: typeof fetch) =>
-	json<AnnualSeries>(
-		'series/quarterly.json',
-		f,
-		['meta', 'periods', 'corpus', 'terms'],
-		validateAnnual
-	);
-export const monthly = (f?: typeof fetch) =>
-	json<MonthlySeries>(
-		'series/monthly.json',
-		f,
-		['meta', 'periods', 'corpus', 'sufficient', 'years', 'minimum_speeches', 'month_of_year'],
-		validateMonthly
-	);
-export const breakdowns = (f?: typeof fetch) =>
-	json<Breakdowns>('series/breakdowns.json', f, ['meta', 'measures'], validateBreakdowns);
-export const changePoints = (f?: typeof fetch) =>
-	json<ChangePoints>(
-		'series/change_points.json',
-		f,
-		['meta', 'series', 'inference'],
-		validateChangePoints
-	);
-export const events = (f?: typeof fetch) =>
-	json<Events>('series/events.json', f, ['meta', 'events'], validateEvents);
+/**
+ * What each artefact must carry, keyed on its path under `static/data/`.
+ *
+ * Exported because it is one half of a contract whose other half is written in
+ * Python, and until this was a value rather than an argument list nothing could
+ * compare the two. `contract.test.ts` checks every entry below against
+ * `tests/contract/payload.json` — the committed shape of what the pipeline
+ * actually writes — so a field required here that the pipeline does not produce
+ * fails a test instead of blanking a figure.
+ *
+ * The two artefacts fetched by name (`kwic/<term>`, `speeches/<basename>`) are
+ * keyed on the pattern their callers build, and the test resolves them against
+ * the representative file the contract samples.
+ */
+export const REQUIRED = {
+	'series/annual.json': ['meta', 'periods', 'corpus', 'terms'],
+	'series/quarterly.json': ['meta', 'periods', 'corpus', 'terms'],
+	'series/monthly.json': [
+		'meta',
+		'periods',
+		'corpus',
+		'sufficient',
+		'years',
+		'minimum_speeches',
+		'month_of_year'
+	],
+	'series/breakdowns.json': ['meta', 'measures'],
+	'series/change_points.json': ['meta', 'series', 'inference'],
+	'series/events.json': ['meta', 'events'],
+	'lexical/collocates.json': ['meta'],
+	'lexical/collocates_sliced.json': ['meta'],
+	'lexical/keyness.json': ['meta'],
+	'lexical/network.json': ['meta'],
+	'countries/countries.json': [
+		'meta',
+		'countries',
+		'periods',
+		'measures',
+		'standing',
+		'minimum_speeches',
+		'iso3_collisions'
+	],
+	'countries/speaker_keyness.json': ['meta', 'speakers', 'minimum_pairs', 'minimum_coverage'],
+	'kwic/index.json': ['meta'],
+	'kwic/*.json': ['meta', 'term', 'lines'],
+	'meetings.json': ['meta'],
+	'speeches/*.json': ['meta', 'speeches']
+} as const satisfies Record<string, readonly string[]>;
 
-export const collocates = (f?: typeof fetch) =>
-	json<Collocates>('lexical/collocates.json', f, ['meta'], validateLexical);
-export const slicedCollocates = (f?: typeof fetch) =>
-	json<SlicedCollocates>('lexical/collocates_sliced.json', f, ['meta'], validateLexical);
-export const keyness = (f?: typeof fetch) =>
-	json<Keyness>('lexical/keyness.json', f, ['meta'], validateKeyness);
-export const network = (f?: typeof fetch) =>
-	json<Network>('lexical/network.json', f, ['meta'], validateNetwork);
+export type Artefact = keyof typeof REQUIRED;
 
-export const countries = (f?: typeof fetch) =>
-	json<Countries>(
-		'countries/countries.json',
-		f,
-		['meta', 'countries', 'periods', 'measures', 'standing', 'minimum_speeches', 'iso3_collisions'],
-		validateCountries
-	);
+/** An accessor for a fixed artefact: its path, what it must carry, and its validator. */
+const at =
+	<T>(path: Artefact, validate?: Validator) =>
+	(f?: typeof fetch) =>
+		json<T>(path, f, REQUIRED[path], validate);
 
-export const speakerKeyness = (f?: typeof fetch) =>
-	json<SpeakerKeyness>(
-		'countries/speaker_keyness.json',
-		f,
-		['meta', 'speakers', 'minimum_pairs', 'minimum_coverage'],
-		validateSpeakerKeyness
-	);
+export const annual = at<AnnualSeries>('series/annual.json', validateAnnual);
+export const quarterly = at<AnnualSeries>('series/quarterly.json', validateAnnual);
+export const monthly = at<MonthlySeries>('series/monthly.json', validateMonthly);
+export const breakdowns = at<Breakdowns>('series/breakdowns.json', validateBreakdowns);
+export const changePoints = at<ChangePoints>('series/change_points.json', validateChangePoints);
+export const events = at<Events>('series/events.json', validateEvents);
 
-export const kwicIndex = (f?: typeof fetch) =>
-	json<KwicIndex>('kwic/index.json', f, ['meta'], validateKwicIndex);
+export const collocates = at<Collocates>('lexical/collocates.json', validateLexical);
+export const slicedCollocates = at<SlicedCollocates>(
+	'lexical/collocates_sliced.json',
+	validateLexical
+);
+export const keyness = at<Keyness>('lexical/keyness.json', validateKeyness);
+export const network = at<Network>('lexical/network.json', validateNetwork);
+
+export const countries = at<Countries>('countries/countries.json', validateCountries);
+export const speakerKeyness = at<SpeakerKeyness>(
+	'countries/speaker_keyness.json',
+	validateSpeakerKeyness
+);
+
+export const kwicIndex = at<KwicIndex>('kwic/index.json', validateKwicIndex);
+export const meetingIndex = at<MeetingIndex>('meetings.json', validateMeetingIndex);
+
+/* Fetched by name rather than fixed, so the path is built per call. */
 export const kwic = (term: string, f?: typeof fetch) =>
-	json<KwicFile>(
-		`kwic/${encodeURIComponent(term)}.json`,
-		f,
-		['meta', 'term', 'lines'],
-		validateKwic
-	);
+	json<KwicFile>(`kwic/${encodeURIComponent(term)}.json`, f, REQUIRED['kwic/*.json'], validateKwic);
 
-export const meetingIndex = (f?: typeof fetch) =>
-	json<MeetingIndex>('meetings.json', f, ['meta'], validateMeetingIndex);
 export const meeting = (basename: string, f?: typeof fetch) =>
 	json<Meeting>(
 		`speeches/${encodeURIComponent(basename)}.json`,
 		f,
-		['meta', 'speeches'],
+		REQUIRED['speeches/*.json'],
 		validateMeeting
 	);
 

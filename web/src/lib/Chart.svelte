@@ -57,7 +57,17 @@
 	let { option, height = '340px', description, onclick }: Props = $props();
 
 	let element: HTMLDivElement;
-	let chart: EChartsType | undefined;
+	/**
+	 * The instance, as a raw signal.
+	 *
+	 * `$state.raw` rather than `$state` because this is a class instance and not
+	 * a value to be observed field by field, and rather than a plain `let`
+	 * because the effect below must genuinely depend on it. Written as a plain
+	 * variable it did not: the effect only re-ran because `ready` happened to be
+	 * set in the same flush, which made the order of two effect declarations
+	 * load-bearing without saying so anywhere.
+	 */
+	let chart = $state.raw<EChartsType | undefined>(undefined);
 	let ready = $state(false);
 
 	/**
@@ -72,36 +82,53 @@
 		return element?.querySelector('svg') ?? null;
 	}
 
-	onMount(() => {
-		chart = init(element, undefined, { renderer: 'svg' });
-		chart.setOption({
+	/**
+	 * The two settings every figure on this site carries, around the option the
+	 * route built.
+	 *
+	 * Written once. Held in two places — the mount and the update — they were
+	 * two copies of a decision about motion and assistive technology that a
+	 * later edit could change in one and not the other.
+	 */
+	function framed(built: EChartsOption): EChartsOption {
+		return {
 			animation: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
 			aria: { enabled: true, decal: { show: true } },
-			...option
-		});
-		if (onclick) chart.on('click', (params) => onclick(params as never));
-		const observer = new ResizeObserver(() => chart?.resize());
+			...built
+		};
+	}
+
+	// Creates the instance and wires it up. It deliberately draws nothing: the
+	// effect below owns every `setOption`, including the first.
+	onMount(() => {
+		const instance = init(element, undefined, { renderer: 'svg' });
+		if (onclick) instance.on('click', (params) => onclick(params as never));
+		const observer = new ResizeObserver(() => instance.resize());
 		observer.observe(element);
-		ready = true;
+		chart = instance;
 		return () => {
 			observer.disconnect();
-			chart?.dispose();
+			instance.dispose();
 		};
 	});
 
-	// `notMerge` so a series removed by a filter actually disappears rather than
-	// lingering underneath the new one.
+	/**
+	 * Every draw, first and subsequent.
+	 *
+	 * It used to be the second: the mount drew the figure and then this effect
+	 * ran and drew it again, because setting `ready` inside the mount was itself
+	 * the change that woke it. Every chart on the site was therefore built,
+	 * discarded and rebuilt before a reader saw it — and under `notMerge` that is
+	 * a whole SVG tree each time, plus a restarted layout on the network graph,
+	 * which settles by simulation rather than by measurement.
+	 *
+	 * `notMerge` so a series removed by a filter actually disappears rather than
+	 * lingering underneath the new one.
+	 */
 	$effect(() => {
-		if (chart && ready) {
-			chart.setOption(
-				{
-					animation: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-					aria: { enabled: true, decal: { show: true } },
-					...option
-				},
-				{ notMerge: true }
-			);
-		}
+		if (!chart) return;
+		chart.setOption(framed(option), { notMerge: true });
+		ready = true;
 	});
 </script>
 
