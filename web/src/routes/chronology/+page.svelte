@@ -13,14 +13,16 @@
 		GRID_COLUMNS,
 		calendar,
 		calendarRows,
+		evidence,
 		grid as monthGrid,
 		gridRows,
 		measures as monthlyMeasures,
-		monthLabel,
+		pooledEvidence,
+		termsOf,
 		units as monthlyUnits
 	} from '$lib/heatmap';
-	import type { Cell, Unit as GridUnit } from '$lib/heatmap';
-	import { count, decimal, escapeHtml, isoDate, percent, termLabel } from '$lib/format';
+	import type { CalendarRow, Cell, Unit as GridUnit } from '$lib/heatmap';
+	import { count, decimal, escapeHtml, isoDate, monthLabel, percent, termLabel } from '$lib/format';
 	import {
 		axisX,
 		axisY,
@@ -120,6 +122,20 @@
 	const strongest = $derived(
 		[...column.rows].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).slice(0, 2)
 	);
+
+	/* --- Opening the evidence behind a square ------------------------------
+	   This figure shipped linking each *year*, because the concordance filtered
+	   by year and a square could not open itself. It can now, and the rule for
+	   when it may is one line: the concordance is a file per term, so a measure
+	   that resolves to several declines rather than offering one member's lines
+	   as the square's evidence. 384 cells cannot each carry five links, and the
+	   note under the table says which case a reader is in. */
+	const gridTerms = $derived(termsOf(byMonth, gridMeasure));
+	const linkable = $derived(gridTerms.length === 1);
+	const cellLink = (cell: Cell) =>
+		linkable ? (evidence(byMonth, gridMeasure, cell)[0] ?? null) : null;
+	const rowLink = (row: CalendarRow) =>
+		linkable ? (pooledEvidence(byMonth, gridMeasure, row)[0] ?? null) : null;
 
 	/** Every measure and every month, including the 53 that carry no rate. */
 	function monthTable(): ExportRequest {
@@ -761,9 +777,17 @@
 			<details class="data-table">
 				<summary><Icon icon={ChevronRight} />View the grid as a table</summary>
 				<p class="hint">
-					A dash is a month with no published rate. Each year links to its lines in the concordance
-					— the year, not the month: the concordance filters by year, so what opens is wider than
-					any one square here.
+					A dash is a month with no published rate.
+					{#if linkable}
+						Each figure opens that month's lines in the concordance — the month itself, not the year
+						around it. A withheld square links too: the minimum governs a rate, and the lines under
+						it are the record rather than an estimate from it.
+					{:else}
+						The squares do not link here: the concordance holds one file per term, and
+						<em>{termLabel(gridMeasure)}</em>
+						is {gridTerms.length} of them ({gridTerms.map(termLabel).join(', ')}). Draw one of those
+						to open a month's lines.
+					{/if}
 				</p>
 				<table>
 					<thead>
@@ -779,15 +803,21 @@
 					<tbody>
 						{#each heat.years as year (year)}
 							<tr>
-								<td
-									><a href="{resolve('/concordance')}?term={gridMeasure}&from={year}&to={year}"
-										>{year}</a
-									></td
-								>
+								<!-- No longer a link: the year was what this table could offer when a
+								     square could not open itself, and offering both would leave a
+								     reader one click from the wider answer for no reason. -->
+								<td>{year}</td>
 								{#each heat.months as month (month)}
 									{@const cell = heat.cells.find((c) => c.year === year && c.month === month)}
+									{@const link = cell ? cellLink(cell) : null}
 									<td class="num" title={cell ? cellLabel(cell) : ''}>
-										{cell && cell.state === 'drawn' ? showRate(cell.value) : '—'}
+										{#if cell && link}
+											<a href="{resolve('/concordance')}?{link.query}"
+												>{cell.state === 'drawn' ? showRate(cell.value) : '—'}</a
+											>
+										{:else}
+											{cell && cell.state === 'drawn' ? showRate(cell.value) : '—'}
+										{/if}
 									</td>
 								{/each}
 							</tr>
@@ -816,6 +846,15 @@
 				— the corpus's two largest years for this vocabulary. A calendar pattern that is really one spike
 				seen through a monthly lens would not survive their removal.
 			</p>
+			<p>
+				{#if linkable}
+					Each month opens every instance of it in the concordance — all {byMonth.years.length} Junes,
+					not one of them, which is the row's own denominator.
+				{:else}
+					The months do not link here: <em>{termLabel(gridMeasure)}</em> is {gridTerms.length} concordance
+					terms, and the concordance shows one at a time.
+				{/if}
+			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>{byMonth.month_of_year.rule}</p>
@@ -838,8 +877,14 @@
 				</thead>
 				<tbody>
 					{#each column.rows as row (row.month)}
+						{@const link = rowLink(row)}
 						<tr style:--w="{(row.weight * 100).toFixed(1)}%">
-							<th scope="row">{row.name}</th>
+							<!-- Every year's June, which is what this row pools — so the link
+							     carries the month and no year bound at all. -->
+							<th scope="row">
+								{#if link}<a href="{resolve('/concordance')}?{link.query}">{row.name}</a
+									>{:else}{row.name}{/if}
+							</th>
 							<td class="num">{count(row.held)}</td>
 							<td class="num">{count(row.speeches)}</td>
 							<td class="num">{showRate(row.value)}</td>

@@ -20,13 +20,16 @@ import {
 	at,
 	calendar,
 	calendarRows,
+	evidence,
 	grid,
 	gridRows,
-	monthLabel,
+	pooledEvidence,
 	tone,
 	units,
 	type Unit
 } from './heatmap';
+import { readMonth } from './concordance';
+import { monthLabel } from './format';
 import type { CalendarMeasure, MonthlyMeasure, MonthlySeries } from './types';
 
 const meta = { script: '04_series.py', generated: '2026-08-10T00:00:00Z', lexicon_version: 2 };
@@ -321,5 +324,89 @@ describe('what leaves in a file', () => {
 describe('labels', () => {
 	it('reads a period as a month and a year', () => {
 		expect(monthLabel('2014-06')).toBe('June 2014');
+	});
+});
+
+/**
+ * The link a square offers, which this figure shipped without.
+ *
+ * Two of these could be got wrong in ways that read as caution rather than as
+ * a defect: refusing to link a withheld cell would withhold the record to
+ * protect a rate that is not shown, and offering a set as one link would
+ * present half its evidence as all of it.
+ */
+describe('the evidence behind a square', () => {
+	const plan = () => grid({ data: payload(), measure: 'genocide' });
+
+	it('opens the cell’s own month and year, not the year around it', () => {
+		const links = evidence(payload(), 'genocide', at(plan(), 1993, 6)!);
+		expect(links).toHaveLength(1);
+		const params = new URLSearchParams(links[0].query);
+		expect(readMonth(params.get('month'))).toBe(6);
+		expect(params.get('from')).toBe('1993');
+		expect(params.get('to')).toBe('1993');
+		expect(links[0].scope).toBe('June 1993');
+	});
+
+	// The minimum governs a rate. A month holding 40 speeches has no publishable
+	// figure and still has its lines, and those lines are the record itself.
+	it('still opens a withheld cell', () => {
+		const cell = at(plan(), 1992, 2)!;
+		expect(cell.state).toBe('withheld');
+		expect(cell.value).toBeNull();
+		expect(evidence(payload(), 'genocide', cell)).toHaveLength(1);
+	});
+
+	it('offers nothing for a month nobody spoke in', () => {
+		const speeches = corpus(['1992-02'], ['1992-03']);
+		const data = payload({ corpus: { speeches, tokens: speeches, meetings: speeches } });
+		const cell = at(grid({ data, measure: 'genocide' }), 1992, 3)!;
+		expect(cell.state).toBe('unobserved');
+		expect(evidence(data, 'genocide', cell)).toEqual([]);
+	});
+
+	it('offers nothing where the term was never used', () => {
+		const data = payload();
+		const silent = { ...data, terms: { genocide: measure(data.sufficient.map(() => 0)) } };
+		expect(
+			evidence(silent, 'genocide', at(grid({ data: silent, measure: 'genocide' }), 1993, 6)!)
+		).toEqual([]);
+	});
+
+	// The guard is the term-bearing speech count, never the occurrence count: a
+	// set has none, and `undefined < 1` is false, so a check on occurrences would
+	// let every set through while appearing to work.
+	it('becomes one link per member for a set that has no occurrence count', () => {
+		const data = payload();
+		const cell = at(grid({ data, measure: 'atrocity_core' }), 1993, 6)!;
+		expect(cell.occurrences).toBeNull();
+		const links = evidence(data, 'atrocity_core', cell);
+		expect(links.map((link) => link.term)).toEqual(['genocide', 'war_crimes']);
+		for (const link of links) {
+			expect(readMonth(new URLSearchParams(link.query).get('month'))).toBe(6);
+		}
+	});
+});
+
+describe('the evidence behind a pooled row', () => {
+	it('carries no year, because the row pools every one of them', () => {
+		const data = payload();
+		const june = calendar(data, 'genocide').rows.find((row) => row.month === 6)!;
+		const links = pooledEvidence(data, 'genocide', june);
+		expect(links).toHaveLength(1);
+		const params = new URLSearchParams(links[0].query);
+		expect(readMonth(params.get('month'))).toBe(6);
+		expect(params.get('from')).toBeNull();
+		expect(params.get('to')).toBeNull();
+		expect(links[0].scope).toBe('every June');
+	});
+
+	it('splits a set into its members here too', () => {
+		const data = payload();
+		const june = calendar(data, 'atrocity_core').rows.find((row) => row.month === 6)!;
+		expect(pooledEvidence(data, 'atrocity_core', june).map((link) => link.term)).toEqual([
+			'genocide',
+			'war_crimes'
+		]);
 	});
 });

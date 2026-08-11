@@ -34,6 +34,35 @@ export function bytes(n: number): string {
 /** `crimes_against_humanity` → `crimes against humanity`. */
 export const termLabel = (name: string) => name.replace(/_/g, ' ');
 
+/**
+ * The twelve months, here rather than in the figure that first needed them.
+ *
+ * `$lib/heatmap` owned these while the grid was the only thing that counted in
+ * months. The concordance now filters by month too, and a second copy of the
+ * list in the module that reads the filter is how a figure and the evidence
+ * behind it start disagreeing about what June is called.
+ */
+export const MONTH_NAMES = [
+	'January',
+	'February',
+	'March',
+	'April',
+	'May',
+	'June',
+	'July',
+	'August',
+	'September',
+	'October',
+	'November',
+	'December'
+];
+
+/** `2014-06` → `June 2014`. */
+export const monthLabel = (period: string): string => {
+	const [year, month] = period.split('-');
+	return `${MONTH_NAMES[Number(month) - 1] ?? month} ${year}`;
+};
+
 /** Long official names are unreadable in a table cell or on an axis. */
 const SHORT: Record<string, string> = {
 	'United Kingdom Of Great Britain And Northern Ireland': 'United Kingdom',

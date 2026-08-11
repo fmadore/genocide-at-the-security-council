@@ -1,9 +1,19 @@
 # Rebuild the pinned corpus and static dashboard, then deploy it to GitHub Pages.
 #
-# The 488 MB web payload is intentionally not committed. Each deployment starts
-# from Harvard Dataverse v6.1, verifies its checksums, runs the versioned pipeline,
-# and publishes the resulting static site. This costs build time, but makes a
-# release reproducible from the DOI and the repository alone.
+# The 488 MB web payload is intentionally not committed. A deployment that has
+# nothing to reuse starts from Harvard Dataverse v6.1, verifies its checksums,
+# runs the versioned pipeline, and publishes the resulting static site. That
+# costs build time, but makes a release reproducible from the DOI and the
+# repository alone.
+#
+# Two caches keep that principle without paying it on every push. The pin is
+# immutable — v6.1 cannot change, and its MD5s are fixed — so re-downloading
+# 508 MB to move a grid column buys nothing, and this workflow triggers on
+# `web/**`. Neither cache adds a trust assumption: the raw one is checksummed
+# by `00_fetch_data.py` against MD5s Harvard published, and the derived one is
+# keyed on exactly the inputs `lib/artifacts.provenance` already claims
+# determine an artifact. Both are an optimisation and never a dependency —
+# Dataverse and the retry in 00 stay the backstop, and eviction is a feature.
 
 name: Deploy dashboard
 
@@ -31,6 +41,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      # Not a preference — a correctness requirement for the derived cache key
+      # below. Importing anything under `scripts/` writes `__pycache__`, a .pyc
+      # records the mtime of the source it was compiled from, and a fresh
+      # checkout stamps a new mtime every run. `hashFiles('scripts/**')` would
+      # then differ between the restore and the save, and the cache would never
+      # hit twice in a row while appearing to work.
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@v7
 
@@ -42,8 +60,72 @@ jobs:
 
       - run: python -m pip install --require-hashes -r requirements.lock
 
-      - name: Rebuild data payload from Dataverse v6.1
+      # Read from the one file that defines the pin, so the cache key and the
+      # download can never disagree about which version is being built. With
+      # sed rather than by importing lib.paths, for the reason in `env` above.
+      - name: Read the dataset pin
+        id: pin
         run: |
+          version=$(sed -n 's/^DATASET_VERSION = "\(.*\)"$/\1/p' scripts/lib/paths.py)
+          if [ -z "$version" ]; then
+            echo "::error file=scripts/lib/paths.py::DATASET_VERSION not found — refusing to build a cache key that would be shared across pins"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Pinned dataset version $version"
+
+      # Composed once and read by both the restore and the save, so the two
+      # cannot be evaluated against different trees.
+      #
+      # The derived key is the input set that determines the payload: the
+      # configs, the pipeline, the locked environment, the pin, and this file —
+      # which names the Python version and the list of steps that run, and is
+      # therefore an input like any other. A key that misses one of these would
+      # ship a payload that does not match the code, which is the failure to
+      # design against; every artifact still carries its own input hashes and
+      # generating commit, so a miss stays detectable after the fact.
+      - name: Compose the cache keys
+        id: keys
+        run: |
+          {
+            echo "raw=raw-v${{ steps.pin.outputs.version }}"
+            echo "derived=derived-v${{ steps.pin.outputs.version }}-${{ hashFiles('config/**', 'scripts/**', 'requirements.lock', '.github/workflows/deploy.yml') }}"
+          } >> "$GITHUB_OUTPUT"
+
+      # No `restore-keys` on either, deliberately. A partial match is exactly
+      # the payload-that-does-not-match-the-code failure: better to rebuild.
+      - name: Restore the derived payload
+        id: derived
+        uses: actions/cache/restore@v6
+        with:
+          # Both, not just the payload the site ships: `data/derived/` holds the
+          # manifests, which are what a release archives, and keeping the
+          # inspectable artefacts beside the exported ones is what lets a hit be
+          # audited rather than only served. Together roughly 0.9 GB here —
+          # `embeddings/` and `lemmas/` are cluster-only (docs/CLUSTER.md) and
+          # are never produced by this workflow.
+          path: |
+            data/derived
+            web/static/data
+          key: ${{ steps.keys.outputs.derived }}
+
+      # Only when the payload has to be rebuilt. On a derived hit this workflow
+      # makes no request to Dataverse at all, which is the whole point: a
+      # `web/src/**`-only push should not touch an archive nobody here controls.
+      - name: Restore the pinned corpus
+        id: raw
+        if: steps.derived.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: data/raw
+          key: ${{ steps.keys.outputs.raw }}
+
+      - name: Rebuild data payload from Dataverse v${{ steps.pin.outputs.version }}
+        if: steps.derived.outputs.cache-hit != 'true'
+        run: |
+          # 00 is cache-aware already: it MD5-checks every local file and prints
+          # `ok` rather than downloading, so a raw hit costs one API call for
+          # the version lookup instead of 508 MB.
           python scripts/00_fetch_data.py
           python scripts/01_build_parquet.py
           python scripts/02_normalise.py
@@ -58,6 +140,26 @@ jobs:
           # ship a payload from this workflow that a local run does not produce.
           python scripts/12_speaker_keyness.py
           python scripts/export_web.py
+
+      # Saved explicitly rather than by letting `actions/cache` write in its own
+      # post step, so that a run which failed part-way through the pipeline
+      # cannot publish a half-built tree as a valid payload for this key. These
+      # steps are reached only when every step above them succeeded.
+      - name: Save the pinned corpus
+        if: steps.derived.outputs.cache-hit != 'true' && steps.raw.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: data/raw
+          key: ${{ steps.keys.outputs.raw }}
+
+      - name: Save the derived payload
+        if: steps.derived.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            data/derived
+            web/static/data
+          key: ${{ steps.keys.outputs.derived }}
 
       - uses: actions/setup-node@v7
         with:

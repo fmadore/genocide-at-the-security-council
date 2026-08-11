@@ -7,12 +7,21 @@
 	import Download from '@lucide/svelte/icons/download';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import X from '@lucide/svelte/icons/x';
+	import { MONTH_PARAM, describeMonth, inMonth, readMonth } from '$lib/concordance';
 	import { kwic, meetingOf, speechOf } from '$lib/data';
 	import { filename, provenanceOf, saveCsv, toCsv } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
-	import { bytes, count, isoDate, shortCountry, termLabel, unSearch } from '$lib/format';
+	import {
+		MONTH_NAMES,
+		bytes,
+		count,
+		isoDate,
+		shortCountry,
+		termLabel,
+		unSearch
+	} from '$lib/format';
 	import { segments } from '$lib/highlight';
 	import type { KwicFile, KwicLine } from '$lib/types';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
@@ -44,6 +53,11 @@
 	let spv = $state('');
 	let from = $state(1992);
 	let to = $state(2023);
+	/* A month of the year, orthogonal to the year bounds above: `month = 6` with
+	   from = to = 2014 is one square of the heatmap, and the same month with the
+	   years left alone is one row of the calendar beside it. What the parameter
+	   means, and what an unreadable one does, is `$lib/concordance`. */
+	let month = $state<number | null>(null);
 	let sort = $state<Sort>('date');
 	let regex = $state(false);
 	let urlReady = $state(false);
@@ -65,6 +79,7 @@
 		spv = params.get('spv') ?? '';
 		from = Number(params.get('from') ?? 1992);
 		to = Number(params.get('to') ?? 2023);
+		month = readMonth(params.get(MONTH_PARAM));
 		sort = (params.get('sort') as Sort) ?? 'date';
 		regex = params.get('re') === '1';
 		// The first replaceState must wait until SvelteKit has assigned its root.
@@ -109,6 +124,9 @@
 		if (spv) next.set('spv', spv);
 		if (from !== 1992) next.set('from', String(from));
 		if (to !== 2023) next.set('to', String(to));
+		// Written from the parsed value, never from the raw parameter, so a URL
+		// carrying `month=13` rewrites itself to one that means what it shows.
+		if (month !== null) next.set(MONTH_PARAM, String(month));
 		if (sort !== 'date') next.set('sort', sort);
 		const search = next.toString();
 		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
@@ -145,6 +163,7 @@
 		const rows = lines.filter((l) => {
 			const year = Number(l.date.slice(0, 4));
 			if (year < from || year > to) return false;
+			if (!inMonth(l.date, month)) return false;
 			if (group && l.group !== group) return false;
 			if (country && l.country !== country) return false;
 			if (agenda && l.agenda !== agenda) return false;
@@ -166,7 +185,7 @@
 
 	$effect(() => {
 		// Any change to the filter resets the page window.
-		void [term, query, group, country, agenda, spv, from, to, sort];
+		void [term, query, group, country, agenda, spv, from, to, month, sort];
 		shown = PAGE;
 	});
 
@@ -178,6 +197,7 @@
 		spv = '';
 		from = 1992;
 		to = 2023;
+		month = null;
 		sort = 'date';
 		regex = false;
 	}
@@ -215,6 +235,7 @@
 			agenda ? `agenda: ${agenda}` : null,
 			spv ? `meeting: ${spv}` : null,
 			from !== 1992 || to !== 2023 ? `years: ${from}–${to}` : null,
+			describeMonth(month),
 			`sorted by: ${sort}`
 		].filter((line): line is string => line !== null);
 
@@ -340,6 +361,20 @@
 				<input type="number" min="1992" max="2023" bind:value={from} />
 				<span>&ndash;</span>
 				<input type="number" min="1992" max="2023" bind:value={to} />
+			</label>
+			<!-- The month of the year, not a month of one year: with the years above
+			     left alone this is every June in the corpus, which is the row the
+			     pooled calendar draws. It is also the disclosure for the filter — a
+			     URL asking for an impossible month reads as "All" here, and the
+			     concordance never claims a month it is not showing. -->
+			<label>
+				Month
+				<select bind:value={month}>
+					<option value={null}>All</option>
+					{#each MONTH_NAMES as name, index (name)}
+						<option value={index + 1}>{name}</option>
+					{/each}
+				</select>
 			</label>
 			{#if spv}
 				<button class="chip" onclick={() => (spv = '')}>

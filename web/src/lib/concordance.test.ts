@@ -1,0 +1,132 @@
+/**
+ * The month dimension of the concordance URL, tested from both ends.
+ *
+ * A link builder and a parameter reader that disagree produce the worst version
+ * of this feature: a reader follows "June 2014" from the heatmap, the
+ * concordance cannot read what the figure wrote, and what opens is the whole
+ * corpus under a heading that says June. Nothing in either module would report
+ * it, because neither is wrong on its own. So the round trip is the test that
+ * matters here, and it is checked for every month rather than for one.
+ */
+
+import { describe, expect, it } from 'vitest';
+import {
+	MONTH_PARAM,
+	cellQuery,
+	describeMonth,
+	inMonth,
+	monthName,
+	monthOf,
+	pooledQuery,
+	readMonth
+} from './concordance';
+
+const read = (query: string) => readMonth(new URLSearchParams(query).get(MONTH_PARAM));
+
+describe('reading a month from a URL', () => {
+	it('takes the twelve months, padded or not', () => {
+		for (let month = 1; month <= 12; month++) {
+			expect(readMonth(String(month))).toBe(month);
+			expect(readMonth(String(month).padStart(2, '0'))).toBe(month);
+		}
+	});
+
+	// Each of these could plausibly have been coerced into a month by a more
+	// forgiving reading, and each would then filter to a month nobody asked for.
+	it.each([
+		['13', 'past December'],
+		['0', 'before January'],
+		['-6', 'negative'],
+		['6.5', 'not an integer'],
+		['foo', 'not a number'],
+		['', 'empty'],
+		['   ', 'blank'],
+		[null, 'absent'],
+		[undefined, 'unset']
+	])('refuses %s (%s)', (value: string | null | undefined, reason: string) => {
+		expect(readMonth(value), reason).toBeNull();
+	});
+
+	// The lenient reading is a decision, not an accident: a typo must not hide
+	// evidence. `inMonth` is what makes it safe — null filters nothing — and the
+	// select is what stops the interface claiming a month it is not showing.
+	it('lets every line through when the month is unreadable', () => {
+		expect(inMonth('2014-06-11', readMonth('13'))).toBe(true);
+		expect(inMonth('2014-01-11', readMonth('13'))).toBe(true);
+	});
+});
+
+describe('the predicate', () => {
+	it('reads the month out of an ISO date', () => {
+		expect(monthOf('1992-11-16')).toBe(11);
+		expect(monthOf('2014-06-01')).toBe(6);
+	});
+
+	it('keeps only the month asked for', () => {
+		expect(inMonth('2014-06-11', 6)).toBe(true);
+		expect(inMonth('2014-07-11', 6)).toBe(false);
+	});
+
+	it('keeps everything when no month is asked for', () => {
+		expect(inMonth('2014-06-11', null)).toBe(true);
+		expect(inMonth('2014-07-11', null)).toBe(true);
+	});
+
+	// A month is not a year: June 1994 and June 2014 are the same filter, which
+	// is what makes one parameter serve the pooled calendar as well as the grid.
+	it('does not care which year the date is in', () => {
+		expect(inMonth('1994-06-30', 6)).toBe(true);
+		expect(inMonth('2014-06-30', 6)).toBe(true);
+	});
+});
+
+describe('the links a figure builds', () => {
+	it('survives the round trip for every month', () => {
+		for (let month = 1; month <= 12; month++) {
+			expect(read(cellQuery('genocide', 2014, month).query)).toBe(month);
+			expect(read(pooledQuery('genocide', month).query)).toBe(month);
+		}
+	});
+
+	it('bounds a grid cell to its own year', () => {
+		const params = new URLSearchParams(cellQuery('genocide', 2014, 6).query);
+		expect(params.get('term')).toBe('genocide');
+		expect(params.get('from')).toBe('2014');
+		expect(params.get('to')).toBe('2014');
+	});
+
+	// The row pools every year. Naming the corpus bounds would freeze a range
+	// that means "all", so a later corpus would stop matching the figure.
+	it('leaves a pooled row unbounded by year', () => {
+		const params = new URLSearchParams(pooledQuery('genocide', 6).query);
+		expect(params.get('from')).toBeNull();
+		expect(params.get('to')).toBeNull();
+	});
+
+	it('says what it opens, so the interface does not have to guess', () => {
+		expect(cellQuery('genocide', 2014, 6).scope).toBe('June 2014');
+		expect(pooledQuery('genocide', 6).scope).toBe('every June');
+	});
+
+	it('escapes a term that would otherwise break the query string', () => {
+		const params = new URLSearchParams(cellQuery('crimes against humanity', 2014, 6).query);
+		expect(params.get('term')).toBe('crimes against humanity');
+	});
+});
+
+describe('naming a month', () => {
+	it('names the twelve', () => {
+		expect(monthName(1)).toBe('January');
+		expect(monthName(6)).toBe('June');
+		expect(monthName(12)).toBe('December');
+	});
+
+	it('has no name for no month', () => {
+		expect(monthName(null)).toBeNull();
+		expect(describeMonth(null)).toBeNull();
+	});
+
+	it('writes the filter the way the export lists it', () => {
+		expect(describeMonth(6)).toBe('month: June');
+	});
+});

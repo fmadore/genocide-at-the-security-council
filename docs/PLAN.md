@@ -4,7 +4,7 @@ This roadmap separates work that makes the existing claims trustworthy from opti
 analyses that would create new claims. The order is deliberate: a topic model, map or LLM
 layer is not a substitute for validating the corpus, lexicon and denominators it consumes.
 
-Status: 10 August 2026.
+Status: 11 August 2026.
 
 ## Research contract
 
@@ -120,7 +120,9 @@ Status: implemented; first live deployment still depends on repository Pages set
 
 The Pages workflow rebuilds the 488 MB payload from Dataverse v6.1 rather than committing
 generated data or relying on one workstation. It installs the hashed Python lock, runs steps
-00–09 plus `export_web.py`, builds every public route and uploads the static artifact.
+00–09 plus 11, 12 and `export_web.py`, builds every public route and uploads the static
+artifact. Since 11 August 2026 it does that only when it has to: §2.1 records the two caches
+that let a push touching nothing the payload depends on deploy without rebuilding it.
 
 Operational checks:
 
@@ -159,15 +161,17 @@ because the first one is also the largest win.
 are recorded in `data/raw/dataset-manifest.json`. Re-downloading 508 MB on every push buys
 nothing — and because `deploy.yml` triggers on `web/**`, a CSS change re-fetches half a
 gigabyte from Harvard to move a grid column. The failed deploy of 11 August was exactly
-that. Two `actions/cache` steps remove it, with no new trust assumption:
+that. **Two `actions/cache` steps removed it on 11 August 2026**, with no new trust
+assumption:
 
-- cache `data/raw/` under a key naming the pinned version, which never has to change.
+- `data/raw/` under a key naming the pinned version, which never has to change.
   `00_fetch_data.py` is already cache-aware: it MD5-checks every local file and prints
   `ok` rather than downloading, so a hit costs one API call instead of 508 MB;
-- cache `data/derived/` and `web/static/data/` under the hash of `config/**`,
-  `scripts/**`, `requirements.lock` and the raw manifest — which is exactly the set
-  `lib/artifacts.provenance` already claims determines an artifact. On a hit, steps 01–12
-  are skipped and a `web/src/**`-only push deploys with no Dataverse contact at all.
+- `data/derived/` and `web/static/data/` under the hash of the inputs that determine
+  them — which is the set `lib/artifacts.provenance` already claims determines an
+  artifact. On a hit, steps 00–12 are skipped and a `web/src/**`-only push deploys with
+  no Dataverse contact at all. Roughly 0.9 GB together; `embeddings/` and `lemmas/` are
+  cluster-only and never produced by this workflow.
 
 The risk to design against is cache correctness: a key that misses an input ships a
 payload that does not match the code. This repository is unusually well placed to catch
@@ -175,6 +179,37 @@ that, because every artifact already carries its input hashes and generating com
 mismatch stays detectable after the fact. And eviction is a feature rather than a
 problem — the cache must stay an optimisation, never a dependency, with Dataverse and the
 retry as the backstop.
+
+**What building it added**, in three corrections to the paragraph above, each of which
+would have produced a cache that appeared to work.
+
+*The raw manifest cannot be in the key.* The list above named it, and it is written by
+`00_fetch_data.py` into a gitignored directory — so at the moment the key is evaluated it
+does not exist, and after a rebuild it would be a key computed from an output. What stands
+in for it is the pin itself, which lives in `scripts/lib/paths.py` and is therefore already
+inside `hashFiles('scripts/**')`. The version is also read out separately and named in both
+keys, so the Actions UI says which deposit a cache belongs to.
+
+*`deploy.yml` is an input.* It names the Python version and the list of steps that run, and
+a payload built by a different sequence is a different payload. It is in the derived key,
+which means editing this workflow evicts the derived cache — the safe direction, and cheap.
+
+*A `.pyc` would have made the key unrepeatable.* Importing anything under `scripts/` writes
+`__pycache__`, a `.pyc` records the mtime of the source it was compiled from, and a fresh
+checkout stamps a new mtime every run. `hashFiles('scripts/**')` would then differ between
+the restore and the save, so every run would miss while the workflow reported doing
+everything right. The job sets `PYTHONDONTWRITEBYTECODE`, which is a correctness
+requirement here rather than a preference, and the pin is read with `sed` rather than by
+importing `lib.paths`.
+
+One further decision is not a correction but is worth naming, because the obvious
+implementation has the opposite behaviour. The caches are **saved by explicit
+`actions/cache/save` steps** rather than by letting `actions/cache` write in its post step.
+A post step runs during cleanup, so a run that failed part-way through the pipeline would
+publish a half-built tree under a key that claims to be the whole payload — a cache that
+does not match the code, arrived at from the other direction. The save steps sit after the
+pipeline and are reached only when it succeeded. Neither cache carries `restore-keys` for
+the same reason: a partial key match is precisely the failure being designed against.
 
 **A mirror would remove the single point of failure for the corpus.** The three pinned
 files could be held somewhere the project controls and used only when Dataverse fails. The
@@ -728,11 +763,45 @@ concordance. Five additions are worth building, in this order:
    read is scaled inside itself**, never against the grid, which is this item's own
    requirement turned into a test.
 
-   One limitation is recorded rather than left to be discovered. The concordance filters
-   lines by year, so a cell cannot open the evidence behind *itself*; the table under the
-   grid links each year, and the interface says it is the year. Wider than the square, and
-   said so. Adding a month filter to the concordance would fix it and is a change to that
-   view's URL contract, its controls and its export — not to this figure.
+   One limitation was recorded rather than left to be discovered, and **closed on 11 August
+   2026**. The concordance filtered lines by year, so a cell could not open the evidence
+   behind *itself*; the table under the grid linked each year and the interface said it was
+   the year. Wider than the square, and said so. The fix was where the note predicted — the
+   concordance's URL contract, its controls and its export, not this figure — and
+   `web/src/lib/concordance.ts` now owns what `month` means there, with the reader and the
+   link builders tested against each other so the two cannot drift.
+
+   **A month of the year, not a `YYYY-MM` period.** The obvious parameter names the cell and
+   serves one of the two figures; the pooled calendar beside the grid is thirty-two Junes,
+   which a period string cannot express without a second, incompatible form. A month of the
+   year is orthogonal to the year bounds the contract already carried, so one parameter
+   serves both — a square is `month=6` inside `from=2014&to=2014`, a calendar row is
+   `month=6` across every year. That is also the shape of `monthly.json`, which publishes
+   the grid and `month_of_year` as two readings of one table.
+
+   **A withheld square links.** The minimum governs a *rate*: 100 speeches is the
+   denominator at which a zero starts to mean "quieter than the Council" rather than "not
+   heard from enough". A concordance line is not an estimate from a sample, so a month
+   holding 40 speeches of which 2 use the word has no publishable rate and exactly two lines
+   of evidence, and refusing to open them would withhold the record to protect a figure that
+   is not being shown. The same distinction §3 draws between a speaker's standing counts and
+   the rates beside them.
+
+   **An unreadable month does not filter.** `month=13` reads as no month at all rather than
+   as an empty result, which is the lenient reading the year bounds already take. What keeps
+   it honest is that the control is the disclosure — the select shows "All" whenever the
+   parameter cannot be read, so the interface never claims a month it is not showing, and
+   the URL rewrites itself from the parsed value on the first write.
+
+   Building it surfaced a defect in the link it replaced, recorded because it had been
+   shipped and because nothing would have reported it. The old link was
+   `?term=<measure>&from=<year>&to=<year>` for whatever the grid was drawing, and the
+   concordance holds one file per term: ten of the thirty-two measures — six registers and
+   four sets — are not terms, so selecting `atrocity_core` and following its year link
+   reached a file that does not exist and a retry button. A set is now expanded to its
+   members exactly as `lib/actors` does for a speaker's quotations, and because 384 squares
+   cannot each carry five links, a multi-term measure declines to link and the note under
+   the table names the terms to draw instead. Refusing is the repair.
 
 Requirements that apply to all five:
 
@@ -802,12 +871,14 @@ both readings with each declaring its scope.
 1. Complete the human audit and source-document spot checks.
 2. ~~Select the code/derived-artifact licence and confirm citation identities.~~ Done,
    10 August 2026 — see §1.3.
-3. Run the first reproducible Pages release and archive its manifest. Cache the pinned
-   corpus and the derived payload in the workflow first — see §2.1. The pin is immutable,
-   so a `web/**`-only push currently re-fetches 508 MB from Harvard to change a stylesheet,
-   and on 11 August 2026 that cost a release two failed deploys in a row. Archiving the
-   manifest is also where the payload itself should stop depending on an archive nobody
-   here controls.
+3. Run the first reproducible Pages release and archive its manifest. ~~Cache the pinned
+   corpus and the derived payload in the workflow first.~~ Cached on 11 August 2026 — see
+   §2.1: a `web/**`-only push no longer contacts Dataverse at all, where it previously
+   re-fetched 508 MB to change a stylesheet and cost a release two failed deploys in a row.
+   What is left of this item needs no code. The Pages source has to be set to GitHub
+   Actions, which is a repository setting; then the operational checks in §2 have to pass
+   against a live deployment. Archiving the manifest is also where the payload itself should
+   stop depending on an archive nobody here controls.
 4. ~~Build the actor view.~~ Complete as of 10 August 2026: the ranking, the map, the
    concordance links, the per-speaker matched keyness and the membership composition are
    all shipped — see §3. Every table this phase wrote now has a figure over it.
@@ -825,7 +896,8 @@ both readings with each declaring its scope.
    the withholding rule a monthly denominator needs, then the year × month heatmap and the
    pooled calendar over it — see §7's fifth item. The tribunal reporting cycle it makes
    visible was the reason to build it and is the caveat it carries, in the figure rather
-   than in a note.
+   than in a note. The one limitation it shipped with — a square that could not open its
+   own evidence — was closed on 11 August 2026 by giving the concordance a month.
 10. Consider the LLM evaluation only after a human coding protocol exists.
 
 Steps 4, 6, 7 and 9 were built before step 3 rather than after it. The gate they jumped
@@ -835,11 +907,13 @@ one that stays behind the audit, and not for sequencing reasons: adopting the le
 reading would move published collocate and keyness figures, which is the one thing an
 open audit forbids.
 
-**What is left is what only a person can do.** Steps 1 and 3 — the human lexicon audit
-with its source-document spot checks, and the first reproducible Pages release — are now
-the whole of the near-term list, with step 5 behind the first of them and step 10 behind a
-coding protocol that does not exist. No figure in the release is waiting on a table, and
-no table in the release is waiting on a figure. Two artifact directories remain
+**What is left is what only a person can do**, and as of 11 August 2026 that is meant
+literally: step 3's remaining half is a repository setting and the operational checks that
+follow a live deployment, not code. Steps 1 and 3 — the human lexicon audit with its
+source-document spot checks, and the first reproducible Pages release — are the whole of
+the near-term list, with step 5 behind the first of them and step 10 behind a coding
+protocol that does not exist. No figure in the release is waiting on a table, and no table
+in the release is waiting on a figure. Two artifact directories remain
 deliberately undrawn and should stay that way: `data/derived/topics/`, whose projection is
 a diagnostic *against* a thematic reading (§4), and `data/derived/lexical_lemma/`, which
 cannot become a default reading before the audit closes (§6).

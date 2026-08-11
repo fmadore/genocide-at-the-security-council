@@ -35,37 +35,21 @@
  * Junes pooled is not a margin of the grid, and nothing here lets the two share
  * a range.
  *
- * One thing this view cannot do, recorded rather than left to be noticed: the
- * concordance filters lines by year, so a cell cannot open the lines behind
- * *itself*. The link opens the cell's year and the interface names the year, so
- * what a reader is offered is wider than the cell and says so.
+ * **A cell opens its own evidence.** This figure shipped unable to: the
+ * concordance filtered lines by year, so a square could offer only the twelve
+ * months around itself, and the interface said so rather than pretending
+ * otherwise. `$lib/concordance` now owns a month parameter, and `evidence()`
+ * below is where a cell uses it. The link is still one term at a time, because
+ * the concordance shows one — a set measure is drawn here and read there term
+ * by term, the same rule `$lib/actors` states for a speaker's quotations.
  */
 
+import { pooledQuery, cellQuery, type EvidenceQuery } from './concordance';
+import { MONTH_NAMES } from './format';
 import type { AgendaItem, CalendarMeasure, MonthlyMeasure, MonthlySeries } from './types';
 
 /** The units a normalised grid can honestly carry. See the note above. */
 export type Unit = 'speech_rate' | 'token_rate';
-
-export const MONTH_NAMES = [
-	'January',
-	'February',
-	'March',
-	'April',
-	'May',
-	'June',
-	'July',
-	'August',
-	'September',
-	'October',
-	'November',
-	'December'
-];
-
-/** `2014-06` → `June 2014`. */
-export const monthLabel = (period: string): string => {
-	const [year, month] = period.split('-');
-	return `${MONTH_NAMES[Number(month) - 1] ?? month} ${year}`;
-};
 
 /**
  * What a cell is, before it is a colour.
@@ -237,6 +221,78 @@ export const tone = (weight: number): number => Math.sqrt(Math.min(Math.max(weig
 /** The cell at a year and month, or undefined where the grid has none. */
 export function at(plan: HeatmapPlan, year: number, month: number): Cell | undefined {
 	return plan.cells.find((cell) => cell.year === year && cell.month === month);
+}
+
+export interface EvidenceLink extends EvidenceQuery {
+	/** The lexicon term the concordance opens at. One per link: it shows one. */
+	term: string;
+}
+
+/**
+ * The lexicon terms a measure is counted from.
+ *
+ * A term is itself; a register and a set are the terms underneath them. The
+ * concordance is a file per term, so a link has to name one — which is why a
+ * measure drawn as a single square becomes several links, and why the interface
+ * has to say that it did rather than offering the first as though it were all.
+ *
+ * Exported because the figure has to know the count before it draws: 384
+ * squares cannot each carry five links, so a multi-term measure declines to
+ * link and says so. That refusal is also a repair. The link this replaces was
+ * `?term=<measure>` for whatever was selected, and ten of the thirty-two
+ * measures here — six registers and four sets — are not concordance terms at
+ * all, so the old link sent a reader from `atrocity_core` to a file that does
+ * not exist and a retry button.
+ */
+export function termsOf(data: MonthlySeries, measure: string): string[] {
+	if (measure in data.terms) return [measure];
+	const found = measures(data)[measure];
+	return found?.members ?? found?.terms ?? [];
+}
+
+/**
+ * Where to read the lines behind one square.
+ *
+ * **A withheld cell still links.** The minimum governs a *rate* — 100 speeches
+ * is the denominator at which a zero starts to mean "quieter than the Council"
+ * rather than "not heard from enough" — and a concordance line is not an
+ * estimate from a sample. A month holding 40 speeches of which 2 use the word
+ * has no publishable rate and exactly 2 lines of evidence, and refusing to open
+ * them would withhold the record itself to protect a figure that is not being
+ * shown. The same distinction §3 draws between a speaker's standing counts and
+ * the rates beside them.
+ *
+ * **A cell with nothing in it does not link.** The test is the measure's own
+ * term-bearing speech count, not the occurrence count, because a set has no
+ * occurrence count at all — `undefined < 1` is false, so the obvious guard would
+ * let every set through while appearing to check. That trap is `$lib/actors`'s,
+ * met again here for the same reason.
+ */
+export function evidence(data: MonthlySeries, measure: string, cell: Cell): EvidenceLink[] {
+	if (cell.state === 'unobserved' || cell.speeches < 1) return [];
+	return termsOf(data, measure).map((term) => ({
+		term,
+		...cellQuery(term, cell.year, cell.month)
+	}));
+}
+
+/**
+ * The same, for a row of the pooled calendar: one month across every year.
+ *
+ * The row's own denominator is thirty-two Junes, so the link must not carry a
+ * year — see `pooledQuery`. A row below the minimum links for the reason above;
+ * a row nothing was said in does not.
+ */
+export function pooledEvidence(
+	data: MonthlySeries,
+	measure: string,
+	row: CalendarRow
+): EvidenceLink[] {
+	if (row.held < 1 || row.speeches < 1) return [];
+	return termsOf(data, measure).map((term) => ({
+		term,
+		...pooledQuery(term, row.month)
+	}));
 }
 
 export interface CalendarRow {
