@@ -150,14 +150,14 @@
 </script>
 
 <svelte:head>
-	<title>Actors · Genocide at the Security Council</title>
+	<title>Actors — Genocide at the Security Council</title>
 	<meta
 		name="description"
 		content="Which delegations used genocide vocabulary, at what rate, and how many are heard from too rarely to say."
 	/>
 </svelte:head>
 
-<article class="page">
+<article>
 	<header class="lede">
 		<h1>Who said it</h1>
 		<p class="standfirst">
@@ -421,11 +421,10 @@
 </article>
 
 <style>
-	.page {
-		max-width: var(--page);
-		margin: 0 auto;
-		padding: var(--sp-7) var(--gutter) var(--sp-9);
-	}
+	/* No page box here: `main` in `+layout.svelte` already sets the measure, the
+	   gutter and the top padding for every route. Repeating them on this
+	   article inset it by a second gutter and pushed its title 51px below every
+	   other page's — the same heading, in a different place, on one route. */
 
 	.lede {
 		max-width: var(--measure);
