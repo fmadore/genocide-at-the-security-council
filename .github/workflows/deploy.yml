@@ -136,8 +136,9 @@ jobs:
           python scripts/09_export_speeches.py
           python scripts/11_countries.py
           # 12 writes into derived/countries/, which export_web copies wholesale.
-          # It runs here even though nothing draws it yet: leaving it out would
-          # ship a payload from this workflow that a local run does not produce.
+          # The actor view has drawn it since 10 August 2026, and it would have to
+          # run here regardless: leaving it out would ship a payload from this
+          # workflow that a local run does not produce.
           python scripts/12_speaker_keyness.py
           python scripts/export_web.py
 

@@ -292,8 +292,9 @@
 	<h2>Reproducing this</h2>
 	<p>
 		The <a href={REPO}>repository</a> holds the pipeline, the analysis scripts and this application.
-		<code>ruff</code>, locked Python dependencies, and more than 400 unit tests run on every push.
-		The tests include the hand-edited files in
+		<code>ruff</code>, locked Python dependencies, and 847 unit tests &mdash; 595 over the pipeline
+		and 252 over the modules this interface computes with &mdash; run on every push. The tests
+		include the hand-edited files in
 		<code>config/</code>, so a bad country alias or a mistyped Council term fails in continuous
 		integration rather than halfway through someone's run. The site itself is rebuilt from the
 		Dataverse DOI by a workflow rather than uploaded from a workstation, so what you are reading was

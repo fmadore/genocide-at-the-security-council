@@ -127,8 +127,10 @@ that let a push touching nothing the payload depends on deploy without rebuildin
 Operational checks:
 
 - Pages source is set to GitHub Actions;
-- direct visits to overview, chronology, language, concordance and methods work under the
-  repository base path;
+- direct visits to overview, chronology, language, actors, concordance and methods work
+  under the repository base path — `web/scripts/verify-static.mjs` asserts the six of them
+  plus the `404.html` the reader falls back to after every build, so a route that stopped
+  being prerendered fails the build rather than a reader's visit;
 - the reader fallback loads a meeting and preserves concordance highlighting;
 - manifest hashes and the visible lexicon version agree;
 - a failed data fetch shows a useful retry state, not a blank chart.
@@ -825,10 +827,14 @@ Requirements that apply to all five:
   called from a test, and the Svelte component is a renderer over it. Logic reachable only
   by mounting a component is logic nobody will test twice. `web/src/lib/data.ts` validates
   every payload at the fetch boundary and throws on a malformed one; those validators are
-  covered in the same pass. Two of their checks are substantive rather than structural and
-  are worth naming: an event without a primary-source URL is refused there, which is §1.2
-  enforced at the boundary rather than trusted upstream; and a failed request is evicted
-  from the cache, which is the only reason the concordance's retry can ever succeed.
+  covered in the same pass. The boundary states each artefact's structure once, as
+  `REQUIRED` — every key it must carry and of what kind — which is also the half of the
+  contract `contract.test.ts` reads, so the dashboard cannot come to require a field, or a
+  type, that the pipeline does not write. What the validators keep is what is substantive
+  rather than structural, and two are worth naming: an event without a primary-source URL is
+  refused there, which is §1.2 enforced at the boundary rather than trusted upstream; and a
+  failed request is evicted from the cache, which is the only reason the concordance's retry
+  can ever succeed.
 
 ### 7.5 Export what is on screen
 

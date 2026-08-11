@@ -4,8 +4,10 @@ The corpus is OCR-derived from two-column `S/PV.*` verbatim records. This regist
 approximations, human-review tasks and resolved discrepancies visible instead of silently
 absorbing them into the pipeline.
 
-Status: 9 August 2026. “Mechanically reconciled” means code and source metadata agree; it
-does not mean a person has inspected the original PDF.
+Status: 11 August 2026 — every count below re-checked against the current artefacts on that
+date; the open human checks are unchanged, because none of them is work a re-run can do.
+“Mechanically reconciled” means code and source metadata agree; it does not mean a person
+has inspected the original PDF.
 
 ## How to inspect an original record
 

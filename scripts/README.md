@@ -53,12 +53,14 @@ published small, because the alternative is a map whose brightest country spoke 
 speaker with enough of a record, it pairs each of that speaker's speeches with one from the
 same year, agenda item and speaker group given by somebody else, and reports what
 distinguishes the two vocabularies — plus the unmatched comparison beside it, so a reader
-can see what holding the occasion constant removed. It draws nothing either. Two gates
-withhold a table rather than publish a weak one, and the second exists because of a case
-the first does not catch: the UN Secretariat is the only speaker in its speaker group, so
-the matching found partners for 2.6% of its 4,709 speeches — comfortably past a minimum
-counted in pairs, and a profile of a delegation resting on a non-random fortieth of what it
-said.
+can see what holding the occasion constant removed. The step draws nothing; the figure over
+it is `SpeakerKeyness.svelte` on the actor view, written after the table as §7 requires.
+Two gates withhold a table rather than publish a weak one, and the second exists because of
+a case the first does not catch: the UN Secretariat is the only speaker in its speaker
+group, so the matching found partners for 123 of its 4,709 speeches (2.6%) — comfortably
+past a minimum counted in pairs, and a profile of a delegation resting on a non-random
+fortieth of what it said. Seven of the 133 eligible speakers are withheld this way; the
+artefact names which gate closed for each.
 
 **10 is numbered after 09 although it feeds 05.** The numbers are creation order, and 00–09
 were already referenced from the dashboard, the notes and CI before it existed; renumbering
@@ -131,9 +133,9 @@ machine-specific paths live in `.env` (git-ignored; copy `.env.example`).
 python -m pytest
 ```
 
-About a second, no data required, and run in CI on every push and pull request
-([`checks.yml`](../.github/workflows/checks.yml), alongside the dashboard's own
-`prettier`, `eslint` and `svelte-check`).
+595 tests in about six seconds, no data required, and run in CI on every push and pull
+request ([`checks.yml`](../.github/workflows/checks.yml), alongside the dashboard's own
+`prettier`, `eslint`, `svelte-check` and 252 `vitest` tests).
 [`tests/test_config.py`](../tests/test_config.py) runs against the real `config/` files, so
 a bad alias or a mistyped Council term fails here rather than halfway through a pipeline
 run. [`tests/test_series.py`](../tests/test_series.py) checks exploratory segmentation and

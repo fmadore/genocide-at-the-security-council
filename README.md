@@ -31,7 +31,9 @@ every chart as SVG or PNG with its filters written into the image.
 | Lexicon flagging & precision audit | ✅ `scripts/03`; audit sample generated, **0 of 200 rows verdicted** |
 | Temporal series & change points | ✅ `scripts/04` · [`config/events.csv`](config/events.csv) |
 | Lexicometry — collocates, keyness, network | ✅ `scripts/05` · [`config/stopwords.txt`](config/stopwords.txt) |
-| Concordance (79,569 lines, 22 terms) | ✅ `scripts/08` |
+| Concordance (79,569 lines, 22 terms) | ✅ `scripts/08`; a line is reachable by term, year, month, speaker and meeting |
+| Month resolution — grid and pooled calendar | ✅ `scripts/04` → `series/monthly.json`; 331 of 384 months clear the 100-speech minimum, the other 53 are drawn as withheld |
+| Download beside every figure | ✅ [`web/src/lib/export.ts`](web/src/lib/export.ts): the artefact's numbers as CSV with provenance, the picture as SVG or PNG with its filters drawn into it |
 | Speech export & web payload | ✅ `scripts/09`, `scripts/export_web.py` |
 | Dashboard — 6 views, SvelteKit 2 / Svelte 5 | ✅ [`web/`](web/); Pages rebuilds the 491 MB payload from v6.1 |
 | Per-speaker table | ✅ `scripts/11`; 133 of 601 speakers clear the 100-speech minimum, the rest carry null rates |
@@ -102,9 +104,10 @@ re-run of 05 can count instead of surface forms. None of the three is part of th
 python -m pytest
 ```
 
-More than 400 tests, no data required — including integrity checks on the hand-edited files in
-`config/`. These, `ruff check`, and the dashboard's `prettier` / `eslint` / `svelte-check`
-run on every push and pull request via
+595 tests in about six seconds, no data required — including integrity checks on the
+hand-edited files in `config/`. The dashboard has its own 252, over the modules that decide
+what a figure may draw. Both suites, `ruff check`, and the dashboard's `prettier` /
+`eslint` / `svelte-check` run on every push and pull request via
 [`.github/workflows/checks.yml`](.github/workflows/checks.yml), so a bad edit to a config
 file fails in CI rather than halfway through someone's pipeline run.
 
@@ -137,7 +140,7 @@ is one the pipeline actually writes.
 │   └── derived/           speeches.parquet, the flagged table, series/, lexical/, kwic/
 ├── docs/
 │   ├── CORPUS.md          Corpus documentation: variables, traps, first findings
-│   ├── PLAN.md            Five-phase action plan
+│   ├── PLAN.md            Phases 0-7, and the gate each one has to pass
 │   ├── CLUSTER.md         Running the GPU steps on the Bayreuth cluster
 │   ├── VALIDATION.md      Readings to confirm against the original S/PV PDFs
 │   └── reference/         Codebook PDF, companion paper
@@ -244,10 +247,10 @@ Keyness is measured with true target/control pairs matched on year × agenda ite
 group — 3,104 of 3,273 targets found a partner (94.8%), and the 100 short strata are listed
 rather than back-filled. Twenty consecutive seeds quantify sampling sensitivity. The
 unmatched comparison ships alongside it, not as a result but
-as the thing the matching is meant to improve on: median effect size across the top
-unmatched keywords falls by a factor of 3.6 once the occasion is held constant. `bosnia`,
-`herzegovina` and `tribunals` drop out entirely; `genocide`, `humanity` and `rwandan`
-survive.
+as the thing the matching is meant to improve on: read word by word, the median of the top
+fifteen unmatched keywords falls by 1.69 on the log2 scale — a factor of 3.2 in rate — once
+the occasion is held constant. `bosnia`, `herzegovina` and `tribunals` drop out entirely;
+`genocide`, `humanity` and `rwandan` survive.
 
 ---
 

@@ -1,8 +1,8 @@
 # Running the GPU steps on the Bayreuth cluster
 
-Steps 00–05, 08 and 09 run on a laptop. Steps **06 (embeddings)** and **07 (the
-topic comparison)** do not: encoding 106,302 speeches is GPU work, and the
-stability battery in 07 refits a dozen models. Both run on the University of
+Steps 00–05, 08, 09, 11 and 12 run on a laptop. Steps **06 (embeddings)** and
+**07 (the topic comparison)** do not: encoding 106,302 speeches is GPU work, and
+the stability battery in 07 refits a dozen models. Both run on the University of
 Bayreuth HPC cluster, whose GPU nodes are reachable with an ordinary university
 account — no separate HPC registration, and no data leaves the university.
 
@@ -53,7 +53,7 @@ against the obvious mistake — pasting a working command into the documentation
 | `06_embed.py` | `submit_embed.sh`, 1 GPU | extras | 16 min for the corpus on an H100 |
 | `07_topics.py` | `submit_topics.sh`, CPU | extras | NMF/UMAP/HDBSCAN are not GPU work |
 | `10_lemmatise.py` | `submit_lemmas.sh`, CPU | extras | spaCy parallelises over processes |
-| `04`, `05`, `08`, `09` | anywhere | locked | unchanged; a laptop is fine |
+| `04`, `05`, `08`, `09`, `11`, `12` | anywhere | locked | unchanged; a laptop is fine |
 
 Asking for a GPU that will sit idle means queueing behind everyone who needs
 one, so 07 and 10 deliberately do not request one.
