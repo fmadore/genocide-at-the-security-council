@@ -30,8 +30,7 @@
 	 * leave. What is navigable is the table under the figure, which carries the
 	 * same numbers and the links.
 	 */
-	import { colours, sequential, FONT, MONO } from '$lib/theme';
-	import { tone } from '$lib/heatmap';
+	import { colours, sequential, tone, FONT, MONO } from '$lib/theme';
 	import type { Cell, HeatmapPlan } from '$lib/heatmap';
 
 	interface Props {

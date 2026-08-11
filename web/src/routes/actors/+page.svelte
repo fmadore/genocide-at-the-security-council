@@ -8,6 +8,8 @@
 	import Standing from '$lib/Standing.svelte';
 	import { ambiguous, carries, occurrences, orderings, plan, points, scale } from '$lib/actors';
 	import type { ActorRow, MapPoint, Ordering } from '$lib/actors';
+	import { fills } from '$lib/choropleth';
+	import type { Patch } from '$lib/choropleth';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, percent, shortCountry, termLabel } from '$lib/format';
@@ -20,6 +22,9 @@
 	let period = $state('all');
 	let order = $state<Ordering>('speech_rate');
 	let selected = $state<string | null>(null);
+	/* Circles first, and on purpose. They key on the speaker and can carry the
+	   four that are on no map at all; the fill keys on territory and cannot. */
+	let view = $state<'points' | 'choropleth'>('points');
 
 	const measures = $derived(Object.keys(artefact.measures));
 	const shared = $derived(ambiguous(artefact));
@@ -54,6 +59,14 @@
 					: (entry.row.speech_rate ?? 0);
 	const at = $derived(scale(drawn.map((point) => figure(point.speakers[0]))));
 	const weight = (point: MapPoint) => at(figure(point.speakers[0]));
+
+	/* The same rows keyed on territory instead of on the speaker. `$lib/choropleth`
+	   says what that costs and what it refuses to do about it; nothing here
+	   decides anything the circles do not. */
+	const painted = $derived(fills(result, shared, figure));
+	/* Reported by the map once the boundary file is here, because nothing before
+	   then knows which codes it carries. */
+	let unbounded = $state<Patch[]>([]);
 
 	const chosen = $derived(
 		drawn.find((p) => p.speakers[0].speaker.country_org === selected) ?? null
@@ -130,8 +143,37 @@
 						])
 			],
 			scope:
-				`all ${rows.length} speakers in this period, including the ${result.withheld} ` +
+				`all ${rows.length} speakers in this period, including the ${result.under.length} ` +
 				`below the ${artefact.minimum_speeches}-speech minimum whose rates are null`
+		};
+	}
+
+	/**
+	 * What the hover box says over a speaker.
+	 *
+	 * Named rather than written inline because both views ask for it: a circle
+	 * hands over its point, and a filled country hands over the one drawable
+	 * speaker at that ISO3. Two copies of this would be two hover boxes free to
+	 * disagree about the same delegation.
+	 */
+	function describeSpeaker(point: MapPoint) {
+		const { speaker, row } = point.speakers[0];
+		return {
+			heading: shortCountry(speaker.country_org),
+			lines: [
+				`${percent(row.speech_rate ?? 0)} of ${count(row.held)} speeches`,
+				// Both of these are figures a set measure does not have.
+				...(has.occurrences
+					? [
+							`${decimal(row.token_rate ?? 0)} per ${count(artefact.rate_per_tokens)} words`,
+							`${count(row.occurrences ?? 0)} occurrences · ${speaker.un_regional_group ?? speaker.entity_type}`
+						]
+					: [`${speaker.un_regional_group ?? speaker.entity_type}`]),
+				...(point.speakers.length > 1
+					? [`${point.speakers.length} speakers share this point`]
+					: []),
+				...(point.shared ? [`${speaker.iso3} is held by more than one speaker`] : [])
+			]
 		};
 	}
 
@@ -172,7 +214,9 @@
 		title="Speakers by rate"
 		question="Which delegations used the vocabulary most, as a share of their own speeches?"
 		source="11_countries.py → countries/countries.json"
-		note="Circle area is not proportional to the rate; radius is. Read the table."
+		note={view === 'points'
+			? 'Circle area is not proportional to the rate; radius is. Read the table.'
+			: 'Area is territory, not evidence: a large country is large. Read the table.'}
 		download={{ name: ['unsc', measure, period, 'speakers'], table }}
 	>
 		{#snippet controls()}
@@ -196,28 +240,74 @@
 					{/each}
 				</select>
 			</label>
+			<div class="view">
+				<span class="label" id="map-view">Map</span>
+				<div class="segmented" role="group" aria-labelledby="map-view">
+					<button
+						type="button"
+						title="One circle per delegation, sized by the ranked figure. Colour carries nothing."
+						aria-pressed={view === 'points'}
+						onclick={() => (view = 'points')}>Circles</button
+					>
+					<button
+						type="button"
+						title="Territory filled by the ranked figure. Keyed on ISO3, so a shared code is refused rather than filled."
+						aria-pressed={view === 'choropleth'}
+						onclick={() => (view = 'choropleth')}>Filled</button
+					>
+				</div>
+			</div>
 		{/snippet}
 
 		{#snippet reading()}
+			{#if view === 'points'}
+				<p>
+					One circle per delegation that cleared the minimum. Radius carries the same figure the
+					table is ranked by; colour carries nothing. A heavier ring marks a point whose ISO3 code
+					another speaker also holds.
+				</p>
+			{:else}
+				<p>
+					Territory filled by the same figure the table is ranked by, from zero rather than from the
+					lowest country: two delegations here cleared the minimum and never used the word, and a
+					ramp starting at the smallest would paint them as merely quiet. Colour is
+					<strong>square-rooted</strong>, because the median speaker runs at a tenth of the highest
+					and a scale proportional to the value would leave half the world the colour of the page.
+					Grey is a delegation heard from too rarely for a rate; unfilled is a state that did not
+					speak in this period at all.
+				</p>
+			{/if}
 			<p>
-				One circle per delegation that cleared the minimum. Radius carries the same figure the table
-				is ranked by; colour carries nothing. A heavier ring marks a point whose ISO3 code another
-				speaker also holds.
-			</p>
-			<p>
-				Click a circle to pick out its row, or a row to pick out its circle. Two ISO3 codes are held
-				by more than one speaker, marked with an asterisk in the table; in every period here only
-				one holder of each clears the minimum, so no marker on this map stands for more than one
-				speaker. Markers are grouped by coordinate rather than drawn on top of each other, so that
-				stays true if the corpus grows.
+				Click a {view === 'points' ? 'circle' : 'country'} to pick out its row, or a row to pick out its
+				{view === 'points' ? 'circle' : 'country'}. Two ISO3 codes are held by more than one
+				speaker, marked with an asterisk in the table; in every period here only one holder of each
+				clears the minimum, so nothing on this map stands for more than one speaker.
+				{#if view === 'points'}
+					Markers are grouped by coordinate rather than drawn on top of each other, so that stays
+					true if the corpus grows.
+				{:else}
+					A code two drawable speakers ever shared would be outlined and left unfilled rather than
+					given one of their two numbers.
+				{/if}
 			</p>
 		{/snippet}
 
 		{#snippet caveat()}
 			<p>{artefact.centroid_rule}</p>
+			{#if view === 'choropleth'}
+				<p>
+					<strong>A fill is a claim a circle does not make.</strong> A marker over Kigali is a way
+					to find Rwanda in a list; a filled polygon is the country, and for the historical speakers
+					here the polygon belongs to a successor state — Yugoslavia would fill modern Serbia, Zaire
+					modern Democratic Republic of the Congo. Area is also not evidence: Russia and Canada are
+					large because they are large, and {count(unbounded.length)} delegations are too small for a
+					boundary at this resolution and are marked with a dot instead. The circles and the table are
+					keyed on the speaker and carry none of this.
+				</p>
+			{/if}
 			<p>
-				{count(result.withheld)} speakers delivered fewer than {count(result.minimum)} speeches in this
-				period and carry no rate. They are not ranked low; they are not ranked. {artefact.minimum_speeches_rule}
+				{count(result.under.length)} speakers delivered fewer than {count(result.minimum)} speeches in
+				this period and carry no rate. They are not ranked low; they are not ranked. {artefact.minimum_speeches_rule}
 			</p>
 			{#if !has.occurrences}
 				<p>
@@ -244,27 +334,32 @@
 				points={drawn}
 				{weight}
 				{selected}
-				onselect={(point) => (selected = point?.speakers[0].speaker.country_org ?? null)}
-				describe={(point) => {
-					const { speaker, row } = point.speakers[0];
+				{view}
+				fills={painted}
+				unit={label(result.order)}
+				format={(value) =>
+					result.order === 'speech_rate'
+						? percent(value)
+						: result.order === 'token_rate'
+							? decimal(value)
+							: count(value)}
+				onmissing={(patches) => (unbounded = patches)}
+				explain={(patch) => {
+					const point = drawn.find((p) => p.speakers[0].speaker.country_org === patch.key);
+					if (patch.state === 'drawn' && point) return describeSpeaker(point);
 					return {
-						heading: shortCountry(speaker.country_org),
-						lines: [
-							`${percent(row.speech_rate ?? 0)} of ${count(row.held)} speeches`,
-							// Both of these are figures a set measure does not have.
-							...(has.occurrences
+						heading: patch.holders.map(shortCountry).join(', ') || patch.iso3,
+						lines:
+							patch.state === 'contested'
 								? [
-										`${decimal(row.token_rate ?? 0)} per ${count(artefact.rate_per_tokens)} words`,
-										`${count(row.occurrences ?? 0)} occurrences · ${speaker.un_regional_group ?? speaker.entity_type}`
+										`${patch.holders.length} speakers hold ${patch.iso3}`,
+										'not filled: no one rate belongs here'
 									]
-								: [`${speaker.un_regional_group ?? speaker.entity_type}`]),
-							...(point.speakers.length > 1
-								? [`${point.speakers.length} speakers share this point`]
-								: []),
-							...(point.shared ? [`${speaker.iso3} is held by more than one speaker`] : [])
-						]
+								: [`fewer than ${count(result.minimum)} speeches in this period`, 'no rate']
 					};
 				}}
+				onselect={(point) => (selected = point?.speakers[0].speaker.country_org ?? null)}
+				describe={describeSpeaker}
 			/>
 		{/if}
 	</Figure>
@@ -391,7 +486,7 @@
 		<h2>What this table will not tell you</h2>
 		<ul>
 			<li>
-				<strong>{count(result.withheld)} speakers are withheld, not ranked low.</strong>
+				<strong>{count(result.under.length)} speakers are withheld, not ranked low.</strong>
 				{artefact.minimum_speeches_rule}
 			</li>
 			{#if unmapped.length}
@@ -415,6 +510,15 @@
 			<li>
 				<strong>A centroid is not where anyone spoke.</strong>
 				{artefact.centroid_rule}
+			</li>
+			<li>
+				<strong>The filled map is keyed on territory, and the table is not.</strong>
+				A fill needs an ISO3 code, so it inherits everything a code cannot carry: a historical speaker
+				is drawn inside its successor's borders, a large state is conspicuous for being large, and {count(
+					unbounded.length
+				)} delegations have no boundary at this resolution and are marked with a dot. Where two drawable
+				speakers ever share a code the country is outlined and left unfilled rather than given one of
+				their rates. The circles and this table are keyed on the speaker and are free of all of it.
 			</li>
 		</ul>
 	</section>
@@ -443,6 +547,17 @@
 		font-size: var(--step-1);
 		color: var(--ink-2);
 		margin: 0;
+	}
+
+	/* The view switch, in the figure's control bar beside the three selects. */
+	.view {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+	}
+
+	.view .label {
+		display: inline;
 	}
 
 	.refusal,

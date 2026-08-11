@@ -18,8 +18,8 @@ wrong while looking right:
 - a rate over a handful of speeches outranks every real one, so rates are
   withheld below `actors.MIN_SPEECHES` rather than published small;
 - three speakers share a successor's ISO 3166 code with a living state, so the
-  collisions are computed and reported rather than left for a choropleth to
-  resolve by overdrawing;
+  collisions are computed and reported rather than left for the filled map to
+  resolve by overdrawing — it reads them and refuses those codes;
 - every aggregate is reconciled against the corpus totals before anything is
   written, per period and per measure.
 
@@ -359,7 +359,9 @@ def build_note(
             "",
             f"{len(speeches):,} speeches attributed to {len(speakers):,} canonical speakers, "
             f"cut into {len(payload['periods'])} periods and two measures. This is the table "
-            "a choropleth would have to be drawn from; nothing here draws one.",
+            "the actor view's map is drawn from, in either of its two encodings — and the "
+            "`iso3_collisions` block below is what lets the filled one refuse a shared "
+            "code instead of overdrawing it.",
             "",
             "## The minimum sample, and why it is this number",
             "",

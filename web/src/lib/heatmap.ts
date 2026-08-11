@@ -46,6 +46,10 @@
 
 import { pooledQuery, cellQuery, type EvidenceQuery } from './concordance';
 import { MONTH_NAMES } from './format';
+// The ramp and the transform that positions a value on it are one pair, and the
+// speaker map draws from the same pair. They live in `theme.ts` so that neither
+// figure owns a second copy of the other's decision.
+import { tone } from './theme';
 import type { AgendaItem, CalendarMeasure, MonthlyMeasure, MonthlySeries } from './types';
 
 /** The units a normalised grid can honestly carry. See the note above. */
@@ -79,7 +83,8 @@ export interface Cell {
 	/** 0–1 against the largest drawn cell, from a floor of zero. 0 when not drawn. */
 	weight: number;
 	/**
-	 * Where the cell sits on the ramp, which is not `weight`. See :func:`tone`.
+	 * Where the cell sits on the ramp, which is not `weight`. See `tone` in
+	 * `$lib/theme`.
 	 * A length must never use this; a length is read as a proportion.
 	 */
 	tone: number;
@@ -198,25 +203,6 @@ export function grid(request: HeatmapRequest): HeatmapPlan {
 		refusal: drawn ? null : 'none-drawable'
 	};
 }
-
-/**
- * Where a cell's share of the maximum lands on the ramp.
- *
- * The square root, and the reason is in the data rather than in taste. These
- * rates are heavily skewed — the median drawn month is 2.2% against a maximum
- * of 19.2% — so a ramp proportional to the value puts half the grid inside the
- * bottom eighth of the scale, and a figure in which most cells are the colour
- * of the page understates what it is drawing as badly as one that overstates
- * it. The transform is monotone and clips nothing: every cell keeps its order
- * and its own colour, and no cell is capped at a ceiling that hides how far
- * past it the cell went.
- *
- * It is applied to *colour* and never to a length. A bar is read as a
- * proportion — half the width means half the number — so `calendar()`'s rows
- * keep the linear `weight`. Colour carries no such promise, which is why it can
- * take a transform, and why the figure has to say that it did.
- */
-export const tone = (weight: number): number => Math.sqrt(Math.min(Math.max(weight, 0), 1));
 
 /** The cell at a year and month, or undefined where the grid has none. */
 export function at(plan: HeatmapPlan, year: number, month: number): Cell | undefined {

@@ -89,7 +89,7 @@ describe('the minimum-sample gate', () => {
 		);
 		const result = plan({ data, measure: 'genocide', period: 'all' });
 		expect(result.rows.map((entry) => entry.speaker.country_org)).toEqual(['Charlie', 'Alpha']);
-		expect(result.withheld).toBe(1);
+		expect(result.under.map((entry) => entry.speaker.country_org)).toEqual(['Bravo']);
 		expect(result.minimum).toBe(100);
 	});
 
@@ -103,7 +103,7 @@ describe('the minimum-sample gate', () => {
 		);
 		const result = plan({ data, measure: 'genocide', period: 'all' });
 		expect(result.rows).toEqual([]);
-		expect(result.withheld).toBe(2);
+		expect(result.under).toHaveLength(2);
 		expect(result.refusal).toBe('none-sufficient');
 	});
 

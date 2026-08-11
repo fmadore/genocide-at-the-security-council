@@ -189,6 +189,33 @@ export function sequential(p = palette()): (t: number) => string {
 	return (t: number) => mix(p.paper, top, t);
 }
 
+/**
+ * Where a share of the maximum lands on the ramp above.
+ *
+ * The square root, and the reason is in the data rather than in taste. Both
+ * figures that use this ramp are heavily skewed in the same way. The median
+ * drawn month of the chronology runs at 2.2% against a maximum of 19.2%; the
+ * median drawn speaker of the actor view at 2.65% against 28.2%. Proportional
+ * to the value, that puts half of either figure inside the bottom eighth of the
+ * scale, and a picture in which most of what is drawn is the colour of the page
+ * understates what it shows as badly as one that overstates it. The transform is
+ * monotone and clips nothing: every cell and every country keeps its order and
+ * its own colour, and nothing is capped at a ceiling that hides how far past it
+ * the value went.
+ *
+ * It is applied to *colour* and never to a length. A bar is read as a
+ * proportion — half the width means half the number — so the pooled calendar's
+ * rows and the map's circle radii keep their linear weight. Colour carries no
+ * such promise, which is why it can take a transform, and why a figure that
+ * applies it has to say so.
+ *
+ * It lives here rather than with either figure because it is one half of a pair:
+ * `sequential()` builds the ramp and this decides where on it a value sits. Two
+ * copies of that decision, one per figure, is the drift this module exists to
+ * prevent.
+ */
+export const tone = (weight: number): number => Math.sqrt(Math.min(Math.max(weight, 0), 1));
+
 export const FONT = 'Archivo, system-ui, -apple-system, sans-serif';
 export const MONO = 'IBM Plex Mono, ui-monospace, SFMono-Regular, monospace';
 

@@ -13,18 +13,22 @@
 	 * artefact carries that sentence in `centroid_rule` and the view prints it —
 	 * the string, not a paraphrase, so the two cannot drift.
 	 *
-	 * **Why circles and not a choropleth.** Filling territory would key the
-	 * drawing on ISO3, and two codes are shared: COD by the DRC and Zaire, SRB by
-	 * Serbia, Serbia and Montenegro and Yugoslavia. A fill keyed on the code
-	 * paints one row over another with nothing on screen to say it happened.
-	 * Circles are keyed on the speaker, and where several share a centroid
-	 * `points()` returns one marker that knows how many it stands for.
+	 * **Two views over the same rows.** Circles are the default and are keyed on
+	 * the speaker: `points()` groups coincident centroids into one marker that
+	 * knows how many speakers it stands for, so nothing is ever merged by ISO3.
+	 * The choropleth is keyed on ISO3 because a fill has to be — territory has a
+	 * code, not a speaker — and everything that makes that safe is settled in
+	 * `$lib/choropleth`, which refuses to fill a code two drawable speakers share
+	 * rather than picking one of them. This file renders whichever view is asked
+	 * for and decides neither.
 	 *
-	 * **Size, not colour, carries the rate.** Colour is one tone of ink for every
-	 * marker, the accent marks the selection because the accent is for
-	 * interaction, and a heavier stroke marks a point whose ISO3 is shared. None
-	 * of the three encodes a quantity, which keeps the figure inside §7's rule
-	 * that colour may not carry what the table cannot support.
+	 * **In the circle view, size carries the rate and colour carries nothing.**
+	 * One tone of ink for every marker, the accent for the selection because the
+	 * accent is for interaction, and a heavier stroke where the ISO3 is shared.
+	 * In the choropleth colour is the quantity, which is the trade the view
+	 * exists to offer: area replaces radius, so a small state is hard to see and
+	 * a large one is hard to ignore. Both views are the same table, and the table
+	 * is under both of them.
 	 *
 	 * **The map is not the accessible path to this data.** A canvas of circles
 	 * cannot be tabbed through or read aloud; the ranked table beside it holds the
@@ -39,8 +43,11 @@
 	 * where the data actually lives, and the buttons keep their own labels.
 	 */
 	import { onMount, untrack } from 'svelte';
-	import { colours, colourScheme } from './theme';
+	import { base } from '$app/paths';
+	import { colours, colourScheme, mix, sequential, tone } from './theme';
 	import { escapeHtml } from './format';
+	import { withoutPolygon } from './choropleth';
+	import type { ChoroplethPlan, Patch } from './choropleth';
 	import type { MapPoint } from './actors';
 	import type { FeatureCollection } from 'geojson';
 	import 'maplibre-gl/dist/maplibre-gl.css';
@@ -77,9 +84,42 @@
 		 */
 		describe: (point: MapPoint) => { heading: string; lines: string[] };
 		height?: string;
+		/** Which encoding is on screen. The rows behind them are identical. */
+		view?: 'points' | 'choropleth';
+		/**
+		 * The choropleth's decisions, from `fills()`. Null in the circle view, and
+		 * the boundary file is not fetched until it is not.
+		 */
+		fills?: ChoroplethPlan | null;
+		/** What the hover box says over a patch. See `describe`; same argument. */
+		explain?: (patch: Patch) => { heading: string; lines: string[] };
+		/** Names the ramp in the key, e.g. "share of its speeches". */
+		unit?: string;
+		/** A value on the ramp, written the way the figure writes its numbers. */
+		format?: (value: number) => string;
+		/**
+		 * The speakers the boundary file has no polygon for, reported once it has
+		 * loaded. The page states the count; this component draws them as marks
+		 * rather than losing them, and neither can say how many before the file is
+		 * here to be asked.
+		 */
+		onmissing?: (patches: Patch[]) => void;
 	}
 
-	let { points, weight, selected, onselect, describe, height = '30rem' }: Props = $props();
+	let {
+		points,
+		weight,
+		selected,
+		onselect,
+		describe,
+		height = '30rem',
+		view = 'points',
+		fills = null,
+		explain,
+		unit,
+		format,
+		onmissing
+	}: Props = $props();
 
 	/**
 	 * Keyless vector styles from CARTO, one per theme. Verified live on
@@ -93,6 +133,36 @@
 
 	const SOURCE = 'speakers';
 	const LAYER = 'speaker-circles';
+	/** The world, from `web/static/geo/countries.json`. */
+	const WORLD = 'countries';
+	const FILL = 'country-fill';
+	const CONTESTED = 'country-contested';
+	const PICKED = 'country-picked';
+	/** Speakers whose code the boundary file has no polygon for. */
+	const MARKS = 'unbounded';
+	const MARK_LAYER = 'unbounded-marks';
+
+	/**
+	 * How far up the ramp a value of zero sits.
+	 *
+	 * Not at the bottom, which is the colour of the page. A delegation that
+	 * cleared a hundred speeches and never said the word is a finding, and in the
+	 * circle view it is a four-pixel floor that cannot vanish; here it has to be a
+	 * fill a reader can see against an unfilled neighbour. The ramp is compressed
+	 * into what is left, which costs a little contrast at the top and buys the
+	 * distinction between *nothing* and *not in this figure*.
+	 */
+	const FLOOR = 0.15;
+
+	/**
+	 * The key's swatches, at even steps of the *value* rather than of the ramp.
+	 *
+	 * That makes it a correct lookup table whatever transform the ramp applies,
+	 * and it puts the transform on screen: the colours change fast at the left and
+	 * slowly at the right because that is what the square root does. The
+	 * chronology's grid draws its key the same way, for the same reason.
+	 */
+	const STOPS = Array.from({ length: 10 }, (_, index) => tone((index + 0.5) / 10));
 
 	let container: HTMLDivElement;
 	let map: import('maplibre-gl').Map | null = null;
@@ -101,6 +171,44 @@
 	let failed = $state<string | null>(null);
 	/** The basemap is taking long enough that the reader should be told where else to look. */
 	let slow = $state(false);
+
+	/**
+	 * The boundaries, fetched once and only when a reader asks for them.
+	 *
+	 * 156 KB of polygons is not much beside the basemap's tiles, but it is a
+	 * request nobody who stays on the default view ever needs, and the actor page
+	 * already fetches two artefacts before it draws anything.
+	 */
+	let world = $state<FeatureCollection | null>(null);
+	let worldFailed = $state<string | null>(null);
+	let fetching = false;
+	/** Set once the country layers are on the map, so the paint effects can run. */
+	let layered = $state(false);
+
+	/** The ISO3 codes the boundary file actually carries. */
+	const bounded = $derived(
+		new Set(
+			(world?.features ?? [])
+				.map((feature) => String(feature.properties?.iso3 ?? ''))
+				.filter(Boolean)
+		)
+	);
+
+	const unbounded = $derived(fills && world ? withoutPolygon(fills, bounded) : []);
+
+	async function fetchWorld() {
+		if (fetching || world) return;
+		fetching = true;
+		try {
+			const response = await fetch(`${base}/geo/countries.json`);
+			if (!response.ok) throw new Error(`${response.status}`);
+			world = (await response.json()) as FeatureCollection;
+		} catch (error) {
+			worldFailed = error instanceof Error ? error.message : 'the file did not load';
+		} finally {
+			fetching = false;
+		}
+	}
 
 	/** One feature per drawable point. `id` is the speaker key, never the ISO3. */
 	function collection(): FeatureCollection {
@@ -133,6 +241,75 @@
 		$colours.accent,
 		$colours.inkSoft
 	];
+
+	/**
+	 * The colour one country is filled with, and the only place a patch state
+	 * becomes ink.
+	 *
+	 * Three colours for three states, and the two that are not a value are not on
+	 * the ramp at all: a withheld country is grey and a contested one is nearly
+	 * ink, so neither can be misread as a quiet delegation. Grey rather than a
+	 * hatch because MapLibre fills a polygon with an image or with a colour, and
+	 * an image that fails to load leaves the polygon empty — which is the one
+	 * appearance this state must never take.
+	 */
+	function patchColour(patch: Patch): string {
+		if (patch.state === 'drawn') return sequential($colours)(FLOOR + (1 - FLOOR) * patch.tone);
+		if (patch.state === 'withheld') return mix($colours.paper, $colours.inkFaint, 0.45);
+		return mix($colours.paper, $colours.ink, 0.62);
+	}
+
+	/**
+	 * Every patch's colour as one `match` on the ISO3 in the geometry.
+	 *
+	 * A code the slice does not carry falls through to fully transparent, so the
+	 * basemap shows through and a state that never addressed the Council looks
+	 * like what it is. That fallback is why the layer needs no filter and why a
+	 * change of measure or period is a paint-property update rather than a
+	 * re-upload of 166 polygons.
+	 */
+	function patchFill(plan: ChoroplethPlan | null): import('maplibre-gl').ExpressionSpecification {
+		const arms = (plan?.patches ?? []).flatMap((patch) => [patch.iso3, patchColour(patch)]);
+		if (!arms.length) return ['to-color', 'rgba(0,0,0,0)'];
+		return [
+			'match',
+			['get', 'iso3'],
+			...(arms as [string, string]),
+			'rgba(0,0,0,0)'
+		] as unknown as import('maplibre-gl').ExpressionSpecification;
+	}
+
+	/** The codes in one state, for a layer filter. */
+	const codesIn = (plan: ChoroplethPlan | null, state: Patch['state']) =>
+		(plan?.patches ?? []).filter((patch) => patch.state === state).map((patch) => patch.iso3);
+
+	/** The marks for speakers with no polygon, as points. */
+	function marks(): FeatureCollection {
+		return {
+			type: 'FeatureCollection',
+			features: unbounded.map((patch) => ({
+				type: 'Feature',
+				geometry: { type: 'Point', coordinates: patch.lngLat as [number, number] },
+				properties: { iso3: patch.iso3, key: patch.key ?? '' }
+			}))
+		};
+	}
+
+	/**
+	 * Where the fills go in the basemap's own stack.
+	 *
+	 * Under the boundaries and the place names, which is the whole difference
+	 * between a choropleth and a sheet of coloured paper laid over a map: the
+	 * borders that separate two filled countries have to be the basemap's, drawn
+	 * on top, or two neighbours at similar rates merge into one shape. The layer
+	 * is found by name because CARTO's styles are documents we do not control —
+	 * if the name ever changes, the first symbol layer is the fallback, and an
+	 * appended fill is the worst case rather than a crash.
+	 */
+	function beneathBorders(layers: { id: string; type: string }[]): string | undefined {
+		const boundary = layers.find((layer) => /boundar|border/i.test(layer.id));
+		return (boundary ?? layers.find((layer) => layer.type === 'symbol'))?.id;
+	}
 
 	/**
 	 * The speakers, added once.
@@ -168,9 +345,13 @@
 			onselect(points.find((p) => p.speakers[0].speaker.country_org === key) ?? null);
 		});
 		// A click on the basemap clears the selection: the reader has pointed at
-		// nothing, which is a choice and not a misfire.
+		// nothing, which is a choice and not a misfire. Every layer that can be
+		// pointed *at* has to be asked, and only the ones that exist: the country
+		// layers arrive with the boundary file, and querying a layer MapLibre does
+		// not have throws rather than returning nothing.
 		instance.on('click', (event) => {
-			if (!instance.queryRenderedFeatures(event.point, { layers: [LAYER] }).length) {
+			const asked = [LAYER, FILL, MARK_LAYER].filter((id) => instance.getLayer(id));
+			if (!instance.queryRenderedFeatures(event.point, { layers: asked }).length) {
 				onselect(null);
 			}
 		});
@@ -206,6 +387,103 @@
 		});
 	}
 
+	/**
+	 * The world, added once, when a reader first asks for the filled view.
+	 *
+	 * Like `paint()` this runs exactly once and registers its handlers once; the
+	 * theme swap carries these layers across rather than rebuilding them. Only
+	 * the fill goes under the basemap's borders — the outlines and the marks are
+	 * appended, because an outline that says *this is selected* or *this cannot
+	 * be filled* is worth more on top of a place name than under it.
+	 */
+	function paintCountries(instance: import('maplibre-gl').Map, geometry: FeatureCollection) {
+		instance.addSource(WORLD, { type: 'geojson', data: geometry });
+		instance.addSource(MARKS, { type: 'geojson', data: marks() });
+
+		instance.addLayer(
+			{
+				id: FILL,
+				type: 'fill',
+				source: WORLD,
+				layout: { visibility: view === 'choropleth' ? 'visible' : 'none' },
+				paint: { 'fill-color': patchFill(fills), 'fill-opacity': 0.82 }
+			},
+			beneathBorders(instance.getStyle().layers)
+		);
+
+		// A code more than one drawable speaker holds. Dashed, in ink, because it
+		// is the one mark here that means *refused* rather than *measured*.
+		instance.addLayer({
+			id: CONTESTED,
+			type: 'line',
+			source: WORLD,
+			layout: { visibility: view === 'choropleth' ? 'visible' : 'none' },
+			filter: ['in', ['get', 'iso3'], ['literal', codesIn(fills, 'contested')]],
+			paint: { 'line-color': $colours.ink, 'line-width': 1.6, 'line-dasharray': [2, 1.4] }
+		});
+
+		instance.addLayer({
+			id: PICKED,
+			type: 'line',
+			source: WORLD,
+			layout: { visibility: view === 'choropleth' ? 'visible' : 'none' },
+			filter: ['in', ['get', 'iso3'], ['literal', []]],
+			paint: { 'line-color': $colours.accent, 'line-width': 2 }
+		});
+
+		// The states Natural Earth's 1:110m sheet is too coarse to carry. A fixed
+		// radius, so the mark says *here* and the colour says everything else; it
+		// is the same colour the polygon would have been.
+		instance.addLayer({
+			id: MARK_LAYER,
+			type: 'circle',
+			source: MARKS,
+			layout: { visibility: view === 'choropleth' ? 'visible' : 'none' },
+			paint: {
+				'circle-radius': 4,
+				'circle-color': patchFill(fills),
+				'circle-stroke-width': 1,
+				'circle-stroke-color': $colours.inkFaint
+			}
+		});
+
+		for (const id of [FILL, MARK_LAYER]) {
+			instance.on('click', id, (event) => {
+				const code = event.features?.[0]?.properties?.iso3;
+				const patch = fills?.patches.find((one) => one.iso3 === code);
+				// A contested patch has no single speaker to select, which is the
+				// point of it. Clicking one selects nothing rather than one of two.
+				onselect(
+					(patch?.key && points.find((p) => p.speakers[0].speaker.country_org === patch.key)) ||
+						null
+				);
+			});
+			instance.on('mousemove', id, (event) => {
+				const code = event.features?.[0]?.properties?.iso3;
+				const patch = fills?.patches.find((one) => one.iso3 === code);
+				if (!patch || !explain) return;
+				instance.getCanvas().style.cursor = 'pointer';
+				const { heading, lines } = explain(patch);
+				hover
+					// Anchored to the pointer, not to a feature: a country is an area
+					// and has no one point, and a box pinned to a centroid would sit
+					// off Alaska while the reader is over Florida.
+					.setLngLat(event.lngLat)
+					.setHTML(
+						`<p class="hover-head">${escapeHtml(heading)}</p>` +
+							lines.map((line) => `<p class="hover-line">${escapeHtml(line)}</p>`).join('')
+					)
+					.addTo(instance);
+			});
+			instance.on('mouseleave', id, () => {
+				instance.getCanvas().style.cursor = '';
+				hover.remove();
+			});
+		}
+
+		layered = true;
+	}
+
 	onMount(() => {
 		let dead = false;
 		/**
@@ -234,6 +512,11 @@
 					closeButton: false,
 					closeOnClick: false,
 					offset: 14,
+					// MapLibre's default is a bare `240px`. In rem it follows the
+					// type scale the lines inside it are set in, and it is stated
+					// here rather than left implicit because the stylesheet below
+					// has cancelled it once already.
+					maxWidth: '17rem',
 					className: 'speaker-hover'
 				});
 				const instance = new Map({
@@ -302,14 +585,102 @@
 		map.setPaintProperty(LAYER, 'circle-stroke-color', stroke);
 	});
 
+	/* The boundary file is a cost only the filled view pays, so it is fetched the
+	   first time one is asked for and kept for the rest of the session. */
+	$effect(() => {
+		if (view === 'choropleth') void fetchWorld();
+	});
+
+	/* The country layers, added as soon as both the map and the file are here.
+	   Either can arrive first: the file is a fetch and the basemap is a render
+	   loop, and neither waits for the other. Both are read before the guards, so
+	   that whichever arrives second still re-runs this — `&&` short-circuits, and
+	   state a run never reaches is state that run never subscribed to. */
+	$effect(() => {
+		const geometry = world;
+		const loaded = ready;
+		if (!map || !loaded || !geometry || map.getSource(WORLD)) return;
+		paintCountries(map, geometry);
+	});
+
 	/**
-	 * A theme change swaps the basemap and keeps the speakers.
+	 * Which encoding is on screen. Both stay on the map; a view is a change of
+	 * visibility, so switching back does not re-upload anything.
+	 *
+	 * `layered` is read before the guards and not after, so that adding the
+	 * country layers re-runs this. Behind the guards it would never be read on
+	 * the pass where the map does not exist yet, would therefore not be a
+	 * dependency, and the four layers would arrive hidden and stay hidden — which
+	 * is exactly the order a reader produces by pressing *Filled* before the
+	 * boundary file has loaded, and is the first thing anyone would try.
+	 */
+	$effect(() => {
+		const showing = view;
+		const added = layered;
+		const loaded = ready;
+		if (!map || !loaded || !added) return;
+		const shown = (id: string, on: boolean) => {
+			if (map?.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+		};
+		shown(LAYER, showing === 'points');
+		for (const id of [FILL, CONTESTED, PICKED, MARK_LAYER]) shown(id, showing === 'choropleth');
+	});
+
+	/**
+	 * Everything about the fills that a slice, a selection or a theme can change.
+	 *
+	 * All of it is paint and filters over geometry that never changes, which is
+	 * what makes a change of measure or period cost nothing but an expression.
+	 * Like the circle effect above it re-applies on a theme change, and for the
+	 * same reason: the layers are carried into the incoming style with the paint
+	 * they had, so a fill left alone would keep the palette of the theme the
+	 * reader has just left.
+	 */
+	$effect(() => {
+		const plan = fills;
+		const colour = patchFill(plan);
+		const contested = codesIn(plan, 'contested');
+		const picked = selected
+			? (plan?.patches.find((patch) => patch.key === selected)?.iso3 ?? null)
+			: null;
+		const ink = $colours.ink;
+		const accent = $colours.accent;
+		const edge = $colours.inkFaint;
+		const added = layered;
+		const loaded = ready;
+		if (!map || !loaded || !added || !map.getLayer(FILL)) return;
+		map.setPaintProperty(FILL, 'fill-color', colour);
+		map.setFilter(CONTESTED, ['in', ['get', 'iso3'], ['literal', contested]]);
+		map.setPaintProperty(CONTESTED, 'line-color', ink);
+		map.setFilter(PICKED, ['in', ['get', 'iso3'], ['literal', picked ? [picked] : []]]);
+		map.setPaintProperty(PICKED, 'line-color', accent);
+		map.setPaintProperty(MARK_LAYER, 'circle-color', colour);
+		map.setPaintProperty(MARK_LAYER, 'circle-stroke-color', edge);
+		(map.getSource(MARKS) as import('maplibre-gl').GeoJSONSource | undefined)?.setData(marks());
+	});
+
+	/* What the page has to say about the speakers no polygon could carry. It
+	   cannot be known before the file has loaded, so it is reported rather than
+	   asserted. */
+	$effect(() => {
+		const missing = unbounded;
+		if (world) onmissing?.(missing);
+	});
+
+	/**
+	 * A theme change swaps the basemap and keeps everything drawn over it.
 	 *
 	 * `transformStyle` hands us the incoming style before it is committed, so
-	 * the source and the layer move into it rather than being discarded with the
-	 * old one and re-added afterwards. That removes the blank frame between the
-	 * two styles, the `style.load` handler, and the duplicate event handlers it
-	 * registered each time it ran.
+	 * the sources and the layers move into it rather than being discarded with
+	 * the old one and re-added afterwards. That removes the blank frame between
+	 * the two styles, the `style.load` handler, and the duplicate event handlers
+	 * it registered each time it ran.
+	 *
+	 * The fill has to be *inserted* rather than appended, because where it sits
+	 * in the stack is what makes it a choropleth: appending it would put the
+	 * country colours over the incoming style's borders and place names. Its
+	 * position is found again in the new style rather than remembered from the
+	 * old one — the two documents are different files and share no layer order.
 	 */
 	$effect(() => {
 		const scheme = $colourScheme;
@@ -317,14 +688,24 @@
 		map.setStyle(STYLES[scheme], {
 			transformStyle: (previous, next) => {
 				if (!previous) return next;
-				const source = previous.sources[SOURCE];
-				const layer = previous.layers.find((one) => one.id === LAYER);
-				return {
-					...next,
-					sources: source ? { ...next.sources, [SOURCE]: source } : next.sources,
-					// Appended, so the circles stay above the basemap's own layers.
-					layers: layer ? [...next.layers, layer] : next.layers
-				};
+				const sources = { ...next.sources };
+				for (const id of [SOURCE, WORLD, MARKS]) {
+					if (previous.sources[id]) sources[id] = previous.sources[id];
+				}
+				const mine = (id: string) => previous.layers.find((one) => one.id === id);
+				const layers = [...next.layers];
+				const under = mine(FILL);
+				if (under) {
+					const before = beneathBorders(layers);
+					const at = before ? layers.findIndex((one) => one.id === before) : -1;
+					layers.splice(at < 0 ? layers.length : at, 0, under);
+				}
+				// Appended, so the outlines, the marks and the circles stay above
+				// the basemap's own layers.
+				const over = [CONTESTED, PICKED, MARK_LAYER, LAYER]
+					.map(mine)
+					.filter((one) => one !== undefined);
+				return { ...next, sources, layers: [...layers, ...over] };
 			}
 		});
 	});
@@ -351,8 +732,54 @@
 				Loading the basemap…
 			{/if}
 		</p>
+	{:else if view === 'choropleth' && worldFailed}
+		<p class="state" role="status">
+			The boundaries did not load ({worldFailed}), so this is still the circles. They are the same
+			rows, and so is the table below.
+		</p>
+	{:else if view === 'choropleth' && !layered}
+		<p class="state" role="status">Loading the boundaries…</p>
 	{/if}
 </div>
+
+<!-- The key. Beside the figure rather than inside it, because unlike the
+     chronology's grid this drawing is a canvas and cannot be downloaded as an
+     SVG that carries its own legend. Drawn only once there is something for it
+     to be a key to: a legend over a map that failed to load explains nothing. -->
+{#if view === 'choropleth' && fills && layered}
+	<div class="key">
+		<div class="ramp">
+			<span class="cap">0</span>
+			<span class="stops" aria-hidden="true">
+				{#each STOPS as stop (stop)}
+					<span class="swatch" style:background={sequential($colours)(FLOOR + (1 - FLOOR) * stop)}
+					></span>
+				{/each}
+			</span>
+			<span class="cap">{format ? format(fills.high) : fills.high}</span>
+			{#if unit}<span class="unit">{unit}</span>{/if}
+		</div>
+		<p class="states">
+			<span class="pair">
+				<span class="swatch" style:background={mix($colours.paper, $colours.inkFaint, 0.45)}></span>
+				below the minimum ({fills.withheld})
+			</span>
+			{#if fills.contested}
+				<span class="pair">
+					<span class="swatch" style:background={mix($colours.paper, $colours.ink, 0.62)}></span>
+					shared code, not filled ({fills.contested})
+				</span>
+			{/if}
+			{#if unbounded.length}
+				<span class="pair">
+					<span class="dot"></span>
+					too small for a boundary at this scale ({unbounded.length})
+				</span>
+			{/if}
+			<span class="pair">unfilled: not a speaker in this period</span>
+		</p>
+	</div>
+{/if}
 
 <style>
 	.frame {
@@ -365,6 +792,69 @@
 	.canvas {
 		width: 100%;
 		height: 100%;
+	}
+
+	/* The key sits under the frame and keeps the frame's rule as its own top
+	   edge — one hairline between the drawing and what it means, not two. */
+	.key {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--sp-2) var(--sp-5);
+		padding: var(--sp-2) 0;
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		color: var(--ink-3);
+		border-bottom: var(--hair) solid var(--rule);
+	}
+
+	.ramp,
+	.states,
+	.pair {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+	}
+
+	.states {
+		flex-wrap: wrap;
+		margin: 0;
+		gap: var(--sp-2) var(--sp-4);
+	}
+
+	.stops {
+		display: flex;
+	}
+
+	.swatch {
+		display: inline-block;
+		width: 1.1rem;
+		height: 0.6rem;
+		border: var(--hair) solid var(--rule);
+	}
+
+	.states .swatch {
+		width: 0.9rem;
+	}
+
+	/* The mark for a state with no boundary, at the size it is drawn on the map. */
+	.dot {
+		display: inline-block;
+		width: 0.55rem;
+		height: 0.55rem;
+		border-radius: 50%;
+		border: var(--hair) solid var(--ink-3);
+		background: var(--paper-sunk);
+	}
+
+	.cap,
+	.unit {
+		font-family: var(--mono);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.unit {
+		font-family: var(--sans);
 	}
 
 	.state {
@@ -423,14 +913,25 @@
 		font-size: var(--step--1);
 		font-weight: 600;
 		color: var(--ink);
+		overflow-wrap: break-word;
 	}
 
+	/* Wrapping, not `nowrap`.
+
+	   These lines used to be `white-space: nowrap`, which quietly cancelled the
+	   popup's own `max-width`: MapLibre writes the cap onto the content element,
+	   and a box whose text refuses to wrap simply grows past it. The longest
+	   line here — a count, an occurrence total and a regional group name — came
+	   out 402px wide against a declared cap of 240, so the box ran off the map at
+	   its edges and off a phone at any position. Wrapping at spaces restores the
+	   cap; `break-word` is the escape for a single token longer than the box,
+	   which a speaker name can be. */
 	:global(.speaker-hover .hover-line) {
 		margin: 0;
 		font-family: var(--mono);
 		font-size: var(--step--2);
 		color: var(--ink-2);
-		white-space: nowrap;
+		overflow-wrap: break-word;
 	}
 
 	@media (prefers-reduced-motion: reduce) {

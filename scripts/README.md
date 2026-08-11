@@ -126,6 +126,7 @@ machine-specific paths live in `.env` (git-ignored; copy `.env.example`).
 | Tool | Purpose |
 |---|---|
 | [`../tools/bootstrap_entities.py`](../tools/bootstrap_entities.py) | Proposes rows for `config/entities.csv`. Downloads ISO 3166 codes and centroids once; never edits the checked-in file. Run with `--missing` when the corpus gains new speakers. |
+| [`../tools/build_boundaries.py`](../tools/build_boundaries.py) | Rebuilds `web/static/geo/countries.json`, the polygons the actor view's filled map draws. Keyed on the `iso3` column of `config/entities.csv`, from Natural Earth 1:110m at a pinned tag. The output is committed — it is derived from the crosswalk and not from the corpus, so it is not a pipeline artefact and does not belong to the Dataverse pin. Re-run it when `entities.csv` gains a state. |
 
 ## Tests
 

@@ -50,10 +50,17 @@ export interface ActorPlan {
 	/** Speakers whose slice clears the minimum, ranked. The only drawable rows. */
 	rows: ActorRow[];
 	/**
-	 * Speakers present in this period but under the minimum. A count, not a list
-	 * of near-misses: naming them beside a ranking invites reading them as ranked.
+	 * Speakers present in this period but under the minimum, unranked.
+	 *
+	 * They are never sorted and never handed to the ranking: naming near-misses
+	 * beside a ranked table invites reading them as ranked, which is why the
+	 * interface reports `under.length` and not these rows. The list exists for
+	 * the choropleth, which has to fill their territory as *withheld* rather than
+	 * leave it the colour of a state that never spoke at all — the same
+	 * distinction the chronology's grid draws between a hatched cell and a white
+	 * one, and for the same reason.
 	 */
-	withheld: number;
+	under: ActorRow[];
 	/** Speakers the artefact has no row for in this period. */
 	absent: number;
 	minimum: number;
@@ -91,7 +98,7 @@ export function plan(request: ActorRequest): ActorPlan {
 
 	const speakers = new Map(data.countries.map((speaker) => [speaker.country_org, speaker]));
 	const rows: ActorRow[] = [];
-	let withheld = 0;
+	const under: ActorRow[] = [];
 	let seen = 0;
 
 	for (const row of measured.rows) {
@@ -102,13 +109,13 @@ export function plan(request: ActorRequest): ActorPlan {
 		// failure upstream, not a speaker to draw without a group or a type.
 		if (!speaker) continue;
 		if (row.sufficient) rows.push({ speaker, row });
-		else withheld += 1;
+		else under.push({ speaker, row });
 	}
 
 	rows.sort(compare(order));
 	return {
 		rows,
-		withheld,
+		under,
 		absent: Math.max(0, data.countries.length - seen),
 		minimum,
 		period: found,
@@ -122,7 +129,7 @@ const empty = (
 	minimum: number,
 	period: CountryPeriod | undefined,
 	order: Ordering
-): ActorPlan => ({ rows: [], withheld: 0, absent: 0, minimum, period, order, refusal });
+): ActorPlan => ({ rows: [], under: [], absent: 0, minimum, period, order, refusal });
 
 /**
  * Descending by the chosen figure, then by name.

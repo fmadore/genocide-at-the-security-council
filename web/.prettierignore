@@ -3,6 +3,10 @@ build/
 static/data/
 package-lock.json
 
+# Generated, and minified on purpose: it ships to the browser as it is committed.
+# Written by tools/build_boundaries.py; edit that, never this.
+static/geo/
+
 # Upstream licence texts travel with the fonts verbatim. Reformatting the terms
 # of a licence is not ours to do.
 src/fonts/LICENSE-*

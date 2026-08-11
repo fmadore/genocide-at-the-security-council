@@ -24,10 +24,10 @@ import {
 	grid,
 	gridRows,
 	pooledEvidence,
-	tone,
 	units,
 	type Unit
 } from './heatmap';
+import { tone } from './theme';
 import { readMonth } from './concordance';
 import { monthLabel } from './format';
 import type { CalendarMeasure, MonthlyMeasure, MonthlySeries } from './types';

@@ -689,8 +689,27 @@ concordance. Five additions are worth building, in this order:
    speakers clear the minimum and the other 468 are reported as a withheld count rather
    than ranked low, and nothing is keyed on ISO3 — circles key on `country_org`,
    coincident centroids group into one marker that knows how many it stands for, and the
-   two shared codes are named in the apparatus and marked in the table. A choropleth would
-   have painted one row over another silently, which is why there is no choropleth.
+   two shared codes are named in the apparatus and marked in the table.
+
+   **A choropleth was added as a second view on 11 August 2026, and the objection that
+   kept it out is what it is built around.** The objection was never that filling
+   territory is ugly; it was that a fill has to be keyed on ISO3, and a fill keyed on a
+   shared code paints one row over another silently. So it does not paint one: a code with
+   more than one drawable holder is `contested` — outlined, unfilled, and named in the
+   interface — and `web/src/lib/choropleth.ts` decides that rather than the renderer. The
+   branch is unreachable in the present corpus, because only one holder of each shared
+   code ever clears the minimum, and it is tested anyway, on the same argument the
+   chronology's unreachable `unobserved` cell state is kept on.
+
+   Three costs come with it and are carried in the interface rather than here. A fill is
+   territory, so a historical speaker is drawn inside its successor's borders — Yugoslavia
+   fills modern Serbia — which is a claim the circles never made and cannot be removed by
+   keying anything differently. Area is not evidence, so a large state is conspicuous for
+   being large. And Natural Earth's 1:110m sheet omits 31 of the corpus's 197 coded
+   speakers, which are marked at their centroid rather than dropped. The circles remain
+   the default and the table remains the primary presentation; the geometry is a committed
+   asset built by `tools/build_boundaries.py`, not a pipeline artefact, because it is
+   derived from `config/entities.csv` and not from the Dataverse pin.
 4. **A 2D semantic projection**, only if Phase 4 is approved, and only as exploratory
    navigation. Distance on a UMAP plot is not evidence of influence or of categorical
    separation, and any such map must carry that statement in the interface rather than

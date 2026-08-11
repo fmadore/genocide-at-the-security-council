@@ -150,9 +150,10 @@ is one the pipeline actually writes.
 │   └── cluster/           Slurm harness for the GPU steps — see docs/CLUSTER.md
 ├── tests/               pytest; runs against the real config/, needs no data
 │   └── contract/          The shape the dashboard is written against, checked at export
-├── tools/               One-off maintenance helpers (entity crosswalk bootstrap)
+├── tools/               One-off maintenance helpers (entity crosswalk, map boundaries)
 └── web/                 SvelteKit dashboard — src/routes is one file per view
-    └── static/data/       Gitignored. 491 MB, built by scripts/09 and export_web.py
+    ├── static/data/       Gitignored. 491 MB, built by scripts/09 and export_web.py
+    └── static/geo/        Committed. Country polygons for the filled map, from tools/
 ```
 
 ---
