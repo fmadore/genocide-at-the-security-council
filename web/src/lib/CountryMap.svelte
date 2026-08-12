@@ -171,6 +171,22 @@
 	let failed = $state<string | null>(null);
 	/** The basemap is taking long enough that the reader should be told where else to look. */
 	let slow = $state(false);
+	/**
+	 * The browser has taken the WebGL context away.
+	 *
+	 * It happens for reasons no page controls — memory pressure, a GPU process
+	 * restart, a driver reset, a laptop switching graphics chips — and Firefox
+	 * reports it as a bare "WebGL context was lost." in the console. MapLibre
+	 * handles it: it saves the style, and on `webglcontextrestored` rebuilds the
+	 * painter and re-adds every source and layer. Only *custom* layers are lost,
+	 * and this map has none, so recovery is complete without help from here.
+	 *
+	 * What it does not do is say anything, and neither did this file: `ready` is
+	 * already true by then and `error` never fires, so the sole symptom was a
+	 * blank rectangle where the map had been — the exact failure the `error`
+	 * handler above exists to prevent, arriving through a door it does not watch.
+	 */
+	let lostContext = $state(false);
 
 	/**
 	 * The boundaries, fetched once and only when a reader asks for them.
@@ -546,6 +562,22 @@
 				instance.on('error', (event) => {
 					if (!dead && !ready) failed = event.error?.message ?? 'The basemap did not load.';
 				});
+				// `ready` is lowered as well as `lostContext` raised, because every
+				// effect below is already gated on it and none of them can run while
+				// the context is gone: MapLibre nulls `style` for the duration, and
+				// `getLayer`, `getSource` and `setPaintProperty` all read through it.
+				// Reusing the gate also means they re-run on restoration and re-apply
+				// the current theme and selection to the rebuilt layers.
+				instance.on('webglcontextlost', () => {
+					if (dead) return;
+					lostContext = true;
+					ready = false;
+				});
+				instance.on('webglcontextrestored', () => {
+					if (dead) return;
+					lostContext = false;
+					ready = true;
+				});
 				map = instance;
 			})
 			.catch((error: unknown) => {
@@ -722,6 +754,12 @@
 		<p class="state" role="status">
 			The map did not load ({failed}). Every speaker it would show is in the table below, which is
 			the same data in the same order.
+		</p>
+	{:else if lostContext}
+		<p class="state" role="status">
+			The browser took back the graphics context this map draws into, which happens under memory
+			pressure or when a display driver restarts. It redraws itself as soon as one is returned;
+			meanwhile the table below is untouched and holds the same rows in the same order.
 		</p>
 	{:else if !ready}
 		<p class="state" role="status">
