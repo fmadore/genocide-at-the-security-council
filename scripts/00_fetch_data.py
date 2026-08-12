@@ -62,6 +62,20 @@ def dataverse_request(url: str, *, accept: str) -> urllib.request.Request:
 # The two are told apart by the body: a genuine refusal is JSON carrying
 # `status: ERROR`, load-shedding is an HTML page. Anything that cannot be read
 # as that JSON is treated as worth another try.
+#
+# All of which reads a *status*, and on 12 August 2026 the archive shed load
+# without using one. Every endpoint — the dataset version lookup, `/api/info/
+# version`, the site root — answered **202 with an empty text/html body**,
+# identically from two continents and regardless of `User-Agent` or `Accept`.
+# `urlopen` raises nothing below 400, so a 202 is a success as far as it is
+# concerned: the response reached `json.load`, which failed on an empty string,
+# and the run died in 205 ms having spent none of its six attempts. The retry
+# was bypassed by the one failure mode it exists for, and the traceback blamed
+# `json/decoder.py` for a Harvard outage.
+#
+# So the judgement `_shedding` makes about a body is also made about a body that
+# never became an `HTTPError`. A response that promised JSON and did not deliver
+# it is the archive declining to answer, whatever the number on the front.
 
 #: Attempts per request, and the first pause between them. Doubling from 2s
 #: gives up after about two minutes — long enough to ride out the shedding seen
@@ -122,6 +136,18 @@ def with_retry(operation, describe: str, attempts: int = MAX_ATTEMPTS):
                 raise
             wait = _pause(error, delay)
             reason = f"HTTP {error.code}"
+        except json.JSONDecodeError as error:
+            # Re-raised as the archive's failure rather than the parser's: the
+            # bare `JSONDecodeError` names a column of a string nobody wrote and
+            # sends whoever reads the log to `json/decoder.py` instead of to
+            # Harvard's status page. Chained, so the original is still there.
+            if attempt == attempts:
+                raise RuntimeError(
+                    f"{describe}: the archive answered without readable JSON on every "
+                    f"one of {attempts} attempts - it is shedding load or is down"
+                ) from error
+            wait = delay
+            reason = "unreadable body"
         except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as error:
             if attempt == attempts:
                 raise

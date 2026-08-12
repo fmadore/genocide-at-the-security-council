@@ -182,6 +182,37 @@ class TestRetry:
         assert fetch_module.with_retry(operation, "datafile 1") == "ok"
         assert waits == [7.0]
 
+    def test_a_2xx_that_carries_no_json_is_retried(self, fetch_module):
+        """Observed on 12 August 2026: every Dataverse endpoint answered 202 with
+        an empty text/html body. `urlopen` raises nothing below 400, so the
+        response reached `json.load` and the run died in 205 ms with all six
+        attempts unspent — the retry bypassed by the outage it exists for."""
+        attempts = []
+
+        def operation():
+            attempts.append(len(attempts))
+            if len(attempts) < 3:
+                raise json.JSONDecodeError("Expecting value", "", 0)
+            return "payload"
+
+        assert fetch_module.with_retry(operation, "dataset version 6.1") == "payload"
+        assert len(attempts) == 3
+
+    def test_giving_up_on_an_unreadable_body_blames_the_archive(self, fetch_module):
+        """A bare JSONDecodeError names a column of a string nobody wrote and
+        sends whoever reads the log to `json/decoder.py` for what is an outage."""
+        attempts = []
+
+        def operation():
+            attempts.append(len(attempts))
+            raise json.JSONDecodeError("Expecting value", "", 0)
+
+        with pytest.raises(RuntimeError, match="without readable JSON") as caught:
+            fetch_module.with_retry(operation, "dataset version 6.1", attempts=3)
+        assert len(attempts) == 3
+        # Chained, so the parser's own account survives for anyone who wants it.
+        assert isinstance(caught.value.__cause__, json.JSONDecodeError)
+
 
 class Stream:
     """A response that hands back chunks, optionally dying part-way through."""
