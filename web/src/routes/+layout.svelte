@@ -100,8 +100,8 @@
 			Everything here measures the English verbatim record rather than the room it was written from.
 		</p>
 		<p class="quiet">
-			By <a href="https://orcid.org/0000-0003-0959-2092">Frédérick Madore</a> (University of
-			Bayreuth). Code
+			By <a href="https://www.frederickmadore.com/">Frédérick Madore</a> (University of Bayreuth).
+			Code
 			<a href="{REPO}/blob/main/LICENSE">MIT</a>; the figures and tables on this site
 			<a href="{REPO}/blob/main/LICENSE-DATA.md">CC BY 4.0</a>. Speech text quoted from the record
 			remains CC0.
