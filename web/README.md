@@ -8,7 +8,7 @@ npm ci
 npm run dev      # http://localhost:5173/genocide-at-the-security-council/
 npm run check    # svelte-check
 npm run lint     # prettier + eslint
-npm test         # vitest — 252 tests over the modules the views compute with
+npm test         # vitest — 262 tests over the modules the views compute with
 npm run build    # → build/, then verify-static.mjs checks every public route arrived
 ```
 
@@ -56,11 +56,55 @@ click and decides nothing.
 6,595 pages to display text that is already fetched as JSON. The static adapter's
 `404.html` fallback serves it.
 
+## Installable, and it never asks
+
+The site is a PWA: [`static/manifest.webmanifest`](static/manifest.webmanifest) plus
+[`src/service-worker.ts`](src/service-worker.ts). Nothing prompts anyone to install it. A
+listener in `app.html` cancels Chromium's `beforeinstallprompt`, which is the event that
+produces the install banner, and no custom button replaces it — a reader who wants an app
+knows where their browser keeps Install, and the entry stays there either way.
+
+**The manifest carries no comments, so its decisions are here.** Every URL in it is
+relative — `"start_url": "./"`, `"./icon-192.png"` — because manifest URLs resolve against
+the manifest's own address, so the file needs no knowledge of `base` and keeps working
+under `BASE_PATH=''`. There is deliberately no `id`: an `id` resolves against the _origin_
+rather than the path, so any relative value would resolve to `fmadore.github.io/` and be
+shared with every other project hosted there. Omitted, it defaults to the resolved
+`start_url`, which is this project's subpath and nobody else's. `display_override` asks for
+`minimal-ui` before falling back to `standalone`, because a site whose own claim is that it
+is citable should keep the address of the thing being cited on screen.
+
+**The service worker is built around one number: `static/data/` is 468 MB across 6,632
+files.** Precaching it — the default shape of a service worker, and what `$service-worker`
+would hand over unfiltered — would spend a reader's data on 6,594 meetings they will never
+open. So `svelte.config.js` filters that directory out of `serviceWorker.files`, and the
+three strategies follow from the same fact:
+
+| What                                  | Strategy                         | Why                                                                                                 |
+| ------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Icons, manifest, `geo/countries.json` | Precached on install             | ~170 KB, and any page that draws needs it                                                           |
+| `_app/immutable/**`                   | Cache-first, filled as used      | Content-hashed, so a hit is never stale; not precached, as two thirds of it is ECharts and MapLibre |
+| Pages and `data/**`                   | Network-first, cache as fallback | The record is the truth; the cache is what is left when the network is gone                         |
+
+A navigation that fails and has no cached page falls back to the `404.html` shell, so the
+router still boots and each view says for itself what it could not load. That shell is
+cached with `put` rather than `add` on purpose: a static host answers a direct request for
+it with a 404 — the status it exists to carry — and `addAll` rejects its whole batch on any
+response that is not `ok`, which failed the install outright and left the site with no
+worker at all. Nothing calls `skipWaiting()`, so a new deployment takes over on the next
+full load rather than pulling chunks out from under an open tab, and no "new version
+available" prompt is needed to manage that.
+
+Rebuild the icons with `python tools/build_icons.py`; they are committed, like
+`static/geo/countries.json`, and are cut from the University of Bayreuth mark.
+
 ## Layout
 
 ```
 src/
 ├── app.css              Design tokens. Charts read the palette from here too.
+├── app.html             Theme resolved before first paint; the install prompt cancelled
+├── service-worker.ts    The offline layer. Never precaches the 468 MB data payload.
 ├── lib/
 │   ├── types.ts         The shapes the pipeline writes — checked against tests/contract/
 │   ├── data.ts          Fetch, cache and refuse: one shape per artefact, one function each
@@ -78,7 +122,7 @@ src/
 performs at render time lives in a plain module beside it — `actors.ts`, `concordance.ts`,
 `heatmap.ts`, `keyness.ts`, `standing.ts`, `wordcloud.ts`, `highlight.ts`, `scroll.ts` —
 each with a `.test.ts` next to it, because logic reachable only by mounting a component is
-logic nobody will test twice. `docs/PLAN.md` §7 states the rule; the 252 tests are what
+logic nobody will test twice. `docs/PLAN.md` §7 states the rule; the 262 tests are what
 holds it.
 
 `data.ts` is where the pipeline is met and, when necessary, refused. `REQUIRED` names every

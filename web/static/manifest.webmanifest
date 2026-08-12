@@ -1,0 +1,39 @@
+{
+	"name": "Genocide at the Security Council",
+	"short_name": "Genocide UNSC",
+	"description": "How the word genocide has been used at the UN Security Council, 1992-2023: 106,302 speeches, made searchable, comparable and citable.",
+	"lang": "en",
+	"start_url": "./",
+	"scope": "./",
+	"display": "standalone",
+	"display_override": ["minimal-ui"],
+	"theme_color": "#f1f2ee",
+	"background_color": "#f1f2ee",
+	"categories": ["education", "politics", "news"],
+	"icons": [
+		{
+			"src": "./favicon.svg",
+			"sizes": "any",
+			"type": "image/svg+xml",
+			"purpose": "any"
+		},
+		{
+			"src": "./icon-192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "./icon-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "./icon-maskable-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	]
+}

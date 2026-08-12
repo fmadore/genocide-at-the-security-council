@@ -7,6 +7,13 @@
       "runtimeArgs": ["run", "dev", "--prefix", "web"],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview", "--prefix", "web"],
+      "port": 4173,
+      "autoPort": true
     }
   ]
 }

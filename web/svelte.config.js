@@ -13,6 +13,19 @@ export default {
 		// generating 6,595 document pages to display text already fetched as JSON.
 		adapter: adapter({ fallback: '404.html', strict: true }),
 		paths: { base },
-		prerender: { handleHttpError: 'fail' }
+		prerender: { handleHttpError: 'fail' },
+		serviceWorker: {
+			// What `$service-worker.files` is allowed to contain, and therefore what
+			// `src/service-worker.ts` precaches on install. The default is everything
+			// in `static/` bar `.DS_Store`, which here would be 468 MB across 6,632
+			// files — the whole dashboard payload, fetched on a reader's first visit
+			// for the sake of 6,595 meetings they did not ask for. The data is served
+			// network-first and cached as it is read instead; see the service worker.
+			//
+			// `og.png` is excluded for a smaller reason: it exists for link scrapers,
+			// which do not run service workers, so precaching it is 54 KB spent on
+			// nobody. Both stay reachable — this list governs precaching, not access.
+			files: (path) => !path.startsWith('data/') && path !== 'og.png'
+		}
 	}
 };

@@ -3,6 +3,13 @@
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
+		<!-- iOS reads neither the SVG icon nor the manifest's, and composites this
+		     one onto black, which is why it is drawn on its own white ground. -->
+		<link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
+		<!-- Every URL inside the manifest is relative to the manifest itself, so
+		     the file needs no knowledge of the base path and survives the
+		     BASE_PATH='' override that `svelte.config.js` documents. -->
+		<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta
 			name="description"
@@ -45,6 +52,20 @@
 					/* private mode: fall through to the media query in app.css */
 				}
 			})();
+		</script>
+
+		<!-- The site is installable and never asks to be. Chromium fires this
+		     event once it decides a page qualifies, and shows an install banner of
+		     its own unless the event is cancelled; cancelling it and doing nothing
+		     else is the whole intent. Nothing here stores the event or offers a
+		     button, because a reader who wants an app already knows where their
+		     browser keeps Install. Inline and early, beside the theme script: the
+		     event can fire before the framework has hydrated, and a listener added
+		     in `onMount` would sometimes be too late to cancel anything. -->
+		<script>
+			addEventListener('beforeinstallprompt', function (event) {
+				event.preventDefault();
+			});
 		</script>
 
 		%sveltekit.head%
