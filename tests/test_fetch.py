@@ -10,6 +10,7 @@ tested here is that distinction, because it is the whole of the fix.
 
 from __future__ import annotations
 
+import email.message
 import importlib.util
 import io
 import json
@@ -17,6 +18,24 @@ import urllib.error
 from pathlib import Path
 
 import pytest
+
+
+class Response(io.BytesIO):
+    """What `urlopen` actually hands back: a body that carries headers.
+
+    A bare `io.BytesIO` was enough while nothing read anything but the bytes,
+    and that is exactly how a 202 carrying `x-amzn-waf-action` stayed invisible
+    to this file for as long as it did. `email.message.Message` rather than a
+    dict because header lookup is case-insensitive on a real response and the
+    double should not be stricter than the thing it stands for.
+    """
+
+    def __init__(self, body: bytes = b"", status: int = 200, headers: dict | None = None):
+        super().__init__(body)
+        self.status = status
+        self.headers = email.message.Message()
+        for key, value in (headers or {}).items():
+            self.headers[key] = value
 
 
 @pytest.fixture(scope="module")
@@ -47,7 +66,7 @@ def test_dataset_metadata_request_identifies_the_project(monkeypatch, fetch_modu
     def urlopen(request, timeout):
         seen["request"] = request
         seen["timeout"] = timeout
-        return io.BytesIO(json.dumps(payload).encode())
+        return Response(json.dumps(payload).encode())
 
     monkeypatch.setattr(fetch_module.urllib.request, "urlopen", urlopen)
 
@@ -62,7 +81,7 @@ def test_file_download_identifies_the_project(monkeypatch, tmp_path, fetch_modul
     def urlopen(request, timeout):
         seen["request"] = request
         seen["timeout"] = timeout
-        return io.BytesIO(b"abc")
+        return Response(b"abc")
 
     monkeypatch.setattr(fetch_module.urllib.request, "urlopen", urlopen)
     destination = tmp_path / "sample.tsv"
@@ -214,6 +233,58 @@ class TestRetry:
         assert isinstance(caught.value.__cause__, json.JSONDecodeError)
 
 
+class TestAChallengeIsNotAnOutage:
+    """August 2026: `202 Accepted`, empty body, `x-amzn-waf-action: challenge`,
+    on every endpoint, from two continents, with and without an API token — AWS
+    WAF in front of an archive that was healthy the whole time. Nothing below
+    400 raises, so each layer read the refusal as its own kind of accident: the
+    metadata call as malformed JSON, a download as a 0-byte file failing MD5."""
+
+    def test_a_challenged_response_is_refused_by_name(self, fetch_module):
+        response = Response(b"", status=202, headers={"x-amzn-waf-action": "challenge"})
+        with pytest.raises(fetch_module.Challenged, match="x-amzn-waf-action"):
+            fetch_module._refuse_if_challenged(response)
+
+    def test_the_header_is_matched_whatever_its_case(self, fetch_module):
+        """`resp.headers` is an `email.message.Message` on a real response, and
+        the wire case of a header is not ours to predict."""
+        response = Response(b"", status=202, headers={"X-Amzn-Waf-Action": "challenge"})
+        with pytest.raises(fetch_module.Challenged):
+            fetch_module._refuse_if_challenged(response)
+
+    def test_an_ordinary_response_passes_through(self, fetch_module):
+        assert fetch_module._refuse_if_challenged(Response(b"{}")) is None
+
+    def test_the_metadata_call_stops_on_the_first_challenge(self, monkeypatch, fetch_module):
+        """Not retried: a challenge is a refusal to answer this client, and no
+        number of attempts satisfies one."""
+        attempts = []
+
+        def urlopen(request, timeout):
+            attempts.append(len(attempts))
+            return Response(b"", status=202, headers={"x-amzn-waf-action": "challenge"})
+
+        monkeypatch.setattr(fetch_module.urllib.request, "urlopen", urlopen)
+
+        with pytest.raises(fetch_module.Challenged):
+            fetch_module.dataset_version("6.1")
+        assert len(attempts) == 1
+
+    def test_a_challenged_download_writes_no_file(self, monkeypatch, tmp_path, fetch_module):
+        """The check runs before the first write, so the refusal is not left on
+        disk as an empty file for the checksum to misreport."""
+
+        def urlopen(request, timeout):
+            return Response(b"", status=202, headers={"x-amzn-waf-action": "challenge"})
+
+        monkeypatch.setattr(fetch_module.urllib.request, "urlopen", urlopen)
+        destination = tmp_path / "speeches.tar"
+
+        with pytest.raises(fetch_module.Challenged):
+            fetch_module.download(123, destination, 1000)
+        assert not destination.exists()
+
+
 class Stream:
     """A response that hands back chunks, optionally dying part-way through."""
 
@@ -221,6 +292,11 @@ class Stream:
         self.chunks = list(chunks)
         self.fail_after = fail_after
         self.served = 0
+        # Carried for the same reason `Response` carries them: the download path
+        # reads the headers before it reads a byte, and a double without them
+        # would only prove that this test's stub is not a response.
+        self.status = 200
+        self.headers = email.message.Message()
 
     def read(self, size: int = -1) -> bytes:
         if self.fail_after is not None and self.served == self.fail_after:

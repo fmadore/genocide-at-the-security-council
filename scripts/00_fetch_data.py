@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import sys
 import time
@@ -63,19 +64,31 @@ def dataverse_request(url: str, *, accept: str) -> urllib.request.Request:
 # `status: ERROR`, load-shedding is an HTML page. Anything that cannot be read
 # as that JSON is treated as worth another try.
 #
-# All of which reads a *status*, and on 12 August 2026 the archive shed load
-# without using one. Every endpoint — the dataset version lookup, `/api/info/
-# version`, the site root — answered **202 with an empty text/html body**,
-# identically from two continents and regardless of `User-Agent` or `Accept`.
-# `urlopen` raises nothing below 400, so a 202 is a success as far as it is
-# concerned: the response reached `json.load`, which failed on an empty string,
-# and the run died in 205 ms having spent none of its six attempts. The retry
-# was bypassed by the one failure mode it exists for, and the traceback blamed
-# `json/decoder.py` for a Harvard outage.
+# All of which reads a *status*, and in August 2026 the refusal stopped using
+# one. Every endpoint — the version lookup, the file download, the dataset
+# landing page — answered `202 Accepted` with an empty body and the header
+# `x-amzn-waf-action: challenge`, identically from a German workstation and a
+# US-East runner, with and without an API token.
 #
-# So the judgement `_shedding` makes about a body is also made about a body that
-# never became an `HTTPError`. A response that promised JSON and did not deliver
-# it is the archive declining to answer, whatever the number on the front.
+# That is not the archive shedding load. It is AWS WAF in front of it, asking
+# the client to run a JavaScript challenge and hand back a token — which a
+# browser does invisibly and a pipeline cannot. Dataverse behind it was healthy
+# throughout: the same URLs returned `{"status":"OK"}` in a browser, all the
+# way through the outage this script first blamed.
+#
+# `urlopen` raises nothing below 400, so a 202 is a success as far as it is
+# concerned, and the misreading was costly in both directions. The metadata call
+# reached `json.load`, died on an empty string, and blamed `json/decoder.py` for
+# something Harvard's edge did; a download would have written a 0-byte file and
+# failed its MD5 — two misleading accounts of one refusal. Six attempts were
+# then spent on a challenge that no number of attempts satisfies.
+#
+# Hence two separate things below. `_refuse_if_challenged` names the WAF and
+# stops at once, because a challenge is a refusal to answer *this client* rather
+# than a bad moment to ask, and the fix for it is not in this repository. And a
+# body that promised JSON and did not deliver one is still worth another try —
+# the judgement `_shedding` already makes about a 404, extended to responses
+# that never became an `HTTPError` at all.
 
 #: Attempts per request, and the first pause between them. Doubling from 2s
 #: gives up after about two minutes — long enough to ride out the shedding seen
@@ -107,6 +120,40 @@ def _shedding(error: urllib.error.HTTPError) -> bool:
     except (ValueError, UnicodeDecodeError, OSError):
         return True
     return str(payload.get("status", "")).upper() != "ERROR"
+
+
+class Challenged(RuntimeError):
+    """The edge in front of the archive challenged this client instead of answering.
+
+    Deliberately not a retry and deliberately not worked around. Satisfying an
+    AWS WAF challenge means executing its JavaScript and replaying the token it
+    issues, which is what the control exists to stop a non-browser doing; a
+    reproducible pipeline that dressed itself as a browser to get past one would
+    be a worse thing than a pipeline that stops and says why.
+    """
+
+
+def _refuse_if_challenged(resp: http.client.HTTPResponse) -> None:
+    """Stop, by name, when the WAF answers in place of Dataverse.
+
+    Checked on the response rather than in :func:`with_retry`, because this
+    never becomes an exception on its own: the status is a 2xx and the body is
+    empty, so every layer below treats it as a successful request that happened
+    to carry nothing. The header lookup is case-insensitive, `resp.headers`
+    being an `email.message.Message`.
+    """
+    action = resp.headers.get("x-amzn-waf-action")
+    if not action:
+        return
+    raise Challenged(
+        f"Harvard Dataverse replied HTTP {resp.status} with x-amzn-waf-action: {action} "
+        "instead of data. Its bot protection is challenging this client, and no "
+        "retry satisfies a challenge - it wants a browser to run JavaScript. The "
+        "archive itself is healthy; the same URL opens in a browser, and an API "
+        "token makes no difference because the WAF refuses before Dataverse sees "
+        "it. Report it to support@dataverse.harvard.edu: it breaks every "
+        "programmatic reader of the DOI, not only this one."
+    )
 
 
 def _pause(error: urllib.error.HTTPError | None, fallback: float) -> float:
@@ -144,7 +191,7 @@ def with_retry(operation, describe: str, attempts: int = MAX_ATTEMPTS):
             if attempt == attempts:
                 raise RuntimeError(
                     f"{describe}: the archive answered without readable JSON on every "
-                    f"one of {attempts} attempts - it is shedding load or is down"
+                    f"one of {attempts} attempts"
                 ) from error
             wait = delay
             reason = "unreadable body"
@@ -174,6 +221,7 @@ def dataset_version(version: str) -> dict:
     def once() -> dict:
         request = dataverse_request(url, accept="application/json")
         with urllib.request.urlopen(request, timeout=60) as resp:
+            _refuse_if_challenged(resp)
             payload = json.load(resp)
         return payload["data"]
 
@@ -205,6 +253,9 @@ def download(file_id: int, dest: Path, size: int) -> None:
         # "wb" truncates, so a retry starts from an empty file rather than
         # appending to whatever the failed attempt managed to write.
         with urllib.request.urlopen(request, timeout=120) as resp, tmp.open("wb") as out:
+            # Before the first write, so a challenge is never mistaken for a
+            # download that arrived empty and failed its checksum.
+            _refuse_if_challenged(resp)
             while chunk := resp.read(1 << 20):
                 out.write(chunk)
                 done += len(chunk)
