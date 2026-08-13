@@ -1,0 +1,70 @@
+{
+  "_comment": [
+    "The pinned corpus, named by its bytes rather than only by its version.",
+    "",
+    "`DATASET_VERSION` in scripts/lib/paths.py said 6.1, which meant whatever",
+    "Harvard served as 6.1 that day; scripts/00_fetch_data.py then had to ask the",
+    "API what those bytes should be before it could check the ones on disk. That",
+    "made a network call the precondition for verifying a corpus already present,",
+    "and in August 2026 an AWS WAF challenge in front of the archive turned that",
+    "into a hard stop for every deploy - see the comment block in 00.",
+    "",
+    "A published Dataverse version is immutable, so these checksums are constants.",
+    "Recording them makes the pin complete: the pipeline can now prove the corpus",
+    "is the pinned one with no network at all, and a download - when one is",
+    "actually needed - is still checked against Harvard's own MD5s.",
+    "",
+    "Provenance: read from the dataset version record at the URL below on",
+    "13 August 2026 and confirmed byte-for-byte against the local corpus. Every",
+    "value here is Harvard's, not computed from a local file. Re-read them with",
+    "  https://dataverse.harvard.edu/api/datasets/:persistentId/versions/6.1?persistentId=doi:10.7910/DVN/KGVSYH",
+    "",
+    "Changing the pin means changing `version` here and DATASET_VERSION together;",
+    "00 refuses to run if the two disagree. This file is under config/, so the",
+    "deploy workflow's derived cache key already covers it."
+  ],
+  "doi": "doi:10.7910/DVN/KGVSYH",
+  "server": "https://dataverse.harvard.edu",
+  "version": "6.1",
+  "released": "2025-02-19T23:24:17Z",
+  "license": "CC0-1.0",
+  "recorded": "2026-08-13",
+  "files": [
+    {
+      "id": 10809805,
+      "filename": "speeches.tar",
+      "bytes": 473909760,
+      "md5": "389a75645352d9e0300f97aab8056f6f"
+    },
+    {
+      "id": 10809807,
+      "filename": "speaker.tsv",
+      "bytes": 33027398,
+      "md5": "c5dd77f1ac702a5f6b2b60dc112afe00"
+    },
+    {
+      "id": 10809806,
+      "filename": "meta.tsv",
+      "bytes": 605087,
+      "md5": "e675cbfec403a1b491d1db98b2b78760"
+    },
+    {
+      "id": 10809802,
+      "filename": "docs.RData",
+      "bytes": 118519768,
+      "md5": "289ef975a230a73504879b0b18125774"
+    },
+    {
+      "id": 10809804,
+      "filename": "docs_meta.RData",
+      "bytes": 2088838,
+      "md5": "0f786aa7f8f8cace96edba25c31d2249"
+    },
+    {
+      "id": 10809808,
+      "filename": "Codebook.pdf",
+      "bytes": 104757,
+      "md5": "a4c38763e847a5005d306b25396dbd09"
+    }
+  ]
+}

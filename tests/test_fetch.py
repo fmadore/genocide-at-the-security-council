@@ -11,9 +11,11 @@ tested here is that distinction, because it is the whole of the fix.
 from __future__ import annotations
 
 import email.message
+import hashlib
 import importlib.util
 import io
 import json
+import sys
 import urllib.error
 from pathlib import Path
 
@@ -231,6 +233,129 @@ class TestRetry:
         assert len(attempts) == 3
         # Chained, so the parser's own account survives for anyone who wants it.
         assert isinstance(caught.value.__cause__, json.JSONDecodeError)
+
+
+class TestThePinIsEnoughOnItsOwn:
+    """A published Dataverse version is immutable, so its checksums are facts the
+    repository can hold. Before it did, verifying a corpus already on disk began
+    with a request to Harvard — which is how an archive that was merely unhappy
+    with our HTTP client became able to stop a build from 508 MB of verified
+    bytes in the cache."""
+
+    def test_the_committed_pin_agrees_with_the_version_in_paths(self, fetch_module):
+        version = fetch_module.pinned_version()
+        actual = f"{version['versionNumber']}.{version['versionMinorNumber']}"
+        assert actual == fetch_module.DATASET_VERSION
+
+    def test_the_committed_pin_covers_every_file_the_pipeline_reads(self, fetch_module):
+        named = {
+            entry["dataFile"]["filename"] for entry in fetch_module.pinned_version()["files"]
+        }
+        assert named >= fetch_module.REQUIRED
+
+    def test_the_committed_pin_carries_a_real_md5_for_each_file(self, fetch_module):
+        for entry in fetch_module.pinned_version()["files"]:
+            data_file = entry["dataFile"]
+            assert len(fetch_module.expected_md5(data_file)) == 32, data_file["filename"]
+            assert data_file["filesize"] > 0
+
+    def test_a_pin_that_disagrees_with_paths_is_refused(self, monkeypatch, tmp_path, fetch_module):
+        """Two statements of one fact in two files. A pin bumped in one and not
+        the other would verify the corpus against another release's checksums."""
+        pin = tmp_path / "pin.json"
+        pin.write_text(json.dumps({"doi": fetch_module.DOI, "version": "9.9", "files": []}))
+        monkeypatch.setattr(fetch_module, "PIN", pin)
+
+        with pytest.raises(RuntimeError, match="must name the same release"):
+            fetch_module.pinned_version()
+
+    def test_a_present_corpus_is_verified_without_the_network(
+        self, monkeypatch, tmp_path, fetch_module
+    ):
+        """The regression this change exists for: nothing is asked of Harvard
+        when every file is already here and matches."""
+        body = b"the verbatim record"
+        raw = tmp_path / "raw"
+        raw.mkdir()
+        (raw / "meta.tsv").write_bytes(body)
+
+        pin = tmp_path / "pin.json"
+        pin.write_text(
+            json.dumps(
+                {
+                    "doi": fetch_module.DOI,
+                    "version": fetch_module.DATASET_VERSION,
+                    "files": [
+                        {
+                            "id": 1,
+                            "filename": "meta.tsv",
+                            "bytes": len(body),
+                            "md5": hashlib.md5(body).hexdigest(),
+                        }
+                    ],
+                }
+            )
+        )
+
+        def refuse(*_args, **_kwargs):
+            raise AssertionError("00 reached the network for a corpus already on disk")
+
+        monkeypatch.setattr(fetch_module, "PIN", pin)
+        monkeypatch.setattr(fetch_module, "RAW", raw)
+        monkeypatch.setattr(fetch_module, "REQUIRED", {"meta.tsv"})
+        monkeypatch.setattr(fetch_module.urllib.request, "urlopen", refuse)
+        monkeypatch.setattr(sys, "argv", ["00_fetch_data.py"])
+
+        fetch_module.main()
+
+        manifest = json.loads((raw / "dataset-manifest.json").read_text())
+        assert manifest["checksums_from"] == "pin.json"
+        assert manifest["files"][0]["md5"] == hashlib.md5(body).hexdigest()
+
+    def test_a_stale_file_still_reaches_for_the_archive(self, monkeypatch, tmp_path, fetch_module):
+        """Offline verification is not offline insistence: bytes that do not
+        match the pin are re-fetched, and the id in the pin is enough to do it
+        without a metadata lookup."""
+        raw = tmp_path / "raw"
+        raw.mkdir()
+        (raw / "meta.tsv").write_bytes(b"wrong bytes")
+        good = b"the verbatim record"
+
+        pin = tmp_path / "pin.json"
+        pin.write_text(
+            json.dumps(
+                {
+                    "doi": fetch_module.DOI,
+                    "version": fetch_module.DATASET_VERSION,
+                    "files": [
+                        {
+                            "id": 4242,
+                            "filename": "meta.tsv",
+                            "bytes": len(good),
+                            "md5": hashlib.md5(good).hexdigest(),
+                        }
+                    ],
+                }
+            )
+        )
+
+        asked = []
+
+        def urlopen(request, timeout):
+            asked.append(request.full_url)
+            return Response(good)
+
+        monkeypatch.setattr(fetch_module, "PIN", pin)
+        monkeypatch.setattr(fetch_module, "RAW", raw)
+        monkeypatch.setattr(fetch_module, "REQUIRED", {"meta.tsv"})
+        monkeypatch.setattr(fetch_module.urllib.request, "urlopen", urlopen)
+        monkeypatch.setattr(sys, "argv", ["00_fetch_data.py"])
+
+        fetch_module.main()
+
+        assert (raw / "meta.tsv").read_bytes() == good
+        # The download endpoint, reached directly by id — no version lookup.
+        assert asked == [f"{fetch_module.DATAVERSE}/api/access/datafile/4242"]
 
 
 class TestAChallengeIsNotAnOutage:

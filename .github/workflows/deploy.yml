@@ -9,11 +9,17 @@
 # Two caches keep that principle without paying it on every push. The pin is
 # immutable — v6.1 cannot change, and its MD5s are fixed — so re-downloading
 # 508 MB to move a grid column buys nothing, and this workflow triggers on
-# `web/**`. Neither cache adds a trust assumption: the raw one is checksummed
-# by `00_fetch_data.py` against MD5s Harvard published, and the derived one is
-# keyed on exactly the inputs `lib/artifacts.provenance` already claims
-# determine an artifact. Both are an optimisation and never a dependency —
-# Dataverse and the retry in 00 stay the backstop, and eviction is a feature.
+# `web/**`. Neither cache adds a trust assumption: the raw one is checksummed by
+# `00_fetch_data.py` against the MD5s Harvard published, which are recorded in
+# `config/dataset-pin.json` and so are checked whether or not the archive can be
+# reached; the derived one is keyed on exactly the inputs
+# `lib/artifacts.provenance` already claims determine an artifact. Both are an
+# optimisation and never a dependency, and eviction is a feature.
+#
+# What is no longer a dependency is the archive itself on the path where nothing
+# needs downloading. 00 asked the API for the file list before it could verify a
+# corpus already on disk, so in August 2026 a bot challenge in front of Dataverse
+# failed three deploys over a restored 508 MB cache it never looked at.
 
 name: Deploy dashboard
 

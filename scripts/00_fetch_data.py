@@ -4,10 +4,28 @@ The dataset is CC0 and addressed by DOI, so it is never committed to git — thi
 script makes the repository self-bootstrapping. Files already present with the
 right MD5 are skipped.
 
+**The network is a consequence of missing bytes, not a precondition.** What each
+file must contain is `config/dataset-pin.json`, which records Harvard's own MD5
+for every file in the pinned version; a published Dataverse version is immutable,
+so those are constants and belong in the repository. A corpus that is already
+present is therefore verified with no request at all, and `/api/access/datafile/`
+is reached only for a file that is missing or stale — using the id in the pin, so
+even that needs no metadata lookup.
+
+This used to work the other way round: the file list and its checksums were read
+from the API first, which made a network call the precondition for checking a
+corpus already on disk. In August 2026 a bot challenge in front of the archive
+(see the comment block below) turned that into a hard stop for every deploy,
+while 508 MB of already-verified corpus sat in the cache.
+
+Only `--latest` still requires the API, because asking what Harvard published
+most recently is a question no local file can answer.
+
 Usage:
     python scripts/00_fetch_data.py               # the 3 files the pipeline needs
     python scripts/00_fetch_data.py --all         # including the two .RData files
     python scripts/00_fetch_data.py --force       # re-download regardless of MD5
+    python scripts/00_fetch_data.py --latest      # ask the API for the newest version
 """
 
 from __future__ import annotations
@@ -25,7 +43,12 @@ from urllib.parse import quote, urlencode
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.artifacts import atomic_write_json
-from lib.paths import DATASET_VERSION, DATAVERSE, DOI, RAW
+from lib.paths import CONFIG, DATASET_VERSION, DATAVERSE, DOI, RAW
+
+#: Harvard's checksums for the pinned version, recorded so that verifying a
+#: corpus already on disk needs nothing from the network. See the file itself
+#: for how the values were obtained and what changing the pin involves.
+PIN = CONFIG / "dataset-pin.json"
 
 # The pipeline reads only these three. docs.RData / docs_meta.RData are
 # redundant R serialisations of the same content (119 MB) — opt in with --all.
@@ -213,6 +236,41 @@ def with_retry(operation, describe: str, attempts: int = MAX_ATTEMPTS):
     raise RuntimeError(f"{describe}: gave up after {attempts} attempts")
 
 
+def pinned_version() -> dict:
+    """The pinned version's file list, from `config/dataset-pin.json`.
+
+    Shaped like the API's own answer so that `main` does not care which of the
+    two it is holding. The version is checked against `DATASET_VERSION` here
+    rather than trusted: they are two statements of the same fact in two files,
+    and a pin bumped in one and not the other would otherwise verify a corpus
+    against the checksums of a different release.
+    """
+    pin = json.loads(PIN.read_text(encoding="utf-8"))
+    if pin["version"] != DATASET_VERSION:
+        raise RuntimeError(
+            f"{PIN.name} pins version {pin['version']} but lib/paths.py pins "
+            f"{DATASET_VERSION} - the two must name the same release"
+        )
+    if pin["doi"] != DOI:
+        raise RuntimeError(f"{PIN.name} pins {pin['doi']} but lib/paths.py pins {DOI}")
+    major, _, minor = pin["version"].partition(".")
+    return {
+        "versionNumber": int(major),
+        "versionMinorNumber": int(minor),
+        "files": [
+            {
+                "dataFile": {
+                    "id": entry["id"],
+                    "filename": entry["filename"],
+                    "filesize": entry["bytes"],
+                    "checksum": {"type": "MD5", "value": entry["md5"]},
+                }
+            }
+            for entry in pin["files"]
+        ],
+    }
+
+
 def dataset_version(version: str) -> dict:
     """Read one explicit published dataset version, including its file list."""
     query = urlencode({"persistentId": DOI, "excludeFiles": "false"})
@@ -280,11 +338,17 @@ def main() -> None:
 
     RAW.mkdir(parents=True, exist_ok=True)
     requested = ":latest-published" if args.latest else DATASET_VERSION
-    version = dataset_version(requested)
+    if args.latest:
+        # The only question the pin cannot answer.
+        version = dataset_version(requested)
+        source = "the API"
+    else:
+        version = pinned_version()
+        source = PIN.name
     actual = f"{version['versionNumber']}.{version['versionMinorNumber']}"
     if not args.latest and actual != DATASET_VERSION:
-        raise RuntimeError(f"requested dataset {DATASET_VERSION}, API returned {actual}")
-    print(f"Dataset {DOI} version {actual}\nTarget  {RAW}\n")
+        raise RuntimeError(f"requested dataset {DATASET_VERSION}, {source} returned {actual}")
+    print(f"Dataset {DOI} version {actual}  (per {source})\nTarget  {RAW}\n")
 
     selected = []
     for entry in version["files"]:
@@ -325,6 +389,10 @@ def main() -> None:
             "server": DATAVERSE,
             "version": actual,
             "requested": requested,
+            # Which of the two statements of the pin these checksums came from.
+            # A reader asking whether a payload was built without contacting the
+            # archive should not have to infer it from a log that has scrolled.
+            "checksums_from": source,
             "files": selected,
         },
         indent=1,

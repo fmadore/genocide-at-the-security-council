@@ -63,6 +63,8 @@ python -m pip install --require-hashes -r requirements.lock
 
 ```bash
 python scripts/00_fetch_data.py      # ~500 MB from Harvard Dataverse into data/raw/
+                                     # (no network once it is there: config/dataset-pin.json
+                                     #  carries Harvard's MD5s, so a present corpus verifies offline)
 python scripts/01_build_parquet.py   # → data/derived/speeches.parquet (131 MB)
 python scripts/02_normalise.py       # → speeches_norm.parquet    (aliases, entities, groups)
 python scripts/03_lexicon.py         # → speeches_flagged.parquet (lexicon counts)
