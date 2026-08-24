@@ -4,7 +4,7 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import Icon from '$lib/Icon.svelte';
-	import { kwicIndex, meeting as loadMeeting } from '$lib/data';
+	import { kwicIndex, meeting as loadMeeting, occurrenceOf, speechOf } from '$lib/data';
 	import { count, isoDate, shortCountry, termLabel, unSearch } from '$lib/format';
 	import type { Meeting, Speech } from '$lib/types';
 	import { tick } from 'svelte';
@@ -13,12 +13,14 @@
 	const basename = $derived(page.params.meeting!);
 	const wantedSpeech = $derived(page.url.searchParams.get('speech'));
 	const wantedTerm = $derived(page.url.searchParams.get('term'));
+	const wantedOccurrence = $derived(page.url.searchParams.get('occurrence'));
 
 	let record = $state<Meeting | null>(null);
 	let failure = $state<string | null>(null);
 	let registers = $state<Record<string, string>>({});
 	let open = new SvelteSet<string>();
 	let showAddress = $state(false);
+	let copyState = $state<'idle' | 'copied' | 'failed'>('idle');
 
 	$effect(() => {
 		const wanted = basename;
@@ -32,7 +34,10 @@
 				open.clear();
 				if (target) open.add(target);
 				await tick();
-				document.getElementById(target ?? '')?.scrollIntoView({ block: 'center' });
+				const exact = wantedOccurrence
+					? document.querySelector<HTMLElement>('[data-occurrence]')
+					: null;
+				(exact ?? document.getElementById(target ?? ''))?.scrollIntoView({ block: 'center' });
 			})
 			.catch((error: Error) => {
 				if (wanted === basename) failure = error.message;
@@ -54,6 +59,15 @@
 	interface Segment {
 		text: string;
 		terms: string[];
+		exact: boolean;
+	}
+
+	/** The one KWIC span named in the URL, if it belongs to this speech and term. */
+	function exactSpan(speech: Speech, only: string | null): [number, number] | null {
+		if (!wantedOccurrence || !wantedTerm || only !== wantedTerm) return null;
+		if (speech.id !== speechOf(wantedOccurrence)) return null;
+		const ordinal = occurrenceOf(wantedOccurrence);
+		return ordinal ? (speech.hits[wantedTerm]?.[ordinal - 1] ?? null) : null;
 	}
 
 	/**
@@ -64,30 +78,45 @@
 	 * covers, rather than nesting marks or silently dropping one.
 	 */
 	function segments(speech: Speech, only: string | null): Segment[] {
+		const selected = exactSpan(speech, only);
 		const marks = Object.entries(speech.hits)
 			.filter(([term]) => !only || term === only)
-			.flatMap(([term, spans]) => spans.map(([s, e]) => ({ s, e, term })))
+			.flatMap(([term, spans]) =>
+				spans.map(([s, e]) => ({
+					s,
+					e,
+					term,
+					exact: selected?.[0] === s && selected[1] === e
+				}))
+			)
 			.sort((a, b) => a.s - b.s || b.e - a.e);
 
-		const merged: { s: number; e: number; terms: Set<string> }[] = [];
+		const merged: { s: number; e: number; terms: Set<string>; exact: boolean }[] = [];
 		for (const mark of marks) {
 			const last = merged[merged.length - 1];
 			if (last && mark.s < last.e) {
 				last.e = Math.max(last.e, mark.e);
 				last.terms.add(mark.term);
+				last.exact ||= mark.exact;
 			} else {
-				merged.push({ s: mark.s, e: mark.e, terms: new Set([mark.term]) });
+				merged.push({ s: mark.s, e: mark.e, terms: new Set([mark.term]), exact: mark.exact });
 			}
 		}
 
 		const out: Segment[] = [];
 		let cursor = 0;
 		for (const block of merged) {
-			if (block.s > cursor) out.push({ text: speech.text.slice(cursor, block.s), terms: [] });
-			out.push({ text: speech.text.slice(block.s, block.e), terms: [...block.terms] });
+			if (block.s > cursor)
+				out.push({ text: speech.text.slice(cursor, block.s), terms: [], exact: false });
+			out.push({
+				text: speech.text.slice(block.s, block.e),
+				terms: [...block.terms],
+				exact: block.exact
+			});
 			cursor = block.e;
 		}
-		if (cursor < speech.text.length) out.push({ text: speech.text.slice(cursor), terms: [] });
+		if (cursor < speech.text.length)
+			out.push({ text: speech.text.slice(cursor), terms: [], exact: false });
 		return out;
 	}
 
@@ -139,6 +168,15 @@
 
 	function openAll() {
 		for (const speech of record?.speeches ?? []) open.add(speech.id);
+	}
+
+	async function copyOccurrenceLink() {
+		try {
+			await navigator.clipboard.writeText(page.url.href);
+			copyState = 'copied';
+		} catch {
+			copyState = 'failed';
+		}
 	}
 
 	const preview = (speech: Speech) =>
@@ -227,6 +265,16 @@
 				<input type="checkbox" bind:checked={showAddress} /> Show the opening form of address
 			</label>
 			<span class="tally">{count(totalHits)} highlighted occurrences in this meeting</span>
+			{#if wantedOccurrence}
+				<span class="selected symbol">Selected {wantedOccurrence}</span>
+				<button class="ghost" onclick={copyOccurrenceLink}>
+					{copyState === 'copied'
+						? 'Occurrence link copied'
+						: copyState === 'failed'
+							? 'Could not copy link'
+							: 'Copy occurrence link'}
+				</button>
+			{/if}
 			<button class="ghost" onclick={openAll}>Open every speech</button>
 		</div>
 
@@ -269,8 +317,12 @@
 								{#each visible(speech) as segment, i (i)}
 									{#if segment.terms.length}
 										<mark
+											class:occurrence={segment.exact}
+											data-occurrence={segment.exact ? wantedOccurrence : undefined}
 											data-register={registerFor(segment.terms)}
-											title={segment.terms.map(termLabel).join(', ')}>{segment.text}</mark
+											title={segment.exact
+												? `Selected occurrence ${wantedOccurrence}`
+												: segment.terms.map(termLabel).join(', ')}>{segment.text}</mark
 										>
 									{:else}{segment.text}{/if}
 								{/each}
@@ -457,6 +509,11 @@
 		margin-left: auto;
 	}
 
+	.selected {
+		font-size: var(--step--2);
+		color: var(--ink-2);
+	}
+
 	.ghost {
 		background: none;
 		border: var(--hair) solid var(--rule-strong);
@@ -593,6 +650,12 @@
 		line-height: 1.68;
 		white-space: pre-wrap;
 		max-width: var(--measure);
+	}
+
+	.text mark.occurrence {
+		outline: 2px solid var(--blue);
+		outline-offset: 2px;
+		scroll-margin-top: 9rem;
 	}
 
 	.speech-meta {

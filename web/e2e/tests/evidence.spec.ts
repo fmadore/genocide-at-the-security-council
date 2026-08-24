@@ -41,17 +41,21 @@ test('the filtered CSV records filters, provenance, and only matching rows', asy
 	expect(csv).toContain('# artifact: kwic/genocide.json');
 	expect(csv).toContain('# pipeline commit: fixture');
 	expect(csv).toContain('# on screen: search: warned; sorted by: date');
-	expect(csv).toContain('UNSC_2014_SPV.7000_spch0001#0');
-	expect(csv).not.toContain('UNSC_2014_SPV.7000_spch0001#1');
+	expect(csv).toContain('UNSC_2014_SPV.7000_spch0001#1');
+	expect(csv).not.toContain('UNSC_2014_SPV.7000_spch0001#2');
 });
 
-test('a concordance hit opens its speech through a base-path-safe reader URL', async ({ page }) => {
+test('a concordance hit opens, selects, and copies its exact occurrence', async ({
+	context,
+	page
+}) => {
+	await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 	await page.goto(concordance);
 	await page.locator('.line').first().click();
 	const evidence = page.getByRole('link', { name: 'Read the whole speech' });
 	await expect(evidence).toHaveAttribute(
 		'href',
-		`${base}/reader/UNSC_2014_SPV.7000?speech=UNSC_2014_SPV.7000_spch0001&term=genocide`
+		`${base}/reader/UNSC_2014_SPV.7000?speech=UNSC_2014_SPV.7000_spch0001&term=genocide&occurrence=UNSC_2014_SPV.7000_spch0001%231`
 	);
 	await evidence.click();
 
@@ -60,6 +64,16 @@ test('a concordance hit opens its speech through a base-path-safe reader URL', a
 	).toBeVisible();
 	await expect(page.locator('li.target')).toHaveAttribute('id', 'UNSC_2014_SPV.7000_spch0001');
 	await expect(page.locator('li.target mark')).toHaveCount(2);
+	await expect(page.locator('mark.occurrence')).toHaveCount(1);
+	await expect(page.locator('mark.occurrence')).toHaveText('genocide');
+	await expect(page.locator('mark.occurrence')).toHaveAttribute(
+		'data-occurrence',
+		'UNSC_2014_SPV.7000_spch0001#1'
+	);
+	await expect(page.locator('mark.occurrence')).toBeInViewport();
+	await page.getByRole('button', { name: 'Copy occurrence link' }).click();
+	await expect(page.getByRole('button', { name: 'Occurrence link copied' })).toBeVisible();
+	expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(page.url());
 	await expectNoAxeViolations(page);
 });
 

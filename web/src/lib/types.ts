@@ -302,7 +302,7 @@ export interface Network {
 /* --- 08_kwic.py ---------------------------------------------------------- */
 
 export interface KwicLine {
-	/** `<speech filename without .txt>#<occurrence ordinal>` */
+	/** `<speech filename without .txt>#<one-based occurrence ordinal>` */
 	id: string;
 	spv: string;
 	date: string;

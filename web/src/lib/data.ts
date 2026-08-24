@@ -445,3 +445,9 @@ export function meetingOf(lineId: string): string {
 export function speechOf(lineId: string): string {
 	return lineId.split('#')[0];
 }
+
+/** `UNSC_2015_SPV.7481_spch0007#3` → the one-based occurrence ordinal `3`. */
+export function occurrenceOf(lineId: string): number | null {
+	const match = /#([1-9]\d*)$/.exec(lineId);
+	return match ? Number(match[1]) : null;
+}

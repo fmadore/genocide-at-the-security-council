@@ -61,7 +61,7 @@ def write_term(
             "count": len(lines),
             # `file` is not stored per line: it is `id` up to the '#', plus
             # '.txt'. At 70,000 lines that redundancy is megabytes.
-            "id_format": "<speech filename without .txt>#<occurrence ordinal>",
+            "id_format": "<speech filename without .txt>#<one-based occurrence ordinal>",
             "lines": lines,
         },
     )

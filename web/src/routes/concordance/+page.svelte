@@ -127,6 +127,15 @@
 	const entries = $derived([...data.index.terms].sort((a, b) => b.count - a.count));
 	const entry = $derived(entries.find((e) => e.term === term));
 
+	function readerHref(line: KwicLine): string {
+		const query = new URLSearchParams({
+			speech: speechOf(line.id),
+			term,
+			occurrence: line.id
+		});
+		return `${resolve('/reader/[meeting]', { meeting: meetingOf(line.id) })}?${query}`;
+	}
+
 	$effect(() => {
 		if (!urlReady) return;
 		const wanted = term;
@@ -528,12 +537,7 @@
 								</div>
 							</dl>
 							<p class="actions">
-								<a
-									class="button"
-									href="{resolve('/reader/[meeting]', {
-										meeting: meetingOf(line.id)
-									})}?speech={speechOf(line.id)}&term={term}"
-								>
+								<a class="button" href={readerHref(line)}>
 									Read the whole speech<Icon icon={ArrowRight} />
 								</a>
 								<code class="id">{line.id}</code>

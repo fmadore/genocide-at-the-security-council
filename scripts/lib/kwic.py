@@ -131,7 +131,7 @@ def sentence_at(source: str, position: int, spans: list[tuple[int, int]] | None 
 class Line:
     """One occurrence of one term, with everything needed to cite it."""
 
-    id: str  #: ``UNSC_2014_SPV.7155_spch0007#3`` — speech file, occurrence ordinal
+    id: str  #: ``UNSC_2014_SPV.7155_spch0007#3`` — speech file, one-based ordinal
     spv: str
     date: str
     country: str

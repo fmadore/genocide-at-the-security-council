@@ -223,9 +223,10 @@ describe('the validators that are about the research rather than the types', () 
 
 describe('reading an identifier back to the file it came from', () => {
 	it('finds the meeting and the speech behind a concordance line', async () => {
-		const { meetingOf, speechOf } = await fresh();
+		const { meetingOf, occurrenceOf, speechOf } = await fresh();
 		expect(meetingOf('UNSC_2015_SPV.7481_spch0007#3')).toBe('UNSC_2015_SPV.7481');
 		expect(speechOf('UNSC_2015_SPV.7481_spch0007#3')).toBe('UNSC_2015_SPV.7481_spch0007');
+		expect(occurrenceOf('UNSC_2015_SPV.7481_spch0007#3')).toBe(3);
 	});
 
 	it('leaves an identifier with no occurrence ordinal alone', async () => {
@@ -240,5 +241,12 @@ describe('reading an identifier back to the file it came from', () => {
 		// a meeting id passed in comes straight back out.
 		expect(meetingOf('UNSC_2015_SPV.7481#1')).toBe('UNSC_2015_SPV.7481');
 		expect(meetingOf('UNSC_2015_SPV.7481')).toBe('UNSC_2015_SPV.7481');
+	});
+
+	it('rejects a missing, zero-based, or malformed occurrence ordinal', async () => {
+		const { occurrenceOf } = await fresh();
+		expect(occurrenceOf('UNSC_2015_SPV.7481_spch0007')).toBeNull();
+		expect(occurrenceOf('UNSC_2015_SPV.7481_spch0007#0')).toBeNull();
+		expect(occurrenceOf('UNSC_2015_SPV.7481_spch0007#third')).toBeNull();
 	});
 });
