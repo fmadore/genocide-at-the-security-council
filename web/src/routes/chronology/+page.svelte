@@ -1,11 +1,18 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Heatmap from '$lib/Heatmap.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import {
+		chronologyParams,
+		readChronologyState,
+		type ChronologyChoices,
+		type ChronologyUnit as Unit
+	} from '$lib/chronology';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import {
@@ -37,12 +44,11 @@
 	} from '$lib/theme';
 	import type { CouncilEvent, Measure } from '$lib/types';
 	import type { EChartsOption } from 'echarts';
+	import { onMount, tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-
-	type Unit = 'speech_rate' | 'token_rate' | 'occurrences' | 'speeches';
 
 	const UNITS: { id: Unit; label: string; note: string }[] = [
 		{
@@ -68,6 +74,7 @@
 	let selected = $state<string[]>(['genocide']);
 	let showEvents = $state(true);
 	let split = $state<string>('none');
+	let urlReady = $state(false);
 
 	const source = $derived(grain === 'year' ? data.year : data.quarter);
 	const periods = $derived(source.periods.map(String));
@@ -483,6 +490,52 @@
 		{ id: 'agenda_item_manual', label: 'Agenda item' },
 		{ id: 'delivery_language', label: 'Delivery language' }
 	];
+
+	const seriesNames = (source: typeof data.year) => [
+		...Object.keys(source.terms),
+		...Object.keys(source.registers).map((name) => `register:${name}`),
+		...Object.keys(source.sets).map((name) => `set:${name}`)
+	];
+	const urlChoices: ChronologyChoices = $derived.by(() => ({
+		series: { year: seriesNames(data.year), quarter: seriesNames(data.quarter) },
+		calendar: Object.fromEntries(
+			Object.entries(monthlyMeasures(data.month)).map(([name, measure]) => [
+				name,
+				monthlyUnits(measure)
+			])
+		),
+		splits: SPLITS.map(({ id }) => id)
+	}));
+
+	onMount(() => {
+		const state = readChronologyState(page.url.searchParams, urlChoices);
+		unit = state.unit;
+		grain = state.grain;
+		selected = state.series;
+		gridMeasure = state.calendarMeasure;
+		gridUnit = state.calendarUnit;
+		split = state.split;
+		void tick().then(() => {
+			urlReady = true;
+		});
+	});
+
+	$effect(() => {
+		if (!urlReady) return;
+		const params = chronologyParams(
+			{
+				unit,
+				grain,
+				series: selected,
+				calendarMeasure: gridMeasure,
+				calendarUnit: gridUnit,
+				split
+			},
+			urlChoices
+		);
+		const search = params.toString();
+		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
+	});
 
 	const splitChart: EChartsOption | null = $derived.by(() => {
 		if (split === 'none') return null;
