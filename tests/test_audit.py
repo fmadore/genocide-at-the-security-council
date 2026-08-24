@@ -34,6 +34,7 @@ def candidates() -> pd.DataFrame:
                 "start": 10,
                 "end": 18,
                 "source_sha256": "a" * 64,
+                "source_length": 100,
                 "sampling_frame": audit.PROBABILITY,
                 "strategy": "simple random occurrence sample",
                 "seed": 12,
@@ -55,6 +56,7 @@ def candidates() -> pd.DataFrame:
                 "start": 20,
                 "end": 28,
                 "source_sha256": "b" * 64,
+                "source_length": 100,
                 "sampling_frame": audit.COVERAGE,
                 "strategy": "one per term-period stratum, then simple random fill",
                 "seed": 13,
@@ -80,9 +82,15 @@ def annotation(occurrence: str, coder: str = "coder-a", **changes: str) -> dict[
         "lexicon_version": "2",
         "coder": coder,
         "coded_at": "2026-08-24",
-        "verdict": "true-positive",
+        "verdict": "true_positive",
         "source_checked": "yes",
-        "phenomenon": "direct",
+        "quotation": "not_quoted",
+        "stance": "asserts",
+        "function": "accusation_or_qualification",
+        "referent": "other",
+        "evidence_start": "10",
+        "evidence_end": "18",
+        "confidence": "high",
         "comment": "",
     }
     row.update(changes)
@@ -261,6 +269,70 @@ def test_incompatible_lexicon_version_is_refused() -> None:
     labels = annotations(annotation("occurrence-1", lexicon_version="3"))
     with pytest.raises(ValueError, match="lexicon is incompatible"):
         audit.merge(candidates(), labels)
+
+
+def test_unknown_controlled_label_is_refused() -> None:
+    with pytest.raises(ValueError, match="Unknown stance label"):
+        audit.merge(candidates(), annotations(annotation("occurrence-1", stance="agrees")))
+
+
+def test_multiple_functions_use_distinct_pipe_separated_labels() -> None:
+    labels = annotations(
+        annotation(
+            "occurrence-1",
+            function="accusation_or_qualification|warning_or_prevention",
+        )
+    )
+    review = audit.merge(candidates(), labels)
+    assert review.loc[0, "function"] == "accusation_or_qualification|warning_or_prevention"
+
+
+def test_false_positive_requires_not_applicable_discourse_fields() -> None:
+    wrong = annotations(annotation("occurrence-1", verdict="false_positive"))
+    with pytest.raises(ValueError, match="must use not_applicable"):
+        audit.merge(candidates(), wrong)
+    valid = annotations(
+        annotation(
+            "occurrence-1",
+            verdict="false_positive",
+            quotation="not_applicable",
+            stance="not_applicable",
+            function="not_applicable",
+            referent="not_applicable",
+        )
+    )
+    assert audit.merge(candidates(), valid).loc[0, "verdict"] == "false_positive"
+
+
+def test_evidence_span_must_contain_the_match_and_stay_inside_the_source() -> None:
+    with pytest.raises(ValueError, match="Evidence span"):
+        audit.merge(
+            candidates(),
+            annotations(annotation("occurrence-1", evidence_start="11", evidence_end="18")),
+        )
+
+
+def test_coding_date_must_be_iso_and_referent_must_be_controlled() -> None:
+    with pytest.raises(ValueError, match="ISO date"):
+        audit.merge(candidates(), annotations(annotation("occurrence-1", coded_at="today")))
+    with pytest.raises(ValueError, match="ISO date"):
+        audit.merge(candidates(), annotations(annotation("occurrence-1", coded_at="20260824")))
+    with pytest.raises(ValueError, match="Unknown referent"):
+        audit.merge(candidates(), annotations(annotation("occurrence-1", referent="rwanda")))
+
+
+def test_referent_file_requires_columns_unique_ids_and_reserved_values(tmp_path) -> None:
+    path = tmp_path / "referents.csv"
+    path.write_text(
+        "id,label,description\nother,Other,Known\nunclear,Unclear,Unknown\n"
+        "not_applicable,N/A,False positive\n",
+        encoding="utf-8",
+    )
+    assert audit.read_referents(path) == audit.DEFAULT_REFERENTS
+
+    path.write_text("id,label,description\nother,Other,Known\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="missing reserved IDs"):
+        audit.read_referents(path)
 
 
 def test_duplicate_generated_candidate_ids_are_refused() -> None:

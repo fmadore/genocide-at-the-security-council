@@ -1,0 +1,4 @@
+id,label,description
+other,Other known referent,A referent that is identifiable but does not yet have a controlled identifier.
+unclear,Unclear referent,The available context does not support a reliable referent assignment.
+not_applicable,Not applicable,Reserved for false-positive candidate matches.

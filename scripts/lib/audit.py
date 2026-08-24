@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import date
 from pathlib import Path
 from typing import Final
 
@@ -10,11 +11,42 @@ import pandas as pd
 
 from . import artifacts
 
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 
 PROBABILITY: Final = "probability"
 COVERAGE: Final = "coverage"
 NEGATIVE: Final = "negative_high_recall"
+
+VERDICTS: Final = frozenset({"true_positive", "false_positive", "uncertain"})
+SOURCE_CHECKED: Final = frozenset({"yes", "no"})
+QUOTATIONS: Final = frozenset(
+    {"not_quoted", "direct_quotation", "attributed_or_reported", "unclear", "not_applicable"}
+)
+STANCES: Final = frozenset(
+    {
+        "asserts",
+        "attributes_or_reports",
+        "rejects_or_denies",
+        "hypothetical_or_conditional",
+        "neutral_legal_reference",
+        "unclear",
+        "not_applicable",
+    }
+)
+FUNCTIONS: Final = frozenset(
+    {
+        "accusation_or_qualification",
+        "warning_or_prevention",
+        "commemoration",
+        "accountability",
+        "institutional_title_or_mandate",
+        "other",
+        "unclear",
+        "not_applicable",
+    }
+)
+CONFIDENCE: Final = frozenset({"low", "medium", "high"})
+DEFAULT_REFERENTS: Final = frozenset({"other", "unclear", "not_applicable"})
 
 CANDIDATE_REQUIRED = frozenset(
     {
@@ -28,6 +60,7 @@ CANDIDATE_REQUIRED = frozenset(
         "start",
         "end",
         "source_sha256",
+        "source_length",
         "sampling_frame",
         "strategy",
         "seed",
@@ -48,7 +81,13 @@ ANNOTATION_FIELDS = (
     "coded_at",
     "verdict",
     "source_checked",
-    "phenomenon",
+    "quotation",
+    "stance",
+    "function",
+    "referent",
+    "evidence_start",
+    "evidence_end",
+    "confidence",
     "comment",
 )
 
@@ -206,7 +245,90 @@ def read_annotations(path: Path) -> pd.DataFrame:
     return annotations.loc[:, list(ANNOTATION_FIELDS)].copy()
 
 
-def merge(candidates: pd.DataFrame, annotations: pd.DataFrame) -> pd.DataFrame:
+def read_referents(path: Path) -> set[str]:
+    """Read the controlled referent identifiers used by the annotation schema."""
+    table = pd.read_csv(path, dtype="string", keep_default_na=False)
+    required = {"id", "label", "description"}
+    missing = sorted(required - set(table.columns))
+    if missing:
+        raise ValueError(f"Referent file is missing columns: {', '.join(missing)}")
+    identifiers = table["id"].astype(str)
+    if identifiers.str.strip().ne(identifiers).any():
+        raise ValueError("Referent IDs must not contain surrounding whitespace.")
+    if identifiers.eq("").any() or identifiers.duplicated().any():
+        raise ValueError("Referent IDs must be nonempty and unique.")
+    referents = set(identifiers)
+    missing_defaults = sorted(DEFAULT_REFERENTS - referents)
+    if missing_defaults:
+        raise ValueError(
+            "Referent file is missing reserved IDs: " + ", ".join(missing_defaults)
+        )
+    return referents
+
+
+def _annotation_values(row: pd.Series, field: str, allowed: frozenset[str]) -> None:
+    value = str(row[field])
+    if value not in allowed:
+        raise ValueError(f"Unknown {field} label: {value or '(blank)'}")
+
+
+def _validate_labels(
+    candidates: pd.DataFrame, annotations: pd.DataFrame, referents: set[str]
+) -> None:
+    source = candidates.drop_duplicates("occurrence_id").set_index("occurrence_id")
+    for row in annotations.itertuples(index=False):
+        record = pd.Series(row._asdict())
+        for field, allowed in (
+            ("verdict", VERDICTS),
+            ("source_checked", SOURCE_CHECKED),
+            ("quotation", QUOTATIONS),
+            ("stance", STANCES),
+            ("confidence", CONFIDENCE),
+        ):
+            _annotation_values(record, field, allowed)
+
+        functions = str(record["function"]).split("|")
+        if not functions or any(value not in FUNCTIONS for value in functions):
+            raise ValueError(f"Unknown function label: {record['function'] or '(blank)'}")
+        if len(functions) != len(set(functions)):
+            raise ValueError("Function labels must not be repeated.")
+        if len(functions) > 1 and ({"unclear", "not_applicable"} & set(functions)):
+            raise ValueError("unclear and not_applicable cannot be combined with other functions.")
+
+        referent = str(record["referent"])
+        if referent not in referents:
+            raise ValueError(f"Unknown referent: {referent or '(blank)'}")
+        if record["verdict"] == "false_positive":
+            expected = {str(record[field]) for field in ("quotation", "stance", "function", "referent")}
+            if expected != {"not_applicable"}:
+                raise ValueError("False positives must use not_applicable discourse labels.")
+        elif "not_applicable" in {
+            str(record[field]) for field in ("quotation", "stance", "function", "referent")
+        }:
+            raise ValueError("not_applicable is reserved for false positives.")
+
+        try:
+            coded_at = str(record["coded_at"])
+            if date.fromisoformat(coded_at).isoformat() != coded_at:
+                raise ValueError
+            evidence_start = int(str(record["evidence_start"]))
+            evidence_end = int(str(record["evidence_end"]))
+        except ValueError as exc:
+            raise ValueError("coded_at and evidence offsets must use ISO date and integers.") from exc
+        candidate = source.loc[str(record["occurrence_id"])]
+        if not (
+            0 <= evidence_start <= int(candidate["start"])
+            and int(candidate["end"]) <= evidence_end <= int(candidate["source_length"])
+        ):
+            raise ValueError("Evidence span must be inside the source and contain the matched term.")
+
+
+def merge(
+    candidates: pd.DataFrame,
+    annotations: pd.DataFrame,
+    *,
+    referents: set[str] | None = None,
+) -> pd.DataFrame:
     """Join human work to generated candidates, refusing ambiguous identities."""
     missing_candidates = sorted(CANDIDATE_REQUIRED - set(candidates.columns))
     if missing_candidates:
@@ -252,6 +374,7 @@ def merge(candidates: pd.DataFrame, annotations: pd.DataFrame) -> pd.DataFrame:
         unknown = sorted(set(nonempty["occurrence_id"].astype(str)) - known)
         if unknown:
             raise ValueError(f"Annotations refer to unknown occurrence IDs: {', '.join(unknown[:5])}")
+        _validate_labels(candidates, nonempty, referents or set(DEFAULT_REFERENTS))
 
     review = candidates.merge(
         nonempty,
@@ -277,10 +400,12 @@ def write_outputs(
     candidate_path: Path,
     review_path: Path,
     frame_paths: dict[str, Path] | None = None,
+    referent_path: Path | None = None,
 ) -> pd.DataFrame:
     """Regenerate candidates and review while never writing the human-owned file."""
     annotations = read_annotations(annotation_path)
-    review = merge(candidates, annotations)
+    referents = read_referents(referent_path) if referent_path else set(DEFAULT_REFERENTS)
+    review = merge(candidates, annotations, referents=referents)
     artifacts.atomic_write_text(candidate_path, candidates.to_csv(index=False, lineterminator="\n"))
     for frame, path in (frame_paths or {}).items():
         selected = candidates.loc[candidates["sampling_frame"] == frame]

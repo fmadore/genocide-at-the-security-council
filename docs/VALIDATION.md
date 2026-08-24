@@ -46,11 +46,18 @@ frame/sample hashes.
 
 Human work is stored separately in the versioned `annotations/lexicon/annotations.csv`; the
 pipeline joins both into the generated `data/interim/lexicon_audit_review.csv` and never
-writes the annotation file. A human reviewer must fill:
+writes the annotation file. Reviewers must follow
+[`annotations/lexicon/CODEBOOK.md`](../annotations/lexicon/CODEBOOK.md), which separates:
 
-- `verdict`: true positive, false positive or uncertain;
-- `source_checked`: whether the original record was consulted;
-- `phenomenon`: legal allegation, commemoration, denial, quotation, OCR damage, etc.
+- match `verdict` from quotation, `stance`, rhetorical `function`, and controlled `referent`;
+- source consultation from the evidence span and coding confidence;
+- administrative coder, date, schema, and lexicon versions.
+
+The controlled referent identifiers live in
+[`annotations/lexicon/referents.csv`](../annotations/lexicon/referents.csv). The initial
+list contains only reserved values; named cases and entities should be added through the
+shared pilot before scored coding begins. Coding describes discourse and does not decide
+whether an underlying event legally constitutes genocide.
 
 Report precision separately for the core term and extended lexicon, with denominators and
 uncertain cases. Any regex change invalidates the verdicts for that term and requires a new

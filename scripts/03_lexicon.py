@@ -70,6 +70,7 @@ AUDIT_PROBABILITY = INTERIM / "lexicon_audit_probability.csv"
 AUDIT_COVERAGE = INTERIM / "lexicon_audit_coverage.csv"
 AUDIT_NEGATIVE = INTERIM / "lexicon_audit_negative.csv"
 AUDIT_ANNOTATIONS = ROOT / "annotations" / "lexicon" / "annotations.csv"
+AUDIT_REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
 
 
 def check_documented(counts: pd.DataFrame) -> list[tuple[str, int, int, int, int, bool]]:
@@ -138,6 +139,7 @@ def audit_sample(
                 "start": start,
                 "end": end,
                 "source_sha256": source_digest,
+                "source_length": len(body),
                 "left": left,
                 "keyword": keyword,
                 "right": right,
@@ -330,6 +332,7 @@ def run(sample_size: int, seed: int) -> None:
             audit.COVERAGE: AUDIT_COVERAGE,
             audit.NEGATIVE: AUDIT_NEGATIVE,
         },
+        referent_path=AUDIT_REFERENTS,
     )
     coded = review.loc[review["coder"].astype("string").str.len().gt(0)]
     annotated = len(coded.drop_duplicates(["occurrence_id", "coder"]))
@@ -351,7 +354,7 @@ def run(sample_size: int, seed: int) -> None:
         ROOT,
         "03_lexicon.py",
         inputs=[SPEECHES_NORM],
-        configs=[LEXICON, AUDIT_ANNOTATIONS],
+        configs=[LEXICON, AUDIT_ANNOTATIONS, AUDIT_REFERENTS],
         extra={
             "outputs": [
                 artifacts.describe_file(SPEECHES_FLAGGED, ROOT),

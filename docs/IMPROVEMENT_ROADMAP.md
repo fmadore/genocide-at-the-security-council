@@ -494,8 +494,8 @@ Start with four reviewable changes, in this order:
 4. **A1:** safe separation of generated candidates and human annotations.
 
 I1 and I2 are small corrections. I3 protects the cross-language boundary before A1 adds a
-new artifact. A1 removes the risk of destroying human work before anyone begins it. After
-that slice, implement A2–A3, then U1–U3. Do not start a new visualization until those
+new artifact. A1 removes the risk of destroying human work before anyone begins it. A2–A3
+are now complete; continue with U1–U3. Do not start a new visualization until those
 integrity and evidence-navigation foundations are passing.
 
 ## Implementation log
@@ -512,3 +512,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-08-24 | I3 contract requiredness         | complete   | pending | `python -m pytest` (617 passed); `ruff check .`; `npm test` (264 passed); `npm run check`; `npm run lint`                                                                             | Compact `?` markers distinguish optional collection fields; nullable values remain separate and Python/TypeScript fixtures agree.                       |
 | 2026-08-24 | A1 durable annotation boundary   | complete   | pending | `python -m pytest tests/test_audit.py -q` (12 passed); `python -m pytest` (629 passed); `ruff check .`                                                                                | Generated candidates and review files are atomic and replaceable; human annotations are versioned separately and never written by the pipeline.         |
 | 2026-08-24 | A2 interpretable sampling frames | complete   | pending | `python -m pytest tests/test_audit.py -q` (16 passed); `python -m pytest` (633 passed); `ruff check .`; `python scripts/03_lexicon.py` (201 candidates; annotation SHA-256 unchanged) | Equal-probability precision, term-period coverage and declared-pattern negative samples carry reconstructable probabilities, weights, seeds and hashes. |
+| 2026-08-24 | A3 annotation schema and codebook | complete   | pending | `python -m pytest tests/test_audit.py -q` (22 passed); `python -m pytest` (639 passed); `ruff check .`; `python scripts/03_lexicon.py` (201 candidates; annotation SHA-256 unchanged) | Schema v2 separates match validity, quotation, stance, function, referent and evidence; controlled labels and offsets are validated before outputs write. |

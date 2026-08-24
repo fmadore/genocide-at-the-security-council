@@ -26,7 +26,7 @@ every chart as SVG or PNG with its filters written into the image.
 |---|---|
 | Corpus documentation | ✅ [`docs/CORPUS.md`](docs/CORPUS.md) |
 | Action plan | ✅ [`docs/PLAN.md`](docs/PLAN.md) |
-| Targeted improvement roadmap | 🚧 [`docs/IMPROVEMENT_ROADMAP.md`](docs/IMPROVEMENT_ROADMAP.md) — adopted; I1–I3 and A1–A2 complete |
+| Targeted improvement roadmap | 🚧 [`docs/IMPROVEMENT_ROADMAP.md`](docs/IMPROVEMENT_ROADMAP.md) — adopted; I1–I3 and A1–A3 complete |
 | Data pipeline — build & validate | ✅ `scripts/00`, `scripts/01` |
 | Normalisation & country crosswalk | ✅ `scripts/02` · [`config/entities.csv`](config/entities.csv) |
 | Lexicon flagging & precision audit | ✅ `scripts/03`; generated candidates are separate from durable annotations, **0 rows coded** |
