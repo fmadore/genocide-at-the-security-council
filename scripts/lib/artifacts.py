@@ -157,9 +157,23 @@ def git_commit(root: Path) -> str:
     locates the neighbourhood of the code that ran rather than the code itself.
     """
     try:
-        return subprocess.check_output(
+        commit = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=root, text=True, stderr=subprocess.DEVNULL
         ).strip()
+        tracked = subprocess.run(
+            ["git", "diff-index", "--quiet", "HEAD", "--"],
+            cwd=root,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        untracked = subprocess.check_output(
+            ["git", "ls-files", "--others", "--exclude-standard"],
+            cwd=root,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+        return f"{commit}-dirty" if tracked.returncode != 0 or untracked else commit
     except (OSError, subprocess.CalledProcessError):
         pass
     with suppress(OSError):

@@ -26,9 +26,10 @@ every chart as SVG or PNG with its filters written into the image.
 |---|---|
 | Corpus documentation | ✅ [`docs/CORPUS.md`](docs/CORPUS.md) |
 | Action plan | ✅ [`docs/PLAN.md`](docs/PLAN.md) |
+| Targeted improvement roadmap | 🚧 [`docs/IMPROVEMENT_ROADMAP.md`](docs/IMPROVEMENT_ROADMAP.md) — adopted; I1–I3 and A1 complete |
 | Data pipeline — build & validate | ✅ `scripts/00`, `scripts/01` |
 | Normalisation & country crosswalk | ✅ `scripts/02` · [`config/entities.csv`](config/entities.csv) |
-| Lexicon flagging & precision audit | ✅ `scripts/03`; audit sample generated, **0 of 200 rows verdicted** |
+| Lexicon flagging & precision audit | ✅ `scripts/03`; generated candidates are separate from durable annotations, **0 rows coded** |
 | Temporal series & change points | ✅ `scripts/04` · [`config/events.csv`](config/events.csv) |
 | Lexicometry — collocates, keyness, network | ✅ `scripts/05` · [`config/stopwords.txt`](config/stopwords.txt) |
 | Concordance (79,569 lines, 22 terms) | ✅ `scripts/08`; a line is reachable by term, year, month, speaker and meeting |

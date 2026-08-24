@@ -36,8 +36,11 @@ speeches either way because the tolerant pattern is reported separately.
 
 ### 2. Human precision audit — 200 rows
 
-`data/interim/lexicon_audit_sample.csv` contains deterministic occurrence-level,
-speech-level and term × period samples. A human reviewer must fill:
+`data/interim/lexicon_audit_candidates.csv` contains deterministic occurrence-level,
+speech-level and term × period candidates. Human work is stored separately in the versioned
+`annotations/lexicon/annotations.csv`; the pipeline joins both into the generated
+`data/interim/lexicon_audit_review.csv` and never writes the annotation file. A human
+reviewer must fill:
 
 - `verdict`: true positive, false positive or uncertain;
 - `source_checked`: whether the original record was consulted;

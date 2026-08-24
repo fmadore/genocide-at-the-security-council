@@ -16,12 +16,12 @@ it is about to hand over against it and refuses to publish a shape the
 application was not written for.
 
 A skeleton is not a schema and does not pretend to be one. It says a field
-exists, is nested where it was, and still holds the kind of value it held. It
-says nothing about ranges, alignment between arrays, or any of the substantive
-refusals `web/src/lib/data.ts` makes — those stay where they are, at the
-boundary, where a reader can be told about them. What this catches is the
-failure that was silent: a field that moved, was renamed, or stopped being
-written at all.
+exists, whether every collection member carries it, where it is nested, and
+what kind of value it held. It says nothing about ranges, alignment between
+arrays, or any of the substantive refusals `web/src/lib/data.ts` makes — those
+stay where they are, at the boundary, where a reader can be told about them.
+What this catches is the failure that was silent: a field that moved, was
+renamed, stopped being written, or became absent from some rows.
 """
 
 from __future__ import annotations
@@ -63,20 +63,20 @@ SPEECH_SAMPLE = "speeches/UNSC_1992_SPV.3137.json"
 
 #: Keys whose *contents* vary with the data rather than with the code, so only
 #: their presence and type are contracted. `iso3_collisions` is keyed on whichever
-#: codes happen to be shared; `terms`, `registers`, `sets`, `measures` and
-#: `series` are keyed on the lexicon; `packages` on whatever the environment had
-#: installed. Recording today's key set would make an ordinary lexicon edit look
-#: like a breaking change, and the point of this file is to be believed when it
-#: fails.
+#: codes happen to be shared; `terms`, `registers`, `sets`, `measures`, `series`
+#: and speech `hits` are keyed on the lexicon; `packages` on whatever the
+#: environment had installed. Recording today's key set would make an ordinary
+#: lexicon edit look like a breaking change, and the point of this file is to be
+#: believed when it fails.
 #:
-#: Their members are folded into one shape by :func:`merge`, so what is
-#: contracted is the union of the fields any member carries. A measure that drops
-#: a field while another keeps it therefore passes — the alternative fails on
-#: every lexicon edit — and a field that stops being written *anywhere* is caught,
-#: which is the change that silently blanks a figure.
+#: Their members are folded into one shape by :func:`merge`. Fields shared by
+#: every member remain required; fields carried by only some are marked optional.
+#: This lets a set legitimately omit an occurrence count while still catching a
+#: required row field that disappeared from one member.
 OPAQUE: frozenset[str] = frozenset(
     {
         "by_period",
+        "hits",
         "iso3_collisions",
         "measures",
         "packages",
@@ -92,14 +92,37 @@ OPAQUE: frozenset[str] = frozenset(
 #: comparison have already been folded, so it is compared merge against merge.
 MEMBER = "*"
 
+#: A suffix on a skeleton key means that the JSON field is absent from at least
+#: one member of the collection that was merged. JSON keys in this project's
+#: payload do not end in `?`; using a suffix keeps the committed contract compact
+#: and human-readable instead of wrapping every field in schema machinery.
+OPTIONAL = "?"
+
+
+def _field(key: str) -> tuple[str, bool]:
+    """The JSON key and whether its skeleton key is optional."""
+    if key.endswith(OPTIONAL):
+        return key[: -len(OPTIONAL)], True
+    return key, False
+
+
+def _fields(shape: dict[str, Any]) -> dict[str, tuple[bool, Any]]:
+    """A skeleton object keyed by the JSON field rather than its marker."""
+    fields = {}
+    for key, value in shape.items():
+        name, optional = _field(key)
+        fields[name] = (optional, value)
+    return fields
+
 
 def skeleton(value: Any, *, key: str | None = None) -> Any:
     """A payload reduced to its shape.
 
     Objects become their keys, sorted, mapped to the skeleton of each value.
     Arrays become a single-element list holding the *merged* skeleton of every
-    element, so a ragged array is visible rather than hidden behind whichever
-    element happened to be first. Everything else becomes the name of its type.
+    element. A field absent from at least one merged member gains a `?` suffix,
+    so a ragged array is visible rather than hidden behind whichever member
+    happened to carry the field. Everything else becomes the name of its type.
 
     A key listed in :data:`OPAQUE` keeps one representative value's shape rather
     than its own key set, because its keys are data.
@@ -125,16 +148,24 @@ def skeleton(value: Any, *, key: str | None = None) -> Any:
 def merge(shapes: list[Any]) -> Any:
     """One shape covering every element of an array.
 
-    A field present in some elements and absent from others is kept: the union
-    is what the consumer has to be able to read. Two different leaf types at one
-    path are reported as both, which is how a nullable number stays legible as
-    `float|null` rather than collapsing to whichever element came first.
+    A field present in some elements and absent from others is kept but marked
+    optional. Optionality already found by an inner merge is preserved by outer
+    merges. Two different leaf types at one path are reported as both, which is
+    how a nullable number stays legible as `float|null` rather than collapsing
+    to whichever element came first.
     """
     if not shapes:
         return {}
     if all(isinstance(shape, dict) for shape in shapes):
-        keys = {key for shape in shapes for key in shape}
-        return {key: merge([shape[key] for shape in shapes if key in shape]) for key in sorted(keys)}
+        members = [_fields(shape) for shape in shapes]
+        keys = {key for member in members for key in member}
+        merged = {}
+        for key in sorted(keys):
+            present = [member[key] for member in members if key in member]
+            required = len(present) == len(members) and not any(optional for optional, _ in present)
+            output_key = key if required else f"{key}{OPTIONAL}"
+            merged[output_key] = merge([value for _, value in present])
+        return merged
     if all(isinstance(shape, list) for shape in shapes):
         inner = [item for shape in shapes for item in shape]
         return [merge(inner)] if inner else []
@@ -169,11 +200,17 @@ def differences(promised: Any, found: Any, path: str = "") -> Iterator[str]:
         if not isinstance(found, dict):
             yield f"{where}: expected an object, found {_name(found)}"
             return
-        for key, expected in promised.items():
-            if key not in found:
-                yield f"{where}.{key}: missing"
+        promised_fields = _fields(promised)
+        found_fields = _fields(found)
+        for key, (optional, expected) in promised_fields.items():
+            if key not in found_fields:
+                if not optional:
+                    yield f"{where}.{key}: missing"
                 continue
-            yield from differences(expected, found[key], f"{path}.{key}")
+            found_optional, value = found_fields[key]
+            if not optional and found_optional:
+                yield f"{where}.{key}: required field is absent from some members"
+            yield from differences(expected, value, f"{path}.{key}")
         return
     if isinstance(promised, list):
         if not isinstance(found, list):

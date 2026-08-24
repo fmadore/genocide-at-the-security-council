@@ -6,11 +6,15 @@
  * chart, not an error, so keep the two in sync deliberately.
  */
 
-export interface Meta {
+export interface BaseMeta {
 	script: string;
 	generated: string;
-	lexicon_version: number;
 	[key: string]: unknown;
+}
+
+/** Provenance for an artifact whose analytical meaning depends on the lexicon. */
+export interface LexiconMeta extends BaseMeta {
+	lexicon_version: number;
 }
 
 /* --- 04_series.py -------------------------------------------------------- */
@@ -28,7 +32,7 @@ export interface Measure {
 }
 
 export interface AnnualSeries {
-	meta: Meta;
+	meta: LexiconMeta;
 	freq: 'year' | 'quarter';
 	periods: (number | string)[];
 	corpus: { speeches: number[]; tokens: number[]; meetings: number[] };
@@ -107,7 +111,7 @@ export interface MonthOfYear {
 }
 
 export interface MonthlySeries {
-	meta: Meta;
+	meta: LexiconMeta;
 	freq: 'month';
 	/** `YYYY-MM`, the complete grid: `years.length * 12` of them, in order. */
 	periods: string[];
@@ -145,7 +149,7 @@ export interface BreakdownRow {
 }
 
 export interface Breakdowns {
-	meta: Meta;
+	meta: LexiconMeta;
 	freq: string;
 	measures: Record<string, Record<string, { categories: string[]; rows: BreakdownRow[] }>>;
 }
@@ -180,7 +184,7 @@ export interface RateBreak {
 }
 
 export interface ChangePoints {
-	meta: Meta;
+	meta: LexiconMeta;
 	method: string;
 	parameters: Record<string, number>;
 	caveat: string;
@@ -210,7 +214,7 @@ export interface CouncilEvent {
 }
 
 export interface Events {
-	meta: Meta;
+	meta: LexiconMeta;
 	events: CouncilEvent[];
 }
 
@@ -232,7 +236,7 @@ export interface CollocateBlock {
 }
 
 export interface Collocates {
-	meta: Meta;
+	meta: LexiconMeta;
 	widths: number[];
 	nodes: Record<
 		string,
@@ -241,7 +245,7 @@ export interface Collocates {
 }
 
 export interface SlicedCollocates {
-	meta: Meta;
+	meta: LexiconMeta;
 	term: string;
 	width: number;
 	minimum_speeches: number;
@@ -251,7 +255,7 @@ export interface SlicedCollocates {
 }
 
 export interface Keyness {
-	meta: Meta;
+	meta: LexiconMeta;
 	term: string;
 	matched_on: string[];
 	seed: number;
@@ -287,7 +291,7 @@ export interface Edge {
 }
 
 export interface Network {
-	meta: Meta;
+	meta: LexiconMeta;
 	min_speeches: number;
 	terms: { name: string; tier: string; register: string; speeches: number }[];
 	edges: Edge[];
@@ -317,7 +321,7 @@ export interface KwicLine {
 }
 
 export interface KwicFile {
-	meta: Meta;
+	meta: LexiconMeta;
 	term: string;
 	pattern: string;
 	tier: string;
@@ -341,7 +345,7 @@ export interface KwicIndexEntry {
 }
 
 export interface KwicIndex {
-	meta: Meta;
+	meta: LexiconMeta;
 	terms: KwicIndexEntry[];
 }
 
@@ -367,7 +371,7 @@ export interface Speech {
 }
 
 export interface Meeting {
-	meta: Meta;
+	meta: LexiconMeta;
 	basename: string;
 	spv: string;
 	date: string;
@@ -392,7 +396,7 @@ export interface MeetingSummary {
 }
 
 export interface MeetingIndex {
-	meta: Meta;
+	meta: LexiconMeta;
 	meetings: MeetingSummary[];
 }
 
@@ -548,7 +552,7 @@ export interface SpeakerKeynessRow {
 }
 
 export interface SpeakerKeyness {
-	meta: Meta;
+	meta: BaseMeta;
 	matched_on: string[];
 	minimum_pairs: number;
 	minimum_pairs_rule: string;
@@ -600,7 +604,7 @@ export interface Standing {
 }
 
 export interface Countries {
-	meta: Meta;
+	meta: LexiconMeta;
 	/** Below this many speeches in a period, a speaker's rates are withheld. */
 	minimum_speeches: number;
 	minimum_speeches_rule: string;

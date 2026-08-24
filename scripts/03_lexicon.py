@@ -13,9 +13,9 @@ Three things this step reports rather than hides:
   3,273 speeches / 6,092 occurrences (docs/CORPUS.md §8). Counting on the body
   instead of the raw text should not move that; a difference means the form of
   address is eating real words.
-- **A precision sample.** 100 random occurrences with their context, written to
-  data/interim/ with an empty `verdict` column, for the hand audit the plan
-  calls for.
+- **A precision sample.** Generated candidates and human annotations are kept
+  separate, then joined by stable occurrence identity for review. A pipeline
+  rerun never writes the versioned annotation file.
 
 Usage:
     python scripts/03_lexicon.py [--sample 100] [--seed 12]
@@ -30,7 +30,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, console, frames, lexicon, text
+from lib import artifacts, audit, console, frames, lexicon, text
 from lib.paths import (
     INTERIM,
     LEXICON,
@@ -64,7 +64,9 @@ DOCUMENTED: dict[str, tuple[int, int]] = {
     "genocide_convention": (135, 153),
 }
 
-AUDIT_SAMPLE = INTERIM / "lexicon_audit_sample.csv"
+AUDIT_CANDIDATES = INTERIM / "lexicon_audit_candidates.csv"
+AUDIT_REVIEW = INTERIM / "lexicon_audit_review.csv"
+AUDIT_ANNOTATIONS = ROOT / "annotations" / "lexicon" / "annotations.csv"
 
 
 def check_documented(counts: pd.DataFrame) -> list[tuple[str, int, int, int, int, bool]]:
@@ -150,10 +152,19 @@ def audit_sample(
 
     out = []
     for row in pd.concat([occurrence_sample, speech_sample]).itertuples():
-        left, keyword, right = text.window(bodies.loc[row.index], row.start, row.end)
+        body = bodies.loc[row.index]
+        left, keyword, right = text.window(body, row.start, row.end)
         meta = speeches.loc[row.index]
+        source_digest = audit.source_sha256(body)
+        occurrence = audit.occurrence_id(
+            str(meta["filename"]), row.term, row.start, row.end, keyword, source_digest
+        )
         out.append(
             {
+                "candidate_id": audit.candidate_id(occurrence, row.unit),
+                "occurrence_id": occurrence,
+                "schema_version": audit.SCHEMA_VERSION,
+                "lexicon_version": lex.version,
                 "unit": row.unit,
                 "strategy": row.strategy,
                 "term": row.term,
@@ -165,13 +176,12 @@ def audit_sample(
                 "date": f"{meta['date']:%Y-%m-%d}",
                 "country_org": meta["country_org"],
                 "agenda": meta["agenda_item_manual"],
+                "start": row.start,
+                "end": row.end,
+                "source_sha256": source_digest,
                 "left": left,
                 "keyword": keyword,
                 "right": right,
-                "verdict": "",  # fill in: ok / false-positive
-                "source_checked": "",  # yes / no
-                "phenomenon": "",  # direct / quoted / title / negated / OCR / other
-                "comment": "",
             }
         )
     return pd.DataFrame(out)
@@ -267,9 +277,10 @@ def build_note(
             "## Precision audit",
             "",
             f"Up to {sample_size} occurrence-level and {sample_size} speech-level cases were",
-            f"written to `{rel(AUDIT_SAMPLE)}`. Sampling covers each term-period stratum before",
-            "filling the remainder randomly. Human reviewers must fill `verdict`, record whether",
-            "the primary source was checked, and classify quotation, title, negation and OCR cases.",
+            f"written to `{rel(AUDIT_CANDIDATES)}`. Sampling covers each term-period stratum",
+            "before filling the remainder randomly. Human annotations remain separately",
+            f"versioned at `{rel(AUDIT_ANNOTATIONS)}`; `{rel(AUDIT_REVIEW)}` is the generated",
+            "join used for review. Pipeline runs never write the annotation file.",
             "",
         ]
     ) + "\n"
@@ -316,9 +327,18 @@ def run(sample_size: int, seed: int) -> None:
 
     console.step("Drawing the precision sample")
     sample = audit_sample(speeches, bodies, counts, lex, sample_size, seed)
-    AUDIT_SAMPLE.parent.mkdir(parents=True, exist_ok=True)
-    artifacts.atomic_write_text(AUDIT_SAMPLE, sample.to_csv(index=False))
-    console.info(f"wrote {rel(AUDIT_SAMPLE)} ({len(sample)} rows, seed {seed})")
+    AUDIT_CANDIDATES.parent.mkdir(parents=True, exist_ok=True)
+    review = audit.write_outputs(
+        sample,
+        annotation_path=AUDIT_ANNOTATIONS,
+        candidate_path=AUDIT_CANDIDATES,
+        review_path=AUDIT_REVIEW,
+    )
+    annotated = int(review["coder"].astype("string").str.len().gt(0).sum())
+    console.info(
+        f"wrote {rel(AUDIT_CANDIDATES)} and {rel(AUDIT_REVIEW)} "
+        f"({len(sample)} candidates, {annotated} annotations, seed {seed})"
+    )
 
     console.step("Writing")
     flagged = pd.concat([speeches, counts], axis=1)
@@ -333,9 +353,13 @@ def run(sample_size: int, seed: int) -> None:
         ROOT,
         "03_lexicon.py",
         inputs=[SPEECHES_NORM],
-        configs=[LEXICON],
+        configs=[LEXICON, AUDIT_ANNOTATIONS],
         extra={
-            "outputs": [artifacts.describe_file(SPEECHES_FLAGGED, ROOT)],
+            "outputs": [
+                artifacts.describe_file(SPEECHES_FLAGGED, ROOT),
+                artifacts.describe_file(AUDIT_CANDIDATES, ROOT),
+                artifacts.describe_file(AUDIT_REVIEW, ROOT),
+            ],
             "lexicon_version": lex.version,
             "terms": {
                 term.name: {

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+
 import pytest
 from lib import artifacts
 
@@ -52,6 +54,55 @@ def test_atomic_directory_keeps_the_previous_version_on_failure(tmp_path):
 
 
 SHA = "0123456789abcdef0123456789abcdef01234567"
+
+
+def _git(root, *args):
+    return subprocess.run(
+        ["git", *args],
+        cwd=root,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+
+
+@pytest.fixture
+def git_repo(tmp_path):
+    _git(tmp_path, "init", "--quiet")
+    _git(tmp_path, "config", "user.name", "Test Author")
+    _git(tmp_path, "config", "user.email", "test@example.invalid")
+    (tmp_path / "tracked.txt").write_text("committed\n", encoding="utf-8")
+    _git(tmp_path, "add", "tracked.txt")
+    _git(tmp_path, "commit", "--quiet", "-m", "Initial commit")
+    return tmp_path
+
+
+def test_a_clean_repository_records_its_commit(git_repo):
+    assert artifacts.git_commit(git_repo) == _git(git_repo, "rev-parse", "HEAD")
+
+
+def test_a_modified_tracked_file_marks_the_commit_dirty(git_repo):
+    (git_repo / "tracked.txt").write_text("modified\n", encoding="utf-8")
+    assert artifacts.git_commit(git_repo) == f"{_git(git_repo, 'rev-parse', 'HEAD')}-dirty"
+
+
+def test_a_staged_change_marks_the_commit_dirty(git_repo):
+    (git_repo / "tracked.txt").write_text("staged\n", encoding="utf-8")
+    _git(git_repo, "add", "tracked.txt")
+    assert artifacts.git_commit(git_repo) == f"{_git(git_repo, 'rev-parse', 'HEAD')}-dirty"
+
+
+def test_an_untracked_file_marks_the_commit_dirty(git_repo):
+    (git_repo / "untracked.txt").write_text("new\n", encoding="utf-8")
+    assert artifacts.git_commit(git_repo) == f"{_git(git_repo, 'rev-parse', 'HEAD')}-dirty"
+
+
+def test_an_ignored_file_does_not_mark_the_commit_dirty(git_repo):
+    (git_repo / ".gitignore").write_text("ignored.txt\n", encoding="utf-8")
+    _git(git_repo, "add", ".gitignore")
+    _git(git_repo, "commit", "--quiet", "-m", "Ignore generated file")
+    (git_repo / "ignored.txt").write_text("generated\n", encoding="utf-8")
+    assert artifacts.git_commit(git_repo) == _git(git_repo, "rev-parse", "HEAD")
 
 
 def test_the_stamp_names_the_commit_when_there_is_no_repository(tmp_path):

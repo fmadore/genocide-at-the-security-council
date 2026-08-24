@@ -28,7 +28,7 @@
  * bottom, and hold no decisions.
  */
 
-import type { Meta } from './types';
+import type { BaseMeta } from './types';
 
 /** Where a number came from, as the artefact's own manifest records it. */
 export interface Provenance {
@@ -63,7 +63,7 @@ const described = (value: unknown): { path: string; sha256: string }[] =>
  * printed as "undefined". A header that lies about provenance is worse than a
  * header that is short.
  */
-export function provenanceOf(meta: Meta, artifact: string): Provenance {
+export function provenanceOf(meta: BaseMeta, artifact: string): Provenance {
 	return {
 		artifact,
 		script: typeof meta.script === 'string' ? meta.script : 'unknown',

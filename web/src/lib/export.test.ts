@@ -23,7 +23,7 @@ import {
 	toCsv
 } from './export';
 import type { ExportRequest, Provenance } from './export';
-import type { Meta } from './types';
+import type { BaseMeta } from './types';
 
 const meta = {
 	script: '04_series.py',
@@ -32,7 +32,7 @@ const meta = {
 	git_commit: 'bec9e1a72a95d7ed557fb3e5059625b8680b967a',
 	inputs: [{ path: 'data/derived/speeches_flagged.parquet', bytes: 1, sha256: 'abc123' }],
 	configs: [{ path: 'config/lexicon.yml', bytes: 1, sha256: 'def456' }]
-} as unknown as Meta;
+} as unknown as BaseMeta;
 
 const provenance = (): Provenance => provenanceOf(meta, 'series/annual.json');
 
@@ -59,7 +59,7 @@ describe('reading a manifest', () => {
 	});
 
 	it('omits what it does not have rather than printing undefined', () => {
-		const thin = provenanceOf({ script: '05_lexical.py' } as unknown as Meta, 'lexical/x.json');
+		const thin = provenanceOf({ script: '05_lexical.py' } as unknown as BaseMeta, 'lexical/x.json');
 		expect(thin.lexiconVersion).toBeNull();
 		expect(thin.gitCommit).toBeNull();
 		expect(thin.inputs).toEqual([]);
@@ -71,7 +71,7 @@ describe('reading a manifest', () => {
 			{
 				script: 'x.py',
 				inputs: ['nope', { path: 'a' }, { path: 'b', sha256: 'h' }]
-			} as unknown as Meta,
+			} as unknown as BaseMeta,
 			'a.json'
 		);
 		expect(ragged.inputs).toEqual([{ path: 'b', sha256: 'h' }]);

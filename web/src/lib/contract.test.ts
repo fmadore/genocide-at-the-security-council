@@ -68,8 +68,12 @@ describe('what the dashboard requires against what the pipeline writes', () => {
 			const sampled = resolve(artefact);
 			if (!sampled) return; // Reported by the test above; not worth failing twice.
 			const shape = contract[sampled];
-			const absent = Object.keys(required).filter((key) => !(key in shape));
+			const absent = Object.keys(required).filter(
+				(key) => !(key in shape) && !(`${key}?` in shape)
+			);
 			expect(absent, `${sampled} does not carry ${absent.join(', ')}`).toEqual([]);
+			const optional = Object.keys(required).filter((key) => `${key}?` in shape);
+			expect(optional, `${sampled} does not always carry ${optional.join(', ')}`).toEqual([]);
 		}
 	);
 
@@ -119,6 +123,13 @@ describe('what the dashboard requires against what the pipeline writes', () => {
 });
 
 describe('the shape of the blocks a figure would silently mis-draw', () => {
+	it('keeps every actor-measure row sufficient flag required', () => {
+		const measures = contract['countries/countries.json'].measures as Record<string, never>;
+		const row = (measures['*'] as unknown as { rows: [Record<string, string>] }).rows[0];
+		expect(Object.keys(row)).toContain('sufficient');
+		expect(Object.keys(row)).not.toContain('sufficient?');
+	});
+
 	it('keeps the nullable rates nullable', () => {
 		// `speech_rate` is null wherever a speaker is under the minimum, and the
 		// whole `?? 0` argument in `$lib/actors` rests on that null surviving the

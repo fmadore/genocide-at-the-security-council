@@ -34,7 +34,7 @@ class TestSkeleton:
         the disagreement behind whichever row happened to be written first.
         """
         shape = contract.skeleton([{"a": 1}, {"a": 1, "b": "x"}])
-        assert shape == [{"a": "int", "b": "str"}]
+        assert shape == [{"a": "int", "b?": "str"}]
 
     def test_a_nullable_column_keeps_its_null(self):
         """The withheld rate is the load-bearing null in this project.
@@ -48,7 +48,13 @@ class TestSkeleton:
 
     def test_a_block_keyed_on_the_lexicon_is_folded_into_one_member(self):
         shape = contract.skeleton({"terms": {"genocide": {"speeches": [1]}, "atrocity": {}}})
-        assert shape == {"terms": {contract.MEMBER: {"speeches": ["int"]}}}
+        assert shape == {"terms": {contract.MEMBER: {"speeches?": ["int"]}}}
+
+    def test_a_discriminator_shared_by_every_variant_stays_required(self):
+        shape = contract.skeleton(
+            [{"kind": "term", "pattern": "genocid"}, {"kind": "set", "members": ["genocide"]}]
+        )
+        assert shape == [{"kind": "str", "members?": ["str"], "pattern?": "str"}]
 
     def test_an_empty_container_constrains_only_its_kind(self):
         """An artefact whose array happens to be empty this run is not a shape.
@@ -83,16 +89,35 @@ class TestDifferences:
         found = contract.skeleton({"meta": {"script": "04_series.py"}, "coverage": 0.86})
         assert list(contract.differences(promised, found)) == []
 
-    def test_one_member_losing_a_field_another_keeps_is_not_a_difference(self):
-        """An ordinary lexicon edit.
+    def test_one_member_losing_a_required_field_is_a_difference(self):
+        promised = contract.skeleton({"terms": {"a": {"x": 1}, "b": {"x": 1}}})
+        found = contract.skeleton({"terms": {"a": {"x": 1}, "b": {}}})
+        assert list(contract.differences(promised, found)) == [
+            ".terms.*.x: required field is absent from some members"
+        ]
+
+    def test_an_optional_field_may_move_between_members(self):
+        """An ordinary lexicon edit remains compatible.
 
         A set has no occurrence count and a term does; adding or removing either
-        changes which members carry which fields without changing what any
-        consumer can be written against. The union is the contract.
+        changes which members carry the optional field without changing what any
+        consumer can require.
         """
         promised = contract.skeleton({"terms": {"a": {"x": 1, "y": 2}, "b": {"x": 1}}})
         found = contract.skeleton({"terms": {"a": {"x": 1}, "b": {"x": 1, "y": 2}}})
         assert list(contract.differences(promised, found)) == []
+
+    def test_a_declared_optional_field_may_be_absent_from_every_member(self):
+        promised = contract.skeleton({"terms": {"a": {"x": 1, "y": 2}, "b": {"x": 1}}})
+        found = contract.skeleton({"terms": {"a": {"x": 1}, "b": {"x": 1}}})
+        assert list(contract.differences(promised, found)) == []
+
+    def test_a_discriminator_becoming_optional_is_a_difference(self):
+        promised = contract.skeleton([{"kind": "term"}, {"kind": "set"}])
+        found = contract.skeleton([{"kind": "term"}, {"members": ["genocide"]}])
+        assert list(contract.differences(promised, found)) == [
+            "[].kind: required field is absent from some members"
+        ]
 
     def test_a_null_appearing_where_none_was_promised_is_a_difference(self):
         """The reverse of the withheld-rate case, and it breaks the same way.

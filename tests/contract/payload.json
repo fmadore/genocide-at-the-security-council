@@ -22,24 +22,24 @@
   "measures": {
    "*": {
     "kind": "str",
-    "members": [
+    "members?": [
      "str"
     ],
-    "register": "str",
+    "register?": "str",
     "rows": [
      {
       "country_org": "str",
       "held": "int",
-      "occurrences": "int",
+      "occurrences?": "int",
       "period": "str",
       "speech_rate": "float|null",
       "speeches": "int",
       "sufficient": "bool",
-      "token_rate": "float|null",
+      "token_rate?": "float|null",
       "tokens": "int"
      }
     ],
-    "tier": "str"
+    "tier?": "str"
    }
   },
   "meta": {
@@ -187,7 +187,7 @@
     "pairs": "int",
     "short_strata": "int",
     "shortfall": "int",
-    "stability": {
+    "stability?": {
      "coverage_max": "float",
      "coverage_min": "float",
      "keyword_log_ratio": [
@@ -1023,11 +1023,11 @@
       {
        "category": "str",
        "held": "int",
-       "occurrences": "int",
+       "occurrences?": "int",
        "period": "int",
        "speech_rate": "float",
        "speeches": "int",
-       "token_rate": "float"
+       "token_rate?": "float"
       }
      ]
     },
@@ -1039,11 +1039,11 @@
       {
        "category": "str",
        "held": "int",
-       "occurrences": "int",
+       "occurrences?": "int",
        "period": "int",
        "speech_rate": "float",
        "speeches": "int",
-       "token_rate": "float"
+       "token_rate?": "float"
       }
      ]
     },
@@ -1055,11 +1055,11 @@
       {
        "category": "str",
        "held": "int",
-       "occurrences": "int",
+       "occurrences?": "int",
        "period": "int",
        "speech_rate": "float",
        "speeches": "int",
-       "token_rate": "float"
+       "token_rate?": "float"
       }
      ]
     },
@@ -1071,11 +1071,11 @@
       {
        "category": "str",
        "held": "int",
-       "occurrences": "int",
+       "occurrences?": "int",
        "period": "int",
        "speech_rate": "float",
        "speeches": "int",
-       "token_rate": "float"
+       "token_rate?": "float"
       }
      ]
     },
@@ -1087,11 +1087,11 @@
       {
        "category": "str",
        "held": "int",
-       "occurrences": "int",
+       "occurrences?": "int",
        "period": "int",
        "speech_rate": "float",
        "speeches": "int",
-       "token_rate": "float"
+       "token_rate?": "float"
       }
      ]
     },
@@ -1103,11 +1103,11 @@
       {
        "category": "str",
        "held": "int",
-       "occurrences": "int",
+       "occurrences?": "int",
        "period": "int",
        "speech_rate": "float",
        "speeches": "int",
-       "token_rate": "float"
+       "token_rate?": "float"
       }
      ]
     }
@@ -1177,7 +1177,7 @@
       "p_value": "float",
       "ratio": "float"
      },
-     "token_rate": {
+     "token_rate?": {
       "accepted": "bool",
       "after": "float",
       "after_ci95": [
@@ -1244,7 +1244,7 @@
   },
   "series": {
    "*": {
-    "occurrences": [
+    "occurrences?": [
      {
       "after": "float",
       "before": "float",
@@ -1283,7 +1283,7 @@
       "ratio": "float"
      }
     ],
-    "token_rate": []
+    "token_rate?": []
    }
   }
  },
@@ -1405,7 +1405,7 @@
       "held": [
        "int"
       ],
-      "occurrences": [
+      "occurrences?": [
        "int"
       ],
       "speech_rate": [
@@ -1417,7 +1417,7 @@
       "sufficient": [
        "bool"
       ],
-      "token_rate": [
+      "token_rate?": [
        "float"
       ],
       "tokens": [
@@ -1428,13 +1428,13 @@
       "int"
      ],
      "kind": "str",
-     "members": [
+     "members?": [
       "str"
      ],
-     "occurrences": [
+     "occurrences?": [
       "int"
      ],
-     "register": "str",
+     "register?": "str",
      "speech_rate": [
       "float"
      ],
@@ -1444,11 +1444,11 @@
      "sufficient": [
       "bool"
      ],
-     "terms": [
+     "terms?": [
       "str"
      ],
-     "tier": "str",
-     "token_rate": [
+     "tier?": "str",
+     "token_rate?": [
       "float"
      ],
      "tokens": [
@@ -1657,57 +1657,7 @@
     "entity_type": "str",
     "group": "str",
     "hits": {
-     "atrocity": [
-      [
-       "int"
-      ]
-     ],
-     "crimes_against_humanity": [
-      [
-       "int"
-      ]
-     ],
-     "ethnic_cleansing": [
-      [
-       "int"
-      ]
-     ],
-     "ethnic_hatred": [
-      [
-       "int"
-      ]
-     ],
-     "extermination": [
-      [
-       "int"
-      ]
-     ],
-     "genocide": [
-      [
-       "int"
-      ]
-     ],
-     "genocide_convention": [
-      [
-       "int"
-      ]
-     ],
-     "holocaust": [
-      [
-       "int"
-      ]
-     ],
-     "impunity": [
-      [
-       "int"
-      ]
-     ],
-     "tribunals": [
-      [
-       "int"
-      ]
-     ],
-     "war_crimes": [
+     "*?": [
       [
        "int"
       ]
