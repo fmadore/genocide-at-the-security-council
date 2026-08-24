@@ -52,15 +52,15 @@ click and decides nothing.
 
 ## Views
 
-| Route               | What it is for                                                                                                                                                          |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                 | The question in fifteen seconds: headline figures, the raw-versus-rate contrast, register shares                                                                        |
-| `/chronology`       | Every term and register over 32 years or 128 quarters in four units, with change points and 35 reference dates, plus the year × month grid and the twelve months pooled |
-| `/language`         | Collocates as effect-size-against-significance, the same table as a cloud, two speakers side by side, matched keyness, the co-occurrence graph                          |
-| `/actors`           | 601 speakers against their own denominators: the ranking, the locator map, the membership composition and the per-speaker matched keyness                               |
-| `/concordance`      | All 79,569 lines, filterable by term, speaker, agenda, meeting, year and month, with corpus-linguistic left/right context sorting and CSV export                        |
-| `/reader/[meeting]` | The full verbatim record with matches highlighted by register                                                                                                           |
-| `/methods`          | How every number was made, and what is still unverified                                                                                                                 |
+| Route               | What it is for                                                                                                                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                 | The question in fifteen seconds: headline figures, the raw-versus-rate contrast, register shares                                                                    |
+| `/chronology`       | Every term and register over 32 years or 128 quarters in four units, with change points, participant-type breakdowns and 35 reference dates, plus the monthly views |
+| `/language`         | Collocates as effect-size-against-significance, the same table as a cloud, two speakers side by side, matched keyness, the co-occurrence graph                      |
+| `/actors`           | 601 speakers against their own denominators: the ranking, the locator map, the membership composition and the per-speaker matched keyness                           |
+| `/concordance`      | All 79,569 lines, filterable by term, speaker, participant type, agenda, meeting, year and month, with context sorting and CSV export                               |
+| `/reader/[meeting]` | The full verbatim record with matches highlighted by register                                                                                                       |
+| `/methods`          | How every number was made, and what is still unverified                                                                                                             |
 
 Controls that change an analytical reading are reflected in the URL on Chronology, Actors,
 Language and Concordance. A copied address therefore restores the same measures, periods,

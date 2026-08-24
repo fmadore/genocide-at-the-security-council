@@ -163,6 +163,7 @@ describe('the complete concordance query state', () => {
 			regex: true,
 			group: 'E10',
 			country: 'Rwanda',
+			participantType: 'Mentioned',
 			agenda: 'Protection of civilians',
 			spv: 'S/PV.7000',
 			from: 2014,
@@ -194,6 +195,15 @@ describe('the complete concordance query state', () => {
 		});
 		expect(result.lines.map((row) => row.id)).toEqual(['speech#2', 'speech#1']);
 		expect(result.badRegex).toBe(false);
+	});
+
+	it('filters by the normalized participant type carried by KWIC', () => {
+		const rows = [line({ id: 'speech#1', type: 'Mentioned' }), line({ id: 'speech#2' })];
+		const result = filterConcordance(rows, {
+			...CONCORDANCE_DEFAULTS,
+			participantType: 'Mentioned'
+		});
+		expect(result.lines.map((row) => row.id)).toEqual(['speech#1']);
 	});
 
 	it('reports a bad regex without hiding otherwise matching evidence', () => {

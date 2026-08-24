@@ -74,6 +74,7 @@
 	let searched = $state('');
 	let group = $state('');
 	let country = $state('');
+	let participantType = $state('');
 	let agenda = $state('');
 	/** One meeting symbol, so the reader can come back the way it sent you. */
 	let spv = $state('');
@@ -101,6 +102,7 @@
 		query = searched = state.query;
 		group = state.group;
 		country = state.country;
+		participantType = state.participantType;
 		agenda = state.agenda;
 		spv = state.spv;
 		from = state.from;
@@ -137,6 +139,7 @@
 		regex,
 		group,
 		country,
+		participantType,
 		agenda,
 		spv,
 		from,
@@ -190,6 +193,7 @@
 		)
 	);
 	const agendas = $derived([...new Set(lines.map((l) => l.agenda))].sort());
+	const participantTypes = $derived([...new Set(lines.map((l) => l.type))].sort());
 
 	const result = $derived(filterConcordance(lines, currentState()));
 	const badRegex = $derived(result.badRegex);
@@ -197,7 +201,7 @@
 
 	$effect(() => {
 		// Any change to the filter resets the page window.
-		void [term, searched, group, country, agenda, spv, from, to, month, sort];
+		void [term, searched, group, country, participantType, agenda, spv, from, to, month, sort];
 		shown = PAGE;
 	});
 
@@ -207,6 +211,7 @@
 		query = searched = '';
 		group = '';
 		country = '';
+		participantType = '';
 		agenda = '';
 		spv = '';
 		from = CONCORDANCE_DEFAULTS.from;
@@ -230,8 +235,28 @@
 	function table(rows: KwicLine[], scope: string, filters: string[]): ExportRequest {
 		return {
 			title: `Keyword in context — ${termLabel(term)}`,
-			columns: ['id', 'spv', 'date', 'country', 'group', 'agenda', 'keyword', 'sentence'],
-			rows: rows.map((l) => [l.id, l.spv, l.date, l.country, l.group, l.agenda, l.kw, l.sent]),
+			columns: [
+				'id',
+				'spv',
+				'date',
+				'country',
+				'group',
+				'participant_type',
+				'agenda',
+				'keyword',
+				'sentence'
+			],
+			rows: rows.map((l) => [
+				l.id,
+				l.spv,
+				l.date,
+				l.country,
+				l.group,
+				l.type,
+				l.agenda,
+				l.kw,
+				l.sent
+			]),
 			// The kwic payload is fetched per term rather than loaded with the page,
 			// so its manifest is on `file` and not on `data`.
 			provenance: provenanceOf(file?.meta ?? data.index.meta, `kwic/${term}.json`),
@@ -246,6 +271,7 @@
 			searched ? `search: ${searched}${regex ? ' (regex)' : ''}` : null,
 			group ? `group: ${group}` : null,
 			country ? `speaker: ${country}` : null,
+			participantType ? `participant type: ${participantType}` : null,
 			agenda ? `agenda: ${agenda}` : null,
 			spv ? `meeting: ${spv}` : null,
 			from !== 1992 || to !== 2023 ? `years: ${from}–${to}` : null,
@@ -364,6 +390,13 @@
 				<select bind:value={country}>
 					<option value="">All</option>
 					{#each countries as c (c)}<option value={c}>{shortCountry(c)}</option>{/each}
+				</select>
+			</label>
+			<label>
+				Participant type
+				<select bind:value={participantType}>
+					<option value="">All</option>
+					{#each participantTypes as type (type)}<option value={type}>{type}</option>{/each}
 				</select>
 			</label>
 			<label>

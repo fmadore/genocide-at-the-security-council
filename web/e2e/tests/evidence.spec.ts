@@ -14,11 +14,14 @@ test('a filtered concordance URL restores its analytical state under the base pa
 	page
 }) => {
 	await page.goto(
-		`${concordance}?term=genocide&country=Rwanda&from=2014&to=2014&month=6&sort=right`
+		`${concordance}?term=genocide&country=Rwanda&type=Mentioned&from=2014&to=2014&month=6&sort=right`
 	);
 
 	await expect(page.getByRole('heading', { name: 'Concordance', level: 1 })).toBeVisible();
 	await expect(page.getByRole('combobox', { name: 'Speaker', exact: true })).toHaveValue('Rwanda');
+	await expect(page.getByRole('combobox', { name: 'Participant type', exact: true })).toHaveValue(
+		'Mentioned'
+	);
 	await expect(page.getByRole('combobox', { name: 'Month', exact: true })).toHaveValue('6');
 	await expect(page.getByRole('button', { name: 'Right' })).toHaveAttribute('aria-pressed', 'true');
 	await expect(page.locator('.status')).toContainText('2 of 2 lines');

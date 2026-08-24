@@ -17,6 +17,31 @@ export interface ChronologyChoices {
 	splits: readonly string[];
 }
 
+const EVIDENCE_FILTERS: Readonly<Record<string, string>> = {
+	speaker_group: 'group',
+	participanttype: 'type',
+	agenda_item_manual: 'agenda'
+};
+
+export interface SplitEvidenceQuery {
+	query: string;
+	scope: string;
+}
+
+/** Link a breakdown cell only when KWIC carries the same normalized category. */
+export function splitEvidenceQuery(
+	term: string,
+	split: string,
+	category: string,
+	period: string | number
+): SplitEvidenceQuery | null {
+	const filter = EVIDENCE_FILTERS[split];
+	if (!filter) return null;
+	const year = String(period);
+	const params = new URLSearchParams({ term, [filter]: category, from: year, to: year });
+	return { query: params.toString(), scope: `${category} in ${year}` };
+}
+
 const UNITS: readonly ChronologyUnit[] = ['speech_rate', 'token_rate', 'occurrences', 'speeches'];
 
 const defaultSeries = (choices: ChronologyChoices, grain: ChronologyGrain) => {

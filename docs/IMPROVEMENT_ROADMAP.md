@@ -284,6 +284,8 @@ Then add, in this order:
 
 ### U4. Expose existing participant type
 
+**Status: complete on 24 August 2026.**
+
 Add `participanttype` as a chronology split/filter using existing normalized data. Publish
 its denominator and evidence link exactly as for current splits. This is intentionally a
 small feature before any new analytical pipeline.
@@ -518,3 +520,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-08-24 | U1 minimal browser-test harness   | complete    | pending | `npm test` (265 passed); `npm run check`; `npm run lint`; `npm run test:e2e` (7 Chromium journeys); `npm run test:e2e:sw` (1 built-site journey)                                     | Tiny committed fixtures cover base-path navigation, concordance URL restoration, exact-occurrence evidence navigation, filtered CSV and SVG provenance, retry, responsive controls, map fallback/keyboard access, production service-worker recovery and axe scans. |
 | 2026-08-24 | U2 shared analytical URL state     | complete    | pending | `npm test` (281 passed); `npm run check`; `npm run lint`; `npm run test:e2e` (7 Chromium journeys); `npm run test:e2e:sw` (1 built-site journey); `npm run build` | Concordance/reader, Actors, Chronology and Language restore their analytical controls from compact validated query strings. Presentational state—selected table row, contextual marks, chart zoom and graph arrangement—remains local. |
 | 2026-08-24 | U3 exact occurrence navigation    | complete    | pending | `python -m pytest tests/test_kwic.py -q` (31 passed); `npm test` (272 passed); `npm run check`; `npm run lint`; `npm run test:e2e` (7 Chromium journeys); `npm run test:e2e:sw` (1 built-site journey); `npm run build` | Stable hit IDs support exact scroll/highlight, copyable permalinks, continuous previous/next navigation, and a verbatim pipeline sentence copied with a plain project citation. CSL-JSON/RIS/BibTeX remain deliberately deferred until speech metadata and round-trip fixtures are sufficient. |
+| 2026-08-24 | U4 participant-type evidence       | complete    | pending | `npm test` (284 passed); `npm run check`; `npm run lint`; `npm run test:e2e` (7 Chromium journeys); production Chromium deep-link smoke; `npm run test:e2e:sw`; `npm run build` | Chronology exposes the existing `participanttype` breakdown with its per-category/year denominator and keyboard-accessible evidence links. Concordance restores, filters and exports the normalized type; Reader navigation preserves the same result set. |

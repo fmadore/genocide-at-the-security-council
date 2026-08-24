@@ -48,6 +48,7 @@ export interface ConcordanceState {
 	regex: boolean;
 	group: string;
 	country: string;
+	participantType: string;
 	agenda: string;
 	spv: string;
 	from: number;
@@ -62,6 +63,7 @@ export const CONCORDANCE_DEFAULTS: ConcordanceState = {
 	regex: false,
 	group: '',
 	country: '',
+	participantType: '',
 	agenda: '',
 	spv: '',
 	from: 1992,
@@ -87,6 +89,7 @@ export function readConcordanceState(params: URLSearchParams): ConcordanceState 
 		regex: params.get('re') === '1',
 		group: params.get('group') ?? '',
 		country: params.get('country') ?? '',
+		participantType: params.get('type') ?? '',
 		agenda: params.get('agenda') ?? '',
 		spv: params.get('spv') ?? '',
 		from: year(params.get('from'), CONCORDANCE_DEFAULTS.from),
@@ -104,6 +107,7 @@ export function concordanceParams(state: ConcordanceState): URLSearchParams {
 	if (state.regex) params.set('re', '1');
 	if (state.group) params.set('group', state.group);
 	if (state.country) params.set('country', state.country);
+	if (state.participantType) params.set('type', state.participantType);
 	if (state.agenda) params.set('agenda', state.agenda);
 	if (state.spv) params.set('spv', state.spv);
 	if (state.from !== CONCORDANCE_DEFAULTS.from) params.set('from', String(state.from));
@@ -145,6 +149,7 @@ export function filterConcordance(
 		if (!inMonth(line.date, state.month)) return false;
 		if (state.group && line.group !== state.group) return false;
 		if (state.country && line.country !== state.country) return false;
+		if (state.participantType && line.type !== state.participantType) return false;
 		if (state.agenda && line.agenda !== state.agenda) return false;
 		if (state.spv && line.spv !== state.spv) return false;
 		return matcher ? matcher(line) : true;

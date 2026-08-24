@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	chronologyParams,
 	readChronologyState,
+	splitEvidenceQuery,
 	type ChronologyChoices,
 	type ChronologyState
 } from './chronology';
@@ -62,5 +63,21 @@ describe('chronology URL state', () => {
 			calendarUnit: 'speech_rate',
 			split: 'none'
 		});
+	});
+});
+
+describe('chronology breakdown evidence', () => {
+	it('links participant type to its exact concordance category and year', () => {
+		const link = splitEvidenceQuery('genocide', 'participanttype', 'Mentioned', 2014)!;
+		const params = new URLSearchParams(link.query);
+		expect(params.get('term')).toBe('genocide');
+		expect(params.get('type')).toBe('Mentioned');
+		expect(params.get('from')).toBe('2014');
+		expect(params.get('to')).toBe('2014');
+		expect(link.scope).toBe('Mentioned in 2014');
+	});
+
+	it('refuses a split whose category is absent from KWIC', () => {
+		expect(splitEvidenceQuery('genocide', 'delivery_language', 'French', 2014)).toBeNull();
 	});
 });

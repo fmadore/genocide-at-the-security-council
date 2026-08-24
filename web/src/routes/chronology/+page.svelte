@@ -10,6 +10,7 @@
 	import {
 		chronologyParams,
 		readChronologyState,
+		splitEvidenceQuery,
 		type ChronologyChoices,
 		type ChronologyUnit as Unit
 	} from '$lib/chronology';
@@ -42,7 +43,7 @@
 		textStyle,
 		tooltip
 	} from '$lib/theme';
-	import type { CouncilEvent, Measure } from '$lib/types';
+	import type { BreakdownRow, CouncilEvent, Measure } from '$lib/types';
 	import type { EChartsOption } from 'echarts';
 	import { onMount, tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -486,6 +487,7 @@
 		{ id: 'none', label: 'No split' },
 		{ id: 'speaker_group', label: 'Speaker group' },
 		{ id: 'entity_type', label: 'Kind of speaker' },
+		{ id: 'participanttype', label: 'Participant type' },
 		{ id: 'agenda_item1', label: 'Region of agenda item' },
 		{ id: 'agenda_item_manual', label: 'Agenda item' },
 		{ id: 'delivery_language', label: 'Delivery language' }
@@ -537,9 +539,12 @@
 		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
 	});
 
+	const splitBlock = $derived(
+		split === 'none' ? null : (data.splits.measures.genocide?.[split] ?? null)
+	);
+
 	const splitChart: EChartsOption | null = $derived.by(() => {
-		if (split === 'none') return null;
-		const block = data.splits.measures.genocide?.[split];
+		const block = splitBlock;
 		if (!block) return null;
 		const p = $colours;
 		const ramp = categorical(p);
@@ -580,6 +585,17 @@
 			}))
 		};
 	});
+
+	function splitHref(row: BreakdownRow): string | null {
+		const link = splitEvidenceQuery('genocide', split, row.category, row.period);
+		return link ? `${resolve('/concordance')}?${link.query}` : null;
+	}
+
+	function drillSplit(params: { name?: string; seriesName?: string }) {
+		if (!params.name || !params.seriesName) return;
+		const link = splitEvidenceQuery('genocide', split, params.seriesName, params.name);
+		if (link) void goto(`${resolve('/concordance')}?${link.query}`);
+	}
 
 	const genocideBreaks = $derived(data.breaks.series.genocide ?? {});
 	const genocideInference = $derived(data.breaks.inference.series.genocide ?? {});
@@ -1077,6 +1093,12 @@
 				scaled to its own output, and a category that spoke rarely is not pushed down the chart for
 				having spoken rarely.
 			</p>
+			{#if split === 'participanttype'}
+				<p>
+					Participant type is the role recorded for the speech in the source corpus. Each plotted
+					point links to the matching concordance lines for that role and year.
+				</p>
+			{/if}
 		{/snippet}
 		{#snippet caveat()}
 			<p>
@@ -1089,6 +1111,11 @@
 				unknown rather than assumed to be English, because that document format carries no marker of
 				the language either way.
 			</p>
+			<p>
+				An em dash in the evidence column means the concordance artifact does not carry that split,
+				not that the category has no speeches. Speaker group, participant type and agenda item do
+				carry exact evidence links.
+			</p>
 		{/snippet}
 
 		{#if splitChart}
@@ -1097,7 +1124,33 @@
 				option={splitChart}
 				height="380px"
 				description="Share of speeches using genocide per year, one line per category of the chosen split."
+				onclick={drillSplit}
 			/>
+			<details class="data-table">
+				<summary><Icon icon={ChevronRight} />View denominators and evidence</summary>
+				<table>
+					<thead>
+						<tr>
+							<th>Period</th><th>Category</th><th class="num">Speeches held</th><th class="num"
+								>Using genocide</th
+							><th class="num">Share</th><th>Evidence</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each splitBlock?.rows ?? [] as row (row.period + row.category)}
+							{@const href = splitHref(row)}
+							<tr>
+								<td>{row.period}</td><td>{row.category}</td><td class="num">{count(row.held)}</td
+								><td class="num">{count(row.speeches)}</td><td class="num"
+									>{percent(row.speech_rate)}</td
+								><td
+									>{#if href}<a {href}>Read lines</a>{:else}—{/if}</td
+								>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</details>
 		{:else}
 			<p class="empty">Choose a split above to break the series apart.</p>
 		{/if}
