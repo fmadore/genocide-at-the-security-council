@@ -80,9 +80,8 @@
 
 <main id="main">
 	{@render children()}
+	<BackToTop />
 </main>
-
-<BackToTop />
 
 <footer>
 	<div class="inner">

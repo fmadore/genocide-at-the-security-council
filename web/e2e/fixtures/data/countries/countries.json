@@ -1,0 +1,105 @@
+{
+	"meta": {
+		"script": "11_countries.py",
+		"generated": "2026-08-24T00:00:00Z",
+		"git_commit": "fixture",
+		"lexicon_version": 2
+	},
+	"minimum_speeches": 100,
+	"minimum_speeches_rule": "Rates are withheld below 100 speeches.",
+	"rate_per_tokens": 100000,
+	"centroid_rule": "Centroids locate speakers in the list; they do not locate speeches.",
+	"iso3_collisions": {},
+	"periods": [
+		{
+			"key": "all",
+			"label": "1992–2023",
+			"first_year": 1992,
+			"last_year": 2023,
+			"speeches": 700,
+			"tokens": 500000,
+			"speakers": 2,
+			"speakers_at_minimum": 2,
+			"speeches_at_minimum": 700
+		}
+	],
+	"countries": [
+		{
+			"country_org": "Rwanda",
+			"entity_type": "state",
+			"iso3": "RWA",
+			"un_regional_group": "African Group",
+			"centroid": [-1.94, 29.87],
+			"mappable": true,
+			"speeches": 300,
+			"first_year": 1994,
+			"last_year": 2023
+		},
+		{
+			"country_org": "United Nations Secretariat",
+			"entity_type": "un",
+			"iso3": null,
+			"un_regional_group": null,
+			"centroid": null,
+			"mappable": false,
+			"speeches": 400,
+			"first_year": 1992,
+			"last_year": 2023
+		}
+	],
+	"standing": {
+		"groups": ["P5", "E10", "Non-member state", "UN", "Non-state"],
+		"seated_groups": ["P5", "E10"],
+		"seated_rule": "P5 and E10 are the Council’s two seated groups.",
+		"membership_rule": "Membership belongs to a speech, not permanently to a speaker.",
+		"rows": [
+			{
+				"country_org": "Rwanda",
+				"period": "all",
+				"held": 300,
+				"seated": 180,
+				"seated_share": 0.6,
+				"groups": { "P5": 0, "E10": 180, "Non-member state": 120, "UN": 0, "Non-state": 0 }
+			},
+			{
+				"country_org": "United Nations Secretariat",
+				"period": "all",
+				"held": 400,
+				"seated": 0,
+				"seated_share": 0,
+				"groups": { "P5": 0, "E10": 0, "Non-member state": 0, "UN": 400, "Non-state": 0 }
+			}
+		]
+	},
+	"measures": {
+		"genocide": {
+			"kind": "terms",
+			"tier": "core",
+			"register": "core",
+			"rows": [
+				{
+					"country_org": "Rwanda",
+					"period": "all",
+					"held": 300,
+					"tokens": 200000,
+					"speeches": 30,
+					"speech_rate": 0.1,
+					"sufficient": true,
+					"occurrences": 45,
+					"token_rate": 22.5
+				},
+				{
+					"country_org": "United Nations Secretariat",
+					"period": "all",
+					"held": 400,
+					"tokens": 300000,
+					"speeches": 20,
+					"speech_rate": 0.05,
+					"sufficient": true,
+					"occurrences": 25,
+					"token_rate": 8.3333333333
+				}
+			]
+		}
+	}
+}

@@ -94,3 +94,27 @@ test('essential concordance controls remain visible at narrow and wide widths', 
 		await expect(page.locator('.line').first()).toBeVisible();
 	}
 });
+
+test('keyboard users retain the actor table and evidence link when the map fails', async ({
+	page
+}) => {
+	await page.route('https://basemaps.cartocdn.com/**', (route) => route.abort('failed'));
+	await page.goto(`${base}/actors/`);
+
+	await expect(page.getByRole('heading', { name: 'Who said it', level: 1 })).toBeVisible();
+	await expect(page.getByRole('status')).toContainText(
+		'Every speaker it would show is in the table'
+	);
+	const table = page.locator('section.table-wrap');
+	const rwanda = table.getByRole('button', { name: 'Rwanda' });
+	await rwanda.focus();
+	await page.keyboard.press('Enter');
+
+	const picked = page.locator('aside.picked');
+	await expect(picked.getByRole('heading', { name: 'Rwanda' })).toBeVisible();
+	await expect(picked.getByRole('link', { name: 'Read the occurrences' })).toHaveAttribute(
+		'href',
+		`${base}/concordance?term=genocide&country=Rwanda&from=1992&to=2023`
+	);
+	await expectNoAxeViolations(page);
+});

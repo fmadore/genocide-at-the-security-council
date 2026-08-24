@@ -17,7 +17,14 @@ export default {
 		// generating 6,595 document pages to display text already fetched as JSON.
 		adapter: adapter({ fallback: '404.html', strict: true }),
 		paths: { base },
-		prerender: { handleHttpError: 'fail' },
+		prerender: {
+			// A fixture build needs only the routes its browser tests visit. Normal
+			// releases retain SvelteKit's all-route discovery.
+			crawl: !fixtureMode,
+			entries: fixtureMode ? ['/concordance', '/actors'] : ['*'],
+			handleHttpError: fixtureMode ? 'warn' : 'fail',
+			handleUnseenRoutes: fixtureMode ? 'ignore' : 'fail'
+		},
 		serviceWorker: {
 			// What `$service-worker.files` is allowed to contain, and therefore what
 			// `src/service-worker.ts` precaches on install. The default is everything

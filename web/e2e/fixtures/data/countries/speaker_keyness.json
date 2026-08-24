@@ -1,0 +1,24 @@
+{
+	"meta": {
+		"script": "12_speaker_keyness.py",
+		"generated": "2026-08-24T00:00:00Z",
+		"git_commit": "fixture"
+	},
+	"matched_on": ["year", "agenda_item_manual", "speaker_group"],
+	"minimum_pairs": 100,
+	"minimum_pairs_rule": "At least 100 paired speeches are required.",
+	"minimum_coverage": 0.5,
+	"minimum_coverage_rule": "At least half of a speaker’s speeches must find a match.",
+	"control_rule": "Matched speeches hold year, agenda, and speaker group constant.",
+	"unmatched_rule": "The whole-corpus comparison does not hold the debate constant.",
+	"reading_rule": "Distinctive vocabulary is descriptive, not a claim about position.",
+	"self_reference_rule": "Names are marked but never removed.",
+	"seed": 12,
+	"repetitions": 10,
+	"limit": 40,
+	"speakers_total": 2,
+	"speakers_considered": 0,
+	"speakers_published": 0,
+	"speakers_withheld": 0,
+	"speakers": []
+}
