@@ -1,13 +1,19 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const expected = [
+const publicPages = [
 	'index.html',
 	'chronology/index.html',
 	'language/index.html',
 	'actors/index.html',
 	'concordance/index.html',
-	'methods/index.html',
+	'methods/index.html'
+];
+
+const expected = [
+	...publicPages,
+	'sitemap.xml',
+	'robots.txt',
 	'404.html',
 	// Not a route: the polygons the actor view's filled map fetches. It is a
 	// committed asset rather than a pipeline artefact, so nothing upstream would
@@ -41,5 +47,35 @@ if (!missing.length) {
 
 if (missing.length) {
 	throw new Error(`Static build is missing: ${missing.join(', ')}`);
+}
+
+const origin = 'https://fmadore.github.io/genocide-at-the-security-council';
+const canonicalFor = (path) =>
+	path === 'index.html' ? `${origin}/` : `${origin}/${path.replace(/index\.html$/, '')}`;
+const sitemap = readFileSync(resolve('build', 'sitemap.xml'), 'utf8');
+const metadataProblems = [];
+for (const path of publicPages) {
+	const html = readFileSync(resolve('build', path), 'utf8');
+	const canonical = canonicalFor(path);
+	if (!html.includes(`<link rel="canonical" href="${canonical}"`)) {
+		metadataProblems.push(`${path}: canonical`);
+	}
+	if (!html.includes('<meta name="description" content="')) {
+		metadataProblems.push(`${path}: description`);
+	}
+	if (!html.includes(`<meta property="og:url" content="${canonical}"`)) {
+		metadataProblems.push(`${path}: Open Graph URL`);
+	}
+	if (!sitemap.includes(`<loc>${canonical}</loc>`)) {
+		metadataProblems.push(`sitemap.xml: ${canonical}`);
+	}
+}
+
+const home = readFileSync(resolve('build', 'index.html'), 'utf8');
+for (const marker of ['"@type":"SoftwareApplication"', '"@type":"Dataset"', '10.7910/DVN/KGVSYH']) {
+	if (!home.includes(marker)) metadataProblems.push(`index.html JSON-LD: ${marker}`);
+}
+if (metadataProblems.length) {
+	throw new Error(`Static discovery metadata is missing: ${metadataProblems.join(', ')}`);
 }
 console.log(`Verified ${expected.length} static entry points and ${icons.length} manifest icons.`);

@@ -4,6 +4,7 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import Icon from '$lib/Icon.svelte';
+	import PageMeta from '$lib/PageMeta.svelte';
 	import {
 		kwic,
 		kwicIndex,
@@ -15,6 +16,7 @@
 	import { filterConcordance, readConcordanceState } from '$lib/concordance';
 	import { occurrenceQuotation } from '$lib/citation';
 	import { count, isoDate, shortCountry, termLabel, unSearch } from '$lib/format';
+	import { SITE_NAME, type PageMetadata } from '$lib/seo';
 	import type { KwicLine, Meeting, Speech } from '$lib/types';
 	import { tick } from 'svelte';
 	import { SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
@@ -276,11 +278,18 @@
 		(record?.speeches ?? []).filter((s) => s.language && s.language.toLowerCase() !== 'english')
 			.length
 	);
+	const readerMetadata = $derived<PageMetadata>({
+		path: `/reader/${encodeURIComponent(basename)}/`,
+		title: record
+			? `${record.spv} — ${record.topic} — ${SITE_NAME}`
+			: `Meeting record — ${SITE_NAME}`,
+		description: record
+			? `Read ${record.spv}, ${record.topic}, with every matched occurrence highlighted in its full UN Security Council speech.`
+			: 'Read a UN Security Council meeting record and its matched genocide-related vocabulary in full speech context.'
+	});
 </script>
 
-<svelte:head>
-	<title>{record ? `${record.spv} — ${record.topic}` : 'Reading…'}</title>
-</svelte:head>
+<PageMeta meta={readerMetadata} />
 
 {#if failure}
 	<div class="notice">

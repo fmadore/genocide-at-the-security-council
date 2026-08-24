@@ -7,6 +7,7 @@
 	import Figure from '$lib/Figure.svelte';
 	import Heatmap from '$lib/Heatmap.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import PageMeta from '$lib/PageMeta.svelte';
 	import {
 		chronologyParams,
 		readChronologyState,
@@ -31,6 +32,7 @@
 	} from '$lib/heatmap';
 	import type { CalendarRow, Cell, Unit as GridUnit } from '$lib/heatmap';
 	import { count, decimal, escapeHtml, isoDate, monthLabel, percent, termLabel } from '$lib/format';
+	import { PAGE_METADATA } from '$lib/seo';
 	import {
 		axisX,
 		axisY,
@@ -609,9 +611,7 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Chronology — Genocide at the Security Council</title>
-</svelte:head>
+<PageMeta meta={PAGE_METADATA['/chronology/']} />
 
 <article>
 	<header class="lede">

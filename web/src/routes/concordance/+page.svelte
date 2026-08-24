@@ -20,6 +20,7 @@
 	import type { ExportRequest } from '$lib/export';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import PageMeta from '$lib/PageMeta.svelte';
 	import {
 		MONTH_NAMES,
 		bytes,
@@ -30,6 +31,7 @@
 		unSearch
 	} from '$lib/format';
 	import { segments } from '$lib/highlight';
+	import { PAGE_METADATA } from '$lib/seo';
 	import type { KwicFile, KwicLine } from '$lib/types';
 	import type { PageData } from './$types';
 
@@ -293,9 +295,7 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Concordance — Genocide at the Security Council</title>
-</svelte:head>
+<PageMeta meta={PAGE_METADATA['/concordance/']} />
 
 <article>
 	<header class="lede">

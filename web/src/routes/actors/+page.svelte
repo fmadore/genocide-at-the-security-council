@@ -6,6 +6,7 @@
 	import CountryMap from '$lib/CountryMap.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import PageMeta from '$lib/PageMeta.svelte';
 	import SpeakerKeyness from '$lib/SpeakerKeyness.svelte';
 	import Standing from '$lib/Standing.svelte';
 	import {
@@ -25,6 +26,7 @@
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, entityType, percent, shortCountry, termLabel } from '$lib/format';
+	import { PAGE_METADATA } from '$lib/seo';
 	import type { PageData } from './$types';
 	import { onMount, tick } from 'svelte';
 
@@ -228,13 +230,7 @@
 	};
 </script>
 
-<svelte:head>
-	<title>Actors — Genocide at the Security Council</title>
-	<meta
-		name="description"
-		content="Which delegations used the vocabulary of genocide, at what rate, and how many spoke too rarely to tell."
-	/>
-</svelte:head>
+<PageMeta meta={PAGE_METADATA['/actors/']} />
 
 <article>
 	<header class="lede">

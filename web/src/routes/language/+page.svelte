@@ -6,6 +6,7 @@
 	import Chart from '$lib/Chart.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import PageMeta from '$lib/PageMeta.svelte';
 	import WordCloud from '$lib/WordCloud.svelte';
 	import {
 		languageParams,
@@ -30,6 +31,7 @@
 		termLabel
 	} from '$lib/format';
 	import { axisX, axisY, colours, grid, registerColour, textStyle, tooltip } from '$lib/theme';
+	import { PAGE_METADATA } from '$lib/seo';
 	import type { CollocateBlock, Word } from '$lib/types';
 	import type { EChartsOption } from 'echarts';
 	import { onMount, tick, untrack } from 'svelte';
@@ -564,9 +566,7 @@
 	};
 </script>
 
-<svelte:head>
-	<title>Language — Genocide at the Security Council</title>
-</svelte:head>
+<PageMeta meta={PAGE_METADATA['/language/']} />
 
 <article>
 	<header class="lede">

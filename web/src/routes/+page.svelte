@@ -6,10 +6,12 @@
 	import Chart from '$lib/Chart.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import PageMeta from '$lib/PageMeta.svelte';
 	import SmallMultiples from '$lib/SmallMultiples.svelte';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, escapeHtml, isoDate, percent } from '$lib/format';
+	import { PAGE_METADATA, STRUCTURED_DATA_JSON } from '$lib/seo';
 	import {
 		axisX,
 		axisY,
@@ -323,9 +325,7 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Genocide at the Security Council</title>
-</svelte:head>
+<PageMeta meta={PAGE_METADATA['/']} structuredData={STRUCTURED_DATA_JSON} />
 
 <article>
 	<header class="lede">

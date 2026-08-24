@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { count, matchedOn, percent } from '$lib/format';
+	import PageMeta from '$lib/PageMeta.svelte';
+	import { PAGE_METADATA } from '$lib/seo';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -129,9 +131,7 @@
 	];
 </script>
 
-<svelte:head>
-	<title>Methods — Genocide at the Security Council</title>
-</svelte:head>
+<PageMeta meta={PAGE_METADATA['/methods/']} />
 
 <article class="prose">
 	<h1>Methods</h1>
