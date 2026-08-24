@@ -1,0 +1,19 @@
+{
+	"meta": {
+		"script": "04_series.py",
+		"generated": "2026-08-24T00:00:00Z",
+		"git_commit": "fixture",
+		"lexicon_version": 2
+	},
+	"events": [
+		{
+			"date": "1994-04-06",
+			"year": 1994,
+			"label": "Genocide against the Tutsi begins",
+			"kind": "atrocity",
+			"source": "United Nations",
+			"source_url": "https://www.un.org/",
+			"note": "Small committed browser fixture."
+		}
+	]
+}

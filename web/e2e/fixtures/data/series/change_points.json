@@ -1,0 +1,24 @@
+{
+	"meta": {
+		"script": "04_series.py",
+		"generated": "2026-08-24T00:00:00Z",
+		"git_commit": "fixture",
+		"lexicon_version": 2
+	},
+	"method": "fixture",
+	"parameters": {},
+	"caveat": "Fixture inference only.",
+	"series": {},
+	"inference": {
+		"method": "fixture",
+		"familywise_alpha": 0.05,
+		"per_test_alpha": 0.025,
+		"correction": "Bonferroni",
+		"trials": 10,
+		"caveat": "Fixture inference only.",
+		"series": {
+			"genocide": { "speech_rate": null },
+			"atrocity_core": { "speech_rate": null }
+		}
+	}
+}
