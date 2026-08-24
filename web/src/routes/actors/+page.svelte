@@ -1,19 +1,32 @@
 <script lang="ts">
+	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import CountryMap from '$lib/CountryMap.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import SpeakerKeyness from '$lib/SpeakerKeyness.svelte';
 	import Standing from '$lib/Standing.svelte';
-	import { ambiguous, carries, occurrences, orderings, plan, points, scale } from '$lib/actors';
-	import type { ActorRow, MapPoint, Ordering } from '$lib/actors';
+	import {
+		actorParams,
+		ambiguous,
+		carries,
+		occurrences,
+		orderings,
+		plan,
+		points,
+		readActorState,
+		scale
+	} from '$lib/actors';
+	import type { ActorRow, ActorView, MapPoint, Ordering } from '$lib/actors';
 	import { fills } from '$lib/choropleth';
 	import type { Patch } from '$lib/choropleth';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, entityType, percent, shortCountry, termLabel } from '$lib/format';
 	import type { PageData } from './$types';
+	import { onMount, tick } from 'svelte';
 
 	let { data }: { data: PageData } = $props();
 	const artefact = $derived(data.countries);
@@ -22,13 +35,37 @@
 	let period = $state('all');
 	let order = $state<Ordering>('speech_rate');
 	let selected = $state<string | null>(null);
+	let urlReady = $state(false);
 	/* Circles first, and on purpose. They key on the speaker and can carry the
 	   four that are on no map at all; the fill keys on territory and cannot. */
-	let view = $state<'points' | 'choropleth'>('points');
+	let view = $state<ActorView>('points');
 
 	const measures = $derived(Object.keys(artefact.measures));
 	const shared = $derived(ambiguous(artefact));
 	const result = $derived(plan({ data: artefact, measure, period, order }));
+
+	onMount(() => {
+		const state = readActorState(page.url.searchParams, artefact);
+		measure = state.measure;
+		period = state.period;
+		order = state.order;
+		view = state.view;
+		void tick().then(() => {
+			urlReady = true;
+		});
+	});
+
+	$effect(() => {
+		if (!urlReady) return;
+		const params = actorParams({ measure, period, order, view }, artefact);
+		const search = params.toString();
+		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
+	});
+
+	$effect(() => {
+		void [measure, period];
+		selected = null;
+	});
 
 	/* What this measure has a number for. `atrocity_core` is a union of five
 	   overlapping terms, so 11 withholds its occurrence count rather than

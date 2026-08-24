@@ -38,6 +38,60 @@ export interface ActorRow {
 
 /** How a speaker may be ranked. Both come from the artefact; neither is derived here. */
 export type Ordering = 'speech_rate' | 'token_rate' | 'speeches' | 'held';
+export type ActorView = 'points' | 'choropleth';
+
+export interface ActorState {
+	measure: string;
+	period: string;
+	order: Ordering;
+	view: ActorView;
+}
+
+/** Defaults follow the artefact, so a later corpus extension does not create a stale URL contract. */
+export function actorDefaults(data: Countries): ActorState {
+	return {
+		measure: data.measures.genocide ? 'genocide' : (Object.keys(data.measures)[0] ?? ''),
+		period: data.periods.some((period) => period.key === 'all')
+			? 'all'
+			: (data.periods[0]?.key ?? ''),
+		order: 'speech_rate',
+		view: 'points'
+	};
+}
+
+/** Parse and normalize the analytical actor controls from a copied URL. */
+export function readActorState(params: URLSearchParams, data: Countries): ActorState {
+	const defaults = actorDefaults(data);
+	const askedMeasure = params.get('measure');
+	const measure = askedMeasure && data.measures[askedMeasure] ? askedMeasure : defaults.measure;
+	const askedPeriod = params.get('period');
+	const period =
+		askedPeriod && data.periods.some((candidate) => candidate.key === askedPeriod)
+			? askedPeriod
+			: defaults.period;
+	const askedOrder = params.get('order') as Ordering | null;
+	const order =
+		askedOrder && orderings(data.measures[measure]).includes(askedOrder)
+			? askedOrder
+			: defaults.order;
+	return {
+		measure,
+		period,
+		order,
+		view: params.get('view') === 'choropleth' ? 'choropleth' : defaults.view
+	};
+}
+
+/** Serialize only controls that differ from the artefact-aware defaults. */
+export function actorParams(state: ActorState, data: Countries): URLSearchParams {
+	const defaults = actorDefaults(data);
+	const params = new URLSearchParams();
+	if (state.measure !== defaults.measure) params.set('measure', state.measure);
+	if (state.period !== defaults.period) params.set('period', state.period);
+	if (state.order !== defaults.order) params.set('order', state.order);
+	if (state.view !== defaults.view) params.set('view', state.view);
+	return params;
+}
 
 export interface ActorRequest {
 	data: Countries;

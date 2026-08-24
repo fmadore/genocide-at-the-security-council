@@ -12,7 +12,17 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ambiguous, carries, occurrences, orderings, plan, points, scale } from './actors';
+import {
+	actorParams,
+	ambiguous,
+	carries,
+	occurrences,
+	orderings,
+	plan,
+	points,
+	readActorState,
+	scale
+} from './actors';
 import type { Countries, CountryMeasureRow, Speaker } from './types';
 
 const meta = { script: '11_countries.py', generated: '2026-08-10T00:00:00Z', lexicon_version: 4 };
@@ -75,6 +85,34 @@ const corpus = (speakers: Speaker[], rows: CountryMeasureRow[], collisions = {})
 		rows: []
 	},
 	measures: { genocide: { kind: 'terms', tier: 'core', register: 'core', rows } }
+});
+
+describe('actor URL state', () => {
+	it('round-trips the analytical controls', () => {
+		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
+		const state = {
+			measure: 'genocide',
+			period: 'all',
+			order: 'token_rate' as const,
+			view: 'choropleth' as const
+		};
+		expect(readActorState(actorParams(state, data), data)).toEqual(state);
+	});
+
+	it('normalizes unknown or unsupported controls to visible defaults', () => {
+		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
+		const state = readActorState(
+			new URLSearchParams('measure=unknown&period=never&order=unknown&view=globe'),
+			data
+		);
+		expect(state).toEqual({
+			measure: 'genocide',
+			period: 'all',
+			order: 'speech_rate',
+			view: 'points'
+		});
+		expect(actorParams(state, data).toString()).toBe('');
+	});
 });
 
 describe('the minimum-sample gate', () => {

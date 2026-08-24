@@ -150,9 +150,15 @@ test('keyboard users retain the actor table and evidence link when the map fails
 	page
 }) => {
 	await page.route('https://basemaps.cartocdn.com/**', (route) => route.abort('failed'));
-	await page.goto(`${base}/actors/`);
+	await page.goto(`${base}/actors/?order=token_rate&view=choropleth`);
 
 	await expect(page.getByRole('heading', { name: 'Who said it', level: 1 })).toBeVisible();
+	await expect(page.getByRole('combobox', { name: 'Ranked by' })).toHaveValue('token_rate');
+	await expect(page.getByRole('button', { name: 'Filled' })).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
+	await expect(page).toHaveURL(/\/actors\/?\?order=token_rate&view=choropleth$/);
 	await expect(page.getByRole('status')).toContainText(
 		'Every speaker it would show is in the table',
 		{ timeout: 8_000 }
