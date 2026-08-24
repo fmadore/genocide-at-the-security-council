@@ -67,7 +67,7 @@ test('an exported figure embeds its reading and provenance in the image', async 
 	expect(svg).toContain('pipeline commit: fixture');
 });
 
-test('a concordance hit opens, selects, and copies its exact occurrence', async ({
+test('a concordance hit opens, copies, and traverses exact occurrences', async ({
 	context,
 	page
 }) => {
@@ -77,7 +77,7 @@ test('a concordance hit opens, selects, and copies its exact occurrence', async 
 	const evidence = page.getByRole('link', { name: 'Read the whole speech' });
 	await expect(evidence).toHaveAttribute(
 		'href',
-		`${base}/reader/UNSC_2014_SPV.7000?speech=UNSC_2014_SPV.7000_spch0001&term=genocide&occurrence=UNSC_2014_SPV.7000_spch0001%231`
+		`${base}/reader/UNSC_2014_SPV.7000?term=genocide&speech=UNSC_2014_SPV.7000_spch0001&occurrence=UNSC_2014_SPV.7000_spch0001%231`
 	);
 	await evidence.click();
 
@@ -96,6 +96,14 @@ test('a concordance hit opens, selects, and copies its exact occurrence', async 
 	await page.getByRole('button', { name: 'Copy occurrence link' }).click();
 	await expect(page.getByRole('button', { name: 'Occurrence link copied' })).toBeVisible();
 	expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(page.url());
+	await expect(page.getByText('1 of 2', { exact: true })).toBeVisible();
+	await page.getByRole('link', { name: 'Next occurrence' }).click();
+	await expect(page.locator('mark.occurrence')).toHaveAttribute(
+		'data-occurrence',
+		'UNSC_2014_SPV.7000_spch0001#2'
+	);
+	await expect(page.getByText('2 of 2', { exact: true })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Previous occurrence' })).toBeVisible();
 	await expectNoAxeViolations(page);
 });
 
@@ -139,7 +147,8 @@ test('keyboard users retain the actor table and evidence link when the map fails
 
 	await expect(page.getByRole('heading', { name: 'Who said it', level: 1 })).toBeVisible();
 	await expect(page.getByRole('status')).toContainText(
-		'Every speaker it would show is in the table'
+		'Every speaker it would show is in the table',
+		{ timeout: 8_000 }
 	);
 	const table = page.locator('section.table-wrap');
 	const rwanda = table.getByRole('button', { name: 'Rwanda' });

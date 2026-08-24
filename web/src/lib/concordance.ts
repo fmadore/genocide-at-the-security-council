@@ -34,10 +34,133 @@
  * contract that fails for the most obvious way to use it.
  */
 
-import { MONTH_NAMES } from './format';
+import { MONTH_NAMES, shortCountry } from './format';
+import type { KwicLine } from './types';
 
 /** The query parameter this module owns. */
 export const MONTH_PARAM = 'month';
+
+export type ConcordanceSort = 'date' | 'country' | 'agenda' | 'left' | 'right';
+
+export interface ConcordanceState {
+	term: string;
+	query: string;
+	regex: boolean;
+	group: string;
+	country: string;
+	agenda: string;
+	spv: string;
+	from: number;
+	to: number;
+	month: number | null;
+	sort: ConcordanceSort;
+}
+
+export const CONCORDANCE_DEFAULTS: ConcordanceState = {
+	term: 'genocide',
+	query: '',
+	regex: false,
+	group: '',
+	country: '',
+	agenda: '',
+	spv: '',
+	from: 1992,
+	to: 2023,
+	month: null,
+	sort: 'date'
+};
+
+const SORTS = new Set<ConcordanceSort>(['date', 'country', 'agenda', 'left', 'right']);
+
+const year = (value: string | null, fallback: number): number => {
+	if (value === null || value.trim() === '') return fallback;
+	const parsed = Number(value);
+	return Number.isInteger(parsed) ? parsed : fallback;
+};
+
+/** Read the complete analytical state from a URL, with explicit safe defaults. */
+export function readConcordanceState(params: URLSearchParams): ConcordanceState {
+	const askedSort = params.get('sort') as ConcordanceSort | null;
+	return {
+		term: params.get('term') || CONCORDANCE_DEFAULTS.term,
+		query: params.get('q') ?? '',
+		regex: params.get('re') === '1',
+		group: params.get('group') ?? '',
+		country: params.get('country') ?? '',
+		agenda: params.get('agenda') ?? '',
+		spv: params.get('spv') ?? '',
+		from: year(params.get('from'), CONCORDANCE_DEFAULTS.from),
+		to: year(params.get('to'), CONCORDANCE_DEFAULTS.to),
+		month: readMonth(params.get(MONTH_PARAM)),
+		sort: askedSort && SORTS.has(askedSort) ? askedSort : CONCORDANCE_DEFAULTS.sort
+	};
+}
+
+/** Serialize only state that differs from the documented concordance defaults. */
+export function concordanceParams(state: ConcordanceState): URLSearchParams {
+	const params = new URLSearchParams();
+	if (state.term !== CONCORDANCE_DEFAULTS.term) params.set('term', state.term);
+	if (state.query) params.set('q', state.query);
+	if (state.regex) params.set('re', '1');
+	if (state.group) params.set('group', state.group);
+	if (state.country) params.set('country', state.country);
+	if (state.agenda) params.set('agenda', state.agenda);
+	if (state.spv) params.set('spv', state.spv);
+	if (state.from !== CONCORDANCE_DEFAULTS.from) params.set('from', String(state.from));
+	if (state.to !== CONCORDANCE_DEFAULTS.to) params.set('to', String(state.to));
+	if (state.month !== null) params.set(MONTH_PARAM, String(state.month));
+	if (state.sort !== CONCORDANCE_DEFAULTS.sort) params.set('sort', state.sort);
+	return params;
+}
+
+export interface ConcordanceResult {
+	lines: KwicLine[];
+	badRegex: boolean;
+}
+
+/** Apply the same filtering and corpus-linguistic sort in every consumer. */
+export function filterConcordance(
+	lines: readonly KwicLine[],
+	state: ConcordanceState
+): ConcordanceResult {
+	let matcher: ((line: KwicLine) => boolean) | null = null;
+	let badRegex = false;
+	if (state.query.trim()) {
+		if (state.regex) {
+			try {
+				const pattern = new RegExp(state.query, 'i');
+				matcher = (line) => pattern.test(`${line.left} ${line.kw} ${line.right}`);
+			} catch {
+				badRegex = true;
+			}
+		} else {
+			const needle = state.query.toLowerCase();
+			matcher = (line) => `${line.left} ${line.kw} ${line.right}`.toLowerCase().includes(needle);
+		}
+	}
+
+	const rows = lines.filter((line) => {
+		const lineYear = Number(line.date.slice(0, 4));
+		if (lineYear < state.from || lineYear > state.to) return false;
+		if (!inMonth(line.date, state.month)) return false;
+		if (state.group && line.group !== state.group) return false;
+		if (state.country && line.country !== state.country) return false;
+		if (state.agenda && line.agenda !== state.agenda) return false;
+		if (state.spv && line.spv !== state.spv) return false;
+		return matcher ? matcher(line) : true;
+	});
+
+	const tail = (value: string) =>
+		[...value.toLowerCase().replace(/[^a-z ]/g, '')].reverse().join('');
+	const by: Record<ConcordanceSort, (a: KwicLine, b: KwicLine) => number> = {
+		date: (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
+		country: (a, b) => shortCountry(a.country).localeCompare(shortCountry(b.country)),
+		agenda: (a, b) => a.agenda.localeCompare(b.agenda),
+		left: (a, b) => tail(a.left).localeCompare(tail(b.left)),
+		right: (a, b) => a.right.toLowerCase().localeCompare(b.right.toLowerCase())
+	};
+	return { lines: [...rows].sort(by[state.sort]), badRegex };
+}
 
 /**
  * The month a URL asks for, 1–12, or null when it does not honestly ask for one.

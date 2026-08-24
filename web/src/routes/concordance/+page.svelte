@@ -7,7 +7,14 @@
 	import Download from '@lucide/svelte/icons/download';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import X from '@lucide/svelte/icons/x';
-	import { MONTH_PARAM, describeMonth, inMonth, readMonth } from '$lib/concordance';
+	import {
+		CONCORDANCE_DEFAULTS,
+		concordanceParams,
+		describeMonth,
+		filterConcordance,
+		readConcordanceState
+	} from '$lib/concordance';
+	import type { ConcordanceSort } from '$lib/concordance';
 	import { kwic, meetingOf, speechOf } from '$lib/data';
 	import { filename, provenanceOf, saveCsv, toCsv } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
@@ -24,17 +31,14 @@
 	} from '$lib/format';
 	import { segments } from '$lib/highlight';
 	import type { KwicFile, KwicLine } from '$lib/types';
-	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
-	type Sort = 'date' | 'country' | 'agenda' | 'left' | 'right';
-
 	/* A segmented control rather than a select: five short words, all visible at
 	   once, because which sort is in force changes what the column of nodes
 	   means and should never be one click out of sight. */
-	const SORTS: { value: Sort; label: string; hint: string }[] = [
+	const SORTS: { value: ConcordanceSort; label: string; hint: string }[] = [
 		{ value: 'date', label: 'Date', hint: 'Oldest first, then by speech identifier' },
 		{ value: 'country', label: 'Speaker', hint: 'Alphabetical by speaker' },
 		{ value: 'agenda', label: 'Agenda', hint: 'Alphabetical by agenda item' },
@@ -80,7 +84,7 @@
 	   years left alone is one row of the calendar beside it. What the parameter
 	   means, and what an unreadable one does, is `$lib/concordance`. */
 	let month = $state<number | null>(null);
-	let sort = $state<Sort>('date');
+	let sort = $state<ConcordanceSort>('date');
 	let regex = $state(false);
 	let urlReady = $state(false);
 	let shown = $state(PAGE);
@@ -92,18 +96,18 @@
 	let retry = $state(0);
 
 	onMount(() => {
-		const params = page.url.searchParams;
-		term = params.get('term') ?? 'genocide';
-		query = searched = params.get('q') ?? '';
-		group = params.get('group') ?? '';
-		country = params.get('country') ?? '';
-		agenda = params.get('agenda') ?? '';
-		spv = params.get('spv') ?? '';
-		from = Number(params.get('from') ?? 1992);
-		to = Number(params.get('to') ?? 2023);
-		month = readMonth(params.get(MONTH_PARAM));
-		sort = (params.get('sort') as Sort) ?? 'date';
-		regex = params.get('re') === '1';
+		const state = readConcordanceState(page.url.searchParams);
+		term = state.term;
+		query = searched = state.query;
+		group = state.group;
+		country = state.country;
+		agenda = state.agenda;
+		spv = state.spv;
+		from = state.from;
+		to = state.to;
+		month = state.month;
+		sort = state.sort;
+		regex = state.regex;
 		// The first replaceState must wait until SvelteKit has assigned its root.
 		// Running it inside the initial mount callback reaches the client router
 		// before that assignment is complete.
@@ -127,12 +131,27 @@
 	const entries = $derived([...data.index.terms].sort((a, b) => b.count - a.count));
 	const entry = $derived(entries.find((e) => e.term === term));
 
+	const currentState = () => ({
+		term,
+		query: searched,
+		regex,
+		group,
+		country,
+		agenda,
+		spv,
+		from,
+		to,
+		month,
+		sort
+	});
+
 	function readerHref(line: KwicLine): string {
-		const query = new URLSearchParams({
-			speech: speechOf(line.id),
-			term,
-			occurrence: line.id
-		});
+		const query = concordanceParams(currentState());
+		// The concordance may omit its default term, but the reader needs it to
+		// identify which term-specific ordinal the occurrence ID names.
+		query.set('term', term);
+		query.set('speech', speechOf(line.id));
+		query.set('occurrence', line.id);
 		return `${resolve('/reader/[meeting]', { meeting: meetingOf(line.id) })}?${query}`;
 	}
 
@@ -157,20 +176,7 @@
 	/** Keep the URL in step, so any view of the concordance is citable. */
 	$effect(() => {
 		if (!urlReady) return;
-		const next = new SvelteURLSearchParams();
-		if (term !== 'genocide') next.set('term', term);
-		if (searched) next.set('q', searched);
-		if (regex) next.set('re', '1');
-		if (group) next.set('group', group);
-		if (country) next.set('country', country);
-		if (agenda) next.set('agenda', agenda);
-		if (spv) next.set('spv', spv);
-		if (from !== 1992) next.set('from', String(from));
-		if (to !== 2023) next.set('to', String(to));
-		// Written from the parsed value, never from the raw parameter, so a URL
-		// carrying `month=13` rewrites itself to one that means what it shows.
-		if (month !== null) next.set(MONTH_PARAM, String(month));
-		if (sort !== 'date') next.set('sort', sort);
+		const next = concordanceParams(currentState());
 		const search = next.toString();
 		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
 	});
@@ -185,46 +191,9 @@
 	);
 	const agendas = $derived([...new Set(lines.map((l) => l.agenda))].sort());
 
-	const matcher = $derived.by(() => {
-		if (!searched.trim()) return null;
-		if (!regex) {
-			const needle = searched.toLowerCase();
-			return (l: KwicLine) => `${l.left} ${l.kw} ${l.right}`.toLowerCase().includes(needle);
-		}
-		try {
-			const re = new RegExp(searched, 'i');
-			return (l: KwicLine) => re.test(`${l.left} ${l.kw} ${l.right}`);
-		} catch {
-			return 'invalid' as const;
-		}
-	});
-
-	const badRegex = $derived(matcher === 'invalid');
-
-	const filtered = $derived.by(() => {
-		const test = typeof matcher === 'function' ? matcher : null;
-		const rows = lines.filter((l) => {
-			const year = Number(l.date.slice(0, 4));
-			if (year < from || year > to) return false;
-			if (!inMonth(l.date, month)) return false;
-			if (group && l.group !== group) return false;
-			if (country && l.country !== country) return false;
-			if (agenda && l.agenda !== agenda) return false;
-			if (spv && l.spv !== spv) return false;
-			return test ? test(l) : true;
-		});
-		const tail = (s: string) => [...s.toLowerCase().replace(/[^a-z ]/g, '')].reverse().join('');
-		const by: Record<Sort, (a: KwicLine, b: KwicLine) => number> = {
-			date: (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
-			country: (a, b) => shortCountry(a.country).localeCompare(shortCountry(b.country)),
-			agenda: (a, b) => a.agenda.localeCompare(b.agenda),
-			// Classic corpus-linguistic sorts: alphabetise the context, not the
-			// keyword, and recurring patterns line up down the column.
-			left: (a, b) => tail(a.left).localeCompare(tail(b.left)),
-			right: (a, b) => a.right.toLowerCase().localeCompare(b.right.toLowerCase())
-		};
-		return [...rows].sort(by[sort]);
-	});
+	const result = $derived(filterConcordance(lines, currentState()));
+	const badRegex = $derived(result.badRegex);
+	const filtered = $derived(result.lines);
 
 	$effect(() => {
 		// Any change to the filter resets the page window.
@@ -240,8 +209,8 @@
 		country = '';
 		agenda = '';
 		spv = '';
-		from = 1992;
-		to = 2023;
+		from = CONCORDANCE_DEFAULTS.from;
+		to = CONCORDANCE_DEFAULTS.to;
 		month = null;
 		sort = 'date';
 		regex = false;

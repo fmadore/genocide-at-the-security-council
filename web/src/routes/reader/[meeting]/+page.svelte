@@ -4,11 +4,19 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import Icon from '$lib/Icon.svelte';
-	import { kwicIndex, meeting as loadMeeting, occurrenceOf, speechOf } from '$lib/data';
+	import {
+		kwic,
+		kwicIndex,
+		meeting as loadMeeting,
+		meetingOf,
+		occurrenceOf,
+		speechOf
+	} from '$lib/data';
+	import { filterConcordance, readConcordanceState } from '$lib/concordance';
 	import { count, isoDate, shortCountry, termLabel, unSearch } from '$lib/format';
 	import type { Meeting, Speech } from '$lib/types';
 	import { tick } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
+	import { SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 
 	const basename = $derived(page.params.meeting!);
 	const wantedSpeech = $derived(page.url.searchParams.get('speech'));
@@ -21,26 +29,59 @@
 	let open = new SvelteSet<string>();
 	let showAddress = $state(false);
 	let copyState = $state<'idle' | 'copied' | 'failed'>('idle');
+	let resultNavigation = $state<{
+		position: number;
+		total: number;
+		previous: string | null;
+		next: string | null;
+	} | null>(null);
 
 	$effect(() => {
 		const wanted = basename;
+		const speech = wantedSpeech;
+		const occurrence = wantedOccurrence;
 		record = null;
 		failure = null;
+		copyState = 'idle';
 		loadMeeting(wanted)
 			.then(async (loaded) => {
 				if (wanted !== basename) return;
 				record = loaded;
-				const target = wantedSpeech ?? loaded.speeches.find((s) => hasHits(s))?.id;
+				const target = speech ?? loaded.speeches.find((s) => hasHits(s))?.id;
 				open.clear();
 				if (target) open.add(target);
 				await tick();
-				const exact = wantedOccurrence
-					? document.querySelector<HTMLElement>('[data-occurrence]')
-					: null;
+				const exact = occurrence ? document.querySelector<HTMLElement>('[data-occurrence]') : null;
 				(exact ?? document.getElementById(target ?? ''))?.scrollIntoView({ block: 'center' });
 			})
 			.catch((error: Error) => {
 				if (wanted === basename) failure = error.message;
+			});
+	});
+
+	$effect(() => {
+		const occurrence = wantedOccurrence;
+		const term = wantedTerm;
+		const search = page.url.search;
+		resultNavigation = null;
+		if (!occurrence || !term) return;
+		const state = readConcordanceState(new URLSearchParams(search));
+		kwic(term)
+			.then((file) => {
+				if (occurrence !== wantedOccurrence || search !== page.url.search) return;
+				const ordered = filterConcordance(file.lines, state).lines;
+				const index = ordered.findIndex((line) => line.id === occurrence);
+				if (index < 0) return;
+				resultNavigation = {
+					position: index + 1,
+					total: ordered.length,
+					previous: ordered[index - 1]?.id ?? null,
+					next: ordered[index + 1]?.id ?? null
+				};
+			})
+			.catch(() => {
+				// Navigation is an enhancement. The meeting evidence remains usable if
+				// the term-specific result file is unavailable to a direct permalink.
 			});
 	});
 
@@ -179,6 +220,13 @@
 		}
 	}
 
+	function occurrenceHref(id: string): string {
+		const params = new SvelteURLSearchParams(page.url.searchParams);
+		params.set('speech', speechOf(id));
+		params.set('occurrence', id);
+		return `${resolve('/reader/[meeting]', { meeting: meetingOf(id) })}?${params}`;
+	}
+
 	const preview = (speech: Speech) =>
 		speech.text.slice(speech.body_start, speech.body_start + 180).replace(/\s+/g, ' ') + '…';
 
@@ -274,6 +322,17 @@
 							? 'Could not copy link'
 							: 'Copy occurrence link'}
 				</button>
+			{/if}
+			{#if resultNavigation}
+				<nav class="result-nav" aria-label="Occurrences in the current concordance results">
+					{#if resultNavigation.previous}
+						<a href={occurrenceHref(resultNavigation.previous)}>Previous occurrence</a>
+					{/if}
+					<span class="symbol">{resultNavigation.position} of {resultNavigation.total}</span>
+					{#if resultNavigation.next}
+						<a href={occurrenceHref(resultNavigation.next)}>Next occurrence</a>
+					{/if}
+				</nav>
 			{/if}
 			<button class="ghost" onclick={openAll}>Open every speech</button>
 		</div>
@@ -512,6 +571,14 @@
 	.selected {
 		font-size: var(--step--2);
 		color: var(--ink-2);
+	}
+
+	.result-nav {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+		font-family: var(--sans);
+		font-size: var(--step--2);
 	}
 
 	.ghost {

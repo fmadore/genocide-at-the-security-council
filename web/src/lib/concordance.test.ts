@@ -12,14 +12,19 @@
 import { describe, expect, it } from 'vitest';
 import {
 	MONTH_PARAM,
+	CONCORDANCE_DEFAULTS,
 	cellQuery,
+	concordanceParams,
 	describeMonth,
+	filterConcordance,
 	inMonth,
 	monthName,
 	monthOf,
 	pooledQuery,
+	readConcordanceState,
 	readMonth
 } from './concordance';
+import type { KwicLine } from './types';
 
 const read = (query: string) => readMonth(new URLSearchParams(query).get(MONTH_PARAM));
 
@@ -128,5 +133,76 @@ describe('naming a month', () => {
 
 	it('writes the filter the way the export lists it', () => {
 		expect(describeMonth(6)).toBe('month: June');
+	});
+});
+
+const line = (over: Partial<KwicLine>): KwicLine => ({
+	id: 'UNSC_2014_SPV.7000_spch0001#1',
+	spv: 'S/PV.7000',
+	date: '2014-06-11',
+	country: 'Rwanda',
+	iso3: 'RWA',
+	group: 'E10',
+	type: 'state',
+	agenda: 'Protection of civilians',
+	start: 20,
+	end: 28,
+	left: 'warned that ',
+	kw: 'genocide',
+	right: ' could occur',
+	sent: 'We warned that genocide could occur.',
+	...over
+});
+
+describe('the complete concordance query state', () => {
+	it('round-trips every analytical control', () => {
+		const state = {
+			...CONCORDANCE_DEFAULTS,
+			term: 'war_crimes',
+			query: 'tribunal',
+			regex: true,
+			group: 'E10',
+			country: 'Rwanda',
+			agenda: 'Protection of civilians',
+			spv: 'S/PV.7000',
+			from: 2014,
+			to: 2016,
+			month: 6,
+			sort: 'right' as const
+		};
+		expect(readConcordanceState(concordanceParams(state))).toEqual(state);
+	});
+
+	it('drops invalid discrete values to visible defaults', () => {
+		const state = readConcordanceState(
+			new URLSearchParams('from=not-a-year&to=2014.5&month=13&sort=unknown')
+		);
+		expect(state).toEqual(CONCORDANCE_DEFAULTS);
+		expect(concordanceParams(state).toString()).toBe('');
+	});
+
+	it('filters repeated occurrences and preserves their requested order', () => {
+		const rows = [
+			line({ id: 'speech#1', right: ' zebra' }),
+			line({ id: 'speech#2', right: ' alpha' }),
+			line({ id: 'other#1', country: 'France', right: ' beta' })
+		];
+		const result = filterConcordance(rows, {
+			...CONCORDANCE_DEFAULTS,
+			country: 'Rwanda',
+			sort: 'right'
+		});
+		expect(result.lines.map((row) => row.id)).toEqual(['speech#2', 'speech#1']);
+		expect(result.badRegex).toBe(false);
+	});
+
+	it('reports a bad regex without hiding otherwise matching evidence', () => {
+		const result = filterConcordance([line({})], {
+			...CONCORDANCE_DEFAULTS,
+			query: '[',
+			regex: true
+		});
+		expect(result.badRegex).toBe(true);
+		expect(result.lines).toHaveLength(1);
 	});
 });
