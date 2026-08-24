@@ -34,13 +34,19 @@ by the headline `genocid*` pattern:
 Check whether the printed record reads “genocide.” The headline count remains 3,273
 speeches either way because the tolerant pattern is reported separately.
 
-### 2. Human precision audit — 200 rows
+### 2. Human lexicon audit — three sampling frames
 
-`data/interim/lexicon_audit_candidates.csv` contains deterministic occurrence-level,
-speech-level and term × period candidates. Human work is stored separately in the versioned
-`annotations/lexicon/annotations.csv`; the pipeline joins both into the generated
-`data/interim/lexicon_audit_review.csv` and never writes the annotation file. A human
-reviewer must fill:
+`data/interim/lexicon_audit_candidates.csv` combines three deterministic occurrence-level
+samples, also written as separate probability, coverage and high-recall-negative CSV files.
+The probability sample supports an overall precision estimate; the unequal-probability
+coverage sample spans term × period strata for diagnosis; the negative sample inspects
+declared disabled patterns for possible misses and is not, by itself, a corpus-wide recall
+estimate. Every row records its frame size, selection probability, sampling weight, seed and
+frame/sample hashes.
+
+Human work is stored separately in the versioned `annotations/lexicon/annotations.csv`; the
+pipeline joins both into the generated `data/interim/lexicon_audit_review.csv` and never
+writes the annotation file. A human reviewer must fill:
 
 - `verdict`: true positive, false positive or uncertain;
 - `source_checked`: whether the original record was consulted;

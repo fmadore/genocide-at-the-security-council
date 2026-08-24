@@ -66,6 +66,9 @@ DOCUMENTED: dict[str, tuple[int, int]] = {
 
 AUDIT_CANDIDATES = INTERIM / "lexicon_audit_candidates.csv"
 AUDIT_REVIEW = INTERIM / "lexicon_audit_review.csv"
+AUDIT_PROBABILITY = INTERIM / "lexicon_audit_probability.csv"
+AUDIT_COVERAGE = INTERIM / "lexicon_audit_coverage.csv"
+AUDIT_NEGATIVE = INTERIM / "lexicon_audit_negative.csv"
 AUDIT_ANNOTATIONS = ROOT / "annotations" / "lexicon" / "annotations.csv"
 
 
@@ -98,20 +101,6 @@ def _period(year: int) -> str:
     return f"{year // 10 * 10}s"
 
 
-def _stratified_sample(frame: pd.DataFrame, size: int, seed: int) -> pd.DataFrame:
-    """Cover term-period strata once, then fill remaining places at random."""
-    anchors = frame.groupby(["term", "period"], sort=True, group_keys=False).sample(
-        n=1, random_state=seed
-    )
-    if len(anchors) > size:
-        anchors = anchors.sample(size, random_state=seed)
-    remaining = frame.drop(index=anchors.index)
-    needed = min(max(size - len(anchors), 0), len(remaining))
-    if needed:
-        anchors = pd.concat([anchors, remaining.sample(needed, random_state=seed + 1)])
-    return anchors.sort_values(["term", "index", "start"])
-
-
 def audit_sample(
     speeches: pd.DataFrame,
     bodies: pd.Series,
@@ -120,71 +109,72 @@ def audit_sample(
     size: int,
     seed: int,
 ) -> pd.DataFrame:
-    """Term/period-stratified occurrence and speech samples for human review."""
-    rows = []
+    """Separate probability, coverage and high-recall negative audit samples."""
+    rows: list[dict[str, object]] = []
     years = speeches["year"].to_dict()
-    for term in lex.active:
-        holders = counts.index[counts[f"{lexicon.HAS}{term.name}"]]
-        for index, body in bodies.loc[holders].items():
-            for match in term.regex.finditer(body):
-                rows.append(
-                    {
-                        "term": term.name,
-                        "tier": term.tier,
-                        "register": term.register,
-                        "index": index,
-                        "start": match.start(),
-                        "end": match.end(),
-                        "period": _period(int(years[index])),
-                    }
-                )
-    if not rows:
-        return pd.DataFrame()
 
-    occurrences = pd.DataFrame(rows)
-    occurrence_sample = _stratified_sample(occurrences, size, seed).assign(
-        unit="occurrence", strategy="term-period stratified"
-    )
-    speech_candidates = occurrences.drop_duplicates(["term", "index"], keep="first")
-    speech_sample = _stratified_sample(speech_candidates, size, seed + 2).assign(
-        unit="speech", strategy="term-period stratified"
-    )
-
-    out = []
-    for row in pd.concat([occurrence_sample, speech_sample]).itertuples():
-        body = bodies.loc[row.index]
-        left, keyword, right = text.window(body, row.start, row.end)
-        meta = speeches.loc[row.index]
+    def append(term: lexicon.Term, index: object, body: str, start: int, end: int) -> None:
+        meta = speeches.loc[index]
+        left, keyword, right = text.window(body, start, end)
         source_digest = audit.source_sha256(body)
         occurrence = audit.occurrence_id(
-            str(meta["filename"]), row.term, row.start, row.end, keyword, source_digest
+            str(meta["filename"]), term.name, start, end, keyword, source_digest
         )
-        out.append(
+        rows.append(
             {
-                "candidate_id": audit.candidate_id(occurrence, row.unit),
                 "occurrence_id": occurrence,
                 "schema_version": audit.SCHEMA_VERSION,
                 "lexicon_version": lex.version,
-                "unit": row.unit,
-                "strategy": row.strategy,
-                "term": row.term,
-                "tier": row.tier,
-                "register": row.register,
-                "period": row.period,
+                "unit": "occurrence",
+                "term": term.name,
+                "tier": term.tier,
+                "register": term.register,
+                "period": _period(int(years[index])),
                 "filename": meta["filename"],
                 "meeting_symbol": meta["meeting_symbol"],
                 "date": f"{meta['date']:%Y-%m-%d}",
                 "country_org": meta["country_org"],
                 "agenda": meta["agenda_item_manual"],
-                "start": row.start,
-                "end": row.end,
+                "start": start,
+                "end": end,
                 "source_sha256": source_digest,
                 "left": left,
                 "keyword": keyword,
                 "right": right,
             }
         )
-    return pd.DataFrame(out)
+
+    for term in lex.active:
+        holders = counts.index[counts[f"{lexicon.HAS}{term.name}"]]
+        for index, body in bodies.loc[holders].items():
+            for match in term.regex.finditer(body):
+                append(term, index, body, match.start(), match.end())
+    if not rows:
+        return pd.DataFrame()
+
+    occurrences = pd.DataFrame(rows)
+    probability = audit.probability_sample(occurrences, size, seed, audit.PROBABILITY)
+    coverage = audit.coverage_sample(occurrences, size, seed + 1)
+
+    rows.clear()
+    for term in lex.disabled:
+        peers = [peer for peer in lex.active if peer.tier == term.tier]
+        for index, body in bodies.items():
+            matches = list(term.regex.finditer(body))
+            if not matches:
+                continue
+            peer_spans = [match.span() for peer in peers for match in peer.regex.finditer(body)]
+            for match in matches:
+                start, end = match.span()
+                overlaps = any(
+                    start < peer_end and peer_start < end
+                    for peer_start, peer_end in peer_spans
+                )
+                if not overlaps:
+                    append(term, index, body, start, end)
+    negatives = pd.DataFrame(rows, columns=occurrences.columns)
+    negative = audit.probability_sample(negatives, size, seed + 2, audit.NEGATIVE)
+    return pd.concat([probability, coverage, negative], ignore_index=True)
 
 
 def build_note(
@@ -276,9 +266,11 @@ def build_note(
             "",
             "## Precision audit",
             "",
-            f"Up to {sample_size} occurrence-level and {sample_size} speech-level cases were",
-            f"written to `{rel(AUDIT_CANDIDATES)}`. Sampling covers each term-period stratum",
-            "before filling the remainder randomly. Human annotations remain separately",
+            f"Up to {sample_size} cases per sampling frame were written to",
+            f"`{rel(AUDIT_CANDIDATES)}` and to three frame-specific CSV files. The probability",
+            "sample estimates occurrence precision; the coverage sample spans term-period",
+            "strata; the negative sample inspects matches from declared disabled high-recall",
+            "patterns. Human annotations remain separately",
             f"versioned at `{rel(AUDIT_ANNOTATIONS)}`; `{rel(AUDIT_REVIEW)}` is the generated",
             "join used for review. Pipeline runs never write the annotation file.",
             "",
@@ -333,8 +325,14 @@ def run(sample_size: int, seed: int) -> None:
         annotation_path=AUDIT_ANNOTATIONS,
         candidate_path=AUDIT_CANDIDATES,
         review_path=AUDIT_REVIEW,
+        frame_paths={
+            audit.PROBABILITY: AUDIT_PROBABILITY,
+            audit.COVERAGE: AUDIT_COVERAGE,
+            audit.NEGATIVE: AUDIT_NEGATIVE,
+        },
     )
-    annotated = int(review["coder"].astype("string").str.len().gt(0).sum())
+    coded = review.loc[review["coder"].astype("string").str.len().gt(0)]
+    annotated = len(coded.drop_duplicates(["occurrence_id", "coder"]))
     console.info(
         f"wrote {rel(AUDIT_CANDIDATES)} and {rel(AUDIT_REVIEW)} "
         f"({len(sample)} candidates, {annotated} annotations, seed {seed})"
@@ -359,6 +357,9 @@ def run(sample_size: int, seed: int) -> None:
                 artifacts.describe_file(SPEECHES_FLAGGED, ROOT),
                 artifacts.describe_file(AUDIT_CANDIDATES, ROOT),
                 artifacts.describe_file(AUDIT_REVIEW, ROOT),
+                artifacts.describe_file(AUDIT_PROBABILITY, ROOT),
+                artifacts.describe_file(AUDIT_COVERAGE, ROOT),
+                artifacts.describe_file(AUDIT_NEGATIVE, ROOT),
             ],
             "lexicon_version": lex.version,
             "terms": {
