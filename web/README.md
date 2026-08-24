@@ -62,6 +62,11 @@ click and decides nothing.
 | `/reader/[meeting]` | The full verbatim record with matches highlighted by register                                                                                                           |
 | `/methods`          | How every number was made, and what is still unverified                                                                                                                 |
 
+Controls that change an analytical reading are reflected in the URL on Chronology, Actors,
+Language and Concordance. A copied address therefore restores the same measures, periods,
+comparisons and filters. Hover, chart zoom, map-row focus and other transient presentation
+state stay local to the browser session.
+
 `/reader/[meeting]` is the only client-only route: prerendering it would mean generating
 6,595 pages to display text that is already fetched as JSON. The static adapter's
 `404.html` fallback serves it.

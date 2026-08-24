@@ -1,11 +1,21 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import WordCloud from '$lib/WordCloud.svelte';
+	import {
+		languageParams,
+		readLanguageState,
+		type Alignment,
+		type CloudFacet,
+		type KeynessView,
+		type LanguageChoices,
+		type SliceKind
+	} from '$lib/language';
 	import { plan } from '$lib/wordcloud';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
@@ -22,7 +32,7 @@
 	import { axisX, axisY, colours, grid, registerColour, textStyle, tooltip } from '$lib/theme';
 	import type { CollocateBlock, Word } from '$lib/types';
 	import type { EChartsOption } from 'echarts';
-	import { untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 
@@ -176,11 +186,12 @@
 
 	let node = $state('genocide');
 	let width = $state('5');
-	let sliceKind = $state<'by_country' | 'by_period' | 'by_speaker_group'>('by_country');
+	let sliceKind = $state<SliceKind>('by_country');
 	let sliceA = $state('Rwanda');
 	let sliceB = $state('United States Of America');
 	let period = $state('whole');
-	let keynessView = $state<'matched' | 'unmatched'>('matched');
+	let keynessView = $state<KeynessView>('matched');
+	let urlReady = $state(false);
 
 	const nodes = $derived(Object.keys(data.collocates.nodes));
 	const widths = $derived(data.collocates.widths.map(String));
@@ -208,8 +219,7 @@
 
 	/* --- The same table, drawn as a cloud --------------------------------- */
 
-	type Facet = 'whole' | 'by_country' | 'by_period' | 'by_speaker_group';
-	let cloudFacet = $state<Facet>('whole');
+	let cloudFacet = $state<CloudFacet>('whole');
 	/* Opened on the term and window the sliced artefact was counted at, so that
 	   the whole-corpus cloud and any facet of it are the same question put to
 	   different populations rather than two different questions. Read once and
@@ -443,7 +453,69 @@
 	 *          the finding is how far apart the two are on the same word — with
 	 *          an em dash where the word is not in the other profile at all.
 	 */
-	let align = $state<'rank' | 'word'>('rank');
+	let align = $state<Alignment>('rank');
+
+	const urlChoices: LanguageChoices = $derived.by(() => ({
+		nodes: Object.fromEntries(
+			Object.entries(data.collocates.nodes).map(([name, block]) => [
+				name,
+				Object.keys(block.widths)
+			])
+		),
+		slices: {
+			by_country: Object.keys(data.sliced.by_country),
+			by_period: Object.keys(data.sliced.by_period),
+			by_speaker_group: Object.keys(data.sliced.by_speaker_group)
+		},
+		periods: ['whole', ...Object.keys(data.network.by_period)],
+		cloudDefault: { node: data.sliced.term, width: String(data.sliced.width) }
+	}));
+
+	onMount(() => {
+		const state = readLanguageState(page.url.searchParams, urlChoices);
+		node = state.node;
+		width = state.width;
+		sliceKind = state.sliceKind;
+		sliceA = state.sliceA;
+		sliceB = state.sliceB;
+		align = state.align;
+		cloudFacet = state.cloudFacet;
+		cloudNode = state.cloudNode;
+		cloudWidth = state.cloudWidth;
+		cloudMember = state.cloudMember;
+		cloudLimit = state.cloudLimit;
+		cloudFloor = state.cloudFloor;
+		keynessView = state.keynessView;
+		period = state.period;
+		void tick().then(() => {
+			urlReady = true;
+		});
+	});
+
+	$effect(() => {
+		if (!urlReady) return;
+		const params = languageParams(
+			{
+				node,
+				width,
+				sliceKind,
+				sliceA,
+				sliceB,
+				align,
+				cloudFacet,
+				cloudNode,
+				cloudWidth,
+				cloudMember,
+				cloudLimit,
+				cloudFloor,
+				keynessView,
+				period
+			},
+			urlChoices
+		);
+		const search = params.toString();
+		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
+	});
 
 	const alignedRows = $derived.by(() => {
 		const inA = new Map((blockA?.collocates ?? []).map((w) => [w.word, w]));
