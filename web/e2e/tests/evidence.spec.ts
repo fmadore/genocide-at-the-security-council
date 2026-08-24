@@ -96,6 +96,13 @@ test('a concordance hit opens, copies, and traverses exact occurrences', async (
 	await page.getByRole('button', { name: 'Copy occurrence link' }).click();
 	await expect(page.getByRole('button', { name: 'Occurrence link copied' })).toBeVisible();
 	expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(page.url());
+	await page.getByRole('button', { name: 'Copy quotation + citation' }).click();
+	await expect(page.getByRole('button', { name: 'Quotation copied' })).toBeVisible();
+	const quotation = await page.evaluate(() => navigator.clipboard.readText());
+	expect(quotation).toContain('“We warned that genocide could occur.”');
+	expect(quotation).toContain('Rwanda, UN Security Council, S/PV.7000 (2014-06-11).');
+	expect(quotation).toContain('occurrence UNSC_2014_SPV.7000_spch0001#1.');
+	expect(quotation).toContain(page.url());
 	await expect(page.getByText('1 of 2', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Next occurrence' }).click();
 	await expect(page.locator('mark.occurrence')).toHaveAttribute(

@@ -13,8 +13,9 @@
 		speechOf
 	} from '$lib/data';
 	import { filterConcordance, readConcordanceState } from '$lib/concordance';
+	import { occurrenceQuotation } from '$lib/citation';
 	import { count, isoDate, shortCountry, termLabel, unSearch } from '$lib/format';
-	import type { Meeting, Speech } from '$lib/types';
+	import type { KwicLine, Meeting, Speech } from '$lib/types';
 	import { tick } from 'svelte';
 	import { SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 
@@ -29,6 +30,8 @@
 	let open = new SvelteSet<string>();
 	let showAddress = $state(false);
 	let copyState = $state<'idle' | 'copied' | 'failed'>('idle');
+	let quoteState = $state<'idle' | 'copied' | 'failed'>('idle');
+	let selectedLine = $state<KwicLine | null>(null);
 	let resultNavigation = $state<{
 		position: number;
 		total: number;
@@ -43,6 +46,7 @@
 		record = null;
 		failure = null;
 		copyState = 'idle';
+		quoteState = 'idle';
 		loadMeeting(wanted)
 			.then(async (loaded) => {
 				if (wanted !== basename) return;
@@ -64,6 +68,7 @@
 		const term = wantedTerm;
 		const search = page.url.search;
 		resultNavigation = null;
+		selectedLine = null;
 		if (!occurrence || !term) return;
 		const state = readConcordanceState(new URLSearchParams(search));
 		kwic(term)
@@ -72,6 +77,7 @@
 				const ordered = filterConcordance(file.lines, state).lines;
 				const index = ordered.findIndex((line) => line.id === occurrence);
 				if (index < 0) return;
+				selectedLine = ordered[index];
 				resultNavigation = {
 					position: index + 1,
 					total: ordered.length,
@@ -220,6 +226,16 @@
 		}
 	}
 
+	async function copyQuotation() {
+		if (!selectedLine) return;
+		try {
+			await navigator.clipboard.writeText(occurrenceQuotation(selectedLine, page.url.href));
+			quoteState = 'copied';
+		} catch {
+			quoteState = 'failed';
+		}
+	}
+
 	function occurrenceHref(id: string): string {
 		const params = new SvelteURLSearchParams(page.url.searchParams);
 		params.set('speech', speechOf(id));
@@ -321,6 +337,15 @@
 						: copyState === 'failed'
 							? 'Could not copy link'
 							: 'Copy occurrence link'}
+				</button>
+			{/if}
+			{#if selectedLine}
+				<button class="ghost" onclick={copyQuotation}>
+					{quoteState === 'copied'
+						? 'Quotation copied'
+						: quoteState === 'failed'
+							? 'Could not copy quotation'
+							: 'Copy quotation + citation'}
 				</button>
 			{/if}
 			{#if resultNavigation}
