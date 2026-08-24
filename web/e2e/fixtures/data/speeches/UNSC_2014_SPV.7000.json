@@ -1,0 +1,38 @@
+{
+	"meta": {
+		"script": "09_export_speeches.py",
+		"generated": "2026-08-24T00:00:00Z",
+		"git_commit": "fixture",
+		"lexicon_version": 2
+	},
+	"basename": "UNSC_2014_SPV.7000",
+	"spv": "S/PV.7000",
+	"date": "2014-06-11",
+	"year": 2014,
+	"topic": "Protection of civilians",
+	"region": "Global",
+	"agenda": "Protection of civilians",
+	"speeches": [
+		{
+			"id": "UNSC_2014_SPV.7000_spch0001",
+			"n": 1,
+			"speaker": "Ms. Example",
+			"role": "Representative",
+			"country": "Rwanda",
+			"iso3": "RWA",
+			"entity_type": "state",
+			"group": "E10",
+			"type": "state",
+			"language": "French",
+			"tokens": 13,
+			"body_start": 11,
+			"text": "President: We warned that genocide could occur. We reject the claim of genocide.",
+			"hits": {
+				"genocide": [
+					[26, 34],
+					[71, 79]
+				]
+			}
+		}
+	]
+}

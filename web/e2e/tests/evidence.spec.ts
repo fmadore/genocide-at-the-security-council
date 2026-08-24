@@ -1,0 +1,96 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+import { base } from '../../playwright.config';
+
+const concordance = `${base}/concordance/`;
+
+async function expectNoAxeViolations(page: import('@playwright/test').Page) {
+	const { violations } = await new AxeBuilder({ page }).analyze();
+	expect(violations).toEqual([]);
+}
+
+test('a filtered concordance URL restores its analytical state under the base path', async ({
+	page
+}) => {
+	await page.goto(
+		`${concordance}?term=genocide&country=Rwanda&from=2014&to=2014&month=6&sort=right`
+	);
+
+	await expect(page.getByRole('heading', { name: 'Concordance', level: 1 })).toBeVisible();
+	await expect(page.getByRole('combobox', { name: 'Speaker', exact: true })).toHaveValue('Rwanda');
+	await expect(page.getByRole('combobox', { name: 'Month', exact: true })).toHaveValue('6');
+	await expect(page.getByRole('button', { name: 'Right' })).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.locator('.status')).toContainText('2 of 2 lines');
+	await expect(page).toHaveURL(/\/genocide-at-the-security-council\/concordance\//);
+	await expectNoAxeViolations(page);
+});
+
+test('the filtered CSV records filters, provenance, and only matching rows', async ({ page }) => {
+	await page.goto(`${concordance}?q=warned`);
+	await expect(page.locator('.status')).toContainText('1 of 2 lines');
+
+	const pending = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Export 1 to CSV' }).click();
+	const download = await pending;
+	const path = await download.path();
+	expect(path).not.toBeNull();
+	const csv = await readFile(path!, 'utf8');
+
+	expect(download.suggestedFilename()).toBe('unsc-genocide-concordance-filtered.csv');
+	expect(csv).toContain('# artifact: kwic/genocide.json');
+	expect(csv).toContain('# pipeline commit: fixture');
+	expect(csv).toContain('# on screen: search: warned; sorted by: date');
+	expect(csv).toContain('UNSC_2014_SPV.7000_spch0001#0');
+	expect(csv).not.toContain('UNSC_2014_SPV.7000_spch0001#1');
+});
+
+test('a concordance hit opens its speech through a base-path-safe reader URL', async ({ page }) => {
+	await page.goto(concordance);
+	await page.locator('.line').first().click();
+	const evidence = page.getByRole('link', { name: 'Read the whole speech' });
+	await expect(evidence).toHaveAttribute(
+		'href',
+		`${base}/reader/UNSC_2014_SPV.7000?speech=UNSC_2014_SPV.7000_spch0001&term=genocide`
+	);
+	await evidence.click();
+
+	await expect(
+		page.getByRole('heading', { name: 'Protection of civilians', level: 1 })
+	).toBeVisible();
+	await expect(page.locator('li.target')).toHaveAttribute('id', 'UNSC_2014_SPV.7000_spch0001');
+	await expect(page.locator('li.target mark')).toHaveCount(2);
+	await expectNoAxeViolations(page);
+});
+
+test('data failure has an intelligible retry path', async ({ page }) => {
+	await page.goto(`${concordance}?term=temporarily-unavailable`);
+	await expect(page.locator('.status .error')).toContainText(
+		'No data file at kwic/temporarily-unavailable.json (404)'
+	);
+
+	const body = await readFile(
+		new URL('../fixtures/data/kwic/genocide.json', import.meta.url),
+		'utf8'
+	);
+	await page.route('**/data/kwic/temporarily-unavailable.json', (route) =>
+		route.fulfill({ status: 200, contentType: 'application/json', body })
+	);
+	await page.getByRole('button', { name: 'Try again' }).click();
+	await expect(page.locator('.status')).toContainText('2 of 2 lines');
+});
+
+test('essential concordance controls remain visible at narrow and wide widths', async ({
+	page
+}) => {
+	for (const viewport of [
+		{ width: 390, height: 844 },
+		{ width: 1440, height: 900 }
+	]) {
+		await page.setViewportSize(viewport);
+		await page.goto(concordance);
+		await expect(page.getByRole('combobox', { name: 'Term', exact: true })).toBeVisible();
+		await expect(page.getByRole('searchbox', { name: 'Search', exact: true })).toBeVisible();
+		await expect(page.locator('.line').first()).toBeVisible();
+	}
+});

@@ -8,13 +8,22 @@ npm ci
 npm run dev      # http://localhost:5173/genocide-at-the-security-council/
 npm run check    # svelte-check
 npm run lint     # prettier + eslint
-npm test         # vitest — 262 tests over the modules the views compute with
+npm test         # vitest — 264 tests over the modules the views compute with
+npm run test:e2e # Playwright — five Chromium journeys over tiny fixtures
 npm run build    # → build/, then verify-static.mjs checks every public route arrived
 ```
 
 The app needs `static/data/`, which is gitignored and 491 MB. Build it with
 `scripts/09_export_speeches.py` then `scripts/export_web.py`. Without it, every page fails
 with a message saying so rather than rendering empty.
+
+The browser suite uses the committed files under `e2e/fixtures/`, selected only when
+Playwright starts its local server with `E2E_FIXTURES=1`; it never reads or copies the
+production payload. Install Chromium once with `npx playwright install chromium`. The CI
+job installs Chromium and runs the suite after the unit, formatting, lint, and type gates.
+Fixture-server tests block service workers so request interception can exercise the visible
+failure-and-retry path deterministically; production service-worker/offline coverage is a
+separate remaining roadmap journey.
 
 ## Every figure explains itself
 

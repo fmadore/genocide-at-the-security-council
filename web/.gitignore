@@ -2,3 +2,5 @@ node_modules/
 .svelte-kit/
 build/
 static/data/
+test-results/
+playwright-report/

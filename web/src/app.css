@@ -15,7 +15,7 @@
 	/* ---- ink ------------------------------------------------------ */
 	--ink: #14171a;
 	--ink-2: #3d444c; /* 7.9:1 on paper */
-	--ink-3: #626a74; /* 4.9:1 on paper — passes AA at small sizes */
+	--ink-3: #606872; /* 5.0:1 on paper; 4.6:1 on the sunk row stripe */
 
 	/* ---- interaction. Never used for data. ------------------------ */
 	--blue: #1b5fa8; /* links, controls — 5.8:1 */
@@ -376,7 +376,9 @@ textarea {
 	border-left: var(--hair) solid var(--rule-strong);
 	min-height: 2.5rem;
 	padding: 0 var(--sp-3);
-	background: none;
+	/* Explicit rather than transparent: automated contrast calculation and
+	   forced-colour modes must not borrow the active neighbour's dark ground. */
+	background: var(--paper);
 	color: var(--ink-2);
 }
 

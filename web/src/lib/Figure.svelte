@@ -46,7 +46,7 @@
 
 <figure class="figure">
 	<figcaption class="head">
-		<h3>{title}</h3>
+		<h2>{title}</h2>
 		<p class="question">{question}</p>
 	</figcaption>
 
@@ -102,7 +102,7 @@
 		margin-bottom: var(--sp-4);
 	}
 
-	.head h3 {
+	.head h2 {
 		margin: 0 0 0.1em;
 		font-size: var(--step-2);
 	}

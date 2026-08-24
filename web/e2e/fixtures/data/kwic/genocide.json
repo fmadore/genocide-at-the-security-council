@@ -1,0 +1,49 @@
+{
+	"meta": {
+		"script": "08_kwic.py",
+		"generated": "2026-08-24T00:00:00Z",
+		"git_commit": "fixture",
+		"lexicon_version": 2,
+		"inputs": [{ "path": "speeches_flagged.parquet", "sha256": "fixture-input" }],
+		"configs": [{ "path": "config/lexicon.yml", "sha256": "fixture-config" }]
+	},
+	"term": "genocide",
+	"pattern": "genocide",
+	"tier": "core",
+	"register": "core",
+	"count": 2,
+	"lines": [
+		{
+			"id": "UNSC_2014_SPV.7000_spch0001#0",
+			"spv": "S/PV.7000",
+			"date": "2014-06-11",
+			"country": "Rwanda",
+			"iso3": "RWA",
+			"group": "E10",
+			"type": "state",
+			"agenda": "Protection of civilians",
+			"start": 26,
+			"end": 34,
+			"left": "We warned that ",
+			"kw": "genocide",
+			"right": " could occur.",
+			"sent": "We warned that genocide could occur."
+		},
+		{
+			"id": "UNSC_2014_SPV.7000_spch0001#1",
+			"spv": "S/PV.7000",
+			"date": "2014-06-11",
+			"country": "Rwanda",
+			"iso3": "RWA",
+			"group": "E10",
+			"type": "state",
+			"agenda": "Protection of civilians",
+			"start": 71,
+			"end": 79,
+			"left": "We reject the claim of ",
+			"kw": "genocide",
+			"right": ".",
+			"sent": "We reject the claim of genocide."
+		}
+	]
+}

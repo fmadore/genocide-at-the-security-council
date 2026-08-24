@@ -1,0 +1,26 @@
+{
+	"meta": {
+		"script": "e2e-fixture",
+		"generated": "2026-08-24T00:00:00Z",
+		"git_commit": "fixture",
+		"lexicon_version": 2,
+		"width": 150,
+		"inputs": [],
+		"configs": []
+	},
+	"terms": [
+		{
+			"term": "genocide",
+			"tier": "core",
+			"register": "core",
+			"file": "genocide.json",
+			"count": 2,
+			"speeches": 1,
+			"bytes": 900,
+			"sentence_median": 40,
+			"sentence_p95": 45,
+			"sentence_max": 45,
+			"long_sentences": 0
+		}
+	]
+}

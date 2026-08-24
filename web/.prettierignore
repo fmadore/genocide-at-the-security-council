@@ -2,6 +2,8 @@ build/
 .svelte-kit/
 static/data/
 package-lock.json
+test-results/
+playwright-report/
 
 # Generated, and minified on purpose: it ships to the browser as it is committed.
 # Written by tools/build_boundaries.py; edit that, never this.

@@ -4,11 +4,15 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 // Project Pages are served from a subpath. Override with BASE_PATH='' to serve
 // from a domain root, or to preview the build locally.
 const base = process.env.BASE_PATH ?? '/genocide-at-the-security-council';
+const fixtureMode = process.env.E2E_FIXTURES === '1';
 
 /** @type {import('@sveltejs/kit').Config} */
 export default {
 	preprocess: vitePreprocess(),
 	kit: {
+		// Browser tests serve a tiny committed payload through the real routes.
+		// Production and ordinary development continue to use `static/`.
+		files: fixtureMode ? { assets: 'e2e/fixtures' } : undefined,
 		// `fallback` makes the reader an SPA route. Prerendering it would mean
 		// generating 6,595 document pages to display text already fetched as JSON.
 		adapter: adapter({ fallback: '404.html', strict: true }),
