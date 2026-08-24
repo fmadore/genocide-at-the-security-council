@@ -305,13 +305,17 @@
 	<h2>Reproducing this</h2>
 	<p>
 		The <a href={REPO}>repository</a> holds the data pipeline, the analysis scripts and this
-		website. A code linter, a fixed set of Python dependencies and 847 unit tests &mdash; 595
-		covering the pipeline, 252 covering the code this website calculates with &mdash; run on every
-		change. Those tests cover the hand-edited files in
+		website. A code linter, a fixed set of Python dependencies and focused pipeline and website test
+		suites run on every change. Those tests cover the hand-edited files in
 		<code>config/</code> too, so a wrong country name or a mistyped Council term fails automatically rather
 		than halfway through somebody's run. The site is rebuilt from the Dataverse DOI by an automated workflow
 		rather than uploaded from a desktop, so what you are reading was produced by the pipeline in this
 		repository and not by a copy of it that once existed on somebody's laptop.
+	</p>
+	<p>
+		Every newly generated analytical file has an <code>analysis_hash</code> computed from its canonical
+		content and declared inputs and configuration. The hash stays the same when only the generation time
+		or Git working-tree state changes; those readable provenance fields remain alongside it.
 	</p>
 	<p>
 		<strong>Licences.</strong> The corpus is CC0, released by its depositors. The code is

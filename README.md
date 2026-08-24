@@ -107,12 +107,17 @@ re-run of 05 can count instead of surface forms. None of the three is part of th
 python -m pytest
 ```
 
-595 tests in about six seconds, no data required — including integrity checks on the
-hand-edited files in `config/`. The dashboard has its own 252, over the modules that decide
+The Python suite needs no production data and includes integrity checks on the hand-edited
+files in `config/`. The dashboard has its own focused suite over the modules that decide
 what a figure may draw. Both suites, `ruff check`, and the dashboard's `prettier` /
 `eslint` / `svelte-check` run on every push and pull request via
 [`.github/workflows/checks.yml`](.github/workflows/checks.yml), so a bad edit to a config
 file fails in CI rather than halfway through someone's pipeline run.
+
+New analytical JSON artefacts also carry `meta.analysis_hash`: a SHA-256 identity computed
+from canonical analytical content and declared inputs/configuration. Regeneration time and
+Git dirtiness are deliberately excluded, while the readable timestamp and commit remain
+alongside it for operational provenance.
 
 The two halves are joined by one more thing.
 [`tests/contract/payload.json`](tests/contract/payload.json) records the *shape* of every

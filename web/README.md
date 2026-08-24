@@ -8,8 +8,8 @@ npm ci
 npm run dev      # http://localhost:5173/genocide-at-the-security-council/
 npm run check    # svelte-check
 npm run lint     # prettier + eslint
-npm test         # vitest — 272 tests over the modules the views compute with
-npm run test:e2e # Playwright — seven Chromium journeys over tiny fixtures
+npm test         # vitest — unit tests over the modules the views compute with
+npm run test:e2e # Playwright — Chromium journeys over tiny fixtures
 npm run test:e2e:sw # Playwright — built-site reader recovery while offline
 npm run build    # → build/, then verify-static.mjs checks every public route arrived
 ```
@@ -48,7 +48,9 @@ figure would otherwise invite.
 Beside the source, every figure offers what it is made of: the artefact's numbers as CSV
 with their provenance, and the picture as SVG or PNG with its filters drawn into the image.
 The decisions live in [`src/lib/export.ts`](src/lib/export.ts); the button does the work on
-click and decides nothing.
+click and decides nothing. Newly generated artefacts and their exports include an
+`analysis_hash` that stays stable when only the generation timestamp or Git working-tree
+state changes, but changes with the analytical content or declared configuration.
 
 ## Views
 
@@ -137,7 +139,7 @@ src/
 performs at render time lives in a plain module beside it — `actors.ts`, `concordance.ts`,
 `heatmap.ts`, `keyness.ts`, `standing.ts`, `wordcloud.ts`, `highlight.ts`, `scroll.ts` —
 each with a `.test.ts` next to it, because logic reachable only by mounting a component is
-logic nobody will test twice. `docs/PLAN.md` §7 states the rule; the 262 tests are what
+logic nobody will test twice. `docs/PLAN.md` §7 states the rule; the colocated unit suite
 holds it.
 
 `data.ts` is where the pipeline is met and, when necessary, refused. `REQUIRED` names every

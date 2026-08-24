@@ -14,7 +14,7 @@
  *
  * **The file carries its own provenance.** Every export leads with comment rows
  * naming the artefact, the script that wrote it, the lexicon version, the
- * pipeline commit and the input hashes — the identifiers the methods page
+ * stable analytical hash, pipeline commit and input hashes — the identifiers the methods page
  * shows. A downloaded table with no version is an orphan the moment a figure is
  * regenerated, and this project regenerates figures.
  *
@@ -36,6 +36,7 @@ export interface Provenance {
 	artifact: string;
 	script: string;
 	generated: string;
+	analysisHash: string | null;
 	gitCommit: string | null;
 	lexiconVersion: number | null;
 	inputs: { path: string; sha256: string }[];
@@ -68,6 +69,7 @@ export function provenanceOf(meta: BaseMeta, artifact: string): Provenance {
 		artifact,
 		script: typeof meta.script === 'string' ? meta.script : 'unknown',
 		generated: typeof meta.generated === 'string' ? meta.generated : 'unknown',
+		analysisHash: typeof meta.analysis_hash === 'string' ? meta.analysis_hash : null,
 		gitCommit: typeof meta.git_commit === 'string' ? meta.git_commit : null,
 		lexiconVersion: Number.isFinite(meta.lexicon_version) ? Number(meta.lexicon_version) : null,
 		inputs: described(meta.inputs),
@@ -109,6 +111,7 @@ export function provenanceLines(provenance: Provenance): string[] {
 	if (provenance.lexiconVersion !== null) {
 		lines.push(`lexicon version: ${provenance.lexiconVersion}`);
 	}
+	if (provenance.analysisHash) lines.push(`analysis hash: ${provenance.analysisHash}`);
 	if (provenance.gitCommit) lines.push(`pipeline commit: ${provenance.gitCommit}`);
 	for (const input of provenance.inputs) lines.push(`input: ${input.path} sha256:${input.sha256}`);
 	for (const config of provenance.configs) {

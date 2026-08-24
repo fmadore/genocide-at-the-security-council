@@ -68,11 +68,49 @@ def atomic_write_text(path: Path, payload: str) -> None:
     atomic_write_bytes(path, payload.encode("utf-8"))
 
 
+_VOLATILE_META = frozenset({"generated", "git_commit", "analysis_hash"})
+
+
+def analysis_hash(payload: dict[str, object]) -> str:
+    """Hash analytical content and declared provenance, not run-local identity.
+
+    The payload itself and the non-volatile metadata are canonical JSON. Config
+    and input digests therefore remain part of the identity, while regenerating
+    the same result later or from a dirty checkout does not mint a new analysis.
+    """
+    canonical = dict(payload)
+    meta = canonical.get("meta")
+    if isinstance(meta, dict):
+        canonical["meta"] = {key: value for key, value in meta.items() if key not in _VOLATILE_META}
+    encoded = json.dumps(
+        canonical,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def with_analysis_hash(payload: object) -> object:
+    """Return a JSON payload with a stable hash when it has nested metadata."""
+    if not isinstance(payload, dict) or not isinstance(payload.get("meta"), dict):
+        return payload
+    prepared = dict(payload)
+    prepared["meta"] = {**payload["meta"], "analysis_hash": analysis_hash(payload)}
+    return prepared
+
+
 def atomic_write_json(path: Path, payload: object, *, indent: int | None = None) -> None:
     separators = None if indent is not None else (",", ":")
     atomic_write_text(
         path,
-        json.dumps(payload, ensure_ascii=False, indent=indent, separators=separators),
+        json.dumps(
+            with_analysis_hash(payload),
+            ensure_ascii=False,
+            indent=indent,
+            separators=separators,
+        ),
     )
 
 

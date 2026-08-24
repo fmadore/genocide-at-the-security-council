@@ -9,6 +9,8 @@
 export interface BaseMeta {
 	script: string;
 	generated: string;
+	/** Stable across regeneration time and Git dirtiness; present on newly written artifacts. */
+	analysis_hash?: string;
 	[key: string]: unknown;
 }
 

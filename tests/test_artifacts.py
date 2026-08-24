@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 
 import pytest
 from lib import artifacts
+
+SHA = "0123456789abcdef0123456789abcdef01234567"
 
 
 def test_atomic_text_replaces_the_complete_file(tmp_path):
@@ -14,6 +17,62 @@ def test_atomic_text_replaces_the_complete_file(tmp_path):
     artifacts.atomic_write_text(target, "new")
     assert target.read_text(encoding="utf-8") == "new"
     assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_json_artifact_carries_its_analysis_hash(tmp_path):
+    target = tmp_path / "result.json"
+    payload = {
+        "meta": {"script": "04_series.py", "generated": "2026-01-01", "git_commit": SHA},
+        "periods": [1992],
+    }
+    artifacts.atomic_write_json(target, payload)
+    written = json.loads(target.read_text(encoding="utf-8"))
+    assert written["meta"]["analysis_hash"] == artifacts.analysis_hash(payload)
+
+
+def test_analysis_hash_ignores_time_commit_and_its_previous_value():
+    first = {
+        "meta": {
+            "script": "04_series.py",
+            "generated": "2026-01-01",
+            "git_commit": SHA,
+            "analysis_hash": "stale",
+        },
+        "periods": [1992],
+    }
+    second = {
+        **first,
+        "meta": {
+            **first["meta"],
+            "generated": "2026-08-24",
+            "git_commit": f"{SHA}-dirty",
+            "analysis_hash": "different-stale-value",
+        },
+    }
+    assert artifacts.analysis_hash(first) == artifacts.analysis_hash(second)
+
+
+def test_analysis_hash_changes_with_data_or_declared_configuration():
+    original = {
+        "meta": {"script": "04_series.py", "configs": [{"path": "lexicon.yml", "sha256": "a"}]},
+        "periods": [1992],
+    }
+    changed_data = {**original, "periods": [1992, 1993]}
+    changed_config = {
+        **original,
+        "meta": {
+            **original["meta"],
+            "configs": [{"path": "lexicon.yml", "sha256": "b"}],
+        },
+    }
+    assert artifacts.analysis_hash(original) != artifacts.analysis_hash(changed_data)
+    assert artifacts.analysis_hash(original) != artifacts.analysis_hash(changed_config)
+
+
+def test_analysis_hash_is_independent_of_mapping_order():
+    first = {"meta": {"script": "04_series.py", "version": 2}, "periods": [1992]}
+    reordered = {"periods": [1992], "meta": {"version": 2, "script": "04_series.py"}}
+    assert artifacts.analysis_hash(first) == artifacts.analysis_hash(reordered)
 
 
 def test_atomic_path_leaves_the_previous_file_and_no_debris_on_failure(tmp_path):
@@ -51,9 +110,6 @@ def test_atomic_directory_keeps_the_previous_version_on_failure(tmp_path):
 #
 # The cluster receives the working tree without `.git`, so `git rev-parse` there
 # answers nothing and every manifest a GPU step wrote said "unknown".
-
-
-SHA = "0123456789abcdef0123456789abcdef01234567"
 
 
 def _git(root, *args):
