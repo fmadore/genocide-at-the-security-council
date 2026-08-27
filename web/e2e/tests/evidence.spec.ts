@@ -114,6 +114,22 @@ test('a concordance hit opens, copies, and traverses exact occurrences', async (
 	);
 	await expect(page.getByText('2 of 4', { exact: true })).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Previous occurrence' })).toBeVisible();
+
+	// The occurrence ID is this project's locator, and it must survive into a
+	// reference manager: the official record has no paragraph numbering here.
+	const pending = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'RIS', exact: true }).click();
+	const download = await pending;
+	const ris = await readFile((await download.path())!, 'utf8');
+	expect(download.suggestedFilename()).toContain('unsc-citation');
+	expect(ris).toContain('TY  - GOVDOC');
+	// The reader has the meeting loaded, so the citation names the person as
+	// well as the delegation — which the concordance alone could not do.
+	expect(ris).toContain('AU  - Ms. Example (Rwanda)');
+	expect(ris).toContain('M1  - S/PV.7000');
+	expect(ris).toContain('UNSC_2014_SPV.7000_spch0001#2');
+	expect(ris.trimEnd().endsWith('ER  -')).toBe(true);
+
 	await expectNoAxeViolations(page);
 });
 

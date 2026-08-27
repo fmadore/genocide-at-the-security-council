@@ -16,7 +16,8 @@
 	import { filterConcordance, readConcordanceState } from '$lib/concordance';
 	import { occurrenceItem, speechItem } from '$lib/basket';
 	import { basket } from '$lib/basket.svelte';
-	import { occurrenceQuotation } from '$lib/citation';
+	import { citationOf, occurrenceQuotation, toBibtex, toCslJson, toRis } from '$lib/citation';
+	import { filename, save } from '$lib/export';
 	import { count, isoDate, shortCountry, termLabel, unSearch } from '$lib/format';
 	import { SITE_NAME, type PageMetadata } from '$lib/seo';
 	import type { KwicLine, Meeting, Speech } from '$lib/types';
@@ -268,6 +269,31 @@
 		);
 	}
 
+	/**
+	 * Hand the selected occurrence to a reference manager.
+	 *
+	 * Built here rather than in the concordance because this route has the
+	 * meeting loaded, so the citation can name the representative and not only
+	 * the delegation. The accessed date is passed in rather than read inside the
+	 * builders, which is what keeps their fixtures exact.
+	 */
+	function downloadCitation(format: 'json' | 'ris' | 'bib') {
+		const line = selectedLine;
+		if (!line || !record) return;
+		const speech = record.speeches.find((entry) => entry.id === speechOf(line.id)) ?? null;
+		const citation = citationOf(line, speech, page.url.href, new Date().toISOString().slice(0, 10));
+		const [text, type] =
+			format === 'json'
+				? [toCslJson(citation), 'application/json']
+				: format === 'ris'
+					? [toRis(citation), 'application/x-research-info-systems']
+					: [toBibtex(citation), 'application/x-bibtex'];
+		save(
+			new Blob([text], { type: `${type};charset=utf-8` }),
+			filename(['unsc', 'citation', line.id], format)
+		);
+	}
+
 	/** Keep a whole speech, for the argument that is not one sentence long. */
 	function keepSpeech(speech: Speech) {
 		if (!record) return;
@@ -401,6 +427,12 @@
 				<button class="ghost" disabled={basket.has(selectedLine.id)} onclick={keepOccurrence}>
 					{basket.has(selectedLine.id) ? 'In the basket' : 'Add to basket'}
 				</button>
+				<span class="cites">
+					<span class="label">Cite as</span>
+					<button class="ghost" onclick={() => downloadCitation('json')}>CSL-JSON</button>
+					<button class="ghost" onclick={() => downloadCitation('ris')}>RIS</button>
+					<button class="ghost" onclick={() => downloadCitation('bib')}>BibTeX</button>
+				</span>
 			{/if}
 			{#if resultNavigation}
 				<nav class="result-nav" aria-label="Occurrences in the current concordance results">
@@ -666,6 +698,22 @@
 		gap: var(--sp-2);
 		font-family: var(--sans);
 		font-size: var(--step--2);
+	}
+
+	/* Three formats of one thing, so they are grouped under one label rather
+	   than sitting in the toolbar as three unrelated buttons. */
+	.cites {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+	}
+
+	.cites .label {
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--ink-3);
 	}
 
 	.ghost {
