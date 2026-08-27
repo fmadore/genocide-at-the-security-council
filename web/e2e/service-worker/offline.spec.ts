@@ -6,7 +6,7 @@ test('a visited reader remains usable after the built site goes offline', async 
 	page
 }) => {
 	await page.goto(`${base}/concordance/`);
-	await expect(page.locator('.status')).toContainText('2 of 2 lines');
+	await expect(page.locator('.status')).toContainText('4 of 4 lines');
 	await page.evaluate(async () => {
 		await navigator.serviceWorker.ready;
 		if (!navigator.serviceWorker.controller) {

@@ -4,9 +4,13 @@
 	import { replaceState } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Bookmark from '@lucide/svelte/icons/bookmark';
+	import Check from '@lucide/svelte/icons/check';
 	import Download from '@lucide/svelte/icons/download';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import X from '@lucide/svelte/icons/x';
+	import { basket } from '$lib/basket.svelte';
+	import { occurrenceItem } from '$lib/basket';
 	import {
 		CONCORDANCE_DEFAULTS,
 		concordanceParams,
@@ -229,6 +233,19 @@
 		const next = yearClick(currentState(), year);
 		from = next.from;
 		to = next.to;
+	}
+
+	/* The snapshot is taken from the line the reader is looking at, and stamped
+	   with the KWIC file's own provenance, so the basket can say later what
+	   version of the word list the occurrence was numbered under. */
+	function keep(line: KwicLine) {
+		const meta = file?.meta ?? data.index.meta;
+		basket.add(
+			occurrenceItem(line, term, new Date().toISOString(), {
+				lexiconVersion: Number.isFinite(meta.lexicon_version) ? Number(meta.lexicon_version) : null,
+				analysisHash: typeof meta.analysis_hash === 'string' ? meta.analysis_hash : null
+			})
+		);
 	}
 
 	$effect(() => {
@@ -583,6 +600,15 @@
 								<a class="button" href={readerHref(line)}>
 									Read the whole speech<Icon icon={ArrowRight} />
 								</a>
+								<button
+									type="button"
+									class="ghost"
+									disabled={basket.has(line.id)}
+									onclick={() => keep(line)}
+								>
+									<Icon icon={basket.has(line.id) ? Check : Bookmark} />
+									{basket.has(line.id) ? 'In the basket' : 'Add to basket'}
+								</button>
 								<code class="id">{line.id}</code>
 							</p>
 						</div>

@@ -5,6 +5,11 @@ package-lock.json
 test-results/
 playwright-report/
 
+# A cache written by a local editor plugin, already excluded from the
+# repository. It is rewritten on every edit, so checking its formatting would
+# fail the lint gate for reasons that have nothing to do with this codebase.
+.impeccable/
+
 # Generated, and minified on purpose: it ships to the browser as it is committed.
 # Written by tools/build_boundaries.py; edit that, never this.
 static/geo/

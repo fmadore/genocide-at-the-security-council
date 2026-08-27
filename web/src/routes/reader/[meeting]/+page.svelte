@@ -14,6 +14,8 @@
 		speechOf
 	} from '$lib/data';
 	import { filterConcordance, readConcordanceState } from '$lib/concordance';
+	import { occurrenceItem, speechItem } from '$lib/basket';
+	import { basket } from '$lib/basket.svelte';
 	import { occurrenceQuotation } from '$lib/citation';
 	import { count, isoDate, shortCountry, termLabel, unSearch } from '$lib/format';
 	import { SITE_NAME, type PageMetadata } from '$lib/seo';
@@ -238,6 +240,46 @@
 		}
 	}
 
+	/**
+	 * Keep the selected occurrence, enriched with what only the reader knows.
+	 *
+	 * The concordance can snapshot the delegation; this route has the meeting
+	 * loaded, so it can add the personal speaker and their role. Same item
+	 * shape either way — an item added here is simply better described.
+	 */
+	function keepOccurrence() {
+		const line = selectedLine;
+		if (!line || !record) return;
+		const speech = record.speeches.find((entry) => entry.id === speechOf(line.id));
+		const meta = record.meta;
+		basket.add(
+			occurrenceItem(
+				line,
+				filterTerm ?? termsHere[0] ?? '',
+				new Date().toISOString(),
+				{
+					lexiconVersion: Number.isFinite(meta.lexicon_version)
+						? Number(meta.lexicon_version)
+						: null,
+					analysisHash: typeof meta.analysis_hash === 'string' ? meta.analysis_hash : null
+				},
+				speech
+			)
+		);
+	}
+
+	/** Keep a whole speech, for the argument that is not one sentence long. */
+	function keepSpeech(speech: Speech) {
+		if (!record) return;
+		const meta = record.meta;
+		basket.add(
+			speechItem(record, speech, new Date().toISOString(), {
+				lexiconVersion: Number.isFinite(meta.lexicon_version) ? Number(meta.lexicon_version) : null,
+				analysisHash: typeof meta.analysis_hash === 'string' ? meta.analysis_hash : null
+			})
+		);
+	}
+
 	function occurrenceHref(id: string): string {
 		const params = new SvelteURLSearchParams(page.url.searchParams);
 		params.set('speech', speechOf(id));
@@ -356,6 +398,9 @@
 							? 'Could not copy quotation'
 							: 'Copy quotation + citation'}
 				</button>
+				<button class="ghost" disabled={basket.has(selectedLine.id)} onclick={keepOccurrence}>
+					{basket.has(selectedLine.id) ? 'In the basket' : 'Add to basket'}
+				</button>
 			{/if}
 			{#if resultNavigation}
 				<nav class="result-nav" aria-label="Occurrences in the current concordance results">
@@ -425,6 +470,14 @@
 								{#if Object.keys(speech.hits).length}
 									· {Object.keys(speech.hits).map(termLabel).join(', ')}
 								{/if}
+								<button
+									type="button"
+									class="ghost keep"
+									disabled={basket.has(speech.id)}
+									onclick={() => keepSpeech(speech)}
+								>
+									{basket.has(speech.id) ? 'In the basket' : 'Add this speech to the basket'}
+								</button>
 							</p>
 						{:else}
 							<p class="preview">{preview(speech)}</p>

@@ -4,10 +4,25 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import BackToTop from '$lib/BackToTop.svelte';
+	import BasketDrawer from '$lib/BasketDrawer.svelte';
 	import ThemeToggle from '$lib/ThemeToggle.svelte';
+	import { basket } from '$lib/basket.svelte';
 	import type { Snippet } from 'svelte';
 
 	let { children }: { children: Snippet } = $props();
+
+	/* The basket lives in the masthead rather than on a route of its own: it is
+	   filled from the concordance and the reader and read from anywhere, and a
+	   URL for it would be the one URL on this site whose contents depend on
+	   which browser opens it. */
+	let basketOpen = $state(false);
+
+	/* Read from storage after the first paint, not during it: the server renders
+	   an empty basket, and filling it while the markup is being evaluated is both
+	   a hydration mismatch and a state mutation Svelte refuses. */
+	$effect(() => {
+		basket.hydrate();
+	});
 
 	const REPO = 'https://github.com/fmadore/genocide-at-the-security-council';
 
@@ -72,11 +87,18 @@
 						>
 					</li>
 				{/each}
+				<li class="no-print">
+					<button type="button" class="basket" onclick={() => (basketOpen = true)}>
+						Basket{#if basket.count}<span class="n">{basket.count}</span>{/if}
+					</button>
+				</li>
 				<li class="no-print"><ThemeToggle /></li>
 			</ul>
 		</nav>
 	</div>
 </header>
+
+<BasketDrawer bind:open={basketOpen} onclose={() => (basketOpen = false)} />
 
 <main id="main">
 	{@render children()}
@@ -196,6 +218,33 @@
 
 	nav a:hover {
 		color: var(--ink);
+	}
+
+	/* Set as the nav links are, because it belongs to the same row of choices —
+	   but a button, because it opens something rather than going somewhere. */
+	.basket {
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-3);
+		background: none;
+		border: 0;
+		padding: 0 0 0.15rem;
+		cursor: pointer;
+		display: inline-flex;
+		align-items: baseline;
+		gap: var(--sp-1);
+	}
+
+	.basket:hover {
+		color: var(--ink);
+	}
+
+	.basket .n {
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink);
+		border: var(--hair) solid var(--rule-strong);
+		padding: 0 0.3em;
 	}
 
 	/* An inset shadow rather than a border: it sits inside the box without

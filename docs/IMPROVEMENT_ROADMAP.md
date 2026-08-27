@@ -294,10 +294,29 @@ small feature before any new analytical pipeline.
 
 ### U5. Local research basket — optional after U1–U4
 
+**Status: complete on 27 August 2026.**
+
 Allow bookmarking occurrence IDs and speeches in local browser storage, with a note and
 CSV/JSON/Markdown export. No accounts, synchronization or backend. Treat schema migration,
 storage limits, deletion and export provenance as acceptance criteria. Build it only after
 exact occurrence IDs are stable.
+
+**As built.** Items keep a snapshot of the sentence and its identifying context alongside the
+stable ID, plus the lexicon version and analytical hash of the artefact they came from. That is
+what lets the basket render with no fetches — necessary offline, where `static/data/` is
+outside the service worker on purpose — and what keeps an item meaningful after a rebuild
+renumbers occurrences: it becomes stale, with its recorded text intact, rather than empty.
+
+An envelope written by an unknown version is reported and left in storage untouched; only an
+explicit "start a new basket" overwrites it. A full basket and an over-long note are refused in
+words rather than evicting or truncating. The export carries provenance per row, because a
+basket spans artefacts and possibly lexicon versions and a single header block would have to
+name one of them and be false about the rest.
+
+It is a dialog rather than a route: every other URL on this site determines what a reader sees,
+and a basket URL would be the one exception, naming a page whose contents live in one browser.
+`basket.svelte.ts` is a second documented exception to the no-global-stores rule, on the same
+grounds as the theme store — reader-owned, persistent, analytically inert.
 
 ### U6. Page metadata and discoverability — low risk, low urgency
 
@@ -630,3 +649,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-08-27 | U7, part 1: citable sort order    | complete   | pending | `npx vitest run src/lib/concordance.test.ts` (40 passed); `npm test` (301 passed); `npm run check`; `npm run lint`                                                                                                       | All five sorts now end on the occurrence ID, so tied keys — a delegation's hundreds of lines, an empty left context — settle the same way whatever order the filter produced. `describeSort` gives the control and the exported `sorted by:` line one name; the serialized `sort=country` is unchanged, so copied URLs keep their meaning. |
 | 2026-08-27 | U7, part 2: result profile        | complete   | pending | `npx vitest run src/lib/concordance.test.ts` (60 passed); `npm test` (321 passed); `npm run check`; `npm run lint`; `npx playwright test e2e/tests/evidence.spec.ts` (8 Chromium journeys); `npm run build`                | The concordance profiles the set the reader assembled — by year and by speaker, group, participant type and agenda — and every row narrows or releases it. Counts are declared apparatus in the panel's own copy, which is why it is not a `Figure`. The chronology link carries the term and says the filters are left behind, because chronology state has no year range to receive them. The KWIC fixture gained a second speaker, year, agenda and participant type; three existing count assertions moved with it. |
 | 2026-08-27 | U8 titles and prose               | complete   | pending | `npm test` (321 passed); `npm run check`; `npm run lint`; `npm run test:e2e` (8 Chromium journeys); `npm run build`; both pages read on the built site against the real payload                                            | The calendar figure is "The vocabulary's calendar"; no figure title on the site now ends in a question mark, and the interrogative stays in the `question` prop where the house style puts it. Its reading note opens with the reporting-timetable expectation, drawn from the same computed months and shared agenda item as the caveat and shown under the same condition, so a reader meets the finding before reading the darkest squares as commemoration. The language standfirst names and glosses collocation, keyness and the co-occurrence network; the G²/log-ratio account is unchanged. The nav blurb "The words it sits next to" was reviewed and kept: it names the lead instrument, and the standfirst now carries the full inventory. |
+| 2026-08-27 | U5 local research basket          | complete   | pending | `npx vitest run src/lib/basket.test.ts` (33 passed); `npm test` (354 passed); `npm run check`; `npm run lint`; `npm run test:e2e` (13 Chromium journeys); `npm run test:e2e:sw` (1 built-site journey); `npm run build`                | Occurrences and whole speeches are kept in one browser with a note, and survive a reload. Items carry a snapshot plus the lexicon version and analytical hash they were taken under, so the drawer needs no fetches and a rebuilt corpus makes an item stale rather than empty. A basket from an unknown version is reported and left untouched; caps refuse in words. Exports carry provenance per row. Built as a dialog rather than a route, so no page metadata, sitemap or verify-static entries were added. The e2e KWIC fixture change also moved one count assertion in the service-worker journey. |
