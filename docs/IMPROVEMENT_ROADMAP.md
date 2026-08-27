@@ -54,8 +54,8 @@ commit, split it in the log without inventing a new architectural layer.
 | ----: | ---------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------- |
 |     1 | I1–I4 research-integrity fixes                 | Prevent loss and false provenance before more artifacts are generated | No                                            |
 |     2 | A1–A3 annotation preparation                   | Make future coding durable and statistically interpretable            | No                                            |
-|     3 | U1–U4 evidence navigation and browser coverage | Make existing claims reproducible and test complete user journeys     | No                                            |
-|     4 | M1–M4 maintainability and payload access       | Reduce change risk without a broad refactor                           | No                                            |
+|     3 | U1–U8 evidence navigation and browser coverage | Make existing claims reproducible and test complete user journeys     | No                                            |
+|     4 | M1–M5 maintainability and payload access       | Reduce change risk without a broad refactor                           | No                                            |
 |     5 | S1–S6 stronger descriptive analysis            | Add uncertainty and views that expose evidence, not decoration        | No, except where noted                        |
 |     6 | H1–H2 human-coded interpretation               | Answer what the term is doing rhetorically                            | Yes                                           |
 |     7 | E1–E2 institutional and historical extension   | Add new data sources and new claims only after the core is stable     | No, but substantial research review is needed |
@@ -307,6 +307,80 @@ Add route-specific titles/descriptions and canonical URLs, then a sitemap, Open 
 and conservative JSON-LD for the software and dataset. Avoid describing generated figures
 as separately published datasets unless they have stable public identifiers.
 
+### U7. Profile of a concordance result set
+
+External feedback reported the concordance's filters as the strongest part of the site and
+asked for two things the view does not yet do: a way to see how a filtered result set is
+composed, and a path from the concordance back to time. Both are readable from lines the
+browser has already loaded, so neither needs a new artifact or pipeline step.
+
+**Change.** Add pure profile functions to `web/src/lib/concordance.ts` and one presentational
+component that renders them inside the existing concordance figure:
+
+1. counts of the current filtered result set by speaker, speaker group, participant type and
+   agenda item, top-N with an explicit remainder row, each row applying its own filter;
+2. the same result set by year, as a strip across the full corpus range, each year applying
+   itself as a one-year range;
+3. a link to the chronology of the same term, labelled with exactly what it opens.
+
+Clicking an active value clears it. No previous range is remembered, because the URL carries
+no such memory.
+
+**Counts are apparatus here, and must say so.** Everywhere else on this site a count is
+refused as evidence, because a count is partly a picture of when the Council met. This panel
+summarizes a selection the reader has already made and exists to be clicked, so raw counts
+are the honest unit — but the panel states that it is navigation and names the two pages that
+carry rates. It is therefore not a `Figure` and must not acquire question/reading/caveat/source
+props.
+
+**Keep it small.** Profile the already-filtered lines in one pass; do not re-filter, and do not
+compute minus-one facet previews. Do not put filtered counts inside the filter selects, which
+would make a control's own labels shift as it is used.
+
+**Also fix, while the file is open.** The `country`, `agenda`, `left` and `right` comparators
+lack the identity tiebreaker `date` carries, so equal keys leave a citable table free to
+reorder. The sort disclosure in the export says `country` while the control says "Speaker";
+route both through one function rather than changing the serialized parameter, which would
+break copied URLs.
+
+**Acceptance and tests.**
+
+- Profiled counts equal a brute-force recount of the same filtered lines, and the remainder
+  row's count and value tally with the top-N rows.
+- Applying a facet or year from the panel produces exactly the count the panel showed.
+- Clicking an active facet clears it; clicking an active year restores the documented default
+  range rather than a remembered one.
+- Every sort is a total order under shuffled input.
+- The chronology link carries the term and nothing else, and its label says the filters are
+  left behind.
+- The panel's own state is not serialized into the URL.
+
+### U8. Titles and prose that name what they do
+
+The same feedback reported two pages as unclear. Both causes are prose, not analysis.
+
+**Change.**
+
+1. The year × month heatmap is the only figure on the site whose title is a question; house
+   style puts the declarative noun phrase in `title` and the question in `question`. Rename it
+   in both places it appears, including the CSV title, without touching the `question` prop.
+2. That figure's finding — the darkest months follow the tribunals' twice-yearly reporting
+   timetable rather than a commemorative calendar — is stated only in the caveat, where a
+   reader meets it after forming the wrong expectation. Promote one sentence into the reading
+   note, under the same data condition the caveat uses and from the same computed values, so
+   prose cannot drift from the figure.
+3. The language page never names collocation, keyness or the co-occurrence network in its
+   standfirst, so a reader trained on these methods cannot recognize them. Name and gloss each
+   in the standfirst, keeping the existing account of G² and log ratio verbatim.
+
+**Acceptance and tests.**
+
+- No figure title on the site ends in a question mark.
+- The promoted sentence appears and disappears with the same data condition as the caveat it
+  was drawn from, and reuses the computed months rather than restating them as literals.
+- The full frontend and browser gates pass, and the built site is inspected, because this is
+  production-facing prose with no unit surface of its own.
+
 ## Phase M — maintainability and measured payload improvements
 
 ### M1. Refactor large routes opportunistically
@@ -361,6 +435,29 @@ Do these independently, only when the relevant file is already being changed:
   only if duplicated stage invocation causes an actual maintenance error.
 
 Snakemake or another workflow platform is explicitly deferred.
+
+### M5. Document how the lexicon is changed
+
+The word list is the study's central scholarly choice and the roadmap already calls it a
+proposal rather than a result. External readers ask how to add terms, and the answer is
+currently spread between the configuration file's own header and the numbered steps.
+
+**Change.** Add one short section to `scripts/README.md` recording: which fields a term needs
+in `config/lexicon.yml` and that its `note` carries the rationale, because a term is a
+recorded decision rather than a configuration tweak; the version bump; the steps to rerun in
+order and what each regenerates; and the consequences worth knowing in advance — an
+incompatible version blocks automatic carry-over of existing annotations, the frontend needs
+no code change because the term list is read from the exported index, and provenance picks up
+the new version by itself.
+
+**Keep it small.** Documentation only, no new file if an existing one is the place a reader
+already looks.
+
+**Acceptance.**
+
+- A reader can add a term and regenerate the site without reading the pipeline source.
+- The stated rerun order matches the steps' actual dependencies.
+- Claims about annotation carry-over and contract stability match A2 and the contract test.
 
 ## Phase S — stronger descriptive analysis
 
@@ -527,3 +624,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-08-24 | U3 exact occurrence navigation    | complete   | pending | `python -m pytest tests/test_kwic.py -q` (31 passed); `npm test` (272 passed); `npm run check`; `npm run lint`; `npm run test:e2e` (7 Chromium journeys); `npm run test:e2e:sw` (1 built-site journey); `npm run build` | Stable hit IDs support exact scroll/highlight, copyable permalinks, continuous previous/next navigation, and a verbatim pipeline sentence copied with a plain project citation. CSL-JSON/RIS/BibTeX remain deliberately deferred until speech metadata and round-trip fixtures are sufficient. |
 | 2026-08-24 | U4 participant-type evidence      | complete   | pending | `npm test` (284 passed); `npm run check`; `npm run lint`; `npm run test:e2e` (7 Chromium journeys); production Chromium deep-link smoke; `npm run test:e2e:sw`; `npm run build`                                         | Chronology exposes the existing `participanttype` breakdown with its per-category/year denominator and keyboard-accessible evidence links. Concordance restores, filters and exports the normalized type; Reader navigation preserves the same result set.                                     |
 | 2026-08-24 | U6 metadata and discoverability   | complete   | pending | `npm test` (289 passed); `npm run check`; `npm run lint`; `npm run test:e2e` (7 Chromium journeys); `npm run test:e2e:sw` (1 built-site journey); `npm run build`; emitted HTML/XML inspection                          | Public routes share unique titles, descriptions, canonicals and Open Graph/Twitter cards. Generated sitemap and robots endpoints list only stable public pages; one software and one derived-data JSON-LD record identify the corpus DOI without promoting individual figures to datasets.     |
+| 2026-08-27 | U7/U8/M5 defined                  | documented | pending | None; documentation only                                                                                                                                                                                                | External feedback on the deployed site asked for result-set composition and a concordance-to-time path, and reported the calendar title and language standfirst as unclear. Both became tasks rather than untracked edits. M5 records the lexicon-change workflow the same feedback asked for. |
