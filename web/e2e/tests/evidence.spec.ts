@@ -24,14 +24,14 @@ test('a filtered concordance URL restores its analytical state under the base pa
 	);
 	await expect(page.getByRole('combobox', { name: 'Month', exact: true })).toHaveValue('6');
 	await expect(page.getByRole('button', { name: 'Right' })).toHaveAttribute('aria-pressed', 'true');
-	await expect(page.locator('.status')).toContainText('2 of 2 lines');
+	await expect(page.locator('.status')).toContainText('2 of 4 lines');
 	await expect(page).toHaveURL(/\/genocide-at-the-security-council\/concordance\//);
 	await expectNoAxeViolations(page);
 });
 
 test('the filtered CSV records filters, provenance, and only matching rows', async ({ page }) => {
 	await page.goto(`${concordance}?q=warned`);
-	await expect(page.locator('.status')).toContainText('1 of 2 lines');
+	await expect(page.locator('.status')).toContainText('1 of 4 lines');
 
 	const pending = page.waitForEvent('download');
 	await page.getByRole('button', { name: 'Export 1 to CSV' }).click();
@@ -106,14 +106,55 @@ test('a concordance hit opens, copies, and traverses exact occurrences', async (
 	expect(quotation).toContain('Rwanda, UN Security Council, S/PV.7000 (2014-06-11).');
 	expect(quotation).toContain('occurrence UNSC_2014_SPV.7000_spch0001#1.');
 	expect(quotation).toContain(page.url());
-	await expect(page.getByText('1 of 2', { exact: true })).toBeVisible();
+	await expect(page.getByText('1 of 4', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Next occurrence' }).click();
 	await expect(page.locator('mark.occurrence')).toHaveAttribute(
 		'data-occurrence',
 		'UNSC_2014_SPV.7000_spch0001#2'
 	);
-	await expect(page.getByText('2 of 2', { exact: true })).toBeVisible();
+	await expect(page.getByText('2 of 4', { exact: true })).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Previous occurrence' })).toBeVisible();
+	await expectNoAxeViolations(page);
+});
+
+/**
+ * The panel's promise is that a count is a count a click delivers, and that the
+ * row which applied a filter is the row that releases it. Both are asserted
+ * against the URL rather than against the panel's own numbers, because the URL
+ * is what a reader copies and what the next visit restores.
+ */
+test('the result profile narrows and releases the set it counts', async ({ page }) => {
+	await page.goto(concordance);
+	const profile = page.locator('details.profile');
+	await expect(profile).toBeVisible();
+	await expect(profile).toContainText('not evidence of emphasis');
+
+	// A facet row states its count; applying it must produce exactly that many.
+	const france = profile.getByRole('button', { name: 'Filter to France, 2 lines' });
+	await france.click();
+	await expect(page).toHaveURL(/country=France/);
+	await expect(page.locator('.status')).toContainText('2 of 4 lines');
+	await expect(page.getByRole('combobox', { name: 'Speaker', exact: true })).toHaveValue('France');
+
+	// The same row releases it, and the parameter leaves the URL entirely.
+	await profile.getByRole('button', { name: 'Release France, 2 lines' }).click();
+	await expect(page).not.toHaveURL(/country=/);
+	await expect(page.locator('.status')).toContainText('4 of 4 lines');
+
+	// A year narrows to itself, then releases to the documented corpus range
+	// rather than to whatever range preceded it.
+	await profile.getByRole('button', { name: 'Narrow to 2015, 2 lines' }).click();
+	await expect(page).toHaveURL(/from=2015&to=2015/);
+	await expect(page.locator('.status')).toContainText('2 of 4 lines');
+	await profile.getByRole('button', { name: 'Release 2015, 2 lines' }).click();
+	await expect(page).not.toHaveURL(/from=/);
+	await expect(page.locator('.status')).toContainText('4 of 4 lines');
+
+	// The way out to the chronology carries the term and admits what it drops.
+	const escape = profile.getByRole('link', { name: /Open the chronology of/ });
+	await expect(escape).toHaveAttribute('href', `${base}/chronology?series=genocide`);
+	await expect(profile).toContainText('filters here left behind');
+
 	await expectNoAxeViolations(page);
 });
 
@@ -131,7 +172,7 @@ test('data failure has an intelligible retry path', async ({ page }) => {
 		route.fulfill({ status: 200, contentType: 'application/json', body })
 	);
 	await page.getByRole('button', { name: 'Try again' }).click();
-	await expect(page.locator('.status')).toContainText('2 of 2 lines');
+	await expect(page.locator('.status')).toContainText('4 of 4 lines');
 });
 
 test('essential concordance controls remain visible at narrow and wide widths', async ({

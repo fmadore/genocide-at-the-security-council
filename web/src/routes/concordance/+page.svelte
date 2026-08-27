@@ -12,10 +12,14 @@
 		concordanceParams,
 		describeMonth,
 		describeSort,
+		facetClick,
 		filterConcordance,
-		readConcordanceState
+		profileResult,
+		readConcordanceState,
+		yearClick
 	} from '$lib/concordance';
-	import type { ConcordanceSort } from '$lib/concordance';
+	import type { ConcordanceSort, FacetDimension } from '$lib/concordance';
+	import ResultProfile from '$lib/ResultProfile.svelte';
 	import { kwic, meetingOf, speechOf } from '$lib/data';
 	import { filename, provenanceOf, saveCsv, toCsv } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
@@ -206,6 +210,26 @@
 	const result = $derived(filterConcordance(lines, currentState()));
 	const badRegex = $derived(result.badRegex);
 	const filtered = $derived(result.lines);
+
+	/* Profiled from the filtered lines, never from `lines`: the filter is
+	   already the expensive pass over as many as 51,000 rows, and counting the
+	   set it produced is what the panel is for. */
+	const profile = $derived(profileResult(filtered));
+
+	/** The panel narrows by writing the same state the selects and URL do. */
+	function applyFacet(dimension: FacetDimension, value: string) {
+		const next = facetClick(currentState(), dimension, value);
+		group = next.group;
+		country = next.country;
+		participantType = next.participantType;
+		agenda = next.agenda;
+	}
+
+	function applyYear(year: number) {
+		const next = yearClick(currentState(), year);
+		from = next.from;
+		to = next.to;
+	}
 
 	$effect(() => {
 		// Any change to the filter resets the page window.
@@ -441,6 +465,17 @@
 			{/if}
 			<button class="ghost" onclick={reset}>Reset</button>
 		</div>
+
+		{#if !loading && !failure && lines.length}
+			<ResultProfile
+				{profile}
+				state={currentState()}
+				firstYear={CONCORDANCE_DEFAULTS.from}
+				lastYear={CONCORDANCE_DEFAULTS.to}
+				onfacet={applyFacet}
+				onyear={applyYear}
+			/>
+		{/if}
 
 		<div class="status" aria-live="polite">
 			{#if loading}

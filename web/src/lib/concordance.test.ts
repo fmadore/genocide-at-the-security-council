@@ -14,16 +14,21 @@ import {
 	MONTH_PARAM,
 	CONCORDANCE_DEFAULTS,
 	cellQuery,
+	chronologyEscape,
 	concordanceParams,
 	describeMonth,
 	describeSort,
+	facetClick,
 	filterConcordance,
 	inMonth,
 	monthName,
 	monthOf,
 	pooledQuery,
+	profileResult,
 	readConcordanceState,
-	readMonth
+	readMonth,
+	topFacet,
+	yearClick
 } from './concordance';
 import type { KwicLine } from './types';
 
@@ -260,6 +265,172 @@ describe('sorting a citable table', () => {
 	] as const)('keeps the key ahead of the tiebreaker (%s)', (sort, rows) => {
 		const result = filterConcordance(rows, { ...CONCORDANCE_DEFAULTS, sort });
 		expect(result.lines.map((row) => row.id)).toEqual(['a#1', 'b#1']);
+	});
+});
+
+/**
+ * The panel counts what the reader selected, and a click delivers what it said.
+ *
+ * These two properties are the whole contract. The first is tested against a
+ * brute-force recount rather than against expected literals, because the point
+ * is that one pass over five dimensions agrees with five obvious passes. The
+ * second is what forbids minus-one facet previews: a number on screen is a
+ * number the filter will produce.
+ */
+describe('profiling a result set', () => {
+	const corpus = [
+		line({ id: 'a#1', date: '1994-04-07', country: 'Rwanda', group: 'E10', agenda: 'Rwanda' }),
+		line({ id: 'b#1', date: '1994-06-08', country: 'France', group: 'P5', agenda: 'Rwanda' }),
+		line({ id: 'c#1', date: '2014-06-11', country: 'France', group: 'P5', agenda: 'Ukraine' }),
+		line({
+			id: 'd#1',
+			date: '2014-06-12',
+			country: 'France',
+			group: 'P5',
+			agenda: 'Ukraine',
+			type: 'Guest'
+		})
+	];
+
+	it('agrees with counting each dimension separately', () => {
+		const profile = profileResult(corpus);
+		const brute = <T>(key: (line: KwicLine) => T) => {
+			const counts = new Map<T, number>();
+			for (const row of corpus) counts.set(key(row), (counts.get(key(row)) ?? 0) + 1);
+			return counts;
+		};
+		expect(profile.total).toBe(corpus.length);
+		expect(profile.years).toEqual(brute((row) => Number(row.date.slice(0, 4))));
+		expect(profile.country).toEqual(brute((row) => row.country));
+		expect(profile.group).toEqual(brute((row) => row.group));
+		expect(profile.participantType).toEqual(brute((row) => row.type));
+		expect(profile.agenda).toEqual(brute((row) => row.agenda));
+	});
+
+	it('counts what the reader selected, not the whole term', () => {
+		const filtered = filterConcordance(corpus, { ...CONCORDANCE_DEFAULTS, country: 'France' });
+		const profile = profileResult(filtered.lines);
+		expect(profile.total).toBe(3);
+		expect(profile.years.get(2014)).toBe(2);
+		expect(profile.years.get(1994)).toBe(1);
+	});
+
+	// The promise the panel makes: this count is what a click returns.
+	it('promises a count a click actually delivers', () => {
+		const profile = profileResult(corpus);
+		for (const [value, expected] of profile.country) {
+			const state = facetClick(CONCORDANCE_DEFAULTS, 'country', value);
+			expect(filterConcordance(corpus, state).lines).toHaveLength(expected);
+		}
+		for (const [year, expected] of profile.years) {
+			const state = yearClick(CONCORDANCE_DEFAULTS, year);
+			expect(filterConcordance(corpus, state).lines).toHaveLength(expected);
+		}
+	});
+
+	it('has nothing to say about an empty result set', () => {
+		const profile = profileResult([]);
+		expect(profile.total).toBe(0);
+		expect(profile.country.size).toBe(0);
+	});
+});
+
+describe('the largest values of a dimension', () => {
+	const counts = new Map([
+		['France', 10],
+		['Rwanda', 6],
+		['Nigeria', 3],
+		['Chile', 1]
+	]);
+
+	it('ranks by count, and breaks ties by name so the column cannot drift', () => {
+		const tied = new Map([
+			['Zimbabwe', 4],
+			['Angola', 4]
+		]);
+		expect(topFacet(tied, 8).rows.map((row) => row.value)).toEqual(['Angola', 'Zimbabwe']);
+	});
+
+	it('states what the cut left out, so eight rows do not read as eight values', () => {
+		const facet = topFacet(counts, 2);
+		expect(facet.rows.map((row) => row.value)).toEqual(['France', 'Rwanda']);
+		expect(facet.remainder).toEqual({ values: 2, count: 4 });
+	});
+
+	it('always sums to the total', () => {
+		const facet = topFacet(counts, 2);
+		const shown = facet.rows.reduce((sum, row) => sum + row.count, 0);
+		expect(shown + (facet.remainder?.count ?? 0)).toBe(20);
+	});
+
+	it('says nothing was left out when nothing was', () => {
+		expect(topFacet(counts, 8).remainder).toBeNull();
+	});
+
+	// Otherwise the filter in force could rank below the cut and vanish from the
+	// panel that set it, leaving no way to clear it there.
+	it('keeps the active value however small it is', () => {
+		const facet = topFacet(counts, 2, 'Chile');
+		expect(facet.rows.map((row) => row.value)).toEqual(['France', 'Rwanda', 'Chile']);
+		expect(facet.rows.find((row) => row.value === 'Chile')?.active).toBe(true);
+		expect(facet.remainder).toEqual({ values: 1, count: 3 });
+	});
+});
+
+describe('narrowing from the panel', () => {
+	it('applies a facet value that is not in force', () => {
+		const state = facetClick(CONCORDANCE_DEFAULTS, 'country', 'Rwanda');
+		expect(state.country).toBe('Rwanda');
+	});
+
+	it('clears the value that is', () => {
+		const applied = facetClick(CONCORDANCE_DEFAULTS, 'country', 'Rwanda');
+		expect(facetClick(applied, 'country', 'Rwanda').country).toBe('');
+	});
+
+	it.each(['group', 'country', 'participantType', 'agenda'] as const)(
+		'toggles %s without disturbing the other filters',
+		(dimension) => {
+			const busy = { ...CONCORDANCE_DEFAULTS, term: 'war_crimes', query: 'tribunal', month: 6 };
+			const state = facetClick(busy, dimension, 'value');
+			expect(state[dimension]).toBe('value');
+			expect({ ...state, [dimension]: '' }).toEqual({ ...busy, [dimension]: '' });
+		}
+	);
+
+	it('narrows to a single year', () => {
+		const state = yearClick(CONCORDANCE_DEFAULTS, 2014);
+		expect([state.from, state.to]).toEqual([2014, 2014]);
+	});
+
+	// Not the range that happened to be in force before: the URL carries no such
+	// memory, so restoring one would make the same URL behave two ways.
+	it('releases a year to the documented range, not a remembered one', () => {
+		const narrowed = yearClick({ ...CONCORDANCE_DEFAULTS, from: 2000, to: 2010 }, 2014);
+		const released = yearClick(narrowed, 2014);
+		expect([released.from, released.to]).toEqual([
+			CONCORDANCE_DEFAULTS.from,
+			CONCORDANCE_DEFAULTS.to
+		]);
+	});
+
+	it('replaces one year with another rather than clearing', () => {
+		const state = yearClick(yearClick(CONCORDANCE_DEFAULTS, 2014), 2015);
+		expect([state.from, state.to]).toEqual([2015, 2015]);
+	});
+});
+
+describe('the way out to the chronology', () => {
+	// The chronology's state carries a series and nothing else this view knows:
+	// no speaker, no agenda item, not even a year range.
+	it('carries the term and nothing it cannot honour', () => {
+		const params = new URLSearchParams(chronologyEscape('war_crimes').query);
+		expect(params.get('series')).toBe('war_crimes');
+		expect([...params.keys()]).toEqual(['series']);
+	});
+
+	it('says the filters are left behind, because they are', () => {
+		expect(chronologyEscape('genocide').scope).toContain('left behind');
 	});
 });
 

@@ -284,3 +284,166 @@ export function pooledQuery(term: string, month: number): EvidenceQuery {
 	const params = new URLSearchParams({ term, [MONTH_PARAM]: String(month) });
 	return { query: params.toString(), scope: `every ${monthName(month) ?? month}` };
 }
+
+/* -------------------------------------------------------------------------- *
+ * The profile of a result set
+ *
+ * Everywhere else on this site a count is refused as evidence, because a count
+ * of speeches is partly a picture of when the Council met — that is the whole
+ * argument of `heatmap.ts` and the reason the grid shades rates and nothing
+ * else. Nothing below repeals that. What it does is answer a different
+ * question: not "did the Council say this more in 2014" but "what am I
+ * currently looking at". The set being counted is one the reader assembled with
+ * the filters, and every count exists to be clicked back into that filter, so
+ * the honest unit here is the raw line and the component that renders these
+ * says so in as many words.
+ *
+ * Two consequences shape the code. The functions take the lines the view has
+ * *already* filtered and never re-filter — the concordance re-derives its
+ * filter over as many as 51,000 lines whenever anything upstream moves, and
+ * doing that twice for a panel would be paid on every keystroke. And there are
+ * no minus-one facet previews: a count shown is a count a click produces, so
+ * the panel can never promise a number the filter then fails to deliver.
+ * -------------------------------------------------------------------------- */
+
+/** The dimensions a result set can be profiled and narrowed by. */
+export type FacetDimension = 'group' | 'country' | 'participantType' | 'agenda';
+
+/** Counts of one result set, by year and by each categorical dimension. */
+export interface ResultProfile {
+	total: number;
+	years: Map<number, number>;
+	group: Map<string, number>;
+	country: Map<string, number>;
+	participantType: Map<string, number>;
+	agenda: Map<string, number>;
+}
+
+const tally = <T>(counts: Map<T, number>, key: T): void => {
+	counts.set(key, (counts.get(key) ?? 0) + 1);
+};
+
+/**
+ * Count a filtered result set once, along every dimension at once.
+ *
+ * One pass rather than five: the caller hands over lines that are already the
+ * answer to its filter, and a second traversal per dimension would multiply the
+ * cost of the largest term by five for no additional truth.
+ */
+export function profileResult(lines: readonly KwicLine[]): ResultProfile {
+	const profile: ResultProfile = {
+		total: lines.length,
+		years: new Map(),
+		group: new Map(),
+		country: new Map(),
+		participantType: new Map(),
+		agenda: new Map()
+	};
+	for (const line of lines) {
+		tally(profile.years, Number(line.date.slice(0, 4)));
+		tally(profile.group, line.group);
+		tally(profile.country, line.country);
+		tally(profile.participantType, line.type);
+		tally(profile.agenda, line.agenda);
+	}
+	return profile;
+}
+
+/** One row of a facet column: a value, its count, and whether it is in force. */
+export interface FacetRow {
+	value: string;
+	count: number;
+	active: boolean;
+}
+
+/** A facet column: the largest values, and an honest account of the rest. */
+export interface Facet {
+	rows: FacetRow[];
+	/** The values not shown, or null when every value is. */
+	remainder: { values: number; count: number } | null;
+}
+
+/**
+ * The largest values of one dimension, with what was left out stated.
+ *
+ * A top-N cut that does not say it is a cut is the display decision
+ * `docs/PLAN.md` §7.5 refuses in exports, and the objection holds on screen:
+ * 133 delegations do not fit a panel, but a reader must not conclude from eight
+ * rows that there were eight. The remainder row carries both how many values
+ * and how many lines are outside the cut, so the column always sums to the
+ * total.
+ *
+ * An active value is kept whatever its rank. Dropping the filter in force out
+ * of the bottom of its own column would leave a reader no way to clear it from
+ * the panel that set it.
+ */
+export function topFacet(counts: Map<string, number>, limit: number, active: string = ''): Facet {
+	const ordered = [...counts.entries()].sort(
+		([leftValue, left], [rightValue, right]) => right - left || leftValue.localeCompare(rightValue)
+	);
+	const shown = ordered.slice(0, limit);
+	if (active && !shown.some(([value]) => value === active)) {
+		const found = ordered.find(([value]) => value === active);
+		if (found) shown.push(found);
+	}
+	const rows = shown.map(([value, count]) => ({ value, count, active: value === active }));
+	const hidden = ordered.filter(([value]) => !rows.some((row) => row.value === value));
+	return {
+		rows,
+		remainder: hidden.length
+			? { values: hidden.length, count: hidden.reduce((sum, [, count]) => sum + count, 0) }
+			: null
+	};
+}
+
+/**
+ * Apply a facet value, or clear it when it is the one already in force.
+ *
+ * Toggling rather than only narrowing is what makes the panel a control instead
+ * of a one-way street: the row that set a filter is the row that releases it,
+ * and a reader never has to find the select it came from to undo it.
+ */
+export function facetClick(
+	state: ConcordanceState,
+	dimension: FacetDimension,
+	value: string
+): ConcordanceState {
+	return { ...state, [dimension]: state[dimension] === value ? '' : value };
+}
+
+/**
+ * Narrow to one year, or release that year back to the documented range.
+ *
+ * Releasing restores the defaults rather than whatever range was in force
+ * before, and deliberately so. A previous range is state the URL does not
+ * carry, so remembering it would make the same URL behave differently
+ * depending on how the reader arrived — which is the one thing the query-state
+ * contract exists to prevent.
+ */
+export function yearClick(state: ConcordanceState, year: number): ConcordanceState {
+	const only = state.from === year && state.to === year;
+	return {
+		...state,
+		from: only ? CONCORDANCE_DEFAULTS.from : year,
+		to: only ? CONCORDANCE_DEFAULTS.to : year
+	};
+}
+
+/**
+ * The chronology of the same term — and an exact account of what is lost.
+ *
+ * The concordance can say "Rwanda, June, 1994" and the chronology cannot: its
+ * query state carries the series, the unit and the grain, but no speaker, no
+ * agenda item and not even a year range. So this link cannot preserve the
+ * reader's question, and the design decision is to say so in the label rather
+ * than to hide the link when filters are active. A link that appears and
+ * disappears according to a rule the interface never states is a rule the
+ * reader has to reverse-engineer; one that is always there and always honest
+ * about its own scope can simply be read.
+ */
+export function chronologyEscape(term: string): EvidenceQuery {
+	return {
+		query: new URLSearchParams({ series: term }).toString(),
+		scope: 'every speech, the whole corpus, with the filters here left behind'
+	};
+}

@@ -11,7 +11,7 @@
 	"pattern": "genocide",
 	"tier": "core",
 	"register": "core",
-	"count": 2,
+	"count": 4,
 	"lines": [
 		{
 			"id": "UNSC_2014_SPV.7000_spch0001#1",
@@ -44,6 +44,38 @@
 			"kw": "genocide",
 			"right": ".",
 			"sent": "We reject the claim of genocide."
+		},
+		{
+			"id": "UNSC_2015_SPV.7481_spch0007#1",
+			"spv": "S/PV.7481",
+			"date": "2015-07-08",
+			"country": "France",
+			"iso3": "FRA",
+			"group": "P5",
+			"type": "Guest",
+			"agenda": "The situation in Bosnia and Herzegovina",
+			"start": 30,
+			"end": 38,
+			"left": "The Council must call this ",
+			"kw": "genocide",
+			"right": " by its name.",
+			"sent": "The Council must call this genocide by its name."
+		},
+		{
+			"id": "UNSC_2015_SPV.7481_spch0007#2",
+			"spv": "S/PV.7481",
+			"date": "2015-07-08",
+			"country": "France",
+			"iso3": "FRA",
+			"group": "P5",
+			"type": "Guest",
+			"agenda": "The situation in Bosnia and Herzegovina",
+			"start": 74,
+			"end": 82,
+			"left": "Twenty years after Srebrenica the word ",
+			"kw": "genocide",
+			"right": " remains contested.",
+			"sent": "Twenty years after Srebrenica the word genocide remains contested."
 		}
 	]
 }
