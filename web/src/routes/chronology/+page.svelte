@@ -149,7 +149,7 @@
 	/** Every measure and every month, including the 53 that carry no rate. */
 	function monthTable(): ExportRequest {
 		return {
-			title: 'Does the vocabulary have a calendar?',
+			title: "The vocabulary's calendar",
 			columns: GRID_COLUMNS,
 			rows: gridRows(byMonth),
 			provenance: provenanceOf(byMonth.meta, 'series/monthly.json'),
@@ -750,7 +750,7 @@
 	</section>
 
 	<Figure
-		title="Does the vocabulary have a calendar?"
+		title="The vocabulary's calendar"
 		question="Month by month, are there times of year when the Council reaches for this vocabulary more than others?"
 		source="04_series.py → series/monthly.json"
 		note="Shading always carries a rate, never a count. Twice as dark is not twice the rate — read the key. A hatched square has no rate; it is not a zero."
@@ -780,6 +780,19 @@
 		{/snippet}
 
 		{#snippet reading()}
+			<!-- Stated first, and drawn from the same computed months as the caveat
+			     below, because the title invites the expectation this grid refuses:
+			     the calendar it finds is the Council's own timetable, not the
+			     commemorative one. A reader who meets that only in the note opposite
+			     has already read the darkest squares as remembrance. -->
+			{#if column.shared}
+				<p>
+					<strong>The strongest months are {strongest.map((row) => row.name).join(' and ')}</strong
+					>, and most of their speeches sit under one agenda item —
+					<em>{column.shared}</em>. Expect a reporting timetable here rather than a calendar of
+					commemoration; the note opposite says what that does and does not license.
+				</p>
+			{/if}
 			<p>
 				One square per month, {byMonth.years[0]}–{byMonth.years[byMonth.years.length - 1]}, with
 				years running down and months across. The shading runs from the colour of the page at zero

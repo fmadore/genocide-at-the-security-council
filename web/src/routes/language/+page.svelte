@@ -572,12 +572,20 @@
 	<header class="lede">
 		<h1>Language</h1>
 		<p class="standfirst">
-			The company the word keeps. Every table here uses two measures side by side.
-			<strong>Log-likelihood</strong> (written G²) says how confident we can be that a word turns up
-			at a rate chance alone would not produce; <strong>log ratio</strong> says how large that
-			difference is. Across {count(data.collocates.meta.corpus_tokens as number)} words almost anything
-			reaches statistical significance, so confidence on its own is not a finding &mdash; the tables rank
-			by confidence and report the size beside it.
+			The company the word keeps. This page asks what the vocabulary travels with, using three
+			standard instruments of corpus linguistics: <strong>collocation</strong>, the words that turn
+			up within a few words of a term more often than chance would place them;
+			<strong>keyness</strong>, the words that set the speeches bearing a term apart from comparable
+			speeches without it; and a <strong>co-occurrence network</strong>, which terms of the list are
+			said in the same speech.
+		</p>
+		<p class="standfirst">
+			Every table here uses two measures side by side. <strong>Log-likelihood</strong> (written G²)
+			says how confident we can be that a word turns up at a rate chance alone would not produce;
+			<strong>log ratio</strong> says how large that difference is. Across {count(
+				data.collocates.meta.corpus_tokens as number
+			)} words almost anything reaches statistical significance, so confidence on its own is not a finding
+			&mdash; the tables rank by confidence and report the size beside it.
 		</p>
 	</header>
 
