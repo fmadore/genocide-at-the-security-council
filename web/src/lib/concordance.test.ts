@@ -16,6 +16,7 @@ import {
 	cellQuery,
 	concordanceParams,
 	describeMonth,
+	describeSort,
 	filterConcordance,
 	inMonth,
 	monthName,
@@ -214,5 +215,71 @@ describe('the complete concordance query state', () => {
 		});
 		expect(result.badRegex).toBe(true);
 		expect(result.lines).toHaveLength(1);
+	});
+});
+
+/**
+ * Every sort must be a total order, because ties here are the normal case.
+ *
+ * One delegation speaks hundreds of times and an occurrence opening a speech
+ * has no left context at all, so each sort key leaves large blocks of lines
+ * equal. `Array.prototype.sort` being stable is not enough: it preserves the
+ * order it was given, and what it is given is a filter over a set re-derived
+ * whenever anything upstream changes. The test shuffles the input rather than
+ * asserting one arrangement, because the property is that the input order does
+ * not survive into the output.
+ */
+describe('sorting a citable table', () => {
+	const SORTS = ['date', 'country', 'agenda', 'left', 'right'] as const;
+
+	// Every field these sorts read is identical; only the IDs differ.
+	const tied = [
+		line({ id: 'UNSC_2014_SPV.7000_spch0001#3' }),
+		line({ id: 'UNSC_2014_SPV.7000_spch0001#1' }),
+		line({ id: 'UNSC_2014_SPV.7000_spch0001#2' })
+	];
+
+	it.each(SORTS)('orders tied lines identically whatever order they arrive in (%s)', (sort) => {
+		const one = filterConcordance(tied, { ...CONCORDANCE_DEFAULTS, sort });
+		const reversed = filterConcordance([...tied].reverse(), { ...CONCORDANCE_DEFAULTS, sort });
+		expect(one.lines.map((row) => row.id)).toEqual(reversed.lines.map((row) => row.id));
+		// And the settled order is the ID's own, not whichever arrived first.
+		expect(one.lines.map((row) => row.id)).toEqual([
+			'UNSC_2014_SPV.7000_spch0001#1',
+			'UNSC_2014_SPV.7000_spch0001#2',
+			'UNSC_2014_SPV.7000_spch0001#3'
+		]);
+	});
+
+	// The tiebreaker must not reach the lines the key already separates.
+	it.each([
+		['date', [line({ id: 'b#1', date: '2014-06-11' }), line({ id: 'a#1', date: '1994-04-07' })]],
+		['country', [line({ id: 'b#1', country: 'Rwanda' }), line({ id: 'a#1', country: 'France' })]],
+		['agenda', [line({ id: 'b#1', agenda: 'Zimbabwe' }), line({ id: 'a#1', agenda: 'Angola' })]],
+		['right', [line({ id: 'b#1', right: ' zebra' }), line({ id: 'a#1', right: ' alpha' })]]
+	] as const)('keeps the key ahead of the tiebreaker (%s)', (sort, rows) => {
+		const result = filterConcordance(rows, { ...CONCORDANCE_DEFAULTS, sort });
+		expect(result.lines.map((row) => row.id)).toEqual(['a#1', 'b#1']);
+	});
+});
+
+describe('naming a sort', () => {
+	// The defect this closes: the control said "Speaker" and the downloaded file
+	// said `sorted by: country`, and only the file outlives the tab.
+	it('calls the speaker sort what the interface calls it', () => {
+		expect(describeSort('country')).toBe('speaker');
+	});
+
+	it('names every sort the state can hold', () => {
+		for (const sort of ['date', 'country', 'agenda', 'left', 'right'] as const) {
+			expect(describeSort(sort)).toBeTruthy();
+		}
+	});
+
+	// A sort's serialized value is part of the URL contract; its name is prose.
+	// Renaming the parameter to match the label would break copied URLs.
+	it('does not rename the parameter it describes', () => {
+		const params = concordanceParams({ ...CONCORDANCE_DEFAULTS, sort: 'country' });
+		expect(params.get('sort')).toBe('country');
 	});
 });

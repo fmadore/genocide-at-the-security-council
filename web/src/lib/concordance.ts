@@ -157,14 +157,50 @@ export function filterConcordance(
 
 	const tail = (value: string) =>
 		[...value.toLowerCase().replace(/[^a-z ]/g, '')].reverse().join('');
+	/**
+	 * Every sort ends on the occurrence ID, because ties are the normal case here.
+	 *
+	 * A delegation speaks hundreds of times, an agenda item names thousands of
+	 * lines, and an occurrence at the start of a speech has no left context at
+	 * all — so each of these keys leaves large blocks of lines equal. `sort` is
+	 * stable in every engine the site supports, but stability only preserves the
+	 * *input* order, and the input is a filter over a set that is re-derived
+	 * whenever anything upstream changes. `actors.ts` states the standard this
+	 * meets: a table that reorders itself is a table a reader cannot cite. The ID
+	 * is the tiebreaker because it is the one key that is unique by construction.
+	 */
+	const then = (key: (line: KwicLine) => string) => (a: KwicLine, b: KwicLine) =>
+		key(a).localeCompare(key(b)) || a.id.localeCompare(b.id);
 	const by: Record<ConcordanceSort, (a: KwicLine, b: KwicLine) => number> = {
-		date: (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
-		country: (a, b) => shortCountry(a.country).localeCompare(shortCountry(b.country)),
-		agenda: (a, b) => a.agenda.localeCompare(b.agenda),
-		left: (a, b) => tail(a.left).localeCompare(tail(b.left)),
-		right: (a, b) => a.right.toLowerCase().localeCompare(b.right.toLowerCase())
+		date: then((line) => line.date),
+		country: then((line) => shortCountry(line.country)),
+		agenda: then((line) => line.agenda),
+		left: then((line) => tail(line.left)),
+		right: then((line) => line.right.toLowerCase())
 	};
 	return { lines: [...rows].sort(by[state.sort]), badRegex };
+}
+
+/**
+ * What a sort is called, in the one place both the control and the file read.
+ *
+ * The serialized value is `country`, and it stays that way: URLs of this site
+ * are citable, and renaming a parameter to match a label would break every one
+ * a reader has already copied. But the control has always said "Speaker" —
+ * `country` on this corpus holds delegations and organisations alike — while
+ * the exported filter list said `sorted by: country`. Two names for one choice,
+ * one of them visible only after the download. This function is the name, and
+ * both callers take it from here.
+ */
+export function describeSort(sort: ConcordanceSort): string {
+	const names: Record<ConcordanceSort, string> = {
+		date: 'date',
+		country: 'speaker',
+		agenda: 'agenda item',
+		left: 'the word before the match',
+		right: 'the word after the match'
+	};
+	return names[sort];
 }
 
 /**

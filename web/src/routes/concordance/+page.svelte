@@ -11,6 +11,7 @@
 		CONCORDANCE_DEFAULTS,
 		concordanceParams,
 		describeMonth,
+		describeSort,
 		filterConcordance,
 		readConcordanceState
 	} from '$lib/concordance';
@@ -39,7 +40,12 @@
 
 	/* A segmented control rather than a select: five short words, all visible at
 	   once, because which sort is in force changes what the column of nodes
-	   means and should never be one click out of sight. */
+	   means and should never be one click out of sight.
+
+	   These labels are column names and the exported file's `sorted by:` line is
+	   prose, so the two registers differ by design — but they must never
+	   contradict, which is what `describeSort` is for and what its test asserts.
+	   Change a label here and change it there. */
 	const SORTS: { value: ConcordanceSort; label: string; hint: string }[] = [
 		{ value: 'date', label: 'Date', hint: 'Oldest first, then by speech identifier' },
 		{ value: 'country', label: 'Speaker', hint: 'Alphabetical by speaker' },
@@ -278,7 +284,7 @@
 			spv ? `meeting: ${spv}` : null,
 			from !== 1992 || to !== 2023 ? `years: ${from}–${to}` : null,
 			describeMonth(month),
-			`sorted by: ${sort}`
+			`sorted by: ${describeSort(sort)}`
 		].filter((line): line is string => line !== null);
 
 	function download() {
