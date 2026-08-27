@@ -83,6 +83,45 @@ and its key as two files so that the file a human opens does not contain the ans
 
 See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establish.
 
+## Changing the lexicon
+
+The word list is the study's central scholarly choice, and
+[`../docs/PLAN.md`](../docs/PLAN.md) calls it a proposal rather than a result. Adding or
+removing a term is therefore a recorded decision, not a configuration tweak.
+
+1. **Edit [`../config/lexicon.yml`](../config/lexicon.yml).** A term needs a `pattern`
+   (Python regex), `prefilters` (literal strings for the fast path), `examples`, a `tier`
+   and a `register`. Use `note` for the rationale — why this term belongs to this study,
+   and what it is expected to catch that the existing terms do not. That sentence is the
+   part a reader of the published figures will want and cannot reconstruct.
+2. **Bump `version` and `updated`** in the same file. The version travels into every
+   artefact's `meta` and into every CSV header, so a figure and the word list that produced
+   it can always be matched.
+3. **Rerun, in order:** `03` (which recounts every speech), then `04`, `05`, `08`, `09`,
+   `11` and `12`, then `export_web.py`. Each step asserts its own output, so a broken
+   pattern fails at 03 rather than surfacing as an empty column in the dashboard.
+
+What follows from that, worth knowing before you start:
+
+- **Every downstream number changes**, including ones that do not mention the new term: a
+  register or set that the term joins is recounted, and so is anything measured against the
+  corpus as a whole.
+- **Existing annotations do not carry over automatically across an incompatible pattern
+  change.** That is the A2 rule in
+  [`../docs/IMPROVEMENT_ROADMAP.md`](../docs/IMPROVEMENT_ROADMAP.md): an occurrence ID is
+  built from the span and matched text, and the lexicon version is stored beside it, so a
+  changed pattern produces new occurrences rather than silently inheriting old verdicts.
+- **The dashboard needs no code change.** The concordance builds its term list from
+  `kwic/index.json`, and no view hardcodes a term. A new term appears in the selects, the
+  chronology measures and the co-occurrence network on its own.
+- **The contract should not need editing either.** It tracks one representative term file
+  rather than all twenty-two, and the lexicon-keyed collections — `terms`, `registers`,
+  `sets`, `measures`, `series`, speech `hits` — are contracted on presence and type only,
+  precisely so an ordinary lexicon edit does not read as a breaking change. Run
+  `python -m pytest tests/test_contract.py` to prove it rather than assuming it; if it does
+  fail, that is a real shape change and `python scripts/export_web.py --update-contract` is
+  the deliberate second step.
+
 ## Modules
 
 | Module | Responsibility |
@@ -134,9 +173,10 @@ machine-specific paths live in `.env` (git-ignored; copy `.env.example`).
 python -m pytest
 ```
 
-595 tests in about six seconds, no data required, and run in CI on every push and pull
-request ([`checks.yml`](../.github/workflows/checks.yml), alongside the dashboard's own
-`prettier`, `eslint`, `svelte-check` and 252 `vitest` tests).
+Seconds, no data required, and run in CI on every push and pull request
+([`checks.yml`](../.github/workflows/checks.yml), alongside the dashboard's own `prettier`,
+`eslint`, `svelte-check` and `vitest` gates). CI is the source of truth for how many there
+are; a count written down here is one that goes stale on the next commit.
 [`tests/test_config.py`](../tests/test_config.py) runs against the real `config/` files, so
 a bad alias or a mistyped Council term fails here rather than halfway through a pipeline
 run. [`tests/test_series.py`](../tests/test_series.py) checks exploratory segmentation and
