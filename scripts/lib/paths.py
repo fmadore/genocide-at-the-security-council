@@ -35,6 +35,14 @@ MEETINGS = DERIVED / "meetings.parquet"           # 01
 SPEECHES_NORM = DERIVED / "speeches_norm.parquet"      # 02 — normalised
 SPEECHES_FLAGGED = DERIVED / "speeches_flagged.parquet"  # 03 — lexicon columns
 
+# --- Durable annotation stores --------------------------------------------
+# Both are version-controlled inputs the pipeline reads and never rebuilds.
+# `annotations/` is human-owned: no script writes there (see annotations/README.md).
+# `model_annotations/` holds committed model runs: 14 writes a run once, by hand;
+# every later step treats it as read-only input, like the human file.
+ANNOTATIONS = ROOT / "annotations"
+MODEL_ANNOTATIONS = ROOT / "model_annotations"
+
 # --- Hand-checked analysis inputs -----------------------------------------
 # These are curated artefacts under version control, not computed outputs.
 # A script that consumes one must fail loudly on any value it has never seen,
@@ -69,6 +77,10 @@ KWIC = DERIVED / "kwic"          # 08
 # series/ is cut by period, this is cut by speaker, and folding the two would
 # put a table nobody asked for inside an artefact everyone already reads.
 COUNTRIES = DERIVED / "countries"  # 11
+# 15 joins the committed model run to the corpus and aggregates it for the
+# usage view. Everything in it is derived from model_annotations/ plus the
+# flagged parquet, so it rebuilds anywhere those two exist.
+USAGE = DERIVED / "usage"          # 15
 MANIFESTS = DERIVED / "manifests"  # machine-readable provenance, all stages
 
 # Harvard Dataverse
