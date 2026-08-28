@@ -9,6 +9,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from lib import audit, lexicon
+from lib.paths import ROOT
+
+REFERENT_ID = re.compile(r"^[a-z0-9_]+$")
+REFERENT_KINDS = frozenset({"case", "historical", "meta", "reserved"})
 
 
 def _audit_step():
@@ -333,6 +337,36 @@ def test_referent_file_requires_columns_unique_ids_and_reserved_values(tmp_path)
     path.write_text("id,label,description\nother,Other,Known\n", encoding="utf-8")
     with pytest.raises(ValueError, match="missing reserved IDs"):
         audit.read_referents(path)
+
+
+def referent_path() -> Path:
+    return ROOT / "annotations" / "lexicon" / "referents.csv"
+
+
+def referent_table() -> pd.DataFrame:
+    return pd.read_csv(referent_path(), dtype="string", keep_default_na=False)
+
+
+def test_committed_referents_are_readable_and_keep_the_reserved_identifiers() -> None:
+    referents = audit.read_referents(referent_path())
+    assert referents >= audit.DEFAULT_REFERENTS
+    assert len(referents) > len(audit.DEFAULT_REFERENTS)
+
+
+def test_committed_referent_ids_use_one_spelling_convention() -> None:
+    identifiers = referent_table()["id"].tolist()
+    assert [value for value in identifiers if not REFERENT_ID.fullmatch(value)] == []
+    assert len(set(identifiers)) == len(identifiers)
+
+
+def test_committed_referents_declare_a_kind_and_reserve_the_defaults() -> None:
+    table = referent_table()
+    assert "kind" in table.columns
+    unknown = sorted(set(table["kind"]) - REFERENT_KINDS)
+    assert unknown == []
+    reserved = table.loc[table["id"].isin(audit.DEFAULT_REFERENTS), "kind"]
+    assert len(reserved) == len(audit.DEFAULT_REFERENTS)
+    assert set(reserved) == {"reserved"}
 
 
 def test_duplicate_generated_candidate_ids_are_refused() -> None:

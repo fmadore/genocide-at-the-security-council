@@ -580,6 +580,186 @@ abstention and be evaluated on untouched human-coded cases with per-class precis
 recall and macro-F1. Human labels remain the authority. The classifier must never be framed
 as deciding whether an event legally constituted genocide.
 
+## Phase L — model-assisted usage layer (experimental)
+
+**Decision, 28 August 2026.** External feedback asked the two questions this dashboard cannot
+answer from counts: which genocide a delegation is invoking, and whether the speaker asserts
+the characterization or rejects it. Both are properties of a usage rather than of a frequency,
+so no denominator, series or collocate table will produce them. This phase builds a
+model-assisted layer that proposes those properties for every occurrence of `genocide`, and
+ships it as an experiment rather than as a result.
+
+That contradicts H2, which admits model assistance only after H1. The tension is recorded here
+rather than removed by rewording H2. Shipping ahead of the full H1 campaign is the owner's
+decision, and it is gated instead on four conditions that hold for as long as the layer exists:
+
+1. every model-derived surface — route, figure, table, export and payload — carries a standing
+   experimental marking naming the model and the run, which no interaction dismisses;
+2. a gold sample of roughly 200 occurrences is coded independently by both coders, 100%
+   double-coded, and the human/model agreement it yields is shown beside the model output
+   rather than filed in a report;
+3. human labels remain the authority: a disagreement is published as a disagreement and never
+   settled by editing the human row;
+4. the closing rule of `PLAN.md` §5 stands unchanged — no model output may overwrite corpus
+   text, lexicon counts or human annotations.
+
+Three further limits belong to the same decision. The scope is the single term `genocide`, not
+the lexicon: the study's question is about that word, and one term keeps the gold sample large
+enough per class to support any statement at all. The annotating model is recorded per run
+rather than declared once in prose, because the layer is expected to be re-run against
+different models and a comparison is worthless if the output does not carry its own
+provenance. And Joël Glasman, who asked for this analysis and codes the gold sample alongside
+the author, is credited as a coder in the codebook and acknowledged in README and Methods;
+`CITATION.cff` is unchanged, because the sole-authorship decision in `PLAN.md` §1.3 stands and
+coding a gold sample is not authorship of the study.
+
+This phase does not open A4's release gate. An experimental view is not a citable result, and
+the §1.1 audit remains the condition for a tag.
+
+### L1. Seed the referent vocabulary
+
+**Change.** Give `annotations/lexicon/referents.csv` the descriptive columns `kind` (`case`,
+`historical`, `meta`, `reserved`), `iso3` and `years`, and seed roughly thirty referents: the
+situations actually argued before the Council, the memory cases that predate the corpus, and
+the meta referents a passage carries when it names no case at all. `audit.read_referents`
+requires only `id`, `label` and `description` and tolerates further columns, so the descriptive
+columns cost no code change.
+
+One list serves both coders and the model prompt. A referent invented separately on either side
+cannot be compared with the other, which is the whole point of the gold sample.
+
+Descriptions name the discourse referent and never adjudicate whether an event legally
+constitutes genocide — the codebook's own rule. Where a binding legal finding exists, plain
+naming is accurate; elsewhere the description says that speeches invoke the situation as
+genocide or genocidal.
+
+Move the codebook to version 2.1: the seeded list, the descriptive columns and the two-coder
+protocol for the gold sample. No field definition and no controlled value changes, which is why
+this is 2.1 and not schema version 3.
+
+**Acceptance and tests.**
+
+- `audit.read_referents` accepts the real committed file and the three reserved IDs survive.
+- IDs are unique, nonempty and match `^[a-z0-9_]+$`, so a spelling variant cannot fragment one
+  referent.
+- Every `kind` is one of the four declared values and the reserved rows carry `reserved`.
+- Both coders have reviewed the list before any scored coding or model run begins.
+
+### L2. Genocide gold sample and its two-coder protocol
+
+**Change.** `scripts/13_gold_sample.py` draws a stratified sample of about 200 genocide
+occurrences — a probability frame that carries a weight, and a coverage frame spanning period
+and usage cues such as negation, quotation, conditional phrasing and institutional titles — into
+`data/interim/genocide_gold_*.csv`. Human work lives in the new versioned
+`annotations/genocide/annotations.csv`, under the schema and codebook the lexicon audit already
+uses, and no script writes it.
+
+Both coders, `FM` and `JG`, code every sampled occurrence independently. The double-coded
+fraction is 100% rather than H1's 20–25%, because these 200 rows are the model's entire
+evaluation set and a single-coded row cannot say whether a model/human difference is a model
+error. A shared pilot outside the scored sample precedes scored coding, and disagreements are
+adjudicated by codebook step 6, which preserves both originals and records the resolution as a
+separate row.
+
+**Acceptance and tests.**
+
+- The same corpus, configuration and seed reproduce the same sample and the same IDs, and the
+  IDs are the audit occurrence IDs, not a second identifier scheme.
+- Both frames are distinguishable in the file and the metadata, and every weight can be
+  reconstructed from recorded frame counts.
+- Regenerating the sample cannot write, clear or reorder anything under `annotations/`.
+- Each declared stratum is represented, and a sample too small to cover them fails loudly.
+
+### L3. Annotate every genocide occurrence
+
+**Change.** `scripts/lib/llm.py` and `scripts/14_llm_annotate.py` annotate all genocide
+occurrences with the codebook's own schema — verdict, quotation, stance, function, referent,
+evidence quote, confidence — with abstention an allowed value in every field rather than a
+missing one. The step runs by hand only; it is never invoked from CI or the deploy workflow,
+which must rebuild the site without an API key.
+
+Output is committed under `model_annotations/genocide/runs/<run_id>/` beside a manifest
+recording the model identifier, the SHA-256 of the prompt, token usage, the run date and the
+corpus and lexicon versions it was run against. Every evidence quote is verified against the
+speech body; a quote that is not there is flagged in the output and counted, never repaired and
+never silently dropped.
+
+**Keep it small.** A committed run is a curated input like `config/entities.csv`. No model
+registry, no serving layer and no scheduler.
+
+**Acceptance and tests.**
+
+- Offline fixtures cover the whole path; the tests never call an API.
+- An unknown label, a malformed record or a quote absent from the source is refused or flagged,
+  and cannot enter the run as a plausible-looking value.
+- Abstention is a recorded value, distinguishable from a field the model failed to return.
+- The step writes nothing under `annotations/`, `data/derived/` or `config/`.
+
+### L4. Aggregate the run into the usage payload
+
+**Change.** `scripts/15_usage.py` and `scripts/lib/usage.py` join the committed run, the gold
+annotations and the flagged corpus into `data/derived/usage/usage.json` and
+`data/derived/usage/occurrences.json` under the existing payload contract. Cells below a
+declared minimum number of occurrences are withheld rather than drawn, as elsewhere on this
+site, and each carries the denominator that made it withheld. Per-class human/model agreement is
+computed from the gold rows alone and travels with the payload.
+
+**Also fix, while the file is open.** `deploy.yml` triggers on `config/**` and `scripts/**` and
+keys its derived cache on the same globs, although step 03 already reads
+`annotations/lexicon/annotations.csv`: coding a row today would not rebuild the site. Add
+`annotations/**` and `model_annotations/**` to both the trigger paths and the cache key, and add
+step 15 to the build.
+
+**Acceptance and tests.**
+
+- Producer and consumer fixtures agree on the payload shape, and the contract test fails when a
+  field's requiredness changes.
+- Agreement is computed on gold rows only and can never be reported over the full run.
+- A withheld cell exposes its denominator and is distinguishable from a zero.
+- A coded occurrence missing from the run, and a run row missing from the corpus, are both
+  reported rather than dropped.
+
+### L5. The `/usage` view
+
+**Change.** A new route, marked experimental everywhere it appears, that discloses the model
+identifier, the run date and the prompt verbatim, and reports the abstention rate and the gold
+agreement beside the figures they qualify. Its first figure is the matrix external feedback
+asked for: speaking actor by referent, with stance counts inside each cell, so a reader sees who
+invokes which genocide and in which direction. Every drawable cell drills down to the
+quotations behind it, and every quotation links into the reader and the concordance at the exact
+occurrence.
+
+Add methods-ledger rows for steps 13, 14 and 15 with a new `experimental` state beside the
+existing `verified`, `open` and `unadopted`, because none of the three is honest here.
+
+**Acceptance and tests.**
+
+- The experimental marking is present on the route, on every model-derived figure and in every
+  export, and no interaction removes it.
+- The prompt shown is the one the manifest hashes.
+- A cell below the declared minimum withholds and says so; a drilled-down quotation resolves to
+  the occurrence it names.
+- The route's analytical state round-trips through the URL like every other view.
+
+### L6. Close the documentation
+
+**Change.** A README status row naming the layer as experimental and model-derived; a dated
+mapping in `PLAN.md` §5 of its six preconditions to what this phase did, partly did and did not
+do; `VALIDATION.md` register entries for the human checks this phase opens; a `scripts/README.md`
+run book for 13, 14 and 15 stating that they are manual, what they need and what they write; and
+the acknowledgment of Joël Glasman.
+
+**Also fix, while the file is open.** `VALIDATION.md` §2 still says the referent list "contains
+only reserved values". L1 made that false.
+
+**Acceptance.**
+
+- A reader can tell from the README alone which parts of the site are model-derived and
+  unvalidated.
+- `PLAN.md` §5 states which of its six steps are met and which are not, rather than leaving a
+  reader to assume the phase satisfied all six.
+- No per-class threshold is claimed that a 200-occurrence sample cannot support.
+
 ## Phase E — institutional and historical extension
 
 ### E1. Rhetoric and formal Council action
@@ -668,3 +848,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-08-27 | U3 step 4: citation formats       | complete   | pending | `npx vitest run src/lib/citation.test.ts` (18 passed); `npm test` (369 passed); `npm run check`; `npm run lint`; `npm run test:e2e` (13 Chromium journeys); `npm run test:e2e:sw`; `npm run build` | The gate was assessed rather than assumed and written into U3: the occurrence ID is the locator because the official record gives no paragraph numbering here, and the UN Digital Library link stays labelled a search. CSL `speech`, RIS `GOVDOC`, BibTeX `@misc`, offered from the reader where the meeting is loaded so a citation can name the representative and not only the delegation. Golden fixtures plus parse-backs; the hostile-characters fixture caught an unescaped `%` in the percent-encoded permalink, which would have opened a TeX comment and swallowed the rest of the entry. |
 | 2026-08-27 | M5 lexicon change workflow        | complete   | pending | `python -m pytest tests/test_contract.py -q` (20 passed); `python -m pytest` (all passed); `ruff check .`; claims read against `config/lexicon.yml`, `scripts/lib/contract.py` and A2 | `scripts/README.md` gains "Changing the lexicon": the fields a term needs and that its `note` carries the rationale, the version bump, the rerun order, and the four consequences worth knowing in advance — every downstream number moves, annotations do not carry over across an incompatible pattern change, the dashboard needs no code change because the term list comes from the exported index, and the contract needs no edit because it tracks one representative term file and contracts lexicon-keyed collections on presence and type. That last claim was checked against `contract.py` rather than assumed. The same file still printed exact test counts that I4 removed elsewhere; they are now gone. |
 | 2026-08-28 | U8 follow-up: term picker         | complete   | pending | `npm test` (369 passed); `npm run check`; `npm run lint`; `npm run test:e2e` (13 Chromium journeys); `npm run test:e2e:sw`; `npm run build`; the deployed URL re-read against the real payload | Reported from the published site: the control that decides what the first chronology figure draws sat after the whole figure, below `Source` and the download row, so the apparatus stood between a reader and the one thing they came to change. The term chips now sit directly under the chart, above the value table and the footer, set as a subsection of the figure rather than a section of the page. This also removed a small untruth: the figure's own reading note said "pick terms from the list below the chart", and the list was below the figure. |
+| 2026-08-28 | Phase L defined; L1 vocabulary     | documented | pending | `python -m pytest tests/test_audit.py -q` (25 passed); `ruff check .`; `audit.read_referents` over the committed file (29 identifiers) | Joël Glasman's feedback asked which genocide each delegation invokes and whether the speaker asserts or rejects the characterization. Neither is answerable from a count, so both became a phase rather than untracked edits: L1–L6 define the referent vocabulary, the double-coded gold sample, the model run, the aggregation, an experimental `/usage` view and its documentation. The conflict with H2 — model assistance only after H1 — is recorded in the phase's own decision rather than resolved by rewording H2, and is gated on standing experimental marking, displayed human/model agreement, human labels as the authority and the closing rule of `PLAN.md` §5. Scope is `genocide` alone; `CITATION.cff` is unchanged. L1's list is seeded in the same pass — 29 referents over `case`, `historical`, `meta` and `reserved`, with `iso3` and `years` as documentation the coding rule ignores — and the codebook moves to 2.1 with the two-coder protocol and the rule that model output is evaluated against human rows, never merged into them. The schema stays at version 2 because no field or controlled value moved. L1 is not complete: both coders must review the list before any scored coding or model run. |

@@ -1,6 +1,8 @@
 # Lexicon audit codebook
 
-Version 2 — 24 August 2026
+Codebook version 2.1 — 28 August 2026. Annotation schema version 2, unchanged: no field
+definition and no controlled value has moved since 24 August 2026. See the changelog at the
+end.
 
 ## Purpose and unit
 
@@ -108,6 +110,14 @@ The controlled list will grow through reviewed additions during the pilot. Do no
 new place, conflict, people, or institution directly into `annotations.csv`; add it to
 `referents.csv` first so spelling variants cannot silently fragment one referent.
 
+`referents.csv` is now seeded rather than empty: the situations argued before the Council, the
+memory cases that predate the corpus, and the meta referents a passage carries when it names no
+case at all. It also carries three descriptive columns — `kind`, `iso3` and `years` — which
+place a referent and help you find it. They are documentation, not coding: choose the
+identifier from the passage, exactly as before, and never from a country code or a date range.
+A description says what speeches invoke, not whether the event was a genocide; that judgement is
+outside this codebook.
+
 ## Evidence span
 
 `evidence_start` and `evidence_end` are zero-based offsets in the normalized speech body,
@@ -133,3 +143,34 @@ begins in the preceding sentence, include both sentences and record why in `comm
 Before scored coding begins, all coders must complete a shared pilot outside the scored
 sample. Revisions after the pilot require a schema/codebook version change; they must not be
 silently applied halfway through a sample.
+
+## Two coders on the genocide gold sample
+
+The genocide gold sample is coded under this codebook and this schema, but its rows live in
+`annotations/genocide/annotations.csv` rather than beside the lexicon audit, because the two
+answer different questions from different sampling frames.
+
+The coder identifiers are `FM` and `JG`. Both code every sampled occurrence independently:
+double coding is 100% here, not a fraction, because these rows are the whole evaluation set and
+a single-coded row cannot show whether a difference is one coder's reading or a real error. The
+shared pilot required above applies unchanged, and comes first.
+
+Disagreements are adjudicated by the procedure in step 6: neither coder edits the other's row,
+both originals stay in the file, and the resolution is a separate row whose `coder` is
+`adjudicated`.
+
+## Model annotations are evaluated, never merged
+
+Model output does not enter `annotations/`. It is committed under `model_annotations/`, where a
+run keeps its own model identifier and prompt, and it is compared against these human rows —
+never joined into them, and never used to fill a field a coder left uncertain. Where the two
+disagree, the human label is the label; the disagreement is reported as a disagreement.
+
+## Changelog
+
+- **2.1 — 28 August 2026.** `referents.csv` is seeded with a reviewed controlled list and gains
+  the descriptive columns `kind`, `iso3` and `years`; the `referent` coding rule is unchanged.
+  Adds the two-coder protocol for the genocide gold sample and states that model output is
+  evaluated against human rows rather than merged into them. Schema version stays `2`.
+- **2 — 24 August 2026.** Replaced the overloaded `phenomenon` column with separate verdict,
+  quotation, stance, function, referent and evidence fields.

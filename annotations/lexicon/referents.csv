@@ -1,4 +1,30 @@
-id,label,description
-other,Other known referent,A referent that is identifiable but does not yet have a controlled identifier.
-unclear,Unclear referent,The available context does not support a reliable referent assignment.
-not_applicable,Not applicable,Reserved for false-positive candidate matches.
+id,label,description,kind,iso3,years
+other,Other known referent,A referent that is identifiable but does not yet have a controlled identifier.,reserved,,
+unclear,Unclear referent,The available context does not support a reliable referent assignment.,reserved,,
+not_applicable,Not applicable,Reserved for false-positive candidate matches.,reserved,,
+rwanda_1994,Rwanda 1994,The 1994 genocide against the Tutsi in Rwanda and its aftermath.,case,RWA,1994
+bosnia_srebrenica,Bosnia and Srebrenica,"The 1992-1995 war in Bosnia and Herzegovina, including the Srebrenica genocide and its commemorations.",case,BIH,1992-1995
+kosovo,Kosovo 1998-1999,Speeches invoking the Kosovo conflict and the expulsion of its Albanian population as genocide or genocidal.,case,,1998-1999
+darfur,Darfur,Speeches invoking the conflict in Darfur as genocide or genocidal.,case,SDN,2003-
+drc_great_lakes,DRC and the Great Lakes,Speeches invoking mass killing in the Democratic Republic of the Congo and the wider Great Lakes region as genocide or genocidal.,case,COD,
+burundi,Burundi,Speeches invoking the mass violence in Burundi as genocide or genocidal.,case,BDI,1993-
+iraq_kurds_anfal,Iraqi Kurds and Anfal,Speeches invoking the 1988 Anfal campaign and the Halabja attack against Iraq's Kurdish population as genocide or genocidal.,case,IRQ,1988
+east_timor,East Timor 1999,Speeches invoking the violence around East Timor's 1999 independence ballot as genocide or genocidal.,case,TLS,1999
+cambodia_khmer_rouge,Cambodia under the Khmer Rouge,"Speeches invoking the mass killing under the Khmer Rouge, including the work of the Extraordinary Chambers, as genocide or genocidal.",case,KHM,1975-1979
+isil_yazidi,ISIL and the Yazidis,Speeches invoking ISIL's campaign against the Yazidi population of northern Iraq as genocide or genocidal.,case,IRQ,2014-
+myanmar_rohingya,Myanmar and the Rohingya,Speeches invoking the treatment of the Rohingya population of Myanmar as genocide or genocidal.,case,MMR,2016-
+south_sudan,South Sudan,Speeches invoking the civil war in South Sudan as genocide or genocidal.,case,SSD,2013-
+central_african_republic,Central African Republic,Speeches invoking the sectarian violence in the Central African Republic as genocide or genocidal.,case,CAF,2013-
+xinjiang_uyghurs,Xinjiang and the Uyghurs,Speeches invoking China's treatment of the Uyghur population of Xinjiang as genocide or genocidal.,case,CHN,
+nagorno_karabakh,Nagorno-Karabakh,Speeches invoking the Nagorno-Karabakh conflict and the departure of its Armenian population as genocide or genocidal.,case,AZE,2020-2023
+ukraine_2022,Ukraine since 2022,"Speeches invoking genocide in connection with the war in Ukraine, in either direction: against Russia's conduct and in Russia's own claims about Donbas.",case,UKR,2022-
+gaza,Gaza since 2023,"Speeches invoking the Gaza war as genocide or genocidal, including the proceedings South Africa brought against Israel at the ICJ.",case,PSE,2023-
+cuba_us_sanctions,United States embargo against Cuba,Speeches describing the United States embargo against Cuba as genocidal.,case,CUB,
+economic_sanctions_other,Other sanctions regimes,"Speeches describing a sanctions regime other than the Cuban embargo as genocidal, such as the measures against Iraq in the 1990s.",case,,
+holocaust,The Holocaust,The Nazi genocide of European Jews and its commemoration.,historical,,1941-1945
+armenian_genocide,Armenian genocide,Speeches invoking the 1915-1917 deportation and mass killing of Ottoman Armenians as genocide.,historical,ARM,1915-1917
+colonial_era,Colonial-era mass violence,"Speeches invoking mass violence under colonial rule as genocide or genocidal, such as the campaign against the Herero and Nama.",historical,,
+genocide_in_general,Genocide in general,"Abstract discussion of genocide, including prevention doctrine, with no single case in view.",meta,,
+genocide_convention_law,Genocide Convention and legal definition,"The 1948 Convention, the legal definition of the crime, and jurisdiction over it before the ICJ or the ICC.",meta,,
+institutional_mandate,Institutional title or mandate,"The name or mandate of an office or body, such as the Special Adviser on the Prevention of Genocide or a tribunal's title.",meta,,
+hypothetical_future,Prospective or unnamed genocide,Warnings that a genocide may come where no specific past or present case is named.,meta,,
