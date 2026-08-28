@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "web/src/routes/chronology/+page.svelte"
+        ],
+        "createdAt": "2026-08-27T15:39:26.138Z",
+        "reason": "Pre-existing, not touched by this work: .chip is an inline series-picker control, not a card. The 3px left border carries the series' own colour so the chip matches its line on the chart -- a data encoding, not a decorative accent. Intent is documented in the comment above the rule at +page.svelte:1262-1264."
+      }
+    ]
+  }
+}
