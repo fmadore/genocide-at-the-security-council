@@ -657,7 +657,7 @@
 
 		{#snippet reading()}
 			<p>
-				Pick terms from the list below the chart. Drag the bar under the axis to zoom in on a
+				Pick terms from the list under the chart. Drag the bar under the axis to zoom in on a
 				stretch of years, or scroll on the plot itself. Colour follows the term's
 				<strong>register</strong> &mdash; the family of vocabulary it belongs to &mdash; so terms that
 				do similar work in a speech share a hue.
@@ -693,6 +693,40 @@
 			description="Line chart of the selected terms over time, in the chosen unit."
 			onclick={drillChronology}
 		/>
+
+		<!-- The control that decides what the chart draws, directly under the
+		     chart. It used to sit after the whole figure, below `Source` and the
+		     download row, which put the apparatus between a reader and the one
+		     thing they came to change — and made this figure's own reading note
+		     ("pick terms from the list below the chart") a small lie about where
+		     the list was. -->
+		<section class="picker">
+			<h3>Terms</h3>
+			<p class="hint">
+				Grouped by register. A <strong>set</strong> counts several terms together; a
+				<strong>register</strong> counts every term in one family of vocabulary at once.
+			</p>
+			<div class="chips">
+				{#each Object.keys(allMeasures) as name (name)}
+					<button
+						class="chip"
+						class:on={selected.includes(name)}
+						style:--chip={colourOf(name)}
+						onclick={() => toggle(name)}
+						aria-pressed={selected.includes(name)}
+					>
+						{label(name)}
+					</button>
+				{/each}
+			</div>
+			{#if unavailable.length}
+				<p class="warn">
+					{unavailable.map(label).join(', ')} cannot be shown in this unit, because a set of terms has
+					no occurrence count of its own. Switch to a share-based unit to see it.
+				</p>
+			{/if}
+		</section>
+
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View the plotted values as a table</summary>
 			<table>
@@ -720,34 +754,6 @@
 			</table>
 		</details>
 	</Figure>
-
-	{#if unavailable.length}
-		<p class="warn">
-			{unavailable.map(label).join(', ')} cannot be shown in this unit, because a set of terms has no
-			occurrence count of its own. Switch to a share-based unit to see it.
-		</p>
-	{/if}
-
-	<section class="picker">
-		<h2>Terms</h2>
-		<p class="hint">
-			Grouped by register. A <strong>set</strong> counts several terms together; a
-			<strong>register</strong> counts every term in one family of vocabulary at once.
-		</p>
-		<div class="chips">
-			{#each Object.keys(allMeasures) as name (name)}
-				<button
-					class="chip"
-					class:on={selected.includes(name)}
-					style:--chip={colourOf(name)}
-					onclick={() => toggle(name)}
-					aria-pressed={selected.includes(name)}
-				>
-					{label(name)}
-				</button>
-			{/each}
-		</div>
-	</section>
 
 	<Figure
 		title="The vocabulary's calendar"
@@ -1238,12 +1244,25 @@
 		color: var(--ink-3);
 	}
 
+	/* A part of the figure now rather than a section after it, so it is set
+	   like apparatus that belongs to the chart above: a small label, and space
+	   that reads as "still the same figure". */
 	.picker {
-		margin: 0 0 var(--sp-7);
+		margin: var(--sp-4) 0 var(--sp-5);
 	}
 
-	.picker h2 {
-		font-size: var(--step-2);
+	.picker h3 {
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--ink-3);
+		margin: 0 0 var(--sp-2);
+	}
+
+	.picker .hint {
+		margin-block: 0 var(--sp-3);
 	}
 
 	.hint {
