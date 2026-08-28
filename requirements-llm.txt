@@ -1,0 +1,24 @@
+# The one dependency of the model annotation step (14), and of nothing else.
+#
+# Separate from `requirements.txt` for the same reason `requirements-cluster.txt`
+# is separate: a step that does not run in CI and does not run in the deploy
+# should not put a package into the environment that both of them install. CI
+# installs `requirements.lock` only, so it never sees this file — which is what
+# makes the lazy `import openai` inside `14_llm_annotate.py`'s functions an
+# enforced discipline rather than a stylistic preference. `scripts/lib/llm.py`,
+# where all the logic lives, imports nothing from here at all and is unit-tested
+# on a machine that has never installed it.
+#
+# Not hash-pinned. Reproducing a run does not mean reinstalling this file: a run
+# is a committed artefact under `model_annotations/`, and what identifies it is
+# the model id, the prompt hash and the referent hash recorded in its manifest,
+# none of which the client library version can change.
+#
+# Install only when you are about to spend money:
+#     python -m pip install -r requirements-llm.txt
+#
+# Range verified against PyPI on 28 August 2026: 3.5.0 is the current release,
+# and the major is capped because 3.0 already moved the library's HTTP client
+# once. 14 uses the Batch API over the Responses API endpoint with a strict
+# JSON-schema text format; those surfaces are stable across the 3.x line.
+openai>=3.5,<4
