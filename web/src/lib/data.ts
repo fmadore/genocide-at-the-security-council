@@ -320,6 +320,47 @@ const validateUsage: Validator = (record, path) => {
 			);
 		}
 	}
+
+	// The chronology, held to what the other blocks are held to: the two joins it
+	// makes, and the identifier the figure builds a link out of.
+	const diffusion = recordAt(record, 'diffusion');
+	const milestones = new Set(
+		requireArray(diffusion, 'milestones', `${path}.diffusion`).map(String)
+	);
+	for (const [index, entry] of requireArray(
+		diffusion,
+		'referents',
+		`${path}.diffusion`
+	).entries()) {
+		const at = `${path}.diffusion.referents[${index}]`;
+		if (!isRecord(entry)) throw new Error(`${at} must be an object.`);
+		// The same join failure the matrix is refused for. Drawn anyway it would be
+		// a curve the picker has no name for.
+		if (!referents.has(String(entry.id))) {
+			throw new Error(`${at} names the referent ${entry.id}, which is not on the list.`);
+		}
+		for (const [position, event] of requireArray(entry, 'events', at).entries()) {
+			const where = `${at}.events[${position}]`;
+			if (!isRecord(event)) throw new Error(`${where} must be an object.`);
+			if (!actors.has(String(event.actor))) {
+				throw new Error(`${where} names ${event.actor}, who is not in the actor table.`);
+			}
+			// The milestones are the artefact's own list, so a fourth one is a series
+			// this figure would draw nothing for and never mention.
+			if (!milestones.has(String(event.milestone))) {
+				throw new Error(
+					`${where} is a ${event.milestone} event, which is not one of the milestones ` +
+						`this run declares.`
+				);
+			}
+			// The chronology's link into the record is built from this identifier
+			// alone. Empty, it would offer a reader a speech that cannot exist rather
+			// than no link at all.
+			if (typeof event.id !== 'string' || !event.id) {
+				throw new Error(`${where} carries no line id, so nothing can be read back from it.`);
+			}
+		}
+	}
 };
 
 /** The quotations behind the matrix, refused where they could not be quoted. */
@@ -516,6 +557,7 @@ export const REQUIRED = {
 		minimum_occurrences: 'number',
 		matrix: 'array',
 		stance_by_actor: 'array',
+		diffusion: 'object',
 		gold: 'object'
 	},
 	'usage/occurrences.json': { meta: 'object', occurrences: 'array' },

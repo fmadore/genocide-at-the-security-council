@@ -760,6 +760,43 @@ only reserved values". L1 made that false.
   reader to assume the phase satisfied all six.
 - No per-class threshold is claimed that a 200-occurrence sample cannot support.
 
+### L7. Diffusion of the word, by referent
+
+**Decision, 30 August 2026.** The second round of the same external feedback asks for the
+diffusion picture: for each referent, when each delegation first said `genocide` about it,
+first asserted the characterization, and first rejected the word — so that Rwanda's April–July
+1994 turn, and every later case, can be read as a dated sequence of adoptions and refusals
+rather than as a total. The run's schema already carries everything this needs — every
+annotated occurrence is a dated speech by a delegation with a referent and a stance — so L7 is
+an aggregation and a figure, not a new model call: no prompt change, no new run, no new cost.
+
+**Change.** `scripts/lib/usage.py` gains `diffusion_rows`: over assigned occurrences, per
+referent and delegation, the first occurrence in each of three milestone classes — `mention`
+(any assigned occurrence), `asserts`, and `rejects_or_denies` — each event carrying its date
+and its KWIC line id, so the chronology stays clickable down to the speech. `usage.json` gains
+the resulting `diffusion` block under the existing contract. On `/usage`, a cumulative step
+figure counts the delegations that have asserted a selected referent against those that have
+rejected the word for it, over the corpus span; the chronology itself — which delegation, which
+date, which record — sits beneath the curve as the primary deliverable, and the referent
+selection is the same URL state the matrix already carries.
+
+**Limits.** The curve counts delegations *speaking in this corpus*. Only a delegation that
+took the floor can appear; absence is not refusal; and participation varies with Council
+membership and the open-debate calendar, so the ceiling of the curve is the speaking record,
+never the membership of the United Nations. The figure states this in its own apparatus
+rather than leaving it to a methods page.
+
+**Acceptance and tests.**
+
+- An event is the minimum of `(date, line_id)` for its class, deterministically, and the same
+  occurrence may legitimately open both the `mention` and a stance milestone.
+- Ineligible and unassigned occurrences produce no event; a blank date refuses rather than
+  sorts first.
+- The block appears in the payload contract, and the fabricated fixture exercises all three
+  milestone classes.
+- The figure and its export carry the experimental marking and the speaking-record caveat, and
+  the chronology resolves to the reader at the exact occurrence.
+
 ## Phase E — institutional and historical extension
 
 ### E1. Rhetoric and formal Council action
@@ -854,3 +891,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-08-30 | L4 usage aggregation and contract  | complete   | pending | `tools/synthetic_usage_run.py` then `python scripts/15_usage.py --run-dir data/interim/synthetic_run` twice (identical but `meta.generated`; equal `analysis_hash`); `python scripts/export_web.py` (18 artefacts match); `--update-contract` diff = 174 insertions, 0 deletions, only the two usage entries; `python -m pytest -q` (754 passed); `ruff check .` | 15 aggregates a committed run, the gold rows and the corpus into `usage/{usage,occurrences}.json`, refusing in words a missing run, a stale lexicon or prompt, an unjoinable or duplicated row, a label outside the codebook, and a coverage gap (`--allow-partial` records the gap instead). Eligible = true-positive with verifiable evidence; assigned = eligible with a concrete referent; shares withheld below 20. `deploy.yml` gains the step and — fixing a live gap 03 already suffered — `annotations/**` and `model_annotations/**` in both the trigger paths and the derived cache key. The deploy now fails while `current_run.txt` is empty, which is the merge gate working as designed. |
 | 2026-08-30 | L5 the `/usage` view               | complete   | pending | `npx vitest run` (413 passed incl. the two-way contract test); `npm run check` (0 errors); `npm run lint`; `npm run test:e2e` (18 journeys, 5 on `/usage`, 2 axe scans); `npm run build` (13 static entry points incl. `usage/index.html`) | The experimental apparatus opens the page: model id, run and prompt identity, coverage, abstention, the gold state, and the sentence that governs it — model-derived, human labels the authority. The matrix is one tab stop with roving arrow-key focus; abstention codes can never become referent columns; the 70-row cap is disclosed in words with the remainder in the CSV. Drill-down joins the KWIC lines and links each quotation into the reader and the concordance through the same `readerQuery` the concordance itself now uses. Methods gains rows 13–15 and an `experimental` state on `--state-warn`. Everything drawn so far draws from the clearly-labelled synthetic run. |
 | 2026-08-30 | L6 documentation closure           | complete   | pending | claims read back against `README.md`, `docs/PLAN.md` §5, `docs/VALIDATION.md` §§2·6·7, `scripts/README.md`; `python -m pytest -q`; `ruff check .` | README moves the extraction row from deferred to experimental, counts seven views, and acknowledges Joël Glasman as instigator and second coder — `CITATION.cff` untouched per the recorded decision. PLAN §5 keeps its six requirements verbatim and maps where each now lives, naming what is still owed (sensitivity run, promotion thresholds). VALIDATION gains the gold sample (§6) and the model-run register (§7), and §2 no longer claims the referent list holds only reserved values. scripts/README documents 13–15, the run book with `gpt-5.6-luna` spelled exactly, and the price of editing the `genocide` pattern: new sample, new coding, new run. |
+| 2026-08-30 | L7 diffusion of the word           | complete   | pending | `python -m pytest -q` (766 passed, `tests/test_usage.py` at 52); `ruff check .`; `--update-contract` diff = 19 insertions, 0 deletions, all inside the `diffusion` shapes; `npm test`; `npm run check`; `npm run lint`; `npm run test:e2e` (2 new `/usage` journeys, axe clean); `npm run build`; the synthetic render read in the browser | Same feedback, second round: the diffusion question — when each delegation first said, first asserted, first rejected the word for each referent. No new model call: `usage.json` gains a `diffusion` block of dated first events per (referent, delegation) in three milestone classes, each carrying its KWIC line id; on the synthetic fixture the `mention` events equal the matrix cells exactly (1,801), which is the invariant that says the two blocks count the same population. `/usage` gains a cumulative step figure (assertion solid, refusal dashed, mention drawn only when it differs from assertion) over a fixed cross-referent time axis, with the chronology table — the historian's deliverable — beneath it, driven by the same `?referent=` state as the matrix, and the caveat in the figure's own apparatus: the curve counts delegations speaking in this corpus, absence is not refusal. |

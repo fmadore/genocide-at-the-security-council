@@ -217,6 +217,63 @@
 			"share_rejects": null
 		}
 	],
+	"diffusion": {
+		"milestones": ["mention", "asserts", "rejects_or_denies"],
+		"referents": [
+			{
+				"id": "rwanda_1994",
+				"events": [
+					{
+						"date": "2014-06-11",
+						"actor": "Rwanda",
+						"milestone": "mention",
+						"stance": "hypothetical_or_conditional",
+						"id": "UNSC_2014_SPV.7000_spch0001#1"
+					},
+					{
+						"date": "2014-06-11",
+						"actor": "Rwanda",
+						"milestone": "rejects_or_denies",
+						"stance": "rejects_or_denies",
+						"id": "UNSC_2014_SPV.7000_spch0001#2"
+					},
+					{
+						"date": "2016-04-05",
+						"actor": "European Union",
+						"milestone": "mention",
+						"stance": "asserts",
+						"id": "UNSC_2016_SPV.7802_spch0012#1"
+					},
+					{
+						"date": "2016-04-05",
+						"actor": "European Union",
+						"milestone": "asserts",
+						"stance": "asserts",
+						"id": "UNSC_2016_SPV.7802_spch0012#1"
+					}
+				]
+			},
+			{
+				"id": "bosnia_srebrenica",
+				"events": [
+					{
+						"date": "2015-07-08",
+						"actor": "France",
+						"milestone": "mention",
+						"stance": "asserts",
+						"id": "UNSC_2015_SPV.7481_spch0007#1"
+					},
+					{
+						"date": "2015-07-08",
+						"actor": "France",
+						"milestone": "asserts",
+						"stance": "asserts",
+						"id": "UNSC_2015_SPV.7481_spch0007#1"
+					}
+				]
+			}
+		]
+	},
 	"gold": {
 		"sample_size": 200,
 		"unique_occurrences": 197,

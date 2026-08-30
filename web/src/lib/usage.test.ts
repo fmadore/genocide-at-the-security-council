@@ -12,18 +12,26 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+	DIFFUSION_BOX,
+	DIFFUSION_COLUMNS,
 	MATRIX_COLUMNS,
+	MILESTONES,
 	NAVIGATION_KEYS,
 	ROW_CAP,
 	STANCES,
 	STANCE_COLUMNS,
 	USAGE_DEFAULTS,
 	USAGE_TERM,
+	diffusionChronology,
+	diffusionExportRows,
+	diffusionPlan,
 	drillDown,
 	emptyStances,
 	goldProgress,
 	matrixExportRows,
 	matrixPlan,
+	milestoneLabel,
+	milestoneRank,
 	orderReferents,
 	readUsageState,
 	selectUsage,
@@ -39,7 +47,10 @@ import type {
 	StanceCounts,
 	Usage,
 	UsageActor,
+	UsageDiffusion,
+	UsageDiffusionEvent,
 	UsageMatrixCell,
+	UsageMilestone,
 	UsageOccurrence,
 	UsageReferent,
 	UsageStanceRow
@@ -113,6 +124,62 @@ const cell = (
 	stances: stances(partial)
 });
 
+const moment = (
+	date: string,
+	actorName: string,
+	milestone: UsageMilestone,
+	stance: string,
+	id: string
+): UsageDiffusionEvent => ({ date, actor: actorName, milestone, stance, id });
+
+/**
+ * A chronology whose shape is the one the figure has to get right: a meta
+ * referent first in the block, so a default that took the first entry would show
+ * the Convention rather than a genocide; a delegation whose first placed use is
+ * already an assertion, and another whose first is a refusal and who asserts six
+ * years later; and one referent's events spanning the whole axis while the
+ * other's sit inside it.
+ */
+const diffusion: UsageDiffusion = {
+	milestones: ['mention', 'asserts', 'rejects_or_denies'],
+	referents: [
+		{
+			id: 'convention',
+			events: [
+				moment(
+					'1996-02-02',
+					'Alpha',
+					'mention',
+					'neutral_legal_reference',
+					'UNSC_1996_SPV.3600_spch0001#1'
+				)
+			]
+		},
+		{
+			id: 'rwanda_1994',
+			events: [
+				moment('1994-04-21', 'Alpha', 'mention', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1'),
+				moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1'),
+				moment(
+					'1998-06-01',
+					'Bravo',
+					'mention',
+					'rejects_or_denies',
+					'UNSC_1998_SPV.3888_spch0002#1'
+				),
+				moment(
+					'1998-06-01',
+					'Bravo',
+					'rejects_or_denies',
+					'rejects_or_denies',
+					'UNSC_1998_SPV.3888_spch0002#1'
+				),
+				moment('2004-04-07', 'Bravo', 'asserts', 'asserts', 'UNSC_2004_SPV.4940_spch0011#1')
+			]
+		}
+	]
+};
+
 const corpus = (overrides: Partial<Usage> = {}): Usage => ({
 	meta,
 	model,
@@ -152,6 +219,7 @@ const corpus = (overrides: Partial<Usage> = {}): Usage => ({
 			share_rejects: null
 		}
 	],
+	diffusion,
 	gold,
 	...overrides
 });
@@ -689,6 +757,270 @@ describe('the quotations behind a cell', () => {
 	});
 });
 
+describe('the milestones a diffusion curve counts', () => {
+	it('holds three firsts, in the order that settles a tie between two of them', () => {
+		expect(MILESTONES).toEqual(['mention', 'asserts', 'rejects_or_denies']);
+		expect(milestoneRank('mention')).toBeLessThan(milestoneRank('asserts'));
+		// A fourth milestone added upstream sorts last rather than displacing these.
+		expect(milestoneRank('first_referral')).toBe(MILESTONES.length);
+		expect(milestoneLabel('rejects_or_denies')).toBe('Refused the word for it');
+		expect(milestoneLabel('some_future_first')).toBe('some future first');
+	});
+});
+
+describe('how a referent spread through the Council', () => {
+	const only = (events: UsageDiffusionEvent[], id = 'rwanda_1994'): Usage =>
+		corpus({ diffusion: { milestones: [...MILESTONES], referents: [{ id, events }] } });
+
+	it('refuses an empty chronology, and one whose referents carry no events', () => {
+		expect(
+			diffusionPlan(corpus({ diffusion: { milestones: [...MILESTONES], referents: [] } }), state())
+				.refusal
+		).toBe('no-diffusion');
+		// A referent carried with an empty list is the same nothing: kept as an
+		// option it would refuse the moment a reader picked it.
+		expect(diffusionPlan(only([], 'bosnia'), state()).refusal).toBe('no-diffusion');
+		expect(diffusionPlan(only([], 'bosnia'), state()).options).toEqual([]);
+	});
+
+	it('defaults to the first named case rather than to the first entry in the block', () => {
+		const plan = diffusionPlan(corpus(), state());
+		// `convention` comes first in the block and is not a genocide: a chronology
+		// of the Convention is a real thing and not a diffusion of anything.
+		expect(plan.referent).toBe('rwanda_1994');
+		expect(plan.options.map((option) => option.id)).toEqual(['convention', 'rwanda_1994']);
+		expect(plan.options[1]).toMatchObject({ kind: 'case', events: 5, delegations: 2 });
+		expect(plan.refusal).toBeNull();
+	});
+
+	it('follows the selection the matrix sets, and says when it has nothing for it', () => {
+		expect(diffusionPlan(corpus(), state({ referent: 'convention' })).referent).toBe('convention');
+
+		const missing = diffusionPlan(corpus(), state({ referent: 'bosnia' }));
+		expect(missing.refusal).toBe('no-events');
+		expect(missing.referent).toBe('bosnia');
+		expect(missing.drawn).toEqual([]);
+		// The picker still carries what is in force. Dropping it would leave the
+		// control showing a referent nobody selected while the figure refused.
+		expect(missing.options.map((option) => option.id)).toEqual([
+			'convention',
+			'rwanda_1994',
+			'bosnia'
+		]);
+		expect(missing.options.at(-1)).toMatchObject({ events: 0, delegations: 0 });
+	});
+
+	it('refuses a referent whose events are all on a milestone it cannot draw', () => {
+		// A run declaring a fourth milestone would put every event of it on a
+		// series this figure has no reading for. Empty axes under a key with
+		// nothing in it would be the one outcome that says nothing at all.
+		const later = only([
+			{
+				date: '1994-04-21',
+				actor: 'Alpha',
+				milestone: 'first_referral' as UsageMilestone,
+				stance: 'asserts',
+				id: 'UNSC_1994_SPV.3368_spch0005#1'
+			}
+		]);
+		const plan = diffusionPlan(later, state());
+		expect(plan.drawn).toEqual([]);
+		expect(plan.refusal).toBe('no-events');
+	});
+
+	it('counts each delegation once, at its first, and never falls', () => {
+		const plan = diffusionPlan(corpus(), state({ referent: 'rwanda_1994' }));
+		const asserts = plan.series.find((series) => series.milestone === 'asserts');
+		expect(asserts?.points.map((point) => [point.actor, point.value])).toEqual([
+			['Alpha', 1],
+			['Bravo', 2]
+		]);
+		expect(plan.totals).toEqual({ mention: 2, asserts: 2, rejects_or_denies: 1 });
+		expect(plan.high).toBe(2);
+		expect(plan.events).toBe(5);
+	});
+
+	it('draws nothing for a milestone nobody crossed, and says the zero in a number', () => {
+		const plan = diffusionPlan(corpus(), state({ referent: 'convention' }));
+		// A flat line along the floor reads as a measured nothing rather than as
+		// an absence, so the count goes in the prose and not on the drawing.
+		expect(plan.drawn.map((series) => series.milestone)).toEqual(['mention']);
+		expect(plan.series.map((series) => series.drawn)).toEqual([true, false, false]);
+		expect(plan.totals.asserts).toBe(0);
+		expect(plan.series[1].path).toBe('');
+	});
+
+	it('marks every step while the steps can be told apart, and none once they cannot', () => {
+		const sparse = diffusionPlan(corpus(), state({ referent: 'rwanda_1994' }));
+		expect(sparse.series.every((series) => series.marker > 0)).toBe(true);
+
+		const crowded = only(
+			Array.from({ length: 120 }, (_, index) =>
+				moment(
+					`${1994 + Math.floor(index / 12)}-01-${String((index % 12) + 1).padStart(2, '0')}`,
+					`Speaker ${index}`,
+					'asserts',
+					'asserts',
+					`UNSC_2000_SPV.4100_spch${String(index).padStart(4, '0')}#1`
+				)
+			)
+		);
+		// A hundred and twenty marks four units wide five units apart are a bead
+		// chain along a line that already shows the same thing.
+		const asserts = diffusionPlan(crowded, state()).series.find(
+			(series) => series.milestone === 'asserts'
+		);
+		expect(asserts?.points).toHaveLength(120);
+		expect(asserts?.marker).toBe(0);
+	});
+
+	it('draws the assertion curve last, over the counter-curve and the envelope', () => {
+		const plan = diffusionPlan(corpus(), state({ referent: 'rwanda_1994' }));
+		expect(plan.drawn.map((series) => series.milestone)).toEqual([
+			'mention',
+			'rejects_or_denies',
+			'asserts'
+		]);
+	});
+
+	it('drops the envelope when it is the assertion curve drawn a second time', () => {
+		const folded = only([
+			moment('1994-04-21', 'Alpha', 'mention', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1'),
+			moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1')
+		]);
+		const plan = diffusionPlan(folded, state());
+		expect(plan.drawn.map((series) => series.milestone)).toEqual(['asserts']);
+		// Dropped from the drawing, kept in the totals: it is still a fact about
+		// the record that one delegation placed the word here.
+		expect(plan.totals.mention).toBe(1);
+	});
+
+	it('lays the steps out on a time axis every referent in the block shares', () => {
+		const plan = diffusionPlan(corpus(), state({ referent: 'rwanda_1994' }));
+		expect(plan.span).toEqual({ from: '1994-04-21', to: '2004-04-07' });
+		const asserts = plan.series.find((series) => series.milestone === 'asserts');
+		expect(asserts?.points[0].x).toBeCloseTo(DIFFUSION_BOX.left, 6);
+		expect(asserts?.points[1].x).toBeCloseTo(DIFFUSION_BOX.right, 6);
+		expect(asserts?.points[1].y).toBeCloseTo(DIFFUSION_BOX.top, 6);
+		expect(asserts?.points[0].y).toBeCloseTo((DIFFUSION_BOX.top + DIFFUSION_BOX.bottom) / 2, 6);
+		// A floor, a jump at each event, and a flat run to the right-hand edge.
+		// Nothing joined between two delegations, and no sloped segment says it did.
+		expect(asserts?.path).toBe('M 5.0,175.0 H 5.0 V 90.0 H 715.0 V 5.0 H 715.0');
+
+		// The Convention's single event sits inside that span rather than at the
+		// left edge of a span of its own, so switching referents moves the curve
+		// along a fixed axis instead of rescaling it.
+		const convention = diffusionPlan(corpus(), state({ referent: 'convention' }));
+		expect(convention.span).toEqual(plan.span);
+		const at = convention.series[0].points[0].x;
+		expect(at).toBeGreaterThan(DIFFUSION_BOX.left);
+		expect(at).toBeLessThan(DIFFUSION_BOX.right);
+	});
+
+	it('puts round years on that axis and anchors the ones at its ends', () => {
+		const plan = diffusionPlan(corpus(), state());
+		expect(plan.ticks.map((tick) => tick.label)).toEqual(['1996', '1998', '2000', '2002', '2004']);
+		// 1994 is on the axis and its January is not: the span is the data's, so a
+		// rule outside it would be a year the figure does not cover.
+		expect(plan.ticks.every((tick) => tick.x >= DIFFUSION_BOX.left)).toBe(true);
+		expect(plan.ticks[0].anchor).toBe('middle');
+		// The last one all but touches the right edge, where a centred label would
+		// hang off the figure and push a scrollbar onto its body.
+		expect(plan.ticks.at(-1)?.anchor).toBe('end');
+	});
+
+	it('draws a block holding one dated event down the middle rather than dividing by zero', () => {
+		const single = only([
+			moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1')
+		]);
+		const plan = diffusionPlan(single, state());
+		expect(plan.ticks).toEqual([]);
+		expect(plan.series[1].points[0].x).toBeCloseTo(
+			(DIFFUSION_BOX.left + DIFFUSION_BOX.right) / 2,
+			6
+		);
+	});
+});
+
+describe('the chronology the curve summarises', () => {
+	const record = (id: string, extra: Partial<KwicLine> = {}): KwicLine => ({
+		id,
+		spv: 'S/PV.3368',
+		date: '1994-04-21',
+		country: 'Rwanda',
+		iso3: 'RWA',
+		group: 'E10',
+		type: 'Mentioned',
+		agenda: 'The situation concerning Rwanda',
+		start: 0,
+		end: 8,
+		left: '',
+		kw: 'genocide',
+		right: '',
+		sent: 'What is happening is genocide.',
+		...extra
+	});
+
+	const plan = () => diffusionPlan(corpus(), state({ referent: 'rwanda_1994' }));
+
+	it('lists every step of every drawn curve, oldest first, milestone last', () => {
+		const rows = diffusionChronology(plan());
+		expect(rows.map((row) => [row.date, row.actor, row.milestone])).toEqual([
+			['1994-04-21', 'Alpha', 'mention'],
+			['1994-04-21', 'Alpha', 'asserts'],
+			['1998-06-01', 'Bravo', 'mention'],
+			['1998-06-01', 'Bravo', 'rejects_or_denies'],
+			['2004-04-07', 'Bravo', 'asserts']
+		]);
+		// One occurrence can be two firsts, and the date and the identifier cannot
+		// separate them; the rank can.
+		expect(rows[0].id).toBe(rows[1].id);
+		expect(rows.map((row) => row.ordinal)).toEqual([1, 1, 2, 1, 2]);
+		expect(rows[3].stanceLabel).toBe('Rejects or denies');
+	});
+
+	it('omits a milestone the figure folded away, whose events are already listed', () => {
+		const folded = corpus({
+			diffusion: {
+				milestones: [...MILESTONES],
+				referents: [
+					{
+						id: 'rwanda_1994',
+						events: [
+							moment('1994-04-21', 'Alpha', 'mention', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1'),
+							moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1')
+						]
+					}
+				]
+			}
+		});
+		expect(diffusionChronology(diffusionPlan(folded, state())).map((row) => row.milestone)).toEqual(
+			['asserts']
+		);
+	});
+
+	it('links into the record from the identifier alone, and into the concordance only with a line', () => {
+		const [first] = diffusionChronology(plan());
+		expect(first.reader.meeting).toBe('UNSC_1994_SPV.3368');
+		expect(first.reader.query).toBe(
+			'term=genocide&speech=UNSC_1994_SPV.3368_spch0005&occurrence=UNSC_1994_SPV.3368_spch0005%231'
+		);
+		// The concordance cannot be addressed without a record symbol, and the
+		// symbol lives in a file this page fetches only on demand. A null rather
+		// than a link built out of the identifier, which would be a guess.
+		expect(first.concordance).toBeNull();
+		expect(first.spv).toBe('');
+
+		const joined = diffusionChronology(plan(), [record('UNSC_1994_SPV.3368_spch0005#1')]);
+		expect(joined[0].spv).toBe('S/PV.3368');
+		expect(joined[0].concordance?.query).toBe('term=genocide&country=Rwanda&spv=S%2FPV.3368');
+		// A row whose line is not in the file keeps its reader link and loses only
+		// the concordance one: the chronology is not a list of quotations.
+		expect(joined.at(-1)?.concordance).toBeNull();
+		expect(joined).toHaveLength(5);
+	});
+});
+
 describe('the gold sample’s own state', () => {
 	it('reports an untouched sample as untouched rather than as a measured zero', () => {
 		const progress = goldProgress(corpus());
@@ -741,6 +1073,20 @@ describe('what leaves in a file', () => {
 		const alpha = rows.find((row) => row[0] === 'Alpha' && row[4] === 'rwanda_1994');
 		expect(alpha?.[MATRIX_COLUMNS.indexOf('share_of_assigned')]).toBeCloseTo(4 / 6, 12);
 		expect(alpha?.[MATRIX_COLUMNS.indexOf('stance_asserts')]).toBe(3);
+	});
+
+	it('exports every first of every referent, not the one the picker was showing', () => {
+		const rows = diffusionExportRows(corpus());
+		expect(rows).toHaveLength(6);
+		expect(rows[0]).toHaveLength(DIFFUSION_COLUMNS.length);
+		expect(rows[0][DIFFUSION_COLUMNS.indexOf('referent')]).toBe('convention');
+		expect(rows[0][DIFFUSION_COLUMNS.indexOf('referent_kind')]).toBe('meta');
+		// An envelope the figure folds away is still an event the run recorded.
+		const milestone = DIFFUSION_COLUMNS.indexOf('milestone');
+		expect(rows.filter((row) => row[milestone] === 'mention')).toHaveLength(3);
+		expect(
+			diffusionExportRows(corpus({ diffusion: { milestones: [...MILESTONES], referents: [] } }))
+		).toEqual([]);
 	});
 
 	it('exports every stance profile, withheld shares included', () => {

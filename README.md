@@ -46,7 +46,7 @@ every chart as SVG or PNG with its filters written into the image.
 | Topic comparison & its evaluation | ✅ `scripts/07` — evidence for a decision, not a result; adoption still deferred |
 | Lemma layer & lemma lexicometry | ✅ `scripts/10`, `scripts/05 --vocabulary lemma`; built, **not adopted** — see Phase 6 |
 | Actor view — ranking, locator map, concordance links | ✅ `web/src/routes/actors/`, with the membership composition and the per-speaker keyness [`docs/PLAN.md`](docs/PLAN.md) §3 asks for, each as its own figure rather than as shading on the ranking |
-| Model-assisted usage layer | 🧪 experimental — Phase L in [`docs/IMPROVEMENT_ROADMAP.md`](docs/IMPROVEMENT_ROADMAP.md): `scripts/13–15`, committed runs under [`model_annotations/`](model_annotations/), the `/usage` view; human gold sample is the authority, **0 of 200 rows coded** |
+| Model-assisted usage layer | 🧪 experimental — Phase L in [`docs/IMPROVEMENT_ROADMAP.md`](docs/IMPROVEMENT_ROADMAP.md): `scripts/13–15`, committed runs under [`model_annotations/`](model_annotations/), the `/usage` view with its actor × referent matrix, stance profiles and per-referent diffusion chronology; human gold sample is the authority, **0 of 200 rows coded** |
 
 The three ✅ rows that say "not adopted" are not a backlog. They are built, run and
 documented so the decision to use them can rest on evidence; [`docs/PLAN.md`](docs/PLAN.md)
@@ -290,8 +290,9 @@ Machine-readable metadata is in [`CITATION.cff`](CITATION.cff). Cite both: a der
 is worth nothing without the record it came from.
 
 **Acknowledgements.** Joël Glasman (University of Bayreuth) prompted the model-assisted
-usage layer — the actor-by-referent question and the asserted-versus-rejected distinction
-are his — and is the second coder (`JG`) of its gold sample.
+usage layer — the actor-by-referent question, the asserted-versus-rejected distinction and
+the diffusion question (when each delegation first adopted or refused the word for each
+case) are his — and is the second coder (`JG`) of its gold sample.
 
 **No version is tagged yet, and citing an untagged state cites a moving target.** The first
 citable release is gated on the human lexicon audit in

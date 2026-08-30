@@ -42,6 +42,12 @@ const matrixOf = (page: Page) =>
 		has: page.getByRole('heading', { name: 'Which genocide each delegation means', level: 2 })
 	});
 
+/** The diffusion figure, likewise. */
+const diffusionOf = (page: Page) =>
+	page.locator('figure.figure').filter({
+		has: page.getByRole('heading', { name: 'When each delegation first said it', level: 2 })
+	});
+
 test('the page says whose reading this is before it draws anything', async ({ page }) => {
 	await openUsage(page);
 	await expect(
@@ -159,6 +165,67 @@ test('a copied URL restores the same reading of the matrix', async ({ page }) =>
 	);
 	await expect(page).toHaveURL(
 		/\/usage\/\?actor=France&referent=bosnia_srebrenica&unit=share&sort=name$/
+	);
+});
+
+test('the diffusion figure draws one referent and lists the firsts behind it', async ({ page }) => {
+	await openUsage(page);
+	const figure = diffusionOf(page);
+
+	// With nothing selected the figure falls back to the first named case the
+	// chronology carries, and the curve's own key names what was drawn.
+	await expect(figure.getByRole('combobox', { name: 'Referent' })).toHaveValue('rwanda_1994');
+	await expect(figure.locator('.key')).toContainText('Placed the word on it');
+	await expect(figure.locator('.key')).toContainText('Refused the word for it');
+	await expect(figure.getByRole('img')).toHaveAttribute(
+		'aria-label',
+		/Cumulative delegations for Rwanda \(1994\)/
+	);
+
+	// The chronology is the accessible figure: the same steps, in order, as text.
+	const rows = figure.locator('table.chronology tbody tr');
+	await expect(rows).toHaveCount(4);
+	await expect(rows.nth(0)).toContainText('Rwanda');
+	await expect(rows.nth(0)).toContainText('Placed the word on it');
+	await expect(rows.nth(1)).toContainText('Refused the word for it');
+	await expect(rows.nth(3)).toContainText('European Union');
+	await expect(rows.nth(3)).toContainText('Asserted it');
+
+	// The link into the record is built from the line identifier alone, so it is
+	// there before anything has fetched the concordance for the term.
+	await expect(rows.nth(0).getByRole('link').first()).toHaveAttribute(
+		'href',
+		`${base}/reader/UNSC_2014_SPV.7000?term=genocide&speech=UNSC_2014_SPV.7000_spch0001&occurrence=UNSC_2014_SPV.7000_spch0001%231`
+	);
+	await expect(rows.nth(2).getByRole('link', { name: 'concordance' })).toHaveCount(0);
+
+	await expectNoAxeViolations(page);
+});
+
+test('the referent picker moves both figures, and the URL carries it', async ({ page }) => {
+	await openUsage(page);
+	const figure = diffusionOf(page);
+
+	await figure.getByRole('combobox', { name: 'Referent' }).selectOption('bosnia_srebrenica');
+	await expect(page).toHaveURL(/\?referent=bosnia_srebrenica$/);
+
+	// One state, two figures: the matrix column is now the selected one.
+	await expect(
+		matrixOf(page).getByRole('button', { name: 'Bosnia and Srebrenica', exact: true })
+	).toHaveAttribute('aria-pressed', 'true');
+
+	// France's first placed use of the word here was already the assertion, so
+	// the envelope is the assertion curve drawn twice and is not drawn at all.
+	const rows = figure.locator('table.chronology tbody tr');
+	await expect(rows).toHaveCount(1);
+	await expect(rows.nth(0)).toContainText('France');
+	await expect(figure.locator('.key')).not.toContainText('Placed the word on it');
+
+	// Selecting a referent is what fetches the concordance, and the record symbol
+	// it carries is what makes the second link addressable.
+	await expect(rows.nth(0).getByRole('link', { name: 'concordance' })).toHaveAttribute(
+		'href',
+		`${base}/concordance?term=genocide&country=France&spv=S%2FPV.7481`
 	);
 });
 

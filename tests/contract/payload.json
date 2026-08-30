@@ -1741,6 +1741,25 @@
     "sufficient": "bool"
    }
   ],
+  "diffusion": {
+   "milestones": [
+    "str"
+   ],
+   "referents": [
+    {
+     "events": [
+      {
+       "actor": "str",
+       "date": "str",
+       "id": "str",
+       "milestone": "str",
+       "stance": "str"
+      }
+     ],
+     "id": "str"
+    }
+   ]
+  },
   "gold": {
    "adjudicated": "int",
    "coders": [],

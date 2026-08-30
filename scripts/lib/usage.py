@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable, Mapping, Sequence
+from datetime import datetime
 from typing import Final
 
 import numpy as np
@@ -77,6 +78,13 @@ STANCES: Final[tuple[str, ...]] = (
 
 #: Referent identifiers that name nothing. `other` is deliberately not here.
 UNASSIGNED: Final[frozenset[str]] = frozenset({"unclear", "not_applicable"})
+
+#: The three dated firsts :func:`diffusion_rows` records for a delegation and a
+#: referent, in the order the curves are read in: that it used the word about the
+#: case at all, that it asserted the characterisation, that it refused it. Two of
+#: the three are stances and one is not, which is the point — a delegation can
+#: reach a case long before it takes a position on it.
+MILESTONES: Final[tuple[str, ...]] = ("mention", "asserts", "rejects_or_denies")
 
 #: The fields one label per occurrence, and therefore the ones kappa and a
 #: confusion table are defined on. `function` is multi-label and is reported as a
@@ -129,6 +137,22 @@ def _text(value: object) -> str:
     except (TypeError, ValueError):
         pass  # an array or a list: not missing, and not something str() ruins
     return str(value).strip()
+
+
+def _date(value: object) -> str:
+    """A cell as an ISO calendar date, or blank.
+
+    Both spellings reach here. The normalised corpus holds `date` as a
+    datetime64, so a joined row carries a `pd.Timestamp`; a frame written by hand
+    in a test carries the string the artefact will publish. A timestamp is
+    formatted rather than stringified because `str()` on one appends a midnight
+    nobody observed, and this value is written into the artefact verbatim and
+    compared against others as a string.
+    """
+    text = _text(value)
+    if not text:
+        return ""
+    return f"{value:%Y-%m-%d}" if isinstance(value, datetime) else text
 
 
 def _round(value: float | None, digits: int = 6) -> float | None:
@@ -396,6 +420,106 @@ def stance_rows(
                 ),
             }
         )
+    return out
+
+
+def diffusion_rows(
+    rows: pd.DataFrame, referent_order: Sequence[str]
+) -> list[dict[str, object]]:
+    """When each delegation first invoked each referent, and in which direction.
+
+    An **event** is a dated first. Per (referent, speaker) pair there are up to
+    three of them, one per :data:`MILESTONES` entry: `mention` is that speaker's
+    first assigned occurrence of the referent whatever stance it carried,
+    `asserts` its first occurrence stanced `asserts`, `rejects_or_denies` its
+    first stanced `rejects_or_denies`. One occurrence legitimately produces two
+    events — a delegation's first word about a case was also, often, its first
+    assertion of it — and both are written rather than collapsed, because the
+    curves drawn from them are counted separately and a reader comparing "spoke
+    of it" against "asserted it" needs the two to be commensurable.
+
+    **First** is the minimum by `(date, line_id)`, both compared as strings. The
+    dates are ISO calendar dates, so lexical order is chronological order, and
+    the KWIC line id breaks a same-day tie by a property of the occurrence rather
+    than by the order the frame happens to arrive in. Cut from *assigned* rows,
+    as the matrix is: a passage naming no case cannot be a first mention of one.
+    `other` is assigned and therefore carries events, and is a bucket rather than
+    a case; whoever renders it should say so.
+
+    **Absence is not refusal.** Only delegations that spoke can appear, and this
+    corpus records the Security Council alone: membership rotates, most states
+    are heard only when a debate is opened to non-members, and a state missing
+    from a curve is very often a state that had no floor to take. A curve counts
+    speakers in this corpus and says nothing about the ones outside it.
+
+    Raises `ValueError` on an assigned row with no date. A first event is a dated
+    event, and there is no date to fall back on that would not be invented.
+    """
+    if missing := sorted((set(REQUIRED_COLUMNS) | {"date", "line_id"}) - set(rows.columns)):
+        raise KeyError(f"diffusion_rows() needs columns: {', '.join(missing)}")
+    if rows.empty:
+        return []
+
+    kept = rows.loc[assigned_mask(rows)]
+    if kept.empty:
+        return []
+    if undated := sorted(
+        _text(row["line_id"])
+        for row in kept.to_dict(orient="records")
+        if not _date(row["date"])
+    ):
+        raise ValueError(
+            "a diffusion event is a dated event, and these assigned rows carry no date: "
+            + ", ".join(undated[:8])
+            + (f", and {len(undated) - 8} more" if len(undated) > 8 else "")
+        )
+
+    # Ordered once, then read through: the first row of the sorted stream that
+    # matches a (referent, actor, milestone) key *is* that milestone's first.
+    ordered = sorted(
+        (
+            _date(row["date"]),
+            _text(row["line_id"]),
+            _text(row["referent"]),
+            _text(row["country_org"]),
+            _text(row["stance"]),
+        )
+        for row in kept.to_dict(orient="records")
+    )
+    events: dict[str, list[dict[str, object]]] = {}
+    seen: set[tuple[str, str, str]] = set()
+    for date, line_id, referent, actor, stance in ordered:
+        for milestone in MILESTONES:
+            if milestone != "mention" and stance != milestone:
+                continue
+            if (referent, actor, milestone) in seen:
+                continue
+            seen.add((referent, actor, milestone))
+            events.setdefault(referent, []).append(
+                {
+                    "date": date,
+                    "actor": actor,
+                    "milestone": milestone,
+                    "stance": stance,
+                    "id": line_id,
+                }
+            )
+
+    milestone_rank = {name: position for position, name in enumerate(MILESTONES)}
+    referent_rank = {name: position for position, name in enumerate(referent_order)}
+    out: list[dict[str, object]] = []
+    for referent in sorted(
+        events, key=lambda name: (referent_rank.get(name, len(referent_rank)), name)
+    ):
+        entries = events[referent]
+        entries.sort(
+            key=lambda event: (
+                str(event["date"]),
+                str(event["id"]),
+                milestone_rank[str(event["milestone"])],
+            )
+        )
+        out.append({"id": referent, "events": entries})
     return out
 
 

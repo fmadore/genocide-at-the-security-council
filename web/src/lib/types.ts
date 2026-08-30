@@ -738,6 +738,57 @@ export interface UsageStanceRow {
 	share_rejects: number | null;
 }
 
+/**
+ * The three moments the diffusion figure counts, in the order they rank.
+ *
+ * They are not three kinds of occurrence but three *firsts*, per delegation and
+ * per referent: the first time it placed the word on that genocide at all, the
+ * first time it asserted the characterisation, and the first time it refused the
+ * word for it. One occurrence can be two of them — a delegation whose first
+ * placed use already asserts crosses `mention` and `asserts` on the same line —
+ * which is why the rank exists: it settles the order of two events a date and an
+ * identifier cannot separate.
+ */
+export type UsageMilestone = 'mention' | 'asserts' | 'rejects_or_denies';
+
+/** One delegation's first crossing of one milestone, for one referent. */
+export interface UsageDiffusionEvent {
+	/** `YYYY-MM-DD`, the meeting's date. */
+	date: string;
+	/** The speaker's `country_org`, as everywhere else in this layer. */
+	actor: string;
+	milestone: UsageMilestone;
+	/**
+	 * The stance of that first occurrence. Fixed under the last two milestones
+	 * and any of the seven under `mention`, which is what makes it worth carrying
+	 * — a first mention that is a rejection is a different fact from one that is
+	 * a neutral legal reference.
+	 */
+	stance: string;
+	/** `<speech>#<ordinal>` — joins `KwicLine.id`. The locator for the event. */
+	id: string;
+}
+
+/** One referent's whole chronology. Only referents with at least one event appear. */
+export interface UsageDiffusionReferent {
+	/** A `UsageReferent.id`. */
+	id: string;
+	/** Sorted by date, then identifier, then milestone rank. */
+	events: UsageDiffusionEvent[];
+}
+
+/**
+ * When each delegation first said it, first asserted it, first refused it.
+ *
+ * The milestones are declared by the artefact rather than assumed by the
+ * interface: a later run could count a fourth, and a figure that had the three
+ * written into it would draw two of them and lose the third without saying so.
+ */
+export interface UsageDiffusion {
+	milestones: UsageMilestone[];
+	referents: UsageDiffusionReferent[];
+}
+
 /** Agreement between two coders on one field, or null while it cannot be computed. */
 export interface UsageAgreement {
 	field: string;
@@ -796,6 +847,7 @@ export interface Usage {
 	minimum_occurrences: number;
 	matrix: UsageMatrixCell[];
 	stance_by_actor: UsageStanceRow[];
+	diffusion: UsageDiffusion;
 	gold: UsageGold;
 }
 

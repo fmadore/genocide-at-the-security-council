@@ -324,6 +324,185 @@ def test_the_stance_block_is_written_in_the_actor_order() -> None:
     ]
 
 
+# --- Diffusion --------------------------------------------------------------
+
+ORDER = ["rwanda_1994", "gaza", "holocaust", "other"]
+
+
+def dated(date: object, line_id: str, **change: object) -> dict[str, object]:
+    """One row of a diffusion frame: a date and a KWIC line id beside the labels."""
+    return {"date": date, "line_id": line_id, **change}
+
+
+def curves(frame: pd.DataFrame, order: list[str] | None = None) -> dict[str, list[dict]]:
+    """The diffusion block keyed by referent, for assertions that read."""
+    return {
+        entry["id"]: entry["events"]
+        for entry in usage.diffusion_rows(frame, ORDER if order is None else order)
+    }
+
+
+def test_each_milestone_is_the_first_row_that_reaches_it() -> None:
+    frame = rows(
+        dated("1994-04-21", "a#1", stance="attributes_or_reports"),
+        dated("1994-05-16", "b#1", stance="asserts"),
+        dated("1994-06-08", "c#1", stance="asserts"),
+        dated("1995-01-10", "d#1", stance="rejects_or_denies"),
+        dated("1996-02-02", "e#1", stance="rejects_or_denies"),
+    )
+    events = curves(frame)["rwanda_1994"]
+    assert [(event["milestone"], event["id"]) for event in events] == [
+        ("mention", "a#1"),
+        ("asserts", "b#1"),
+        ("rejects_or_denies", "d#1"),
+    ]
+    # The mention keeps the stance of the row it was drawn from, which is not the
+    # milestone: this delegation reported the characterisation before making it.
+    assert events[0]["stance"] == "attributes_or_reports"
+    assert events[0]["date"] == "1994-04-21"
+    assert events[0]["actor"] == "Rwanda"
+    assert set(events[0]) == {"date", "actor", "milestone", "stance", "id"}
+
+
+def test_one_occurrence_can_be_both_the_first_mention_and_the_first_assertion() -> None:
+    frame = rows(dated("1994-04-21", "a#1", stance="asserts"))
+    events = curves(frame)["rwanda_1994"]
+    assert [event["milestone"] for event in events] == ["mention", "asserts"]
+    # Two events, one occurrence: both carry the same date and the same line id,
+    # because the curves they feed are counted separately.
+    assert {event["id"] for event in events} == {"a#1"}
+    assert {event["stance"] for event in events} == {"asserts"}
+
+
+def test_a_first_rejection_is_recorded_even_when_the_delegation_asserted_first() -> None:
+    frame = rows(
+        dated("1994-04-21", "a#1", stance="asserts"),
+        dated("1994-05-16", "b#1", stance="rejects_or_denies"),
+    )
+    events = {event["milestone"]: event for event in curves(frame)["rwanda_1994"]}
+    assert events["mention"]["id"] == "a#1"
+    assert events["asserts"]["id"] == "a#1"
+    assert events["rejects_or_denies"]["id"] == "b#1"
+    assert events["rejects_or_denies"]["date"] == "1994-05-16"
+
+
+def test_a_same_day_tie_is_broken_by_the_line_id() -> None:
+    # Written in the reverse of the answer, so a first-row-wins implementation
+    # that never sorted would fail here.
+    frame = rows(
+        dated("1994-04-21", "b#2", stance="asserts"),
+        dated("1994-04-21", "a#1", stance="asserts"),
+    )
+    assert curves(frame)["rwanda_1994"][0]["id"] == "a#1"
+
+
+def test_a_pair_is_per_referent_and_per_actor() -> None:
+    frame = rows(
+        dated("1994-04-21", "a#1", country_org="Rwanda", referent="rwanda_1994"),
+        dated("1994-05-16", "b#1", country_org="Chad", referent="rwanda_1994"),
+        dated("1993-01-01", "c#1", country_org="Rwanda", referent="holocaust"),
+    )
+    built = curves(frame)
+    assert {event["actor"] for event in built["rwanda_1994"]} == {"Rwanda", "Chad"}
+    # Rwanda's first mention of the Holocaust is earlier than its first mention
+    # of 1994, and neither displaces the other: the pair is the unit.
+    assert [event["date"] for event in built["holocaust"]] == ["1993-01-01"] * 2
+
+
+def test_referents_follow_the_order_they_are_given() -> None:
+    frame = rows(
+        dated("1994-04-21", "a#1", referent="holocaust"),
+        dated("1994-05-16", "b#1", referent="rwanda_1994"),
+        dated("1994-06-08", "c#1", referent="gaza"),
+    )
+    given = ["rwanda_1994", "gaza", "holocaust"]
+    assert [entry["id"] for entry in usage.diffusion_rows(frame, given)] == given
+    reversed_order = list(reversed(given))
+    assert [
+        entry["id"] for entry in usage.diffusion_rows(frame, reversed_order)
+    ] == reversed_order
+    # A referent the order does not name is sorted last rather than dropped.
+    assert [entry["id"] for entry in usage.diffusion_rows(frame, ["gaza"])] == [
+        "gaza",
+        "holocaust",
+        "rwanda_1994",
+    ]
+
+
+def test_events_are_sorted_by_date_then_line_id_then_milestone() -> None:
+    frame = rows(
+        dated("1994-06-08", "c#1", country_org="Chad", stance="rejects_or_denies"),
+        dated("1994-04-21", "a#1", country_org="Rwanda", stance="asserts"),
+        dated("1994-04-21", "a#2", country_org="Angola", stance="asserts"),
+    )
+    events = curves(frame)["rwanda_1994"]
+    assert [(event["date"], event["id"], event["milestone"]) for event in events] == [
+        ("1994-04-21", "a#1", "mention"),
+        ("1994-04-21", "a#1", "asserts"),
+        ("1994-04-21", "a#2", "mention"),
+        ("1994-04-21", "a#2", "asserts"),
+        ("1994-06-08", "c#1", "mention"),
+        ("1994-06-08", "c#1", "rejects_or_denies"),
+    ]
+
+
+def test_only_assigned_rows_can_carry_a_first_event() -> None:
+    frame = rows(
+        dated("1993-01-01", "a#1", **false_positive()),
+        dated("1993-02-02", "b#1", referent="unclear", stance="rejects_or_denies"),
+        dated("1993-03-03", "c#1", evidence_valid=False),
+        dated("1994-04-21", "d#1", stance="asserts"),
+        dated("1994-05-16", "e#1", referent="other",
+              proposed_referent="a case not yet controlled"),
+    )
+    built = curves(frame)
+    # The three ineligible or unassigned rows are earlier than every kept one, so
+    # a leak would show up as a first mention rather than as an extra event.
+    assert [event["id"] for event in built["rwanda_1994"]] == ["d#1", "d#1"]
+    # `other` is assigned everywhere else in this module, and here too.
+    assert [event["id"] for event in built["other"]] == ["e#1", "e#1"]
+    assert set(built) == {"rwanda_1994", "other"}
+
+
+def test_a_frame_with_nothing_assigned_yields_no_referents() -> None:
+    # No rows at all, and rows none of which are assigned: an empty list either
+    # way, never a referent carrying an empty `events` array.
+    assert usage.diffusion_rows(rows(dated("1994-04-21", "a#1")).iloc[:0], ORDER) == []
+    frame = rows(dated("1994-04-21", "a#1", referent="unclear"))
+    assert usage.diffusion_rows(frame, ORDER) == []
+
+
+def test_the_diffusion_block_refuses_a_frame_that_is_missing_a_column() -> None:
+    frame = rows(dated("1994-04-21", "a#1"))
+    with pytest.raises(KeyError, match="date"):
+        usage.diffusion_rows(frame.drop(columns=["date"]), ORDER)
+    with pytest.raises(KeyError, match="line_id"):
+        usage.diffusion_rows(frame.drop(columns=["line_id"]), ORDER)
+
+
+def test_an_assigned_row_with_no_date_is_refused_rather_than_repaired() -> None:
+    frame = rows(
+        dated("1994-04-21", "a#1"),
+        dated("", "b#1"),
+        dated("   ", "c#1"),
+    )
+    with pytest.raises(ValueError, match="b#1, c#1"):
+        usage.diffusion_rows(frame, ORDER)
+    # An undated row that would not have been counted anyway is not a refusal.
+    tolerated = rows(dated("1994-04-21", "a#1"), dated("", "b#1", referent="unclear"))
+    assert curves(tolerated)["rwanda_1994"][0]["id"] == "a#1"
+
+
+def test_a_timestamp_is_published_as_the_calendar_date_it_names() -> None:
+    # The normalised corpus holds `date` as a datetime64, so a joined row carries
+    # a Timestamp; the artefact publishes the ISO date and never a midnight.
+    frame = rows(dated(pd.Timestamp("1994-04-21"), "a#1"))
+    assert curves(frame)["rwanda_1994"][0]["date"] == "1994-04-21"
+    undated = rows(dated(pd.NaT, "a#1"))
+    with pytest.raises(ValueError, match="a#1"):
+        usage.diffusion_rows(undated, ORDER)
+
+
 # --- Agreement --------------------------------------------------------------
 
 # Ten paired judgements, six `yes` on the left and five on the right:

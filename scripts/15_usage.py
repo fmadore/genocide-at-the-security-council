@@ -10,8 +10,9 @@ anyone with the corpus and the repository.
 It writes two artefacts into `data/derived/usage/`:
 
 - `usage.json` — the aggregate. Who invoked the word about what, with what
-  stance, how much of the run was eligible to be counted at all, and how the
-  model scored against the human gold sample.
+  stance, when each delegation first reached each case, how much of the run was
+  eligible to be counted at all, and how the model scored against the human gold
+  sample.
 - `occurrences.json` — one row per annotated occurrence, so a reader can get
   from a cell of the matrix to the passages behind it. The evidence *offsets*
   stay in the run's JSONL: the view highlights from the KWIC index it already
@@ -101,6 +102,12 @@ COLUMNS = [
 #: identity; the rest describe it and are read modally or first-observed by
 #: `lib.usage`, never re-derived per row.
 SPEAKER_COLUMNS = ["country_org", "iso3", "entity_type", "speaker_group"]
+
+#: Those, plus the one attribute of the *meeting* any block here counts on: the
+#: date, which is the axis the diffusion block's first-events are ordered and
+#: published on. Named separately because it describes the sitting rather than
+#: the speaker, and a reader of `SPEAKER_COLUMNS` should not find a date in it.
+OCCURRENCE_COLUMNS = [*SPEAKER_COLUMNS, "date"]
 
 #: The model's fields, in the order `occurrences.json` writes them.
 ROW_FIELDS = (
@@ -239,7 +246,7 @@ def check_population(found: list[occurrences_lib.Occurrence]) -> list[str]:
 def enumerated_frame(
     speeches: pd.DataFrame, found: list[occurrences_lib.Occurrence]
 ) -> pd.DataFrame:
-    """Every occurrence with the speaker attributes its row will be counted under.
+    """Every occurrence with the attributes its row will be counted under.
 
     In corpus order — speech order, then match order within a speech — which is
     the order `occurrences.json` is written in and the order the matrix's cells
@@ -247,7 +254,7 @@ def enumerated_frame(
     """
     frame = occurrences_lib.frame(found)
     attributes = (
-        speeches.loc[frame["index"].tolist(), SPEAKER_COLUMNS]
+        speeches.loc[frame["index"].tolist(), OCCURRENCE_COLUMNS]
         .reset_index(drop=True)
         .astype("object")
     )
@@ -446,6 +453,36 @@ def occurrence_rows(rows: pd.DataFrame) -> list[dict[str, object]]:
     return out
 
 
+def diffusion_block(rows: pd.DataFrame, referent_order: list[str]) -> dict[str, object]:
+    """The dated first-events, under the referent block's own order.
+
+    That order is read back off the block `usage.aggregate` has already built
+    rather than recomputed from the referent table, so there is one answer to
+    "which referent comes first" and the curves are ordered like everything else
+    in the artefact.
+
+    An undated assigned row is a refusal, as everything else in this step is:
+    `lib.usage` raises, and the traceback is turned into the same kind of message
+    every other refusal here produces.
+    """
+    try:
+        return {
+            "milestones": list(usage.MILESTONES),
+            "referents": usage.diffusion_rows(rows, referent_order),
+        }
+    except ValueError as error:
+        console.fail(
+            "the run cannot be laid on a timeline",
+            [
+                str(error),
+                "01_build_parquet.py refuses a speech with no date, so an undated row "
+                "here means the join above lost one",
+                "a first mention on an invented date is worse than no curve at all",
+            ],
+        )
+        raise  # unreachable; console.fail exits, and a reader cannot know that
+
+
 def build_note(
     payload: dict[str, object],
     counts: dict[str, int],
@@ -481,6 +518,37 @@ def build_note(
         (row for row in stances if row["share_rejects"] is not None),
         key=lambda row: -float(row["share_rejects"]),
     )
+
+    # The three referents carrying the most first-events, `other` excluded: it is
+    # assigned and therefore carries events, but it is a bucket of unlike cases
+    # and "the first delegation to mention other" is not a sentence about
+    # anything. The reserved kind is the only one that can be excluded here —
+    # `unclear` and `not_applicable` are never assigned and never appear.
+    kinds = {str(row["id"]): str(row["kind"]) for row in payload["referents"]}
+    curves = sorted(
+        (
+            entry
+            for entry in payload["diffusion"]["referents"]
+            if kinds.get(str(entry["id"])) != "reserved"
+        ),
+        key=lambda entry: (-len(entry["events"]), str(entry["id"])),
+    )[:3]
+    spread = []
+    for entry in curves:
+        mentions = [event for event in entry["events"] if event["milestone"] == "mention"]
+        asserting = {
+            event["actor"] for event in entry["events"] if event["milestone"] == "asserts"
+        }
+        rejecting = {
+            event["actor"]
+            for event in entry["events"]
+            if event["milestone"] == "rejects_or_denies"
+        }
+        first = min(mentions, key=lambda event: (str(event["date"]), str(event["id"])))
+        spread.append(
+            f"| `{entry['id']}` | {first['actor']}, {first['date']} | "
+            f"{len(mentions):,} | {len(asserting):,} | {len(rejecting):,} |"
+        )
 
     by_name = {str(actor["country_org"]): actor for actor in actors}
     leaders = []
@@ -618,6 +686,34 @@ def build_note(
             "|---|---|---:|---:|---:|---:|",
             *leaders,
             "",
+            "## Diffusion",
+            "",
+            "When each delegation first used the word about a case, and in which "
+            "direction. A **mention** is a delegation's first assigned occurrence of "
+            "that referent whatever stance it carried; the last two columns count the "
+            "delegations whose first assertion, or first rejection, of the "
+            "characterisation is on record. The same occurrence can be both a first "
+            "mention and a first assertion, so the columns overlap and do not add up.",
+            "",
+            *(
+                [
+                    "| Referent | First mention | Delegations | Asserting | Rejecting |",
+                    "|---|---|---:|---:|---:|",
+                    *spread,
+                    "",
+                    "Firsts in this corpus and nowhere else. The date is the first "
+                    "sitting at which that delegation is recorded using the word about "
+                    "that case, which is not the day it took the position, and a "
+                    "delegation absent from a curve is very often one that had no floor "
+                    "to take.",
+                ]
+                if spread
+                else [
+                    "No referent outside the reserved identifiers carries a first event, "
+                    "so there is no curve to describe.",
+                ]
+            ),
+            "",
             "## What is withheld",
             "",
             f"**{minimum} occurrences.** A share of a speaker's occurrences is written only "
@@ -708,6 +804,11 @@ def build_note(
             "- **A blank cell is not a zero.** The matrix is sparse; an absent "
             "(speaker, referent) pair had no assigned occurrence, and a withheld share is "
             "`null` rather than absent.",
+            "- **A diffusion curve counts speakers, not states.** It rises when a "
+            "delegation is recorded using the word about a case in this corpus, so only "
+            "delegations that spoke can appear on it: absence is not refusal, and how "
+            "many delegations are in a position to speak at all varies with Council "
+            "membership and with which debates were opened to non-members.",
             "- **The gold sample is the only calibration.** Until it is coded, accuracy is "
             "unmeasured; after it is, it is measured on 200 occurrences and not on 6,092.",
             "",
@@ -778,6 +879,8 @@ def run(args: argparse.Namespace) -> None:
     referent_table = read_referents(REFERENTS)
     blocks = usage.aggregate(rows, referent_table, args.minimum)
     counts = usage.funnel(rows)
+    diffusion = diffusion_block(rows, [str(row["id"]) for row in blocks["referents"]])
+    events = sum(len(entry["events"]) for entry in diffusion["referents"])
     console.table(
         [
             ("annotated", f"{counts['annotated']:,}"),
@@ -785,6 +888,10 @@ def run(args: argparse.Namespace) -> None:
             ("assigned", f"{counts['assigned']:,}"),
             ("speakers", f"{len(blocks['actors']):,}"),
             ("matrix cells", f"{len(blocks['matrix']):,}"),
+            (
+                "first events",
+                f"{events:,} over {len(diffusion['referents']):,} referents",
+            ),
             (
                 "shares withheld",
                 f"{sum(1 for row in blocks['stance_by_actor'] if not row['sufficient']):,} "
@@ -846,6 +953,7 @@ def run(args: argparse.Namespace) -> None:
         "minimum_occurrences": args.minimum,
         "matrix": blocks["matrix"],
         "stance_by_actor": blocks["stance_by_actor"],
+        "diffusion": diffusion,
         "gold": gold,
     }
 
@@ -891,6 +999,7 @@ def run(args: argparse.Namespace) -> None:
                 "funnel": counts,
                 "actors": len(blocks["actors"]),
                 "matrix_cells": len(blocks["matrix"]),
+                "diffusion_events": events,
                 "gold_state": gold["state"],
             },
         ),

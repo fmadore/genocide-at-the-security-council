@@ -15,6 +15,7 @@
 	import { page } from '$app/state';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import DiffusionChart from '$lib/DiffusionChart.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import PageMeta from '$lib/PageMeta.svelte';
@@ -26,10 +27,14 @@
 	import { segments } from '$lib/highlight';
 	import { PAGE_METADATA } from '$lib/seo';
 	import {
+		DIFFUSION_COLUMNS,
 		MATRIX_COLUMNS,
 		STANCES,
 		STANCE_COLUMNS,
 		USAGE_TERM,
+		diffusionChronology,
+		diffusionExportRows,
+		diffusionPlan,
 		drillDown,
 		goldProgress,
 		matrixExportRows,
@@ -41,7 +46,15 @@
 		stanceRanking,
 		usageParams
 	} from '$lib/usage';
-	import type { MatrixCell, StanceSegment, UsageSort, UsageState, UsageUnit } from '$lib/usage';
+	import type {
+		DiffusionPoint,
+		DiffusionSeries,
+		MatrixCell,
+		StanceSegment,
+		UsageSort,
+		UsageState,
+		UsageUnit
+	} from '$lib/usage';
 	import type {
 		KwicLine,
 		StanceCounts,
@@ -142,6 +155,29 @@
 		referent = next.referent;
 	}
 
+	/* ---- the diffusion of one referent --------------------------------------
+	   The same `referent` the matrix sets, read a second way: one state, two
+	   figures, and a column heading and this figure's picker are the same
+	   control. The chronology takes whatever concordance lines are in hand — it
+	   needs none of them for its own rows, only for the link back into the
+	   concordance, which cannot be addressed without a record symbol. */
+	const diffusion = $derived(diffusionPlan(artefact, current()));
+	const chronology = $derived(diffusionChronology(diffusion, lines));
+
+	const stepLabel = (point: DiffusionPoint, series: DiffusionSeries) =>
+		`${shortCountry(point.actor)}, ${isoDate(point.date)}: ${series.label.toLowerCase()}. ` +
+		`${count(point.value)} of ${count(series.total)} delegations by then. ` +
+		`Stance: ${point.stanceLabel.toLowerCase()}.`;
+
+	const diffusionDescription = $derived(
+		`Cumulative delegations for ${diffusion.label}, ${isoDate(diffusion.span.from)} to ` +
+			`${isoDate(diffusion.span.to)}: ` +
+			diffusion.drawn
+				.map((series) => `${series.label.toLowerCase()}, ${count(series.total)}`)
+				.join('; ') +
+			'. Every step is listed in the chronology below the figure.'
+	);
+
 	/* ---- how the two units are written -------------------------------------
 	   A cell is read at a glance and is 2.6rem wide, so a share is rounded to
 	   the nearest point there and stated exactly in the cell's own title. */
@@ -223,6 +259,28 @@
 				`${count(artefact.actors.length)} speakers and ${count(artefact.referents.length)} referents, ` +
 				`including the ${count(plan.disclosure.hiddenRows)} rows the figure's cap left out and the ` +
 				`speakers whose shares are withheld, whose share column is null beside a sufficient flag`
+		};
+	}
+
+	function diffusionTable(): ExportRequest {
+		const events = artefact.diffusion.referents.reduce(
+			(total, entry) => total + entry.events.length,
+			0
+		);
+		return {
+			title: 'When each delegation first said it',
+			columns: DIFFUSION_COLUMNS,
+			rows: diffusionExportRows(artefact),
+			provenance: provenanceOf(artefact.meta, 'usage/usage.json'),
+			filters: [
+				`on screen: ${diffusion.label}`,
+				`milestones: first placed use, first assertion, first refusal of the word`,
+				`labels: ${artefact.model.id}, run ${artefact.model.run_id}`
+			],
+			scope:
+				`every first the run recorded — ${count(events)} events over ` +
+				`${count(artefact.diffusion.referents.length)} referents, not the one referent the ` +
+				`figure is showing and not only the curves it drew`
 		};
 	}
 
@@ -533,6 +591,144 @@
 			{/if}
 		{/if}
 	</section>
+
+	<!-- The picker is declared here rather than inline so that a build with no
+	     chronology at all can be handed no controls, instead of an empty control
+	     bar with two rules and nothing between them. -->
+	{#snippet referentPicker()}
+		<label>
+			Referent
+			<select
+				value={diffusion.referent}
+				onchange={(event) => (referent = event.currentTarget.value)}
+			>
+				{#each diffusion.options as option (option.id)}
+					<option value={option.id}>
+						{option.label} &mdash; {option.events
+							? `${count(option.delegations)} ${option.delegations === 1 ? 'delegation' : 'delegations'}`
+							: 'nothing recorded'}
+					</option>
+				{/each}
+			</select>
+		</label>
+	{/snippet}
+
+	<Figure
+		title="When each delegation first said it"
+		question="When did each delegation first place the word on this genocide, first assert it, and first refuse it?"
+		source="15_usage.py → usage/usage.json"
+		note="Height is a count of delegations, not of occurrences: each is counted once, on the day it first crossed that line."
+		controls={diffusion.options.length ? referentPicker : undefined}
+		download={{ name: ['unsc', 'usage', 'diffusion'], table: diffusionTable }}
+	>
+		{#snippet reading()}
+			<p>
+				One referent at a time. The <strong>solid amber curve</strong> is the delegations that have
+				asserted this genocide — each counted once, on the date of its first assertion — and the
+				<strong>dashed ink curve</strong> the delegations that have used the word in order to refuse it
+				for this case. Both only rise, so a flat run is a stretch in which nobody new joined.
+			</p>
+			<p>
+				A faint hairline appears above them where it says something the assertion curve does not:
+				the delegations that placed the word on this referent at all, whatever they were doing with
+				it. Where every delegation's first placed use was already an assertion the two coincide, and
+				only one is drawn.
+			</p>
+			<p>
+				The vertical scale is this referent's own, and the time axis is every referent's, so
+				switching between them moves the curve along a fixed span rather than redrawing it.
+				<strong>The chronology under the figure is the same events as text</strong>, oldest first,
+				each with a way into the speech it was read from.
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>
+				<strong>This is a curve of delegations speaking in this corpus</strong>, not of states
+				holding a view. Only a delegation that took the floor can appear on it, so an absence here
+				is not a refusal: it is silence, a delegation off the Council, or a debate that was never
+				opened to it.
+			</p>
+			<p>
+				Participation is not constant. Council membership turns over every year, and the open
+				debates that let a non-member speak are called unevenly, so a rise can be a change in who
+				was in the room rather than in what was being said. The same caution the rest of this site
+				applies to any count over a body with a rotating membership.
+			</p>
+			<p>
+				<strong>The milestones are a model's readings</strong>, on the same terms as everything else
+				on this page: <code>{artefact.model.id}</code> decided which occurrence was an assertion and which
+				was a refusal, and a mislabelled stance moves a delegation from one curve to the other.
+			</p>
+		{/snippet}
+
+		{#if diffusion.refusal === 'no-diffusion'}
+			<p class="refusal">
+				The run recorded no first for any referent, so there is nothing here that could be drawn.
+				The chronology is built from the same annotations as the matrix above, and it is empty
+				exactly when nothing was placed on any referent at all.
+			</p>
+		{:else if diffusion.refusal === 'no-events'}
+			<p class="refusal">
+				The chronology carries no first this figure can draw for
+				<strong>{diffusion.label}</strong>. Pick another referent above.
+			</p>
+		{:else}
+			<DiffusionChart plan={diffusion} label={stepLabel} description={diffusionDescription} />
+
+			<p class="disclosure">
+				{count(diffusion.totals.mention)}
+				{diffusion.totals.mention === 1 ? 'delegation has' : 'delegations have'} placed the word on
+				{diffusion.label}
+				at all; {count(diffusion.totals.asserts)} of them asserted it, and
+				{count(diffusion.totals.rejects_or_denies)} used the word in order to refuse it for this case.
+				A delegation can be on two of those curves and often is — the first use that refuses the word
+				is also that delegation's first use of it.
+			</p>
+
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
+			<div class="scroll" role="region" aria-label="Chronology of firsts" tabindex="0">
+				<table class="chronology">
+					<caption class="sr-only">
+						Every first the curves are made of, for {diffusion.label}, oldest first
+					</caption>
+					<thead>
+						<tr>
+							<th scope="col">Date</th>
+							<th scope="col">Delegation</th>
+							<th scope="col">Milestone</th>
+							<th scope="col">Stance</th>
+							<th scope="col" class="num">Nth</th>
+							<th scope="col">Occurrence</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each chronology as row (`${row.milestone}:${row.id}`)}
+							<tr>
+								<td class="when">{isoDate(row.date)}</td>
+								<th scope="row">{shortCountry(row.actor)}</th>
+								<td>
+									<span class="milestone" data-milestone={row.milestone}>{row.milestoneLabel}</span>
+								</td>
+								<td><span class="stance" data-stance={row.stance}>{row.stanceLabel}</span></td>
+								<td class="num">{count(row.ordinal)}</td>
+								<td class="where">
+									<a
+										href="{resolve('/reader/[meeting]', { meeting: row.reader.meeting })}?{row
+											.reader.query}"
+									>
+										<code>{row.id}</code>
+									</a>
+									{#if row.concordance}
+										<a href="{resolve('/concordance')}?{row.concordance.query}">concordance</a>
+									{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+	</Figure>
 
 	<Figure
 		title="Who rejects the word"
@@ -1075,6 +1271,88 @@
 		display: flex;
 		margin: var(--sp-4) auto 0;
 		padding: var(--sp-2) var(--sp-5);
+	}
+
+	/* ---- the chronology of firsts ------------------------------------------ */
+
+	/* Wide enough for its own content and no wider: the identifiers are long, and
+	   a table squeezed into the column would set every label three words to a
+	   line. The scroll region around it is where that width goes. */
+	.chronology {
+		width: auto;
+		min-width: 100%;
+	}
+
+	.chronology th,
+	.chronology td {
+		padding: var(--sp-1) var(--sp-3) var(--sp-1) 0;
+		vertical-align: baseline;
+		border-bottom: var(--hair) solid var(--rule);
+	}
+
+	/* The same mark as in the quotations, set quietly: a stance shouted once
+	   under a blockquote is emphasis, and shouted on every row of a hundred is
+	   noise. The rule under the word still carries the category. */
+	.chronology .stance {
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		font-weight: 400;
+		letter-spacing: 0;
+		text-transform: none;
+		color: var(--ink-2);
+		white-space: nowrap;
+	}
+
+	.when {
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink-2);
+		white-space: nowrap;
+	}
+
+	/* The same gesture the stance carries: a rule under the word in the colour
+	   its curve is drawn in, so the table and the figure name the same thing the
+	   same way. Ink carries the reading; the hue carries the category. */
+	.milestone {
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		color: var(--ink-2);
+		white-space: nowrap;
+		padding-bottom: 0.15em;
+		box-shadow: inset 0 -2px 0 var(--rule-strong);
+	}
+
+	.milestone[data-milestone='asserts'] {
+		box-shadow: inset 0 -2px 0 var(--reg-contentious);
+	}
+
+	.milestone[data-milestone='rejects_or_denies'] {
+		box-shadow: inset 0 -2px 0 var(--ink);
+	}
+
+	.milestone[data-milestone='mention'] {
+		box-shadow: inset 0 -2px 0 var(--ink-3);
+	}
+
+	/* Inline rather than a flex row: a table cell that becomes a flex container
+	   leaves the table's own layout, and the column stops lining up with its
+	   heading. */
+	.where {
+		font-family: var(--sans);
+		font-size: var(--step--2);
+	}
+
+	.where a + a {
+		margin-left: var(--sp-3);
+	}
+
+	/* The identifier is a citation and is never broken across lines: a table that
+	   wrapped it would set every row four lines tall to save a column the scroll
+	   region is there to give it. */
+	.where code {
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		white-space: nowrap;
 	}
 
 	/* ---- the stance profile ------------------------------------------------ */

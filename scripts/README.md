@@ -93,7 +93,11 @@ gold sample and is deterministic. **14 is never run by CI or the deploy**: it ne
 `model_annotations/`, which is why the deploy can rebuild the payload without ever holding
 a key. 15 is deterministic again: it joins the committed run, the human gold rows and the
 corpus into `derived/usage/`, refusing a run whose lexicon version, occurrence identities
-or source digests no longer match.
+or source digests no longer match. Besides the actor × referent matrix and the stance
+profiles, its `usage.json` carries a `diffusion` block (Phase L7): per referent, the dated
+first occurrence per delegation in three milestone classes — first mention, first
+assertion, first rejection of the word — from which the `/usage` view draws its cumulative
+adoption curves and their clickable chronology.
 
 ## The model annotation run
 
