@@ -11,6 +11,7 @@ writes a manifest of what it took.
     derived/lexical/*.json    → static/data/lexical/
     derived/kwic/*.json       → static/data/kwic/
     derived/countries/*.json  → static/data/countries/
+    derived/usage/*.json      → static/data/usage/
 
 `09_export_speeches.py` is the one exception and writes its 425 MB straight to
 `web/static/data/speeches/`. Copying that twice to preserve a symmetry nobody
@@ -38,6 +39,7 @@ from lib.paths import (
     LEXICAL,
     ROOT,
     SERIES,
+    USAGE,
     WEB_DATA,
     ensure_dirs,
     rel,
@@ -52,6 +54,11 @@ PARTS = [
     # as both rather than as the first, so the manifest does not credit one
     # step's provenance to the other's file.
     (COUNTRIES, "countries", "11_countries.py + 12_speaker_keyness.py"),
+    # 15 aggregates a committed model run. Unlike every other part here, its
+    # input is not the corpus alone: `model_annotations/` is a versioned input
+    # the deploy reads and can never regenerate, which is why the workflow now
+    # keys its cache on that directory too.
+    (USAGE, "usage", "15_usage.py"),
 ]
 
 #: Written by 09, not copied. Listed so the manifest describes the whole payload

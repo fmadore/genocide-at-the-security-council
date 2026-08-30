@@ -52,6 +52,12 @@ TRACKED: list[str] = [
     "lexical/network.json",
     "countries/countries.json",
     "countries/speaker_keyness.json",
+    # Both of 15's artefacts, not one representative. They are written by the
+    # same step but not by the same loop: `usage.json` is nine hand-built blocks
+    # and `occurrences.json` is a flat row set, so neither one's shape says
+    # anything about the other's.
+    "usage/usage.json",
+    "usage/occurrences.json",
     "kwic/index.json",
     "kwic/genocide.json",
     "meetings.json",

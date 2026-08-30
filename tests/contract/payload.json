@@ -1677,5 +1677,179 @@
   "spv": "str",
   "topic": "str",
   "year": "int"
+ },
+ "usage/occurrences.json": {
+  "meta": {
+   "allow_partial": "bool",
+   "analysis_hash": "str",
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "minimum_occurrences": "int",
+   "model": "str",
+   "occurrences_annotated": "int",
+   "occurrences_total": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "run_dir": "str",
+   "run_id": "str",
+   "script": "str",
+   "term": "str"
+  },
+  "occurrences": [
+   {
+    "confidence": "str",
+    "evidence_quote": "str",
+    "evidence_valid": "bool",
+    "function": "str",
+    "id": "str",
+    "occurrence_id": "str",
+    "proposed_referent": "str",
+    "quotation": "str",
+    "referent": "str",
+    "stance": "str",
+    "verdict": "str"
+   }
+  ]
+ },
+ "usage/usage.json": {
+  "actors": [
+   {
+    "assigned": "int",
+    "country_org": "str",
+    "eligible": "int",
+    "entity_type": "str",
+    "group": "str",
+    "iso3": "null|str",
+    "occurrences": "int",
+    "sufficient": "bool"
+   }
+  ],
+  "gold": {
+   "adjudicated": "int",
+   "coders": [],
+   "double_coded": "int",
+   "human_agreement": [],
+   "model_vs_human": [],
+   "sample_size": "int",
+   "state": "str",
+   "unique_occurrences": "int"
+  },
+  "matrix": [
+   {
+    "actor": "str",
+    "count": "int",
+    "referent": "str",
+    "stances": {
+     "asserts": "int",
+     "attributes_or_reports": "int",
+     "hypothetical_or_conditional": "int",
+     "neutral_legal_reference": "int",
+     "not_applicable": "int",
+     "rejects_or_denies": "int",
+     "unclear": "int"
+    }
+   }
+  ],
+  "meta": {
+   "allow_partial": "bool",
+   "analysis_hash": "str",
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "minimum_occurrences": "int",
+   "model": "str",
+   "occurrences_annotated": "int",
+   "occurrences_total": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "run_dir": "str",
+   "run_id": "str",
+   "script": "str",
+   "term": "str"
+  },
+  "minimum_occurrences": "int",
+  "model": {
+   "abstention": {
+    "referent_unclear": "int",
+    "stance_unclear": "int",
+    "verdict_uncertain": "int"
+   },
+   "evidence_invalid": "int",
+   "id": "str",
+   "occurrences_annotated": "int",
+   "occurrences_total": "int",
+   "parse_failures": "int",
+   "prompt_sha256": "str",
+   "prompt_version": "str",
+   "reasoning_effort": "str",
+   "requests": "int",
+   "run_date": "str",
+   "run_id": "str",
+   "tokens": {
+    "input": "int",
+    "output": "int"
+   }
+  },
+  "prompt": "str",
+  "referents": [
+   {
+    "id": "str",
+    "iso3": "str",
+    "kind": "str",
+    "label": "str",
+    "occurrences": "int",
+    "years": "str"
+   }
+  ],
+  "stance_by_actor": [
+   {
+    "actor": "str",
+    "eligible": "int",
+    "share_rejects": "float|null",
+    "stances": {
+     "asserts": "int",
+     "attributes_or_reports": "int",
+     "hypothetical_or_conditional": "int",
+     "neutral_legal_reference": "int",
+     "not_applicable": "int",
+     "rejects_or_denies": "int",
+     "unclear": "int"
+    },
+    "sufficient": "bool"
+   }
+  ]
  }
 }

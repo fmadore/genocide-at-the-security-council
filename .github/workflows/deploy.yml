@@ -30,6 +30,12 @@ on:
       - 'config/**'
       - 'scripts/**'
       - 'web/**'
+      # The two versioned annotation stores. 03 has read `annotations/` since it
+      # existed and 15 reads both, yet neither triggered a build nor entered the
+      # cache key below: an edit to a human annotation or a newly committed model
+      # run left the published payload stale with nothing to say so.
+      - 'annotations/**'
+      - 'model_annotations/**'
       - 'requirements.lock'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
@@ -84,7 +90,8 @@ jobs:
       # cannot be evaluated against different trees.
       #
       # The derived key is the input set that determines the payload: the
-      # configs, the pipeline, the locked environment, the pin, and this file —
+      # configs, the pipeline, the two annotation stores, the locked
+      # environment, the pin, and this file —
       # which names the Python version and the list of steps that run, and is
       # therefore an input like any other. A key that misses one of these would
       # ship a payload that does not match the code, which is the failure to
@@ -95,7 +102,7 @@ jobs:
         run: |
           {
             echo "raw=raw-v${{ steps.pin.outputs.version }}"
-            echo "derived=derived-v${{ steps.pin.outputs.version }}-${{ hashFiles('config/**', 'scripts/**', 'requirements.lock', '.github/workflows/deploy.yml') }}"
+            echo "derived=derived-v${{ steps.pin.outputs.version }}-${{ hashFiles('config/**', 'scripts/**', 'annotations/**', 'model_annotations/**', 'requirements.lock', '.github/workflows/deploy.yml') }}"
           } >> "$GITHUB_OUTPUT"
 
       # No `restore-keys` on either, deliberately. A partial match is exactly
@@ -146,6 +153,12 @@ jobs:
           # run here regardless: leaving it out would ship a payload from this
           # workflow that a local run does not produce.
           python scripts/12_speaker_keyness.py
+          # 15 aggregates the model run named in
+          # model_annotations/genocide/current_run.txt. 13 and 14 never run here:
+          # 13 draws a sample nobody codes on a runner, and 14 is the one step
+          # that spends money. 15 fails while that file is empty, and the build
+          # with it — so this branch merges after a run is committed, not before.
+          python scripts/15_usage.py
           python scripts/export_web.py
 
       # Saved explicitly rather than by letting `actions/cache` write in its own
