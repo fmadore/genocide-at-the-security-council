@@ -153,11 +153,15 @@ jobs:
           # run here regardless: leaving it out would ship a payload from this
           # workflow that a local run does not produce.
           python scripts/12_speaker_keyness.py
+          # 13 is deterministic — same corpus, same seed, byte-identical CSVs —
+          # and 15 refuses to run without the candidates file it draws, because
+          # the gold block reports on a sample that exists. Nobody codes on a
+          # runner; the coded rows live in annotations/, which is committed.
+          python scripts/13_gold_sample.py
           # 15 aggregates the model run named in
-          # model_annotations/genocide/current_run.txt. 13 and 14 never run here:
-          # 13 draws a sample nobody codes on a runner, and 14 is the one step
-          # that spends money. 15 fails while that file is empty, and the build
-          # with it — so this branch merges after a run is committed, not before.
+          # model_annotations/genocide/current_run.txt. 14 never runs here: it
+          # is the one step that spends money. 15 fails while that file is
+          # empty, and the build with it — so a run is committed first.
           python scripts/15_usage.py
           python scripts/export_web.py
 
