@@ -7,6 +7,7 @@ const publicPages = [
 	'language/index.html',
 	'actors/index.html',
 	'concordance/index.html',
+	'usage/index.html',
 	'methods/index.html'
 ];
 

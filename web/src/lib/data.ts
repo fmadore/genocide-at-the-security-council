@@ -25,7 +25,9 @@ import type {
 	MonthlySeries,
 	Network,
 	SlicedCollocates,
-	SpeakerKeyness
+	SpeakerKeyness,
+	Usage,
+	UsageOccurrences
 } from './types';
 
 const cache = new Map<string, Promise<unknown>>();
@@ -228,6 +230,118 @@ const validateSpeakerKeyness: Validator = (record, path) => {
 	}
 };
 
+/** The three states the gold sample may honestly be in. Nothing else is one. */
+const GOLD_STATES = new Set(['not_started', 'in_progress', 'complete']);
+
+/**
+ * The experimental layer, refused on the four things it can get wrong quietly.
+ *
+ * This artefact is model output, which is exactly why the boundary is stricter
+ * here rather than more forgiving: the interface's whole claim is that it
+ * publishes what a model said and no more, and each of the refusals below is a
+ * case where it would end up publishing something the model did not say.
+ */
+const validateUsage: Validator = (record, path) => {
+	// A run nobody can identify is a run nobody can repeat or reject. The page
+	// prints both of these as its own credentials, and `undefined` in a mono
+	// span reads as a model identifier to anyone who does not know better.
+	const model = recordAt(record, 'model');
+	if (typeof model.id !== 'string' || typeof model.prompt_sha256 !== 'string') {
+		throw new Error(`${path}.model must name the model it ran and the prompt it ran with.`);
+	}
+
+	const gold = recordAt(record, 'gold');
+	if (typeof gold.state !== 'string' || !GOLD_STATES.has(gold.state)) {
+		throw new Error(
+			`${path}.gold.state is ${JSON.stringify(gold.state)}; it must be one of ` +
+				`${[...GOLD_STATES].join(', ')}, because the page says which of those three it is.`
+		);
+	}
+
+	const actors = new Set<string>();
+	for (const [index, actor] of arrayAt(record, 'actors').entries()) {
+		if (!isRecord(actor) || typeof actor.country_org !== 'string') {
+			throw new Error(`${path}.actors[${index}] must name a speaker.`);
+		}
+		actors.add(actor.country_org);
+	}
+	const referents = new Set<string>();
+	for (const [index, referent] of arrayAt(record, 'referents').entries()) {
+		if (!isRecord(referent) || typeof referent.id !== 'string') {
+			throw new Error(`${path}.referents[${index}] must carry an id.`);
+		}
+		referents.add(referent.id);
+	}
+
+	for (const [index, cell] of arrayAt(record, 'matrix').entries()) {
+		if (!isRecord(cell)) throw new Error(`${path}.matrix[${index}] must be an object.`);
+		// A cell naming a speaker or a referent that is not in the tables above is
+		// a join failure upstream. Drawn anyway it would be a row or a column the
+		// matrix has no heading for, and the figure would silently lose it.
+		if (!actors.has(String(cell.actor))) {
+			throw new Error(
+				`${path}.matrix[${index}] names ${cell.actor}, who is not in the actor table.`
+			);
+		}
+		if (!referents.has(String(cell.referent))) {
+			throw new Error(
+				`${path}.matrix[${index}] names the referent ${cell.referent}, which is not on the list.`
+			);
+		}
+		const stances = requireRecord(cell, 'stances', `${path}.matrix[${index}]`);
+		const total = Object.values(stances).reduce<number>(
+			(sum, value) => sum + Number(value ?? 0),
+			0
+		);
+		// Short is drawable and over is not: the stance bands are parts of the
+		// cell's own count, and a part larger than the whole is a bar that runs
+		// past the number printed beside it.
+		if (total > Number(cell.count)) {
+			throw new Error(
+				`${path}.matrix[${index}] (${cell.actor} × ${cell.referent}) divides ${cell.count} ` +
+					`occurrences into ${total} stances.`
+			);
+		}
+	}
+
+	for (const [index, row] of arrayAt(record, 'stance_by_actor').entries()) {
+		if (!isRecord(row)) throw new Error(`${path}.stance_by_actor[${index}] must be an object.`);
+		if (!actors.has(String(row.actor))) {
+			throw new Error(
+				`${path}.stance_by_actor[${index}] names ${row.actor}, who is not in the actor table.`
+			);
+		}
+		// The same substantive check `validateCountries` makes: the figure ranks
+		// exactly the rows that claim to be sufficient, so a sufficient row with
+		// no share would be ranked at the top or the bottom by a null.
+		if (row.sufficient === true && !Number.isFinite(row.share_rejects)) {
+			throw new Error(
+				`${path}.stance_by_actor[${index}] (${row.actor}) claims to be sufficient without a share.`
+			);
+		}
+	}
+};
+
+/** The quotations behind the matrix, refused where they could not be quoted. */
+const validateUsageOccurrences: Validator = (record, path) => {
+	for (const [index, occurrence] of arrayAt(record, 'occurrences').entries()) {
+		if (!isRecord(occurrence) || typeof occurrence.id !== 'string' || !occurrence.id) {
+			throw new Error(
+				`${path}.occurrences[${index}] carries no line id, so nothing can be quoted from it.`
+			);
+		}
+		// The drill-down prints this span as the model's own evidence. A row that
+		// says the span was found and hands over nothing would print an empty
+		// quotation under a heading claiming the model verified it.
+		if (occurrence.evidence_valid === true && !String(occurrence.evidence_quote ?? '').trim()) {
+			throw new Error(
+				`${path}.occurrences[${index}] (${occurrence.id}) claims a verified evidence span and ` +
+					`carries no quotation.`
+			);
+		}
+	}
+};
+
 /**
  * How many of the two by-name families a session may hold at once.
  *
@@ -393,6 +507,18 @@ export const REQUIRED = {
 		minimum_pairs: 'number',
 		minimum_coverage: 'number'
 	},
+	'usage/usage.json': {
+		meta: 'object',
+		model: 'object',
+		prompt: 'string',
+		referents: 'array',
+		actors: 'array',
+		minimum_occurrences: 'number',
+		matrix: 'array',
+		stance_by_actor: 'array',
+		gold: 'object'
+	},
+	'usage/occurrences.json': { meta: 'object', occurrences: 'array' },
 	'kwic/index.json': { meta: 'object', terms: 'array' },
 	'kwic/*.json': { meta: 'object', term: 'string', lines: 'array' },
 	'meetings.json': { meta: 'object', meetings: 'array' },
@@ -423,6 +549,16 @@ export const countries = at<Countries>('countries/countries.json', validateCount
 export const speakerKeyness = at<SpeakerKeyness>(
 	'countries/speaker_keyness.json',
 	validateSpeakerKeyness
+);
+
+/* The experimental layer, in two files rather than one: the summary is a few
+   tens of kilobytes and every reader of the view needs it, and the 6,092
+   annotated occurrences behind it are wanted only by a reader who opens a cell.
+   The concordance splits its index from its lines for the same reason. */
+export const usage = at<Usage>('usage/usage.json', validateUsage);
+export const usageOccurrences = at<UsageOccurrences>(
+	'usage/occurrences.json',
+	validateUsageOccurrences
 );
 
 export const kwicIndex = at<KwicIndex>('kwic/index.json');

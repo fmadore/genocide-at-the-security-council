@@ -39,6 +39,12 @@ export const PAGE_METADATA = {
 		description:
 			'Search every matched occurrence in context and open the exact sentence and UN Security Council speech behind it.'
 	},
+	'/usage/': {
+		path: '/usage/',
+		title: `Usage — ${SITE_NAME}`,
+		description:
+			'Experimental, model-derived layer: which genocide each delegation invoked, and whether it asserted or rejected the word, with the quotation behind every label.'
+	},
 	'/methods/': {
 		path: '/methods/',
 		title: `Methods — ${SITE_NAME}`,

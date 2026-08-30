@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { count, matchedOn, percent } from '$lib/format';
 	import PageMeta from '$lib/PageMeta.svelte';
 	import { PAGE_METADATA } from '$lib/seo';
@@ -26,9 +27,12 @@
 	 *
 	 * `state` is the claim a reader should hold this site to. `Verified` means
 	 * the step asserts its own output and the assertions pass in CI; it does not
-	 * mean a person has read the result.
+	 * mean a person has read the result. `Experimental` is weaker than any of
+	 * the other three and is its own state for that reason: the step ran and its
+	 * output is on the site, but what it produced is a model's reading rather
+	 * than a measurement, and no human has yet checked any of it.
 	 */
-	type State = 'verified' | 'open' | 'unadopted';
+	type State = 'verified' | 'open' | 'unadopted' | 'experimental';
 
 	const steps: {
 		id: string;
@@ -127,6 +131,33 @@
 			artefact: 'lemmas.parquet',
 			state: 'unadopted',
 			says: 'Built, not adopted'
+		},
+		{
+			id: '13_gold_sample.py',
+			does: 'Draws a fixed sample of occurrences of the core word for two people to code by hand, independently of each other.',
+			checks:
+				'The draw is reproducible from a seed and spread across speakers, periods and agenda items. Both coders code every sampled occurrence, so a difference between them can be told from an error; neither may edit the other’s row, and a resolved disagreement is a third row rather than a correction. Nothing else on this site reads the sample until it carries verdicts.',
+			artefact: 'annotations/genocide/annotations.csv',
+			state: 'open',
+			says: '0 / 200 coded'
+		},
+		{
+			id: '14_llm_annotate.py',
+			does: 'Asks a language model, one occurrence at a time, which genocide is being referred to and what the speaker is doing with the word.',
+			checks:
+				'Every answer has to name a referent on a controlled list and quote a span the script can then find in the speech itself; an answer that cannot be parsed, or whose quotation is not in the text, is counted and discarded rather than repaired. The run records its model, prompt and prompt hash. It is run by hand, needs a paid API, and its output is kept apart from the human annotations and never merged into them.',
+			artefact: 'model_annotations/*.csv',
+			state: 'experimental',
+			says: 'Model-derived; manual step'
+		},
+		{
+			id: '15_usage.py',
+			does: 'Turns those model labels into the actor-by-referent table and the stance profiles behind the Usage view.',
+			checks:
+				'Its inputs are step 14’s output, so everything it publishes is a model’s reading rather than a measurement, and the view says so above every figure. Shares are withheld below a minimum of eligible occurrences, as elsewhere on this site, and the gold sample’s state travels in the artefact so the page can report honestly that nothing has been checked yet.',
+			artefact: 'usage/*.json',
+			state: 'experimental',
+			says: 'Model-derived; unchecked'
 		}
 	];
 </script>
@@ -156,8 +187,13 @@
 		The scripts are numbered, each reads the output of the one before it, and each can be re-run
 		from scratch without changing the result. A step that cannot prove its own output is correct
 		stops with an error rather than leaving a plausible-looking file behind.
-		<strong>Verified</strong> below means the step's own checks pass automatically every time the code
-		changes. It does not mean a person has read the result.
+		<strong>Verified</strong> below means the step's own checks pass automatically every time the
+		code changes. It does not mean a person has read the result.
+		<strong>Experimental</strong> is a weaker claim than any of the others and marks the two steps
+		whose output is a language model's reading rather than a measurement: they are published,
+		separately and under that marking, on the
+		<a href={resolve('/usage')}>Usage</a> page alone, where the human labels are the authority and none
+		of them has been coded yet.
 	</p>
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
 	<div class="table-scroll" role="region" aria-label="Pipeline ledger" tabindex="0">
@@ -409,6 +445,12 @@
 
 	.state[data-state='unadopted'] {
 		color: var(--ink-3);
+	}
+
+	/* The one state that is not a register colour, because it is not a claim
+	   about the analysis: it is a warning about who made the labels. */
+	.state[data-state='experimental'] {
+		color: var(--state-warn);
 	}
 
 	p.quiet {

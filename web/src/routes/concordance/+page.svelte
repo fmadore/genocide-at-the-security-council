@@ -20,11 +20,12 @@
 		filterConcordance,
 		profileResult,
 		readConcordanceState,
+		readerQuery,
 		yearClick
 	} from '$lib/concordance';
 	import type { ConcordanceSort, FacetDimension } from '$lib/concordance';
 	import ResultProfile from '$lib/ResultProfile.svelte';
-	import { kwic, meetingOf, speechOf } from '$lib/data';
+	import { kwic, meetingOf } from '$lib/data';
 	import { filename, provenanceOf, saveCsv, toCsv } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import Figure from '$lib/Figure.svelte';
@@ -164,13 +165,11 @@
 		sort
 	});
 
+	/* The query is built in `$lib/concordance` rather than here: the usage view
+	   links into the reader from its own quotations, and two copies of this
+	   would be two links free to disagree about what the reader receives. */
 	function readerHref(line: KwicLine): string {
-		const query = concordanceParams(currentState());
-		// The concordance may omit its default term, but the reader needs it to
-		// identify which term-specific ordinal the occurrence ID names.
-		query.set('term', term);
-		query.set('speech', speechOf(line.id));
-		query.set('occurrence', line.id);
+		const query = readerQuery(currentState(), line.id);
 		return `${resolve('/reader/[meeting]', { meeting: meetingOf(line.id) })}?${query}`;
 	}
 

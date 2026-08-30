@@ -1,0 +1,64 @@
+{
+	"meta": {
+		"script": "14_llm_annotate.py",
+		"generated": "2026-09-01T00:00:00Z",
+		"git_commit": "fixture",
+		"lexicon_version": 2,
+		"inputs": [{ "path": "model_annotations/luna-v1.csv", "sha256": "fixture-input" }],
+		"configs": [{ "path": "annotations/lexicon/referents.csv", "sha256": "fixture-config" }]
+	},
+	"occurrences": [
+		{
+			"id": "UNSC_2014_SPV.7000_spch0001#1",
+			"occurrence_id": "1111111111111111111111111111111111111111111111111111111111111111",
+			"verdict": "true_positive",
+			"quotation": "not_quoted",
+			"stance": "hypothetical_or_conditional",
+			"function": "warning_or_prevention",
+			"referent": "rwanda_1994",
+			"proposed_referent": "",
+			"confidence": "high",
+			"evidence_quote": "We warned that genocide could occur.",
+			"evidence_valid": true
+		},
+		{
+			"id": "UNSC_2014_SPV.7000_spch0001#2",
+			"occurrence_id": "2222222222222222222222222222222222222222222222222222222222222222",
+			"verdict": "true_positive",
+			"quotation": "attributed_or_reported",
+			"stance": "rejects_or_denies",
+			"function": "accusation_or_qualification",
+			"referent": "rwanda_1994",
+			"proposed_referent": "",
+			"confidence": "medium",
+			"evidence_quote": "We reject the claim of genocide.",
+			"evidence_valid": true
+		},
+		{
+			"id": "UNSC_2015_SPV.7481_spch0007#1",
+			"occurrence_id": "3333333333333333333333333333333333333333333333333333333333333333",
+			"verdict": "true_positive",
+			"quotation": "not_quoted",
+			"stance": "asserts",
+			"function": "accusation_or_qualification|accountability",
+			"referent": "bosnia_srebrenica",
+			"proposed_referent": "",
+			"confidence": "high",
+			"evidence_quote": "must call this genocide by its name",
+			"evidence_valid": true
+		},
+		{
+			"id": "UNSC_2015_SPV.7481_spch0007#2",
+			"occurrence_id": "4444444444444444444444444444444444444444444444444444444444444444",
+			"verdict": "true_positive",
+			"quotation": "attributed_or_reported",
+			"stance": "attributes_or_reports",
+			"function": "commemoration",
+			"referent": "bosnia_srebrenica",
+			"proposed_referent": "",
+			"confidence": "medium",
+			"evidence_quote": "the word genocide remains contested",
+			"evidence_valid": true
+		}
+	]
+}

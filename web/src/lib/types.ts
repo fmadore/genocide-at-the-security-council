@@ -619,3 +619,214 @@ export interface Countries {
 	standing: Standing;
 	measures: Record<string, CountryMeasure>;
 }
+
+/* --- 14_llm_annotate.py → 15_usage.py ------------------------------------- *
+ *
+ * The experimental layer, and the one place in this file where the shapes below
+ * were not written by a person. A model read every occurrence of `genocide` and
+ * said two things about each: which genocide it refers to, and what the speaker
+ * is doing with the word. 15 aggregates those labels; nothing upstream of it
+ * changes, and no figure elsewhere on this site reads any of it.
+ *
+ * `meta` is `BaseMeta` rather than `LexiconMeta` deliberately. The occurrence
+ * identifiers are numbered by the lexicon, so a version is analytically
+ * meaningful here — but the interface reads provenance through
+ * `provenanceOf()`, which is total, and typing a field as present that the
+ * pipeline may not write is the failure this file's own header warns about.
+ */
+
+/**
+ * What a speaker is doing with the word, from the codebook's controlled list.
+ *
+ * Seven values, exhaustive and mutually exclusive, and the order below is the
+ * order the codebook states them in — which is also the order the stacked bar
+ * draws, so a reader comparing two delegations reads the same bands in the same
+ * places. `not_applicable` belongs to false positives alone.
+ */
+export type Stance =
+	| 'asserts'
+	| 'attributes_or_reports'
+	| 'rejects_or_denies'
+	| 'hypothetical_or_conditional'
+	| 'neutral_legal_reference'
+	| 'unclear'
+	| 'not_applicable';
+
+/** Every stance, always. An absent key and a measured zero cannot be confused. */
+export type StanceCounts = Record<Stance, number>;
+
+/** What produced the labels, in enough detail to run it again or to reject it. */
+export interface UsageModel {
+	/** The exact API model identifier. Shown in mono, never paraphrased. */
+	id: string;
+	run_id: string;
+	run_date: string;
+	prompt_version: string;
+	/** 64 hex characters over the prompt text below. A changed prompt is a new run. */
+	prompt_sha256: string;
+	reasoning_effort: string;
+	requests: number;
+	occurrences_total: number;
+	occurrences_annotated: number;
+	parse_failures: number;
+	evidence_invalid: number;
+	/** Occurrences the model declined to place, by the field it declined on. */
+	abstention: { verdict_uncertain: number; referent_unclear: number; stance_unclear: number };
+	tokens: { input: number; output: number };
+}
+
+/**
+ * One entry of the controlled referent list.
+ *
+ * `iso3` and `years` are always strings and are often empty: they are
+ * documentation on the list rather than coding, and the Holocaust has no
+ * country code. `kind` is `case`, `historical` or `meta` in the list as
+ * published; only `meta` is load-bearing here, because a meta referent is not a
+ * genocide but a way of talking about the category, and the matrix groups those
+ * columns apart rather than ranking them beside Rwanda.
+ */
+export interface UsageReferent {
+	id: string;
+	label: string;
+	kind: string;
+	iso3: string;
+	years: string;
+	/** Assigned occurrences carrying this referent, across every speaker. */
+	occurrences: number;
+}
+
+/**
+ * One speaker, with the three denominators this view distinguishes.
+ *
+ * `occurrences` is every match; `eligible` is those the model judged a real use
+ * of the word with a quotable evidence span behind it; `assigned` is the
+ * eligible ones it could place on a concrete referent. The matrix counts
+ * `assigned`, the stance profile counts `eligible`, and the gap between the
+ * three is stated rather than closed.
+ */
+export interface UsageActor {
+	country_org: string;
+	/** Null for the organisations, which hold no country code. */
+	iso3: string | null;
+	group: string;
+	entity_type: string;
+	occurrences: number;
+	eligible: number;
+	assigned: number;
+	/** Whether `eligible` clears `minimum_occurrences`. Shares are withheld below it. */
+	sufficient: boolean;
+}
+
+/** One filled square of the actor × referent table. Sparse: written only above zero. */
+export interface UsageMatrixCell {
+	/** The speaker's `country_org`, which is what every table here is keyed on. */
+	actor: string;
+	/** A `UsageReferent.id`. */
+	referent: string;
+	count: number;
+	/** The same occurrences divided by stance. Sums to `count`. */
+	stances: StanceCounts;
+}
+
+/** One speaker's whole stance profile, over its eligible occurrences. */
+export interface UsageStanceRow {
+	actor: string;
+	eligible: number;
+	sufficient: boolean;
+	stances: StanceCounts;
+	/** Null — never absent — wherever `sufficient` is false. */
+	share_rejects: number | null;
+}
+
+/** Agreement between two coders on one field, or null while it cannot be computed. */
+export interface UsageAgreement {
+	field: string;
+	observed: number;
+	kappa: number | null;
+	n: number;
+}
+
+/** How the model did against the human labels for one class of one field. */
+export interface UsageClassScore {
+	label: string;
+	precision: number;
+	recall: number;
+	f1: number;
+	support: number;
+}
+
+export interface UsageModelScore {
+	field: string;
+	n: number;
+	accuracy: number;
+	macro_f1: number | null;
+	abstention_rate: number;
+	classes: UsageClassScore[];
+}
+
+/**
+ * The human evaluation set, and its honest state.
+ *
+ * The arrays are empty until there is something to put in them, and the state
+ * says which of the three situations that is. An empty `human_agreement` under
+ * `not_started` means nobody has coded yet; the interface says so rather than
+ * drawing an empty table that reads as a measured zero.
+ */
+export interface UsageGold {
+	sample_size: number;
+	unique_occurrences: number;
+	coders: { coder: string; rows: number }[];
+	double_coded: number;
+	adjudicated: number;
+	human_agreement: UsageAgreement[];
+	model_vs_human: UsageModelScore[];
+	state: 'not_started' | 'in_progress' | 'complete';
+}
+
+export interface Usage {
+	meta: BaseMeta;
+	model: UsageModel;
+	/** The prompt the run was made with, verbatim. Published, not summarised. */
+	prompt: string;
+	/** Sorted by occurrences, descending. */
+	referents: UsageReferent[];
+	/** Sorted by assigned occurrences, descending. */
+	actors: UsageActor[];
+	/** Below this many eligible occurrences, a speaker's shares are withheld. */
+	minimum_occurrences: number;
+	matrix: UsageMatrixCell[];
+	stance_by_actor: UsageStanceRow[];
+	gold: UsageGold;
+}
+
+/**
+ * One annotated occurrence, fetched only when a reader opens a cell.
+ *
+ * `id` is the KWIC line identifier and the only join this artefact offers: the
+ * sentence, the date, the delegation and the record symbol all come from
+ * `kwic/genocide.json`, and are not duplicated here.
+ */
+export interface UsageOccurrence {
+	/** `<speech>#<ordinal>` — joins `KwicLine.id`. */
+	id: string;
+	/** 64 hex characters, stable across runs. The annotation's own key. */
+	occurrence_id: string;
+	verdict: string;
+	quotation: string;
+	stance: string;
+	/** One or more rhetorical functions, pipe-joined without spaces. */
+	function: string;
+	referent: string;
+	/** A referent the model proposed but the controlled list does not carry. */
+	proposed_referent: string;
+	confidence: string;
+	/** The span the model says supports its labels, verbatim from the speech. */
+	evidence_quote: string;
+	/** False when that span could not be found in the speech it names. */
+	evidence_valid: boolean;
+}
+
+export interface UsageOccurrences {
+	meta: BaseMeta;
+	occurrences: UsageOccurrence[];
+}

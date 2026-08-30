@@ -40,6 +40,11 @@
 			blurb: 'Who said it, as a share of their own speeches'
 		},
 		{ href: '/concordance', label: 'Concordance', blurb: 'Every occurrence, with its context' },
+		{
+			href: '/usage',
+			label: 'Usage',
+			blurb: 'Which genocide each speaker meant, read by a model — experimental'
+		},
 		{ href: '/methods', label: 'Methods', blurb: 'How every number was made' }
 	] as const;
 

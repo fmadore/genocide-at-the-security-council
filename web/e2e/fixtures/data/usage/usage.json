@@ -1,0 +1,230 @@
+{
+	"meta": {
+		"script": "15_usage.py",
+		"generated": "2026-09-01T00:00:00Z",
+		"git_commit": "fixture",
+		"lexicon_version": 2,
+		"inputs": [{ "path": "model_annotations/luna-v1.csv", "sha256": "fixture-input" }],
+		"configs": [{ "path": "annotations/lexicon/referents.csv", "sha256": "fixture-config" }]
+	},
+	"model": {
+		"id": "chatgpt-5.6-luna-2026-08-01",
+		"run_id": "2026-09-01-luna-v1",
+		"run_date": "2026-09-01",
+		"prompt_version": "1",
+		"prompt_sha256": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+		"reasoning_effort": "high",
+		"requests": 2,
+		"occurrences_total": 12,
+		"occurrences_annotated": 12,
+		"parse_failures": 0,
+		"evidence_invalid": 1,
+		"abstention": { "verdict_uncertain": 1, "referent_unclear": 2, "stance_unclear": 1 },
+		"tokens": { "input": 0, "output": 0 }
+	},
+	"prompt": "You are given one occurrence of the word genocide in a UN Security Council speech.\nSay which genocide it refers to, using an identifier from the controlled list, and what the speaker is doing with the word.\nQuote the shortest span of the speech that supports both answers, verbatim.\nAnswer unclear rather than guessing.",
+	"referents": [
+		{
+			"id": "rwanda_1994",
+			"label": "Rwanda (1994)",
+			"kind": "case",
+			"iso3": "RWA",
+			"years": "1994",
+			"occurrences": 3
+		},
+		{
+			"id": "genocide_convention_law",
+			"label": "Genocide Convention and legal definition",
+			"kind": "meta",
+			"iso3": "",
+			"years": "",
+			"occurrences": 3
+		},
+		{
+			"id": "bosnia_srebrenica",
+			"label": "Bosnia and Srebrenica",
+			"kind": "case",
+			"iso3": "BIH",
+			"years": "1992-1995",
+			"occurrences": 2
+		},
+		{
+			"id": "holocaust",
+			"label": "The Holocaust",
+			"kind": "historical",
+			"iso3": "",
+			"years": "1941-1945",
+			"occurrences": 0
+		},
+		{
+			"id": "unclear",
+			"label": "Unclear referent",
+			"kind": "reserved",
+			"iso3": "",
+			"years": "",
+			"occurrences": 0
+		}
+	],
+	"actors": [
+		{
+			"country_org": "Rwanda",
+			"iso3": "RWA",
+			"group": "E10",
+			"entity_type": "state",
+			"occurrences": 6,
+			"eligible": 5,
+			"assigned": 4,
+			"sufficient": true
+		},
+		{
+			"country_org": "France",
+			"iso3": "FRA",
+			"group": "P5",
+			"entity_type": "state",
+			"occurrences": 4,
+			"eligible": 3,
+			"assigned": 3,
+			"sufficient": true
+		},
+		{
+			"country_org": "European Union",
+			"iso3": null,
+			"group": "Non-state",
+			"entity_type": "igo",
+			"occurrences": 2,
+			"eligible": 2,
+			"assigned": 1,
+			"sufficient": false
+		}
+	],
+	"minimum_occurrences": 3,
+	"matrix": [
+		{
+			"actor": "Rwanda",
+			"referent": "rwanda_1994",
+			"count": 2,
+			"stances": {
+				"asserts": 0,
+				"attributes_or_reports": 0,
+				"rejects_or_denies": 1,
+				"hypothetical_or_conditional": 1,
+				"neutral_legal_reference": 0,
+				"unclear": 0,
+				"not_applicable": 0
+			}
+		},
+		{
+			"actor": "Rwanda",
+			"referent": "genocide_convention_law",
+			"count": 2,
+			"stances": {
+				"asserts": 0,
+				"attributes_or_reports": 0,
+				"rejects_or_denies": 0,
+				"hypothetical_or_conditional": 0,
+				"neutral_legal_reference": 2,
+				"unclear": 0,
+				"not_applicable": 0
+			}
+		},
+		{
+			"actor": "France",
+			"referent": "bosnia_srebrenica",
+			"count": 2,
+			"stances": {
+				"asserts": 1,
+				"attributes_or_reports": 1,
+				"rejects_or_denies": 0,
+				"hypothetical_or_conditional": 0,
+				"neutral_legal_reference": 0,
+				"unclear": 0,
+				"not_applicable": 0
+			}
+		},
+		{
+			"actor": "France",
+			"referent": "genocide_convention_law",
+			"count": 1,
+			"stances": {
+				"asserts": 0,
+				"attributes_or_reports": 0,
+				"rejects_or_denies": 0,
+				"hypothetical_or_conditional": 0,
+				"neutral_legal_reference": 1,
+				"unclear": 0,
+				"not_applicable": 0
+			}
+		},
+		{
+			"actor": "European Union",
+			"referent": "rwanda_1994",
+			"count": 1,
+			"stances": {
+				"asserts": 1,
+				"attributes_or_reports": 0,
+				"rejects_or_denies": 0,
+				"hypothetical_or_conditional": 0,
+				"neutral_legal_reference": 0,
+				"unclear": 0,
+				"not_applicable": 0
+			}
+		}
+	],
+	"stance_by_actor": [
+		{
+			"actor": "Rwanda",
+			"eligible": 5,
+			"sufficient": true,
+			"stances": {
+				"asserts": 1,
+				"attributes_or_reports": 0,
+				"rejects_or_denies": 1,
+				"hypothetical_or_conditional": 1,
+				"neutral_legal_reference": 2,
+				"unclear": 0,
+				"not_applicable": 0
+			},
+			"share_rejects": 0.2
+		},
+		{
+			"actor": "France",
+			"eligible": 3,
+			"sufficient": true,
+			"stances": {
+				"asserts": 1,
+				"attributes_or_reports": 1,
+				"rejects_or_denies": 0,
+				"hypothetical_or_conditional": 0,
+				"neutral_legal_reference": 1,
+				"unclear": 0,
+				"not_applicable": 0
+			},
+			"share_rejects": 0
+		},
+		{
+			"actor": "European Union",
+			"eligible": 2,
+			"sufficient": false,
+			"stances": {
+				"asserts": 1,
+				"attributes_or_reports": 0,
+				"rejects_or_denies": 0,
+				"hypothetical_or_conditional": 0,
+				"neutral_legal_reference": 0,
+				"unclear": 1,
+				"not_applicable": 0
+			},
+			"share_rejects": null
+		}
+	],
+	"gold": {
+		"sample_size": 200,
+		"unique_occurrences": 197,
+		"coders": [],
+		"double_coded": 0,
+		"adjudicated": 0,
+		"human_agreement": [],
+		"model_vs_human": [],
+		"state": "not_started"
+	}
+}

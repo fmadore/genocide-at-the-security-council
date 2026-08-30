@@ -34,6 +34,7 @@
  * contract that fails for the most obvious way to use it.
  */
 
+import { speechOf } from './data';
 import { MONTH_NAMES, shortCountry } from './format';
 import type { KwicLine } from './types';
 
@@ -115,6 +116,31 @@ export function concordanceParams(state: ConcordanceState): URLSearchParams {
 	if (state.month !== null) params.set(MONTH_PARAM, String(state.month));
 	if (state.sort !== CONCORDANCE_DEFAULTS.sort) params.set('sort', state.sort);
 	return params;
+}
+
+/**
+ * The query a link into `/reader/[meeting]` carries, for one occurrence.
+ *
+ * Everything the reader needs to reproduce what the sender was looking at: the
+ * filter in force, so the previous/next occurrence walk the same result set;
+ * the speech, so the record opens at it; and the occurrence, so the exact
+ * matched span is the one marked and scrolled to.
+ *
+ * `term` is written even when it is the default. The concordance may omit it
+ * from its own URL — that is what a default is for — but the reader needs it to
+ * know which term-specific ordinal the occurrence ID names, and a link that
+ * relied on the reader guessing would break the day the default changed.
+ *
+ * The route itself is not built here. `resolve()` is a SvelteKit virtual
+ * module, so a component composes `resolve('/reader/[meeting]', …)` with this
+ * string — the same division `actors.ts` makes for its concordance links.
+ */
+export function readerQuery(state: ConcordanceState, lineId: string): string {
+	const params = concordanceParams(state);
+	params.set('term', state.term);
+	params.set('speech', speechOf(lineId));
+	params.set('occurrence', lineId);
+	return params.toString();
 }
 
 export interface ConcordanceResult {
