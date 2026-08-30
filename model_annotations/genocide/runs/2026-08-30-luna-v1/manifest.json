@@ -1,0 +1,46 @@
+{
+ "run_id": "2026-08-30-luna-v1",
+ "term": "genocide",
+ "model": "gpt-5.6-luna",
+ "reasoning_effort": "high",
+ "prompt_version": 1,
+ "prompt_sha256": "a44fdbb59321db15b8e1ede3f3bbe9be7b00a9d8e0aadb10f51c50afecbb3354",
+ "referents_sha256": "94a2f78968a832c4062af129e2a65bab61da5f029126303a2212a41eea8df8ae",
+ "lexicon_version": "2",
+ "schema_version": "2",
+ "mode": "batch",
+ "limit": null,
+ "created": "2026-08-30T19:58:06Z",
+ "completed": "2026-08-30T20:26:12Z",
+ "git_commit": "d2144e61dea6d20052c45820ee559a3432281392-dirty",
+ "batch_ids": [
+  "batch_6a948b355950819081fb8600b90c1b34",
+  "batch_6a948b39ade481908d54629aa1a1dbaa",
+  "batch_6a948b3cd3b48190aa566d4bf3806a50",
+  "batch_6a948b40260c8190ab2f7d9e0d032a3f",
+  "batch_6a948b434bf88190a70965ea568426b0",
+  "batch_6a948b46ac608190aacf28087d5d768a",
+  "batch_6a948b4a592c81908a020cad6c9e8cee",
+  "batch_6a948b4d2c608190901e8978b3b43ba8",
+  "batch_6a948b4ea6d88190a65c26c7e825cec0"
+ ],
+ "requests": {
+  "planned": 3273,
+  "submitted": 3273,
+  "returned": 3273,
+  "complete": 3273
+ },
+ "occurrences": {
+  "planned": 6092,
+  "written": 6092
+ },
+ "parse_failures": 0,
+ "evidence_invalid": 15,
+ "usage": {
+  "input_tokens": 13849736,
+  "output_tokens": 3514395,
+  "reasoning_tokens": 2927105
+ },
+ "cost_usd": null,
+ "status": "complete"
+}

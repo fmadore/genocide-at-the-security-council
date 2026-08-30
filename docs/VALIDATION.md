@@ -9,7 +9,7 @@ date; the open human checks are unchanged, because none of them is work a re-run
 “Mechanically reconciled” means code and source metadata agree; it does not mean a person
 has inspected the original PDF. Amended 28 August 2026: checks 6 and 7 added for Phase L
 (the genocide gold sample and the model-run register), and check 2 updated for the seeded
-referent list.
+referent list. Amended 30 August 2026: the first two model runs registered in §7.
 
 ## How to inspect an original record
 
@@ -124,7 +124,13 @@ diff. Register of runs:
 
 | Run | Model | Prompt | Coverage | Parse failures | Evidence invalid |
 |---|---|---|---|---:|---:|
-| _none yet_ | | | | | |
+| `2026-08-30-luna-pilot` | `gpt-5.6-luna`, effort high | v1 `a44fdbb59321` | 50 speeches, 91 of 91 pilot occurrences | 0 | 0 |
+| `2026-08-30-luna-v1` | `gpt-5.6-luna`, effort high | v1 `a44fdbb59321` | 6,092 of 6,092 occurrences, 3,273 of 3,273 speeches | 0 | 15 |
+
+`2026-08-30-luna-v1` is the run `current_run.txt` publishes. Its 15 unlocated evidence
+quotes (0.25%) are flagged `evidence_valid=false` in the run and excluded from every
+discourse figure; nothing was repaired. The pilot covers the first 50 genocide-bearing
+speeches in corpus order and is kept for comparison, not published.
 
 When a run is added, record it here and re-check the artefact counts on the Methods page
 against its manifest. Automatic resolutions (a relocated evidence quote, a normalised
