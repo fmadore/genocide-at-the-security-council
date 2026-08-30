@@ -7,7 +7,9 @@ absorbing them into the pipeline.
 Status: 11 August 2026 — every count below re-checked against the current artefacts on that
 date; the open human checks are unchanged, because none of them is work a re-run can do.
 “Mechanically reconciled” means code and source metadata agree; it does not mean a person
-has inspected the original PDF.
+has inspected the original PDF. Amended 28 August 2026: checks 6 and 7 added for Phase L
+(the genocide gold sample and the model-run register), and check 2 updated for the seeded
+referent list.
 
 ## How to inspect an original record
 
@@ -54,10 +56,12 @@ writes the annotation file. Reviewers must follow
 - administrative coder, date, schema, and lexicon versions.
 
 The controlled referent identifiers live in
-[`annotations/lexicon/referents.csv`](../annotations/lexicon/referents.csv). The initial
-list contains only reserved values; named cases and entities should be added through the
-shared pilot before scored coding begins. Coding describes discourse and does not decide
-whether an underlying event legally constitutes genocide.
+[`annotations/lexicon/referents.csv`](../annotations/lexicon/referents.csv). The list was
+seeded on 28 August 2026 (codebook v2.1) with 29 identifiers — cases invoked before the
+Council, historical memory cases, meta-referents and the three reserved values — and grows
+only through reviewed diffs; both coders must review it before scored coding or a model
+run. Coding describes discourse and does not decide whether an underlying event legally
+constitutes genocide.
 
 Report precision separately for the core term and extended lexicon, with denominators and
 uncertain cases. Any regex change invalidates the verdicts for that term and requires a new
@@ -95,6 +99,36 @@ A literal newline inside `agenda_item3` splits 36 TSV records. The parser rejoin
 the exact column count; row count and total tokens then match the codebook. Confirm in the
 source that the agenda is *The Role of the Security Council in Humanitarian Crises* and the
 document contains 36 corpus speech records. Priority: low.
+
+### 6. Genocide gold sample — 0 of 200 rows coded
+
+`scripts/13_gold_sample.py` draws 200 candidates over 195 distinct `genocide` occurrences:
+120 by equal probability, 80 by coverage over decade × usage-cue strata (rejection,
+quotation, commemorative, dense meeting, plain — the cue is a sampling stratum, never a
+label). Candidates and the review join are generated files under `data/interim/`; human
+work lives only in the versioned
+[`annotations/genocide/annotations.csv`](../annotations/genocide/annotations.csv), coded by
+`FM` and `JG` under the codebook's two-coder protocol — the full sample double-coded, a
+shared pilot outside the scored sample first, adjudication preserving both original rows.
+`scripts/15_usage.py` computes and publishes the agreement; nothing is hand-typed into an
+artefact. Priority: high — the `/usage` view reports its model layer as unvalidated until
+this is done.
+
+### 7. Model annotation runs
+
+Every run of `scripts/14_llm_annotate.py` is committed under
+[`model_annotations/genocide/runs/`](../model_annotations/genocide/) with its manifest —
+model id, prompt version and hash, coverage, parse failures, invalid evidence quotes and
+token usage — and the run the dashboard reads is named in `current_run.txt` as a reviewed
+diff. Register of runs:
+
+| Run | Model | Prompt | Coverage | Parse failures | Evidence invalid |
+|---|---|---|---|---:|---:|
+| _none yet_ | | | | | |
+
+When a run is added, record it here and re-check the artefact counts on the Methods page
+against its manifest. Automatic resolutions (a relocated evidence quote, a normalised
+whitespace match) are counted in the manifest, never silently absorbed.
 
 ## Mechanically reconciled
 

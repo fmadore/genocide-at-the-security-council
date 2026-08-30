@@ -34,7 +34,10 @@ requirements.lock` from the repository root. `requirements.txt` and
 | 10 | `10_lemmatise.py` | `speeches_flagged.parquet` | `derived/lemmas/` | 🔬 optional |
 | 11 | `11_countries.py` | `speeches_flagged.parquet`, `config/entities.csv` | `derived/countries/countries.json` | ✅ |
 | 12 | `12_speaker_keyness.py` | `speeches_flagged.parquet`, `config/stopwords.txt` | `derived/countries/speaker_keyness.json` | ✅ |
-| — | `export_web.py` | `derived/{series,lexical,kwic,countries}/` | `web/static/data/` | ✅ |
+| 13 | `13_gold_sample.py` | `speeches_norm.parquet`, `config/lexicon.yml`, `annotations/genocide/` | `data/interim/genocide_gold_*.csv` | ✅ |
+| 14 | `14_llm_annotate.py` | `speeches_norm.parquet`, `model_annotations/genocide/PROMPT.md`, the OpenAI API | `model_annotations/genocide/runs/<id>/` | ✋ manual, paid |
+| 15 | `15_usage.py` | `model_annotations/genocide/`, `annotations/genocide/`, `speeches_norm.parquet` | `derived/usage/*.json` | 🧪 experimental |
+| — | `export_web.py` | `derived/{series,lexical,kwic,countries,usage}/` | `web/static/data/` | ✅ |
 | — | `score_intrusion.py` | `derived/topics/intrusion_{task,key}.csv` | `derived/topics/intrusion_score.json` | 🔬 after a human |
 
 **06, 07 and 10 are not part of the release pipeline.** They need the extra dependencies in
@@ -81,6 +84,43 @@ intrusion task into the interpretability number §4 wants, and keeping it out of
 unattended job can ever produce one as a side effect of fitting a model. 07 writes the task
 and its key as two files so that the file a human opens does not contain the answer.
 
+**13, 14 and 15 are the model-assisted usage layer** (Phase L in
+[`../docs/IMPROVEMENT_ROADMAP.md`](../docs/IMPROVEMENT_ROADMAP.md)). 13 draws the human
+gold sample and is deterministic. **14 is never run by CI or the deploy**: it needs
+`OPENAI_API_KEY`, the extra dependency in
+[`../requirements-llm.txt`](../requirements-llm.txt), and money — a full run sends all
+6,092 `genocide` occurrences to the model. Its output is committed under
+`model_annotations/`, which is why the deploy can rebuild the payload without ever holding
+a key. 15 is deterministic again: it joins the committed run, the human gold rows and the
+corpus into `derived/usage/`, refusing a run whose lexicon version, occurrence identities
+or source digests no longer match.
+
+## The model annotation run
+
+```bash
+python -m pip install -r requirements-llm.txt   # once, on the machine that runs 14
+python scripts/13_gold_sample.py                # the gold sample the run is judged against
+python scripts/14_llm_annotate.py --run-id <date>-luna-pilot --model gpt-5.6-luna --limit 50
+#   read runs/<pilot-id>/annotations.jsonl and failures.jsonl; commit the pilot run
+python scripts/14_llm_annotate.py --run-id <date>-luna-v1 --model gpt-5.6-luna
+#   gpt-5.6-luna exactly — the gpt-5.6 alias routes to Sol, a different model
+#   Batch API, resumable with --poll; commit the run, then name it in
+#   model_annotations/genocide/current_run.txt (a reviewed diff)
+python scripts/15_usage.py
+python scripts/export_web.py
+```
+
+To preview the `/usage` view before paying for a run,
+[`../tools/synthetic_usage_run.py`](../tools/synthetic_usage_run.py) fabricates a clearly
+labelled synthetic run under `data/interim/synthetic_run/`;
+`python scripts/15_usage.py --run-dir data/interim/synthetic_run` aggregates it. Synthetic
+runs are never committed under `model_annotations/`.
+
+Human coding proceeds in parallel: `FM` and `JG` fill
+`annotations/genocide/annotations.csv` per the codebook; after each tranche, rerun 15 and
+`export_web.py` and the agreement tables on `/usage` update. Record every run in
+[`../docs/VALIDATION.md`](../docs/VALIDATION.md) §7.
+
 See [`../docs/PLAN.md`](../docs/PLAN.md) for what each step is meant to establish.
 
 ## Changing the lexicon
@@ -99,7 +139,10 @@ removing a term is therefore a recorded decision, not a configuration tweak.
    it can always be matched.
 3. **Rerun, in order:** `03` (which recounts every speech), then `04`, `05`, `08`, `09`,
    `11` and `12`, then `export_web.py`. Each step asserts its own output, so a broken
-   pattern fails at 03 rather than surfacing as an empty column in the dashboard.
+   pattern fails at 03 rather than surfacing as an empty column in the dashboard. A change
+   to the `genocide` pattern additionally invalidates `13`'s gold sample and any committed
+   model run: `15` refuses a run whose lexicon version or occurrence identities no longer
+   match, so the price of editing that term is a new sample, new coding and a new run.
 
 What follows from that, worth knowing before you start:
 
@@ -139,6 +182,9 @@ What follows from that, worth knowing before you start:
 | [`lib/series.py`](lib/series.py) | Periods, denominators, rates, breakdowns; change-point detection; the event overlay. |
 | [`lib/actors.py`](lib/actors.py) | Per-speaker aggregation over `lib/series.py`'s arithmetic; the minimum-sample rule; ISO3 collisions and what may be mapped. |
 | [`lib/kwic.py`](lib/kwic.py) | Sentence segmentation for the genre, and concordance-line extraction. |
+| [`lib/occurrences.py`](lib/occurrences.py) | One enumeration of a term's occurrences, carrying both the audit `occurrence_id` and the KWIC line id; 13, 14 and 15 share it. |
+| [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: prompt parsing, request building, response validation against the codebook's vocabularies, evidence-quote location, resume rules. No network, no SDK import at module level. |
+| [`lib/usage.py`](lib/usage.py) | Aggregation for the usage layer: eligible/assigned funnel, the actor × referent matrix, withholding, and the human/model agreement arithmetic. |
 | [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood and log ratio, matched controls, PMI. |
 | [`lib/keyness.py`](lib/keyness.py) | One speaker against the room: the corpus as a count matrix, the strata, the two gates, agenda composition. |
 | [`lib/embeddings.py`](lib/embeddings.py) | The model registry, the chunking policy for long speeches, pooling, neighbours. |

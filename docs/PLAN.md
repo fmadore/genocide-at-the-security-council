@@ -557,7 +557,12 @@ the Agg backend explicitly because the compute node has no display.
 
 ## Phase 5 — Optional LLM structured extraction
 
-Status: deferred until Phases 1–2 are complete.
+Status: in progress as Phase L of `docs/IMPROVEMENT_ROADMAP.md`, decided 28 August 2026 —
+as a marked experiment, not a result. This section was written when no human coding
+protocol existed; the codebook and its two-coder protocol now do, and the owner's decision
+to run the layer before the full H1 campaign is recorded, with its gates, in the Phase L
+section of the roadmap. The requirements below stand unchanged; where each one now lives
+is mapped after the list.
 
 The LLM layer may classify a bounded question such as referent, speech act or legal stance;
 it must not decide whether genocide occurred. Build it as a frozen evaluation before a
@@ -576,6 +581,27 @@ corpus-wide run:
    the interface and always expose the supporting quotation.
 
 No model output may overwrite corpus text, lexicon counts or human annotations.
+
+Where each requirement lives as of 28 August 2026: (1) the schema is the codebook's own —
+verdict, quotation, stance, function, referent, confidence — enforced by
+`scripts/lib/llm.py`, with `unclear` as a first-class abstention and a verbatim evidence
+quote in place of free-form rationale; (2) `scripts/13_gold_sample.py` draws the
+200-occurrence gold sample, stratified by decade and by usage cue (rejection, quotation,
+commemorative, dense meeting) so denied and commemorative uses are oversampled rather than
+hoped for — hard negatives remain §1.1's own negative frame; (3) `scripts/15_usage.py`
+computes per-class precision, recall, macro-F1, abstention and evidence validity against
+the human rows, and the `/usage` view displays them beside the model output, including the
+honest zero state while coding is under way; (4) model id and prompt hash travel in every
+output row and every run manifest, and the pilot and full runs stay committed side by side
+under `model_annotations/` — a second-model or second-prompt sensitivity run is still owed
+before any citable claim; (5) both coders, FM and JG, code the full sample independently,
+100% double-coded, with adjudication per the codebook; (6) shares are withheld below a
+declared minimum, every model-derived surface is marked experimental, and the supporting
+quotation is one click away everywhere — predeclared per-class thresholds for promoting a
+category out of "experimental" are still owed. The closing rule above is structural, not
+aspirational: model output lives in `model_annotations/`, the pipeline never writes
+`annotations/`, and 15 refuses a run whose lexicon version or occurrence identities no
+longer match the corpus.
 
 ## Phase 6 — Lemma-based lexicometry
 

@@ -13,7 +13,7 @@ The site is published; **no version is tagged**, because the human lexicon audit
 first citable release is gated on has not been done. Read [Methods](https://fmadore.github.io/genocide-at-the-security-council/methods/)
 before quoting a number from it.
 
-Six views, and every chart on them states what it answers, how to read its marks, what it
+Seven views, and every chart on them states what it answers, how to read its marks, what it
 does **not** show, and which script produced the file behind it. A chart without that
 account is a decoration. Every figure's numbers download as CSV with their provenance, and
 every chart as SVG or PNG with its filters written into the image.
@@ -36,7 +36,7 @@ every chart as SVG or PNG with its filters written into the image.
 | Month resolution — grid and pooled calendar | ✅ `scripts/04` → `series/monthly.json`; 331 of 384 months clear the 100-speech minimum, the other 53 are drawn as withheld |
 | Download beside every figure | ✅ [`web/src/lib/export.ts`](web/src/lib/export.ts): the artefact's numbers as CSV with provenance, the picture as SVG or PNG with its filters drawn into it |
 | Speech export & web payload | ✅ `scripts/09`, `scripts/export_web.py` |
-| Dashboard — 6 views, SvelteKit 2 / Svelte 5 | ✅ [`web/`](web/); Pages rebuilds the 491 MB payload from v6.1 |
+| Dashboard — 7 views, SvelteKit 2 / Svelte 5 | ✅ [`web/`](web/); Pages rebuilds the 491 MB payload from v6.1 |
 | Per-speaker table | ✅ `scripts/11`; 133 of 601 speakers clear the 100-speech minimum, the rest carry null rates |
 | Membership composition per speaker | ✅ `scripts/11` → `standing`, drawn by [`Standing.svelte`](web/src/lib/Standing.svelte); 105 speakers spoke both from a seat and from outside one |
 | Licence & citation metadata | ✅ [MIT](LICENSE) + [CC BY 4.0](LICENSE-DATA.md), [`CITATION.cff`](CITATION.cff) confirmed |
@@ -46,7 +46,7 @@ every chart as SVG or PNG with its filters written into the image.
 | Topic comparison & its evaluation | ✅ `scripts/07` — evidence for a decision, not a result; adoption still deferred |
 | Lemma layer & lemma lexicometry | ✅ `scripts/10`, `scripts/05 --vocabulary lemma`; built, **not adopted** — see Phase 6 |
 | Actor view — ranking, locator map, concordance links | ✅ `web/src/routes/actors/`, with the membership composition and the per-speaker keyness [`docs/PLAN.md`](docs/PLAN.md) §3 asks for, each as its own figure rather than as shading on the ranking |
-| LLM structured extraction | ⏸ deferred until a human coding protocol exists |
+| Model-assisted usage layer | 🧪 experimental — Phase L in [`docs/IMPROVEMENT_ROADMAP.md`](docs/IMPROVEMENT_ROADMAP.md): `scripts/13–15`, committed runs under [`model_annotations/`](model_annotations/), the `/usage` view; human gold sample is the authority, **0 of 200 rows coded** |
 
 The three ✅ rows that say "not adopted" are not a backlog. They are built, run and
 documented so the decision to use them can rest on evidence; [`docs/PLAN.md`](docs/PLAN.md)
@@ -75,6 +75,8 @@ python scripts/08_kwic.py            # → derived/kwic/*.json      (79,569 conc
 python scripts/09_export_speeches.py # → web/static/data/speeches (6,595 document files)
 python scripts/11_countries.py       # → derived/countries/*.json (per-speaker denominators)
 python scripts/12_speaker_keyness.py # → derived/countries/       (per-speaker matched keyness)
+python scripts/15_usage.py           # → derived/usage/*.json     (model-assisted usage layer,
+                                     #  from the committed run named in model_annotations/)
 python scripts/export_web.py         # → web/static/data          (assembles the payload)
 ```
 
@@ -102,6 +104,13 @@ encodes the corpus; 07 runs the topic-model comparison that [`docs/PLAN.md`](doc
 §4 requires before a topic model may be believed; 10 builds a lemma layer that an optional
 re-run of 05 can count instead of surface forms. None of the three is part of the release:
 `export_web.py` does not read their output, and the dashboard does not know it exists.
+
+Steps **13** and **14** are also missing, for a different reason. 13 draws the human gold
+sample for the model-assisted usage layer and only needs rerunning when the sample design
+changes; 14 is the one step that costs money — it sends every `genocide` occurrence to a
+commercial model and commits the run under [`model_annotations/`](model_annotations/), so
+it is run by hand, never by CI or the deploy. [`scripts/README.md`](scripts/README.md)
+carries the run book.
 
 ```bash
 python -m pytest
@@ -279,6 +288,10 @@ This repository:
 
 Machine-readable metadata is in [`CITATION.cff`](CITATION.cff). Cite both: a derived table
 is worth nothing without the record it came from.
+
+**Acknowledgements.** Joël Glasman (University of Bayreuth) prompted the model-assisted
+usage layer — the actor-by-referent question and the asserted-versus-rejected distinction
+are his — and is the second coder (`JG`) of its gold sample.
 
 **No version is tagged yet, and citing an untagged state cites a moving target.** The first
 citable release is gated on the human lexicon audit in

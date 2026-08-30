@@ -29,10 +29,16 @@ A speech whose response fails validation contributes no rows. It is recorded in
 repaired or retried-until-plausible annotation — is an annotation nobody wrote.
 15 reports the resulting coverage gap.
 
+The model this study targets is `gpt-5.6-luna` (Responses + Batch endpoints,
+structured outputs, reasoning effort none|low|medium|high|xhigh|max, 128k output
+ceiling — developers.openai.com/api/docs/models/gpt-5.6-luna, checked
+2026-08-30). Pass the id exactly: the `gpt-5.6` alias routes to Sol, a different
+model, and the id recorded in every row is the id that was actually asked.
+
 Usage:
     export OPENAI_API_KEY=...
     python scripts/14_llm_annotate.py --run-id 2026-09-05-luna-v1 \\
-        --model <exact-api-model-id> [--reasoning-effort high] [--limit 25] \\
+        --model gpt-5.6-luna [--reasoning-effort high] [--limit 25] \\
         [--live] [--poll] [--retry-failures]
 """
 
@@ -796,9 +802,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-id", required=True, help="e.g. 2026-09-05-luna-v1")
     parser.add_argument(
-        "--model", required=True, help="exact API model id, recorded verbatim in every row"
+        "--model",
+        required=True,
+        help=(
+            "exact API model id, recorded verbatim in every row — for this study "
+            "`gpt-5.6-luna`; never the `gpt-5.6` alias, which routes to Sol"
+        ),
     )
-    parser.add_argument("--reasoning-effort", default="high", help="reasoning effort, default high")
+    # The documented set for the GPT-5.6 family (developers.openai.com, model page
+    # for gpt-5.6-luna, checked 2026-08-30). Closed on purpose: a new effort level
+    # arriving in the API becomes a reviewable diff here, not a silent pass-through.
+    parser.add_argument(
+        "--reasoning-effort",
+        default="high",
+        choices=("none", "low", "medium", "high", "xhigh", "max"),
+        help="reasoning effort, default high",
+    )
     parser.add_argument("--limit", type=int, help="pilot: the first N genocide-bearing speeches")
     parser.add_argument("--live", action="store_true", help="direct calls instead of the Batch API")
     parser.add_argument("--poll", action="store_true", help="resume: poll the manifest's batch ids")
