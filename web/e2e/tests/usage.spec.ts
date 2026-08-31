@@ -12,6 +12,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import { base } from '../../playwright.config';
 
 const usage = `${base}/usage/`;
@@ -46,6 +47,12 @@ const matrixOf = (page: Page) =>
 const diffusionOf = (page: Page) =>
 	page.locator('figure.figure').filter({
 		has: page.getByRole('heading', { name: 'When each delegation first said it', level: 2 })
+	});
+
+/** The reading list of passages the two runs read differently. */
+const contestedOf = (page: Page) =>
+	page.locator('figure.figure').filter({
+		has: page.getByRole('heading', { name: 'The contested passages', level: 2 })
 	});
 
 test('the page says whose reading this is before it draws anything', async ({ page }) => {
@@ -191,8 +198,8 @@ test('the diffusion figure draws one referent and lists the firsts behind it', a
 	await expect(rows.nth(3)).toContainText('European Union');
 	await expect(rows.nth(3)).toContainText('Asserted it');
 
-	// The link into the record is built from the line identifier alone, so it is
-	// there before anything has fetched the concordance for the term.
+	// The link into the record is built from the line identifier alone, and the
+	// concordance link needs a record symbol this fixture has no line for.
 	await expect(rows.nth(0).getByRole('link').first()).toHaveAttribute(
 		'href',
 		`${base}/reader/UNSC_2014_SPV.7000?term=genocide&speech=UNSC_2014_SPV.7000_spch0001&occurrence=UNSC_2014_SPV.7000_spch0001%231`
@@ -221,8 +228,8 @@ test('the referent picker moves both figures, and the URL carries it', async ({ 
 	await expect(rows.nth(0)).toContainText('France');
 	await expect(figure.locator('.key')).not.toContainText('Placed the word on it');
 
-	// Selecting a referent is what fetches the concordance, and the record symbol
-	// it carries is what makes the second link addressable.
+	// The record symbol comes from the concordance file, and it is what makes the
+	// second link addressable at all.
 	await expect(rows.nth(0).getByRole('link', { name: 'concordance' })).toHaveAttribute(
 		'href',
 		`${base}/concordance?term=genocide&country=France&spv=S%2FPV.7481`
@@ -252,4 +259,187 @@ test('the whole matrix is one tab stop, and the arrow keys move inside it', asyn
 	await expect(page.locator('section.evidence')).toContainText(
 		'No annotated occurrence in this build carries that pairing'
 	);
+});
+
+/* ---- the second opinion --------------------------------------------------- *
+ * A comparison run is a second model given the byte-identical prompt and the
+ * same occurrences. What these journeys hold is that the page never lets it be
+ * read as a correction: both models are named, the sentence about what agreement
+ * measures is on screen beside every number, and a contested passage carries
+ * both readings rather than one replaced by the other.
+ * --------------------------------------------------------------------------- */
+
+test('the apparatus names the second opinion and what agreement between two models is', async ({
+	page
+}) => {
+	await openUsage(page);
+	const second = page.locator('section.experiment .second-opinion');
+	await expect(page.getByRole('heading', { name: 'Second opinion', level: 2 })).toBeVisible();
+
+	await expect(second).toContainText('gemini-3-pro-2026-07-15');
+	await expect(second).toContainText('2026-09-06-gemini-v1');
+	// The same question, asked the same way: 15 refuses to publish a comparison
+	// made from other instructions, and the page states that rather than assuming it.
+	await expect(second).toContainText('byte-identical prompt');
+	await expect(second).toContainText(
+		'agreement between two models measures stability across instruments, never accuracy'
+	);
+	await expect(second).toContainText('4 carry a label from both runs');
+
+	const rows = second.locator('table tbody tr');
+	await expect(rows).toHaveCount(4);
+	await expect(rows.nth(0)).toContainText('verdict');
+	// With every row in one category there is no chance agreement to correct for,
+	// and a kappa of 0.00 would read as two runs agreeing by luck alone.
+	await expect(rows.nth(0).locator('td').nth(2)).toHaveText('—');
+	await expect(rows.nth(2)).toContainText('50.00%');
+	await expect(second).toContainText('0.88');
+	await expect(second).toContainText('2 of 4 compared occurrences');
+
+	await expectNoAxeViolations(page);
+});
+
+test('a contested quotation is marked, and carries the other reading in place', async ({
+	page
+}) => {
+	await page.goto(`${usage}?actor=Rwanda&referent=rwanda_1994`);
+	const quotations = page.locator('section.evidence ol.quotations li');
+	await expect(quotations).toHaveCount(2);
+
+	// The two runs agreed about the first occurrence and not about the second, so
+	// only the second is marked.
+	await expect(quotations.nth(0).locator('.contested')).toHaveCount(0);
+	await expect(quotations.nth(1).locator('.contested')).toHaveText('Contested: stance');
+
+	const reading = quotations.nth(1).locator('.second-reading');
+	await expect(reading).toContainText('The second model read');
+	await expect(reading).toContainText('Attributes or reports');
+	// Both readings, side by side. Neither replaces the other.
+	await expect(reading).toContainText('— this run read Rejects or denies');
+	await expect(quotations.nth(1).locator('.stance')).toHaveText('Rejects or denies');
+});
+
+test('the contested filter narrows the quotations and the URL carries it', async ({ page }) => {
+	await page.goto(`${usage}?actor=Rwanda&referent=rwanda_1994`);
+	const evidence = page.locator('section.evidence');
+	await expect(evidence.locator('ol.quotations li')).toHaveCount(2);
+
+	const filter = page.getByRole('checkbox', { name: /Contested only/ });
+	await expect(filter).toBeVisible();
+	await filter.check();
+
+	await expect(page).toHaveURL(/\?actor=Rwanda&referent=rwanda_1994&contested=1$/);
+	await expect(evidence.locator('ol.quotations li')).toHaveCount(1);
+	await expect(evidence.locator('ol.quotations li .contested')).toHaveText('Contested: stance');
+	// The denominator travels with the filtered count, so a narrowed list never
+	// reads as the whole of what was behind the cell.
+	await expect(evidence).toContainText('1 occurrence, of 2 behind this pairing');
+});
+
+test('a copied URL restores the contested filter', async ({ page }) => {
+	await page.goto(`${usage}?actor=Rwanda&referent=rwanda_1994&contested=1`);
+	await expect(page.getByRole('checkbox', { name: /Contested only/ })).toBeChecked();
+	await expect(page.locator('section.evidence ol.quotations li')).toHaveCount(1);
+	await expect(page).toHaveURL(/\/usage\/\?actor=Rwanda&referent=rwanda_1994&contested=1$/);
+});
+
+test('the reading list ranks the contested passages hardest first', async ({ page }) => {
+	await openUsage(page);
+	const figure = contestedOf(page);
+	const rows = figure.locator('table.contested-table tbody tr');
+	await expect(rows).toHaveCount(2);
+
+	// Three fields apart in 2015 above one field apart in 2014: the order is how
+	// much the two instruments disagree, not the date.
+	await expect(rows.nth(0)).toContainText('France');
+	await expect(rows.nth(0)).toContainText('8 July 2015');
+	await expect(rows.nth(0).locator('.field')).toHaveText(['stance', 'function', 'referent']);
+	await expect(rows.nth(0).locator('.reading.other')).toHaveText([
+		'Rejects or denies',
+		'accusation or qualification',
+		'Genocide Convention and legal definition'
+	]);
+	await expect(rows.nth(0).locator('.reading:not(.other)')).toHaveText([
+		'Asserts',
+		'accusation or qualification, accountability',
+		'Bosnia and Srebrenica'
+	]);
+	await expect(rows.nth(1)).toContainText('Rwanda');
+
+	// The reader link idiom the chronology uses: the identifier is the link.
+	await expect(rows.nth(0).getByRole('link').first()).toHaveAttribute(
+		'href',
+		`${base}/reader/UNSC_2015_SPV.7481?term=genocide&speech=UNSC_2015_SPV.7481_spch0007&occurrence=UNSC_2015_SPV.7481_spch0007%231`
+	);
+	await expect(rows.nth(0).getByRole('link', { name: 'concordance' })).toHaveAttribute(
+		'href',
+		`${base}/concordance?term=genocide&country=France&spv=S%2FPV.7481`
+	);
+
+	await expect(figure.locator('p.disclosure')).toContainText(
+		'2 of 2 contested occurrences are drawn here, out of 4'
+	);
+	await expect(figure).toContainText(
+		'Agreement between two models measures stability across instruments, never accuracy.'
+	);
+
+	await expectNoAxeViolations(page);
+});
+
+test('a build with no second opinion shows none of it', async ({ page }) => {
+	const body = await readFile(
+		new URL('../fixtures/data/usage/usage.json', import.meta.url),
+		'utf8'
+	);
+	const payload = JSON.parse(body) as { comparison: Record<string, unknown> };
+	// The artefact's own empty state, which is what the published payload carries
+	// until a comparison run is bought: same keys, no run, nothing computed.
+	payload.comparison = {
+		state: 'none',
+		run_id: '',
+		model: '',
+		run_date: '',
+		reasoning_effort: '',
+		prompt_sha256: '',
+		occurrences_annotated: 0,
+		overlap: 0,
+		evidence_invalid: 0,
+		abstention: { verdict_uncertain: 0, referent_unclear: 0, stance_unclear: 0 },
+		fields: [],
+		function_jaccard: null,
+		function_contested: 0,
+		contested_any: 0
+	};
+	await page.route('**/data/usage/usage.json', (route) =>
+		route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(payload) })
+	);
+
+	// Interception sees browser requests, and the first load of a page is answered
+	// by the server. Arriving from another section runs the view's load in the
+	// browser, which is where the variant payload can be substituted.
+	await page.goto(`${base}/`);
+	await page
+		.getByRole('navigation', { name: 'Sections' })
+		.getByRole('link', { name: 'Usage' })
+		.click();
+	await expect(
+		page.getByRole('heading', { name: 'What the word was doing', level: 1 })
+	).toBeVisible();
+
+	// The standing marking is untouched; everything the comparison added is gone.
+	await expect(page.locator('section.experiment')).toContainText('Experimental — model-derived');
+	await expect(page.locator('section.experiment .second-opinion')).toHaveCount(0);
+	await expect(page.getByRole('heading', { name: 'Second opinion' })).toHaveCount(0);
+	await expect(contestedOf(page)).toHaveCount(0);
+
+	// And the filter, even with a cell open: an empty shell is not the honest
+	// shape here, an absence is.
+	await matrixOf(page)
+		.getByRole('button', { name: /^Rwanda × Rwanda \(1994\): 2 occurrences/ })
+		.click();
+	await expect(page.locator('section.evidence ol.quotations li')).toHaveCount(2);
+	await expect(page.getByRole('checkbox', { name: /Contested only/ })).toHaveCount(0);
+	await expect(page.locator('section.evidence .contested')).toHaveCount(0);
+
+	await expectNoAxeViolations(page);
 });

@@ -19,7 +19,9 @@
 			"proposed_referent": "",
 			"confidence": "high",
 			"evidence_quote": "We warned that genocide could occur.",
-			"evidence_valid": true
+			"evidence_valid": true,
+			"contested": [],
+			"alt": null
 		},
 		{
 			"id": "UNSC_2014_SPV.7000_spch0001#2",
@@ -32,7 +34,15 @@
 			"proposed_referent": "",
 			"confidence": "medium",
 			"evidence_quote": "We reject the claim of genocide.",
-			"evidence_valid": true
+			"evidence_valid": true,
+			"contested": ["stance"],
+			"alt": {
+				"verdict": "true_positive",
+				"quotation": "attributed_or_reported",
+				"stance": "attributes_or_reports",
+				"function": "accusation_or_qualification",
+				"referent": "rwanda_1994"
+			}
 		},
 		{
 			"id": "UNSC_2015_SPV.7481_spch0007#1",
@@ -45,7 +55,15 @@
 			"proposed_referent": "",
 			"confidence": "high",
 			"evidence_quote": "must call this genocide by its name",
-			"evidence_valid": true
+			"evidence_valid": true,
+			"contested": ["stance", "function", "referent"],
+			"alt": {
+				"verdict": "true_positive",
+				"quotation": "not_quoted",
+				"stance": "rejects_or_denies",
+				"function": "accusation_or_qualification",
+				"referent": "genocide_convention_law"
+			}
 		},
 		{
 			"id": "UNSC_2015_SPV.7481_spch0007#2",
@@ -58,7 +76,9 @@
 			"proposed_referent": "",
 			"confidence": "medium",
 			"evidence_quote": "the word genocide remains contested",
-			"evidence_valid": true
+			"evidence_valid": true,
+			"contested": [],
+			"alt": null
 		}
 	]
 }

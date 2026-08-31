@@ -17,7 +17,8 @@ from __future__ import annotations
 
 import json
 
-from lib import contract
+import pandas as pd
+from lib import contract, usage
 from lib.paths import CONTRACT
 
 
@@ -165,6 +166,26 @@ class TestCommittedContract:
         promised = json.loads(CONTRACT.read_text(encoding="utf-8"))
         without = [name for name, shape in promised.items() if "meta" not in shape]
         assert without == []
+
+    def test_the_empty_second_opinion_fits_the_shape_declared_from_a_full_one(self):
+        """Both states of the comparison block satisfy one contract.
+
+        `15_usage.py` writes the block whether or not a comparison run was
+        selected, and the committed shape is regenerated from the synthetic pair,
+        where one was. The empty block is therefore the state the contract is
+        never generated from and the state this repository is normally in —
+        `model_annotations/genocide/comparison_run.txt` ships empty — so the one
+        leaf that differs between them, `function_jaccard`, is declared as
+        `float|null` by hand. Regenerating the contract from a computed payload
+        narrows it back to `float`, and the next build against the ordinary state
+        would be refused for a change nobody made. This is what says so first.
+        """
+        promised = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        empty = contract.skeleton(usage.comparison_block(pd.DataFrame(), []))
+        assert (
+            list(contract.differences(promised["usage/usage.json"]["comparison"], empty))
+            == []
+        )
 
     def test_a_payload_matching_the_contract_reports_nothing(self, tmp_path):
         """The round trip, on a payload built for the purpose.

@@ -233,6 +233,74 @@ const validateSpeakerKeyness: Validator = (record, path) => {
 /** The three states the gold sample may honestly be in. Nothing else is one. */
 const GOLD_STATES = new Set(['not_started', 'in_progress', 'complete']);
 
+/** The two states a second opinion may honestly be in. Nothing else is one. */
+const COMPARISON_STATES = new Set(['computed', 'none']);
+
+/**
+ * The five fields a second opinion is compared on, in the order `lib/usage.py`
+ * writes them into a row.
+ *
+ * Declared here rather than in `usage.ts` because it is the artefact's own
+ * vocabulary and this is the boundary that refuses a row outside it — and
+ * because `usage.ts` already imports from this module, so one list can serve
+ * both without the two files importing each other.
+ */
+export const COMPARED_FIELDS = ['verdict', 'quotation', 'stance', 'function', 'referent'] as const;
+
+const COMPARED = new Set<string>(COMPARED_FIELDS);
+
+/**
+ * The second opinion, refused on the two ways its own claim can be false.
+ *
+ * A whole section of the page appears under `computed` and nothing at all
+ * appears under `none`, so a block that has the state wrong is not a wrong
+ * number on screen — it is a section of the interface that either promises a
+ * comparison it cannot show or hides one it has.
+ */
+const validateUsageComparison = (record: JsonRecord, path: string): void => {
+	const comparison = recordAt(record, 'comparison');
+	if (typeof comparison.state !== 'string' || !COMPARISON_STATES.has(comparison.state)) {
+		throw new Error(
+			`${path}.comparison.state is ${JSON.stringify(comparison.state)}; it must be one of ` +
+				`${[...COMPARISON_STATES].join(', ')}, because the page draws a section under one of ` +
+				`them and nothing under the other.`
+		);
+	}
+	const compared = requireArray(comparison, 'fields', `${path}.comparison`);
+	if (comparison.state === 'none' && (compared.length > 0 || Number(comparison.overlap) > 0)) {
+		// A block saying no second opinion was run and reporting numbers anyway
+		// would be numbers no surface ever prints, because nothing is drawn here.
+		throw new Error(
+			`${path}.comparison says no second opinion was run and reports ${compared.length} ` +
+				`agreement rows over ${comparison.overlap} compared occurrences.`
+		);
+	}
+	if (comparison.state === 'computed' && !String(comparison.model ?? '').trim()) {
+		// The objection the published run already answers: a run nobody can
+		// identify is a run nobody can repeat or reject. The apparatus prints this
+		// identifier beside the published model's, as the thing it was compared to.
+		throw new Error(`${path}.comparison claims a second opinion and does not name the model.`);
+	}
+	if (Number(comparison.contested_any) > Number(comparison.overlap)) {
+		// A part larger than the whole, which is the objection the matrix's stance
+		// bands answer: the contested occurrences are a subset of the compared ones
+		// and the page states the one as a share of the other.
+		throw new Error(
+			`${path}.comparison contests ${comparison.contested_any} of ${comparison.overlap} ` +
+				`compared occurrences.`
+		);
+	}
+	for (const [index, field] of compared.entries()) {
+		const at = `${path}.comparison.fields[${index}]`;
+		if (!isRecord(field)) throw new Error(`${at} must be an object.`);
+		if (Number(field.contested) > Number(field.n)) {
+			throw new Error(
+				`${at} (${field.field}) contests ${field.contested} of ${field.n} compared occurrences.`
+			);
+		}
+	}
+};
+
 /**
  * The experimental layer, refused on the four things it can get wrong quietly.
  *
@@ -361,6 +429,8 @@ const validateUsage: Validator = (record, path) => {
 			}
 		}
 	}
+
+	validateUsageComparison(record, path);
 };
 
 /** The quotations behind the matrix, refused where they could not be quoted. */
@@ -379,6 +449,43 @@ const validateUsageOccurrences: Validator = (record, path) => {
 				`${path}.occurrences[${index}] (${occurrence.id}) claims a verified evidence span and ` +
 					`carries no quotation.`
 			);
+		}
+		// The second opinion, per row. The drill-down marks an occurrence with the
+		// fields it names here and prints the other reading of exactly those, so a
+		// name outside the five is a marking that reads back to nothing, and an
+		// `alt` out of step with `contested` is either a disagreement with no
+		// reading behind it or a reading no surface would ever show.
+		const contested = requireArray(occurrence, 'contested', `${path}.occurrences[${index}]`).map(
+			String
+		);
+		const unknown = contested.filter((field) => !COMPARED.has(field));
+		if (unknown.length) {
+			throw new Error(
+				`${path}.occurrences[${index}] (${occurrence.id}) is contested on ${unknown.join(', ')}, ` +
+					`which is not among the compared fields ${COMPARED_FIELDS.join(', ')}.`
+			);
+		}
+		const alt = occurrence.alt;
+		if (contested.length && !isRecord(alt)) {
+			throw new Error(
+				`${path}.occurrences[${index}] (${occurrence.id}) is contested on ${contested.join(', ')} ` +
+					`and carries no second reading.`
+			);
+		}
+		if (!contested.length && alt !== null) {
+			throw new Error(
+				`${path}.occurrences[${index}] (${occurrence.id}) is contested on nothing, so its second ` +
+					`reading must be null and is ${alt === undefined ? 'absent' : 'a reading'}.`
+			);
+		}
+		if (isRecord(alt)) {
+			const silent = contested.filter((field) => typeof alt[field] !== 'string');
+			if (silent.length) {
+				throw new Error(
+					`${path}.occurrences[${index}] (${occurrence.id}) is contested on ${silent.join(', ')} ` +
+						`and its second reading says nothing there.`
+				);
+			}
 		}
 	}
 };
@@ -558,6 +665,7 @@ export const REQUIRED = {
 		matrix: 'array',
 		stance_by_actor: 'array',
 		diffusion: 'object',
+		comparison: 'object',
 		gold: 'object'
 	},
 	'usage/occurrences.json': { meta: 'object', occurrences: 'array' },

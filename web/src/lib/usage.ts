@@ -35,6 +35,16 @@
  * as one more case, so they are moved to the end of the column order and the
  * figure draws a rule before them.
  *
+ * **A second opinion is not a second measurement.** Where a comparison run
+ * exists, a second model was given the byte-identical prompt and the same
+ * occurrences, and the ones the two read differently are marked as *contested*.
+ * That is a reading list, not an error report: agreement between two models
+ * measures stability across instruments, never accuracy, and the human gold
+ * sample remains the only calibration. Nothing below lets the second reading
+ * into a count — the matrix, the stance profile and the diffusion curve are
+ * drawn from the published run alone, and `contestedList` and the contested
+ * filter are the only places the other run appears at all.
+ *
  * **A diffusion curve counts delegations, not states.** The last figure here
  * plots when each delegation first placed the word on a referent, first asserted
  * it and first refused it, cumulated over the corpus. It is a curve of *speech
@@ -45,8 +55,8 @@
  */
 
 import { CONCORDANCE_DEFAULTS, readerQuery } from './concordance';
-import { meetingOf } from './data';
-import { termLabel } from './format';
+import { COMPARED_FIELDS, meetingOf } from './data';
+import { decimal, percent, termLabel } from './format';
 import { tone } from './theme';
 import type {
 	KwicLine,
@@ -54,6 +64,8 @@ import type {
 	StanceCounts,
 	Usage,
 	UsageActor,
+	UsageAlternative,
+	UsageComparison,
 	UsageDiffusionEvent,
 	UsageGold,
 	UsageMatrixCell,
@@ -150,6 +162,14 @@ export interface UsageState {
 	actor: string;
 	unit: UsageUnit;
 	sort: UsageSort;
+	/**
+	 * Narrow the drill-down to the occurrences two models read differently.
+	 *
+	 * A filter on the quotations and on nothing else: the matrix, the stance
+	 * profile and the diffusion curve are drawn from the published run alone and
+	 * a second opinion never redraws them.
+	 */
+	contested: boolean;
 }
 
 export const USAGE_DEFAULTS: UsageState = {
@@ -158,7 +178,8 @@ export const USAGE_DEFAULTS: UsageState = {
 	// Counts first, and on purpose: they are facts about the record and are
 	// published for every speaker, where a share is withheld under the minimum.
 	unit: 'count',
-	sort: 'assigned'
+	sort: 'assigned',
+	contested: false
 };
 
 const SORTS = new Set<UsageSort>(['assigned', 'occurrences', 'name']);
@@ -184,7 +205,12 @@ export function readUsageState(params: URLSearchParams, data: Usage): UsageState
 				? askedReferent
 				: USAGE_DEFAULTS.referent,
 		unit: params.get('unit') === 'share' ? 'share' : USAGE_DEFAULTS.unit,
-		sort: askedSort && SORTS.has(askedSort) ? askedSort : USAGE_DEFAULTS.sort
+		sort: askedSort && SORTS.has(askedSort) ? askedSort : USAGE_DEFAULTS.sort,
+		// Dropped on a build with no second opinion, for the reason a referent this
+		// artefact does not carry is dropped: the control it belongs to is not on
+		// the page, so the filter would narrow a list to nothing with nothing on
+		// screen saying why.
+		contested: params.get('contested') === '1' && data.comparison.state === 'computed'
 	};
 }
 
@@ -195,6 +221,7 @@ export function usageParams(state: UsageState): URLSearchParams {
 	if (state.referent !== USAGE_DEFAULTS.referent) params.set('referent', state.referent);
 	if (state.unit !== USAGE_DEFAULTS.unit) params.set('unit', state.unit);
 	if (state.sort !== USAGE_DEFAULTS.sort) params.set('sort', state.sort);
+	if (state.contested !== USAGE_DEFAULTS.contested) params.set('contested', '1');
 	return params;
 }
 
@@ -602,6 +629,99 @@ export function stanceRanking(data: Usage): StanceRankingResult {
 }
 
 /* -------------------------------------------------------------------------- *
+ * Where two readings part
+ *
+ * A comparison run is a second model given the byte-identical prompt and the
+ * same occurrences. A *contested* occurrence is one the two instruments read
+ * differently: not an error found, but a passage worth a reader's attention.
+ *
+ * The governing sentence, which every surface that prints one of these numbers
+ * carries: agreement between two models measures stability across instruments,
+ * never accuracy — both can be wrong about a passage in the same way — and the
+ * human gold sample remains the only calibration.
+ * -------------------------------------------------------------------------- */
+
+/** One field the two runs read differently, with both readings written out. */
+export interface ContestedField {
+	field: string;
+	/** As the agreement tables name a field: `termLabel`, lower case. */
+	label: string;
+	/** What the published run read, in the vocabulary the page uses elsewhere. */
+	published: string;
+	/** What the second model read, in the same vocabulary. */
+	second: string;
+}
+
+/**
+ * How one compared field's value is written on screen.
+ *
+ * Not `termLabel` for all five: a stance has a name the rest of the page already
+ * uses, a referent has one only the artefact's own list carries, and `function`
+ * is several labels pipe-joined. Written in one place so that a disagreement
+ * reads in the same words as the label it disagrees with.
+ */
+function readingOf(field: string, value: string, referents: ReadonlyMap<string, string>): string {
+	if (!value) return '—';
+	if (field === 'stance') return stanceLabel(value);
+	if (field === 'referent') return referents.get(value) ?? termLabel(value);
+	if (field === 'function') {
+		return value.split('|').filter(Boolean).map(termLabel).join(', ') || '—';
+	}
+	return termLabel(value);
+}
+
+/** The published run's five compared labels, keyed the way `contested` names them. */
+const publishedLabels = (occurrence: UsageOccurrence): Record<string, string> => ({
+	verdict: occurrence.verdict,
+	quotation: occurrence.quotation,
+	stance: occurrence.stance,
+	function: occurrence.function ?? '',
+	referent: occurrence.referent
+});
+
+/** The second reading's, or nothing at all where there is no second reading. */
+const secondLabels = (alt: UsageAlternative | null): Record<string, string> =>
+	alt
+		? {
+				verdict: alt.verdict,
+				quotation: alt.quotation,
+				stance: alt.stance,
+				function: alt.function ?? '',
+				referent: alt.referent
+			}
+		: {};
+
+/** A name for a referent identifier, from the artefact's own controlled list. */
+const referentNames = (referents: readonly UsageReferent[] = []): ReadonlyMap<string, string> =>
+	new Map(referents.map((referent) => [referent.id, referent.label]));
+
+/**
+ * The fields one occurrence is contested on, both readings included.
+ *
+ * Ordered by `COMPARED_FIELDS` rather than by the artefact's array, so that two
+ * occurrences contested on the same pair of fields list them in the same order —
+ * the same reason `STANCES` is fixed rather than derived. A field the row names
+ * and the second reading is silent on is dropped: the boundary refuses that
+ * payload, and a row printing "stance: asserts → —" would be an alternative
+ * nobody proposed.
+ */
+function contestedFields(
+	occurrence: UsageOccurrence,
+	referents: ReadonlyMap<string, string>
+): ContestedField[] {
+	const named = new Set(occurrence.contested ?? []);
+	if (!named.size) return [];
+	const mine = publishedLabels(occurrence);
+	const theirs = secondLabels(occurrence.alt);
+	return COMPARED_FIELDS.filter((field) => named.has(field) && field in theirs).map((field) => ({
+		field,
+		label: termLabel(field),
+		published: readingOf(field, mine[field] ?? '', referents),
+		second: readingOf(field, theirs[field] ?? '', referents)
+	}));
+}
+
+/* -------------------------------------------------------------------------- *
  * The quotations behind a cell
  * -------------------------------------------------------------------------- */
 
@@ -636,8 +756,42 @@ export interface EvidenceRow {
 	evidenceValid: boolean;
 	/** True when the model's span says something the sentence on screen does not. */
 	quoteDiffers: boolean;
+	/**
+	 * The fields a second opinion read differently, with both readings.
+	 *
+	 * Empty in every build with no comparison run, which is the ordinary state —
+	 * and empty, too, wherever the two runs agreed or the second never reached
+	 * this occurrence. The row marks itself on this being non-empty and on
+	 * nothing else.
+	 */
+	contested: ContestedField[];
 	reader: ReaderLink;
 	concordance: EvidenceLink;
+}
+
+/**
+ * What the drill-down needs beyond a speaker and a referent.
+ *
+ * An options object rather than two more positional arguments: the two are
+ * about the second opinion and neither is a narrowing of the corpus, and a
+ * caller passing `drillDown(rows, lines, '', '', true, referents)` would be
+ * unreadable at the call site.
+ */
+export interface DrillOptions {
+	/**
+	 * Whether this build has a second opinion at all. Off unless it is said so.
+	 *
+	 * A marking on a row claims that another model read that passage differently,
+	 * and on a build whose summary says no comparison run was made there is
+	 * nothing behind the claim. The two artefacts are written by one script and do
+	 * agree; the interface declines to depend on it, and defaults to claiming
+	 * nothing rather than to claiming whatever the rows happen to carry.
+	 */
+	compared?: boolean;
+	/** Keep only the occurrences two models read differently. */
+	contestedOnly?: boolean;
+	/** The controlled list, so a contested referent is named rather than identified. */
+	referents?: readonly UsageReferent[];
 }
 
 const flatten = (value: string) => value.replace(/\s+/g, ' ').trim().toLowerCase();
@@ -683,15 +837,22 @@ const concordanceLink = (line: KwicLine): EvidenceLink => ({
  *
  * The speaker is the concordance line's, not a field of its own. Nothing here
  * re-derives who said what.
+ *
+ * **The contested filter is applied here and nowhere else.** One enumeration of
+ * a selection's occurrences, narrowed by one more predicate: a second list built
+ * beside this one would be a second answer to "which quotations are behind this
+ * cell", and the two would drift the first time either was touched.
  */
 export function drillDown(
 	occurrences: readonly UsageOccurrence[],
 	lines: readonly KwicLine[],
 	actor = '',
-	referent = ''
+	referent = '',
+	options: DrillOptions = {}
 ): EvidenceRow[] {
 	if (!actor && !referent) return [];
 	const byId = new Map(lines.map((line) => [line.id, line]));
+	const names = referentNames(options.referents);
 	const rows: EvidenceRow[] = [];
 
 	for (const occurrence of occurrences) {
@@ -699,6 +860,8 @@ export function drillDown(
 		const line = byId.get(occurrence.id);
 		if (!line) continue;
 		if (actor && line.country !== actor) continue;
+		const contested = options.compared ? contestedFields(occurrence, names) : [];
+		if (options.contestedOnly && !contested.length) continue;
 
 		const quote = occurrence.evidence_quote ?? '';
 		rows.push({
@@ -720,6 +883,7 @@ export function drillDown(
 			evidenceQuote: quote,
 			evidenceValid: occurrence.evidence_valid,
 			quoteDiffers: Boolean(quote.trim()) && flatten(quote) !== flatten(line.sent),
+			contested,
 			reader: readerLink(line.id),
 			concordance: concordanceLink(line)
 		});
@@ -1235,6 +1399,250 @@ export function diffusionChronology(
 }
 
 /* -------------------------------------------------------------------------- *
+ * The second opinion, as the apparatus states it
+ * -------------------------------------------------------------------------- */
+
+/** One row of the agreement table between the two runs, ready to be printed. */
+export interface ComparisonFieldRow {
+	field: string;
+	label: string;
+	/** Occurrences both runs reached. The same for every row of one comparison. */
+	n: number;
+	observed: number | null;
+	/** The share as the page writes shares, or an em dash where it was not computed. */
+	observedText: string;
+	kappa: number | null;
+	kappaText: string;
+	contested: number;
+}
+
+/**
+ * Everything the standing apparatus prints about a second opinion.
+ *
+ * `computed` is the only condition any surface tests. Under `none` the block is
+ * the artefact's own empty state — empty strings, zero counts, no rows — and
+ * nothing at all is drawn from it: no section, no figure, no filter. That is the
+ * ordinary case, and it is the one the live payload is in.
+ */
+export interface ComparisonApparatus {
+	computed: boolean;
+	state: UsageComparison['state'];
+	/** The published run's model, named beside the other so the pair reads as a pair. */
+	published: string;
+	model: string;
+	runId: string;
+	runDate: string;
+	reasoningEffort: string;
+	/** Whether both runs were made from the same prompt, byte for byte. */
+	samePrompt: boolean;
+	annotated: number;
+	/** The published run's own total: what `annotated` is a share of. */
+	total: number;
+	/** `annotated / total`, or null with nothing to divide by. Never `?? 0`. */
+	coverage: number | null;
+	/** Occurrences carrying a label from both runs. Every statistic is over these. */
+	overlap: number;
+	evidenceInvalid: number;
+	abstained: number;
+	abstention: UsageComparison['abstention'];
+	fields: ComparisonFieldRow[];
+	functionJaccard: number | null;
+	functionJaccardText: string;
+	functionContested: number;
+	contestedAny: number;
+	/** `contested_any / overlap`, or null where nothing was compared. */
+	contestedShare: number | null;
+}
+
+/** A statistic that could not be computed is an em dash, never a zero. */
+const orDash = (value: number | null, write: (value: number) => string) =>
+	value === null || !Number.isFinite(value) ? '—' : write(value);
+
+/**
+ * What the apparatus says about the second opinion, in one call.
+ *
+ * Every number here is over the *overlap* — the occurrences both runs reached —
+ * except the three that describe the comparison run itself, which are over all
+ * of its rows. Both are stated, because a run that annotated half the corpus and
+ * agreed on all of it is not the finding a run that annotated all of it and
+ * agreed on half is.
+ */
+export function comparisonApparatus(data: Usage): ComparisonApparatus {
+	const block = data.comparison;
+	const total = data.model.occurrences_annotated;
+	const abstention = block.abstention;
+	return {
+		computed: block.state === 'computed',
+		state: block.state,
+		published: data.model.id,
+		model: block.model,
+		runId: block.run_id,
+		runDate: block.run_date,
+		reasoningEffort: block.reasoning_effort,
+		// Stated rather than assumed. 15 refuses a comparison made from other
+		// instructions, and this is the page being able to say that it held.
+		samePrompt: Boolean(block.prompt_sha256) && block.prompt_sha256 === data.model.prompt_sha256,
+		annotated: block.occurrences_annotated,
+		total,
+		coverage: total > 0 ? block.occurrences_annotated / total : null,
+		overlap: block.overlap,
+		evidenceInvalid: block.evidence_invalid,
+		abstained:
+			abstention.verdict_uncertain + abstention.referent_unclear + abstention.stance_unclear,
+		abstention,
+		fields: block.fields.map((row) => ({
+			field: row.field,
+			label: termLabel(row.field),
+			n: row.n,
+			observed: row.observed,
+			observedText: orDash(row.observed, percent),
+			kappa: row.kappa,
+			kappaText: orDash(row.kappa, decimal),
+			contested: row.contested
+		})),
+		functionJaccard: block.function_jaccard,
+		functionJaccardText: orDash(block.function_jaccard, decimal),
+		functionContested: block.function_contested,
+		contestedAny: block.contested_any,
+		contestedShare: block.overlap > 0 ? block.contested_any / block.overlap : null
+	};
+}
+
+/* -------------------------------------------------------------------------- *
+ * The contested passages
+ * -------------------------------------------------------------------------- */
+
+/**
+ * How many contested occurrences the reading list draws.
+ *
+ * A reading list is a list somebody reads: fifty passages is already an
+ * afternoon, and the tail of a corpus-wide comparison is thousands. The cap is a
+ * display decision like the matrix's, so it is disclosed in the same way — what
+ * it left out is counted, and the CSV beside the figure carries every one.
+ */
+export const CONTESTED_CAP = 50;
+
+export interface ContestedRow {
+	/** The KWIC line identifier, which is this project's locator for a use. */
+	id: string;
+	occurrenceId: string;
+	date: string;
+	spv: string;
+	/** The concordance line's speaker. Nothing here re-derives who said what. */
+	actor: string;
+	sentence: string;
+	keyword: string;
+	referent: string;
+	referentLabel: string;
+	/** The fields the two runs read differently, both readings written out. */
+	contested: ContestedField[];
+	/** How many they are: the count the list is ordered by. */
+	fields: number;
+	reader: ReaderLink;
+	concordance: EvidenceLink;
+}
+
+/** What the reading list has to say out loud about everything it is not showing. */
+export interface ContestedListing {
+	rows: ContestedRow[];
+	cap: number;
+	/** Contested occurrences the run recorded, before the join and before the cap. */
+	contested: number;
+	/** Those a sentence could be found for: the list's own denominator. */
+	quotable: number;
+	/** Quotable rows the cap left out. They are in the CSV. */
+	hidden: number;
+	/** Contested occurrences whose line is not in the concordance file for the term. */
+	unquotable: number;
+	/** Compared occurrences, so the disclosure can state the one as a share of the other. */
+	overlap: number;
+	/** Why there is no list: no second opinion at all, or one that found no difference. */
+	refusal: 'no-comparison' | 'no-contest' | null;
+}
+
+/**
+ * Every occurrence the two runs read differently, most contested first.
+ *
+ * **Ordered by how much they disagree.** An occurrence the two models split on
+ * three of five fields is a harder passage than one they split on the verdict
+ * alone, and the reader with an afternoon should meet it first. Date and then
+ * identifier settle every tie, so the order is total and the list is citable.
+ *
+ * **Joined to a sentence, or dropped and counted.** The same rule `drillDown`
+ * follows: a reading list whose rows cannot be read back to the record is a list
+ * of labels. What the join lost is reported rather than absorbed.
+ *
+ * **The published labels stay published.** Nothing here replaces a stance or a
+ * referent with the second model's; both readings are carried side by side, and
+ * the matrix, the stance profile and the diffusion curve are drawn from the
+ * published run alone.
+ */
+export function contestedList(
+	data: Usage,
+	occurrences: readonly UsageOccurrence[],
+	lines: readonly KwicLine[] = []
+): ContestedListing {
+	const blank: ContestedListing = {
+		rows: [],
+		cap: CONTESTED_CAP,
+		contested: 0,
+		quotable: 0,
+		hidden: 0,
+		unquotable: 0,
+		overlap: data.comparison.overlap,
+		refusal: 'no-comparison'
+	};
+	if (data.comparison.state !== 'computed') return blank;
+
+	const names = referentNames(data.referents);
+	const byId = new Map(lines.map((line) => [line.id, line]));
+	const rows: ContestedRow[] = [];
+	let contested = 0;
+	let unquotable = 0;
+
+	for (const occurrence of occurrences) {
+		const fields = contestedFields(occurrence, names);
+		if (!fields.length) continue;
+		contested += 1;
+		const line = byId.get(occurrence.id);
+		if (!line) {
+			unquotable += 1;
+			continue;
+		}
+		rows.push({
+			id: line.id,
+			occurrenceId: occurrence.occurrence_id,
+			date: line.date,
+			spv: line.spv,
+			actor: line.country,
+			sentence: line.sent,
+			keyword: line.kw,
+			referent: occurrence.referent,
+			referentLabel: names.get(occurrence.referent) ?? termLabel(occurrence.referent),
+			contested: fields,
+			fields: fields.length,
+			reader: readerLink(line.id),
+			concordance: concordanceLink(line)
+		});
+	}
+
+	rows.sort(
+		(a, b) => b.fields - a.fields || a.date.localeCompare(b.date) || a.id.localeCompare(b.id)
+	);
+
+	return {
+		rows: rows.slice(0, CONTESTED_CAP),
+		cap: CONTESTED_CAP,
+		contested,
+		quotable: rows.length,
+		hidden: Math.max(0, rows.length - CONTESTED_CAP),
+		unquotable,
+		overlap: data.comparison.overlap,
+		refusal: contested ? null : 'no-contest'
+	};
+}
+
+/* -------------------------------------------------------------------------- *
  * The gold sample, and the exports
  * -------------------------------------------------------------------------- */
 
@@ -1255,6 +1663,8 @@ export interface GoldProgress {
 	adjudicated: number;
 	hasAgreement: boolean;
 	hasModelScores: boolean;
+	/** Whether the comparison run has been scored against the same human labels. */
+	hasComparisonScores: boolean;
 }
 
 export function goldProgress(data: Usage): GoldProgress {
@@ -1268,7 +1678,8 @@ export function goldProgress(data: Usage): GoldProgress {
 		doubleCoded: gold.double_coded,
 		adjudicated: gold.adjudicated,
 		hasAgreement: gold.human_agreement.length > 0,
-		hasModelScores: gold.model_vs_human.length > 0
+		hasModelScores: gold.model_vs_human.length > 0,
+		hasComparisonScores: gold.model_vs_human_comparison.length > 0
 	};
 }
 
@@ -1364,6 +1775,75 @@ export function diffusionExportRows(data: Usage): (string | number | boolean | n
 				event.id
 			]);
 	});
+}
+
+/**
+ * Every contested occurrence, both readings side by side, in one long table.
+ *
+ * Not the fifty the figure draws and not only the ones a sentence was found for:
+ * the cap is a display decision the reader did not make, and an occurrence the
+ * concordance file has no line for is still one the two runs read differently.
+ * Those rows travel with a null date, speaker and record symbol rather than
+ * being filtered out — the same null-honesty `matrixExportRows` gives a withheld
+ * share, so the file carries the gap instead of having been cut by it.
+ *
+ * The labels are the artefact's own values, not the page's wording: a file is
+ * read by a script, and `rejects_or_denies` is what joins back to the run.
+ */
+export const CONTESTED_COLUMNS = [
+	'id',
+	'occurrence_id',
+	'date',
+	'actor',
+	'spv',
+	'referent_label',
+	'contested_count',
+	'contested_fields',
+	...COMPARED_FIELDS.map((field) => `published_${field}`),
+	...COMPARED_FIELDS.map((field) => `comparison_${field}`)
+];
+
+export function contestedExportRows(
+	data: Usage,
+	occurrences: readonly UsageOccurrence[],
+	lines: readonly KwicLine[] = []
+): (string | number | boolean | null)[][] {
+	const names = referentNames(data.referents);
+	const byId = new Map(lines.map((line) => [line.id, line]));
+	const rows = occurrences
+		.filter((occurrence) => (occurrence.contested ?? []).length > 0)
+		.map((occurrence) => {
+			const line = byId.get(occurrence.id);
+			const mine = publishedLabels(occurrence);
+			const theirs = secondLabels(occurrence.alt);
+			// Ordered by `COMPARED_FIELDS` rather than by the row's own array, so
+			// that two rows contested on the same fields read the same way.
+			const named = new Set(occurrence.contested ?? []);
+			const fields = COMPARED_FIELDS.filter((field) => named.has(field));
+			return {
+				date: line?.date ?? '',
+				id: occurrence.id,
+				row: [
+					occurrence.id,
+					occurrence.occurrence_id,
+					line?.date ?? null,
+					line?.country ?? null,
+					line?.spv ?? null,
+					names.get(occurrence.referent) ?? null,
+					fields.length,
+					// Pipe-joined without spaces, the artefact's own idiom for a field
+					// carrying several values.
+					fields.join('|'),
+					...COMPARED_FIELDS.map((field) => mine[field] ?? null),
+					...COMPARED_FIELDS.map((field) => theirs[field] ?? null)
+				] as (string | number | boolean | null)[]
+			};
+		});
+	// Chronological, and the identifier settles every tie: a file is a record to
+	// cite from rather than the figure's ranking written down. A row with no line
+	// has no date and sorts first, where its emptiness is visible.
+	rows.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+	return rows.map((entry) => entry.row);
 }
 
 export const STANCE_COLUMNS = [

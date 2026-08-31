@@ -12,6 +12,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+	CONTESTED_CAP,
+	CONTESTED_COLUMNS,
 	DIFFUSION_BOX,
 	DIFFUSION_COLUMNS,
 	MATRIX_COLUMNS,
@@ -22,6 +24,9 @@ import {
 	STANCE_COLUMNS,
 	USAGE_DEFAULTS,
 	USAGE_TERM,
+	comparisonApparatus,
+	contestedExportRows,
+	contestedList,
 	diffusionChronology,
 	diffusionExportRows,
 	diffusionPlan,
@@ -47,6 +52,7 @@ import type {
 	StanceCounts,
 	Usage,
 	UsageActor,
+	UsageAlternative,
 	UsageDiffusion,
 	UsageDiffusionEvent,
 	UsageMatrixCell,
@@ -82,8 +88,54 @@ const gold: Usage['gold'] = {
 	adjudicated: 0,
 	human_agreement: [],
 	model_vs_human: [],
+	model_vs_human_comparison: [],
 	state: 'not_started'
 };
+
+/** The block every build without a second opinion carries: the ordinary state. */
+const noComparison: Usage['comparison'] = {
+	state: 'none',
+	run_id: '',
+	model: '',
+	run_date: '',
+	reasoning_effort: '',
+	prompt_sha256: '',
+	occurrences_annotated: 0,
+	overlap: 0,
+	evidence_invalid: 0,
+	abstention: { verdict_uncertain: 0, referent_unclear: 0, stance_unclear: 0 },
+	fields: [],
+	function_jaccard: null,
+	function_contested: 0,
+	contested_any: 0
+};
+
+/** A second model over the same occurrences, agreeing on some of them. */
+const comparison = (overrides: Partial<Usage['comparison']> = {}): Usage['comparison'] => ({
+	...noComparison,
+	state: 'computed',
+	run_id: '2026-09-06-gemini-v1',
+	model: 'gemini-3-pro-2026-07-15',
+	run_date: '2026-09-06',
+	reasoning_effort: 'medium',
+	// The same prompt, byte for byte: a comparison of other instructions is an
+	// answer to another question, and 15 refuses to publish one.
+	prompt_sha256: model.prompt_sha256,
+	occurrences_annotated: 6000,
+	overlap: 5800,
+	evidence_invalid: 4,
+	abstention: { verdict_uncertain: 3, referent_unclear: 11, stance_unclear: 7 },
+	fields: [
+		{ field: 'verdict', n: 5800, observed: 0.99, kappa: null, contested: 58 },
+		{ field: 'quotation', n: 5800, observed: 0.94, kappa: 0.81, contested: 348 },
+		{ field: 'stance', n: 5800, observed: 0.86, kappa: 0.74, contested: 812 },
+		{ field: 'referent', n: 5800, observed: 0.91, kappa: 0.88, contested: 522 }
+	],
+	function_jaccard: 0.72,
+	function_contested: 1204,
+	contested_any: 1800,
+	...overrides
+});
 
 const stances = (partial: Partial<StanceCounts> = {}): StanceCounts => ({
 	...emptyStances(),
@@ -220,6 +272,7 @@ const corpus = (overrides: Partial<Usage> = {}): Usage => ({
 		}
 	],
 	diffusion,
+	comparison: noComparison,
 	gold,
 	...overrides
 });
@@ -258,14 +311,38 @@ describe('the stance vocabulary', () => {
 
 describe('usage URL state', () => {
 	it('round-trips every analytical control', () => {
-		const data = corpus();
+		const data = corpus({ comparison: comparison() });
 		const wanted = state({
 			actor: 'Alpha',
 			referent: 'rwanda_1994',
 			unit: 'share',
-			sort: 'name'
+			sort: 'name',
+			contested: true
 		});
 		expect(readUsageState(usageParams(wanted), data)).toEqual(wanted);
+		expect(usageParams(wanted).get('contested')).toBe('1');
+	});
+
+	it('drops a contested filter on a build that has no second opinion', () => {
+		// The same rule a referent this artefact does not carry is dropped under:
+		// the control is not on the page, so the filter would narrow the list to
+		// nothing with nothing on screen saying why.
+		expect(readUsageState(new URLSearchParams('actor=Alpha&contested=1'), corpus())).toMatchObject({
+			actor: 'Alpha',
+			contested: false
+		});
+		expect(
+			readUsageState(
+				new URLSearchParams('actor=Alpha&contested=1'),
+				corpus({ comparison: comparison() })
+			).contested
+		).toBe(true);
+		// Only `1` turns it on, and only `true` is written back.
+		expect(
+			readUsageState(new URLSearchParams('contested=yes'), corpus({ comparison: comparison() }))
+				.contested
+		).toBe(false);
+		expect(usageParams(state({ contested: false })).toString()).toBe('');
 	});
 
 	it('writes nothing for a view that is already the default', () => {
@@ -640,6 +717,8 @@ describe('the quotations behind a cell', () => {
 		confidence: 'high',
 		evidence_quote: 'We warned that genocide could occur.',
 		evidence_valid: true,
+		contested: [],
+		alt: null,
 		...extra
 	});
 
@@ -731,6 +810,92 @@ describe('the quotations behind a cell', () => {
 		// The concordance cannot name one line, so the link lands on the smallest
 		// set it can express that certainly contains it.
 		expect(row.concordance.query).toBe('term=genocide&country=Rwanda&spv=S%2FPV.7000');
+	});
+
+	it('carries both readings of a contested occurrence, and none where the two agreed', () => {
+		const rows = drillDown(
+			[
+				annotation('UNSC_2014_SPV.7000_spch0001#1', {
+					contested: ['referent', 'stance'],
+					alt: {
+						verdict: 'true_positive',
+						quotation: 'not_quoted',
+						stance: 'rejects_or_denies',
+						function: 'warning_or_prevention|accountability',
+						referent: 'bosnia'
+					}
+				}),
+				annotation('UNSC_2015_SPV.7481_spch0007#1', { referent: 'rwanda_1994' })
+			],
+			lines,
+			'',
+			'rwanda_1994',
+			{ compared: true, referents: [referent('bosnia', { label: 'Bosnia and Srebrenica' })] }
+		);
+		// Listed in the artefact's own field order rather than the row's, so two
+		// occurrences contested on the same pair read the same way.
+		expect(rows[0].contested.map((entry) => entry.field)).toEqual(['stance', 'referent']);
+		expect(rows[0].contested[0]).toMatchObject({
+			label: 'stance',
+			published: 'Hypothetical or conditional',
+			second: 'Rejects or denies'
+		});
+		// A referent is named from the controlled list, not printed as its id.
+		expect(rows[0].contested[1].second).toBe('Bosnia and Srebrenica');
+		expect(rows[1].contested).toEqual([]);
+	});
+
+	it('names a contested referent by its identifier when the list is not to hand', () => {
+		const [row] = drillDown(
+			[
+				annotation('UNSC_2014_SPV.7000_spch0001#1', {
+					contested: ['referent'],
+					alt: {
+						verdict: 'true_positive',
+						quotation: 'not_quoted',
+						stance: 'hypothetical_or_conditional',
+						function: 'warning_or_prevention|accountability',
+						referent: 'genocide_convention_law'
+					}
+				})
+			],
+			lines,
+			'Rwanda',
+			'',
+			{ compared: true }
+		);
+		// Degraded to readable words rather than blank: the drill-down is fed two
+		// artefacts and the controlled list is in neither of them.
+		expect(row.contested[0].second).toBe('genocide convention law');
+	});
+
+	it('narrows to the contested occurrences without a second enumeration of them', () => {
+		const all = [
+			annotation('UNSC_2014_SPV.7000_spch0001#1'),
+			annotation('UNSC_2015_SPV.7481_spch0007#1', {
+				referent: 'rwanda_1994',
+				contested: ['stance'],
+				alt: {
+					verdict: 'true_positive',
+					quotation: 'not_quoted',
+					stance: 'asserts',
+					function: 'warning_or_prevention|accountability',
+					referent: 'rwanda_1994'
+				}
+			})
+		];
+		// Nothing is marked on a build that says no second opinion was made, whatever
+		// the rows happen to carry: the claim would have nothing behind it.
+		expect(drillDown(all, lines, '', 'rwanda_1994')[1].contested).toEqual([]);
+		expect(drillDown(all, lines, '', 'rwanda_1994', { compared: true })).toHaveLength(2);
+		const only = drillDown(all, lines, '', 'rwanda_1994', { compared: true, contestedOnly: true });
+		expect(only.map((row) => row.id)).toEqual(['UNSC_2015_SPV.7481_spch0007#1']);
+		// The filter narrows the same list rather than building another: everything
+		// a row carries is what it carried unfiltered.
+		expect(only[0].sentence).toBe('The Council must call this genocide by its name.');
+		expect(drillDown(all, lines, 'Rwanda', '', { compared: true, contestedOnly: true })).toEqual(
+			[]
+		);
 	});
 
 	it('orders by date and settles every tie on the identifier', () => {
@@ -1018,6 +1183,231 @@ describe('the chronology the curve summarises', () => {
 		// the concordance one: the chronology is not a list of quotations.
 		expect(joined.at(-1)?.concordance).toBeNull();
 		expect(joined).toHaveLength(5);
+	});
+});
+
+describe('the second opinion, as the apparatus states it', () => {
+	it('says nothing at all where no comparison run was made', () => {
+		const apparatus = comparisonApparatus(corpus());
+		expect(apparatus).toMatchObject({ computed: false, state: 'none', model: '', overlap: 0 });
+		// The empty block is the ordinary state, and the whole section is drawn on
+		// `computed` alone. Nothing here is a measured zero.
+		expect(apparatus.fields).toEqual([]);
+		expect(apparatus.contestedShare).toBeNull();
+		expect(apparatus.functionJaccardText).toBe('—');
+	});
+
+	it('names both runs, the overlap they were compared over, and both denominators', () => {
+		const apparatus = comparisonApparatus(corpus({ comparison: comparison() }));
+		expect(apparatus).toMatchObject({
+			computed: true,
+			published: 'chatgpt-5.6-luna-2026-08-01',
+			model: 'gemini-3-pro-2026-07-15',
+			runId: '2026-09-06-gemini-v1',
+			overlap: 5800,
+			contestedAny: 1800,
+			samePrompt: true
+		});
+		// A run that annotated half the corpus and agreed on all of it is not the
+		// finding a run that annotated all of it and agreed on half is, so both
+		// shares are stated rather than one.
+		expect(apparatus.coverage).toBeCloseTo(6000 / 6092, 12);
+		expect(apparatus.contestedShare).toBeCloseTo(1800 / 5800, 12);
+		expect(apparatus.abstained).toBe(21);
+	});
+
+	it('writes a statistic that could not be computed as a dash, never as a zero', () => {
+		const apparatus = comparisonApparatus(corpus({ comparison: comparison() }));
+		expect(apparatus.fields.map((row) => row.field)).toEqual([
+			'verdict',
+			'quotation',
+			'stance',
+			'referent'
+		]);
+		// With every row in one category there is no chance agreement to correct
+		// for, and 0.00 would read as two runs agreeing by luck alone.
+		expect(apparatus.fields[0]).toMatchObject({
+			label: 'verdict',
+			kappa: null,
+			kappaText: '—',
+			observedText: '99.00%'
+		});
+		expect(apparatus.fields[2].kappaText).toBe('0.74');
+		expect(apparatus.functionJaccardText).toBe('0.72');
+	});
+
+	it('says when the two runs were not made from the same prompt', () => {
+		// 15 refuses to publish a comparison made from other instructions, so this
+		// should never arrive — but the page states it rather than assuming it.
+		const apparatus = comparisonApparatus(
+			corpus({ comparison: comparison({ prompt_sha256: 'b'.repeat(64) }) })
+		);
+		expect(apparatus.samePrompt).toBe(false);
+	});
+});
+
+describe('the contested passages', () => {
+	const record = (id: string, extra: Partial<KwicLine> = {}): KwicLine => ({
+		id,
+		spv: 'S/PV.7000',
+		date: '2014-06-11',
+		country: 'Rwanda',
+		iso3: 'RWA',
+		group: 'E10',
+		type: 'Mentioned',
+		agenda: 'Protection of civilians',
+		start: 0,
+		end: 8,
+		left: '',
+		kw: 'genocide',
+		right: '',
+		sent: 'We warned that genocide could occur.',
+		...extra
+	});
+
+	const coded = (
+		id: string,
+		contested: string[],
+		alt: UsageOccurrence['alt'] = null,
+		extra: Partial<UsageOccurrence> = {}
+	): UsageOccurrence => ({
+		id,
+		occurrence_id: id,
+		verdict: 'true_positive',
+		quotation: 'not_quoted',
+		stance: 'asserts',
+		function: 'accusation_or_qualification',
+		referent: 'rwanda_1994',
+		proposed_referent: '',
+		confidence: 'high',
+		evidence_quote: 'genocide',
+		evidence_valid: true,
+		contested,
+		alt,
+		...extra
+	});
+
+	const other = (overrides: Partial<UsageAlternative> = {}): UsageAlternative => ({
+		verdict: 'true_positive',
+		quotation: 'not_quoted',
+		stance: 'asserts',
+		function: 'accusation_or_qualification',
+		referent: 'rwanda_1994',
+		...overrides
+	});
+
+	const data = corpus({ comparison: comparison({ overlap: 4, contested_any: 2 }) });
+
+	const three = coded(
+		'UNSC_2015_SPV.7481_spch0007#1',
+		['stance', 'function', 'referent'],
+		other({ stance: 'rejects_or_denies', function: 'accountability', referent: 'bosnia' })
+	);
+	const one = coded(
+		'UNSC_2014_SPV.7000_spch0001#1',
+		['stance'],
+		other({ stance: 'attributes_or_reports' })
+	);
+	const agreed = coded('UNSC_2014_SPV.7000_spch0001#2', []);
+	const unquotable = coded(
+		'UNSC_1999_SPV.4011_spch0003#2',
+		['verdict'],
+		other({ verdict: 'false_positive' })
+	);
+
+	const files = [
+		record('UNSC_2014_SPV.7000_spch0001#1'),
+		record('UNSC_2014_SPV.7000_spch0001#2'),
+		record('UNSC_2015_SPV.7481_spch0007#1', {
+			spv: 'S/PV.7481',
+			date: '2015-07-08',
+			country: 'France',
+			group: 'P5',
+			sent: 'The Council must call this genocide by its name.'
+		})
+	];
+
+	it('refuses in words on a build with no second opinion, whatever the rows carry', () => {
+		const listing = contestedList(corpus(), [three, one], files);
+		expect(listing.refusal).toBe('no-comparison');
+		expect(listing.rows).toEqual([]);
+	});
+
+	it('says so when a comparison was made and found no difference', () => {
+		const listing = contestedList(data, [agreed], files);
+		expect(listing.refusal).toBe('no-contest');
+		expect(listing.contested).toBe(0);
+	});
+
+	it('ranks by how much the two runs disagree, not by date', () => {
+		const listing = contestedList(data, [one, agreed, three], files);
+		// Three fields apart in 2015 comes before one field apart in 2014: the
+		// reader with an afternoon should meet the hardest passage first.
+		expect(listing.rows.map((row) => [row.actor, row.fields])).toEqual([
+			['France', 3],
+			['Rwanda', 1]
+		]);
+		expect(listing.rows[0].contested.map((entry) => entry.field)).toEqual([
+			'stance',
+			'function',
+			'referent'
+		]);
+		expect(listing.rows[0].contested[0]).toMatchObject({
+			published: 'Asserts',
+			second: 'Rejects or denies'
+		});
+		// The published labels stay published: nothing here is replaced.
+		expect(listing.rows[0].referent).toBe('rwanda_1994');
+		expect(listing.rows[0].sentence).toBe('The Council must call this genocide by its name.');
+		expect(listing.rows[0].reader.meeting).toBe('UNSC_2015_SPV.7481');
+		expect(listing.rows[0].concordance.query).toBe('term=genocide&country=France&spv=S%2FPV.7481');
+	});
+
+	it('drops a contested occurrence it cannot quote, and counts what it dropped', () => {
+		const listing = contestedList(data, [one, unquotable], files);
+		expect(listing.rows.map((row) => row.id)).toEqual(['UNSC_2014_SPV.7000_spch0001#1']);
+		expect(listing.contested).toBe(2);
+		expect(listing.quotable).toBe(1);
+		expect(listing.unquotable).toBe(1);
+		expect(listing.overlap).toBe(4);
+		expect(listing.refusal).toBeNull();
+	});
+
+	it('caps the list and hands the interface what the cap cost', () => {
+		const many = Array.from({ length: CONTESTED_CAP + 7 }, (_, index) =>
+			coded(`UNSC_2014_SPV.7000_spch${String(index).padStart(4, '0')}#1`, ['stance'], other())
+		);
+		const rows = many.map((occurrence) => record(occurrence.id));
+		const listing = contestedList(data, many, rows);
+		expect(listing.rows).toHaveLength(CONTESTED_CAP);
+		expect(listing.cap).toBe(CONTESTED_CAP);
+		// A cut that does not say it is a cut is the display decision the exports
+		// refuse, and the objection holds on screen.
+		expect(listing.hidden).toBe(7);
+		expect(listing.quotable).toBe(CONTESTED_CAP + 7);
+	});
+
+	it('exports every contested occurrence, the cap and the join included', () => {
+		const rows = contestedExportRows(data, [one, agreed, three, unquotable], files);
+		expect(rows).toHaveLength(3);
+		expect(rows[0]).toHaveLength(CONTESTED_COLUMNS.length);
+		// Chronological, with the unjoinable row first because it has no date —
+		// carried with nulls rather than filtered out, so the file holds the gap.
+		expect(rows.map((row) => row[CONTESTED_COLUMNS.indexOf('id')])).toEqual([
+			'UNSC_1999_SPV.4011_spch0003#2',
+			'UNSC_2014_SPV.7000_spch0001#1',
+			'UNSC_2015_SPV.7481_spch0007#1'
+		]);
+		expect(rows[0][CONTESTED_COLUMNS.indexOf('date')]).toBeNull();
+		expect(rows[0][CONTESTED_COLUMNS.indexOf('actor')]).toBeNull();
+		// The artefact's own values, not the page's wording: a file is read by a
+		// script, and `rejects_or_denies` is what joins back to the run.
+		const last = rows[2];
+		expect(last[CONTESTED_COLUMNS.indexOf('contested_fields')]).toBe('stance|function|referent');
+		expect(last[CONTESTED_COLUMNS.indexOf('contested_count')]).toBe(3);
+		expect(last[CONTESTED_COLUMNS.indexOf('published_stance')]).toBe('asserts');
+		expect(last[CONTESTED_COLUMNS.indexOf('comparison_stance')]).toBe('rejects_or_denies');
+		expect(last[CONTESTED_COLUMNS.indexOf('comparison_referent')]).toBe('bosnia');
 	});
 });
 

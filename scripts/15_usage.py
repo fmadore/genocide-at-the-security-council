@@ -19,6 +19,15 @@ It writes two artefacts into `data/derived/usage/`:
   loads, and republishing two coordinate systems for the same string is two
   chances to disagree.
 
+**A second opinion, if one has been bought.** `comparison_run.txt` may name a
+second run — a different model, the same prompt, the same occurrences — and this
+step then publishes how far the two agree, per field and per occurrence. It is a
+counter-instrument and never an authority: the comparison run is never merged
+into anything, its labels never replace the published run's, and agreement
+between two models is stability across instruments rather than accuracy. The
+human gold sample remains the only calibration. Nothing is selected by default,
+and the comparison block is written in its empty state when nothing is.
+
 **Everything is refused rather than repaired.** A run made against a different
 lexicon, a row naming an occurrence this corpus does not have, a row whose
 `source_sha256` says the speech has changed underneath it, a label the current
@@ -27,12 +36,19 @@ run. So does a prompt file whose bytes no longer hash to what the run recorded,
 because `usage.json` publishes that prompt verbatim and a reader is entitled to
 believe it is the one the model was given. The single tolerated gap is coverage:
 a run that did not reach every occurrence is aggregated under `--allow-partial`
-and reports honestly how much of the corpus it covers.
+and reports honestly how much of the corpus it covers. A comparison run has no
+such gate — it is read over the occurrences both runs reached, and the artefact
+says how many those were — but it is refused on everything else the published run
+is refused on, and on one more: a comparison made with a different prompt, which
+would confound the instrument with the questionnaire.
 
 Usage:
     python scripts/15_usage.py                      # the run named in current_run.txt
     python scripts/15_usage.py --run 2026-09-05-luna-v1
     python scripts/15_usage.py --run-dir data/interim/synthetic_run [--allow-partial]
+    python scripts/15_usage.py --comparison-run 2026-09-06-gemini-v1
+    python scripts/15_usage.py --run-dir data/interim/synthetic_run \
+        --comparison-run-dir data/interim/synthetic_run_comparison
 
 Requires an x64 Python 3.12 — pyarrow publishes no 32-bit wheel.
 """
@@ -75,6 +91,11 @@ STORE = MODEL_ANNOTATIONS / TERM
 PROMPT = STORE / "PROMPT.md"
 RUNS = STORE / "runs"
 CURRENT_RUN = STORE / "current_run.txt"
+
+#: The counter-instrument, named the same way and read the same way. Committed
+#: empty, and empty is the ordinary state: a comparison run costs a second bill
+#: and buys no authority, so nothing here selects one for you.
+COMPARISON_RUN = STORE / "comparison_run.txt"
 
 REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
 GOLD_ANNOTATIONS = ROOT / "annotations" / TERM / "annotations.csv"
@@ -146,35 +167,42 @@ def read_referents(path: Path) -> list[dict[str, str]]:
     ]
 
 
+def uncommitted_run(run_dir: Path, flag: str) -> Path:
+    """A run directory named by a path rather than by a committed run id.
+
+    The escape hatch behind `--run-dir` and `--comparison-run-dir`, for a run
+    that is not committed under `model_annotations/` — the synthetic fixtures
+    `tools/synthetic_usage_run.py` builds are the only ones in the repository.
+    """
+    # Resolved, because the provenance block describes the run's files by their
+    # path relative to the repository root and a bare `data/interim/...` typed at
+    # a shell is relative to nothing the artefact can name.
+    run_dir = run_dir.resolve()
+    if not run_dir.is_dir():
+        console.fail(
+            f"{flag} {rel(run_dir)} is not a directory",
+            ["it must hold a manifest.json and an annotations.jsonl"],
+        )
+    if not run_dir.is_relative_to(ROOT):
+        console.fail(
+            f"{flag} {run_dir} is outside the repository",
+            [
+                "every artefact records the sha256 and the repository-relative path "
+                "of each input it read, and a path outside the tree has no such name",
+                "copy the run under data/interim/ and point at it there",
+            ],
+        )
+    return run_dir
+
+
 def select_run(run: str | None, run_dir: Path | None) -> tuple[Path, str]:
     """The run directory to aggregate, and the id it is published under.
 
-    `--run-dir` is an escape hatch for a run that is not committed under
-    `model_annotations/` — the synthetic fixture `tools/synthetic_usage_run.py`
-    builds is the only one in the repository. It names a directory rather than a
-    run id, and the id is read back out of the manifest so the artefact still
-    says which run it came from.
+    `--run-dir` names a directory rather than a run id, and the id is read back
+    out of the manifest so the artefact still says which run it came from.
     """
     if run_dir is not None:
-        # Resolved, because the provenance block describes the run's files by
-        # their path relative to the repository root and a bare `data/interim/...`
-        # typed at a shell is relative to nothing the artefact can name.
-        run_dir = run_dir.resolve()
-        if not run_dir.is_dir():
-            console.fail(
-                f"--run-dir {rel(run_dir)} is not a directory",
-                ["it must hold a manifest.json and an annotations.jsonl"],
-            )
-        if not run_dir.is_relative_to(ROOT):
-            console.fail(
-                f"--run-dir {run_dir} is outside the repository",
-                [
-                    "every artefact records the sha256 and the repository-relative path "
-                    "of each input it read, and a path outside the tree has no such name",
-                    "copy the run under data/interim/ and point at it there",
-                ],
-            )
-        return run_dir, ""
+        return uncommitted_run(run_dir, "--run-dir"), ""
 
     selected = run or (
         CURRENT_RUN.read_text(encoding="utf-8").strip() if CURRENT_RUN.is_file() else ""
@@ -197,6 +225,39 @@ def select_run(run: str | None, run_dir: Path | None) -> tuple[Path, str]:
             [
                 f"{rel(directory)} does not exist",
                 "a run is a committed input; commit it before publishing it",
+            ],
+        )
+    return directory, selected
+
+
+def select_comparison(run: str | None, run_dir: Path | None) -> tuple[Path | None, str]:
+    """The counter-instrument to read the published run against, if any.
+
+    Selected the same three ways the published run is — a committed id in
+    `comparison_run.txt`, `--comparison-run` to read one without committing the
+    choice, `--comparison-run-dir` for a fixture that is not committed at all.
+    The one difference is what an empty selection means: there, nothing to
+    aggregate and a refusal; here, no second opinion, which is the ordinary state
+    of this repository and not an error. The block is written empty and the step
+    continues.
+    """
+    if run_dir is not None:
+        return uncommitted_run(run_dir, "--comparison-run-dir"), ""
+    selected = run or (
+        COMPARISON_RUN.read_text(encoding="utf-8").strip()
+        if COMPARISON_RUN.is_file()
+        else ""
+    )
+    if not selected:
+        return None, ""
+    directory = RUNS / selected
+    if not directory.is_dir():
+        console.fail(
+            f"comparison run '{selected}' has no directory under {rel(RUNS)}",
+            [
+                f"{rel(directory)} does not exist",
+                f"a comparison run is a committed input like any other; empty "
+                f"{rel(COMPARISON_RUN)} to publish without a second opinion",
             ],
         )
     return directory, selected
@@ -264,20 +325,30 @@ def enumerated_frame(
 # --- The refusals ------------------------------------------------------------
 
 
-def refuse_stale_lexicon(manifest: dict[str, object], rows: list[dict], version: str) -> None:
+def refuse_stale_lexicon(
+    manifest: dict[str, object],
+    rows: list[dict],
+    version: str,
+    *,
+    what: str = "the run",
+) -> None:
     """A run is coded against one lexicon version; the counts are cut on another.
 
     The lexicon defines what an occurrence *is*, so a run made against an older
     version is annotating a population this corpus no longer has. The row-level
     check is not redundant: the manifest is written once at the end of a run and
     the rows are appended as they arrive.
+
+    `what` names the run in the message. A comparison run is held to every
+    identity check the published one is, and a reader told "the run" when two
+    were read would have to guess which of them moved.
     """
     recorded = str(manifest.get("lexicon_version", ""))
     if recorded != version:
         console.fail(
-            "the run was made against a different lexicon",
+            f"{what} was made against a different lexicon",
             [
-                f"the run records version {recorded or '(none)'}, "
+                f"it records version {recorded or '(none)'}, "
                 f"{rel(LEXICON)} is now version {version}",
                 "re-run 03_lexicon.py and 14_llm_annotate.py, or aggregate the run "
                 "that matches this lexicon",
@@ -286,7 +357,7 @@ def refuse_stale_lexicon(manifest: dict[str, object], rows: list[dict], version:
     stale = sorted({str(row.get("lexicon_version", "")) for row in rows} - {version})
     if stale:
         console.fail(
-            "some rows of the run were written against a different lexicon",
+            f"some rows of {what} were written against a different lexicon",
             [f"row lexicon versions: {', '.join(stale)}; the lexicon is now {version}"],
         )
 
@@ -316,10 +387,51 @@ def refuse_stale_prompt(manifest: dict[str, object]) -> str:
     return PROMPT.read_text(encoding="utf-8")
 
 
+def refuse_other_prompt(manifest: dict[str, object], digest: str) -> None:
+    """A second opinion is a second model, not a second questionnaire.
+
+    The comparison run must have been made from the same PROMPT.md bytes as the
+    published one. If it was not, every disagreement between the two confounds
+    the instrument with the questionnaire — the models were asked different
+    questions — and no arithmetic downstream can say which difference produced
+    which disagreement. There is nothing to repair here: the comparison is either
+    of the same question or it is not a comparison.
+    """
+    recorded = str(manifest.get("prompt_sha256", ""))
+    if recorded != digest:
+        console.fail(
+            "the comparison run was made with a different prompt",
+            [
+                f"the comparison run records {recorded[:12] or '(none)'}..., "
+                f"the published run was made with {digest[:12]}...",
+                "agreement across two prompts measures the questionnaire and the model "
+                "at once and cannot separate them",
+                "annotate the comparison run against this prompt, or select a comparison "
+                "run that was",
+            ],
+        )
+
+
+def refuse_self_comparison(published: Path, comparison: Path) -> None:
+    """A run compared against itself agrees everywhere and measures nothing."""
+    if published.resolve() == comparison.resolve():
+        console.fail(
+            "the comparison run is the published run",
+            [
+                f"both point at {rel(published)}",
+                "a run agrees with itself on every field of every occurrence, which is "
+                "arithmetic rather than a finding",
+                f"name a different run in {rel(COMPARISON_RUN)}, or empty it",
+            ],
+        )
+
+
 def refuse_bad_rows(
     rows: list[dict[str, object]],
     frame: pd.DataFrame,
     referents: set[str],
+    *,
+    what: str = "the run",
 ) -> None:
     """Identity, then labels. Both are refusals, never repairs."""
     digests = dict(
@@ -327,7 +439,7 @@ def refuse_bad_rows(
     )
     if problems := usage.row_problems(rows, digests):
         console.fail(
-            "the run's rows cannot be joined to this corpus",
+            f"{what}'s rows cannot be joined to this corpus",
             [
                 *problems[:8],
                 *([f"... and {len(problems) - 8} more"] if len(problems) > 8 else []),
@@ -346,7 +458,7 @@ def refuse_bad_rows(
             invalid.append(f"{str(row.get('occurrence_id', ''))[:12]}...: {error}")
     if invalid:
         console.fail(
-            "the run holds rows the current codebook does not accept",
+            f"{what} holds rows the current codebook does not accept",
             [
                 *invalid[:8],
                 *([f"... and {len(invalid) - 8} more"] if len(invalid) > 8 else []),
@@ -426,7 +538,10 @@ def model_block(
     }
 
 
-def occurrence_rows(rows: pd.DataFrame) -> list[dict[str, object]]:
+def occurrence_rows(
+    rows: pd.DataFrame,
+    contested: dict[str, tuple[list[str], dict[str, str] | None]],
+) -> list[dict[str, object]]:
     """One row per annotated occurrence, in corpus order.
 
     `id` is the KWIC line id, which is what joins these to
@@ -439,6 +554,14 @@ def occurrence_rows(rows: pd.DataFrame) -> list[dict[str, object]]:
     the speech *body* while everything the reader view highlights is in whole-text
     coordinates; shipping a second coordinate system for the same string is a
     second chance to be wrong about it.
+
+    `contested` and `alt` are the second opinion, per occurrence: the fields a
+    comparison run labelled differently, and that run's own five labels where it
+    did. Three different situations write the same empty `contested`, and that is
+    deliberate — no comparison run, a comparison run that did not reach this
+    occurrence, and a comparison run that agreed. Distinguishing them at the row
+    level would put the state of the whole run into 6,092 rows; the `comparison`
+    block in `usage.json` carries it once.
     """
     out: list[dict[str, object]] = []
     for row in rows.to_dict(orient="records"):
@@ -449,6 +572,9 @@ def occurrence_rows(rows: pd.DataFrame) -> list[dict[str, object]]:
         for field in ROW_FIELDS:
             value = row[field]
             entry[field] = bool(value) if field == "evidence_valid" else str(value)
+        fields, alternative = contested.get(str(row["occurrence_id"]), ([], None))
+        entry["contested"] = fields
+        entry["alt"] = alternative
         out.append(entry)
     return out
 
@@ -559,6 +685,13 @@ def build_note(
             f"{row['eligible']:,} | {actor['assigned']:,} | "
             f"{percent(row['share_rejects'])} |"
         )
+
+    comparison = payload["comparison"]
+    compared = [
+        f"| `{row['field']}` | {row['n']:,} | {number(row['observed'])} | "
+        f"{number(row['kappa'])} | {row['contested']:,} |"
+        for row in comparison["fields"]
+    ]
 
     agreement = [
         f"| `{row['field']}` | {row['n']} | {number(row['observed'])} | "
@@ -793,6 +926,63 @@ def build_note(
                 if scored
                 else []
             ),
+            *(
+                [
+                    "## The second opinion",
+                    "",
+                    "A second model was given the same prompt and the same "
+                    "occurrences. This is a counter-instrument and not a check: where "
+                    "the two runs agree, what has been measured is that the label is "
+                    "stable across instruments; where they differ, the artefact says so "
+                    "occurrence by occurrence so that a reader can go and look. Nothing "
+                    "above is affected — the comparison run is never merged into the "
+                    "counts, and none of its labels replace the published run's.",
+                    "",
+                    "| | |",
+                    "|---|---|",
+                    f"| Run | `{comparison['run_id'] or '—'}` |",
+                    f"| Model | `{comparison['model']}` |",
+                    f"| Reasoning effort | {comparison['reasoning_effort'] or '—'} |",
+                    f"| Run date | {comparison['run_date'] or '—'} |",
+                    f"| Annotated | {comparison['occurrences_annotated']:,} of "
+                    f"{total:,} "
+                    f"({share(int(comparison['occurrences_annotated']), total)}) |",
+                    f"| Compared | {comparison['overlap']:,} occurrences carry a label "
+                    "from both runs |",
+                    f"| Evidence not located | {comparison['evidence_invalid']:,} |",
+                    "",
+                    "Agreement is computed over that overlap, on raw labels and with no "
+                    "eligibility gate: the verdict the gate is cut from is itself one of "
+                    "the fields being compared, and an occurrence one model called a "
+                    "true positive while the other refused the match is exactly the "
+                    "disagreement worth reading.",
+                    "",
+                    "| Field | n | Observed | Kappa | Contested |",
+                    "|---|---:|---:|---:|---:|",
+                    *compared,
+                    "",
+                    (
+                        "`function` is multi-label and carries no kappa. Mean Jaccard "
+                        "overlap between the two runs: "
+                        f"**{float(comparison['function_jaccard']):.3f}**, with "
+                        f"{comparison['function_contested']:,} occurrences carrying a "
+                        "different set of functions."
+                        if comparison["function_jaccard"] is not None
+                        else "`function` is multi-label and carries no kappa; its "
+                        "overlap could not be computed on this pair of runs."
+                    ),
+                    "",
+                    f"**{comparison['contested_any']:,} of "
+                    f"{comparison['overlap']:,} compared occurrences** "
+                    f"({share(int(comparison['contested_any']), int(comparison['overlap']))}) "
+                    "are contested on at least one of the five fields. Each of them "
+                    "carries the other run's five labels in `occurrences.json`, under "
+                    "`alt`.",
+                    "",
+                ]
+                if comparison["state"] == "computed"
+                else []
+            ),
             "## What this artefact may and may not be read as",
             "",
             "- **These are labels, not findings.** Every row records what a model said a "
@@ -811,6 +1001,18 @@ def build_note(
             "membership and with which debates were opened to non-members.",
             "- **The gold sample is the only calibration.** Until it is coded, accuracy is "
             "unmeasured; after it is, it is measured on 200 occurrences and not on 6,092.",
+            *(
+                [
+                    "- **A second opinion is not a second measurement.** The comparison "
+                    "block says how far two models agree with each other. That is "
+                    "stability across instruments — one questionnaire, answered twice — "
+                    "and never accuracy: two models can be wrong about a passage in the "
+                    "same way, and nothing in that block would notice. The gold sample "
+                    "remains the only calibration.",
+                ]
+                if comparison["state"] == "computed"
+                else []
+            ),
             "",
         ]
     ) + "\n"
@@ -833,6 +1035,30 @@ def run(args: argparse.Namespace) -> None:
             "this run declares itself synthetic: every label in it was fabricated by "
             "tools/synthetic_usage_run.py. The artefacts are a shape, not a finding."
         )
+
+    comparison_dir, comparison_id = select_comparison(
+        args.comparison_run, args.comparison_run_dir
+    )
+    comparison_manifest: dict[str, object] = {}
+    comparison_raw: list[dict[str, object]] = []
+    if comparison_dir is None:
+        console.info(
+            f"no comparison run selected in {rel(COMPARISON_RUN)}; the second opinion "
+            "block is written empty"
+        )
+    else:
+        refuse_self_comparison(directory, comparison_dir)
+        comparison_manifest, comparison_raw = read_run(comparison_dir)
+        comparison_id = comparison_id or str(comparison_manifest.get("run_id", ""))
+        console.info(
+            f"comparison {rel(comparison_dir)}: {len(comparison_raw):,} rows, run "
+            f"'{comparison_id}', model {comparison_manifest.get('model')}"
+        )
+        if comparison_manifest.get("synthetic"):
+            console.warn(
+                "the comparison run declares itself synthetic: every label in it was "
+                "fabricated too, and so is every agreement figure below."
+            )
 
     console.step("Reading the corpus and the lexicon")
     speeches = frames.read(SPEECHES_NORM, columns=COLUMNS)
@@ -860,6 +1086,23 @@ def run(args: argparse.Namespace) -> None:
     refuse_partial(len(raw_rows), len(found), args.allow_partial)
     console.info(f"{len(referents)} controlled referents, every row validated against them")
 
+    if comparison_raw:
+        # Every identity check the published run passed, plus the one only a
+        # comparison can fail. Coverage is the one thing not checked: a
+        # comparison run is read over the occurrences both runs reached, so a
+        # short one narrows the comparison rather than invalidating the counts.
+        refuse_other_prompt(comparison_manifest, str(manifest.get("prompt_sha256", "")))
+        refuse_stale_lexicon(
+            comparison_manifest, comparison_raw, str(lex.version), what="the comparison run"
+        )
+        refuse_bad_rows(comparison_raw, enumerated, referents, what="the comparison run")
+        if len(comparison_raw) < len(found):
+            console.warn(
+                f"the comparison run annotates {len(comparison_raw):,} of {len(found):,} "
+                "occurrences; agreement is computed over the overlap and the artefact "
+                "records how large it is"
+            )
+
     console.step("Joining the run to the corpus")
     # The five dropped columns are the enumeration's own, written into every row
     # by 14 and already checked against it above. Keeping both copies would
@@ -874,6 +1117,36 @@ def run(args: argparse.Namespace) -> None:
     )
     rows = merged.loc[merged["_merge"] == "both"].drop(columns="_merge").reset_index(drop=True)
     console.info(f"{len(rows):,} occurrences carry a label")
+
+    console.step("Weighing the second opinion")
+    contested = usage.contested_rows(rows, comparison_raw)
+    comparison = usage.comparison_block(
+        rows,
+        comparison_raw,
+        run_id=comparison_id,
+        model=str(comparison_manifest.get("model", "")),
+        run_date=str(
+            comparison_manifest.get("completed") or comparison_manifest.get("created") or ""
+        )[:10],
+        reasoning_effort=str(comparison_manifest.get("reasoning_effort", "")),
+        prompt_sha256=str(comparison_manifest.get("prompt_sha256", "")),
+    )
+    if comparison["state"] == "computed":
+        console.info(
+            f"{comparison['overlap']:,} occurrences carry a label from both runs, "
+            f"{comparison['contested_any']:,} of them contested on at least one field"
+        )
+        for field in comparison["fields"]:
+            observed = field["observed"]
+            kappa = field["kappa"]
+            console.info(
+                f"  {field['field']:<10s} "
+                f"observed {'—' if observed is None else format(observed, '.3f')}, "
+                f"kappa {'—' if kappa is None else format(kappa, '.3f')}, "
+                f"{field['contested']:,} contested"
+            )
+    else:
+        console.info("no comparison run; the block is written in its 'none' state")
 
     console.step("Aggregating")
     referent_table = read_referents(REFERENTS)
@@ -897,6 +1170,12 @@ def run(args: argparse.Namespace) -> None:
                 f"{sum(1 for row in blocks['stance_by_actor'] if not row['sufficient']):,} "
                 f"of {len(blocks['stance_by_actor']):,}",
             ),
+            (
+                "contested",
+                f"{comparison['contested_any']:,} of {comparison['overlap']:,} compared"
+                if comparison["state"] == "computed"
+                else "no comparison run",
+            ),
         ]
     )
 
@@ -913,6 +1192,11 @@ def run(args: argparse.Namespace) -> None:
         rows,
         sample_size=len(candidates),
         unique_occurrences=int(candidates["occurrence_id"].nunique()),
+        # The comparison run scored against the same human reference, by the same
+        # computation. This is the one place either model can be said to be
+        # accurate about anything; the `comparison` block scores them against each
+        # other, which measures neither.
+        comparison=pd.DataFrame(comparison_raw),
     )
     jaccard = usage.function_jaccard(annotations, rows)
     console.info(
@@ -925,7 +1209,16 @@ def run(args: argparse.Namespace) -> None:
     meta = artifacts.provenance(
         ROOT,
         "15_usage.py",
-        inputs=[SPEECHES_NORM, directory / "manifest.json", directory / "annotations.jsonl"],
+        inputs=[
+            SPEECHES_NORM,
+            directory / "manifest.json",
+            directory / "annotations.jsonl",
+            # The comparison run is an input like any other: `provenance` skips a
+            # path that does not exist, so the list is simply shorter when no
+            # second opinion was read, and the block's own `state` says so.
+            *([] if comparison_dir is None else [comparison_dir / "manifest.json"]),
+            *([] if comparison_dir is None else [comparison_dir / "annotations.jsonl"]),
+        ],
         configs=[LEXICON, REFERENTS, PROMPT, GOLD_ANNOTATIONS],
         extra={
             "lexicon_version": lex.version,
@@ -954,6 +1247,7 @@ def run(args: argparse.Namespace) -> None:
         "matrix": blocks["matrix"],
         "stance_by_actor": blocks["stance_by_actor"],
         "diffusion": diffusion,
+        "comparison": comparison,
         "gold": gold,
     }
 
@@ -961,7 +1255,7 @@ def run(args: argparse.Namespace) -> None:
         artifacts.atomic_write_json(staged / "usage.json", payload)
         artifacts.atomic_write_json(
             staged / "occurrences.json",
-            {"meta": meta, "occurrences": occurrence_rows(rows)},
+            {"meta": meta, "occurrences": occurrence_rows(rows, contested)},
         )
         for name in ("usage.json", "occurrences.json"):
             size = (staged / name).stat().st_size / 1e3
@@ -984,12 +1278,21 @@ def run(args: argparse.Namespace) -> None:
         artifacts.provenance(
             ROOT,
             "15_usage.py",
-            inputs=[SPEECHES_NORM, directory / "annotations.jsonl"],
+            inputs=[
+                SPEECHES_NORM,
+                directory / "annotations.jsonl",
+                *([] if comparison_dir is None else [comparison_dir / "annotations.jsonl"]),
+            ],
             configs=[LEXICON, REFERENTS, PROMPT, GOLD_ANNOTATIONS],
             extra={
                 "run_id": run_id,
                 "run_dir": rel(directory),
                 "model": str(manifest.get("model", "")),
+                "comparison_run_id": comparison_id,
+                "comparison_run_dir": "" if comparison_dir is None else rel(comparison_dir),
+                "comparison_state": comparison["state"],
+                "comparison_overlap": comparison["overlap"],
+                "comparison_contested": comparison["contested_any"],
                 "lexicon_version": lex.version,
                 "minimum_occurrences": args.minimum,
                 "outputs": [
@@ -1019,6 +1322,20 @@ def main() -> None:
         "--run-dir",
         type=Path,
         help="read a run directory anywhere, for a fixture that is not committed",
+    )
+    # A second group, because the two selections are independent: a comparison
+    # may be named against any published run, including one given by --run-dir.
+    second = parser.add_mutually_exclusive_group()
+    second.add_argument(
+        "--comparison-run",
+        help=f"run id under {rel(RUNS)} to read the published run against; defaults "
+        "to the one named in comparison_run.txt, which is empty",
+    )
+    second.add_argument(
+        "--comparison-run-dir",
+        type=Path,
+        help="read a comparison run directory anywhere, for a fixture that is not "
+        "committed",
     )
     parser.add_argument(
         "--allow-partial",

@@ -789,6 +789,76 @@ export interface UsageDiffusion {
 	referents: UsageDiffusionReferent[];
 }
 
+/**
+ * One field two runs were compared on, over the occurrences both of them read.
+ *
+ * `observed` and `kappa` are the statistics `UsageAgreement` carries between the
+ * two human coders, computed upstream by the same functions so that the two
+ * tables can be read against each other — and null on the same degenerate
+ * inputs, because "kappa could not be computed on one category" and "the two
+ * runs agreed by chance" are different findings. `contested` is the count of
+ * compared occurrences the two labelled differently, which is the number a
+ * reader can go and look at.
+ */
+export interface UsageComparisonField {
+	field: string;
+	/** Occurrences both runs reached. The same for every field of one comparison. */
+	n: number;
+	observed: number | null;
+	kappa: number | null;
+	contested: number;
+}
+
+/**
+ * A second model's answers to the same questionnaire — or the empty block that
+ * says none was bought.
+ *
+ * The keys are the same in both states: under `none` the strings are empty, the
+ * counts are zero and `fields` is an empty array, the idiom `UsageGold` uses to
+ * leave its own tables empty until they can be computed. Nothing downstream has
+ * to special-case an absence that is the ordinary case.
+ *
+ * **What agreement here is.** Two models agreeing measures the stability of a
+ * label across instruments and never its accuracy: both can be wrong about a
+ * passage in the same way, and neither has been checked against anything. The
+ * human gold sample is the only calibration in this artefact, and every surface
+ * that prints one of these numbers has to say so.
+ *
+ * The counts describing the *run* — `occurrences_annotated`, `abstention`,
+ * `evidence_invalid` — are over all of its rows. The ones describing the
+ * *comparison* are over `overlap` alone, because a run that annotated half the
+ * corpus and agreed on all of it is not the finding a run that annotated all of
+ * it and agreed on half is.
+ */
+export interface UsageComparison {
+	state: 'computed' | 'none';
+	run_id: string;
+	/** The comparison model's own API identifier. Empty under `none`. */
+	model: string;
+	run_date: string;
+	reasoning_effort: string;
+	/**
+	 * The prompt the comparison was made with.
+	 *
+	 * Equal to the published run's, byte for byte: a second opinion made from
+	 * different instructions is an answer to a different question, and 15 refuses
+	 * to publish one. Carried anyway so the page can state it rather than assume it.
+	 */
+	prompt_sha256: string;
+	occurrences_annotated: number;
+	/** Occurrences carrying a label from both runs. Every statistic below is over these. */
+	overlap: number;
+	evidence_invalid: number;
+	abstention: { verdict_uncertain: number; referent_unclear: number; stance_unclear: number };
+	/** The four single-label fields. Empty where the two runs overlap nowhere. */
+	fields: UsageComparisonField[];
+	/** `function` is multi-label and carries no kappa; this is its mean set overlap. */
+	function_jaccard: number | null;
+	function_contested: number;
+	/** Compared occurrences the two runs differ on in at least one of the five fields. */
+	contested_any: number;
+}
+
 /** Agreement between two coders on one field, or null while it cannot be computed. */
 export interface UsageAgreement {
 	field: string;
@@ -831,6 +901,15 @@ export interface UsageGold {
 	adjudicated: number;
 	human_agreement: UsageAgreement[];
 	model_vs_human: UsageModelScore[];
+	/**
+	 * The comparison run against the same human labels, scored the same way.
+	 *
+	 * Beside `model_vs_human` rather than instead of it: the published run is the
+	 * one every count on the page is made of, and the second opinion is scored
+	 * here only so that the two can be read against the same reference. Empty
+	 * until there is both a coded sample and a comparison run.
+	 */
+	model_vs_human_comparison: UsageModelScore[];
 	state: 'not_started' | 'in_progress' | 'complete';
 }
 
@@ -848,7 +927,25 @@ export interface Usage {
 	matrix: UsageMatrixCell[];
 	stance_by_actor: UsageStanceRow[];
 	diffusion: UsageDiffusion;
+	/** A second model over the same occurrences, or the block that says none was run. */
+	comparison: UsageComparison;
 	gold: UsageGold;
+}
+
+/**
+ * The comparison run's own five labels for one occurrence.
+ *
+ * Carried in full rather than only for the fields that differ, so that a reader
+ * told an occurrence is contested can see the other reading whole without
+ * loading a second run. `function` is pipe-joined without spaces, as the
+ * published field is.
+ */
+export interface UsageAlternative {
+	verdict: string;
+	quotation: string;
+	stance: string;
+	function: string;
+	referent: string;
 }
 
 /**
@@ -876,6 +973,18 @@ export interface UsageOccurrence {
 	evidence_quote: string;
 	/** False when that span could not be found in the speech it names. */
 	evidence_valid: boolean;
+	/**
+	 * The fields a second opinion read differently: a subset of `verdict`,
+	 * `quotation`, `stance`, `function` and `referent`, in that order.
+	 *
+	 * Empty in three different situations — no comparison run, a comparison run
+	 * that never reached this occurrence, and one that reached it and agreed —
+	 * because the state of a whole run does not belong in 6,092 rows. The
+	 * `comparison` block's `state` and `overlap` are what tell those apart.
+	 */
+	contested: string[];
+	/** The second reading, non-null exactly where `contested` is not empty. */
+	alt: UsageAlternative | null;
 }
 
 export interface UsageOccurrences {

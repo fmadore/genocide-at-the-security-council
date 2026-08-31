@@ -797,6 +797,43 @@ rather than leaving it to a methods page.
 - The figure and its export carry the experimental marking and the speaking-record caveat, and
   the chronology resolves to the reader at the exact occurrence.
 
+### L8. The second opinion — a comparison run from an independent model
+
+**Decision, 31 August 2026.** One model's labels carry one model's habits — the near-zero
+abstention of the first run is exactly the kind of artefact a single instrument cannot see in
+itself. L8 adds a *comparison run*: a second model from a different family (Google Gemini 3.7
+Flash) annotates the same occurrences with the byte-identical prompt, and the aggregation
+computes where the two instruments disagree. Disagreement is the working signal: an occurrence
+two independent models read differently is, with high probability, a passage worth a
+historian's attention — ambiguity, irony, entangled attribution, damaged OCR.
+
+The limit is stated with the feature, because it is the feature's most likely misreading:
+**agreement between two models measures stability across instruments, never accuracy.** Two
+models can share training habits and be confidently wrong together. Convergence validates
+nothing; the human gold sample remains the only calibration, and it scores both runs, so a
+disagreement the humans have adjudicated also says which instrument erred.
+
+**Change.** `scripts/16_llm_annotate_gemini.py` (+ `scripts/lib/gemini.py`) — the Gemini
+sibling of 14: manual, paid, never in CI, same enumeration, same prompt file and hash, rows
+byte-compatible with the committed run shape. `model_annotations/genocide/comparison_run.txt`
+names the counter-instrument run the way `current_run.txt` names the authority; 15 reads
+both, refuses a comparison made against a different prompt, and publishes a `comparison`
+block (per-field observed agreement, Cohen's kappa, contested counts) plus per-occurrence
+`contested`/`alt` fields, all computed and never merged — the matrix, the stance profiles and
+the diffusion stay drawn from the published run alone. The `/usage` view marks contested
+occurrences in the drill-down, can filter to them, reports the agreement table in the
+apparatus, and lists the most contested passages as a reading list with a full CSV.
+
+**Acceptance and tests.**
+
+- A comparison run with a different prompt hash is refused in words; identity checks are the
+  published run's own.
+- `function` disagreement is set inequality over the pipe-split labels; evidence quotes and
+  confidence are never compared.
+- The empty state (no comparison run) satisfies the same payload contract as the computed one.
+- Every surface that shows a disagreement names both models and carries the
+  stability-not-validation sentence.
+
 ## Phase E — institutional and historical extension
 
 ### E1. Rhetoric and formal Council action
@@ -892,3 +929,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-08-30 | L5 the `/usage` view               | complete   | pending | `npx vitest run` (413 passed incl. the two-way contract test); `npm run check` (0 errors); `npm run lint`; `npm run test:e2e` (18 journeys, 5 on `/usage`, 2 axe scans); `npm run build` (13 static entry points incl. `usage/index.html`) | The experimental apparatus opens the page: model id, run and prompt identity, coverage, abstention, the gold state, and the sentence that governs it — model-derived, human labels the authority. The matrix is one tab stop with roving arrow-key focus; abstention codes can never become referent columns; the 70-row cap is disclosed in words with the remainder in the CSV. Drill-down joins the KWIC lines and links each quotation into the reader and the concordance through the same `readerQuery` the concordance itself now uses. Methods gains rows 13–15 and an `experimental` state on `--state-warn`. Everything drawn so far draws from the clearly-labelled synthetic run. |
 | 2026-08-30 | L6 documentation closure           | complete   | pending | claims read back against `README.md`, `docs/PLAN.md` §5, `docs/VALIDATION.md` §§2·6·7, `scripts/README.md`; `python -m pytest -q`; `ruff check .` | README moves the extraction row from deferred to experimental, counts seven views, and acknowledges Joël Glasman as instigator and second coder — `CITATION.cff` untouched per the recorded decision. PLAN §5 keeps its six requirements verbatim and maps where each now lives, naming what is still owed (sensitivity run, promotion thresholds). VALIDATION gains the gold sample (§6) and the model-run register (§7), and §2 no longer claims the referent list holds only reserved values. scripts/README documents 13–15, the run book with `gpt-5.6-luna` spelled exactly, and the price of editing the `genocide` pattern: new sample, new coding, new run. |
 | 2026-08-30 | L7 diffusion of the word           | complete   | pending | `python -m pytest -q` (766 passed, `tests/test_usage.py` at 52); `ruff check .`; `--update-contract` diff = 19 insertions, 0 deletions, all inside the `diffusion` shapes; `npm test`; `npm run check`; `npm run lint`; `npm run test:e2e` (2 new `/usage` journeys, axe clean); `npm run build`; the synthetic render read in the browser | Same feedback, second round: the diffusion question — when each delegation first said, first asserted, first rejected the word for each referent. No new model call: `usage.json` gains a `diffusion` block of dated first events per (referent, delegation) in three milestone classes, each carrying its KWIC line id; on the synthetic fixture the `mention` events equal the matrix cells exactly (1,801), which is the invariant that says the two blocks count the same population. `/usage` gains a cumulative step figure (assertion solid, refusal dashed, mention drawn only when it differs from assertion) over a fixed cross-referent time axis, with the chronology table — the historian's deliverable — beneath it, driven by the same `?referent=` state as the matrix, and the caveat in the figure's own apparatus: the curve counts delegations speaking in this corpus, absence is not refusal. |
+| 2026-08-31 | L8 the second opinion              | complete   | pending | `python -m pytest -q` (803 passed; `tests/test_gemini.py` 26, all offline; the request-parity and same-population tests bind 14 and 16); `ruff check .`; contract diff = 33 insertions, only the comparison shapes; `15_usage.py` verified in both states — synthetic pair (overlap 5,952, contested 1,642) and real run + empty comparison — against the same contract; `npm test` (448); `npm run check`; `npm run lint`; `npm run test:e2e` (26 journeys incl. the none-state variant); `npm run build` against the real payload, unchanged | Gemini 3.7 Flash as counter-instrument (API surface verified on ai.google.dev, 2026-08-31; `gemini-3.7-flash`, thinking high, Batch at half price, `responseJsonSchema` passthrough). 16 is 14's sibling; a test asserts both providers are sent byte-identical messages and schema, and another that they annotate the same documented population. `comparison_run.txt` names the counter-instrument; 15 refuses a different prompt hash and a self-comparison, computes per-field observed/kappa and per-occurrence `contested`/`alt`, and never redraws matrix, stance or diffusion from it. The view marks contested rows, filters on `contested=1`, tables the agreement in the apparatus and lists the most contested passages with a full CSV — each surface carrying the sentence that governs the phase: agreement between two models is stability across instruments, never accuracy. **No comparison run exists yet**: `comparison_run.txt` is empty, the live payload renders the none state, and the run waits on a `GEMINI_API_KEY` (~$12 in Batch). |

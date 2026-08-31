@@ -750,6 +750,198 @@ def test_the_function_overlap_uses_the_same_reference_rule() -> None:
     assert usage.function_jaccard(annotations(), model) is None
 
 
+# --- The second opinion -----------------------------------------------------
+
+
+def second_run(*changes: dict[str, object]) -> list[dict[str, object]]:
+    """A comparison run's rows, in the shape `lib.llm.read_rows` returns them.
+
+    A list of dicts and not a frame, because that is what `15_usage.py` has in
+    hand when it reads a second run: the comparison never joins the corpus, so
+    nothing builds a frame around it. Ids are assigned by position, as in
+    :func:`rows`, so the two runs line up unless a test says otherwise.
+    """
+    return rows(*changes).to_dict(orient="records")
+
+
+#: The ten paired judgements of LEFT and RIGHT, spelled in the codebook's stance
+#: vocabulary so that two runs can be written from them.
+STANCE_OF = {"yes": "asserts", "no": "rejects_or_denies"}
+
+
+def test_a_field_is_contested_only_where_the_two_runs_label_it_differently() -> None:
+    published = rows(*repeat(3, stance="asserts"))
+    second = second_run(
+        {"stance": "asserts"},
+        {"stance": "rejects_or_denies"},
+        {"stance": "unclear"},
+    )
+    table = {row["field"]: row for row in usage.comparison_fields(published, second)}
+    assert table["stance"]["n"] == 3
+    assert table["stance"]["contested"] == 2
+    # The other three fields are identical in both runs and contest nothing.
+    assert [table[field]["contested"] for field in ("verdict", "quotation", "referent")] == [
+        0,
+        0,
+        0,
+    ]
+
+
+def test_the_multi_label_field_is_compared_as_a_set() -> None:
+    # Order carries no meaning in `function`, so two spellings of one judgement
+    # are not a disagreement; a strictly larger set is.
+    published = rows({"function": "a|b"}, {"function": "a"})
+    second = second_run({"function": "b|a"}, {"function": "a|b"})
+    contested = usage.contested_rows(published, second)
+    assert contested["occ-000"] == ([], None)
+    assert contested["occ-001"][0] == ["function"]
+    # `function` carries no kappa, so it is absent from the per-field table and
+    # reported as an overlap instead.
+    assert [row["field"] for row in usage.comparison_fields(published, second)] == list(
+        usage.SINGLE_LABEL_FIELDS
+    )
+
+
+def test_the_alternative_reading_is_carried_in_full_or_not_at_all() -> None:
+    published = rows({}, {})
+    second = second_run({"stance": "rejects_or_denies"}, {})
+    contested = usage.contested_rows(published, second)
+    fields, alternative = contested["occ-000"]
+    assert fields == ["stance"]
+    # All five labels, not only the contested one: a reader told an occurrence is
+    # contested is being invited to read the other run's whole reading of it.
+    assert alternative == {
+        "verdict": "true_positive",
+        "quotation": "not_quoted",
+        "stance": "rejects_or_denies",
+        "function": "accusation_or_qualification",
+        "referent": "rwanda_1994",
+    }
+    assert list(alternative) == list(usage.COMPARED_FIELDS)
+    # Agreement carries no alternative: a reading identical to the published one
+    # is not an alternative to it.
+    assert contested["occ-001"] == ([], None)
+
+
+def test_the_overlap_is_what_both_runs_reached_and_nothing_else() -> None:
+    published = rows({"occurrence_id": "a"}, {"occurrence_id": "b"})
+    second = second_run({"occurrence_id": "b"}, {"occurrence_id": "c"})
+    assert usage.comparison_overlap(published, second) == ["b"]
+    assert list(usage.contested_rows(published, second)) == ["b"]
+    assert usage.comparison_fields(published, second)[0]["n"] == 1
+    # An occurrence only one run reached is absent from the mapping rather than
+    # present and agreeing, and the block says how far the two overlap.
+    block = usage.comparison_block(published, second)
+    assert (block["occurrences_annotated"], block["overlap"]) == (2, 1)
+
+
+def test_a_refused_match_is_compared_rather_than_filtered_out() -> None:
+    # The published run called the match a false positive and the second called
+    # it a true positive. The eligibility gate every other block is cut on would
+    # drop this row, and it is the disagreement most worth reading.
+    contested = usage.contested_rows(rows(false_positive()), second_run({}))
+    fields, alternative = contested["occ-000"]
+    assert fields == list(usage.COMPARED_FIELDS)
+    assert alternative["verdict"] == "true_positive"
+    # Nor is an evidence quotation nobody could locate a reason to drop a row.
+    assert usage.contested_rows(rows({"evidence_valid": False}), second_run({})) == {
+        "occ-000": ([], None)
+    }
+
+
+def test_observed_and_kappa_are_the_statistics_the_two_coders_are_scored_by() -> None:
+    published = rows(*[{"stance": STANCE_OF[value]} for value in LEFT])
+    second = second_run(*[{"stance": STANCE_OF[value]} for value in RIGHT])
+    table = {row["field"]: row for row in usage.comparison_fields(published, second)}
+    # p_o = 0.70 and kappa = 0.40, hand-computed above LEFT and RIGHT.
+    assert (table["stance"]["observed"], table["stance"]["kappa"]) == (0.7, 0.4)
+    assert table["stance"]["contested"] == 3
+    # One category on the verdict field: kappa is not defined there, and the
+    # answer is the same one `human_agreement` gives from the same function.
+    assert table["verdict"]["observed"] == 1.0
+    assert table["verdict"]["kappa"] is None
+
+
+def test_the_multi_label_overlap_is_reported_where_kappa_cannot_be() -> None:
+    # {a} vs {a} -> 1, {a,b} vs {a} -> 1/2, {a} vs {c} -> 0; mean 0.5.
+    published = rows({"function": "a"}, {"function": "a|b"}, {"function": "a"})
+    second = second_run({"function": "a"}, {"function": "a"}, {"function": "c"})
+    block = usage.comparison_block(published, second)
+    assert block["function_jaccard"] == 0.5
+    assert block["function_contested"] == 2
+    assert block["contested_any"] == 2
+
+
+def test_what_the_second_run_did_is_counted_over_all_of_its_rows() -> None:
+    published = rows({"occurrence_id": "a"})
+    second = second_run(
+        {"occurrence_id": "a"},
+        {"occurrence_id": "b", "referent": "unclear", "evidence_valid": False},
+    )
+    block = usage.comparison_block(published, second)
+    # The abstention and the unlocatable evidence belong to the second run and
+    # are reported whether or not the published run reached that occurrence; the
+    # agreement figures below them are over the overlap alone.
+    assert (block["evidence_invalid"], block["abstention"]["referent_unclear"]) == (1, 1)
+    assert (block["overlap"], block["contested_any"]) == (1, 0)
+
+
+def test_an_empty_comparison_is_written_as_a_state_rather_than_as_an_absence() -> None:
+    published = rows({}, {})
+    empty = usage.comparison_block(published, [])
+    computed = usage.comparison_block(
+        published, second_run({"stance": "unclear"}, {}), run_id="0000-00-00-second"
+    )
+    # One builder, so the two states cannot drift apart: a consumer reads the
+    # same keys whether or not a second opinion was bought.
+    assert list(empty) == list(computed)
+    assert (empty["state"], computed["state"]) == ("none", "computed")
+    assert empty["fields"] == []
+    assert empty["function_jaccard"] is None
+    assert [
+        empty[key]
+        for key in ("run_id", "model", "run_date", "reasoning_effort", "prompt_sha256")
+    ] == [""] * 5
+    assert [
+        empty[key]
+        for key in (
+            "occurrences_annotated",
+            "overlap",
+            "evidence_invalid",
+            "function_contested",
+            "contested_any",
+        )
+    ] == [0] * 5
+    assert empty["abstention"] == {
+        "verdict_uncertain": 0,
+        "referent_unclear": 0,
+        "stance_unclear": 0,
+    }
+    assert usage.contested_rows(published, []) == {}
+
+
+def test_the_comparison_run_is_scored_against_the_same_human_reference() -> None:
+    # occ-000's reference is `uncertain` and occ-001's is `true_positive`; the
+    # comparison run says `uncertain` to both, so one of two is right.
+    published = rows({}, {})
+    second = rows(
+        *repeat(2, verdict="uncertain", quotation="unclear", stance="unclear",
+                function="unclear", referent="unclear")
+    )
+    block = usage.gold_block(
+        ADJUDICATED, published, sample_size=200, unique_occurrences=2, comparison=second
+    )
+    scored = {row["field"]: row for row in block["model_vs_human_comparison"]}
+    assert (scored["verdict"]["n"], scored["verdict"]["accuracy"]) == (2, 0.5)
+    keys = list(block)
+    assert keys.index("model_vs_human_comparison") == keys.index("model_vs_human") + 1
+    # Empty rather than absent where no comparison run was read, as every other
+    # table in this block is until it can be computed.
+    assert usage.gold_block(
+        ADJUDICATED, published, sample_size=200, unique_occurrences=2
+    )["model_vs_human_comparison"] == []
+
+
 # --- Refusals ---------------------------------------------------------------
 
 ENUMERATED = {"occ-000": "digest-a", "occ-001": "digest-b"}

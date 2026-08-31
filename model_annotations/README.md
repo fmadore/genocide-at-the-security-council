@@ -26,6 +26,7 @@ this directory at all, so no published lexicon count depends on a model having b
 genocide/
   PROMPT.md                    the versioned prompt; its raw bytes are hashed into every run
   current_run.txt              the run id the dashboard shows, or empty for none
+  comparison_run.txt           the run id read against it as a second opinion, or empty
   runs/<run_id>/
     manifest.json              model, prompt hash, counts, token usage, status
     annotations.jsonl          one row per annotated occurrence
@@ -54,3 +55,19 @@ selected. It is the only switch in this directory, and changing it is a reviewed
 changes what the site shows — which is the point of keeping it as a file rather than as a
 default in code. An empty file means the usage layer has no model run to display, and 15 says
 so instead of failing.
+
+## `comparison_run.txt`
+
+The same one line, naming the run read against the published one as a **counter-instrument**:
+a different model, given the same `PROMPT.md`, annotating the same occurrences. 15 computes
+the agreement between the two — per field, and per occurrence — and writes it into
+`usage.json` and `occurrences.json`. It never merges them: no label from the comparison run
+enters a count, replaces a published label, or breaks a tie. A comparison run made against a
+different prompt is refused outright, because a disagreement between two models asked two
+questions cannot be told apart from a disagreement about one.
+
+What agreement here means is narrow, and it is the reason the file is empty by default.
+Two models agreeing shows that a label is **stable across instruments** — the same
+questionnaire, answered twice, by two machines with overlapping training and the same blind
+spots. It is not validation and not accuracy. The human gold sample under `annotations/` is
+the only calibration this project has, and a second model does not become one by agreeing.

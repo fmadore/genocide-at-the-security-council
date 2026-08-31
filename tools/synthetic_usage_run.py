@@ -1,13 +1,22 @@
-"""Fabricate a complete model run so the payload contract exists before the bill.
+"""Fabricate two complete model runs so the payload contract exists before the bill.
 
 **Nothing here is data.** Every label this writes is invented by a hash of an
-occurrence identifier. The run it produces is stamped `0000-00-00-synthetic` and
-attributed to a model called `synthetic-fixture`, both of which are impossible
+occurrence identifier. The runs it produces are stamped `0000-00-00-synthetic`
+and `0000-00-00-synthetic-comparison`, attributed to models called
+`synthetic-fixture` and `synthetic-comparison`, all of which are impossible
 values for a real run: run ids are dates and the model field records an exact API
-model id. `15_usage.py` will aggregate it happily, and the artefacts it produces
-are a shape and not a finding. Never put this run id in
-`model_annotations/genocide/current_run.txt`, and never read a number out of the
-`usage.json` built from it.
+model id. `15_usage.py` will aggregate them happily, and the artefacts it
+produces are a shape and not a finding. Never put either run id in
+`model_annotations/genocide/current_run.txt` or `comparison_run.txt`, and never
+read a number out of the `usage.json` built from them.
+
+The second run is the **counter-instrument** the comparison block is declared
+from: the same occurrences and the same prompt hash, a different model id, and
+labels that are the first run's with some decisions deterministically redrawn, so
+that every compared field carries both agreements and disagreements. It also
+omits a small share of the occurrences outright, because a comparison run may
+legitimately cover less of the corpus than the published one and the artefact has
+to have a shape for that.
 
 Two things it is for:
 
@@ -30,13 +39,15 @@ somewhere; a state and an IGO, so `actors[].iso3` is a string somewhere and null
 somewhere. Both are asserted before anything is written, and the tool fails
 rather than shipping a single-variant contract.
 
-Output goes to `data/interim/synthetic_run/`, which `.gitignore` excludes — the
+Output goes to `data/interim/synthetic_run/` and
+`data/interim/synthetic_run_comparison/`, which `.gitignore` excludes — the
 fixture takes a minute to rebuild from the corpus, and committing 6,092
 fabricated annotations beside a directory of real ones is exactly the confusion
 the naming above is trying to prevent.
 
     python tools/synthetic_usage_run.py
-    python scripts/15_usage.py --run-dir data/interim/synthetic_run
+    python scripts/15_usage.py --run-dir data/interim/synthetic_run \
+        --comparison-run-dir data/interim/synthetic_run_comparison
 
 Requires an x64 Python 3.12 — pyarrow publishes no 32-bit wheel.
 """
@@ -65,12 +76,19 @@ TERM = "genocide"
 RUN_ID = "0000-00-00-synthetic"
 MODEL = "synthetic-fixture"
 
+#: The counter-instrument's own impossible pair. A second opinion has to be a
+#: different model, and a reader of either artefact has to be able to see at a
+#: glance that neither of these was ever asked anything.
+COMPARISON_RUN_ID = "0000-00-00-synthetic-comparison"
+COMPARISON_MODEL = "synthetic-comparison"
+
 #: Fixed, so that rebuilding the fixture twice produces byte-identical files and
 #: a contract diff means a real shape change. A real run stamps the day it ran.
 ANNOTATED_AT = "2000-01-01"
 TIMESTAMP = "2000-01-01T00:00:00Z"
 
 OUTPUT = INTERIM / "synthetic_run"
+COMPARISON_OUTPUT = INTERIM / "synthetic_run_comparison"
 PROMPT = ROOT / "model_annotations" / TERM / "PROMPT.md"
 REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
 
@@ -138,6 +156,27 @@ BAD_QUOTE = "[synthetic fixture] this quotation is not in the speech"
 #: What a `referent: other` row proposes. One value, so it is obvious in a diff.
 PROPOSED = "a case the controlled list does not hold"
 
+#: How often the second model is made to differ, per decision. Redrawn rather
+#: than randomised: a counter-instrument that agreed nowhere would exercise the
+#: disagreement paths and nothing else, and one that agreed everywhere would
+#: leave `contested` empty in the contract. The numbers are a guess at a
+#: plausible spread between two competent models and nothing more; a redraw can
+#: land on the label it replaced, so the observed disagreement is a little lower
+#: than each rate.
+FLIP: dict[str, float] = {
+    "verdict": 0.03,
+    "quotation": 0.12,
+    "stance": 0.15,
+    "function": 0.14,
+    "referent": 0.10,
+}
+
+#: Share of occurrences the second run never reached at all, so that the
+#: partial-coverage path — `overlap` below `occurrences_annotated`, and rows whose
+#: `contested` is empty because nobody looked rather than because two models
+#: agreed — has something in it.
+OMITTED = 0.02
+
 
 def stream(occurrence_id: str, salt: str) -> float:
     """A uniform draw in [0, 1) that depends on nothing but its two arguments.
@@ -172,6 +211,66 @@ def referent_weights(referents: Sequence[str]) -> tuple[tuple[str, float], ...]:
     return tuple((name, 1 / (position + 1.5)) for position, name in enumerate(referents))
 
 
+def cascade(verdict: str, quote: str, confidence: str) -> dict:
+    """The labels a verdict other than `true_positive` fixes on its own.
+
+    `lib.llm.check_labels` allows a false positive no discourse labels but
+    `not_applicable`, and reserves that value for false positives; a model that
+    has called the passage illegible abstains across the board rather than
+    guessing four labels for it. Factored out because both fabricated runs obey
+    the same cascade and neither may drift from it.
+    """
+    if verdict == "false_positive":
+        return {
+            "quotation": "not_applicable",
+            "stance": "not_applicable",
+            "function": ("not_applicable",),
+            "referent": "not_applicable",
+            "proposed_referent": "",
+            "evidence_quote": quote,
+            "confidence": confidence,
+        }
+    return {
+        "quotation": "unclear",
+        "stance": "unclear",
+        "function": ("unclear",),
+        "referent": "unclear",
+        "proposed_referent": "",
+        "evidence_quote": quote,
+        "confidence": "low",
+    }
+
+
+def discourse_labels(
+    occurrence_id: str, cases: Sequence[tuple[str, float]], prefix: str = ""
+) -> dict:
+    """The five fields a true positive carries, drawn from one salted stream.
+
+    `prefix` is what makes a second model a second model: the same occurrence
+    identity through a different salt is an independent draw, so the comparison
+    run's alternative reading of a passage is reproducible without being the
+    first run's reading. An empty prefix is the published run's own draw and must
+    stay that way — changing it would rewrite every label in the fixture and turn
+    an unrelated commit into a whole-contract diff.
+    """
+    draw = stream(occurrence_id, f"{prefix}referent")
+    if draw < UNCLEAR_REFERENT:
+        referent, proposed = "unclear", ""
+    elif draw < UNCLEAR_REFERENT + OTHER_REFERENT:
+        referent, proposed = "other", PROPOSED
+    else:
+        referent, proposed = pick(stream(occurrence_id, f"{prefix}case"), cases), ""
+    return {
+        "quotation": pick(stream(occurrence_id, f"{prefix}quotation"), QUOTATIONS),
+        "stance": pick(stream(occurrence_id, f"{prefix}stance"), STANCES),
+        "function": tuple(
+            pick(stream(occurrence_id, f"{prefix}function"), FUNCTIONS).split("|")
+        ),
+        "referent": referent,
+        "proposed_referent": proposed,
+    }
+
+
 def labels_for(occurrence_id: str, sentence: str, cases: Sequence[tuple[str, float]]) -> dict:
     """One occurrence's fabricated labels, obeying the codebook's own cascade.
 
@@ -185,48 +284,68 @@ def labels_for(occurrence_id: str, sentence: str, cases: Sequence[tuple[str, flo
     quote = (
         BAD_QUOTE if stream(occurrence_id, "evidence") < BAD_EVIDENCE else sentence
     )
-
-    if verdict == "false_positive":
-        return {
-            "verdict": verdict,
-            "quotation": "not_applicable",
-            "stance": "not_applicable",
-            "function": ("not_applicable",),
-            "referent": "not_applicable",
-            "proposed_referent": "",
-            "evidence_quote": quote,
-            "confidence": pick(stream(occurrence_id, "confidence"), CONFIDENCE),
-        }
-    if verdict == "uncertain":
-        return {
-            "verdict": verdict,
-            "quotation": "unclear",
-            "stance": "unclear",
-            "function": ("unclear",),
-            "referent": "unclear",
-            "proposed_referent": "",
-            "evidence_quote": quote,
-            "confidence": "low",
-        }
-
-    draw = stream(occurrence_id, "referent")
-    if draw < UNCLEAR_REFERENT:
-        referent, proposed = "unclear", ""
-    elif draw < UNCLEAR_REFERENT + OTHER_REFERENT:
-        referent, proposed = "other", PROPOSED
-    else:
-        referent, proposed = pick(stream(occurrence_id, "case"), cases), ""
+    confidence = pick(stream(occurrence_id, "confidence"), CONFIDENCE)
+    if verdict != "true_positive":
+        return {"verdict": verdict, **cascade(verdict, quote, confidence)}
     return {
         "verdict": verdict,
-        "quotation": pick(stream(occurrence_id, "quotation"), QUOTATIONS),
-        "stance": pick(stream(occurrence_id, "stance"), STANCES),
-        "function": tuple(
-            pick(stream(occurrence_id, "function"), FUNCTIONS).split("|")
-        ),
-        "referent": referent,
-        "proposed_referent": proposed,
+        **discourse_labels(occurrence_id, cases),
         "evidence_quote": quote,
-        "confidence": pick(stream(occurrence_id, "confidence"), CONFIDENCE),
+        "confidence": confidence,
+    }
+
+
+def comparison_labels_for(
+    occurrence_id: str, sentence: str, cases: Sequence[tuple[str, float]]
+) -> dict:
+    """A second model's labels: the first's, with some decisions redrawn.
+
+    Not an independent draw. Two models given one prompt and one passage agree
+    about most of it, and a fixture whose two runs agreed at chance would put a
+    kappa near zero into the contract and make the view built against it look
+    like a bug. Each decision is kept or replaced by :data:`FLIP`, deterministically
+    per occurrence, so every compared field carries both agreements and
+    disagreements — which is the post-condition :func:`check_comparison` asserts
+    before anything is written.
+
+    The cascade is obeyed on both sides. Where the two runs disagree about the
+    *verdict*, the second one's discourse labels are whatever its own verdict
+    fixes them to, and where the first run refused the match outright it has no
+    discourse labels to keep, so the second draws its own.
+    """
+    first = labels_for(occurrence_id, sentence, cases)
+    verdict = (
+        pick(stream(occurrence_id, "alt-verdict"), VERDICTS)
+        if stream(occurrence_id, "flip-verdict") < FLIP["verdict"]
+        else first["verdict"]
+    )
+    # Its own draw, so that `evidence_valid` differs between the runs somewhere:
+    # two models quote different sentences, and one of them can miss.
+    quote = BAD_QUOTE if stream(occurrence_id, "alt-evidence") < BAD_EVIDENCE else sentence
+    confidence = pick(stream(occurrence_id, "alt-confidence"), CONFIDENCE)
+    if verdict != "true_positive":
+        return {"verdict": verdict, **cascade(verdict, quote, confidence)}
+
+    kept = first if first["verdict"] == "true_positive" else None
+    other = discourse_labels(occurrence_id, cases, prefix="alt-")
+
+    def decide(field: str) -> object:
+        if kept is None or stream(occurrence_id, f"flip-{field}") < FLIP[field]:
+            return other[field]
+        return kept[field]
+
+    referent = decide("referent")
+    return {
+        "verdict": verdict,
+        "quotation": decide("quotation"),
+        "stance": decide("stance"),
+        "function": decide("function"),
+        "referent": referent,
+        # Tied to the referent it justifies rather than decided separately:
+        # `other` requires a proposal and nothing else may carry one.
+        "proposed_referent": PROPOSED if referent == "other" else "",
+        "evidence_quote": quote,
+        "confidence": confidence,
     }
 
 
@@ -266,6 +385,47 @@ def check_variants(rows: pd.DataFrame, referents: Sequence[str]) -> list[str]:
         problems.append(
             f"actors[].iso3 would be single-typed: {int(coded.sum())} speakers carry a "
             f"code and {int((~coded).sum())} carry none"
+        )
+    return problems
+
+
+def check_comparison(first: pd.DataFrame, second: pd.DataFrame) -> list[str]:
+    """The post-conditions that make the second run a usable counter-instrument.
+
+    Every compared field must carry both an agreement and a disagreement over the
+    overlap, and the coverage must be partial without being empty. A fixture that
+    agreed everywhere would declare `contested` as an always-empty array and an
+    `alt` that is always null; one that agreed nowhere would never write a row on
+    the agreeing side of the same shapes. Either way the contract would be
+    narrower than the real pair of runs needs, and the failure would arrive
+    months later attached to the wrong change.
+    """
+    problems: list[str] = []
+    left = first.set_index("occurrence_id")
+    right = second.set_index("occurrence_id")
+    shared = left.index.intersection(right.index)
+    if not len(shared):
+        return ["the two runs annotate no occurrence in common"]
+    for field in ("verdict", "quotation", "stance", "function", "referent"):
+        before, after = left.loc[shared, field], right.loc[shared, field]
+        if field == "function":
+            # Set equality, as `lib.usage` compares it: the pipe order carries no
+            # meaning and must not be counted as a disagreement.
+            same = [
+                set(x.split("|")) == set(y.split("|"))
+                for x, y in zip(before, after, strict=True)
+            ]
+        else:
+            same = [x == y for x, y in zip(before, after, strict=True)]
+        if all(same) or not any(same):
+            problems.append(
+                f"{field} would be single-typed: {sum(same)} of {len(same)} "
+                "overlapping occurrences agree"
+            )
+    if len(right) >= len(left):
+        problems.append(
+            f"the second run omits nothing ({len(right):,} rows against {len(left):,}), "
+            "so the partial-coverage path would go undeclared"
         )
     return problems
 
@@ -322,15 +482,35 @@ def build(limit: int | None) -> None:
         term=TERM,
         annotated_at=ANNOTATED_AT,
     )
+    # The same prompt hash and the same lexicon: 15 refuses a comparison made
+    # against either a different questionnaire or a different population, and a
+    # fixture that could not be compared would declare nothing. A different
+    # reasoning effort, because it is the one thing about the second instrument
+    # that may honestly differ and the block publishes it.
+    comparison_meta = llm.RunMeta(
+        run_id=COMPARISON_RUN_ID,
+        model=COMPARISON_MODEL,
+        prompt_version=pack.version,
+        prompt_sha256=pack.sha256,
+        reasoning_effort="medium",
+        lexicon_version=str(lex.version),
+        term=TERM,
+        annotated_at=ANNOTATED_AT,
+    )
     rows: list[dict[str, object]] = []
+    second: list[dict[str, object]] = []
     order = list(grouped)[:limit] if limit is not None else list(grouped)
     for index in order:
         items = grouped[index]
         body = str(bodies.loc[index])
         spans = sentence_spans(body)
+        sentences = {
+            occurrence.ordinal: sentence_at(body, occurrence.start, spans)
+            for occurrence in items
+        }
         labels = {
             occurrence.ordinal: labels_for(
-                occurrence.occurrence_id, sentence_at(body, occurrence.start, spans), cases
+                occurrence.occurrence_id, sentences[occurrence.ordinal], cases
             )
             for occurrence in items
         }
@@ -338,7 +518,28 @@ def build(limit: int | None) -> None:
         for row in annotated:
             llm.validate_row(row, referents)
         rows.extend(annotated)
+
+        reached = [
+            occurrence
+            for occurrence in items
+            if stream(occurrence.occurrence_id, "omit") >= OMITTED
+        ]
+        if reached:
+            alternatives = {
+                occurrence.ordinal: comparison_labels_for(
+                    occurrence.occurrence_id, sentences[occurrence.ordinal], cases
+                )
+                for occurrence in reached
+            }
+            compared = llm.annotation_rows(reached, body, alternatives, comparison_meta)
+            for row in compared:
+                llm.validate_row(row, referents)
+            second.extend(compared)
     console.info(f"{len(rows):,} rows, every one validated by lib.llm.validate_row")
+    console.info(
+        f"{len(second):,} comparison rows, {len(rows) - len(second):,} occurrences the "
+        "second run never reached"
+    )
 
     console.step("Checking the fixture straddles what the contract needs")
     frame = pd.DataFrame(rows)
@@ -358,7 +559,28 @@ def build(limit: int | None) -> None:
             "the fabricated distribution would ship a single-variant contract",
             [*problems, "adjust the weights above rather than the contract"],
         )
+    comparison_frame = pd.DataFrame(second)
+    if problems := check_comparison(pd.DataFrame(rows), comparison_frame):
+        console.fail(
+            "the second run would not exercise the comparison shapes",
+            [*problems, "adjust FLIP and OMITTED above rather than the contract"],
+        )
     eligible = frame.loc[frame["verdict"].eq("true_positive") & frame["evidence_valid"]]
+    # Reported rather than asserted: `check_comparison` has already refused a
+    # fixture on which this would be zero or complete, and the number is here so
+    # that whoever rebuilds the fixture sees how contested the pair came out.
+    published = {str(row["occurrence_id"]): row for row in rows}
+    contested = sum(
+        1
+        for row in second
+        if any(
+            set(str(published[str(row["occurrence_id"])][field]).split("|"))
+            != set(str(row[field]).split("|"))
+            if field == "function"
+            else published[str(row["occurrence_id"])][field] != row[field]
+            for field in ("verdict", "quotation", "stance", "function", "referent")
+        )
+    )
     console.table(
         [
             ("occurrences", f"{len(frame):,}"),
@@ -371,6 +593,8 @@ def build(limit: int | None) -> None:
                 "rejects_or_denies",
                 f"{int(frame['stance'].eq('rejects_or_denies').sum()):,}",
             ),
+            ("compared", f"{len(comparison_frame):,}"),
+            ("contested", f"{contested:,} of {len(comparison_frame):,}"),
         ]
     )
 
@@ -417,11 +641,44 @@ def build(limit: int | None) -> None:
     }
     artifacts.atomic_write_json(OUTPUT / "manifest.json", manifest, indent=1)
     console.info(f"wrote {rel(annotations)} and manifest.json")
-    console.warn(
-        f"this run is fabricated: run id {RUN_ID}, model {MODEL}. Never put it in "
-        "model_annotations/genocide/current_run.txt."
+
+    COMPARISON_OUTPUT.mkdir(parents=True, exist_ok=True)
+    comparison_annotations = COMPARISON_OUTPUT / "annotations.jsonl"
+    comparison_annotations.unlink(missing_ok=True)
+    llm.append_rows(comparison_annotations, second)
+    # The published run's manifest with the second instrument's identity in it,
+    # and one honest difference: a comparison run may reach fewer speeches, so
+    # `requests` counts the ones it actually contributed rows from.
+    reached_speeches = len({str(row["filename"]) for row in second})
+    artifacts.atomic_write_json(
+        COMPARISON_OUTPUT / "manifest.json",
+        {
+            **manifest,
+            "run_id": COMPARISON_RUN_ID,
+            "model": COMPARISON_MODEL,
+            "reasoning_effort": "medium",
+            "requests": {
+                "planned": reached_speeches,
+                "submitted": reached_speeches,
+                "returned": reached_speeches,
+                "complete": reached_speeches,
+            },
+            "occurrences": {"planned": len(second), "written": len(second)},
+            "evidence_invalid": int((~comparison_frame["evidence_valid"]).sum()),
+        },
+        indent=1,
     )
-    console.info(f"aggregate it with: python scripts/15_usage.py --run-dir {rel(OUTPUT)}")
+    console.info(f"wrote {rel(comparison_annotations)} and manifest.json")
+
+    console.warn(
+        f"both runs are fabricated: {RUN_ID} / {MODEL} and {COMPARISON_RUN_ID} / "
+        f"{COMPARISON_MODEL}. Never put either in model_annotations/genocide/"
+        "current_run.txt or comparison_run.txt."
+    )
+    console.info(
+        f"aggregate them with: python scripts/15_usage.py --run-dir {rel(OUTPUT)} "
+        f"--comparison-run-dir {rel(COMPARISON_OUTPUT)}"
+    )
 
 
 def main() -> None:

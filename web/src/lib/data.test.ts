@@ -208,6 +208,118 @@ describe('the validators that are about the research rather than the types', () 
 		await expect(keyness(fetcher)).rejects.toThrow(/coverage must be a finite number/);
 	});
 
+	/**
+	 * The smallest usage payload the boundary accepts, so that each refusal below
+	 * fails for the one reason it is about rather than for a missing key.
+	 */
+	const usagePayload = (overrides: Record<string, unknown> = {}) => ({
+		meta,
+		model: { id: 'chatgpt-5.6-luna-2026-08-01', prompt_sha256: 'a'.repeat(64) },
+		prompt: 'Read the occurrence and say what it refers to.',
+		referents: [{ id: 'rwanda_1994' }],
+		actors: [{ country_org: 'Rwanda' }],
+		minimum_occurrences: 20,
+		matrix: [],
+		stance_by_actor: [],
+		diffusion: { milestones: ['mention'], referents: [] },
+		comparison: { state: 'none', model: '', overlap: 0, contested_any: 0, fields: [] },
+		gold: { state: 'not_started' },
+		...overrides
+	});
+
+	const occurrence = (extra: Record<string, unknown>) => ({
+		meta,
+		occurrences: [
+			{
+				id: 'UNSC_2014_SPV.7000_spch0001#1',
+				evidence_valid: false,
+				evidence_quote: '',
+				contested: [],
+				alt: null,
+				...extra
+			}
+		]
+	});
+
+	it('refuses a second opinion that says it was not made and reports numbers anyway', async () => {
+		const { usage } = await fresh();
+		// A whole section of the page appears under `computed` and nothing at all
+		// under `none`, so numbers carried here would be numbers nobody ever sees.
+		const { fetcher } = responder(
+			usagePayload({
+				comparison: {
+					state: 'none',
+					model: '',
+					overlap: 12,
+					contested_any: 0,
+					fields: [{ field: 'stance', n: 12, observed: 1, kappa: null, contested: 0 }]
+				}
+			})
+		);
+		await expect(usage(fetcher)).rejects.toThrow(
+			/comparison says no second opinion was run and reports 1 agreement rows over 12/
+		);
+	});
+
+	it('refuses a second opinion that does not name the model it was, and one that contests more than it compared', async () => {
+		const { usage } = await fresh();
+		const nameless = responder(
+			usagePayload({
+				comparison: { state: 'computed', model: '  ', overlap: 4, contested_any: 1, fields: [] }
+			})
+		);
+		await expect(usage(nameless.fetcher)).rejects.toThrow(
+			/claims a second opinion and does not name the model/
+		);
+
+		const { usage: second } = await fresh();
+		const impossible = responder(
+			usagePayload({
+				comparison: {
+					state: 'computed',
+					model: 'gemini-3-pro-2026-07-15',
+					overlap: 4,
+					contested_any: 9,
+					fields: []
+				}
+			})
+		);
+		// A part larger than the whole: the page states the one as a share of the other.
+		await expect(second(impossible.fetcher)).rejects.toThrow(
+			/contests 9 of 4 compared occurrences/
+		);
+	});
+
+	it('refuses an occurrence contested on a field that reads back to nothing', async () => {
+		const { usageOccurrences } = await fresh();
+		const { fetcher } = responder(
+			occurrence({ contested: ['tone'], alt: { tone: 'sharper than the published run' } })
+		);
+		await expect(usageOccurrences(fetcher)).rejects.toThrow(
+			/is contested on tone, which is not among the compared fields/
+		);
+	});
+
+	it('refuses a disagreement with no second reading, and a second reading with no disagreement', async () => {
+		const { usageOccurrences } = await fresh();
+		const silent = responder(occurrence({ contested: ['stance'], alt: null }));
+		await expect(usageOccurrences(silent.fetcher)).rejects.toThrow(
+			/is contested on stance and carries no second reading/
+		);
+
+		const { usageOccurrences: second } = await fresh();
+		const unasked = responder(occurrence({ contested: [], alt: { stance: 'asserts' } }));
+		await expect(second(unasked.fetcher)).rejects.toThrow(
+			/is contested on nothing, so its second reading must be null and is a reading/
+		);
+
+		const { usageOccurrences: third } = await fresh();
+		const partial = responder(occurrence({ contested: ['stance'], alt: { referent: 'bosnia' } }));
+		await expect(third(partial.fetcher)).rejects.toThrow(
+			/is contested on stance and its second reading says nothing there/
+		);
+	});
+
 	it('accepts an ordinary coverage', async () => {
 		const { keyness } = await fresh();
 		const { fetcher } = responder({

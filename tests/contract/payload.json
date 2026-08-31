@@ -1714,7 +1714,11 @@
   },
   "occurrences": [
    {
+    "alt": "null|object",
     "confidence": "str",
+    "contested": [
+     "str"
+    ],
     "evidence_quote": "str",
     "evidence_valid": "bool",
     "function": "str",
@@ -1741,6 +1745,34 @@
     "sufficient": "bool"
    }
   ],
+  "comparison": {
+   "abstention": {
+    "referent_unclear": "int",
+    "stance_unclear": "int",
+    "verdict_uncertain": "int"
+   },
+   "contested_any": "int",
+   "evidence_invalid": "int",
+   "fields": [
+    {
+     "contested": "int",
+     "field": "str",
+     "kappa": "float",
+     "n": "int",
+     "observed": "float"
+    }
+   ],
+   "function_contested": "int",
+   "function_jaccard": "float|null",
+   "model": "str",
+   "occurrences_annotated": "int",
+   "overlap": "int",
+   "prompt_sha256": "str",
+   "reasoning_effort": "str",
+   "run_date": "str",
+   "run_id": "str",
+   "state": "str"
+  },
   "diffusion": {
    "milestones": [
     "str"
@@ -1766,6 +1798,7 @@
    "double_coded": "int",
    "human_agreement": [],
    "model_vs_human": [],
+   "model_vs_human_comparison": [],
    "sample_size": "int",
    "state": "str",
    "unique_occurrences": "int"

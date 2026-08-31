@@ -274,6 +274,27 @@
 			}
 		]
 	},
+	"comparison": {
+		"state": "computed",
+		"run_id": "2026-09-06-gemini-v1",
+		"model": "gemini-3-pro-2026-07-15",
+		"run_date": "2026-09-06",
+		"reasoning_effort": "medium",
+		"prompt_sha256": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
+		"occurrences_annotated": 4,
+		"overlap": 4,
+		"evidence_invalid": 0,
+		"abstention": { "verdict_uncertain": 0, "referent_unclear": 1, "stance_unclear": 0 },
+		"fields": [
+			{ "field": "verdict", "n": 4, "observed": 1.0, "kappa": null, "contested": 0 },
+			{ "field": "quotation", "n": 4, "observed": 1.0, "kappa": 1.0, "contested": 0 },
+			{ "field": "stance", "n": 4, "observed": 0.5, "kappa": 0.2, "contested": 2 },
+			{ "field": "referent", "n": 4, "observed": 0.75, "kappa": 0.6, "contested": 1 }
+		],
+		"function_jaccard": 0.875,
+		"function_contested": 1,
+		"contested_any": 2
+	},
 	"gold": {
 		"sample_size": 200,
 		"unique_occurrences": 197,
@@ -282,6 +303,7 @@
 		"adjudicated": 0,
 		"human_agreement": [],
 		"model_vs_human": [],
+		"model_vs_human_comparison": [],
 		"state": "not_started"
 	}
 }

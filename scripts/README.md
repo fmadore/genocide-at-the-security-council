@@ -37,6 +37,7 @@ requirements.lock` from the repository root. `requirements.txt` and
 | 13 | `13_gold_sample.py` | `speeches_norm.parquet`, `config/lexicon.yml`, `annotations/genocide/` | `data/interim/genocide_gold_*.csv` | ✅ |
 | 14 | `14_llm_annotate.py` | `speeches_norm.parquet`, `model_annotations/genocide/PROMPT.md`, the OpenAI API | `model_annotations/genocide/runs/<id>/` | ✋ manual, paid |
 | 15 | `15_usage.py` | `model_annotations/genocide/`, `annotations/genocide/`, `speeches_norm.parquet` | `derived/usage/*.json` | 🧪 experimental |
+| 16 | `16_llm_annotate_gemini.py` | `speeches_norm.parquet`, `model_annotations/genocide/PROMPT.md`, the Gemini API | `model_annotations/genocide/runs/<id>/` | ✋ manual, paid |
 | — | `export_web.py` | `derived/{series,lexical,kwic,countries,usage}/` | `web/static/data/` | ✅ |
 | — | `score_intrusion.py` | `derived/topics/intrusion_{task,key}.csv` | `derived/topics/intrusion_score.json` | 🔬 after a human |
 
@@ -119,6 +120,23 @@ To preview the `/usage` view before paying for a run,
 labelled synthetic run under `data/interim/synthetic_run/`;
 `python scripts/15_usage.py --run-dir data/interim/synthetic_run` aggregates it. Synthetic
 runs are never committed under `model_annotations/`.
+
+The comparison run (Phase L8) is the same procedure through the other door. 16 is 14's
+Gemini sibling — same enumeration, same `PROMPT.md`, byte-compatible rows — keyed by
+`GEMINI_API_KEY` (or `GOOGLE_API_KEY`; see `.env.example` for the precedence quirk):
+
+```bash
+python scripts/16_llm_annotate_gemini.py --run-id <date>-gemini-v1 --model gemini-3.7-flash
+#   Batch API, resumable with --poll; commit the run, then name it in
+#   model_annotations/genocide/comparison_run.txt (a reviewed diff)
+python scripts/15_usage.py && python scripts/export_web.py
+```
+
+15 then computes where the two instruments disagree — per-field agreement, per-occurrence
+`contested` flags — and refuses a comparison made against a different prompt hash. The
+comparison is computed, never merged: `current_run.txt` still names the only run the
+matrix, stance and diffusion figures are drawn from, and agreement between two models is
+stability across instruments, never accuracy.
 
 Human coding proceeds in parallel: `FM` and `JG` fill
 `annotations/genocide/annotations.csv` per the codebook; after each tranche, rerun 15 and
