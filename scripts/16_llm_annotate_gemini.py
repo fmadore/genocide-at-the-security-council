@@ -264,15 +264,38 @@ def _transient(error: BaseException) -> bool:
     return type(error).__name__ in TRANSIENT_TRANSPORT
 
 
-def with_backoff(call: Callable[[], object], *, attempts: int = 6, base: float = 2.0) -> object:
-    """Retry only what the API says is worth retrying, with growing waits."""
+#: A poll can run for hours and every call it makes is idempotent, so a network
+#: interruption should cost it time rather than the run. Six attempts inside a
+#: minute is the right budget for a submission, where a retry that comes too
+#: late can create a second job to pay for; it is the wrong one here, and a DNS
+#: outage longer than a minute killed two polls of this corpus within an hour.
+#: Twelve attempts under a two-minute ceiling tolerate about a quarter of an
+#: hour with no network at all.
+POLL_ATTEMPTS = 12
+POLL_BACKOFF_CAP = 120.0
+
+
+def with_backoff(
+    call: Callable[[], object],
+    *,
+    attempts: int = 6,
+    base: float = 2.0,
+    cap: float | None = None,
+) -> object:
+    """Retry only what the API says is worth retrying, with growing waits.
+
+    `cap` bounds one wait so that a longer budget does not become an unbounded
+    one: doubling unchecked reaches hours by the twelfth attempt, which would
+    turn a passing outage into a run that appears to have hung.
+    """
     for attempt in range(attempts):
         try:
             return call()
         except Exception as error:
             if attempt == attempts - 1 or not _transient(error):
                 raise
-            time.sleep(base * 2**attempt + random.uniform(0, 1))
+            wait = base * 2**attempt
+            time.sleep((wait if cap is None else min(wait, cap)) + random.uniform(0, 1))
     raise RuntimeError("unreachable")
 
 
@@ -412,7 +435,7 @@ def poll(api: object, job_names: Sequence[str], *, seconds: int, raw: Path) -> O
             def retrieve(identifier: str = name) -> object:
                 return api.batches.get(name=identifier)
 
-            job = with_backoff(retrieve)
+            job = with_backoff(retrieve, attempts=POLL_ATTEMPTS, cap=POLL_BACKOFF_CAP)
             state = gemini.job_state(job)
             if state in gemini.TERMINAL_STATES:
                 console.info(f"{name}: {state}")
@@ -432,7 +455,7 @@ def poll(api: object, job_names: Sequence[str], *, seconds: int, raw: Path) -> O
             def download(identifier: str = result_file) -> object:
                 return api.files.download(file=identifier)
 
-            content = with_backoff(download)
+            content = with_backoff(download, attempts=POLL_ATTEMPTS, cap=POLL_BACKOFF_CAP)
             payload = (
                 content.decode("utf-8") if isinstance(content, bytes | bytearray) else str(content)
             )
