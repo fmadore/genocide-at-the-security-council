@@ -1,0 +1,41 @@
+{
+ "run_id": "2026-08-31-gemini-v1",
+ "term": "genocide",
+ "model": "gemini-3.7-flash",
+ "reasoning_effort": "high",
+ "prompt_version": 1,
+ "prompt_sha256": "a44fdbb59321db15b8e1ede3f3bbe9be7b00a9d8e0aadb10f51c50afecbb3354",
+ "referents_sha256": "94a2f78968a832c4062af129e2a65bab61da5f029126303a2212a41eea8df8ae",
+ "lexicon_version": "2",
+ "schema_version": "2",
+ "mode": "batch",
+ "limit": null,
+ "created": "2026-08-31T14:18:26Z",
+ "completed": null,
+ "git_commit": "5bc9a3f4e57ca600debc176f06bec59c42815d34-dirty",
+ "batch_ids": [
+  "batches/28n48oxo2o95m83b4mp35dac453yxxw6r2bn",
+  "batches/ba4x8u7pr8do0ehizg0pbrly327xyv5ggzjt",
+  "batches/wlcahacy5ssusoqlbo9odyga8ya7z5fx8l7c",
+  "batches/xavq78ucxu1sx9qbis9fxkqzgi8kxiwomk5g"
+ ],
+ "requests": {
+  "planned": 3273,
+  "submitted": 5746,
+  "returned": 1200,
+  "complete": 800
+ },
+ "occurrences": {
+  "planned": 6092,
+  "written": 2353
+ },
+ "parse_failures": 0,
+ "evidence_invalid": 0,
+ "usage": {
+  "input_tokens": 5247407,
+  "output_tokens": 362254,
+  "reasoning_tokens": 2435216
+ },
+ "cost_usd": null,
+ "status": "in_progress"
+}
