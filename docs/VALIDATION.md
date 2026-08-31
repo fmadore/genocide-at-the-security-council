@@ -116,7 +116,8 @@ this is done.
 
 ### 7. Model annotation runs
 
-Every run of `scripts/14_llm_annotate.py` is committed under
+Every run of `scripts/14_llm_annotate.py` and of its counter-instrument
+`scripts/16_llm_annotate_gemini.py` is committed under
 [`model_annotations/genocide/runs/`](../model_annotations/genocide/) with its manifest —
 model id, prompt version and hash, coverage, parse failures, invalid evidence quotes and
 token usage — and the run the dashboard reads is named in `current_run.txt` as a reviewed
@@ -126,11 +127,20 @@ diff. Register of runs:
 |---|---|---|---|---:|---:|
 | `2026-08-30-luna-pilot` | `gpt-5.6-luna`, effort high | v1 `a44fdbb59321` | 50 speeches, 91 of 91 pilot occurrences | 0 | 0 |
 | `2026-08-30-luna-v1` | `gpt-5.6-luna`, effort high | v1 `a44fdbb59321` | 6,092 of 6,092 occurrences, 3,273 of 3,273 speeches | 0 | 15 |
+| `2026-08-31-gemini-pilot` | `gemini-3.7-flash`, thinking high | v1 `a44fdbb59321` | 50 speeches, 91 of 91 pilot occurrences | 0 | 0 |
 
 `2026-08-30-luna-v1` is the run `current_run.txt` publishes. Its 15 unlocated evidence
 quotes (0.25%) are flagged `evidence_valid=false` in the run and excluded from every
 discourse figure; nothing was repaired. The pilot covers the first 50 genocide-bearing
 speeches in corpus order and is kept for comparison, not published.
+
+`2026-08-31-gemini-pilot` is the counter-instrument's pilot over that same first 50
+speeches, so the two pilots enumerate one population: all 91 occurrence ids join, and
+every one of the 91 evidence quotes was located as an exact substring of its speech.
+Per-field observed agreement against `2026-08-30-luna-pilot` is verdict 91/91,
+quotation 86/91, referent 86/91, stance 81/91, function 69/91 by set equality. This is
+stability across instruments and not accuracy; the gold sample remains the only
+calibration. No Gemini run is published: `comparison_run.txt` is still empty.
 
 When a run is added, record it here and re-check the artefact counts on the Methods page
 against its manifest. Automatic resolutions (a relocated evidence quote, a normalised

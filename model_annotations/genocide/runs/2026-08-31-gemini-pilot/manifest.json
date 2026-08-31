@@ -1,0 +1,36 @@
+{
+ "run_id": "2026-08-31-gemini-pilot",
+ "term": "genocide",
+ "model": "gemini-3.7-flash",
+ "reasoning_effort": "high",
+ "prompt_version": 1,
+ "prompt_sha256": "a44fdbb59321db15b8e1ede3f3bbe9be7b00a9d8e0aadb10f51c50afecbb3354",
+ "referents_sha256": "94a2f78968a832c4062af129e2a65bab61da5f029126303a2212a41eea8df8ae",
+ "lexicon_version": "2",
+ "schema_version": "2",
+ "mode": "live",
+ "limit": 50,
+ "created": "2026-08-31T13:32:19Z",
+ "completed": "2026-08-31T13:32:19Z",
+ "git_commit": "af6f08dcc003e86f03a996322b3d1383a3fe2c56-dirty",
+ "batch_ids": [],
+ "requests": {
+  "planned": 50,
+  "submitted": 50,
+  "returned": 50,
+  "complete": 50
+ },
+ "occurrences": {
+  "planned": 91,
+  "written": 91
+ },
+ "parse_failures": 0,
+ "evidence_invalid": 0,
+ "usage": {
+  "input_tokens": 216809,
+  "output_tokens": 14168,
+  "reasoning_tokens": 106461
+ },
+ "cost_usd": null,
+ "status": "complete"
+}
