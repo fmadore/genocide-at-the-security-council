@@ -32,7 +32,14 @@ every job name written into the manifest the moment it exists, so an interrupted
 run resumes with `--poll` instead of being resubmitted and paid for twice. Batch
 is half price and has a 24-hour target; a job left pending or running for 48
 hours expires, which is the second reason the run is chunked — an expiry then
-costs one chunk rather than the corpus. `--live` calls `generateContent` directly
+costs one chunk rather than the corpus.
+
+Chunks are created one at a time, each drained before the next is created. The
+Batch API meters enqueued tokens rather than jobs, and the whole corpus is about
+14.2 million of them; a key with room for one chunk refuses the next with 429
+while still accepting a trivial job. Draining first holds the peak at one chunk
+and costs wall-clock — up to nine turnarounds in series — which is the trade the
+quota imposes, not a preference. `--live` calls `generateContent` directly
 with bounded concurrency, for a pilot small enough that waiting a day would be
 the expensive part. Batch mechanics and the `{"key": …, "request": …}` line
 format: ai.google.dev/gemini-api/docs/batch-api and github.com/google-gemini/
@@ -112,7 +119,9 @@ COLUMNS = [
 #: Requests per batch job. Gemini's own ceiling is a 2 GB input file, far above
 #: anything this corpus produces; this is about how much is in flight behind one
 #: job name when something goes wrong, about the 48-hour expiry, and about
-#: getting the first rows onto disk within hours rather than at the end.
+#: getting the first rows onto disk within hours rather than at the end. It is
+#: also the run's peak enqueued-token footprint, because chunks are drained one
+#: at a time — roughly 1.7 million tokens at this size.
 BATCH_CHUNK = 400
 
 #: A generous ceiling on one speech's answer, the same shape 14 uses so the two
@@ -292,7 +301,21 @@ def batch_input(path: Path, speeches: Sequence[Speech], build: Builder, effort: 
     return len(lines)
 
 
-def submit(
+def merge(into: Outcome, part: Outcome) -> None:
+    """Fold one chunk's returned work into the run's running total."""
+    into.responses.update(part.responses)
+    into.failures.extend(part.failures)
+    into.submitted += part.submitted
+
+
+def quota_refusal(error: BaseException) -> bool:
+    """A 429 that outlived `with_backoff` — the quota itself, not a spike."""
+    from google.genai import errors
+
+    return isinstance(error, errors.ClientError) and getattr(error, "code", None) == 429
+
+
+def submit_and_drain(
     api: object,
     speeches: Sequence[Speech],
     build: Builder,
@@ -301,9 +324,31 @@ def submit(
     model: str,
     effort: str,
     raw: Path,
-) -> list[str]:
-    """Upload and create one job per chunk, returning the names as they appear."""
-    names = []
+    seconds: int,
+    on_job: Callable[[list[str]], None] = lambda _names: None,
+) -> tuple[list[str], Outcome]:
+    """Create one job per chunk, draining each before the next is created.
+
+    Creating all nine jobs first would need the whole corpus enqueued at once —
+    about 14.2 million input tokens — and the Batch API meters *enqueued tokens*,
+    not jobs or money: a paid key with room for one chunk refuses the second with
+    429 while still accepting a twenty-token job, and `with_backoff` cannot wait
+    that out because nothing drains while it sleeps. Draining each chunk before
+    the next is created holds the peak at one chunk, which is what lets the run
+    finish under an ordinary quota. The price is wall-clock — up to nine batch
+    turnarounds in series rather than nine in parallel.
+
+    `on_job` records every name the moment it exists, before the next upload is
+    attempted. Creating a job is not idempotent, so a name that exists but has
+    not been recorded is a job that will be paid for and cannot be polled.
+
+    A refusal on a later chunk stops the submission instead of raising: the
+    chunks already drained are returned so their answers can still be written,
+    and the next invocation asks for whatever is missing. Raising here would
+    throw away work already paid for and downloaded.
+    """
+    names: list[str] = []
+    outcome = Outcome()
     chunks = [
         speeches[start : start + BATCH_CHUNK] for start in range(0, len(speeches), BATCH_CHUNK)
     ]
@@ -316,24 +361,45 @@ def submit(
             # stream uploads an empty file, and the job that follows would be
             # silently empty. Creating a job is not idempotent, so a duplicate
             # would be a second job to pay for and not a no-op.
+            # `mime_type` is passed explicitly because `mimetypes` has no entry
+            # for `.jsonl` on any platform, and the SDK raises rather than
+            # guessing, so a batch input file would otherwise never upload at
+            # all. `jsonl` is the spelling Google's own batch documentation
+            # passes (ai.google.dev/gemini-api/docs/batch-api, checked
+            # 31 August 2026); the service also accepts `application/jsonl` and
+            # `application/json`, and stores back whichever it was given.
             return api.files.upload(
                 file=str(path),
-                config={"display_name": f"{run_id}-{chunk_number:03d}"},
+                config={
+                    "display_name": f"{run_id}-{chunk_number:03d}",
+                    "mime_type": "jsonl",
+                },
             )
 
-        uploaded = with_backoff(upload)
+        try:
+            uploaded = with_backoff(upload)
 
-        def create(source: str = str(uploaded.name), chunk_number: int = number) -> object:
-            return api.batches.create(
-                model=model,
-                src=source,
-                config={"display_name": f"{run_id}-{chunk_number:03d}"},
-            )
+            def create(source: str = str(uploaded.name), chunk_number: int = number) -> object:
+                return api.batches.create(
+                    model=model,
+                    src=source,
+                    config={"display_name": f"{run_id}-{chunk_number:03d}"},
+                )
 
-        job = with_backoff(create)
+            job = with_backoff(create)
+        except Exception as error:
+            if not quota_refusal(error):
+                raise
+            console.warn(f"chunk {number} of {len(chunks)} refused: the batch quota is full")
+            console.info("what drained is kept; run the step again to ask for the rest")
+            break
+
         names.append(str(job.name))
         console.info(f"job {number}/{len(chunks)}: {job.name} ({count} requests)")
-    return names
+        on_job(list(names))
+        console.step(f"Draining job {number}/{len(chunks)} before creating the next")
+        merge(outcome, poll(api, [str(job.name)], seconds=seconds, raw=raw))
+    return names, outcome
 
 
 def poll(api: object, job_names: Sequence[str], *, seconds: int, raw: Path) -> Outcome:
@@ -706,7 +772,33 @@ def run(args: argparse.Namespace) -> None:
         )
     else:
         console.step(f"Submitting {len(remaining):,} speeches to the Batch API")
-        batch_ids = submit(
+
+        # Before a single result exists: creating a job is not idempotent, so an
+        # interrupted run must be resumable with --poll rather than resubmitted
+        # and paid for a second time. Called after every `create`, not after the
+        # loop, because a refusal on a later chunk would otherwise leave the
+        # earlier jobs running with their names written down nowhere.
+        def record(names: list[str]) -> None:
+            write_manifest(
+                paths["manifest"],
+                previous,
+                meta=meta,
+                referents_sha256=referents_sha256,
+                mode=mode,
+                limit=args.limit,
+                batch_ids=names,
+                planned_requests=len(speeches),
+                planned_occurrences=planned_occurrences,
+                submitted=len(remaining),
+                returned=0,
+                complete=len(already),
+                written=len(llm.read_rows(paths["annotations"])),
+                parse_failures=0,
+                evidence_invalid=0,
+                usage=dict(gemini.EMPTY_USAGE),
+            )
+
+        batch_ids, outcome = submit_and_drain(
             api,
             remaining,
             build,
@@ -714,32 +806,12 @@ def run(args: argparse.Namespace) -> None:
             model=args.model,
             effort=args.reasoning_effort,
             raw=raw,
+            seconds=args.poll_seconds,
+            on_job=record,
         )
-        # Before a single result exists: creating a job is not idempotent, so an
-        # interrupted run must be resumable with --poll rather than resubmitted
-        # and paid for a second time.
-        write_manifest(
-            paths["manifest"],
-            previous,
-            meta=meta,
-            referents_sha256=referents_sha256,
-            mode=mode,
-            limit=args.limit,
-            batch_ids=batch_ids,
-            planned_requests=len(speeches),
-            planned_occurrences=planned_occurrences,
-            submitted=len(remaining),
-            returned=0,
-            complete=len(already),
-            written=len(llm.read_rows(paths["annotations"])),
-            parse_failures=0,
-            evidence_invalid=0,
-            usage=dict(gemini.EMPTY_USAGE),
-        )
+        record(batch_ids)
         console.info(f"job names recorded in {rel(paths['manifest'])}")
         previous = read_manifest(paths["manifest"])
-        console.step(f"Polling {len(batch_ids)} job(s)")
-        outcome = poll(api, batch_ids, seconds=args.poll_seconds, raw=raw)
 
     console.step("Validating and writing")
     tally = harvest(outcome, scope, meta, referents, paths)
