@@ -66,9 +66,6 @@ COLUMNS = [
     "tokens",
     "text",
     "body_start",
-    # Not exported. Read so the run can check its own offsets against the count
-    # 03 recorded, rather than trusting that two passes of the same regexes agree.
-    "n_lexicon_total",
 ]
 
 
@@ -208,9 +205,16 @@ def run(scope: str, indent: int | None) -> None:
 
     lex = lexicon.load()
     flags = [f"{lexicon.HAS}{t.name}" for t in lex.active]
+    # The per-term counts, not `n_lexicon_total`. Neither is exported; both are
+    # read so the run can check its own offsets against what 03 recorded, rather
+    # than trusting that two passes of the same regexes agree. The offsets are
+    # per term — a "mass atrocity" is highlighted as `mass_atrocity` and as
+    # `atrocity`, two entries over one span — where the total counts a term
+    # nested inside another only once, so only the per-term counts compare.
+    term_counts = [f"{lexicon.COUNT}{t.name}" for t in lex.active]
 
     console.step("Reading")
-    speeches = frames.read(SPEECHES_FLAGGED, columns=[*COLUMNS, *flags])
+    speeches = frames.read(SPEECHES_FLAGGED, columns=[*COLUMNS, *flags, *term_counts])
     meetings = frames.read(MEETINGS)
 
     if scope == "matched":
@@ -218,10 +222,9 @@ def run(scope: str, indent: int | None) -> None:
         meetings = meetings[meetings["basename"].isin(keep)]
         console.info(f"scope 'matched': {len(meetings):,} meetings carry a lexicon term")
 
-    expected_speeches = int(speeches["basename"].isin(set(meetings["basename"])).sum())
-    expected_occurrences = int(
-        speeches.loc[speeches["basename"].isin(set(meetings["basename"])), "n_lexicon_total"].sum()
-    ) if "n_lexicon_total" in speeches.columns else None
+    exported = speeches["basename"].isin(set(meetings["basename"]))
+    expected_speeches = int(exported.sum())
+    expected_occurrences = int(speeches.loc[exported, term_counts].sum().sum())
 
     meta = artifacts.provenance(
         ROOT,
@@ -254,7 +257,7 @@ def run(scope: str, indent: int | None) -> None:
         if written != expected_speeches:
             problems.append(f"exported {written:,} speeches, expected {expected_speeches:,}")
         exported_occurrences = sum(int(r["occurrences"]) for r in rows)
-        if expected_occurrences is not None and exported_occurrences != expected_occurrences:
+        if exported_occurrences != expected_occurrences:
             problems.append(
                 f"exported {exported_occurrences:,} occurrence offsets, expected "
                 f"{expected_occurrences:,} from the lexicon counts"
