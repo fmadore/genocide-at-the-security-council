@@ -139,13 +139,25 @@ REQUEST_TIMEOUT_MS = 900_000
 #: Transport failures the SDK raises as plain httpx exceptions rather than as
 #: `google.genai.errors` types. Matched by name so that nothing here has to
 #: import httpx, which is the SDK's dependency and not this repository's.
+#: httpx raises a small family of transport errors and only some of them were
+#: listed here, which made the omissions invisible: a dropped connection reads
+#: as `ReadError`, not `ReadTimeout`, so it fell through as permanent and killed
+#: a poll outright rather than being retried. The whole of httpx's
+#: `TransportError` tree is transient for this step's purposes — every call it
+#: makes is either idempotent or guarded by a tighter budget — so the timeouts,
+#: the network errors and the protocol errors are all named.
 TRANSIENT_TRANSPORT = frozenset(
     {
+        "CloseError",
         "ConnectError",
         "ConnectTimeout",
+        "LocalProtocolError",
         "PoolTimeout",
+        "ProxyError",
+        "ReadError",
         "ReadTimeout",
         "RemoteProtocolError",
+        "WriteError",
         "WriteTimeout",
     }
 )
@@ -348,6 +360,7 @@ def submit_and_drain(
     effort: str,
     raw: Path,
     seconds: int,
+    chunk_size: int = BATCH_CHUNK,
     on_job: Callable[[list[str]], None] = lambda _names: None,
 ) -> tuple[list[str], Outcome]:
     """Create one job per chunk, draining each before the next is created.
@@ -373,7 +386,7 @@ def submit_and_drain(
     names: list[str] = []
     outcome = Outcome()
     chunks = [
-        speeches[start : start + BATCH_CHUNK] for start in range(0, len(speeches), BATCH_CHUNK)
+        speeches[start : start + chunk_size] for start in range(0, len(speeches), chunk_size)
     ]
     for number, chunk in enumerate(chunks, start=1):
         path = raw / f"batch-{number:03d}.input.jsonl"
@@ -540,8 +553,16 @@ def harvest(
     meta: llm.RunMeta,
     referents: set[str],
     paths: dict[str, Path],
+    already: frozenset[str] = frozenset(),
 ) -> dict[str, int]:
-    """Validate, locate the evidence, and append. One bad speech loses one speech."""
+    """Validate, locate the evidence, and append. One bad speech loses one speech.
+
+    `already` names the speeches whose rows are on disk. A `--poll` reads every
+    job the manifest records, not only the ones still outstanding, so a resumed
+    run downloads answers that were written on an earlier pass; appending them a
+    second time corrupts no label — the answers are identical — but it doubles
+    the file, and every count taken from it afterwards is wrong.
+    """
     rows: list[dict[str, object]] = []
     failures = list(outcome.failures)
     invalid = 0
@@ -551,6 +572,8 @@ def harvest(
         speech = scope.get(custom_id)
         if speech is None:
             failures.append({"custom_id": custom_id, "reason": "not a speech in this run"})
+            continue
+        if speech.filename in already:
             continue
         for key, value in gemini.usage_of(body).items():
             totals[key] += value
@@ -830,6 +853,7 @@ def run(args: argparse.Namespace) -> None:
             effort=args.reasoning_effort,
             raw=raw,
             seconds=args.poll_seconds,
+            chunk_size=args.chunk_size,
             on_job=record,
         )
         record(batch_ids)
@@ -837,7 +861,7 @@ def run(args: argparse.Namespace) -> None:
         previous = read_manifest(paths["manifest"])
 
     console.step("Validating and writing")
-    tally = harvest(outcome, scope, meta, referents, paths)
+    tally = harvest(outcome, scope, meta, referents, paths, already=frozenset(already))
     console.info(f"{tally['written']:,} rows appended to {rel(paths['annotations'])}")
     if tally["failures"]:
         console.warn(f"{tally['failures']} speeches refused; see {rel(paths['failures'])}")
@@ -927,6 +951,17 @@ def main() -> None:
         "--retry-failures", action="store_true", help="re-ask only the refused speeches, live"
     )
     parser.add_argument("--poll-seconds", type=int, default=60, help="seconds between job checks")
+    # The enqueued-token quota is a moving target: it is spent by everything
+    # asked of the key that day, so the size that was accepted in the morning
+    # can be refused in the evening with nothing in flight at all. Tuning this
+    # down is how a run finishes on what is left rather than waiting for a
+    # window to reset.
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=BATCH_CHUNK,
+        help=f"speeches per batch job; lower it when the quota refuses (default {BATCH_CHUNK})",
+    )
     parser.add_argument("--concurrency", type=int, default=4, help="live calls in flight")
     run(parser.parse_args())
 
