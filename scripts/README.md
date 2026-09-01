@@ -93,8 +93,8 @@ gold sample and is deterministic. **14 is never run by CI or the deploy**: it ne
 6,092 `genocide` occurrences to the model. Its output is committed under
 `model_annotations/`, which is why the deploy can rebuild the payload without ever holding
 a key. 15 is deterministic again: it joins the committed run, the human gold rows and the
-corpus into `derived/usage/`, refusing a run whose lexicon version, occurrence identities
-or source digests no longer match. Besides the actor × referent matrix and the stance
+corpus into `derived/usage/`, refusing a run whose term pattern, occurrence identities or
+source digests no longer match. Besides the actor × referent matrix and the stance
 profiles, its `usage.json` carries a `diffusion` block (Phase L7): per referent, the dated
 first occurrence per delegation in three milestone classes — first mention, first
 assertion, first rejection of the word — from which the `/usage` view draws its cumulative
@@ -152,19 +152,29 @@ The word list is the study's central scholarly choice, and
 removing a term is therefore a recorded decision, not a configuration tweak.
 
 1. **Edit [`../config/lexicon.yml`](../config/lexicon.yml).** A term needs a `pattern`
-   (Python regex), `prefilters` (literal strings for the fast path), `examples`, a `tier`
-   and a `register`. Use `note` for the rationale — why this term belongs to this study,
-   and what it is expected to catch that the existing terms do not. That sentence is the
-   part a reader of the published figures will want and cannot reconstruct.
+   (Python regex), `prefilters`, `examples`, a `tier`, a `register` and a `pattern_since`.
+   A prefilter is a literal contained in *every* string the pattern can match: it only
+   decides which speeches are worth running the regex on, so one that is not in every
+   match loses occurrences silently rather than merely slowing the scan down. It must
+   contain no whitespace — the records keep their hard line breaks, and `\s+` spans a
+   break that `war crime` never will. `pattern_since` is the version in which that term's
+   `pattern` last changed; leave it alone unless you edit the pattern, and set it to the
+   new `version` when you do. Use `note` for the rationale — why this term belongs to this
+   study, and what it is expected to catch that the existing terms do not. That sentence
+   is the part a reader of the published figures will want and cannot reconstruct.
 2. **Bump `version` and `updated`** in the same file. The version travels into every
    artefact's `meta` and into every CSV header, so a figure and the word list that produced
-   it can always be matched.
+   it can always be matched. The bump on its own invalidates nothing keyed to a single
+   term: `15` reads a committed run's recorded version against that term's `pattern_since`,
+   so a release that edited other terms leaves the gold sample and the model runs standing.
+   Editing a `pattern` — and so bumping its `pattern_since` — does invalidate them.
 3. **Rerun, in order:** `03` (which recounts every speech), then `04`, `05`, `08`, `09`,
    `11` and `12`, then `export_web.py`. Each step asserts its own output, so a broken
    pattern fails at 03 rather than surfacing as an empty column in the dashboard. A change
    to the `genocide` pattern additionally invalidates `13`'s gold sample and any committed
-   model run: `15` refuses a run whose lexicon version or occurrence identities no longer
-   match, so the price of editing that term is a new sample, new coding and a new run.
+   model run: `15` refuses a run recorded against a version older than that term's
+   `pattern_since`, or whose occurrence identities no longer match, so the price of editing
+   that term is a new sample, new coding and a new run.
 
 What follows from that, worth knowing before you start:
 
@@ -176,6 +186,8 @@ What follows from that, worth knowing before you start:
   [`../docs/IMPROVEMENT_ROADMAP.md`](../docs/IMPROVEMENT_ROADMAP.md): an occurrence ID is
   built from the span and matched text, and the lexicon version is stored beside it, so a
   changed pattern produces new occurrences rather than silently inheriting old verdicts.
+  `pattern_since` is what makes "incompatible" decidable — a bump that left the term's
+  pattern alone carries over, an edited pattern does not.
 - **The dashboard needs no code change.** The concordance builds its term list from
   `kwic/index.json`, and no view hardcodes a term. A new term appears in the selects, the
   chronology measures and the co-occurrence network on its own.

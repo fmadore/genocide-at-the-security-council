@@ -28,19 +28,20 @@ between two models is stability across instruments rather than accuracy. The
 human gold sample remains the only calibration. Nothing is selected by default,
 and the comparison block is written in its empty state when nothing is.
 
-**Everything is refused rather than repaired.** A run made against a different
-lexicon, a row naming an occurrence this corpus does not have, a row whose
-`source_sha256` says the speech has changed underneath it, a label the current
-referent list no longer holds, an occurrence annotated twice — each stops the
-run. So does a prompt file whose bytes no longer hash to what the run recorded,
-because `usage.json` publishes that prompt verbatim and a reader is entitled to
-believe it is the one the model was given. The single tolerated gap is coverage:
-a run that did not reach every occurrence is aggregated under `--allow-partial`
-and reports honestly how much of the corpus it covers. A comparison run has no
-such gate — it is read over the occurrences both runs reached, and the artefact
-says how many those were — but it is refused on everything else the published run
-is refused on, and on one more: a comparison made with a different prompt, which
-would confound the instrument with the questionnaire.
+**Everything is refused rather than repaired.** A run made against a lexicon
+that enumerated the term differently, a row naming an occurrence this corpus
+does not have, a row whose `source_sha256` says the speech has changed
+underneath it, a label the current referent list no longer holds, an occurrence
+annotated twice — each stops the run. So does a prompt file whose bytes no
+longer hash to what the run recorded, because `usage.json` publishes that prompt
+verbatim and a reader is entitled to believe it is the one the model was given.
+The single tolerated gap is coverage: a run that did not reach every occurrence
+is aggregated under `--allow-partial` and reports honestly how much of the
+corpus it covers. A comparison run has no such gate — it is read over the
+occurrences both runs reached, and the artefact says how many those were — but it
+is refused on everything else the published run is refused on, and on one more: a
+comparison made with a different prompt, which would confound the instrument with
+the questionnaire.
 
 Usage:
     python scripts/15_usage.py                      # the run named in current_run.txt
@@ -328,14 +329,19 @@ def enumerated_frame(
 def refuse_stale_lexicon(
     manifest: dict[str, object],
     rows: list[dict],
-    version: str,
+    lex: lexicon.Lexicon,
     *,
     what: str = "the run",
 ) -> None:
     """A run is coded against one lexicon version; the counts are cut on another.
 
-    The lexicon defines what an occurrence *is*, so a run made against an older
-    version is annotating a population this corpus no longer has. The row-level
+    The lexicon defines what an occurrence *is*, so a run made against a lexicon
+    that enumerated `TERM` differently is annotating a population this corpus no
+    longer has. What decides that is the term's own pattern, not the lexicon's
+    version number: `pattern_since` records the release in which that pattern
+    last moved, so a bump that edited other terms leaves this run's occurrences
+    exactly where they were and the run stands. Editing `TERM`'s pattern bumps
+    its `pattern_since` and the run is refused, as it must be. The row-level
     check is not redundant: the manifest is written once at the end of a run and
     the rows are appended as they arrive.
 
@@ -343,22 +349,32 @@ def refuse_stale_lexicon(
     identity check the published one is, and a reader told "the run" when two
     were read would have to guess which of them moved.
     """
+    since = lex.terms[TERM].pattern_since
+    provenance = (
+        f"{rel(LEXICON)} is now version {lex.version} and '{TERM}' has carried its "
+        f"current pattern since version {since}"
+    )
     recorded = str(manifest.get("lexicon_version", ""))
-    if recorded != version:
+    if not lex.compatible(TERM, recorded):
         console.fail(
-            f"{what} was made against a different lexicon",
+            f"{what} was made against an incompatible lexicon",
             [
-                f"it records version {recorded or '(none)'}, "
-                f"{rel(LEXICON)} is now version {version}",
+                f"it records version {recorded or '(none)'}; {provenance}",
                 "re-run 03_lexicon.py and 14_llm_annotate.py, or aggregate the run "
                 "that matches this lexicon",
             ],
         )
-    stale = sorted({str(row.get("lexicon_version", "")) for row in rows} - {version})
+    stale = sorted(
+        {
+            str(row.get("lexicon_version", ""))
+            for row in rows
+            if not lex.compatible(TERM, str(row.get("lexicon_version", "")))
+        }
+    )
     if stale:
         console.fail(
-            f"some rows of {what} were written against a different lexicon",
-            [f"row lexicon versions: {', '.join(stale)}; the lexicon is now {version}"],
+            f"some rows of {what} were written against an incompatible lexicon",
+            [f"row lexicon versions: {', '.join(stale)}; {provenance}"],
         )
 
 
@@ -1079,7 +1095,7 @@ def run(args: argparse.Namespace) -> None:
     enumerated = enumerated_frame(speeches, found)
 
     console.step("Checking the run against this corpus")
-    refuse_stale_lexicon(manifest, raw_rows, str(lex.version))
+    refuse_stale_lexicon(manifest, raw_rows, lex)
     prompt_text = refuse_stale_prompt(manifest)
     referents = audit.read_referents(REFERENTS)
     refuse_bad_rows(raw_rows, enumerated, referents)
@@ -1093,7 +1109,7 @@ def run(args: argparse.Namespace) -> None:
         # short one narrows the comparison rather than invalidating the counts.
         refuse_other_prompt(comparison_manifest, str(manifest.get("prompt_sha256", "")))
         refuse_stale_lexicon(
-            comparison_manifest, comparison_raw, str(lex.version), what="the comparison run"
+            comparison_manifest, comparison_raw, lex, what="the comparison run"
         )
         refuse_bad_rows(comparison_raw, enumerated, referents, what="the comparison run")
         if len(comparison_raw) < len(found):

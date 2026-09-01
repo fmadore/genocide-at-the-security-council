@@ -8,12 +8,27 @@ halfway through a pipeline run.
 
 from __future__ import annotations
 
+import pandas as pd
 import pytest
 from lib import council, entities, lexicon, series
 from lib.paths import COUNCIL_MEMBERSHIP, COUNTRY_ALIASES, ENTITIES, EVENTS, LEXICON
 
 CORPUS_FIRST_YEAR = 1992
 CORPUS_LAST_YEAR = 2023
+
+#: What a verbatim record does to a phrase that will not fit on one line. The
+#: patterns join words with `\s+`, which spans every one of these; a prefilter
+#: is a plain substring test, which spans none of them.
+WHITESPACE_RUNS = ("\n", "  ", " \t ", "\n  ")
+
+
+def as_the_record_might_hold_it(example: str) -> list[str]:
+    """The example wrapped, indented and shouted, as well as verbatim."""
+    return [
+        example,
+        example.upper(),
+        *(example.replace(" ", run) for run in WHITESPACE_RUNS),
+    ]
 
 
 class TestFilesExist:
@@ -157,6 +172,43 @@ class TestLexicon:
             assert term.prefilters, term.name
             for example in term.examples:
                 assert any(literal.lower() in example.lower() for literal in term.prefilters)
+
+    def test_no_prefilter_contains_whitespace(self, lex):
+        """A multi-word literal cannot be found in a phrase the record broke
+        across a line, so the fast path would drop the match instead of the
+        speech."""
+        for term in lex.terms.values():
+            for literal in term.prefilters:
+                assert not any(char.isspace() for char in literal), f"{term.name}: {literal!r}"
+
+    def test_the_prefilter_never_loses_a_match_to_whitespace(self, lex):
+        """The property the prefilter exists under: it may only make counting
+        faster, never change what is counted. Checked against the regex run
+        directly on the same text, over the whitespace a verbatim record
+        actually contains."""
+        for term in lex.terms.values():
+            texts = [
+                text
+                for example in term.examples
+                for text in as_the_record_might_hold_it(example)
+            ]
+            counted = term.count(pd.Series(texts))
+            for text, count in zip(texts, counted, strict=True):
+                assert count == len(term.regex.findall(text)), f"{term.name}: {text!r}"
+
+    def test_every_pattern_records_the_version_it_last_changed_in(self, lex):
+        """`pattern_since` is what lets a gold sample or a committed model run
+        survive a version bump that did not touch the term it is keyed to."""
+        for term in lex.terms.values():
+            assert isinstance(term.pattern_since, int), term.name
+            assert 1 <= term.pattern_since <= lex.version, term.name
+
+    def test_a_term_is_compatible_with_every_version_since_its_pattern_changed(self, lex):
+        term = lex.terms["genocide"]
+        assert lex.compatible("genocide", term.pattern_since)
+        assert lex.compatible("genocide", lex.version)
+        assert not lex.compatible("genocide", term.pattern_since - 1)
+        assert not lex.compatible("genocide", lex.version + 1)
 
     def test_tiers_and_registers_are_populated(self, lex):
         for term in lex.terms.values():
