@@ -9,7 +9,8 @@ date; the open human checks are unchanged, because none of them is work a re-run
 “Mechanically reconciled” means code and source metadata agree; it does not mean a person
 has inspected the original PDF. Amended 28 August 2026: checks 6 and 7 added for Phase L
 (the genocide gold sample and the model-run register), and check 2 updated for the seeded
-referent list. Amended 30 August 2026: the first two model runs registered in §7.
+referent list. Amended 30 August 2026: the first two model runs registered in §7. Amended 1 September 2026: lexicon v3 registered below, with
+the two counting corrections it carries and the re-count it still owes.
 
 ## How to inspect an original record
 
@@ -205,6 +206,45 @@ concordance as the count authority. Current exact counts are:
 `scripts/08_kwic.py` independently fails unless every one of the 22 term files reproduces
 the occurrence count in `speeches_flagged.parquet`; all 22 currently agree. Differences
 from old narrative counts are documented changes, not silently forced “reproductions.”
+
+### Lexicon v3 corrects the fast path and the roll-ups
+
+Lexicon v3 (1 September 2026) changes **no pattern**. Two corrections to how the patterns
+are applied move counts, and the table above is the v2 reading they are to be compared
+against:
+
+- **A phrase broken across a line was never counted.** `Term.count` runs a pattern only on
+  speeches containing one of its literal `prefilters`. The v2 literals for multi-word terms
+  carried a space (`war crime`, `mass atroc`, `responsibility to protect`, `genocide
+  convention`, `prevention of genocide`, `early warning`, `never again`, `international
+  criminal court`), which a record's hard line break defeats while the pattern's `\s+` does
+  not, so such occurrences were dropped before the regex ran. v3 makes every prefilter a
+  whitespace-free literal contained in every string its pattern can match, the loader
+  refuses a literal with whitespace, and `tests/test_config.py` checks the fast path
+  against the bare regex over wrapped and indented examples. `08_kwic.py`'s reconciliation
+  could not catch this: it compares two outputs of the same filter.
+- **A nested term was counted twice in its register.** `mass_atrocity` is declared nested
+  under `atrocity` and both are register `legal`, so every *mass atrocity* added two to
+  `n_register_legal`, the count behind the legal register's occurrence series and token
+  rate; `n_lexicon_total` double-counted all four nested pairs. v3 sums a roll-up over
+  `lexicon.summable`, which drops a term whose declared parent is in the same sum. The
+  `has_` flags, and so every speech rate, are unchanged. Two alternatives inside nested
+  patterns (`convention on the prevention and punishment`, `special adviser on the
+  prevention`) do not sit inside a parent match, so the roll-ups now understate those few
+  mentions rather than inflating them; the direction is chosen, and recorded in the
+  helper's docstring.
+
+Every term carries `pattern_since: 2`, the version in which its pattern last changed.
+`scripts/15_usage.py` reads a committed run's `lexicon_version` against that field rather
+than against the lexicon's version, so the gold sample and the two model runs registered in
+§7, made against v2, remain valid: `genocide` enumerates exactly the occurrences it did
+(its pattern `\bgenocid\w*` and literal `genocid` are untouched), and its row in the table
+above must not move.
+
+**Open check: re-count under v3.** The size of the first gap is unmeasured until
+`03_lexicon.py` runs on the corpus. Record the v3 counts for the seven terms above beside
+the v2 ones, confirm `genocide` at 3,273 / 6,092, and note the `n_register_legal` delta,
+which is bounded above by the 733 `mass_atrocity` occurrences.
 
 ### Documents versus meeting symbols
 
