@@ -38,6 +38,9 @@ class Term:
     pattern: str
     tier: str
     register: str
+    #: Lexicon version at which `pattern` last changed. `load` requires it in
+    #: the config; the default is for the hand-built terms in the tests.
+    pattern_since: int = 1
     enabled: bool = True
     note: str = ""
     examples: tuple[str, ...] = ()
@@ -46,7 +49,13 @@ class Term:
     regex: re.Pattern[str] = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
 
     def count(self, texts: pd.Series) -> pd.Series:
-        """Occurrences of this term in each text."""
+        """Occurrences of this term in each text.
+
+        The prefilters are a fast path and never a second filter: `load` refuses
+        a literal that is not whitespace-free, and config/lexicon.yml requires
+        every literal to appear in every string the pattern can match, so
+        skipping a text that holds none of them cannot lose an occurrence.
+        """
         candidates = pd.Series(False, index=texts.index)
         for literal in self.prefilters:
             candidates |= texts.str.contains(literal, case=False, regex=False, na=False)
@@ -81,6 +90,28 @@ class Lexicon:
         """Terms measured and reported separately, never folded in."""
         return [t for t in self.terms.values() if not t.enabled]
 
+    def compatible(self, term_name: str, version: int | str) -> bool:
+        """Whether an artefact keyed to `term_name` at lexicon `version` still holds.
+
+        True when `term_name` enumerates the same occurrences here as it did at
+        `version`: its pattern has not been edited since (`pattern_since <=
+        version`) and `version` is not ahead of this lexicon. That is what lets
+        a gold sample or a committed model run survive a version bump that
+        edited other terms.
+
+        It guarantees nothing else. Other terms' counts may have moved, any
+        aggregate over the whole lexicon may have moved, and the artefact's own
+        rows are still checked against this corpus row by row.
+        """
+        if term_name not in self.terms:
+            raise ValueError(f"unknown lexicon term '{term_name}'")
+        try:
+            recorded = int(version)
+        except (TypeError, ValueError):
+            # An unreadable version is not a matching one.
+            return False
+        return self.terms[term_name].pattern_since <= recorded <= self.version
+
     def by_register(self) -> dict[str, list[Term]]:
         out: dict[str, list[Term]] = {}
         for term in self.active:
@@ -100,15 +131,33 @@ def load() -> Lexicon:
         raise FileNotFoundError(f"{rel(LEXICON)} is missing")
     raw = yaml.safe_load(LEXICON.read_text(encoding="utf-8"))
 
+    version = raw.get("version", 0)
+    if not isinstance(version, int) or isinstance(version, bool):
+        raise ValueError(f"{rel(LEXICON)}: 'version' must be an integer, got {version!r}")
+
     terms: dict[str, Term] = {}
     for name, spec in raw["terms"].items():
         try:
             regex = re.compile(spec["pattern"], re.IGNORECASE)
         except re.error as exc:
             raise ValueError(f"{rel(LEXICON)}: term '{name}' has an invalid pattern: {exc}") from exc
+        since = spec.get("pattern_since")
+        if not isinstance(since, int) or isinstance(since, bool):
+            raise ValueError(
+                f"{rel(LEXICON)}: term '{name}' needs an integer 'pattern_since' — the "
+                "lexicon version at which its pattern last changed"
+            )
+        if not 1 <= since <= version:
+            raise ValueError(
+                f"{rel(LEXICON)}: term '{name}' has pattern_since {since}, outside "
+                f"1..{version}; a pattern cannot have changed in a version that does "
+                "not exist yet"
+            )
+
         terms[name] = Term(
             name=name,
             pattern=spec["pattern"],
+            pattern_since=since,
             tier=spec.get("tier", "adjacent"),
             register=spec.get("register", "other"),
             enabled=spec.get("enabled", True),
@@ -137,6 +186,17 @@ def load() -> Lexicon:
             raise ValueError(
                 f"{rel(LEXICON)}: term '{name}' prefilters miss its examples: {unfiltered}"
             )
+        # The records keep their hard line breaks, so `\s+` in a pattern spans a
+        # newline that a multi-word literal never will: such a literal would skip
+        # the speech and lose the match rather than merely slow the scan down.
+        spaced = [
+            literal for literal in terms[name].prefilters if any(c.isspace() for c in literal)
+        ]
+        if spaced:
+            raise ValueError(
+                f"{rel(LEXICON)}: term '{name}' has prefilters containing whitespace: "
+                f"{spaced}; a prefilter is a plain substring test and must be one token"
+            )
 
     sets = raw.get("sets", {})
     unknown = {
@@ -154,7 +214,7 @@ def load() -> Lexicon:
         raise ValueError(f"{rel(LEXICON)}: nested terms reference undefined parents: {bad_parents}")
 
     return Lexicon(
-        version=raw.get("version", 0),
+        version=version,
         updated=str(raw.get("updated", "")),
         terms=terms,
         sets=sets,
