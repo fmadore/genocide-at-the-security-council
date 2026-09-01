@@ -8,34 +8,41 @@
  "referents_sha256": "94a2f78968a832c4062af129e2a65bab61da5f029126303a2212a41eea8df8ae",
  "lexicon_version": "2",
  "schema_version": "2",
- "mode": "batch",
+ "mode": "live",
  "limit": null,
  "created": "2026-08-31T14:18:26Z",
- "completed": null,
- "git_commit": "5bc9a3f4e57ca600debc176f06bec59c42815d34-dirty",
+ "completed": "2026-08-31T21:34:11Z",
+ "git_commit": "e3a05b9e518984b0afc073ea68fb1d16ddd229ca-dirty",
  "batch_ids": [
   "batches/28n48oxo2o95m83b4mp35dac453yxxw6r2bn",
+  "batches/28nbqbj6uukv1l9o28p4g933k0gotee5156o",
+  "batches/6vbtn7pv7z74s0j2pqmhij7ognc51mkx3zi9",
+  "batches/83aytrj50p494uvxrqjoukilk9agg9lej5cp",
+  "batches/b8egg34y6fwxhszl385ey1n5eytc52r7q5an",
   "batches/ba4x8u7pr8do0ehizg0pbrly327xyv5ggzjt",
+  "batches/dqhy13t4mf3jf3bmc64y30uyczgxp9fsdiwy",
+  "batches/pu0jsrn6acnh8y9pnackt7qub1lrba3fdgbp",
+  "batches/vqpnmo8uzisr3sr40qzqrjthr7ev6d6ctov5",
   "batches/wlcahacy5ssusoqlbo9odyga8ya7z5fx8l7c",
   "batches/xavq78ucxu1sx9qbis9fxkqzgi8kxiwomk5g"
  ],
  "requests": {
   "planned": 3273,
-  "submitted": 5746,
-  "returned": 1200,
-  "complete": 800
+  "submitted": 7966,
+  "returned": 4474,
+  "complete": 3273
  },
  "occurrences": {
   "planned": 6092,
-  "written": 2353
+  "written": 6092
  },
  "parse_failures": 0,
- "evidence_invalid": 0,
+ "evidence_invalid": 3,
  "usage": {
-  "input_tokens": 5247407,
-  "output_tokens": 362254,
-  "reasoning_tokens": 2435216
+  "input_tokens": 19104227,
+  "output_tokens": 1298193,
+  "reasoning_tokens": 9682944
  },
  "cost_usd": null,
- "status": "in_progress"
+ "status": "complete"
 }

@@ -128,6 +128,7 @@ diff. Register of runs:
 | `2026-08-30-luna-pilot` | `gpt-5.6-luna`, effort high | v1 `a44fdbb59321` | 50 speeches, 91 of 91 pilot occurrences | 0 | 0 |
 | `2026-08-30-luna-v1` | `gpt-5.6-luna`, effort high | v1 `a44fdbb59321` | 6,092 of 6,092 occurrences, 3,273 of 3,273 speeches | 0 | 15 |
 | `2026-08-31-gemini-pilot` | `gemini-3.7-flash`, thinking high | v1 `a44fdbb59321` | 50 speeches, 91 of 91 pilot occurrences | 0 | 0 |
+| `2026-08-31-gemini-v1` | `gemini-3.7-flash`, thinking high | v1 `a44fdbb59321` | 6,092 of 6,092 occurrences, 3,273 of 3,273 speeches | 0 | 3 |
 
 `2026-08-30-luna-v1` is the run `current_run.txt` publishes. Its 15 unlocated evidence
 quotes (0.25%) are flagged `evidence_valid=false` in the run and excluded from every
@@ -141,6 +142,34 @@ Per-field observed agreement against `2026-08-30-luna-pilot` is verdict 91/91,
 quotation 86/91, referent 86/91, stance 81/91, function 69/91 by set equality. This is
 stability across instruments and not accuracy; the gold sample remains the only
 calibration. No Gemini run is published: `comparison_run.txt` is still empty.
+
+`2026-08-31-gemini-v1` is the counter-instrument over the whole corpus. It annotates the
+same 6,092 occurrences as `2026-08-30-luna-v1` — every occurrence id is present in both
+runs and in neither alone — with the byte-identical prompt, so the two are comparable
+rather than merely similar. Three evidence quotes could not be located (0.05%, against
+luna's 15) and are flagged rather than repaired. One speech, `UNSC_2022_SPV.9062_spch0012`,
+was first refused for `MAX_TOKENS` and succeeded on a live retry; `failures.jsonl` keeps
+that record.
+
+Observed agreement between the two runs, over all 6,092 occurrences:
+
+| Field | Agreement | Cohen's kappa |
+|---|---:|---:|
+| `verdict` | 99.9% | 0.000 |
+| `quotation` | 90.2% | 0.615 |
+| `referent` | 87.6% | 0.853 |
+| `stance` | 81.2% | 0.688 |
+| `function` (set equality) | 69.9% | — |
+
+3,068 occurrences (50.4%) are contested on at least one field. The `verdict` kappa of 0.000
+is an artefact of the metric and not a disagreement: both instruments call almost every
+occurrence a true positive, so there is nearly no variance for kappa to normalise against,
+and the 99.9% raw agreement is the figure that means anything. Quote it with that caveat or
+not at all.
+
+The whole table measures stability across two instruments and never accuracy. Both models
+can be confidently wrong together, and the human gold sample — still 0 of 200 coded —
+remains the only calibration either run has.
 
 When a run is added, record it here and re-check the artefact counts on the Methods page
 against its manifest. Automatic resolutions (a relocated evidence quote, a normalised
