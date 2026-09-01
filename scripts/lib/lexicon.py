@@ -125,6 +125,30 @@ class Lexicon:
         return out
 
 
+def summable(terms: list[Term]) -> list[Term]:
+    """The subset of ``terms`` that can be added into a single occurrence count.
+
+    A nested term's matches lie inside its parent's — every "mass atrocity" is
+    also an "atrocity", every "Genocide Convention" also a `genocid*` — so
+    adding a child and its parent to one sum counts the same span twice. This
+    drops each term whose declared parent is summed alongside it, in the order
+    given. A child whose parent is *not* in the list stays: nothing else in that
+    sum covers it, which is why a child counts in full in its own register when
+    its parent belongs to another.
+
+    Nesting is declared in `config/lexicon.yml`, not proven span by span, and a
+    few alternatives inside a nested pattern do not sit inside a parent match:
+    `convention on the prevention and punishment` matches `genocide_convention`
+    on its own, with the parent's `genocid*` following as a separate span
+    ("...of the Crime of Genocide"), and `special adviser on the prevention`
+    likewise for `prevention_of_genocide`. Treating every nested occurrence as
+    already counted by the parent therefore undercounts those few mentions. That
+    is the safer direction: the roll-up understates rather than inflates.
+    """
+    summed = {term.name for term in terms}
+    return [term for term in terms if term.nested_under not in summed]
+
+
 def load() -> Lexicon:
     """Read and compile config/lexicon.yml."""
     if not LEXICON.exists():
@@ -227,6 +251,12 @@ def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
     Returns a frame of ``n_<term>`` and ``has_<term>`` columns, plus one
     ``has_<set>`` column per convenience grouping and per register, all indexed
     like ``bodies``.
+
+    The occurrence roll-ups — each ``n_register_<register>`` and
+    ``n_lexicon_total`` — are sums over :func:`summable`, so a term declared
+    nested under another is not added on top of the parent that already counts
+    its span. The ``has_`` flags and ``n_lexicon_terms`` stay over every member:
+    neither can double-count a span.
     """
     counts = pd.DataFrame(index=bodies.index)
     for term in lex.active:
@@ -234,9 +264,12 @@ def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
         counts[f"{HAS}{term.name}"] = counts[f"{COUNT}{term.name}"] > 0
 
     for register, terms in lex.by_register().items():
-        columns = [f"{COUNT}{t.name}" for t in terms]
-        counts[f"{COUNT}register_{register}"] = counts[columns].sum(axis=1).astype("int32")
-        counts[f"{HAS}register_{register}"] = counts[f"{COUNT}register_{register}"] > 0
+        summed = [f"{COUNT}{t.name}" for t in summable(terms)]
+        member_counts = [f"{COUNT}{t.name}" for t in terms]
+        counts[f"{COUNT}register_{register}"] = counts[summed].sum(axis=1).astype("int32")
+        # The flag asks whether the register was used at all, which no amount of
+        # nesting can double-count, so it stays over every member.
+        counts[f"{HAS}register_{register}"] = counts[member_counts].sum(axis=1) > 0
 
     for set_name, members in lex.sets.items():
         columns = [f"{COUNT}{m}" for m in members if f"{COUNT}{m}" in counts]
@@ -244,7 +277,10 @@ def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
             counts[f"{HAS}set_{set_name}"] = counts[columns].sum(axis=1) > 0
 
     active = [f"{COUNT}{t.name}" for t in lex.active]
-    counts["n_lexicon_total"] = counts[active].sum(axis=1).astype("int32")
+    summed = [f"{COUNT}{t.name}" for t in summable(lex.active)]
+    counts["n_lexicon_total"] = counts[summed].sum(axis=1).astype("int32")
+    # Distinct terms present, not spans: a nested term and its parent are two
+    # terms, and a speech using both is described by both.
     counts["n_lexicon_terms"] = (counts[active] > 0).sum(axis=1).astype("int32")
     return counts
 
