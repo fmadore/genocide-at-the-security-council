@@ -392,6 +392,7 @@ def test_the_live_response_is_read_by_the_same_reader_in_its_own_spelling() -> N
         "input_tokens": 8,
         "output_tokens": 63,
         "reasoning_tokens": 1180,
+        "cached_tokens": 0,
     }
 
 
@@ -400,13 +401,27 @@ def test_thinking_tokens_are_reported_as_the_reasoning_count_never_estimated() -
         "input_tokens": 8,
         "output_tokens": 63,
         "reasoning_tokens": 1180,
+        "cached_tokens": 0,
     }
     assert gemini.usage_of({"candidates": []}) == gemini.EMPTY_USAGE
     assert gemini.usage_of({"usageMetadata": {"promptTokenCount": 8}}) == {
         "input_tokens": 8,
         "output_tokens": 0,
         "reasoning_tokens": 0,
+        "cached_tokens": 0,
     }
+
+
+def test_a_cached_prefix_is_reported_from_the_provider_and_never_inferred() -> None:
+    """What the review asked for, as a measurement rather than a switch.
+
+    Gemini caches a repeated prefix without being asked, so there is nothing to
+    turn on; what was missing is the number saying whether it happened. A
+    response that does not report it is a cache miss and reads as zero.
+    """
+    cached = {"usageMetadata": {"promptTokenCount": 8000, "cachedContentTokenCount": 7600}}
+    assert gemini.usage_of(cached)["cached_tokens"] == 7600
+    assert gemini.usage_of({"usageMetadata": {"promptTokenCount": 8000}})["cached_tokens"] == 0
 
 
 def test_a_truncated_blocked_or_empty_answer_says_which_it_was() -> None:

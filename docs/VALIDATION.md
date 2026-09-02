@@ -69,7 +69,8 @@ pipeline joins both into the generated `data/interim/lexicon_audit_review.csv` a
 writes the annotation file. Reviewers must follow
 [`annotations/lexicon/CODEBOOK.md`](../annotations/lexicon/CODEBOOK.md), which separates:
 
-- match `verdict` from quotation, `stance`, rhetorical `function`, and controlled `referent`;
+- match `verdict` from quotation, `concrete_case`, `speaker_position`, rhetorical
+  `function`, and controlled `referent`;
 - source consultation from the evidence span and coding confidence;
 - administrative coder, date, schema, and lexicon versions.
 
@@ -134,10 +135,11 @@ The cue is a sampling stratum and never a label — `rejection`, `quotation`,
 `commemorative`, `dense_meeting`, `plain`, read off the ±150-character window — and so is a
 model label in the third frame: it says this occurrence is worth a coder's time, never what
 the coder should write. That frame's six strata, disjoint and assigned rarest first, hold
-134 occurrences either run called `rejects_or_denies` (all taken), 41 whose referent
+134 occurrences either run called `rejects` (all taken), 41 whose referent
 predates the case it names (all taken), 369 either called `other` (60 drawn), 716
-`attributes_or_reports` (100), 519 `hypothetical_or_conditional` (100) and 636 contested on
-stance or referent (100). **The two frames must never be pooled**: their inclusion
+`reports_without_position` (100), 519 `conditional` (100) and 636 contested on
+the position or the referent (100). The stratum names are schema 3's; across the schema
+boundary each is a rename and the six sizes are unchanged. **The two frames must never be pooled**: their inclusion
 probabilities differ by a factor of seven, and a rate over the union estimates nothing.
 Every row records the probability that put it there.
 
@@ -360,6 +362,109 @@ reviewed by both coders as L1 requires and these were not: Ba'athist Iraq outsid
 Two larger residual clusters are refused on the third clause rather than on count: the
 Iranian regime and its ideology (13 rows) and "Christians and religious minorities in the
 Middle East" (10) name an actor and a theme, not a case.
+
+#### Prompt v2 and annotation schema 3: the pilot, and what it must beat
+
+Prompt v2 and codebook 3 are committed and no run has been made against either. This
+section is the plan the author decides on, and everything in it is arithmetic over the four
+committed runs — nothing below is a measurement of v2, because no v2 measurement exists.
+
+**What changed, in one paragraph.** `stance` becomes `speaker_position` (asserts, rejects,
+conditional, reports_without_position, no_position) and `concrete_case` (yes, no, unclear),
+locked at their one shared value. Six fields arrive: `referent_source`, `accused_actor`,
+`victim_group`, `own_state_accused`, `salience`, and a required one-sentence `rationale`.
+Ten worked examples replace ten invented ones, every one a verbatim passage with its line
+id. Three rules are stated that were not: distancing, commemoration, and what
+`accountability` requires. The referent list's `years` column is declared documentation in
+the prompt itself, and the compound rule arrives from the codebook.
+
+**The ablation.** `--reasoning-effort medium` on both scripts, over the 50-speech pilot set
+(91 occurrences), which is the same population the two v1 pilots annotated. Two runs per
+model, so each instrument's own retest is measured at v2 as it was at v1. Four runs, about
+200 requests.
+
+**What the pilot must beat**, over those 91 occurrences. The left column is measured from
+the committed runs and is the floor; the right is the reading that would decide against v2.
+
+| Quantity | v1 figure to beat | Fails if |
+|---|---:|---|
+| Luna against itself, `speaker_position` | 0.945 (κ 0.885) | below it |
+| Luna against itself, `referent` | 0.945 (κ 0.878) | below it |
+| Luna against itself, `quotation` | 0.967 (κ 0.888) | below it |
+| Gemini against itself, `speaker_position` | 0.989 (κ 0.971) | below it |
+| Gemini against itself, `referent` | 0.989 (κ 0.974) | below it |
+| Gemini against itself, `quotation` | 0.989 (κ 0.948) | below it |
+| The two instruments, `speaker_position` | 0.890 (κ 0.745) | below it |
+| The two instruments, `concrete_case` | 0.967 (κ 0.883) | below it |
+| The two instruments, `referent` | 0.945 (κ 0.875) | below it |
+
+The two `concrete_case` rows are the only ones whose v1 value is *derived* rather than
+recorded: schema 2 had no such field, and `lib.audit.concrete_case_from_v1` reads it off the
+recorded stance and referent. That derivation is also the strongest evidence there is that
+the split is the right repair, and it is worth stating on its own. Over all 6,092
+occurrences the two instruments agree on the derived case decision at 0.951 with κ 0.893,
+against 0.812 and κ 0.688 for the v1 field that carried the decision together with the
+position. The same two questions, asked apart, are far more stable than asked together. If
+a v2 run does not clear 0.951 corpus-wide on a field the models are now asked directly, the
+prompt has made a decision harder that the data says is easy, and that is a reason to stop.
+
+**Three constructions the prompt now rules on**, and what each would show. They are
+diagnostic rather than pass/fail: the pilot set is 91 occurrences and holds too few of any
+of them to test.
+
+- *Distancing*. 78 occurrences corpus-wide (`lib.node_frames`), and the two instruments part
+  on them: 33 of Luna's are `attributes_or_reports` against 27 of Gemini's
+  `rejects_or_denies`. v2's rule turns on what the hedge scopes over. A full v2 run should
+  put most of the 78 in `rejects` in both instruments, and the *alleged genocide financier*
+  family in `asserts` in both.
+- *Commemoration*. Both runs already code 98% as assertions with no instruction to. v2 says
+  so. The number should not move; if it does, the instruction has changed something it was
+  meant to record.
+- *The title*. Both runs read the Special Adviser's post as a non-case mention in 176 of 176
+  occurrences. Under v2 those are `concrete_case: no`, `no_position`, referent
+  `institutional_mandate`. Any drift here is the rule failing to say what the models were
+  already doing.
+
+**Tokens, and the one input that is missing.** The four committed runs report, from the
+providers' own counters:
+
+| Run | Effort | Requests | Input | Output | Thinking |
+|---|---|---:|---:|---:|---:|
+| `2026-08-30-luna-pilot` | high | 50 | 218,877 | 40,867 | 31,521 |
+| `2026-08-30-luna-v1` | high | 3,273 | 13,849,736 | 3,514,395 | 2,927,105 |
+| `2026-08-31-gemini-pilot` | high | 50 | 216,809 | 14,168 | 106,461 |
+| `2026-08-31-gemini-v1` | high | 3,274 | 13,856,820 | 935,939 | 7,247,728 |
+
+OpenAI's `output_tokens` includes its reasoning tokens; Gemini reports `thoughtsTokenCount`
+beside `candidatesTokenCount`, so a Gemini run's billed output is the two added — 8,183,667
+for the full run against Luna's 3,514,395.
+
+The v2 prefix is larger, and that is the number the caching decision turns on. Rendered with
+the v2 referent table, v1's system message is 13,593 characters and v2's is 30,821 — about
+3,400 and 7,700 tokens at four characters to the token. Sent 3,273 times uncached, the fixed
+prefix alone goes from about 9.1M input tokens (which is what the review measured inside
+Luna's 13.8M) to about 25.2M, and a full v2 run's input would be roughly 30M against 13.8M:
+2.2 times the v1 bill before a single new output token. Cached, the prefix is billed once at
+full rate and thereafter at the cached rate, and a run whose prefix is cached is *cheaper in
+input than the v1 run was* despite a prompt nearly three times as long. Prompt caching is
+therefore not an optimisation for v2; it is the condition on which v2 is affordable, and the
+pilot's first job is to show `cached_tokens` is not zero.
+
+Output should rise by roughly the rationale and the five new closed fields — order 50–60
+tokens an occurrence, against Luna's 449 and Gemini's 1,325 at high effort — and medium
+effort is the ablation that might return more than that.
+
+**No cost is stated here, and the reason is unchanged**: nothing in this repository records
+a rate. `cost_usd` is null in all four manifests, the roadmap's "~$12" and "half price in
+Batch" are prose, and a figure computed here from a pricing page would be a number in a
+research artefact that nothing in the repository produced. The token counts above are the
+whole of what can be said without the author reading the two providers' rates off their own
+pages and recording the price table — URL, date read, input, output, thinking, cached and
+batch rates — beside the runs. Given that table, the arithmetic is one multiplication.
+
+**The gate.** The pilot needs the author's decision and the author's money; nothing in the
+repository can make it. Until it is run, prompt v2 is a committed instrument that has never
+been used, and every figure on `/usage` is a v1 figure.
 
 ## Mechanically reconciled
 

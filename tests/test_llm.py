@@ -277,6 +277,50 @@ def test_the_repository_holds_every_version_from_one_to_the_current(tmp_path: Pa
     )
 
 
+# --- The fixed prefix, and asking for it to be cached ------------------------
+
+
+def test_the_cache_key_names_the_prefix_and_nothing_about_the_run() -> None:
+    """Two runs of one prompt share a cache, which is most of the point.
+
+    The prefix is the prompt's own text with the referent table rendered into it,
+    so the key is derived from those two files' digests and from nothing else. A
+    key that carried the run id would give the pilot and the corpus run separate
+    caches and charge the second one full price for a prefix it had already sent
+    3,273 times.
+    """
+    first = llm.cache_key("a" * 64, "b" * 64)
+    assert first == llm.cache_key("a" * 64, "b" * 64)
+    assert first != llm.cache_key("a" * 64, "c" * 64)
+    assert first != llm.cache_key("c" * 64, "b" * 64)
+    assert first.startswith("unsc-genocide-")
+
+
+def test_a_request_carries_the_cache_key_only_when_there_is_one(tmp_path: Path) -> None:
+    """Omitted rather than blank, so a run made without it is the request that
+    was sent before the field existed and the two stay comparable."""
+    found = enumerate_bodies(BODIES)
+    request = llm.build_request(
+        {"filename": "one.txt"}, BODIES["one.txt"], found[:1], llm.load_prompt(PROMPT), "table"
+    )
+    plain = llm.request_body(
+        request, model="a-model", reasoning_effort="medium", max_output_tokens=99
+    )
+    assert "prompt_cache_key" not in plain
+
+    keyed = llm.request_body(
+        request,
+        model="a-model",
+        reasoning_effort="medium",
+        max_output_tokens=99,
+        prompt_cache_key="unsc-genocide-abc-def",
+    )
+    assert keyed["prompt_cache_key"] == "unsc-genocide-abc-def"
+    # The question itself is untouched: a cached run and an uncached one are the
+    # same instrument, or the ablation measures the cache and not the effort.
+    assert {key: value for key, value in keyed.items() if key != "prompt_cache_key"} == plain
+
+
 # --- The controlled referents -----------------------------------------------
 
 

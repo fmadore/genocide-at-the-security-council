@@ -645,20 +645,46 @@ def build_request(
     )
 
 
+def cache_key(prompt_digest: str, referents_digest: str) -> str:
+    """The routing key for the fixed prefix these two files make.
+
+    Every request in a run opens with the same system message: the prompt's own
+    text with the referents table rendered into it. That prefix is about 8,000
+    tokens of the roughly 4,200 a request averages beyond it, and it was sent
+    3,273 times — the review of 1 September (§4.2, item 8) measured some 9M of
+    Luna's 13.8M input tokens as the fixed part, and found neither script asking
+    for it to be cached.
+
+    Caching is automatic on both providers once a prefix is long enough; what a
+    key buys is that requests sharing a prefix are routed to the same cache
+    rather than spread over several. So it is derived from exactly what the
+    prefix is made of — the prompt bytes and the referent file's — and changes
+    when either does, which is when the cached prefix is no longer the same
+    text. Never the run id: two runs of one prompt should share the cache, which
+    is most of the point of a pilot at all.
+    """
+    return f"unsc-genocide-{prompt_digest[:12]}-{referents_digest[:12]}"
+
+
 def request_body(
     request: SpeechRequest,
     *,
     model: str,
     reasoning_effort: str,
     max_output_tokens: int,
+    prompt_cache_key: str = "",
 ) -> dict[str, object]:
     """The `/v1/responses` body, identical in a batch line and in a live call.
 
     Built here rather than in 14 so that the two paths cannot drift: a pilot run
     made with `--live` and a corpus run made through the Batch API have to be
     asking the same question, or the pilot measures nothing.
+
+    `prompt_cache_key` is omitted entirely when empty rather than sent as a blank
+    string, so a run made without it is byte-identical to a run made before the
+    field existed and the two remain comparable.
     """
-    return {
+    body: dict[str, object] = {
         "model": model,
         "reasoning": {"effort": reasoning_effort},
         "input": [
@@ -675,6 +701,9 @@ def request_body(
         },
         "max_output_tokens": max_output_tokens,
     }
+    if prompt_cache_key:
+        body["prompt_cache_key"] = prompt_cache_key
+    return body
 
 
 # --- Reading one speech's response -----------------------------------------
