@@ -31,8 +31,8 @@
 		CONTESTED_COLUMNS,
 		DIFFUSION_COLUMNS,
 		MATRIX_COLUMNS,
-		STANCES,
-		STANCE_COLUMNS,
+		POSITIONS,
+		POSITION_COLUMNS,
 		USAGE_TERM,
 		comparisonApparatus,
 		contestedExportRows,
@@ -47,24 +47,24 @@
 		matrixPlan,
 		readUsageState,
 		selectUsage,
-		stanceExportRows,
+		positionExportRows,
 		retestRows,
-		stanceLabel,
-		stanceRanking,
+		positionLabel,
+		positionRanking,
 		usageParams
 	} from '$lib/usage';
 	import type {
 		DiffusionPoint,
 		DiffusionSeries,
 		MatrixCell,
-		StanceSegment,
+		PositionSegment,
 		UsageSort,
 		UsageState,
 		UsageUnit
 	} from '$lib/usage';
 	import type {
 		KwicLine,
-		StanceCounts,
+		PositionCounts,
 		UsageActor,
 		UsageOccurrences,
 		UsageReferent
@@ -108,7 +108,7 @@
 	});
 
 	const plan = $derived(matrixPlan(artefact, current()));
-	const ranking = $derived(stanceRanking(artefact));
+	const ranking = $derived(positionRanking(artefact));
 	const gold = $derived(goldProgress(artefact));
 	const selected = $derived(Boolean(actor || referent));
 	/* The second opinion, or the empty block that says none was run. Everything
@@ -118,7 +118,7 @@
 	const comparison = $derived(comparisonApparatus(artefact));
 	/* Each model against another run of itself, over the pilot occurrences both
 	   reached. The floor the cross-model column has to be read against: two
-	   models differing on a fifth of the stance labels says nothing until a
+	   models differing on a fifth of the speaker_position labels says nothing until a
 	   reader knows how far one model differs from itself. */
 	const retest = $derived(retestRows(artefact));
 	/** One field's observed agreement in one retest, or a dash. */
@@ -224,7 +224,7 @@
 	const stepLabel = (point: DiffusionPoint, series: DiffusionSeries) =>
 		`${shortCountry(point.actor)}, ${isoDate(point.date)}: ${series.label.toLowerCase()}. ` +
 		`${count(point.value)} of ${count(series.total)} delegations by then. ` +
-		`Stance: ${point.stanceLabel.toLowerCase()}.`;
+		`Position: ${point.positionLabel.toLowerCase()}.`;
 
 	const diffusionDescription = $derived(
 		`Cumulative delegations for ${diffusion.label}, ${isoDate(diffusion.span.from)} to ` +
@@ -247,13 +247,13 @@
 		name: 'name'
 	};
 
-	/** Every stance a set of counts actually holds, as a sentence. */
-	const describeStances = (stances: StanceCounts, total: number) =>
-		STANCES.filter((stance) => (stances[stance] ?? 0) > 0)
+	/** Every speaker_position a set of counts actually holds, as a sentence. */
+	const describePositions = (positions: PositionCounts, total: number) =>
+		POSITIONS.filter((speaker_position) => (positions[speaker_position] ?? 0) > 0)
 			.map(
-				(stance) =>
-					`${stanceLabel(stance).toLowerCase()} ${count(stances[stance])}` +
-					(total > 0 ? ` (${percent(stances[stance] / total)})` : '')
+				(speaker_position) =>
+					`${positionLabel(speaker_position).toLowerCase()} ${count(positions[speaker_position])}` +
+					(total > 0 ? ` (${percent(positions[speaker_position] / total)})` : '')
 			)
 			.join(', ');
 
@@ -277,20 +277,20 @@
 				: '';
 		return (
 			`${who} × ${subject.label}: ${count(cell.count)} ${many}, ${share}. ` +
-			`${describeStances(cell.stances, cell.count)}.${disputed}`
+			`${describePositions(cell.positions, cell.count)}.${disputed}`
 		);
 	}
 
-	/* One hue per stance, tinted toward the page so the numbers can be read on
+	/* One hue per speaker_position, tinted toward the page so the numbers can be read on
 	   top of them. `--blue` appears nowhere: it belongs to what a reader can act
 	   on, never to a datum. Rejection is the strongest weight because it is the
 	   question the figure is ordered by. */
-	const slug = (stance: string) => stance.replace(/_/g, '-');
-	const bands = (parts: StanceSegment[]) =>
+	const slug = (speaker_position: string) => speaker_position.replace(/_/g, '-');
+	const bands = (parts: PositionSegment[]) =>
 		parts
 			.map(
 				(band) =>
-					`var(--stance-${slug(band.stance)}) ${band.from.toFixed(3)}% ${band.to.toFixed(3)}%`
+					`var(--speaker_position-${slug(band.speaker_position)}) ${band.from.toFixed(3)}% ${band.to.toFixed(3)}%`
 			)
 			.join(', ');
 
@@ -369,11 +369,11 @@
 		};
 	}
 
-	function stanceTable(): ExportRequest {
+	function positionTable(): ExportRequest {
 		return {
 			title: 'Who rejects the word',
-			columns: STANCE_COLUMNS,
-			rows: stanceExportRows(artefact),
+			columns: POSITION_COLUMNS,
+			rows: positionExportRows(artefact),
 			provenance: provenanceOf(artefact.meta, 'usage/usage.json'),
 			filters: [
 				`ranked by: share of eligible occurrences that reject or deny`,
@@ -381,7 +381,7 @@
 				`labels: ${artefact.model.id}, run ${artefact.model.run_id}`
 			],
 			scope:
-				`every speaker the run produced a stance profile for, including the ` +
+				`every speaker the run produced a speaker_position profile for, including the ` +
 				`${count(ranking.withheld.length)} whose share is withheld and written null`
 		};
 	}
@@ -443,7 +443,7 @@
 				<dd>
 					{count(artefact.model.abstention.verdict_uncertain)} verdict &middot;
 					{count(artefact.model.abstention.referent_unclear)} referent &middot;
-					{count(artefact.model.abstention.stance_unclear)} stance
+					{count(artefact.model.abstention.position_unclear)} speaker_position
 				</dd>
 			</div>
 			<div>
@@ -840,8 +840,8 @@
 				{count(evidence.length)}
 				{evidence.length === 1 ? 'occurrence' : 'occurrences'}{#if contested}, of {count(
 						allEvidence.length
-					)} behind this pairing{/if}, oldest first. The stance is the model's; the sentence is the
-				record's.
+					)} behind this pairing{/if}, oldest first. The speaker_position is the model's; the
+				sentence is the record's.
 			</p>
 			<ol class="quotations">
 				{#each evidence.slice(0, shown) as row (row.id)}
@@ -857,7 +857,10 @@
 									>{:else}{part.text}{/if}{/each}
 						</blockquote>
 						<p class="labels">
-							<span class="stance" data-stance={row.stance}>{row.stanceLabel}</span>
+							<span class="speaker_position" data-speaker_position={row.speaker_position}
+								>{row.positionLabel}</span
+							>
+							{#if row.caseLabel}<span class="fn">{row.caseLabel}</span>{/if}
 							{#each row.functions as name (name)}<span class="fn">{termLabel(name)}</span>{/each}
 							<span class="fn">confidence {row.confidence}</span>
 							{#if !referent}<span class="fn">{referentLabel(row.referent)}</span>{/if}
@@ -878,6 +881,14 @@
 									</span>
 								{/each}
 							</p>
+						{/if}
+						{#if row.schemaFields.length}
+							<dl class="schema-fields">
+								{#each row.schemaFields as field (field.label)}
+									<dt>{field.label}</dt>
+									<dd>{field.value}</dd>
+								{/each}
+							</dl>
 						{/if}
 						{#if row.quoteDiffers}
 							<p class="span">
@@ -950,8 +961,9 @@
 			<p>
 				<strong>A curve of delegations speaking in this corpus</strong>, not of states holding a
 				view: an absence is silence, not refusal. The milestones are
-				<code>{artefact.model.id}</code>'s readings; a mislabelled stance moves a delegation between
-				the curves, and a referent the second model reads differently is withheld.
+				<code>{artefact.model.id}</code>'s readings; a mislabelled speaker_position moves a
+				delegation between the curves, and a referent the second model reads differently is
+				withheld.
 			</p>
 		{/snippet}
 		{#snippet more()}
@@ -996,9 +1008,9 @@
 				{diffusion.totals.mention === 1 ? 'delegation has' : 'delegations have'} placed the word on
 				{diffusion.label}
 				at all; {count(diffusion.totals.asserts)} of them asserted it, and
-				{count(diffusion.totals.rejects_or_denies)} used the word in order to refuse it for this case.
-				A delegation can be on two of those curves and often is — the first use that refuses the word
-				is also that delegation's first use of it.
+				{count(diffusion.totals.rejects)} used the word in order to refuse it for this case. A delegation
+				can be on two of those curves and often is — the first use that refuses the word is also that
+				delegation's first use of it.
 			</p>
 
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
@@ -1012,7 +1024,7 @@
 							<th scope="col">Date</th>
 							<th scope="col">Delegation</th>
 							<th scope="col">Milestone</th>
-							<th scope="col">Stance</th>
+							<th scope="col">Position</th>
 							<th scope="col" class="num">Nth</th>
 							<th scope="col">Occurrence</th>
 						</tr>
@@ -1025,7 +1037,11 @@
 								<td>
 									<span class="milestone" data-milestone={row.milestone}>{row.milestoneLabel}</span>
 								</td>
-								<td><span class="stance" data-stance={row.stance}>{row.stanceLabel}</span></td>
+								<td
+									><span class="speaker_position" data-speaker_position={row.speaker_position}
+										>{row.positionLabel}</span
+									></td
+								>
 								<td class="num">{count(row.ordinal)}</td>
 								<td class="where">
 									<a
@@ -1071,8 +1087,8 @@
 					<strong
 						>Agreement between two models measures stability across instruments, never accuracy.</strong
 					> Two models can be wrong in the same way; the human gold sample is the only calibration here.
-					A disagreement is not an error found. Nothing here is merged into the matrix, stance profile
-					or diffusion curve.
+					A disagreement is not an error found. Nothing here is merged into the matrix, speaker_position
+					profile or diffusion curve.
 				</p>
 			{/snippet}
 
@@ -1168,7 +1184,7 @@
 		question="When a delegation says genocide, is it making the claim or refusing it?"
 		source="15_usage.py → usage/usage.json"
 		note="Width is the share of that delegation's own eligible occurrences, not of the corpus."
-		download={{ name: ['unsc', 'usage', 'stance'], table: stanceTable }}
+		download={{ name: ['unsc', 'usage', 'speaker_position'], table: positionTable }}
 	>
 		{#snippet reading()}
 			<p>
@@ -1180,9 +1196,11 @@
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>A stance is the label a model most easily inverts:</strong> &ldquo;we reject the
-				claim that this is genocide&rdquo; and &ldquo;this is genocide&rdquo; differ by three words,
-				and nothing here is checked until the gold sample is coded. {count(ranking.withheld.length)}
+				<strong>A speaker_position is the label a model most easily inverts:</strong> &ldquo;we
+				reject the claim that this is genocide&rdquo; and &ldquo;this is genocide&rdquo; differ by
+				three words, and nothing here is checked until the gold sample is coded. {count(
+					ranking.withheld.length
+				)}
 				delegations with fewer than {count(ranking.minimum)} occurrences carry no share at all.
 			</p>
 		{/snippet}
@@ -1199,11 +1217,11 @@
 		{/snippet}
 
 		<div class="key">
-			{#each STANCES as stance (stance)}
+			{#each POSITIONS as speaker_position (speaker_position)}
 				<span class="swatch"
-					><i style:--band="var(--stance-{slug(stance)})"></i>{stanceLabel(
-						stance
-					)}{#if isInstrumentDependent(stance)}<abbr
+					><i style:--band="var(--speaker_position-{slug(speaker_position)})"></i>{positionLabel(
+						speaker_position
+					)}{#if isInstrumentDependent(speaker_position)}<abbr
 							title="Instrument-dependent: the two models split this label from `asserts` differently, and a count of it is partly a count of which model was asked."
 							>&nbsp;&dagger;</abbr
 						>{/if}</span
@@ -1224,8 +1242,8 @@
 			</p>
 		{:else}
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-			<div class="scroll" role="region" aria-label="Stance profile table" tabindex="0">
-				<table class="stances">
+			<div class="scroll" role="region" aria-label="Position profile table" tabindex="0">
+				<table class="positions">
 					<caption class="sr-only">
 						Delegations by the share of their eligible occurrences that reject or deny the
 						characterisation, those separated from the corpus rate first
@@ -1246,7 +1264,7 @@
 								class:withheld={!row.separated}
 								style:--bands="linear-gradient(to right, {bands(row.segments)})"
 							>
-								<th scope="row" title={describeStances(row.stances, row.total)}>
+								<th scope="row" title={describePositions(row.positions, row.total)}>
 									{shortCountry(row.actor)}{#if row.separated}<abbr
 											title="The lower bound of this share clears the corpus rate of 1.7%."
 											>&nbsp;&#9679;</abbr
@@ -1265,17 +1283,17 @@
 
 		<details class="data-table">
 			<summary
-				><Icon icon={ChevronRight} />Every stance count, withheld delegations included</summary
+				><Icon icon={ChevronRight} />Every speaker_position count, withheld delegations included</summary
 			>
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-			<div class="scroll" role="region" aria-label="Every stance count" tabindex="0">
+			<div class="scroll" role="region" aria-label="Every speaker_position count" tabindex="0">
 				<table>
 					<thead>
 						<tr>
 							<th scope="col">Delegation</th>
 							<th scope="col" class="num">Eligible</th>
-							{#each STANCES as stance (stance)}
-								<th scope="col" class="num">{stanceLabel(stance)}</th>
+							{#each POSITIONS as speaker_position (speaker_position)}
+								<th scope="col" class="num">{positionLabel(speaker_position)}</th>
 							{/each}
 							<th scope="col" class="num">Rejects</th>
 						</tr>
@@ -1285,8 +1303,8 @@
 							<tr>
 								<th scope="row">{shortCountry(row.actor)}</th>
 								<td class="num">{count(row.eligible)}</td>
-								{#each STANCES as stance (stance)}
-									<td class="num">{count(row.stances[stance] ?? 0)}</td>
+								{#each POSITIONS as speaker_position (speaker_position)}
+									<td class="num">{count(row.positions[speaker_position] ?? 0)}</td>
 								{/each}
 								<td class="num">{percent(row.shareRejects)}</td>
 							</tr>
@@ -1295,8 +1313,8 @@
 							<tr class="withheld">
 								<th scope="row">{shortCountry(row.actor)}</th>
 								<td class="num">{count(row.eligible)}</td>
-								{#each STANCES as stance (stance)}
-									<td class="num">{count(row.stances[stance] ?? 0)}</td>
+								{#each POSITIONS as speaker_position (speaker_position)}
+									<td class="num">{count(row.positions[speaker_position] ?? 0)}</td>
 								{/each}
 								<td class="num">withheld</td>
 							</tr>
@@ -1443,7 +1461,7 @@
 									{#each field.classes as row (row.label)}
 										<tr class:withheld={!row.measurable}>
 											<th scope="row">{termLabel(field.field)}</th>
-											<td>{stanceLabel(row.label)}</td>
+											<td>{positionLabel(row.label)}</td>
 											<td class="num">{count(row.support)}</td>
 											<td class="num">{count(row.predicted)}</td>
 											<td class="num">{count(row.correct)}</td>
@@ -1710,7 +1728,7 @@
 		font-size: var(--step--2);
 	}
 
-	/* The stance is a datum, so it carries a data colour and no control ever
+	/* The speaker_position is a datum, so it carries a data colour and no control ever
 	   does. The colour is a rule under the word rather than the word itself —
 	   the same gesture `app.css` gives a marked term of a given register, and
 	   the reason is the same one that produced it there: several of these
@@ -1719,7 +1737,7 @@
 	   contrast a label has to clear. Ink carries the reading; the hue carries
 	   the category. A filled chip is not used either: it would read as
 	   something to press. */
-	.stance {
+	.speaker_position {
 		font-weight: 700;
 		letter-spacing: 0.04em;
 		text-transform: uppercase;
@@ -1728,23 +1746,23 @@
 		box-shadow: inset 0 -2px 0 var(--rule-strong);
 	}
 
-	.stance[data-stance='asserts'] {
+	.speaker_position[data-speaker_position='asserts'] {
 		box-shadow: inset 0 -2px 0 var(--ink);
 	}
-	.stance[data-stance='attributes_or_reports'] {
+	.speaker_position[data-speaker_position='reports_without_position'] {
 		box-shadow: inset 0 -2px 0 var(--ink-2);
 	}
-	.stance[data-stance='rejects_or_denies'] {
+	.speaker_position[data-speaker_position='rejects'] {
 		box-shadow: inset 0 -2px 0 var(--ink);
 	}
-	.stance[data-stance='hypothetical_or_conditional'] {
+	.speaker_position[data-speaker_position='conditional'] {
 		box-shadow: inset 0 -2px 0 var(--ink-3);
 	}
-	.stance[data-stance='neutral_legal_reference'] {
+	.speaker_position[data-speaker_position='no_position'] {
 		box-shadow: inset 0 -2px 0 var(--rule-strong);
 	}
-	.stance[data-stance='unclear'],
-	.stance[data-stance='not_applicable'] {
+	.speaker_position[data-speaker_position='unclear'],
+	.speaker_position[data-speaker_position='not_applicable'] {
 		box-shadow: inset 0 -2px 0 var(--ink-3);
 	}
 
@@ -1824,6 +1842,27 @@
 
 	.filter .quiet {
 		flex-basis: 100%;
+		margin: 0;
+	}
+
+	/* Present only on a run coded against annotation schema 3; a schema-2 run
+	   answers none of these six and the list is empty rather than blank. */
+	.schema-fields {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: var(--sp-1) var(--sp-2);
+		max-width: var(--measure);
+		margin: 0 0 var(--sp-3);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-2);
+	}
+
+	.schema-fields dt {
+		color: var(--ink-3);
+	}
+
+	.schema-fields dd {
 		margin: 0;
 	}
 
@@ -1919,10 +1958,10 @@
 		border-bottom: var(--hair) solid var(--rule);
 	}
 
-	/* The same mark as in the quotations, set quietly: a stance shouted once
+	/* The same mark as in the quotations, set quietly: a speaker_position shouted once
 	   under a blockquote is emphasis, and shouted on every row of a hundred is
 	   noise. The rule under the word still carries the category. */
-	.chronology .stance {
+	.chronology .speaker_position {
 		font-family: var(--sans);
 		font-size: var(--step--2);
 		font-weight: 400;
@@ -1939,7 +1978,7 @@
 		white-space: nowrap;
 	}
 
-	/* The same gesture the stance carries: a rule under the word in the colour
+	/* The same gesture the speaker_position carries: a rule under the word in the colour
 	   its curve is drawn in, so the table and the figure name the same thing the
 	   same way. Ink carries the reading; the hue carries the category. */
 	.milestone {
@@ -1955,7 +1994,7 @@
 		box-shadow: inset 0 -2px 0 var(--ink);
 	}
 
-	.milestone[data-milestone='rejects_or_denies'] {
+	.milestone[data-milestone='rejects'] {
 		box-shadow: inset 0 -2px 0 var(--ink);
 	}
 
@@ -2028,30 +2067,42 @@
 		box-shadow: inset 0 -2px 0 var(--state-warn);
 	}
 
-	/* ---- the stance profile ------------------------------------------------ */
+	/* ---- the speaker_position profile ------------------------------------------------ */
 
-	/* One hue per stance, tinted toward the page so the numbers stay readable on
+	/* One hue per speaker_position, tinted toward the page so the numbers stay readable on
 	   top of them — the ceiling `Standing.svelte` settled on, for the same
 	   reason. Rejection carries ink, the strongest weight available, because it
 	   is the band the figure is ordered by. `--blue` appears nowhere. */
 	.key,
-	.stances {
+	.positions {
 		--tint: 32%;
-		--stance-asserts: color-mix(in oklab, var(--ink) var(--tint), transparent);
-		--stance-attributes-or-reports: color-mix(in oklab, var(--ink-2) var(--tint), transparent);
-		--stance-rejects-or-denies: color-mix(in oklab, var(--ink) var(--tint), transparent);
-		--stance-hypothetical-or-conditional: color-mix(
+		--speaker_position-asserts: color-mix(in oklab, var(--ink) var(--tint), transparent);
+		--speaker_position-attributes-or-reports: color-mix(
+			in oklab,
+			var(--ink-2) var(--tint),
+			transparent
+		);
+		--speaker_position-rejects-or-denies: color-mix(in oklab, var(--ink) var(--tint), transparent);
+		--speaker_position-hypothetical-or-conditional: color-mix(
 			in oklab,
 			var(--ink-3) var(--tint),
 			transparent
 		);
-		--stance-neutral-legal-reference: color-mix(
+		--speaker_position-neutral-legal-reference: color-mix(
 			in oklab,
 			var(--rule-strong) var(--tint),
 			transparent
 		);
-		--stance-unclear: color-mix(in oklab, var(--ink-3) calc(var(--tint) / 2), transparent);
-		--stance-not-applicable: color-mix(in oklab, var(--rule-strong) var(--tint), transparent);
+		--speaker_position-unclear: color-mix(
+			in oklab,
+			var(--ink-3) calc(var(--tint) / 2),
+			transparent
+		);
+		--speaker_position-not-applicable: color-mix(
+			in oklab,
+			var(--rule-strong) var(--tint),
+			transparent
+		);
 	}
 
 	.key {
@@ -2109,7 +2160,7 @@
 	/* The profile painted behind the row it describes: one gradient with hard
 	   stops, because a band is a range of the row rather than a box inside it.
 	   The zebra striping is switched off for these rows — the bands are 32%
-	   opaque, so a stripe underneath would draw the same stance in two colours
+	   opaque, so a stripe underneath would draw the same speaker_position in two colours
 	   down the column. */
 	tbody tr.band {
 		background-color: transparent;

@@ -110,12 +110,12 @@ VERDICTS: tuple[tuple[str, float], ...] = (
     ("false_positive", 0.030),
     ("uncertain", 0.020),
 )
-STANCES: tuple[tuple[str, float], ...] = (
+POSITIONS: tuple[tuple[str, float], ...] = (
     ("asserts", 0.60),
-    ("attributes_or_reports", 0.12),
-    ("rejects_or_denies", 0.10),
-    ("neutral_legal_reference", 0.08),
-    ("hypothetical_or_conditional", 0.07),
+    ("reports_without_position", 0.12),
+    ("rejects", 0.10),
+    ("no_position", 0.08),
+    ("conditional", 0.07),
     ("unclear", 0.03),
 )
 QUOTATIONS: tuple[tuple[str, float], ...] = (
@@ -156,6 +156,29 @@ BAD_QUOTE = "[synthetic fixture] this quotation is not in the speech"
 #: What a `referent: other` row proposes. One value, so it is obvious in a diff.
 PROPOSED = "a case the controlled list does not hold"
 
+#: Annotation schema 3's own fields, as (label, weight) pairs. `concrete_case`
+#: is not among them: it is not drawn at all but derived from the position,
+#: because the schema locks the two together — `concrete_case: no` if and only
+#: if `speaker_position: no_position` — and a fixture that drew them
+#: independently would spend most of its rows being refused.
+REFERENT_SOURCES: tuple[tuple[str, float], ...] = (
+    ("passage", 0.70),
+    ("speech", 0.22),
+    ("header", 0.08),
+)
+OWN_STATE: tuple[tuple[str, float], ...] = (
+    ("no", 0.72),
+    ("not_applicable", 0.24),
+    ("yes", 0.04),
+)
+SALIENCE: tuple[tuple[str, float], ...] = (("substantive", 0.62), ("passing", 0.38))
+
+#: One fabricated free-text value per field, signposted rather than plausible.
+#: A fixture that invented an actor's name would read as a finding in a diff.
+ACCUSED = "[synthetic fixture] an actor the passage names"
+VICTIM = "[synthetic fixture] a group the passage names"
+RATIONALE = "[synthetic fixture] not a rationale; the fields have a shape."
+
 #: How often the second model is made to differ, per decision. Redrawn rather
 #: than randomised: a counter-instrument that agreed nowhere would exercise the
 #: disagreement paths and nothing else, and one that agreed everywhere would
@@ -166,7 +189,7 @@ PROPOSED = "a case the controlled list does not hold"
 FLIP: dict[str, float] = {
     "verdict": 0.03,
     "quotation": 0.12,
-    "stance": 0.15,
+    "speaker_position": 0.15,
     "function": 0.14,
     "referent": 0.10,
 }
@@ -211,6 +234,22 @@ def referent_weights(referents: Sequence[str]) -> tuple[tuple[str, float], ...]:
     return tuple((name, 1 / (position + 1.5)) for position, name in enumerate(referents))
 
 
+def quote_for(verdict: str, sentence: str, draw: float) -> str:
+    """The evidence quotation, and the one verdict that may not miss with it.
+
+    A share of rows quote something the speech does not contain, so that
+    `evidence_valid` is false somewhere and the eligibility gate has something to
+    bite on. A false positive is exempt: `lib.llm.validate_row` requires it to
+    carry a located span, because "this match is not the word being used" is a
+    claim about a passage and is unreadable without the passage. The fixture
+    obeys the codebook rather than working around it — and this is where it
+    stopped obeying it, on the first run after that rule landed.
+    """
+    if verdict == "false_positive":
+        return sentence
+    return BAD_QUOTE if draw < BAD_EVIDENCE else sentence
+
+
 def cascade(verdict: str, quote: str, confidence: str) -> dict:
     """The labels a verdict other than `true_positive` fixes on its own.
 
@@ -223,20 +262,34 @@ def cascade(verdict: str, quote: str, confidence: str) -> dict:
     if verdict == "false_positive":
         return {
             "quotation": "not_applicable",
-            "stance": "not_applicable",
+            "concrete_case": "not_applicable",
+            "speaker_position": "not_applicable",
             "function": ("not_applicable",),
             "referent": "not_applicable",
             "proposed_referent": "",
+            "referent_source": "not_applicable",
+            "accused_actor": "",
+            "victim_group": "",
+            "own_state_accused": "not_applicable",
+            "salience": "not_applicable",
             "evidence_quote": quote,
+            "rationale": RATIONALE,
             "confidence": confidence,
         }
     return {
         "quotation": "unclear",
-        "stance": "unclear",
+        "concrete_case": "unclear",
+        "speaker_position": "unclear",
         "function": ("unclear",),
         "referent": "unclear",
         "proposed_referent": "",
+        "referent_source": "not_applicable",
+        "accused_actor": "",
+        "victim_group": "",
+        "own_state_accused": "not_applicable",
+        "salience": "not_applicable",
         "evidence_quote": quote,
+        "rationale": RATIONALE,
         "confidence": "low",
     }
 
@@ -260,14 +313,36 @@ def discourse_labels(
         referent, proposed = "other", PROPOSED
     else:
         referent, proposed = pick(stream(occurrence_id, f"{prefix}case"), cases), ""
+    position = pick(stream(occurrence_id, f"{prefix}speaker_position"), POSITIONS)
+    abstract = position == "no_position"
+    accused = stream(occurrence_id, f"{prefix}accused") < 0.55 and not abstract
     return {
         "quotation": pick(stream(occurrence_id, f"{prefix}quotation"), QUOTATIONS),
-        "stance": pick(stream(occurrence_id, f"{prefix}stance"), STANCES),
+        # Derived, never drawn: the schema locks the two together.
+        "concrete_case": "no" if abstract else "yes",
+        "speaker_position": position,
         "function": tuple(
             pick(stream(occurrence_id, f"{prefix}function"), FUNCTIONS).split("|")
         ),
         "referent": referent,
         "proposed_referent": proposed,
+        "referent_source": (
+            "not_applicable"
+            if referent == "unclear"
+            else pick(stream(occurrence_id, f"{prefix}source"), REFERENT_SOURCES)
+        ),
+        "accused_actor": ACCUSED if accused else "",
+        "victim_group": (
+            VICTIM if stream(occurrence_id, f"{prefix}victim") < 0.45 and not abstract else ""
+        ),
+        "own_state_accused": (
+            "not_applicable"
+            if not accused
+            else pick(stream(occurrence_id, f"{prefix}own"), OWN_STATE)
+        ),
+        "salience": (
+            "passing" if abstract else pick(stream(occurrence_id, f"{prefix}salience"), SALIENCE)
+        ),
     }
 
 
@@ -281,9 +356,7 @@ def labels_for(occurrence_id: str, sentence: str, cases: Sequence[tuple[str, flo
     guessing labels for a passage it has just said is illegible.
     """
     verdict = pick(stream(occurrence_id, "verdict"), VERDICTS)
-    quote = (
-        BAD_QUOTE if stream(occurrence_id, "evidence") < BAD_EVIDENCE else sentence
-    )
+    quote = quote_for(verdict, sentence, stream(occurrence_id, "evidence"))
     confidence = pick(stream(occurrence_id, "confidence"), CONFIDENCE)
     if verdict != "true_positive":
         return {"verdict": verdict, **cascade(verdict, quote, confidence)}
@@ -291,6 +364,7 @@ def labels_for(occurrence_id: str, sentence: str, cases: Sequence[tuple[str, flo
         "verdict": verdict,
         **discourse_labels(occurrence_id, cases),
         "evidence_quote": quote,
+        "rationale": RATIONALE,
         "confidence": confidence,
     }
 
@@ -321,7 +395,7 @@ def comparison_labels_for(
     )
     # Its own draw, so that `evidence_valid` differs between the runs somewhere:
     # two models quote different sentences, and one of them can miss.
-    quote = BAD_QUOTE if stream(occurrence_id, "alt-evidence") < BAD_EVIDENCE else sentence
+    quote = quote_for(verdict, sentence, stream(occurrence_id, "alt-evidence"))
     confidence = pick(stream(occurrence_id, "alt-confidence"), CONFIDENCE)
     if verdict != "true_positive":
         return {"verdict": verdict, **cascade(verdict, quote, confidence)}
@@ -335,16 +409,34 @@ def comparison_labels_for(
         return kept[field]
 
     referent = decide("referent")
+    position = decide("speaker_position")
+    # The lock travels with the decision it belongs to: whichever run's position
+    # this row kept, `concrete_case` is that run's, so a redrawn position cannot
+    # leave the pair contradicting itself.
+    source = kept if kept is not None and position == kept["speaker_position"] else other
     return {
         "verdict": verdict,
         "quotation": decide("quotation"),
-        "stance": decide("stance"),
+        "concrete_case": "no" if position == "no_position" else "yes",
+        "speaker_position": position,
         "function": decide("function"),
         "referent": referent,
         # Tied to the referent it justifies rather than decided separately:
         # `other` requires a proposal and nothing else may carry one.
         "proposed_referent": PROPOSED if referent == "other" else "",
+        "referent_source": (
+            "not_applicable" if referent == "unclear" else source["referent_source"]
+        ),
+        "accused_actor": "" if position == "no_position" else source["accused_actor"],
+        "victim_group": "" if position == "no_position" else source["victim_group"],
+        "own_state_accused": (
+            "not_applicable"
+            if position == "no_position" or not source["accused_actor"]
+            else source["own_state_accused"]
+        ),
+        "salience": "passing" if position == "no_position" else source["salience"],
         "evidence_quote": quote,
+        "rationale": RATIONALE,
         "confidence": confidence,
     }
 
@@ -406,7 +498,7 @@ def check_comparison(first: pd.DataFrame, second: pd.DataFrame) -> list[str]:
     shared = left.index.intersection(right.index)
     if not len(shared):
         return ["the two runs annotate no occurrence in common"]
-    for field in ("verdict", "quotation", "stance", "function", "referent"):
+    for field in ("verdict", "quotation", "speaker_position", "function", "referent"):
         before, after = left.loc[shared, field], right.loc[shared, field]
         if field == "function":
             # Set equality, as `lib.usage` compares it: the pipe order carries no
@@ -581,7 +673,7 @@ def build(limit: int | None) -> None:
             != set(str(row[field]).split("|"))
             if field == "function"
             else published[str(row["occurrence_id"])][field] != row[field]
-            for field in ("verdict", "quotation", "stance", "function", "referent")
+            for field in ("verdict", "quotation", "speaker_position", "function", "referent")
         )
     )
     console.table(
@@ -593,8 +685,8 @@ def build(limit: int | None) -> None:
             ("referents used", f"{frame['referent'].nunique()}"),
             ("speakers", f"{frame['country_org'].nunique()}"),
             (
-                "rejects_or_denies",
-                f"{int(frame['stance'].eq('rejects_or_denies').sum()):,}",
+                "rejects",
+                f"{int(frame['speaker_position'].eq('rejects').sum()):,}",
             ),
             ("compared", f"{len(comparison_frame):,}"),
             ("contested", f"{contested:,} of {len(comparison_frame):,}"),

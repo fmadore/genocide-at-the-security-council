@@ -46,7 +46,7 @@ candidate is being drawn, and nothing here is written by any script.
 
 Same schema, same codebook, same rules: the columns are the fifteen in
 `lexicon/annotations.csv`, the labels are the ones defined in `lexicon/CODEBOOK.md`
-(codebook 2.2, annotation schema 2, referent list 2), and new referents go into
+(codebook 3, annotation schema 3, referent list 2), and new referents go into
 `lexicon/referents.csv` first. A separate file rather than more rows in
 `lexicon/annotations.csv` because each sample validates its own candidates: an annotation
 whose occurrence is absent from the candidates it is merged against is refused, so one file

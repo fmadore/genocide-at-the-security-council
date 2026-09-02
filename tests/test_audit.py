@@ -91,11 +91,18 @@ def annotation(occurrence: str, coder: str = "coder-a", **changes: str) -> dict[
         "verdict": "true_positive",
         "source_checked": "yes",
         "quotation": "not_quoted",
-        "stance": "asserts",
+        "concrete_case": "yes",
+        "speaker_position": "asserts",
         "function": "accusation_or_qualification",
         "referent": "other",
+        "referent_source": "passage",
+        "accused_actor": "",
+        "victim_group": "",
+        "own_state_accused": "no",
+        "salience": "substantive",
         "evidence_start": "10",
         "evidence_end": "18",
+        "rationale": "The speaker applies the word in their own voice.",
         "confidence": "high",
         "comment": "",
     }
@@ -327,8 +334,8 @@ def test_an_unknown_occurrence_is_reported_as_unknown_not_as_incompatible() -> N
 
 
 def test_unknown_controlled_label_is_refused() -> None:
-    with pytest.raises(ValueError, match="Unknown stance label"):
-        audit.merge(candidates(), annotations(annotation("occurrence-1", stance="agrees")))
+    with pytest.raises(ValueError, match="Unknown speaker_position label"):
+        audit.merge(candidates(), annotations(annotation("occurrence-1", speaker_position="agrees")))
 
 
 def test_multiple_functions_use_distinct_pipe_separated_labels() -> None:
@@ -351,9 +358,13 @@ def test_false_positive_requires_not_applicable_discourse_fields() -> None:
             "occurrence-1",
             verdict="false_positive",
             quotation="not_applicable",
-            stance="not_applicable",
+            concrete_case="not_applicable",
+            speaker_position="not_applicable",
             function="not_applicable",
             referent="not_applicable",
+            referent_source="not_applicable",
+            own_state_accused="not_applicable",
+            salience="not_applicable",
         )
     )
     assert audit.merge(candidates(), valid).loc[0, "verdict"] == "false_positive"

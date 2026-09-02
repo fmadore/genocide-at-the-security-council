@@ -1,1 +1,1 @@
-occurrence_id,schema_version,lexicon_version,coder,coded_at,verdict,source_checked,quotation,stance,function,referent,evidence_start,evidence_end,confidence,comment
+occurrence_id,schema_version,lexicon_version,coder,coded_at,verdict,source_checked,quotation,concrete_case,speaker_position,function,referent,referent_source,accused_actor,victim_group,own_state_accused,salience,evidence_start,evidence_end,rationale,confidence,comment

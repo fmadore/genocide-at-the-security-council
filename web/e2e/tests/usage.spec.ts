@@ -112,8 +112,27 @@ test('a cell opens the occurrences behind it, and a way into the record', async 
 	await expect(evidence.locator('blockquote').first()).toHaveText(
 		'We warned that genocide could occur.'
 	);
-	await expect(evidence.locator('.stance').first()).toHaveText('Hypothetical or conditional');
-	await expect(evidence.locator('.stance').nth(1)).toHaveText('Rejects or denies');
+	await expect(evidence.locator('.speaker_position').first()).toHaveText('Conditional');
+	await expect(evidence.locator('.speaker_position').nth(1)).toHaveText('Rejects');
+
+	// Annotation schema 3's six fields, shown where the run answered them and
+	// absent where it did not. The first occurrence in the fixture stands for a
+	// run coded against schema 3 and the rest for one coded against schema 2,
+	// which has no image of any of the six: an empty value is "never asked" and
+	// must not be rendered as an answer.
+	const answered = evidence.locator('ol.quotations li').nth(0).locator('dl.schema-fields');
+	await expect(answered.locator('dt')).toHaveText([
+		'Referent read from',
+		'Accused',
+		'Victim group',
+		'Speaker’s own State accused',
+		'Salience',
+		'Rationale'
+	]);
+	await expect(answered.locator('dd').first()).toHaveText('passage');
+	await expect(evidence.locator('ol.quotations li').nth(1).locator('dl.schema-fields')).toHaveCount(
+		0
+	);
 
 	// The link carries the term, the speech and the exact occurrence, so the
 	// reader opens on the span the label was read from.
@@ -309,14 +328,14 @@ test('a contested quotation is marked, and carries the other reading in place', 
 	// The two runs agreed about the first occurrence and not about the second, so
 	// only the second is marked.
 	await expect(quotations.nth(0).locator('.contested')).toHaveCount(0);
-	await expect(quotations.nth(1).locator('.contested')).toHaveText('Contested: stance');
+	await expect(quotations.nth(1).locator('.contested')).toHaveText('Contested: speaker position');
 
 	const reading = quotations.nth(1).locator('.second-reading');
 	await expect(reading).toContainText('The second model read');
-	await expect(reading).toContainText('Attributes or reports');
+	await expect(reading).toContainText('Reports without a position');
 	// Both readings, side by side. Neither replaces the other.
-	await expect(reading).toContainText('— this run read Rejects or denies');
-	await expect(quotations.nth(1).locator('.stance')).toHaveText('Rejects or denies');
+	await expect(reading).toContainText('— this run read Rejects');
+	await expect(quotations.nth(1).locator('.speaker_position')).toHaveText('Rejects');
 });
 
 test('the contested filter narrows the quotations and the URL carries it', async ({ page }) => {
@@ -330,7 +349,9 @@ test('the contested filter narrows the quotations and the URL carries it', async
 
 	await expect(page).toHaveURL(/\?actor=Rwanda&referent=rwanda_1994&contested=1$/);
 	await expect(evidence.locator('ol.quotations li')).toHaveCount(1);
-	await expect(evidence.locator('ol.quotations li .contested')).toHaveText('Contested: stance');
+	await expect(evidence.locator('ol.quotations li .contested')).toHaveText(
+		'Contested: speaker position'
+	);
 	// The denominator travels with the filtered count, so a narrowed list never
 	// reads as the whole of what was behind the cell.
 	await expect(evidence).toContainText('1 occurrence, of 2 behind this pairing');
@@ -353,9 +374,13 @@ test('the reading list ranks the contested passages hardest first', async ({ pag
 	// much the two instruments disagree, not the date.
 	await expect(rows.nth(0)).toContainText('France');
 	await expect(rows.nth(0)).toContainText('8 July 2015');
-	await expect(rows.nth(0).locator('.field')).toHaveText(['stance', 'function', 'referent']);
+	await expect(rows.nth(0).locator('.field')).toHaveText([
+		'speaker position',
+		'function',
+		'referent'
+	]);
 	await expect(rows.nth(0).locator('.reading.other')).toHaveText([
-		'Rejects or denies',
+		'Rejects',
 		'accusation or qualification',
 		'Genocide Convention and legal definition'
 	]);
@@ -404,7 +429,7 @@ test('a build with no second opinion shows none of it', async ({ page }) => {
 		occurrences_annotated: 0,
 		overlap: 0,
 		evidence_invalid: 0,
-		abstention: { verdict_uncertain: 0, referent_unclear: 0, stance_unclear: 0 },
+		abstention: { verdict_uncertain: 0, referent_unclear: 0, position_unclear: 0 },
 		fields: [],
 		function_jaccard: null,
 		function_contested: 0,

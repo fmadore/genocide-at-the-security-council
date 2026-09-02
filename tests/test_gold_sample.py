@@ -245,7 +245,7 @@ def test_an_occurrence_in_both_frames_keeps_one_row_in_each() -> None:
 def annotated(occurrence: str, **changes: str) -> dict[str, object]:
     return {
         "occurrence_id": occurrence,
-        "stance": "asserts",
+        "speaker_position": "asserts",
         "referent": "rwanda_1994",
         **changes,
     }
@@ -280,11 +280,11 @@ def strata_frame() -> pd.DataFrame:
 
 
 PUBLISHED = {
-    "occ-rejects": annotated("occ-rejects", stance="rejects_or_denies"),
+    "occ-rejects": annotated("occ-rejects", speaker_position="rejects"),
     "occ-preonset": annotated("occ-preonset", referent="gaza"),
     "occ-other": annotated("occ-other", referent="other"),
-    "occ-attributes": annotated("occ-attributes", stance="attributes_or_reports"),
-    "occ-hypothetical": annotated("occ-hypothetical", stance="hypothetical_or_conditional"),
+    "occ-attributes": annotated("occ-attributes", speaker_position="reports_without_position"),
+    "occ-hypothetical": annotated("occ-hypothetical", speaker_position="conditional"),
     "occ-contested": annotated("occ-contested", referent="bosnia_srebrenica"),
     "occ-agreed": annotated("occ-agreed"),
 }
@@ -306,14 +306,14 @@ def stratum_of(occurrence: str) -> str:
 
 
 def test_every_stratum_is_recognised_from_the_two_runs() -> None:
-    assert stratum_of("occ-rejects") == "rejects_or_denies"
+    assert stratum_of("occ-rejects") == "rejects"
     # The published run put Gaza on a 2010 speech; `years` is documentation, so
     # this is a question for a coder rather than an error the sample declares.
     assert stratum_of("occ-preonset") == "pre_onset_referent"
     assert stratum_of("occ-other") == "other_referent"
-    assert stratum_of("occ-attributes") == "attributes_or_reports"
-    assert stratum_of("occ-hypothetical") == "hypothetical_or_conditional"
-    assert stratum_of("occ-contested") == "contested_stance_or_referent"
+    assert stratum_of("occ-attributes") == "reports_without_position"
+    assert stratum_of("occ-hypothetical") == "conditional"
+    assert stratum_of("occ-contested") == "contested_speaker_position_or_referent"
     # Two runs that agree on stance and referent are outside the frame.
     assert stratum_of("occ-agreed") == ""
     # And an occurrence only one run reached has nothing to disagree about.
@@ -323,35 +323,35 @@ def test_every_stratum_is_recognised_from_the_two_runs() -> None:
 def test_the_strata_are_disjoint_and_the_rarest_wins() -> None:
     # One occurrence carrying four of the six properties at once. Precedence is
     # what keeps a row's inclusion probability a single number.
-    published = {"occ": annotated("occ", stance="rejects_or_denies", referent="other")}
-    comparison = {"occ": annotated("occ", stance="attributes_or_reports", referent="gaza")}
+    published = {"occ": annotated("occ", speaker_position="rejects", referent="other")}
+    comparison = {"occ": annotated("occ", speaker_position="reports_without_position", referent="gaza")}
     row = strata_frame().iloc[0].copy()
     row["occurrence_id"] = "occ"
-    assert gold.classify_stratum(row, published, comparison, ONSETS) == "rejects_or_denies"
+    assert gold.classify_stratum(row, published, comparison, ONSETS) == "rejects"
 
 
 def test_the_frame_records_a_probability_per_stratum_and_a_census_where_it_takes_all() -> None:
     candidates = strata_frame().assign(
         stratum=[
-            "rejects_or_denies",
+            "rejects",
             "pre_onset_referent",
             "other_referent",
             "other_referent",
             "other_referent",
-            "attributes_or_reports",
+            "reports_without_position",
             "",
             "",
         ]
     )
     sample = audit.stratified_sample(
         candidates,
-        {"rejects_or_denies": None, "other_referent": 2, "attributes_or_reports": 5},
+        {"rejects": None, "other_referent": 2, "reports_without_position": 5},
         21,
         gold.DISAGREEMENT,
     )
     counts = sample["stratum"].value_counts().to_dict()
-    assert counts == {"other_referent": 2, "rejects_or_denies": 1, "attributes_or_reports": 1}
-    census = sample.loc[sample["stratum"] == "rejects_or_denies"].iloc[0]
+    assert counts == {"other_referent": 2, "rejects": 1, "reports_without_position": 1}
+    census = sample.loc[sample["stratum"] == "rejects"].iloc[0]
     assert (census["inclusion_probability"], census["sampling_weight"]) == (1.0, 1.0)
     # Two of three: probability 2/3, weight 3/2, and the stratum size recorded.
     drawn = sample.loc[sample["stratum"] == "other_referent"].iloc[0]
@@ -359,7 +359,7 @@ def test_the_frame_records_a_probability_per_stratum_and_a_census_where_it_takes
     assert drawn["sampling_weight"] == pytest.approx(3 / 2)
     assert drawn["stratum_size"] == 3
     # A stratum smaller than its size is taken whole rather than refused.
-    short = sample.loc[sample["stratum"] == "attributes_or_reports"].iloc[0]
+    short = sample.loc[sample["stratum"] == "reports_without_position"].iloc[0]
     assert short["inclusion_probability"] == 1.0
     # Rows outside every stratum are outside the frame.
     assert "" not in set(sample["stratum"])
@@ -392,9 +392,9 @@ def test_a_repository_with_no_published_run_pair_draws_only_the_first_two_frames
 
 def test_the_three_frames_keep_one_row_and_one_probability_each() -> None:
     candidates = strata_frame().assign(
-        stratum=["rejects_or_denies"] * 4 + ["other_referent"] * 4
+        stratum=["rejects"] * 4 + ["other_referent"] * 4
     )
-    sample = gold.draw(candidates, 8, 5, 21, sizes={"rejects_or_denies": None})
+    sample = gold.draw(candidates, 8, 5, 21, sizes={"rejects": None})
     assert set(sample["sampling_frame"]) == {
         audit.PROBABILITY,
         audit.COVERAGE,

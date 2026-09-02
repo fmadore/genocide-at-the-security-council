@@ -20,8 +20,8 @@ import {
 	MILESTONES,
 	NAVIGATION_KEYS,
 	ROW_CAP,
-	STANCES,
-	STANCE_COLUMNS,
+	POSITIONS,
+	POSITION_COLUMNS,
 	USAGE_DEFAULTS,
 	USAGE_TERM,
 	comparisonApparatus,
@@ -31,7 +31,7 @@ import {
 	diffusionExportRows,
 	diffusionPlan,
 	drillDown,
-	emptyStances,
+	emptyPositions,
 	goldProgress,
 	isInstrumentDependent,
 	matrixExportRows,
@@ -42,16 +42,16 @@ import {
 	readUsageState,
 	retestRows,
 	selectUsage,
-	stanceExportRows,
-	stanceLabel,
-	stanceRanking,
+	positionExportRows,
+	positionLabel,
+	positionRanking,
 	stepFocus,
 	usageParams
 } from './usage';
 import type { UsageState } from './usage';
 import type {
 	KwicLine,
-	StanceCounts,
+	PositionCounts,
 	Usage,
 	UsageActor,
 	UsageAlternative,
@@ -61,7 +61,7 @@ import type {
 	UsageMilestone,
 	UsageOccurrence,
 	UsageReferent,
-	UsageStanceRow
+	UsagePositionRow
 } from './types';
 
 const meta = { script: '15_usage.py', generated: '2026-09-01T00:00:00Z' };
@@ -79,7 +79,7 @@ const model: Usage['model'] = {
 	occurrences_annotated: 6092,
 	parse_failures: 0,
 	evidence_invalid: 0,
-	abstention: { verdict_uncertain: 0, referent_unclear: 0, stance_unclear: 0 },
+	abstention: { verdict_uncertain: 0, referent_unclear: 0, position_unclear: 0 },
 	tokens: { input: 0, output: 0 }
 };
 
@@ -108,7 +108,7 @@ const noComparison: Usage['comparison'] = {
 	occurrences_annotated: 0,
 	overlap: 0,
 	evidence_invalid: 0,
-	abstention: { verdict_uncertain: 0, referent_unclear: 0, stance_unclear: 0 },
+	abstention: { verdict_uncertain: 0, referent_unclear: 0, position_unclear: 0 },
 	fields: [],
 	referents: [],
 	function_jaccard: null,
@@ -151,11 +151,11 @@ const comparison = (overrides: Partial<Usage['comparison']> = {}): Usage['compar
 	occurrences_annotated: 6000,
 	overlap: 5800,
 	evidence_invalid: 4,
-	abstention: { verdict_uncertain: 3, referent_unclear: 11, stance_unclear: 7 },
+	abstention: { verdict_uncertain: 3, referent_unclear: 11, position_unclear: 7 },
 	fields: [
 		field('verdict', 0.99, null, 58),
 		field('quotation', 0.94, 0.81, 348),
-		field('stance', 0.86, 0.74, 812),
+		field('speaker_position', 0.86, 0.74, 812),
 		field('referent', 0.91, 0.88, 522)
 	],
 	function_jaccard: 0.72,
@@ -164,8 +164,8 @@ const comparison = (overrides: Partial<Usage['comparison']> = {}): Usage['compar
 	...overrides
 });
 
-const stances = (partial: Partial<StanceCounts> = {}): StanceCounts => ({
-	...emptyStances(),
+const positions = (partial: Partial<PositionCounts> = {}): PositionCounts => ({
+	...emptyPositions(),
 	...partial
 });
 
@@ -197,23 +197,23 @@ const cell = (
 	actorName: string,
 	referentId: string,
 	count: number,
-	partial: Partial<StanceCounts> = {},
+	partial: Partial<PositionCounts> = {},
 	contested = 0
 ): UsageMatrixCell => ({
 	actor: actorName,
 	referent: referentId,
 	count,
 	contested,
-	stances: stances(partial)
+	positions: positions(partial)
 });
 
 const moment = (
 	date: string,
 	actorName: string,
 	milestone: UsageMilestone,
-	stance: string,
+	speaker_position: string,
 	id: string
-): UsageDiffusionEvent => ({ date, actor: actorName, milestone, stance, id });
+): UsageDiffusionEvent => ({ date, actor: actorName, milestone, speaker_position, id });
 
 /**
  * A chronology whose shape is the one the figure has to get right: a meta
@@ -224,18 +224,12 @@ const moment = (
  * other's sit inside it.
  */
 const diffusion: UsageDiffusion = {
-	milestones: ['mention', 'asserts', 'rejects_or_denies'],
+	milestones: ['mention', 'asserts', 'rejects'],
 	referents: [
 		{
 			id: 'convention',
 			events: [
-				moment(
-					'1996-02-02',
-					'Alpha',
-					'mention',
-					'neutral_legal_reference',
-					'UNSC_1996_SPV.3600_spch0001#1'
-				)
+				moment('1996-02-02', 'Alpha', 'mention', 'no_position', 'UNSC_1996_SPV.3600_spch0001#1')
 			]
 		},
 		{
@@ -243,20 +237,8 @@ const diffusion: UsageDiffusion = {
 			events: [
 				moment('1994-04-21', 'Alpha', 'mention', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1'),
 				moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1'),
-				moment(
-					'1998-06-01',
-					'Bravo',
-					'mention',
-					'rejects_or_denies',
-					'UNSC_1998_SPV.3888_spch0002#1'
-				),
-				moment(
-					'1998-06-01',
-					'Bravo',
-					'rejects_or_denies',
-					'rejects_or_denies',
-					'UNSC_1998_SPV.3888_spch0002#1'
-				),
+				moment('1998-06-01', 'Bravo', 'mention', 'rejects', 'UNSC_1998_SPV.3888_spch0002#1'),
+				moment('1998-06-01', 'Bravo', 'rejects', 'rejects', 'UNSC_1998_SPV.3888_spch0002#1'),
 				moment('2004-04-07', 'Bravo', 'asserts', 'asserts', 'UNSC_2004_SPV.4940_spch0011#1')
 			]
 		}
@@ -280,18 +262,18 @@ const corpus = (overrides: Partial<Usage> = {}): Usage => ({
 	],
 	minimum_occurrences: 4,
 	matrix: [
-		cell('Alpha', 'rwanda_1994', 4, { asserts: 3, rejects_or_denies: 1 }),
+		cell('Alpha', 'rwanda_1994', 4, { asserts: 3, rejects: 1 }),
 		cell('Alpha', 'bosnia', 1, { asserts: 1 }),
-		cell('Alpha', 'convention', 1, { neutral_legal_reference: 1 }),
-		cell('Bravo', 'rwanda_1994', 1, { rejects_or_denies: 1 }),
-		cell('Bravo', 'convention', 1, { neutral_legal_reference: 1 })
+		cell('Alpha', 'convention', 1, { no_position: 1 }),
+		cell('Bravo', 'rwanda_1994', 1, { rejects: 1 }),
+		cell('Bravo', 'convention', 1, { no_position: 1 })
 	],
-	stance_by_actor: [
+	position_by_actor: [
 		{
 			actor: 'Alpha',
 			eligible: 8,
 			sufficient: true,
-			stances: stances({ asserts: 5, rejects_or_denies: 2, unclear: 1 }),
+			positions: positions({ asserts: 5, rejects: 2, unclear: 1 }),
 			share_rejects: 0.25,
 			share_low: null,
 			share_high: null,
@@ -301,7 +283,7 @@ const corpus = (overrides: Partial<Usage> = {}): Usage => ({
 			actor: 'Bravo',
 			eligible: 3,
 			sufficient: false,
-			stances: stances({ asserts: 3 }),
+			positions: positions({ asserts: 3 }),
 			share_rejects: null,
 			share_low: null,
 			share_high: null,
@@ -320,26 +302,26 @@ const state = (partial: Partial<UsageState> = {}): UsageState => ({
 	...partial
 });
 
-describe('the stance vocabulary', () => {
+describe('the speaker_position vocabulary', () => {
 	it('holds the codebook’s seven values in the codebook’s order', () => {
 		// Fixed rather than derived: the stacked bar is only comparable between
 		// delegations if the same band is in the same place in every one of them.
-		expect(STANCES).toEqual([
+		expect(POSITIONS).toEqual([
 			'asserts',
-			'attributes_or_reports',
-			'rejects_or_denies',
-			'hypothetical_or_conditional',
-			'neutral_legal_reference',
+			'reports_without_position',
+			'rejects',
+			'conditional',
+			'no_position',
 			'unclear',
 			'not_applicable'
 		]);
-		expect(Object.keys(emptyStances())).toEqual([...STANCES]);
-		expect(Object.values(emptyStances()).every((value) => value === 0)).toBe(true);
+		expect(Object.keys(emptyPositions())).toEqual([...POSITIONS]);
+		expect(Object.values(emptyPositions()).every((value) => value === 0)).toBe(true);
 	});
 
-	it('names a stance for a reader, and degrades a value it has never seen', () => {
-		expect(stanceLabel('rejects_or_denies')).toBe('Rejects or denies');
-		expect(stanceLabel('some_future_label')).toBe('some future label');
+	it('names a speaker_position for a reader, and degrades a value it has never seen', () => {
+		expect(positionLabel('rejects')).toBe('Rejects');
+		expect(positionLabel('some_future_label')).toBe('some future label');
 	});
 
 	it('annotates exactly one term, and says which', () => {
@@ -532,7 +514,7 @@ describe('the matrix', () => {
 		const alpha = plan.rows[0];
 		expect(alpha.cells.map((c) => c.count)).toEqual([4, 1, 0, 1]);
 		expect(alpha.cells.map((c) => c.state)).toEqual(['drawn', 'drawn', 'empty', 'drawn']);
-		expect(alpha.cells[2].stances).toEqual(emptyStances());
+		expect(alpha.cells[2].positions).toEqual(emptyPositions());
 	});
 
 	it('publishes a count for every speaker and a share only above the minimum', () => {
@@ -674,12 +656,12 @@ describe('moving through the matrix from the keyboard', () => {
 
 describe('who rejects the word', () => {
 	it('orders only the shares the artefact published, and leaves out the rest', () => {
-		const rows: UsageStanceRow[] = [
+		const rows: UsagePositionRow[] = [
 			{
 				actor: 'Alpha',
 				eligible: 8,
 				sufficient: true,
-				stances: stances({ asserts: 5, rejects_or_denies: 2, unclear: 1 }),
+				positions: positions({ asserts: 5, rejects: 2, unclear: 1 }),
 				share_rejects: 0.25,
 				share_low: null,
 				share_high: null,
@@ -689,7 +671,7 @@ describe('who rejects the word', () => {
 				actor: 'Delta',
 				eligible: 10,
 				sufficient: true,
-				stances: stances({ asserts: 5, rejects_or_denies: 5 }),
+				positions: positions({ asserts: 5, rejects: 5 }),
 				share_rejects: 0.5,
 				share_low: null,
 				share_high: null,
@@ -699,14 +681,14 @@ describe('who rejects the word', () => {
 				actor: 'Bravo',
 				eligible: 3,
 				sufficient: false,
-				stances: stances({ asserts: 3 }),
+				positions: positions({ asserts: 3 }),
 				share_rejects: null,
 				share_low: null,
 				share_high: null,
 				separated: false
 			}
 		];
-		const result = stanceRanking(corpus({ stance_by_actor: rows }));
+		const result = positionRanking(corpus({ position_by_actor: rows }));
 		// Neither clears the corpus rate, so the two are ordered by rejection
 		// count and the order is not a claim that one rejects more than the other.
 		expect(result.rows.map((row) => row.actor)).toEqual(['Delta', 'Alpha']);
@@ -718,14 +700,14 @@ describe('who rejects the word', () => {
 	});
 
 	it('withholds a row that claims to be sufficient and carries no share', () => {
-		const result = stanceRanking(
+		const result = positionRanking(
 			corpus({
-				stance_by_actor: [
+				position_by_actor: [
 					{
 						actor: 'Alpha',
 						eligible: 9,
 						sufficient: true,
-						stances: stances({ asserts: 9 }),
+						positions: positions({ asserts: 9 }),
 						share_rejects: null,
 						share_low: null,
 						share_high: null,
@@ -742,12 +724,12 @@ describe('who rejects the word', () => {
 	});
 
 	it('lays the bands out in one pass of cumulative bounds, zeros omitted', () => {
-		const result = stanceRanking(corpus());
+		const result = positionRanking(corpus());
 		const alpha = result.rows[0];
 		expect(alpha.total).toBe(8);
-		expect(alpha.segments.map((segment) => segment.stance)).toEqual([
+		expect(alpha.segments.map((segment) => segment.speaker_position)).toEqual([
 			'asserts',
-			'rejects_or_denies',
+			'rejects',
 			'unclear'
 		]);
 		expect(alpha.segments[0]).toMatchObject({ count: 5, from: 0 });
@@ -781,10 +763,19 @@ describe('the quotations behind a cell', () => {
 		occurrence_id: 'f'.repeat(64),
 		verdict: 'true_positive',
 		quotation: 'not_quoted',
-		stance: 'hypothetical_or_conditional',
+		concrete_case: 'yes',
+		speaker_position: 'conditional',
 		function: 'warning_or_prevention|accountability',
 		referent: 'rwanda_1994',
 		proposed_referent: '',
+		// A run coded against annotation schema 2 answers none of the six fields
+		// schema 3 added, and this is what that looks like on a row.
+		referent_source: '',
+		accused_actor: '',
+		victim_group: '',
+		own_state_accused: '',
+		salience: '',
+		rationale: '',
 		confidence: 'high',
 		evidence_quote: 'We warned that genocide could occur.',
 		evidence_valid: true,
@@ -820,7 +811,7 @@ describe('the quotations behind a cell', () => {
 			country: 'Rwanda',
 			spv: 'S/PV.7000',
 			sentence: 'We warned that genocide could occur.',
-			stanceLabel: 'Hypothetical or conditional',
+			positionLabel: 'Conditional',
 			functions: ['warning_or_prevention', 'accountability'],
 			quoteDiffers: false
 		});
@@ -835,7 +826,10 @@ describe('the quotations behind a cell', () => {
 	it('narrows on the speaker, on the referent, or on both', () => {
 		const all = [
 			annotation('UNSC_2014_SPV.7000_spch0001#1'),
-			annotation('UNSC_2015_SPV.7481_spch0007#1', { referent: 'bosnia', stance: 'asserts' })
+			annotation('UNSC_2015_SPV.7481_spch0007#1', {
+				referent: 'bosnia',
+				speaker_position: 'asserts'
+			})
 		];
 		expect(drillDown(all, lines, 'France').map((row) => row.id)).toEqual([
 			'UNSC_2015_SPV.7481_spch0007#1'
@@ -887,11 +881,11 @@ describe('the quotations behind a cell', () => {
 		const rows = drillDown(
 			[
 				annotation('UNSC_2014_SPV.7000_spch0001#1', {
-					contested: ['referent', 'stance'],
+					contested: ['referent', 'speaker_position'],
 					alt: {
 						verdict: 'true_positive',
 						quotation: 'not_quoted',
-						stance: 'rejects_or_denies',
+						speaker_position: 'rejects',
 						function: 'warning_or_prevention|accountability',
 						referent: 'bosnia'
 					}
@@ -905,11 +899,11 @@ describe('the quotations behind a cell', () => {
 		);
 		// Listed in the artefact's own field order rather than the row's, so two
 		// occurrences contested on the same pair read the same way.
-		expect(rows[0].contested.map((entry) => entry.field)).toEqual(['stance', 'referent']);
+		expect(rows[0].contested.map((entry) => entry.field)).toEqual(['speaker_position', 'referent']);
 		expect(rows[0].contested[0]).toMatchObject({
-			label: 'stance',
-			published: 'Hypothetical or conditional',
-			second: 'Rejects or denies'
+			label: 'speaker position',
+			published: 'Conditional',
+			second: 'Rejects'
 		});
 		// A referent is named from the controlled list, not printed as its id.
 		expect(rows[0].contested[1].second).toBe('Bosnia and Srebrenica');
@@ -924,7 +918,7 @@ describe('the quotations behind a cell', () => {
 					alt: {
 						verdict: 'true_positive',
 						quotation: 'not_quoted',
-						stance: 'hypothetical_or_conditional',
+						speaker_position: 'conditional',
 						function: 'warning_or_prevention|accountability',
 						referent: 'genocide_convention_law'
 					}
@@ -945,11 +939,11 @@ describe('the quotations behind a cell', () => {
 			annotation('UNSC_2014_SPV.7000_spch0001#1'),
 			annotation('UNSC_2015_SPV.7481_spch0007#1', {
 				referent: 'rwanda_1994',
-				contested: ['stance'],
+				contested: ['speaker_position'],
 				alt: {
 					verdict: 'true_positive',
 					quotation: 'not_quoted',
-					stance: 'asserts',
+					speaker_position: 'asserts',
 					function: 'warning_or_prevention|accountability',
 					referent: 'rwanda_1994'
 				}
@@ -995,11 +989,11 @@ describe('the quotations behind a cell', () => {
 
 describe('the milestones a diffusion curve counts', () => {
 	it('holds three firsts, in the order that settles a tie between two of them', () => {
-		expect(MILESTONES).toEqual(['mention', 'asserts', 'rejects_or_denies']);
+		expect(MILESTONES).toEqual(['mention', 'asserts', 'rejects']);
 		expect(milestoneRank('mention')).toBeLessThan(milestoneRank('asserts'));
 		// A fourth milestone added upstream sorts last rather than displacing these.
 		expect(milestoneRank('first_referral')).toBe(MILESTONES.length);
-		expect(milestoneLabel('rejects_or_denies')).toBe('Refused the word for it');
+		expect(milestoneLabel('rejects')).toBe('Refused the word for it');
 		expect(milestoneLabel('some_future_first')).toBe('some future first');
 	});
 });
@@ -1055,7 +1049,7 @@ describe('how a referent spread through the Council', () => {
 				date: '1994-04-21',
 				actor: 'Alpha',
 				milestone: 'first_referral' as UsageMilestone,
-				stance: 'asserts',
+				speaker_position: 'asserts',
 				id: 'UNSC_1994_SPV.3368_spch0005#1'
 			}
 		]);
@@ -1071,7 +1065,7 @@ describe('how a referent spread through the Council', () => {
 			['Alpha', 1],
 			['Bravo', 2]
 		]);
-		expect(plan.totals).toEqual({ mention: 2, asserts: 2, rejects_or_denies: 1 });
+		expect(plan.totals).toEqual({ mention: 2, asserts: 2, rejects: 1 });
 		expect(plan.high).toBe(2);
 		expect(plan.events).toBe(5);
 	});
@@ -1112,11 +1106,7 @@ describe('how a referent spread through the Council', () => {
 
 	it('draws the assertion curve last, over the counter-curve and the envelope', () => {
 		const plan = diffusionPlan(corpus(), state({ referent: 'rwanda_1994' }));
-		expect(plan.drawn.map((series) => series.milestone)).toEqual([
-			'mention',
-			'rejects_or_denies',
-			'asserts'
-		]);
+		expect(plan.drawn.map((series) => series.milestone)).toEqual(['mention', 'rejects', 'asserts']);
 	});
 
 	it('drops the envelope when it is the assertion curve drawn a second time', () => {
@@ -1205,14 +1195,14 @@ describe('the chronology the curve summarises', () => {
 			['1994-04-21', 'Alpha', 'mention'],
 			['1994-04-21', 'Alpha', 'asserts'],
 			['1998-06-01', 'Bravo', 'mention'],
-			['1998-06-01', 'Bravo', 'rejects_or_denies'],
+			['1998-06-01', 'Bravo', 'rejects'],
 			['2004-04-07', 'Bravo', 'asserts']
 		]);
 		// One occurrence can be two firsts, and the date and the identifier cannot
 		// separate them; the rank can.
 		expect(rows[0].id).toBe(rows[1].id);
 		expect(rows.map((row) => row.ordinal)).toEqual([1, 1, 2, 1, 2]);
-		expect(rows[3].stanceLabel).toBe('Rejects or denies');
+		expect(rows[3].positionLabel).toBe('Rejects');
 	});
 
 	it('omits a milestone the figure folded away, whose events are already listed', () => {
@@ -1292,7 +1282,7 @@ describe('the second opinion, as the apparatus states it', () => {
 		expect(apparatus.fields.map((row) => row.field)).toEqual([
 			'verdict',
 			'quotation',
-			'stance',
+			'speaker_position',
 			'referent'
 		]);
 		// With every row in one category there is no chance agreement to correct
@@ -1346,10 +1336,17 @@ describe('the contested passages', () => {
 		occurrence_id: id,
 		verdict: 'true_positive',
 		quotation: 'not_quoted',
-		stance: 'asserts',
+		concrete_case: 'yes',
+		speaker_position: 'asserts',
 		function: 'accusation_or_qualification',
 		referent: 'rwanda_1994',
 		proposed_referent: '',
+		referent_source: 'passage',
+		accused_actor: '',
+		victim_group: '',
+		own_state_accused: 'no',
+		salience: 'substantive',
+		rationale: 'The speaker applies the word in their own voice.',
 		confidence: 'high',
 		evidence_quote: 'genocide',
 		evidence_valid: true,
@@ -1361,7 +1358,7 @@ describe('the contested passages', () => {
 	const other = (overrides: Partial<UsageAlternative> = {}): UsageAlternative => ({
 		verdict: 'true_positive',
 		quotation: 'not_quoted',
-		stance: 'asserts',
+		speaker_position: 'asserts',
 		function: 'accusation_or_qualification',
 		referent: 'rwanda_1994',
 		...overrides
@@ -1371,13 +1368,13 @@ describe('the contested passages', () => {
 
 	const three = coded(
 		'UNSC_2015_SPV.7481_spch0007#1',
-		['stance', 'function', 'referent'],
-		other({ stance: 'rejects_or_denies', function: 'accountability', referent: 'bosnia' })
+		['speaker_position', 'function', 'referent'],
+		other({ speaker_position: 'rejects', function: 'accountability', referent: 'bosnia' })
 	);
 	const one = coded(
 		'UNSC_2014_SPV.7000_spch0001#1',
-		['stance'],
-		other({ stance: 'attributes_or_reports' })
+		['speaker_position'],
+		other({ speaker_position: 'reports_without_position' })
 	);
 	const agreed = coded('UNSC_2014_SPV.7000_spch0001#2', []);
 	const unquotable = coded(
@@ -1419,13 +1416,13 @@ describe('the contested passages', () => {
 			['Rwanda', 1]
 		]);
 		expect(listing.rows[0].contested.map((entry) => entry.field)).toEqual([
-			'stance',
+			'speaker_position',
 			'function',
 			'referent'
 		]);
 		expect(listing.rows[0].contested[0]).toMatchObject({
 			published: 'Asserts',
-			second: 'Rejects or denies'
+			second: 'Rejects'
 		});
 		// The published labels stay published: nothing here is replaced.
 		expect(listing.rows[0].referent).toBe('rwanda_1994');
@@ -1446,7 +1443,11 @@ describe('the contested passages', () => {
 
 	it('caps the list and hands the interface what the cap cost', () => {
 		const many = Array.from({ length: CONTESTED_CAP + 7 }, (_, index) =>
-			coded(`UNSC_2014_SPV.7000_spch${String(index).padStart(4, '0')}#1`, ['stance'], other())
+			coded(
+				`UNSC_2014_SPV.7000_spch${String(index).padStart(4, '0')}#1`,
+				['speaker_position'],
+				other()
+			)
 		);
 		const rows = many.map((occurrence) => record(occurrence.id));
 		const listing = contestedList(data, many, rows);
@@ -1472,12 +1473,14 @@ describe('the contested passages', () => {
 		expect(rows[0][CONTESTED_COLUMNS.indexOf('date')]).toBeNull();
 		expect(rows[0][CONTESTED_COLUMNS.indexOf('actor')]).toBeNull();
 		// The artefact's own values, not the page's wording: a file is read by a
-		// script, and `rejects_or_denies` is what joins back to the run.
+		// script, and `rejects` is what joins back to the run.
 		const last = rows[2];
-		expect(last[CONTESTED_COLUMNS.indexOf('contested_fields')]).toBe('stance|function|referent');
+		expect(last[CONTESTED_COLUMNS.indexOf('contested_fields')]).toBe(
+			'speaker_position|function|referent'
+		);
 		expect(last[CONTESTED_COLUMNS.indexOf('contested_count')]).toBe(3);
-		expect(last[CONTESTED_COLUMNS.indexOf('published_stance')]).toBe('asserts');
-		expect(last[CONTESTED_COLUMNS.indexOf('comparison_stance')]).toBe('rejects_or_denies');
+		expect(last[CONTESTED_COLUMNS.indexOf('published_speaker_position')]).toBe('asserts');
+		expect(last[CONTESTED_COLUMNS.indexOf('comparison_speaker_position')]).toBe('rejects');
 		expect(last[CONTESTED_COLUMNS.indexOf('comparison_referent')]).toBe('bosnia');
 	});
 });
@@ -1508,7 +1511,7 @@ describe('the gold sample’s own state', () => {
 					double_coded: 40,
 					human_agreement: [
 						{
-							field: 'stance',
+							field: 'speaker_position',
 							observed: 0.83,
 							kappa: 0.71,
 							kappa_withheld: false,
@@ -1543,7 +1546,7 @@ describe('what leaves in a file', () => {
 		expect(bravo?.[MATRIX_COLUMNS.indexOf('sufficient')]).toBe(false);
 		const alpha = rows.find((row) => row[0] === 'Alpha' && row[4] === 'rwanda_1994');
 		expect(alpha?.[MATRIX_COLUMNS.indexOf('share_of_assigned')]).toBeCloseTo(4 / 6, 12);
-		expect(alpha?.[MATRIX_COLUMNS.indexOf('stance_asserts')]).toBe(3);
+		expect(alpha?.[MATRIX_COLUMNS.indexOf('position_asserts')]).toBe(3);
 	});
 
 	it('exports every first of every referent, not the one the picker was showing', () => {
@@ -1560,12 +1563,12 @@ describe('what leaves in a file', () => {
 		).toEqual([]);
 	});
 
-	it('exports every stance profile, withheld shares included', () => {
-		const rows = stanceExportRows(corpus());
+	it('exports every speaker_position profile, withheld shares included', () => {
+		const rows = positionExportRows(corpus());
 		expect(rows.map((row) => row[0])).toEqual(['Alpha', 'Bravo']);
-		expect(rows[0]).toHaveLength(STANCE_COLUMNS.length);
-		expect(rows[1][STANCE_COLUMNS.indexOf('share_rejects')]).toBeNull();
-		expect(rows[0][STANCE_COLUMNS.indexOf('stance_rejects_or_denies')]).toBe(2);
+		expect(rows[0]).toHaveLength(POSITION_COLUMNS.length);
+		expect(rows[1][POSITION_COLUMNS.indexOf('share_rejects')]).toBeNull();
+		expect(rows[0][POSITION_COLUMNS.indexOf('position_rejects')]).toBe(2);
 	});
 });
 
@@ -1595,15 +1598,15 @@ describe('what a second instrument does to the figures', () => {
 	it('publishes PABAK beside a withheld kappa and says which it was', () => {
 		const apparatus = comparisonApparatus(corpus({ comparison: comparison() }));
 		const verdict = apparatus.fields.find((row) => row.field === 'verdict');
-		const stance = apparatus.fields.find((row) => row.field === 'stance');
+		const speaker_position = apparatus.fields.find((row) => row.field === 'speaker_position');
 		expect(verdict?.kappaText).toBe('—');
 		expect(verdict?.kappaWithheld).toBe(true);
 		// 2 * 0.99 - 1 = 0.98, the prevalence-adjusted figure the fixture carries.
 		expect(verdict?.pabakText).toBe('0.98');
 		// A field with information in both margins keeps its kappa and is not
 		// reported as withheld, which is a different finding from undefined.
-		expect(stance?.kappaWithheld).toBe(false);
-		expect(stance?.kappaText).toBe('0.74');
+		expect(speaker_position?.kappaWithheld).toBe(false);
+		expect(speaker_position?.kappaText).toBe('0.74');
 	});
 
 	it('reads the multi-label field through alpha as well as through overlap', () => {
@@ -1624,10 +1627,10 @@ describe('what a second instrument does to the figures', () => {
 	});
 
 	it('names the two labels whose count is partly a property of the instrument', () => {
-		expect(isInstrumentDependent('attributes_or_reports')).toBe(true);
+		expect(isInstrumentDependent('reports_without_position')).toBe(true);
 		expect(isInstrumentDependent('attributed_or_reported')).toBe(true);
 		expect(isInstrumentDependent('asserts')).toBe(false);
-		expect(isInstrumentDependent('rejects_or_denies')).toBe(false);
+		expect(isInstrumentDependent('rejects')).toBe(false);
 	});
 
 	it('lays each model against another call of itself', () => {
@@ -1641,7 +1644,7 @@ describe('what a second instrument does to the figures', () => {
 						run_id: model.run_id,
 						retest_run_id: '2026-08-30-luna-pilot',
 						overlap: 91,
-						fields: [field('stance', 0.945, 0.885, 5)],
+						fields: [field('speaker_position', 0.945, 0.885, 5)],
 						function_jaccard: 0.886,
 						identical: 69
 					}
@@ -1712,12 +1715,12 @@ describe('what a second instrument does to the figures', () => {
 });
 
 describe('who rejects the word, ordered by what can be ordered', () => {
-	const rows: UsageStanceRow[] = [
+	const rows: UsagePositionRow[] = [
 		{
 			actor: 'Sudan',
 			eligible: 43,
 			sufficient: true,
-			stances: stances({ asserts: 24, rejects_or_denies: 19 }),
+			positions: positions({ asserts: 24, rejects: 19 }),
 			share_rejects: 0.441,
 			share_low: 0.304,
 			share_high: 0.589,
@@ -1727,7 +1730,7 @@ describe('who rejects the word, ordered by what can be ordered', () => {
 			actor: 'Kenya',
 			eligible: 24,
 			sufficient: true,
-			stances: stances({ asserts: 23, rejects_or_denies: 1 }),
+			positions: positions({ asserts: 23, rejects: 1 }),
 			share_rejects: 0.042,
 			share_low: 0.007,
 			share_high: 0.202,
@@ -1737,7 +1740,7 @@ describe('who rejects the word, ordered by what can be ordered', () => {
 			actor: 'China',
 			eligible: 29,
 			sufficient: true,
-			stances: stances({ asserts: 27, rejects_or_denies: 2 }),
+			positions: positions({ asserts: 27, rejects: 2 }),
 			share_rejects: 0.069,
 			share_low: 0.019,
 			share_high: 0.222,
@@ -1746,7 +1749,7 @@ describe('who rejects the word, ordered by what can be ordered', () => {
 	];
 
 	it('puts the separated rows first and does not rank the rest by share', () => {
-		const result = stanceRanking(corpus({ stance_by_actor: rows, minimum_occurrences: 20 }));
+		const result = positionRanking(corpus({ position_by_actor: rows, minimum_occurrences: 20 }));
 		// Sudan clears the corpus rate. China's 6.9% is higher than Kenya's 4.2%
 		// and both intervals cover 1.7%, so the two are ordered by count and the
 		// order is not a claim that one rejects more often than the other.
@@ -1757,10 +1760,10 @@ describe('who rejects the word, ordered by what can be ordered', () => {
 	});
 
 	it('writes a dash where the artefact recorded no interval', () => {
-		const result = stanceRanking(
+		const result = positionRanking(
 			corpus({
 				minimum_occurrences: 20,
-				stance_by_actor: [{ ...rows[0], share_low: null, share_high: null, separated: false }]
+				position_by_actor: [{ ...rows[0], share_low: null, share_high: null, separated: false }]
 			})
 		);
 		expect(result.rows[0].intervalText).toBe('—');

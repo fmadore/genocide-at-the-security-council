@@ -152,7 +152,7 @@
 		},
 		{
 			id: '15_usage.py',
-			does: 'Turns those model labels into the actor-by-referent table and the stance profiles behind the Usage view.',
+			does: 'Turns those model labels into the actor-by-referent table and the speaker_position profiles behind the Usage view.',
 			checks:
 				'Its inputs are step 14’s output, so everything it publishes is a model’s reading rather than a measurement, and the view says so above every figure. Shares are withheld below a minimum of eligible occurrences, as elsewhere on this site, and the gold sample’s state travels in the artefact so the page can report honestly that nothing has been checked yet.',
 			artefact: 'usage/*.json',

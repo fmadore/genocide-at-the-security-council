@@ -79,6 +79,56 @@ ROW_FIELDS: Final = (
     "reasoning_effort",
     "verdict",
     "quotation",
+    "concrete_case",
+    "speaker_position",
+    "function",
+    "referent",
+    "proposed_referent",
+    "referent_source",
+    "accused_actor",
+    "victim_group",
+    "own_state_accused",
+    "salience",
+    "evidence_quote",
+    "evidence_start",
+    "evidence_end",
+    "evidence_valid",
+    "evidence_relocated",
+    "rationale",
+    "confidence",
+    "annotated_at",
+)
+
+#: The shape of the two runs of 30 and 31 August 2026 and their two pilots,
+#: which are the only files that will ever have it: 12,184 rows written against
+#: annotation schema 2, before the relocating locator existed and before the
+#: referent list carried a version.
+#:
+#: Written out rather than derived from :data:`ROW_FIELDS` by exclusion, because
+#: it is no longer a subset — it carries `stance`, which schema 3 replaced with
+#: `concrete_case` and `speaker_position`. A validator that refused this shape
+#: would defeat the point of versioning anything: the versions exist so that
+#: improving the instrument does not orphan the runs that were paid for under
+#: the old one. So the shape is named here and accepted where a committed run is
+#: read back, never at the write seam, and `lib.llm.resolve_row` says what each
+#: of its rows means in schema 3's vocabulary.
+LEGACY_ROW_FIELDS: Final = (
+    "occurrence_id",
+    "line_id",
+    "filename",
+    "term",
+    "start",
+    "end",
+    "source_sha256",
+    "schema_version",
+    "lexicon_version",
+    "run_id",
+    "model",
+    "prompt_version",
+    "prompt_sha256",
+    "reasoning_effort",
+    "verdict",
+    "quotation",
     "stance",
     "function",
     "referent",
@@ -87,25 +137,8 @@ ROW_FIELDS: Final = (
     "evidence_start",
     "evidence_end",
     "evidence_valid",
-    "evidence_relocated",
     "confidence",
     "annotated_at",
-)
-
-#: The shape of the two runs of 30 and 31 August 2026, which are the only files
-#: that will ever have it: 12,184 rows written before the relocating locator
-#: existed, and so without `evidence_relocated`, and before the referent list
-#: carried a version, and so without `referents_version`. A validator that
-#: refused them would defeat the point of versioning the list at all — the
-#: version exists so that renaming a case does not orphan the runs that used the
-#: old name — so the shape is named here and accepted where a committed run is
-#: read back. Absent, `evidence_relocated` is read as false, which is what it
-#: is, and a row without `referents_version` was written against version 1, the
-#: only version that had no number.
-LEGACY_ROW_FIELDS: Final = tuple(
-    field
-    for field in ROW_FIELDS
-    if field not in ("referents_version", "evidence_relocated")
 )
 
 #: The per-occurrence object the model is asked to return. `function` arrives as
@@ -115,11 +148,18 @@ RESPONSE_FIELDS: Final = (
     "ordinal",
     "verdict",
     "quotation",
-    "stance",
+    "concrete_case",
+    "speaker_position",
     "function",
     "referent",
     "proposed_referent",
+    "referent_source",
+    "accused_actor",
+    "victim_group",
+    "own_state_accused",
+    "salience",
     "evidence_quote",
+    "rationale",
     "confidence",
 )
 
@@ -127,13 +167,32 @@ RESPONSE_FIELDS: Final = (
 ENUMS: Final[dict[str, frozenset[str]]] = {
     "verdict": audit.VERDICTS,
     "quotation": audit.QUOTATIONS,
+    "concrete_case": audit.CONCRETE_CASE,
+    "speaker_position": audit.POSITIONS,
+    "referent_source": audit.REFERENT_SOURCES,
+    "own_state_accused": audit.OWN_STATE_ACCUSED,
+    "salience": audit.SALIENCE,
+    "confidence": audit.CONFIDENCE,
+}
+
+#: The same, for a row written against annotation schema 2.
+LEGACY_ENUMS: Final[dict[str, frozenset[str]]] = {
+    "verdict": audit.VERDICTS,
+    "quotation": audit.QUOTATIONS,
     "stance": audit.STANCES,
     "confidence": audit.CONFIDENCE,
 }
 
-#: The fields a false positive must set to `not_applicable`, and which may not
-#: carry that value otherwise.
-CASCADE: Final = ("quotation", "stance", "function", "referent")
+#: The fields a false positive must set to `not_applicable`, and the subset in
+#: which that value may not appear otherwise. Both come from `lib.audit`, which
+#: is where the human codebook's own rules live: the model is held to the
+#: coder's cascade and not to one of its own.
+CASCADE: Final = audit.CASCADE_FIELDS
+RESERVED: Final = audit.RESERVED_FIELDS
+FREE_TEXT_CASCADE: Final = audit.FREE_TEXT_CASCADE_FIELDS
+
+#: The schema-2 cascade, for reading a committed run back.
+LEGACY_CASCADE: Final = ("quotation", "stance", "function", "referent")
 
 #: The name the structured-output schema is registered under in a request.
 SCHEMA_NAME: Final = "unsc_occurrence_annotations"
@@ -490,14 +549,33 @@ def response_schema() -> dict[str, object]:
                         "ordinal": {"type": "integer"},
                         "verdict": {"type": "string", "enum": sorted(audit.VERDICTS)},
                         "quotation": {"type": "string", "enum": sorted(audit.QUOTATIONS)},
-                        "stance": {"type": "string", "enum": sorted(audit.STANCES)},
+                        "concrete_case": {
+                            "type": "string",
+                            "enum": sorted(audit.CONCRETE_CASE),
+                        },
+                        "speaker_position": {
+                            "type": "string",
+                            "enum": sorted(audit.POSITIONS),
+                        },
                         "function": {
                             "type": "array",
                             "items": {"type": "string", "enum": sorted(audit.FUNCTIONS)},
                         },
                         "referent": {"type": "string"},
                         "proposed_referent": {"type": "string"},
+                        "referent_source": {
+                            "type": "string",
+                            "enum": sorted(audit.REFERENT_SOURCES),
+                        },
+                        "accused_actor": {"type": "string"},
+                        "victim_group": {"type": "string"},
+                        "own_state_accused": {
+                            "type": "string",
+                            "enum": sorted(audit.OWN_STATE_ACCUSED),
+                        },
+                        "salience": {"type": "string", "enum": sorted(audit.SALIENCE)},
                         "evidence_quote": {"type": "string"},
+                        "rationale": {"type": "string"},
                         "confidence": {"type": "string", "enum": sorted(audit.CONFIDENCE)},
                     },
                 },
@@ -621,27 +699,32 @@ def _functions(value: object) -> tuple[str, ...]:
     return tuple(parts)
 
 
-def check_labels(entry: Mapping[str, object], referents: set[str]) -> tuple[str, ...]:
+def check_labels(
+    entry: Mapping[str, object], referents: set[str], *, schema: str = SCHEMA_VERSION
+) -> tuple[str, ...]:
     """The codebook's rules over one occurrence's labels, whatever wrote them.
 
     Mirrors `audit._validate_labels` for the fields the model supplies. Returns
     the function labels as a tuple so a caller does not parse them twice.
 
+    `schema` is the annotation schema the entry is coded against. Schema 3 is
+    what a model is asked for and what a new row is written at; schema 2 is the
+    vocabulary of the four committed runs, read here so that 15 can aggregate
+    them without their being re-coded — which would mean buying them again.
+
     `proposed_referent` is required when the referent is `other` and refused on a
-    false positive, but is no longer refused on a controlled referent. The
-    compound rule the codebook now carries — a passage naming two cases is coded
-    as the first one named — has to leave the pair recorded somewhere, and this
-    field is where the model already writes free text about a referent. About one
-    in twenty of the two runs' `other` rows is such a pair, so losing them would
-    lose the evidence for whether the rule is the right one. The rejected
-    alternative was a `compound_referents` field of its own, which is a schema
-    change: it would move the annotation schema off version 2 and oblige the
-    human codebook to grow a column no coder has been trained on, to carry
-    something this field already carries. What the schema can check it checks;
-    the narrower rule — the pair as the speaker named it, and nothing else —
-    lives in the prompt, which is where rules a validator cannot see belong.
+    false positive, but is not refused on a controlled referent. The compound
+    rule the codebook carries — a passage naming two cases is coded as the first
+    one named — has to leave the pair recorded somewhere, and this field is where
+    the model already writes free text about a referent. About one in twenty of
+    the two runs' `other` rows is such a pair, so losing them would lose the
+    evidence for whether the rule is the right one. The rejected alternative was
+    a `compound_referents` field of its own, which would oblige the human
+    codebook to grow a column no coder has been trained on, to carry something
+    this field already carries.
     """
-    for field, allowed in ENUMS.items():
+    legacy = str(schema) == audit.LEGACY_SCHEMA_VERSION
+    for field, allowed in (LEGACY_ENUMS if legacy else ENUMS).items():
         value = str(entry[field])
         if value not in allowed:
             raise ValueError(f"Unknown {field} label: {value or '(blank)'}")
@@ -651,12 +734,35 @@ def check_labels(entry: Mapping[str, object], referents: set[str]) -> tuple[str,
     if referent not in referents:
         raise ValueError(f"Unknown referent: {referent or '(blank)'}")
 
-    reserved = {str(entry["quotation"]), str(entry["stance"]), referent, *functions}
+    cascade = LEGACY_CASCADE if legacy else CASCADE
+    reserved = LEGACY_CASCADE if legacy else RESERVED
     if str(entry["verdict"]) == "false_positive":
-        if reserved != {"not_applicable"}:
+        answered = {str(entry[field]) for field in cascade if field != "function"}
+        if answered | set(functions) != {"not_applicable"}:
             raise ValueError("False positives must use not_applicable discourse labels.")
-    elif "not_applicable" in reserved:
-        raise ValueError("not_applicable is reserved for false positives.")
+        if not legacy and any(
+            str(entry[field]).strip() for field in FREE_TEXT_CASCADE
+        ):
+            raise ValueError("False positives leave the free-text label fields empty.")
+    else:
+        answered = {str(entry[field]) for field in reserved if field != "function"}
+        if "not_applicable" in answered | set(functions):
+            raise ValueError("not_applicable is reserved for false positives.")
+
+    if not legacy:
+        # One decision, checked once: `concrete_case: no` and
+        # `speaker_position: no_position` are two names for the finding that the
+        # word is applied to no case here. A row carrying one without the other
+        # has taken the decision twice and differently, which is the fault
+        # schema 3 exists to remove.
+        blank = str(entry["concrete_case"]) == "no"
+        if blank != (str(entry["speaker_position"]) == "no_position"):
+            raise ValueError(
+                "concrete_case 'no' and speaker_position 'no_position' are one decision: "
+                f"got {entry['concrete_case']!r} and {entry['speaker_position']!r}."
+            )
+        if str(entry["verdict"]) != "false_positive" and not str(entry["rationale"]).strip():
+            raise ValueError("Every annotation carries a one-sentence rationale.")
 
     proposed = str(entry["proposed_referent"]).strip()
     if referent == "other" and not proposed:
@@ -711,11 +817,18 @@ def validate_response(
         labels[ordinal] = {
             "verdict": str(entry["verdict"]),
             "quotation": str(entry["quotation"]),
-            "stance": str(entry["stance"]),
+            "concrete_case": str(entry["concrete_case"]),
+            "speaker_position": str(entry["speaker_position"]),
             "function": functions,
             "referent": str(entry["referent"]),
             "proposed_referent": str(entry["proposed_referent"]).strip(),
+            "referent_source": str(entry["referent_source"]),
+            "accused_actor": str(entry["accused_actor"]).strip(),
+            "victim_group": str(entry["victim_group"]).strip(),
+            "own_state_accused": str(entry["own_state_accused"]),
+            "salience": str(entry["salience"]),
             "evidence_quote": str(entry["evidence_quote"]),
+            "rationale": str(entry["rationale"]).strip(),
             "confidence": str(entry["confidence"]),
         }
 
@@ -1006,15 +1119,22 @@ def annotation_rows(
                 "reasoning_effort": meta.reasoning_effort,
                 "verdict": entry["verdict"],
                 "quotation": entry["quotation"],
-                "stance": entry["stance"],
+                "concrete_case": entry["concrete_case"],
+                "speaker_position": entry["speaker_position"],
                 "function": "|".join(entry["function"]),
                 "referent": entry["referent"],
                 "proposed_referent": entry["proposed_referent"],
+                "referent_source": entry["referent_source"],
+                "accused_actor": entry["accused_actor"],
+                "victim_group": entry["victim_group"],
+                "own_state_accused": entry["own_state_accused"],
+                "salience": entry["salience"],
                 "evidence_quote": quote,
                 "evidence_start": start,
                 "evidence_end": end,
                 "evidence_valid": valid,
                 "evidence_relocated": relocated,
+                "rationale": entry["rationale"],
                 "confidence": entry["confidence"],
                 "annotated_at": meta.annotated_at,
             }
@@ -1032,14 +1152,15 @@ def validate_row(
     writes it rather than by whatever reads it next.
 
     `appending` is true at the write seam and false where a committed run is
-    read back, and three rules hold only at the seam. A run that has been paid
+    read back, and two things hold only at the seam. A run that has been paid
     for cannot be made to satisfy a rule written after it, and refusing to
     aggregate it would delete the evidence rather than improve it:
 
-    - `evidence_relocated`, which a run written before the relocating locator
-      existed does not carry. Absent, it is read as false, which is what it is.
-    - `referents_version`, which a run made before the controlled list was
-      versioned does not carry either. Absent, it is version 1.
+    - the older row shape, :data:`LEGACY_ROW_FIELDS`. It is annotation schema 2:
+      one `stance` field where there are now two, no `referents_version`, no
+      `evidence_relocated`, and none of the six fields schema 3 adds. Every
+      committed run has it, and it is accepted on the way in and never on the
+      way out.
     - a false positive's own located quote. Three rows of the first run answered
       the evidence field with the literal string `not_applicable`, which the
       prompt's cascade invited and nothing refused; the codebook requires a span
@@ -1048,10 +1169,11 @@ def validate_row(
       unreadable without it. New runs are held to it. The first run's three rows
       are recorded in `docs/VALIDATION.md` §7 instead.
 
-    The first two travel together: :data:`LEGACY_ROW_FIELDS` is one shape and
-    not two, because the two committed runs lack both fields and no file has
-    ever lacked one of them alone.
+    The row's own `schema_version` has to agree with its shape, which is what
+    stops a schema-2 file being read as though its `stance` column meant what
+    `speaker_position` means.
     """
+    legacy = tuple(row) == LEGACY_ROW_FIELDS
     shapes = (ROW_FIELDS,) if appending else (ROW_FIELDS, LEGACY_ROW_FIELDS)
     if tuple(row) not in shapes:
         unexpected = sorted(set(row) - set(ROW_FIELDS))
@@ -1060,7 +1182,8 @@ def validate_row(
             raise ValueError(f"Row keys are wrong: unexpected={unexpected}, missing={absent}")
         raise ValueError("Row keys are in the wrong order; see llm.ROW_FIELDS.")
 
-    check_labels(row, referents)
+    expected_schema = audit.LEGACY_SCHEMA_VERSION if legacy else SCHEMA_VERSION
+    check_labels(row, referents, schema=expected_schema)
 
     for field in ("start", "end"):
         if isinstance(row[field], bool) or not isinstance(row[field], int):
@@ -1106,14 +1229,79 @@ def validate_row(
             f"{quote[:40] or '(blank)'!r} was not found around it."
         )
 
-    if str(row["schema_version"]) != SCHEMA_VERSION:
-        raise ValueError(f"Row schema version is not {SCHEMA_VERSION}: {row['schema_version']}")
+    if str(row["schema_version"]) != expected_schema:
+        raise ValueError(
+            f"Row schema version is not {expected_schema}: {row['schema_version']}; "
+            "the row's shape and the version it records have to be the same schema."
+        )
     coded = str(row["annotated_at"])
     try:
         if date.fromisoformat(coded).isoformat() != coded:
             raise ValueError
     except ValueError as exc:
         raise ValueError(f"annotated_at must be an ISO date: {coded or '(blank)'}") from exc
+
+
+def resolve_row(row: Mapping[str, object]) -> dict[str, object]:
+    """One run row in schema 3's vocabulary, whichever schema wrote it.
+
+    The counterpart of `15_usage.py::resolve_referents`, and the same argument:
+    a superseded value is *translated* rather than refused, because the four
+    committed runs are 12,184 rows that cannot be re-coded without being bought
+    again, and refusing them would mean the schema could never move.
+
+    A schema-3 row is returned unchanged. A schema-2 row is read as follows:
+
+    - `stance` becomes `speaker_position` through
+      :data:`lib.audit.POSITION_FROM_STANCE`, which is six renames and one value
+      that changed meaning;
+    - `concrete_case` is derived by :func:`lib.audit.concrete_case_from_v1` from
+      the stance and the referent, and is `unclear` wherever those two cannot
+      answer it;
+    - the six fields schema 3 adds have **no v1 image at all** and are returned
+      empty — `referent_source`, `accused_actor`, `victim_group`,
+      `own_state_accused`, `salience` and `rationale`. They are not guessed, and
+      the aggregation reports them as absent for the whole run rather than
+      counting an empty string as an answer. That is the honest statement of
+      what a v1 run can and cannot say, and it is the reason the pilot exists.
+
+    The row keeps its own `schema_version`, so nothing downstream can mistake a
+    resolved row for one that was coded at 3.
+    """
+    if tuple(row) != LEGACY_ROW_FIELDS:
+        return dict(row)
+    stance = str(row.get("stance", ""))
+    referent = str(row.get("referent", ""))
+    resolved = {key: value for key, value in row.items() if key != "stance"}
+    resolved.update(
+        {
+            "referents_version": "1",
+            "concrete_case": audit.concrete_case_from_v1(stance, referent),
+            "speaker_position": audit.POSITION_FROM_STANCE.get(stance, "unclear"),
+            "referent_source": "",
+            "accused_actor": "",
+            "victim_group": "",
+            "own_state_accused": "",
+            "salience": "",
+            "evidence_relocated": bool(row.get("evidence_relocated", False)),
+            "rationale": "",
+        }
+    )
+    return {field: resolved.get(field, "") for field in ROW_FIELDS}
+
+
+#: The schema-3 fields a schema-2 row cannot answer, in the order the artefact
+#: reports them. Named here so that the aggregation and the view agree on what
+#: "this run does not carry it" means, and so a reader can see at a glance what
+#: the pilot is for.
+UNANSWERED_BY_V1: Final = (
+    "referent_source",
+    "accused_actor",
+    "victim_group",
+    "own_state_accused",
+    "salience",
+    "rationale",
+)
 
 
 # --- The run file ------------------------------------------------------------

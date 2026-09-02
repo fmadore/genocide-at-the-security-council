@@ -112,11 +112,18 @@ def labels(**changes: object) -> dict[str, object]:
     entry = {
         "verdict": "true_positive",
         "quotation": "not_quoted",
-        "stance": "asserts",
+        "concrete_case": "yes",
+        "speaker_position": "asserts",
         "function": ["accusation_or_qualification"],
         "referent": "rwanda_1994",
         "proposed_referent": "",
+        "referent_source": "passage",
+        "accused_actor": "",
+        "victim_group": "",
+        "own_state_accused": "no",
+        "salience": "substantive",
         "evidence_quote": "this is genocide",
+        "rationale": "The speaker applies the word in their own voice.",
         "confidence": "high",
     }
     entry.update(changes)
@@ -535,12 +542,12 @@ def test_a_reply_that_is_not_json_loses_its_speech_and_writes_no_rows(tmp_path: 
 def test_a_reply_outside_the_codebook_is_refused_and_not_repaired(tmp_path: Path) -> None:
     scope = one_speech()
     outcome = step.Outcome(
-        responses={next(iter(scope)): response(answer(1, 2, stance="agrees"))}, requests=1
+        responses={next(iter(scope)): response(answer(1, 2, speaker_position="agrees"))}, requests=1
     )
     paths = paths_in(tmp_path)
     tally = step.harvest(outcome, scope, run_meta(), REFERENTS, paths)
     assert (tally["written"], tally["failures"]) == (0, 1)
-    assert "Unknown stance label" in str(llm.read_rows(paths["failures"])[0]["reason"])
+    assert "Unknown speaker_position label" in str(llm.read_rows(paths["failures"])[0]["reason"])
 
 
 def test_a_truncated_reply_is_recorded_with_its_finish_reason(tmp_path: Path) -> None:

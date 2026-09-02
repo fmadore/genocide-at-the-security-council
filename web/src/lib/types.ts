@@ -784,7 +784,7 @@ export interface FrameRun {
 	rows: number;
 	matched: number;
 	coverage: number | null;
-	stance: FrameCrosstab;
+	speaker_position: FrameCrosstab;
 	function: FrameCrosstab;
 }
 
@@ -827,17 +827,17 @@ export interface FrameCrosstab {
  * draws, so a reader comparing two delegations reads the same bands in the same
  * places. `not_applicable` belongs to false positives alone.
  */
-export type Stance =
+export type Position =
 	| 'asserts'
-	| 'attributes_or_reports'
-	| 'rejects_or_denies'
-	| 'hypothetical_or_conditional'
-	| 'neutral_legal_reference'
+	| 'reports_without_position'
+	| 'rejects'
+	| 'conditional'
+	| 'no_position'
 	| 'unclear'
 	| 'not_applicable';
 
-/** Every stance, always. An absent key and a measured zero cannot be confused. */
-export type StanceCounts = Record<Stance, number>;
+/** Every speaker_position, always. An absent key and a measured zero cannot be confused. */
+export type PositionCounts = Record<Position, number>;
 
 /** What produced the labels, in enough detail to run it again or to reject it. */
 export interface UsageModel {
@@ -866,7 +866,7 @@ export interface UsageModel {
 	parse_failures: number;
 	evidence_invalid: number;
 	/** Occurrences the model declined to place, by the field it declined on. */
-	abstention: { verdict_uncertain: number; referent_unclear: number; stance_unclear: number };
+	abstention: { verdict_uncertain: number; referent_unclear: number; position_unclear: number };
 	tokens: { input: number; output: number };
 }
 
@@ -903,7 +903,7 @@ export interface UsageReferent {
  * `occurrences` is every match; `eligible` is those the model judged a real use
  * of the word with a quotable evidence span behind it; `assigned` is the
  * eligible ones it could place on a concrete referent. The matrix counts
- * `assigned`, the stance profile counts `eligible`, and the gap between the
+ * `assigned`, the speaker_position profile counts `eligible`, and the gap between the
  * three is stated rather than closed.
  */
 export interface UsageActor {
@@ -934,16 +934,16 @@ export interface UsageMatrixCell {
 	 * surface that draws this number has to read that first.
 	 */
 	contested: number;
-	/** The same occurrences divided by stance. Sums to `count`. */
-	stances: StanceCounts;
+	/** The same occurrences divided by speaker_position. Sums to `count`. */
+	positions: PositionCounts;
 }
 
-/** One speaker's whole stance profile, over its eligible occurrences. */
-export interface UsageStanceRow {
+/** One speaker's whole speaker_position profile, over its eligible occurrences. */
+export interface UsagePositionRow {
 	actor: string;
 	eligible: number;
 	sufficient: boolean;
-	stances: StanceCounts;
+	positions: PositionCounts;
 	/** Null — never absent — wherever `sufficient` is false. */
 	share_rejects: number | null;
 	/** The 95% Wilson bounds on that share. Null together with it. */
@@ -971,7 +971,7 @@ export interface UsageStanceRow {
  * which is why the rank exists: it settles the order of two events a date and an
  * identifier cannot separate.
  */
-export type UsageMilestone = 'mention' | 'asserts' | 'rejects_or_denies';
+export type UsageMilestone = 'mention' | 'asserts' | 'rejects';
 
 /** One delegation's first crossing of one milestone, for one referent. */
 export interface UsageDiffusionEvent {
@@ -981,12 +981,12 @@ export interface UsageDiffusionEvent {
 	actor: string;
 	milestone: UsageMilestone;
 	/**
-	 * The stance of that first occurrence. Fixed under the last two milestones
+	 * The speaker_position of that first occurrence. Fixed under the last two milestones
 	 * and any of the seven under `mention`, which is what makes it worth carrying
 	 * — a first mention that is a rejection is a different fact from one that is
 	 * a neutral legal reference.
 	 */
-	stance: string;
+	speaker_position: string;
 	/** `<speech>#<ordinal>` — joins `KwicLine.id`. The locator for the event. */
 	id: string;
 }
@@ -1082,7 +1082,7 @@ export interface UsageLabelAgreement {
 /**
  * One model asked the same question twice: the noise floor of a single instrument.
  *
- * Two models disagreeing on a fifth of the stance labels means nothing until a
+ * Two models disagreeing on a fifth of the speaker_position labels means nothing until a
  * reader knows how far one model disagrees with itself. `retest_run_id` names
  * another committed run of the same model with the byte-identical prompt, and
  * every statistic is the one the cross-model table carries, computed by the
@@ -1141,7 +1141,7 @@ export interface UsageComparison {
 	/** Occurrences carrying a label from both runs. Every statistic below is over these. */
 	overlap: number;
 	evidence_invalid: number;
-	abstention: { verdict_uncertain: number; referent_unclear: number; stance_unclear: number };
+	abstention: { verdict_uncertain: number; referent_unclear: number; position_unclear: number };
 	/** The four single-label fields. Empty where the two runs overlap nowhere. */
 	fields: UsageComparisonField[];
 	/**
@@ -1275,7 +1275,7 @@ export interface Usage {
 	/** Below this many eligible occurrences, a speaker's shares are withheld. */
 	minimum_occurrences: number;
 	matrix: UsageMatrixCell[];
-	stance_by_actor: UsageStanceRow[];
+	position_by_actor: UsagePositionRow[];
 	diffusion: UsageDiffusion;
 	/** A second model over the same occurrences, or the block that says none was run. */
 	comparison: UsageComparison;
@@ -1295,7 +1295,7 @@ export interface Usage {
 export interface UsageAlternative {
 	verdict: string;
 	quotation: string;
-	stance: string;
+	speaker_position: string;
 	function: string;
 	referent: string;
 }
@@ -1314,12 +1314,32 @@ export interface UsageOccurrence {
 	occurrence_id: string;
 	verdict: string;
 	quotation: string;
-	stance: string;
+	/**
+	 * Whether the word is applied to a determinate case here: `yes`, `no`,
+	 * `unclear` or `not_applicable`. Annotation schema 3's central field.
+	 */
+	concrete_case: string;
+	speaker_position: string;
 	/** One or more rhetorical functions, pipe-joined without spaces. */
 	function: string;
 	referent: string;
 	/** A referent the model proposed but the controlled list does not carry. */
 	proposed_referent: string;
+	/**
+	 * The six fields annotation schema 3 added, and the reason a v2 run is worth
+	 * paying for. **A run coded against schema 2 carries every one of them as an
+	 * empty string** — `lib.llm.resolve_row` translates what schema 2 measured
+	 * and refuses to guess what it did not, so an empty value here means "this
+	 * run never asked", not "the answer is nothing". Render an empty one as
+	 * absent and never as an answer.
+	 */
+	referent_source: string;
+	accused_actor: string;
+	victim_group: string;
+	own_state_accused: string;
+	salience: string;
+	/** One sentence on why the position and the case decision are what they are. */
+	rationale: string;
 	confidence: string;
 	/** The span the model says supports its labels, verbatim from the speech. */
 	evidence_quote: string;
@@ -1327,7 +1347,7 @@ export interface UsageOccurrence {
 	evidence_valid: boolean;
 	/**
 	 * The fields a second opinion read differently: a subset of `verdict`,
-	 * `quotation`, `stance`, `function` and `referent`, in that order.
+	 * `quotation`, `speaker_position`, `function` and `referent`, in that order.
 	 *
 	 * Empty in three different situations — no comparison run, a comparison run
 	 * that never reached this occurrence, and one that reached it and agreed —

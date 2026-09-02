@@ -32,7 +32,7 @@ wrong while looking right.
   that gained share while the residue shrank may have gained nothing.
 
 The triangulation against the two committed model runs is the external check the
-review promises for free. Both runs label all 6,092 occurrences with `stance`
+review promises for free. Both runs label all 6,092 occurrences with a position
 and `function`; the frames are computed from the text with no model involved, so
 crossing them says where a construction and a label agree — and where a label is
 doing something the construction does not support. Nothing here adjudicates: the
@@ -109,10 +109,12 @@ RUNS = STORE / "runs"
 CURRENT_RUN = STORE / "current_run.txt"
 COMPARISON_RUN = STORE / "comparison_run.txt"
 
-#: The model fields a frame is crossed against. `stance` is single-label and
-#: `function` is pipe-joined, as `lib.usage` documents; they are handled apart
-#: for that reason and not for any other.
-STANCE_FIELD = "stance"
+#: The model fields a frame is crossed against. `speaker_position` is
+#: single-label and `function` is pipe-joined, as `lib.usage` documents; they are
+#: handled apart for that reason and not for any other. A run coded against
+#: annotation schema 2 records the field as `stance`, and `model_rows` resolves
+#: it onto this name before anything is crossed with it.
+POSITION_FIELD = "speaker_position"
 FUNCTION_FIELD = "function"
 
 
@@ -233,13 +235,22 @@ def named_run(pointer: Path) -> str:
 
 
 def model_rows(run_id: str) -> list[dict[str, object]]:
-    return llm.read_rows(RUNS / run_id / "annotations.jsonl") if run_id else []
+    """One run's rows, in the current schema's vocabulary.
+
+    Resolved through `lib.llm.resolve_row` for the reason 15 and 13 resolve
+    theirs: the triangulation crosses a frame against a run's own labels, and a
+    schema-2 run and a schema-3 run have to land in the same columns or the
+    crosstab is two tables printed on top of each other.
+    """
+    if not run_id:
+        return []
+    return [llm.resolve_row(row) for row in llm.read_rows(RUNS / run_id / "annotations.jsonl")]
 
 
 def triangulation(
     occurrences: pd.DataFrame, runs: list[tuple[str, list[dict]]]
 ) -> dict[str, object]:
-    """The frames crossed against `stance` and `function`, once per run."""
+    """The frames crossed against `speaker_position` and `function`, once per run."""
     blocks = []
     for run_id, rows in runs:
         labelled = pd.DataFrame(rows)
@@ -255,8 +266,8 @@ def triangulation(
                 "rows": len(labelled),
                 "matched": matched,
                 "coverage": matched / len(occurrences) if len(occurrences) else None,
-                "stance": node_frames.crosstab(
-                    occurrences, labelled, STANCE_FIELD, multi=False
+                "speaker_position": node_frames.crosstab(
+                    occurrences, labelled, POSITION_FIELD, multi=False
                 ),
                 "function": node_frames.crosstab(
                     occurrences, labelled, FUNCTION_FIELD, multi=True
@@ -394,13 +405,13 @@ def build_note(payload: dict, lexicon_version: str) -> str:
                 "",
                 "## Against the model runs",
                 "",
-                "Both runs label every occurrence with a stance and a function; the frames were",
+                "Both runs label every occurrence with a position and a function; the frames were",
                 "read off the text with no model involved. Where the two agree, a construction",
                 "and a label are two instruments finding the same thing. Where they do not, the",
                 "cell is a question — and the review's largest disagreement, the",
                 "report/assert boundary, is one this table can locate.",
                 "",
-                "| Run | Model | Matched | Triad → modal stance | Distancing → modal stance |",
+                "| Run | Model | Matched | Triad → modal position | Distancing → modal position |",
                 "|---|---|---:|---|---|",
                 *[
                     "| `{run}` | {model} | {matched:,} | {triad} | {distancing} |".format(
@@ -414,7 +425,7 @@ def build_note(payload: dict, lexicon_version: str) -> str:
                 ],
                 "",
                 "**To check:** read the twenty longest-standing cells where a frame and a",
-                "stance disagree — `distancing` coded `asserts`, `commemoration` coded",
+                "position disagree — `distancing` coded `asserts`, `commemoration` coded",
                 "`neutral_legal_reference` — against the concordance lines behind them. If the",
                 "frame is right and the label is not, the prompt's category definitions are",
                 "where §4.2 says the fix belongs; if the label is right, the pattern is here.",
@@ -426,8 +437,8 @@ def build_note(payload: dict, lexicon_version: str) -> str:
 
 
 def _modal(block: dict, frame_name: str) -> str:
-    """One frame's modal stance in one run, for the note's summary table."""
-    for row in block["stance"]["rows"]:
+    """One frame's modal position in one run, for the note's summary table."""
+    for row in block["speaker_position"]["rows"]:
         if row["frame"] == frame_name:
             if not row["modal_label"]:
                 return "—"

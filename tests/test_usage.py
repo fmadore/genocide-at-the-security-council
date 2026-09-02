@@ -61,10 +61,17 @@ ROW = {
     "speaker_group": "Non-member state",
     "verdict": "true_positive",
     "quotation": "not_quoted",
-    "stance": "asserts",
+    "concrete_case": "yes",
+    "speaker_position": "asserts",
     "function": "accusation_or_qualification",
     "referent": "rwanda_1994",
     "proposed_referent": "",
+    "referent_source": "passage",
+    "accused_actor": "",
+    "victim_group": "",
+    "own_state_accused": "no",
+    "salience": "substantive",
+    "rationale": "The speaker applies the word to the case in their own voice.",
     "confidence": "high",
     "evidence_valid": True,
 }
@@ -104,9 +111,15 @@ def false_positive(**change: object) -> dict[str, object]:
     return {
         "verdict": "false_positive",
         "quotation": "not_applicable",
-        "stance": "not_applicable",
+        "concrete_case": "not_applicable",
+        "speaker_position": "not_applicable",
         "function": "not_applicable",
         "referent": "not_applicable",
+        "referent_source": "not_applicable",
+        "accused_actor": "",
+        "victim_group": "",
+        "own_state_accused": "not_applicable",
+        "salience": "not_applicable",
         **change,
     }
 
@@ -117,7 +130,7 @@ def false_positive(**change: object) -> dict[str, object]:
 def test_eligible_needs_both_a_true_positive_and_located_evidence() -> None:
     frame = rows(
         {},
-        {"verdict": "uncertain", "referent": "unclear", "stance": "unclear"},
+        {"verdict": "uncertain", "referent": "unclear", "speaker_position": "unclear"},
         false_positive(),
         {"evidence_valid": False},
     )
@@ -134,21 +147,21 @@ def test_other_counts_as_assigned_and_the_two_reserved_ids_do_not() -> None:
     assert usage.assigned_mask(frame).tolist() == [True, True, False, False]
 
 
-def test_an_eligible_row_with_no_referent_still_carries_its_stance() -> None:
+def test_an_eligible_row_with_no_referent_still_carries_its_speaker_position() -> None:
     # The denial figure is cut from eligible rows, not from assigned ones: a
     # speaker can reject the characterisation in a passage that names no case.
-    frame = rows({"referent": "unclear", "stance": "rejects_or_denies"})
+    frame = rows({"referent": "unclear", "speaker_position": "rejects"})
     assert usage.eligible_mask(frame).tolist() == [True]
     assert usage.assigned_mask(frame).tolist() == [False]
-    assert usage.stance_rows(frame, ["Rwanda"], minimum=1)[0]["stances"][
-        "rejects_or_denies"
+    assert usage.position_rows(frame, ["Rwanda"], minimum=1)[0]["positions"][
+        "rejects"
     ] == 1
 
 
 def test_the_funnel_counts_what_each_gate_removes() -> None:
     frame = rows(
-        *repeat(5, stance="asserts"),
-        *repeat(2, verdict="uncertain", quotation="unclear", stance="unclear",
+        *repeat(5, speaker_position="asserts"),
+        *repeat(2, verdict="uncertain", quotation="unclear", speaker_position="unclear",
                 function="unclear", referent="unclear"),
         false_positive(),
         {"evidence_valid": False},
@@ -173,19 +186,19 @@ def test_the_funnel_counts_what_each_gate_removes() -> None:
 # --- Stance blocks ----------------------------------------------------------
 
 
-def test_every_stance_key_is_written_even_when_nothing_used_it() -> None:
-    counts = usage.stance_counts(rows({"stance": "asserts"}))
-    assert list(counts) == list(usage.STANCES)
-    assert set(counts) == set(audit.STANCES)
+def test_every_speaker_position_key_is_written_even_when_nothing_used_it() -> None:
+    counts = usage.position_counts(rows({"speaker_position": "asserts"}))
+    assert list(counts) == list(usage.POSITIONS)
+    assert set(counts) == set(audit.POSITIONS)
     assert counts["asserts"] == 1
-    assert all(counts[key] == 0 for key in usage.STANCES if key != "asserts")
+    assert all(counts[key] == 0 for key in usage.POSITIONS if key != "asserts")
 
 
 def test_an_actor_with_no_eligible_rows_still_gets_seven_zeroes() -> None:
     frame = rows(false_positive(country_org="Chad"), {"country_org": "Rwanda"})
-    written = {row["actor"]: row for row in usage.stance_rows(frame, ["Rwanda", "Chad"])}
+    written = {row["actor"]: row for row in usage.position_rows(frame, ["Rwanda", "Chad"])}
     assert written["Chad"]["eligible"] == 0
-    assert written["Chad"]["stances"] == dict.fromkeys(usage.STANCES, 0)
+    assert written["Chad"]["positions"] == dict.fromkeys(usage.POSITIONS, 0)
     assert written["Chad"]["share_rejects"] is None
 
 
@@ -199,13 +212,13 @@ def test_an_actor_with_no_eligible_rows_still_gets_seven_zeroes() -> None:
 def test_a_share_is_withheld_below_the_minimum_and_written_at_it(
     eligible: int, sufficient: bool
 ) -> None:
-    frame = rows(*repeat(eligible, stance="rejects_or_denies"))
-    written = usage.stance_rows(frame, ["Rwanda"])[0]
+    frame = rows(*repeat(eligible, speaker_position="rejects"))
+    written = usage.position_rows(frame, ["Rwanda"])[0]
     assert usage.MINIMUM_OCCURRENCES == 20
     assert written["eligible"] == eligible
     assert written["sufficient"] is sufficient
     # The count is a fact and is always written; the share is an estimate.
-    assert written["stances"]["rejects_or_denies"] == eligible
+    assert written["positions"]["rejects"] == eligible
     if sufficient:
         assert written["share_rejects"] == 1.0
     else:
@@ -213,13 +226,13 @@ def test_a_share_is_withheld_below_the_minimum_and_written_at_it(
 
 
 def test_the_two_sufficiency_flags_guard_different_denominators() -> None:
-    # Twenty-one eligible occurrences, of which only two name a case: the stance
+    # Twenty-one eligible occurrences, of which only two name a case: the speaker_position
     # composition may be shown, the matrix row may not.
     frame = rows(*repeat(19, referent="unclear"), *repeat(2, referent="gaza"))
     actor = usage.actor_rows(frame)[0]
-    stance = usage.stance_rows(frame, ["Rwanda"])[0]
+    speaker_position = usage.position_rows(frame, ["Rwanda"])[0]
     assert (actor["eligible"], actor["assigned"], actor["sufficient"]) == (21, 2, False)
-    assert (stance["eligible"], stance["sufficient"]) == (21, True)
+    assert (speaker_position["eligible"], speaker_position["sufficient"]) == (21, True)
 
 
 # --- The aggregation against a brute-force recount --------------------------
@@ -242,7 +255,7 @@ def mixed() -> pd.DataFrame:
     return rows(
         *repeat(4, country_org="Rwanda", referent="rwanda_1994"),
         *repeat(2, country_org="Rwanda", referent="rwanda_1994",
-                stance="rejects_or_denies"),
+                speaker_position="rejects"),
         *repeat(3, country_org="Rwanda", referent="holocaust"),
         {"country_org": "Rwanda", "referent": "unclear"},
         false_positive(country_org="Rwanda"),
@@ -263,10 +276,10 @@ def test_the_matrix_reconciles_against_a_recount_of_the_same_rows() -> None:
     assert sum(built.values()) == int(usage.assigned_mask(frame).sum())
 
 
-def test_every_cell_carries_a_stance_breakdown_that_sums_to_its_count() -> None:
+def test_every_cell_carries_a_speaker_position_breakdown_that_sums_to_its_count() -> None:
     for cell in usage.aggregate(mixed(), REFERENTS)["matrix"]:
-        assert sum(cell["stances"].values()) == cell["count"]
-        assert list(cell["stances"]) == list(usage.STANCES)
+        assert sum(cell["positions"].values()) == cell["count"]
+        assert list(cell["positions"]) == list(usage.POSITIONS)
 
 
 def test_each_referent_total_equals_its_column_of_the_matrix() -> None:
@@ -349,9 +362,9 @@ def test_the_matrix_follows_the_actor_order_then_the_referent_order() -> None:
     assert keys == sorted(keys)
 
 
-def test_the_stance_block_is_written_in_the_actor_order() -> None:
+def test_the_speaker_position_block_is_written_in_the_actor_order() -> None:
     blocks = usage.aggregate(mixed(), REFERENTS)
-    assert [row["actor"] for row in blocks["stance_by_actor"]] == [
+    assert [row["actor"] for row in blocks["position_by_actor"]] == [
         row["country_org"] for row in blocks["actors"]
     ]
 
@@ -376,54 +389,54 @@ def curves(frame: pd.DataFrame, order: list[str] | None = None) -> dict[str, lis
 
 def test_each_milestone_is_the_first_row_that_reaches_it() -> None:
     frame = rows(
-        dated("1994-04-21", "a#1", stance="attributes_or_reports"),
-        dated("1994-05-16", "b#1", stance="asserts"),
-        dated("1994-06-08", "c#1", stance="asserts"),
-        dated("1995-01-10", "d#1", stance="rejects_or_denies"),
-        dated("1996-02-02", "e#1", stance="rejects_or_denies"),
+        dated("1994-04-21", "a#1", speaker_position="reports_without_position"),
+        dated("1994-05-16", "b#1", speaker_position="asserts"),
+        dated("1994-06-08", "c#1", speaker_position="asserts"),
+        dated("1995-01-10", "d#1", speaker_position="rejects"),
+        dated("1996-02-02", "e#1", speaker_position="rejects"),
     )
     events = curves(frame)["rwanda_1994"]
     assert [(event["milestone"], event["id"]) for event in events] == [
         ("mention", "a#1"),
         ("asserts", "b#1"),
-        ("rejects_or_denies", "d#1"),
+        ("rejects", "d#1"),
     ]
-    # The mention keeps the stance of the row it was drawn from, which is not the
+    # The mention keeps the speaker_position of the row it was drawn from, which is not the
     # milestone: this delegation reported the characterisation before making it.
-    assert events[0]["stance"] == "attributes_or_reports"
+    assert events[0]["speaker_position"] == "reports_without_position"
     assert events[0]["date"] == "1994-04-21"
     assert events[0]["actor"] == "Rwanda"
-    assert set(events[0]) == {"date", "actor", "milestone", "stance", "id"}
+    assert set(events[0]) == {"date", "actor", "milestone", "speaker_position", "id"}
 
 
 def test_one_occurrence_can_be_both_the_first_mention_and_the_first_assertion() -> None:
-    frame = rows(dated("1994-04-21", "a#1", stance="asserts"))
+    frame = rows(dated("1994-04-21", "a#1", speaker_position="asserts"))
     events = curves(frame)["rwanda_1994"]
     assert [event["milestone"] for event in events] == ["mention", "asserts"]
     # Two events, one occurrence: both carry the same date and the same line id,
     # because the curves they feed are counted separately.
     assert {event["id"] for event in events} == {"a#1"}
-    assert {event["stance"] for event in events} == {"asserts"}
+    assert {event["speaker_position"] for event in events} == {"asserts"}
 
 
 def test_a_first_rejection_is_recorded_even_when_the_delegation_asserted_first() -> None:
     frame = rows(
-        dated("1994-04-21", "a#1", stance="asserts"),
-        dated("1994-05-16", "b#1", stance="rejects_or_denies"),
+        dated("1994-04-21", "a#1", speaker_position="asserts"),
+        dated("1994-05-16", "b#1", speaker_position="rejects"),
     )
     events = {event["milestone"]: event for event in curves(frame)["rwanda_1994"]}
     assert events["mention"]["id"] == "a#1"
     assert events["asserts"]["id"] == "a#1"
-    assert events["rejects_or_denies"]["id"] == "b#1"
-    assert events["rejects_or_denies"]["date"] == "1994-05-16"
+    assert events["rejects"]["id"] == "b#1"
+    assert events["rejects"]["date"] == "1994-05-16"
 
 
 def test_a_same_day_tie_is_broken_by_the_line_id() -> None:
     # Written in the reverse of the answer, so a first-row-wins implementation
     # that never sorted would fail here.
     frame = rows(
-        dated("1994-04-21", "b#2", stance="asserts"),
-        dated("1994-04-21", "a#1", stance="asserts"),
+        dated("1994-04-21", "b#2", speaker_position="asserts"),
+        dated("1994-04-21", "a#1", speaker_position="asserts"),
     )
     assert curves(frame)["rwanda_1994"][0]["id"] == "a#1"
 
@@ -463,9 +476,9 @@ def test_referents_follow_the_order_they_are_given() -> None:
 
 def test_events_are_sorted_by_date_then_line_id_then_milestone() -> None:
     frame = rows(
-        dated("1994-06-08", "c#1", country_org="Chad", stance="rejects_or_denies"),
-        dated("1994-04-21", "a#1", country_org="Rwanda", stance="asserts"),
-        dated("1994-04-21", "a#2", country_org="Angola", stance="asserts"),
+        dated("1994-06-08", "c#1", country_org="Chad", speaker_position="rejects"),
+        dated("1994-04-21", "a#1", country_org="Rwanda", speaker_position="asserts"),
+        dated("1994-04-21", "a#2", country_org="Angola", speaker_position="asserts"),
     )
     events = curves(frame)["rwanda_1994"]
     assert [(event["date"], event["id"], event["milestone"]) for event in events] == [
@@ -474,16 +487,16 @@ def test_events_are_sorted_by_date_then_line_id_then_milestone() -> None:
         ("1994-04-21", "a#2", "mention"),
         ("1994-04-21", "a#2", "asserts"),
         ("1994-06-08", "c#1", "mention"),
-        ("1994-06-08", "c#1", "rejects_or_denies"),
+        ("1994-06-08", "c#1", "rejects"),
     ]
 
 
 def test_only_assigned_rows_can_carry_a_first_event() -> None:
     frame = rows(
         dated("1993-01-01", "a#1", **false_positive()),
-        dated("1993-02-02", "b#1", referent="unclear", stance="rejects_or_denies"),
+        dated("1993-02-02", "b#1", referent="unclear", speaker_position="rejects"),
         dated("1993-03-03", "c#1", evidence_valid=False),
-        dated("1994-04-21", "d#1", stance="asserts"),
+        dated("1994-04-21", "d#1", speaker_position="asserts"),
         dated("1994-05-16", "e#1", referent="other",
               proposed_referent="a case not yet controlled"),
     )
@@ -655,11 +668,18 @@ def annotation(occurrence: str, coder: str, **changes: str) -> dict[str, str]:
         "verdict": "true_positive",
         "source_checked": "no",
         "quotation": "not_quoted",
-        "stance": "asserts",
+        "concrete_case": "yes",
+        "speaker_position": "asserts",
         "function": "accusation_or_qualification",
         "referent": "rwanda_1994",
+        "referent_source": "passage",
+        "accused_actor": "",
+        "victim_group": "",
+        "own_state_accused": "no",
+        "salience": "substantive",
         "evidence_start": "0",
         "evidence_end": "40",
+        "rationale": "The speaker applies the word to the case in their own voice.",
         "confidence": "high",
         "comment": "",
     }
@@ -715,14 +735,14 @@ def test_human_agreement_is_computed_over_the_double_coded_occurrences_only() ->
     coded = annotations(
         annotation("occ-000", "FM"),
         annotation("occ-000", "JG"),
-        annotation("occ-001", "FM", stance="rejects_or_denies"),
-        annotation("occ-001", "JG", stance="asserts"),
+        annotation("occ-001", "FM", speaker_position="rejects"),
+        annotation("occ-001", "JG", speaker_position="asserts"),
         annotation("occ-002", "FM"),  # coded once; contributes to no pair
     )
     table = {row["field"]: row for row in usage.human_agreement(coded)}
     assert set(table) == set(usage.SINGLE_LABEL_FIELDS)
-    assert table["stance"]["n"] == 2
-    assert table["stance"]["observed"] == 0.5
+    assert table["speaker_position"]["n"] == 2
+    assert table["speaker_position"]["observed"] == 0.5
     # One category on the verdict field, so kappa is not defined there.
     assert table["verdict"]["observed"] == 1.0
     assert table["verdict"]["kappa"] is None
@@ -733,16 +753,16 @@ ADJUDICATED = annotations(
     # is the reference.
     annotation("occ-000", "FM", verdict="true_positive"),
     annotation("occ-000", "JG", verdict="true_positive"),
-    annotation("occ-000", "adjudicated", verdict="uncertain", stance="unclear",
+    annotation("occ-000", "adjudicated", verdict="uncertain", speaker_position="unclear",
                quotation="unclear", referent="unclear"),
     # Both coders agree and nobody adjudicated: their label is the reference.
     annotation("occ-001", "FM", verdict="true_positive"),
     annotation("occ-001", "JG", verdict="true_positive"),
     # The coders disagree on every field and nobody adjudicated: skipped.
-    annotation("occ-002", "FM", verdict="true_positive", stance="asserts",
-               quotation="not_quoted", referent="rwanda_1994"),
-    annotation("occ-002", "JG", verdict="uncertain", stance="unclear",
-               quotation="unclear", referent="unclear"),
+    annotation("occ-002", "FM", verdict="true_positive", concrete_case="yes",
+               speaker_position="asserts", quotation="not_quoted", referent="rwanda_1994"),
+    annotation("occ-002", "JG", verdict="uncertain", concrete_case="unclear",
+               speaker_position="unclear", quotation="unclear", referent="unclear"),
 )
 
 
@@ -852,7 +872,8 @@ def test_the_declared_category_counts_are_the_codebook_s_own() -> None:
     codebook = {
         "verdict": len(audit.VERDICTS),
         "quotation": len(audit.QUOTATIONS),
-        "stance": len(audit.STANCES),
+        "concrete_case": len(audit.CONCRETE_CASE),
+        "speaker_position": len(audit.POSITIONS),
         "referent": len(referents),
     }
     assert codebook == usage.FIELD_CATEGORIES
@@ -975,14 +996,14 @@ def test_a_field_whose_every_class_is_rare_reports_no_macro_average() -> None:
 def test_the_excluded_share_travels_with_the_score() -> None:
     coverage = usage.reference_coverage(ADJUDICATED)
     # Three double-coded occurrences; occ-002's coders differ on every field.
-    assert coverage["stance"]["available"] == 3
-    assert coverage["stance"]["resolved"] == 2
-    assert coverage["stance"]["excluded"] == 1
-    assert coverage["stance"]["excluded_share"] == 0.333333
+    assert coverage["speaker_position"]["available"] == 3
+    assert coverage["speaker_position"]["resolved"] == 2
+    assert coverage["speaker_position"]["excluded"] == 1
+    assert coverage["speaker_position"]["excluded_share"] == 0.333333
     scored = {row["field"]: row for row in usage.model_vs_human(ADJUDICATED, rows({}, {}, {}))}
-    assert scored["stance"]["double_coded"] == 3
-    assert scored["stance"]["excluded"] == 1
-    assert scored["stance"]["excluded_share"] == 0.333333
+    assert scored["speaker_position"]["double_coded"] == 3
+    assert scored["speaker_position"]["excluded"] == 1
+    assert scored["speaker_position"]["excluded_share"] == 0.333333
     assert usage.reference_coverage(annotations()) == {}
 
 
@@ -1029,21 +1050,21 @@ def second_run(*changes: dict[str, object]) -> list[dict[str, object]]:
     return rows(*changes).to_dict(orient="records")
 
 
-#: The ten paired judgements of LEFT and RIGHT, spelled in the codebook's stance
+#: The ten paired judgements of LEFT and RIGHT, spelled in the codebook's speaker_position
 #: vocabulary so that two runs can be written from them.
-STANCE_OF = {"yes": "asserts", "no": "rejects_or_denies"}
+STANCE_OF = {"yes": "asserts", "no": "rejects"}
 
 
 def test_a_field_is_contested_only_where_the_two_runs_label_it_differently() -> None:
-    published = rows(*repeat(3, stance="asserts"))
+    published = rows(*repeat(3, speaker_position="asserts"))
     second = second_run(
-        {"stance": "asserts"},
-        {"stance": "rejects_or_denies"},
-        {"stance": "unclear"},
+        {"speaker_position": "asserts"},
+        {"speaker_position": "rejects"},
+        {"speaker_position": "unclear"},
     )
     table = {row["field"]: row for row in usage.comparison_fields(published, second)}
-    assert table["stance"]["n"] == 3
-    assert table["stance"]["contested"] == 2
+    assert table["speaker_position"]["n"] == 3
+    assert table["speaker_position"]["contested"] == 2
     # The other three fields are identical in both runs and contest nothing.
     assert [table[field]["contested"] for field in ("verdict", "quotation", "referent")] == [
         0,
@@ -1069,16 +1090,17 @@ def test_the_multi_label_field_is_compared_as_a_set() -> None:
 
 def test_the_alternative_reading_is_carried_in_full_or_not_at_all() -> None:
     published = rows({}, {})
-    second = second_run({"stance": "rejects_or_denies"}, {})
+    second = second_run({"speaker_position": "rejects"}, {})
     contested = usage.contested_rows(published, second)
     fields, alternative = contested["occ-000"]
-    assert fields == ["stance"]
-    # All five labels, not only the contested one: a reader told an occurrence is
+    assert fields == ["speaker_position"]
+    # Every compared label, not only the contested one: a reader told an occurrence is
     # contested is being invited to read the other run's whole reading of it.
     assert alternative == {
         "verdict": "true_positive",
         "quotation": "not_quoted",
-        "stance": "rejects_or_denies",
+        "concrete_case": "yes",
+        "speaker_position": "rejects",
         "function": "accusation_or_qualification",
         "referent": "rwanda_1994",
     }
@@ -1115,12 +1137,12 @@ def test_a_refused_match_is_compared_rather_than_filtered_out() -> None:
 
 
 def test_observed_and_kappa_are_the_statistics_the_two_coders_are_scored_by() -> None:
-    published = rows(*[{"stance": STANCE_OF[value]} for value in LEFT])
-    second = second_run(*[{"stance": STANCE_OF[value]} for value in RIGHT])
+    published = rows(*[{"speaker_position": STANCE_OF[value]} for value in LEFT])
+    second = second_run(*[{"speaker_position": STANCE_OF[value]} for value in RIGHT])
     table = {row["field"]: row for row in usage.comparison_fields(published, second)}
     # p_o = 0.70 and kappa = 0.40, hand-computed above LEFT and RIGHT.
-    assert (table["stance"]["observed"], table["stance"]["kappa"]) == (0.7, 0.4)
-    assert table["stance"]["contested"] == 3
+    assert (table["speaker_position"]["observed"], table["speaker_position"]["kappa"]) == (0.7, 0.4)
+    assert table["speaker_position"]["contested"] == 3
     # One category on the verdict field: kappa is not defined there, and the
     # answer is the same one `human_agreement` gives from the same function.
     assert table["verdict"]["observed"] == 1.0
@@ -1155,7 +1177,7 @@ def test_an_empty_comparison_is_written_as_a_state_rather_than_as_an_absence() -
     published = rows({}, {})
     empty = usage.comparison_block(published, [])
     computed = usage.comparison_block(
-        published, second_run({"stance": "unclear"}, {}), run_id="0000-00-00-second"
+        published, second_run({"speaker_position": "unclear"}, {}), run_id="0000-00-00-second"
     )
     # One builder, so the two states cannot drift apart: a consumer reads the
     # same keys whether or not a second opinion was bought.
@@ -1180,7 +1202,7 @@ def test_an_empty_comparison_is_written_as_a_state_rather_than_as_an_absence() -
     assert empty["abstention"] == {
         "verdict_uncertain": 0,
         "referent_unclear": 0,
-        "stance_unclear": 0,
+        "position_unclear": 0,
     }
     assert usage.contested_rows(published, []) == {}
 
@@ -1190,7 +1212,7 @@ def test_the_comparison_run_is_scored_against_the_same_human_reference() -> None
     # comparison run says `uncertain` to both, so one of two is right.
     published = rows({}, {})
     second = rows(
-        *repeat(2, verdict="uncertain", quotation="unclear", stance="unclear",
+        *repeat(2, verdict="uncertain", quotation="unclear", speaker_position="unclear",
                 function="unclear", referent="unclear")
     )
     block = usage.gold_block(

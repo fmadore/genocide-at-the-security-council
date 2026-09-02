@@ -76,11 +76,18 @@ def labels(**changes: object) -> dict[str, object]:
     entry = {
         "verdict": "true_positive",
         "quotation": "not_quoted",
-        "stance": "asserts",
+        "concrete_case": "yes",
+        "speaker_position": "asserts",
         "function": ["accusation_or_qualification"],
         "referent": "rwanda_1994",
         "proposed_referent": "",
+        "referent_source": "passage",
+        "accused_actor": "",
+        "victim_group": "",
+        "own_state_accused": "no",
+        "salience": "substantive",
         "evidence_quote": "this is genocide",
+        "rationale": "The speaker applies the word in their own voice.",
         "confidence": "high",
     }
     entry.update(changes)
@@ -95,12 +102,29 @@ def entry(ordinal: int, **changes: object) -> dict[str, object]:
     return {"ordinal": ordinal, **labels(**changes)}
 
 
+#: The codebook's cascade for a false positive, at schema 3: every closed field
+#: answered `not_applicable`, both free-text label fields empty.
+CASCADE_FP: dict[str, object] = {
+    "verdict": "false_positive",
+    "quotation": "not_applicable",
+    "concrete_case": "not_applicable",
+    "speaker_position": "not_applicable",
+    "function": ["not_applicable"],
+    "referent": "not_applicable",
+    "referent_source": "not_applicable",
+    "accused_actor": "",
+    "victim_group": "",
+    "own_state_accused": "not_applicable",
+    "salience": "not_applicable",
+}
+
+
 # --- The prompt is the run's provenance -------------------------------------
 
 
 def test_prompt_parses_into_the_two_templates_the_step_sends() -> None:
     pack = llm.load_prompt(PROMPT)
-    assert pack.version == 1
+    assert pack.version == 2
     assert "{referents_table}" in pack.system_template
     for placeholder in llm.USER_PLACEHOLDERS:
         assert "{" + placeholder + "}" in pack.user_template
@@ -115,7 +139,7 @@ def test_prompt_states_the_task_boundary_and_the_cascade() -> None:
     assert "You never decide whether an underlying event legally constitutes genocide" in flat
     assert 'If verdict is "false_positive"' in flat
     assert "reserved for false positives" in flat
-    for label in sorted(audit.STANCES | audit.QUOTATIONS | audit.FUNCTIONS | audit.CONFIDENCE):
+    for label in sorted(audit.POSITIONS | audit.QUOTATIONS | audit.FUNCTIONS | audit.CONFIDENCE):
         assert label in system, f"the prompt never names {label}"
 
 
@@ -405,7 +429,7 @@ def test_the_request_body_pins_the_model_the_effort_and_the_schema() -> None:
 
 def test_a_well_formed_response_is_accepted() -> None:
     accepted = llm.validate_response(
-        payload(entry(1), entry(2, verdict="uncertain", stance="unclear", confidence="low")),
+        payload(entry(1), entry(2, verdict="uncertain", speaker_position="unclear", confidence="low")),
         ordinals=[1, 2],
         referents=REFERENTS,
     )
@@ -433,8 +457,8 @@ def test_the_ordinal_set_must_equal_the_one_that_was_asked() -> None:
 
 
 def test_a_label_outside_the_codebook_is_refused() -> None:
-    with pytest.raises(ValueError, match="Unknown stance label: agrees"):
-        llm.validate_response(payload(entry(1, stance="agrees")), ordinals=[1], referents=REFERENTS)
+    with pytest.raises(ValueError, match="Unknown speaker_position label: agrees"):
+        llm.validate_response(payload(entry(1, speaker_position="agrees")), ordinals=[1], referents=REFERENTS)
     with pytest.raises(ValueError, match="Unknown function label: rhetoric"):
         llm.validate_response(
             payload(entry(1, function=["rhetoric"])), ordinals=[1], referents=REFERENTS
@@ -479,28 +503,14 @@ def test_a_false_positive_takes_the_whole_cascade_or_none_of_it() -> None:
     with pytest.raises(ValueError, match="must use not_applicable"):
         llm.validate_response(
             payload(
-                entry(
-                    1,
-                    verdict="false_positive",
-                    quotation="not_applicable",
-                    stance="not_applicable",
-                    function=["not_applicable"],
-                    referent="rwanda_1994",
-                )
+                entry(1, **{**CASCADE_FP, "referent": "rwanda_1994"})
             ),
             ordinals=[1],
             referents=REFERENTS,
         )
     accepted = llm.validate_response(
         payload(
-            entry(
-                1,
-                verdict="false_positive",
-                quotation="not_applicable",
-                stance="not_applicable",
-                function=["not_applicable"],
-                referent="not_applicable",
-            )
+            entry(1, **CASCADE_FP)
         ),
         ordinals=[1],
         referents=REFERENTS,
@@ -509,7 +519,7 @@ def test_a_false_positive_takes_the_whole_cascade_or_none_of_it() -> None:
 
     with pytest.raises(ValueError, match="reserved for false positives"):
         llm.validate_response(
-            payload(entry(1, stance="not_applicable")), ordinals=[1], referents=REFERENTS
+            payload(entry(1, speaker_position="not_applicable")), ordinals=[1], referents=REFERENTS
         )
 
 
@@ -533,15 +543,7 @@ def test_a_proposed_referent_is_required_by_other_and_refused_by_a_false_positiv
     with pytest.raises(ValueError, match="false positive has no proposed_referent"):
         llm.validate_response(
             payload(
-                entry(
-                    1,
-                    verdict="false_positive",
-                    quotation="not_applicable",
-                    stance="not_applicable",
-                    function=["not_applicable"],
-                    referent="not_applicable",
-                    proposed_referent="Western Sahara",
-                )
+                entry(1, **CASCADE_FP, proposed_referent="Western Sahara")
             ),
             ordinals=[1],
             referents=REFERENTS,
@@ -785,11 +787,7 @@ def test_a_false_positive_needs_a_located_quote_of_its_own() -> None:
     body = "The Genocide Convention was adopted in 1948 and is in force."
     rows = rows_for(
         body,
-        verdict="false_positive",
-        quotation="not_applicable",
-        stance="not_applicable",
-        function=["not_applicable"],
-        referent="not_applicable",
+        **CASCADE_FP,
         evidence_quote="not_applicable",
     )
     with pytest.raises(ValueError, match="located evidence quote"):
@@ -800,11 +798,7 @@ def test_a_false_positive_with_its_own_quote_is_accepted() -> None:
     body = "The Genocide Convention was adopted in 1948 and is in force."
     rows = rows_for(
         body,
-        verdict="false_positive",
-        quotation="not_applicable",
-        stance="not_applicable",
-        function=["not_applicable"],
-        referent="not_applicable",
+        **CASCADE_FP,
         evidence_quote="The Genocide Convention was adopted in 1948",
     )
     llm.validate_row(rows[0], REFERENTS)

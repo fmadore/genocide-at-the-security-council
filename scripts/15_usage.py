@@ -10,7 +10,7 @@ anyone with the corpus and the repository.
 It writes two artefacts into `data/derived/usage/`:
 
 - `usage.json` — the aggregate. Who invoked the word about what, with what
-  stance, when each delegation first reached each case, how much of the run was
+  position, when each delegation first reached each case, how much of the run was
   eligible to be counted at all, and how the model scored against the human gold
   sample.
 - `occurrences.json` — one row per annotated occurrence, so a reader can get
@@ -136,13 +136,27 @@ SPEAKER_COLUMNS = ["country_org", "iso3", "entity_type", "speaker_group"]
 OCCURRENCE_COLUMNS = [*SPEAKER_COLUMNS, "date"]
 
 #: The model's fields, in the order `occurrences.json` writes them.
+#:
+#: The six after `referent_source` are annotation schema 3's, and a row from a
+#: run coded against schema 2 carries them as empty strings — `lib.llm.resolve_row`
+#: does not guess them, and the view renders a field it finds empty as absent
+#: rather than as an answer. That is what "a v1 run keeps working" looks like at
+#: the row level: everything schema 2 measured is here, and everything it did
+#: not is visibly not here.
 ROW_FIELDS = (
     "verdict",
     "quotation",
-    "stance",
+    "concrete_case",
+    "speaker_position",
     "function",
     "referent",
     "proposed_referent",
+    "referent_source",
+    "accused_actor",
+    "victim_group",
+    "own_state_accused",
+    "salience",
+    "rationale",
     "confidence",
     "evidence_quote",
     "evidence_valid",
@@ -470,6 +484,62 @@ def refuse_stale_referents(
     )
 
 
+def resolve_schema(
+    manifest: dict[str, object],
+    rows: list[dict[str, object]],
+    *,
+    what: str = "the run",
+) -> tuple[list[dict[str, object]], dict[str, int]]:
+    """Read a run at its own annotation schema, in the current vocabulary.
+
+    The referent list's rule, applied to the fields themselves. Schema 3 split
+    `stance` into `speaker_position` and `concrete_case` and added six fields;
+    the four committed runs are 12,366 rows coded against schema 2, and refusing
+    them would mean the schema could never move without buying every run again.
+    So a schema-2 row is *translated* — `lib.llm.resolve_row` — and the artefact
+    says what the translation could not answer.
+
+    Two numbers come back with the rows, and both are published rather than
+    smoothed over:
+
+    - `unanswered`, the count of rows carrying none of the six fields schema 3
+      adds. For a v1 run it is every row, which is the honest statement of what
+      such a run cannot say and the reason the pilot exists.
+    - `split_decision`, the count of rows whose recorded `stance` and recorded
+      `referent` disagree about whether a case is in view — an assertion filed
+      under `genocide_in_general`, or a neutral legal reference filed under a
+      named case. That is the review's §4.2 item 1 measured rather than argued:
+      800 rows of the Luna run and 535 of the Gemini one took the
+      abstract-or-concrete decision twice and differently, and schema 3's lock
+      between `concrete_case` and `no_position` is what stops a third.
+    """
+    recorded = str(manifest.get("schema_version", "") or llm.SCHEMA_VERSION)
+    if recorded not in (llm.SCHEMA_VERSION, audit.LEGACY_SCHEMA_VERSION):
+        console.fail(
+            f"{what} records an annotation schema this checkout cannot read",
+            [
+                f"it says version {recorded}; this checkout reads "
+                f"{audit.LEGACY_SCHEMA_VERSION} and {llm.SCHEMA_VERSION}",
+                "check out the commit whose codebook matches the run",
+            ],
+        )
+    resolved = [llm.resolve_row(row) for row in rows]
+    counts = {
+        "unanswered": sum(
+            1
+            for row in resolved
+            if not any(str(row.get(field, "")).strip() for field in llm.UNANSWERED_BY_V1)
+        ),
+        "split_decision": sum(
+            1
+            for row in resolved
+            if (str(row.get("concrete_case")) == "no")
+            != (str(row.get("speaker_position")) == "no_position")
+        ),
+    }
+    return resolved, counts
+
+
 def resolve_referents(
     rows: list[dict[str, object]], referents: audit.ReferentList
 ) -> list[dict[str, object]]:
@@ -703,7 +773,7 @@ def model_block(
         "abstention": {
             "verdict_uncertain": int((verdict == "uncertain").sum()),
             "referent_unclear": int((rows["referent"].astype(str) == "unclear").sum()),
-            "stance_unclear": int((rows["stance"].astype(str) == "unclear").sum()),
+            "position_unclear": int((rows["speaker_position"].astype(str) == "unclear").sum()),
         },
         "tokens": {
             "input": int(tokens.get("input_tokens", 0) or 0),
@@ -717,7 +787,7 @@ def retest_block(
 ) -> list[dict[str, object]]:
     """The same model, the same prompt, asked twice: the noise floor of each run.
 
-    Two models disagreeing on a fifth of the stance labels means nothing until a
+    Two models disagreeing on a fifth of the position labels means nothing until a
     reader knows how far *one* model disagrees with itself. The review of
     1 September 2026 (§4.6) asks for the retest figures beside the cross-model
     ones for exactly that reason, and both runs have a sibling that supplies
@@ -749,7 +819,14 @@ def retest_block(
                 continue
             if str(sibling.get("prompt_sha256")) != digest:
                 continue
-            sibling_rows = llm.read_rows(candidate.parent / "annotations.jsonl")
+            # Resolved onto the current vocabulary like everything else: a
+            # retest is the same instrument answering the same questionnaire,
+            # and reading its rows at a different schema from the run they are
+            # compared against would report every label as a disagreement.
+            sibling_rows = [
+                llm.resolve_row(row)
+                for row in llm.read_rows(candidate.parent / "annotations.jsonl")
+            ]
             overlap = len(usage.comparison_overlap(rows, sibling_rows))
             if overlap and (best is None or overlap > best[0]):
                 best = (overlap, str(sibling.get("run_id", "")), sibling_rows)
@@ -790,7 +867,7 @@ def occurrence_rows(
     second chance to be wrong about it.
 
     `contested` and `alt` are the second opinion, per occurrence: the fields a
-    comparison run labelled differently, and that run's own five labels where it
+    comparison run labelled differently, and that run's own six labels where it
     did. Three different situations write the same empty `contested`, and that is
     deliberate — no comparison run, a comparison run that did not reach this
     occurrence, and a comparison run that agreed. Distinguishing them at the row
@@ -804,8 +881,8 @@ def occurrence_rows(
             "occurrence_id": str(row["occurrence_id"]),
         }
         for field in ROW_FIELDS:
-            value = row[field]
-            entry[field] = bool(value) if field == "evidence_valid" else str(value)
+            value = row.get(field, "")
+            entry[field] = bool(value) if field == "evidence_valid" else str(value or "")
         fields, alternative = contested.get(str(row["occurrence_id"]), ([], None))
         entry["contested"] = fields
         entry["alt"] = alternative
@@ -857,11 +934,11 @@ def build_note(
     gold = payload["gold"]
     actors = payload["actors"]
     referents = [row for row in payload["referents"] if int(row["occurrences"]) > 0]
-    stances = payload["stance_by_actor"]
+    positions = payload["position_by_actor"]
     annotated = int(model["occurrences_annotated"])
     total = int(model["occurrences_total"])
     withheld = [row for row in actors if not row["sufficient"]]
-    withheld_shares = [row for row in stances if not row["sufficient"]]
+    withheld_shares = [row for row in positions if not row["sufficient"]]
 
     def share(value: int, of: int) -> str:
         return f"{value / of:.1%}" if of else "—"
@@ -873,9 +950,9 @@ def build_note(
     def percent(value: object) -> str:
         return "withheld" if value is None else f"{float(value):.1%}"
 
-    ranked = sorted(stances, key=lambda row: -int(row["eligible"]))
+    ranked = sorted(positions, key=lambda row: -int(row["eligible"]))
     denial = sorted(
-        (row for row in stances if row["share_rejects"] is not None),
+        (row for row in positions if row["share_rejects"] is not None),
         key=lambda row: -float(row["share_rejects"]),
     )
 
@@ -902,7 +979,7 @@ def build_note(
         rejecting = {
             event["actor"]
             for event in entry["events"]
-            if event["milestone"] == "rejects_or_denies"
+            if event["milestone"] == "rejects"
         }
         first = min(mentions, key=lambda event: (str(event["date"]), str(event["id"])))
         spread.append(
@@ -1022,8 +1099,8 @@ def build_note(
             "|---|---:|---:|",
             f"| `verdict` = `uncertain` | {model['abstention']['verdict_uncertain']:,} | "
             f"{share(model['abstention']['verdict_uncertain'], annotated)} |",
-            f"| `stance` = `unclear` | {model['abstention']['stance_unclear']:,} | "
-            f"{share(model['abstention']['stance_unclear'], annotated)} |",
+            f"| `speaker_position` = `unclear` | {model['abstention']['position_unclear']:,} | "
+            f"{share(model['abstention']['position_unclear'], annotated)} |",
             f"| `referent` = `unclear` | {model['abstention']['referent_unclear']:,} | "
             f"{share(model['abstention']['referent_unclear'], annotated)} |",
             f"| evidence not located | {model['evidence_invalid']:,} | "
@@ -1046,7 +1123,7 @@ def build_note(
             "## Who uses it",
             "",
             f"{len(actors):,} speakers have at least one annotated occurrence. Ranked by "
-            "eligible occurrences, which is the denominator the stance composition is cut "
+            "eligible occurrences, which is the denominator the position composition is cut "
             "from.",
             "",
             "| Speaker | Group | Occurrences | Eligible | Assigned | Rejects or denies |",
@@ -1057,7 +1134,7 @@ def build_note(
             "",
             "When each delegation first used the word about a case, and in which "
             "direction. A **mention** is a delegation's first assigned occurrence of "
-            "that referent whatever stance it carried; the last two columns count the "
+            "that referent whatever position it carried; the last two columns count the "
             "delegations whose first assertion, or first rejection, of the "
             "characterisation is on record. The same occurrence can be both a first "
             "mention and a first assertion, so the columns overlap and do not add up.",
@@ -1092,7 +1169,7 @@ def build_note(
             "is whether a rare word appears in it at all; here the occurrences are already "
             "in hand and the question is only how they divide.",
             "",
-            f"- {len(withheld_shares):,} of {len(stances):,} speakers carry no "
+            f"- {len(withheld_shares):,} of {len(positions):,} speakers carry no "
             "`share_rejects` (fewer than "
             f"{minimum} eligible occurrences).",
             f"- {len(withheld):,} of {len(actors):,} speakers are marked insufficient in the "
@@ -1209,8 +1286,8 @@ def build_note(
                     f"**{comparison['contested_any']:,} of "
                     f"{comparison['overlap']:,} compared occurrences** "
                     f"({share(int(comparison['contested_any']), int(comparison['overlap']))}) "
-                    "are contested on at least one of the five fields. Each of them "
-                    "carries the other run's five labels in `occurrences.json`, under "
+                    "are contested on at least one of the six fields. Each of them "
+                    "carries the other run's six labels in `occurrences.json`, under "
                     "`alt`.",
                     "",
                 ]
@@ -1275,6 +1352,8 @@ def run(args: argparse.Namespace) -> None:
     )
     comparison_manifest: dict[str, object] = {}
     comparison_raw: list[dict[str, object]] = []
+    comparison_schema: dict[str, int] = {"unanswered": 0, "split_decision": 0}
+    comparison_schema_version = ""
     if comparison_dir is None:
         console.info(
             f"no comparison run selected in {rel(COMPARISON_RUN)}; the second opinion "
@@ -1337,6 +1416,19 @@ def run(args: argparse.Namespace) -> None:
             "successor; the run's own version is in the artefact's provenance"
         )
     raw_rows = resolve_referents(raw_rows, referent_list)
+    raw_rows, schema_counts = resolve_schema(manifest, raw_rows)
+    if schema_counts["unanswered"]:
+        console.info(
+            f"{schema_counts['unanswered']:,} rows were coded against annotation schema "
+            f"{audit.LEGACY_SCHEMA_VERSION} and carry none of the six fields schema "
+            f"{llm.SCHEMA_VERSION} adds; they are read, never guessed at"
+        )
+    if schema_counts["split_decision"]:
+        console.info(
+            f"{schema_counts['split_decision']:,} rows record a position on a passage "
+            "their own referent says names no case — the split decision schema "
+            f"{llm.SCHEMA_VERSION} locks"
+        )
 
     if comparison_raw:
         # Every identity check the published run passed, plus the one only a
@@ -1358,6 +1450,12 @@ def run(args: argparse.Namespace) -> None:
             comparison_manifest, comparison_raw, referent_list, what="the comparison run"
         )
         comparison_raw = resolve_referents(comparison_raw, referent_list)
+        comparison_raw, comparison_schema = resolve_schema(
+            comparison_manifest, comparison_raw, what="the comparison run"
+        )
+        comparison_schema_version = str(
+            comparison_manifest.get("schema_version", "") or audit.LEGACY_SCHEMA_VERSION
+        )
         if len(comparison_raw) < len(found):
             console.warn(
                 f"the comparison run annotates {len(comparison_raw):,} of {len(found):,} "
@@ -1424,7 +1522,7 @@ def run(args: argparse.Namespace) -> None:
     for entry in retest:
         console.info(
             f"{entry['model']} vs {entry['retest_run_id']}: {entry['overlap']:,} shared, "
-            f"{entry['identical']:,} identical on all five fields"
+            f"{entry['identical']:,} identical on every compared field"
         )
     if not retest:
         console.info("no run of either model with the same prompt to retest against")
@@ -1455,8 +1553,8 @@ def run(args: argparse.Namespace) -> None:
             ),
             (
                 "shares withheld",
-                f"{sum(1 for row in blocks['stance_by_actor'] if not row['sufficient']):,} "
-                f"of {len(blocks['stance_by_actor']):,}",
+                f"{sum(1 for row in blocks['position_by_actor'] if not row['sufficient']):,} "
+                f"of {len(blocks['position_by_actor']):,}",
             ),
             (
                 "contested",
@@ -1526,6 +1624,16 @@ def run(args: argparse.Namespace) -> None:
             # file it was found in.
             "prompt_version": prompt.version,
             "prompt_file": prompt.name,
+            # The schema the counts are reported in, and the schema the run was
+            # coded against, for the same reason the referent pair is carried:
+            # a resolved row is reported under names its own codebook did not
+            # have.
+            "schema_version": llm.SCHEMA_VERSION,
+            "run_schema_version": str(
+                manifest.get("schema_version", "") or audit.LEGACY_SCHEMA_VERSION
+            ),
+            "rows_without_schema_3_fields": schema_counts["unanswered"],
+            "rows_with_split_case_decision": schema_counts["split_decision"],
             "term": TERM,
             "run_id": run_id,
             "run_dir": rel(directory),
@@ -1552,7 +1660,7 @@ def run(args: argparse.Namespace) -> None:
         "actors": blocks["actors"],
         "minimum_occurrences": args.minimum,
         "matrix": blocks["matrix"],
-        "stance_by_actor": blocks["stance_by_actor"],
+        "position_by_actor": blocks["position_by_actor"],
         "diffusion": diffusion,
         "comparison": comparison,
         "retest": retest,
@@ -1599,6 +1707,11 @@ def run(args: argparse.Namespace) -> None:
                 "comparison_run_id": comparison_id,
                 "comparison_run_dir": "" if comparison_dir is None else rel(comparison_dir),
                 "comparison_state": comparison["state"],
+                # A comparison may be a run of a different schema — that is one
+                # of the things two runs may differ by — so its own resolution
+                # is reported beside the published run's rather than folded in.
+                "comparison_schema_version": comparison_schema_version,
+                "comparison_rows_without_schema_3_fields": comparison_schema["unanswered"],
                 "comparison_overlap": comparison["overlap"],
                 "comparison_contested": comparison["contested_any"],
                 "retest_runs": [entry["retest_run_id"] for entry in retest],

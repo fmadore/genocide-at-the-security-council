@@ -677,7 +677,7 @@
      "model": "str",
      "rows": "int",
      "run_id": "str",
-     "stance": {
+     "speaker_position": {
       "field": "str",
       "labels": [
        "str"
@@ -2418,15 +2418,25 @@
    "packages": {
     "*": "str"
    },
+   "prompt_file": "str",
+   "prompt_version": "int",
    "python": "str",
+   "referents_version": "int",
+   "rows_with_split_case_decision": "int",
+   "rows_without_schema_3_fields": "int",
    "run_dir": "str",
    "run_id": "str",
+   "run_referents_version": "int",
+   "run_schema_version": "str",
+   "schema_version": "str",
    "script": "str",
    "term": "str"
   },
   "occurrences": [
    {
+    "accused_actor": "str",
     "alt": "null|object",
+    "concrete_case": "str",
     "confidence": "str",
     "contested": [
      "str"
@@ -2436,11 +2446,16 @@
     "function": "str",
     "id": "str",
     "occurrence_id": "str",
+    "own_state_accused": "str",
     "proposed_referent": "str",
     "quotation": "str",
+    "rationale": "str",
     "referent": "str",
-    "stance": "str",
-    "verdict": "str"
+    "referent_source": "str",
+    "salience": "str",
+    "speaker_position": "str",
+    "verdict": "str",
+    "victim_group": "str"
    }
   ]
  },
@@ -2459,8 +2474,8 @@
   ],
   "comparison": {
    "abstention": {
+    "position_unclear": "int",
     "referent_unclear": "int",
-    "stance_unclear": "int",
     "verdict_uncertain": "int"
    },
    "contested_any": "int",
@@ -2522,7 +2537,7 @@
        "date": "str",
        "id": "str",
        "milestone": "str",
-       "stance": "str"
+       "speaker_position": "str"
       }
      ],
      "id": "str"
@@ -2560,16 +2575,16 @@
     "actor": "str",
     "contested": "int",
     "count": "int",
-    "referent": "str",
-    "stances": {
+    "positions": {
      "asserts": "int",
-     "attributes_or_reports": "int",
-     "hypothetical_or_conditional": "int",
-     "neutral_legal_reference": "int",
+     "conditional": "int",
+     "no_position": "int",
      "not_applicable": "int",
-     "rejects_or_denies": "int",
+     "rejects": "int",
+     "reports_without_position": "int",
      "unclear": "int"
-    }
+    },
+    "referent": "str"
    }
   ],
   "meta": {
@@ -2599,17 +2614,25 @@
    "packages": {
     "*": "str"
    },
+   "prompt_file": "str",
+   "prompt_version": "int",
    "python": "str",
+   "referents_version": "int",
+   "rows_with_split_case_decision": "int",
+   "rows_without_schema_3_fields": "int",
    "run_dir": "str",
    "run_id": "str",
+   "run_referents_version": "int",
+   "run_schema_version": "str",
+   "schema_version": "str",
    "script": "str",
    "term": "str"
   },
   "minimum_occurrences": "int",
   "model": {
    "abstention": {
+    "position_unclear": "int",
     "referent_unclear": "int",
-    "stance_unclear": "int",
     "verdict_uncertain": "int"
    },
    "evidence_invalid": "int",
@@ -2629,6 +2652,26 @@
     "output": "int"
    }
   },
+  "position_by_actor": [
+   {
+    "actor": "str",
+    "eligible": "int",
+    "positions": {
+     "asserts": "int",
+     "conditional": "int",
+     "no_position": "int",
+     "not_applicable": "int",
+     "rejects": "int",
+     "reports_without_position": "int",
+     "unclear": "int"
+    },
+    "separated": "bool",
+    "share_high": "float|null",
+    "share_low": "float|null",
+    "share_rejects": "float|null",
+    "sufficient": "bool"
+   }
+  ],
   "prompt": "str",
   "referents": [
    {
@@ -2642,48 +2685,6 @@
     "years": "str"
    }
   ],
-  "retest": [
-   {
-    "fields": [
-     {
-      "contested": "int",
-      "field": "str",
-      "kappa": "float|null",
-      "kappa_withheld": "bool",
-      "minority_share": "float",
-      "n": "int",
-      "observed": "float",
-      "pabak": "float"
-     }
-    ],
-    "function_jaccard": "float|null",
-    "identical": "int",
-    "model": "str",
-    "overlap": "int",
-    "retest_run_id": "str",
-    "run_id": "str",
-    "which": "str"
-   }
-  ],
-  "stance_by_actor": [
-   {
-    "actor": "str",
-    "eligible": "int",
-    "separated": "bool",
-    "share_high": "float|null",
-    "share_low": "float|null",
-    "share_rejects": "float|null",
-    "stances": {
-     "asserts": "int",
-     "attributes_or_reports": "int",
-     "hypothetical_or_conditional": "int",
-     "neutral_legal_reference": "int",
-     "not_applicable": "int",
-     "rejects_or_denies": "int",
-     "unclear": "int"
-    },
-    "sufficient": "bool"
-   }
-  ]
+  "retest": []
  }
 }
