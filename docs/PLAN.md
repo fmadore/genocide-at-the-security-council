@@ -585,16 +585,21 @@ No model output may overwrite corpus text, lexicon counts or human annotations.
 Where each requirement lives as of 28 August 2026: (1) the schema is the codebook's own —
 verdict, quotation, stance, function, referent, confidence — enforced by
 `scripts/lib/llm.py`, with `unclear` as a first-class abstention and a verbatim evidence
-quote in place of free-form rationale; (2) `scripts/13_gold_sample.py` draws the
-200-occurrence gold sample, stratified by decade and by usage cue (rejection, quotation,
-commemorative, dense meeting) so denied and commemorative uses are oversampled rather than
-hoped for — hard negatives remain §1.1's own negative frame; (3) `scripts/15_usage.py`
-computes per-class precision, recall, macro-F1, abstention and evidence validity against
-the human rows, and the `/usage` view displays them beside the model output, including the
-honest zero state while coding is under way; (4) model id and prompt hash travel in every
-output row and every run manifest, and the pilot and full runs stay committed side by side
-under `model_annotations/` — a second-model or second-prompt sensitivity run is still owed
-before any citable claim; (5) both coders, FM and JG, code the full sample independently,
+quote in place of free-form rationale; (2) `scripts/13_gold_sample.py` draws the gold
+sample in three frames — 120 by equal probability, 80 by decade × usage cue (rejection,
+quotation, commemorative, dense meeting) so denied and commemorative uses are oversampled
+rather than hoped for, and, since 2 September 2026, 535 from the strata the two committed
+model runs read differently, so that a rare class can be measured at all; each frame
+records its own inclusion probability and they are never pooled — hard negatives remain
+§1.1's own negative frame; (3) `scripts/15_usage.py` computes per-class precision, recall
+and F1 against the human rows above a support floor of twenty, with counts below it, a
+macro and a support-weighted average, the share of double-coded occurrences each field's
+score was *not* computed over, and evidence validity; the `/usage` view displays them
+beside the model output, including the honest zero state while coding is under way;
+(4) model id and prompt hash travel in every output row and every run manifest, and the
+pilot and full runs stay committed side by side under `model_annotations/` — the
+second-model sensitivity run landed as L8 on 31 August 2026, and a second-*prompt* one is
+still owed before any citable claim; (5) both coders, FM and JG, code the full sample independently,
 100% double-coded, with adjudication per the codebook; (6) shares are withheld below a
 declared minimum, every model-derived surface is marked experimental, and the supporting
 quotation is one click away everywhere — predeclared per-class thresholds for promoting a

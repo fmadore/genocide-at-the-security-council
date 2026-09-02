@@ -32,7 +32,8 @@ every chart as SVG or PNG with its filters written into the image.
 | Lexicon flagging & precision audit | ✅ `scripts/03`; generated candidates are separate from durable annotations, **0 rows coded** |
 | Temporal series & change points | ✅ `scripts/04` · [`config/events.csv`](config/events.csv) |
 | Lexicometry — collocates, keyness, network | ✅ `scripts/05` · [`config/stopwords.txt`](config/stopwords.txt) |
-| Concordance (79,569 lines, 22 terms) | ✅ `scripts/08`; a line is reachable by term, year, month, speaker and meeting |
+| Concordance (75,373 lines, 28 terms) | ✅ `scripts/08`; a line is reachable by term, year, month, speaker and meeting |
+| Grammatical frames of the node | ✅ `scripts/17` · [`scripts/lib/node_frames.py`](scripts/lib/node_frames.py); 17 constructions and a published residue over the 6,092 occurrences, with shares by period and speaker group and a cross-tabulation against both committed model runs |
 | Month resolution — grid and pooled calendar | ✅ `scripts/04` → `series/monthly.json`; 331 of 384 months clear the 100-speech minimum, the other 53 are drawn as withheld |
 | Download beside every figure | ✅ [`web/src/lib/export.ts`](web/src/lib/export.ts): the artefact's numbers as CSV with provenance, the picture as SVG or PNG with its filters drawn into it |
 | Speech export & web payload | ✅ `scripts/09`, `scripts/export_web.py` |
@@ -46,7 +47,7 @@ every chart as SVG or PNG with its filters written into the image.
 | Topic comparison & its evaluation | ✅ `scripts/07` — evidence for a decision, not a result; adoption still deferred |
 | Lemma layer & lemma lexicometry | ✅ `scripts/10`, `scripts/05 --vocabulary lemma`; built, **not adopted** — see Phase 6 |
 | Actor view — ranking, locator map, concordance links | ✅ `web/src/routes/actors/`, with the membership composition and the per-speaker keyness [`docs/PLAN.md`](docs/PLAN.md) §3 asks for, each as its own figure rather than as shading on the ranking |
-| Model-assisted usage layer | 🧪 experimental — Phase L in [`docs/IMPROVEMENT_ROADMAP.md`](docs/IMPROVEMENT_ROADMAP.md): `scripts/13–15`, committed runs under [`model_annotations/`](model_annotations/), the `/usage` view with its actor × referent matrix, stance profiles and per-referent diffusion chronology; human gold sample is the authority, **0 of 200 rows coded** |
+| Model-assisted usage layer | 🧪 experimental — Phase L in [`docs/IMPROVEMENT_ROADMAP.md`](docs/IMPROVEMENT_ROADMAP.md): `scripts/13–15`, committed runs under [`model_annotations/`](model_annotations/), the `/usage` view with its actor × referent matrix, stance profiles and per-referent diffusion chronology; human gold sample is the authority, **0 of 688 occurrences coded** |
 
 The three ✅ rows that say "not adopted" are not a backlog. They are built, run and
 documented so the decision to use them can rest on evidence; [`docs/PLAN.md`](docs/PLAN.md)
@@ -81,13 +82,15 @@ What `make payload` runs, in order:
 03_lexicon.py          → speeches_flagged.parquet (lexicon counts)
 04_series.py           → derived/series/*.json    (rates, intervals, change points)
 05_lexical.py          → derived/lexical/*.json   (collocates, keyness, PMI)
-08_kwic.py             → derived/kwic/*.json      (79,569 concordance lines)
+08_kwic.py             → derived/kwic/*.json      (75,373 concordance lines)
 09_export_speeches.py  → web/static/data/speeches (6,595 document files)
 11_countries.py        → derived/countries/*.json (per-speaker denominators)
 12_speaker_keyness.py  → derived/countries/       (per-speaker matched keyness)
 13_gold_sample.py      → data/interim/            (the genocide gold sample, deterministic)
 15_usage.py            → derived/usage/*.json     (model-assisted usage layer, from the
                                                    committed run named in model_annotations/)
+17_frames.py           → derived/frames/*.json    (the constructions the node appears in,
+                                                   crossed with both committed runs)
 export_web.py          → web/static/data          (assembles and checks the payload)
 ```
 
@@ -193,7 +196,7 @@ is one the pipeline actually writes.
 |---|---|
 | **Source** | Schoenfeld, Eckhard, Patz, van Meegdenburg & Pires — [doi:10.7910/DVN/KGVSYH](https://doi.org/10.7910/DVN/KGVSYH), v6.1 |
 | **Licence** | **CC0 1.0** — public domain |
-| **Coverage** | 1992-01-06 → 2023-12-30 · 106,302 speeches · 6,595 documents / 6,582 meeting symbols · 66.4 M tokens |
+| **Coverage** | 1992-01-06 → 2023-12-30 · 106,302 speeches · 6,595 documents / 6,582 meeting symbols · 58.9 M words in the speech bodies (66.4 M codebook tokens) |
 | **Paper** | [arXiv:1906.10969](https://arxiv.org/abs/1906.10969) |
 
 The raw distribution has two undocumented defects that silently corrupt a naive read — a
@@ -246,6 +249,27 @@ counting a nested term twice in its register. On the corpus that moved six terms
 crimes` from 4,326 to 4,664 speeches, `ICC` from 4,057 to 4,766 — and left `genocide` at
 3,273 speeches and 6,092 occurrences; the re-count is in the same file.
 
+Lexicon v4 (2 September 2026) does change patterns — but not the one that matters most.
+It gives `genocidaires` — an actor label for the ex-FAR and Interahamwe — its own term and
+publishes the headline as a derived measure, `genocide_qualification` = `genocide` minus
+`genocidaires`, 6,061 occurrences across 3,268 speeches. `genocide` itself keeps
+`\bgenocid\w*` untouched, so every occurrence identity, the gold sample and the four
+committed model runs stand and `15` goes on aggregating them; the day a v4 run exists,
+narrowing the pattern reproduces the derived figures exactly. It adds a sentence **anchor**: seven terms are now counted
+only where the sentence holding them also says `genocid*`, because the commemorative
+register as built was tracking the anniversary of resolution 1325 and the survivors of
+sexual violence rather than genocide memory. It adds `massacre`, `mass killing`, `ICJ`,
+`intent to destroy` and `incitement`, gives the Residual Mechanism back to `tribunals`,
+and stops `holocaust` counting the nuclear kind. Every figure it moves was measured on
+the corpus before it was committed and is tabulated in
+[`docs/VALIDATION.md`](docs/VALIDATION.md), including the argument for deriving the
+headline rather than narrowing the pattern.
+
+Since the same day, a rate *per 100,000 words* divides by words. It used to divide by the
+codebook's `tokens` column — quanteda's count over the full text, punctuation and numbers
+included, 66,392,703 against the 58,904,180 words the corpus actually holds — so every
+published rate stood 11.3% below the label it carried.
+
 ### What the 2014 peak turns out to be
 
 The first finding above — *the 2014 peak exceeds 1994 in absolute volume* — does not
@@ -253,7 +277,7 @@ survive normalisation, and `scripts/04` is where that gets settled rather than a
 
 The primary inferential layer scans one annual two-rate partition with the denominator intact:
 binomial likelihood for speech prevalence and Poisson likelihood for occurrences with
-token exposure. Two thousand no-change series repeat the complete breakpoint search, with
+word exposure. Two thousand no-change series repeat the complete breakpoint search, with
 Bonferroni correction across the three planned rate tests. Since 2 September 2026 those
 series are built by permuting whole meetings across years rather than treating every
 speech as an independent draw — one debate can hold two hundred occurrences — and the
@@ -291,6 +315,24 @@ from qualifying an event to contesting a memory of one. These profiles were read
 tables ranked by G²; since 2 September 2026 the tables rank by logDice above the floor, and
 the words named here are to be re-read from the language page — an open check in
 [`docs/VALIDATION.md`](docs/VALIDATION.md).
+
+`scripts/17` asks the same question of the word itself rather than of its neighbours: what
+construction is it in when it is said? Every one of the 6,092 occurrences is filed under one
+of seventeen frames or an `unframed` residue, from a ±90-character window. **Nearly a
+quarter of them — 1,446, 23.7% — are the catalogue**, the word as one item of *genocide, war
+crimes and crimes against humanity*, and that share doubled from 12.4% before 2002 to 26.6%
+after. The constructions in which a speaker actually applies the label to an event —
+*constitutes genocide*, *genocide occurred*, *genocide against the Tutsi* — are 366 between
+them, 6.0%; explicit refusal, the scare-quoted and *so-called* uses, is 78, 1.3%. A fifth of
+the occurrences match no pattern and are published as a category rather than absorbed.
+
+The frames are read off the text with no model involved, which makes them a free check on
+the model-assisted layer. Both committed runs agree with the codebook where it is least
+ambiguous — the Special Adviser's title is a neutral legal reference in 176 of 176
+occurrences in both — and disagree with each other exactly where §4.2 of the review said
+they would: the 78 distancing occurrences are modally *attributes* for one model and
+*rejects* for the other. [`docs/VALIDATION.md`](docs/VALIDATION.md) carries the full
+cross-tabulation.
 
 Keyness is measured with true target/control pairs matched on year × agenda item × speaker
 group — 3,104 of 3,273 targets found a partner (94.8%), and the 100 short strata are listed

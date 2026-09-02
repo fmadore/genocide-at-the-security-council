@@ -13,6 +13,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+	actorDefaults,
 	actorParams,
 	ambiguous,
 	carries,
@@ -44,7 +45,7 @@ const row = (name: string, extra: Partial<CountryMeasureRow> = {}): CountryMeasu
 	country_org: name,
 	period: 'all',
 	held: 500,
-	tokens: 500_000,
+	words: 500_000,
 	speeches: 25,
 	speech_rate: 0.05,
 	speech_rate_low: 0.034,
@@ -69,7 +70,7 @@ const corpus = (speakers: Speaker[], rows: CountryMeasureRow[], collisions = {})
 			first_year: 1992,
 			last_year: 2023,
 			speeches: 106_302,
-			tokens: 66_392_703,
+			words: 58_904_180,
 			speakers: speakers.length,
 			speakers_at_minimum: rows.filter((r) => r.sufficient).length,
 			speeches_at_minimum: 103_038
@@ -87,6 +88,22 @@ const corpus = (speakers: Speaker[], rows: CountryMeasureRow[], collisions = {})
 		rows: []
 	},
 	measures: { genocide: { kind: 'terms', tier: 'core', register: 'core', rows } }
+});
+
+describe('the headline the actor table opens on', () => {
+	/* The same rule as the chronology: the published measure is the derived
+	   `genocide_qualification`, the raw term minus its actor label, and an
+	   artefact written before v4 must still open on something. */
+	it('opens on the derived measure when the artefact carries one', () => {
+		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
+		data.measures.genocide_qualification = data.measures.genocide;
+		expect(actorDefaults(data).measure).toBe('genocide_qualification');
+	});
+
+	it('falls back to the raw term when it does not', () => {
+		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
+		expect(actorDefaults(data).measure).toBe('genocide');
+	});
 });
 
 describe('actor URL state', () => {
@@ -365,7 +382,7 @@ describe('the link into the concordance', () => {
 			first_year: 2020,
 			last_year: 2023,
 			speeches: 24_337,
-			tokens: 15_368_380,
+			words: 15_368_380,
 			speakers: 452,
 			speakers_at_minimum: 36,
 			speeches_at_minimum: 20_223

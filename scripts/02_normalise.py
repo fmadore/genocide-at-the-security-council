@@ -10,7 +10,15 @@ columns every later step depends on:
     speaker_group    P5 / E10 / Non-member state / UN / Non-state, per year
     text             line endings normalised to LF
     body_start       where the speech begins, past the form of address
+    words            words in the body, by lib.lexical.TOKEN_RE
     spoken_language  read off "(spoke in French)", where recorded
+
+`words` is the denominator of every "per 100,000 words" figure the site
+publishes, and it is counted here, once, so that nothing downstream counts it
+again. It is not the codebook's `tokens` column, which is quanteda's count over
+the full text with punctuation and numbers in it and stays beside it as
+provenance: the two differ by 12.7%, and dividing by the wrong one is what made
+every published rate 11.3% low (review of 1 September 2026, §3.3).
 
 The run stops rather than writing a plausible-looking artefact if a speaker is
 missing from the crosswalk, or if the Council roster does not add up.
@@ -30,11 +38,12 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, console, council, entities, frames, language, text
+from lib import artifacts, console, council, entities, frames, language, lexical, text
 from lib.paths import (
     COUNCIL_MEMBERSHIP,
     COUNTRY_ALIASES,
     ENTITIES,
+    EXPECTED_WORDS,
     MANIFESTS,
     ROOT,
     SPEECHES,
@@ -56,7 +65,8 @@ CASE_NORMALISED = [
 
 
 def normalise_text(speeches: pd.DataFrame) -> dict[str, int]:
-    """Normalise line endings, locate the form of address, read the language.
+    """Normalise line endings, locate the form of address, count words, read
+    the language.
 
     Mutates `speeches` in place and returns counts for the findings note.
     """
@@ -64,6 +74,14 @@ def normalise_text(speeches: pd.DataFrame) -> dict[str, int]:
 
     addresses = speeches["text"].map(text.split_address)
     speeches["body_start"] = addresses.map(lambda a: a.body_start).astype("int32")
+
+    # Over the body rather than the whole text, because the body is what the
+    # lexicon counts in: a rate whose numerator excluded the form of address
+    # and whose denominator included it would understate itself by the length
+    # of thirty years of "Mr. Levitte (France) (spoke in French):".
+    speeches["words"] = pd.Series(
+        lexical.word_count(frames.body(speeches)), index=speeches.index
+    ).astype("int32")
 
     resolved = addresses.map(lambda a: text.spoken_language(a.address))
     speeches["spoken_language"] = resolved.map(lambda r: r[0]).astype("string")
@@ -73,6 +91,8 @@ def normalise_text(speeches: pd.DataFrame) -> dict[str, int]:
         "addressed": int(addresses.map(lambda a: a.matched).sum()),
         "languages": int(speeches["spoken_language"].notna().sum()),
         "fuzzy": int(resolved.map(lambda r: r[1]).sum()),
+        "words": int(speeches["words"].sum()),
+        "tokens": int(speeches["tokens"].sum()),
     }
 
 
@@ -137,6 +157,19 @@ def build_note(speeches: pd.DataFrame, counts: dict[str, int], case_changes) -> 
         "# 02 — Normalise",
         "",
         f"{total:,} speeches, {speeches['country_org'].nunique():,} canonical speakers.",
+        "",
+        "## Words",
+        "",
+        f"- **{counts['words']:,}** words in the speech bodies, counted with",
+        "  `lib.lexical.TOKEN_RE` — the same rule the keyness tables and the collocate",
+        "  windows are built on. This is the denominator of every *per 100,000 words*",
+        "  figure the site publishes.",
+        f"- The codebook's `tokens` column holds {counts['tokens']:,} over the full",
+        f"  texts, punctuation and numbers included: {counts['tokens'] / counts['words']:.1%}",
+        "  of the word count. It stays in the table as provenance and is asserted by 01;",
+        "  it is not divided by. Dividing by it is what put every published rate",
+        f"  {1 - counts['words'] / counts['tokens']:.1%} below the label it carried until",
+        "  2 September 2026.",
         "",
         "## Form of address",
         "",
@@ -205,6 +238,23 @@ def normalise() -> None:
         f"delivery language recovered for {counts['languages']:,} "
         f"({counts['fuzzy']:,} by approximate match)"
     )
+    console.info(
+        f"{counts['words']:,} words in the bodies against {counts['tokens']:,} "
+        f"codebook tokens ({counts['words'] / counts['tokens']:.1%})"
+    )
+    # Asserted for the same reason 01 asserts the codebook's token sum: this is
+    # the denominator of every published rate, and a tokeniser edit or a
+    # re-fetched corpus that moved it would move every one of those rates
+    # without moving anything a reader could see.
+    if counts["words"] != EXPECTED_WORDS:
+        console.fail(
+            "the word count is not the one lib.paths declares",
+            [
+                f"{counts['words']:,} words, expected {EXPECTED_WORDS:,}",
+                "if the corpus or lib.lexical.TOKEN_RE changed on purpose, update "
+                "EXPECTED_WORDS and say so in docs/VALIDATION.md",
+            ],
+        )
 
     console.step("Normalising categorical fields")
     case_changes = normalise_case(speeches)
@@ -237,6 +287,10 @@ def normalise() -> None:
         extra={
             "outputs": [artifacts.describe_file(SPEECHES_NORM, ROOT)],
             "speeches": len(speeches),
+            # Both, and named apart: the denominator this step counted and the
+            # codebook figure it is not.
+            "words": int(speeches["words"].sum()),
+            "codebook_tokens": int(speeches["tokens"].sum()),
             "delivery_languages": {
                 str(name): int(value)
                 for name, value in speeches["delivery_language"].value_counts().items()

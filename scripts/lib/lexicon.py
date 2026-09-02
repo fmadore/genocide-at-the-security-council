@@ -9,7 +9,16 @@ like in a verbatim record, not a ground truth. This module keeps it honest:
   measured but kept out of the headline columns, so their contribution is
   reported as a delta rather than folded silently into the total;
 - the lexicon's version is recorded in the output, because changing this file
-  changes every downstream number.
+  changes every downstream number;
+- a term may be *anchored* to the sentence, and then it is counted only where
+  the sentence holding it also says `genocid*`. The review of 1 September 2026
+  (§3.4) found the commemorative register tracking UN anniversaries — of
+  resolution 1325, of independence days — rather than genocide memory, and
+  `survivors` tracking the women-and-peace-and-security agenda. The anchor is
+  what separates a word this study is about from the same word doing another
+  job elsewhere on the Council's agenda. It is declared per term in
+  config/lexicon.yml, and the terms left unanchored there are the ones whose
+  surface form is already specific to atrocity talk.
 
 Counting runs against the speech *body* (form of address removed). Counting
 against the raw text would inflate every country name and the word "President".
@@ -17,6 +26,7 @@ against the raw text would inflate every country name and the word "President".
 
 from __future__ import annotations
 
+import bisect
 import hashlib
 import json
 import re
@@ -26,11 +36,34 @@ from dataclasses import dataclass, field
 import pandas as pd
 import yaml
 
+from . import text as text_lib
 from .paths import LEXICON, LEXICON_LOCK, rel
 
 #: Column prefixes. ``has_x`` is a boolean, ``n_x`` the occurrence count.
 HAS = "has_"
 COUNT = "n_"
+
+#: What an anchored term must find beside itself. Deliberately the broad
+#: `genocid*` of lexicon v2 rather than v4's narrowed `genocide` pattern: the
+#: anchor asks whether the sentence is about genocide at all, and a sentence
+#: naming the *génocidaires* is, so excluding the actor label here would be
+#: reading the anchor as a term rather than as a test of what is being talked
+#: about.
+ANCHOR_RE = re.compile(r"\bgenocid\w*", re.IGNORECASE)
+
+#: The literal that lets :meth:`Term.count` skip a speech before segmenting it.
+#: Every string :data:`ANCHOR_RE` matches contains it, on exactly the rule the
+#: per-term prefilters are held to, so the fast path cannot lose an anchored
+#: match — and segmentation runs on the three thousand speeches that say the
+#: word rather than on all 106,302.
+ANCHOR_PREFILTER = "genocid"
+
+#: The anchors a term may declare. One for now, and its name is the unit:
+#: `sentence` means the sentence holding a match must also match
+#: :data:`ANCHOR_RE`. A closed set rather than a free string, because a
+#: mistyped anchor would silently mean "none" and inflate a term's count
+#: without changing anything a reader would look at twice.
+ANCHORS = frozenset({"sentence"})
 
 
 @dataclass(frozen=True)
@@ -41,15 +74,56 @@ class Term:
     pattern: str
     tier: str
     register: str
-    #: Lexicon version at which `pattern` last changed. `load` requires it in
-    #: the config; the default is for the hand-built terms in the tests.
+    #: Lexicon version at which this term's *matching rule* last changed — its
+    #: `pattern` or its `anchor`, because a reader of an occurrence cannot tell
+    #: which of the two put it there. `load` requires it in the config; the
+    #: default is for the hand-built terms in the tests.
     pattern_since: int = 1
     enabled: bool = True
     note: str = ""
     examples: tuple[str, ...] = ()
     prefilters: tuple[str, ...] = ()
     nested_under: str | None = None
+    #: ``"sentence"`` to count only where the sentence holding a match also
+    #: matches :data:`ANCHOR_RE`; ``None`` to count every match.
+    anchor: str | None = None
     regex: re.Pattern[str] = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
+
+    def spans(self, source: str) -> list[tuple[int, int]]:
+        """Every span of `source` this term counts, in reading order.
+
+        The one place the term's whole matching rule is applied, so a count, a
+        concordance line, a highlighted offset and an audit sample can never
+        disagree about what was matched. Callers reach for this rather than for
+        `regex.finditer`: an anchored term matches strictly fewer spans than its
+        pattern does, and the difference is exactly the occurrences that belong
+        to another agenda.
+
+        A match is attributed to the sentence it *starts* in. No pattern here
+        can straddle a full stop, so there is nothing to arbitrate.
+        """
+        matches = list(self.regex.finditer(source))
+        if not matches or self.anchor is None:
+            return [match.span() for match in matches]
+
+        sentences = text_lib.sentence_spans(source)
+        opens = [start for start, _ in sentences]
+        # One search per sentence, however many matches it holds: the
+        # commemorative terms cluster, and re-scanning the same sentence for
+        # `genocid*` once per occurrence is the difference between one pass over
+        # the corpus and several.
+        anchored: dict[int, bool] = {}
+        kept: list[tuple[int, int]] = []
+        for match in matches:
+            index = max(bisect.bisect_right(opens, match.start()) - 1, 0)
+            start, end = sentences[index]
+            found = anchored.get(index)
+            if found is None:
+                found = ANCHOR_RE.search(source, start, end) is not None
+                anchored[index] = found
+            if found:
+                kept.append(match.span())
+        return kept
 
     def count(self, texts: pd.Series) -> pd.Series:
         """Occurrences of this term in each text.
@@ -63,20 +137,58 @@ class Term:
         containment, while the pattern runs under `re.IGNORECASE`; the two agree
         on ASCII and diverge outside it (`re.IGNORECASE` folds U+0130 "İ" to
         "i", upper-casing does not), which is why the loader insists.
+
+        An anchored term takes :data:`ANCHOR_PREFILTER` as a further condition
+        of the same kind: an anchored match needs `genocid*` in its sentence and
+        therefore in its text, so requiring the literal cannot lose one, and it
+        keeps sentence segmentation off the hundred thousand speeches that never
+        say the word.
         """
         candidates = pd.Series(False, index=texts.index)
         for literal in self.prefilters:
             candidates |= texts.str.contains(literal, case=False, regex=False, na=False)
+        if self.anchor is not None:
+            candidates &= texts.str.contains(
+                ANCHOR_PREFILTER, case=False, regex=False, na=False
+            )
         counts = pd.Series(0, index=texts.index, dtype="int64")
         if candidates.any():
             sources = texts.loc[candidates]
             matched = pd.Series(
-                [len(self.regex.findall(source)) for source in sources],
+                [len(self.spans(source)) for source in sources],
                 index=sources.index,
                 dtype="int64",
             )
             counts.loc[candidates] = matched
         return counts
+
+
+@dataclass(frozen=True)
+class Derived:
+    """A measure obtained by subtracting terms from a term, not by matching.
+
+    It has no pattern, enumerates no occurrence and appears in no concordance.
+    It exists because *what a figure should report* and *what an occurrence is*
+    are different questions, and v4 needed to answer the first without touching
+    the second: `genocide` folds the actor label `genocidaires` into the count
+    of the word as event qualification, and narrowing its pattern to say so
+    would have moved every occurrence identity in the corpus — invalidating the
+    gold sample and four committed model runs — to move a published figure by
+    half a per cent. Subtracting reports the same number and costs nothing.
+
+    The subtraction is only sound where each subtrahend is `nested_under` the
+    minuend *and* the two patterns partition it. `load` checks the nesting;
+    nothing in a regex can check the partition, so `tests/test_config.py`
+    asserts it on the forms the corpus holds and :func:`apply` refuses a
+    negative result, which is what a broken partition looks like in the data.
+    """
+
+    name: str
+    minuend: str
+    subtrahends: tuple[str, ...]
+    tier: str
+    register: str
+    note: str = ""
 
 
 @dataclass(frozen=True)
@@ -87,6 +199,7 @@ class Lexicon:
     updated: str
     terms: dict[str, Term]
     sets: dict[str, list[str]]
+    derived: dict[str, Derived] = field(default_factory=dict)
 
     @property
     def active(self) -> list[Term]:
@@ -102,8 +215,9 @@ class Lexicon:
         """Whether an artefact keyed to `term_name` at lexicon `version` still holds.
 
         True when `term_name` enumerates the same occurrences here as it did at
-        `version`: its pattern has not been edited since (`pattern_since <=
-        version`) and `version` is not ahead of this lexicon. That is what lets
+        `version`: neither its pattern nor its anchor has been edited since
+        (`pattern_since <= version`) and `version` is not ahead of this
+        lexicon. That is what lets
         a gold sample or a committed model run survive a version bump that
         edited other terms.
 
@@ -235,12 +349,15 @@ def check_nesting(terms: Mapping[str, Term]) -> None:
 def check_lock(terms: Mapping[str, Term], version: int, lock: Mapping[str, object]) -> None:
     """Refuse a lexicon the committed lock no longer describes.
 
-    `pattern_since` is a hand-written claim about a hand-written regex, and
-    nothing inside the file can tell whether the claim survived the last edit.
-    The lock records each pattern's digest beside the version it is declared to
-    date from, so editing a pattern without bumping its `pattern_since` fails
-    here — at 03 and in CI — instead of letting `15_usage.py` aggregate a run
-    enumerated from the regex that is no longer there. Rewrite the lock with
+    `pattern_since` is a hand-written claim about a hand-written matching rule,
+    and nothing inside the file can tell whether the claim survived the last
+    edit. The lock records each pattern's digest — and, since v4, the anchor
+    beside it — against the version the rule is declared to date from, so
+    editing either without bumping `pattern_since` fails here, at 03 and in CI,
+    instead of letting `15_usage.py` aggregate a run enumerated from a rule the
+    file no longer holds. The anchor is recorded literally rather than folded
+    into the digest so that a lock diff says which terms changed register-
+    critical behaviour and which changed a regex. Rewrite the lock with
     `python tools/lock_lexicon.py`.
     """
     locked_version = lock.get("version")
@@ -285,6 +402,13 @@ def check_lock(terms: Mapping[str, Term], version: int, lock: Mapping[str, objec
             raise ValueError(
                 f"{rel(LEXICON)}: the pattern of '{name}' changed: set its pattern_since "
                 f"to {version} and run `python tools/lock_lexicon.py`"
+            )
+        if entry.get("anchor") != term.anchor:
+            raise ValueError(
+                f"{rel(LEXICON)}: the anchor of '{name}' changed from "
+                f"{entry.get('anchor')!r} to {term.anchor!r}, which changes what it "
+                f"counts as surely as a pattern edit: set its pattern_since to "
+                f"{version} and run `python tools/lock_lexicon.py`"
             )
         if entry.get("pattern_since") != term.pattern_since:
             raise ValueError(
@@ -350,6 +474,14 @@ def load(*, check_lock: bool = True) -> Lexicon:
                 "not exist yet"
             )
 
+        anchor = spec.get("anchor")
+        if anchor is not None and anchor not in ANCHORS:
+            raise ValueError(
+                f"{rel(LEXICON)}: term '{name}' declares anchor {anchor!r}; the "
+                f"anchors are {sorted(ANCHORS)}, or none at all. An unrecognised "
+                "anchor would count every match and look like a decision to anchor"
+            )
+
         terms[name] = Term(
             name=name,
             pattern=spec["pattern"],
@@ -361,6 +493,7 @@ def load(*, check_lock: bool = True) -> Lexicon:
             examples=tuple(str(example) for example in spec.get("examples", [])),
             prefilters=tuple(str(literal) for literal in spec.get("prefilters", [])),
             nested_under=spec.get("nested_under"),
+            anchor=anchor,
             regex=regex,
         )
 
@@ -411,6 +544,46 @@ def load(*, check_lock: bool = True) -> Lexicon:
 
     check_nesting(terms)
 
+    derived: dict[str, Derived] = {}
+    for name, spec in (raw.get("derived") or {}).items():
+        if name in terms:
+            raise ValueError(
+                f"{rel(LEXICON)}: derived measure '{name}' has the name of a term; "
+                "the two share a column namespace and one would silently overwrite "
+                "the other"
+            )
+        minuend = spec.get("from")
+        subtrahends = tuple(spec.get("minus") or ())
+        missing = [t for t in (minuend, *subtrahends) if t not in terms]
+        if missing:
+            raise ValueError(
+                f"{rel(LEXICON)}: derived measure '{name}' references undefined "
+                f"terms: {missing}"
+            )
+        if not subtrahends:
+            raise ValueError(
+                f"{rel(LEXICON)}: derived measure '{name}' subtracts nothing; a "
+                "measure equal to a term is that term under a second name"
+            )
+        # Nesting is the declared claim that one term's matches lie inside
+        # another's. Without it the subtraction is not a narrowing of the
+        # minuend but an arithmetic accident of two unrelated counts.
+        outside = [t for t in subtrahends if terms[t].nested_under != minuend]
+        if outside:
+            raise ValueError(
+                f"{rel(LEXICON)}: derived measure '{name}' subtracts {outside} from "
+                f"'{minuend}', but they are not declared nested under it; only a term "
+                "whose matches lie inside another's may be subtracted from it"
+            )
+        derived[name] = Derived(
+            name=name,
+            minuend=str(minuend),
+            subtrahends=subtrahends,
+            tier=spec.get("tier", terms[str(minuend)].tier),
+            register=spec.get("register", terms[str(minuend)].register),
+            note=(spec.get("note") or "").strip(),
+        )
+
     if check_lock:
         _check_committed_lock(terms, version)
 
@@ -419,26 +592,48 @@ def load(*, check_lock: bool = True) -> Lexicon:
         updated=str(raw.get("updated", "")),
         terms=terms,
         sets=sets,
+        derived=derived,
     )
 
 
 def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
     """Count every active term in every speech body.
 
-    Returns a frame of ``n_<term>`` and ``has_<term>`` columns, plus one
-    ``has_<set>`` column per convenience grouping and per register, all indexed
-    like ``bodies``.
+    Returns a frame of ``n_<term>`` and ``has_<term>`` columns, one such pair
+    per :class:`Derived` measure, plus one ``has_<set>`` column per convenience
+    grouping and per register, all indexed like ``bodies``.
 
     The occurrence roll-ups — each ``n_register_<register>`` and
     ``n_lexicon_total`` — are sums over :func:`summable`, so a term declared
     nested under another is not added on top of the parent that already counts
     its span. The ``has_`` flags and ``n_lexicon_terms`` stay over every member:
-    neither can double-count a span.
+    neither can double-count a span. A derived measure enters no roll-up at
+    all: it is a restatement of its minuend, which every roll-up already holds,
+    and adding it would count those spans a second time.
     """
     counts = pd.DataFrame(index=bodies.index)
     for term in lex.active:
         counts[f"{COUNT}{term.name}"] = term.count(bodies)
         counts[f"{HAS}{term.name}"] = counts[f"{COUNT}{term.name}"] > 0
+
+    for measure in lex.derived.values():
+        net = counts[f"{COUNT}{measure.minuend}"].copy()
+        for subtrahend in measure.subtrahends:
+            net -= counts[f"{COUNT}{subtrahend}"]
+        # A negative count is the one way a broken partition shows itself in the
+        # data: a subtrahend matched somewhere its declared parent did not, so
+        # the two do not divide the parent's spans between them and the
+        # difference is not the narrowing it claims to be.
+        if bool((net < 0).any()):
+            offenders = bodies.index[net < 0].tolist()[:5]
+            raise ValueError(
+                f"derived measure '{measure.name}' is negative in "
+                f"{int((net < 0).sum())} speeches (first: {offenders}); "
+                f"{list(measure.subtrahends)} do not partition "
+                f"'{measure.minuend}' and the subtraction is not a narrowing"
+            )
+        counts[f"{COUNT}{measure.name}"] = net.astype("int64")
+        counts[f"{HAS}{measure.name}"] = net > 0
 
     for register, terms in lex.by_register().items():
         summed = [f"{COUNT}{t.name}" for t in summable(terms, lex.terms)]

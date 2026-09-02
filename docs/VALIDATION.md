@@ -19,7 +19,15 @@ through `15_usage.py` before `export_web.py` refused a hand-edited contract, cor
 PR #6; run 61, on the push that followed, published the result); the re-count, the
 re-calibration and the vocabulary
 counts below are read from that run's console output, and what a log cannot show is left
-open.
+open. Amended 2 September 2026, later still: lexicon v4 and the word denominator
+registered below. Their effect is measured on the corpus rather than owed — both were
+applied to `speeches_norm.parquet` read-only before the change was committed — and what
+remains owed is the pipeline run that puts those numbers into the artefacts. The headline
+figure is a derived measure, `genocide` minus `genocidaires`, rather than a narrowed
+pattern: `genocide` itself is untouched at v4, so the gold sample and the four committed
+model runs stay valid and 15 goes on aggregating them. Amended the same day: the
+grammatical frames of the node registered below, read from a run of `17_frames.py` over
+the corpus, with the human reading of the codebook left open.
 
 ## How to inspect an original record
 
@@ -110,19 +118,39 @@ the exact column count; row count and total tokens then match the codebook. Conf
 source that the agenda is *The Role of the Security Council in Humanitarian Crises* and the
 document contains 36 corpus speech records. Priority: low.
 
-### 6. Genocide gold sample — 0 of 200 rows coded
+### 6. Genocide gold sample — 0 of 735 rows coded
 
-`scripts/13_gold_sample.py` draws 200 candidates over 195 distinct `genocide` occurrences:
-120 by equal probability, 80 by coverage over decade × usage-cue strata (rejection,
-quotation, commemorative, dense meeting, plain — the cue is a sampling stratum, never a
-label). Candidates and the review join are generated files under `data/interim/`; human
+`scripts/13_gold_sample.py` draws 735 candidates over 688 distinct `genocide` occurrences,
+in three frames that are reported separately or not at all:
+
+| Frame | Rows | Read as |
+|---|---:|---|
+| probability | 120 | weighted by its own inclusion probabilities: the unbiased estimate of accuracy over the corpus, and the only thing here that estimates one |
+| coverage | 80 | one occurrence per decade × usage-cue stratum, then a random fill: presence, not measurability |
+| disagreement | 535 | unweighted: a purposive over-sample of what the two committed runs read differently, for per-class recall |
+
+The cue is a sampling stratum and never a label — `rejection`, `quotation`,
+`commemorative`, `dense_meeting`, `plain`, read off the ±150-character window — and so is a
+model label in the third frame: it says this occurrence is worth a coder's time, never what
+the coder should write. That frame's six strata, disjoint and assigned rarest first, hold
+134 occurrences either run called `rejects_or_denies` (all taken), 41 whose referent
+predates the case it names (all taken), 369 either called `other` (60 drawn), 716
+`attributes_or_reports` (100), 519 `hypothetical_or_conditional` (100) and 636 contested on
+stance or referent (100). **The two frames must never be pooled**: their inclusion
+probabilities differ by a factor of seven, and a rate over the union estimates nothing.
+Every row records the probability that put it there.
+
+Candidates and the review join are generated files under `data/interim/`; human
 work lives only in the versioned
 [`annotations/genocide/annotations.csv`](../annotations/genocide/annotations.csv), coded by
 `FM` and `JG` under the codebook's two-coder protocol — the full sample double-coded, a
 shared pilot outside the scored sample first, adjudication preserving both original rows.
 `scripts/15_usage.py` computes and publishes the agreement; nothing is hand-typed into an
 artefact. Priority: high — the `/usage` view reports its model layer as unvalidated until
-this is done.
+this is done. The sample grew from 195 occurrences to 688 on 2 September 2026 and the
+coding burden with it, from 390 coder-occurrence rows to 1,376; the coders may work the
+probability and coverage frames first, since those are what the overall estimate needs, and
+the disagreement frame is what makes anything per class sayable.
 
 ### 7. Model annotation runs
 
@@ -145,6 +173,28 @@ quotes (0.25%) are flagged `evidence_valid=false` in the run and excluded from e
 discourse figure; nothing was repaired. The pilot covers the first 50 genocide-bearing
 speeches in corpus order and is kept for comparison, not published.
 
+**The eighteen unlocated quotes, read one by one (2 September 2026).** Ten of them are not
+fabrications and the locator now finds them: six carry a quotation mark the model put in
+front of a verbatim span the record does not have there, two straddle a word the record's
+OCR hyphenates across a line break (`Secretary- General's`), and two differ from the record
+in the case of one letter, where a mid-sentence clause was presented as a sentence. A third
+locating pass folds NFKC, the record's curly quotes and dashes, that hyphenation and case,
+and strips the model's own wrapping marks off the quote alone; on the two committed runs it
+recovers eight of Luna's fifteen and two of Gemini's three, moves no other row's offsets,
+and flags what it placed as `evidence_relocated`. The remaining eight stay unplaced and
+should: three are false positives answered with the literal string `not_applicable`, one is
+a quote found in a different sentence of the same speech, and four are passages the model
+paraphrased or spliced.
+
+**Neither committed run carries the flag or the recovery.** A run is written once and read
+back as it was; `lib.llm.validate_row` holds new runs to both rules and reads these two
+under `appending=False`, because refusing to aggregate them would delete the evidence
+rather than improve it. The published `evidence_invalid` figures of 15 and 3 are therefore
+what the locator of 30 August found, and the ten recoveries arrive with the next run. The
+same applies to the three false positives whose evidence quote is the string
+`not_applicable`: the codebook always required a span for a false positive, the prompt's
+cascade invited a model to skip it, and it is now refused at the write seam alone.
+
 `2026-08-31-gemini-pilot` is the counter-instrument's pilot over that same first 50
 speeches, so the two pilots enumerate one population: all 91 occurrence ids join, and
 every one of the 91 evidence quotes was located as an exact substring of its speech.
@@ -161,24 +211,76 @@ luna's 15) and are flagged rather than repaired. One speech, `UNSC_2022_SPV.9062
 was first refused for `MAX_TOKENS` and succeeded on a live retry; `failures.jsonl` keeps
 that record.
 
+**Its manifest was recounted on 2 September 2026** by `tools/recount_run.py`, from the raw
+job outputs the run left in `data/interim/llm_raw/` (not committed, and named in the
+manifest's own `recount` block). The counters it was written by added what each pass
+*intended* to ask rather than what it sent, and counted every answer a `--poll`
+re-downloaded:
+
+| Figure | As written | Recounted |
+|---|---:|---:|
+| requests submitted / sent | 7,966 | 3,274 |
+| requests returned | 4,474 | 3,273 |
+| input tokens | 19,104,227 | 13,856,820 |
+| output tokens | 1,298,193 | 935,939 |
+| thinking tokens | 9,682,944 | 7,247,728 |
+
+The eleven job output files hold 3,273 lines and 3,273 distinct speech keys between them —
+exactly one request per speech in the documented population — plus the one live retry, so
+`sent: 3274` is what the raw record evidences. **What is unrecoverable**: the per-pass
+history. A pass whose first chunk the batch quota refused created no job and left no file,
+and a live call that failed left no line; the manifest's 7,966 decomposes as 3,273 + 2,473
++ 1,673 + 473 over four batch passes plus 74 more from one or two live passes of which one
+call is evidenced. The `recount` block says so rather than reconstructing it, and `sent` is
+a floor. `2026-08-31-gemini-pilot` was recounted the same way and its figures were already
+right. **Neither Luna run can be recounted**: their raw directories are gone, so their
+manifests keep the old `submitted` key and `15_usage.py` reads either, publishing
+`requests_recounted` so the view can say which.
+
+**`cost_usd` is still null in all four manifests, and is owed.** Both APIs report tokens
+and neither reports a price. Nothing in this repository records a rate: the roadmap's
+"~$12" and "half price in Batch" are prose, and a figure computed here from a pricing page
+would be a number in a research manifest that nothing in the repository produced. Recording
+the price table — the URL, the date it was read, the input, output and thinking rates, the
+batch discount — and computing the figure from the recounted token totals above is a
+checkable half-hour that needs the author to read those rates off the two providers' pages.
+
 Observed agreement between the two runs, over all 6,092 occurrences:
 
-| Field | Agreement | Cohen's kappa |
-|---|---:|---:|
-| `verdict` | 99.9% | 0.000 |
-| `quotation` | 90.2% | 0.615 |
-| `referent` | 87.6% | 0.853 |
-| `stance` | 81.2% | 0.688 |
-| `function` (set equality) | 69.9% | — |
+| Field | Agreement | Cohen's kappa | PABAK | Same model, twice (Luna / Gemini) |
+|---|---:|---:|---:|---:|
+| `verdict` | 99.9% | withheld | 0.999 | 98.9% / 100% |
+| `quotation` | 90.2% | 0.615 | 0.878 | 96.7% / 98.9% |
+| `referent` | 87.6% | 0.853 | 0.872 | 94.5% / 98.9% |
+| `stance` | 81.2% | 0.688 | 0.781 | 94.5% / 98.9% |
+| `function` (set equality) | 69.9% | α (MASI) 0.697 | — | Jaccard 0.886 / 0.969 |
 
-3,068 occurrences (50.4%) are contested on at least one field. The `verdict` kappa of 0.000
-is an artefact of the metric and not a disagreement: both instruments call almost every
-occurrence a true positive, so there is nearly no variance for kappa to normalise against,
-and the 99.9% raw agreement is the figure that means anything. Quote it with that caveat or
-not at all.
+3,068 occurrences (50.4%) are contested on at least one field. **`verdict`'s kappa is
+withheld and not published as 0.000.** Both instruments call all but six of 6,092
+occurrences a true positive; chance agreement under those marginals is 0.998, and dividing
+99.9% agreement by the 0.2% left over produces a number that reads as failure about the
+most stable field in the run. The rule is a floor of one per cent on the smaller rater's
+non-modal mass, which catches `verdict` in both runs and `confidence` from Gemini's side
+(99.06% `high`), and which the three informative fields clear by an order of magnitude.
+PABAK — kappa's formula against a uniform chance over the codebook's own category counts —
+is published in its place.
+
+**The last column is the noise floor**, and the middle two cannot be read without it. It is
+each model against another run of *itself* with the byte-identical prompt, over the 91
+pilot occurrences: Luna writes all five fields identically on 69 of 91 and Gemini on 83, so
+about a quarter of Luna's own labels move between two calls of one instrument. A
+cross-model disagreement of a fifth is to be read against that and not against zero.
+
+**Per referent, how far a label survives a second instrument.** Below 0.8 the `/usage`
+diffusion figure withholds the chronology, because a first assertion is then a property of
+which model was asked: `unclear` 0.08, `hypothetical_future` 0.40, `drc_great_lakes` 0.61,
+`other` 0.72, `gaza` 0.75, `genocide_convention_law` 0.77. Sixteen further referents carry
+fewer than twenty occurrences in the published run and are counted rather than rated.
+`attributes_or_reports` and the `attributed_or_reported` quotation label are marked
+instrument-dependent wherever they appear.
 
 The whole table measures stability across two instruments and never accuracy. Both models
-can be confidently wrong together, and the human gold sample — still 0 of 200 coded —
+can be confidently wrong together, and the human gold sample — still 0 of 688 coded —
 remains the only calibration either run has.
 
 When a run is added, record it here and re-check the artefact counts on the Methods page
@@ -296,6 +398,178 @@ the prefilter. The `has_` unions (atrocity core, active lexicon) move with `war_
 `docs/CORPUS.md` §8 marks the two it quotes as v2 readings until they are read from the
 artefact.
 
+### The denominator of a token rate is words, counted once
+
+Registered 2 September 2026 (review §3.3; item 9 of its prioritised plan). Every
+"per 100,000 words" figure divided a body-only regex count by the codebook's `tokens`
+column, which is quanteda's count over the *full* text with punctuation and numbers in
+it. Measured on `speeches_norm.parquet`: **66,392,703 codebook tokens against 58,904,180
+words**, the words counted with the `lib/lexical.py::TOKEN_RE` the keyness tables and the
+collocate windows already use. The word count is 88.72% of the token count, so every rate
+published before this date sat **11.28% below** the label it carried, and correcting it
+multiplies every token rate by **1.1271**.
+
+Of the two remedies the review named — count words once, or relabel the unit "tokens
+(codebook)" — this is the first. The numerator is a count of words in speech bodies and
+the language page already reports its own universe in these units; relabelling would have
+left a rate whose halves were counted by two rules over two texts. `02_normalise.py` now
+writes a `words` column and asserts its total against `lib/paths.py::EXPECTED_WORDS`, as
+01 asserts the codebook's token sum, and `lib/series.py::denominators` carries both
+columns while `measure` divides by `words`. The codebook figure is unchanged and
+unmoved: still asserted at 01 and 11, still stamped into every artefact's `meta`, now
+under the name `codebook_tokens`.
+
+The series key `token_rate` keeps its name — it is a published key, a shareable URL and a
+line of `tests/contract/payload.json`, and the axis label already says which unit it is
+in. What was renamed is the denominator itself: `corpus.words` in the series payloads,
+`words` on an actor row, a period row and a speech, and the `words` column of the monthly
+grid's CSV, whose header said `tokens` while the page called the number words.
+
+**No count moves and no speech rate moves.** `tests/golden/end_to_end_04_08.json` was
+regenerated and the diff is exactly this: every `token_rate` and the two segment means of
+the Poisson change-point test scale by the ratio of the denominators; no speech rate, no
+Wilson bound, no p-value, no break label and no concordance line changed.
+
+### Lexicon v4: the actor label, the sentence anchor, five terms and five repairs
+
+Lexicon v4 (2 September 2026) is item 9 of the review's plan and its §3.4. Unlike v3 it
+changes patterns, and it adds a second half to a term's matching rule: an **anchor**. A
+term declaring `anchor: sentence` is counted only where the sentence holding the match
+also matches `\bgenocid\w*`. The rule for choosing is in the header of
+`config/lexicon.yml`: anchor a form the Council uses right across its agenda, so that only
+its co-occurrence with the node word makes it about this study's object; leave unanchored
+a form already specific to atrocity talk.
+
+**Measured on the corpus, 2 September 2026.** These are not projections. The committed v4
+lexicon and a v3 rebuilt from the previous commit were both applied through
+`lib/lexicon.py::apply` to the 106,302 bodies of `speeches_norm.parquet`, read-only, in a
+scratch script; the figures are what `03_lexicon.py` will print. Speeches / occurrences:
+
+| Term | v3 | v4 | What changed |
+|---|---:|---:|---|
+| `genocide` | 3,273 / 6,092 | 3,273 / 6,092 | nothing; the pattern is deliberately untouched |
+| `genocidaires` | — | 21 / 31 | new, nested under `genocide` |
+| `genocide_qualification` (derived) | — | 3,268 / 6,061 | new; `genocide` minus `genocidaires` |
+| `commemoration` | 4,504 / 6,533 | 199 / 321 | anchored |
+| `survivors` | 1,922 / 4,013 | 73 / 106 | anchored |
+| `denial` | 1,431 / 1,653 | 186 / 269 | anchored, inflections added, `genocid` dropped |
+| `glorification` | 422 / 501 | 93 / 103 | anchored |
+| `ethnic_hatred` → `ethnic_violence` | 477 / 523 | 13 / 13 | renamed and anchored |
+| `holocaust` | 181 / 244 | 175 / 238 | *nuclear* and *atomic holocaust* excluded |
+| `tribunals` | 2,568 / 11,392 | 2,626 / 13,030 | Residual Mechanism in, Law of the Sea out |
+| `massacre` | — | 1,588 / 2,313 | new |
+| `mass_killing` | — | 149 / 158 | new |
+| `icj` | — | 1,447 / 2,399 | new |
+| `incitement` | — | 47 / 49 | new, anchored |
+| `intent_to_destroy` | — | 16 / 23 | new, anchored |
+
+Every other term is untouched and reads identically under both versions.
+
+**Both numbers are published, and neither has to be reconstructed.** `n_genocide` is the
+v3 column unchanged, 6,092 across 3,273 speeches; `n_genocidaires` is 31 across 21
+speeches; and `n_genocide_qualification` is the difference, 6,061 across 3,268 — five
+speeches drop out because the only `genocid*` word they hold is the actor label. The
+`core` register counts the raw term's spans once (`genocidaires` is nested under it, so
+`summable` drops the child) and is therefore 6,092, the union of the node word in all its
+forms; it is no longer a duplicate of `has_genocide` only in the sense that the register
+now has two members, and the *derived* measure is what the chronology and the actor table
+publish. The French spelling *génocidaires* occurs 8 further times and is deliberately
+left out of `genocidaires`: no earlier count held it, and absorbing it here would confound
+the split with a widening. It is recorded as a known limitation, alongside the one
+*International Commission of Jurists* that `\bICJ\b` will match.
+
+**Registers, and the effect of both changes at once.** The rate column combines the new
+denominator with the new counts, which is what the site will publish:
+
+| Register | v3 occurrences | v4 occurrences | v3 per 100k | v4 per 100k |
+|---|---:|---:|---:|---:|
+| accountability | 37,484 | 41,521 | 56.46 | 70.49 |
+| commemorative | 11,128 | 1,003 | 16.76 | 1.70 |
+| contentious | 2,716 | 424 | 4.09 | 0.72 |
+| core | 6,092 | 6,092 | 9.18 | 10.34 |
+| descriptive | — | 2,471 | — | 4.20 |
+| legal | 18,983 | 19,006 | 28.59 | 32.27 |
+| preventive | 3,992 | 4,041 | 6.01 | 6.86 |
+
+`n_lexicon_total` falls from 79,966 to 74,129 occurrences (125.85 per 100k under the new
+denominator, against 120.44 under the old). `core` is unmoved at 6,092 because
+`genocidaires` is nested under `genocide` and `summable` counts the parent's spans once;
+the derived `genocide_qualification` sits beside the register at 6,061 and enters no
+roll-up. The `atrocity_core`, `rome_triad` and `r2p_quartet` unions are unmoved for the
+same reason — 7,981, 7,155 and 7,700 speeches, exactly v3 — since the term they are built
+on did not change.
+
+**What the anchors cost, and what they bought.** The commemorative register as v3 built it
+was 91% not about genocide memory: the commonest completion of `anniversar\w+` is the
+anniversary of resolution 1325 and of the Charter, and the commonest words after
+`survivors` are *of sexual violence*, 478 times. `denial` was worse: *denial of
+humanitarian access* and *denial of access* account for 478 of its 1,636 bare-`denial`
+matches, and `deny\w*` had been missing *denies* and *denied* entirely. Two commemorative
+terms are deliberately **not** anchored, and the cost of anchoring them is recorded here so
+the decision can be argued with: `never_again` would fall from 338 occurrences to 30 and
+`holocaust` from 238 to 25. Both are formulae of atrocity memory in their own right; the
+Council does not use them for anything else, and Holocaust Remembrance Day is discussed on
+its own terms.
+
+**Two terms the review asked us to consider were measured and not added.** `crime of
+crimes` occurs **twice** in thirty-two years — both genuine, and far too few to carry a
+series or to clear any minimum on the site. `persecut\w*` occurs 1,006 times across 814
+speeches and is religious persecution, persecution of minorities and of journalists: a
+human-rights register rather than an atrocity-qualification one. Anchored it would be 19
+occurrences, which is `ethnic_violence`'s problem without `ethnic_violence`'s argument.
+
+**Known limitations, recorded rather than repaired.** `ethnic_violence` anchored is 13
+occurrences: it stops the contentious register being a measure of how often the Council
+says *ethnic conflict*, but it supports no series of its own and will be withheld under
+every minimum. `intent_to_destroy` anchored loses the Article II(c) quotations that do not
+repeat the word in the same sentence. `holocaust`'s exclusion of *nuclear holocaust* uses
+fixed-width lookbehinds, so the phrase broken across a double space would still count —
+the record's line breaks are single characters and are covered. And an anchored term
+co-occurs with `genocide` by construction, so `lib/lexical.py::definitional_pairs`
+suppresses those edges from the co-occurrence network and names the reason, as it already
+did for the `denial` pattern that used to carry `genocid` inside itself.
+
+**The split is published as a subtraction, and `genocide`'s pattern does not move.** The
+review asked for `genocidaires` as its own term so that `\bgenocid\w*` would stop folding
+an actor label into the count of the word as event qualification. There were two ways to
+do that and they cost very different things. Narrowing `genocide` to `\bgenocid(?!aire)\w*`
+would have changed the term's `pattern_since`, and `15_usage.py` refuses a run whose
+recorded `lexicon_version` predates the version its term's pattern last changed in: all
+four runs in `model_annotations/genocide/runs/` record version 2, so `/usage` would have
+gone dark and `make payload` would have stopped at 15 until a fresh run was paid for — to
+move a published figure by 31 occurrences in 6,092, half a per cent. v4 does the other
+thing. `genocide` keeps `\bgenocid\w*` and `pattern_since: 2`, so every occurrence
+identity in the corpus is the one the gold sample and the four runs were annotated under,
+the concordance keeps its 6,092 lines, and 15 keeps aggregating. `genocidaires` is a term
+of its own, declared `nested_under: genocide` so no roll-up counts its spans twice, and
+the published headline is the **derived measure** `genocide_qualification` =
+`n_genocide` − `n_genocidaires`, declared in the `derived` block of
+`config/lexicon.yml` and computed by `lib/lexicon.py::apply`.
+
+A derived measure has no pattern, enumerates no occurrence and appears in no concordance.
+That separation is the point: what a published *figure* should report and what an
+*occurrence* is are different questions, and the `pattern_since` gate exists to protect
+the second. The subtraction is exact because the two patterns partition the union —
+`genocidaires` matches only where `genocide` matches, once per span — which
+`tests/test_config.py` asserts on the forms the corpus holds rather than leaving in a
+comment, and which `apply` re-checks at runtime by refusing a negative difference. The
+consequence worth stating plainly is that the disjoint-pattern version is available for
+free the day a v4 model run exists: narrowing the pattern then is a two-line edit that
+reproduces exactly the numbers this derived measure already publishes.
+
+The evidence is not hidden by the choice. The raw `genocide` series is published beside
+the derived one in every artefact that carries either; the concordance enumerates the raw
+term, and the 31 actor-label lines read under `genocidaires`, which has its own
+concordance file. The chronology's evidence links point at the raw term on purpose, since
+those are the lines behind the rate.
+
+**What is owed.** The measurements above were taken by applying the committed lexicon to
+the committed corpus, so they are the run's numbers rather than an estimate of them. What
+has not happened is the run: `03` through `12` and `export_web.py` have not been
+re-executed, so `data/derived/` and the published site still carry v3 counts over the
+codebook denominator. Nothing else is owed by this change — no new human check, and no
+figure whose value could not be read off the corpus in advance.
+
 ### The rate tests under a meeting-block null
 
 Registered 2 September 2026 (roadmap S1, first slice; review §3.1, §3.3, §5.2). Two
@@ -383,6 +657,120 @@ from the published language page and set them beside the profile sentences in `R
 and `docs/CORPUS.md` §8.5. And the lemma layer (`data/interim/lemmas/lemmas.parquet`),
 aligned token by token to the old pattern: `lemmas.tokens` will refuse it, and
 `10_lemmatise.py` must run on the cluster before `05 --vocabulary lemma` is read again.
+
+### Grammatical frames of the node
+
+Registered 2 September 2026 (review §3.6, item 2; plan item 6). `17_frames.py` classifies
+every one of the 6,092 occurrences of `genocide` into one of seventeen constructions or an
+`unframed` residue, from a ±90-character window round the node. The codebook is
+`lib/node_frames.py`: each frame carries the discursive act it evidences, its pattern, and
+an example quoted from the concordance with the line it was taken from, and
+`tests/test_node_frames.py` re-classifies each of those examples so that a pattern edited
+without its gloss fails rather than ships.
+
+Three things about the numbers, in each case a way for the table to be wrong while looking
+right:
+
+- **The classification reconciles to 03's count.** The step asserts its 6,092 against
+  `n_genocide` in `speeches_flagged.parquet` and refuses to write otherwise, which is the
+  same reconciliation `08_kwic.py` makes and for the same reason.
+- **Precedence is a decision, and its cost is published.** An occurrence can satisfy
+  several patterns; the first frame in codebook order wins, and every frame's `matched`
+  count — what its pattern reached before the ordering was applied — is written beside the
+  count it won. `crime_of` matched 409 occurrences and won 259; `prevention` matched 700
+  and won 297. The order runs citation, footing, catalogue, modality, bare nominal, so that
+  the Convention's own title is not counted as prevention and a hedge is not swallowed by
+  the atrocity triad.
+- **The residue is a category and it drifts.** 1,231 occurrences (20.2%) match nothing.
+  Its share runs at 34% in 1993 and 16.8% in 2016–2023, so a frame that gained share may
+  have gained it from the codebook's reach rather than from another frame. The residue is
+  therefore put through the same change-point test as the frames, and its split is reported
+  beside theirs.
+
+**Read from the corpus, 2 September 2026** (`17_frames.py` over
+`speeches_flagged.parquet`, lexicon v3, 2,000 permutations):
+
+| Frame | Won | Matched | Frame | Won | Matched |
+|---|---:|---:|---|---:|---:|
+| `atrocity_triad` | 1,446 | 1,786 | `accountability` | 194 | 369 |
+| `unframed` | 1,231 | — | `legal_instrument` | 179 | 179 |
+| `perpetration` | 495 | 785 | `mandate_or_office` | 176 | 176 |
+| `named_case` | 480 | 949 | `risk_or_threat` | 108 | 147 |
+| `prevention` | 297 | 700 | `directed_against` | 107 | 239 |
+| `crime_of` | 259 | 409 | `distancing` | 78 | 79 |
+| `commemoration` | 258 | 272 | `occurrence` | 58 | 81 |
+| `denial_or_ideology` | 252 | 262 | `intent_or_definition` | 36 | 49 |
+| `acts_of` | 237 | 256 | `qualification` | 201 | 204 |
+
+The **morphological split** partitions the same 6,092: noun 5,747 (`genocide` 5,685,
+`genocides` 62), adjective 313 (`genocidal`), perpetrator noun 31 (`genocidaires` 29,
+`genocidaire` 2), other 1 (`genocida`, an OCR spelling in a 1992 Venezuelan intervention,
+reported rather than reassigned). The perpetrator noun is the category §3.4 of the review
+names: it labels the ex-FAR and Interahamwe of the Great Lakes debates rather than
+qualifying an event, so the count of the word as event qualification is the other **6,061**.
+Both numbers are published, because the enumeration this step is cut from is the whole
+pattern and the headline the study quotes is not.
+
+**Share change points, under the meeting-block null** (occurrence as the trial, meeting as
+the exchangeable unit; Bonferroni across the eight frames holding 250 occurrences or more,
+so α = 0.00625):
+
+| Frame | Best split | Before → after | p, independent | p, block | Accepted |
+|---|---|---|---:|---:|---|
+| `atrocity_triad` | 2002 | 12.4% → 26.6% | 0.0005 | 0.0005 | yes |
+| `unframed` | 2002 | 34.1% → 16.7% | 0.0005 | 0.0005 | yes |
+| `perpetration` | 2008 | 12.6% → 5.8% | 0.0005 | 0.0005 | yes |
+| `commemoration` | 2004 | 1.1% → 5.2% | 0.0005 | 0.0005 | yes |
+| `denial_or_ideology` | 2018 | 1.8% → 10.4% | 0.0005 | 0.0005 | yes |
+| `named_case` | 2016 | 9.1% → 5.6% | 0.0005 | 0.0240 | no |
+| `prevention` | 2001 | 7.7% → 4.3% | 0.0005 | 0.1509 | no |
+| `crime_of` | 2016 | 3.7% → 5.3% | 0.0495 | 0.1889 | no |
+
+The triad's rise and the residue's fall share a split year, which is the caveat the
+artefact states about itself: part of what the catalogue gained after 2002 is what the
+codebook stopped missing. `prevention` and `named_case` are the clearest cases of the
+clustering the block null exists to price — both would have been accepted under the
+independent-occurrence null.
+
+**Triangulated against the two committed model runs.** Both runs join all 6,092
+occurrences on `occurrence_id` (100% coverage), and the frames are read off the text with
+no model involved, so the cross-tabulation is two instruments on the same rows. Where they
+agree:
+
+- `mandate_or_office` is `neutral_legal_reference` in **176 of 176** occurrences in both
+  runs, and `institutional_title_or_mandate` in 100% of both runs' function labels;
+  `legal_instrument` is 170/179 and 163/179. The citation tier of the codebook is a
+  category both models already had.
+- `commemoration` is `asserts` in 254/258 (Luna) and 252/258 (Gemini), and the
+  `commemoration` function in 81% and 83%. This is §4.2's third point measured: the prompt
+  says nothing about commemorations and both models code them as assertions.
+- `distancing` holds 78 occurrences, 1.3% of the corpus, and **26 of Luna's 106 and 27 of
+  Gemini's 106** `rejects_or_denies` — a twentyfold concentration, and the strongest
+  external evidence that the frame is finding what it says it is.
+- `risk_or_threat` is `hypothetical_or_conditional` in 82/108 and 72/108.
+
+Where they do not:
+
+- `atrocity_triad` splits four ways. Luna reads it `neutral_legal_reference` 630,
+  `asserts` 439, `hypothetical` 192, `attributes` 174; Gemini 811, 404, 155, 60. The 114-row
+  gap on `attributes_or_reports` inside this one frame is a visible piece of the 445-row
+  report/assert disagreement §4.1 reports.
+- `distancing` itself: Luna's modal stance is `attributes_or_reports` (33 of 78), Gemini's
+  is `rejects_or_denies` (27 of 78). The construction is unambiguous and the label is not.
+- `crime_of` and `acts_of` change function between runs — Luna
+  `accusation_or_qualification` (53%, 65%), Gemini `accountability` (59%, 47%) — which is
+  §4.1's accusation/accountability split, located in two constructions.
+
+**Open check: the codebook against the concordance.** No human has read a sample of the
+classifications. The check to run: draw twenty occurrences from each of the four cells
+where a frame and a stance disagree most (`distancing` coded `asserts`, `commemoration`
+coded `neutral_legal_reference`, `atrocity_triad` coded `attributes_or_reports`, and the
+residue coded `rejects_or_denies`), read them against `kwic/genocide.json`, and record
+which instrument erred. If the frame is right and the label is not, the prompt's category
+definitions are where §4.2 says the fix belongs; if the label is right, the pattern is in
+`lib/node_frames.py`. A second open check is cheaper and equally unmade: read fifty of the
+1,231 unframed occurrences and say whether they are a construction the codebook should hold
+or genuinely nothing.
 
 ### Documents versus meeting symbols
 

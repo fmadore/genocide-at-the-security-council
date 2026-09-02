@@ -48,7 +48,10 @@ export interface ActorState {
 /** Defaults follow the artefact, so a later corpus extension does not create a stale URL contract. */
 export function actorDefaults(data: Countries): ActorState {
 	return {
-		measure: data.measures.genocide ? 'genocide' : (Object.keys(data.measures)[0] ?? ''),
+		measure:
+			['genocide_qualification', 'genocide'].find((name) => data.measures[name]) ??
+			Object.keys(data.measures)[0] ??
+			'',
 		period: data.periods.some((period) => period.key === 'all')
 			? 'all'
 			: (data.periods[0]?.key ?? ''),

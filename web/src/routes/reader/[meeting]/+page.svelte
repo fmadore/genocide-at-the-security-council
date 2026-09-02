@@ -498,7 +498,7 @@
 								{/each}
 							</div>
 							<p class="speech-meta symbol">
-								{speech.id} · {count(speech.tokens)} words
+								{speech.id} · {count(speech.words)} words
 								{#if Object.keys(speech.hits).length}
 									· {Object.keys(speech.hits).map(termLabel).join(', ')}
 								{/if}

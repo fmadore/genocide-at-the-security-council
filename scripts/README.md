@@ -48,11 +48,12 @@ and compares their analytical values with `tests/golden/`. Leave them unset othe
 | 10 | `10_lemmatise.py` | `speeches_flagged.parquet` | `derived/lemmas/` | 🔬 optional |
 | 11 | `11_countries.py` | `speeches_flagged.parquet`, `config/entities.csv` | `derived/countries/countries.json` | ✅ |
 | 12 | `12_speaker_keyness.py` | `speeches_flagged.parquet`, `config/stopwords.txt` | `derived/countries/speaker_keyness.json` | ✅ |
-| 13 | `13_gold_sample.py` | `speeches_norm.parquet`, `config/lexicon.yml`, `annotations/genocide/` | `data/interim/genocide_gold_*.csv` | ✅ |
+| 13 | `13_gold_sample.py` | `speeches_norm.parquet`, `config/lexicon.yml`, `annotations/genocide/`, `model_annotations/genocide/` | `data/interim/genocide_gold_*.csv` | ✅ |
 | 14 | `14_llm_annotate.py` | `speeches_norm.parquet`, `model_annotations/genocide/PROMPT.md`, the OpenAI API | `model_annotations/genocide/runs/<id>/` | ✋ manual, paid |
 | 15 | `15_usage.py` | `model_annotations/genocide/`, `annotations/genocide/`, `speeches_norm.parquet` | `derived/usage/*.json` | 🧪 experimental |
 | 16 | `16_llm_annotate_gemini.py` | `speeches_norm.parquet`, `model_annotations/genocide/PROMPT.md`, the Gemini API | `model_annotations/genocide/runs/<id>/` | ✋ manual, paid |
-| — | `export_web.py` | `derived/{series,lexical,kwic,countries,usage}/` | `web/static/data/` | ✅ |
+| 17 | `17_frames.py` | `speeches_flagged.parquet`, `config/lexicon.yml`, `model_annotations/genocide/` | `derived/frames/*.json` | ✅ |
+| — | `export_web.py` | `derived/{series,lexical,kwic,countries,usage,frames}/` | `web/static/data/` | ✅ |
 | — | `score_intrusion.py` | `derived/topics/intrusion_{task,key}.csv` | `derived/topics/intrusion_score.json` | 🔬 after a human |
 
 **06, 07 and 10 are not part of the release pipeline.** They need the extra dependencies in
@@ -146,11 +147,36 @@ python scripts/16_llm_annotate_gemini.py --run-id <date>-gemini-v1 --model gemin
 python scripts/15_usage.py && python scripts/export_web.py
 ```
 
-15 then computes where the two instruments disagree — per-field agreement, per-occurrence
-`contested` flags — and refuses a comparison made against a different prompt hash. The
-comparison is computed, never merged: `current_run.txt` still names the only run the
-matrix, stance and diffusion figures are drawn from, and agreement between two models is
-stability across instruments, never accuracy.
+15 then computes where the two instruments disagree — per-field agreement with PABAK
+beside a withheld kappa, the per-referent cross-instrument F1, Krippendorff's α under MASI
+for `function`, per-occurrence `contested` flags — and refuses a comparison made against a
+different prompt hash. It also computes the **retest**: each model against another
+committed run of itself with the byte-identical prompt, discovered rather than named, which
+is the noise floor the cross-model figures have to be read against. The comparison is
+computed, never merged: `current_run.txt` still names the only run the matrix, stance and
+diffusion figures are drawn from, and agreement between two models is stability across
+instruments, never accuracy.
+
+**Run 13 again once both runs are committed.** Its third sampling frame is cut from the
+pair named in `current_run.txt` and `comparison_run.txt`, and is empty without them. The
+frames are written to one file each under `data/interim/`, and nothing under `annotations/`
+is touched by any of it.
+
+**A run's manifest records effort, and effort is counted as it happens.** `requests.sent` is
+incremented when a batch job is created or a live call is made, `requests.returned` when a
+`custom_id` is answered for the first time in the run, and `passes` carries one row per
+pass with its mode. A manifest written before that — the Gemini run of 31 August — can be
+repaired from the raw job outputs the run left under `data/interim/llm_raw/`:
+
+```bash
+python tools/recount_run.py 2026-08-31-gemini-v1          # what it would change
+python tools/recount_run.py 2026-08-31-gemini-v1 --write  # rewrite; review the diff
+```
+
+It refuses a run whose raw directory has been deleted rather than guessing, and records in
+the manifest's own `recount` block what could not be recovered. `cost_usd` stays null until
+a price table is recorded beside the run: both APIs report tokens and neither reports a
+price, and `docs/VALIDATION.md` §7 carries the check that owes it.
 
 Human coding proceeds in parallel: `FM` and `JG` fill
 `annotations/genocide/annotations.csv` per the codebook; after each tranche, rerun 15 and
@@ -166,7 +192,8 @@ The word list is the study's central scholarly choice, and
 removing a term is therefore a recorded decision, not a configuration tweak.
 
 1. **Edit [`../config/lexicon.yml`](../config/lexicon.yml).** A term needs a `pattern`
-   (Python regex), `prefilters`, `examples`, a `tier`, a `register` and a `pattern_since`.
+   (Python regex), `prefilters`, `examples`, a `tier`, a `register` and a `pattern_since`,
+   and may declare an `anchor`.
    A prefilter is a literal contained in *every* string the pattern can match: it only
    decides which speeches are worth running the regex on, so one that is not in every
    match loses occurrences silently rather than merely slowing the scan down. It must
@@ -174,8 +201,15 @@ removing a term is therefore a recorded decision, not a configuration tweak.
    break that `war crime` never will — and no non-ASCII character, because the fast path
    is upper-case containment while the pattern runs under `re.IGNORECASE`, and the two
    agree only on ASCII. `pattern_since` is the version in which that term's `pattern` last
-   changed; leave it alone unless you edit the pattern, and set it to the new `version`
-   when you do. Use `note` for the rationale — why this term belongs to this study, and
+   changed; leave it alone unless you edit the pattern or the anchor, and set it to the
+   new `version` when you do. `anchor: sentence` counts a match only where the sentence
+   holding it also says `genocid*`. It is the other half of the matching rule, not a
+   display option: an anchored term enumerates strictly fewer occurrences than its pattern
+   matches, so anchoring or unanchoring one invalidates an artefact keyed to it exactly as
+   a regex edit does, and `pattern_since` and the lock cover both. The rule for deciding
+   is stated in the file's own header — anchor a form the Council uses right across its
+   agenda, leave unanchored a form already specific to atrocity talk — and the note of each
+   anchored term records what the anchor cost it, measured. Use `note` for the rationale — why this term belongs to this study, and
    what it is expected to catch that the existing terms do not. That sentence is the part
    a reader of the published figures will want and cannot reconstruct.
 2. **Bump `version` and `updated`** in the same file. The version travels into every
@@ -184,10 +218,12 @@ removing a term is therefore a recorded decision, not a configuration tweak.
    term: `15` reads a committed run's recorded version against that term's `pattern_since`,
    so a release that edited other terms leaves the gold sample and the model runs standing.
    Editing a `pattern` — and so bumping its `pattern_since` — does invalidate them.
-3. **Run `python tools/lock_lexicon.py`** if you edited a `pattern`. It rewrites
-   [`../config/lexicon.lock.json`](../config/lexicon.lock.json), which records each
-   pattern's digest beside the `pattern_since` it is declared to date from, and it refuses
-   to write while an edited pattern still carries an old one. `lexicon.load()` reads the
+3. **Run `python tools/lock_lexicon.py`** if you edited a `pattern` or an `anchor`. It
+   rewrites [`../config/lexicon.lock.json`](../config/lexicon.lock.json), which records each
+   pattern's digest and each term's anchor beside the `pattern_since` they are declared to
+   date from, and it refuses to write while an edited rule still carries an old one. The
+   anchor is recorded in words rather than folded into the digest, so a lock diff says
+   which terms changed what they count and which changed a regex. `lexicon.load()` reads the
    lock, so a forgotten bump fails at `03` and in CI instead of validating artefacts cut
    from a regex the file no longer holds. Commit the lock with the config.
 4. **Rerun, in order:** `03` (which recounts every speech), then `04`, `05`, `08`, `09`,
@@ -203,6 +239,27 @@ What follows from that, worth knowing before you start:
 - **Every downstream number changes**, including ones that do not mention the new term: a
   register or set that the term joins is recounted, and so is anything measured against the
   corpus as a whole.
+- **Measure the change before you commit it.** `data/` is not in the repository, but the
+  corpus is a parquet file and `lib.lexicon.apply` is one call: applying the edited
+  lexicon to `speeches_norm.parquet` in a throwaway script says exactly what moved, per
+  term and per register, and costs a few minutes. Lexicon v4 was measured that way and its
+  table is in [`../docs/VALIDATION.md`](../docs/VALIDATION.md). A version bump recorded
+  without its numbers leaves the reader of the register to take the change on trust.
+- **Narrowing a term is expensive; subtracting one is free.** Editing a `pattern` moves
+  every occurrence identity that term enumerates, and `15` then refuses every committed
+  model run recorded against an older version. When what you want is a different
+  *published figure* rather than a different *occurrence*, declare a **derived measure**
+  in the `derived` block instead: `from` a term, `minus` one or more terms declared
+  `nested_under` it, and `lib/lexicon.py::apply` writes `n_<name>` and `has_<name>` as the
+  subtraction. That is how v4 took the actor label out of the headline without touching
+  `genocide`'s pattern. A derived measure has no pattern, enumerates no occurrence, gets
+  no concordance file and enters no register or total roll-up; it is a statement about a
+  figure, and the subtraction is only sound where the subtrahends partition the minuend,
+  which the tests assert and `apply` re-checks at runtime.
+- **A new `register` needs a hue.** `web/src/lib/theme.ts::REGISTER_ORDER` and the
+  `--reg-*` custom properties in `web/src/app.css` are the two places that decide it;
+  without an entry a register falls back to ink and collides with `core`. This is the one
+  lexicon edit the dashboard does not absorb by itself.
 - **Existing annotations do not carry over automatically across an incompatible pattern
   change.** That is the A2 rule in
   [`../docs/IMPROVEMENT_ROADMAP.md`](../docs/IMPROVEMENT_ROADMAP.md): an occurrence ID is
@@ -230,17 +287,18 @@ What follows from that, worth knowing before you start:
 | [`lib/artifacts.py`](lib/artifacts.py) | Atomic files/directories, hashes and provenance manifests. |
 | [`lib/contract.py`](lib/contract.py) | The payload's shape, and whether it still has it. Enforced at the export seam. |
 | [`lib/frames.py`](lib/frames.py) | Parquet read/write; `body()` reconstructs a speech minus its form of address. |
-| [`lib/text.py`](lib/text.py) | Line endings, the opening form of address, delivery language, case collisions. |
+| [`lib/text.py`](lib/text.py) | Line endings, the opening form of address, delivery language, sentence segmentation, case collisions. |
 | [`lib/language.py`](lib/language.py) | Explicit, inferred and unknown delivery-language policy. |
 | [`lib/entities.py`](lib/entities.py) | The `country_org` crosswalk: aliases in, type/ISO3/centroid out. |
 | [`lib/council.py`](lib/council.py) | Council membership by year; the P5 / E10 / non-member / UN / non-state split. |
-| [`lib/lexicon.py`](lib/lexicon.py) | Loads, compiles and counts `config/lexicon.yml`. |
-| [`lib/series.py`](lib/series.py) | Periods, denominators, rates with their Wilson 95% bounds, breakdowns; change-point detection with a meeting-block null (`meeting_blocks`, `rate_change_point`); the event overlay. |
+| [`lib/lexicon.py`](lib/lexicon.py) | Loads, compiles and counts `config/lexicon.yml`; `Term.spans` applies a term's whole rule, pattern and sentence anchor together. |
+| [`lib/series.py`](lib/series.py) | Periods, denominators (words, not the codebook's tokens), rates with their Wilson 95% bounds, breakdowns; change-point detection with a meeting-block null (`meeting_blocks`, `rate_change_point`); the event overlay. |
 | [`lib/actors.py`](lib/actors.py) | Per-speaker aggregation over `lib/series.py`'s arithmetic; the minimum-sample rule; ISO3 collisions and what may be mapped. |
-| [`lib/kwic.py`](lib/kwic.py) | Sentence segmentation for the genre, and concordance-line extraction. |
+| [`lib/kwic.py`](lib/kwic.py) | Concordance-line extraction; re-exports the sentence segmentation it used to own. |
 | [`lib/occurrences.py`](lib/occurrences.py) | One enumeration of a term's occurrences, carrying both the audit `occurrence_id` and the KWIC line id; 13, 14 and 15 share it. |
-| [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: prompt parsing, request building, response validation against the codebook's vocabularies, evidence-quote location, resume rules. No network, no SDK import at module level. |
-| [`lib/usage.py`](lib/usage.py) | Aggregation for the usage layer: eligible/assigned funnel, the actor × referent matrix, withholding, and the human/model agreement arithmetic. |
+| [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: prompt parsing, request building, response validation against the codebook's vocabularies, evidence-quote location in three passes (exact, whitespace-collapsed, then folded and flagged `evidence_relocated`), resume rules. No network, no SDK import at module level. |
+| [`lib/annotate.py`](lib/annotate.py) | What 14 and 16 do identically: one enumeration of the population, the output ceiling, the manifest and its refusals. Neither SDK is imported here. |
+| [`lib/usage.py`](lib/usage.py) | Aggregation for the usage layer: eligible/assigned funnel, the actor × referent matrix, withholding, and the agreement arithmetic — kappa with its withholding rule, PABAK, Krippendorff's α under MASI, per-label kappa, the per-class support floor. |
 | [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood as a floor with log ratio and logDice as the rank, dispersion (documents, meetings, DP), matched controls, PMI with definitional pairs suppressed. |
 | [`lib/keyness.py`](lib/keyness.py) | One speaker against the room: the corpus as a count matrix, the strata, the two gates, agenda composition. |
 | [`lib/embeddings.py`](lib/embeddings.py) | The model registry, the chunking policy for long speeches, pooling, neighbours. |

@@ -21,6 +21,10 @@
   },
   "measures": {
    "*": {
+    "derived_from?": "str",
+    "derived_minus?": [
+     "str"
+    ],
     "kind": "str",
     "members?": [
      "str"
@@ -38,13 +42,14 @@
       "speeches": "int",
       "sufficient": "bool",
       "token_rate?": "float|null",
-      "tokens": "int"
+      "words": "int"
      }
     ],
     "tier?": "str"
    }
   },
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -73,7 +78,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   },
   "minimum_speeches": "int",
   "minimum_speeches_rule": "str",
@@ -87,7 +92,7 @@
     "speakers_at_minimum": "int",
     "speeches": "int",
     "speeches_at_minimum": "int",
-    "tokens": "int"
+    "words": "int"
    }
   ],
   "rate_per_tokens": "int",
@@ -216,6 +221,489 @@
   "speakers_total": "int",
   "speakers_withheld": "int",
   "unmatched_rule": "str"
+ },
+ "frames/frames.json": {
+  "by_year": {
+   "frames": {
+    "accountability": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "acts_of": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "atrocity_triad": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "commemoration": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "crime_of": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "denial_or_ideology": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "directed_against": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "distancing": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "intent_or_definition": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "legal_instrument": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "mandate_or_office": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "named_case": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "occurrence": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "perpetration": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "prevention": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "qualification": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "risk_or_threat": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    },
+    "unframed": {
+     "occurrences": [
+      "int"
+     ],
+     "share": [
+      "float|null"
+     ],
+     "share_high": [
+      "float|null"
+     ],
+     "share_low": [
+      "float|null"
+     ]
+    }
+   },
+   "minimum_occurrences": "int",
+   "occurrences": [
+    "int"
+   ],
+   "years": [
+    "int"
+   ]
+  },
+  "change": {
+   "caveat": "str",
+   "correction": "str",
+   "familywise_alpha": "float",
+   "method": "str",
+   "minimum_occurrences": "int",
+   "null": "str",
+   "per_test_alpha": "float",
+   "tested": [
+    {
+     "frame": "str",
+     "occurrences": "int",
+     "result": {
+      "accepted": "bool",
+      "after": "float",
+      "after_ci95": [
+       "float"
+      ],
+      "alpha": "float",
+      "before": "float",
+      "before_ci95": [
+       "float"
+      ],
+      "blocks": "int",
+      "counts": [
+       "int"
+      ],
+      "exposure": [
+       "int"
+      ],
+      "family": "str",
+      "gain": "float",
+      "index": "int",
+      "label": "str",
+      "null": "str",
+      "p_value": "float",
+      "p_value_independent": "float",
+      "ratio": "float"
+     }
+    }
+   ],
+   "trials": "int"
+  },
+  "codebook": [
+   {
+    "cased_pattern": "null|str",
+    "example": "str",
+    "example_line": "str",
+    "frame": "str",
+    "gloss": "str",
+    "pattern": "str",
+    "precedence": "int"
+   }
+  ],
+  "denominator_rule": "str",
+  "meta": {
+   "analysis_hash": "str",
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "frames": "int",
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "script": "str",
+   "seed": "int",
+   "term": "str",
+   "trials": "int",
+   "window": "int"
+  },
+  "minimum_occurrences": "int",
+  "minimum_occurrences_rule": "str",
+  "morphology": {
+   "categories": [
+    {
+     "category": "str",
+     "occurrences": "int"
+    }
+   ],
+   "forms": [
+    {
+     "category": "str",
+     "form": "str",
+     "occurrences": "int"
+    }
+   ],
+   "rule": "str"
+  },
+  "occurrences": "int",
+  "pattern": "str",
+  "precedence_rule": "str",
+  "slices": {
+   "period": [
+    {
+     "frames": [
+      {
+       "frame": "str",
+       "occurrences": "int",
+       "share": "float",
+       "share_high": "float",
+       "share_low": "float"
+      }
+     ],
+     "member": "str",
+     "occurrences": "int",
+     "sufficient": "bool"
+    }
+   ],
+   "speaker_group": [
+    {
+     "frames": [
+      {
+       "frame": "str",
+       "occurrences": "int",
+       "share": "float",
+       "share_high": "float",
+       "share_low": "float"
+      }
+     ],
+     "member": "str",
+     "occurrences": "int",
+     "sufficient": "bool"
+    }
+   ]
+  },
+  "speeches": "int",
+  "term": "str",
+  "totals": {
+   "frames": [
+    {
+     "frame": "str",
+     "matched": "int",
+     "occurrences": "int",
+     "share": "float",
+     "share_high": "float",
+     "share_low": "float"
+    }
+   ],
+   "frames_per_occurrence": [
+    {
+     "matched": "int",
+     "occurrences": "int"
+    }
+   ]
+  },
+  "triangulation": {
+   "rule": "str",
+   "runs": [
+    {
+     "coverage": "float",
+     "function": {
+      "field": "str",
+      "labels": [
+       "str"
+      ],
+      "multi_label": "bool",
+      "rows": [
+       {
+        "counts": [
+         {
+          "label": "str",
+          "occurrences": "int"
+         }
+        ],
+        "frame": "str",
+        "modal_label": "str",
+        "modal_share": "float",
+        "occurrences": "int",
+        "row_total": "int"
+       }
+      ]
+     },
+     "matched": "int",
+     "model": "str",
+     "rows": "int",
+     "run_id": "str",
+     "stance": {
+      "field": "str",
+      "labels": [
+       "str"
+      ],
+      "multi_label": "bool",
+      "rows": [
+       {
+        "counts": [
+         {
+          "label": "str",
+          "occurrences": "int"
+         }
+        ],
+        "frame": "str",
+        "modal_label": "str",
+        "modal_share": "float",
+        "occurrences": "int",
+        "row_total": "int"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  "unframed_rule": "str",
+  "window": "int"
  },
  "kwic/genocide.json": {
   "count": "int",
@@ -1044,12 +1532,13 @@
    "speeches": [
     "int"
    ],
-   "tokens": [
+   "words": [
     "int"
    ]
   },
   "freq": "str",
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -1076,7 +1565,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   },
   "periods": [
    "int"
@@ -1127,6 +1616,10 @@
   },
   "terms": {
    "*": {
+    "derived_from?": "str",
+    "derived_minus?": [
+     "str"
+    ],
     "occurrences": [
      "int"
     ],
@@ -1265,6 +1758,7 @@
    }
   },
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -1291,7 +1785,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   }
  },
  "series/change_points.json": {
@@ -1364,6 +1858,7 @@
    "trials": "int"
   },
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -1390,7 +1885,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   },
   "method": "str",
   "parameters": {
@@ -1458,6 +1953,7 @@
    }
   ],
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -1484,7 +1980,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   }
  },
  "series/monthly.json": {
@@ -1495,7 +1991,7 @@
    "speeches": [
     "int"
    ],
-   "tokens": [
+   "words": [
     "int"
    ]
   },
@@ -1511,6 +2007,7 @@
   "freq": "str",
   "informative_zero_minimum": "int",
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -1537,7 +2034,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   },
   "minimum_speeches": "int",
   "minimum_speeches_rule": "str",
@@ -1584,7 +2081,7 @@
       "token_rate?": [
        "float"
       ],
-      "tokens": [
+      "words": [
        "int"
       ]
      },
@@ -1686,6 +2183,10 @@
   ],
   "terms": {
    "*": {
+    "derived_from?": "str",
+    "derived_minus?": [
+     "str"
+    ],
     "occurrences": [
      "int"
     ],
@@ -1720,12 +2221,13 @@
    "speeches": [
     "int"
    ],
-   "tokens": [
+   "words": [
     "int"
    ]
   },
   "freq": "str",
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -1752,7 +2254,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   },
   "periods": [
    "str"
@@ -1803,6 +2305,10 @@
   },
   "terms": {
    "*": {
+    "derived_from?": "str",
+    "derived_minus?": [
+     "str"
+    ],
     "occurrences": [
      "int"
     ],
@@ -1876,8 +2382,8 @@
     "role": "null",
     "speaker": "str",
     "text": "str",
-    "tokens": "int",
-    "type": "str"
+    "type": "str",
+    "words": "int"
    }
   ],
   "spv": "str",
@@ -1963,18 +2469,43 @@
     {
      "contested": "int",
      "field": "str",
-     "kappa": "float",
+     "kappa": "float|null",
+     "kappa_withheld": "bool",
+     "minority_share": "float",
      "n": "int",
-     "observed": "float"
+     "observed": "float",
+     "pabak": "float"
     }
    ],
+   "function_alpha_masi": "float|null",
    "function_contested": "int",
    "function_jaccard": "float|null",
+   "function_labels": [
+    {
+     "kappa": "float",
+     "label": "str",
+     "left": "int",
+     "observed": "float",
+     "right": "int"
+    }
+   ],
    "model": "str",
    "occurrences_annotated": "int",
    "overlap": "int",
    "prompt_sha256": "str",
    "reasoning_effort": "str",
+   "referents": [
+    {
+     "correct": "int",
+     "f1": "float|null",
+     "label": "str",
+     "measurable": "bool",
+     "precision": "float|null",
+     "predicted": "int",
+     "recall": "float|null",
+     "support": "int"
+    }
+   ],
    "run_date": "str",
    "run_id": "str",
    "state": "str"
@@ -2002,7 +2533,22 @@
    "adjudicated": "int",
    "coders": [],
    "double_coded": "int",
+   "frames": [
+    {
+     "coded": "int",
+     "frame": "str",
+     "occurrences": "int",
+     "rows": "int",
+     "weighted": "bool"
+    }
+   ],
    "human_agreement": [],
+   "human_function": {
+    "alpha_masi": "float|null",
+    "jaccard": "float|null",
+    "labels": [],
+    "n": "int"
+   },
    "model_vs_human": [],
    "model_vs_human_comparison": [],
    "sample_size": "int",
@@ -2012,6 +2558,7 @@
   "matrix": [
    {
     "actor": "str",
+    "contested": "int",
     "count": "int",
     "referent": "str",
     "stances": {
@@ -2074,6 +2621,7 @@
    "prompt_version": "str",
    "reasoning_effort": "str",
    "requests": "int",
+   "requests_recounted": "bool",
    "run_date": "str",
    "run_id": "str",
    "tokens": {
@@ -2092,10 +2640,36 @@
     "years": "str"
    }
   ],
+  "retest": [
+   {
+    "fields": [
+     {
+      "contested": "int",
+      "field": "str",
+      "kappa": "float|null",
+      "kappa_withheld": "bool",
+      "minority_share": "float",
+      "n": "int",
+      "observed": "float",
+      "pabak": "float"
+     }
+    ],
+    "function_jaccard": "float|null",
+    "identical": "int",
+    "model": "str",
+    "overlap": "int",
+    "retest_run_id": "str",
+    "run_id": "str",
+    "which": "str"
+   }
+  ],
   "stance_by_actor": [
    {
     "actor": "str",
     "eligible": "int",
+    "separated": "bool",
+    "share_high": "float|null",
+    "share_low": "float|null",
     "share_rejects": "float|null",
     "stances": {
      "asserts": "int",

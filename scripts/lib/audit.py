@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import date
 from pathlib import Path
 from typing import Final
@@ -156,6 +156,79 @@ def probability_sample(
         lambda value: candidate_id(str(value), sampling_frame)
     )
     return selected.sort_values(["term", "filename", "start"]).reset_index(drop=True)
+
+
+def stratified_sample(
+    frame: pd.DataFrame,
+    sizes: Mapping[str, int | None],
+    seed: int,
+    sampling_frame: str,
+    *,
+    stratum_column: str = "stratum",
+    strategy: str = "disproportionate stratified occurrence sample",
+) -> pd.DataFrame:
+    """A fixed number of occurrences from each named stratum, at its own probability.
+
+    :func:`probability_sample` gives every occurrence the same chance and is the
+    frame an unbiased estimate is computed from. This is the other kind: the
+    strata are chosen precisely because they are rare or contested, each is
+    sampled at a rate of its own, and the rates differ by two orders of
+    magnitude. Nothing drawn here estimates a corpus quantity, and the
+    `inclusion_probability` it records is what says so — a reader who wants an
+    estimate weights by it, and a reader who wants per-class recall on
+    `rejects_or_denies` reads the stratum unweighted and is right to.
+
+    `sizes` maps a stratum name to how many to draw from it, or to None for a
+    census — all of it, at probability 1, which is what a stratum of 134 rows
+    that the whole design exists to measure deserves. A stratum smaller than its
+    size is likewise taken whole; a stratum named in `sizes` and absent from the
+    frame contributes nothing and is not an error, because a design written
+    against two model runs must survive a run that found none of something.
+
+    Rows whose stratum is blank or absent from `sizes` are outside the frame and
+    are not drawn. The stratum column is expected to be *disjoint* — one stratum
+    per occurrence, assigned in a precedence the caller decides — because
+    overlapping strata make the inclusion probability of a row the union of
+    several draws, and nothing downstream could reconstruct it from what is
+    recorded here.
+    """
+    if frame["occurrence_id"].duplicated().any():
+        raise ValueError("A sampling frame may contain each occurrence only once.")
+    frame_digest = _digest(frame["occurrence_id"].astype(str).tolist())
+    selected: list[pd.DataFrame] = []
+    for name, size in sizes.items():
+        if size is not None and size < 1:
+            raise ValueError(f"Stratum {name!r} asks for {size} occurrences.")
+        stratum = frame.loc[frame[stratum_column].astype(str) == name]
+        if stratum.empty:
+            continue
+        population = len(stratum)
+        draw = population if size is None else min(size, population)
+        ranked = stratum.assign(
+            _draw=stratum["occurrence_id"].map(lambda value: _rank(str(value), seed))
+        ).sort_values(["_draw", "occurrence_id"])
+        chosen = ranked.head(draw).drop(columns="_draw").copy()
+        chosen["stratum_size"] = population
+        chosen["sample_size"] = draw
+        chosen["inclusion_probability"] = draw / population
+        chosen["sampling_weight"] = population / draw
+        selected.append(chosen)
+
+    if not selected:
+        return frame.iloc[0:0].copy()
+    sample = pd.concat(selected, ignore_index=True)
+    sample["sampling_frame"] = sampling_frame
+    sample["strategy"] = strategy
+    sample["seed"] = seed
+    sample["frame_size"] = len(frame)
+    sample["frame_sha256"] = frame_digest
+    sample["sample_sha256"] = _digest(
+        [sampling_frame, str(seed), frame_digest, *sample["occurrence_id"].astype(str).tolist()]
+    )
+    sample["candidate_id"] = sample["occurrence_id"].map(
+        lambda value: candidate_id(str(value), sampling_frame)
+    )
+    return sample.sort_values([stratum_column, "filename", "start"]).reset_index(drop=True)
 
 
 def coverage_sample(

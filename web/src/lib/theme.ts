@@ -70,7 +70,8 @@ export const REGISTER_ORDER = [
 	'preventive',
 	'commemorative',
 	'contentious',
-	'accountability'
+	'accountability',
+	'descriptive'
 ] as const;
 const REGISTERS: readonly string[] = REGISTER_ORDER;
 

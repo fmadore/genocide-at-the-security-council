@@ -63,7 +63,7 @@ function calendarBlock(extra: Partial<CalendarMeasure> = {}): CalendarMeasure {
 	return {
 		kind: 'terms',
 		held: twelve(8000),
-		tokens: twelve(5_000_000),
+		words: twelve(5_000_000),
 		speeches: twelve(200),
 		speech_rate: [0.02, 0.02, 0.02, 0.029, 0.02, 0.06, 0.023, 0.02, 0.02, 0.02, 0.02, 0.05],
 		sufficient: twelve(true),
@@ -71,7 +71,7 @@ function calendarBlock(extra: Partial<CalendarMeasure> = {}): CalendarMeasure {
 		token_rate: twelve(6),
 		excluding: {
 			held: twelve(7000),
-			tokens: twelve(4_000_000),
+			words: twelve(4_000_000),
 			speeches: twelve(180),
 			speech_rate: [0.02, 0.02, 0.02, 0.027, 0.02, 0.0587, 0.022, 0.02, 0.02, 0.02, 0.02, 0.05],
 			sufficient: twelve(true)
@@ -97,7 +97,7 @@ function payload(options: Partial<MonthlySeries> = {}): MonthlySeries {
 		periods: PERIODS,
 		corpus: {
 			speeches,
-			tokens: speeches.map((held) => held * 1000),
+			words: speeches.map((held) => held * 1000),
 			meetings: speeches.map(() => 12)
 		},
 		sufficient,
@@ -165,7 +165,7 @@ describe('the grid', () => {
 	it('separates a month nobody spoke in from one with too few speeches', () => {
 		const speeches = corpus(['1992-02'], ['1992-03']);
 		const plan = grid({
-			data: payload({ corpus: { speeches, tokens: speeches, meetings: speeches } }),
+			data: payload({ corpus: { speeches, words: speeches, meetings: speeches } }),
 			measure: 'genocide'
 		});
 		expect(at(plan, 1992, 2)?.state).toBe('withheld');
@@ -226,7 +226,7 @@ describe('the grid', () => {
 	it('reports that nothing is drawable rather than drawing an empty grid', () => {
 		const speeches = PERIODS.map(() => 10);
 		const plan = grid({
-			data: payload({ corpus: { speeches, tokens: speeches, meetings: speeches } }),
+			data: payload({ corpus: { speeches, words: speeches, meetings: speeches } }),
 			measure: 'genocide'
 		});
 		expect(plan.refusal).toBe('none-drawable');
@@ -361,7 +361,7 @@ describe('the evidence behind a square', () => {
 
 	it('offers nothing for a month nobody spoke in', () => {
 		const speeches = corpus(['1992-02'], ['1992-03']);
-		const data = payload({ corpus: { speeches, tokens: speeches, meetings: speeches } });
+		const data = payload({ corpus: { speeches, words: speeches, meetings: speeches } });
 		const cell = at(grid({ data, measure: 'genocide' }), 1992, 3)!;
 		expect(cell.state).toBe('unobserved');
 		expect(evidence(data, 'genocide', cell)).toEqual([]);

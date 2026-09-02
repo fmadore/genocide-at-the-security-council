@@ -51,25 +51,25 @@ def enumerate_term(speeches: pd.DataFrame, bodies: pd.Series, term: Term) -> lis
     """Every occurrence of ``term``, in speech order then match order.
 
     ``speeches`` needs ``filename`` and ``body_start``; ``bodies`` is the
-    matching series from :func:`lib.frames.body`. Matching runs on the body,
-    never the raw text, so a term inside a form of address cannot appear —
-    which is what keeps these rows equal in number to 03's ``n_<term>`` sums
-    and 08's line counts.
+    matching series from :func:`lib.frames.body`. Matching runs on the body
+    through `Term.spans`, never the raw text and never the bare regex, so a
+    term inside a form of address cannot appear and an anchored term yields
+    only the occurrences its anchor kept — which is what keeps these rows equal
+    in number to 03's ``n_<term>`` sums and 08's line counts.
     """
     if missing := sorted({"filename", "body_start"} - set(speeches.columns)):
         raise KeyError(f"enumerate_term() needs columns: {', '.join(missing)}")
 
     found: list[Occurrence] = []
     for index, body in bodies.items():
-        matches = list(term.regex.finditer(body))
+        matches = term.spans(body)
         if not matches:
             continue
         filename = str(speeches.at[index, "filename"])
         body_start = int(speeches.at[index, "body_start"])
         stem = filename.removesuffix(".txt")
         digest = audit.source_sha256(body)
-        for ordinal, match in enumerate(matches, start=1):
-            start, end = match.span()
+        for ordinal, (start, end) in enumerate(matches, start=1):
             _, keyword, _ = text_lib.window(body, start, end)
             found.append(
                 Occurrence(

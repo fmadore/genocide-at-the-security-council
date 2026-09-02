@@ -76,7 +76,7 @@ COLUMNS = [
     # inputs 02 had to do it: entity_type is how the UN Secretariat is told from
     # a state that happens never to have sat.
     "entity_type",
-    "tokens",
+    "words",
     "text",
     "body_start",
     # The unit of dispersion: a keyword's distinct meetings are counted from it.

@@ -33,12 +33,14 @@ import {
 	drillDown,
 	emptyStances,
 	goldProgress,
+	isInstrumentDependent,
 	matrixExportRows,
 	matrixPlan,
 	milestoneLabel,
 	milestoneRank,
 	orderReferents,
 	readUsageState,
+	retestRows,
 	selectUsage,
 	stanceExportRows,
 	stanceLabel,
@@ -72,6 +74,7 @@ const model: Usage['model'] = {
 	prompt_sha256: 'a'.repeat(64),
 	reasoning_effort: 'high',
 	requests: 3273,
+	requests_recounted: true,
 	occurrences_total: 6092,
 	occurrences_annotated: 6092,
 	parse_failures: 0,
@@ -86,7 +89,9 @@ const gold: Usage['gold'] = {
 	coders: [],
 	double_coded: 0,
 	adjudicated: 0,
+	frames: [],
 	human_agreement: [],
+	human_function: { n: 0, jaccard: null, alpha_masi: null, labels: [] },
 	model_vs_human: [],
 	model_vs_human_comparison: [],
 	state: 'not_started'
@@ -105,10 +110,32 @@ const noComparison: Usage['comparison'] = {
 	evidence_invalid: 0,
 	abstention: { verdict_uncertain: 0, referent_unclear: 0, stance_unclear: 0 },
 	fields: [],
+	referents: [],
 	function_jaccard: null,
+	function_alpha_masi: null,
+	function_labels: [],
 	function_contested: 0,
 	contested_any: 0
 };
+
+/** One compared field, with the three statistics 15 now writes beside kappa. */
+const field = (
+	name: string,
+	observed: number,
+	kappa: number | null,
+	contested: number,
+	extra: Partial<Usage['comparison']['fields'][number]> = {}
+): Usage['comparison']['fields'][number] => ({
+	field: name,
+	n: 5800,
+	observed,
+	kappa,
+	kappa_withheld: kappa === null,
+	minority_share: kappa === null ? 0.001 : 0.4,
+	pabak: 2 * observed - 1,
+	contested,
+	...extra
+});
 
 /** A second model over the same occurrences, agreeing on some of them. */
 const comparison = (overrides: Partial<Usage['comparison']> = {}): Usage['comparison'] => ({
@@ -126,10 +153,10 @@ const comparison = (overrides: Partial<Usage['comparison']> = {}): Usage['compar
 	evidence_invalid: 4,
 	abstention: { verdict_uncertain: 3, referent_unclear: 11, stance_unclear: 7 },
 	fields: [
-		{ field: 'verdict', n: 5800, observed: 0.99, kappa: null, contested: 58 },
-		{ field: 'quotation', n: 5800, observed: 0.94, kappa: 0.81, contested: 348 },
-		{ field: 'stance', n: 5800, observed: 0.86, kappa: 0.74, contested: 812 },
-		{ field: 'referent', n: 5800, observed: 0.91, kappa: 0.88, contested: 522 }
+		field('verdict', 0.99, null, 58),
+		field('quotation', 0.94, 0.81, 348),
+		field('stance', 0.86, 0.74, 812),
+		field('referent', 0.91, 0.88, 522)
 	],
 	function_jaccard: 0.72,
 	function_contested: 1204,
@@ -168,11 +195,13 @@ const cell = (
 	actorName: string,
 	referentId: string,
 	count: number,
-	partial: Partial<StanceCounts> = {}
+	partial: Partial<StanceCounts> = {},
+	contested = 0
 ): UsageMatrixCell => ({
 	actor: actorName,
 	referent: referentId,
 	count,
+	contested,
 	stances: stances(partial)
 });
 
@@ -261,18 +290,25 @@ const corpus = (overrides: Partial<Usage> = {}): Usage => ({
 			eligible: 8,
 			sufficient: true,
 			stances: stances({ asserts: 5, rejects_or_denies: 2, unclear: 1 }),
-			share_rejects: 0.25
+			share_rejects: 0.25,
+			share_low: null,
+			share_high: null,
+			separated: false
 		},
 		{
 			actor: 'Bravo',
 			eligible: 3,
 			sufficient: false,
 			stances: stances({ asserts: 3 }),
-			share_rejects: null
+			share_rejects: null,
+			share_low: null,
+			share_high: null,
+			separated: false
 		}
 	],
 	diffusion,
 	comparison: noComparison,
+	retest: [],
 	gold,
 	...overrides
 });
@@ -616,31 +652,42 @@ describe('moving through the matrix from the keyboard', () => {
 });
 
 describe('who rejects the word', () => {
-	it('ranks only the shares the artefact published, most rejecting first', () => {
+	it('orders only the shares the artefact published, and leaves out the rest', () => {
 		const rows: UsageStanceRow[] = [
 			{
 				actor: 'Alpha',
 				eligible: 8,
 				sufficient: true,
 				stances: stances({ asserts: 5, rejects_or_denies: 2, unclear: 1 }),
-				share_rejects: 0.25
+				share_rejects: 0.25,
+				share_low: null,
+				share_high: null,
+				separated: false
 			},
 			{
 				actor: 'Delta',
 				eligible: 10,
 				sufficient: true,
 				stances: stances({ asserts: 5, rejects_or_denies: 5 }),
-				share_rejects: 0.5
+				share_rejects: 0.5,
+				share_low: null,
+				share_high: null,
+				separated: false
 			},
 			{
 				actor: 'Bravo',
 				eligible: 3,
 				sufficient: false,
 				stances: stances({ asserts: 3 }),
-				share_rejects: null
+				share_rejects: null,
+				share_low: null,
+				share_high: null,
+				separated: false
 			}
 		];
 		const result = stanceRanking(corpus({ stance_by_actor: rows }));
+		// Neither clears the corpus rate, so the two are ordered by rejection
+		// count and the order is not a claim that one rejects more than the other.
 		expect(result.rows.map((row) => row.actor)).toEqual(['Delta', 'Alpha']);
 		// Not ranked low; not ranked. A null read through `?? 0` would put every
 		// rarely-heard delegation at the foot of a ranking of rejection.
@@ -658,7 +705,10 @@ describe('who rejects the word', () => {
 						eligible: 9,
 						sufficient: true,
 						stances: stances({ asserts: 9 }),
-						share_rejects: null
+						share_rejects: null,
+						share_low: null,
+						share_high: null,
+						separated: false
 					}
 				]
 			})
@@ -1435,7 +1485,17 @@ describe('the gold sample’s own state', () => {
 						{ coder: 'JG', rows: 40 }
 					],
 					double_coded: 40,
-					human_agreement: [{ field: 'stance', observed: 0.83, kappa: 0.71, n: 40 }]
+					human_agreement: [
+						{
+							field: 'stance',
+							observed: 0.83,
+							kappa: 0.71,
+							kappa_withheld: false,
+							minority_share: 0.4,
+							pabak: 0.66,
+							n: 40
+						}
+					]
 				}
 			})
 		);
@@ -1485,5 +1545,203 @@ describe('what leaves in a file', () => {
 		expect(rows[0]).toHaveLength(STANCE_COLUMNS.length);
 		expect(rows[1][STANCE_COLUMNS.indexOf('share_rejects')]).toBeNull();
 		expect(rows[0][STANCE_COLUMNS.indexOf('stance_rejects_or_denies')]).toBe(2);
+	});
+});
+
+describe('what a second instrument does to the figures', () => {
+	it('carries a contested count and share into every drawn cell', () => {
+		const plan = matrixPlan(
+			corpus({
+				matrix: [
+					cell('Alpha', 'rwanda_1994', 4, { asserts: 4 }, 1),
+					cell('Alpha', 'bosnia', 2, { asserts: 2 }, 0)
+				],
+				comparison: comparison()
+			}),
+			USAGE_DEFAULTS
+		);
+		const cells = plan.rows[0].cells;
+		const rwanda = cells.find((entry) => entry.referent === 'rwanda_1994');
+		const bosnia = cells.find((entry) => entry.referent === 'bosnia');
+		expect(rwanda?.contested).toBe(1);
+		expect(rwanda?.contestedShare).toBe(0.25);
+		expect(bosnia?.contestedShare).toBe(0);
+		// An empty cell has no share to state rather than a zero one.
+		const empty = cells.find((entry) => entry.count === 0);
+		expect(empty?.contestedShare ?? null).toBeNull();
+	});
+
+	it('publishes PABAK beside a withheld kappa and says which it was', () => {
+		const apparatus = comparisonApparatus(corpus({ comparison: comparison() }));
+		const verdict = apparatus.fields.find((row) => row.field === 'verdict');
+		const stance = apparatus.fields.find((row) => row.field === 'stance');
+		expect(verdict?.kappaText).toBe('—');
+		expect(verdict?.kappaWithheld).toBe(true);
+		// 2 * 0.99 - 1 = 0.98, the prevalence-adjusted figure the fixture carries.
+		expect(verdict?.pabakText).toBe('0.98');
+		// A field with information in both margins keeps its kappa and is not
+		// reported as withheld, which is a different finding from undefined.
+		expect(stance?.kappaWithheld).toBe(false);
+		expect(stance?.kappaText).toBe('0.74');
+	});
+
+	it('reads the multi-label field through alpha as well as through overlap', () => {
+		const apparatus = comparisonApparatus(
+			corpus({
+				comparison: comparison({
+					function_alpha_masi: 0.61,
+					function_labels: [
+						{ label: 'accountability', left: 10, right: 12, observed: 0.9, kappa: 0.78 },
+						{ label: 'commemoration', left: 4, right: 4, observed: 1, kappa: null }
+					]
+				})
+			})
+		);
+		expect(apparatus.functionJaccardText).toBe('0.72');
+		expect(apparatus.functionAlphaText).toBe('0.61');
+		expect(apparatus.functionLabels.map((row) => row.kappaText)).toEqual(['0.78', '—']);
+	});
+
+	it('names the two labels whose count is partly a property of the instrument', () => {
+		expect(isInstrumentDependent('attributes_or_reports')).toBe(true);
+		expect(isInstrumentDependent('attributed_or_reported')).toBe(true);
+		expect(isInstrumentDependent('asserts')).toBe(false);
+		expect(isInstrumentDependent('rejects_or_denies')).toBe(false);
+	});
+
+	it('lays each model against another call of itself', () => {
+		const rows = retestRows(
+			corpus({
+				comparison: comparison(),
+				retest: [
+					{
+						which: 'published',
+						model: model.id,
+						run_id: model.run_id,
+						retest_run_id: '2026-08-30-luna-pilot',
+						overlap: 91,
+						fields: [field('stance', 0.945, 0.885, 5)],
+						function_jaccard: 0.886,
+						identical: 69
+					}
+				]
+			})
+		);
+		expect(rows).toHaveLength(1);
+		expect(rows[0].retestRunId).toBe('2026-08-30-luna-pilot');
+		// 69 of 91: about a quarter of one model's own labels move between two
+		// calls, which is what the cross-model column has to be read against.
+		expect(rows[0].identicalShare).toBeCloseTo(69 / 91, 6);
+		expect(rows[0].fields[0].observedText).toBe('94.50%');
+		expect(retestRows(corpus({}))).toEqual([]);
+	});
+
+	it('withholds a chronology for a referent the two instruments read differently', () => {
+		const unstable = corpus({
+			comparison: comparison({
+				referents: [
+					{
+						label: 'rwanda_1994',
+						precision: 0.6,
+						recall: 0.62,
+						f1: 0.61,
+						support: 120,
+						predicted: 118,
+						correct: 72,
+						measurable: true
+					}
+				]
+			})
+		});
+		const plan = diffusionPlan(unstable, { ...USAGE_DEFAULTS, referent: 'rwanda_1994' });
+		expect(plan.refusal).toBe('unstable-referent');
+		expect(plan.reliability).toBe(0.61);
+		// The picker still offers every referent, so the reader can move on.
+		expect(plan.options.length).toBeGreaterThan(0);
+	});
+
+	it('draws a chronology where the two instruments hold together', () => {
+		const stable = corpus({
+			comparison: comparison({
+				referents: [
+					{
+						label: 'rwanda_1994',
+						precision: 0.94,
+						recall: 0.95,
+						f1: 0.945,
+						support: 120,
+						predicted: 121,
+						correct: 114,
+						measurable: true
+					}
+				]
+			})
+		});
+		const plan = diffusionPlan(stable, { ...USAGE_DEFAULTS, referent: 'rwanda_1994' });
+		expect(plan.refusal).toBeNull();
+	});
+
+	it('draws every chronology where no second instrument was asked', () => {
+		// The withholding is a statement about two readings. With one reading
+		// there is nothing to withhold on, and a blank figure would say the
+		// opposite of what the empty comparison block means.
+		const plan = diffusionPlan(corpus({}), { ...USAGE_DEFAULTS, referent: 'rwanda_1994' });
+		expect(plan.refusal).toBeNull();
+	});
+});
+
+describe('who rejects the word, ordered by what can be ordered', () => {
+	const rows: UsageStanceRow[] = [
+		{
+			actor: 'Sudan',
+			eligible: 43,
+			sufficient: true,
+			stances: stances({ asserts: 24, rejects_or_denies: 19 }),
+			share_rejects: 0.441,
+			share_low: 0.304,
+			share_high: 0.589,
+			separated: true
+		},
+		{
+			actor: 'Kenya',
+			eligible: 24,
+			sufficient: true,
+			stances: stances({ asserts: 23, rejects_or_denies: 1 }),
+			share_rejects: 0.042,
+			share_low: 0.007,
+			share_high: 0.202,
+			separated: false
+		},
+		{
+			actor: 'China',
+			eligible: 29,
+			sufficient: true,
+			stances: stances({ asserts: 27, rejects_or_denies: 2 }),
+			share_rejects: 0.069,
+			share_low: 0.019,
+			share_high: 0.222,
+			separated: false
+		}
+	];
+
+	it('puts the separated rows first and does not rank the rest by share', () => {
+		const result = stanceRanking(corpus({ stance_by_actor: rows, minimum_occurrences: 20 }));
+		// Sudan clears the corpus rate. China's 6.9% is higher than Kenya's 4.2%
+		// and both intervals cover 1.7%, so the two are ordered by count and the
+		// order is not a claim that one rejects more often than the other.
+		expect(result.rows.map((row) => row.actor)).toEqual(['Sudan', 'China', 'Kenya']);
+		expect(result.rows.map((row) => row.separated)).toEqual([true, false, false]);
+		expect(result.rows[0].rejects).toBe(19);
+		expect(result.rows[0].intervalText).toBe('30.40%–58.90%');
+	});
+
+	it('writes a dash where the artefact recorded no interval', () => {
+		const result = stanceRanking(
+			corpus({
+				minimum_occurrences: 20,
+				stance_by_actor: [{ ...rows[0], share_low: null, share_high: null, separated: false }]
+			})
+		);
+		expect(result.rows[0].intervalText).toBe('—');
 	});
 });

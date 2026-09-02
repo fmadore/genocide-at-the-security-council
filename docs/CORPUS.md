@@ -84,7 +84,8 @@ the 1990s and early 2000s. Any lexical measurement must account for it: counts a
 | Speeches | 106,302 | **106,302** ✅ |
 | Meetings | 6,233 | **6,582** distinct `S/PV.*` symbols ⚠️ |
 | Documents (resumptions included) | — | **6,595** |
-| Tokens | 66,392,703 | **66,392,703** ✅ (sum of `tokens`, after repair) |
+| Tokens (codebook) | 66,392,703 | **66,392,703** ✅ (sum of `tokens`, after repair) |
+| Words in the speech bodies | — | **58,904,180** (`lib/lexical.py::TOKEN_RE`, the denominator of every rate) |
 | Period | 1992-01-06 → 2023-12-30 | ✅ identical |
 | Raw text characters | — | 388.8 M |
 
@@ -223,7 +224,7 @@ Findings worth knowing, since they frame how the corpus can be read:
 - **Three growth regimes.** 1,023 speeches in 1992 → 7,621 in 2023 (×7.4). Plateaus:
   1992-1999 (~1,400/yr), 2000-2004 (>2,500), 2005-2007 (dip), 2008-2013 (~3,000), a break
   in 2014 (4,769) then continuous growth. Covid dip in 2020.
-  **Every time series must be normalised** (rate per speech or per 100k tokens), otherwise
+  **Every time series must be normalised** (rate per speech or per 100k words), otherwise
   you are measuring corpus growth.
 - **The P5 does not dominate.** From 2014 onward the rise in total volume is not matched by
   the P5's share: it comes from the E10 and from guests at open debates.
@@ -241,68 +242,113 @@ Findings worth knowing, since they frame how the corpus can be read:
 
 ## 8. First findings — the semantic field of genocide
 
-This section began as a reconnaissance scan. The table is now aligned with lexicon v3 (the
-run of 2 September 2026; the v2 readings and what moved between them are in
+This section began as a reconnaissance scan. The table is now aligned with lexicon v4 (2
+September 2026, measured on `speeches_norm.parquet`; what moved between v2, v3 and v4 is in
 [`VALIDATION.md`](VALIDATION.md)); generated artifacts and that register remain the
 authority if a future lexicon version changes these figures.
 
-Scan across all 106,302 speeches (case-insensitive regex; total occurrences).
+Every active term, across all 106,302 speeches (case-insensitive regex; total occurrences).
+Seven terms are **anchored**: they are counted only where the sentence holding the match
+also says `genocid*`, which is why `commemoration` and `survivors` are so much smaller here
+than a scan for those words would suggest. `config/lexicon.yml` says of each one why.
 
-| Term | Speeches | % corpus | Occurrences |
-|---|---:|---:|---:|
-| `impunity` | 9,662 | 9.09% | 13,616 |
-| `international criminal court` / `ICC` | 4,766 | 4.48% | 12,476 |
-| `war crime(s)` | 4,664 | 4.39% | 6,588 |
-| `atrocity` / `atrocities` | 4,244 | 3.99% | 6,120 |
-| `crimes against humanity` | 3,465 | 3.26% | 4,136 |
-| **`genocid*`** | **3,273** | **3.08%** | **6,092** |
-| `responsibility to protect` / `R2P` | 1,353 | 1.27% | 1,795 |
-| `ethnic cleansing` | 1,229 | 1.16% | 1,705 |
-| `mass atrocity` / `mass atrocities` | 624 | 0.59% | 784 |
-| `ethnic hatred/violence/conflict` | 477 | 0.45% | 523 |
-| `never again` | 305 | 0.29% | 338 |
-| `exterminat*` | 224 | 0.21% | 281 |
-| `holocaust` / `shoah` | 181 | 0.17% | 244 |
-| `genocide convention` | 135 | 0.13% | 153 |
+| Term | Register | Speeches | % corpus | Occurrences |
+|---|---|---:|---:|---:|
+| `impunity` | accountability | 9,662 | 9.09% | 13,616 |
+| `tribunals` | accountability | 2,626 | 2.47% | 13,030 |
+| `icc` | accountability | 4,766 | 4.48% | 12,476 |
+| `war_crimes` | legal | 4,664 | 4.39% | 6,588 |
+| `atrocity` | legal | 4,244 | 3.99% | 6,120 |
+| `genocide` | core | 3,273 | 3.08% | 6,092 |
+| `crimes_against_humanity` | legal | 3,465 | 3.26% | 4,136 |
+| `icj` | accountability | 1,447 | 1.36% | 2,399 |
+| `massacre` | descriptive | 1,588 | 1.49% | 2,313 |
+| `early_warning` | preventive | 1,606 | 1.51% | 1,960 |
+| `responsibility_to_protect` | preventive | 1,353 | 1.27% | 1,795 |
+| `ethnic_cleansing` | legal | 1,229 | 1.16% | 1,705 |
+| `mass_atrocity` | legal | 624 | 0.59% | 784 |
+| `never_again` | commemorative | 305 | 0.29% | 338 |
+| `commemoration` ⚓ | commemorative | 199 | 0.19% | 321 |
+| `extermination` | legal | 224 | 0.21% | 281 |
+| `denial` ⚓ | contentious | 186 | 0.17% | 269 |
+| `holocaust` | commemorative | 175 | 0.16% | 238 |
+| `prevention_of_genocide` | preventive | 212 | 0.20% | 237 |
+| `mass_killing` | descriptive | 149 | 0.14% | 158 |
+| `genocide_convention` | legal | 135 | 0.13% | 153 |
+| `survivors` ⚓ | commemorative | 73 | 0.07% | 106 |
+| `glorification` ⚓ | contentious | 93 | 0.09% | 103 |
+| `incitement` ⚓ | preventive | 47 | 0.04% | 49 |
+| `genocidal_ideology` | contentious | 30 | 0.03% | 39 |
+| `genocidaires` | core | 21 | 0.02% | 31 |
+| **`genocide_qualification`** (derived) | **core** | **3,268** | **3.07%** | **6,061** |
+| `intent_to_destroy` ⚓ | legal | 16 | 0.02% | 23 |
+| `ethnic_violence` ⚓ | contentious | 13 | 0.01% | 13 |
+
+⚓ marks an anchored term. **`genocide_qualification` is derived, not matched**: it is
+`genocide` minus `genocidaires`, and it is the figure the chronology, the change-point
+tests and the actor table publish, because a delegation calling the ex-FAR
+*génocidaires* is naming who did it rather than qualifying the event. The raw term is
+published beside it and is what the concordance enumerates; `genocidaires` has its own 31
+lines. The `genocide` pattern is deliberately unchanged at v4, so every occurrence
+identity, the gold sample and the four committed model runs stand — see
+[`VALIDATION.md`](VALIDATION.md).
 
 Forms of `genocid*`: `genocide` (5,685), `genocidal` (313), `genocides` (62),
-`genocidaires` (29), `genocidaire` (2), `genocida` (1). Marginal OCR variants (`genecide`)
-should be caught by a tolerant regex.
+`genocidaires` (29), `genocidaire` (2), `genocida` (1), summing to the term's 6,092. The
+two `genocidaire` spellings, 31 occurrences, are what `genocide_qualification` subtracts,
+and §8.7 sorts every form into noun, adjective and perpetrator noun and says why the last
+of the three is counted apart. Marginal OCR variants (`genecide`) should be caught by a
+tolerant regex; the French `génocidaires` occurs 8 further times and is outside both
+patterns on purpose.
 
 **Available subsets**
 
-| Criterion | Speeches | Tokens |
-|---|---:|---:|
-| ≥ 1 occurrence of `genocid*` | 3,273 | 3,483,289 |
-| ≥ 2 occurrences | 1,061 | 1,264,919 |
-| ≥ 3 occurrences | 518 | 685,911 |
-| ≥ 5 occurrences | 208 | 302,824 |
-| Atrocity core (genocide ∪ ethnic cleansing ∪ CAH ∪ war crimes ∪ mass atrocity) | 7,814 | — |
-| Active lexicon (22 terms) | 23,271 | — |
+Words, not codebook tokens: since 2 September 2026 every denominator in this repository is
+the word count of the speech bodies (`lib/lexical.py::TOKEN_RE`), 58,904,180 of them
+against the codebook's 66,392,703 tokens over the full texts.
 
-The last two rows are v2 readings: the `has_` flags for `war crime(s)`, `mass atrocity`,
-`R2P` and `ICC` grew under v3 and the unions with them; `03_lexicon.py` does not print the
-unions, so they wait to be read from the artefact.
+| Criterion | Speeches | Words |
+|---|---:|---:|
+| ≥ 1 occurrence of `genocide_qualification` | 3,268 | 3,448,202 |
+| ≥ 2 occurrences | 1,055 | 1,219,863 |
+| ≥ 3 occurrences | 513 | 640,885 |
+| ≥ 5 occurrences | 205 | 279,191 |
+| Atrocity core (genocide ∪ ethnic cleansing ∪ CAH ∪ war crimes ∪ mass atrocity) | 7,981 | 8,277,171 |
+| Active lexicon (28 terms) | 20,892 | 19,908,544 |
+
+The first four rows count the qualifying uses; the raw term reaches 3,273 speeches, the
+figure every earlier version of this table gave for `genocid*`, and the five it adds are
+speeches whose only `genocid*` word is the actor label. The atrocity-core union is the v3
+number unchanged, because the term it is built on is unchanged. The active-lexicon union
+is *smaller* than the 23,271 the v2 table gave over 22 terms, and v4 has 28: the seven
+anchors take far more speeches out of the commemorative and contentious registers than
+`massacre`, `mass_killing`, `icj`, `incitement` and `intent_to_destroy` put back.
 
 ### 8.1 Chronology
 
-The normalised rate tells a story the raw counts hide. Occurrences per 100,000 tokens:
+The normalised rate tells a story the raw counts hide. Occurrences of
+`genocide_qualification` per 100,000 **words** (lexicon v4; the v3 figures over the
+codebook's token denominator ran about 11% lower and are in
+[`VALIDATION.md`](VALIDATION.md)):
 
 ```
-1994  28.5  ████████████████████████████  Rwanda
-2014  22.6  ██████████████████████        Ukraine/Crimea, ISIS/Yazidis, CAR, Rwanda +20
-1993  17.0  █████████████████             Bosnia
-1995  16.4  ████████████████              Srebrenica
-2015  16.0  ███████████████               Srebrenica +20 (Russian veto), Daesh
-1999  15.0  ███████████████               Kosovo, East Timor
-1996  14.6  ██████████████
-2000  12.9  ████████████                  Carlsson report on Rwanda
-2005  12.7  ████████████                  Darfur, World Summit (R2P)
+1994  32.2  ████████████████████████████████  Rwanda
+2014  25.4  █████████████████████████         Ukraine/Crimea, ISIS/Yazidis, CAR, Rwanda +20
+1993  19.3  ███████████████████               Bosnia
+1995  18.5  ██████████████████                Srebrenica
+2015  18.0  ██████████████████                Srebrenica +20 (Russian veto), Daesh
+1999  16.6  █████████████████                 Kosovo, East Timor
+1996  16.4  ████████████████
+2000  14.3  ██████████████                    Carlsson report on Rwanda
+2005  14.3  ██████████████                    Darfur, World Summit (R2P)
 …
-2022   9.4  █████████                     Ukraine
-2023   8.8  █████████                     Gaza, Ukraine
-1997   4.7  ████                          absolute trough
+2022  10.6  ███████████                       Ukraine
+2023   9.9  ██████████                        Gaza, Ukraine
+1997   5.3  █████                             absolute trough
 ```
+
+Reading the raw `genocide` term instead moves only 2014 (25.4 to 25.6), 1999, 2000, 2006
+and 2007, by a tenth each: the actor label is a Great Lakes word, and it is rare.
 
 **The 2014 peak (659 occurrences) exceeds 1994 (228) in absolute volume** while remaining
 below it in density. This is the single most interesting result of the first scan: the word
@@ -426,6 +472,63 @@ richest for analysis.
 
 These sessions make an excellent test set for the concordancer and for validating LLM
 extractions.
+
+### 8.7 What the word is doing — grammatical frames
+
+The counts above say how often the word is said. `17_frames.py` asks what it is *doing*
+when it is said, by reading a ±90-character window round each of the 6,092 occurrences and
+filing it under one of seventeen constructions or an `unframed` residue. Shares here divide
+by occurrences of the node, never by speeches, so a frame can grow in a year the rate falls.
+
+| Frame | Occurrences | Share | What it evidences |
+|---|---:|---:|---|
+| `atrocity_triad` | 1,446 | 23.7% | One item of the standing list: *genocide, war crimes and crimes against humanity* |
+| `unframed` | 1,231 | 20.2% | No pattern reached it |
+| `perpetration` | 495 | 8.1% | Agency attributed: *committed*, *those responsible for*, *a policy of* |
+| `named_case` | 480 | 7.9% | The settled name of a case: *the 1994 genocide in Rwanda* |
+| `prevention` | 297 | 4.9% | The duty as a norm: *prevent*, *protect populations from* |
+| `crime_of` | 259 | 4.3% | The offence as a legal category: *the crime of genocide* |
+| `commemoration` | 258 | 4.2% | The event as memory: *the anniversary of*, *the victims of* |
+| `denial_or_ideology` | 252 | 4.1% | Denial named as an offence: *genocide denial*, *genocide ideology* |
+| `acts_of` | 237 | 3.9% | The countable-instance hedge: *acts of genocide* |
+| `qualification` | 201 | 3.3% | The label applied: *constitutes*, *amounts to*, *described as* |
+| `accountability` | 194 | 3.2% | A legal process already under way: *convicted of*, *genocide fugitives* |
+| `legal_instrument` | 179 | 2.9% | Inside an instrument's name: the 1948 Convention |
+| `mandate_or_office` | 176 | 2.9% | Inside an office's name: the Special Adviser on the Prevention of Genocide |
+| `risk_or_threat` | 108 | 1.8% | Not yet happened: *the risk of*, *another genocide* |
+| `directed_against` | 107 | 1.8% | The victim group in the complement: *genocide against the Tutsi* |
+| `distancing` | 78 | 1.3% | The label as somebody else's: scare quotes, *so-called*, *allegations of* |
+| `occurrence` | 58 | 1.0% | The event predicated directly: *genocide occurred* |
+| `intent_or_definition` | 36 | 0.6% | The Convention's mental element: *genocidal intent* |
+
+Three readings the frequency series cannot give:
+
+1. **Nearly a quarter of all uses are the catalogue**, and the share rose from 12.4% before
+   2002 to 26.6% after. §8.4 above shows the triad in the co-occurrence table; this counts
+   the occurrences that *are* it. A passing item in a list and a substantive accusation are
+   the same word at the same rate.
+2. **Nomination is rarer than the vocabulary suggests.** The constructions in which a
+   speaker applies the label to an event — `qualification`, `occurrence`, `directed_against`
+   — are 366 occurrences between them, 6.0%. Explicit refusal (`distancing`) is 78, 1.3%.
+3. **The registers move at different dates.** `perpetration` halves after 2008;
+   `commemoration` rises after 2004 and `denial_or_ideology` after 2018, both against the
+   Rwanda and Srebrenica anniversary cycle and the Mechanism's reporting. All five splits
+   survive a null that permutes meetings rather than occurrences; `prevention`'s and
+   `named_case`'s do not. `docs/VALIDATION.md` carries the table.
+
+**The wordform.** `\bgenocid\w*` folds four things into one count:
+
+| Category | Occurrences | Forms |
+|---|---:|---|
+| noun | 5,747 | `genocide` 5,685, `genocides` 62 |
+| adjective | 313 | `genocidal` |
+| perpetrator noun | 31 | `genocidaires` 29, `genocidaire` 2 |
+| other | 1 | `genocida` (an OCR spelling, S/PV.3136, 1992) |
+
+The four partition the 6,092 exactly. The perpetrator noun labels the ex-FAR and
+Interahamwe of the Great Lakes debates rather than qualifying an event, so the count of the
+word as event qualification is the other **6,061**; both numbers are published, because the
+concordance is cut from the whole pattern and the headline is not.
 
 ---
 

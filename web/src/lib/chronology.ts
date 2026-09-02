@@ -46,14 +46,25 @@ export function splitEvidenceQuery(
 
 const UNITS: readonly ChronologyUnit[] = ['speech_rate', 'token_rate', 'occurrences', 'speeches'];
 
+/**
+ * The published headline is `genocide_qualification` — the `genocide` term
+ * minus its `genocidaires` actor label, since lexicon v4. The raw term is in
+ * the same list and a reader can select it; this only decides what is drawn
+ * before anyone chooses. Falling back through the raw term keeps an older
+ * artefact drawable rather than opening on whatever sorts first.
+ */
+const HEADLINE = ['genocide_qualification', 'genocide'];
+
 const defaultSeries = (choices: ChronologyChoices, grain: ChronologyGrain) => {
 	const available = choices.series[grain];
-	return available.includes('genocide') ? ['genocide'] : available.slice(0, 1);
+	const headline = HEADLINE.find((name) => available.includes(name));
+	return headline ? [headline] : available.slice(0, 1);
 };
 
 export function chronologyDefaults(choices: ChronologyChoices): ChronologyState {
 	const calendarMeasures = Object.keys(choices.calendar);
-	const calendarMeasure = choices.calendar.genocide ? 'genocide' : (calendarMeasures[0] ?? '');
+	const calendarMeasure =
+		HEADLINE.find((name) => choices.calendar[name]) ?? calendarMeasures[0] ?? '';
 	return {
 		unit: 'speech_rate',
 		grain: 'year',

@@ -19,6 +19,42 @@ const choices: ChronologyChoices = {
 	splits: ['none', 'speaker_group', 'delivery_language']
 };
 
+describe('the headline the chronology opens on', () => {
+	/* Since lexicon v4 the published headline is the derived
+	   `genocide_qualification` — the `genocide` term minus its `genocidaires`
+	   actor label. A reader who opens the page with no query string must land
+	   on it, and a reader of an artefact that predates it must still land on
+	   something drawable. */
+	const withDerived: ChronologyChoices = {
+		series: {
+			year: ['genocide', 'genocide_qualification', 'war_crimes'],
+			quarter: ['genocide', 'genocide_qualification', 'war_crimes']
+		},
+		calendar: {
+			genocide: ['speech_rate'],
+			genocide_qualification: ['speech_rate', 'token_rate']
+		},
+		splits: ['none']
+	};
+
+	it('opens on the derived measure, not the raw term', () => {
+		const state = readChronologyState(new URLSearchParams(''), withDerived);
+		expect(state.series).toEqual(['genocide_qualification']);
+		expect(state.calendarMeasure).toBe('genocide_qualification');
+	});
+
+	it('falls back to the raw term when the artefact has no derived measure', () => {
+		const state = readChronologyState(new URLSearchParams(''), choices);
+		expect(state.series).toEqual(['genocide']);
+		expect(state.calendarMeasure).toBe('genocide');
+	});
+
+	it('still lets a reader ask for the raw term', () => {
+		const state = readChronologyState(new URLSearchParams('series=genocide'), withDerived);
+		expect(state.series).toEqual(['genocide']);
+	});
+});
+
 describe('chronology URL state', () => {
 	it('round-trips every analytical control, including ordered multi-series state', () => {
 		const state: ChronologyState = {
