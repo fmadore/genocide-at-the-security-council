@@ -21,6 +21,10 @@
   },
   "measures": {
    "*": {
+    "derived_from?": "str",
+    "derived_minus?": [
+     "str"
+    ],
     "kind": "str",
     "members?": [
      "str"
@@ -1129,6 +1133,10 @@
   },
   "terms": {
    "*": {
+    "derived_from?": "str",
+    "derived_minus?": [
+     "str"
+    ],
     "occurrences": [
      "int"
     ],
@@ -1692,6 +1700,10 @@
   ],
   "terms": {
    "*": {
+    "derived_from?": "str",
+    "derived_minus?": [
+     "str"
+    ],
     "occurrences": [
      "int"
     ],
@@ -1810,6 +1822,10 @@
   },
   "terms": {
    "*": {
+    "derived_from?": "str",
+    "derived_minus?": [
+     "str"
+    ],
     "occurrences": [
      "int"
     ],

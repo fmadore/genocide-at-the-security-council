@@ -22,7 +22,10 @@ counts below are read from that run's console output, and what a log cannot show
 open. Amended 2 September 2026, later still: lexicon v4 and the word denominator
 registered below. Their effect is measured on the corpus rather than owed — both were
 applied to `speeches_norm.parquet` read-only before the change was committed — and what
-remains owed is the pipeline run that puts those numbers into the artefacts.
+remains owed is the pipeline run that puts those numbers into the artefacts. The headline
+figure is a derived measure, `genocide` minus `genocidaires`, rather than a narrowed
+pattern: `genocide` itself is untouched at v4, so the gold sample and the four committed
+model runs stay valid and 15 goes on aggregating them.
 
 ## How to inspect an original record
 
@@ -348,8 +351,9 @@ scratch script; the figures are what `03_lexicon.py` will print. Speeches / occu
 
 | Term | v3 | v4 | What changed |
 |---|---:|---:|---|
-| `genocide` | 3,273 / 6,092 | 3,268 / 6,061 | the actor label left to `genocidaires` |
-| `genocidaires` | — | 21 / 31 | new; 5 of its speeches say nothing else `genocid*` |
+| `genocide` | 3,273 / 6,092 | 3,273 / 6,092 | nothing; the pattern is deliberately untouched |
+| `genocidaires` | — | 21 / 31 | new, nested under `genocide` |
+| `genocide_qualification` (derived) | — | 3,268 / 6,061 | new; `genocide` minus `genocidaires` |
 | `commemoration` | 4,504 / 6,533 | 199 / 321 | anchored |
 | `survivors` | 1,922 / 4,013 | 73 / 106 | anchored |
 | `denial` | 1,431 / 1,653 | 186 / 269 | anchored, inflections added, `genocid` dropped |
@@ -365,16 +369,18 @@ scratch script; the figures are what `03_lexicon.py` will print. Speeches / occu
 
 Every other term is untouched and reads identically under both versions.
 
-**The union stays reportable.** The two core patterns are disjoint and between them match
-what `\bgenocid\w*` matched, so `n_genocide + n_genocidaires` = 6,061 + 31 = 6,092 and
-`has_genocide | has_genocidaires` covers 3,273 speeches — the v3 numbers to the occurrence
-and to the speech. The `core` register is exactly that union, which is also why
-`has_register_core` is no longer a duplicate of `has_genocide`, and
-`has_set_genocide_union` is written for a reader who wants the old column by name. The
-French spelling *génocidaires* occurs 8 further times and is deliberately left out: v3
-never held it, and absorbing it here would confound the split with a widening. It is
-recorded as a known limitation, alongside the one *International Commission of Jurists*
-that `\bICJ\b` will match.
+**Both numbers are published, and neither has to be reconstructed.** `n_genocide` is the
+v3 column unchanged, 6,092 across 3,273 speeches; `n_genocidaires` is 31 across 21
+speeches; and `n_genocide_qualification` is the difference, 6,061 across 3,268 — five
+speeches drop out because the only `genocid*` word they hold is the actor label. The
+`core` register counts the raw term's spans once (`genocidaires` is nested under it, so
+`summable` drops the child) and is therefore 6,092, the union of the node word in all its
+forms; it is no longer a duplicate of `has_genocide` only in the sense that the register
+now has two members, and the *derived* measure is what the chronology and the actor table
+publish. The French spelling *génocidaires* occurs 8 further times and is deliberately
+left out of `genocidaires`: no earlier count held it, and absorbing it here would confound
+the split with a widening. It is recorded as a known limitation, alongside the one
+*International Commission of Jurists* that `\bICJ\b` will match.
 
 **Registers, and the effect of both changes at once.** The rate column combines the new
 denominator with the new counts, which is what the site will publish:
@@ -390,9 +396,12 @@ denominator with the new counts, which is what the site will publish:
 | preventive | 3,992 | 4,041 | 6.01 | 6.86 |
 
 `n_lexicon_total` falls from 79,966 to 74,129 occurrences (125.85 per 100k under the new
-denominator, against 120.44 under the old). The `atrocity_core` union loses 2 speeches
-(7,981 → 7,979), `rome_triad` 4 and `r2p_quartet` 3: those are speeches whose only
-`genocid*` word was *genocidaires*.
+denominator, against 120.44 under the old). `core` is unmoved at 6,092 because
+`genocidaires` is nested under `genocide` and `summable` counts the parent's spans once;
+the derived `genocide_qualification` sits beside the register at 6,061 and enters no
+roll-up. The `atrocity_core`, `rome_triad` and `r2p_quartet` unions are unmoved for the
+same reason — 7,981, 7,155 and 7,700 speeches, exactly v3 — since the term they are built
+on did not change.
 
 **What the anchors cost, and what they bought.** The commemorative register as v3 built it
 was 91% not about genocide memory: the commonest completion of `anniversar\w+` is the
@@ -424,20 +433,39 @@ co-occurs with `genocide` by construction, so `lib/lexical.py::definitional_pair
 suppresses those edges from the co-occurrence network and names the reason, as it already
 did for the `denial` pattern that used to carry `genocid` inside itself.
 
-**The four committed model runs are no longer aggregable, and this is the price the
-procedure names.** `genocide` now carries `pattern_since: 4`, and `15_usage.py` refuses a
-run whose recorded `lexicon_version` predates the version its term's pattern last changed
-in. All four runs in `model_annotations/genocide/runs/` record version 2, so 15 will stop
-with *"was made against an incompatible lexicon"* and `/usage` cannot be rebuilt until they
-are re-registered. Three things bound how bad that is. The two annotation files —
-`annotations/lexicon/annotations.csv` and `annotations/genocide/annotations.csv` — are
-header-only, so **no human coding is lost** and 03 and 13 are unaffected. The new pattern
-matches a strict *subset* of the old one at *identical spans*, so every surviving
-occurrence keeps the `occurrence_id` it was annotated under: what the runs need is a
-re-enumeration against v4 with their 31 génocidaire rows dropped, not new annotation.
-And item 4 of the review's plan already calls for prompt v2 and a fresh run, so the
-cheapest order is to do both at once. Until one or the other happens, `make payload` stops
-at 15.
+**The split is published as a subtraction, and `genocide`'s pattern does not move.** The
+review asked for `genocidaires` as its own term so that `\bgenocid\w*` would stop folding
+an actor label into the count of the word as event qualification. There were two ways to
+do that and they cost very different things. Narrowing `genocide` to `\bgenocid(?!aire)\w*`
+would have changed the term's `pattern_since`, and `15_usage.py` refuses a run whose
+recorded `lexicon_version` predates the version its term's pattern last changed in: all
+four runs in `model_annotations/genocide/runs/` record version 2, so `/usage` would have
+gone dark and `make payload` would have stopped at 15 until a fresh run was paid for — to
+move a published figure by 31 occurrences in 6,092, half a per cent. v4 does the other
+thing. `genocide` keeps `\bgenocid\w*` and `pattern_since: 2`, so every occurrence
+identity in the corpus is the one the gold sample and the four runs were annotated under,
+the concordance keeps its 6,092 lines, and 15 keeps aggregating. `genocidaires` is a term
+of its own, declared `nested_under: genocide` so no roll-up counts its spans twice, and
+the published headline is the **derived measure** `genocide_qualification` =
+`n_genocide` − `n_genocidaires`, declared in the `derived` block of
+`config/lexicon.yml` and computed by `lib/lexicon.py::apply`.
+
+A derived measure has no pattern, enumerates no occurrence and appears in no concordance.
+That separation is the point: what a published *figure* should report and what an
+*occurrence* is are different questions, and the `pattern_since` gate exists to protect
+the second. The subtraction is exact because the two patterns partition the union —
+`genocidaires` matches only where `genocide` matches, once per span — which
+`tests/test_config.py` asserts on the forms the corpus holds rather than leaving in a
+comment, and which `apply` re-checks at runtime by refusing a negative difference. The
+consequence worth stating plainly is that the disjoint-pattern version is available for
+free the day a v4 model run exists: narrowing the pattern then is a two-line edit that
+reproduces exactly the numbers this derived measure already publishes.
+
+The evidence is not hidden by the choice. The raw `genocide` series is published beside
+the derived one in every artefact that carries either; the concordance enumerates the raw
+term, and the 31 actor-label lines read under `genocidaires`, which has its own
+concordance file. The chronology's evidence links point at the raw term on purpose, since
+those are the lines behind the rate.
 
 **What is owed.** The measurements above were taken by applying the committed lexicon to
 the committed corpus, so they are the run's numbers rather than an estimate of them. What

@@ -32,7 +32,7 @@ every chart as SVG or PNG with its filters written into the image.
 | Lexicon flagging & precision audit | ✅ `scripts/03`; generated candidates are separate from durable annotations, **0 rows coded** |
 | Temporal series & change points | ✅ `scripts/04` · [`config/events.csv`](config/events.csv) |
 | Lexicometry — collocates, keyness, network | ✅ `scripts/05` · [`config/stopwords.txt`](config/stopwords.txt) |
-| Concordance (75,342 lines, 28 terms) | ✅ `scripts/08`; a line is reachable by term, year, month, speaker and meeting |
+| Concordance (75,373 lines, 28 terms) | ✅ `scripts/08`; a line is reachable by term, year, month, speaker and meeting |
 | Month resolution — grid and pooled calendar | ✅ `scripts/04` → `series/monthly.json`; 331 of 384 months clear the 100-speech minimum, the other 53 are drawn as withheld |
 | Download beside every figure | ✅ [`web/src/lib/export.ts`](web/src/lib/export.ts): the artefact's numbers as CSV with provenance, the picture as SVG or PNG with its filters drawn into it |
 | Speech export & web payload | ✅ `scripts/09`, `scripts/export_web.py` |
@@ -81,7 +81,7 @@ What `make payload` runs, in order:
 03_lexicon.py          → speeches_flagged.parquet (lexicon counts)
 04_series.py           → derived/series/*.json    (rates, intervals, change points)
 05_lexical.py          → derived/lexical/*.json   (collocates, keyness, PMI)
-08_kwic.py             → derived/kwic/*.json      (75,342 concordance lines)
+08_kwic.py             → derived/kwic/*.json      (75,373 concordance lines)
 09_export_speeches.py  → web/static/data/speeches (6,595 document files)
 11_countries.py        → derived/countries/*.json (per-speaker denominators)
 12_speaker_keyness.py  → derived/countries/       (per-speaker matched keyness)
@@ -246,19 +246,21 @@ counting a nested term twice in its register. On the corpus that moved six terms
 crimes` from 4,326 to 4,664 speeches, `ICC` from 4,057 to 4,766 — and left `genocide` at
 3,273 speeches and 6,092 occurrences; the re-count is in the same file.
 
-Lexicon v4 (2 September 2026) does change patterns. It gives `genocidaires` — an actor
-label for the ex-FAR and Interahamwe — its own term, so the headline count measures the
-word as qualification of an event; the two patterns are disjoint and their sum is still
-6,092 across 3,273 speeches. It adds a sentence **anchor**: seven terms are now counted
+Lexicon v4 (2 September 2026) does change patterns — but not the one that matters most.
+It gives `genocidaires` — an actor label for the ex-FAR and Interahamwe — its own term and
+publishes the headline as a derived measure, `genocide_qualification` = `genocide` minus
+`genocidaires`, 6,061 occurrences across 3,268 speeches. `genocide` itself keeps
+`\bgenocid\w*` untouched, so every occurrence identity, the gold sample and the four
+committed model runs stand and `15` goes on aggregating them; the day a v4 run exists,
+narrowing the pattern reproduces the derived figures exactly. It adds a sentence **anchor**: seven terms are now counted
 only where the sentence holding them also says `genocid*`, because the commemorative
 register as built was tracking the anniversary of resolution 1325 and the survivors of
 sexual violence rather than genocide memory. It adds `massacre`, `mass killing`, `ICJ`,
 `intent to destroy` and `incitement`, gives the Residual Mechanism back to `tribunals`,
 and stops `holocaust` counting the nuclear kind. Every figure it moves was measured on
 the corpus before it was committed and is tabulated in
-[`docs/VALIDATION.md`](docs/VALIDATION.md), including the price: editing the `genocide`
-pattern is what the lexicon procedure warns costs a committed model run, and `15` will
-refuse the four in `model_annotations/` until they are re-enumerated against v4.
+[`docs/VALIDATION.md`](docs/VALIDATION.md), including the argument for deriving the
+headline rather than narrowing the pattern.
 
 Since the same day, a rate *per 100,000 words* divides by words. It used to divide by the
 codebook's `tokens` column — quanteda's count over the full text, punctuation and numbers

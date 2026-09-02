@@ -32,7 +32,7 @@
 	let { data }: { data: PageData } = $props();
 	const artefact = $derived(data.countries);
 
-	let measure = $state('genocide');
+	let measure = $state('genocide_qualification');
 	let period = $state('all');
 	let order = $state<Ordering>('speech_rate');
 	let selected = $state<string | null>(null);

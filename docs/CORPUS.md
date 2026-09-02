@@ -259,7 +259,7 @@ than a scan for those words would suggest. `config/lexicon.yml` says of each one
 | `icc` | accountability | 4,766 | 4.48% | 12,476 |
 | `war_crimes` | legal | 4,664 | 4.39% | 6,588 |
 | `atrocity` | legal | 4,244 | 3.99% | 6,120 |
-| **`genocide`** | **core** | **3,268** | **3.07%** | **6,061** |
+| `genocide` | core | 3,273 | 3.08% | 6,092 |
 | `crimes_against_humanity` | legal | 3,465 | 3.26% | 4,136 |
 | `icj` | accountability | 1,447 | 1.36% | 2,399 |
 | `massacre` | descriptive | 1,588 | 1.49% | 2,313 |
@@ -280,17 +280,24 @@ than a scan for those words would suggest. `config/lexicon.yml` says of each one
 | `incitement` ⚓ | preventive | 47 | 0.04% | 49 |
 | `genocidal_ideology` | contentious | 30 | 0.03% | 39 |
 | `genocidaires` | core | 21 | 0.02% | 31 |
+| **`genocide_qualification`** (derived) | **core** | **3,268** | **3.07%** | **6,061** |
 | `intent_to_destroy` ⚓ | legal | 16 | 0.02% | 23 |
 | `ethnic_violence` ⚓ | contentious | 13 | 0.01% | 13 |
 
-⚓ marks an anchored term.
+⚓ marks an anchored term. **`genocide_qualification` is derived, not matched**: it is
+`genocide` minus `genocidaires`, and it is the figure the chronology, the change-point
+tests and the actor table publish, because a delegation calling the ex-FAR
+*génocidaires* is naming who did it rather than qualifying the event. The raw term is
+published beside it and is what the concordance enumerates; `genocidaires` has its own 31
+lines. The `genocide` pattern is deliberately unchanged at v4, so every occurrence
+identity, the gold sample and the four committed model runs stand — see
+[`VALIDATION.md`](VALIDATION.md).
 
-Forms of `genocid*`, over both core patterns: `genocide` (5,685), `genocidal` (313),
-`genocides` (62), `genocidaires` (29), `genocidaire` (2), `genocida` (1). The two
-`genocidaire` spellings are the `genocidaires` term, 31 occurrences; the other four are
-`genocide`, 6,061; and the two sum to the 6,092 the single v3 pattern matched. Marginal OCR variants (`genecide`) should be caught by
-a tolerant regex; the French `génocidaires` occurs 8 further times and is out of both
-patterns on purpose.
+Forms of `genocid*`: `genocide` (5,685), `genocidal` (313), `genocides` (62),
+`genocidaires` (29), `genocidaire` (2), `genocida` (1), summing to the term's 6,092. The
+two `genocidaire` spellings, 31 occurrences, are what `genocide_qualification` subtracts.
+Marginal OCR variants (`genecide`) should be caught by a tolerant regex; the French
+`génocidaires` occurs 8 further times and is outside both patterns on purpose.
 
 **Available subsets**
 
@@ -300,24 +307,27 @@ against the codebook's 66,392,703 tokens over the full texts.
 
 | Criterion | Speeches | Words |
 |---|---:|---:|
-| ≥ 1 occurrence of `genocide` | 3,268 | 3,448,202 |
+| ≥ 1 occurrence of `genocide_qualification` | 3,268 | 3,448,202 |
 | ≥ 2 occurrences | 1,055 | 1,219,863 |
 | ≥ 3 occurrences | 513 | 640,885 |
 | ≥ 5 occurrences | 205 | 279,191 |
-| Atrocity core (genocide ∪ ethnic cleansing ∪ CAH ∪ war crimes ∪ mass atrocity) | 7,979 | 8,272,922 |
+| Atrocity core (genocide ∪ ethnic cleansing ∪ CAH ∪ war crimes ∪ mass atrocity) | 7,981 | 8,277,171 |
 | Active lexicon (28 terms) | 20,892 | 19,908,544 |
 
-The union of `genocide` and `genocidaires` is 3,273 speeches, the figure every earlier
-version of this table gave for `genocid*`. The active-lexicon union is *smaller* than the
-23,271 the v2 table gave over 22 terms, and v4 has 28: the seven anchors take far more
-speeches out of the commemorative and contentious registers than `massacre`,
-`mass_killing`, `icj`, `incitement` and `intent_to_destroy` put back.
+The first four rows count the qualifying uses; the raw term reaches 3,273 speeches, the
+figure every earlier version of this table gave for `genocid*`, and the five it adds are
+speeches whose only `genocid*` word is the actor label. The atrocity-core union is the v3
+number unchanged, because the term it is built on is unchanged. The active-lexicon union
+is *smaller* than the 23,271 the v2 table gave over 22 terms, and v4 has 28: the seven
+anchors take far more speeches out of the commemorative and contentious registers than
+`massacre`, `mass_killing`, `icj`, `incitement` and `intent_to_destroy` put back.
 
 ### 8.1 Chronology
 
-The normalised rate tells a story the raw counts hide. Occurrences of `genocide` per
-100,000 **words** (lexicon v4; the v3 figures over the codebook's token denominator ran
-about 11% lower and are in [`VALIDATION.md`](VALIDATION.md)):
+The normalised rate tells a story the raw counts hide. Occurrences of
+`genocide_qualification` per 100,000 **words** (lexicon v4; the v3 figures over the
+codebook's token denominator ran about 11% lower and are in
+[`VALIDATION.md`](VALIDATION.md)):
 
 ```
 1994  32.2  ████████████████████████████████  Rwanda
@@ -335,8 +345,8 @@ about 11% lower and are in [`VALIDATION.md`](VALIDATION.md)):
 1997   5.3  █████                             absolute trough
 ```
 
-Adding `genocidaires` back moves only 2014 (25.4 to 25.6), 1999, 2000, 2006 and 2007 by a
-tenth: the actor label is a Great Lakes word, and it is rare.
+Reading the raw `genocide` term instead moves only 2014 (25.4 to 25.6), 1999, 2000, 2006
+and 2007, by a tenth each: the actor label is a Great Lakes word, and it is rare.
 
 **The 2014 peak (659 occurrences) exceeds 1994 (228) in absolute volume** while remaining
 below it in density. This is the single most interesting result of the first scan: the word

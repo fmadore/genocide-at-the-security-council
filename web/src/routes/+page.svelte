@@ -87,7 +87,12 @@
 
 	const years = $derived(data.series.periods as number[]);
 	const corpus = $derived(data.series.corpus);
-	const genocide = $derived(data.series.terms.genocide);
+	/* The published headline since lexicon v4: `genocide` minus its
+	   `genocidaires` actor label. Calling the ex-FAR génocidaires names who did
+	   it rather than qualifying the event, and 31 of the raw term's 6,092
+	   occurrences are that. The raw term is still in the artefact and still what
+	   the concordance enumerates; the figure below says so in one line. */
+	const genocide = $derived(data.series.terms.genocide_qualification);
 
 	const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
@@ -106,7 +111,9 @@
 	);
 	const index1994 = $derived(years.indexOf(1994));
 
-	const rateInference = $derived(data.breaks.inference.series.genocide?.speech_rate ?? null);
+	const rateInference = $derived(
+		data.breaks.inference.series.genocide_qualification?.speech_rate ?? null
+	);
 	const atrocityInference = $derived(
 		data.breaks.inference.series.atrocity_core?.speech_rate ?? null
 	);
@@ -392,14 +399,14 @@
 			name: ['unsc', 'occurrences-and-share'],
 			table: () =>
 				annualTable('Occurrences and share of speeches', [
-					'drawn: genocide — occurrences and share of speeches'
+					'drawn: genocide_qualification — occurrences and share of speeches'
 				]),
 			chart: () => contrastFigure?.svg() ?? null
 		}}
 	>
 		{#snippet reading()}
 			<p>
-				<strong>Bars</strong> count every occurrence of <code>genocid*</code> in a year (left axis);
+				<strong>Bars</strong> count qualifying uses of <code>genocid*</code> in a year (left axis);
 				the <strong>line</strong> is the share of that year's speeches using it (right axis). Select a
 				year for its lines.
 			</p>
@@ -415,7 +422,8 @@
 			<p>
 				A share says nothing about intensity: a speech saying the word once counts the same as one
 				repeating it twenty times. The split describes the series; it is not a date on which
-				something happened.
+				something happened. <em>Genocidaires</em>, an actor label, is counted separately and
+				excluded here.
 				<a href="{resolve('/methods')}#change-points">Method: change points &rarr;</a>
 			</p>
 		{/snippet}

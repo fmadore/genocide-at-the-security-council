@@ -52,8 +52,8 @@
       "anchor": null
     },
     "genocide": {
-      "pattern_since": 4,
-      "pattern_sha256": "790de02267ca82fa941c7c85d78bfeb6fa98aca79893eac61fb6af83b6aa54ee",
+      "pattern_since": 2,
+      "pattern_sha256": "6070019cd7344f67bd3b23d1d34f07a9e6b6b0e5645c711eaf38221d4312bda9",
       "anchor": null
     },
     "genocide_convention": {

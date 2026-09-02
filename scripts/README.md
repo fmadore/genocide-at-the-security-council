@@ -219,6 +219,17 @@ What follows from that, worth knowing before you start:
   term and per register, and costs a few minutes. Lexicon v4 was measured that way and its
   table is in [`../docs/VALIDATION.md`](../docs/VALIDATION.md). A version bump recorded
   without its numbers leaves the reader of the register to take the change on trust.
+- **Narrowing a term is expensive; subtracting one is free.** Editing a `pattern` moves
+  every occurrence identity that term enumerates, and `15` then refuses every committed
+  model run recorded against an older version. When what you want is a different
+  *published figure* rather than a different *occurrence*, declare a **derived measure**
+  in the `derived` block instead: `from` a term, `minus` one or more terms declared
+  `nested_under` it, and `lib/lexicon.py::apply` writes `n_<name>` and `has_<name>` as the
+  subtraction. That is how v4 took the actor label out of the headline without touching
+  `genocide`'s pattern. A derived measure has no pattern, enumerates no occurrence, gets
+  no concordance file and enters no register or total roll-up; it is a statement about a
+  figure, and the subtraction is only sound where the subtrahends partition the minuend,
+  which the tests assert and `apply` re-checks at runtime.
 - **A new `register` needs a hue.** `web/src/lib/theme.ts::REGISTER_ORDER` and the
   `--reg-*` custom properties in `web/src/app.css` are the two places that decide it;
   without an entry a register falls back to ink and collides with `core`. This is the one

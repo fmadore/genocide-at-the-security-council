@@ -13,6 +13,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+	actorDefaults,
 	actorParams,
 	ambiguous,
 	carries,
@@ -87,6 +88,22 @@ const corpus = (speakers: Speaker[], rows: CountryMeasureRow[], collisions = {})
 		rows: []
 	},
 	measures: { genocide: { kind: 'terms', tier: 'core', register: 'core', rows } }
+});
+
+describe('the headline the actor table opens on', () => {
+	/* The same rule as the chronology: the published measure is the derived
+	   `genocide_qualification`, the raw term minus its actor label, and an
+	   artefact written before v4 must still open on something. */
+	it('opens on the derived measure when the artefact carries one', () => {
+		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
+		data.measures.genocide_qualification = data.measures.genocide;
+		expect(actorDefaults(data).measure).toBe('genocide_qualification');
+	});
+
+	it('falls back to the raw term when it does not', () => {
+		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
+		expect(actorDefaults(data).measure).toBe('genocide');
+	});
 });
 
 describe('actor URL state', () => {

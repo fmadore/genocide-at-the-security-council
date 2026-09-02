@@ -164,6 +164,34 @@ class Term:
 
 
 @dataclass(frozen=True)
+class Derived:
+    """A measure obtained by subtracting terms from a term, not by matching.
+
+    It has no pattern, enumerates no occurrence and appears in no concordance.
+    It exists because *what a figure should report* and *what an occurrence is*
+    are different questions, and v4 needed to answer the first without touching
+    the second: `genocide` folds the actor label `genocidaires` into the count
+    of the word as event qualification, and narrowing its pattern to say so
+    would have moved every occurrence identity in the corpus — invalidating the
+    gold sample and four committed model runs — to move a published figure by
+    half a per cent. Subtracting reports the same number and costs nothing.
+
+    The subtraction is only sound where each subtrahend is `nested_under` the
+    minuend *and* the two patterns partition it. `load` checks the nesting;
+    nothing in a regex can check the partition, so `tests/test_config.py`
+    asserts it on the forms the corpus holds and :func:`apply` refuses a
+    negative result, which is what a broken partition looks like in the data.
+    """
+
+    name: str
+    minuend: str
+    subtrahends: tuple[str, ...]
+    tier: str
+    register: str
+    note: str = ""
+
+
+@dataclass(frozen=True)
 class Lexicon:
     """The whole versioned lexicon."""
 
@@ -171,6 +199,7 @@ class Lexicon:
     updated: str
     terms: dict[str, Term]
     sets: dict[str, list[str]]
+    derived: dict[str, Derived] = field(default_factory=dict)
 
     @property
     def active(self) -> list[Term]:
@@ -515,6 +544,46 @@ def load(*, check_lock: bool = True) -> Lexicon:
 
     check_nesting(terms)
 
+    derived: dict[str, Derived] = {}
+    for name, spec in (raw.get("derived") or {}).items():
+        if name in terms:
+            raise ValueError(
+                f"{rel(LEXICON)}: derived measure '{name}' has the name of a term; "
+                "the two share a column namespace and one would silently overwrite "
+                "the other"
+            )
+        minuend = spec.get("from")
+        subtrahends = tuple(spec.get("minus") or ())
+        missing = [t for t in (minuend, *subtrahends) if t not in terms]
+        if missing:
+            raise ValueError(
+                f"{rel(LEXICON)}: derived measure '{name}' references undefined "
+                f"terms: {missing}"
+            )
+        if not subtrahends:
+            raise ValueError(
+                f"{rel(LEXICON)}: derived measure '{name}' subtracts nothing; a "
+                "measure equal to a term is that term under a second name"
+            )
+        # Nesting is the declared claim that one term's matches lie inside
+        # another's. Without it the subtraction is not a narrowing of the
+        # minuend but an arithmetic accident of two unrelated counts.
+        outside = [t for t in subtrahends if terms[t].nested_under != minuend]
+        if outside:
+            raise ValueError(
+                f"{rel(LEXICON)}: derived measure '{name}' subtracts {outside} from "
+                f"'{minuend}', but they are not declared nested under it; only a term "
+                "whose matches lie inside another's may be subtracted from it"
+            )
+        derived[name] = Derived(
+            name=name,
+            minuend=str(minuend),
+            subtrahends=subtrahends,
+            tier=spec.get("tier", terms[str(minuend)].tier),
+            register=spec.get("register", terms[str(minuend)].register),
+            note=(spec.get("note") or "").strip(),
+        )
+
     if check_lock:
         _check_committed_lock(terms, version)
 
@@ -523,26 +592,48 @@ def load(*, check_lock: bool = True) -> Lexicon:
         updated=str(raw.get("updated", "")),
         terms=terms,
         sets=sets,
+        derived=derived,
     )
 
 
 def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
     """Count every active term in every speech body.
 
-    Returns a frame of ``n_<term>`` and ``has_<term>`` columns, plus one
-    ``has_<set>`` column per convenience grouping and per register, all indexed
-    like ``bodies``.
+    Returns a frame of ``n_<term>`` and ``has_<term>`` columns, one such pair
+    per :class:`Derived` measure, plus one ``has_<set>`` column per convenience
+    grouping and per register, all indexed like ``bodies``.
 
     The occurrence roll-ups — each ``n_register_<register>`` and
     ``n_lexicon_total`` — are sums over :func:`summable`, so a term declared
     nested under another is not added on top of the parent that already counts
     its span. The ``has_`` flags and ``n_lexicon_terms`` stay over every member:
-    neither can double-count a span.
+    neither can double-count a span. A derived measure enters no roll-up at
+    all: it is a restatement of its minuend, which every roll-up already holds,
+    and adding it would count those spans a second time.
     """
     counts = pd.DataFrame(index=bodies.index)
     for term in lex.active:
         counts[f"{COUNT}{term.name}"] = term.count(bodies)
         counts[f"{HAS}{term.name}"] = counts[f"{COUNT}{term.name}"] > 0
+
+    for measure in lex.derived.values():
+        net = counts[f"{COUNT}{measure.minuend}"].copy()
+        for subtrahend in measure.subtrahends:
+            net -= counts[f"{COUNT}{subtrahend}"]
+        # A negative count is the one way a broken partition shows itself in the
+        # data: a subtrahend matched somewhere its declared parent did not, so
+        # the two do not divide the parent's spans between them and the
+        # difference is not the narrowing it claims to be.
+        if bool((net < 0).any()):
+            offenders = bodies.index[net < 0].tolist()[:5]
+            raise ValueError(
+                f"derived measure '{measure.name}' is negative in "
+                f"{int((net < 0).sum())} speeches (first: {offenders}); "
+                f"{list(measure.subtrahends)} do not partition "
+                f"'{measure.minuend}' and the subtraction is not a narrowing"
+            )
+        counts[f"{COUNT}{measure.name}"] = net.astype("int64")
+        counts[f"{HAS}{measure.name}"] = net > 0
 
     for register, terms in lex.by_register().items():
         summed = [f"{COUNT}{t.name}" for t in summable(terms, lex.terms)]

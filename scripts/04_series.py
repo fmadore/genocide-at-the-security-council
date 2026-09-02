@@ -52,9 +52,16 @@ from lib.paths import (
 )
 
 #: Measures the change-point pass and the breakdowns run on, as (kind, name).
-#: `genocide` is the object of study; `atrocity_core` is the set that may be the
-#: real one, so both are dated rather than one being assumed.
-TRACKED = [("terms", "genocide"), ("sets", "atrocity_core")]
+#: `genocide_qualification` is the object of study; `atrocity_core` is the set
+#: that may be the real one, so both are dated rather than one being assumed.
+#:
+#: The headline is the *derived* measure, `genocide` minus `genocidaires`,
+#: since lexicon v4: a delegation calling the ex-FAR génocidaires is naming who
+#: did it, not qualifying the event, and 31 occurrences of the raw term are
+#: that. The raw term keeps its own series in the artefact beside this one, and
+#: the concordance enumerates it, so nothing is hidden by the choice — see
+#: `config/lexicon.yml`'s `derived` block.
+TRACKED = [("terms", "genocide_qualification"), ("sets", "atrocity_core")]
 
 #: Speeches a month must hold before its rates are published.
 #:
@@ -115,7 +122,23 @@ def measures(lex: lexicon.Lexicon) -> dict[str, dict[str, dict]]:
     by_register = lex.by_register()
     return {
         "terms": {
-            term.name: {"tier": term.tier, "register": term.register} for term in lex.active
+            **{
+                term.name: {"tier": term.tier, "register": term.register}
+                for term in lex.active
+            },
+            # A derived measure travels with the terms because it is a term's
+            # series minus another's and a reader picks it from the same list.
+            # It carries `derived_from` so that list can say so, and it is not a
+            # member of its register's roll-up — see `lexicon.apply`.
+            **{
+                measure.name: {
+                    "tier": measure.tier,
+                    "register": measure.register,
+                    "derived_from": measure.minuend,
+                    "derived_minus": list(measure.subtrahends),
+                }
+                for measure in lex.derived.values()
+            },
         },
         "registers": {
             register: {

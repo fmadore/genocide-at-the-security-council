@@ -59,7 +59,10 @@ from lib.paths import (
 #: actor view and the temporal series argue about the same two objects.
 #: `atrocity_core` is a union and therefore has no occurrence count of its own;
 #: `lib.series.measure` withholds one rather than summing overlapping members.
-TRACKED: list[tuple[str, str]] = [("terms", "genocide"), ("sets", "atrocity_core")]
+TRACKED: list[tuple[str, str]] = [
+    ("terms", "genocide_qualification"),
+    ("sets", "atrocity_core"),
+]
 
 #: Columns read from the corpus. The whole table is 100 columns wide and 419 MB
 #: of it is speech text this step never looks at.
@@ -81,7 +84,22 @@ COLUMNS = [
 
 
 def measure_attributes(lex: lexicon.Lexicon, kind: str, name: str) -> dict[str, object]:
-    """How the artefact describes a measure, matching 04's vocabulary."""
+    """How the artefact describes a measure, matching 04's vocabulary.
+
+    A derived measure is described like a term and carries what it is derived
+    from, because a reader looking at a rate labelled `genocide_qualification`
+    is owed the arithmetic behind the name in the artefact rather than only in
+    the configuration.
+    """
+    if kind == "terms" and name in lex.derived:
+        measure = lex.derived[name]
+        return {
+            "kind": kind,
+            "tier": measure.tier,
+            "register": measure.register,
+            "derived_from": measure.minuend,
+            "derived_minus": list(measure.subtrahends),
+        }
     if kind == "terms":
         term = lex.terms[name]
         return {"kind": kind, "tier": term.tier, "register": term.register}
