@@ -4,8 +4,23 @@
 106,302 speeches. Step 14 annotates all of them with a model, and a model run is
 worth exactly as much as the human sample it was scored against. This step draws
 that sample — 120 occurrences by equal probability, 80 more chosen to cover every
-period and cue stratum — and leaves it for two coders to work through against
+period and cue stratum, and 535 more from the strata two committed model runs
+disagree about — and leaves it for two coders to work through against
 `annotations/lexicon/CODEBOOK.md`.
+
+**Three frames, reported separately.** The probability frame is the unbiased
+estimate: every occurrence had the same chance, so a rate computed over it and
+weighted by its recorded probabilities is a rate about the corpus. The coverage
+frame guarantees that every period and every usage cue is seen at all. The
+disagreement frame, added after the review of 1 September 2026 (§4.4), is a
+deliberate over-sample of what the two runs read differently — all 134
+occurrences either called `rejects_or_denies`, all 41 whose referent predates
+the case it names, and a hundred each of the three large contested strata — and
+exists because an equal-probability draw of 200 contains about three rejections
+and cannot say anything per class. Nothing in it estimates a corpus quantity,
+its inclusion probabilities differ by a factor of seven, and pooling it with the
+probability frame would give a number that is neither. Every row records the
+probability that put it there, so the two can never be pooled by accident.
 
 Three properties it is built for:
 
@@ -29,6 +44,13 @@ Three properties it is built for:
   candidates it was handed, so sharing one file would make each step reject the
   other's work.
 
+The disagreement frame reads `model_annotations/genocide/` — the run named in
+`current_run.txt` and the counter-instrument named in `comparison_run.txt` — and
+reads nothing else from them. **A model label is a sampling stratum here in
+exactly the sense the cue is**: it says this occurrence is worth a coder's time,
+never what the coder should write. Where no pair of runs is published the frame
+is empty, the other two are unaffected, and the note says so.
+
 Usage:
     python scripts/13_gold_sample.py [--probability 120] [--coverage 80] [--seed 21]
 """
@@ -38,16 +60,19 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Final
 
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, audit, console, frames, lexicon, occurrences, text
+from lib import artifacts, audit, console, frames, lexicon, llm, occurrences, text
 from lib.paths import (
     INTERIM,
     LEXICON,
     MANIFESTS,
+    MODEL_ANNOTATIONS,
     ROOT,
     SPEECHES_NORM,
     ensure_dirs,
@@ -226,20 +251,222 @@ def candidate_rows(
     return pd.DataFrame(rows)
 
 
-def draw(candidates: pd.DataFrame, probability: int, coverage: int, seed: int) -> pd.DataFrame:
-    """The two sampling frames, concatenated as 03 concatenates its three.
+# --- The disagreement-stratified frame ---------------------------------------
 
-    An occurrence drawn by both keeps both rows: the sampling metadata differs,
-    and dropping one would silently change the inclusion probability recorded
-    for the other. `candidate_id` is per frame, so the rows stay distinguishable.
+#: The committed model runs the second frame is cut from, named the way
+#: `15_usage.py` names them: one file holding one run id, or empty.
+CURRENT_RUN = MODEL_ANNOTATIONS / TERM / "current_run.txt"
+COMPARISON_RUN = MODEL_ANNOTATIONS / TERM / "comparison_run.txt"
+RUNS = MODEL_ANNOTATIONS / TERM / "runs"
+
+GOLD_DISAGREEMENT = INTERIM / "genocide_gold_disagreement.csv"
+
+#: The strata of the second frame, in the precedence a candidate is assigned in,
+#: and how many occurrences to draw from each. `None` is a census.
+#:
+#: The review of 1 September 2026 (§4.4) proposed this design and estimated the
+#: strata from the two runs' marginals. Recomputed from the runs as they are,
+#: four of the six agree with it to the occurrence — `rejects_or_denies` 134,
+#: `attributes_or_reports` 789, `hypothetical_or_conditional` 614, contested on
+#: stance or referent 1,703 — and two do not. `other` is 410 and not 641: 641 is
+#: Luna's 346 plus Gemini's 295, and an occurrence both runs filed under `other`
+#: is one occurrence. And the pre-onset stratum holds 42 occurrences in all —
+#: Luna's 32 `gaza` rows before 2023, six `nagorno_karabakh` rows before 2020 in
+#: each run, two `ukraine_2022` rows before 2022 — so the review's 40 is not a
+#: draw from it but very nearly the whole of it, and it is taken whole.
+#:
+#: Precedence, rarest first, because the strata overlap and an occurrence has to
+#: belong to exactly one of them or its inclusion probability is the union of
+#: several draws and nothing downstream can reconstruct it. The order is the
+#: order of scarcity, so the rare thing is never spent to fill a common
+#: stratum: after precedence the six hold 134, 41, 369, 716, 519 and 636.
+#:
+#: Sizes: everything the runs disagree about most, and a hundred of each of the
+#: three large contested strata — at n = 100 a per-class recall is estimable to
+#: about ±10 points, which is what the review asks for and is the whole reason
+#: the frame exists. Sixty for `other`, where the question is not a rate but
+#: *which* referents the controlled list is missing, and a census of the two
+#: strata small enough to have one.
+DISAGREEMENT_SIZES: dict[str, int | None] = {
+    "rejects_or_denies": None,
+    "pre_onset_referent": None,
+    "other_referent": 60,
+    "attributes_or_reports": 100,
+    "hypothetical_or_conditional": 100,
+    "contested_stance_or_referent": 100,
+}
+
+#: The name of the second frame, beside `audit.PROBABILITY` and
+#: `audit.COVERAGE`. Not added to `lib.audit`: the two there are general
+#: sampling designs the lexicon audit uses too, and this one is a design over
+#: two model runs of one term.
+DISAGREEMENT: Final = "disagreement"
+
+
+def read_run(run_id: str) -> dict[str, dict[str, object]]:
+    """One committed run's rows, keyed by occurrence, or nothing.
+
+    Read by identity rather than by position, and never merged with anything:
+    the runs are read here to *stratify* a sample of occurrences the humans will
+    code independently, and a model label is a sampling stratum in exactly the
+    sense the cue already is — it says this occurrence is worth a coder's time,
+    never what the coder should write.
     """
-    return pd.concat(
-        [
-            audit.probability_sample(candidates, probability, seed, audit.PROBABILITY),
-            audit.coverage_sample(candidates, coverage, seed + 1, strata=("period", "cue")),
-        ],
-        ignore_index=True,
+    if not run_id:
+        return {}
+    path = RUNS / run_id / "annotations.jsonl"
+    if not path.is_file():
+        console.warn(f"{rel(path)} does not exist; the disagreement frame will be empty")
+        return {}
+    return {
+        str(row.get("occurrence_id", "")): row
+        for row in llm.read_rows(path)
+        if row.get("occurrence_id")
+    }
+
+
+def named_run(path: Path) -> str:
+    """The run id one of the two pointer files names, or an empty string."""
+    return path.read_text(encoding="utf-8").strip() if path.is_file() else ""
+
+
+def onset_years(referents: Sequence[llm.Referent]) -> dict[str, int]:
+    """The first year each referent's `years` column states, where it states one.
+
+    The codebook is explicit that `years` is documentation and not a coding
+    constraint — a speaker may invoke a case before the dates the column gives,
+    and the column is there so a coder recognises which situation is meant. That
+    is exactly why an occurrence *outside* those years is worth a human eye: it
+    is either the vocabulary being stretched, which is a finding, or a referent
+    assigned from the wrong decade, which is an error. The stratum records the
+    question, not an answer to it.
+    """
+    years: dict[str, int] = {}
+    for referent in referents:
+        if match := re.match(r"^(\d{4})", referent.years.strip()):
+            years[referent.id] = int(match.group(1))
+    return years
+
+
+def classify_stratum(
+    row: pd.Series,
+    published: dict[str, dict[str, object]],
+    comparison: dict[str, dict[str, object]],
+    onsets: dict[str, int],
+) -> str:
+    """Which stratum of the disagreement frame one occurrence belongs to.
+
+    In :data:`DISAGREEMENT_SIZES` order, first match wins, so the strata are
+    disjoint and each row carries one inclusion probability. An occurrence
+    neither run reached, or that no stratum claims, returns the empty string and
+    is outside the frame.
+    """
+    identifier = str(row["occurrence_id"])
+    first, second = published.get(identifier), comparison.get(identifier)
+    if first is None or second is None:
+        return ""
+    stances = {str(first.get("stance", "")), str(second.get("stance", ""))}
+    referents = {str(first.get("referent", "")), str(second.get("referent", ""))}
+    year = int(str(row["date"])[:4] or 0)
+
+    if "rejects_or_denies" in stances:
+        return "rejects_or_denies"
+    if any(year and onsets.get(referent, 0) > year for referent in referents):
+        return "pre_onset_referent"
+    if "other" in referents:
+        return "other_referent"
+    if "attributes_or_reports" in stances:
+        return "attributes_or_reports"
+    if "hypothetical_or_conditional" in stances:
+        return "hypothetical_or_conditional"
+    if len(stances) > 1 or len(referents) > 1:
+        return "contested_stance_or_referent"
+    return ""
+
+
+def stratify(
+    candidates: pd.DataFrame, referents: Sequence[llm.Referent]
+) -> tuple[pd.DataFrame, str, str]:
+    """The candidate frame with a `stratum` column, and the two runs it came from.
+
+    The column is empty everywhere when no run is published, which is the state
+    the repository was in before 31 August and the state a fresh clone is in
+    after `data/` is rebuilt: the disagreement frame is then empty, the
+    probability and coverage frames are unaffected, and the note says as much.
+    """
+    published_id, comparison_id = named_run(CURRENT_RUN), named_run(COMPARISON_RUN)
+    published, comparison = read_run(published_id), read_run(comparison_id)
+    if not published or not comparison:
+        return candidates.assign(stratum=""), published_id, comparison_id
+    onsets = onset_years(referents)
+    strata = candidates.apply(
+        lambda row: classify_stratum(row, published, comparison, onsets), axis=1
     )
+    return candidates.assign(stratum=strata), published_id, comparison_id
+
+
+def draw(
+    candidates: pd.DataFrame,
+    probability: int,
+    coverage: int,
+    seed: int,
+    *,
+    sizes: dict[str, int | None] | None = None,
+) -> pd.DataFrame:
+    """The three sampling frames, concatenated as 03 concatenates its three.
+
+    An occurrence drawn by more than one keeps a row per frame: the sampling
+    metadata differs, and dropping one would silently change the inclusion
+    probability recorded for the other. `candidate_id` is per frame, so the rows
+    stay distinguishable, and a coder meets the occurrence once because the
+    review file is joined on `occurrence_id`.
+
+    The third frame is the disagreement design of the review's §4.4, and it is
+    kept *beside* the first two rather than replacing them. They answer
+    different questions and neither answers both: the probability frame is the
+    unbiased estimate of how accurate the layer is over the corpus, and it is
+    the only thing here that can be, while this one buys per-class recall on the
+    classes an equal-probability draw of 200 contains three of. Reported
+    together they would be a number that is neither.
+    """
+    frames_drawn = [
+        audit.probability_sample(candidates, probability, seed, audit.PROBABILITY),
+        audit.coverage_sample(candidates, coverage, seed + 1, strata=("period", "cue")),
+    ]
+    if "stratum" in candidates and candidates["stratum"].astype(str).str.len().gt(0).any():
+        frames_drawn.append(
+            audit.stratified_sample(
+                candidates,
+                sizes or DISAGREEMENT_SIZES,
+                seed + 2,
+                DISAGREEMENT,
+                strategy="disagreement strata over two committed model runs",
+            )
+        )
+    return pd.concat(frames_drawn, ignore_index=True)
+
+
+def stratum_rows(candidates: pd.DataFrame, sample: pd.DataFrame) -> list[str]:
+    """The disagreement frame's own table: what it holds and at what probability."""
+    drawn = sample.loc[sample["sampling_frame"] == DISAGREEMENT]
+    if drawn.empty:
+        return [
+            "No committed run pair, so no disagreement frame. `current_run.txt` and",
+            "`comparison_run.txt` name the two runs it is cut from; both must exist.",
+        ]
+    rows = [
+        "| Stratum | In the corpus | Drawn | Inclusion probability |",
+        "|---|---:|---:|---:|",
+    ]
+    for name in DISAGREEMENT_SIZES:
+        part = drawn.loc[drawn["stratum"] == name]
+        if part.empty:
+            rows.append(f"| `{name}` | 0 | 0 | — |")
+            continue
+        size = int(part["stratum_size"].iloc[0])
+        probability = float(part["inclusion_probability"].iloc[0])
+        rows.append(f"| `{name}` | {size:,} | {len(part)} | {probability:.3f} |")
+    return rows
 
 
 def build_note(
@@ -253,7 +480,7 @@ def build_note(
     population = len(candidates)
     frames_seen = {
         name: sample.loc[sample["sampling_frame"] == name]
-        for name in (audit.PROBABILITY, audit.COVERAGE)
+        for name in (audit.PROBABILITY, audit.COVERAGE, DISAGREEMENT)
     }
     unique = int(sample["occurrence_id"].nunique())
 
@@ -294,12 +521,29 @@ def build_note(
             "|---|---:|---:|---:|",
             f"| probability | {len(frames_seen[audit.PROBABILITY])} | {probability} | {seed} |",
             f"| coverage | {len(frames_seen[audit.COVERAGE])} | {coverage} | {seed + 1} |",
+            f"| disagreement | {len(frames_seen[DISAGREEMENT])} | per stratum, below | "
+            f"{seed + 2} |",
             "",
-            f"{len(sample)} candidate rows over **{unique} distinct occurrences**: the two "
-            f"frames overlap by {len(sample) - unique}, and both rows are kept because each "
+            f"{len(sample)} candidate rows over **{unique} distinct occurrences**: the "
+            f"frames overlap by {len(sample) - unique}, and every row is kept because each "
             "records its own inclusion probability.",
             f"The coverage frame is stratified by period and cue, {strata} strata in all, one "
             "occurrence drawn from each before the random fill.",
+            "",
+            "## The disagreement frame",
+            "",
+            "Cut from the two committed model runs, over the occurrences both reached. A",
+            "model label is a sampling stratum here in exactly the sense the cue is: it says",
+            "this occurrence is worth a coder's time, never what the coder should write. The",
+            "strata are disjoint and assigned in the order below, rarest first, so every row",
+            "carries one inclusion probability.",
+            "",
+            "**Report it separately from the probability frame.** That one is an unbiased",
+            "estimate of accuracy over the corpus and is weighted by its own probabilities;",
+            "this one is a deliberate over-sample of the rare and the contested, and the",
+            "per-class recall it buys is read unweighted. Pooled they would be neither.",
+            "",
+            *stratum_rows(candidates, sample),
             "",
             "## Cues",
             "",
@@ -358,12 +602,27 @@ def run(probability: int, coverage: int, seed: int) -> None:
     candidates = candidate_rows(speeches, bodies, found, term, lex)
     console.table([(cue, f"{int((candidates['cue'] == cue).sum()):,}") for cue in CUES])
 
+    console.step("Reading the committed runs the second frame is cut from")
+    candidates, published_run, comparison_run = stratify(
+        candidates, llm.read_referent_table(REFERENTS)
+    )
+    if published_run and comparison_run:
+        console.info(f"published {published_run}, comparison {comparison_run}")
+        console.table(
+            [
+                (name, f"{int((candidates['stratum'] == name).sum()):,}")
+                for name in DISAGREEMENT_SIZES
+            ]
+        )
+    else:
+        console.warn("no run pair is published; the disagreement frame will be empty")
+
     console.step("Drawing the gold sample")
     sample = draw(candidates, probability, coverage, seed)
     unique = int(sample["occurrence_id"].nunique())
     console.info(
         f"{len(sample)} candidate rows over {unique} distinct occurrences "
-        f"(seeds {seed} and {seed + 1})"
+        f"(seeds {seed}, {seed + 1} and {seed + 2})"
     )
     review = audit.write_outputs(
         sample,
@@ -373,6 +632,7 @@ def run(probability: int, coverage: int, seed: int) -> None:
         frame_paths={
             audit.PROBABILITY: GOLD_PROBABILITY,
             audit.COVERAGE: GOLD_COVERAGE,
+            DISAGREEMENT: GOLD_DISAGREEMENT,
         },
         referent_path=REFERENTS,
         # A coded row survives a bump that did not touch `genocide`; see
@@ -402,6 +662,7 @@ def run(probability: int, coverage: int, seed: int) -> None:
                 artifacts.describe_file(GOLD_REVIEW, ROOT),
                 artifacts.describe_file(GOLD_PROBABILITY, ROOT),
                 artifacts.describe_file(GOLD_COVERAGE, ROOT),
+                artifacts.describe_file(GOLD_DISAGREEMENT, ROOT),
             ],
             "lexicon_version": lex.version,
             "term": TERM,
@@ -416,6 +677,20 @@ def run(probability: int, coverage: int, seed: int) -> None:
                 "annotated": annotated,
                 "probability": {"size": probability, "seed": seed},
                 "coverage": {"size": coverage, "seed": seed + 1, "strata": ["period", "cue"]},
+                "disagreement": {
+                    "seed": seed + 2,
+                    "published_run": published_run,
+                    "comparison_run": comparison_run,
+                    "sizes": {
+                        name: ("all" if size is None else size)
+                        for name, size in DISAGREEMENT_SIZES.items()
+                    },
+                    "strata": {
+                        name: int((candidates["stratum"] == name).sum())
+                        for name in DISAGREEMENT_SIZES
+                    },
+                    "drawn": int((sample["sampling_frame"] == DISAGREEMENT).sum()),
+                },
                 "cues": {cue: int((sample["cue"] == cue).sum()) for cue in CUES},
             },
         },

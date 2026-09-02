@@ -239,6 +239,171 @@ def test_an_occurrence_in_both_frames_keeps_one_row_in_each() -> None:
         assert rows["candidate_id"].nunique() == 2
 
 
+# --- The disagreement frame -----------------------------------------------
+
+
+def annotated(occurrence: str, **changes: str) -> dict[str, object]:
+    return {
+        "occurrence_id": occurrence,
+        "stance": "asserts",
+        "referent": "rwanda_1994",
+        **changes,
+    }
+
+
+def strata_frame() -> pd.DataFrame:
+    """One candidate per stratum, plus one the design leaves out."""
+    rows = [
+        ("occ-rejects", "2010-01-01"),
+        ("occ-preonset", "2010-01-01"),
+        ("occ-other", "2010-01-01"),
+        ("occ-attributes", "2010-01-01"),
+        ("occ-hypothetical", "2010-01-01"),
+        ("occ-contested", "2010-01-01"),
+        ("occ-agreed", "2010-01-01"),
+        ("occ-unreached", "2010-01-01"),
+    ]
+    return pd.DataFrame(
+        [
+            {
+                "occurrence_id": occurrence,
+                "term": "genocide",
+                "date": date,
+                "period": "2010s",
+                "cue": "plain",
+                "filename": f"{occurrence}.txt",
+                "start": index,
+            }
+            for index, (occurrence, date) in enumerate(rows)
+        ]
+    )
+
+
+PUBLISHED = {
+    "occ-rejects": annotated("occ-rejects", stance="rejects_or_denies"),
+    "occ-preonset": annotated("occ-preonset", referent="gaza"),
+    "occ-other": annotated("occ-other", referent="other"),
+    "occ-attributes": annotated("occ-attributes", stance="attributes_or_reports"),
+    "occ-hypothetical": annotated("occ-hypothetical", stance="hypothetical_or_conditional"),
+    "occ-contested": annotated("occ-contested", referent="bosnia_srebrenica"),
+    "occ-agreed": annotated("occ-agreed"),
+}
+COMPARISON = {
+    key: annotated(key) if key != "occ-rejects" else value
+    for key, value in PUBLISHED.items()
+}
+ONSETS = {"gaza": 2023, "rwanda_1994": 1994}
+
+
+def stratum_of(occurrence: str) -> str:
+    row = strata_frame().set_index("occurrence_id").loc[occurrence]
+    return gold.classify_stratum(
+        row.rename(occurrence).to_frame().T.assign(occurrence_id=occurrence).iloc[0],
+        PUBLISHED,
+        COMPARISON,
+        ONSETS,
+    )
+
+
+def test_every_stratum_is_recognised_from_the_two_runs() -> None:
+    assert stratum_of("occ-rejects") == "rejects_or_denies"
+    # The published run put Gaza on a 2010 speech; `years` is documentation, so
+    # this is a question for a coder rather than an error the sample declares.
+    assert stratum_of("occ-preonset") == "pre_onset_referent"
+    assert stratum_of("occ-other") == "other_referent"
+    assert stratum_of("occ-attributes") == "attributes_or_reports"
+    assert stratum_of("occ-hypothetical") == "hypothetical_or_conditional"
+    assert stratum_of("occ-contested") == "contested_stance_or_referent"
+    # Two runs that agree on stance and referent are outside the frame.
+    assert stratum_of("occ-agreed") == ""
+    # And an occurrence only one run reached has nothing to disagree about.
+    assert stratum_of("occ-unreached") == ""
+
+
+def test_the_strata_are_disjoint_and_the_rarest_wins() -> None:
+    # One occurrence carrying four of the six properties at once. Precedence is
+    # what keeps a row's inclusion probability a single number.
+    published = {"occ": annotated("occ", stance="rejects_or_denies", referent="other")}
+    comparison = {"occ": annotated("occ", stance="attributes_or_reports", referent="gaza")}
+    row = strata_frame().iloc[0].copy()
+    row["occurrence_id"] = "occ"
+    assert gold.classify_stratum(row, published, comparison, ONSETS) == "rejects_or_denies"
+
+
+def test_the_frame_records_a_probability_per_stratum_and_a_census_where_it_takes_all() -> None:
+    candidates = strata_frame().assign(
+        stratum=[
+            "rejects_or_denies",
+            "pre_onset_referent",
+            "other_referent",
+            "other_referent",
+            "other_referent",
+            "attributes_or_reports",
+            "",
+            "",
+        ]
+    )
+    sample = audit.stratified_sample(
+        candidates,
+        {"rejects_or_denies": None, "other_referent": 2, "attributes_or_reports": 5},
+        21,
+        gold.DISAGREEMENT,
+    )
+    counts = sample["stratum"].value_counts().to_dict()
+    assert counts == {"other_referent": 2, "rejects_or_denies": 1, "attributes_or_reports": 1}
+    census = sample.loc[sample["stratum"] == "rejects_or_denies"].iloc[0]
+    assert (census["inclusion_probability"], census["sampling_weight"]) == (1.0, 1.0)
+    # Two of three: probability 2/3, weight 3/2, and the stratum size recorded.
+    drawn = sample.loc[sample["stratum"] == "other_referent"].iloc[0]
+    assert drawn["inclusion_probability"] == pytest.approx(2 / 3)
+    assert drawn["sampling_weight"] == pytest.approx(3 / 2)
+    assert drawn["stratum_size"] == 3
+    # A stratum smaller than its size is taken whole rather than refused.
+    short = sample.loc[sample["stratum"] == "attributes_or_reports"].iloc[0]
+    assert short["inclusion_probability"] == 1.0
+    # Rows outside every stratum are outside the frame.
+    assert "" not in set(sample["stratum"])
+    # And the frame digest is over the whole candidate set, not the draw.
+    assert sample["frame_size"].unique().tolist() == [len(candidates)]
+
+
+def test_the_stratified_draw_is_reproducible_from_its_seed() -> None:
+    candidates = strata_frame().assign(stratum=["other_referent"] * 8)
+    sizes = {"other_referent": 3}
+    first = audit.stratified_sample(candidates, sizes, 21, gold.DISAGREEMENT)
+    again = audit.stratified_sample(candidates, sizes, 21, gold.DISAGREEMENT)
+    shuffled = audit.stratified_sample(
+        candidates.sample(frac=1, random_state=5).reset_index(drop=True),
+        sizes,
+        21,
+        gold.DISAGREEMENT,
+    )
+    other_seed = audit.stratified_sample(candidates, sizes, 22, gold.DISAGREEMENT)
+    assert first["occurrence_id"].tolist() == again["occurrence_id"].tolist()
+    assert set(first["occurrence_id"]) == set(shuffled["occurrence_id"])
+    assert set(first["occurrence_id"]) != set(other_seed["occurrence_id"])
+
+
+def test_a_repository_with_no_published_run_pair_draws_only_the_first_two_frames() -> None:
+    candidates = strata_frame().assign(stratum="")
+    sample = gold.draw(candidates, 3, 5, 21)
+    assert set(sample["sampling_frame"]) == {audit.PROBABILITY, audit.COVERAGE}
+
+
+def test_the_three_frames_keep_one_row_and_one_probability_each() -> None:
+    candidates = strata_frame().assign(
+        stratum=["rejects_or_denies"] * 4 + ["other_referent"] * 4
+    )
+    sample = gold.draw(candidates, 8, 5, 21, sizes={"rejects_or_denies": None})
+    assert set(sample["sampling_frame"]) == {
+        audit.PROBABILITY,
+        audit.COVERAGE,
+        gold.DISAGREEMENT,
+    }
+    assert not sample["candidate_id"].duplicated().any()
+    for _, rows in sample.groupby("occurrence_id"):
+        assert rows["sampling_frame"].nunique() == len(rows)
+
 # --- The refusal ----------------------------------------------------------
 
 
