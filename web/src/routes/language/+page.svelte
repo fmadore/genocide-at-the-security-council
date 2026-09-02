@@ -348,6 +348,14 @@
 	const frameMovers = $derived(movers(frameRows));
 	const frameForms = $derived(morphology(data.frames));
 
+	/* The one category that is not the word applied to an event. Named here so
+	   the two numbers the study quotes — the whole enumeration and the headline
+	   count — are visibly one subtraction apart rather than two facts. */
+	const perpetratorNoun = $derived(
+		data.frames.morphology.categories.find((row) => row.category === 'perpetrator_noun')
+			?.occurrences ?? 0
+	);
+
 	/* --- The same table, drawn as a cloud --------------------------------- */
 
 	let profileFacet = $state<ProfileFacet>('whole');
@@ -741,6 +749,11 @@
 			<p>
 				A slice under {count(data.frames.minimum_occurrences)} occurrences is drawn with counts and no
 				shares, on the rule the actor rankings use.
+			</p>
+			<p>
+				<em>Génocidaire</em> and <em>génocidaires</em> are {count(perpetratorNoun)} of the
+				{count(data.frames.occurrences)}. They name an actor, not an event, and are counted apart
+				from the {count(data.frames.occurrences - perpetratorNoun)} that remain.
 			</p>
 		{/snippet}
 

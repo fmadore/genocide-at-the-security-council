@@ -2408,7 +2408,8 @@
      "form": "genocide",
      "occurrences": 41
     }
-   ]
+   ],
+   "rule": "The node's pattern enumerates every `genocid\u2026` form, and the four categories below partition those occurrences exactly: they sum to the same total the concordance and 03's count report. The perpetrator noun is the one that does not belong with the rest \u2014 `genocidaire(s)` is an actor label for the ex-FAR and Interahamwe in the Great Lakes debates, not the word applied to an event \u2014 so the count of the word as event qualification is the total less those. Both numbers are published here rather than one of them, because the enumeration this artefact is cut from is the whole pattern and the headline the study quotes is not."
   },
   "occurrences": 41,
   "slices": {

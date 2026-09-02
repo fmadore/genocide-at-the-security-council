@@ -323,6 +323,11 @@ def build_note(payload: dict, lexicon_version: str) -> str:
         if tested["result"] and tested["result"]["accepted"]
     ]
     model = payload["triangulation"]["runs"]
+    perpetrator = next(
+        row["occurrences"]
+        for row in payload["morphology"]["categories"]
+        if row["category"] == "perpetrator_noun"
+    )
 
     return (
         "\n".join(
@@ -367,6 +372,13 @@ def build_note(payload: dict, lexicon_version: str) -> str:
                     f"| `{row['form']}` | {row['occurrences']:,} | {row['category']} |"
                     for row in payload["morphology"]["forms"]
                 ],
+                "",
+                f"The four categories partition the {total:,} exactly. The perpetrator noun is",
+                f"the {perpetrator:,} of them that name an actor rather than an event — the",
+                "ex-FAR and Interahamwe of the Great Lakes debates — so the word as event",
+                f"qualification is the other {total - perpetrator:,}. Both numbers are here,",
+                "because this artefact is cut from the whole pattern and the headline the study",
+                "quotes is not.",
                 "",
                 "## Where a share changed",
                 "",
@@ -555,6 +567,17 @@ def run(width: int, trials: int, seed: int, alpha: float, use_model: bool) -> No
             ],
         },
         "morphology": {
+            "rule": (
+                "The node's pattern enumerates every `genocid…` form, and the four "
+                "categories below partition those occurrences exactly: they sum to the "
+                "same total the concordance and 03's count report. The perpetrator noun "
+                "is the one that does not belong with the rest — `genocidaire(s)` is an "
+                "actor label for the ex-FAR and Interahamwe in the Great Lakes debates, "
+                "not the word applied to an event — so the count of the word as event "
+                "qualification is the total less those. Both numbers are published here "
+                "rather than one of them, because the enumeration this artefact is cut "
+                "from is the whole pattern and the headline the study quotes is not."
+            ),
             "categories": [
                 {
                     "category": category,

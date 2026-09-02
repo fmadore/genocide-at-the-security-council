@@ -581,7 +581,8 @@
      "form": "str",
      "occurrences": "int"
     }
-   ]
+   ],
+   "rule": "str"
   },
   "occurrences": "int",
   "pattern": "str",
