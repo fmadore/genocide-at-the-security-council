@@ -1082,3 +1082,89 @@ def test_rows_are_checked_even_when_the_manifest_is_compatible() -> None:
             [{"lexicon_version": "2"}, {"lexicon_version": "1"}],
             lexicon_at(3, pattern_since=2),
         )
+
+
+# --- The referent list is versioned the same way -----------------------------
+
+
+def referents_at(tmp_path: Path) -> audit.ReferentList:
+    """A two-version list with one rename and one retirement without a successor."""
+    path = tmp_path / "referents.csv"
+    path.write_text(
+        "id,label,description,kind,iso3,years,since,retired_in,superseded_by\n"
+        "other,Other,Known,reserved,,,1,,\n"
+        "unclear,Unclear,Unknown,reserved,,,1,,\n"
+        "not_applicable,N/A,False positive,reserved,,,1,,\n"
+        "rwanda_1994,Rwanda 1994,Was,case,RWA,1994,1,2,rwanda\n"
+        "rwanda,Rwanda,Is,case,RWA,1994,2,,\n"
+        "syria,Syria,New at v2,case,SYR,2011-,2,,\n"
+        "hypothetical_future,Prospective,Retired with no successor,meta,,,1,2,\n",
+        encoding="utf-8",
+    )
+    return audit.read_referent_list(path)
+
+
+def test_a_v1_run_using_a_renamed_referent_is_read_rather_than_refused(tmp_path) -> None:
+    """The constraint the version scheme exists for.
+
+    Both paid runs recorded `rwanda_1994` and neither recorded a list version.
+    Refusing them would make renaming a case impossible, which is the break the
+    review asked for and the author declined elsewhere in the same session.
+    """
+    referents = referents_at(tmp_path)
+    rows = [{"referent": "rwanda_1994"}, {"referent": "hypothetical_future"}]
+    assert step.refuse_stale_referents({}, rows, referents) == 1
+    assert [row["referent"] for row in step.resolve_referents(rows, referents)] == [
+        "rwanda",
+        "hypothetical_future",
+    ]
+
+
+def test_a_run_that_used_a_referent_its_list_did_not_hold_yet_is_refused(tmp_path) -> None:
+    referents = referents_at(tmp_path)
+    with pytest.raises(SystemExit):
+        step.refuse_stale_referents(
+            {"referents_version": "1"}, [{"referent": "syria"}], referents
+        )
+
+
+def test_a_run_that_used_a_referent_already_retired_is_refused(tmp_path) -> None:
+    """It was never rendered into that run's prompt, so the run and the manifest
+    disagree about which list the model was shown."""
+    referents = referents_at(tmp_path)
+    with pytest.raises(SystemExit):
+        step.refuse_stale_referents(
+            {"referents_version": "2"}, [{"referent": "rwanda_1994"}], referents
+        )
+
+
+def test_a_run_newer_than_the_referent_list_is_refused(tmp_path) -> None:
+    referents = referents_at(tmp_path)
+    with pytest.raises(SystemExit):
+        step.refuse_stale_referents(
+            {"referents_version": "3"}, [{"referent": "rwanda"}], referents
+        )
+
+
+def test_referent_rows_are_checked_at_their_own_recorded_version(tmp_path) -> None:
+    """A row's version wins over the manifest's, for the reason the lexicon's
+    row-level check exists: the manifest is written once at the end."""
+    referents = referents_at(tmp_path)
+    with pytest.raises(SystemExit):
+        step.refuse_stale_referents(
+            {"referents_version": "2"},
+            [
+                {"referent": "syria", "referents_version": "2"},
+                {"referent": "syria", "referents_version": "1"},
+            ],
+            referents,
+        )
+
+
+def test_two_runs_on_either_side_of_a_rename_are_counted_in_one_column(tmp_path) -> None:
+    """What L8's second opinion needs: `rwanda_1994` against `rwanda` is a
+    rename, not a disagreement between two instruments."""
+    referents = referents_at(tmp_path)
+    published = step.resolve_referents([{"referent": "rwanda_1994"}], referents)
+    comparison = step.resolve_referents([{"referent": "rwanda"}], referents)
+    assert published[0]["referent"] == comparison[0]["referent"] == "rwanda"

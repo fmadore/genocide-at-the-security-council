@@ -67,6 +67,7 @@ ROW_FIELDS: Final = (
     "source_sha256",
     "schema_version",
     "lexicon_version",
+    "referents_version",
     "run_id",
     "model",
     "prompt_version",
@@ -84,6 +85,16 @@ ROW_FIELDS: Final = (
     "evidence_valid",
     "confidence",
     "annotated_at",
+)
+
+#: The shape a run written before the referent list carried a version. Both
+#: committed runs are of this shape, on 12,184 rows, and a validator that
+#: refused them would defeat the point of versioning the list at all: the
+#: version exists so that renaming a case does not orphan the runs that used the
+#: old name. A row without `referents_version` was written against version 1,
+#: the only version that had no number.
+LEGACY_ROW_FIELDS: Final = tuple(
+    field for field in ROW_FIELDS if field != "referents_version"
 )
 
 #: The per-occurrence object the model is asked to return. `function` arrives as
@@ -668,6 +679,7 @@ class RunMeta:
     prompt_sha256: str
     reasoning_effort: str
     lexicon_version: str
+    referents_version: str
     term: str
     annotated_at: str
 
@@ -695,6 +707,7 @@ def annotation_rows(
                 "source_sha256": occurrence.source_sha256,
                 "schema_version": SCHEMA_VERSION,
                 "lexicon_version": meta.lexicon_version,
+                "referents_version": meta.referents_version,
                 "run_id": meta.run_id,
                 "model": meta.model,
                 "prompt_version": meta.prompt_version,
@@ -722,11 +735,13 @@ def validate_row(row: Mapping[str, object], referents: set[str]) -> None:
 
     Used by 14 on the way out and by the tests on constructed rows, so that the
     file's shape is asserted by the thing that writes it rather than by whatever
-    reads it next.
+    reads it next. It is also used by 15 on the way back in, over runs already
+    committed, which is why the older shape is accepted here as well as the
+    current one.
     """
-    if tuple(row) != ROW_FIELDS:
+    if tuple(row) not in (ROW_FIELDS, LEGACY_ROW_FIELDS):
         unexpected = sorted(set(row) - set(ROW_FIELDS))
-        absent = sorted(set(ROW_FIELDS) - set(row))
+        absent = sorted(set(LEGACY_ROW_FIELDS) - set(row))
         if unexpected or absent:
             raise ValueError(f"Row keys are wrong: unexpected={unexpected}, missing={absent}")
         raise ValueError("Row keys are in the wrong order; see llm.ROW_FIELDS.")

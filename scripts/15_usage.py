@@ -157,13 +157,23 @@ def read_referents(path: Path) -> list[dict[str, str]]:
     does not include `iso3` because a model has no use for an ISO code. The usage
     view does: it puts a case on a map. Widening the prompt's dataclass to carry
     a field the prompt never shows would be the worse of the two duplications.
+
+    Retired referents are published too, and marked. A run made before a
+    retirement counted rows under the old identifier, and the block has to hold
+    a row for each of them or those counts land nowhere; a run made after it
+    counts none, and the view needs to know that an empty column is a withdrawn
+    category rather than a case no delegation ever raised.
     """
     table = pd.read_csv(path, dtype="string", keep_default_na=False)
     missing = sorted({"id", "label", "kind", "iso3", "years"} - set(table.columns))
     if missing:
         console.fail(f"{rel(path)} is missing columns: {', '.join(missing)}")
     return [
-        {key: str(row[key]) for key in ("id", "label", "kind", "iso3", "years")}
+        {
+            **{key: str(row[key]) for key in ("id", "label", "kind", "iso3", "years")},
+            "retired": bool(str(row.get("retired_in", "") or "").strip()),
+            "superseded_by": str(row.get("superseded_by", "") or "").strip(),
+        }
         for row in table.to_dict(orient="records")
     ]
 
@@ -373,6 +383,102 @@ def refuse_stale_lexicon(
             f"some rows of {what} were written against an incompatible lexicon",
             [f"row lexicon versions: {', '.join(stale)}; {provenance}"],
         )
+
+
+def refuse_stale_referents(
+    manifest: dict[str, object],
+    rows: list[dict[str, object]],
+    referents: audit.ReferentList,
+    *,
+    what: str = "the run",
+) -> int:
+    """A run is coded against one referent list; the list has moved since.
+
+    The lexicon's rule, transposed. What decides compatibility is not the list's
+    version number but the identifier's own `since` and `retired_in`, so a
+    version bump that added twelve categories leaves a run that used none of them
+    exactly where it was. Two ways a run can fail: it used an identifier that did
+    not yet mean what it means now, or one that had already been retired and was
+    therefore never rendered into its prompt. Either says the manifest and the
+    rows disagree about which list was in front of the model, which is a
+    provenance failure rather than a counting one.
+
+    Renaming a case would otherwise orphan the rows that used the old name —
+    4,590 of the two committed runs' 12,184 — so a retired identifier keeps its
+    row in the file and names its successor, and this returns how many rows of
+    the run carry one. Resolving them is a translation and not a repair, which
+    is the distinction that lets it stand in a script that refuses everything
+    else: the mapping is a column of a human-owned file, so the reader looks it
+    up rather than inferring it, and every superseded identifier has exactly one
+    answer. An identifier retired without a successor resolves to itself and is
+    published under its own name.
+
+    Returns the number of rows carrying a superseded identifier, so the caller
+    can say so rather than translating silently.
+    """
+    recorded = str(manifest.get("referents_version", ""))
+    provenance = (
+        f"{rel(REFERENTS)} is now version {referents.version}; a run that records no "
+        "version was made against version 1"
+    )
+    if recorded.strip() and int(recorded) > referents.version:
+        console.fail(
+            f"{what} was made against a newer referent list than this checkout holds",
+            [
+                f"it records version {recorded}; {provenance}",
+                "check out the commit whose referent list matches the run, or aggregate "
+                "a run this list can read",
+            ],
+        )
+    # Hundreds of thousands of rows carry a handful of distinct (version,
+    # identifier) pairs; the question is about the pair, so ask it once each.
+    pairs = {
+        (str(row.get("referents_version", "") or recorded), str(row.get("referent", "")))
+        for row in rows
+    }
+    stale = sorted(
+        f"{name} (run version {version or '1'}, "
+        f"introduced at {referents.since.get(name, '?')}"
+        + (
+            f", retired at {referents.retired_in[name]}"
+            if name in referents.retired_in
+            else ""
+        )
+        + ")"
+        for version, name in pairs
+        if not referents.compatible(name, version)
+    )
+    if stale:
+        console.fail(
+            f"{what} used referents the list it records could not have offered",
+            [
+                *stale[:8],
+                *([f"... and {len(stale) - 8} more"] if len(stale) > 8 else []),
+                provenance,
+                "a referent is offered to a run only between its `since` and its "
+                "`retired_in`; re-annotate, or aggregate the run that matches this list",
+            ],
+        )
+    return sum(
+        1
+        for row in rows
+        if referents.resolve(str(row.get("referent", ""))) != row.get("referent")
+    )
+
+
+def resolve_referents(
+    rows: list[dict[str, object]], referents: audit.ReferentList
+) -> list[dict[str, object]]:
+    """Rewrite each row's referent to whatever that identifier is called now.
+
+    So that a v1 run and a v2 run can be read side by side: the second-opinion
+    comparison counts agreement on the `referent` string, and `rwanda_1994`
+    against `rwanda` is a rename rather than a disagreement. The run's own
+    version stays in the artefact's provenance block, and the file's
+    `superseded_by` column says what was translated into what, so nothing is
+    lost that a reader would need to undo it.
+    """
+    return [{**row, "referent": referents.resolve(str(row.get("referent", "")))} for row in rows]
 
 
 def refuse_stale_prompt(manifest: dict[str, object]) -> str:
@@ -1094,10 +1200,24 @@ def run(args: argparse.Namespace) -> None:
     console.step("Checking the run against this corpus")
     refuse_stale_lexicon(manifest, raw_rows, lex)
     prompt_text = refuse_stale_prompt(manifest)
-    referents = audit.read_referents(REFERENTS)
-    refuse_bad_rows(raw_rows, enumerated, referents)
+    referent_list = audit.read_referent_list(REFERENTS)
+    # Existence is checked against every identifier the file holds, including the
+    # retired ones: a run that used a referent this list has since withdrawn is
+    # not a broken run, it is an older one, and the version check below is what
+    # says whether it was entitled to use it.
+    refuse_bad_rows(raw_rows, enumerated, referent_list.all)
+    superseded = refuse_stale_referents(manifest, raw_rows, referent_list)
     refuse_partial(len(raw_rows), len(found), args.allow_partial)
-    console.info(f"{len(referents)} controlled referents, every row validated against them")
+    console.info(
+        f"referent list v{referent_list.version}: {len(referent_list.current)} current, "
+        f"{len(referent_list.retired_in)} retired, every row validated against them"
+    )
+    if superseded:
+        console.info(
+            f"{superseded:,} rows carry a superseded referent and are read under its "
+            "successor; the run's own version is in the artefact's provenance"
+        )
+    raw_rows = resolve_referents(raw_rows, referent_list)
 
     if comparison_raw:
         # Every identity check the published run passed, plus the one only a
@@ -1108,7 +1228,17 @@ def run(args: argparse.Namespace) -> None:
         refuse_stale_lexicon(
             comparison_manifest, comparison_raw, lex, what="the comparison run"
         )
-        refuse_bad_rows(comparison_raw, enumerated, referents, what="the comparison run")
+        refuse_bad_rows(
+            comparison_raw, enumerated, referent_list.all, what="the comparison run"
+        )
+        # The comparison may be a run made against a different version of the
+        # list — that is the point of reading two runs side by side — so it is
+        # checked against its own recorded version and resolved onto the same
+        # current identifiers before either is counted.
+        refuse_stale_referents(
+            comparison_manifest, comparison_raw, referent_list, what="the comparison run"
+        )
+        comparison_raw = resolve_referents(comparison_raw, referent_list)
         if len(comparison_raw) < len(found):
             console.warn(
                 f"the comparison run annotates {len(comparison_raw):,} of {len(found):,} "
@@ -1235,6 +1365,11 @@ def run(args: argparse.Namespace) -> None:
         configs=[LEXICON, REFERENTS, PROMPT, GOLD_ANNOTATIONS],
         extra={
             "lexicon_version": lex.version,
+            # Both: the list the counts were cut on, and the list the run was
+            # made against, because a run whose superseded identifiers were
+            # resolved is reported under names its own prompt never showed it.
+            "referents_version": referent_list.version,
+            "run_referents_version": int(str(manifest.get("referents_version", "") or 1)),
             "term": TERM,
             "run_id": run_id,
             "run_dir": rel(directory),

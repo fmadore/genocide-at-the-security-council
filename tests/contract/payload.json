@@ -2089,6 +2089,8 @@
     "kind": "str",
     "label": "str",
     "occurrences": "int",
+    "retired": "bool",
+    "superseded_by": "str",
     "years": "str"
    }
   ],

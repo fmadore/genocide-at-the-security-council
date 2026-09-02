@@ -359,6 +359,12 @@ def referent_rows(
             "iso3": _text(referent.get("iso3")),
             "years": _text(referent.get("years")),
             "occurrences": int(counts.get(_text(referent["id"]), 0)),
+            # A withdrawn category, kept so an older run's counts have somewhere
+            # to land. On a run made after the retirement it is empty, and the
+            # view needs the flag to tell that apart from a case no delegation
+            # ever raised.
+            "retired": bool(referent.get("retired", False)),
+            "superseded_by": _text(referent.get("superseded_by")),
         }
         for referent in referents
     ]

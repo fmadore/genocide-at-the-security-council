@@ -557,6 +557,7 @@ def write_manifest(
         "prompt_version": meta.prompt_version,
         "prompt_sha256": meta.prompt_sha256,
         "referents_sha256": referents_sha256,
+        "referents_version": meta.referents_version,
         "lexicon_version": meta.lexicon_version,
         "schema_version": llm.SCHEMA_VERSION,
         "mode": mode,
@@ -630,11 +631,18 @@ def run(args: argparse.Namespace) -> None:
 
     console.step("Reading the prompt and the controlled referents")
     pack = llm.load_prompt(PROMPT)
-    referents = audit.read_referents(REFERENTS)
+    # Current identifiers only, on both paths: the table the model is shown and
+    # the set its answers are checked against are the same list, so a retired
+    # category cannot be chosen and cannot be accepted if it somehow is.
+    referent_list = audit.read_referent_list(REFERENTS)
+    referents = referent_list.current
     table = llm.render_referents(llm.read_referent_table(REFERENTS))
     referents_sha256 = artifacts.sha256(REFERENTS)
     console.info(f"prompt version {pack.version}, sha256 {pack.sha256[:12]}")
-    console.info(f"{len(referents)} controlled referents, sha256 {referents_sha256[:12]}")
+    console.info(
+        f"referent list v{referent_list.version}: {len(referents)} offered, "
+        f"sha256 {referents_sha256[:12]}"
+    )
 
     previous = read_manifest(paths["manifest"])
     refuse_mismatch(previous, args.run_id, args.model, pack.sha256)
@@ -652,6 +660,7 @@ def run(args: argparse.Namespace) -> None:
         prompt_sha256=pack.sha256,
         reasoning_effort=args.reasoning_effort,
         lexicon_version=str(lexicon_version),
+        referents_version=str(referent_list.version),
         term=TERM,
         annotated_at=datetime.now(UTC).date().isoformat(),
     )

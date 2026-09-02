@@ -516,6 +516,7 @@ def meta() -> llm.RunMeta:
         prompt_sha256="f" * 64,
         reasoning_effort="high",
         lexicon_version="2",
+        referents_version="2",
         term="genocide",
         annotated_at="2026-09-05",
     )

@@ -161,6 +161,8 @@ const referent = (id: string, extra: Partial<UsageReferent> = {}): UsageReferent
 	iso3: '',
 	years: '',
 	occurrences: 1,
+	retired: false,
+	superseded_by: '',
 	...extra
 });
 

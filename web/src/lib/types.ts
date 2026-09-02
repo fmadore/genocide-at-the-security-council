@@ -746,6 +746,13 @@ export interface UsageReferent {
 	years: string;
 	/** Assigned occurrences carrying this referent, across every speaker. */
 	occurrences: number;
+	/**
+	 * Withdrawn from the controlled list, and kept only so that a run made
+	 * before the withdrawal still has somewhere to put its counts.
+	 */
+	retired: boolean;
+	/** What a retired referent became, or `''` when it became nothing. */
+	superseded_by: string;
 }
 
 /**

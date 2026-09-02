@@ -382,10 +382,18 @@ const notACase = (referent: UsageReferent) =>
  * above would then describe wrongly — as cases nobody invoked. The third
  * reserved value, `other`, does carry occurrences and does keep a column: it is
  * a real referent that has not been given an identifier yet.
+ *
+ * **A retired referent keeps its column only while it has counts.** The list is
+ * versioned so that a run made before a category was withdrawn stays readable,
+ * and on such a run the column is full and belongs here. On a run made after the
+ * withdrawal it is empty, and the sentence above would describe it wrongly: it
+ * is not a case these delegations declined to invoke, it is a category the
+ * instrument was never offered.
  */
 export function orderReferents(referents: readonly UsageReferent[]): UsageReferent[] {
 	const ranked = [...referents]
 		.filter((referent) => referent.occurrences > 0 || referent.kind !== 'reserved')
+		.filter((referent) => referent.occurrences > 0 || !referent.retired)
 		.sort((a, b) => b.occurrences - a.occurrences || a.label.localeCompare(b.label));
 	return [...ranked.filter((r) => !notACase(r)), ...ranked.filter(notACase)];
 }

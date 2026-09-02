@@ -461,7 +461,8 @@ def build(limit: int | None) -> None:
 
     console.step("Reading the prompt and the controlled referents")
     pack = llm.load_prompt(PROMPT)
-    referents = audit.read_referents(REFERENTS)
+    referent_list = audit.read_referent_list(REFERENTS)
+    referents = referent_list.current
     cases = referent_weights(
         [
             referent.id
@@ -479,6 +480,7 @@ def build(limit: int | None) -> None:
         prompt_sha256=pack.sha256,
         reasoning_effort="high",
         lexicon_version=str(lex.version),
+        referents_version=str(referent_list.version),
         term=TERM,
         annotated_at=ANNOTATED_AT,
     )
@@ -494,6 +496,7 @@ def build(limit: int | None) -> None:
         prompt_sha256=pack.sha256,
         reasoning_effort="medium",
         lexicon_version=str(lex.version),
+        referents_version=str(referent_list.version),
         term=TERM,
         annotated_at=ANNOTATED_AT,
     )
