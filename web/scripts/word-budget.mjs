@@ -24,8 +24,12 @@
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('../src/', import.meta.url).pathname;
+// `fileURLToPath` and not `.pathname`: on Windows the latter is `/C:/…`, which
+// `readdirSync` tolerates and `join` does not, so the walk found the first
+// directory and then looked for `C:\C:\…` inside it.
+const ROOT = fileURLToPath(new URL('../src/', import.meta.url));
 const BUDGET = { question: 20, reading: 60, caveat: 50, more: 150 };
 
 function* svelteFiles(dir) {

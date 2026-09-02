@@ -42,11 +42,13 @@
 		diffusionPlan,
 		drillDown,
 		goldProgress,
+		isInstrumentDependent,
 		matrixExportRows,
 		matrixPlan,
 		readUsageState,
 		selectUsage,
 		stanceExportRows,
+		retestRows,
 		stanceLabel,
 		stanceRanking,
 		usageParams
@@ -114,6 +116,14 @@
 	   `none` there is no section, no figure and no filter, which is the state the
 	   published payload is in. */
 	const comparison = $derived(comparisonApparatus(artefact));
+	/* Each model against another run of itself, over the pilot occurrences both
+	   reached. The floor the cross-model column has to be read against: two
+	   models differing on a fifth of the stance labels says nothing until a
+	   reader knows how far one model differs from itself. */
+	const retest = $derived(retestRows(artefact));
+	/** One field's observed agreement in one retest, or a dash. */
+	const retestField = (run: (typeof retest)[number], field: string) =>
+		run.fields.find((row) => row.field === field)?.observedText ?? '—';
 	const referentLabel = (id: string) =>
 		artefact.referents.find((entry) => entry.id === id)?.label ?? termLabel(id);
 
@@ -257,9 +267,17 @@
 				? `share withheld — fewer than ${count(artefact.minimum_occurrences)} eligible occurrences`
 				: `${percent(cell.share)} of its ${count(speaker.assigned)} placed occurrences`;
 		const many = cell.count === 1 ? 'occurrence' : 'occurrences';
+		// The contested share belongs on the cell rather than only in the
+		// apparatus: a reader who drills into one cell is reading that cell, and
+		// how much of it the two instruments read differently is the caveat that
+		// applies to the number under the cursor.
+		const disputed =
+			comparison.computed && cell.contestedShare !== null
+				? ` ${count(cell.contested)} of them read differently by ${comparison.model} (${percent(cell.contestedShare)}).`
+				: '';
 		return (
 			`${who} × ${subject.label}: ${count(cell.count)} ${many}, ${share}. ` +
-			`${describeStances(cell.stances, cell.count)}.`
+			`${describeStances(cell.stances, cell.count)}.${disputed}`
 		);
 	}
 
@@ -517,7 +535,11 @@
 									<th scope="col" class="num">Compared</th>
 									<th scope="col" class="num">Observed</th>
 									<th scope="col" class="num">Kappa</th>
+									<th scope="col" class="num">PABAK</th>
 									<th scope="col" class="num">Contested</th>
+									{#each retest as run (run.which)}
+										<th scope="col" class="num">Same model, twice</th>
+									{/each}
 								</tr>
 							</thead>
 							<tbody>
@@ -526,21 +548,89 @@
 										<th scope="row">{row.label}</th>
 										<td class="num">{count(row.n)}</td>
 										<td class="num">{row.observedText}</td>
-										<td class="num">{row.kappaText}</td>
+										<td class="num" class:withheld={row.kappaWithheld}>{row.kappaText}</td>
+										<td class="num">{row.pabakText}</td>
 										<td class="num">{count(row.contested)}</td>
+										{#each retest as run (run.which)}
+											<td class="num">{retestField(run, row.field)}</td>
+										{/each}
 									</tr>
 								{/each}
 							</tbody>
 						</table>
 					</div>
 					<p class="quiet">
-						<code>function</code> carries several labels at once and no kappa is defined on it; the
-						mean overlap between the two runs is
-						<strong>{comparison.functionJaccardText}</strong>, with
-						{count(comparison.functionContested)}
-						{comparison.functionContested === 1 ? 'occurrence' : 'occurrences'} given a different set
-						of functions. A dash in the kappa column means the statistic could not be computed: with every
-						row in one category there is no chance agreement to correct for.
+						<code>function</code> carries several labels at once and no kappa is defined on it. The
+						mean overlap between the two runs is <strong>{comparison.functionJaccardText}</strong>;
+						Krippendorff's &alpha; under the MASI distance, which corrects for the chance the
+						overlap does not,
+						<strong>{comparison.functionAlphaText}</strong>. {count(comparison.functionContested)}
+						{comparison.functionContested === 1 ? 'occurrence' : 'occurrences'} carry a different set
+						of functions, and almost all of it is in one label — the table below says which.
+					</p>
+					<p class="quiet">
+						A dash in the kappa column means the statistic was not computed, or was
+						<strong>withheld</strong>: below one per cent outside a run's commonest label — which is
+						<code>verdict</code> in both of these — chance agreement is almost total and kappa divides
+						what little is left, returning a figure near zero about the most stable field in the run.
+						PABAK is that correction against a uniform chance over the codebook's categories, and is what
+						to read in its place.
+					</p>
+					{#if retest.length}
+						<p class="quiet">
+							<strong>Same model, twice</strong> is each instrument against another run of itself
+							with the byte-identical prompt, over the {count(retest[0].overlap)} pilot occurrences both
+							reached. It is the floor the column beside it has to be read against:
+							{#each retest as run, index (run.which)}<code>{run.model}</code> writes all five
+								fields identically on {count(run.identical)} of {count(run.overlap)}{index <
+								retest.length - 1
+									? ', and '
+									: '. '}{/each}A quarter of one model's own labels moving between two calls is not
+							a smaller finding than two models differing on a fifth.
+						</p>
+					{/if}
+					{#if comparison.functionLabels.length}
+						<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
+						<div
+							class="scroll"
+							role="region"
+							aria-label="Agreement per function label"
+							tabindex="0"
+						>
+							<table>
+								<caption class="sr-only">
+									How far the two runs agree that each function label applies
+								</caption>
+								<thead>
+									<tr>
+										<th scope="col">Function</th>
+										<th scope="col" class="num">{artefact.model.id}</th>
+										<th scope="col" class="num">{comparison.model}</th>
+										<th scope="col" class="num">Observed</th>
+										<th scope="col" class="num">Kappa</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each comparison.functionLabels as row (row.label)}
+										<tr>
+											<th scope="row">{row.label}</th>
+											<td class="num">{count(row.left)}</td>
+											<td class="num">{count(row.right)}</td>
+											<td class="num">{row.observedText}</td>
+											<td class="num">{row.kappaText}</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{/if}
+					<p class="quiet">
+						<strong>Two labels are instrument-dependent</strong> and are marked wherever they
+						appear: <em>attributes or reports</em> and <em>attributed or reported</em>. The two
+						models place the first on 789 occurrences between them and share 215 of those; 445 are
+						<em>attributes</em>
+						to one and <em>asserts</em> to the other. A count of either is a count of how one model read
+						a boundary the prompt does not draw.
 					</p>
 				{:else}
 					<p class="quiet">
@@ -859,18 +949,20 @@
 		{#snippet caveat()}
 			<p>
 				<strong>A curve of delegations speaking in this corpus</strong>, not of states holding a
-				view: an absence is silence, a seat not held or a debate never opened, and membership turns
-				over yearly. The milestones are <code>{artefact.model.id}</code>'s readings; a mislabelled
-				stance moves a delegation from one curve to the other.
+				view: an absence is silence, not refusal. The milestones are
+				<code>{artefact.model.id}</code>'s readings; a mislabelled stance moves a delegation between
+				the curves, and a referent the second model reads differently is withheld.
 			</p>
 		{/snippet}
 		{#snippet more()}
 			<p>
 				The vertical scale is this referent's own and the time axis is every referent's, so
-				switching referents moves the curve along a fixed span rather than redrawing it.
-				Participation is not constant: the open debates that let a non-member speak are called
-				unevenly, so a rise can be a change in who was in the room rather than in what was being
-				said.
+				switching referents moves the curve along a fixed span rather than redrawing it. An absence
+				can be a seat not held or a debate never opened, and Council membership turns over yearly:
+				the open debates that let a non-member speak are called unevenly, so a rise can be a change
+				in who was in the room rather than in what was being said. A referent is withheld here when
+				the two models place it on the same occurrences at a cross-instrument F1 below 0.8, because
+				a first assertion is then a property of which model was asked.
 			</p>
 		{/snippet}
 
@@ -884,6 +976,17 @@
 			<p class="refusal">
 				The chronology carries no first this figure can draw for
 				<strong>{diffusion.label}</strong>. Pick another referent above.
+			</p>
+		{:else if diffusion.refusal === 'unstable-referent'}
+			<p class="refusal">
+				<strong>Withheld for {diffusion.label}.</strong>
+				A curve of firsts is a claim about dates, and a date here is the first occurrence a label fell
+				on. The two models place this referent on the same occurrences
+				{diffusion.reliability === null || diffusion.reliability === undefined
+					? 'too rarely to measure'
+					: `at F1 ${decimal(diffusion.reliability)}`}, under the 0.8 this figure requires, so its
+				first assertion and its first refusal would be properties of which model was asked. The
+				matrix above still counts it, because a count is not a date. Pick another referent.
 			</p>
 		{:else}
 			<DiffusionChart plan={diffusion} label={stepLabel} description={diffusionDescription} />
@@ -1069,28 +1172,50 @@
 	>
 		{#snippet reading()}
 			<p>
-				Each row divides one delegation's eligible occurrences by what it was doing with the word,
-				ordered by the <strong>rejects or denies</strong> band: the delegations at the top most often
-				used the word to refuse it. It lets the collaborators' question be asked, not answered: whether
-				a delegation invokes only consensual cases, or spends its uses denying the term.
+				Each row divides one delegation's eligible occurrences by what it was doing with the word.
+				<strong>Only the marked rows are ordered</strong>: those whose interval clears the corpus's
+				own 1.7%. The rest follow by count and are not a ranking, because at these denominators one
+				rejection and two cannot be told apart.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
 				<strong>A stance is the label a model most easily inverts:</strong> &ldquo;we reject the
 				claim that this is genocide&rdquo; and &ldquo;this is genocide&rdquo; differ by three words,
-				and no error rate exists until the gold sample is coded. {count(ranking.withheld.length)}
-				delegations with fewer than {count(ranking.minimum)} occurrences carry no share.
+				and nothing here is checked until the gold sample is coded. {count(ranking.withheld.length)}
+				delegations with fewer than {count(ranking.minimum)} occurrences carry no share at all.
+			</p>
+		{/snippet}
+		{#snippet more()}
+			<p>
+				The corpus places 106 of 6,092 occurrences on <em>rejects or denies</em>, so a delegation
+				with twenty occurrences is expected to have a third of one. A single rejection there reads
+				as 5% and looks like three times the corpus; its 95% interval runs from under 1% to about
+				25%. Raising the minimum until 5% could be separated from 1.7% would need about 220
+				occurrences and would keep three delegations, losing the finding the column exists for. So
+				the counts and the shares stay, the interval is printed beside each, and only the rows the
+				interval separates are ordered.
 			</p>
 		{/snippet}
 
 		<div class="key">
 			{#each STANCES as stance (stance)}
 				<span class="swatch"
-					><i style:--band="var(--stance-{slug(stance)})"></i>{stanceLabel(stance)}</span
+					><i style:--band="var(--stance-{slug(stance)})"></i>{stanceLabel(
+						stance
+					)}{#if isInstrumentDependent(stance)}<abbr
+							title="Instrument-dependent: the two models split this label from `asserts` differently, and a count of it is partly a count of which model was asked."
+							>&nbsp;&dagger;</abbr
+						>{/if}</span
 				>
 			{/each}
 		</div>
+		<p class="quiet">
+			&dagger; <strong>Instrument-dependent.</strong> The two models place
+			<em>attributes or reports</em> on 789 occurrences between them and agree on 215 of those; 445
+			are <em>attributes</em> to one and <em>asserts</em> to the other. The prompt does not draw the boundary,
+			so this band's width is partly a property of which model was asked.
+		</p>
 
 		{#if ranking.rows.length === 0}
 			<p class="refusal">
@@ -1102,24 +1227,35 @@
 			<div class="scroll" role="region" aria-label="Stance profile table" tabindex="0">
 				<table class="stances">
 					<caption class="sr-only">
-						Delegations ranked by the share of their eligible occurrences that reject or deny the
-						characterisation
+						Delegations by the share of their eligible occurrences that reject or deny the
+						characterisation, those separated from the corpus rate first
 					</caption>
 					<thead>
 						<tr>
 							<th scope="col">Delegation</th>
 							<th scope="col" class="num">Eligible</th>
-							<th scope="col" class="num">Rejects or denies</th>
+							<th scope="col" class="num">Rejects</th>
+							<th scope="col" class="num">Share</th>
+							<th scope="col" class="num">95% interval</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each ranking.rows as row (row.actor)}
-							<tr class="band" style:--bands="linear-gradient(to right, {bands(row.segments)})">
+							<tr
+								class="band"
+								class:withheld={!row.separated}
+								style:--bands="linear-gradient(to right, {bands(row.segments)})"
+							>
 								<th scope="row" title={describeStances(row.stances, row.total)}>
-									{shortCountry(row.actor)}
+									{shortCountry(row.actor)}{#if row.separated}<abbr
+											title="The lower bound of this share clears the corpus rate of 1.7%."
+											>&nbsp;&#9679;</abbr
+										>{/if}
 								</th>
 								<td class="num">{count(row.eligible)}</td>
+								<td class="num">{count(row.rejects)}</td>
 								<td class="num">{percent(row.shareRejects)}</td>
+								<td class="num">{row.intervalText}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -1214,6 +1350,7 @@
 								<th scope="col" class="num">Double-coded</th>
 								<th scope="col" class="num">Observed</th>
 								<th scope="col" class="num">Kappa</th>
+								<th scope="col" class="num">PABAK</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -1221,22 +1358,32 @@
 								<tr>
 									<th scope="row">{termLabel(row.field)}</th>
 									<td class="num">{count(row.n)}</td>
-									<td class="num">{percent(row.observed)}</td>
+									<td class="num">{row.observed === null ? '—' : percent(row.observed)}</td>
 									<td class="num">{row.kappa === null ? '—' : decimal(row.kappa)}</td>
+									<td class="num">{row.pabak === null ? '—' : decimal(row.pabak)}</td>
 								</tr>
 							{/each}
 						</tbody>
 					</table>
 				</div>
 				<p class="quiet">
-					A dash in the kappa column means the statistic could not be computed: with every row in
-					one category there is no chance agreement to correct for.
+					A dash in the kappa column means the statistic was not computed or was withheld. It is
+					withheld where one coder's labels fall outside their commonest by under one per cent:
+					chance agreement is then almost total, and dividing what is left produces a number near
+					zero about a field the two agreed on throughout. <strong>PABAK</strong> is the same correction
+					against a uniform chance over the codebook's own categories, and is what to read there.
 				</p>
 			{/if}
 			{#if gold.hasModelScores}
 				<h3>The published run against the human labels</h3>
 				<p class="quiet">
 					<code>{artefact.model.id}</code>, whose labels every count on this page is made of.
+					<strong>Left out</strong> is the share of double-coded occurrences this field's score was
+					not computed over, because the two coders differed and nobody has adjudicated: the
+					reference is what they agreed on, which is right and is also the easy subset, and it is a
+					different subset for each field. Read <strong>weighted F1</strong> for the referent, whose distribution
+					is long-tailed; macro F1 is over the classes with twenty reference occurrences or more, and
+					is a dash where none has.
 				</p>
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
 				<div
@@ -1250,8 +1397,10 @@
 							<tr>
 								<th scope="col">Field</th>
 								<th scope="col" class="num">Rows</th>
-								<th scope="col" class="num">Accuracy</th>
+								<th scope="col" class="num">Agreed</th>
 								<th scope="col" class="num">Macro F1</th>
+								<th scope="col" class="num">Weighted F1</th>
+								<th scope="col" class="num">Left out</th>
 								<th scope="col" class="num">Abstained</th>
 							</tr>
 						</thead>
@@ -1262,6 +1411,10 @@
 									<td class="num">{count(row.n)}</td>
 									<td class="num">{percent(row.accuracy)}</td>
 									<td class="num">{row.macro_f1 === null ? '—' : decimal(row.macro_f1)}</td>
+									<td class="num">{row.weighted_f1 === null ? '—' : decimal(row.weighted_f1)}</td>
+									<td class="num"
+										>{row.excluded_share === null ? '—' : percent(row.excluded_share)}</td
+									>
 									<td class="num">{percent(row.abstention_rate)}</td>
 								</tr>
 							{/each}
@@ -1278,6 +1431,8 @@
 									<th scope="col">Field</th>
 									<th scope="col">Class</th>
 									<th scope="col" class="num">Support</th>
+									<th scope="col" class="num">Placed</th>
+									<th scope="col" class="num">Both</th>
 									<th scope="col" class="num">Precision</th>
 									<th scope="col" class="num">Recall</th>
 									<th scope="col" class="num">F1</th>
@@ -1286,13 +1441,15 @@
 							<tbody>
 								{#each artefact.gold.model_vs_human as field (field.field)}
 									{#each field.classes as row (row.label)}
-										<tr>
+										<tr class:withheld={!row.measurable}>
 											<th scope="row">{termLabel(field.field)}</th>
 											<td>{stanceLabel(row.label)}</td>
 											<td class="num">{count(row.support)}</td>
-											<td class="num">{decimal(row.precision)}</td>
-											<td class="num">{decimal(row.recall)}</td>
-											<td class="num">{decimal(row.f1)}</td>
+											<td class="num">{count(row.predicted)}</td>
+											<td class="num">{count(row.correct)}</td>
+											<td class="num">{row.precision === null ? '—' : decimal(row.precision)}</td>
+											<td class="num">{row.recall === null ? '—' : decimal(row.recall)}</td>
+											<td class="num">{row.f1 === null ? '—' : decimal(row.f1)}</td>
 										</tr>
 									{/each}
 								{/each}
@@ -1320,8 +1477,10 @@
 							<tr>
 								<th scope="col">Field</th>
 								<th scope="col" class="num">Rows</th>
-								<th scope="col" class="num">Accuracy</th>
+								<th scope="col" class="num">Agreed</th>
 								<th scope="col" class="num">Macro F1</th>
+								<th scope="col" class="num">Weighted F1</th>
+								<th scope="col" class="num">Left out</th>
 								<th scope="col" class="num">Abstained</th>
 							</tr>
 						</thead>
@@ -1332,6 +1491,10 @@
 									<td class="num">{count(row.n)}</td>
 									<td class="num">{percent(row.accuracy)}</td>
 									<td class="num">{row.macro_f1 === null ? '—' : decimal(row.macro_f1)}</td>
+									<td class="num">{row.weighted_f1 === null ? '—' : decimal(row.weighted_f1)}</td>
+									<td class="num"
+										>{row.excluded_share === null ? '—' : percent(row.excluded_share)}</td
+									>
 									<td class="num">{percent(row.abstention_rate)}</td>
 								</tr>
 							{/each}
@@ -1956,6 +2119,16 @@
 	tr.withheld td:last-child {
 		color: var(--ink-3);
 		font-style: italic;
+	}
+
+	/* A row or a cell whose figure is present but must not be ordered or quoted:
+	   a share whose interval covers the corpus rate, a per-class rate under its
+	   support floor, a kappa withheld for a flat margin. Set back rather than
+	   hidden — the counts behind them are facts, and only the rate is not. */
+	tbody tr.withheld th[scope='row'],
+	tbody tr.withheld td,
+	td.num.withheld {
+		color: var(--ink-3);
 	}
 
 	pre {

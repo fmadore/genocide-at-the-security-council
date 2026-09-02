@@ -718,7 +718,18 @@ export interface UsageModel {
 	/** 64 hex characters over the prompt text below. A changed prompt is a new run. */
 	prompt_sha256: string;
 	reasoning_effort: string;
+	/**
+	 * Requests actually sent, over every pass of the run.
+	 *
+	 * Not requests intended: the counter that produced the first Gemini
+	 * manifest added the size of each pass's intention, whether or not the batch
+	 * quota let it create a single job, and reported 7,966 over a corpus of
+	 * 3,273. `requests_recounted` is true where `tools/recount_run.py` has
+	 * re-derived the figure from the run's own raw receipts, and false where the
+	 * manifest predates that and the number is the old one.
+	 */
 	requests: number;
+	requests_recounted: boolean;
 	occurrences_total: number;
 	occurrences_annotated: number;
 	parse_failures: number;
@@ -777,6 +788,14 @@ export interface UsageMatrixCell {
 	/** A `UsageReferent.id`. */
 	referent: string;
 	count: number;
+	/**
+	 * How many of this cell's occurrences a second instrument read differently.
+	 *
+	 * Zero where no comparison run was made, which is not agreement: the
+	 * `comparison` block's own `state` is what tells those two apart, and every
+	 * surface that draws this number has to read that first.
+	 */
+	contested: number;
 	/** The same occurrences divided by stance. Sums to `count`. */
 	stances: StanceCounts;
 }
@@ -789,6 +808,18 @@ export interface UsageStanceRow {
 	stances: StanceCounts;
 	/** Null — never absent — wherever `sufficient` is false. */
 	share_rejects: number | null;
+	/** The 95% Wilson bounds on that share. Null together with it. */
+	share_low: number | null;
+	share_high: number | null;
+	/**
+	 * Whether the lower bound clears the corpus's own rejection rate of 1.7%.
+	 *
+	 * **The flag a ranking has to be built on.** A share of 1 in 24 is 4.2% and
+	 * reads as two and a half times the corpus; its interval runs from 0.7% to
+	 * 20% and covers the corpus rate three times over. Ordering that against a
+	 * share of 2 in 25 orders two draws from one urn.
+	 */
+	separated: boolean;
 }
 
 /**
@@ -859,7 +890,77 @@ export interface UsageComparisonField {
 	n: number;
 	observed: number | null;
 	kappa: number | null;
+	/**
+	 * Whether kappa was suppressed rather than undefined.
+	 *
+	 * True where one rater's labels fell outside its commonest by less than one
+	 * per cent, which is `verdict` in both runs: chance agreement under those
+	 * marginals is 0.998, and 99.9% agreement divided by the 0.2% left over is
+	 * the 0.000 the review found being published. A withheld kappa and one that
+	 * was never defined are different findings and are written apart.
+	 */
+	kappa_withheld: boolean;
+	/** That minority share itself, so a reader sees why rather than being told. */
+	minority_share: number | null;
+	/**
+	 * Prevalence-adjusted kappa over the codebook's own category count.
+	 *
+	 * What to read where kappa is withheld: the agreement measured against a
+	 * uniform chance rather than against the marginals that are the problem.
+	 */
+	pabak: number | null;
 	contested: number;
+}
+
+/** One label's precision, recall and F1 — or its counts, below the support floor. */
+export interface UsageClassRow {
+	label: string;
+	precision: number | null;
+	recall: number | null;
+	f1: number | null;
+	support: number;
+	predicted: number;
+	correct: number;
+	/**
+	 * Whether the reference support cleared twenty.
+	 *
+	 * Below it the three rates are null and the counts are not: recall over a
+	 * denominator of three moves in thirds, and an F1 computed on it has an
+	 * interval wider than the scale it sits on.
+	 */
+	measurable: boolean;
+}
+
+/** One multi-label `function` label, taken as its own yes/no decision. */
+export interface UsageLabelAgreement {
+	label: string;
+	/** How often each side applied it, in the order the two were handed in. */
+	left: number;
+	right: number;
+	observed: number | null;
+	kappa: number | null;
+}
+
+/**
+ * One model asked the same question twice: the noise floor of a single instrument.
+ *
+ * Two models disagreeing on a fifth of the stance labels means nothing until a
+ * reader knows how far one model disagrees with itself. `retest_run_id` names
+ * another committed run of the same model with the byte-identical prompt, and
+ * every statistic is the one the cross-model table carries, computed by the
+ * same code, so the two can be laid over each other.
+ */
+export interface UsageRetest {
+	/** `published` or `comparison`: which of the two runs this is the floor for. */
+	which: string;
+	model: string;
+	run_id: string;
+	retest_run_id: string;
+	overlap: number;
+	fields: UsageComparisonField[];
+	function_jaccard: number | null;
+	/** Occurrences the two calls labelled identically on all five fields. */
+	identical: number;
 }
 
 /**
@@ -905,8 +1006,28 @@ export interface UsageComparison {
 	abstention: { verdict_uncertain: number; referent_unclear: number; stance_unclear: number };
 	/** The four single-label fields. Empty where the two runs overlap nowhere. */
 	fields: UsageComparisonField[];
+	/**
+	 * Per referent, how far the two instruments place the same occurrences there.
+	 *
+	 * A cross-instrument F1 and never an accuracy: it says how reliably a
+	 * referent survives being read by a second model. The diffusion figure
+	 * withholds a curve below 0.8 on this number, because a chronology of a
+	 * referent the two instruments agree on three times in five is a chronology
+	 * of one model's habits.
+	 */
+	referents: UsageClassRow[];
 	/** `function` is multi-label and carries no kappa; this is its mean set overlap. */
 	function_jaccard: number | null;
+	/**
+	 * Krippendorff's alpha under the MASI distance, over the same field.
+	 *
+	 * What the mean overlap cannot say: eight labels of which two are
+	 * near-universal give a comfortable overlap between readings that are barely
+	 * distinguishing anything, and alpha corrects for exactly that.
+	 */
+	function_alpha_masi: number | null;
+	/** Which label the disagreement is in, which is what a prompt is revised against. */
+	function_labels: UsageLabelAgreement[];
 	function_contested: number;
 	/** Compared occurrences the two runs differ on in at least one of the five fields. */
 	contested_any: number;
@@ -915,27 +1036,62 @@ export interface UsageComparison {
 /** Agreement between two coders on one field, or null while it cannot be computed. */
 export interface UsageAgreement {
 	field: string;
-	observed: number;
+	observed: number | null;
 	kappa: number | null;
+	kappa_withheld: boolean;
+	minority_share: number | null;
+	pabak: number | null;
 	n: number;
 }
 
-/** How the model did against the human labels for one class of one field. */
-export interface UsageClassScore {
-	label: string;
-	precision: number;
-	recall: number;
-	f1: number;
-	support: number;
+/** The two coders on `function`, which is a set and not a label. */
+export interface UsageFunctionAgreement {
+	n: number;
+	jaccard: number | null;
+	alpha_masi: number | null;
+	labels: UsageLabelAgreement[];
+}
+
+/**
+ * One sampling frame of the gold sample, and how much of it has been coded.
+ *
+ * The three frames answer different questions and are reported separately or
+ * not at all. `weighted` says which reading a frame takes: an equal-probability
+ * frame is weighted back to the corpus and estimates accuracy over it; a
+ * purposive one is not, because there is no population its rate is a rate of.
+ */
+export interface UsageGoldFrame {
+	frame: string;
+	rows: number;
+	occurrences: number;
+	coded: number;
+	weighted: boolean;
 }
 
 export interface UsageModelScore {
 	field: string;
 	n: number;
 	accuracy: number;
+	/** Averaged over the classes clearing the support floor, or null where none does. */
 	macro_f1: number | null;
+	/** Each class counting for as many occurrences as it holds: the figure to read
+	 * for `referent`, whose distribution is genuinely long-tailed. */
+	weighted_f1: number | null;
+	support_floor: number;
+	classes_measured: number;
+	classes_withheld: number;
 	abstention_rate: number;
-	classes: UsageClassScore[];
+	/**
+	 * Double-coded occurrences, and how many of them this field's score left out.
+	 *
+	 * The reference is the label the two coders agreed on, which is right and is
+	 * also the easy subset, and it is a different subset for every field. A score
+	 * read without `excluded_share` is a score over an unstated denominator.
+	 */
+	double_coded: number;
+	excluded: number;
+	excluded_share: number | null;
+	classes: UsageClassRow[];
 }
 
 /**
@@ -952,7 +1108,10 @@ export interface UsageGold {
 	coders: { coder: string; rows: number }[];
 	double_coded: number;
 	adjudicated: number;
+	/** One row per sampling frame. Empty where no candidate file was read. */
+	frames: UsageGoldFrame[];
 	human_agreement: UsageAgreement[];
+	human_function: UsageFunctionAgreement;
 	model_vs_human: UsageModelScore[];
 	/**
 	 * The comparison run against the same human labels, scored the same way.
@@ -982,6 +1141,8 @@ export interface Usage {
 	diffusion: UsageDiffusion;
 	/** A second model over the same occurrences, or the block that says none was run. */
 	comparison: UsageComparison;
+	/** Each model against another run of itself. Empty where no sibling run exists. */
+	retest: UsageRetest[];
 	gold: UsageGold;
 }
 
