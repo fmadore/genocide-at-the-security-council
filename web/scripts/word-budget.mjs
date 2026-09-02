@@ -26,9 +26,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// `fileURLToPath` and not `.pathname`: on Windows the latter is `/C:/…`, which
-// `readdirSync` tolerates and `join` does not, so the walk found the first
-// directory and then looked for `C:\C:\…` inside it.
+// Through `fileURLToPath`, not `URL.pathname`: on Windows the latter yields
+// `/C:/…`, which `readdirSync` tolerates and `join` does not, so the walk
+// found the first directory and then looked for `C:\C:\…` inside it. The
+// budget had stopped running for anyone not on the deploy runner, silently,
+// because the failure is an ENOENT on a path nobody reads twice.
 const ROOT = fileURLToPath(new URL('../src/', import.meta.url));
 const BUDGET = { question: 20, reading: 60, caveat: 50, more: 150 };
 
