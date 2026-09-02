@@ -465,45 +465,127 @@ def test_a_response_that_is_not_the_agreed_shape_is_refused() -> None:
 
 def test_an_exact_quotation_is_located_and_valid() -> None:
     body = "The Council was told that this is genocide and must be named."
-    start, end, valid = llm.locate_evidence(body, "this is genocide", 34, 42)
+    start, end, valid, relocated = llm.locate_evidence(body, "this is genocide", 34, 42)
     assert body[start:end] == "this is genocide"
     assert valid is True
+    assert relocated is False
 
 
 def test_a_quotation_copied_across_a_line_break_maps_back_to_the_real_offsets() -> None:
     body = "The Council was told\nthat this is\n   genocide and must be named."
     match = body.index("genocide")
-    start, end, valid = llm.locate_evidence(body, "this is genocide", match, match + 8)
+    start, end, valid, relocated = llm.locate_evidence(body, "this is genocide", match, match + 8)
     assert body[start:end] == "this is\n   genocide"
     assert valid is True
+    # Collapsing whitespace is what the record's line breaks need and nothing
+    # more: the quote is verbatim, so the row is not marked relocated.
+    assert relocated is False
 
 
 def test_the_match_chosen_is_the_one_the_occurrence_falls_inside() -> None:
     body = "acts of genocide in one place. Later, acts of genocide in another place."
     first = body.index("genocide")
     second = body.index("genocide", first + 1)
-    start, end, valid = llm.locate_evidence(body, "acts of genocide", second, second + 8)
+    start, end, valid, _ = llm.locate_evidence(body, "acts of genocide", second, second + 8)
     assert (start, end) == (second - 8, second + 8)
     assert valid is True
 
-    start, end, valid = llm.locate_evidence(body, "acts of genocide", first, first + 8)
+    start, end, valid, _ = llm.locate_evidence(body, "acts of genocide", first, first + 8)
     assert (start, end) == (first - 8, first + 8)
     assert valid is True
 
 
 def test_a_quotation_that_is_not_in_the_speech_records_no_offsets() -> None:
     body = "The Council was told that this is genocide."
-    assert llm.locate_evidence(body, "the Secretary-General said", 34, 42) == (None, None, False)
-    assert llm.locate_evidence(body, "   ", 34, 42) == (None, None, False)
+    nothing = (None, None, False, False)
+    assert llm.locate_evidence(body, "the Secretary-General said", 34, 42) == nothing
+    assert llm.locate_evidence(body, "   ", 34, 42) == nothing
 
 
 def test_a_quotation_found_in_the_wrong_place_is_located_but_not_valid() -> None:
     body = "First, this is genocide. Second, these are acts of war and nothing else."
     match = body.index("genocide")
-    start, end, valid = llm.locate_evidence(body, "these are acts of war", match, match + 8)
+    start, end, valid, _ = llm.locate_evidence(body, "these are acts of war", match, match + 8)
     assert body[start:end] == "these are acts of war"
     assert valid is False
 
+
+# Each of the four below is a real unplaced quote from one of the two committed
+# runs, reduced to the sentence it failed on. Together they are ten of the
+# eighteen the two runs could not place; the other eight stay unplaced, and the
+# two tests after them say why that is the point.
+
+
+def test_a_wrapping_quotation_mark_the_record_does_not_have_is_relocated() -> None:
+    # 2026-08-31-gemini-v1, occurrence 5028ef9fc1: the model marked the passage
+    # as a quotation by putting a quotation mark in front of it. That is a
+    # statement about the passage, not part of it.
+    body = 'He said only this. Genocide is not a slogan; it is in our body."'
+    match = body.index("Genocide")
+    start, end, valid, relocated = llm.locate_evidence(
+        body, '"Genocide is not a slogan; it is in our body."', match, match + 8
+    )
+    assert body[start:end] == "Genocide is not a slogan; it is in our body."
+    assert (valid, relocated) == (True, True)
+
+
+def test_a_word_the_record_hyphenates_across_a_line_break_is_relocated() -> None:
+    # 2026-08-30-luna-v1, occurrence d4d3cb9ee9: the record's OCR keeps the
+    # line-break hyphen, so the body holds `Secretary- General's` where the
+    # model returns the word whole.
+    body = "The Secretary- General's Adviser on the Prevention of Genocide spoke."
+    match = body.index("Genocide")
+    start, end, valid, relocated = llm.locate_evidence(
+        body, "The Secretary-General's Adviser on the Prevention of Genocide", match, match + 8
+    )
+    assert body[start:end] == "The Secretary- General's Adviser on the Prevention of Genocide"
+    assert (valid, relocated) == (True, True)
+
+
+def test_one_letter_s_case_at_the_front_of_a_clause_is_relocated() -> None:
+    # 2026-08-30-luna-v1, occurrence fa6838a5af: the model presented a
+    # mid-sentence clause as a sentence of its own and capitalised it.
+    body = "In its report, the Commission found evidence that acts of genocide occurred."
+    match = body.index("genocide")
+    start, end, valid, relocated = llm.locate_evidence(
+        body, "The Commission found evidence that acts of genocide occurred.", match, match + 8
+    )
+    assert body[start:end] == "the Commission found evidence that acts of genocide occurred."
+    assert (valid, relocated) == (True, True)
+
+
+def test_the_record_s_own_typography_is_folded_on_both_sides() -> None:
+    body = "He called it \u201cgenocide\u201d \u2014 plainly, in the Council."
+    match = body.index("genocide")
+    start, end, valid, relocated = llm.locate_evidence(
+        body, 'He called it "genocide" - plainly, in the Council.', match, match + 8
+    )
+    assert body[start:end] == body
+    assert (valid, relocated) == (True, True)
+
+
+def test_a_paraphrase_is_not_relocated_however_close_it_comes() -> None:
+    # 2026-08-31-gemini-v1, occurrence f5c9698c13: the model dropped three words
+    # from the middle of the sentence. Nothing here should find it, because a
+    # span the speaker did not say is not evidence about the speech.
+    body = "We have little doubt that the memory of the crimes of genocide will remain."
+    match = body.index("genocide")
+    assert llm.locate_evidence(
+        body, "We have little doubt that the crimes of genocide will remain.", match, match + 8
+    ) == (None, None, False, False)
+
+
+def test_a_quote_found_in_another_sentence_is_still_not_valid() -> None:
+    # 2026-08-30-luna-v1, occurrence c039d0fadd: the quote is in the speech, in
+    # a different sentence from the occurrence it was offered for. Relocation
+    # has nothing to do with it and does not rescue it.
+    body = "Denial by those convicted of genocide. Elsewhere, convicted of genocide too."
+    second = body.index("genocide", body.index("genocide") + 1)
+    start, _, valid, relocated = llm.locate_evidence(
+        body, "Denial by those convicted of genocide.", second, second + 8
+    )
+    assert start == 0
+    assert (valid, relocated) == (False, False)
 
 # --- Rows --------------------------------------------------------------------
 
@@ -578,6 +660,47 @@ def test_validate_row_applies_the_same_cascade_the_response_had_to_pass() -> Non
     with pytest.raises(ValueError, match="together or not at all"):
         llm.validate_row({**row, "evidence_end": None}, REFERENTS)
 
+
+def test_a_false_positive_needs_a_located_quote_of_its_own() -> None:
+    # Three of the first run's six false positives answered the evidence field
+    # with the literal string `not_applicable`, which the prompt's cascade
+    # invited and nothing refused. The codebook requires a span for a false
+    # positive exactly as for a true one.
+    body = "The Genocide Convention was adopted in 1948 and is in force."
+    rows = rows_for(
+        body,
+        verdict="false_positive",
+        quotation="not_applicable",
+        stance="not_applicable",
+        function=["not_applicable"],
+        referent="not_applicable",
+        evidence_quote="not_applicable",
+    )
+    with pytest.raises(ValueError, match="located evidence quote"):
+        llm.validate_row(rows[0], REFERENTS)
+
+
+def test_a_false_positive_with_its_own_quote_is_accepted() -> None:
+    body = "The Genocide Convention was adopted in 1948 and is in force."
+    rows = rows_for(
+        body,
+        verdict="false_positive",
+        quotation="not_applicable",
+        stance="not_applicable",
+        function=["not_applicable"],
+        referent="not_applicable",
+        evidence_quote="The Genocide Convention was adopted in 1948",
+    )
+    llm.validate_row(rows[0], REFERENTS)
+    assert rows[0]["evidence_valid"] is True
+
+
+def test_a_relocated_flag_without_a_located_span_is_refused() -> None:
+    body = "The Council was told that this is genocide and must be named."
+    rows = rows_for(body, evidence_quote="this is genocide")
+    row = {**rows[0], "evidence_relocated": True, "evidence_valid": False}
+    with pytest.raises(ValueError, match="not located"):
+        llm.validate_row(row, REFERENTS)
 
 # --- Resuming a run ----------------------------------------------------------
 

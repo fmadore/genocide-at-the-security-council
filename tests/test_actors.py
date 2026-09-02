@@ -26,8 +26,8 @@ from lib import actors, council
 # Two speakers with hand-chosen counts, so every rate below can be checked
 # against arithmetic done on paper:
 #
-#   Loud   200 speeches, 10 with the term, 12 occurrences, 100,000 tokens
-#   Quiet    5 speeches,  2 with the term,  3 occurrences,   1,000 tokens
+#   Loud   200 speeches, 10 with the term, 12 occurrences, 100,000 words
+#   Quiet    5 speeches,  2 with the term,  3 occurrences,   1,000 words
 #
 # Loud is the country that speaks constantly and rarely says the word; Quiet is
 # the one that appeared twice and said it once. On a raw count Loud leads; on a
@@ -35,14 +35,17 @@ from lib import actors, council
 
 
 def speech(
-    row: int, country: str, year: int, tokens: int, *, term: bool, count: int = 0
+    row: int, country: str, year: int, words: int, *, term: bool, count: int = 0
 ) -> dict[str, object]:
     return {
         "row_id": f"r{row}",
         "year": year,
         "country_org": country,
         "meeting_symbol": f"S/PV.{year}",
-        "tokens": tokens,
+        "words": words,
+        # The codebook count, never a denominator: a fifth larger, so a rate
+        # that divided by it would not land on the round numbers below.
+        "tokens": words * 6 // 5,
         "has_genocide": term,
         "n_genocide": count,
     }
@@ -198,12 +201,15 @@ def test_the_rate_divides_by_the_speakers_own_speeches() -> None:
     assert frame.loc["Quiet", "speech_rate"] == pytest.approx(2 / 5)
 
 
-def test_the_token_rate_divides_by_the_speakers_own_tokens() -> None:
-    """Loud: 12 occurrences in 200 x 500 = 100,000 tokens = 12 per 100,000."""
+def test_the_token_rate_divides_by_the_speakers_own_words() -> None:
+    """Loud: 12 occurrences in 200 x 500 = 100,000 words = 12 per 100,000.
+
+    Not by its codebook tokens, which the fixture makes a fifth larger: that
+    is the §3.3 error, and dividing by them would read 10 per 100,000."""
     frame = actors.by_country(corpus(), "has_genocide", "n_genocide")
-    assert frame.loc["Loud", "tokens"] == 100_000
+    assert frame.loc["Loud", "words"] == 100_000
     assert frame.loc["Loud", "token_rate"] == pytest.approx(12.0)
-    # Quiet: 3 occurrences in 5 x 200 = 1,000 tokens = 300 per 100,000.
+    # Quiet: 3 occurrences in 5 x 200 = 1,000 words = 300 per 100,000.
     assert frame.loc["Quiet", "token_rate"] == pytest.approx(300.0)
 
 
@@ -243,7 +249,7 @@ def test_a_speaker_absent_from_a_period_gets_no_row_rather_than_a_zero() -> None
 def test_one_speech_below_the_threshold_is_withheld() -> None:
     """Off-by-one here is what puts a two-speech country on a map."""
     frame = pd.DataFrame(
-        {"held": [99], "tokens": [1], "speeches": [1], "speech_rate": [0.5], "token_rate": [1.0]},
+        {"held": [99], "words": [1], "speeches": [1], "speech_rate": [0.5], "token_rate": [1.0]},
         index=["Borderline"],
     )
     out = actors.withhold_below(frame, minimum=100)
@@ -253,7 +259,7 @@ def test_one_speech_below_the_threshold_is_withheld() -> None:
 
 def test_exactly_at_the_threshold_is_published() -> None:
     frame = pd.DataFrame(
-        {"held": [100], "tokens": [1], "speeches": [1], "speech_rate": [0.5], "token_rate": [1.0]},
+        {"held": [100], "words": [1], "speeches": [1], "speech_rate": [0.5], "token_rate": [1.0]},
         index=["Borderline"],
     )
     out = actors.withhold_below(frame, minimum=100)
@@ -722,7 +728,7 @@ def test_the_row_names_the_period_it_belongs_to() -> None:
 
 def test_a_frame_without_the_required_columns_is_refused() -> None:
     with pytest.raises(KeyError, match="by_country needs"):
-        actors.by_country(corpus().drop(columns=["tokens"]), "has_genocide", "n_genocide")
+        actors.by_country(corpus().drop(columns=["words"]), "has_genocide", "n_genocide")
 
 
 def test_the_declared_minimum_is_a_plain_integer() -> None:

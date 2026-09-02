@@ -30,6 +30,7 @@ COUNTRIES := data/derived/countries/countries.json
 SPEAKER_KEYNESS := data/derived/countries/speaker_keyness.json
 GOLD      := data/interim/genocide_gold_candidates.csv
 USAGE     := data/derived/usage/usage.json
+NODE_FRAMES := data/derived/frames/frames.json
 PAYLOAD   := web/static/data/manifest.json
 
 EMBEDDINGS := data/derived/embeddings/manifest.json
@@ -92,10 +93,18 @@ $(GOLD): $(NORM) scripts/13_gold_sample.py $(LIB) config/lexicon.yml $(wildcard 
 $(USAGE): $(NORM) $(GOLD) scripts/15_usage.py $(LIB) config/lexicon.yml $(wildcard model_annotations/genocide/*) $(wildcard model_annotations/genocide/runs/*/*) $(wildcard annotations/genocide/*)
 	$(PY) scripts/15_usage.py
 
-derived: $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(GOLD) $(USAGE)
+# 17 classifies the same occurrences 08 writes lines for, from the same corpus,
+# and crosses them with whichever runs the two pointer files name — so the
+# committed runs are prerequisites exactly as they are for 15. It does not read
+# 08's output: both read the flagged parquet, which is what keeps the two
+# counts equal without one depending on the other.
+$(NODE_FRAMES): $(FLAGGED) scripts/17_frames.py $(LIB) config/lexicon.yml $(wildcard model_annotations/genocide/*) $(wildcard model_annotations/genocide/runs/*/*)
+	$(PY) scripts/17_frames.py
+
+derived: $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(GOLD) $(USAGE) $(NODE_FRAMES)
 
 # --- The site's payload -------------------------------------------------------
-$(PAYLOAD): $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(USAGE) scripts/export_web.py $(LIB) tests/contract/payload.json
+$(PAYLOAD): $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(USAGE) $(NODE_FRAMES) scripts/export_web.py $(LIB) tests/contract/payload.json
 	$(PY) scripts/export_web.py
 
 payload: $(PAYLOAD)

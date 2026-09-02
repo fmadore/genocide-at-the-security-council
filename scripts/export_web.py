@@ -12,6 +12,7 @@ writes a manifest of what it took.
     derived/kwic/*.json       → static/data/kwic/
     derived/countries/*.json  → static/data/countries/
     derived/usage/*.json      → static/data/usage/
+    derived/frames/*.json     → static/data/frames/
 
 `09_export_speeches.py` is the one exception and writes its 425 MB straight to
 `web/static/data/speeches/`. Copying that twice to preserve a symmetry nobody
@@ -35,6 +36,7 @@ from lib import artifacts, console, contract
 from lib.paths import (
     CONTRACT,
     COUNTRIES,
+    FRAMES,
     KWIC,
     LEXICAL,
     ROOT,
@@ -59,6 +61,7 @@ PARTS = [
     # the deploy reads and can never regenerate, which is why the workflow now
     # keys its cache on that directory too.
     (USAGE, "usage", "15_usage.py"),
+    (FRAMES, "frames", "17_frames.py"),
 ]
 
 #: Written by 09, not copied. Listed so the manifest describes the whole payload

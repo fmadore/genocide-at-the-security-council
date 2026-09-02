@@ -63,7 +63,7 @@ COLUMNS = [
     "delivery_language",
     "agenda_item1",
     "agenda_item_manual",
-    "tokens",
+    "words",
     "text",
     "body_start",
 ]
@@ -87,7 +87,7 @@ def build_speech(row, terms: list[lexicon.Term]) -> dict[str, object]:
         "group": row.speaker_group,
         "type": row.participanttype,
         "language": clean(row.delivery_language),
-        "tokens": int(row.tokens),
+        "words": int(row.words),
         "body_start": int(row.body_start),
         "text": row.text,
         "hits": kwic.offsets(row.text, int(row.body_start), terms),

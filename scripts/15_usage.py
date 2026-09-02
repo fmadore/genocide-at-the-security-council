@@ -59,6 +59,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 import pandas as pd
@@ -572,7 +573,7 @@ def refuse_bad_rows(
     invalid: list[str] = []
     for row in rows:
         try:
-            llm.validate_row(row, referents)
+            llm.validate_row(row, referents, appending=False)
         except (ValueError, KeyError) as error:
             invalid.append(f"{str(row.get('occurrence_id', ''))[:12]}...: {error}")
     if invalid:
@@ -640,7 +641,14 @@ def model_block(
         "prompt_version": str(manifest.get("prompt_version", "")),
         "prompt_sha256": prompt_digest,
         "reasoning_effort": str(manifest.get("reasoning_effort", "")),
-        "requests": int(requests.get("submitted", 0) or 0),
+        # `sent`, and `submitted` only where a manifest predates the recount.
+        # The old key counted intentions — the Gemini run recorded 7,966 over a
+        # corpus of 3,273 — and the view prints this figure as "Requests", so
+        # reading the old key first would publish the number the review found.
+        # `tools/recount_run.py` writes `sent`; a run whose raw record is gone
+        # keeps `submitted`, and `docs/VALIDATION.md` §7 says which are which.
+        "requests": int(requests.get("sent", requests.get("submitted", 0)) or 0),
+        "requests_recounted": "sent" in requests,
         "occurrences_total": int(total),
         "occurrences_annotated": len(rows),
         "parse_failures": int(manifest.get("parse_failures", 0) or 0),
@@ -655,6 +663,66 @@ def model_block(
             "output": int(tokens.get("output_tokens", 0) or 0),
         },
     }
+
+
+def retest_block(
+    pairs: Sequence[tuple[str, dict[str, object], list[dict[str, object]]]],
+) -> list[dict[str, object]]:
+    """The same model, the same prompt, asked twice: the noise floor of each run.
+
+    Two models disagreeing on a fifth of the stance labels means nothing until a
+    reader knows how far *one* model disagrees with itself. The review of
+    1 September 2026 (§4.6) asks for the retest figures beside the cross-model
+    ones for exactly that reason, and both runs have a sibling that supplies
+    them: the 50-speech pilots of 30 and 31 August, sent the byte-identical
+    prompt to the byte-identical model, and never merged into anything.
+
+    A retest is discovered rather than named: any other committed run of the
+    same model and the same prompt hash is one, and the largest overlap wins.
+    That is the whole definition — a run of the same instrument answering the
+    same questionnaire — and hard-coding two run ids would leave the block
+    stale the first time a third run is bought.
+
+    The statistics are the ones :func:`usage.comparison_fields` computes between
+    two *different* models, deliberately, so a reader can lay one table over the
+    other and read the difference. Nothing here is an accuracy either: a model
+    that agrees with itself perfectly may be perfectly wrong.
+    """
+    out: list[dict[str, object]] = []
+    for label, manifest, rows in pairs:
+        model = str(manifest.get("model", ""))
+        digest = str(manifest.get("prompt_sha256", ""))
+        run_id = str(manifest.get("run_id", ""))
+        if not rows or not model:
+            continue
+        best: tuple[int, str, list[dict[str, object]]] | None = None
+        for candidate in sorted(RUNS.glob("*/manifest.json")):
+            sibling = json.loads(candidate.read_text(encoding="utf-8"))
+            if str(sibling.get("model")) != model or str(sibling.get("run_id")) == run_id:
+                continue
+            if str(sibling.get("prompt_sha256")) != digest:
+                continue
+            sibling_rows = llm.read_rows(candidate.parent / "annotations.jsonl")
+            overlap = len(usage.comparison_overlap(rows, sibling_rows))
+            if overlap and (best is None or overlap > best[0]):
+                best = (overlap, str(sibling.get("run_id", "")), sibling_rows)
+        if best is None:
+            continue
+        overlap, sibling_id, sibling_rows = best
+        contested = usage.contested_rows(rows, sibling_rows)
+        out.append(
+            {
+                "which": label,
+                "model": model,
+                "run_id": run_id,
+                "retest_run_id": sibling_id,
+                "overlap": overlap,
+                "fields": usage.comparison_fields(rows, sibling_rows),
+                "function_jaccard": usage.comparison_function_jaccard(rows, sibling_rows),
+                "identical": int(sum(not fields for fields, _ in contested.values())),
+            }
+        )
+    return out
 
 
 def occurrence_rows(
@@ -1291,9 +1359,35 @@ def run(args: argparse.Namespace) -> None:
     else:
         console.info("no comparison run; the block is written in its 'none' state")
 
+    console.step("The noise floor: each model against itself")
+    retest = retest_block(
+        [
+            ("published", manifest, raw_rows),
+            *(
+                []
+                if not comparison_raw
+                else [("comparison", comparison_manifest, comparison_raw)]
+            ),
+        ]
+    )
+    for entry in retest:
+        console.info(
+            f"{entry['model']} vs {entry['retest_run_id']}: {entry['overlap']:,} shared, "
+            f"{entry['identical']:,} identical on all five fields"
+        )
+    if not retest:
+        console.info("no run of either model with the same prompt to retest against")
+
     console.step("Aggregating")
     referent_table = read_referents(REFERENTS)
-    blocks = usage.aggregate(rows, referent_table, args.minimum)
+    blocks = usage.aggregate(
+        rows,
+        referent_table,
+        args.minimum,
+        contested=frozenset(
+            key for key, (fields, _) in contested.items() if fields
+        ),
+    )
     counts = usage.funnel(rows)
     diffusion = diffusion_block(rows, [str(row["id"]) for row in blocks["referents"]])
     events = sum(len(entry["events"]) for entry in diffusion["referents"])
@@ -1335,6 +1429,12 @@ def run(args: argparse.Namespace) -> None:
         rows,
         sample_size=len(candidates),
         unique_occurrences=int(candidates["occurrence_id"].nunique()),
+        # The frames are reported separately or not at all: the probability
+        # frame is weighted back to the corpus and estimates accuracy over it,
+        # the disagreement frame is a purposive over-sample whose inclusion
+        # probabilities differ by a factor of seven, and a figure pooled over
+        # both would estimate nothing. 13 records the probability per row.
+        candidates=candidates,
         # The comparison run scored against the same human reference, by the same
         # computation. This is the one place either model can be said to be
         # accurate about anything; the `comparison` block scores them against each
@@ -1396,6 +1496,7 @@ def run(args: argparse.Namespace) -> None:
         "stance_by_actor": blocks["stance_by_actor"],
         "diffusion": diffusion,
         "comparison": comparison,
+        "retest": retest,
         "gold": gold,
     }
 
@@ -1441,6 +1542,7 @@ def run(args: argparse.Namespace) -> None:
                 "comparison_state": comparison["state"],
                 "comparison_overlap": comparison["overlap"],
                 "comparison_contested": comparison["contested_any"],
+                "retest_runs": [entry["retest_run_id"] for entry in retest],
                 "lexicon_version": lex.version,
                 "minimum_occurrences": args.minimum,
                 "outputs": [

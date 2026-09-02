@@ -72,7 +72,7 @@ function corpus(rows: StandingRow[], speakers?: Speaker[]): Countries {
 				first_year: 1992,
 				last_year: 2023,
 				speeches: 106_302,
-				tokens: 66_392_703,
+				words: 58_904_180,
 				speakers: 601,
 				speakers_at_minimum: 133,
 				speeches_at_minimum: 103_236

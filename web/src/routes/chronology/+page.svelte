@@ -79,7 +79,7 @@
 
 	let unit = $state<Unit>('speech_rate');
 	let grain = $state<'year' | 'quarter'>('year');
-	let selected = $state<string[]>(['genocide']);
+	let selected = $state<string[]>(['genocide_qualification']);
 	let showEvents = $state(true);
 	/* Which kinds of reference date the rail shows. Presentational, like the
 	   overlay toggle itself: not written into the URL. */
@@ -108,7 +108,7 @@
 	   thousands of speeches and a month need not, so this artefact is the one
 	   that can withhold a figure — and the figure it feeds is the one where a
 	   blank square would be read as a measurement. */
-	let gridMeasure = $state('genocide');
+	let gridMeasure = $state('genocide_qualification');
 	let gridUnit = $state<GridUnit>('speech_rate');
 
 	const byMonth = $derived(data.month);
@@ -218,7 +218,7 @@
 					measure.kind,
 					measure.register ?? null,
 					source.corpus.speeches[index],
-					source.corpus.tokens[index],
+					source.corpus.words[index],
 					measure.speeches[index] ?? null,
 					measure.speech_rate[index] ?? null,
 					measure.speech_rate_low[index] ?? null,
@@ -648,7 +648,7 @@
 	});
 
 	const splitBlock = $derived(
-		split === 'none' ? null : (data.splits.measures.genocide?.[split] ?? null)
+		split === 'none' ? null : (data.splits.measures.genocide_qualification?.[split] ?? null)
 	);
 
 	const splitChart: EChartsOption | null = $derived.by(() => {
@@ -735,6 +735,9 @@
 	});
 
 	function splitHref(row: BreakdownRow): string | null {
+		/* The raw term, not the derived measure: a derived measure enumerates
+		   no occurrence, and the lines behind this rate are `genocide`'s. The
+		   31 that are the actor label read under `genocidaires`. */
 		const link = splitEvidenceQuery('genocide', split, row.category, row.period);
 		return link ? `${resolve('/concordance')}?${link.query}` : null;
 	}
@@ -754,8 +757,8 @@
 		{ title: 'Who says it, and in what debate' }
 	];
 
-	const genocideBreaks = $derived(data.breaks.series.genocide ?? {});
-	const genocideInference = $derived(data.breaks.inference.series.genocide ?? {});
+	const genocideBreaks = $derived(data.breaks.series.genocide_qualification ?? {});
+	const genocideInference = $derived(data.breaks.inference.series.genocide_qualification ?? {});
 
 	function drillChronology(params: { name?: string; seriesName?: string }) {
 		if (!params.name || !params.seriesName) return;

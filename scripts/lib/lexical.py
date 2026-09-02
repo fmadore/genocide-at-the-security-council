@@ -4,8 +4,8 @@ Three measurements, each with the same discipline: report an effect size next to
 every significance figure, and say what the comparison was made against.
 
 **Log-likelihood (G²)** ranks a word by how confidently we can say its rate
-differs between two corpora. It is a significance measure, and on 59 million
-tokens almost everything is significant — so every row also carries **log ratio**
+differs between two corpora. It is a significance measure, and on 58.9 million
+words almost everything is significant — so every row also carries **log ratio**
 (Hardie 2014), which says by how much. A word can top the G² table on a rate
 difference of 1.2x; the log ratio is what stops that being read as a finding.
 
@@ -43,7 +43,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from .lexicon import HAS, Lexicon, Term
+from .lexicon import ANCHOR_RE, HAS, Lexicon, Term
 from .paths import STOPWORDS, rel
 
 #: Words: a letter, then letters, digits, internal apostrophes and hyphens,
@@ -127,6 +127,26 @@ def tokenise(source: str) -> Tokens:
         words.append(match.group())
         starts.append(match.start())
     return Tokens(words, starts)
+
+
+def word_count(texts) -> list[int]:
+    """Words in each text, by :data:`TOKEN_RE` and by nothing else.
+
+    The denominator of every "per 100,000 words" figure on the site, written
+    into `speeches_norm.parquet` by 02 so that it is counted once and divided
+    by everywhere. Before 2 September 2026 those figures divided by the
+    codebook's `tokens` column — quanteda's count over the full text,
+    punctuation and numbers included — which is 12.7% larger than this, so the
+    rates ran 11.3% below the label they carried (review of 1 September 2026,
+    §3.3).
+
+    Counting here rather than in 02 keeps the tokeniser in one module: this is
+    the same `TOKEN_RE` the keyness tables, the collocate windows and the
+    language page's 59-million-word universe are built on, and a denominator
+    counted by a second rule would eventually disagree with the numerator it
+    divides.
+    """
+    return [len(TOKEN_RE.findall(source.lower())) for source in texts]
 
 
 def vocabulary(texts) -> Counter[str]:
@@ -363,14 +383,12 @@ def collocates(
     from_meetings: list[object] = []
     occurrences = 0
     for index, source in enumerate(bodies):
-        matches = list(term.regex.finditer(source))
+        matches = term.spans(source)
         if not matches:
             continue
         tokens = tokenise(source) if tokeniser is None else tokeniser(index, source)
         occurrences += len(matches)
-        context = Counter(
-            tokens.context([(match.start(), match.end()) for match in matches], width)
-        )
+        context = Counter(tokens.context(matches, width))
         window.update(context)
         per_speech.append(context)
         sizes.append(sum(context.values()))
@@ -491,24 +509,60 @@ def matched_control(
 def definitional_pairs(lex: Lexicon) -> list[dict[str, str]]:
     """Pairs of terms whose co-occurrence is written into the lexicon itself.
 
-    Two ways a pair can be definitional rather than observed. A term declared
+    Three ways a pair can be definitional rather than observed. A term declared
     `nested_under` another matches inside its parent's span, so the two always
-    co-occur. And a term whose pattern *contains* another term — `denial`'s
-    pattern holds `genocid`, so "denying the genocide" is a `genocide` hit by
-    construction — co-occurs with it for the same reason, though nothing in the
-    config says so. The second case is found by running each term's regex over
-    the other's declared `examples`: an example is the config's own statement
-    of what the pattern is for, so a second term matching it is a second term
-    matching by definition. Every suppressed pair is returned with its reason,
-    so the artefact can list what the graph does not draw and say why.
+    co-occur. A term declared `anchor: sentence` is counted only where the
+    sentence also says `genocid*`, so it cannot appear in a speech that no
+    `genocid*` term appears in: its edge to `genocide` and to `genocidaires` is
+    an artefact of the anchor, and it is the strongest of the three, because the
+    anchor guarantees the co-occurrence in the same *sentence*. And a term whose
+    pattern *contains* another term — before v4, `denial`'s pattern held
+    `genocid`, so "denying the genocide" was a `genocide` hit by construction —
+    co-occurs with it for the same reason, though nothing in the config says so.
+    The third case is found by running each term's regex over the other's
+    declared `examples`: an example is the config's own statement of what the
+    pattern is for, so a second term matching it is a second term matching by
+    definition. Every suppressed pair is returned with its reason, so the
+    artefact can list what the graph does not draw and say why.
     """
     pairs: list[dict[str, str]] = []
     active = list(lex.active)
+    # The terms the anchor is made of: those every one of whose examples is
+    # itself a whole `ANCHOR_RE` match, which is `genocide` and `genocidaires`
+    # and not `genocide_convention`, whose examples merely contain the word.
+    # Derived from the config rather than named here, so splitting the node
+    # word again does not leave a hard-coded pair behind.
+    anchoring = {
+        term.name
+        for term in active
+        if term.examples and all(ANCHOR_RE.fullmatch(ex) for ex in term.examples)
+    }
     for i, left in enumerate(active):
         for right in active[i + 1 :]:
             if left.nested_under == right.name or right.nested_under == left.name:
                 pairs.append(
                     {"source": left.name, "target": right.name, "reason": "nested"}
+                )
+                continue
+            anchored = next(
+                (
+                    (a, b)
+                    for a, b in ((left, right), (right, left))
+                    if a.anchor is not None and b.name in anchoring
+                ),
+                None,
+            )
+            if anchored is not None:
+                a, b = anchored
+                pairs.append(
+                    {
+                        "source": a.name,
+                        "target": b.name,
+                        "reason": (
+                            f"`{a.name}` is anchored: it is counted only in a sentence "
+                            f"that also matches `{b.name}`"
+                        ),
+                    }
                 )
                 continue
             for a, b in ((left, right), (right, left)):

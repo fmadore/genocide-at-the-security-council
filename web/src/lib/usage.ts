@@ -65,7 +65,9 @@ import type {
 	Usage,
 	UsageActor,
 	UsageAlternative,
+	UsageClassRow,
 	UsageComparison,
+	UsageComparisonField,
 	UsageDiffusionEvent,
 	UsageGold,
 	UsageMatrixCell,
@@ -253,6 +255,16 @@ export interface MatrixCell {
 	count: number;
 	/** Of the row speaker's assigned occurrences. Null wherever it is withheld. */
 	share: number | null;
+	/**
+	 * How many of this cell's occurrences a second instrument read differently.
+	 *
+	 * Zero where no comparison run was made, which is not agreement — the
+	 * apparatus above the figure says which of the two it is. Where one was, a
+	 * cell is a count of occurrences the two models placed here *and* of ones
+	 * only this model did, and that proportion is the cell's own caveat.
+	 */
+	contested: number;
+	contestedShare: number | null;
 	stances: StanceCounts;
 	/** 0–1 against the largest drawn cell. A length may use this. */
 	weight: number;
@@ -426,6 +438,7 @@ export function matrixPlan(data: Usage, state: UsageState): MatrixPlan {
 			cells: columns.map((column) => {
 				const found = own?.get(column.referent.id);
 				const count = found?.count ?? 0;
+				const contested = found?.contested ?? 0;
 				// Withheld on the artefact's own flag rather than on a comparison
 				// recomputed here: 15 derived the threshold and applied it, and a
 				// second implementation could only ever drift from the first.
@@ -438,6 +451,8 @@ export function matrixPlan(data: Usage, state: UsageState): MatrixPlan {
 					referent: column.referent.id,
 					count,
 					share,
+					contested,
+					contestedShare: count > 0 ? contested / count : null,
 					stances: found?.stances ?? emptyStances(),
 					weight: 0,
 					tone: 0,
@@ -571,6 +586,14 @@ export interface StanceProfile {
 	stances: StanceCounts;
 	segments: StanceSegment[];
 	shareRejects: number;
+	/** The count behind the share, which is a fact at every denominator. */
+	rejects: number;
+	/** The 95% Wilson bounds, and how they are written. */
+	low: number | null;
+	high: number | null;
+	intervalText: string;
+	/** Whether the lower bound clears the corpus's own 1.7%. */
+	separated: boolean;
 }
 
 export interface StanceRankingResult {
@@ -602,13 +625,20 @@ function segmentsOf(stances: StanceCounts, total: number): StanceSegment[] {
 }
 
 /**
- * Who rejects the word, ranked — and who is not ranked at all.
+ * Who rejects the word — separated from the corpus first, and then not ranked.
  *
- * The ordering is the artefact's `share_rejects`, which is null wherever the
- * speaker is under the minimum. Those rows are not sorted to the bottom; they
- * are not sorted. A null read through `?? 0` would put every rarely-heard
- * delegation at the foot of a ranking of rejection, which is a claim about them
- * that nothing measured.
+ * **The order is not the share.** The review of 1 September 2026 (§4.5, item 11)
+ * found the old ordering to be a ranking of noise at its foot: the corpus rate
+ * is 1.7%, so at the minimum of twenty occurrences a single rejection reads as
+ * 5%, and a table sorted on that puts one draw above another draw from the same
+ * urn. What can be ordered is the rows whose 95% interval clears the corpus
+ * rate — Sudan's 19 in 43, Serbia's 15 in 45 — and those come first, ordered
+ * among themselves by share. Everything else follows by count, with its
+ * interval printed, and is not a ranking of anything.
+ *
+ * A speaker under the minimum is not sorted to the bottom; it is not sorted. A
+ * null read through `?? 0` would put every rarely-heard delegation at the foot
+ * of a ranking of rejection, which is a claim about them that nothing measured.
  */
 export function stanceRanking(data: Usage): StanceRankingResult {
 	const rows: StanceProfile[] = [];
@@ -624,14 +654,27 @@ export function stanceRanking(data: Usage): StanceRankingResult {
 				total,
 				stances,
 				segments: segmentsOf(stances, total),
-				shareRejects: row.share_rejects
+				shareRejects: row.share_rejects,
+				rejects: stances.rejects_or_denies ?? 0,
+				low: row.share_low,
+				high: row.share_high,
+				intervalText:
+					row.share_low === null || row.share_high === null
+						? '—'
+						: `${percent(row.share_low)}\u2013${percent(row.share_high)}`,
+				separated: Boolean(row.separated)
 			});
 		} else {
 			withheld.push({ actor: row.actor, eligible: row.eligible, stances, total });
 		}
 	}
 
-	rows.sort((a, b) => b.shareRejects - a.shareRejects || a.actor.localeCompare(b.actor));
+	rows.sort(
+		(a, b) =>
+			Number(b.separated) - Number(a.separated) ||
+			(a.separated ? b.shareRejects - a.shareRejects : b.rejects - a.rejects) ||
+			a.actor.localeCompare(b.actor)
+	);
 	withheld.sort((a, b) => b.eligible - a.eligible || a.actor.localeCompare(b.actor));
 	return { rows, withheld, minimum: data.minimum_occurrences };
 }
@@ -1056,7 +1099,7 @@ export interface DiffusionOption {
  * the referent the reader selected has none. Two different sentences, so the
  * figure can say which rather than going blank in one voice.
  */
-export type DiffusionRefusal = 'no-diffusion' | 'no-events';
+export type DiffusionRefusal = 'no-diffusion' | 'no-events' | 'unstable-referent';
 
 export interface DiffusionPlan {
 	/** The referent in force, which is the selected one or the documented default. */
@@ -1080,6 +1123,14 @@ export interface DiffusionPlan {
 	span: { from: string; to: string };
 	/** The top of the vertical scale: the tallest drawn curve's final height. */
 	high: number;
+	/**
+	 * How far this referent survives a second instrument, or null.
+	 *
+	 * Null where no comparison run was made, and where the published run placed
+	 * the referent too rarely for the figure to be measured. Read with
+	 * `refusal === 'unstable-referent'`, which is what it governs.
+	 */
+	reliability?: number | null;
 	/** Events behind the drawn curves — the chronology's own length. */
 	events: number;
 	refusal: DiffusionRefusal | null;
@@ -1194,6 +1245,7 @@ export function diffusionPlan(data: Usage, state: UsageState): DiffusionPlan {
 	// referent it does not carry: it would be an option that refuses when picked.
 	const carried = data.diffusion.referents.filter((entry) => entry.events.length > 0);
 	if (!carried.length) return blank('no-diffusion');
+	const reliability = referentReliability(data);
 
 	const options: DiffusionOption[] = carried.map((entry) => ({
 		id: entry.id,
@@ -1233,6 +1285,25 @@ export function diffusionPlan(data: Usage, state: UsageState): DiffusionPlan {
 		Number.isFinite(at) && width > 0
 			? DIFFUSION_BOX.left + ((at - from) / width) * PLOT.width
 			: DIFFUSION_BOX.left + PLOT.width / 2;
+
+	// A chronology is a claim about dates, and a date here is the first
+	// occurrence a label fell on. Where two instruments place a referent on the
+	// same occurrences fewer than four times in five, the first of them is a
+	// property of which model was asked; the curve is withheld and the reason is
+	// the one the reader needs, not a blank figure.
+	const reliable = reliability.get(chosen.id);
+	if (
+		data.comparison.state === 'computed' &&
+		(reliable === null || reliable === undefined
+			? reliability.has(chosen.id)
+			: reliable < DIFFUSION_RELIABILITY)
+	) {
+		return {
+			...blank('unstable-referent', chosen.id, nameOf(chosen.id)),
+			options,
+			reliability: reliable ?? null
+		};
+	}
 
 	const ordered = [...chosen.events].sort(byDateThenId);
 	const counted = MILESTONES.map((milestone) => {
@@ -1421,6 +1492,11 @@ export interface ComparisonFieldRow {
 	observedText: string;
 	kappa: number | null;
 	kappaText: string;
+	/** True where kappa was suppressed rather than undefined. Different findings. */
+	kappaWithheld: boolean;
+	minorityShareText: string;
+	pabak: number | null;
+	pabakText: string;
 	contested: number;
 }
 
@@ -1454,8 +1530,20 @@ export interface ComparisonApparatus {
 	abstained: number;
 	abstention: UsageComparison['abstention'];
 	fields: ComparisonFieldRow[];
+	/** Per referent, how far the two instruments place the same occurrences there. */
+	referents: UsageClassRow[];
 	functionJaccard: number | null;
 	functionJaccardText: string;
+	/** Chance-corrected, where the mean overlap is not. Read this one. */
+	functionAlphaText: string;
+	/** Which `function` label the two readings part on. */
+	functionLabels: {
+		label: string;
+		left: number;
+		right: number;
+		observedText: string;
+		kappaText: string;
+	}[];
 	functionContested: number;
 	contestedAny: number;
 	/** `contested_any / overlap`, or null where nothing was compared. */
@@ -1465,6 +1553,29 @@ export interface ComparisonApparatus {
 /** A statistic that could not be computed is an em dash, never a zero. */
 const orDash = (value: number | null, write: (value: number) => string) =>
 	value === null || !Number.isFinite(value) ? '—' : write(value);
+
+/**
+ * One field's agreement row, written once for the two tables that print it.
+ *
+ * The cross-model comparison and the retest carry the same statistics computed
+ * by the same code upstream, and are meant to be read against each other; two
+ * copies of this mapping would let the two tables come to disagree about how a
+ * withheld kappa is written.
+ */
+const fieldRow = (row: UsageComparisonField): ComparisonFieldRow => ({
+	field: row.field,
+	label: termLabel(row.field),
+	n: row.n,
+	observed: row.observed,
+	observedText: orDash(row.observed, percent),
+	kappa: row.kappa,
+	kappaText: orDash(row.kappa, decimal),
+	kappaWithheld: Boolean(row.kappa_withheld),
+	minorityShareText: orDash(row.minority_share, percent),
+	pabak: row.pabak,
+	pabakText: orDash(row.pabak, decimal),
+	contested: row.contested
+});
 
 /**
  * What the apparatus says about the second opinion, in one call.
@@ -1498,22 +1609,108 @@ export function comparisonApparatus(data: Usage): ComparisonApparatus {
 		abstained:
 			abstention.verdict_uncertain + abstention.referent_unclear + abstention.stance_unclear,
 		abstention,
-		fields: block.fields.map((row) => ({
-			field: row.field,
-			label: termLabel(row.field),
-			n: row.n,
-			observed: row.observed,
-			observedText: orDash(row.observed, percent),
-			kappa: row.kappa,
-			kappaText: orDash(row.kappa, decimal),
-			contested: row.contested
-		})),
+		fields: block.fields.map(fieldRow),
+		referents: block.referents ?? [],
 		functionJaccard: block.function_jaccard,
 		functionJaccardText: orDash(block.function_jaccard, decimal),
+		functionAlphaText: orDash(block.function_alpha_masi, decimal),
+		functionLabels: (block.function_labels ?? []).map((row) => ({
+			label: termLabel(row.label),
+			left: row.left,
+			right: row.right,
+			observedText: orDash(row.observed, percent),
+			kappaText: orDash(row.kappa, decimal)
+		})),
 		functionContested: block.function_contested,
 		contestedAny: block.contested_any,
 		contestedShare: block.overlap > 0 ? block.contested_any / block.overlap : null
 	};
+}
+
+/* -------------------------------------------------------------------------- *
+ * The noise floor, and what it makes the cross-model table mean
+ * -------------------------------------------------------------------------- */
+
+/**
+ * Fields whose label is a property of the instrument as much as of the passage.
+ *
+ * The review of 1 September 2026 (§4.6) names two by hand and the run's own
+ * numbers say why. `attributes_or_reports` has a cross-instrument F1 of 0.37:
+ * 445 occurrences are `attributes` to one model and `asserts` to the other, the
+ * largest single disagreement in the corpus, and the prompt gives no rule for
+ * the boundary. `attributed_or_reported`, the quotation label the same
+ * ambiguity drives, is Luna-only on 539 rows. A count of either is a count of
+ * how one model read a boundary the codebook has not drawn, and every surface
+ * that prints one says so.
+ */
+export const INSTRUMENT_DEPENDENT: ReadonlySet<string> = new Set([
+	'attributes_or_reports',
+	'attributed_or_reported'
+]);
+
+/** Whether a label's count is a property of the instrument as much as the corpus. */
+export const isInstrumentDependent = (label: string): boolean => INSTRUMENT_DEPENDENT.has(label);
+
+/**
+ * Below this cross-instrument F1, a referent's diffusion chronology is withheld.
+ *
+ * A curve of first assertions and first refusals is a claim about *dates*, and a
+ * date is the first occurrence a label fell on. Where two instruments place a
+ * referent on the same occurrences three times in five — `drc_great_lakes` at
+ * 0.61, `hypothetical_future` at 0.40 — the first of them is a property of which
+ * model was asked, and the curve is a chronology of one model's habits.
+ */
+export const DIFFUSION_RELIABILITY = 0.8;
+
+/** One row of the retest table: a model against another call of itself. */
+export interface RetestRow {
+	which: string;
+	model: string;
+	retestRunId: string;
+	overlap: number;
+	/** All five fields identical, as a share of the overlap. */
+	identical: number;
+	identicalShare: number | null;
+	fields: ComparisonFieldRow[];
+	functionJaccardText: string;
+}
+
+/**
+ * Each model against another run of itself, ready to print beside the other table.
+ *
+ * The statistics are the ones the cross-model table carries, computed upstream
+ * by the same code, so a reader can lay one over the other. What the comparison
+ * says is the point: Luna writes all five fields identically on 69 of the 91
+ * pilot occurrences, so about a quarter of its own labels move between two calls
+ * of one instrument, and a cross-model disagreement of a fifth has to be read
+ * against that and not against zero.
+ */
+export function retestRows(data: Usage): RetestRow[] {
+	return (data.retest ?? []).map((entry) => ({
+		which: entry.which,
+		model: entry.model,
+		retestRunId: entry.retest_run_id,
+		overlap: entry.overlap,
+		identical: entry.identical,
+		identicalShare: entry.overlap > 0 ? entry.identical / entry.overlap : null,
+		fields: entry.fields.map(fieldRow),
+		functionJaccardText: orDash(entry.function_jaccard, decimal)
+	}));
+}
+
+/**
+ * How reliably each referent survives a second instrument, keyed by referent id.
+ *
+ * Null where the published run placed the referent fewer than twenty times: the
+ * F1 was withheld upstream for the same reason every rate below that support is,
+ * and a consumer must not read the absence as a low score. `diffusionPlan`
+ * withholds on both — an unreliable referent and an unmeasurable one are both
+ * referents whose chronology cannot be read as one.
+ */
+export function referentReliability(data: Usage): ReadonlyMap<string, number | null> {
+	const out = new Map<string, number | null>();
+	for (const row of data.comparison.referents ?? []) out.set(row.label, row.f1);
+	return out;
 }
 
 /* -------------------------------------------------------------------------- *

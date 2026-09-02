@@ -9,7 +9,17 @@
 	import Icon from '$lib/Icon.svelte';
 	import PageMeta from '$lib/PageMeta.svelte';
 	import DotPlot from '$lib/DotPlot.svelte';
+	import FrameProfile from '$lib/FrameProfile.svelte';
 	import TermMatrix from '$lib/TermMatrix.svelte';
+	import {
+		facetLabel,
+		facets,
+		member as frameMemberOf,
+		members as frameMembers,
+		morphology,
+		movers,
+		profile as frameProfile
+	} from '$lib/nodeframes';
 	import {
 		languageParams,
 		profilePlan,
@@ -46,6 +56,7 @@
 	let scatterFigure = $state<Chart | null>(null);
 	let dotFigure = $state<DotPlot | null>(null);
 	let matrixFigure = $state<TermMatrix | null>(null);
+	let frameFigure = $state<FrameProfile | null>(null);
 
 	/** Every node at every window, not the one pair on screen. */
 	function collocateTable(): ExportRequest {
@@ -225,6 +236,62 @@
 		};
 	}
 
+	/** Every frame in every slice of every facet, with the counts behind each. */
+	function frameTable(): ExportRequest {
+		const rows: (string | number | boolean | null)[][] = [];
+		for (const row of data.frames.totals.frames) {
+			rows.push([
+				'whole corpus',
+				'',
+				data.frames.occurrences,
+				row.frame,
+				row.occurrences,
+				row.share,
+				row.share_low,
+				row.share_high,
+				row.matched ?? null,
+				true
+			]);
+		}
+		for (const [facet, slices] of Object.entries(data.frames.slices)) {
+			for (const slice of slices) {
+				for (const row of slice.frames) {
+					rows.push([
+						facet,
+						slice.member,
+						slice.occurrences,
+						row.frame,
+						row.occurrences,
+						row.share,
+						row.share_low,
+						row.share_high,
+						null,
+						slice.sufficient
+					]);
+				}
+			}
+		}
+		return {
+			title: 'What the word is doing',
+			columns: [
+				'facet',
+				'member',
+				'member_occurrences',
+				'frame',
+				'occurrences',
+				'share',
+				'share_low',
+				'share_high',
+				'matched_before_precedence',
+				'sufficient'
+			],
+			rows,
+			provenance: provenanceOf(data.frames.meta, 'frames/frames.json'),
+			filters: [`facet: ${facetLabel(frameFacet)}`, `member: ${frameMember}`],
+			scope: 'every frame in every slice of every facet, the withheld ones included'
+		};
+	}
+
 	let node = $state('genocide');
 	let width = $state('5');
 	let sliceKind = $state<SliceKind>('by_country');
@@ -257,6 +324,37 @@
 	/** Members of a slice read by their kind; only countries need shortening. */
 	const memberLabel = (kind: string, name: string) =>
 		kind === 'by_country' ? shortCountry(name) : name;
+
+	/* --- What the word is doing -------------------------------------------- */
+
+	/* Not in the URL state `language.ts` carries. Those four controls choose
+	   which population a keyness table is computed over, and a reader sharing a
+	   link means to share that; these two choose which slice is drawn beside a
+	   baseline that never moves, and a link to the whole figure is the same
+	   figure. */
+	let frameFacet = $state(untrack(() => facets(data.frames)[0] ?? 'period'));
+	let frameMember = $state(
+		untrack(() => frameMembers(data.frames, facets(data.frames)[0] ?? 'period')[0]?.member ?? '')
+	);
+
+	$effect(() => {
+		// Changing the facet invalidates the member chosen inside the old one.
+		const options = frameMembers(data.frames, frameFacet).map((row) => row.member);
+		if (options.length > 0 && !options.includes(frameMember)) frameMember = options[0];
+	});
+
+	const frameSlice = $derived(frameMemberOf(data.frames, frameFacet, frameMember));
+	const frameRows = $derived(frameProfile(data.frames, frameSlice));
+	const frameMovers = $derived(movers(frameRows));
+	const frameForms = $derived(morphology(data.frames));
+
+	/* The one category that is not the word applied to an event. Named here so
+	   the two numbers the study quotes — the whole enumeration and the headline
+	   count — are visibly one subtraction apart rather than two facts. */
+	const perpetratorNoun = $derived(
+		data.frames.morphology.categories.find((row) => row.category === 'perpetrator_noun')
+			?.occurrences ?? 0
+	);
 
 	/* --- The same table, drawn as a cloud --------------------------------- */
 
@@ -556,12 +654,13 @@
 	<header class="lede">
 		<h1>Language</h1>
 		<p class="standfirst">
-			The company the word keeps. This page asks what the vocabulary travels with, using three
-			standard instruments of corpus linguistics: <strong>collocation</strong>, the words that turn
-			up within a few words of a term more often than chance would place them;
-			<strong>keyness</strong>, the words that set the speeches bearing a term apart from comparable
-			speeches without it; and a <strong>co-occurrence network</strong>, which terms of the list are
-			said in the same speech.
+			The company the word keeps. This page asks what the vocabulary travels with, using four
+			standard instruments of corpus linguistics: the <strong>grammatical frames</strong> the word
+			itself appears in, from <em>acts of genocide</em> to <em>so-called genocide</em>;
+			<strong>collocation</strong>, the words that turn up within a few words of a term more often
+			than chance would place them; <strong>keyness</strong>, the words that set the speeches
+			bearing a term apart from comparable speeches without it; and a
+			<strong>co-occurrence network</strong>, which terms of the list are said in the same speech.
 		</p>
 		<p class="standfirst">
 			Every table here reports two kinds of measure. <strong>Log-likelihood</strong> (written G²)
@@ -579,6 +678,7 @@
 
 	<Contents
 		figures={[
+			{ title: 'What the word is doing' },
 			{ title: 'The words that sit near a term' },
 			{ title: 'The profile of a term' },
 			{ title: 'The same word in two mouths' },
@@ -586,6 +686,148 @@
 			{ title: 'Which terms travel together' }
 		]}
 	/>
+
+	<Figure
+		title="What the word is doing"
+		question="What construction is the word in when it is said, and does that differ by period or by speaker?"
+		source="17_frames.py → frames/frames.json"
+		download={{
+			name: ['unsc', 'frames', frameFacet, frameMember],
+			table: frameTable,
+			chart: () => frameFigure?.svg() ?? null
+		}}
+	>
+		{#snippet controls()}
+			<label>
+				Compare by
+				<select bind:value={frameFacet}>
+					{#each facets(data.frames) as facet (facet)}
+						<option value={facet}>{facetLabel(facet)}</option>
+					{/each}
+				</select>
+			</label>
+			<label>
+				Slice
+				<select bind:value={frameMember}>
+					{#each frameMembers(data.frames, frameFacet) as slice (slice.member)}
+						<option value={slice.member}>{slice.member} ({count(slice.occurrences)})</option>
+					{/each}
+				</select>
+			</label>
+			<span class="unit-note">
+				{count(data.frames.occurrences)} occurrences of
+				<em>{data.frames.term}</em>, ±{data.frames.window} characters read round each
+			</span>
+		{/snippet}
+
+		{#snippet reading()}
+			<p>
+				One row per construction, ranked by its share of all {count(data.frames.occurrences)} occurrences
+				of the word. The <strong>open dot</strong> is that corpus share; the
+				<strong>filled dot</strong> and its whisker are the share in the slice you pick, with a 95%
+				interval. A <strong>blue rule</strong> marks a row whose interval does not reach the corpus share.
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>
+				Shares divide by occurrences of the word, not by speeches: a frame can grow in a year the
+				word is said less often. Every row is on screen at once and no interval is corrected for
+				that, so a marked row is worth looking at rather than a result.
+			</p>
+		{/snippet}
+		{#snippet more()}
+			<p>
+				Frames are tried in a fixed order and the first match wins, so a treaty title is counted
+				before the duty it names and a hedge before the catalogue it sits in. <em>Matched</em> in the
+				table below is what each pattern reached before that order was applied.
+			</p>
+			<p>
+				<em>Unframed</em> is a row like the others and not a remainder. Its share is not constant — about
+				a third of the occurrences in the early 1990s, a sixth in the late 2010s — so a frame that gained
+				share may have gained it from there.
+			</p>
+			<p>
+				A slice under {count(data.frames.minimum_occurrences)} occurrences is drawn with counts and no
+				shares, on the rule the actor rankings use.
+			</p>
+			<p>
+				<em>Génocidaire</em> and <em>génocidaires</em> are {count(perpetratorNoun)} of the
+				{count(data.frames.occurrences)}. They name an actor, not an event, and are counted apart
+				from the {count(data.frames.occurrences - perpetratorNoun)} that remain.
+			</p>
+		{/snippet}
+
+		<FrameProfile
+			bind:this={frameFigure}
+			rows={frameRows}
+			slice={frameSlice?.member ?? ''}
+			description="Dot plot of the constructions the word genocide appears in, each row showing its share of all occurrences beside its share in the chosen period or speaker group, with a 95% interval."
+		/>
+		{#if frameMovers.length}
+			<p class="note-line mover">
+				Furthest from the corpus profile here:
+				{#each frameMovers as row, index (row.frame)}{index > 0 ? ', ' : ''}{termLabel(row.frame)}
+					{percent(row.share ?? 0)} against {percent(row.overall)}{/each}.
+			</p>
+		{/if}
+
+		<details class="data-table">
+			<summary><Icon icon={ChevronRight} />View the codebook, with an attested example each</summary
+			>
+			<table>
+				<thead
+					><tr
+						><th>Frame</th><th class="num">Occurrences</th><th class="num">Matched</th><th
+							>What it evidences</th
+						><th>Example</th></tr
+					></thead
+				>
+				<tbody>
+					{#each frameRows as row (row.frame)}
+						<tr>
+							<td>{termLabel(row.frame)}</td>
+							<td class="num">{count(row.overallOccurrences)}</td>
+							<td class="num"
+								>{count(
+									data.frames.totals.frames.find((f) => f.frame === row.frame)?.matched ?? 0
+								)}</td
+							>
+							<td>{row.gloss}</td>
+							<td class="quote"
+								>{data.frames.codebook.find((entry) => entry.frame === row.frame)?.example ??
+									'—'}</td
+							>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</details>
+
+		<details class="data-table">
+			<summary
+				><Icon icon={ChevronRight} />View the word itself: noun, adjective, perpetrator noun</summary
+			>
+			<table>
+				<thead
+					><tr
+						><th>Form</th><th class="num">Occurrences</th><th class="num">Share</th><th
+							>Spellings in the corpus</th
+						></tr
+					></thead
+				>
+				<tbody>
+					{#each frameForms as row (row.category)}
+						<tr>
+							<td>{termLabel(row.category)}</td>
+							<td class="num">{count(row.occurrences)}</td>
+							<td class="num">{percent(row.share)}</td>
+							<td class="quote">{row.forms.join(', ')}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</details>
+	</Figure>
 
 	<Figure
 		title="The words that sit near a term"

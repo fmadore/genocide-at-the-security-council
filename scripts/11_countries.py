@@ -46,6 +46,7 @@ from lib.paths import (
     ENTITIES,
     EXPECTED_SPEECHES,
     EXPECTED_TOKENS,
+    EXPECTED_WORDS,
     LEXICON,
     ROOT,
     SPEECHES_FLAGGED,
@@ -58,7 +59,10 @@ from lib.paths import (
 #: actor view and the temporal series argue about the same two objects.
 #: `atrocity_core` is a union and therefore has no occurrence count of its own;
 #: `lib.series.measure` withholds one rather than summing overlapping members.
-TRACKED: list[tuple[str, str]] = [("terms", "genocide"), ("sets", "atrocity_core")]
+TRACKED: list[tuple[str, str]] = [
+    ("terms", "genocide_qualification"),
+    ("sets", "atrocity_core"),
+]
 
 #: Columns read from the corpus. The whole table is 100 columns wide and 419 MB
 #: of it is speech text this step never looks at.
@@ -67,6 +71,8 @@ COLUMNS = [
     "year",
     "country_org",
     "meeting_symbol",
+    "words",
+    # Kept for the codebook assertion below, never divided by.
     "tokens",
     "entity_type",
     "iso3",
@@ -78,7 +84,22 @@ COLUMNS = [
 
 
 def measure_attributes(lex: lexicon.Lexicon, kind: str, name: str) -> dict[str, object]:
-    """How the artefact describes a measure, matching 04's vocabulary."""
+    """How the artefact describes a measure, matching 04's vocabulary.
+
+    A derived measure is described like a term and carries what it is derived
+    from, because a reader looking at a rate labelled `genocide_qualification`
+    is owed the arithmetic behind the name in the artefact rather than only in
+    the configuration.
+    """
+    if kind == "terms" and name in lex.derived:
+        measure = lex.derived[name]
+        return {
+            "kind": kind,
+            "tier": measure.tier,
+            "register": measure.register,
+            "derived_from": measure.minuend,
+            "derived_minus": list(measure.subtrahends),
+        }
     if kind == "terms":
         term = lex.terms[name]
         return {"kind": kind, "tier": term.tier, "register": term.register}
@@ -95,12 +116,21 @@ def load_corpus(minimum: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     ]
     speeches = frames.read(SPEECHES_FLAGGED, columns=columns)
 
-    if len(speeches) != EXPECTED_SPEECHES or int(speeches["tokens"].sum()) != EXPECTED_TOKENS:
+    # Both totals, and for different reasons. The codebook's token sum says the
+    # corpus is the one the dataset documents; the word sum says the
+    # denominator this table divides by is the one every other step divides by.
+    if (
+        len(speeches) != EXPECTED_SPEECHES
+        or int(speeches["tokens"].sum()) != EXPECTED_TOKENS
+        or int(speeches["words"].sum()) != EXPECTED_WORDS
+    ):
         console.fail(
-            "the corpus does not match the codebook totals this table reconciles against",
+            "the corpus does not match the totals this table reconciles against",
             [
                 f"{len(speeches):,} speeches, expected {EXPECTED_SPEECHES:,}",
-                f"{int(speeches['tokens'].sum()):,} tokens, expected {EXPECTED_TOKENS:,}",
+                f"{int(speeches['tokens'].sum()):,} codebook tokens, expected "
+                f"{EXPECTED_TOKENS:,}",
+                f"{int(speeches['words'].sum()):,} words, expected {EXPECTED_WORDS:,}",
                 "re-run 01_build_parquet.py through 03_lexicon.py",
             ],
         )
@@ -279,7 +309,7 @@ def build_periods(
             {
                 **window.as_dict(),
                 "speeches": len(subset),
-                "tokens": int(subset["tokens"].sum()),
+                "words": int(subset["words"].sum()),
                 "speakers": int(subset["country_org"].nunique()),
                 "speakers_at_minimum": int(frame["sufficient"].sum()),
                 "speeches_at_minimum": int(frame.loc[frame["sufficient"], "held"].sum()),
@@ -412,7 +442,7 @@ def build_note(
             "carry `genocid*`. Read the denominator column: this is a rate table, and the",
             "countries at the top are not the ones that said the word most often.",
             "",
-            "| Speaker | Type | Speeches | With `genocid*` | Rate | Per 100k tokens | UN group |",
+            "| Speaker | Type | Speeches | With `genocid*` | Rate | Per 100k words | UN group |",
             "|---|---|---:|---:|---:|---:|---|",
             *table(cleared, 15),
             "",
@@ -486,7 +516,7 @@ def build_note(
             "## Reconciliation",
             "",
             "Every aggregate is checked against the corpus it was cut from before anything is "
-            "written — speeches, tokens, term-bearing speeches and occurrences, per measure "
+            "written — speeches, words, term-bearing speeches and occurrences, per measure "
             "and per period. A speaker lost to a failed join leaves a table that still looks "
             "complete and every rate in it still correct, so the total is the only place the "
             "loss shows.",
@@ -494,7 +524,7 @@ def build_note(
             "| Check | Table | Corpus |",
             "|---|---:|---:|",
             f"| Speeches | {int(whole['held'].sum()):,} | {len(speeches):,} |",
-            f"| Tokens | {int(whole['tokens'].sum()):,} | {int(speeches['tokens'].sum()):,} |",
+            f"| Words | {int(whole['words'].sum()):,} | {int(speeches['words'].sum()):,} |",
             f"| `genocid*` speeches | {int(whole['speeches'].sum()):,} | "
             f"{int(speeches['has_genocide'].sum()):,} |",
             f"| `genocid*` occurrences | {int(whole['occurrences'].sum()):,} | "
@@ -514,7 +544,7 @@ def build_note(
             "centroid may help a reader find a country, and must never imply that the "
             "diplomat who spoke is at that point. The delegate speaks in New York.",
             "- **Colour what the table supports.** `speech_rate` is the share of a speaker's "
-            "own speeches; `token_rate` is occurrences per 100,000 of its own tokens. Neither "
+            "own speeches; `token_rate` is occurrences per 100,000 of its own words. Neither "
             "is a share of the Council, and a legend that says otherwise is wrong about the "
             "denominator rather than about the shading.",
             "- **Attribution is uneven.** `docs/CORPUS.md` §3 records that `country_org` is "
@@ -575,7 +605,8 @@ def run(minimum: int) -> None:
         extra={
             "lexicon_version": lex.version,
             "speeches": len(speeches),
-            "tokens": int(speeches["tokens"].sum()),
+            "words": int(speeches["words"].sum()),
+            "codebook_tokens": int(speeches["tokens"].sum()),
             "speakers": int(speeches["country_org"].nunique()),
             "minimum_speeches": minimum,
             "informative_zero_minimum": required,

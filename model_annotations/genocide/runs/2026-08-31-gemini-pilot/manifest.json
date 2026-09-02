@@ -16,7 +16,7 @@
  "batch_ids": [],
  "requests": {
   "planned": 50,
-  "submitted": 50,
+  "sent": 50,
   "returned": 50,
   "complete": 50
  },
@@ -32,5 +32,25 @@
   "reasoning_tokens": 106461
  },
  "cost_usd": null,
- "status": "complete"
+ "status": "complete",
+ "recount": {
+  "at": "2026-09-02T10:36:19Z",
+  "by": "tools/recount_run.py",
+  "from": "data/interim/llm_raw/2026-08-31-gemini-pilot/ (not committed)",
+  "was": {
+   "requests": {
+    "submitted": 50,
+    "returned": 50
+   },
+   "usage": {
+    "input_tokens": 216809,
+    "output_tokens": 14168,
+    "reasoning_tokens": 106461
+   }
+  },
+  "unrecoverable": [
+   "the per-pass history: a pass the batch quota refused created no job and left no file, and a live call that failed left no line",
+   "`sent` is therefore a floor — the requests the raw record evidences"
+  ]
+ }
 }

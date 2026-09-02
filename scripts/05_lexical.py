@@ -524,7 +524,7 @@ def build_note(
             f"Stoplist: {len(stopwords)} function words "
             "(`config/stopwords.txt` — function words only, and the file says why).",
             f"Top {limit} rows kept per table. Every row carries **G²** (how confidently the",
-            "rates differ) and **log ratio** (by how much). On 59 million tokens almost",
+            "rates differ) and **log ratio** (by how much). On 58.9 million words almost",
             "everything is significant, so the second column is the one that decides whether",
             "a row is a finding.",
             "",

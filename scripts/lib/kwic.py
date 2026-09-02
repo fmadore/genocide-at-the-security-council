@@ -10,17 +10,15 @@ Offsets are recorded against the *whole* speech text, not the body the match was
 found in, so the reader view can highlight a match without re-running any regex
 and without knowing where the form of address ended.
 
-Sentence segmentation is rule-based rather than spaCy. The genre is full of traps a general model has no particular
-advantage on — `Mr.`, `No.`, `para.`, `U.S.`, `S/PV.7481`, `resolution 955
-(1994).`, and initials like `Mr. B. Traoré` — and here the rules are visible,
-unit-tested against those exact cases, and add nothing to install. If the
-distribution of sentence lengths the note reports ever says otherwise, this is
-one function to swap.
+Sentence segmentation itself lives in `lib.text` and is re-exported here: the
+lexicon needs the same unit, because an anchored term is counted only in a
+sentence that also says `genocid*`, and `lib.lexicon` cannot import this module
+without a cycle. If the distribution of sentence lengths the note reports ever
+says the rules are wrong, `lib.text.sentence_spans` is one function to swap.
 """
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 
@@ -28,103 +26,26 @@ import pandas as pd
 
 from . import text as text_lib
 from .lexicon import HAS, Term
+from .text import LONG_SENTENCE, sentence_at, sentence_spans
 
 #: Characters of context either side of the keyword in the display snippet.
 WIDTH = 150
 
-#: A sentence longer than this is almost certainly a segmentation failure or an
-#: OCR-damaged run-on rather than a sentence. They are kept — truncating a unit
-#: offered for quotation would be worse — but counted, so the note can say how
-#: often it happens.
-LONG_SENTENCE = 500
-
-#: Words whose trailing period does not end a sentence. Lower-cased, with any
-#: internal periods kept (`u.s`), because that is how :func:`_is_abbreviation`
-#: reads the token back off the text.
-ABBREVIATIONS = frozenset(
-    {
-        # People and offices
-        "mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "hon", "amb", "gen", "capt",
-        # Reference apparatus, thick on the ground in a verbatim record
-        "no", "nos", "art", "arts", "para", "paras", "pp", "p", "vol", "ch", "chap",
-        "fig", "sect", "sec", "ibid", "op", "cit", "ed", "eds", "cf", "viz", "al",
-        # Latin and general
-        "e.g", "i.e", "etc", "approx", "incl", "min", "max", "est",
-        # Bodies and companies
-        "inc", "ltd", "co", "corp", "u.s", "u.n", "u.k", "a.m", "p.m",
-        # Months
-        "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sept", "sep", "oct", "nov", "dec",
-    }
-)
-
-#: A candidate sentence end: terminal punctuation, any closing quotes or
-#: brackets, whitespace, then something that could open a sentence.
-#:
-#: The OCR carries both straight and curly quotes, and the two are
-#: indistinguishable in most editors, so the curly ones are named by code point
-#: rather than typed into the character class.
-_RIGHT_SINGLE, _RIGHT_DOUBLE = chr(0x2019), chr(0x201D)
-_LEFT_SINGLE, _LEFT_DOUBLE = chr(0x2018), chr(0x201C)
-_CLOSERS = "\"'" + _RIGHT_SINGLE + _RIGHT_DOUBLE + "\\)\\]"
-_OPENERS = "\"'" + _LEFT_SINGLE + _LEFT_DOUBLE + "\\(\\["
-_BOUNDARY_RE = re.compile(f"[.!?]+[{_CLOSERS}]*\\s+(?=[{_OPENERS}]*[A-Z0-9])")
-
-
-def _is_abbreviation(source: str, dot: int) -> bool:
-    """Is the period at `dot` part of an abbreviation rather than a full stop?
-
-    Reads the token back off the text — letters and internal periods — so
-    ``U.S.`` arrives as ``u.s`` and ``Mr.`` as ``mr``. A lone capital is taken
-    as an initial, which catches ``Mr. B. Traoré`` without listing every letter.
-    """
-    start = dot
-    while start > 0 and (source[start - 1].isalpha() or source[start - 1] == "."):
-        start -= 1
-    word = source[start:dot]
-    if not word:
-        return False
-    if len(word) == 1 and word.isupper():
-        return True
-    return word.lower().strip(".") in ABBREVIATIONS
-
-
-def sentence_spans(source: str) -> list[tuple[int, int]]:
-    """Sentence boundaries in `source`, as ``(start, end)`` offsets.
-
-    Spans exclude the whitespace between sentences, so ``source[start:end]`` is
-    the sentence with its terminal punctuation and nothing else.
-    """
-    spans: list[tuple[int, int]] = []
-    start = 0
-    for match in _BOUNDARY_RE.finditer(source):
-        first = match.start()
-        if source[first] == "." and _is_abbreviation(source, first):
-            continue
-        end = first + len(match.group().rstrip())
-        if end > start:
-            spans.append((start, end))
-        start = match.end()
-    if start < len(source):
-        spans.append((start, len(source)))
-    return spans
-
-
-def sentence_at(source: str, position: int, spans: list[tuple[int, int]] | None = None) -> str:
-    """The sentence containing `position`.
-
-    Pass `spans` when several positions in the same text are wanted, so the
-    segmentation is not redone per occurrence.
-    """
-    if spans is None:
-        spans = sentence_spans(source)
-    found = ""
-    for start, end in spans:
-        if start > position:
-            break
-        found = source[start:end]
-        if start <= position < end:
-            break
-    return re.sub(r"\s+", " ", found).strip()
+#: `LONG_SENTENCE`, `sentence_at` and `sentence_spans` are re-exported from
+#: :mod:`lib.text`: this is where a reader of the concordance looks for them,
+#: and 08's note still reports the long-sentence rate off this module. Named
+#: here so the re-export is a declaration rather than an import that looks
+#: unused.
+__all__ = [
+    "LONG_SENTENCE",
+    "REQUIRED",
+    "WIDTH",
+    "Line",
+    "extract",
+    "offsets",
+    "sentence_at",
+    "sentence_spans",
+]
 
 
 @dataclass(frozen=True)
@@ -175,15 +96,16 @@ def offsets(
     them in JavaScript would be a second thing to keep true.
 
     Matching runs on the body and the spans are shifted back, so what is
-    highlighted is exactly what was counted. A term with no occurrence is left
-    out rather than mapped to an empty list.
+    highlighted is exactly what was counted. Through `Term.spans` rather than
+    the raw regex, so an anchored term highlights the occurrences that survived
+    its anchor and not the ones its pattern also matched. A term with no
+    occurrence is left out rather than mapped to an empty list.
     """
     body = source[body_start:]
     found: dict[str, list[list[int]]] = {}
     for term in terms:
         spans = [
-            [body_start + match.start(), body_start + match.end()]
-            for match in term.regex.finditer(body)
+            [body_start + start, body_start + end] for start, end in term.spans(body)
         ]
         if spans:
             found[term.name] = spans
@@ -210,8 +132,9 @@ REQUIRED = [
 def extract(speeches: pd.DataFrame, term: Term, width: int = WIDTH) -> Iterator[Line]:
     """Every occurrence of `term`, in speech order.
 
-    Matching runs on the body, so a term inside a form of address cannot be
-    counted — which is what makes these lines agree with 03's totals. The
+    Matching runs on the body through `Term.spans`, so a term inside a form of
+    address cannot be counted and an anchored term yields a line only where its
+    anchor held — which is what makes these lines agree with 03's totals. The
     offsets emitted are shifted back into whole-text coordinates.
     """
     if missing := [c for c in REQUIRED if c not in speeches.columns]:
@@ -223,14 +146,14 @@ def extract(speeches: pd.DataFrame, term: Term, width: int = WIDTH) -> Iterator[
     for row in present.itertuples():
         offset = int(row.body_start)
         body = row.text[offset:]
-        matches = list(term.regex.finditer(body))
+        matches = term.spans(body)
         if not matches:
             continue
 
         spans = sentence_spans(body)
         stem = row.filename.removesuffix(".txt")
-        for ordinal, match in enumerate(matches, start=1):
-            left, keyword, right = text_lib.window(body, match.start(), match.end(), width)
+        for ordinal, (match_start, match_end) in enumerate(matches, start=1):
+            left, keyword, right = text_lib.window(body, match_start, match_end, width)
             yield Line(
                 id=f"{stem}#{ordinal}",
                 spv=row.meeting_symbol,
@@ -240,10 +163,10 @@ def extract(speeches: pd.DataFrame, term: Term, width: int = WIDTH) -> Iterator[
                 group=row.speaker_group,
                 type=row.participanttype,
                 agenda=row.agenda_item_manual,
-                start=offset + match.start(),
-                end=offset + match.end(),
+                start=offset + match_start,
+                end=offset + match_end,
                 left=left,
                 kw=keyword,
                 right=right,
-                sent=sentence_at(body, match.start(), spans),
+                sent=sentence_at(body, match_start, spans),
             )

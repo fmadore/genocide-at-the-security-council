@@ -1,4 +1,5 @@
 import type { LineSeriesOption } from 'echarts';
+import { headlineMeasure } from './headline';
 
 export type ChronologyUnit = 'speech_rate' | 'token_rate' | 'occurrences' | 'speeches';
 export type ChronologyGrain = 'year' | 'quarter';
@@ -46,14 +47,18 @@ export function splitEvidenceQuery(
 
 const UNITS: readonly ChronologyUnit[] = ['speech_rate', 'token_rate', 'occurrences', 'speeches'];
 
+/* The headline rule is shared with the home page and the actor table; see
+   `$lib/headline`. Falling back through the raw term keeps an older artefact
+   drawable rather than opening on whatever sorts first. */
 const defaultSeries = (choices: ChronologyChoices, grain: ChronologyGrain) => {
 	const available = choices.series[grain];
-	return available.includes('genocide') ? ['genocide'] : available.slice(0, 1);
+	const headline = headlineMeasure(available);
+	return headline ? [headline] : available.slice(0, 1);
 };
 
 export function chronologyDefaults(choices: ChronologyChoices): ChronologyState {
 	const calendarMeasures = Object.keys(choices.calendar);
-	const calendarMeasure = choices.calendar.genocide ? 'genocide' : (calendarMeasures[0] ?? '');
+	const calendarMeasure = headlineMeasure(calendarMeasures) ?? calendarMeasures[0] ?? '';
 	return {
 		unit: 'speech_rate',
 		grain: 'year',

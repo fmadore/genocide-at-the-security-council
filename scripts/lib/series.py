@@ -5,7 +5,7 @@ Council's growing verbosity before it is a measure of anything else. Every
 series here therefore ships with two denominators:
 
     speech_rate  speeches containing the term / speeches held
-    token_rate   occurrences / tokens, per 100,000
+    token_rate   occurrences / words, per 100,000
 
 Exploratory change points are found by **binary segmentation**: split the series where the
 split most reduces the residual sum of squares, keep the split only if a
@@ -21,13 +21,22 @@ No `ruptures` dependency: on 32 annual points the whole search is a few
 milliseconds of numpy, and a method this consequential is better read than
 imported.
 
-Two things the rates carry since the review of 1 September 2026. Every
+Three things the rates carry since the review of 1 September 2026. Every
 `speech_rate` travels with its Wilson 95% interval (:func:`wilson_interval`),
 so a share of 60 speeches and a share of 6,000 are no longer the same number
-on a chart. And the rate change-point test no longer treats speeches as
+on a chart. The rate change-point test no longer treats speeches as
 independent trials: its null is built by permuting *meetings* across periods
 (:func:`meeting_blocks`, :func:`rate_change_point`), so a single debate that
-holds two hundred occurrences counts as one draw rather than two hundred.
+holds two hundred occurrences counts as one draw rather than two hundred. And
+`token_rate` divides by the `words` column 02 counts with
+`lib.lexical.TOKEN_RE`, not by the codebook's `tokens` — §3.3 of the review.
+The codebook counts punctuation and numbers as tokens, so it stood 12.7% above
+the word count and every "per 100,000 words" figure ran 11.3% below the label
+it carried. The name `token_rate` stays: it is the key of a published payload,
+of a URL the reader can share and of the committed contract, and a rename would
+cost all three to say what the word "words" on the axis already says. Its unit
+is the word this study counts, and :func:`denominators` publishes both columns
+so a reader can see which was divided by.
 """
 
 from __future__ import annotations
@@ -40,7 +49,7 @@ import pandas as pd
 
 from .paths import EVENTS, rel
 
-#: Token rates are quoted per this many tokens.
+#: Token rates are quoted per this many words.
 RATE_PER = 100_000
 
 #: The closed vocabulary of `config/events.csv`. A typo becomes a new category
@@ -115,16 +124,23 @@ def month_of_year(frame: pd.DataFrame) -> pd.Series:
 
 
 def denominators(frame: pd.DataFrame, periods: pd.Series, index=None) -> pd.DataFrame:
-    """Speeches, tokens and meetings held in each period.
+    """Speeches, words, codebook tokens and meetings held in each period.
 
     This is what every rate divides by, so it is computed once from the whole
     corpus and passed down rather than re-derived per term.
+
+    `words` is the denominator; `tokens` is the codebook's own count over the
+    full texts and is carried beside it because a reader comparing a rate here
+    with the dataset's documentation is entitled to see both numbers rather
+    than to discover that they differ. Which of the two a rate divides by is
+    decided once, in :func:`measure`.
 
     `index` reindexes onto a declared set of periods — see :func:`month_grid` —
     so that a period nobody spoke in is a row of zeros rather than an absence.
     """
     out = frame.groupby(periods, sort=True).agg(
         speeches=("row_id", "size"),
+        words=("words", "sum"),
         tokens=("tokens", "sum"),
         meetings=("meeting_symbol", "nunique"),
     )
@@ -214,7 +230,7 @@ def measure(
         out["token_rate"] = pd.NA
     else:
         out["occurrences"] = grouped["occurrences"].astype("int64")
-        out["token_rate"] = out["occurrences"] / totals["tokens"] * RATE_PER
+        out["token_rate"] = out["occurrences"] / totals["words"] * RATE_PER
     return out
 
 
@@ -298,6 +314,7 @@ def breakdown(
 
     aggregated = {
         "held": ("row_id", "size"),
+        "words": ("words", "sum"),
         "tokens": ("tokens", "sum"),
         "speeches": (has_column, "sum"),
     }
@@ -319,7 +336,7 @@ def breakdown(
         grouped["occurrences"] = pd.NA
         grouped["token_rate"] = pd.NA
     else:
-        grouped["token_rate"] = grouped["occurrences"] / grouped["tokens"] * RATE_PER
+        grouped["token_rate"] = grouped["occurrences"] / grouped["words"] * RATE_PER
     return grouped
 
 
@@ -662,7 +679,7 @@ def meeting_blocks(
     occurrences — so the null has to move meetings, not speeches.
 
     `exposure_column=None` counts speeches, which is the binomial exposure;
-    a column name (``tokens``) sums it, which is the Poisson one. `count_column`
+    a column name (``words``) sums it, which is the Poisson one. `count_column`
     is summed either way: a `has_` flag sums to term-bearing speeches, an
     `n_` column to occurrences.
 

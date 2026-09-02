@@ -52,23 +52,21 @@ import sys
 import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, audit, console, frames, lexicon, llm
-from lib import occurrences as occurrences_lib
-from lib.paths import INTERIM, MODEL_ANNOTATIONS, ROOT, SPEECHES_NORM, ensure_dirs, rel
+from lib import annotate, artifacts, audit, console, llm
+from lib.annotate import Builder, Outcome, Speech
+from lib.paths import INTERIM, MODEL_ANNOTATIONS, ROOT, ensure_dirs, rel
 
-TERM = "genocide"
-
-#: docs/CORPUS.md §8, reproduced exactly by 03 and by `lib.occurrences`. A run
-#: that enumerates anything else is annotating a different corpus, and its rows
-#: could not be joined to the published counts. Only `--limit` may leave this
-#: unmet, and the manifest records the limit that did.
-DOCUMENTED_SPEECHES = 3_273
-DOCUMENTED_OCCURRENCES = 6_092
+#: The population, the columns, the ceiling and the manifest are 16's too, and
+#: live in `lib.annotate` so the two steps cannot drift apart; see its docstring.
+TERM = annotate.TERM
+DOCUMENTED_SPEECHES = annotate.DOCUMENTED_SPEECHES
+DOCUMENTED_OCCURRENCES = annotate.DOCUMENTED_OCCURRENCES
+COLUMNS = annotate.COLUMNS
+BATCH_CHUNK = annotate.BATCH_CHUNK
 
 STORE = MODEL_ANNOTATIONS / TERM
 PROMPT = STORE / "PROMPT.md"
@@ -81,121 +79,16 @@ REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
 #: nothing the validated rows do not.
 RAW = INTERIM / "llm_raw"
 
-#: Columns this step needs. The normalised frame is 99 columns and 389 MB of
-#: text; reading all of it to use eight of them is a minute of nothing.
-COLUMNS = [
-    "filename",
-    "body_start",
-    "text",
-    "date",
-    "meeting_symbol",
-    "country_org",
-    "agenda_item_manual",
-    "participanttype",
-]
-
-#: Requests per batch file. The API's own ceilings are far higher; this is about
-#: how much is in flight behind one id when something goes wrong, and about
-#: getting the first rows onto disk within hours rather than at the end.
-BATCH_CHUNK = 400
-
 #: The Batch API's documented terminal states.
 BATCH_TERMINAL = frozenset({"completed", "failed", "expired", "cancelled"})
 
-#: A generous ceiling on one speech's answer. Reasoning tokens count against
-#: this in the Responses API, so at effort `high` the bound has to cover the
-#: thinking as well as the JSON. A truncated response loses a whole speech to a
-#: parse failure, which costs more than the headroom.
-BASE_OUTPUT_TOKENS = 12_000
-PER_OCCURRENCE_TOKENS = 1_200
+#: The provider's own hard ceiling on one response, which
+#: `lib.annotate.output_ceiling` clamps to. 100k sits under Luna's 128k.
 MAX_OUTPUT_TOKENS = 100_000
 
 EMPTY_USAGE = {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0}
 
 
-@dataclass(frozen=True)
-class Speech:
-    """One speech in scope, with everything a request and its rows need."""
-
-    filename: str
-    custom_id: str
-    body: str
-    meta: dict[str, object]
-    occurrences: list[occurrences_lib.Occurrence]
-
-
-@dataclass
-class Outcome:
-    """What one pass returned, before anything is written."""
-
-    responses: dict[str, dict[str, object]] = field(default_factory=dict)
-    failures: list[dict[str, object]] = field(default_factory=list)
-    submitted: int = 0
-
-
-Builder = Callable[[Speech], llm.SpeechRequest]
-
-
-# --- Reading what is to be annotated ----------------------------------------
-
-
-def gather(limit: int | None) -> tuple[list[Speech], list[Speech], int]:
-    """Every genocide-bearing speech, in corpus order, with its occurrences.
-
-    Returns the whole enumeration and the slice this run is asking about. The
-    two differ only under `--limit`, and both are needed: the scope says what to
-    ask, while the resume check has to see every occurrence the corpus has, or a
-    pilot re-run would read rows from a fuller run as evidence that the corpus
-    had moved.
-    """
-    speeches = frames.read(SPEECHES_NORM, columns=COLUMNS)
-    bodies = frames.body(speeches)
-    lex = lexicon.load()
-    console.info(f"lexicon version {lex.version} ({lex.updated})")
-
-    found = occurrences_lib.enumerate_term(speeches, bodies, lex.terms[TERM])
-    grouped: dict[object, list[occurrences_lib.Occurrence]] = {}
-    for occurrence in found:
-        grouped.setdefault(occurrence.index, []).append(occurrence)
-    console.info(f"{len(found):,} occurrences in {len(grouped):,} speeches")
-
-    if limit is None and (
-        len(found) != DOCUMENTED_OCCURRENCES or len(grouped) != DOCUMENTED_SPEECHES
-    ):
-        console.fail(
-            "The enumeration does not reproduce the documented figures",
-            [
-                f"speeches {len(grouped):,} vs {DOCUMENTED_SPEECHES:,}",
-                f"occurrences {len(found):,} vs {DOCUMENTED_OCCURRENCES:,}",
-                "run 03 and read docs/VALIDATION.md before spending an API call",
-            ],
-        )
-
-    everything = []
-    for index, items in grouped.items():
-        row = speeches.loc[index]
-        filename = str(row["filename"])
-        everything.append(
-            Speech(
-                filename=filename,
-                custom_id=filename.removesuffix(".txt"),
-                body=str(bodies.loc[index]),
-                meta={column: row[column] for column in COLUMNS if column != "text"},
-                occurrences=items,
-            )
-        )
-    scope = everything
-    if limit is not None:
-        scope = everything[:limit]
-        console.warn(f"--limit {limit}: {len(scope):,} speeches, a pilot and not the corpus")
-    return everything, scope, lex.version
-
-
-def output_ceiling(speech: Speech) -> int:
-    return min(
-        MAX_OUTPUT_TOKENS,
-        BASE_OUTPUT_TOKENS + PER_OCCURRENCE_TOKENS * len(speech.occurrences),
-    )
 
 
 # --- The API, kept behind functions so the import stays lazy -----------------
@@ -292,7 +185,7 @@ def batch_input(
                     build(speech),
                     model=model,
                     reasoning_effort=effort,
-                    max_output_tokens=output_ceiling(speech),
+                    max_output_tokens=annotate.output_ceiling(speech, MAX_OUTPUT_TOKENS),
                 ),
             },
             ensure_ascii=False,
@@ -312,9 +205,16 @@ def submit(
     model: str,
     effort: str,
     raw: Path,
-) -> list[str]:
-    """Upload and create one batch per chunk, returning the ids as they appear."""
+) -> tuple[list[str], int]:
+    """Upload and create one batch per chunk, returning the ids and what they hold.
+
+    The request count comes back with the ids because it is the only place it
+    is known: a chunk that raised before `batches.create` returned sent
+    nothing, and a manifest that recorded the intention would be counting a
+    request nobody made. The Gemini run's 7,966 is what that costs.
+    """
     identifiers = []
+    sent = 0
     chunks = [
         speeches[start : start + BATCH_CHUNK] for start in range(0, len(speeches), BATCH_CHUNK)
     ]
@@ -340,8 +240,9 @@ def submit(
 
         batch = with_backoff(create)
         identifiers.append(str(batch.id))
+        sent += count
         console.info(f"batch {number}/{len(chunks)}: {batch.id} ({count} requests)")
-    return identifiers
+    return identifiers, sent
 
 
 def poll(api: object, batch_ids: Sequence[str], *, seconds: int, raw: Path) -> Outcome:
@@ -422,14 +323,14 @@ def live(
     raw: Path,
 ) -> Outcome:
     """Direct Responses API calls, a bounded number of them at a time."""
-    outcome = Outcome(submitted=len(speeches))
+    outcome = Outcome(requests=len(speeches))
 
     def ask(speech: Speech) -> tuple[str, dict[str, object] | None, str]:
         body = llm.request_body(
             build(speech),
             model=model,
             reasoning_effort=effort,
-            max_output_tokens=output_ceiling(speech),
+            max_output_tokens=annotate.output_ceiling(speech, MAX_OUTPUT_TOKENS),
         )
 
         def call() -> object:
@@ -471,17 +372,34 @@ def harvest(
     meta: llm.RunMeta,
     referents: set[str],
     paths: dict[str, Path],
+    already: frozenset[str] = frozenset(),
 ) -> dict[str, int]:
-    """Validate, locate the evidence, and append. One bad speech loses one speech."""
+    """Validate, locate the evidence, and append. One bad speech loses one speech.
+
+    `already` names the speeches whose rows are on disk. A `--poll` reads every
+    batch the manifest records, not only the ones still outstanding, so a
+    resumed run downloads answers that were written on an earlier pass;
+    appending them a second time corrupts no label — the answers are identical —
+    but it doubles the file, and every count taken from it afterwards is wrong.
+    `usage.row_problems` would then refuse the run rather than repair it, which
+    is the right refusal about a fault that should not have happened.
+
+    16 gained this guard at commit 2fbd205, under load, and 14 did not, because
+    the batch path it was found on is the one 14 had already finished with. It
+    is the same parameter, doing the same thing, and the two harvests differ now
+    only in how a provider names a token.
+    """
     rows: list[dict[str, object]] = []
     failures = list(outcome.failures)
-    invalid = 0
+    invalid = relocated = 0
     totals = dict(EMPTY_USAGE)
 
     for custom_id, body in outcome.responses.items():
         speech = scope.get(custom_id)
         if speech is None:
             failures.append({"custom_id": custom_id, "reason": "not a speech in this run"})
+            continue
+        if speech.filename in already:
             continue
         for key, value in usage_of(body).items():
             totals[key] += value
@@ -498,117 +416,28 @@ def harvest(
             failures.append({"custom_id": custom_id, "reason": f"{type(error).__name__}: {error}"})
             continue
         invalid += sum(1 for row in annotated if not row["evidence_valid"])
+        relocated += sum(1 for row in annotated if row["evidence_relocated"])
         rows.extend(annotated)
 
     written = llm.append_rows(paths["annotations"], rows) if rows else 0
     if failures:
         llm.append_rows(
             paths["failures"],
-            [{**failure, "run_id": meta.run_id, "recorded_at": meta.annotated_at} for failure in failures],
+            [
+                {**failure, "run_id": meta.run_id, "recorded_at": meta.annotated_at}
+                for failure in failures
+            ],
         )
-    return {"written": written, "failures": len(failures), "evidence_invalid": invalid, **totals}
-
-
-# --- The manifest ------------------------------------------------------------
-
-
-def read_manifest(path: Path) -> dict[str, object]:
-    if not path.is_file():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def write_manifest(
-    path: Path,
-    previous: dict[str, object],
-    *,
-    meta: llm.RunMeta,
-    referents_sha256: str,
-    mode: str,
-    limit: int | None,
-    batch_ids: Sequence[str],
-    planned_requests: int,
-    planned_occurrences: int,
-    submitted: int,
-    returned: int,
-    complete: int,
-    written: int,
-    parse_failures: int,
-    evidence_invalid: int,
-    usage: dict[str, int],
-) -> dict[str, object]:
-    """One manifest per run, rewritten atomically after every pass.
-
-    Counts that describe effort — requests submitted and returned, tokens — add
-    to what a previous pass recorded, because a resumed run did that work too.
-    Counts that describe the artefact — occurrences written, speeches complete,
-    parse failures still outstanding — are measured from the files on disk, so
-    they cannot drift from what the run actually contains.
-    """
-    before = previous.get("requests") if isinstance(previous.get("requests"), dict) else {}
-    tokens = previous.get("usage") if isinstance(previous.get("usage"), dict) else {}
-    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    done = planned_requests > 0 and complete >= planned_requests
-    manifest = {
-        "run_id": meta.run_id,
-        "term": meta.term,
-        "model": meta.model,
-        "reasoning_effort": meta.reasoning_effort,
-        "prompt_version": meta.prompt_version,
-        "prompt_sha256": meta.prompt_sha256,
-        "referents_sha256": referents_sha256,
-        "referents_version": meta.referents_version,
-        "lexicon_version": meta.lexicon_version,
-        "schema_version": llm.SCHEMA_VERSION,
-        "mode": mode,
-        "limit": limit,
-        "created": previous.get("created", now),
-        "completed": now if done else None,
-        "git_commit": artifacts.git_commit(ROOT),
-        "batch_ids": sorted({*(previous.get("batch_ids") or []), *batch_ids}),
-        "requests": {
-            "planned": planned_requests,
-            "submitted": int(before.get("submitted", 0)) + submitted,
-            "returned": int(before.get("returned", 0)) + returned,
-            "complete": complete,
-        },
-        "occurrences": {"planned": planned_occurrences, "written": written},
-        "parse_failures": parse_failures,
-        "evidence_invalid": evidence_invalid,
-        "usage": {key: int(tokens.get(key, 0)) + value for key, value in usage.items()},
-        # Null, always, unless the API starts reporting a price. Tokens are
-        # reported; prices are not, and a number written here from memory would
-        # be a figure in a research manifest that nothing produced.
-        "cost_usd": None,
-        "status": "complete" if done else "in_progress",
+    return {
+        "written": written,
+        "failures": len(failures),
+        "evidence_invalid": invalid,
+        "evidence_relocated": relocated,
+        **totals,
     }
-    artifacts.atomic_write_json(path, manifest, indent=1)
-    return manifest
 
 
 # --- Orchestration -----------------------------------------------------------
-
-
-def refuse_mismatch(previous: dict[str, object], run_id: str, model: str, digest: str) -> None:
-    """A run is one prompt and one model. A change to either is a new run id."""
-    if previous.get("status") == "complete":
-        console.fail(
-            f"Run {run_id} is already complete",
-            ["its manifest says so; publishing a second reading needs a new --run-id"],
-        )
-    if previous and str(previous.get("model")) != model:
-        console.fail(
-            f"Run {run_id} was started with model {previous.get('model')}",
-            [f"--model {model} would mix two models in one file; use a new --run-id"],
-        )
-    if previous and str(previous.get("prompt_sha256")) != digest:
-        console.fail(
-            f"Run {run_id} was started with a different prompt",
-            [
-                f"manifest {str(previous.get('prompt_sha256'))[:12]}..., file {digest[:12]}...",
-                "a changed prompt is a new prompt version and a new --run-id",
-            ],
-        )
 
 
 def run(args: argparse.Namespace) -> None:
@@ -644,11 +473,11 @@ def run(args: argparse.Namespace) -> None:
         f"sha256 {referents_sha256[:12]}"
     )
 
-    previous = read_manifest(paths["manifest"])
-    refuse_mismatch(previous, args.run_id, args.model, pack.sha256)
+    previous = annotate.read_manifest(paths["manifest"])
+    annotate.refuse_mismatch(previous, args.run_id, args.model, pack.sha256)
 
     console.step("Enumerating the term")
-    everything, speeches, lexicon_version = gather(args.limit)
+    everything, speeches, lexicon_version = annotate.gather(args.limit)
     scope = {speech.custom_id: speech for speech in speeches}
     planned_occurrences = sum(len(speech.occurrences) for speech in speeches)
     enumerated = [item for speech in everything for item in speech.occurrences]
@@ -670,11 +499,19 @@ def run(args: argparse.Namespace) -> None:
         paths["annotations"], enumerated, prompt_sha256=pack.sha256, model=args.model
     )
     remaining = [speech for speech in speeches if speech.filename not in already]
+    refused = {str(row.get("custom_id", "")) for row in llm.read_rows(paths["failures"])}
     if args.retry_failures:
-        refused = {str(row.get("custom_id", "")) for row in llm.read_rows(paths["failures"])}
         remaining = [speech for speech in remaining if speech.custom_id in refused]
         console.info(f"--retry-failures: {len(remaining):,} previously refused speeches")
     console.info(f"{len(already):,} speeches already annotated, {len(remaining):,} to go")
+
+    # Every custom_id this run has already had an answer for: the speeches whose
+    # rows are on disk, and the speeches whose answers were refused. A --poll
+    # re-downloads both, and counting either again is how a manifest comes to
+    # report more answers than it ever sent requests.
+    answered = frozenset(
+        {speech.custom_id for speech in speeches if speech.filename in already} | refused
+    )
 
     raw = RAW / args.run_id
     raw.mkdir(parents=True, exist_ok=True)
@@ -709,7 +546,7 @@ def run(args: argparse.Namespace) -> None:
         )
     else:
         console.step(f"Submitting {len(remaining):,} speeches to the Batch API")
-        batch_ids = submit(
+        batch_ids, sent = submit(
             api,
             remaining,
             build,
@@ -719,8 +556,10 @@ def run(args: argparse.Namespace) -> None:
             raw=raw,
         )
         # Before a single result exists: an interrupted run must be resumable
-        # with --poll rather than resubmitted and paid for a second time.
-        write_manifest(
+        # with --poll rather than resubmitted and paid for a second time. The
+        # count is what `submit` actually created jobs for, so a submission that
+        # stopped halfway records the half it paid for.
+        annotate.write_manifest(
             paths["manifest"],
             previous,
             meta=meta,
@@ -730,21 +569,23 @@ def run(args: argparse.Namespace) -> None:
             batch_ids=batch_ids,
             planned_requests=len(speeches),
             planned_occurrences=planned_occurrences,
-            submitted=len(remaining),
+            requests=sent,
             returned=0,
             complete=len(already),
             written=len(llm.read_rows(paths["annotations"])),
             parse_failures=0,
             evidence_invalid=0,
+            evidence_relocated=0,
             usage=dict(EMPTY_USAGE),
         )
         console.info(f"batch ids recorded in {rel(paths['manifest'])}")
-        previous = read_manifest(paths["manifest"])
+        previous = annotate.read_manifest(paths["manifest"])
         console.step(f"Polling {len(batch_ids)} batch(es)")
         outcome = poll(api, batch_ids, seconds=args.poll_seconds, raw=raw)
+        outcome.requests = 0  # the batches were counted when they were created
 
     console.step("Validating and writing")
-    tally = harvest(outcome, scope, meta, referents, paths)
+    tally = harvest(outcome, scope, meta, referents, paths, already=frozenset(already))
     console.info(f"{tally['written']:,} rows appended to {rel(paths['annotations'])}")
     if tally["failures"]:
         console.warn(f"{tally['failures']} speeches refused; see {rel(paths['failures'])}")
@@ -764,7 +605,7 @@ def run(args: argparse.Namespace) -> None:
         & {speech.custom_id for speech in speeches if speech.filename not in covered}
     )
 
-    manifest = write_manifest(
+    manifest = annotate.write_manifest(
         paths["manifest"],
         previous,
         meta=meta,
@@ -774,12 +615,13 @@ def run(args: argparse.Namespace) -> None:
         batch_ids=batch_ids,
         planned_requests=len(speeches),
         planned_occurrences=planned_occurrences,
-        submitted=outcome.submitted,
-        returned=len(outcome.responses),
+        requests=outcome.requests,
+        returned=annotate.fresh_returns(outcome.responses, answered),
         complete=len(covered),
         written=len(rows),
         parse_failures=outstanding,
         evidence_invalid=sum(1 for row in rows if not row.get("evidence_valid")),
+        evidence_relocated=sum(1 for row in rows if row.get("evidence_relocated")),
         usage={key: tally[key] for key in EMPTY_USAGE},
     )
 
@@ -795,6 +637,9 @@ def run(args: argparse.Namespace) -> None:
             ("occurrences", f"{len(rows):,} of {planned_occurrences:,} annotated"),
             ("refused", f"{outstanding} speeches"),
             ("evidence located", f"{located:,} of {len(rows):,}"),
+            ("of those relocated", f"{manifest['evidence_relocated']:,}"),
+            ("requests", f"{manifest['requests']['sent']:,} sent over "
+             f"{len(manifest['passes'])} pass(es)"),
             ("tokens", json.dumps(manifest["usage"])),
             ("status", manifest["status"]),
         ]

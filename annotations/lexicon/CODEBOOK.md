@@ -1,9 +1,9 @@
 # Lexicon audit codebook
 
 Codebook version 2.2 — 2 September 2026. Annotation schema version 2, unchanged: no field
-definition has moved since 24 August 2026. The controlled referent list is at version 2 and
-carries its own version columns, so a run coded against version 1 stays readable. See the
-changelog at the end.
+definition and no controlled value has moved since 24 August 2026. The controlled referent
+list is at version 2 and carries its own version columns, so a run coded against version 1
+stays readable. See the changelog at the end.
 
 ## Purpose and unit
 
@@ -166,6 +166,12 @@ with the end exclusive. Select the shortest passage that supports quotation, sta
 function, and referent, while containing the matched term span. The validator rejects spans
 outside the source or spans that omit the match.
 
+**A false positive needs a span too.** "This match is not the word being used" is a claim
+about a passage and is unreadable without it, so the cascade that sets the four discourse
+fields to `not_applicable` stops at the evidence: record the span that shows the match is not
+a use. Three rows of the first model run answered this field with the literal string
+`not_applicable`; `14` and `16` now refuse such a row rather than write it.
+
 Positive example: include “could amount to genocide” rather than only “genocide,” because
 the modal phrase supports a conditional stance. Negative example: do not select the whole
 speech merely because it contains background context. Ambiguous example: when attribution
@@ -196,6 +202,20 @@ double coding is 100% here, not a fraction, because these rows are the whole eva
 a single-coded row cannot show whether a difference is one coder's reading or a real error. The
 shared pilot required above applies unchanged, and comes first.
 
+The sample is drawn in three frames and the `sampling_frame` column of the candidate file says
+which one a row came from. **Code them alike and read them apart.** The `probability` frame is
+an equal-probability draw and is the only one that estimates anything about the corpus; the
+`coverage` frame guarantees that every period and usage cue is seen at all; the `disagreement`
+frame is a purposive over-sample of the occurrences the two committed model runs read
+differently, and exists so that a rare class has enough rows to be measured. Their inclusion
+probabilities differ by a factor of seven, so a figure computed over the union of them
+estimates nothing, and `15_usage.py` reports the frames separately for that reason.
+
+**The frame is not a hint.** A row's stratum records why it was drawn — that a model called it
+a rejection, that its referent predates the case it names — and never what to write in it. It
+is the same rule the usage cue has carried since the sample was first drawn, applied to a
+second kind of sampling device.
+
 Disagreements are adjudicated by the procedure in step 6: neither coder edits the other's row,
 both originals stay in the file, and the resolution is a separate row whose `coder` is
 `adjudicated`.
@@ -207,9 +227,18 @@ run keeps its own model identifier and prompt, and it is compared against these 
 never joined into them, and never used to fill a field a coder left uncertain. Where the two
 disagree, the human label is the label; the disagreement is reported as a disagreement.
 
+Drawing a *sample* from what two runs disagree about is the one use of model output that does
+not breach this, and it is worth saying why. A sampling frame decides which passages a human
+reads; it cannot decide what the human writes, and the inclusion probability it records is what
+lets a later step weight the sample back or decline to. The rule the frame must not break is
+the one above: no row of `annotations/` is written, cleared or suggested by any run.
+
 ## Changelog
 
-- **2.2 — 2 September 2026.** Referent list version 2. Twelve categories the two full model
+- **2.2 — 2 September 2026.** Two changes on one day, neither of which moves a field or a
+  controlled value, so the annotation schema stays `2`.
+
+  Referent list version 2. Twelve categories the two full model
   runs asked for by name in `proposed_referent` — `israel_palestine`, `isil_iraq_syria`,
   `syria`, `croatia_yugoslav_wars`, `bangladesh`, `abkhazia_south_ossetia`,
   `afghanistan_hazara`, `khojaly`, `india_muslims`, `holodomor`,
@@ -224,7 +253,13 @@ disagree, the human label is the label; the disagreement is reported as a disagr
   modal property rather than a referent — and its rows in the committed runs are left as
   they are rather than remapped. Adds the compound rule, the three version columns, and the
   statement that a passage outside a referent's `years` still takes that referent. The
-  annotation schema stays version 2 and the `referent` coding rule is unchanged.
+  `referent` coding rule is unchanged.
+
+  The genocide gold sample gains a third sampling frame,
+  `disagreement`, drawn from the strata the two committed model runs read differently, and the
+  two-coder section states how the three frames are read apart. A false positive requires a
+  located evidence span exactly as a true positive does — the rule was always here, under
+  *Evidence span*, and `14`/`16` now enforce it at the point a row is written.
 - **2.1 — 28 August 2026.** `referents.csv` is seeded with a reviewed controlled list and gains
   the descriptive columns `kind`, `iso3` and `years`; the `referent` coding rule is unchanged.
   Adds the two-coder protocol for the genocide gold sample and states that model output is
