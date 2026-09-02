@@ -252,12 +252,27 @@ export interface Events {
 
 /* --- 05_lexical.py ------------------------------------------------------- */
 
+/**
+ * One row of a collocate or keyword table.
+ *
+ * G² is a floor the row cleared, never its rank: tables are ordered by effect
+ * (`log_dice` for collocates, `log_ratio` for keywords). The three dispersion
+ * fields say how evenly the word is spread over the speeches the table was
+ * cut from — `documents` it appears in, distinct `meetings` (null only where
+ * the pipeline had no meeting to count), and Gries's DP, 0 for a word spread
+ * as the text is and 1 for one confined to a vanishing corner of it.
+ */
 export interface Word {
 	word: string;
 	target: number;
 	reference: number;
 	g2: number;
 	log_ratio: number;
+	/** logDice (Rychlý 2008), collocate tables only; 14 is a pair never seen apart. */
+	log_dice?: number;
+	documents: number;
+	meetings: number | null;
+	dp: number;
 }
 
 export interface CollocateBlock {
@@ -519,6 +534,10 @@ export interface Keyword {
 	reference: number;
 	g2: number;
 	log_ratio: number;
+	/** Dispersion over the speaker's matched speeches; see `Word`. */
+	documents: number;
+	meetings: number | null;
+	dp: number;
 	/**
 	 * True when the word appears in the speaker's own canonical name. Mechanical
 	 * and therefore partial upstream — it catches `federation` and misses

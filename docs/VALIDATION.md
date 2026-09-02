@@ -12,7 +12,8 @@ has inspected the original PDF. Amended 28 August 2026: checks 6 and 7 added for
 referent list. Amended 30 August 2026: the first two model runs registered in §7. Amended 1 September 2026: lexicon v3 registered below, with
 the two counting corrections it carries and the re-count it still owes. Amended 2 September
 2026: the rate change-point test's meeting-block null and the Wilson intervals registered
-below, with the re-calibration they owe.
+below, with the re-calibration they owe; and, the same day, the lexical tables' floor,
+effect ranking and dispersion, with the re-run and the lemma layer they owe.
 
 ## How to inspect an original record
 
@@ -286,6 +287,39 @@ they are, the three p-values in `README.md` (2017 and 2016 for `genocide`, 1996 
 `atrocity_core`) are the independent-null ones; record the block p-values beside them here
 when the run lands, note which of the three survive the corrected threshold, and rewrite
 the README paragraph from the artefact rather than by hand.
+
+### Lexical tables: a floor, an effect ranking, and dispersion
+
+Registered 2 September 2026 (roadmap S5, first slice; review §3.2). Four changes to what a
+collocate or keyword row is:
+
+- **G² is a floor.** A row must clear |G²| ≥ 10.83 (p < 0.001, one degree of freedom) to
+  appear, and the rows that clear it are ranked by effect — log ratio for keyword tables,
+  logDice for collocate tables, which now carry it. Tables used to be ranked by G², which
+  on 59 million tokens puts the commonest words first however small their rate difference.
+  Every table on the site and in the notes therefore re-orders on the next run of 05 and
+  12; the words do not change, their order and their cut-off do.
+- **Dispersion per row.** `documents`, distinct `meetings` and Gries's DP over the target
+  speeches (keywords) or the windows (collocates), from `lib/lexical.py::dispersion` and
+  its vectorised twin `DocumentTerms.dispersion`, held equal by a test.
+- **The tokeniser.** `TOKEN_RE` cannot end on an apostrophe or hyphen and may carry a digit
+  after its first letter. `'genocide'` in scare quotes was `genocide'`, a separate type,
+  and `R2P` was `r` and `p`; both now count as the words they are. Every vocabulary count
+  moves by the number of such tokens, which the re-run will state here.
+- **Definitional edges.** `lexical.definitional_pairs` names every pair whose co-occurrence
+  is written into the lexicon — nesting, or one term's regex matching another's declared
+  example — and the network does not draw them. On the current lexicon the rule adds one
+  pair the nesting rule missed: `genocide`–`denial`, because `denial`'s pattern contains
+  `genocid`. `war_crimes`–`crimes_against_humanity` is not caught, and should not be.
+
+**Open check: re-run 05 and 12, and 10 on the cluster.** The environment the change was
+written in could not reach Dataverse. When the run lands: record here how many tokens the
+tokeniser change moved (types ending on `'`, `’` or `-`, and tokens carrying a digit), the
+G²-floor cut-off's effect on each table's length, and the new top collocates against the
+old ones named in `README.md` and `docs/CORPUS.md` §8.5. The lemma layer
+(`data/interim/lemmas/lemmas.parquet`) is aligned token by token to the old pattern:
+`lemmas.tokens` will refuse it, and `10_lemmatise.py` must run before `05 --vocabulary
+lemma` is read again.
 
 ### Documents versus meeting symbols
 

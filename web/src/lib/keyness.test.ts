@@ -28,6 +28,9 @@ const word = (name: string, logRatio: number, self = false, target = 100, g2 = 5
 	reference: 10,
 	g2,
 	log_ratio: logRatio,
+	documents: 40,
+	meetings: 25,
+	dp: 0.35,
 	self_reference: self
 });
 

@@ -41,6 +41,9 @@ export interface Bar {
 	reference: number;
 	g2: number;
 	logRatio: number;
+	documents: number;
+	meetings: number | null;
+	dp: number;
 	selfReference: boolean;
 	/** 0–1, the row's log ratio against the widest in the same reading. */
 	weight: number;
@@ -117,6 +120,9 @@ export function bars(speaker: SpeakerKeynessRow, reading: Reading, limit = 20): 
 		reference: row.reference,
 		g2: row.g2,
 		logRatio: row.log_ratio,
+		documents: row.documents,
+		meetings: row.meetings,
+		dp: row.dp,
 		selfReference: row.self_reference,
 		weight: Math.min(Math.abs(row.log_ratio) / widest, 1),
 		interval:

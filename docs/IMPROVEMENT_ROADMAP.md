@@ -568,11 +568,49 @@ network.
 
 ### S5. Lexical robustness and shift
 
+**Status: first slice complete on 2 September 2026; the corpus re-run is owed.** This is
+item 7 of the prioritised plan in [`REVIEW_2026-09-01.md`](REVIEW_2026-09-01.md) §8, and
+the review's §3.2 is its specification.
+
 For every collocate add distinct meetings, speakers and years; meeting dispersion;
 leave-one-meeting-out sensitivity; surface/lemma sensitivity; weighted log-odds; and
 meeting-level bootstrap intervals where feasible. Then expose a collocate-by-period matrix
 using color for direction/magnitude, size for frequency and a separate mark for dispersion.
 Do not add another word cloud.
+
+The first slice changes what a table row is and how a table is ordered:
+
+1. **Significance is a floor, not a rank.** `lib/lexical.py::compare` keeps a row only
+   when |G²| clears `G2_FLOOR` (10.83, p < 0.001) and orders the kept rows by effect —
+   `log_ratio` for keyword tables, `log_dice` (Rychlý 2008) for collocate tables, which
+   now carry it — with G² and then the word as tie-breakers so every run orders alike.
+   The floor and the ranking are written into each artefact's `meta`.
+2. **Every row carries its dispersion.** `lexical.dispersion` gives the documents and
+   distinct meetings a word appears in and Gries's DP over the target speeches (or the
+   collocate windows); `DocumentTerms.dispersion` computes the same numbers over the
+   speaker-keyness matrix and a test holds the two equal. Collocate tables, the keyness
+   table, the sliced profiles and every speaker's keyword table carry `documents`,
+   `meetings` and `dp`; the site prints them beside every row and its CSVs export them.
+3. **The tokeniser no longer loses the scare-quoted word.** `TOKEN_RE` cannot end on an
+   apostrophe or hyphen — `'genocide'` was a type of its own — and may carry a digit after
+   its first letter, so `R2P` is one word. Consequence recorded below: the lemma layer
+   from `10_lemmatise.py` is aligned token by token to the old pattern and must be
+   regenerated before `05 --vocabulary lemma` runs again; `lemmas.tokens` refuses a stale
+   row rather than shifting every window after it.
+4. **Definitional edges are suppressed by rule, with their reason.** `denial`'s pattern
+   contains `genocid`, so the `denial`–`genocide` edge was partly a fact about the lexicon;
+   `lexical.definitional_pairs` finds such pairs by running each term's regex over the
+   other's declared examples, the network no longer draws them, and the artefact lists
+   every suppressed pair with why.
+
+Acceptance: `python -m pytest` and `ruff check .` pass; `npm run lint`, `npm run check`,
+`npm test` and the Playwright journeys pass; the contract diff is additive only. **What is
+owed:** `05_lexical.py` and `12_speaker_keyness.py` re-run on the corpus — every table
+re-ranks, and `README.md`'s collocate paragraph names the top words from the old order —
+and `10_lemmatise.py` on the cluster before the lemma sensitivity reading is redrawn. Left
+for later slices: leave-one-meeting-out sensitivity, meeting-block intervals on the effect
+sizes (the 20-seed band is still control-draw variance only), the collocate-by-period
+matrix, and the dot plot that replaces the cloud (review item 8).
 
 ### S6. Sequential recurrence within meetings
 
@@ -969,3 +1007,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-08-31 | L8 the second opinion              | complete   | pending | `python -m pytest -q` (803 passed; `tests/test_gemini.py` 26, all offline; the request-parity and same-population tests bind 14 and 16); `ruff check .`; contract diff = 33 insertions, only the comparison shapes; `15_usage.py` verified in both states — synthetic pair (overlap 5,952, contested 1,642) and real run + empty comparison — against the same contract; `npm test` (448); `npm run check`; `npm run lint`; `npm run test:e2e` (26 journeys incl. the none-state variant); `npm run build` against the real payload, unchanged | Gemini 3.7 Flash as counter-instrument (API surface verified on ai.google.dev, 2026-08-31; `gemini-3.7-flash`, thinking high, Batch at half price, `responseJsonSchema` passthrough). 16 is 14's sibling; a test asserts both providers are sent byte-identical messages and schema, and another that they annotate the same documented population. `comparison_run.txt` names the counter-instrument; 15 refuses a different prompt hash and a self-comparison, computes per-field observed/kappa and per-occurrence `contested`/`alt`, and never redraws matrix, stance or diffusion from it. The view marks contested rows, filters on `contested=1`, tables the agreement in the apparatus and lists the most contested passages with a full CSV — each surface carrying the sentence that governs the phase: agreement between two models is stability across instruments, never accuracy. **No comparison run exists yet**: `comparison_run.txt` is empty, the live payload renders the none state, and the run waits on a `GEMINI_API_KEY` (~$12 in Batch). |
 | 2026-09-01 | Lexicon v3 (review §3.4, item 1) | complete   | pending | `python -m pytest` (all passed on the merged tree; `tests/test_lexicon.py` new, `tests/test_config.py` +4, `tests/test_usage.py` +5); `ruff check .`; the v2 literal `war crime` shown to count 0 where the regex counts 1 on `war\ncrimes` | Two counting corrections from `docs/REVIEW_2026-09-01.md`: prefilters made whitespace-free and provably contained in every match, and register/total roll-ups summed over `lexicon.summable` so a nested term is not counted on top of its parent. No pattern changed. `pattern_since` per term, pinned by `config/lexicon.lock.json` and `tools/lock_lexicon.py`, and `Lexicon.compatible` let 15 and the annotation merge accept v2 artefacts under v3; `summable` walks the whole nesting chain and the loader refuses self-nesting and cycles; `09_export_speeches.py` now reconciles per-term counts rather than the de-duplicated total. Corpus-level effect to be recorded in `VALIDATION.md` on the next run of 03; the network policy of the environment the fix was written in did not reach Dataverse. |
 | 2026-09-02 | S1, first slice (review §8, item 2) | complete   | pending | `python -m pytest` (858 passed; `tests/test_series.py` +17 for `wilson_interval`, `meeting_blocks` and the block null); `ruff check .`; a synthetic 32-year corpus with two dense debates run through `build_series`, `build_change_points`, `build_monthly`, `build_breakdowns` and `build_note` — the token-rate split read p = 0.015 under the independent null and 0.69 under the block null; `npm run lint`; `npm run check` (0 errors); `npm test` (452 passed, `chronology.test.ts` +4); `npm run test:e2e` (26 Chromium journeys) and `npm run test:e2e:sw` (1 built-site journey, which is also the fixture build) on the fixtures, run through a throwaway config pointing at the environment's pre-installed Chromium because the pinned headless shell was absent; the contract diff is 43 insertions and no deletion. `npm run build` prerenders against `web/static/data/`, which this environment cannot populate, so it was not run. | The rate change-point null now permutes meetings across years (`series.meeting_blocks`, `rate_change_point(blocks=…)`); the independent-speech p-value is published beside the block one as `p_value_independent`, the artefact names its `null` and its `blocks`, and `accepted` follows the block p. Every `speech_rate` — annual, quarterly, monthly, pooled calendar, breakdown row, speaker row — carries Wilson 95% bounds, blanked by the same withholding rule as the rate; the site draws them as bands (chronology, split figure) and a whisker column (actors), and prints them in hovers and CSVs. The findings note reads the corrected `inference` block and types no year into its prose. Contract, TS types and fixtures moved together, with the new fields required rather than optional because the pipeline always writes them. **Owed:** the corpus re-run, blocked on Dataverse from this environment; `README.md` says which of its numbers are still the independent-null ones. |
+| 2026-09-02 | S5, first slice (review §8, item 7) | complete   | pending | `python -m pytest` (879 passed; `tests/test_lexical.py` +21 for the floor, the ranking, dispersion, logDice, the tokeniser and definitional pairs; `tests/test_keyness.py` +2 holding the matrix dispersion equal to the pure-Python one); `ruff check .`; a synthetic corpus run through `build_collocates`, `build_slices`, `build_keyness`, `build_network` and `build_note`, and `lib.keyness.speaker_keyness` on the same; `npm run lint`; `npm run check` (0 errors); `npm test` (452 passed); `npm run test:e2e` (26 journeys) and `npm run test:e2e:sw` through the throwaway Chromium config; the contract diff is 119 insertions and no deletion. | Tables are ranked by effect among rows clearing G² 10.83 — log ratio for keywords, logDice for collocates, which now carry it — and every row carries `documents`, `meetings` and `dp`. `TOKEN_RE` cannot end on an apostrophe or hyphen and may carry a digit, so `'genocide'` and `R2P` are the words they are. Definitional pairs are found from the declared examples and listed with their reason; the `denial`–`genocide` edge is no longer drawn. The language page prints the spread beside every row, the speaker keyness table too, and the standfirst says the floor and the rank. **Owed:** the corpus re-run of 05 and 12, and 10 on the cluster for the lemma layer, which the tokeniser change makes stale. |

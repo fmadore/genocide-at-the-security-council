@@ -53,6 +53,24 @@ class TestDocumentTerms:
         matrix = keyness.build(CORPUS)
         assert matrix.counter([]) == Counter()
 
+    def test_dispersion_agrees_with_the_pure_python_version(self):
+        matrix = keyness.build(CORPUS)
+        rows = [0, 2, 3]
+        documents = lexical.document_vocabulary([CORPUS[i] for i in rows])
+        sizes = [sum(c.values()) for c in documents]
+        meetings = ["m1", "m1", "m2", "m2", "m3"]
+        expected = lexical.dispersion(documents, sizes, [meetings[i] for i in rows])
+        assert matrix.dispersion(rows, meetings) == expected
+        assert expected["the"]["documents"] == 3
+        assert expected["the"]["meetings"] == 2
+        assert expected["rwanda"]["documents"] == 2
+
+    def test_dispersion_without_meetings_leaves_the_column_null(self):
+        matrix = keyness.build(CORPUS)
+        spread = matrix.dispersion([0, 1])
+        assert spread["council"]["meetings"] is None
+        assert matrix.dispersion([]) == {}
+
     def test_the_matrix_knows_its_own_shape(self):
         matrix = keyness.build(CORPUS)
         assert matrix.documents == len(CORPUS)
@@ -150,6 +168,7 @@ class TestSpeakerKeyness:
             seed=1,
             minimum=1,
             min_coverage=0.0,
+            floor=0.0,
         )
         assert block["pairs"] == 4
         assert block["coverage"] == 1.0
@@ -157,6 +176,10 @@ class TestSpeakerKeyness:
         assert block["withheld_because"] == []
         words = [row["word"] for row in block["keywords"]]
         assert "genocide" in words
+        genocide = next(row for row in block["keywords"] if row["word"] == "genocide")
+        assert genocide["documents"] == 4
+        assert genocide["meetings"] is None  # the fixture carries no meeting_symbol
+        assert 0.0 <= genocide["dp"] <= 1.0
 
     def test_below_the_pair_minimum_every_key_is_present_and_null(self, table):
         """A missing key and a measured zero are indistinguishable downstream."""
@@ -247,6 +270,7 @@ class TestSpeakerKeyness:
             seed=1,
             minimum=1,
             min_coverage=0.0,
+            floor=0.0,
         )
         marked = {row["word"]: row["self_reference"] for row in block["keywords"]}
         assert marked["utopia"] is True

@@ -227,7 +227,7 @@ What follows from that, worth knowing before you start:
 | [`lib/occurrences.py`](lib/occurrences.py) | One enumeration of a term's occurrences, carrying both the audit `occurrence_id` and the KWIC line id; 13, 14 and 15 share it. |
 | [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: prompt parsing, request building, response validation against the codebook's vocabularies, evidence-quote location, resume rules. No network, no SDK import at module level. |
 | [`lib/usage.py`](lib/usage.py) | Aggregation for the usage layer: eligible/assigned funnel, the actor × referent matrix, withholding, and the human/model agreement arithmetic. |
-| [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood and log ratio, matched controls, PMI. |
+| [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood as a floor with log ratio and logDice as the rank, dispersion (documents, meetings, DP), matched controls, PMI with definitional pairs suppressed. |
 | [`lib/keyness.py`](lib/keyness.py) | One speaker against the room: the corpus as a count matrix, the strata, the two gates, agenda composition. |
 | [`lib/embeddings.py`](lib/embeddings.py) | The model registry, the chunking policy for long speeches, pooling, neighbours. |
 | [`lib/topics.py`](lib/topics.py) | The frozen sample, both topic models, and the evaluation: NPMI coherence, adjusted Rand, c-TF-IDF, word intrusion. |

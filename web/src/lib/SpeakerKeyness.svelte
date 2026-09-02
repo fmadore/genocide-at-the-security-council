@@ -222,6 +222,8 @@
 					<th scope="col" class="num">This speaker</th>
 					<th scope="col" class="num">Compared with</th>
 					<th scope="col" class="num">G²</th>
+					<th scope="col" class="num">Speeches / meetings</th>
+					<th scope="col" class="num">DP</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -251,6 +253,10 @@
 						<td class="num">{count(row.target)}</td>
 						<td class="num">{count(row.reference)}</td>
 						<td class="num">{count(Math.round(row.g2))}</td>
+						<td class="num"
+							>{count(row.documents)} / {row.meetings == null ? '—' : count(row.meetings)}</td
+						>
+						<td class="num">{decimal(row.dp)}</td>
 					</tr>
 				{/each}
 			</tbody>

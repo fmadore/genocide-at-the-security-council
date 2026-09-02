@@ -19,7 +19,10 @@ const row = (word: string, target: number, g2: number, logRatio: number): Word =
 	target,
 	reference: 1000,
 	g2,
-	log_ratio: logRatio
+	log_ratio: logRatio,
+	documents: 12,
+	meetings: 9,
+	dp: 0.4
 });
 
 const block = (collocates: Word[], speeches?: number): CollocateBlock => ({

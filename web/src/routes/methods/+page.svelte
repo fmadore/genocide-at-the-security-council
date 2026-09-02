@@ -82,7 +82,7 @@
 			id: '05_lexical.py',
 			does: 'Finds the words that sit near each term, the words that mark out a speech using the term against a comparable speech that does not, and a map of which terms share a speech.',
 			checks:
-				'Each speech using the term is paired with one from the same year, debate and speaker group. Twenty consecutive random draws show how much the pairing itself moves the answer, and the unpaired comparison is kept only for contrast. Overlapping context windows are merged, and a phrase is never counted as evidence of association with a word already inside it.',
+				'Each speech using the term is paired with one from the same year, debate and speaker group. Twenty consecutive random draws show how much the pairing itself moves the answer, and the unpaired comparison is kept only for contrast. Overlapping context windows are merged, and a phrase is never counted as evidence of association with a word already inside it. Significance is a floor: a row must clear G² 10.83 and is then ranked by effect — logDice for collocates, log ratio for keywords — and every row carries the speeches and meetings it appears in and its dispersion (DP).',
 			artefact: 'lexical/*.json',
 			state: 'verified',
 			says: 'Verified'

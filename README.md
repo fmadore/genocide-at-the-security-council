@@ -255,9 +255,12 @@ binary segmentation remain visible as explicitly exploratory descriptions.
 
 ### The same word, doing different work
 
-`scripts/05` profiles what `genocide` travels with — by log-likelihood over a stated
-function-word stoplist, with log ratio beside every figure, because on 59 million tokens
-significance is cheap and effect size is not.
+`scripts/05` profiles what `genocide` travels with — over a stated function-word stoplist,
+with log-likelihood as a floor a row must clear and never as its rank, because on 59
+million tokens significance is cheap and effect size is not. Rows are ranked by effect
+(logDice for collocates, log ratio for keywords) and each carries its dispersion — the
+speeches and meetings it appears in, and Gries's DP — so one debate's word is not read as
+the register's.
 
 Almost every speaker's strongest collocates are the Rome Statute triad: `crimes`,
 `humanity`, `war`. **Rwanda's are not.** Across its 187 genocide-bearing speeches the

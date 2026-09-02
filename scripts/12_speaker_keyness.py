@@ -79,6 +79,8 @@ COLUMNS = [
     "tokens",
     "text",
     "body_start",
+    # The unit of dispersion: a keyword's distinct meetings are counted from it.
+    "meeting_symbol",
 ]
 
 OUTPUT = COUNTRIES / "speaker_keyness.json"

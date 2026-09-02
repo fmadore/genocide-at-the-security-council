@@ -58,6 +58,10 @@
 						word.reference,
 						word.g2,
 						word.log_ratio,
+						word.log_dice ?? null,
+						word.documents,
+						word.meetings,
+						word.dp,
 						block.occurrences,
 						block.window_tokens
 					]);
@@ -74,6 +78,10 @@
 				'reference',
 				'g2',
 				'log_ratio',
+				'log_dice',
+				'documents',
+				'meetings',
+				'dp',
 				'node_occurrences',
 				'window_tokens'
 			],
@@ -100,6 +108,10 @@
 						word.reference,
 						word.g2,
 						word.log_ratio,
+						word.log_dice ?? null,
+						word.documents,
+						word.meetings,
+						word.dp,
 						block.occurrences,
 						block.window_tokens,
 						(block.speeches ?? 0) >= data.sliced.minimum_speeches
@@ -118,6 +130,10 @@
 				'reference',
 				'g2',
 				'log_ratio',
+				'log_dice',
+				'documents',
+				'meetings',
+				'dp',
 				'occurrences',
 				'window_tokens',
 				'meets_minimum'
@@ -140,12 +156,32 @@
 		];
 		for (const [reading, words] of readings) {
 			for (const word of words ?? []) {
-				rows.push([reading, word.word, word.target, word.reference, word.g2, word.log_ratio]);
+				rows.push([
+					reading,
+					word.word,
+					word.target,
+					word.reference,
+					word.g2,
+					word.log_ratio,
+					word.documents,
+					word.meetings,
+					word.dp
+				]);
 			}
 		}
 		return {
 			title: 'Compared with a like-for-like speech',
-			columns: ['reading', 'word', 'target', 'reference', 'g2', 'log_ratio'],
+			columns: [
+				'reading',
+				'word',
+				'target',
+				'reference',
+				'g2',
+				'log_ratio',
+				'documents',
+				'meetings',
+				'dp'
+			],
 			rows,
 			provenance: provenanceOf(data.keyness.meta, 'lexical/keyness.json'),
 			filters: [
@@ -280,6 +316,10 @@
 	const keywords = $derived(
 		keynessView === 'matched' ? data.keyness.keywords : data.keyness.keywords_unmatched
 	);
+	/** The dispersion cell: speeches / meetings, with a dash where no meeting was counted. */
+	const spread = (word: { documents: number; meetings: number | null }) =>
+		`${count(word.documents)} / ${word.meetings == null ? '—' : count(word.meetings)}`;
+
 	const matchedByWord = $derived(new Map(data.keyness.keywords.map((w) => [w.word, w.log_ratio])));
 
 	/* Zoom is held here rather than left inside ECharts so that "Reset" can put it
@@ -580,12 +620,16 @@
 			said in the same speech.
 		</p>
 		<p class="standfirst">
-			Every table here uses two measures side by side. <strong>Log-likelihood</strong> (written G²)
+			Every table here reports two kinds of measure. <strong>Log-likelihood</strong> (written G²)
 			says how confident we can be that a word turns up at a rate chance alone would not produce;
-			<strong>log ratio</strong> says how large that difference is. Across {count(
-				data.collocates.meta.corpus_tokens as number
-			)} words almost anything reaches statistical significance, so confidence on its own is not a finding
-			&mdash; the tables rank by confidence and report the size beside it.
+			<strong>log ratio</strong> and, for collocates, <strong>logDice</strong> say how large that
+			difference is. Across {count(data.collocates.meta.corpus_tokens as number)} words almost anything
+			reaches statistical significance, so confidence is a floor and never an order: a row must clear
+			G² {decimal(data.collocates.meta.g2_floor as number)} to appear at all, and the rows that clear
+			it are ranked by effect. Each also carries its <strong>spread</strong> &mdash; the speeches and
+			distinct meetings it appears in, and DP, which runs from 0 for a word spread like the text to 1
+			for one confined to a corner of it &mdash; so a word that belongs to one debate is not mistaken
+			for one that belongs to the register.
 		</p>
 	</header>
 
@@ -667,6 +711,8 @@
 					><tr
 						><th>Word</th><th class="num">Near</th><th class="num">G²</th><th class="num"
 							>Log ratio</th
+						><th class="num">logDice</th><th class="num">Speeches / meetings</th><th class="num"
+							>DP</th
 						></tr
 					></thead
 				>
@@ -677,6 +723,9 @@
 							<td class="num">{count(word.target)}</td>
 							<td class="num">{count(Math.round(word.g2))}</td>
 							<td class="num">{signed(word.log_ratio)}</td>
+							<td class="num">{word.log_dice == null ? '—' : decimal(word.log_dice)}</td>
+							<td class="num">{spread(word)}</td>
+							<td class="num">{decimal(word.dp)}</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -829,6 +878,8 @@
 						><tr
 							><th>Word</th><th class="num">Near</th><th class="num">G²</th><th class="num"
 								>Log ratio</th
+							><th class="num">logDice</th><th class="num">Speeches / meetings</th><th class="num"
+								>DP</th
 							></tr
 						></thead
 					>
@@ -839,6 +890,9 @@
 								<td class="num">{count(word.target)}</td>
 								<td class="num">{count(Math.round(word.g2))}</td>
 								<td class="num">{signed(word.log_ratio)}</td>
+								<td class="num">{word.log_dice == null ? '—' : decimal(word.log_dice)}</td>
+								<td class="num">{spread(word)}</td>
+								<td class="num">{decimal(word.dp)}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -1016,6 +1070,8 @@
 					<tr
 						><th>Profile</th><th>Word</th><th class="num">Near</th><th class="num">G²</th><th
 							class="num">Log ratio</th
+						><th class="num">logDice</th><th class="num">Speeches / meetings</th><th class="num"
+							>DP</th
 						></tr
 					>
 				</thead>
@@ -1028,6 +1084,9 @@
 								<td class="num">{count(w.target)}</td>
 								<td class="num">{count(Math.round(w.g2))}</td>
 								<td class="num">{signed(w.log_ratio)}</td>
+								<td class="num">{w.log_dice == null ? '—' : decimal(w.log_dice)}</td>
+								<td class="num">{spread(w)}</td>
+								<td class="num">{decimal(w.dp)}</td>
 							</tr>
 						{/each}
 					{/each}
@@ -1069,6 +1128,11 @@
 				<em>bosnia</em>, <em>herzegovina</em> and <em>tribunals</em>: near the top of the unpaired
 				table, and gone once year and agenda item are held constant.
 			</p>
+			<p>
+				Rows are ranked by log ratio among the words that clear the G² floor. The
+				<strong>spread</strong> columns say whether a keyword belongs to the register or to a debate:
+				a word in a few dozen speeches at DP near 1 is one sitting's vocabulary however high it ranks.
+			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
@@ -1095,6 +1159,8 @@
 					<th class="num">In these speeches</th>
 					<th class="num">G²</th>
 					<th class="num">Log ratio</th>
+					<th class="num">Speeches / meetings</th>
+					<th class="num">DP</th>
 					{#if keynessView === 'unmatched'}<th class="num">Like-for-like</th>{/if}
 				</tr>
 			</thead>
@@ -1106,6 +1172,8 @@
 						<td class="num">{count(w.target)}</td>
 						<td class="num">{count(Math.round(w.g2))}</td>
 						<td class="num">{signed(w.log_ratio)}</td>
+						<td class="num">{spread(w)}</td>
+						<td class="num">{decimal(w.dp)}</td>
 						{#if keynessView === 'unmatched'}
 							<td class="num" class:gone={!matchedByWord.has(w.word)}>
 								{matchedByWord.has(w.word) ? signed(matchedByWord.get(w.word)!) : 'drops out'}

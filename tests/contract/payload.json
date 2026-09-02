@@ -321,6 +321,7 @@
    ],
    "corpus_tokens": "int",
    "corpus_types": "int",
+   "g2_floor": "float",
    "generated": "str",
    "git_commit": "str",
    "inputs": [
@@ -337,6 +338,10 @@
     "*": "str"
    },
    "python": "str",
+   "ranked_by": {
+    "collocates": "str",
+    "keywords": "str"
+   },
    "script": "str",
    "stopwords": "int"
   },
@@ -348,8 +353,12 @@
      "15": {
       "collocates": [
        {
+        "documents": "int",
+        "dp": "float",
         "g2": "float",
+        "log_dice": "float",
         "log_ratio": "float",
+        "meetings": "int",
         "reference": "int",
         "target": "int",
         "word": "str"
@@ -361,8 +370,12 @@
      "5": {
       "collocates": [
        {
+        "documents": "int",
+        "dp": "float",
         "g2": "float",
+        "log_dice": "float",
         "log_ratio": "float",
+        "meetings": "int",
         "reference": "int",
         "target": "int",
         "word": "str"
@@ -374,8 +387,12 @@
      "8": {
       "collocates": [
        {
+        "documents": "int",
+        "dp": "float",
         "g2": "float",
+        "log_dice": "float",
         "log_ratio": "float",
+        "meetings": "int",
         "reference": "int",
         "target": "int",
         "word": "str"
@@ -393,8 +410,12 @@
      "15": {
       "collocates": [
        {
+        "documents": "int",
+        "dp": "float",
         "g2": "float",
+        "log_dice": "float",
         "log_ratio": "float",
+        "meetings": "int",
         "reference": "int",
         "target": "int",
         "word": "str"
@@ -406,8 +427,12 @@
      "5": {
       "collocates": [
        {
+        "documents": "int",
+        "dp": "float",
         "g2": "float",
+        "log_dice": "float",
         "log_ratio": "float",
+        "meetings": "int",
         "reference": "int",
         "target": "int",
         "word": "str"
@@ -419,8 +444,12 @@
      "8": {
       "collocates": [
        {
+        "documents": "int",
+        "dp": "float",
         "g2": "float",
+        "log_dice": "float",
         "log_ratio": "float",
+        "meetings": "int",
         "reference": "int",
         "target": "int",
         "word": "str"
@@ -438,8 +467,12 @@
      "15": {
       "collocates": [
        {
+        "documents": "int",
+        "dp": "float",
         "g2": "float",
+        "log_dice": "float",
         "log_ratio": "float",
+        "meetings": "int",
         "reference": "int",
         "target": "int",
         "word": "str"
@@ -451,8 +484,12 @@
      "5": {
       "collocates": [
        {
+        "documents": "int",
+        "dp": "float",
         "g2": "float",
+        "log_dice": "float",
         "log_ratio": "float",
+        "meetings": "int",
         "reference": "int",
         "target": "int",
         "word": "str"
@@ -464,8 +501,12 @@
      "8": {
       "collocates": [
        {
+        "documents": "int",
+        "dp": "float",
         "g2": "float",
+        "log_dice": "float",
         "log_ratio": "float",
+        "meetings": "int",
         "reference": "int",
         "target": "int",
         "word": "str"
@@ -486,8 +527,12 @@
    "Argentina": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -500,8 +545,12 @@
    "Bosnia And Herzegovina": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -514,8 +563,12 @@
    "France": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -528,8 +581,12 @@
    "Rwanda": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -542,8 +599,12 @@
    "UN": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -556,8 +617,12 @@
    "Ukraine": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -570,8 +635,12 @@
    "United Kingdom Of Great Britain And Northern Ireland": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -584,8 +653,12 @@
    "United States Of America": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -600,8 +673,12 @@
    "*": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -616,8 +693,12 @@
    "E10": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -630,8 +711,12 @@
    "Non-member state": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -644,8 +729,12 @@
    "Non-state": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -658,8 +747,12 @@
    "P5": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -672,8 +765,12 @@
    "UN": {
     "collocates": [
      {
+      "documents": "int",
+      "dp": "float",
       "g2": "float",
+      "log_dice": "float",
       "log_ratio": "float",
+      "meetings": "int",
       "reference": "int",
       "target": "int",
       "word": "str"
@@ -694,6 +791,7 @@
    ],
    "corpus_tokens": "int",
    "corpus_types": "int",
+   "g2_floor": "float",
    "generated": "str",
    "git_commit": "str",
    "inputs": [
@@ -710,6 +808,10 @@
     "*": "str"
    },
    "python": "str",
+   "ranked_by": {
+    "collocates": "str",
+    "keywords": "str"
+   },
    "script": "str",
    "stopwords": "int"
   },
@@ -724,8 +826,11 @@
   "eligible_target_speeches": "int",
   "keywords": [
    {
+    "documents": "int",
+    "dp": "float",
     "g2": "float",
     "log_ratio": "float",
+    "meetings": "int",
     "reference": "int",
     "target": "int",
     "word": "str"
@@ -733,8 +838,11 @@
   ],
   "keywords_unmatched": [
    {
+    "documents": "int",
+    "dp": "float",
     "g2": "float",
     "log_ratio": "float",
+    "meetings": "int",
     "reference": "int",
     "target": "int",
     "word": "str"
@@ -753,6 +861,7 @@
    ],
    "corpus_tokens": "int",
    "corpus_types": "int",
+   "g2_floor": "float",
    "generated": "str",
    "git_commit": "str",
    "inputs": [
@@ -769,6 +878,10 @@
     "*": "str"
    },
    "python": "str",
+   "ranked_by": {
+    "collocates": "str",
+    "keywords": "str"
+   },
    "script": "str",
    "stopwords": "int"
   },
@@ -839,6 +952,7 @@
    ],
    "corpus_tokens": "int",
    "corpus_types": "int",
+   "g2_floor": "float",
    "generated": "str",
    "git_commit": "str",
    "inputs": [
@@ -855,12 +969,17 @@
     "*": "str"
    },
    "python": "str",
+   "ranked_by": {
+    "collocates": "str",
+    "keywords": "str"
+   },
    "script": "str",
    "stopwords": "int"
   },
   "min_speeches": "int",
   "suppressed_nested_edges": [
    {
+    "reason": "str",
     "source": "str",
     "target": "str"
    }

@@ -36,6 +36,29 @@ class TestTokenise:
         """Resolution numbers and dates would swamp any table they entered."""
         assert lexical.tokenise("resolution 955 of 1994").words == ["resolution", "of"]
 
+    def test_a_digit_inside_a_word_is_kept(self):
+        """`R2P` is a lexicon term; as `r` and `p` it was invisible to keyness."""
+        assert lexical.tokenise("R2P and COVID-19").words == ["r2p", "and", "covid-19"]
+
+    def test_a_scare_quoted_word_is_the_same_word(self):
+        """`'genocide'` used to tokenise as `genocide'`, a type of its own, so the
+        distanced use this study most wants to see dropped out of every table."""
+        curly = chr(0x2019)
+        assert lexical.tokenise(f"so-called 'genocide' or {curly}genocide{curly}").words == [
+            "so-called",
+            "genocide",
+            "or",
+            "genocide",
+        ]
+        assert lexical.tokenise("a trailing- hyphen and an apostrophe'").words == [
+            "a",
+            "trailing",
+            "hyphen",
+            "and",
+            "an",
+            "apostrophe",
+        ]
+
     def test_internal_apostrophes_and_hyphens_are_kept(self):
         assert lexical.tokenise("the Secretary-General's report").words == [
             "the",
@@ -141,10 +164,59 @@ class TestCompare:
         rows = lexical.compare(target, reference, 1_000, 10_000, frozenset(), min_count=5)
         assert "rare" not in {r["word"] for r in rows}
 
-    def test_rows_come_back_ranked(self, counts):
+    def test_rows_come_back_ranked_by_effect_not_by_significance(self, counts):
+        """G² is a floor: on 59 million tokens almost everything clears it, and
+        ordering by it would put the commonest words first however small their
+        rate difference. The order is the effect size."""
         target, reference = counts
-        rows = lexical.compare(target, reference, 1_000, 10_000, frozenset())
-        assert [r["g2"] for r in rows] == sorted((r["g2"] for r in rows), reverse=True)
+        rows = lexical.compare(target, reference, 1_000, 10_000, frozenset(), floor=0.0)
+        ratios = [r["log_ratio"] for r in rows]
+        assert ratios == sorted(ratios, reverse=True)
+        assert rows[0]["word"] == "genocide"
+
+    def test_a_row_below_the_significance_floor_is_dropped(self, counts):
+        target, reference = counts
+        # `justice`: 10 of 1,000 against 200 of 10,000, a rate ratio of 0.5 on
+        # ten occurrences — |G²| about 6, under the p < 0.001 floor of 10.83.
+        kept = {r["word"] for r in lexical.compare(target, reference, 1_000, 10_000, frozenset())}
+        assert "justice" not in kept
+        assert "genocide" in kept
+        loose = {
+            r["word"]
+            for r in lexical.compare(target, reference, 1_000, 10_000, frozenset(), floor=0.0)
+        }
+        assert "justice" in loose
+
+    def test_an_unknown_rank_column_is_refused(self, counts):
+        target, reference = counts
+        with pytest.raises(KeyError, match="cannot rank"):
+            lexical.compare(target, reference, 1_000, 10_000, frozenset(), rank="log_dice")
+
+    def test_extra_columns_can_be_ranked_on(self, counts):
+        target, reference = counts
+        rows = lexical.compare(
+            target,
+            reference,
+            1_000,
+            10_000,
+            frozenset(),
+            floor=0.0,
+            rank="score",
+            extra=lambda word, count: {"score": -len(word)},
+        )
+        assert [r["word"] for r in rows] == sorted((r["word"] for r in rows), key=len)
+
+    def test_dispersion_travels_with_the_row_and_must_cover_the_target(self, counts):
+        target, reference = counts
+        spread = {w: {"documents": 2, "meetings": 1, "dp": 0.25} for w in target}
+        rows = lexical.compare(
+            target, reference, 1_000, 10_000, frozenset(), floor=0.0, dispersion=spread
+        )
+        assert all((r["documents"], r["meetings"], r["dp"]) == (2, 1, 0.25) for r in rows)
+        with pytest.raises(KeyError, match="no dispersion"):
+            lexical.compare(
+                target, reference, 1_000, 10_000, frozenset(), floor=0.0, dispersion={}
+            )
 
     def test_the_limit_is_applied_after_ranking(self, counts):
         target, reference = counts
@@ -283,3 +355,138 @@ class TestStopwords:
     def test_comments_and_blank_lines_are_ignored(self):
         words = lexical.load_stopwords()
         assert not any(w.startswith("#") or not w for w in words)
+
+
+class TestDispersion:
+    def test_a_word_spread_like_the_text_has_dp_zero(self):
+        docs = [Counter({"a": 2, "b": 2}), Counter({"a": 1, "b": 1})]
+        spread = lexical.dispersion(docs, [4, 2])
+        assert spread["a"]["dp"] == pytest.approx(0.0)
+        assert spread["a"]["documents"] == 2
+        assert spread["a"]["meetings"] is None
+
+    def test_a_word_confined_to_one_document_has_dp_near_one(self):
+        docs = [Counter({"a": 5}), Counter({"b": 100}), Counter({"b": 100})]
+        spread = lexical.dispersion(docs, [5, 100, 100])
+        # DP = 1 - expected share of the one document it sits in.
+        assert spread["a"]["dp"] == pytest.approx(1 - 5 / 205, abs=1e-4)
+        assert spread["a"]["documents"] == 1
+
+    def test_it_matches_gries_formula_by_hand(self):
+        docs = [Counter({"w": 3}), Counter({"w": 1}), Counter()]
+        sizes = [10, 10, 20]
+        expected = [0.25, 0.25, 0.5]
+        observed = [0.75, 0.25, 0.0]
+        by_hand = 0.5 * sum(abs(e - o) for e, o in zip(expected, observed, strict=True))
+        assert lexical.dispersion(docs, sizes)["w"]["dp"] == pytest.approx(by_hand, abs=1e-4)
+
+    def test_meetings_count_sittings_not_speeches(self):
+        docs = [Counter({"w": 1}), Counter({"w": 1}), Counter({"w": 1})]
+        spread = lexical.dispersion(docs, [5, 5, 5], meetings=["m1", "m1", "m2"])
+        assert spread["w"]["documents"] == 3
+        assert spread["w"]["meetings"] == 2
+
+    def test_misaligned_inputs_are_refused(self):
+        with pytest.raises(ValueError, match="sizes"):
+            lexical.dispersion([Counter({"a": 1})], [1, 2])
+        with pytest.raises(ValueError, match="meetings"):
+            lexical.dispersion([Counter({"a": 1})], [1], meetings=[])
+
+    def test_document_vocabulary_sums_to_the_vocabulary(self):
+        texts = ["the Council met", "the Council rose"]
+        docs = lexical.document_vocabulary(texts)
+        assert sum(docs, Counter()) == lexical.vocabulary(texts)
+
+
+class TestLogDice:
+    def test_a_pair_that_never_appears_apart_scores_fourteen(self):
+        assert lexical.log_dice(10, 10, 10) == pytest.approx(14.0)
+
+    def test_it_does_not_reward_rarity(self):
+        # Same joint share of the node, but a collocate that is rare in the
+        # corpus is not scored higher for being rare.
+        assert lexical.log_dice(5, 100, 100) == pytest.approx(lexical.log_dice(5, 100, 100))
+        assert lexical.log_dice(5, 100, 1_000) < lexical.log_dice(5, 100, 100)
+
+    def test_no_joint_occurrence_is_minus_infinity(self):
+        assert lexical.log_dice(0, 10, 10) == float("-inf")
+
+
+class TestCollocateRows:
+    def test_rows_carry_log_dice_and_dispersion_and_rank_on_log_dice(self):
+        node = term("g", r"\bgenocide\b")
+        bodies = [
+            "genocide prevention matters; prevention of genocide is duty",
+            "the genocide convention and prevention",
+            "genocide in Rwanda and prevention",
+            "nothing here",
+        ]
+        reference = lexical.vocabulary(bodies)
+        rows, occurrences, _ = lexical.collocates(
+            bodies,
+            node,
+            width=5,
+            reference=reference,
+            reference_total=sum(reference.values()),
+            stopwords=frozenset({"the", "and", "of", "in", "is"}),
+            min_count=1,
+            limit=None,
+            meetings=["m1", "m1", "m2", "m3"],
+            floor=0.0,
+        )
+        assert occurrences == 4
+        by_word = {r["word"]: r for r in rows}
+        prevention = by_word["prevention"]
+        assert prevention["documents"] == 3
+        assert prevention["meetings"] == 2
+        assert 0.0 <= prevention["dp"] <= 1.0
+        assert prevention["log_dice"] == pytest.approx(
+            lexical.log_dice(prevention["target"], occurrences, reference["prevention"]), abs=1e-3
+        )
+        dice = [r["log_dice"] for r in rows]
+        assert dice == sorted(dice, reverse=True)
+
+    def test_without_meetings_the_column_is_null_not_guessed(self):
+        node = term("g", r"\bgenocide\b")
+        bodies = ["genocide prevention", "genocide prevention"]
+        reference = lexical.vocabulary(bodies)
+        rows, _, _ = lexical.collocates(
+            bodies, node, 3, reference, sum(reference.values()), frozenset(), min_count=1, floor=0.0
+        )
+        assert rows and rows[0]["meetings"] is None
+
+
+class TestDefinitionalPairs:
+    def test_a_term_whose_pattern_contains_another_is_named_with_its_reason(self):
+        genocide = Term(
+            name="genocide", pattern=r"\bgenocid\w*", tier="core", register="core",
+            examples=("genocide",), regex=re.compile(r"\bgenocid\w*", re.IGNORECASE),
+        )
+        denial = Term(
+            name="denial", pattern=r"\bdenial\b|\bdeny\w*\s+genocid\w*", tier="adjacent",
+            register="contentious", examples=("denial", "denying the genocide"),
+            regex=re.compile(r"\bdenial\b|\bdeny\w*\s+genocid\w*", re.IGNORECASE),
+        )
+        war = Term(
+            name="war_crimes", pattern=r"\bwar\s+crimes?\b", tier="atrocity", register="legal",
+            examples=("war crimes",), regex=re.compile(r"\bwar\s+crimes?\b", re.IGNORECASE),
+        )
+        lex = Lexicon(
+            version=1, updated="x", terms={"genocide": genocide, "denial": denial, "war_crimes": war}, sets={}
+        )
+        pairs = lexical.definitional_pairs(lex)
+        assert [(p["source"], p["target"]) for p in pairs] == [("genocide", "denial")]
+        assert "denying the genocide" in pairs[0]["reason"]
+        frame = pd.DataFrame(
+            {"has_genocide": [True] * 4, "has_denial": [True] * 4, "has_war_crimes": [True] * 4}
+        )
+        drawn = {(e["source"], e["target"]) for e in lexical.pmi_network(frame, lex, min_speeches=1)}
+        assert drawn == {("genocide", "war_crimes"), ("denial", "war_crimes")}
+
+    def test_the_real_lexicon_suppresses_denial_against_genocide(self):
+        from lib import lexicon
+
+        pairs = lexical.definitional_pairs(lexicon.load())
+        suppressed = {frozenset((p["source"], p["target"])) for p in pairs}
+        assert frozenset(("genocide", "denial")) in suppressed
+        assert frozenset(("war_crimes", "crimes_against_humanity")) not in suppressed
