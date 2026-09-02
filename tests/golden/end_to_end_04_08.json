@@ -3637,26 +3637,6 @@
     "p_value_independent": 0.44776
    }
   },
-  "genocide": {
-   "token_rate": {
-    "accepted": false,
-    "after": 0.0008992805755395684,
-    "after_ci95": [
-     0.0006287641677810859,
-     0.001286182634097465
-    ],
-    "before": 0.0024336283185840708,
-    "before_ci95": [
-     0.0013477437562956344,
-     0.004394416049303656
-    ],
-    "blocks": 192,
-    "label": "1996",
-    "null": "meeting_block_permutation",
-    "p_value": 0.14925,
-    "p_value_independent": 0.10448
-   }
-  },
   "genocide_qualification": {
    "speech_rate": {
     "accepted": false,
@@ -3674,6 +3654,24 @@
     "label": "1996",
     "null": "meeting_block_permutation",
     "p_value": 0.11443,
+    "p_value_independent": 0.10448
+   },
+   "token_rate": {
+    "accepted": false,
+    "after": 0.0008992805755395684,
+    "after_ci95": [
+     0.0006287641677810859,
+     0.001286182634097465
+    ],
+    "before": 0.0024336283185840708,
+    "before_ci95": [
+     0.0013477437562956344,
+     0.004394416049303656
+    ],
+    "blocks": 192,
+    "label": "1996",
+    "null": "meeting_block_permutation",
+    "p_value": 0.14925,
     "p_value_independent": 0.10448
    }
   }

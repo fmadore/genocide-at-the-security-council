@@ -243,6 +243,61 @@ def test_pipeline_builds_three_distinct_frames_from_declared_patterns() -> None:
     assert negative["inclusion_probability"].tolist() == [1.0]
 
 
+def test_coverage_frame_grows_to_its_strata_rather_than_failing_the_step() -> None:
+    """The deploy of 2 September 2026 stopped in 03 with 109 term-period strata
+    for a coverage sample of 100. The size of that frame is a property of the
+    lexicon, so the step sizes it up to the strata and says so; the sampler's
+    own refusal stays for a caller that names a size on purpose."""
+
+    def term(name: str, pattern: str) -> lexicon.Term:
+        return lexicon.Term(
+            name=name,
+            pattern=pattern,
+            tier="core",
+            register="core",
+            examples=(name,),
+            prefilters=(name,),
+            regex=re.compile(pattern, re.IGNORECASE),
+        )
+
+    lex = lexicon.Lexicon(
+        version=4,
+        updated="2026-09-02",
+        terms={"genocide": term("genocide", r"\bgenocide\b"), "war": term("war", r"\bwar\b")},
+        sets={},
+    )
+    years = [1992, 2001, 2010, 1993, 2002]
+    bodies = pd.Series(
+        ["genocide", "genocide", "genocide", "war", "war"], index=range(len(years))
+    )
+    speeches = pd.DataFrame(
+        {
+            "year": years,
+            "filename": [f"{i}.txt" for i in range(len(years))],
+            "meeting_symbol": [f"S/PV.{i}" for i in range(len(years))],
+            "date": pd.to_datetime([f"{year}-01-01" for year in years]),
+            "country_org": ["A"] * len(years),
+            "agenda_item_manual": ["x"] * len(years),
+        }
+    )
+    counts = lexicon.apply(bodies, lex)
+
+    # Five strata (genocide in three decades, war in two) against a size of 2.
+    sample = _audit_step().audit_sample(speeches, bodies, counts, lex, size=2, seed=12)
+
+    coverage = sample.loc[sample["sampling_frame"] == audit.COVERAGE]
+    assert len(coverage) == 5
+    assert sorted(zip(coverage["term"], coverage["period"], strict=True)) == [
+        ("genocide", "1990s"),
+        ("genocide", "2000s"),
+        ("genocide", "2010s"),
+        ("war", "1990s"),
+        ("war", "2000s"),
+    ]
+    # The probability frame keeps the size it was asked for.
+    assert len(sample.loc[sample["sampling_frame"] == audit.PROBABILITY]) == 2
+
+
 def test_empty_annotations_leave_one_review_row_per_candidate() -> None:
     review = audit.merge(candidates(), annotations())
     assert list(review["candidate_id"]) == ["candidate-1", "candidate-2"]
