@@ -33,6 +33,7 @@ every chart as SVG or PNG with its filters written into the image.
 | Temporal series & change points | ✅ `scripts/04` · [`config/events.csv`](config/events.csv) |
 | Lexicometry — collocates, keyness, network | ✅ `scripts/05` · [`config/stopwords.txt`](config/stopwords.txt) |
 | Concordance (79,569 lines, 22 terms) | ✅ `scripts/08`; a line is reachable by term, year, month, speaker and meeting |
+| Grammatical frames of the node | ✅ `scripts/17` · [`scripts/lib/node_frames.py`](scripts/lib/node_frames.py); 17 constructions and a published residue over the 6,092 occurrences, with shares by period and speaker group and a cross-tabulation against both committed model runs |
 | Month resolution — grid and pooled calendar | ✅ `scripts/04` → `series/monthly.json`; 331 of 384 months clear the 100-speech minimum, the other 53 are drawn as withheld |
 | Download beside every figure | ✅ [`web/src/lib/export.ts`](web/src/lib/export.ts): the artefact's numbers as CSV with provenance, the picture as SVG or PNG with its filters drawn into it |
 | Speech export & web payload | ✅ `scripts/09`, `scripts/export_web.py` |
@@ -88,6 +89,8 @@ What `make payload` runs, in order:
 13_gold_sample.py      → data/interim/            (the genocide gold sample, deterministic)
 15_usage.py            → derived/usage/*.json     (model-assisted usage layer, from the
                                                    committed run named in model_annotations/)
+17_frames.py           → derived/frames/*.json    (the constructions the node appears in,
+                                                   crossed with both committed runs)
 export_web.py          → web/static/data          (assembles and checks the payload)
 ```
 
@@ -291,6 +294,24 @@ from qualifying an event to contesting a memory of one. These profiles were read
 tables ranked by G²; since 2 September 2026 the tables rank by logDice above the floor, and
 the words named here are to be re-read from the language page — an open check in
 [`docs/VALIDATION.md`](docs/VALIDATION.md).
+
+`scripts/17` asks the same question of the word itself rather than of its neighbours: what
+construction is it in when it is said? Every one of the 6,092 occurrences is filed under one
+of seventeen frames or an `unframed` residue, from a ±90-character window. **Nearly a
+quarter of them — 1,446, 23.7% — are the catalogue**, the word as one item of *genocide, war
+crimes and crimes against humanity*, and that share doubled from 12.4% before 2002 to 26.6%
+after. The constructions in which a speaker actually applies the label to an event —
+*constitutes genocide*, *genocide occurred*, *genocide against the Tutsi* — are 366 between
+them, 6.0%; explicit refusal, the scare-quoted and *so-called* uses, is 78, 1.3%. A fifth of
+the occurrences match no pattern and are published as a category rather than absorbed.
+
+The frames are read off the text with no model involved, which makes them a free check on
+the model-assisted layer. Both committed runs agree with the codebook where it is least
+ambiguous — the Special Adviser's title is a neutral legal reference in 176 of 176
+occurrences in both — and disagree with each other exactly where §4.2 of the review said
+they would: the 78 distancing occurrences are modally *attributes* for one model and
+*rejects* for the other. [`docs/VALIDATION.md`](docs/VALIDATION.md) carries the full
+cross-tabulation.
 
 Keyness is measured with true target/control pairs matched on year × agenda item × speaker
 group — 3,104 of 3,273 targets found a partner (94.8%), and the 100 short strata are listed

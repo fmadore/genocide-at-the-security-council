@@ -267,7 +267,8 @@ Scan across all 106,302 speeches (case-insensitive regex; total occurrences).
 
 Forms of `genocid*`: `genocide` (5,685), `genocidal` (313), `genocides` (62),
 `genocidaires` (29), `genocidaire` (2), `genocida` (1). Marginal OCR variants (`genecide`)
-should be caught by a tolerant regex.
+should be caught by a tolerant regex. §8.7 sorts these into noun, adjective and
+perpetrator noun, and says why the last of the three is counted apart.
 
 **Available subsets**
 
@@ -426,6 +427,63 @@ richest for analysis.
 
 These sessions make an excellent test set for the concordancer and for validating LLM
 extractions.
+
+### 8.7 What the word is doing — grammatical frames
+
+The counts above say how often the word is said. `17_frames.py` asks what it is *doing*
+when it is said, by reading a ±90-character window round each of the 6,092 occurrences and
+filing it under one of seventeen constructions or an `unframed` residue. Shares here divide
+by occurrences of the node, never by speeches, so a frame can grow in a year the rate falls.
+
+| Frame | Occurrences | Share | What it evidences |
+|---|---:|---:|---|
+| `atrocity_triad` | 1,446 | 23.7% | One item of the standing list: *genocide, war crimes and crimes against humanity* |
+| `unframed` | 1,231 | 20.2% | No pattern reached it |
+| `perpetration` | 495 | 8.1% | Agency attributed: *committed*, *those responsible for*, *a policy of* |
+| `named_case` | 480 | 7.9% | The settled name of a case: *the 1994 genocide in Rwanda* |
+| `prevention` | 297 | 4.9% | The duty as a norm: *prevent*, *protect populations from* |
+| `crime_of` | 259 | 4.3% | The offence as a legal category: *the crime of genocide* |
+| `commemoration` | 258 | 4.2% | The event as memory: *the anniversary of*, *the victims of* |
+| `denial_or_ideology` | 252 | 4.1% | Denial named as an offence: *genocide denial*, *genocide ideology* |
+| `acts_of` | 237 | 3.9% | The countable-instance hedge: *acts of genocide* |
+| `qualification` | 201 | 3.3% | The label applied: *constitutes*, *amounts to*, *described as* |
+| `accountability` | 194 | 3.2% | A legal process already under way: *convicted of*, *genocide fugitives* |
+| `legal_instrument` | 179 | 2.9% | Inside an instrument's name: the 1948 Convention |
+| `mandate_or_office` | 176 | 2.9% | Inside an office's name: the Special Adviser on the Prevention of Genocide |
+| `risk_or_threat` | 108 | 1.8% | Not yet happened: *the risk of*, *another genocide* |
+| `directed_against` | 107 | 1.8% | The victim group in the complement: *genocide against the Tutsi* |
+| `distancing` | 78 | 1.3% | The label as somebody else's: scare quotes, *so-called*, *allegations of* |
+| `occurrence` | 58 | 1.0% | The event predicated directly: *genocide occurred* |
+| `intent_or_definition` | 36 | 0.6% | The Convention's mental element: *genocidal intent* |
+
+Three readings the frequency series cannot give:
+
+1. **Nearly a quarter of all uses are the catalogue**, and the share rose from 12.4% before
+   2002 to 26.6% after. §8.4 above shows the triad in the co-occurrence table; this counts
+   the occurrences that *are* it. A passing item in a list and a substantive accusation are
+   the same word at the same rate.
+2. **Nomination is rarer than the vocabulary suggests.** The constructions in which a
+   speaker applies the label to an event — `qualification`, `occurrence`, `directed_against`
+   — are 366 occurrences between them, 6.0%. Explicit refusal (`distancing`) is 78, 1.3%.
+3. **The registers move at different dates.** `perpetration` halves after 2008;
+   `commemoration` rises after 2004 and `denial_or_ideology` after 2018, both against the
+   Rwanda and Srebrenica anniversary cycle and the Mechanism's reporting. All five splits
+   survive a null that permutes meetings rather than occurrences; `prevention`'s and
+   `named_case`'s do not. `docs/VALIDATION.md` carries the table.
+
+**The wordform.** `\bgenocid\w*` folds four things into one count:
+
+| Category | Occurrences | Forms |
+|---|---:|---|
+| noun | 5,747 | `genocide` 5,685, `genocides` 62 |
+| adjective | 313 | `genocidal` |
+| perpetrator noun | 31 | `genocidaires` 29, `genocidaire` 2 |
+| other | 1 | `genocida` (an OCR spelling, S/PV.3136, 1992) |
+
+The four partition the 6,092 exactly. The perpetrator noun labels the ex-FAR and
+Interahamwe of the Great Lakes debates rather than qualifying an event, so the count of the
+word as event qualification is the other **6,061**; both numbers are published, because the
+concordance is cut from the whole pattern and the headline is not.
 
 ---
 

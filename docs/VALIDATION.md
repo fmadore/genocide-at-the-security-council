@@ -19,7 +19,9 @@ through `15_usage.py` before `export_web.py` refused a hand-edited contract, cor
 PR #6; run 61, on the push that followed, published the result); the re-count, the
 re-calibration and the vocabulary
 counts below are read from that run's console output, and what a log cannot show is left
-open.
+open. Amended 2 September 2026, later still: the grammatical frames of the node registered
+below, read from a run of `17_frames.py` over the corpus, with the human reading of the
+codebook left open.
 
 ## How to inspect an original record
 
@@ -383,6 +385,120 @@ from the published language page and set them beside the profile sentences in `R
 and `docs/CORPUS.md` §8.5. And the lemma layer (`data/interim/lemmas/lemmas.parquet`),
 aligned token by token to the old pattern: `lemmas.tokens` will refuse it, and
 `10_lemmatise.py` must run on the cluster before `05 --vocabulary lemma` is read again.
+
+### Grammatical frames of the node
+
+Registered 2 September 2026 (review §3.6, item 2; plan item 6). `17_frames.py` classifies
+every one of the 6,092 occurrences of `genocide` into one of seventeen constructions or an
+`unframed` residue, from a ±90-character window round the node. The codebook is
+`lib/node_frames.py`: each frame carries the discursive act it evidences, its pattern, and
+an example quoted from the concordance with the line it was taken from, and
+`tests/test_node_frames.py` re-classifies each of those examples so that a pattern edited
+without its gloss fails rather than ships.
+
+Three things about the numbers, in each case a way for the table to be wrong while looking
+right:
+
+- **The classification reconciles to 03's count.** The step asserts its 6,092 against
+  `n_genocide` in `speeches_flagged.parquet` and refuses to write otherwise, which is the
+  same reconciliation `08_kwic.py` makes and for the same reason.
+- **Precedence is a decision, and its cost is published.** An occurrence can satisfy
+  several patterns; the first frame in codebook order wins, and every frame's `matched`
+  count — what its pattern reached before the ordering was applied — is written beside the
+  count it won. `crime_of` matched 409 occurrences and won 259; `prevention` matched 700
+  and won 297. The order runs citation, footing, catalogue, modality, bare nominal, so that
+  the Convention's own title is not counted as prevention and a hedge is not swallowed by
+  the atrocity triad.
+- **The residue is a category and it drifts.** 1,231 occurrences (20.2%) match nothing.
+  Its share runs at 34% in 1993 and 16.8% in 2016–2023, so a frame that gained share may
+  have gained it from the codebook's reach rather than from another frame. The residue is
+  therefore put through the same change-point test as the frames, and its split is reported
+  beside theirs.
+
+**Read from the corpus, 2 September 2026** (`17_frames.py` over
+`speeches_flagged.parquet`, lexicon v3, 2,000 permutations):
+
+| Frame | Won | Matched | Frame | Won | Matched |
+|---|---:|---:|---|---:|---:|
+| `atrocity_triad` | 1,446 | 1,786 | `accountability` | 194 | 369 |
+| `unframed` | 1,231 | — | `legal_instrument` | 179 | 179 |
+| `perpetration` | 495 | 785 | `mandate_or_office` | 176 | 176 |
+| `named_case` | 480 | 949 | `risk_or_threat` | 108 | 147 |
+| `prevention` | 297 | 700 | `directed_against` | 107 | 239 |
+| `crime_of` | 259 | 409 | `distancing` | 78 | 79 |
+| `commemoration` | 258 | 272 | `occurrence` | 58 | 81 |
+| `denial_or_ideology` | 252 | 262 | `intent_or_definition` | 36 | 49 |
+| `acts_of` | 237 | 256 | `qualification` | 201 | 204 |
+
+The **morphological split** partitions the same 6,092: noun 5,747 (`genocide` 5,685,
+`genocides` 62), adjective 313 (`genocidal`), perpetrator noun 31 (`genocidaires` 29,
+`genocidaire` 2), other 1 (`genocida`, an OCR spelling in a 1992 Venezuelan intervention,
+reported rather than reassigned). The perpetrator noun is the category §3.4 of the review
+names: it labels the ex-FAR and Interahamwe of the Great Lakes debates rather than
+qualifying an event, so the count of the word as event qualification is the other **6,061**.
+Both numbers are published, because the enumeration this step is cut from is the whole
+pattern and the headline the study quotes is not.
+
+**Share change points, under the meeting-block null** (occurrence as the trial, meeting as
+the exchangeable unit; Bonferroni across the eight frames holding 250 occurrences or more,
+so α = 0.00625):
+
+| Frame | Best split | Before → after | p, independent | p, block | Accepted |
+|---|---|---|---:|---:|---|
+| `atrocity_triad` | 2002 | 12.4% → 26.6% | 0.0005 | 0.0005 | yes |
+| `unframed` | 2002 | 34.1% → 16.7% | 0.0005 | 0.0005 | yes |
+| `perpetration` | 2008 | 12.6% → 5.8% | 0.0005 | 0.0005 | yes |
+| `commemoration` | 2004 | 1.1% → 5.2% | 0.0005 | 0.0005 | yes |
+| `denial_or_ideology` | 2018 | 1.8% → 10.4% | 0.0005 | 0.0005 | yes |
+| `named_case` | 2016 | 9.1% → 5.6% | 0.0005 | 0.0240 | no |
+| `prevention` | 2001 | 7.7% → 4.3% | 0.0005 | 0.1509 | no |
+| `crime_of` | 2016 | 3.7% → 5.3% | 0.0495 | 0.1889 | no |
+
+The triad's rise and the residue's fall share a split year, which is the caveat the
+artefact states about itself: part of what the catalogue gained after 2002 is what the
+codebook stopped missing. `prevention` and `named_case` are the clearest cases of the
+clustering the block null exists to price — both would have been accepted under the
+independent-occurrence null.
+
+**Triangulated against the two committed model runs.** Both runs join all 6,092
+occurrences on `occurrence_id` (100% coverage), and the frames are read off the text with
+no model involved, so the cross-tabulation is two instruments on the same rows. Where they
+agree:
+
+- `mandate_or_office` is `neutral_legal_reference` in **176 of 176** occurrences in both
+  runs, and `institutional_title_or_mandate` in 100% of both runs' function labels;
+  `legal_instrument` is 170/179 and 163/179. The citation tier of the codebook is a
+  category both models already had.
+- `commemoration` is `asserts` in 254/258 (Luna) and 252/258 (Gemini), and the
+  `commemoration` function in 81% and 83%. This is §4.2's third point measured: the prompt
+  says nothing about commemorations and both models code them as assertions.
+- `distancing` holds 78 occurrences, 1.3% of the corpus, and **26 of Luna's 106 and 27 of
+  Gemini's 106** `rejects_or_denies` — a twentyfold concentration, and the strongest
+  external evidence that the frame is finding what it says it is.
+- `risk_or_threat` is `hypothetical_or_conditional` in 82/108 and 72/108.
+
+Where they do not:
+
+- `atrocity_triad` splits four ways. Luna reads it `neutral_legal_reference` 630,
+  `asserts` 439, `hypothetical` 192, `attributes` 174; Gemini 811, 404, 155, 60. The 114-row
+  gap on `attributes_or_reports` inside this one frame is a visible piece of the 445-row
+  report/assert disagreement §4.1 reports.
+- `distancing` itself: Luna's modal stance is `attributes_or_reports` (33 of 78), Gemini's
+  is `rejects_or_denies` (27 of 78). The construction is unambiguous and the label is not.
+- `crime_of` and `acts_of` change function between runs — Luna
+  `accusation_or_qualification` (53%, 65%), Gemini `accountability` (59%, 47%) — which is
+  §4.1's accusation/accountability split, located in two constructions.
+
+**Open check: the codebook against the concordance.** No human has read a sample of the
+classifications. The check to run: draw twenty occurrences from each of the four cells
+where a frame and a stance disagree most (`distancing` coded `asserts`, `commemoration`
+coded `neutral_legal_reference`, `atrocity_triad` coded `attributes_or_reports`, and the
+residue coded `rejects_or_denies`), read them against `kwic/genocide.json`, and record
+which instrument erred. If the frame is right and the label is not, the prompt's category
+definitions are where §4.2 says the fix belongs; if the label is right, the pattern is in
+`lib/node_frames.py`. A second open check is cheaper and equally unmade: read fifty of the
+1,231 unframed occurrences and say whether they are a construction the codebook should hold
+or genuinely nothing.
 
 ### Documents versus meeting symbols
 
