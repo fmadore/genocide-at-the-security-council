@@ -145,6 +145,22 @@ test('the result profile narrows and releases the set it counts', async ({ page 
 	await expect(profile).toBeVisible();
 	await expect(profile).toContainText('not evidence of emphasis');
 
+	// A row name is clipped to its column and the bar behind the count carries a
+	// share with no figure beside it, so the hover has to give back both.
+	await expect(
+		profile.getByRole('button', {
+			name: 'Filter to The situation in Bosnia and Herzegovina, 2 lines'
+		})
+	).toHaveAttribute('title', 'The situation in Bosnia and Herzegovina — 2 of 4 lines on screen');
+
+	// A year column says which year it is even when it is empty. The title sits
+	// on the column rather than the button, because a disabled button swallows
+	// the tooltip along with the pointer events.
+	const column = (name: string) =>
+		profile.locator('.strip li').filter({ has: page.getByRole('button', { name }) });
+	await expect(column('Narrow to 2015, 2 lines')).toHaveAttribute('title', '2015: 2 lines');
+	await expect(column('1992, no lines')).toHaveAttribute('title', '1992: no lines');
+
 	// A facet row states its count; applying it must produce exactly that many.
 	const france = profile.getByRole('button', { name: 'Filter to France, 2 lines' });
 	await france.click();

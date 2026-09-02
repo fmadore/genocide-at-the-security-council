@@ -23,7 +23,7 @@
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import { chronologyEscape, topFacet } from './concordance';
-	import type { ConcordanceState, FacetDimension, ResultProfile } from './concordance';
+	import type { ConcordanceState, FacetDimension, FacetRow, ResultProfile } from './concordance';
 	import { count, shortCountry, termLabel } from './format';
 	import Icon from './Icon.svelte';
 
@@ -74,6 +74,30 @@
 
 	const label = (dimension: FacetDimension, value: string) =>
 		dimension === 'country' ? shortCountry(value) : value;
+
+	const lines = (n: number) => `${count(n)} ${n === 1 ? 'line' : 'lines'}`;
+
+	/*
+	 * What the hover has to give back.
+	 *
+	 * A row name is one clipped line — "Maintenance ..." is an agenda item this
+	 * column has no room for — and the bar behind the number carries a share
+	 * with no figure beside it. The title restores both: the name in full, and
+	 * the count as the fraction of the result set it actually is, in the same
+	 * register as the rest of the panel, which counts lines and says so.
+	 */
+	const facetTip = (dimension: FacetDimension, row: FacetRow) =>
+		`${label(dimension, row.value)} — ${count(row.count)} of ${lines(profile.total)} on screen`;
+
+	/* An empty year has no button to hover: it is disabled, and a disabled
+	   control suppresses the tooltip with the pointer events. The title sits on
+	   the column instead, so a gap in the strip can still say which year it is. */
+	const yearTip = (year: number, n: number) => `${year}: ${n === 0 ? 'no lines' : lines(n)}`;
+
+	/* An empty year is not a control, and offering to narrow to it is a promise
+	   the disabled button cannot keep. It names itself and its emptiness instead. */
+	const yearLabel = (year: number, n: number, selected: boolean) =>
+		n === 0 ? `${year}, no lines` : `${selected ? 'Release' : 'Narrow to'} ${year}, ${lines(n)}`;
 </script>
 
 <details class="profile" open>
@@ -94,16 +118,13 @@
 			<h3>By year</h3>
 			<ol class="strip" style:--columns={years.length}>
 				{#each years as entry (entry.year)}
-					<li>
+					<li title={yearTip(entry.year, entry.lines)}>
 						<button
 							type="button"
 							class:nil={entry.lines === 0}
 							aria-pressed={oneYear === entry.year}
 							disabled={entry.lines === 0}
-							title="{entry.year}: {count(entry.lines)} {entry.lines === 1 ? 'line' : 'lines'}"
-							aria-label="{oneYear === entry.year ? 'Release' : 'Narrow to'} {entry.year}, {count(
-								entry.lines
-							)} {entry.lines === 1 ? 'line' : 'lines'}"
+							aria-label={yearLabel(entry.year, entry.lines, oneYear === entry.year)}
 							onclick={() => onyear(entry.year)}
 						>
 							<span class="bar" style:--height="{(entry.lines / busiest) * 100}%"></span>
@@ -128,10 +149,11 @@
 								<button
 									type="button"
 									aria-pressed={row.active}
+									title={facetTip(column.dimension, row)}
 									aria-label="{row.active ? 'Release' : 'Filter to'} {label(
 										column.dimension,
 										row.value
-									)}, {count(row.count)} {row.count === 1 ? 'line' : 'lines'}"
+									)}, {lines(row.count)}"
 									onclick={() => onfacet(column.dimension, row.value)}
 								>
 									<span class="name">{label(column.dimension, row.value)}</span>
