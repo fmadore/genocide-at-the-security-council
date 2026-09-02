@@ -1315,3 +1315,70 @@ def test_rows_are_checked_even_when_the_manifest_is_compatible() -> None:
             [{"lexicon_version": "2"}, {"lexicon_version": "1"}],
             lexicon_at(3, pattern_since=2),
         )
+
+
+def test_a_matrix_cell_says_how_much_of_itself_a_second_instrument_disputes() -> None:
+    frame = rows({}, {}, {})
+    identifiers = frame["occurrence_id"].tolist()
+    cells = usage.matrix_rows(
+        frame, ["Rwanda"], ["rwanda_1994"], frozenset(identifiers[:2])
+    )
+    assert [(cell["count"], cell["contested"]) for cell in cells] == [(3, 2)]
+    # No comparison run writes a zero on every cell, which is not agreement and
+    # is why the block's own state says which it is.
+    assert usage.matrix_rows(frame, ["Rwanda"], ["rwanda_1994"])[0]["contested"] == 0
+
+
+def test_the_referent_table_between_two_runs_is_cross_instrument_and_floored() -> None:
+    published = second_run(*({"referent": "rwanda_1994"},) * 25, {"referent": "gaza"})
+    comparison = second_run(*({"referent": "rwanda_1994"},) * 24, {"referent": "gaza"},
+                            {"referent": "gaza"})
+    table = {row["label"]: row for row in usage.comparison_referents(published, comparison)}
+    assert table["rwanda_1994"]["measurable"] is True
+    assert table["rwanda_1994"]["support"] == 25
+    # One occurrence of `gaza` in the published run: counted, never rated.
+    assert table["gaza"]["support"] == 1
+    assert table["gaza"]["f1"] is None
+    assert usage.comparison_referents([], []) == []
+
+
+def test_the_gold_frames_are_reported_apart_and_only_one_is_weighted() -> None:
+    candidates = pd.DataFrame(
+        {
+            "occurrence_id": ["occ-000", "occ-000", "occ-001", "occ-002"],
+            "sampling_frame": ["probability", "disagreement", "coverage", "disagreement"],
+        }
+    )
+    coded = annotations(annotation("occ-000", "FM"), annotation("occ-002", "FM"))
+    table = {row["frame"]: row for row in usage.frame_rows(candidates, coded)}
+    assert table["probability"]["weighted"] is True
+    assert table["coverage"]["weighted"] is False
+    assert table["disagreement"]["weighted"] is False
+    assert (table["disagreement"]["rows"], table["disagreement"]["coded"]) == (2, 2)
+    assert (table["probability"]["rows"], table["probability"]["coded"]) == (1, 1)
+    assert usage.frame_rows(pd.DataFrame(), coded) == []
+
+
+def test_the_gold_block_carries_the_frames_and_the_function_agreement() -> None:
+    candidates = pd.DataFrame(
+        {"occurrence_id": ["occ-000"], "sampling_frame": ["probability"]}
+    )
+    block = usage.gold_block(
+        annotations(
+            annotation("occ-000", "FM", function="accountability|commemoration"),
+            annotation("occ-000", "JG", function="commemoration|accountability"),
+        ),
+        rows({"occurrence_id": "occ-000"}),
+        sample_size=1,
+        unique_occurrences=1,
+        candidates=candidates,
+    )
+    assert [row["frame"] for row in block["frames"]] == ["probability"]
+    # The same judgement in two orders is agreement, and alpha has no
+    # disagreement left to explain.
+    assert block["human_function"]["n"] == 1
+    assert block["human_function"]["jaccard"] == 1.0
+    # Absent candidates leaves the list empty rather than guessing at frames.
+    assert usage.gold_block(
+        annotations(), rows(), sample_size=1, unique_occurrences=1
+    )["frames"] == []

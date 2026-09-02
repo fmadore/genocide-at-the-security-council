@@ -432,6 +432,7 @@ def matrix_rows(
     rows: pd.DataFrame,
     actor_order: Sequence[str],
     referent_order: Sequence[str],
+    contested: frozenset[str] = frozenset(),
 ) -> list[dict[str, object]]:
     """Sparse actor x referent cells over assigned rows, with a stance breakdown.
 
@@ -450,11 +451,15 @@ def matrix_rows(
     for (actor, referent), group in kept.groupby(
         [kept["country_org"].map(_text), kept["referent"].map(_text)], sort=False
     ):
+        disputed = (
+            int(group["occurrence_id"].map(_text).isin(contested).sum()) if contested else 0
+        )
         cells.append(
             {
                 "actor": str(actor),
                 "referent": str(referent),
                 "count": len(group),
+                "contested": disputed,
                 "stances": stance_counts(group),
             }
         )
@@ -646,8 +651,16 @@ def aggregate(
     rows: pd.DataFrame,
     referents: Sequence[Mapping[str, object]],
     minimum: int = MINIMUM_OCCURRENCES,
+    contested: frozenset[str] = frozenset(),
 ) -> dict[str, object]:
-    """The four data blocks of `usage.json`, in one pass over one frame."""
+    """The four data blocks of `usage.json`, in one pass over one frame.
+
+    `contested` is the identities a second instrument read differently, and it
+    reaches the matrix so that each cell can say how much of itself is disputed.
+    Empty where no comparison run was made, which writes a zero on every cell —
+    the same reading the `comparison` block's own `state` gives at the top of
+    the artefact, and one a consumer must not read as agreement.
+    """
     actors = actor_rows(rows, minimum)
     referent_block = referent_rows(rows, referents)
     actor_order = [str(actor["country_org"]) for actor in actors]
@@ -655,7 +668,7 @@ def aggregate(
     return {
         "referents": referent_block,
         "actors": actors,
-        "matrix": matrix_rows(rows, actor_order, referent_order),
+        "matrix": matrix_rows(rows, actor_order, referent_order, contested),
         "stance_by_actor": stance_rows(rows, actor_order, minimum),
     }
 
@@ -880,14 +893,22 @@ def krippendorff_alpha_masi(
     observed = float(
         np.mean([masi_distance(x, y) for x, y in zip(first, second, strict=True)])
     )
-    pooled = first + second
-    total = len(pooled)
+    pooled: dict[frozenset[str], int] = {}
+    for value in first + second:
+        pooled[value] = pooled.get(value, 0) + 1
+    total = sum(pooled.values())
     if total < 2:
         return None
+    # Over the *distinct* label sets, weighted by how often each was written,
+    # which is Krippendorff's coincidence matrix written out. The pairwise form
+    # is the same number and is quadratic in the number of occurrences: on the
+    # 6,092 of this corpus it is 148 million set comparisons, and there are
+    # about thirty distinct sets.
+    types = list(pooled)
     expected = sum(
-        masi_distance(pooled[one], pooled[other])
-        for one in range(total)
-        for other in range(total)
+        pooled[one] * pooled[other] * masi_distance(one, other)
+        for one in types
+        for other in types
         if one != other
     ) / (total * (total - 1))
     if math.isclose(expected, 0.0):
@@ -1386,6 +1407,45 @@ def function_jaccard(annotations: pd.DataFrame, model: pd.DataFrame) -> float | 
     return jaccard(left, right) if left else None
 
 
+def frame_rows(
+    candidates: pd.DataFrame, annotations: pd.DataFrame
+) -> list[dict[str, object]]:
+    """Per sampling frame: how large it is and how much of it has been coded.
+
+    The three frames of `13_gold_sample.py` answer different questions and are
+    reported separately or not at all. The probability frame is the unbiased
+    estimate of accuracy over the corpus, weighted by the probabilities it
+    records; the coverage frame guarantees every period and cue is seen; the
+    disagreement frame is a deliberate over-sample of the rare and the contested
+    whose inclusion probabilities differ by a factor of seven, and the per-class
+    recall it buys is read unweighted. Pooling them would produce a figure that
+    estimates nothing, so the artefact never publishes a pooled one and this
+    block is what a consumer needs to keep them apart.
+
+    `weighted` says which of the two readings a frame takes. An equal-probability
+    frame is weighted back to the corpus; a purposive one is not, because there
+    is no population its rate is a rate of.
+    """
+    if candidates.empty or "sampling_frame" not in candidates:
+        return []
+    coded = nonempty(annotations)
+    done = set(coded["occurrence_id"].map(_text)) if not coded.empty else set()
+    out: list[dict[str, object]] = []
+    for name in sorted(set(candidates["sampling_frame"].map(_text))):
+        part = candidates.loc[candidates["sampling_frame"].map(_text) == name]
+        identifiers = set(part["occurrence_id"].map(_text))
+        out.append(
+            {
+                "frame": name,
+                "rows": len(part),
+                "occurrences": len(identifiers),
+                "coded": len(identifiers & done),
+                "weighted": name == "probability",
+            }
+        )
+    return out
+
+
 def gold_block(
     annotations: pd.DataFrame,
     model: pd.DataFrame,
@@ -1393,6 +1453,7 @@ def gold_block(
     sample_size: int,
     unique_occurrences: int,
     comparison: pd.DataFrame | None = None,
+    candidates: pd.DataFrame | None = None,
 ) -> dict[str, object]:
     """The whole `gold` block, including its state.
 
@@ -1433,7 +1494,9 @@ def gold_block(
         ],
         "double_coded": int(double),
         "adjudicated": int((names == ADJUDICATOR).sum()) if not coded.empty else 0,
+        "frames": [] if candidates is None else frame_rows(candidates, annotations),
         "human_agreement": human_agreement(annotations),
+        "human_function": human_function_agreement(annotations),
         "model_vs_human": model_vs_human(annotations, model),
         "model_vs_human_comparison": (
             [] if comparison is None else model_vs_human(annotations, comparison)
@@ -1577,6 +1640,65 @@ def comparison_function_jaccard(
     )
 
 
+def comparison_referents(
+    published: pd.DataFrame | Sequence[Mapping[str, object]],
+    comparison: pd.DataFrame | Sequence[Mapping[str, object]],
+) -> list[dict[str, object]]:
+    """Per referent: how far the two instruments place the same occurrences there.
+
+    :func:`per_class` with the published run as the reference, which makes the
+    F1 a *cross-instrument* figure and not an accuracy: it says how reliably a
+    referent survives being read by a second model, and says nothing about
+    whether either model was right. The review of 1 September 2026 (§4.6) is
+    what it is for — a diffusion curve for a referent the two instruments agree
+    on 60% of the time is a chronology of one model's habits, and the view
+    withholds it below 0.8 on this number.
+
+    The support floor applies as everywhere else, so a referent the published
+    run placed fewer than twenty times comes back with its counts and no rates,
+    and is withheld for the same reason a rate at n = 3 is.
+    """
+    first, second = _compared(published), _compared(comparison)
+    shared = sorted(set(first) & set(second))
+    if not shared:
+        return []
+    return per_class(
+        [first[key]["referent"] for key in shared],
+        [second[key]["referent"] for key in shared],
+    )
+
+
+def comparison_function_alpha(
+    published: pd.DataFrame | Sequence[Mapping[str, object]],
+    comparison: pd.DataFrame | Sequence[Mapping[str, object]],
+) -> float | None:
+    """Krippendorff's alpha under MASI between two runs, over the overlap."""
+    first, second = _compared(published), _compared(comparison)
+    shared = sorted(set(first) & set(second))
+    return krippendorff_alpha_masi(
+        [first[key][MULTI_LABEL_FIELD] for key in shared],
+        [second[key][MULTI_LABEL_FIELD] for key in shared],
+    )
+
+
+def comparison_function_labels(
+    published: pd.DataFrame | Sequence[Mapping[str, object]],
+    comparison: pd.DataFrame | Sequence[Mapping[str, object]],
+) -> list[dict[str, object]]:
+    """Per `function` label: how far two runs agree that it applies.
+
+    One mean overlap says how far apart two readings of the field are; it does
+    not say which label they are apart on, and on this corpus almost all of it
+    is in one place. The table is what a prompt revision is written against.
+    """
+    first, second = _compared(published), _compared(comparison)
+    shared = sorted(set(first) & set(second))
+    return per_label_kappa(
+        [first[key][MULTI_LABEL_FIELD] for key in shared],
+        [second[key][MULTI_LABEL_FIELD] for key in shared],
+    )
+
+
 def contested_rows(
     published: pd.DataFrame | Sequence[Mapping[str, object]],
     comparison: pd.DataFrame | Sequence[Mapping[str, object]],
@@ -1664,6 +1786,9 @@ def comparison_block(
             ),
         },
         "fields": comparison_fields(published, comparison),
+        "referents": comparison_referents(published, comparison),
+        "function_alpha_masi": comparison_function_alpha(published, comparison),
+        "function_labels": comparison_function_labels(published, comparison),
         "function_jaccard": comparison_function_jaccard(published, comparison),
         "function_contested": int(
             sum(MULTI_LABEL_FIELD in fields for fields, _ in contested.values())
