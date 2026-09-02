@@ -673,6 +673,137 @@ export interface Countries {
 	measures: Record<string, CountryMeasure>;
 }
 
+/* --- 17_frames.py --------------------------------------------------------- *
+ *
+ * What the word is *doing*, as against how often it is said. Every number in
+ * this block divides by occurrences of the node, never by speeches or tokens, so
+ * a frame's share can rise in a year the rate falls.
+ */
+
+/** One frame's count and share of one slice. */
+export interface FrameShare {
+	frame: string;
+	occurrences: number;
+	/**
+	 * Null — never absent — below the artefact's `minimum_occurrences`. The
+	 * counts are written at every denominator; the share is withheld where the
+	 * denominator cannot carry it, on the rule `11_countries.py` withholds a
+	 * rate.
+	 */
+	share: number | null;
+	share_low: number | null;
+	share_high: number | null;
+	/**
+	 * Occurrences the frame's pattern reached before precedence was applied.
+	 * Written on the corpus totals only: per slice it would be a second table
+	 * nobody has asked a question of.
+	 */
+	matched?: number;
+}
+
+/** One frame's entry in the codebook, as `lib/node_frames.py` declares it. */
+export interface FrameEntry {
+	frame: string;
+	/** Position in the order `classify()` tries the patterns; 1 is tried first. */
+	precedence: number;
+	/** The discursive act the construction evidences, in one sentence. */
+	gloss: string;
+	pattern: string;
+	cased_pattern: string | null;
+	/** Attested, quoted from the concordance line named by `example_line`. */
+	example: string;
+	example_line: string;
+}
+
+export interface FrameSlice {
+	member: string;
+	occurrences: number;
+	sufficient: boolean;
+	frames: FrameShare[];
+}
+
+export interface NodeFrames {
+	meta: LexiconMeta;
+	term: string;
+	pattern: string;
+	window: number;
+	occurrences: number;
+	speeches: number;
+	minimum_occurrences: number;
+	minimum_occurrences_rule: string;
+	precedence_rule: string;
+	unframed_rule: string;
+	denominator_rule: string;
+	codebook: FrameEntry[];
+	totals: {
+		frames: FrameShare[];
+		frames_per_occurrence: { matched: number; occurrences: number }[];
+	};
+	morphology: {
+		categories: { category: string; occurrences: number }[];
+		forms: { form: string; occurrences: number; category: string }[];
+	};
+	by_year: {
+		years: number[];
+		occurrences: number[];
+		minimum_occurrences: number;
+		frames: Record<
+			string,
+			{
+				occurrences: number[];
+				share: (number | null)[];
+				share_low: (number | null)[];
+				share_high: (number | null)[];
+			}
+		>;
+	};
+	/** Keyed on the facet — `period`, `speaker_group` — then largest member first. */
+	slices: Record<string, FrameSlice[]>;
+	change: {
+		method: string;
+		null: string;
+		minimum_occurrences: number;
+		familywise_alpha: number;
+		per_test_alpha: number;
+		correction: string;
+		trials: number;
+		caveat: string;
+		/** `RateBreak`, because the statistic and the null are 04's, not new ones. */
+		tested: { frame: string; occurrences: number; result: RateBreak | null }[];
+	};
+	triangulation: {
+		rule: string;
+		runs: FrameRun[];
+	};
+}
+
+/** One model run crossed against the frames. */
+export interface FrameRun {
+	run_id: string;
+	model: string;
+	rows: number;
+	matched: number;
+	coverage: number | null;
+	stance: FrameCrosstab;
+	function: FrameCrosstab;
+}
+
+export interface FrameCrosstab {
+	field: string;
+	/** True for `function`, whose labels arrive pipe-joined and are split. */
+	multi_label: boolean;
+	labels: string[];
+	rows: {
+		frame: string;
+		occurrences: number;
+		/** Exceeds `occurrences` on a multi-label field; that is not a fault. */
+		row_total: number;
+		modal_label: string | null;
+		modal_share: number | null;
+		counts: { label: string; occurrences: number }[];
+	}[];
+}
+
 /* --- 14_llm_annotate.py → 15_usage.py ------------------------------------- *
  *
  * The experimental layer, and the one place in this file where the shapes below

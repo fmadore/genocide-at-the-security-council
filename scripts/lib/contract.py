@@ -58,11 +58,13 @@ TRACKED: list[str] = [
     # anything about the other's.
     "usage/usage.json",
     "usage/occurrences.json",
-    # Both of 17's, on the same argument: `frames.json` is hand-built blocks and
-    # `occurrences.json` is a flat row set, and neither shape says anything
-    # about the other's.
+    # 17's summary, but not its `occurrences.json`. That file ships — the export
+    # copies a directory wholesale, and a reader who downloads the payload should
+    # be able to check the table row by row — and no figure fetches it. The
+    # dashboard's half of this contract (`web/src/lib/contract.test.ts`) refuses
+    # an artefact tracked here that nothing reads, and it is right to: a shape
+    # promised to no consumer is a promise nobody can break.
     "frames/frames.json",
-    "frames/occurrences.json",
     "kwic/index.json",
     "kwic/genocide.json",
     "meetings.json",

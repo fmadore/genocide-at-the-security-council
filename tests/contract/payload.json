@@ -699,51 +699,6 @@
   "unframed_rule": "str",
   "window": "int"
  },
- "frames/occurrences.json": {
-  "id_format": "str",
-  "meta": {
-   "analysis_hash": "str",
-   "configs": [
-    {
-     "bytes": "int",
-     "path": "str",
-     "sha256": "str"
-    }
-   ],
-   "frames": "int",
-   "generated": "str",
-   "git_commit": "str",
-   "inputs": [
-    {
-     "bytes": "int",
-     "path": "str",
-     "sha256": "str"
-    }
-   ],
-   "lexicon_version": "int",
-   "packages": {
-    "*": "str"
-   },
-   "python": "str",
-   "script": "str",
-   "seed": "int",
-   "term": "str",
-   "trials": "int",
-   "window": "int"
-  },
-  "occurrences": [
-   {
-    "form": "str",
-    "frame": "str",
-    "id": "str",
-    "matched": [
-     "str"
-    ],
-    "occurrence_id": "str"
-   }
-  ],
-  "term": "str"
- },
  "kwic/genocide.json": {
   "count": "int",
   "id_format": "str",

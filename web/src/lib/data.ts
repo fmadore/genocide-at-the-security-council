@@ -24,6 +24,7 @@ import type {
 	MeetingIndex,
 	MonthlySeries,
 	Network,
+	NodeFrames,
 	SlicedCollocates,
 	SpeakerKeyness,
 	Usage,
@@ -240,6 +241,38 @@ const validateSpeakerKeyness: Validator = (record, path) => {
 		if (row.sufficient === false && row.keywords !== null) {
 			throw new Error(`${path}.speakers[${index}] is withheld but carries a table.`);
 		}
+	}
+};
+
+const validateNodeFrames: Validator = (record, path) => {
+	// Two refusals, both substantive, and both about a figure that would be wrong
+	// rather than absent.
+	//
+	// The composition is drawn as a share of the node's occurrences, so the frame
+	// counts have to exhaust them. If they do not, every dot is drawn against a
+	// denominator larger than the evidence behind it and the picture is quietly
+	// flattened. 17 reconciles the classification against 03's count upstream;
+	// this refuses a payload it cannot draw honestly rather than trusting that it
+	// ran.
+	const total = Number(record.occurrences);
+	const rows = requireArray(recordAt(record, 'totals'), 'frames', `${path}.totals`);
+	let counted = 0;
+	for (const [index, row] of rows.entries()) {
+		if (!isRecord(row)) throw new Error(`${path}.totals.frames[${index}] must be an object.`);
+		counted += Number(row.occurrences ?? 0);
+		// A share without its interval would be drawn as a dot with no whisker,
+		// which is the one reading the figure exists to prevent.
+		if (row.share !== null && !Number.isFinite(row.share_low)) {
+			throw new Error(`${path}.totals.frames[${index}] has a share with no interval.`);
+		}
+	}
+	if (counted !== total) {
+		throw new Error(
+			`${path}.totals.frames sum to ${counted} against ${total} occurrences of the node.`
+		);
+	}
+	if (!requireArray(record, 'codebook', path).length) {
+		throw new Error(`${path}.codebook is empty, so no frame on the figure can be explained.`);
 	}
 };
 
@@ -682,6 +715,16 @@ export const REQUIRED = {
 		gold: 'object'
 	},
 	'usage/occurrences.json': { meta: 'object', occurrences: 'array' },
+	'frames/frames.json': {
+		meta: 'object',
+		codebook: 'array',
+		totals: 'object',
+		morphology: 'object',
+		by_year: 'object',
+		slices: 'object',
+		occurrences: 'number',
+		minimum_occurrences: 'number'
+	},
 	'kwic/index.json': { meta: 'object', terms: 'array' },
 	'kwic/*.json': { meta: 'object', term: 'string', lines: 'array' },
 	'meetings.json': { meta: 'object', meetings: 'array' },
@@ -723,6 +766,12 @@ export const usageOccurrences = at<UsageOccurrences>(
 	'usage/occurrences.json',
 	validateUsageOccurrences
 );
+
+/* 17's composition of the node's occurrences. The per-occurrence assignments in
+   `frames/occurrences.json` are not fetched: the figure is an aggregate, and a
+   megabyte of rows nobody draws is a megabyte nobody should download. They stay
+   in the payload for a reader who wants to check the table by hand. */
+export const nodeFrames = at<NodeFrames>('frames/frames.json', validateNodeFrames);
 
 export const kwicIndex = at<KwicIndex>('kwic/index.json');
 export const meetingIndex = at<MeetingIndex>('meetings.json');

@@ -24,8 +24,13 @@
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('../src/', import.meta.url).pathname;
+// Through `fileURLToPath`, not `URL.pathname`: on Windows the latter yields
+// `/C:/…`, `join` makes that `C:\C:\…`, and the budget stopped running for
+// anyone not on the deploy runner — silently, because the failure is an ENOENT
+// on a path nobody reads twice.
+const ROOT = fileURLToPath(new URL('../src/', import.meta.url));
 const BUDGET = { question: 20, reading: 60, caveat: 50, more: 150 };
 
 function* svelteFiles(dir) {
