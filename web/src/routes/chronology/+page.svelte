@@ -39,7 +39,7 @@
 	import {
 		axisX,
 		axisY,
-		categorical,
+		categoricalNeutral,
 		colours,
 		endLabel,
 		grid,
@@ -592,7 +592,7 @@
 		const block = splitBlock;
 		if (!block) return null;
 		const p = $colours;
-		const ramp = categorical(p);
+		const strokes = categoricalNeutral(p);
 		const years = [...new Set(block.rows.map((r) => String(r.period)))].sort();
 		const cell = (category: string, year: string) =>
 			block.rows.find(
@@ -645,7 +645,7 @@
 				...block.categories.flatMap((category, i) =>
 					intervalBand(
 						category,
-						ramp[i % ramp.length],
+						strokes[i % strokes.length].color,
 						years.map((y) => cell(category, y)?.speech_rate_low ?? null),
 						years.map((y) => cell(category, y)?.speech_rate_high ?? null)
 					)
@@ -659,8 +659,12 @@
 					}),
 					connectNulls: false,
 					symbol: 'none',
-					lineStyle: { width: 2, color: ramp[i % ramp.length] },
-					itemStyle: { color: ramp[i % ramp.length] },
+					lineStyle: {
+						width: 2,
+						color: strokes[i % strokes.length].color,
+						type: strokes[i % strokes.length].dash
+					},
+					itemStyle: { color: strokes[i % strokes.length].color },
 					emphasis: { focus: 'series' }
 				}))
 			]
@@ -736,40 +740,23 @@
 
 		{#snippet reading()}
 			<p>
-				Pick terms from the list under the chart. Drag the bar under the axis to zoom in on a
-				stretch of years, or scroll on the plot itself. Colour follows the term's
-				<strong>register</strong> &mdash; the family of vocabulary it belongs to &mdash; so terms that
-				do similar work in a speech share a hue.
-			</p>
-			{#if unit === 'speech_rate'}
-				<p>
-					Each line sits in a faint <strong>band</strong>: its 95% interval (Wilson), the range the
-					share could plausibly take given how many speeches that {grain} held. A wide band is a
-					{grain} the Council spoke little in; where two bands overlap, the lines are not telling the
-					two terms apart. Hover to read the interval beside the value.
-				</p>
-			{/if}
-			<p>
-				{#if showEvents && grain === 'year'}Faint vertical lines mark the years carrying one of the
-					{data.overlay.events.length}
-					<a href="#reference-dates">reference dates</a>. Hover anywhere inside such a year to read
-					the date and what it marks, listed below that year's values. They are there for context
-					and explain nothing in the chart &mdash; see the note below.{:else}Reference dates are
-					hidden.{/if}
+				Pick terms under the chart; drag the bar under the axis to zoom. Colour follows the term's
+				<strong>register</strong>.
+				{#if unit === 'speech_rate'}The faint <strong>band</strong> around each line is its 95%
+					Wilson interval: wide where the {grain} held few speeches, and where two bands overlap the lines
+					are not telling the terms apart.{/if}
+				{#if showEvents && grain === 'year'}Faint rules mark
+					<a href="#reference-dates">reference dates</a>; hover to read them.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>The two raw counts measure the Council's output, not its language.</strong> The
-				Council held {count(source.corpus.speeches[0])} speeches in {source.periods[0]} and
+				<strong>The two raw counts measure the Council's output, not its language:</strong>
+				{count(source.corpus.speeches[0])} speeches in {source.periods[0]},
 				{count(source.corpus.speeches[source.corpus.speeches.length - 1])} in
-				{source.periods[source.periods.length - 1]}. A line that is not divided by that is mostly a
-				picture of the growth.
-			</p>
-			<p>
-				Sets of terms (<em>atrocity core</em>, <em>Rome triad</em>) have no occurrence count of
-				their own, because a speech using two members of the set would be counted twice. They are
-				available only in the two share-based units.
+				{source.periods[source.periods.length - 1]}. A line not divided by that is a picture of the
+				growth. Sets have no occurrence count, because a speech using two members would count twice,
+				and show only in share units.
 			</p>
 		{/snippet}
 
@@ -873,62 +860,41 @@
 		{/snippet}
 
 		{#snippet reading()}
-			<!-- Stated first, and drawn from the same computed months as the caveat
-			     below, because the title invites the expectation this grid refuses:
-			     the calendar it finds is the Council's own timetable, not the
-			     commemorative one. A reader who meets that only in the note opposite
-			     has already read the darkest squares as remembrance. -->
 			{#if column.shared}
 				<p>
 					<strong>The strongest months are {strongest.map((row) => row.name).join(' and ')}</strong
-					>, and most of their speeches sit under one agenda item —
-					<em>{column.shared}</em>. Expect a reporting timetable here rather than a calendar of
-					commemoration; the note opposite says what that does and does not license.
+					>, and most of their speeches sit under one agenda item, <em>{column.shared}</em>: expect
+					a reporting timetable, not a calendar of commemoration.
 				</p>
 			{/if}
 			<p>
-				One square per month, {byMonth.years[0]}–{byMonth.years[byMonth.years.length - 1]}, with
-				years running down and months across. The shading runs from the colour of the page at zero
-				to the darkest tone at <strong>{showRate(heat.high)}</strong>, the strongest month in the
-				grid. It starts at zero rather than at the quietest month, so a month in which nobody said
-				the word looks empty, which is what it was.
-			</p>
-			<p>
-				<strong>The shading is deliberately not proportional.</strong> A handful of months sit far
-				above the rest: the middle month runs at about
-				{showRate(byMonth.corpus_speech_prevalence)} and the strongest at {showRate(heat.high)}.
-				Shading in direct proportion would leave half the grid indistinguishable from the page, so
-				it follows the square root of the rate instead. Every square keeps its place in the order
-				and nothing is cut off at the top, but the number should be read off the key rather than
-				guessed from the darkness.
-			</p>
-			<p>
-				<strong>Hatched squares carry no rate.</strong>
-				{count(heat.withheld)} of the {count(heat.cells.length)} months hold fewer than
-				{count(heat.minimum)} speeches. Their counts stay in the table and in the download; what they
-				do not get is a shade. The note opposite says why.
+				Shading is the share of that month's speeches on a square-root scale, darkest at
+				<strong>{showRate(heat.high)}</strong>: read the key, not the darkness. Hatched squares held
+				fewer than {count(heat.minimum)} speeches and carry no rate.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			{#if column.shared}
 				<p>
-					<strong>The darkest months largely follow a reporting timetable.</strong>
-					{strongest.map((row) => row.name).join(' and ')} are the strongest months, and the agenda item
-					behind most of the speeches in both is
-					<em>{column.shared}</em>. The international tribunals reported to the Council twice a
-					year, so what stands out here is partly when the Council was scheduled to discuss the
-					subject rather than when it chose to. The table under the pooled figure below names the
-					agenda item behind each month.
+					<strong>The darkest months follow the tribunals' semi-annual reporting</strong> to the Council,
+					not a commemorative calendar; the table under the pooled figure names the agenda item behind
+					each month.
 				</p>
 			{/if}
 			<p>
-				{byMonth.minimum_speeches_rule}
+				A month's vocabulary is the vocabulary of the debates held in it, and nothing here corrects
+				for that.
 			</p>
+		{/snippet}
+		{#snippet more()}
+			<p>{byMonth.minimum_speeches_rule}</p>
 			<p>
-				A month's vocabulary is the vocabulary of whatever debates were held in it. That is the same
-				problem the
-				<a href="{resolve('/actors')}#speaker-keyness">speaker-by-speaker comparison</a> on the Actors
-				page is designed around, and nothing in this figure corrects for it.
+				The scale starts at zero rather than at the quietest month, so a month in which nobody said
+				the word looks empty. It follows the square root of the rate because a handful of months sit
+				far above the rest &mdash; the middle month runs at about
+				{showRate(byMonth.corpus_speech_prevalence)} &mdash; and direct proportion would leave half the
+				grid the colour of the page. Nothing is cut off at the top. The
+				{count(heat.withheld)} withheld months keep their counts in the table and the download.
 			</p>
 		{/snippet}
 
@@ -1014,22 +980,12 @@
 	>
 		{#snippet reading()}
 			<p>
-				Each row gathers all {byMonth.years.length} instances of that month across the corpus. The bar
-				behind a row is drawn from the number printed beside it, so the two cannot drift apart.
-			</p>
-			<p>
-				<strong>Without</strong> repeats the figure with {column.excludedYears.join(' and ')} removed.
-				Those are the corpus's two largest years for this vocabulary, and a seasonal pattern that is really
-				one spike seen through a monthly lens would not survive their removal.
-			</p>
-			<p>
-				{#if linkable}
-					Each month opens every instance of it in the concordance: all {byMonth.years.length} Junes rather
-					than one of them, which is what the row is measured against.
-				{:else}
-					The months do not link here. <em>{termLabel(gridMeasure)}</em> gathers {gridTerms.length} terms,
-					and the concordance shows one at a time.
-				{/if}
+				Each row gathers every one of that month across {byMonth.years.length} years.
+				<strong>Without</strong> drops {column.excludedYears.join(' and ')}, the two largest years:
+				a seasonal pattern that is one spike seen monthly would not survive.
+				{#if linkable}Each month opens all {byMonth.years.length} instances of it in the concordance.{:else}Months
+					do not link here: <em>{termLabel(gridMeasure)}</em> gathers
+					{gridTerms.length} terms and the concordance shows one at a time.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -1090,35 +1046,22 @@
 	>
 		{#snippet reading()}
 			<p>
-				Each row asks the same question of the same annual series in a different unit: split the
-				years at the best possible point, and is the difference between the two halves larger than
-				chance would produce? The share of speeches is modelled as a series of coin flips; the count
-				of occurrences is modelled against the number of words spoken each year, so a talkative year
-				is expected to contain more of everything.
-			</p>
-			<p>
-				{#if data.breaks.inference.null === 'meeting_block_permutation'}
-					The p-value comes from {count(data.breaks.inference.trials)} series in which the rate never
-					changes and the whole search is repeated from scratch. Each one is made by moving whole
-					<strong>meetings</strong> between years, so a single debate that used the word two hundred times
-					counts as one draw rather than two hundred. The second p-value is the same test under the older
-					assumption that every speech is an independent coin flip; the gap between the two is how much
-					of the apparent signal was one debate.
-				{:else}
-					The p-value comes from {count(data.breaks.inference.trials)} simulated series in which the rate
-					never changes and the whole search is repeated from scratch, treating every speech as an independent
-					draw.
-				{/if}
-				A result counts only below {percent(data.breaks.inference.per_test_alpha)}, a threshold
-				already tightened to allow for several tests being run at once ({data.breaks.inference
-					.correction}). The intervals describe the combined rate on either side of the split.
+				Each row splits one annual series at its best point and asks whether the halves differ more
+				than chance would.
+				{#if data.breaks.inference.null === 'meeting_block_permutation'}The first p-value moves
+					whole
+					<strong>meetings</strong> between years, so one debate is one draw; the second treats every
+					speech as independent. The gap between them is the clustering.{:else}The p-value treats
+					each speech as independent.{/if}
+				<a href="{resolve('/methods')}#change-points">Method: change points &rarr;</a>
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>{data.breaks.inference.caveat}</p>
 			<p>
-				Each side of a split must cover at least {data.breaks.parameters.min_size} periods, so a single
-				unusual year cannot be reported as a lasting change.
+				Each side of a split covers at least {data.breaks.parameters.min_size} periods, so one unusual
+				year cannot be a lasting change; a result counts only below
+				{percent(data.breaks.inference.per_test_alpha)} after {data.breaks.inference.correction}.
 			</p>
 		{/snippet}
 
@@ -1209,33 +1152,26 @@
 		{/snippet}
 		{#snippet reading()}
 			<p>
-				Each line is one category measured against itself: speeches in that category using
-				<code>genocid*</code>, divided by all speeches in that category. Every line is therefore
-				scaled to its own output, and a category that spoke rarely is not pushed down the chart for
-				having spoken rarely.
+				Each line is one category measured against itself &mdash; its speeches using
+				<code>genocid*</code>, divided by all its speeches &mdash; inside its 95% Wilson band. A
+				category that spoke rarely is not pushed down for it.
+				{#if split === 'participanttype'}Participant type is the role recorded in the source corpus;
+					each point links to the concordance for that role and year.{/if}
 			</p>
-			{#if split === 'participanttype'}
-				<p>
-					Participant type is the role recorded for the speech in the source corpus. Each plotted
-					point links to the matching concordance lines for that role and year.
-				</p>
-			{/if}
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>A rate says nothing about how much evidence is behind it.</strong> A category with twenty
-				speeches in a year can swing between 0% and 25% on a single mention. A line breaks where the category
-				held no speeches at all that year.
+				<strong>A rate says nothing about the evidence behind it:</strong> twenty speeches can swing from
+				0% to 25% on one mention, which the band shows. A line breaks where the category held no speeches.
+				Delivery language partly restates who is speaking; video-link speeches are unknown, not assumed
+				English.
 			</p>
+		{/snippet}
+		{#snippet more()}
 			<p>
-				Delivery language partly restates who is speaking. Speeches given by video link are shown as
-				unknown rather than assumed to be English, because that document format carries no marker of
-				the language either way.
-			</p>
-			<p>
-				An em dash in the evidence column means the concordance artifact does not carry that split,
-				not that the category has no speeches. Speaker group, participant type and agenda item do
-				carry exact evidence links.
+				An em dash in the evidence column means the concordance does not carry that split, not that
+				the category has no speeches; speaker group, participant type and agenda item carry exact
+				links.
 			</p>
 		{/snippet}
 

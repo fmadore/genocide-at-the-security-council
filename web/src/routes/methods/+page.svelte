@@ -224,14 +224,14 @@
 
 	<h2>Choices that shape what you see</h2>
 
-	<h3>Rates, not counts</h3>
+	<h3 id="rates">Rates, not counts</h3>
 	<p>
 		The Council held more than seven times as many speeches in 2023 as in 1992. A raw count plotted
 		over those years is therefore mostly a picture of that growth, which is why every series on this
 		site opens on a rate and offers the raw count as an alternative rather than the other way round.
 	</p>
 
-	<h3>The word list is a proposal, not a result</h3>
+	<h3 id="word-list">The word list is a proposal, not a result</h3>
 	<p>
 		<code>genocid*</code> matches
 		{percent(sum(data.series.terms.genocide.speeches) / totals.speeches)} of speeches. What counts as
@@ -242,7 +242,7 @@
 		for the analysis, not something it discovered.
 	</p>
 
-	<h3>Change points</h3>
+	<h3 id="change-points">Change points</h3>
 	<p>
 		One test is run per series, and it asks a single question: is this line better described by one
 		steady rate or by two? The share of speeches is modelled as a series of coin flips; the count of
@@ -276,7 +276,7 @@
 		{data.breaks.caveat}
 	</p>
 
-	<h3>What distinguishes a speech, and what it is compared against</h3>
+	<h3 id="keyness">What distinguishes a speech, and what it is compared against</h3>
 	<p>
 		Set a speech that uses <em>genocide</em> against the rest of the corpus and the words that come
 		back describe the occasion — the debate, the year, the region — rather than the concept. Each
@@ -292,7 +292,7 @@
 		each word.
 	</p>
 
-	<h3>Where one sentence ends and the next begins</h3>
+	<h3 id="sentences">Where one sentence ends and the next begins</h3>
 	<p>
 		The sentence is the unit this site offers for quotation, so sentence boundaries are found by
 		explicit rules written for this kind of document — <code>Mr.</code>, <code>para.</code>,

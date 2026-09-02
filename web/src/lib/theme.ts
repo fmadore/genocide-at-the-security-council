@@ -59,7 +59,20 @@ export const colourScheme = readable<Scheme>('light', (set) => {
 	};
 });
 
-const REGISTERS = ['core', 'legal', 'preventive', 'commemorative', 'contentious', 'accountability'];
+/**
+ * The registers in the order every figure lists them. Exported so a matrix
+ * or a legend can seriate by register without keeping a second copy of the
+ * order that would drift from this one.
+ */
+export const REGISTER_ORDER = [
+	'core',
+	'legal',
+	'preventive',
+	'commemorative',
+	'contentious',
+	'accountability'
+] as const;
+const REGISTERS: readonly string[] = REGISTER_ORDER;
 
 export interface Palette {
 	ink: string;
@@ -125,9 +138,40 @@ export function registerColour(register: string, p = palette()): string {
 	return p.registers[register] ?? p.ink;
 }
 
-/** A categorical ramp for series that are not registers. */
+/**
+ * The register hues, in register order. For registers only: the review of
+ * 1 September 2026 found them standing for speaker groups, agenda regions,
+ * Council standing and stances on four figures, so teal meant "legal" on one
+ * figure and "African Group" on the next. Anything that is not a register
+ * takes `categoricalNeutral`.
+ */
 export function categorical(p = palette()): string[] {
 	return REGISTERS.map((r) => p.registers[r]);
+}
+
+/** A stroke for a series that is not a register: a weight of ink and a dash. */
+export interface NeutralStroke {
+	color: string;
+	/** ECharts `lineStyle.type`; also readable as a CSS `border-style` word. */
+	dash: 'solid' | 'dashed' | 'dotted';
+}
+
+/**
+ * Series that carry a category but not a register — speaker groups, agenda
+ * regions, participant types — told apart by weight of ink and by dash rather
+ * than by hue. Six weights by three dashes is eighteen strokes before any
+ * repeats; a figure that needs more should be asking whether it needs a
+ * legend at all. Greys survive greyscale and print, which a hue key does not,
+ * and they leave the register hues meaning one thing on the whole site.
+ */
+export function categoricalNeutral(p = palette()): NeutralStroke[] {
+	const weights = [0.95, 0.72, 0.55, 0.42, 0.32, 0.24];
+	const dashes: NeutralStroke['dash'][] = ['solid', 'dashed', 'dotted'];
+	const out: NeutralStroke[] = [];
+	for (const dash of dashes) {
+		for (const weight of weights) out.push({ color: mix(p.paper, p.ink, weight), dash });
+	}
+	return out;
 }
 
 /** Series that carry no category at all: one weight of ink, never the accent. */

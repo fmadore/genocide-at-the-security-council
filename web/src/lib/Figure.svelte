@@ -5,10 +5,18 @@
 	 * A chart without an account of itself is a decoration. Each figure states
 	 * four things, and none of them is hidden behind a toggle:
 	 *
-	 *   question   what it is here to answer
-	 *   reading    how to read the marks on it
-	 *   caveat     what it does not show, or what would be wrong to conclude
+	 *   question   what it is here to answer            (≤ 20 words)
+	 *   reading    how to read the marks on it           (≤ 60 words)
+	 *   caveat     the one wrong reading it invites      (≤ 50 words)
 	 *   source     the script and the file behind it, so any number can be traced
+	 *
+	 * The budgets are enforced by `scripts/word-budget.mjs` on `npm run lint`,
+	 * after the review of 1 September 2026 counted 5,200 words of apparatus
+	 * over twenty figures and found most of it was method repeated, marks
+	 * restated or engineering narrated. What a reader might still want — a
+	 * withholding rule in full, a second-order caveat — goes in `more`, a
+	 * disclosure in the margin capped at 150 words; method goes to Methods
+	 * behind an anchor.
 	 *
 	 * The apparatus is set in the MARGIN, beside the evidence, the way a critical
 	 * edition sets its notes — not queued underneath where it reads as boilerplate.
@@ -28,6 +36,8 @@
 		source: string;
 		reading: Snippet;
 		caveat?: Snippet;
+		/** Overflow the budget refused: opened on demand, never in the way. */
+		more?: Snippet;
 		controls?: Snippet;
 		/** Shown under the figure in mono: says the geometry is not the claim. */
 		note?: string;
@@ -40,8 +50,18 @@
 		children: Snippet;
 	}
 
-	let { title, question, source, reading, caveat, controls, note, download, children }: Props =
-		$props();
+	let {
+		title,
+		question,
+		source,
+		reading,
+		caveat,
+		more,
+		controls,
+		note,
+		download,
+		children
+	}: Props = $props();
 </script>
 
 <figure class="figure">
@@ -72,6 +92,12 @@
 					<span class="label">What it does not show</span>
 					<div class="prose">{@render caveat()}</div>
 				</div>
+			{/if}
+			{#if more}
+				<details class="more">
+					<summary><span class="label">More on this figure</span></summary>
+					<div class="prose">{@render more()}</div>
+				</details>
 			{/if}
 		</aside>
 	</div>
@@ -168,6 +194,31 @@
 		.apparatus {
 			grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
 		}
+	}
+
+	.more summary {
+		cursor: pointer;
+		list-style: none;
+	}
+
+	.more summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.more summary .label {
+		display: inline;
+	}
+
+	.more summary .label::before {
+		content: '+ ';
+	}
+
+	.more[open] summary .label::before {
+		content: '− ';
+	}
+
+	.more .prose {
+		margin-top: var(--sp-2);
 	}
 
 	.label {

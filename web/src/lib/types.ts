@@ -343,7 +343,8 @@ export interface Network {
 	terms: { name: string; tier: string; register: string; speeches: number }[];
 	edges: Edge[];
 	by_period: Record<string, { terms: { name: string; speeches: number }[]; edges: Edge[] }>;
-	suppressed_nested_edges: { source: string; target: string }[];
+	/** Pairs the graph never draws: nested, or one term matching another's example. */
+	suppressed_nested_edges: { source: string; target: string; reason?: string }[];
 }
 
 /* --- 08_kwic.py ---------------------------------------------------------- */

@@ -398,28 +398,18 @@
 
 		{#snippet reading()}
 			<p>
-				The <strong>bold centre</strong> is what the search pattern matched; corpus linguists call
-				it the <em>node</em>. The columns either side hold the
-				{data.index.meta.width as number} characters around it, with line breaks removed. Click any line
-				to open the full sentence and the details needed to cite it.
-			</p>
-			<p>
-				<strong>Sorting by left or right context</strong> is a standard technique in corpus
-				linguistics, the study of language through large collections of text. It puts the words
-				<em>around</em> the match into alphabetical order, so repeated turns of phrase stack up down the
-				column and can be read as patterns rather than one at a time.
+				The <strong>bold centre</strong> is what the pattern matched, the <em>node</em>; either side
+				holds the {data.index.meta.width as number} characters around it, line breaks removed. Click a
+				line for the full sentence and the details to cite it.
+				<strong>Sorting by left or right context</strong> puts the surrounding words in alphabetical order,
+				so repeated phrasings stack down the column.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				A concordance line is evidence that a word was used, not evidence of a position. &ldquo;We
-				reject the claim that this is genocide&rdquo; and &ldquo;this is genocide&rdquo; each count
-				as one occurrence. Reading the sentence is the least you should do; reading the speech is
-				better, and one click away.
-			</p>
-			<p>
-				The counts here match the totals elsewhere on this site exactly. The export refuses to run
-				rather than hand over a concordance that disagrees with the figures drawn from it.
+				A concordance line is evidence that a word was used, not of a position: &ldquo;we reject the
+				claim that this is genocide&rdquo; and &ldquo;this is genocide&rdquo; each count once. Read
+				the sentence at least; the speech is one click away.
 			</p>
 		{/snippet}
 

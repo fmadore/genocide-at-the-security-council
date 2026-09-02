@@ -398,36 +398,24 @@
 	>
 		{#snippet reading()}
 			<p>
-				<strong>The bars</strong> count every occurrence of <code>genocid*</code> in a year, against
-				the left-hand axis. The <strong>line</strong> is the share of that year's speeches that use it,
-				against the right-hand axis. Select a year to open the individual lines behind it.
+				<strong>Bars</strong> count every occurrence of <code>genocid*</code> in a year (left axis);
+				the <strong>line</strong> is the share of that year's speeches using it (right axis). Select a
+				year for its lines.
 			</p>
 			<p>
-				A statistical test that allows for how many speeches each year held asks whether the line is
-				better described as one steady rate or as two.
-				{#if rateInference?.accepted}It settles on two, splitting at <strong
-						>{rateInference.label}</strong
-					>, with the later rate {decimal(rateInference.ratio ?? 0)}&times; the earlier one.{:else}It
-					finds no split worth reporting: <strong>one steady rate survives the test</strong>.{/if}
+				{#if rateInference?.accepted}A test allowing for the Council's growth splits the share at
+					<strong>{rateInference.label}</strong>, the later rate {decimal(
+						rateInference.ratio ?? 0
+					)}&times; the earlier.{:else}The same test finds <strong>one steady rate</strong>: no
+					split survives it.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				A share of speeches says nothing about intensity: a speech that says the word once counts
-				the same as a speech that repeats it twenty times. Both views are here for that reason.
-			</p>
-			<p>
-				The test re-runs its whole search on {count(data.breaks.inference.trials)} series in which the
-				rate never changes, and reports how often chance alone produces a split this strong.
-				{#if data.breaks.inference.null === 'meeting_block_permutation'}
-					Those series are built by moving whole meetings between years, so one debate that used the
-					word two hundred times is one draw rather than two hundred.
-				{:else}
-					It treats each year as independent of the last and ignores the way speeches cluster into
-					meetings.
-				{/if}
-				It cannot tell an abrupt break from a gradual trend. The split describes the series; it is not
-				a date on which something happened.
+				A share says nothing about intensity: a speech saying the word once counts the same as one
+				repeating it twenty times. The split describes the series; it is not a date on which
+				something happened.
+				<a href="{resolve('/methods')}#change-points">Method: change points &rarr;</a>
 			</p>
 		{/snippet}
 		<Chart
@@ -517,32 +505,19 @@
 
 		{#snippet reading()}
 			<p>
-				The word list behind this site is sorted into six <em>registers</em> &mdash; families of
-				vocabulary that do similar work in a speech. Each row is the share of a year's speeches
-				using at least one word from one family: the <em>core</em> word itself; <em>legal</em>
-				language that names the crime formally; <em>preventive</em> language;
-				<em>commemorative</em>;
-				<em>contentious</em> (denial, glorification); and <em>accountability</em> (courts, tribunals,
-				impunity).
-			</p>
-			<p>
-				Accountability and legal language dominate throughout. The core word runs about ten times
-				lower than either.
+				The word list is sorted into six <em>registers</em>, families of vocabulary that do similar
+				work: the <em>core</em> word; <em>legal</em>; <em>preventive</em>; <em>commemorative</em>;
+				<em>contentious</em> (denial, glorification); <em>accountability</em> (courts, tribunals, impunity).
+				Each row is the share of a year's speeches using at least one word of that family. Accountability
+				and legal language dominate; the core word runs about ten times lower.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>These rows do not add up to a whole.</strong> One speech can use four registers at once,
-				and it is counted in all four. Stacking these rows on top of one another would be wrong.
-			</p>
-			<p>
-				<strong>Each row is scaled to its own maximum</strong>, so the shapes are comparable and the
-				levels are not — read the level off the share at the right of each row.
-			</p>
-			<p>
-				Sorting the words into six registers is a proposal about how this vocabulary groups. It is
-				written down in <code>config/lexicon.yml</code>, open to disagreement, and a starting point
-				rather than a result.
+				<strong>These rows do not add up to a whole:</strong> one speech can use four registers and
+				is counted in all four. <strong>Each row is scaled to its own maximum</strong>, so shapes
+				compare and levels do not; read the level off the share at the right.
+				<a href="{resolve('/methods')}#word-list">The registers are a proposal &rarr;</a>
 			</p>
 		{/snippet}
 		{#if registerView === 'rows'}

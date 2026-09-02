@@ -95,8 +95,7 @@ describe('actor URL state', () => {
 		const state = {
 			measure: 'genocide',
 			period: 'all',
-			order: 'token_rate' as const,
-			view: 'choropleth' as const
+			order: 'token_rate' as const
 		};
 		expect(readActorState(actorParams(state, data), data)).toEqual(state);
 	});
@@ -110,8 +109,7 @@ describe('actor URL state', () => {
 		expect(state).toEqual({
 			measure: 'genocide',
 			period: 'all',
-			order: 'speech_rate',
-			view: 'points'
+			order: 'speech_rate'
 		});
 		expect(actorParams(state, data).toString()).toBe('');
 	});

@@ -389,7 +389,7 @@ break copied URLs.
 
 ### U8. Titles and prose that name what they do
 
-**Status: complete on 27 August 2026.**
+**Status: complete on 27 August 2026.** Follow-up in U9.
 
 The same feedback reported two pages as unclear. Both causes are prose, not analysis.
 
@@ -414,6 +414,23 @@ The same feedback reported two pages as unclear. Both causes are prose, not anal
   was drawn from, and reuses the computed months rather than restating them as literals.
 - The full frontend and browser gates pass, and the built site is inspected, because this is
   production-facing prose with no unit surface of its own.
+
+### U9. A word budget for every figure
+
+**Status: complete on 2 September 2026.** Item 3 of the prioritised plan in
+[`REVIEW_2026-09-01.md`](REVIEW_2026-09-01.md) §8; §5.1 is its specification.
+
+Every `Figure` is held to a budget: `question` ≤ 20 words, `reading` ≤ 60, `caveat` ≤ 50,
+counted with every conditional branch and each `{expression}` as one word, the way the
+review counted. `web/scripts/word-budget.mjs` reads every `<Figure>` under `src/` and
+fails `npm run lint` on overflow, so the budget is a gate rather than a wish. Overflow a
+reader might still want — a withholding rule in full, a second-order caveat, a worked
+example — goes in a new `more` snippet, a disclosure in the margin capped at 150 words;
+method goes to Methods behind an anchor (`#change-points`, `#keyness`, `#word-list`);
+engineering narration and restated marks are deleted. The 26-word download hint under
+eighteen figures became the CSV button's tooltip. On the actors page the closing list that
+re-ran the figure's caveats is gone, and `minimum_speeches_rule` and `centroid_rule` are
+printed once. Apparatus fell from 4,964 words over twenty figures to 2,210.
 
 ## Phase M — maintainability and measured payload improvements
 
@@ -442,6 +459,23 @@ Retain the map and its current geography. During actor-page work:
 - measure the route bundle and first interaction before attempting optimization.
 
 No SVG-map replacement is planned.
+
+**Amended 2 September 2026** (review §8, item 8; §5.2): MapLibre stays, as a locator. The
+circles were sized linearly in the radius by the ranked figure, which overstates every
+difference quadratically, and the choropleth shaded a successor state's territory for a
+historical speaker and drew the eye to whichever country was large. Both went: every dot
+is the same size and the same ink, the selection takes the accent, and the ranked table —
+with its Wilson whisker column — is the figure, set above the map inside the same frame.
+`$lib/choropleth` and its tests are deleted; `view=` in a copied URL is ignored. The
+boundary file `web/static/geo/countries.json` and `tools/build_boundaries.py` are no
+longer read by the site and can go when the next static audit runs. The same item
+replaced the word cloud with a dot plot (`$lib/DotPlot.svelte`, `dotplot.ts`: position by
+log ratio, area by frequency, a spread mark for DP, every word a link) and the force
+network with a register-ordered adjacency matrix (`$lib/TermMatrix.svelte`, `matrix.ts`:
+shaded by nPMI, hatched below the minimum, crossed where the pair is definitional), and
+reserved the register hues for registers: the split-by-category figure, the standing
+bands and the stance profile now take weights of ink (`theme.categoricalNeutral`).
+`d3-cloud` is removed from the dependencies.
 
 ### M3. Optimize evidence access from observed requests
 
@@ -1008,3 +1042,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-09-01 | Lexicon v3 (review §3.4, item 1) | complete   | pending | `python -m pytest` (all passed on the merged tree; `tests/test_lexicon.py` new, `tests/test_config.py` +4, `tests/test_usage.py` +5); `ruff check .`; the v2 literal `war crime` shown to count 0 where the regex counts 1 on `war\ncrimes` | Two counting corrections from `docs/REVIEW_2026-09-01.md`: prefilters made whitespace-free and provably contained in every match, and register/total roll-ups summed over `lexicon.summable` so a nested term is not counted on top of its parent. No pattern changed. `pattern_since` per term, pinned by `config/lexicon.lock.json` and `tools/lock_lexicon.py`, and `Lexicon.compatible` let 15 and the annotation merge accept v2 artefacts under v3; `summable` walks the whole nesting chain and the loader refuses self-nesting and cycles; `09_export_speeches.py` now reconciles per-term counts rather than the de-duplicated total. Corpus-level effect to be recorded in `VALIDATION.md` on the next run of 03; the network policy of the environment the fix was written in did not reach Dataverse. |
 | 2026-09-02 | S1, first slice (review §8, item 2) | complete   | pending | `python -m pytest` (858 passed; `tests/test_series.py` +17 for `wilson_interval`, `meeting_blocks` and the block null); `ruff check .`; a synthetic 32-year corpus with two dense debates run through `build_series`, `build_change_points`, `build_monthly`, `build_breakdowns` and `build_note` — the token-rate split read p = 0.015 under the independent null and 0.69 under the block null; `npm run lint`; `npm run check` (0 errors); `npm test` (452 passed, `chronology.test.ts` +4); `npm run test:e2e` (26 Chromium journeys) and `npm run test:e2e:sw` (1 built-site journey, which is also the fixture build) on the fixtures, run through a throwaway config pointing at the environment's pre-installed Chromium because the pinned headless shell was absent; the contract diff is 43 insertions and no deletion. `npm run build` prerenders against `web/static/data/`, which this environment cannot populate, so it was not run. | The rate change-point null now permutes meetings across years (`series.meeting_blocks`, `rate_change_point(blocks=…)`); the independent-speech p-value is published beside the block one as `p_value_independent`, the artefact names its `null` and its `blocks`, and `accepted` follows the block p. Every `speech_rate` — annual, quarterly, monthly, pooled calendar, breakdown row, speaker row — carries Wilson 95% bounds, blanked by the same withholding rule as the rate; the site draws them as bands (chronology, split figure) and a whisker column (actors), and prints them in hovers and CSVs. The findings note reads the corrected `inference` block and types no year into its prose. Contract, TS types and fixtures moved together, with the new fields required rather than optional because the pipeline always writes them. **Owed:** the corpus re-run, blocked on Dataverse from this environment; `README.md` says which of its numbers are still the independent-null ones. |
 | 2026-09-02 | S5, first slice (review §8, item 7) | complete   | pending | `python -m pytest` (879 passed; `tests/test_lexical.py` +21 for the floor, the ranking, dispersion, logDice, the tokeniser and definitional pairs; `tests/test_keyness.py` +2 holding the matrix dispersion equal to the pure-Python one); `ruff check .`; a synthetic corpus run through `build_collocates`, `build_slices`, `build_keyness`, `build_network` and `build_note`, and `lib.keyness.speaker_keyness` on the same; `npm run lint`; `npm run check` (0 errors); `npm test` (452 passed); `npm run test:e2e` (26 journeys) and `npm run test:e2e:sw` through the throwaway Chromium config; the contract diff is 119 insertions and no deletion. | Tables are ranked by effect among rows clearing G² 10.83 — log ratio for keywords, logDice for collocates, which now carry it — and every row carries `documents`, `meetings` and `dp`. `TOKEN_RE` cannot end on an apostrophe or hyphen and may carry a digit, so `'genocide'` and `R2P` are the words they are. Definitional pairs are found from the declared examples and listed with their reason; the `denial`–`genocide` edge is no longer drawn. The language page prints the spread beside every row, the speaker keyness table too, and the standfirst says the floor and the rank. **Owed:** the corpus re-run of 05 and 12, and 10 on the cluster for the lemma layer, which the tokeniser change makes stale. |
+| 2026-09-02 | U9 word budget; M2 amended (review §8, items 3 and 8) | complete   | pending | `node web/scripts/word-budget.mjs` (20 figures, 2,210 words, no slot over); `npm run lint` (now includes the budget); `npm run check` (0 errors, 0 warnings); `npm test` (440 passed: the cloud's 43 tests went with it, `dotplot.test.ts` +7, `matrix.test.ts` +6, `language.test.ts` +7 for the profile selection); `npm run test:e2e` (26 journeys) and `npm run test:e2e:sw` through the throwaway Chromium config; `ruff check .` for the 05 docstring | Item 3: a `more` snippet on `Figure`, the download hint as a tooltip, Methods anchors, every figure rewritten to budget and the budget enforced on lint; the actors page loses its duplicated apparatus and the change-point test is explained once, on Methods. Item 8: the word cloud is a dot plot, the force network a matrix, the map a uniform-dot locator under the ranked table with no choropleth, and the register hues mean registers only. No number moved. The one URL contract change is `view=`, now ignored. |

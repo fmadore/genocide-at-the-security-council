@@ -8,10 +8,11 @@ data/derived/lexical/, plus a findings note.
     keyness.json            genocide speeches against a matched control set
     network.json            PMI between the lexicon's terms, whole corpus and by period
 
-The word clouds docs/PLAN.md §7 asks for are a rendering of these tables, not
-a separate artefact: a cloud sized by log-likelihood over a stated stoplist is
-the collocate table drawn differently, and shipping it as its own file would
-invite it to drift from the numbers it claims to depict.
+The profile figures on the site are a rendering of these tables, not a
+separate artefact: a dot plot ranked by logDice over a stated stoplist is the
+collocate table drawn differently, and shipping it as its own file would
+invite it to drift from the numbers it claims to depict. (docs/PLAN.md §7
+asked for word clouds; the review of 1 September 2026 replaced them.)
 
 `--vocabulary lemma` counts the lemma layer from `10_lemmatise.py` instead of
 surface forms, so `killing`, `killed` and `kills` share one row rather than
