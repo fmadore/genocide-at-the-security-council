@@ -282,14 +282,16 @@ Bonferroni correction across the three planned rate tests. Since 2 September 202
 series are built by permuting whole meetings across years rather than treating every
 speech as an independent draw — one debate can hold two hundred occurrences — and the
 p-value under the older independent-speech null is published beside the block one, so the
-size of that clustering is a number on the page. The strongest partitions start in 2017 for
-genocide speech prevalence (later/earlier rate ratio 0.71; p = 0.0010 under the
-meeting-block null, 0.0005 under the independent one), 2016 for its token rate (0.65;
-p = 0.0095 against 0.0005), and 1996 for atrocity-core speech prevalence (0.71; p = 0.0255
-against 0.0005). The two genocide splits clear the corrected threshold; the 1996
-atrocity-core split no longer does, and the site marks it as the best split rather than as
-a break. The re-calibration is recorded in [`docs/VALIDATION.md`](docs/VALIDATION.md),
-under “The rate tests under a meeting-block null”. Rejecting a constant rate does not prove an
+size of that clustering is a number on the page. The three planned tests run on the
+published headline, `genocide_qualification` — the word minus its *génocidaires* actor
+label — and on the atrocity-core union. The strongest partitions start in 2017 for the
+headline's speech prevalence (later/earlier rate ratio 0.71; p = 0.0005 under both nulls),
+2016 for its rate per 100,000 words (0.65; p = 0.0095 under the meeting-block null against
+0.0005), and 1996 for atrocity-core speech prevalence (0.72; p = 0.0255 against 0.0005).
+The two headline splits clear the corrected threshold; the 1996 atrocity-core split does
+not, and the site marks it as the best split rather than as a break. The re-calibration is
+recorded in [`docs/VALIDATION.md`](docs/VALIDATION.md), under “The rate tests under a
+meeting-block null”. Rejecting a constant rate does not prove an
 abrupt historical break: smooth trends and Poisson overdispersion remain limitations. Every
 share of speeches on the site carries its Wilson 95% interval. The raw-count breaks and wild
 binary segmentation remain visible as explicitly exploratory descriptions.
