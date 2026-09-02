@@ -38,6 +38,7 @@ import hashlib
 import json
 import os
 import re
+import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -82,6 +83,7 @@ ROW_FIELDS: Final = (
     "evidence_start",
     "evidence_end",
     "evidence_valid",
+    "evidence_relocated",
     "confidence",
     "annotated_at",
 )
@@ -570,6 +572,103 @@ def _flatten(source: str) -> tuple[str, list[int]]:
     return "".join(flat), offsets
 
 
+#: Characters the record's typography and a model's transcription of it disagree
+#: about, mapped to the plain form the two can be compared through.
+#:
+#: The Council's records are typeset with curly quotation marks and en dashes,
+#: and a model asked for a verbatim span returns the passage as prose with the
+#: typography normalised on the way out — so the quote is the right words and
+#: not the right bytes, and an exact substring search finds nothing. NFKC folds
+#: the ligatures, the non-breaking spaces and the compatibility forms; this
+#: table folds what NFKC leaves alone, because Unicode holds that a curly
+#: apostrophe and a straight one are different characters and is right to.
+#:
+#: Every replacement is one character wide, and the fold is applied character by
+#: character rather than to the whole string, so a folded body indexes into the
+#: same positions as the body it was folded from.
+FOLDED: Final[dict[str, str]] = {
+    "\u2018": "'",  # left single quotation mark
+    "\u2019": "'",  # right single quotation mark — the record's apostrophe
+    "\u201a": "'",
+    "\u201b": "'",
+    "\u2032": "'",  # prime, which OCR reads an apostrophe as
+    "\u201c": '"',  # left double quotation mark
+    "\u201d": '"',  # right double quotation mark
+    "\u201e": '"',
+    "\u2033": '"',
+    "\u00ab": '"',  # guillemets, from the French-language records
+    "\u00bb": '"',
+    "\u2010": "-",  # hyphen
+    "\u2011": "-",  # non-breaking hyphen
+    "\u2012": "-",  # figure dash
+    "\u2013": "-",  # en dash — the record's range and parenthetical dash
+    "\u2014": "-",  # em dash
+    "\u2015": "-",  # horizontal bar
+    "\u2212": "-",  # minus sign
+    "\u00ad": "-",  # soft hyphen
+}
+
+#: Quotation marks a model wraps around the span it is reporting. Stripped from
+#: the *ends of the quote* alone, in the relocating pass alone, and never from
+#: the record: six of the eighteen quotes the two runs could not place are a
+#: verbatim span with one quotation mark in front of it that the record does not
+#: have there — the model has marked the passage as a quotation, which is a
+#: statement about the passage and not part of it.
+WRAPPERS: Final = "\"'\u2018\u2019\u201c\u201d\u00ab\u00bb\u2039\u203a\u201e\u201a "
+
+
+def _fold(character: str) -> str:
+    """One character in the form two typographies can be compared through.
+
+    NFKC, the table above, and lower case, in that order, and always exactly one
+    character wide: a fold that changed the length would break the offset
+    mapping :func:`_normalised` builds, and the offsets are what make a span
+    found in the folded text a span in the real body. Anything NFKC or `lower`
+    expands — the Turkish dotted capital, a handful of ligatures the corpus does
+    not contain — keeps its original character rather than being expanded, which
+    costs a match nobody has yet needed and cannot cost an offset.
+
+    Lower case is here because two of the unplaced quotes differ from the record
+    in exactly one letter's case, at the front, where the model has presented a
+    mid-sentence clause as a sentence of its own.
+    """
+    folded = unicodedata.normalize("NFKC", FOLDED.get(character, character)).lower()
+    return folded if len(folded) == 1 else character
+
+
+def _normalised(source: str) -> tuple[str, list[int]]:
+    """The folded, whitespace-collapsed text, and where each character came from.
+
+    :func:`_flatten` with two more relaxations, each one a case the two
+    committed runs actually produced:
+
+    - every character folded by :func:`_fold`;
+    - the space after a hyphen dropped, which closes the record's line-break
+      hyphenation. The Council's records break words across lines and the OCR
+      keeps the break, so the body holds `gender- based` and
+      `Secretary- General's` where the model returns the word whole. The rule is
+      applied to both sides, so a genuine dash before a word — the record's
+      parenthetical em dash — is closed on both and still matches.
+
+    `offsets[i]` is the index in `source` of the ith character of the result, as
+    in :func:`_flatten`, so a span found here maps back without a second search.
+    """
+    text: list[str] = []
+    offsets: list[int] = []
+    space = False
+    for index, character in enumerate(source):
+        if character.isspace():
+            space = True
+            continue
+        if space and text and text[-1] != "-":
+            text.append(" ")
+            offsets.append(index)
+        space = False
+        text.append(_fold(character))
+        offsets.append(index)
+    return "".join(text), offsets
+
+
 def _matches(haystack: str, needle: str) -> list[int]:
     found = []
     position = haystack.find(needle)
@@ -577,6 +676,19 @@ def _matches(haystack: str, needle: str) -> list[int]:
         found.append(position)
         position = haystack.find(needle, position + 1)
     return found
+
+
+def _spans(text: str, needle: str, offsets: list[int]) -> list[tuple[int, int]]:
+    """Every match of `needle` in a normalised `text`, as spans in the original.
+
+    One place rather than two, because the two normalising passes below differ
+    only in how they normalise and a second copy of this arithmetic is a second
+    chance to be off by one at the end of a span.
+    """
+    return [
+        (offsets[position], offsets[position + len(needle) - 1] + 1)
+        for position in _matches(text, needle)
+    ]
 
 
 def _choose(spans: list[tuple[int, int]], start: int, end: int) -> tuple[int, int]:
@@ -598,40 +710,69 @@ def _choose(spans: list[tuple[int, int]], start: int, end: int) -> tuple[int, in
 
 def locate_evidence(
     body: str, quote: str, occurrence_start: int, occurrence_end: int
-) -> tuple[int | None, int | None, bool]:
+) -> tuple[int | None, int | None, bool, bool]:
     """Where the model's quotation actually is, and whether it can be believed.
 
-    Exact substring first. Failing that, both sides are compared with runs of
-    whitespace collapsed, which is what a model returns when it copies across a
-    line break in the record; the match is mapped back through the flattening so
-    the offsets recorded are into the real body and not into a normalised copy.
+    Three passes, each admitting one more kind of difference between what the
+    record says and what a model returned when asked to copy it:
 
-    Returns `(start, end, valid)`. `valid` is true only when the located passage
-    contains the occurrence's own span, which is the codebook's rule for a human
-    evidence span too. A quote that is found in the wrong place still reports
-    where it was found, marked invalid, because that is the more useful thing to
-    look at; a quote that is nowhere in the speech returns `(None, None, False)`.
-    Never raises: an unlocatable quote is a measurement of the run, not a fault
-    in it.
+    1. exact substring;
+    2. runs of whitespace collapsed on both sides, which is what a model returns
+       when it copies across a line break in the record;
+    3. the relocating pass — :func:`_normalised` on both sides, and the model's
+       own wrapping quotation marks stripped off the quote.
+
+    The third is the review's (§4.5, item 4). Of the eighteen quotes the two
+    committed runs could not place, ten are of this kind and none of them is a
+    fabrication: six carry a leading quotation mark the record does not have
+    there, two straddle a word the record hyphenates across a line break, and
+    two differ from the record in the case of one letter. The remaining eight
+    are three false positives answered with the literal string
+    `not_applicable`, one quote found in a different sentence of the same
+    speech, and four passages the model has genuinely paraphrased or spliced —
+    and those must stay unplaced, which is what the relaxations are kept narrow
+    for.
+
+    A quote placed by the third pass is *relocated*, and the row carries the
+    flag. Its offsets are as good as any other pass's; what the flag records is
+    that the record's punctuation, hyphenation or capitalisation had to be
+    ignored to find it, and a reader counting how far a run's evidence can be
+    trusted is entitled to know how many.
+
+    Each pass maps its match back through its own normalisation, so the offsets
+    recorded are into the real body and never into a normalised copy.
+
+    Returns `(start, end, valid, relocated)`. `valid` is true only when the
+    located passage contains the occurrence's own span, which is the codebook's
+    rule for a human evidence span too. A quote that is found in the wrong place
+    still reports where it was found, marked invalid, because that is the more
+    useful thing to look at; a quote that is nowhere in the speech returns
+    `(None, None, False, False)`. Never raises: an unlocatable quote is a
+    measurement of the run, not a fault in it.
     """
     if not quote.strip():
-        return None, None, False
+        return None, None, False, False
 
+    relocated = False
     spans = [(position, position + len(quote)) for position in _matches(body, quote)]
     if not spans:
         flat, offsets = _flatten(body)
         needle = _WHITESPACE_RE.sub(" ", quote).strip()
         if not needle:
-            return None, None, False
-        spans = [
-            (offsets[position], offsets[position + len(needle) - 1] + 1)
-            for position in _matches(flat, needle)
-        ]
+            return None, None, False, False
+        spans = _spans(flat, needle, offsets)
     if not spans:
-        return None, None, False
+        folded, offsets = _normalised(body)
+        needle, _ = _normalised(quote.strip(WRAPPERS))
+        if not needle:
+            return None, None, False, False
+        spans = _spans(folded, needle, offsets)
+        relocated = bool(spans)
+    if not spans:
+        return None, None, False, False
 
     start, end = _choose(spans, occurrence_start, occurrence_end)
-    return start, end, start <= occurrence_start and occurrence_end <= end
+    return start, end, start <= occurrence_start and occurrence_end <= end, relocated
 
 
 # --- Assembling and checking rows -------------------------------------------
@@ -662,7 +803,9 @@ def annotation_rows(
     for occurrence in occurrences:
         entry = labels[occurrence.ordinal]
         quote = str(entry["evidence_quote"])
-        start, end, valid = locate_evidence(body, quote, occurrence.start, occurrence.end)
+        start, end, valid, relocated = locate_evidence(
+            body, quote, occurrence.start, occurrence.end
+        )
         rows.append(
             {
                 "occurrence_id": occurrence.occurrence_id,
@@ -689,6 +832,7 @@ def annotation_rows(
                 "evidence_start": start,
                 "evidence_end": end,
                 "evidence_valid": valid,
+                "evidence_relocated": relocated,
                 "confidence": entry["confidence"],
                 "annotated_at": meta.annotated_at,
             }
@@ -696,16 +840,42 @@ def annotation_rows(
     return rows
 
 
-def validate_row(row: Mapping[str, object], referents: set[str]) -> None:
-    """The last gate before a row is appended to a committed run.
+#: The key set of a run written before the relocating locator existed, and so
+#: before `evidence_relocated`. The two committed runs of 30 and 31 August 2026
+#: are the only files that will ever have it.
+LEGACY_ROW_FIELDS: Final = tuple(
+    field for field in ROW_FIELDS if field != "evidence_relocated"
+)
 
-    Used by 14 on the way out and by the tests on constructed rows, so that the
-    file's shape is asserted by the thing that writes it rather than by whatever
-    reads it next.
+
+def validate_row(
+    row: Mapping[str, object], referents: set[str], *, appending: bool = True
+) -> None:
+    """The gate a row passes to be written into a committed run, or read back out.
+
+    Used by 14 and 16 on the way out, by 15 on the way in, and by the tests on
+    constructed rows, so that the file's shape is asserted by the thing that
+    writes it rather than by whatever reads it next.
+
+    `appending` is true at the write seam and false where a committed run is
+    read back, and two rules hold only at the seam. A run that has been paid for
+    cannot be made to satisfy a rule written after it, and refusing to aggregate
+    it would delete the evidence rather than improve it:
+
+    - `evidence_relocated`, which a run written before the relocating locator
+      existed does not carry. Absent, it is read as false, which is what it is.
+    - a false positive's own located quote. Three rows of the first run answered
+      the evidence field with the literal string `not_applicable`, which the
+      prompt's cascade invited and nothing refused; the codebook requires a span
+      for a false positive exactly as for a true one, because the claim "this
+      match is not the word being used" is a claim about a passage and is
+      unreadable without it. New runs are held to it. The first run's three rows
+      are recorded in `docs/VALIDATION.md` §7 instead.
     """
-    if tuple(row) != ROW_FIELDS:
+    shapes = (ROW_FIELDS,) if appending else (ROW_FIELDS, LEGACY_ROW_FIELDS)
+    if tuple(row) not in shapes:
         unexpected = sorted(set(row) - set(ROW_FIELDS))
-        absent = sorted(set(ROW_FIELDS) - set(row))
+        absent = sorted(set(shapes[-1]) - set(row))
         if unexpected or absent:
             raise ValueError(f"Row keys are wrong: unexpected={unexpected}, missing={absent}")
         raise ValueError("Row keys are in the wrong order; see llm.ROW_FIELDS.")
@@ -717,8 +887,11 @@ def validate_row(row: Mapping[str, object], referents: set[str]) -> None:
             raise ValueError(f"{field} must be an integer offset into the speech body.")
     if int(row["start"]) >= int(row["end"]):
         raise ValueError("The occurrence span must be nonempty.")
-    if not isinstance(row["evidence_valid"], bool):
-        raise ValueError("evidence_valid must be a boolean.")
+    for flag in ("evidence_valid", "evidence_relocated"):
+        if flag in row and not isinstance(row[flag], bool):
+            raise ValueError(f"{flag} must be a boolean.")
+    if row.get("evidence_relocated") and not row["evidence_valid"]:
+        raise ValueError("A relocated quote that does not contain the term is not located.")
 
     start, end = row["evidence_start"], row["evidence_end"]
     located = [value for value in (start, end) if value is not None]
@@ -735,6 +908,23 @@ def validate_row(row: Mapping[str, object], referents: set[str]) -> None:
         int(start) <= int(row["start"]) and int(row["end"]) <= int(end)
     ):
         raise ValueError("Valid evidence must contain the matched term span.")
+
+    # A false positive is the one verdict the prompt's cascade lets a model
+    # answer with `not_applicable` in every discourse field, and the review
+    # found what that permits: three of the first run's six false positives
+    # carry the literal string `not_applicable` as the *evidence quote*, which
+    # the locator then cannot place and nothing refused. The codebook requires
+    # an evidence span for a false positive exactly as for a true one — the
+    # claim "this match is not the word being used" is a claim about a passage,
+    # and it is unreadable without the passage. So the cascade stops at the
+    # quote, here, where a row is written rather than in the prompt where it is
+    # only asked for.
+    if appending and str(row["verdict"]) == "false_positive" and not row["evidence_valid"]:
+        quote = str(row["evidence_quote"]).strip()
+        raise ValueError(
+            "A false positive needs a located evidence quote containing the match: "
+            f"{quote[:40] or '(blank)'!r} was not found around it."
+        )
 
     if str(row["schema_version"]) != SCHEMA_VERSION:
         raise ValueError(f"Row schema version is not {SCHEMA_VERSION}: {row['schema_version']}")

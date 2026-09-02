@@ -466,7 +466,7 @@ def refuse_bad_rows(
     invalid: list[str] = []
     for row in rows:
         try:
-            llm.validate_row(row, referents)
+            llm.validate_row(row, referents, appending=False)
         except (ValueError, KeyError) as error:
             invalid.append(f"{str(row.get('occurrence_id', ''))[:12]}...: {error}")
     if invalid:
