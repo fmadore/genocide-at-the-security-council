@@ -103,7 +103,7 @@
 	   when that term is chosen, and the control is not offered otherwise. */
 	let referent = $state('');
 	let referentOf = $state<Map<string, string> | null>(null);
-	let referentLabels = $state<ReadonlyMap<string, string>>(new SvelteMap());
+	const referentLabels = new SvelteMap<string, string>();
 	let referentsFailed = $state<string | null>(null);
 	let from = $state(1992);
 	let to = $state(2023);
@@ -237,7 +237,7 @@
 						.filter((row) => row.referent)
 						.map((row) => [row.id, row.referent] as [string, string])
 				);
-				referentLabels = new SvelteMap(run.referents.map((r) => [r.id, r.label]));
+				for (const r of run.referents) referentLabels.set(r.id, r.label);
 			})
 			.catch((error: Error) => {
 				referentsFailed = error.message;
@@ -247,12 +247,12 @@
 	/* Referents the loaded lines actually carry, with their counts, for the control. */
 	const referentOptions = $derived.by(() => {
 		if (!referentOf) return [] as { id: string; label: string; count: number }[];
-		const counts = new Map<string, number>();
+		const counts: Record<string, number> = {};
 		for (const line of lines) {
 			const id = referentOf.get(line.id);
-			if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
+			if (id) counts[id] = (counts[id] ?? 0) + 1;
 		}
-		return [...counts.entries()]
+		return Object.entries(counts)
 			.map(([id, count]) => ({ id, label: referentLabels.get(id) ?? termLabel(id), count }))
 			.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 	});
