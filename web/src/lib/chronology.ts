@@ -1,4 +1,5 @@
 import type { LineSeriesOption } from 'echarts';
+import { headlineMeasure } from './headline';
 
 export type ChronologyUnit = 'speech_rate' | 'token_rate' | 'occurrences' | 'speeches';
 export type ChronologyGrain = 'year' | 'quarter';
@@ -46,25 +47,18 @@ export function splitEvidenceQuery(
 
 const UNITS: readonly ChronologyUnit[] = ['speech_rate', 'token_rate', 'occurrences', 'speeches'];
 
-/**
- * The published headline is `genocide_qualification` — the `genocide` term
- * minus its `genocidaires` actor label, since lexicon v4. The raw term is in
- * the same list and a reader can select it; this only decides what is drawn
- * before anyone chooses. Falling back through the raw term keeps an older
- * artefact drawable rather than opening on whatever sorts first.
- */
-const HEADLINE = ['genocide_qualification', 'genocide'];
-
+/* The headline rule is shared with the home page and the actor table; see
+   `$lib/headline`. Falling back through the raw term keeps an older artefact
+   drawable rather than opening on whatever sorts first. */
 const defaultSeries = (choices: ChronologyChoices, grain: ChronologyGrain) => {
 	const available = choices.series[grain];
-	const headline = HEADLINE.find((name) => available.includes(name));
+	const headline = headlineMeasure(available);
 	return headline ? [headline] : available.slice(0, 1);
 };
 
 export function chronologyDefaults(choices: ChronologyChoices): ChronologyState {
 	const calendarMeasures = Object.keys(choices.calendar);
-	const calendarMeasure =
-		HEADLINE.find((name) => choices.calendar[name]) ?? calendarMeasures[0] ?? '';
+	const calendarMeasure = headlineMeasure(calendarMeasures) ?? calendarMeasures[0] ?? '';
 	return {
 		unit: 'speech_rate',
 		grain: 'year',
