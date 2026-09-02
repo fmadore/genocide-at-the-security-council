@@ -99,6 +99,12 @@ def measures(lex: lexicon.Lexicon) -> dict[str, dict[str, dict]]:
 
     Maps each name to the attributes that describe it in the artefact; the
     columns behind it come from `series.columns_for`.
+
+    A register lists both its `terms` and the `summed` subset of them its
+    occurrence count is actually a sum of: a term nested inside another member
+    is already counted by that parent, so it is left out rather than added on
+    top. Without the second list a reader adding the term series up would get a
+    larger number than the register's own and have nothing to explain it with.
     """
     by_register = lex.by_register()
     return {
@@ -106,7 +112,10 @@ def measures(lex: lexicon.Lexicon) -> dict[str, dict[str, dict]]:
             term.name: {"tier": term.tier, "register": term.register} for term in lex.active
         },
         "registers": {
-            register: {"terms": [t.name for t in by_register[register]]}
+            register: {
+                "terms": [t.name for t in by_register[register]],
+                "summed": [t.name for t in lexicon.summable(by_register[register], lex.terms)],
+            }
             for register in sorted(by_register)
         },
         "sets": {name: {"members": members} for name, members in lex.sets.items()},
@@ -765,6 +774,13 @@ def build_note(
             "",
             f"Lexicon version **{lex.version}**, {len(lex.active)} active terms, over "
             f"{len(speeches):,} speeches, {years[0]}-{years[-1]}.",
+            "",
+            "A register's occurrences and token rate sum only the members listed as",
+            "`summed` in the artefact: a term declared nested inside another (for example",
+            "`mass_atrocity` inside `atrocity`) is not added on top of the parent that",
+            "already counts its span. `n_lexicon_total` is not the sum of the register",
+            "counts either — a child whose parent sits in another register has nothing to",
+            "double-count there and is counted in full.",
             "",
             "## `genocide`, per year",
             "",

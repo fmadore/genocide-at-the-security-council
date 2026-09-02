@@ -35,7 +35,7 @@ def term(
         pattern=pattern,
         tier="core",
         register=register,
-        examples=(prefilter,),
+        examples=(name.replace("_", " "),),
         prefilters=(prefilter,),
         nested_under=nested_under,
         regex=re.compile(pattern, re.IGNORECASE),
@@ -44,16 +44,40 @@ def term(
 
 ATROCITY = term("atrocity", r"\batrocit(?:y|ies)\b", "legal", "atroc")
 MASS_ATROCITY = term(
-    "mass_atrocity", r"\bmass\s+atrocit(?:y|ies)\b", "legal", "mass atroc", "atrocity"
+    "mass_atrocity", r"\bmass\s+atrocit(?:y|ies)\b", "legal", "atroc", "atrocity"
 )
 GENOCIDE = term("genocide", r"\bgenocid\w*", "core", "genocid")
 GENOCIDE_CONVENTION = term(
     "genocide_convention",
     r"\bgenocide\s+convention\b",
     "legal",
-    "genocide convention",
+    "convention",
     "genocide",
 )
+
+#: Three levels of containment, which `config/lexicon.yml` does not have today:
+#: every "grave war crime" is a "war crime" and every "war crime" a "crime".
+CRIMES = term("crimes", r"\bcrimes?\b", "legal", "crime")
+WAR_CRIMES = term("war_crimes", r"\bwar\s+crimes?\b", "legal", "crime", "crimes")
+GRAVE_WAR_CRIMES = term(
+    "grave_war_crimes", r"\bgrave\s+war\s+crimes?\b", "legal", "grave", "war_crimes"
+)
+
+#: Everything the tests resolve a parent through. `summable` walks the chain
+#: here, not inside the list it is given, which is what makes a grandchild
+#: whose parent is absent from a sum still drop out of it.
+TABLE = {
+    t.name: t
+    for t in (
+        ATROCITY,
+        MASS_ATROCITY,
+        GENOCIDE,
+        GENOCIDE_CONVENTION,
+        CRIMES,
+        WAR_CRIMES,
+        GRAVE_WAR_CRIMES,
+    )
+}
 
 
 @pytest.fixture(scope="module")
@@ -82,18 +106,59 @@ class TestSummable:
     def test_a_child_without_its_parent_is_kept(self):
         """Nothing else in that sum covers it, which is how a nested term still
         counts in full in a register its parent does not belong to."""
-        assert lexicon.summable([MASS_ATROCITY]) == [MASS_ATROCITY]
+        assert lexicon.summable([MASS_ATROCITY], TABLE) == [MASS_ATROCITY]
 
     def test_a_child_summed_beside_its_parent_is_dropped(self):
-        assert lexicon.summable([ATROCITY, MASS_ATROCITY]) == [ATROCITY]
+        assert lexicon.summable([ATROCITY, MASS_ATROCITY], TABLE) == [ATROCITY]
 
     def test_the_given_order_survives(self):
         """Callers turn the result straight into a list of column names."""
         given = [GENOCIDE, MASS_ATROCITY, ATROCITY, GENOCIDE_CONVENTION]
-        assert lexicon.summable(given) == [GENOCIDE, ATROCITY]
+        assert lexicon.summable(given, TABLE) == [GENOCIDE, ATROCITY]
+
+    def test_a_grandchild_is_dropped_when_the_middle_term_is_absent(self):
+        """The reason the chain is walked through the whole table: `war_crimes`
+        may be out of this sum — another register, or disabled — and every grave
+        war crime is still a crime, so keeping both would count it twice."""
+        assert lexicon.summable([CRIMES, GRAVE_WAR_CRIMES], TABLE) == [CRIMES]
+
+    def test_a_whole_chain_keeps_only_its_root(self):
+        assert lexicon.summable([CRIMES, WAR_CRIMES, GRAVE_WAR_CRIMES], TABLE) == [CRIMES]
+
+    def test_a_chain_without_its_root_keeps_the_highest_member_present(self):
+        assert lexicon.summable([WAR_CRIMES, GRAVE_WAR_CRIMES], TABLE) == [WAR_CRIMES]
 
     def test_an_empty_list_is_empty(self):
-        assert lexicon.summable([]) == []
+        assert lexicon.summable([], TABLE) == []
+
+
+class TestNestingValidation:
+    """The shapes `summable` cannot describe, refused where the file is read.
+
+    None of them exists in `config/lexicon.yml`; each would silently drop terms
+    from the roll-ups if it ever did.
+    """
+
+    def test_the_committed_lexicon_passes(self, real_lex):
+        lexicon.check_nesting(real_lex.terms)
+
+    def test_a_term_nested_under_itself_is_refused(self):
+        itself = term("atrocity", r"\batrocit(?:y|ies)\b", "legal", "atroc", "atrocity")
+        with pytest.raises(ValueError, match="nested under themselves"):
+            lexicon.check_nesting({itself.name: itself})
+
+    def test_a_cycle_is_refused(self):
+        """Each term would be dropped as covered by the other, and the whole
+        loop would vanish from every sum."""
+        first = term("crimes", r"\bcrimes?\b", "legal", "crime", "war_crimes")
+        second = term("war_crimes", r"\bwar\s+crimes?\b", "legal", "crime", "crimes")
+        with pytest.raises(ValueError, match="cycle"):
+            lexicon.check_nesting({first.name: first, second.name: second})
+
+    def test_an_undefined_parent_is_refused(self):
+        orphan = term("mass_atrocity", r"\bmass\s+atrocit(?:y|ies)\b", "legal", "atroc", "nope")
+        with pytest.raises(ValueError, match="undefined parents"):
+            lexicon.check_nesting({orphan.name: orphan})
 
 
 class TestNestedRollups:

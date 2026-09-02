@@ -13,17 +13,26 @@
 #
 # `prefilters` exist for speed and for nothing else: a speech containing none of
 # them is skipped without running the regex. A literal must therefore be
-# contained, case-insensitively, in *every* string its pattern can match —
-# otherwise the fast path silently loses occurrences. It must contain no
-# whitespace: the records keep their hard line breaks, and `\s+` in a pattern
-# spans a newline, a tab or a double space that a multi-word literal never
-# will. Prefer one distinctive word per alternative of the pattern.
+# contained in *every* string its pattern can match — otherwise the fast path
+# silently loses occurrences. Two rules make that hold, and the loader enforces
+# both. No whitespace: the records keep their hard line breaks, and `\s+` in a
+# pattern spans a newline, a tab or a double space that a multi-word literal
+# never will. ASCII only: the fast path is upper-case containment while the
+# pattern runs under `re.IGNORECASE`, and the two agree on ASCII but not beyond
+# it (`re.IGNORECASE` folds U+0130 'İ' to 'i'; upper-casing does not). The
+# guarantee is therefore exactly this: for the whitespace-free ASCII literals
+# the loader requires, skipping a speech that holds none of them cannot lose an
+# occurrence. Prefer one distinctive word per alternative of the pattern.
 #
 # `pattern_since` is the lexicon version at which that term's `pattern` last
 # changed. Bump it to the new `version` whenever you edit a pattern, and leave
 # it alone otherwise: it is what lets an artefact keyed to a single term — a
 # gold sample, a committed model run — survive a version bump that did not
-# touch that term. See `Lexicon.compatible` in scripts/lib/lexicon.py.
+# touch that term. See `Lexicon.compatible` in scripts/lib/lexicon.py. The bump
+# is not left to memory: `config/lexicon.lock.json` records a digest of every
+# pattern beside the version it is declared to date from, and the loader refuses
+# a lexicon the lock no longer describes, so run `python tools/lock_lexicon.py`
+# after editing a pattern.
 #
 # Changing this file changes every downstream count. Bump `version` and record
 # what moved.

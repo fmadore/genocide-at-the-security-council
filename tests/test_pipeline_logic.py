@@ -166,7 +166,7 @@ class TestLexiconCounting:
         # of being added on top of the parent that already counts its span, so
         # the roll-up sums the summable members. test_lexicon.py pins the cases
         # where that changes the number.
-        legal = lexicon.summable([t for t in lex.active if t.register == "legal"])
+        legal = lexicon.summable([t for t in lex.active if t.register == "legal"], lex.terms)
         expected = sum(counts[f"n_{t.name}"].iloc[0] for t in legal)
         assert counts["n_register_legal"].iloc[0] == expected
 

@@ -251,8 +251,9 @@ def build_note(
             "",
             "Occurrences count spans, so a term declared nested inside another (for",
             "example `mass_atrocity` inside `atrocity`) is not added on top of the parent",
-            "that already counts it, here or in the corpus total. A register's occurrences",
-            "can therefore fall below the sum of its terms in the table above.",
+            "that already counts it. A register's occurrences can therefore fall below the",
+            "sum of its terms in the table above. The `n_lexicon_total` column of",
+            "`speeches_flagged.parquet` is summed under the same rule.",
             "",
             "| Register | Speeches | Occurrences |",
             "|---|---:|---:|",
@@ -338,6 +339,10 @@ def run(sample_size: int, seed: int) -> None:
             audit.NEGATIVE: AUDIT_NEGATIVE,
         },
         referent_path=AUDIT_REFERENTS,
+        # Candidates are regenerated at the current lexicon version, so a coded
+        # row keeps the version it was coded at: what decides is whether its
+        # term still enumerates the same occurrences, not the version number.
+        compatible=lex.compatible,
     )
     coded = review.loc[review["coder"].astype("string").str.len().gt(0)]
     annotated = len(coded.drop_duplicates(["occurrence_id", "coder"]))

@@ -364,13 +364,10 @@ def refuse_stale_lexicon(
                 "that matches this lexicon",
             ],
         )
-    stale = sorted(
-        {
-            str(row.get("lexicon_version", ""))
-            for row in rows
-            if not lex.compatible(TERM, str(row.get("lexicon_version", "")))
-        }
-    )
+    # A run holds hundreds of thousands of rows and a handful of distinct
+    # versions; the question is about the version, so ask it once per version.
+    recorded_rows = {str(row.get("lexicon_version", "")) for row in rows}
+    stale = sorted(version for version in recorded_rows if not lex.compatible(TERM, version))
     if stale:
         console.fail(
             f"some rows of {what} were written against an incompatible lexicon",

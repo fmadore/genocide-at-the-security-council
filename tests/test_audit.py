@@ -275,6 +275,55 @@ def test_incompatible_lexicon_version_is_refused() -> None:
         audit.merge(candidates(), labels)
 
 
+def at_lexicon_version(version: int) -> pd.DataFrame:
+    """Candidates as 03 and 13 regenerate them: at the current lexicon version.
+
+    The annotations were coded earlier, against version 2, and keep saying so.
+    """
+    return candidates().assign(lexicon_version=version)
+
+
+def test_a_bump_that_left_the_annotated_term_alone_still_merges() -> None:
+    """Both scripts regenerate their candidates at the current version, so under
+    strict equality a bump alone would refuse every coded row. What decides is
+    whether the term still enumerates the same occurrences, which is what
+    `Lexicon.compatible` answers."""
+    review = audit.merge(
+        at_lexicon_version(3),
+        annotations(annotation("occurrence-1")),
+        compatible=lambda term, version: True,
+    )
+    coded = review.loc[review["occurrence_id"] == "occurrence-1", "coder"]
+    assert coded.tolist() == ["coder-a"]
+
+
+def test_an_annotation_whose_term_has_moved_since_is_refused() -> None:
+    """Editing `genocide`'s pattern is what the rule is there to catch: the row
+    annotates occurrences the corpus no longer has."""
+    with pytest.raises(ValueError, match=r"occurrence-1.+'genocide'"):
+        audit.merge(
+            at_lexicon_version(3),
+            annotations(annotation("occurrence-1")),
+            compatible=lambda term, version: False,
+        )
+
+
+def test_the_strict_version_rule_stands_when_no_compatibility_is_given() -> None:
+    with pytest.raises(ValueError, match="lexicon is incompatible"):
+        audit.merge(at_lexicon_version(3), annotations(annotation("occurrence-1")))
+
+
+def test_an_unknown_occurrence_is_reported_as_unknown_not_as_incompatible() -> None:
+    """Order matters in the message a coder reads: a mistyped ID is a typo, not
+    a stale lexicon."""
+    with pytest.raises(ValueError, match="unknown occurrence IDs"):
+        audit.merge(
+            at_lexicon_version(3),
+            annotations(annotation("not-in-candidates")),
+            compatible=lambda term, version: False,
+        )
+
+
 def test_unknown_controlled_label_is_refused() -> None:
     with pytest.raises(ValueError, match="Unknown stance label"):
         audit.merge(candidates(), annotations(annotation("occurrence-1", stance="agrees")))

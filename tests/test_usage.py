@@ -30,9 +30,11 @@ ROOT = Path(__file__).resolve().parents[1]
 def _step(name: str, module_name: str):
     """Load a numbered script as a module. A script cannot be named `15_…`.
 
-    Registered in `sys.modules` before it is executed because the step defines
-    frozen dataclasses, and `dataclasses` resolves a field's annotations through
-    `sys.modules[cls.__module__]`.
+    Registered in `sys.modules` before it is executed, and removed again if it
+    raises, for uniformity with the other step loaders in this suite: a step
+    that grows a frozen dataclass needs it — `dataclasses` resolves a field's
+    annotations through `sys.modules[cls.__module__]` — and one that does not
+    loses nothing by it.
     """
     spec = importlib.util.spec_from_file_location(module_name, ROOT / "scripts" / name)
     assert spec and spec.loader

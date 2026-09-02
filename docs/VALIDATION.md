@@ -235,11 +235,15 @@ against:
   helper's docstring.
 
 Every term carries `pattern_since: 2`, the version in which its pattern last changed.
-`scripts/15_usage.py` reads a committed run's `lexicon_version` against that field rather
-than against the lexicon's version, so the gold sample and the two model runs registered in
-§7, made against v2, remain valid: `genocide` enumerates exactly the occurrences it did
-(its pattern `\bgenocid\w*` and literal `genocid` are untouched), and its row in the table
-above must not move.
+`scripts/15_usage.py` and the annotation merge in `lib/audit.py` read a committed run's or a
+coded row's `lexicon_version` against that field rather than against the lexicon's version,
+so the gold sample and the two model runs registered in §7, made against v2, remain valid:
+`genocide` enumerates exactly the occurrences it did (its pattern `\bgenocid\w*` and
+literal `genocid` are untouched), and its row in the table above must not move. The claim
+is held honest by `config/lexicon.lock.json`, which records each pattern's SHA-256 beside
+its `pattern_since`: `lexicon.load()` refuses a pattern edited without its bump, so the
+forgetting fails at 03 and in CI rather than validating artefacts cut from a regex the file
+no longer holds. `python tools/lock_lexicon.py` rewrites the lock.
 
 **Open check: re-count under v3.** The size of the first gap is unmeasured until
 `03_lexicon.py` runs on the corpus. Record the v3 counts for the seven terms in the v2 table
