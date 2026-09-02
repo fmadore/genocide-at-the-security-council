@@ -1,11 +1,11 @@
-"""Two numbered scripts, run as the pipeline runs them, over a synthetic corpus.
+"""Three numbered scripts, run as the pipeline runs them, over a synthetic corpus.
 
 The artefact contract at the export seam is value-blind: it says a field is a
 float, not that the float is the one the arithmetic used to produce. Nothing
 else executed a numbered script end to end (review of 1 September 2026, §6.5),
 so a change to a rate, an interval or a change-point p-value that kept its
-shape would ship. This test builds a small deterministic corpus, runs 04 and
-08 as subprocesses — the way `make payload` runs them, with the data, notes
+shape would ship. This test builds a small deterministic corpus, runs 04, 08
+and 17 as subprocesses — the way `make payload` runs them, with the data, notes
 and web roots pointed at a temporary tree — and compares the analytical
 values they write against golden JSON committed beside the test.
 
@@ -14,9 +14,11 @@ to move numbers:
 
     UPDATE_GOLDEN=1 python -m pytest tests/test_end_to_end.py
 
-Only 04 and 08: 11 and 12 assert the codebook's corpus totals and refuse a
+Only 04, 08 and 17: 11 and 12 assert the codebook's corpus totals and refuse a
 synthetic one, and 05 needs a corpus large enough for anything to clear the
-G² floor.
+G² floor. 17 runs with `--no-model`, because the committed runs annotate the
+real corpus's occurrence ids and would join none of a synthetic one — which is
+a refusal the step makes on purpose and not something to work around here.
 """
 
 from __future__ import annotations
@@ -104,7 +106,7 @@ def run_step(script: str, roots: dict[str, str], *args: str) -> None:
     assert completed.returncode == 0, f"{script} failed:\n{completed.stdout}\n{completed.stderr}"
 
 
-def analytical(series_dir: Path, kwic_dir: Path) -> dict[str, object]:
+def analytical(series_dir: Path, kwic_dir: Path, frames_dir: Path) -> dict[str, object]:
     """The values worth holding still: rates, intervals, tests, lines — never meta."""
     annual = json.loads((series_dir / "annual.json").read_text(encoding="utf-8"))
     change = json.loads((series_dir / "change_points.json").read_text(encoding="utf-8"))
@@ -112,6 +114,7 @@ def analytical(series_dir: Path, kwic_dir: Path) -> dict[str, object]:
     genocide = annual["terms"]["genocide"]
     index = json.loads((kwic_dir / "index.json").read_text(encoding="utf-8"))
     lines = json.loads((kwic_dir / "genocide.json").read_text(encoding="utf-8"))["lines"]
+    node_frames = json.loads((frames_dir / "frames.json").read_text(encoding="utf-8"))
     return {
         "annual": {
             "periods": annual["periods"],
@@ -161,11 +164,28 @@ def analytical(series_dir: Path, kwic_dir: Path) -> dict[str, object]:
                 for line in lines[:5]
             ],
         },
+        # The composition, its intervals and where its shares break. The
+        # synthetic speeches say "genocide against the Tutsi" and sometimes
+        # "war crimes", so the codebook's precedence is exercised as well as its
+        # arithmetic: every occurrence matches `directed_against`, some of them
+        # match `atrocity_triad` too, and the earlier frame is the one that must
+        # win.
+        "frames": {
+            "occurrences": node_frames["occurrences"],
+            "totals": node_frames["totals"],
+            "morphology": node_frames["morphology"],
+            "by_year": node_frames["by_year"],
+            "slices": node_frames["slices"],
+            "change": {
+                "tested": node_frames["change"]["tested"],
+                "per_test_alpha": node_frames["change"]["per_test_alpha"],
+            },
+        },
     }
 
 
 @pytest.mark.slow
-def test_04_and_08_reproduce_the_golden_values(tmp_path: Path) -> None:
+def test_04_08_and_17_reproduce_the_golden_values(tmp_path: Path) -> None:
     roots = {
         "GENOCIDE_DATA_ROOT": str(tmp_path / "data"),
         "GENOCIDE_NOTES_ROOT": str(tmp_path / "notes"),
@@ -177,8 +197,9 @@ def test_04_and_08_reproduce_the_golden_values(tmp_path: Path) -> None:
 
     run_step("04_series.py", roots, "--trials", "200")
     run_step("08_kwic.py", roots, "--terms", "genocide,war_crimes")
+    run_step("17_frames.py", roots, "--trials", "200", "--no-model")
 
-    found = analytical(derived / "series", derived / "kwic")
+    found = analytical(derived / "series", derived / "kwic", derived / "frames")
     golden = GOLDEN / "end_to_end_04_08.json"
     if os.environ.get("UPDATE_GOLDEN"):
         golden.write_text(json.dumps(found, indent=1, sort_keys=True) + "\n", encoding="utf-8")

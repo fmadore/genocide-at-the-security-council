@@ -8,7 +8,11 @@ question behind it is not lexical but pragmatic: the same word does nomination,
 legal qualification, hedging, distancing, denial and prevention, and the counts
 already published cannot tell those apart.
 
-This module holds the inventory and the classifier. It is a **codebook**, not a
+This module holds the inventory, the classifier and the arithmetic that counts
+what they produce; `17_frames.py` orchestrates, reconciles against 03's totals
+and writes. That is the division `lib.keyness` and `12_speaker_keyness.py`
+already make, and for the same reason: a step's numbers should be testable on
+constructed rows by a machine with no corpus. It is a **codebook**, not a
 list of regexes: every frame carries a name, a gloss saying which discursive act
 it evidences, the pattern that finds it, and an example taken verbatim from the
 concordance with the line it was taken from, so that a reader can go and check
@@ -68,9 +72,14 @@ distinct form with its count so that a spelling nobody expected is visible.
 from __future__ import annotations
 
 import re
+from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Final
 
+import pandas as pd
+
+from . import series
 from . import text as text_lib
 
 #: Context characters kept either side of the node. Wider than any pattern
@@ -539,3 +548,220 @@ def codebook_rows() -> list[dict[str, object]]:
         }
         for position, frame in enumerate(CODEBOOK, start=1)
     ]
+
+
+# --- Counting them --------------------------------------------------------
+#
+# The arithmetic lives here rather than in `17_frames.py` for the reason
+# `lib.keyness` exists beside `12_speaker_keyness.py`: a step should orchestrate
+# and report, and the numbers it reports should be testable on constructed rows
+# by a machine with no corpus. Every function below takes an occurrence frame —
+# one row per match, carrying the `frame` column this module assigned — and
+# returns plain JSON.
+
+
+def share_block(
+    counts: Mapping[str, int],
+    total: int,
+    minimum: int,
+    matched: Mapping[str, int] | None = None,
+) -> list[dict[str, object]]:
+    """Every frame's count and share of one slice, zero-filled and in order.
+
+    All the frames and the residue are written for every slice. An absent key
+    would make "this speaker group never hedged" indistinguishable from "this
+    speaker group's hedges were not counted", and no consumer can tell those
+    apart from JSON.
+
+    Below `minimum` occurrences the counts stay and the shares are null, on the
+    rule `11_countries.py` withholds a rate. The interval is the honest thing to
+    publish at n = 12, and the interval at n = 12 is most of the range; a reader
+    offered 8.3% will use it.
+
+    `matched` is the count before precedence, and is written only where it was
+    computed — the corpus total. Per slice it would be a second table nobody has
+    asked a question of.
+    """
+    observed = [counts.get(name, 0) for name in FRAME_NAMES]
+    enough = total >= minimum and total > 0
+    low, high = series.wilson_interval(observed, [total] * len(observed))
+    rows: list[dict[str, object]] = []
+    for position, (name, count) in enumerate(zip(FRAME_NAMES, observed, strict=True)):
+        row: dict[str, object] = {
+            "frame": name,
+            "occurrences": int(count),
+            "share": count / total if enough else None,
+            "share_low": float(low[position]) if enough else None,
+            "share_high": float(high[position]) if enough else None,
+        }
+        if matched is not None:
+            row["matched"] = int(matched.get(name, 0))
+        rows.append(row)
+    return rows
+
+
+def slice_rows(
+    occurrences: pd.DataFrame, by: pd.Series, minimum: int
+) -> list[dict[str, object]]:
+    """One block per member of a categorical split, largest member first.
+
+    Sorted by size rather than by name, because the reader of a facet control
+    wants the slice that carries the evidence at the top; ties break on the name,
+    so the order is a function of the data and not of the group iteration.
+    """
+    rows = []
+    for member, group in occurrences.groupby(by, sort=False):
+        total = len(group)
+        rows.append(
+            {
+                "member": str(member),
+                "occurrences": total,
+                "sufficient": total >= minimum,
+                "frames": share_block(Counter(group["frame"]), total, minimum),
+            }
+        )
+    return sorted(rows, key=lambda row: (-int(row["occurrences"]), str(row["member"])))
+
+
+def annual_block(occurrences: pd.DataFrame, minimum: int) -> dict[str, object]:
+    """The frame composition year by year, as parallel arrays.
+
+    Parallel arrays rather than a row per (year, frame): eighteen categories over
+    thirty-two years is 576 objects of five keys, and the consumer draws one
+    frame's line at a time.
+    """
+    years = sorted(int(year) for year in occurrences["year"].unique())
+    held = [int((occurrences["year"] == year).sum()) for year in years]
+    enough = [total >= minimum for total in held]
+    out: dict[str, object] = {}
+    for name in FRAME_NAMES:
+        counts = [
+            int(((occurrences["year"] == year) & (occurrences["frame"] == name)).sum())
+            for year in years
+        ]
+        low, high = series.wilson_interval(counts, held)
+        out[name] = {
+            "occurrences": counts,
+            "share": [
+                count / total if ok else None
+                for count, total, ok in zip(counts, held, enough, strict=True)
+            ],
+            "share_low": [
+                float(low[position]) if enough[position] else None
+                for position in range(len(years))
+            ],
+            "share_high": [
+                float(high[position]) if enough[position] else None
+                for position in range(len(years))
+            ],
+        }
+    return {"years": years, "occurrences": held, "minimum_occurrences": minimum, "frames": out}
+
+
+def period_label(year: int, first: int, span: int) -> str:
+    """The `span`-year block a year falls in, counted from `first`: `1992-1999`."""
+    start = first + ((year - first) // span) * span
+    return f"{start}-{start + span - 1}"
+
+
+def share_change_points(
+    occurrences: pd.DataFrame,
+    annual: Mapping[str, object],
+    *,
+    minimum: int,
+    trials: int,
+    seed: int,
+    alpha: float,
+) -> tuple[list[dict[str, object]], float]:
+    """The strongest single change in each large frame's share, under a block null.
+
+    The statistic is the two-rate likelihood partition `04_series.py` runs on the
+    speech rate, with the occurrence as the trial and the *meeting* as the
+    exchangeable unit: a debate that used the word two hundred times counts as
+    one draw. A change here says the word's work moved, not that the Council
+    said it more often, which is the reading the frequency series cannot supply.
+
+    Only frames holding at least `minimum` occurrences are tested. A share
+    averaging under one per cent has a handful of occurrences in most years, and
+    a two-rate partition of that series describes which years happened to hold
+    two. Returns the results and the Bonferroni-corrected level they were judged
+    at, so a caller does not recompute it in order to print it.
+    """
+    years = list(annual["years"])
+    position = {year: index for index, year in enumerate(years)}
+    held = list(annual["occurrences"])
+    tested = [
+        name for name in FRAME_NAMES if sum(annual["frames"][name]["occurrences"]) >= minimum
+    ]
+    adjusted = alpha / max(1, len(tested))
+    year_of = occurrences["year"].astype("int64")
+
+    results = []
+    for offset, name in enumerate(tested):
+        marked = occurrences.assign(hit=(occurrences["frame"] == name).astype("int64"))
+        blocks = series.meeting_blocks(marked, year_of, "hit", None)
+        blocks["period"] = blocks["period"].map(position)
+        results.append(
+            {
+                "frame": name,
+                "occurrences": sum(annual["frames"][name]["occurrences"]),
+                "result": series.rate_change_point(
+                    annual["frames"][name]["occurrences"],
+                    held,
+                    years,
+                    family="binomial",
+                    trials=trials,
+                    alpha=adjusted,
+                    seed=seed + offset,
+                    blocks=blocks,
+                ),
+            }
+        )
+    return results, adjusted
+
+
+def crosstab(
+    occurrences: pd.DataFrame, labelled: pd.DataFrame, field: str, *, multi: bool
+) -> dict[str, object]:
+    """Frame by model label, over the occurrences both instruments reached.
+
+    `multi` splits a pipe-joined field, as `lib.usage` documents `function` to
+    be, so an occurrence carrying two functions contributes to two cells and the
+    row totals exceed the occurrence count. `row_total` says so, because a reader
+    who sums a row and gets more than the frame's size is entitled to know why
+    before deciding the table is broken.
+
+    The counts come back as a list of `{label, occurrences}` rather than as an
+    object keyed on the labels: the vocabulary is a model's, not this
+    repository's, and a contract recording today's key set would call a prompt
+    revision a breaking change.
+    """
+    joined = occurrences.merge(
+        labelled[["occurrence_id", field]], on="occurrence_id", how="inner"
+    )
+    cells: dict[str, Counter] = {name: Counter() for name in FRAME_NAMES}
+    for frame_name, value in zip(joined["frame"], joined[field], strict=True):
+        text = "" if pd.isna(value) else str(value).strip()
+        labels = [part for part in text.split("|") if part] if multi else [text or "unlabelled"]
+        cells[frame_name].update(labels)
+
+    vocabulary = sorted({label for counter in cells.values() for label in counter})
+    rows = []
+    for name in FRAME_NAMES:
+        counter = cells[name]
+        total = int((joined["frame"] == name).sum())
+        modal = counter.most_common(1)
+        rows.append(
+            {
+                "frame": name,
+                "occurrences": total,
+                "row_total": sum(counter.values()),
+                "modal_label": modal[0][0] if modal else None,
+                "modal_share": (modal[0][1] / total) if modal and total else None,
+                "counts": [
+                    {"label": label, "occurrences": counter.get(label, 0)}
+                    for label in vocabulary
+                ],
+            }
+        )
+    return {"field": field, "multi_label": multi, "labels": vocabulary, "rows": rows}

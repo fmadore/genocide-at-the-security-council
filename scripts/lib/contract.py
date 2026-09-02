@@ -58,6 +58,11 @@ TRACKED: list[str] = [
     # anything about the other's.
     "usage/usage.json",
     "usage/occurrences.json",
+    # Both of 17's, on the same argument: `frames.json` is hand-built blocks and
+    # `occurrences.json` is a flat row set, and neither shape says anything
+    # about the other's.
+    "frames/frames.json",
+    "frames/occurrences.json",
     "kwic/index.json",
     "kwic/genocide.json",
     "meetings.json",

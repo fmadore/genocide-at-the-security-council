@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 
+import pandas as pd
 import pytest
 from lib import node_frames
 
@@ -213,3 +214,248 @@ class TestMorphology:
     def test_every_category_is_declared(self):
         for form in ("genocide", "genocidal", "genocidaires", "genocida"):
             assert node_frames.morphology(form) in node_frames.FORMS
+
+
+def occurrences(rows: list[dict]) -> pd.DataFrame:
+    """The frame `17_frames.py` hands the aggregation, minus the corpus.
+
+    One row per match, with the columns the step writes: the classification, the
+    year it fell in, the meeting it was spoken in, and the speaker group.
+    """
+    return pd.DataFrame(rows)
+
+
+class TestShareBlock:
+    def test_every_frame_is_written_even_at_zero(self):
+        rows = node_frames.share_block({"prevention": 3}, 10, minimum=1)
+        assert [row["frame"] for row in rows] == list(node_frames.FRAME_NAMES)
+        assert all("share" in row for row in rows)
+
+    def test_the_shares_are_a_share_of_the_slice(self):
+        rows = {
+            row["frame"]: row
+            for row in node_frames.share_block({"prevention": 3, "unframed": 7}, 10, minimum=1)
+        }
+        assert rows["prevention"]["share"] == pytest.approx(0.3)
+        assert rows["unframed"]["share"] == pytest.approx(0.7)
+
+    def test_the_interval_brackets_the_share_and_is_wilson(self):
+        row = next(
+            row
+            for row in node_frames.share_block({"prevention": 3}, 10, minimum=1)
+            if row["frame"] == "prevention"
+        )
+        assert row["share_low"] < row["share"] < row["share_high"]
+        # Wilson at 3/10: [0.108, 0.603]. Wald would run to 0.584 and, at the
+        # zero cell below, below nothing at all.
+        assert row["share_low"] == pytest.approx(0.1078, abs=5e-4)
+        assert row["share_high"] == pytest.approx(0.6032, abs=5e-4)
+
+    def test_a_zero_cell_keeps_a_bounded_interval(self):
+        row = next(
+            row
+            for row in node_frames.share_block({"prevention": 3}, 10, minimum=1)
+            if row["frame"] == "distancing"
+        )
+        assert row["occurrences"] == 0
+        assert row["share_low"] == 0.0
+        assert row["share_high"] > 0
+
+    def test_below_the_minimum_the_counts_stay_and_the_shares_go(self):
+        rows = node_frames.share_block({"prevention": 3}, 10, minimum=40)
+        row = next(row for row in rows if row["frame"] == "prevention")
+        assert row["occurrences"] == 3
+        assert row["share"] is None and row["share_low"] is None and row["share_high"] is None
+
+    def test_matched_is_written_only_when_it_was_computed(self):
+        assert "matched" not in node_frames.share_block({"prevention": 1}, 1, minimum=1)[0]
+        rows = node_frames.share_block(
+            {"prevention": 1}, 1, minimum=1, matched={"prevention": 4}
+        )
+        assert next(row for row in rows if row["frame"] == "prevention")["matched"] == 4
+
+
+class TestSlicesAndYears:
+    @pytest.fixture
+    def frame(self):
+        return occurrences(
+            [
+                {"frame": "prevention", "year": 2014, "meeting_symbol": "S/PV.1", "group": "P5"},
+                {"frame": "prevention", "year": 2014, "meeting_symbol": "S/PV.1", "group": "P5"},
+                {"frame": "unframed", "year": 2014, "meeting_symbol": "S/PV.1", "group": "E10"},
+                {"frame": "prevention", "year": 2015, "meeting_symbol": "S/PV.2", "group": "E10"},
+            ]
+        )
+
+    def test_slices_are_largest_first_and_ties_break_on_the_name(self, frame):
+        rows = node_frames.slice_rows(frame, frame["group"], minimum=1)
+        assert [(row["member"], row["occurrences"]) for row in rows] == [("E10", 2), ("P5", 2)]
+
+    def test_a_thin_slice_is_marked_insufficient_but_still_counted(self, frame):
+        rows = node_frames.slice_rows(frame, frame["group"], minimum=40)
+        assert all(row["sufficient"] is False for row in rows)
+        assert sum(row["occurrences"] for row in rows) == len(frame)
+
+    def test_the_annual_block_covers_every_year_and_every_frame(self, frame):
+        annual = node_frames.annual_block(frame, minimum=1)
+        assert annual["years"] == [2014, 2015]
+        assert annual["occurrences"] == [3, 1]
+        assert set(annual["frames"]) == set(node_frames.FRAME_NAMES)
+        assert annual["frames"]["prevention"]["occurrences"] == [2, 1]
+        assert annual["frames"]["prevention"]["share"] == pytest.approx([2 / 3, 1.0])
+
+    def test_a_year_under_the_minimum_is_withheld_not_dropped(self, frame):
+        annual = node_frames.annual_block(frame, minimum=3)
+        assert annual["years"] == [2014, 2015]
+        assert annual["frames"]["prevention"]["occurrences"] == [2, 1]
+        assert annual["frames"]["prevention"]["share"] == [pytest.approx(2 / 3), None]
+
+
+class TestPeriodLabel:
+    @pytest.mark.parametrize(
+        ("year", "expected"),
+        [
+            (1992, "1992-1999"),
+            (1999, "1992-1999"),
+            (2000, "2000-2007"),
+            (2023, "2016-2023"),
+        ],
+    )
+    def test_a_year_falls_in_its_block(self, year, expected):
+        assert node_frames.period_label(year, 1992, 8) == expected
+
+
+class TestShareChangePoints:
+    def _corpus(self, early: int, late: int) -> pd.DataFrame:
+        """Twelve years of one meeting each, `early` then `late` hits of ten."""
+        rows = []
+        for offset in range(12):
+            hits = early if offset < 6 else late
+            for position in range(10):
+                rows.append(
+                    {
+                        "frame": "prevention" if position < hits else "unframed",
+                        "year": 1992 + offset,
+                        "meeting_symbol": f"S/PV.{offset}",
+                    }
+                )
+        return pd.DataFrame(rows)
+
+    def test_only_frames_above_the_minimum_are_tested(self):
+        corpus = self._corpus(2, 8)
+        tested, _ = node_frames.share_change_points(
+            corpus,
+            node_frames.annual_block(corpus, minimum=1),
+            minimum=1_000,
+            trials=20,
+            seed=1,
+            alpha=0.05,
+        )
+        assert tested == []
+
+    def test_the_level_is_corrected_across_the_frames_tested(self):
+        corpus = self._corpus(2, 8)
+        tested, adjusted = node_frames.share_change_points(
+            corpus,
+            node_frames.annual_block(corpus, minimum=1),
+            minimum=10,
+            trials=20,
+            seed=1,
+            alpha=0.05,
+        )
+        assert {row["frame"] for row in tested} == {"prevention", "unframed"}
+        assert adjusted == pytest.approx(0.025)
+
+    def test_a_real_step_is_found_where_it_was_put(self):
+        corpus = self._corpus(2, 8)
+        tested, _ = node_frames.share_change_points(
+            corpus,
+            node_frames.annual_block(corpus, minimum=1),
+            minimum=10,
+            trials=200,
+            seed=20_260_902,
+            alpha=0.05,
+        )
+        found = next(row for row in tested if row["frame"] == "prevention")["result"]
+        assert found["label"] == "1998"
+        assert found["before"] == pytest.approx(0.2)
+        assert found["after"] == pytest.approx(0.8)
+        assert found["null"] == "meeting_block_permutation"
+
+    def test_the_meeting_is_the_exchangeable_unit(self):
+        """Ten occurrences in one debate are one draw, not ten.
+
+        What is asserted is the arrangement, not a number: the null that decides
+        `accepted` is the one that moves whole meetings, there is one block per
+        meeting rather than one per occurrence, and the older independent-draw
+        p-value is kept beside it so the gap between the two can be read. The
+        size of that gap on real data is what `04_series.py` reports and
+        `docs/VALIDATION.md` records; on twelve clean meetings both nulls sit on
+        the floor of what 200 permutations can resolve.
+        """
+        corpus = self._corpus(2, 8)
+        tested, _ = node_frames.share_change_points(
+            corpus,
+            node_frames.annual_block(corpus, minimum=1),
+            minimum=10,
+            trials=200,
+            seed=20_260_902,
+            alpha=0.05,
+        )
+        found = next(row for row in tested if row["frame"] == "prevention")["result"]
+        assert found["blocks"] == 12
+        assert found["null"] == "meeting_block_permutation"
+        assert found["p_value_independent"] is not None
+
+
+class TestCrosstab:
+    @pytest.fixture
+    def frame(self):
+        return occurrences(
+            [
+                {"frame": "commemoration", "occurrence_id": "a"},
+                {"frame": "commemoration", "occurrence_id": "b"},
+                {"frame": "distancing", "occurrence_id": "c"},
+            ]
+        )
+
+    def test_a_single_label_field_sums_to_the_frame(self, frame):
+        labelled = pd.DataFrame(
+            [
+                {"occurrence_id": "a", "stance": "asserts"},
+                {"occurrence_id": "b", "stance": "asserts"},
+                {"occurrence_id": "c", "stance": "rejects_or_denies"},
+            ]
+        )
+        table = node_frames.crosstab(frame, labelled, "stance", multi=False)
+        row = next(r for r in table["rows"] if r["frame"] == "commemoration")
+        assert row["occurrences"] == row["row_total"] == 2
+        assert row["modal_label"] == "asserts"
+        assert row["modal_share"] == pytest.approx(1.0)
+
+    def test_a_multi_label_field_can_exceed_the_frame_and_says_so(self, frame):
+        labelled = pd.DataFrame(
+            [
+                {"occurrence_id": "a", "function": "commemoration|accountability"},
+                {"occurrence_id": "b", "function": "commemoration"},
+                {"occurrence_id": "c", "function": "accusation_or_qualification"},
+            ]
+        )
+        table = node_frames.crosstab(frame, labelled, "function", multi=True)
+        row = next(r for r in table["rows"] if r["frame"] == "commemoration")
+        assert row["occurrences"] == 2
+        assert row["row_total"] == 3
+
+    def test_the_label_vocabulary_is_a_list_not_a_key_set(self, frame):
+        labelled = pd.DataFrame([{"occurrence_id": "a", "stance": "asserts"}])
+        table = node_frames.crosstab(frame, labelled, "stance", multi=False)
+        row = table["rows"][0]
+        assert isinstance(row["counts"], list)
+        assert {"label", "occurrences"} == set(row["counts"][0])
+
+    def test_an_occurrence_the_run_never_reached_is_left_out(self, frame):
+        labelled = pd.DataFrame([{"occurrence_id": "a", "stance": "asserts"}])
+        table = node_frames.crosstab(frame, labelled, "stance", multi=False)
+        row = next(r for r in table["rows"] if r["frame"] == "distancing")
+        assert row["occurrences"] == 0
+        assert row["modal_label"] is None

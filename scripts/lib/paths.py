@@ -100,6 +100,11 @@ COUNTRIES = DERIVED / "countries"  # 11
 # usage view. Everything in it is derived from model_annotations/ plus the
 # flagged parquet, so it rebuilds anywhere those two exist.
 USAGE = DERIVED / "usage"          # 15
+# 17 files every occurrence of the node under the construction it appears in.
+# Beside kwic/ rather than inside it: 08's directory is one file per term and is
+# read a term at a time, while this is one term cut every way at once, and the
+# export copies a directory wholesale.
+FRAMES = DERIVED / "frames"        # 17
 MANIFESTS = DERIVED / "manifests"  # machine-readable provenance, all stages
 
 # Harvard Dataverse
