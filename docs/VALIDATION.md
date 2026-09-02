@@ -13,7 +13,13 @@ referent list. Amended 30 August 2026: the first two model runs registered in §
 the two counting corrections it carries and the re-count it still owes. Amended 2 September
 2026: the rate change-point test's meeting-block null and the Wilson intervals registered
 below, with the re-calibration they owe; and, the same day, the lexical tables' floor,
-effect ranking and dispersion, with the re-run and the lemma layer they owe.
+effect ranking and dispersion, with the re-run and the lemma layer they owe. Amended 2
+September 2026, later: the corpus run landed with the merge (deploy run 59 ran every step
+through `15_usage.py` before `export_web.py` refused a hand-edited contract, corrected in
+PR #6; run 61, on the push that followed, published the result); the re-count, the
+re-calibration and the vocabulary
+counts below are read from that run's console output, and what a log cannot show is left
+open.
 
 ## How to inspect an original record
 
@@ -258,14 +264,37 @@ its `pattern_since`: `lexicon.load()` refuses a pattern edited without its bump,
 forgetting fails at 03 and in CI rather than validating artefacts cut from a regex the file
 no longer holds. `python tools/lock_lexicon.py` rewrites the lock.
 
-**Open check: re-count under v3.** The size of the first gap is unmeasured until
-`03_lexicon.py` runs on the corpus. Record the v3 counts for the seven terms in the v2 table
-beside the v2 ones and confirm `genocide` at 3,273 / 6,092. Record the `n_register_legal`
-delta as two components with opposite signs: the de-duplication removes exactly the v3
-`mass_atrocity` count (733 under v2, and v3 can only raise it), while the prefilter fix adds
-to `war_crimes`, `mass_atrocity` and `genocide_convention`, all three in the same register.
-The net delta therefore has no sign known in advance, and neither component is bounded by
-the other.
+**Re-count under v3, recorded 2 September 2026** from the console output of
+`03_lexicon.py` on the corpus (deploy run 59, the first run of the merged tree).
+`genocide` holds at 3,273 / 6,092. The seven terms of the v2 table, and the three others
+the prefilter fix reaches:
+
+| Term | v2 speeches / occurrences | v3 speeches / occurrences | Change |
+|---|---:|---:|---|
+| `genocide` | 3,273 / 6,092 | 3,273 / 6,092 | none |
+| `war_crimes` | 4,326 / 6,241 | 4,664 / 6,588 | +338 / +347, the prefilter |
+| `crimes_against_humanity` | 3,465 / 4,136 | 3,465 / 4,136 | none |
+| `atrocity` | 4,244 / 6,120 | 4,244 / 6,120 | none |
+| `mass_atrocity` | 573 / 733 | 624 / 784 | +51 / +51, the prefilter |
+| `responsibility_to_protect` | 1,144 / 1,577 | 1,353 / 1,795 | +209 / +218, the prefilter |
+| `icc` | 4,057 / 11,739 | 4,766 / 12,476 | +709 / +737, the prefilter |
+| `never_again` | 287 / 320 | 305 / 338 | +18 / +18, the prefilter |
+| `genocide_convention` | 92 / 110 | 135 / 153 | +43 / +43, the prefilter |
+| `ethnic_cleansing` | 1,229 / 1,705 | 1,229 / 1,705 | none |
+
+Every term whose v2 prefilter carried a space moved, and no other term did. Three of them
+(`war_crimes`, `never_again`, `genocide_convention`) now reproduce the reconnaissance
+figures of `docs/CORPUS.md` §8 exactly, which were measured over the raw texts with no
+prefilter at all: 03 reports 9 of its 14 documented terms reproduced, where the v2 table
+gives 6, and the five that still differ (`icc`, `atrocity`, `responsibility_to_protect`,
+`mass_atrocity`, `holocaust`) differ because v2 changed what those patterns mean, as
+recorded above. The `n_register_legal` delta nets −343 occurrences: −733 from no longer
+counting `mass_atrocity` on top of `atrocity` (the v3 count the de-duplication removes is
+784, which already holds the +51), +347 `war_crimes` and +43 `genocide_convention` from
+the prefilter. The `has_` unions (atrocity core, active lexicon) move with `war_crimes`,
+`mass_atrocity`, `responsibility_to_protect` and `icc`; 03 does not print them, and
+`docs/CORPUS.md` §8 marks the two it quotes as v2 readings until they are read from the
+artefact.
 
 ### The rate tests under a meeting-block null
 
@@ -291,12 +320,25 @@ On a synthetic 32-year corpus with two dense debates, the token-rate split read 
 under the independent null and 0.69 under the block null — the direction the review
 predicted, on data built to show it.
 
-**Open check: re-calibrate on the corpus.** The environment the change was written in could
-not reach Dataverse, so `04_series.py` and `11_countries.py` have not been re-run. Until
-they are, the three p-values in `README.md` (2017 and 2016 for `genocide`, 1996 for
-`atrocity_core`) are the independent-null ones; record the block p-values beside them here
-when the run lands, note which of the three survive the corrected threshold, and rewrite
-the README paragraph from the artefact rather than by hand.
+**Re-calibrated on the corpus, 2 September 2026** (`04_series.py` and `11_countries.py`,
+deploy run 59; 2,000 permutations, Bonferroni over the three planned tests):
+
+| Test | Best split | Later / earlier rate | p, independent null | p, meeting-block null | Accepted |
+|---|---|---:|---:|---:|---|
+| `genocide` speech rate | 2017 | 0.71 | 0.0005 | 0.0010 | yes |
+| `genocide` token rate | 2016 | 0.65 | 0.0005 | 0.0095 | yes |
+| `atrocity_core` speech rate | 1996 | 0.71 | 0.0005 | 0.0255 | no |
+
+The partitions and the ratios did not move, as the design says they cannot. The two
+`genocide` splits survive the corrected threshold (0.05 / 3); the 1996 `atrocity_core`
+split does not, and the site shows it as the best split rather than as a break. Under the
+independent null all three sat at the floor of 2,000 draws; the block null lifts them by
+two to fifty times, which is the size of the clustering the review predicted.
+`README.md`'s change-point paragraph is rewritten from this artefact. The exploratory
+raw-count breaks are unchanged in kind (`genocide` speeches 2013, occurrences 2014;
+`atrocity_core` speeches 1999 and 2013, speech rate 1996, 2013 and 2017) and stay
+labelled exploratory. 11 reports the same 133 speakers at or above 100 speeches over the
+whole corpus and the same 96-speech threshold for an informative zero.
 
 ### Lexical tables: a floor, an effect ranking, and dispersion
 
@@ -322,14 +364,25 @@ collocate or keyword row is:
   pair the nesting rule missed: `genocide`–`denial`, because `denial`'s pattern contains
   `genocid`. `war_crimes`–`crimes_against_humanity` is not caught, and should not be.
 
-**Open check: re-run 05 and 12, and 10 on the cluster.** The environment the change was
-written in could not reach Dataverse. When the run lands: record here how many tokens the
-tokeniser change moved (types ending on `'`, `’` or `-`, and tokens carrying a digit), the
-G²-floor cut-off's effect on each table's length, and the new top collocates against the
-old ones named in `README.md` and `docs/CORPUS.md` §8.5. The lemma layer
-(`data/interim/lemmas/lemmas.parquet`) is aligned token by token to the old pattern:
-`lemmas.tokens` will refuse it, and `10_lemmatise.py` must run before `05 --vocabulary
-lemma` is read again.
+**Re-run on the corpus, 2 September 2026, in part** (`05_lexical.py` and
+`12_speaker_keyness.py`, deploy run 59). What the console output records: the surface
+vocabulary is 58,904,180 tokens and 109,949 types over 106,302 speeches (25,184,530
+document–type entries); `genocide`'s windows hold 60,050 (±5), 94,790 (±8) and 171,194
+(±15) tokens over 6,092 occurrences, and every whole-corpus collocate table kept its 100
+rows, so the floor did not shorten one; the matched control is unchanged at 3,104 of 3,273
+(94.8%); the network draws 160 edges over 22 terms (32, 70, 126 and 88 in the four
+periods); speaker keyness publishes 126 of 133 candidates, withholds 7 and never pairs
+468.
+
+**Open check: what the log cannot show.** The number of tokens the tokeniser change moved
+(types ending on `'`, `’` or `-`, and tokens carrying a digit): the previous run's counts
+were never committed and its log is out of this environment's reach, so the comparison
+needs the pre-change commit re-run beside this one. The floor's effect on the shorter
+sliced and per-speaker tables. The new top collocates against the old order: read them
+from the published language page and set them beside the profile sentences in `README.md`
+and `docs/CORPUS.md` §8.5. And the lemma layer (`data/interim/lemmas/lemmas.parquet`),
+aligned token by token to the old pattern: `lemmas.tokens` will refuse it, and
+`10_lemmatise.py` must run on the cluster before `05 --vocabulary lemma` is read again.
 
 ### Documents versus meeting symbols
 

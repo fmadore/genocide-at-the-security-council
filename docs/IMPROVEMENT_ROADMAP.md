@@ -577,8 +577,8 @@ artifact.
 
 ### S1. Meeting-clustered uncertainty
 
-**Status: first slice complete on 2 September 2026; the corpus re-run is owed.** This is
-item 2 of the prioritised plan in [`REVIEW_2026-09-01.md`](REVIEW_2026-09-01.md) §8, and
+**Status: first slice complete on 2 September 2026, re-calibrated on the corpus the same
+day.** This is item 2 of the prioritised plan in [`REVIEW_2026-09-01.md`](REVIEW_2026-09-01.md) §8, and
 the review's §3.1, §3.3 and §5.2 are its specification.
 
 Add meeting-block bootstrap intervals and sensitivity to high-volume meetings to existing
@@ -613,10 +613,11 @@ accepted as such rather than reporting "no change detected".
 
 Acceptance: `python -m pytest` and `ruff check .` pass; `npm run lint`, `npm run check`,
 `npm test` and the Playwright journeys pass on the fixtures; the contract diff is additive
-only. **What is owed:** a run of `04_series.py` and `11_countries.py` against the corpus, so
-that the published p-values are re-calibrated and `README.md`'s change-point paragraph can
-be rewritten from the new artefact — the environment this slice was written in cannot reach
-Dataverse (see `VALIDATION.md`, “The rate tests under a meeting-block null”). Left for later slices of S1: meeting-block intervals on
+only. **Landed on the corpus** in deploy run 59 of 2 September 2026: the 2017 and 2016
+`genocide` splits hold under the block null (p = 0.0010 and 0.0095, against 0.0005 under
+the independent one), the 1996 `atrocity_core` split does not (p = 0.0255), and
+`README.md`'s change-point paragraph is rewritten from the artefact (`VALIDATION.md`, “The
+rate tests under a meeting-block null”). Left for later slices of S1: meeting-block intervals on
 the collocate and keyness tables (with S5), the funnel plot (S3), the mixed model (§3.6).
 
 ### S2. Actor-by-year prevalence matrix
@@ -642,8 +643,8 @@ network.
 
 ### S5. Lexical robustness and shift
 
-**Status: first slice complete on 2 September 2026; the corpus re-run is owed.** This is
-item 7 of the prioritised plan in [`REVIEW_2026-09-01.md`](REVIEW_2026-09-01.md) §8, and
+**Status: first slice complete on 2 September 2026, run on the corpus the same day; the
+re-ranked tables are still to be read.** This is item 7 of the prioritised plan in [`REVIEW_2026-09-01.md`](REVIEW_2026-09-01.md) §8, and
 the review's §3.2 is its specification.
 
 For every collocate add distinct meetings, speakers and years; meeting dispersion;
@@ -678,10 +679,13 @@ The first slice changes what a table row is and how a table is ordered:
    every suppressed pair with why.
 
 Acceptance: `python -m pytest` and `ruff check .` pass; `npm run lint`, `npm run check`,
-`npm test` and the Playwright journeys pass; the contract diff is additive only. **What is
-owed:** `05_lexical.py` and `12_speaker_keyness.py` re-run on the corpus — every table
-re-ranks, and `README.md`'s collocate paragraph names the top words from the old order —
-and `10_lemmatise.py` on the cluster before the lemma sensitivity reading is redrawn. Left
+`npm test` and the Playwright journeys pass; the contract diff is additive only. **Run on
+the corpus** in deploy run 59 of 2 September 2026, its console output recorded in
+`VALIDATION.md` (“Lexical tables: a floor, an effect ranking, and dispersion”). **Still
+owed:** the re-read of the re-ranked tables from the published language page against the
+words `README.md` and `docs/CORPUS.md` §8.5 name; the token count the tokeniser change
+moved, which needs the pre-change commit run beside this one; and `10_lemmatise.py` on the
+cluster before the lemma sensitivity reading is redrawn. Left
 for later slices: leave-one-meeting-out sensitivity, meeting-block intervals on the effect
 sizes (the 20-seed band is still control-draw variance only), the collocate-by-period
 matrix, and the dot plot that replaces the cloud (review item 8).
@@ -1086,3 +1090,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-09-02 | Item 15: legal milestones, the event rail, meeting labels | complete   | pending | `python -m pytest tests/test_series.py -q` and `series.load_events()` over the committed file (43 events, 6 kinds); `npm test` (`format.test.ts` new); `npm run check`; `npm run lint`; the journeys | Eight legal milestones join `config/events.csv` (Akayesu, Krstić, S/2005/60, *Bosnia v. Serbia*, the first al-Bashir warrant, S/PV.7155, Karadžić, Mladić), registered in `VALIDATION.md` as an open check on their dates. The chronology draws reference dates as ticks on a rail under the axis, on a second grid that shares the zoom, one series per kind with kind chips, in place of 35 full-height rules. `meetingLabel` prints a resumed sitting as the UN titles it (`S/PV.3745 (Resumption 1)`) in the concordance and the reader, and the Digital Library search uses the base symbol. |
 | 2026-09-02 | U10 referent path and page anchors (review §8, item 11) | complete   | pending | `npm test` (`concordance.test.ts` +3 for the facet, `figures.test.ts` new); `npm run check`; `npm run lint` (budget unchanged); the journeys | Referent facet in the concordance from the published run, marked model-derived; `/usage?actor=` link from the actor panel; figure ids and a Contents list on the four multi-figure pages; the term picker grouped by register; keyness pages cross-linked; the usage unit rules visible. |
 | 2026-09-02 | M4 amended: the DAG, the end-to-end test, lock sync, Dependabot (review §8, item 13) | complete   | pending | `make -n payload` (twelve steps in dependency order); `python -m pytest` (882 passed: `test_end_to_end.py` and `test_requirements.py` new); `ruff check .`; nothing written under `notes/`, `data/` or `web/static/data/` by the test | `Makefile` as the single DAG and `deploy.yml` calling `make payload`; `README.md` and `docs/CLUSTER.md` point at it. The end-to-end test runs 04 and 08 over a synthetic corpus with redirected roots against golden JSON, and found two withheld-rate formatting faults and the unconditional calendar sentence in 04's note. Lock-sync test and grouped Dependabot. **Owed:** the tagged release and the Zenodo deposit, which need the corpus and an account. |
+| 2026-09-02 | The corpus run: v3 re-count, block-null re-calibration, lexical counts recorded | complete   | pending | Deploy run 59 (`make payload` on the merged tree; every step through `15_usage.py` completed before `export_web.py` refused the hand-edited contract, corrected in PR #6), its console output read from the job log; deploy run 60 dispatched by hand, because PR #6 touched only `tests/`, which the workflow's path filter ignores, and cancelled by the push that started run 61, which published; `ruff check .`; claims read back against `VALIDATION.md`, `README.md` and `docs/CORPUS.md` §8 | `genocide` holds at 3,273 / 6,092; the six terms whose v2 prefilter carried a space grew (`war_crimes` +347 occurrences, `icc` +737, `responsibility_to_protect` +218, `mass_atrocity` +51, `genocide_convention` +43, `never_again` +18) and no other moved, three of them back to the reconnaissance figures; `n_register_legal` nets −343. The block null keeps the two `genocide` splits (p = 0.0010, 0.0095) and drops the 1996 `atrocity_core` one (0.0255); the README paragraph is rewritten from the artefact. Surface vocabulary 58,904,180 tokens, 109,949 types; every whole-corpus collocate table keeps 100 rows above the floor; speaker keyness publishes 126 of 133. **Open:** the re-read of the re-ranked tables from the site, the tokeniser delta (the previous run's counts were never committed), the two `has_` unions in CORPUS.md §8, the lemma layer. Two lessons: a deploy that fails after the pipeline still leaves its numbers in the job log, and a fix under `tests/` alone does not redeploy. |

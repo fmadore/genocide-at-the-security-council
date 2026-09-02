@@ -240,7 +240,11 @@ Lexicon v2 makes each pattern auditable with declared examples and literal candi
 filters, fixes singular/plural matching for `atrocity` and `mass atrocity`, and validates
 all 22 concordances against the annotation table. The generated counts supersede the
 earlier reconnaissance table; the differences are recorded in
-[`docs/VALIDATION.md`](docs/VALIDATION.md).
+[`docs/VALIDATION.md`](docs/VALIDATION.md). Lexicon v3 (1 September 2026) changes no
+pattern: it fixes the prefilter that dropped a phrase broken across a line and stops
+counting a nested term twice in its register. On the corpus that moved six terms — `war
+crimes` from 4,326 to 4,664 speeches, `ICC` from 4,057 to 4,766 — and left `genocide` at
+3,273 speeches and 6,092 occurrences; the re-count is in the same file.
 
 ### What the 2014 peak turns out to be
 
@@ -255,11 +259,13 @@ series are built by permuting whole meetings across years rather than treating e
 speech as an independent draw — one debate can hold two hundred occurrences — and the
 p-value under the older independent-speech null is published beside the block one, so the
 size of that clustering is a number on the page. The strongest partitions start in 2017 for
-genocide speech prevalence (later/earlier rate ratio 0.71), 2016 for its token rate (0.65),
-and 1996 for atrocity-core speech prevalence (0.71); **these are the partitions and ratios,
-which the null does not move, and their p-values were last computed under the independent
-null** — the re-run that re-calibrates them is recorded as owed in
-[`docs/VALIDATION.md`](docs/VALIDATION.md), under “The rate tests under a meeting-block null”. Rejecting a constant rate does not prove an
+genocide speech prevalence (later/earlier rate ratio 0.71; p = 0.0010 under the
+meeting-block null, 0.0005 under the independent one), 2016 for its token rate (0.65;
+p = 0.0095 against 0.0005), and 1996 for atrocity-core speech prevalence (0.71; p = 0.0255
+against 0.0005). The two genocide splits clear the corrected threshold; the 1996
+atrocity-core split no longer does, and the site marks it as the best split rather than as
+a break. The re-calibration is recorded in [`docs/VALIDATION.md`](docs/VALIDATION.md),
+under “The rate tests under a meeting-block null”. Rejecting a constant rate does not prove an
 abrupt historical break: smooth trends and Poisson overdispersion remain limitations. Every
 share of speeches on the site carries its Wilson 95% interval. The raw-count breaks and wild
 binary segmentation remain visible as explicitly exploratory descriptions.
@@ -281,7 +287,10 @@ again: `srebrenica`, `cleansing`, `aggression`.
 
 The vocabulary also turns over in time. In 1992–1999 the word sits among `aggression`,
 `punishment`, `acts`; by 2020–2023 among `denial`, `glorification`, `criminals`. It moves
-from qualifying an event to contesting a memory of one.
+from qualifying an event to contesting a memory of one. These profiles were read from
+tables ranked by G²; since 2 September 2026 the tables rank by logDice above the floor, and
+the words named here are to be re-read from the language page — an open check in
+[`docs/VALIDATION.md`](docs/VALIDATION.md).
 
 Keyness is measured with true target/control pairs matched on year × agenda item × speaker
 group — 3,104 of 3,273 targets found a partner (94.8%), and the 100 short strata are listed
