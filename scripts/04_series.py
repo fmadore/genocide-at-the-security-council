@@ -658,20 +658,34 @@ def calendar_lines(monthly: dict) -> list[str]:
     leaders = [row["agenda"][0]["item"] if row["agenda"] else None for row in top]
     shared = leaders[0] if len(set(leaders)) == 1 and leaders[0] else None
 
+    def shown(rate: float | None) -> str:
+        return "withheld" if rate is None else f"{rate:.2%}"
+
+    commemorative = [row for row in rows if row["month"] in ("April", "July")]
+    top_names = {row["month"] for row in top}
+    # Derived, not asserted: the review of 1 September 2026 found the sentence
+    # "the elevated months are not the commemorative ones" written
+    # unconditionally, so it would have stayed true in prose whatever the data
+    # said. It is now a reading of the ranking, and a withheld month is named
+    # as withheld rather than formatted as a number it does not have.
+    if any(row["month"] in top_names for row in commemorative):
+        heading = "**A commemorative month is among the elevated ones.** "
+    else:
+        heading = "**The elevated months are not the commemorative ones.** "
     verdict = [
-        "**The elevated months are not the commemorative ones.** "
-        + ", ".join(
-            f"{row['month']} is at {row['rate']:.2%}"
-            for row in rows
-            if row["month"] in ("April", "July")
-        )
+        heading
+        + ", ".join(f"{row['month']} is at {shown(row['rate'])}" for row in commemorative)
         + f", against a corpus rate of {corpus:.2%}. What stands out is "
-        + " and ".join(f"**{row['month']} at {row['rate']:.2%}**" for row in top)
-        + ", and the pattern survives dropping "
+        + " and ".join(f"**{row['month']} at {shown(row['rate'])}**" for row in top)
+        + ", and dropping "
         + " and ".join(str(y) for y in monthly["month_of_year"]["excluded_years"])
-        + " ("
-        + " and ".join(f"{row['without']:.2%}" for row in top)
-        + "), so it is not the largest years leaking into a monthly view.",
+        + " leaves "
+        + " and ".join(shown(row["without"]) for row in top)
+        + (
+            ", so it is not the largest years leaking into a monthly view."
+            if all(row["without"] is not None for row in top)
+            else "; with a month withheld, whether the pattern survives cannot be read here."
+        ),
         "",
     ]
     if shared:
@@ -707,7 +721,7 @@ def calendar_lines(monthly: dict) -> list[str]:
         "|---|---:|---:|---:|---:|---|",
         *[
             f"| {row['month']} | {row['held']:,} | {row['speeches']:,} | "
-            f"{row['rate']:.2%} | {row['without']:.2%} | "
+            f"{shown(row['rate'])} | {shown(row['without'])} | "
             + (
                 f"{row['agenda'][0]['item']} ({row['agenda'][0]['speeches']}, "
                 f"{row['agenda'][0]['share']:.0%})"

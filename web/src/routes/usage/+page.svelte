@@ -17,6 +17,7 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import DiffusionChart from '$lib/DiffusionChart.svelte';
 	import Figure from '$lib/Figure.svelte';
+	import Contents from '$lib/Contents.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import PageMeta from '$lib/PageMeta.svelte';
 	import UsageMatrix from '$lib/UsageMatrix.svelte';
@@ -560,6 +561,14 @@
 		{/if}
 	</section>
 
+	<Contents
+		figures={[
+			{ title: 'Which genocide each delegation means' },
+			{ title: 'When each delegation first said it' },
+			{ title: 'Who rejects the word' }
+		]}
+	/>
+
 	<Figure
 		title="Which genocide each delegation means"
 		question="Which genocide is each delegation talking about when it says the word?"
@@ -585,6 +594,11 @@
 					>
 				</div>
 			</div>
+			<span class="unit-note"
+				>{unit === 'count'
+					? 'occurrences placed on a referent, published for every delegation'
+					: "a share of the delegation's own placed occurrences, withheld below the minimum"}</span
+			>
 			<label>
 				Ordered by
 				<select bind:value={sort}>

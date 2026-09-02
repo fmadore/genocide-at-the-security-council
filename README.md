@@ -63,21 +63,32 @@ python -m pip install --require-hashes -r requirements.lock
 ```
 
 ```bash
-python scripts/00_fetch_data.py      # ~500 MB from Harvard Dataverse into data/raw/
-                                     # (no network once it is there: config/dataset-pin.json
-                                     #  carries Harvard's MD5s, so a present corpus verifies offline)
-python scripts/01_build_parquet.py   # → data/derived/speeches.parquet (131 MB)
-python scripts/02_normalise.py       # → speeches_norm.parquet    (aliases, entities, groups)
-python scripts/03_lexicon.py         # → speeches_flagged.parquet (lexicon counts)
-python scripts/04_series.py          # → derived/series/*.json    (rates, change points)
-python scripts/05_lexical.py         # → derived/lexical/*.json   (collocates, keyness, PMI)
-python scripts/08_kwic.py            # → derived/kwic/*.json      (79,569 concordance lines)
-python scripts/09_export_speeches.py # → web/static/data/speeches (6,595 document files)
-python scripts/11_countries.py       # → derived/countries/*.json (per-speaker denominators)
-python scripts/12_speaker_keyness.py # → derived/countries/       (per-speaker matched keyness)
-python scripts/15_usage.py           # → derived/usage/*.json     (model-assisted usage layer,
-                                     #  from the committed run named in model_annotations/)
-python scripts/export_web.py         # → web/static/data          (assembles the payload)
+make payload      # the whole pipeline, from the fetch to the exported payload
+make -n payload   # what would run, in what order, without running it
+```
+
+The [`Makefile`](Makefile) is the pipeline's graph: one target per step, keyed on the file
+the step writes and declared against every input it reads, so an edited config or script
+rebuilds what it invalidates and nothing more. The deploy workflow runs the same target.
+What `make payload` runs, in order:
+
+```text
+00_fetch_data.py       ~500 MB from Harvard Dataverse into data/raw/ (no network once it
+                       is there: config/dataset-pin.json carries Harvard's MD5s, so a
+                       present corpus verifies offline)
+01_build_parquet.py    → data/derived/speeches.parquet (131 MB), meetings.parquet
+02_normalise.py        → speeches_norm.parquet    (aliases, entities, groups)
+03_lexicon.py          → speeches_flagged.parquet (lexicon counts)
+04_series.py           → derived/series/*.json    (rates, intervals, change points)
+05_lexical.py          → derived/lexical/*.json   (collocates, keyness, PMI)
+08_kwic.py             → derived/kwic/*.json      (79,569 concordance lines)
+09_export_speeches.py  → web/static/data/speeches (6,595 document files)
+11_countries.py        → derived/countries/*.json (per-speaker denominators)
+12_speaker_keyness.py  → derived/countries/       (per-speaker matched keyness)
+13_gold_sample.py      → data/interim/            (the genocide gold sample, deterministic)
+15_usage.py            → derived/usage/*.json     (model-assisted usage layer, from the
+                                                   committed run named in model_annotations/)
+export_web.py          → web/static/data          (assembles and checks the payload)
 ```
 
 Then the dashboard:

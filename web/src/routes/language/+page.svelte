@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
+	import Contents from '$lib/Contents.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import PageMeta from '$lib/PageMeta.svelte';
@@ -576,6 +577,16 @@
 		</p>
 	</header>
 
+	<Contents
+		figures={[
+			{ title: 'The words that sit near a term' },
+			{ title: 'The profile of a term' },
+			{ title: 'The same word in two mouths' },
+			{ title: 'Compared with a like-for-like speech' },
+			{ title: 'Which terms travel together' }
+		]}
+	/>
+
 	<Figure
 		title="The words that sit near a term"
 		question="Which words appear near this term far more often than chance would put them there?"
@@ -1042,7 +1053,8 @@
 				<em>herzegovina</em> and <em>tribunals</em> sit near the top of the unpaired table and are
 				gone once year and agenda item are held constant. Because the partner is drawn at random,
 				the pairing was repeated across {data.keyness.stability.repetitions} draws; the range each word's
-				log ratio covered is in the download.
+				log ratio covered is in the download. The same comparison, one delegation at a time, is
+				<a href="{resolve('/actors')}#speaker-keyness">on the Actors page</a>.
 			</p>
 		{/snippet}
 

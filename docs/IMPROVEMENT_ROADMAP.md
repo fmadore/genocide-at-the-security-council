@@ -415,6 +415,25 @@ The same feedback reported two pages as unclear. Both causes are prose, not anal
 - The full frontend and browser gates pass, and the built site is inspected, because this is
   production-facing prose with no unit surface of its own.
 
+### U10. The referent path, and the page's own map
+
+**Status: complete on 2 September 2026.** Item 11 of the prioritised plan in
+[`REVIEW_2026-09-01.md`](REVIEW_2026-09-01.md) §8; §5.3 is its specification.
+
+The historian's question — when, and by whom, was the word used about Rwanda — is a
+referent question, and it routed only through the experimental `/usage` page, unsignposted.
+Now the concordance carries a **referent** facet for `genocide`, drawn from the published
+model run (`usage/occurrences.json` joined on the line id, labels from `usage.json`), marked
+*model-derived, experimental* beside the control and carried in the URL as `referent=`;
+without the run loaded the filter keeps nothing rather than everything, so a copied link
+never shows the whole corpus under a referent's name. A delegation's panel on Actors links
+to `/usage?actor=…`. Every `Figure` has an `id` (a slug of its title, from
+`$lib/figures.ts`, or one it declares) and its title is its own anchor; the four
+multi-figure pages open with a `Contents` list of their figures. The chronology's term
+picker is grouped under register headings rather than by a coloured edge; corpus keyness
+and per-speaker keyness link to each other from their `more` notes; and the usage unit
+toggle's rules, which lived only in `title` tooltips, are printed beside it.
+
 ### U9. A word budget for every figure
 
 **Status: complete on 2 September 2026.** Item 3 of the prioritised plan in
@@ -491,6 +510,27 @@ Each change needs before/after transfer, request-count and interaction measureme
 add a query service while static files meet the need.
 
 ### M4. Small pipeline and deployment cleanup
+
+**Amended 2 September 2026** (review §8, item 13; §6.4–6.5). The `Makefile` is now the
+pipeline's single DAG — one target per step, keyed on the file it writes, declared against
+every input it reads, with `raw` phony so 00 always MD5-checks the corpus — and
+`deploy.yml` runs `make payload` rather than a copied list; `README.md` and
+`docs/CLUSTER.md` point at it. `tests/test_end_to_end.py` runs 04 and 08 as subprocesses
+over a deterministic synthetic corpus, with the data, notes and web roots redirected by
+`GENOCIDE_DATA_ROOT`, `GENOCIDE_NOTES_ROOT` and `GENOCIDE_WEB_DATA_ROOT`, and compares
+their analytical values — rates, intervals, both p-values, KWIC lines — against
+`tests/golden/end_to_end_04_08.json`; `UPDATE_GOLDEN=1` regenerates it, and the diff is the
+review. Writing it found two places where 04's note formatted a withheld month as a number
+and one sentence the review had flagged as unconditional; both are fixed.
+`tests/test_requirements.py` holds `requirements.lock` inside the declared ranges, and
+`.github/dependabot.yml` groups weekly updates for pip, npm and Actions. 11 and 12 assert
+the codebook's totals and refuse a synthetic corpus, so the end-to-end test stops at 04 and
+08; 05 needs a corpus large enough for anything to clear the G² floor. **Owed, and not
+doable from a runner:** a tagged release with `data/derived/` and the manifests deposited on
+Zenodo, so the payload exists somewhere other than an Actions cache that evicts after seven
+idle days — the checklist is: run `make payload` on the pinned corpus, tag the commit, attach
+`data/derived/manifests/` and `web/static/data/manifest.json`, deposit `data/derived/` on
+Zenodo under the CC0 data licence, and write the DOI into `CITATION.cff`.
 
 Do these independently, only when the relevant file is already being changed:
 
@@ -1043,3 +1083,6 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-09-02 | S1, first slice (review §8, item 2) | complete   | pending | `python -m pytest` (858 passed; `tests/test_series.py` +17 for `wilson_interval`, `meeting_blocks` and the block null); `ruff check .`; a synthetic 32-year corpus with two dense debates run through `build_series`, `build_change_points`, `build_monthly`, `build_breakdowns` and `build_note` — the token-rate split read p = 0.015 under the independent null and 0.69 under the block null; `npm run lint`; `npm run check` (0 errors); `npm test` (452 passed, `chronology.test.ts` +4); `npm run test:e2e` (26 Chromium journeys) and `npm run test:e2e:sw` (1 built-site journey, which is also the fixture build) on the fixtures, run through a throwaway config pointing at the environment's pre-installed Chromium because the pinned headless shell was absent; the contract diff is 43 insertions and no deletion. `npm run build` prerenders against `web/static/data/`, which this environment cannot populate, so it was not run. | The rate change-point null now permutes meetings across years (`series.meeting_blocks`, `rate_change_point(blocks=…)`); the independent-speech p-value is published beside the block one as `p_value_independent`, the artefact names its `null` and its `blocks`, and `accepted` follows the block p. Every `speech_rate` — annual, quarterly, monthly, pooled calendar, breakdown row, speaker row — carries Wilson 95% bounds, blanked by the same withholding rule as the rate; the site draws them as bands (chronology, split figure) and a whisker column (actors), and prints them in hovers and CSVs. The findings note reads the corrected `inference` block and types no year into its prose. Contract, TS types and fixtures moved together, with the new fields required rather than optional because the pipeline always writes them. **Owed:** the corpus re-run, blocked on Dataverse from this environment; `README.md` says which of its numbers are still the independent-null ones. |
 | 2026-09-02 | S5, first slice (review §8, item 7) | complete   | pending | `python -m pytest` (879 passed; `tests/test_lexical.py` +21 for the floor, the ranking, dispersion, logDice, the tokeniser and definitional pairs; `tests/test_keyness.py` +2 holding the matrix dispersion equal to the pure-Python one); `ruff check .`; a synthetic corpus run through `build_collocates`, `build_slices`, `build_keyness`, `build_network` and `build_note`, and `lib.keyness.speaker_keyness` on the same; `npm run lint`; `npm run check` (0 errors); `npm test` (452 passed); `npm run test:e2e` (26 journeys) and `npm run test:e2e:sw` through the throwaway Chromium config; the contract diff is 119 insertions and no deletion. | Tables are ranked by effect among rows clearing G² 10.83 — log ratio for keywords, logDice for collocates, which now carry it — and every row carries `documents`, `meetings` and `dp`. `TOKEN_RE` cannot end on an apostrophe or hyphen and may carry a digit, so `'genocide'` and `R2P` are the words they are. Definitional pairs are found from the declared examples and listed with their reason; the `denial`–`genocide` edge is no longer drawn. The language page prints the spread beside every row, the speaker keyness table too, and the standfirst says the floor and the rank. **Owed:** the corpus re-run of 05 and 12, and 10 on the cluster for the lemma layer, which the tokeniser change makes stale. |
 | 2026-09-02 | U9 word budget; M2 amended (review §8, items 3 and 8) | complete   | pending | `node web/scripts/word-budget.mjs` (20 figures, 2,210 words, no slot over); `npm run lint` (now includes the budget); `npm run check` (0 errors, 0 warnings); `npm test` (440 passed: the cloud's 43 tests went with it, `dotplot.test.ts` +7, `matrix.test.ts` +6, `language.test.ts` +7 for the profile selection); `npm run test:e2e` (26 journeys) and `npm run test:e2e:sw` through the throwaway Chromium config; `ruff check .` for the 05 docstring | Item 3: a `more` snippet on `Figure`, the download hint as a tooltip, Methods anchors, every figure rewritten to budget and the budget enforced on lint; the actors page loses its duplicated apparatus and the change-point test is explained once, on Methods. Item 8: the word cloud is a dot plot, the force network a matrix, the map a uniform-dot locator under the ranked table with no choropleth, and the register hues mean registers only. No number moved. The one URL contract change is `view=`, now ignored. |
+| 2026-09-02 | Item 15: legal milestones, the event rail, meeting labels | complete   | pending | `python -m pytest tests/test_series.py -q` and `series.load_events()` over the committed file (43 events, 6 kinds); `npm test` (`format.test.ts` new); `npm run check`; `npm run lint`; the journeys | Eight legal milestones join `config/events.csv` (Akayesu, Krstić, S/2005/60, *Bosnia v. Serbia*, the first al-Bashir warrant, S/PV.7155, Karadžić, Mladić), registered in `VALIDATION.md` as an open check on their dates. The chronology draws reference dates as ticks on a rail under the axis, on a second grid that shares the zoom, one series per kind with kind chips, in place of 35 full-height rules. `meetingLabel` prints a resumed sitting as the UN titles it (`S/PV.3745 (Resumption 1)`) in the concordance and the reader, and the Digital Library search uses the base symbol. |
+| 2026-09-02 | U10 referent path and page anchors (review §8, item 11) | complete   | pending | `npm test` (`concordance.test.ts` +3 for the facet, `figures.test.ts` new); `npm run check`; `npm run lint` (budget unchanged); the journeys | Referent facet in the concordance from the published run, marked model-derived; `/usage?actor=` link from the actor panel; figure ids and a Contents list on the four multi-figure pages; the term picker grouped by register; keyness pages cross-linked; the usage unit rules visible. |
+| 2026-09-02 | M4 amended: the DAG, the end-to-end test, lock sync, Dependabot (review §8, item 13) | complete   | pending | `make -n payload` (twelve steps in dependency order); `python -m pytest` (882 passed: `test_end_to_end.py` and `test_requirements.py` new); `ruff check .`; nothing written under `notes/`, `data/` or `web/static/data/` by the test | `Makefile` as the single DAG and `deploy.yml` calling `make payload`; `README.md` and `docs/CLUSTER.md` point at it. The end-to-end test runs 04 and 08 over a synthetic corpus with redirected roots against golden JSON, and found two withheld-rate formatting faults and the unconditional calendar sentence in 04's note. Lock-sync test and grouped Dependabot. **Owed:** the tagged release and the Zenodo deposit, which need the corpus and an account. |

@@ -151,6 +151,14 @@
 		</p>
 		<p>{data.self_reference_rule}</p>
 	{/snippet}
+	{#snippet more()}
+		<p>
+			The same comparison for the speeches that use <em>genocide</em>, against the whole corpus of
+			like-for-like speeches, is
+			<a href="{resolve('/language')}#compared-with-a-like-for-like-speech">on the Language page</a
+			>.
+		</p>
+	{/snippet}
 
 	{#if plan.missing}
 		<p class="refusal">That speaker is not in this data.</p>

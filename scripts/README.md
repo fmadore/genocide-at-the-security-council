@@ -17,6 +17,20 @@ Install the exact, hashed environment with `python -m pip install --require-hash
 requirements.lock` from the repository root. `requirements.txt` and
 `requirements-dev.txt` declare supported ranges; the lock is the reproducibility record.
 
+## Running the pipeline
+
+`make payload` at the repository root runs every step below in dependency order, from the
+fetch to the exported payload; `make -n payload` prints what would run. The `Makefile` is
+the graph: each target is the file its step writes, declared against every input the step
+reads, so an edited config rebuilds what it invalidates and nothing more. `make raw`
+always runs 00, which MD5-checks a corpus already on disk; `make cluster` is the GPU and
+spaCy steps (`docs/CLUSTER.md`). The deploy workflow runs the same target.
+
+Three environment variables move the tree a run writes to — `GENOCIDE_DATA_ROOT`,
+`GENOCIDE_NOTES_ROOT`, `GENOCIDE_WEB_DATA_ROOT` — and exist for one caller:
+`tests/test_end_to_end.py`, which runs 04 and 08 as subprocesses over a synthetic corpus
+and compares their analytical values with `tests/golden/`. Leave them unset otherwise.
+
 ## Steps
 
 | # | Script | Reads | Writes | State |

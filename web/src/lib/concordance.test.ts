@@ -454,3 +454,37 @@ describe('naming a sort', () => {
 		expect(params.get('sort')).toBe('country');
 	});
 });
+
+describe('the referent facet', () => {
+	const lines = [
+		line({ id: 'a#1', date: '1994-04-21' }),
+		line({ id: 'b#1', date: '2014-04-16' }),
+		line({ id: 'c#1', date: '2014-04-17' })
+	];
+	const referents = new Map([
+		['a#1', 'rwanda_1994'],
+		['b#1', 'rwanda_1994'],
+		['c#1', 'bosnia_srebrenica']
+	]);
+
+	it('narrows to the occurrences the model placed on a referent', () => {
+		const state = { ...CONCORDANCE_DEFAULTS, referent: 'rwanda_1994' };
+		expect(filterConcordance(lines, state, referents).lines.map((l) => l.id)).toEqual([
+			'a#1',
+			'b#1'
+		]);
+	});
+
+	it('keeps nothing when the referents are not loaded, never the whole corpus', () => {
+		const state = { ...CONCORDANCE_DEFAULTS, referent: 'rwanda_1994' };
+		expect(filterConcordance(lines, state, null).lines).toEqual([]);
+	});
+
+	it('is off by default and survives the URL round trip', () => {
+		expect(filterConcordance(lines, CONCORDANCE_DEFAULTS, referents).lines).toHaveLength(3);
+		const params = concordanceParams({ ...CONCORDANCE_DEFAULTS, referent: 'rwanda_1994' });
+		expect(params.get('referent')).toBe('rwanda_1994');
+		expect(readConcordanceState(params).referent).toBe('rwanda_1994');
+		expect(concordanceParams(CONCORDANCE_DEFAULTS).has('referent')).toBe(false);
+	});
+});

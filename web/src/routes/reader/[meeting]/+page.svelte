@@ -18,7 +18,7 @@
 	import { basket } from '$lib/basket.svelte';
 	import { citationOf, occurrenceQuotation, toBibtex, toCslJson, toRis } from '$lib/citation';
 	import { filename, save } from '$lib/export';
-	import { count, isoDate, shortCountry, termLabel, unSearch } from '$lib/format';
+	import { count, isoDate, meetingLabel, shortCountry, termLabel, unSearch } from '$lib/format';
 	import { SITE_NAME, type PageMetadata } from '$lib/seo';
 	import type { KwicLine, Meeting, Speech } from '$lib/types';
 	import { tick } from 'svelte';
@@ -377,7 +377,7 @@
 				<div>
 					<!-- Rule 06: the symbol is the address, and it is the first thing
 					     on the page because it is what a reader would cite. -->
-					<p class="spv">{record.spv}</p>
+					<p class="spv">{meetingLabel(record.spv)}</p>
 					<h1>{record.topic}</h1>
 					<p class="meta">
 						{isoDate(record.date)} · {count(record.speeches.length)} speeches · agenda item

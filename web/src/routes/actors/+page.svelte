@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Contents from '$lib/Contents.svelte';
 	import CountryMap from '$lib/CountryMap.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
@@ -242,6 +243,14 @@
 		</p>
 	</header>
 
+	<Contents
+		figures={[
+			{ title: 'Speakers by rate' },
+			{ title: 'Who held a seat when they spoke' },
+			{ title: 'What a delegation says that the room does not' }
+		]}
+	/>
+
 	<Figure
 		title="Speakers by rate"
 		question="Which delegations used the vocabulary most, as a share of their own speeches?"
@@ -432,6 +441,15 @@
 							{/if}
 							{#if has.occurrences}&middot; {count(entry.row.occurrences ?? 0)} occurrences{/if}
 							&middot; {entry.speaker.first_year}&ndash;{entry.speaker.last_year}
+						</dd>
+						<dd class="read">
+							<a
+								class="more"
+								href="{resolve('/usage')}?actor={encodeURIComponent(entry.speaker.country_org)}"
+							>
+								Which genocide it means by the word <Icon icon={ChevronRight} />
+							</a>
+							<span class="interval">model-derived, experimental</span>
 						</dd>
 						{#if links.length === 1}
 							<dd class="read">

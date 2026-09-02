@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
+	import Contents from '$lib/Contents.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Heatmap from '$lib/Heatmap.svelte';
 	import Icon from '$lib/Icon.svelte';
@@ -37,6 +38,7 @@
 	import { count, decimal, escapeHtml, isoDate, monthLabel, percent, termLabel } from '$lib/format';
 	import { PAGE_METADATA } from '$lib/seo';
 	import {
+		REGISTER_ORDER,
 		axisX,
 		axisY,
 		categoricalNeutral,
@@ -79,6 +81,17 @@
 	let grain = $state<'year' | 'quarter'>('year');
 	let selected = $state<string[]>(['genocide']);
 	let showEvents = $state(true);
+	/* Which kinds of reference date the rail shows. Presentational, like the
+	   overlay toggle itself: not written into the URL. */
+	const EVENT_KINDS = ['atrocity', 'conflict', 'council', 'institutional', 'legal', 'contested'];
+	let eventKinds = $state<string[]>([...EVENT_KINDS]);
+	const toggleKind = (kind: string) => {
+		eventKinds = eventKinds.includes(kind)
+			? eventKinds.filter((k) => k !== kind)
+			: [...eventKinds, kind];
+	};
+	const kindStroke = (kind: string, p = $colours) =>
+		categoricalNeutral(p)[EVENT_KINDS.indexOf(kind) % 6].color;
 	let split = $state<string>('none');
 	let urlReady = $state(false);
 
@@ -353,6 +366,25 @@
 		)
 	});
 
+	/* The picker, grouped: one group per register holding its terms and the
+	   register itself, then the sets. A coloured edge on a flat list of 32 chips
+	   was "grouped by register" in name only. */
+	const chipGroups = $derived.by(() => {
+		const groups: { heading: string; colour: string; names: string[] }[] = [];
+		for (const register of REGISTER_ORDER) {
+			const names = Object.keys(allMeasures).filter(
+				(name) =>
+					name === `register:${register}` ||
+					(!name.includes(':') && allMeasures[name].register === register)
+			);
+			if (names.length)
+				groups.push({ heading: register, colour: registerColour(register, $colours), names });
+		}
+		const sets = Object.keys(allMeasures).filter((name) => name.startsWith('set:'));
+		if (sets.length) groups.push({ heading: 'sets', colour: $colours.ink, names: sets });
+		return groups;
+	});
+
 	const isRate = $derived(unit === 'speech_rate' || unit === 'token_rate');
 	const unavailable = $derived(
 		selected.filter(
@@ -386,6 +418,7 @@
 		if (!showEvents || grain !== 'year') return [];
 		const byYear = new SvelteMap<string, CouncilEvent[]>();
 		for (const e of data.overlay.events) {
+			if (!eventKinds.includes(e.kind)) continue;
 			const key = String(e.year);
 			byYear.set(key, [...(byYear.get(key) ?? []), e]);
 		}
@@ -399,6 +432,12 @@
 	   lesser evil, which is the one case `theme.ts` keeps it for. */
 	const LABELLABLE = 8;
 
+	/* Reference-date ticks are series on the rail grid; the tooltip and the
+	   legend must not list them as lines. */
+	const EVENT_TICK = 'event:';
+	const isEventTick = (name: string | undefined) => (name ?? '').startsWith(EVENT_TICK);
+	const railShown = $derived(showEvents && grain === 'year' && eventKinds.length > 0);
+
 	const main: EChartsOption = $derived.by(() => {
 		const p = $colours;
 		const usable = selected.filter((n) => allMeasures[n] && !unavailable.includes(n));
@@ -411,11 +450,20 @@
 			textStyle,
 			// When a legend is needed it lists the lines and not their bands.
 			legend: named ? undefined : { ...legend(p), data: usable.map(label) },
-			grid: {
-				...grid(named),
-				top: named ? 12 : 34,
-				bottom: showEvents && grain === 'year' ? 30 : 8
-			},
+			// Two grids: the plot, and under its axis a rail for the reference dates.
+			// A tick on a rail is an annotation; the full-height rules this replaced
+			// were a fence (review of 1 September 2026, §5.2), 35 of them over 32
+			// years. The rail shares the x axis through the zoom, so a tick always
+			// sits under its year.
+			grid: [
+				{
+					...grid(named),
+					top: named ? 12 : 34,
+					bottom: railShown ? 52 : 30
+				},
+				{ ...grid(named), top: undefined, height: 14, bottom: 28 }
+			],
+			axisPointer: { link: [{ xAxisIndex: 'all' }] },
 			tooltip: {
 				...tooltip(p),
 				trigger: 'axis',
@@ -451,7 +499,7 @@
 							: ` <span style="opacity:.65">${percent(low)}–${percent(high)}</span>`;
 					};
 					const series = rows
-						.filter((r) => !isIntervalBand(r.seriesName))
+						.filter((r) => !isIntervalBand(r.seriesName) && !isEventTick(r.seriesName))
 						.map(
 							(r) =>
 								`${r.marker ?? ''}${escapeHtml(r.seriesName ?? '')} <b>${show(r.value)}</b>` +
@@ -467,20 +515,28 @@
 					return `<b>${escapeHtml(year)}</b><br>${series}${dates}`;
 				}
 			},
-			xAxis: { ...axisX(p), type: 'category', data: periods },
-			yAxis: {
-				...axisY(p),
-				type: 'value',
-				axisLabel: {
-					color: p.inkFaint,
-					fontSize: 12,
-					formatter: (v: number) => (unit === 'speech_rate' ? `${(v * 100).toFixed(1)}%` : count(v))
-				}
-			},
+			xAxis: [
+				{ ...axisX(p), type: 'category', data: periods },
+				{ type: 'category', gridIndex: 1, data: periods, show: false }
+			],
+			yAxis: [
+				{
+					...axisY(p),
+					type: 'value',
+					axisLabel: {
+						color: p.inkFaint,
+						fontSize: 12,
+						formatter: (v: number) =>
+							unit === 'speech_rate' ? `${(v * 100).toFixed(1)}%` : count(v)
+					}
+				},
+				{ type: 'value', gridIndex: 1, show: false, min: -1, max: 1 }
+			],
 			dataZoom: [
-				{ type: 'inside', throttle: 50 },
+				{ type: 'inside', throttle: 50, xAxisIndex: [0, 1] },
 				{
 					type: 'slider',
+					xAxisIndex: [0, 1],
 					height: 18,
 					bottom: 0,
 					borderColor: p.rule,
@@ -500,7 +556,7 @@
 							)
 						)
 					: []),
-				...usable.map((name, i): LineSeriesOption => ({
+				...usable.map((name): LineSeriesOption => ({
 					name: label(name),
 					type: 'line',
 					data: allMeasures[name][unit] ?? [],
@@ -509,20 +565,27 @@
 					lineStyle: { width: 2.2, color: colourOf(name, p) },
 					itemStyle: { color: colourOf(name, p) },
 					endLabel: named ? endLabel(colourOf(name, p), label(name)) : undefined,
-					emphasis: { focus: 'series' },
-					// Silent: the rule is a mark, not a hover target. What it means is read
-					// off the axis tooltip, which fires anywhere in the year's column.
-					markLine:
-						i === 0 && eventMarks.length
-							? {
-									silent: true,
-									symbol: 'none',
-									lineStyle: { color: p.inkFaint, width: 1, type: 'solid', opacity: 0.35 },
-									label: { show: false },
-									data: eventMarks.map(([year]) => ({ xAxis: year, name: year }))
-								}
-							: undefined
-				}))
+					emphasis: { focus: 'series' }
+				})),
+				// The rail: one scatter series per kind, so a kind can be switched off
+				// and told apart by weight of ink. Silent, like the rules were: what a
+				// tick means is read off the axis tooltip, which lists the year's dates.
+				...(railShown
+					? EVENT_KINDS.filter((kind) => eventKinds.includes(kind)).map((kind) => ({
+							name: `${EVENT_TICK}${kind}`,
+							type: 'scatter' as const,
+							xAxisIndex: 1,
+							yAxisIndex: 1,
+							symbol: 'rect',
+							symbolSize: [3, 12],
+							silent: true,
+							data: data.overlay.events
+								.filter((e) => e.kind === kind)
+								.map((e) => [String(e.year), 0] as [string, number]),
+							itemStyle: { color: kindStroke(kind, p) },
+							z: 3
+						}))
+					: [])
 			]
 		};
 	});
@@ -682,6 +745,15 @@
 		if (link) void goto(`${resolve('/concordance')}?${link.query}`);
 	}
 
+	/* The figures on this page, for the contents list; the ids follow the titles. */
+	const FIGURES = [
+		{ title: 'The word list over time' },
+		{ title: "The vocabulary's calendar" },
+		{ title: 'The same twelve months, pooled' },
+		{ title: 'Testing for a change in the rate' },
+		{ title: 'Who says it, and in what debate' }
+	];
+
 	const genocideBreaks = $derived(data.breaks.series.genocide ?? {});
 	const genocideInference = $derived(data.breaks.inference.series.genocide ?? {});
 
@@ -706,6 +778,8 @@
 			on what they are divided by, and both readings are offered here on purpose.
 		</p>
 	</header>
+
+	<Contents figures={FIGURES} />
 
 	<Figure
 		title="The word list over time"
@@ -735,6 +809,20 @@
 				<input type="checkbox" bind:checked={showEvents} disabled={grain !== 'year'} />
 				Reference dates
 			</label>
+			{#if showEvents && grain === 'year'}
+				<span class="kinds" role="group" aria-label="Kinds of reference date on the rail">
+					{#each EVENT_KINDS as kind (kind)}
+						<button
+							type="button"
+							class="chip small"
+							class:on={eventKinds.includes(kind)}
+							style:--chip={kindStroke(kind)}
+							aria-pressed={eventKinds.includes(kind)}
+							onclick={() => toggleKind(kind)}>{kind}</button
+						>
+					{/each}
+				</span>
+			{/if}
 			<span class="unit-note">{UNITS.find((u) => u.id === unit)?.note}</span>
 		{/snippet}
 
@@ -743,10 +831,10 @@
 				Pick terms under the chart; drag the bar under the axis to zoom. Colour follows the term's
 				<strong>register</strong>.
 				{#if unit === 'speech_rate'}The faint <strong>band</strong> around each line is its 95%
-					Wilson interval: wide where the {grain} held few speeches, and where two bands overlap the lines
-					are not telling the terms apart.{/if}
-				{#if showEvents && grain === 'year'}Faint rules mark
-					<a href="#reference-dates">reference dates</a>; hover to read them.{/if}
+					Wilson interval: wide where the {grain} held few speeches; overlapping bands are not telling
+					the terms apart.{/if}
+				{#if showEvents && grain === 'year'}Ticks on the rail mark
+					<a href="#reference-dates">reference dates</a> by kind; hover a year to read them.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -780,19 +868,24 @@
 				Grouped by register. A <strong>set</strong> counts several terms together; a
 				<strong>register</strong> counts every term in one family of vocabulary at once.
 			</p>
-			<div class="chips">
-				{#each Object.keys(allMeasures) as name (name)}
-					<button
-						class="chip"
-						class:on={selected.includes(name)}
-						style:--chip={colourOf(name)}
-						onclick={() => toggle(name)}
-						aria-pressed={selected.includes(name)}
-					>
-						{label(name)}
-					</button>
-				{/each}
-			</div>
+			{#each chipGroups as group (group.heading)}
+				<div class="chip-group">
+					<span class="group-label" style:--chip={group.colour}>{group.heading}</span>
+					<div class="chips">
+						{#each group.names as name (name)}
+							<button
+								class="chip"
+								class:on={selected.includes(name)}
+								style:--chip={colourOf(name)}
+								onclick={() => toggle(name)}
+								aria-pressed={selected.includes(name)}
+							>
+								{label(name)}
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/each}
 			{#if unavailable.length}
 				<p class="warn">
 					{unavailable.map(label).join(', ')} cannot be shown in this unit, because a set of terms has
@@ -1451,5 +1544,30 @@
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--ink-3);
+	}
+	.kinds {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: var(--sp-1);
+	}
+
+	.chip.small {
+		font-size: var(--step--2);
+		padding: 0.1em 0.5em;
+	}
+
+	.chip-group {
+		margin-bottom: var(--sp-2);
+	}
+
+	.group-label {
+		display: block;
+		margin-bottom: var(--sp-1);
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--chip);
 	}
 </style>

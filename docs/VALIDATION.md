@@ -183,11 +183,21 @@ whitespace match) are counted in the manifest, never silently absorbed.
 
 ### Primary-source chronology overlay
 
-All 35 entries in `config/events.csv` now have a non-empty `source` and an HTTPS
-`source_url` pointing to the relevant UN, ICC, ICJ, OHCHR or archived government record.
-The config loader rejects missing source URLs, and the dashboard links directly to them.
-These dates are contextual annotations only; the models do not use them and the interface
-does not imply causal attribution.
+All 43 entries in `config/events.csv` now have a non-empty `source` and an HTTPS
+`source_url` pointing to the relevant UN, ICC, ICJ, ICTY/ICTR, OHCHR or archived government
+record. The config loader rejects missing source URLs, and the dashboard links directly to
+them. These dates are contextual annotations only; the models do not use them and the
+interface does not imply causal attribution.
+
+**Open check: eight legal milestones added on 2 September 2026** (review §3.5, item 15):
+Akayesu (1998-09-02), Krstić (2001-08-02), the Darfur Commission report S/2005/60
+(dated 2005-02-01 as transmitted), *Bosnia v. Serbia* (2007-02-26), the first al-Bashir
+warrant (2009-03-04), S/PV.7155 (2014-04-16, kind `council`), Karadžić (2016-03-24) and
+Mladić (2017-11-22). Dates and labels were written from the review and from memory of the
+judgments; each `source_url` is the tribunal's, the Court's or the UN's own page for the
+case or document, and the date should be read off that page before any of these is cited
+from the chart. The rail under the chronology draws them by kind, with a kind filter, in
+place of the full-height rules.
 
 ### Lexicon v2 replaces reconnaissance counts
 

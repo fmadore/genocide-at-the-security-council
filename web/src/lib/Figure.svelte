@@ -28,9 +28,12 @@
 	import type { Snippet } from 'svelte';
 	import DownloadControls from './Download.svelte';
 	import type { DownloadSpec } from './Download.svelte';
+	import { figureId } from './figures';
 
 	interface Props {
 		title: string;
+		/** The anchor; defaults to a slug of the title, which `Contents.svelte` also derives. */
+		id?: string;
 		question: string;
 		/** Script and artefact, e.g. "04_series.py → series/annual.json". */
 		source: string;
@@ -52,6 +55,7 @@
 
 	let {
 		title,
+		id,
 		question,
 		source,
 		reading,
@@ -64,9 +68,9 @@
 	}: Props = $props();
 </script>
 
-<figure class="figure">
+<figure class="figure" id={figureId({ title, id })}>
 	<figcaption class="head">
-		<h2>{title}</h2>
+		<h2><a class="anchor" href="#{figureId({ title, id })}">{title}</a></h2>
 		<p class="question">{question}</p>
 	</figcaption>
 
@@ -131,6 +135,19 @@
 	.head h2 {
 		margin: 0 0 0.1em;
 		font-size: var(--step-2);
+	}
+
+	/* The title is its own anchor: a heading a reader can copy a link from,
+	   without a chain icon the type does not need. */
+	.anchor {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.anchor:hover,
+	.anchor:focus-visible {
+		text-decoration: underline;
+		text-decoration-color: var(--rule-strong);
 	}
 
 	.question {
