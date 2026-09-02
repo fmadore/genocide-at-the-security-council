@@ -1,0 +1,97 @@
+{
+  "version": 3,
+  "terms": {
+    "atrocity": {
+      "pattern_since": 2,
+      "pattern_sha256": "bd7dc0ce91043f489504858a21a8f45ceff98015ce5e03d459924184966a7d65"
+    },
+    "commemoration": {
+      "pattern_since": 2,
+      "pattern_sha256": "7506900e1b212f7c7da9a2f80f373e06a28ddcaeae1ef77e233179f457ca690f"
+    },
+    "crimes_against_humanity": {
+      "pattern_since": 2,
+      "pattern_sha256": "8181051d19d5d1489215e672219bd35cc7e8f2ef84ca759e1858098f80de01b8"
+    },
+    "denial": {
+      "pattern_since": 2,
+      "pattern_sha256": "33e60e77e02d82ad29762364bf447756308a9449a67c9ca7c02b67cd51d2311b"
+    },
+    "early_warning": {
+      "pattern_since": 2,
+      "pattern_sha256": "b224dcdc9b67d470877761e62601cc6027313c2fed65320029a93ad1dc95161b"
+    },
+    "ethnic_cleansing": {
+      "pattern_since": 2,
+      "pattern_sha256": "dc161ffe8500f4ac9450237ddebe6c1f8ab44b1d210a6d962a3dc9a47323c3d6"
+    },
+    "ethnic_hatred": {
+      "pattern_since": 2,
+      "pattern_sha256": "50afab2135be36ce57fecebeffac0d2ce31c2a382a9ddb59e9a87c6d15ab7cc8"
+    },
+    "extermination": {
+      "pattern_since": 2,
+      "pattern_sha256": "8bdea758510e8441920544524ee9a4696ab859ab0c9d6088277f078ba32fd391"
+    },
+    "genocidal_ideology": {
+      "pattern_since": 2,
+      "pattern_sha256": "de91e293ca3ebfbc9a14821c1ec79afd07a848bb86e129cc6c434dd5852ce744"
+    },
+    "genocide": {
+      "pattern_since": 2,
+      "pattern_sha256": "6070019cd7344f67bd3b23d1d34f07a9e6b6b0e5645c711eaf38221d4312bda9"
+    },
+    "genocide_convention": {
+      "pattern_since": 2,
+      "pattern_sha256": "6a63a2fe21e3d976da4ee15c9cbf46730b1d840485eb1967df7db47b358ac332"
+    },
+    "genocide_ocr_variants": {
+      "pattern_since": 2,
+      "pattern_sha256": "b08f9c8b8628b60145b11066c12997beeb5f9d49269daf41a1b9f9373c2ac24e"
+    },
+    "glorification": {
+      "pattern_since": 2,
+      "pattern_sha256": "03e6cc4f4bd5e890272c5290f5acd4ad836f8f20324f85f13ab9968d2bccdcb6"
+    },
+    "holocaust": {
+      "pattern_since": 2,
+      "pattern_sha256": "5fd36d94c03cb3e1ebdc4f2e5dd6552581865d6b211d4548305843e617c248b9"
+    },
+    "icc": {
+      "pattern_since": 2,
+      "pattern_sha256": "0b9390f22d01557721ca763d64ba575fc5cef23ba6c0840a2e130ded39cd7d09"
+    },
+    "impunity": {
+      "pattern_since": 2,
+      "pattern_sha256": "b269aa57baf750a2c902341e16c4498f58100f9d26ab439d6001dc5c1605cb26"
+    },
+    "mass_atrocity": {
+      "pattern_since": 2,
+      "pattern_sha256": "721f21b06db07478439f62028209bc7d89f3c4998e16b33721d7c8b2c0d570b1"
+    },
+    "never_again": {
+      "pattern_since": 2,
+      "pattern_sha256": "74f5b67cfffb2039468399430374c69d5e27f608b07b3c6faa6de0fe1dd47d5a"
+    },
+    "prevention_of_genocide": {
+      "pattern_since": 2,
+      "pattern_sha256": "b1c326f735786305d89382817324d0d8381da06113104c360c2022cbf516e785"
+    },
+    "responsibility_to_protect": {
+      "pattern_since": 2,
+      "pattern_sha256": "ba204cf6b83be6457b1d021a18e0667e06c5585017c1e48c476802769e44bd70"
+    },
+    "survivors": {
+      "pattern_since": 2,
+      "pattern_sha256": "a1bdcaa661d7f2ac39fd6e59408865d271ba939a725e92ea80d429d464b9801a"
+    },
+    "tribunals": {
+      "pattern_since": 2,
+      "pattern_sha256": "9407b11e29e3f4ca48ae6d72b9e7f6dab8e3a36fd253a60c410f43b2d860f7ef"
+    },
+    "war_crimes": {
+      "pattern_since": 2,
+      "pattern_sha256": "89e22c184e1d9ce424d0a83156b82bb207cb31867783b505612964ef4b19e1e6"
+    }
+  }
+}

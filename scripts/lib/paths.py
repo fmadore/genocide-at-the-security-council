@@ -48,6 +48,11 @@ MODEL_ANNOTATIONS = ROOT / "model_annotations"
 # A script that consumes one must fail loudly on any value it has never seen,
 # otherwise new data silently drops out of the analysis.
 LEXICON = CONFIG / "lexicon.yml"
+# Digests of the lexicon's patterns beside the version each is declared to date
+# from, so an edited pattern whose `pattern_since` was left behind fails at
+# `lexicon.load()` rather than validating artefacts cut from the old regex.
+# Written by tools/lock_lexicon.py and committed beside the config it locks.
+LEXICON_LOCK = CONFIG / "lexicon.lock.json"
 ENTITIES = CONFIG / "entities.csv"
 COUNTRY_ALIASES = CONFIG / "country_aliases.csv"
 COUNCIL_MEMBERSHIP = CONFIG / "council_membership.csv"

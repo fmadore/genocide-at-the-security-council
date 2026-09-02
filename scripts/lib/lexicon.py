@@ -17,13 +17,16 @@ against the raw text would inflate every country name and the word "President".
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 import pandas as pd
 import yaml
 
-from .paths import LEXICON, rel
+from .paths import LEXICON, LEXICON_LOCK, rel
 
 #: Column prefixes. ``has_x`` is a boolean, ``n_x`` the occurrence count.
 HAS = "has_"
@@ -38,6 +41,9 @@ class Term:
     pattern: str
     tier: str
     register: str
+    #: Lexicon version at which `pattern` last changed. `load` requires it in
+    #: the config; the default is for the hand-built terms in the tests.
+    pattern_since: int = 1
     enabled: bool = True
     note: str = ""
     examples: tuple[str, ...] = ()
@@ -46,7 +52,18 @@ class Term:
     regex: re.Pattern[str] = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
 
     def count(self, texts: pd.Series) -> pd.Series:
-        """Occurrences of this term in each text."""
+        """Occurrences of this term in each text.
+
+        The prefilters are a fast path and never a second filter: `load` refuses
+        a literal that is not a whitespace-free ASCII token, and
+        config/lexicon.yml requires every literal to appear in every string the
+        pattern can match, so skipping a text that holds none of them cannot
+        lose an occurrence — for the ASCII literals the loader requires. The
+        fast path is `str.contains(case=False)`, which is upper-case
+        containment, while the pattern runs under `re.IGNORECASE`; the two agree
+        on ASCII and diverge outside it (`re.IGNORECASE` folds U+0130 "İ" to
+        "i", upper-casing does not), which is why the loader insists.
+        """
         candidates = pd.Series(False, index=texts.index)
         for literal in self.prefilters:
             candidates |= texts.str.contains(literal, case=False, regex=False, na=False)
@@ -81,6 +98,36 @@ class Lexicon:
         """Terms measured and reported separately, never folded in."""
         return [t for t in self.terms.values() if not t.enabled]
 
+    def compatible(self, term_name: str, version: int | str) -> bool:
+        """Whether an artefact keyed to `term_name` at lexicon `version` still holds.
+
+        True when `term_name` enumerates the same occurrences here as it did at
+        `version`: its pattern has not been edited since (`pattern_since <=
+        version`) and `version` is not ahead of this lexicon. That is what lets
+        a gold sample or a committed model run survive a version bump that
+        edited other terms.
+
+        It guarantees nothing else. Other terms' counts may have moved, any
+        aggregate over the whole lexicon may have moved, and the artefact's own
+        rows are still checked against this corpus row by row.
+        """
+        if term_name not in self.terms:
+            raise ValueError(f"unknown lexicon term '{term_name}'")
+        # A version is an integer or the digits an artefact recorded it as.
+        # `int()` would take True for 1 and truncate 2.9, and `load` refuses a
+        # bool in this field for the same reason: an unreadable version is not a
+        # matching one, and guessing at one would let an artefact through on a
+        # number nobody wrote.
+        if isinstance(version, bool):
+            return False
+        if isinstance(version, int):
+            recorded = version
+        elif isinstance(version, str) and version.isascii() and version.isdigit():
+            recorded = int(version)
+        else:
+            return False
+        return self.terms[term_name].pattern_since <= recorded <= self.version
+
     def by_register(self) -> dict[str, list[Term]]:
         out: dict[str, list[Term]] = {}
         for term in self.active:
@@ -94,11 +141,195 @@ class Lexicon:
         return out
 
 
-def load() -> Lexicon:
-    """Read and compile config/lexicon.yml."""
+def summable(terms: Sequence[Term], table: Mapping[str, Term]) -> list[Term]:
+    """The subset of ``terms`` that can be added into a single occurrence count.
+
+    A nested term's matches lie inside its parent's — every "mass atrocity" is
+    also an "atrocity", every "Genocide Convention" also a `genocid*` — so
+    adding a child and its parent to one sum counts the same span twice. This
+    drops each term with *any* ancestor summed alongside it, in the order given.
+    A term whose ancestors are all absent from the list stays: nothing else in
+    that sum covers it, which is why a child counts in full in its own register
+    when its parent belongs to another.
+
+    ``table`` is the whole lexicon's terms, and the chain is walked through it
+    rather than through ``terms``: with A ← B ← C and B out of the sum — another
+    register, or disabled — C still sits inside A, so looking only one level up
+    would keep both and count C's spans twice.
+
+    Nesting is declared in `config/lexicon.yml`, not proven span by span, and a
+    few alternatives inside a nested pattern do not sit inside a parent match:
+    `convention on the prevention and punishment` matches `genocide_convention`
+    on its own, with the parent's `genocid*` following as a separate span
+    ("...of the Crime of Genocide"), and `special adviser on the prevention`
+    likewise for `prevention_of_genocide`. Treating every nested occurrence as
+    already counted by the parent therefore undercounts those few mentions. That
+    is the safer direction: the roll-up understates rather than inflates.
+    """
+    summed = {term.name for term in terms}
+
+    def covered(term: Term) -> bool:
+        """Whether an ancestor of `term` is summed alongside it."""
+        seen = {term.name}
+        parent = term.nested_under
+        # `check_nesting` refuses a cycle, so this walk terminates on a loaded
+        # lexicon; `seen` keeps a hand-built one from spinning forever here
+        # rather than at the point that built it.
+        while parent is not None and parent not in seen:
+            if parent in summed:
+                return True
+            seen.add(parent)
+            parent = table[parent].nested_under if parent in table else None
+        return False
+
+    return [term for term in terms if not covered(term)]
+
+
+def pattern_sha256(pattern: str) -> str:
+    """The digest the lock pins a term's pattern by.
+
+    One helper for the check and for the tool that writes the lock, so the two
+    can never disagree about what was hashed.
+    """
+    return hashlib.sha256(pattern.encode("utf-8")).hexdigest()
+
+
+def check_nesting(terms: Mapping[str, Term]) -> None:
+    """Refuse a `nested_under` graph that cannot describe containment.
+
+    A parent no term defines, a term nested under itself, a chain that loops:
+    none of them can mean "these matches lie inside those". `summable` would
+    read the first two as a term nobody covers and the third as a set covering
+    itself, dropping every member of the loop from the sum — a silent
+    undercount, which is exactly what refusing the file here prevents.
+    """
+    bad_parents = {
+        term.name: term.nested_under
+        for term in terms.values()
+        if term.nested_under is not None and term.nested_under not in terms
+    }
+    if bad_parents:
+        raise ValueError(f"{rel(LEXICON)}: nested terms reference undefined parents: {bad_parents}")
+
+    itself = sorted(term.name for term in terms.values() if term.nested_under == term.name)
+    if itself:
+        raise ValueError(
+            f"{rel(LEXICON)}: terms nested under themselves: {itself}; a term cannot "
+            "contain its own matches, and declaring it so would drop it from every sum"
+        )
+
+    for term in terms.values():
+        chain = [term.name]
+        parent = term.nested_under
+        while parent is not None:
+            if parent in chain:
+                raise ValueError(
+                    f"{rel(LEXICON)}: nesting runs in a cycle: "
+                    f"{' -> '.join([*chain, parent])}; containment has a direction and "
+                    "every chain must end at a term nested under nothing"
+                )
+            chain.append(parent)
+            parent = terms[parent].nested_under
+
+
+def check_lock(terms: Mapping[str, Term], version: int, lock: Mapping[str, object]) -> None:
+    """Refuse a lexicon the committed lock no longer describes.
+
+    `pattern_since` is a hand-written claim about a hand-written regex, and
+    nothing inside the file can tell whether the claim survived the last edit.
+    The lock records each pattern's digest beside the version it is declared to
+    date from, so editing a pattern without bumping its `pattern_since` fails
+    here — at 03 and in CI — instead of letting `15_usage.py` aggregate a run
+    enumerated from the regex that is no longer there. Rewrite the lock with
+    `python tools/lock_lexicon.py`.
+    """
+    locked_version = lock.get("version")
+    if isinstance(locked_version, bool) or not isinstance(locked_version, int):
+        raise ValueError(
+            f"{rel(LEXICON_LOCK)} has no integer 'version': {locked_version!r}; "
+            "run `python tools/lock_lexicon.py`"
+        )
+    if locked_version != version:
+        raise ValueError(
+            f"{rel(LEXICON_LOCK)} locks lexicon version {locked_version}, but "
+            f"{rel(LEXICON)} is version {version}; run `python tools/lock_lexicon.py`"
+        )
+
+    entries = lock.get("terms")
+    if not isinstance(entries, Mapping):
+        raise ValueError(
+            f"{rel(LEXICON_LOCK)} has no 'terms' table; run `python tools/lock_lexicon.py`"
+        )
+    # Every term, the disabled ones included: a held-back pattern is still what
+    # the OCR delta is measured with.
+    missing = sorted(set(terms) - set(entries))
+    if missing:
+        raise ValueError(
+            f"{rel(LEXICON_LOCK)} does not lock {missing}; run `python tools/lock_lexicon.py`"
+        )
+    unknown = sorted(set(entries) - set(terms))
+    if unknown:
+        raise ValueError(
+            f"{rel(LEXICON_LOCK)} locks {unknown}, which {rel(LEXICON)} no longer "
+            "defines; run `python tools/lock_lexicon.py`"
+        )
+
+    for name, term in terms.items():
+        entry = entries[name]
+        if not isinstance(entry, Mapping):
+            raise ValueError(
+                f"{rel(LEXICON_LOCK)}: the entry for '{name}' is not a table: {entry!r}; "
+                "run `python tools/lock_lexicon.py`"
+            )
+        if entry.get("pattern_sha256") != pattern_sha256(term.pattern):
+            raise ValueError(
+                f"{rel(LEXICON)}: the pattern of '{name}' changed: set its pattern_since "
+                f"to {version} and run `python tools/lock_lexicon.py`"
+            )
+        if entry.get("pattern_since") != term.pattern_since:
+            raise ValueError(
+                f"{rel(LEXICON)}: term '{name}' declares pattern_since "
+                f"{term.pattern_since}, {rel(LEXICON_LOCK)} records "
+                f"{entry.get('pattern_since')!r}; the pattern itself has not changed, so "
+                "run `python tools/lock_lexicon.py` once the declaration is the one you want"
+            )
+
+
+def _check_committed_lock(terms: Mapping[str, Term], version: int) -> None:
+    """Read the committed lock and hold `terms` to it.
+
+    Separate from `check_lock` only because `load`'s keyword of that name
+    shadows it inside `load`; the check itself stays a pure function of values.
+    """
+    if not LEXICON_LOCK.exists():
+        raise FileNotFoundError(
+            f"{rel(LEXICON_LOCK)} is missing — it is committed beside "
+            f"{rel(LEXICON)}; run `python tools/lock_lexicon.py` to write it"
+        )
+    check_lock(terms, version, json.loads(LEXICON_LOCK.read_text(encoding="utf-8")))
+
+
+def load(*, check_lock: bool = True) -> Lexicon:
+    """Read and compile config/lexicon.yml.
+
+    `check_lock` holds the file to `config/lexicon.lock.json`, which is what
+    catches a pattern edited without its `pattern_since`. Only the tool that
+    writes that lock passes False: every other caller wants the check.
+    """
     if not LEXICON.exists():
         raise FileNotFoundError(f"{rel(LEXICON)} is missing")
     raw = yaml.safe_load(LEXICON.read_text(encoding="utf-8"))
+
+    version = raw.get("version", 0)
+    if not isinstance(version, int) or isinstance(version, bool):
+        raise ValueError(f"{rel(LEXICON)}: 'version' must be an integer, got {version!r}")
+    # Said here rather than left to the `pattern_since` bounds below, which
+    # would report a missing `version:` as a range of "1..0".
+    if version < 1:
+        raise ValueError(
+            f"{rel(LEXICON)}: 'version' must be at least 1, got {version}; every release "
+            "of the lexicon is numbered and the first one is 1"
+        )
 
     terms: dict[str, Term] = {}
     for name, spec in raw["terms"].items():
@@ -106,9 +337,23 @@ def load() -> Lexicon:
             regex = re.compile(spec["pattern"], re.IGNORECASE)
         except re.error as exc:
             raise ValueError(f"{rel(LEXICON)}: term '{name}' has an invalid pattern: {exc}") from exc
+        since = spec.get("pattern_since")
+        if not isinstance(since, int) or isinstance(since, bool):
+            raise ValueError(
+                f"{rel(LEXICON)}: term '{name}' needs an integer 'pattern_since' — the "
+                "lexicon version at which its pattern last changed"
+            )
+        if not 1 <= since <= version:
+            raise ValueError(
+                f"{rel(LEXICON)}: term '{name}' has pattern_since {since}, outside "
+                f"1..{version}; a pattern cannot have changed in a version that does "
+                "not exist yet"
+            )
+
         terms[name] = Term(
             name=name,
             pattern=spec["pattern"],
+            pattern_since=since,
             tier=spec.get("tier", "adjacent"),
             register=spec.get("register", "other"),
             enabled=spec.get("enabled", True),
@@ -137,6 +382,25 @@ def load() -> Lexicon:
             raise ValueError(
                 f"{rel(LEXICON)}: term '{name}' prefilters miss its examples: {unfiltered}"
             )
+        # The records keep their hard line breaks, so `\s+` in a pattern spans a
+        # newline that a multi-word literal never will: such a literal would skip
+        # the speech and lose the match rather than merely slow the scan down.
+        # ASCII for the same reason rather than for tidiness: the fast path is
+        # `str.contains(case=False)`, upper-case containment, while the pattern
+        # runs under `re.IGNORECASE`. The two agree on ASCII and diverge outside
+        # it — `re.IGNORECASE` folds U+0130 "İ" to "i", upper-casing does not —
+        # so a non-ASCII literal could skip a speech the regex would match.
+        unusable = [
+            literal
+            for literal in terms[name].prefilters
+            if any(c.isspace() for c in literal) or not literal.isascii()
+        ]
+        if unusable:
+            raise ValueError(
+                f"{rel(LEXICON)}: term '{name}' has prefilters that are not whitespace-free "
+                f"ASCII: {unusable}; a prefilter is a plain case-insensitive substring test "
+                "and must be one ASCII token"
+            )
 
     sets = raw.get("sets", {})
     unknown = {
@@ -145,16 +409,13 @@ def load() -> Lexicon:
     if bad := {k: v for k, v in unknown.items() if v}:
         raise ValueError(f"{rel(LEXICON)}: sets reference undefined terms: {bad}")
 
-    bad_parents = {
-        term.name: term.nested_under
-        for term in terms.values()
-        if term.nested_under is not None and term.nested_under not in terms
-    }
-    if bad_parents:
-        raise ValueError(f"{rel(LEXICON)}: nested terms reference undefined parents: {bad_parents}")
+    check_nesting(terms)
+
+    if check_lock:
+        _check_committed_lock(terms, version)
 
     return Lexicon(
-        version=raw.get("version", 0),
+        version=version,
         updated=str(raw.get("updated", "")),
         terms=terms,
         sets=sets,
@@ -167,6 +428,12 @@ def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
     Returns a frame of ``n_<term>`` and ``has_<term>`` columns, plus one
     ``has_<set>`` column per convenience grouping and per register, all indexed
     like ``bodies``.
+
+    The occurrence roll-ups — each ``n_register_<register>`` and
+    ``n_lexicon_total`` — are sums over :func:`summable`, so a term declared
+    nested under another is not added on top of the parent that already counts
+    its span. The ``has_`` flags and ``n_lexicon_terms`` stay over every member:
+    neither can double-count a span.
     """
     counts = pd.DataFrame(index=bodies.index)
     for term in lex.active:
@@ -174,9 +441,13 @@ def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
         counts[f"{HAS}{term.name}"] = counts[f"{COUNT}{term.name}"] > 0
 
     for register, terms in lex.by_register().items():
-        columns = [f"{COUNT}{t.name}" for t in terms]
-        counts[f"{COUNT}register_{register}"] = counts[columns].sum(axis=1).astype("int32")
-        counts[f"{HAS}register_{register}"] = counts[f"{COUNT}register_{register}"] > 0
+        summed = [f"{COUNT}{t.name}" for t in summable(terms, lex.terms)]
+        counts[f"{COUNT}register_{register}"] = counts[summed].sum(axis=1).astype("int32")
+        # The flag asks whether the register was used at all, which no amount of
+        # nesting can double-count, so it stays over every member — the booleans
+        # written a few lines above, rather than a second sum of the same counts.
+        members = [f"{HAS}{t.name}" for t in terms]
+        counts[f"{HAS}register_{register}"] = counts[members].any(axis=1)
 
     for set_name, members in lex.sets.items():
         columns = [f"{COUNT}{m}" for m in members if f"{COUNT}{m}" in counts]
@@ -184,7 +455,10 @@ def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
             counts[f"{HAS}set_{set_name}"] = counts[columns].sum(axis=1) > 0
 
     active = [f"{COUNT}{t.name}" for t in lex.active]
-    counts["n_lexicon_total"] = counts[active].sum(axis=1).astype("int32")
+    summed = [f"{COUNT}{t.name}" for t in summable(lex.active, lex.terms)]
+    counts["n_lexicon_total"] = counts[summed].sum(axis=1).astype("int32")
+    # Distinct terms present, not spans: a nested term and its parent are two
+    # terms, and a speech using both is described by both.
     counts["n_lexicon_terms"] = (counts[active] > 0).sum(axis=1).astype("int32")
     return counts
 

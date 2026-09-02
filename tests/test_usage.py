@@ -15,9 +15,40 @@ against rows written by hand. Two kinds of assertion:
 
 from __future__ import annotations
 
+import importlib.util
+import re
+import sys
+from pathlib import Path
+
 import pandas as pd
 import pytest
-from lib import audit, usage
+from lib import audit, lexicon, usage
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _step(name: str, module_name: str):
+    """Load a numbered script as a module. A script cannot be named `15_…`.
+
+    Registered in `sys.modules` before it is executed, and removed again if it
+    raises, for uniformity with the other step loaders in this suite: a step
+    that grows a frozen dataclass needs it — `dataclasses` resolves a field's
+    annotations through `sys.modules[cls.__module__]` — and one that does not
+    loses nothing by it.
+    """
+    spec = importlib.util.spec_from_file_location(module_name, ROOT / "scripts" / name)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(module_name, None)
+        raise
+    return module
+
+
+step = _step("15_usage.py", "usage_step")
 
 # --- Fixtures ---------------------------------------------------------------
 
@@ -984,3 +1015,70 @@ def test_the_aggregation_refuses_a_frame_that_is_missing_a_column() -> None:
     frame = rows({}).drop(columns=["evidence_valid"])
     with pytest.raises(KeyError, match="evidence_valid"):
         usage.actor_rows(frame)
+
+
+# --- The lexicon a run was made against -------------------------------------
+
+
+def lexicon_at(version: int, pattern_since: int) -> lexicon.Lexicon:
+    """A lexicon holding the one term `15_usage.py` aggregates."""
+    pattern = r"\bgenocid\w*"
+    return lexicon.Lexicon(
+        version=version,
+        updated="2026-09-01",
+        terms={
+            step.TERM: lexicon.Term(
+                name=step.TERM,
+                pattern=pattern,
+                tier="core",
+                register="core",
+                pattern_since=pattern_since,
+                examples=("genocide",),
+                prefilters=("genocid",),
+                regex=re.compile(pattern, re.IGNORECASE),
+            )
+        },
+        sets={},
+    )
+
+
+def run_at(version: str) -> tuple[dict[str, object], list[dict]]:
+    return {"lexicon_version": version}, [{"lexicon_version": version}]
+
+
+def test_a_run_survives_a_bump_that_did_not_touch_its_term() -> None:
+    """The whole point of `pattern_since`: v3 moved other terms, `genocide`
+    enumerates what it did at v2, and the committed run is still about this
+    corpus. Refusing it would force a paid re-run for nothing."""
+    manifest, rows_ = run_at("2")
+    step.refuse_stale_lexicon(manifest, rows_, lexicon_at(3, pattern_since=2))
+
+
+def test_a_run_older_than_the_terms_pattern_is_refused() -> None:
+    manifest, rows_ = run_at("1")
+    with pytest.raises(SystemExit):
+        step.refuse_stale_lexicon(manifest, rows_, lexicon_at(3, pattern_since=2))
+
+
+def test_a_run_newer_than_the_lexicon_is_refused() -> None:
+    """A run cannot have been coded against a lexicon this repository does not
+    have; the checkout is behind the run, not the other way round."""
+    manifest, rows_ = run_at("4")
+    with pytest.raises(SystemExit):
+        step.refuse_stale_lexicon(manifest, rows_, lexicon_at(3, pattern_since=2))
+
+
+def test_a_run_with_no_recorded_lexicon_version_is_refused() -> None:
+    with pytest.raises(SystemExit):
+        step.refuse_stale_lexicon({}, [], lexicon_at(3, pattern_since=2))
+
+
+def test_rows_are_checked_even_when_the_manifest_is_compatible() -> None:
+    """The manifest is written once at the end of a run; the rows arrive as the
+    run goes."""
+    with pytest.raises(SystemExit):
+        step.refuse_stale_lexicon(
+            {"lexicon_version": "2"},
+            [{"lexicon_version": "2"}, {"lexicon_version": "1"}],
+            lexicon_at(3, pattern_since=2),
+        )

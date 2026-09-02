@@ -11,11 +11,43 @@
 #   atrocity — the Rome Statute / R2P cluster it travels inside
 #   adjacent — the accountability vocabulary that surrounds both
 #
+# `prefilters` exist for speed and for nothing else: a speech containing none of
+# them is skipped without running the regex. A literal must therefore be
+# contained in *every* string its pattern can match — otherwise the fast path
+# silently loses occurrences. Two rules make that hold, and the loader enforces
+# both. No whitespace: the records keep their hard line breaks, and `\s+` in a
+# pattern spans a newline, a tab or a double space that a multi-word literal
+# never will. ASCII only: the fast path is upper-case containment while the
+# pattern runs under `re.IGNORECASE`, and the two agree on ASCII but not beyond
+# it (`re.IGNORECASE` folds U+0130 'İ' to 'i'; upper-casing does not). The
+# guarantee is therefore exactly this: for the whitespace-free ASCII literals
+# the loader requires, skipping a speech that holds none of them cannot lose an
+# occurrence. Prefer one distinctive word per alternative of the pattern.
+#
+# `pattern_since` is the lexicon version at which that term's `pattern` last
+# changed. Bump it to the new `version` whenever you edit a pattern, and leave
+# it alone otherwise: it is what lets an artefact keyed to a single term — a
+# gold sample, a committed model run — survive a version bump that did not
+# touch that term. See `Lexicon.compatible` in scripts/lib/lexicon.py. The bump
+# is not left to memory: `config/lexicon.lock.json` records a digest of every
+# pattern beside the version it is declared to date from, and the loader refuses
+# a lexicon the lock no longer describes, so run `python tools/lock_lexicon.py`
+# after editing a pattern.
+#
 # Changing this file changes every downstream count. Bump `version` and record
 # what moved.
+#
+# v3 — 2026-09-01
+#   - prefilters rewritten as whitespace-free literals, so a phrase broken
+#     across a line break ("war\ncrimes") is counted rather than dropped by the
+#     fast path.
+#   - register and total roll-ups no longer double-count a term nested under
+#     another term in the same sum (lib/lexicon.py::apply).
+#   - no `pattern` changed: every term keeps `pattern_since: 2`, so the gold
+#     sample and the committed model runs recorded against v2 remain valid.
 
-version: 2
-updated: 2026-08-09
+version: 3
+updated: 2026-09-01
 
 terms:
   genocide:
@@ -24,6 +56,7 @@ terms:
     examples: [genocide, genocidal, genocides, genocidaires]
     tier: core
     register: core
+    pattern_since: 2
     note: >
       Matches genocide, genocidal, genocides, genocidaire(s). 6,092 occurrences
       across 3,273 speeches.
@@ -34,6 +67,7 @@ terms:
     examples: [genecide, senocide, qenocidal]
     tier: core
     register: core
+    pattern_since: 2
     enabled: false
     note: >
       OCR-tolerant net. Keep disabled by default and report the delta against
@@ -46,6 +80,7 @@ terms:
     examples: [ethnic cleansing, ethnically-cleansed]
     tier: atrocity
     register: legal
+    pattern_since: 2
 
   crimes_against_humanity:
     pattern: '\bcrimes?\s+against\s+humanity'
@@ -53,20 +88,23 @@ terms:
     examples: [crime against humanity, crimes against humanity]
     tier: atrocity
     register: legal
+    pattern_since: 2
 
   war_crimes:
     pattern: '\bwar\s+crimes?\b'
-    prefilters: [war crime]
+    prefilters: [crime]
     examples: [war crime, war crimes]
     tier: atrocity
     register: legal
+    pattern_since: 2
 
   mass_atrocity:
     pattern: '\bmass\s+atrocit(?:y|ies)\b'
-    prefilters: [mass atroc]
+    prefilters: [atroc]
     examples: [mass atrocity, mass atrocities]
     tier: atrocity
     register: legal
+    pattern_since: 2
     nested_under: atrocity
 
   atrocity:
@@ -75,6 +113,7 @@ terms:
     examples: [atrocity, atrocities]
     tier: adjacent
     register: legal
+    pattern_since: 2
 
   extermination:
     pattern: '\bexterminat\w*'
@@ -82,43 +121,52 @@ terms:
     examples: [exterminate, extermination, exterminating]
     tier: adjacent
     register: legal
+    pattern_since: 2
 
   genocide_convention:
     pattern: '\bgenocide\s+convention\b|\bconvention\s+on\s+the\s+prevention\s+and\s+punishment'
-    prefilters: [genocide convention, convention on the prevention and punishment]
+    prefilters: [convention]
     examples: [Genocide Convention, Convention on the Prevention and Punishment]
     tier: core
     register: legal
+    pattern_since: 2
     nested_under: genocide
 
   responsibility_to_protect:
     pattern: '\bresponsibility\s+to\s+protect\b|\bR2P\b'
-    prefilters: [responsibility to protect, r2p]
+    prefilters: [protect, r2p]
     examples: [responsibility to protect, R2P]
     tier: atrocity
     register: preventive
+    pattern_since: 2
 
   prevention_of_genocide:
     pattern: '\b(?:prevention|preventing)\s+of\s+genocide\b|special\s+adviser\s+on\s+the\s+prevention'
-    prefilters: [prevention of genocide, preventing of genocide, special adviser on the prevention]
+    prefilters: [prevent]
     examples: [prevention of genocide, Special Adviser on the Prevention]
     tier: core
     register: preventive
+    pattern_since: 2
     nested_under: genocide
 
   early_warning:
     pattern: '\bearly\s+warning\b'
-    prefilters: [early warning]
+    prefilters: [warning]
     examples: [early warning]
     tier: adjacent
     register: preventive
+    pattern_since: 2
 
   never_again:
     pattern: '\bnever\s+again\b'
-    prefilters: [never again]
+    prefilters: [never]
     examples: [never again]
     tier: adjacent
     register: commemorative
+    pattern_since: 2
+    note: >
+      Filtered on `never` rather than `again`: "again" is a substring of
+      "against", which is everywhere in this corpus, so it would filter nothing.
 
   holocaust:
     pattern: '\bholocaust\b|\bshoah\b'
@@ -126,6 +174,7 @@ terms:
     examples: [Holocaust, Shoah]
     tier: adjacent
     register: commemorative
+    pattern_since: 2
 
   commemoration:
     pattern: '\bcommemorat\w*|\banniversar\w+'
@@ -133,6 +182,7 @@ terms:
     examples: [commemoration, commemorating, anniversary]
     tier: adjacent
     register: commemorative
+    pattern_since: 2
 
   survivors:
     pattern: '\bsurvivors?\b'
@@ -140,6 +190,7 @@ terms:
     examples: [survivor, survivors]
     tier: adjacent
     register: commemorative
+    pattern_since: 2
 
   denial:
     pattern: '\bdenial\b|\bdeny\w*\s+(?:the\s+)?genocid\w*|\bgenocide\s+denial\b'
@@ -147,6 +198,7 @@ terms:
     examples: [denial, denying the genocide, genocide denial]
     tier: adjacent
     register: contentious
+    pattern_since: 2
 
   glorification:
     pattern: '\bglorif\w+'
@@ -154,6 +206,7 @@ terms:
     examples: [glorification, glorifying]
     tier: adjacent
     register: contentious
+    pattern_since: 2
 
   genocidal_ideology:
     pattern: '\bgenocidal\s+ideolog\w+|\bideolog\w+\s+of\s+genocide\b'
@@ -161,6 +214,7 @@ terms:
     examples: [genocidal ideology, ideology of genocide]
     tier: core
     register: contentious
+    pattern_since: 2
     nested_under: genocide
 
   ethnic_hatred:
@@ -169,6 +223,7 @@ terms:
     examples: [ethnic hatred, ethnic violence, ethnic conflict]
     tier: adjacent
     register: contentious
+    pattern_since: 2
 
   impunity:
     pattern: '\bimpunity\b'
@@ -176,13 +231,15 @@ terms:
     examples: [impunity]
     tier: adjacent
     register: accountability
+    pattern_since: 2
 
   icc:
     pattern: '\binternational\s+criminal\s+court\b|\bICC\b'
-    prefilters: [international criminal court, icc]
+    prefilters: [criminal, icc]
     examples: [International Criminal Court, ICC]
     tier: adjacent
     register: accountability
+    pattern_since: 2
 
   tribunals:
     pattern: '\b(?:ICTR|ICTY)\b|international\s+(?:criminal\s+)?tribunal'
@@ -190,6 +247,7 @@ terms:
     examples: [ICTR, ICTY, international criminal tribunal, international tribunal]
     tier: adjacent
     register: accountability
+    pattern_since: 2
 
 # Convenience groupings used by the dashboard's filter chips.
 sets:

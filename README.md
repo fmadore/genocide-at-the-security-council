@@ -145,6 +145,7 @@ is one the pipeline actually writes.
 ├── .github/workflows/   checks.yml (pipeline + dashboard) · deploy.yml (Pages)
 ├── config/              Versioned analysis inputs — edit these, not the scripts
 │   ├── lexicon.yml           Genocide lexicon: patterns, tiers, discursive registers
+│   ├── lexicon.lock.json     Digest of every pattern beside its pattern_since; tools/lock_lexicon.py
 │   ├── embedding_models.yml  Encoders for step 06, and why each one is on the list
 │   ├── entities.csv          country_org → type · ISO3 · UN group · centroid
 │   ├── country_aliases.csv   Labels denoting the same speaker

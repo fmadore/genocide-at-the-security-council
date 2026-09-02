@@ -8,17 +8,42 @@ halfway through a pipeline run.
 
 from __future__ import annotations
 
+import json
+import re
+
+import pandas as pd
 import pytest
 from lib import council, entities, lexicon, series
-from lib.paths import COUNCIL_MEMBERSHIP, COUNTRY_ALIASES, ENTITIES, EVENTS, LEXICON
+from lib.paths import (
+    COUNCIL_MEMBERSHIP,
+    COUNTRY_ALIASES,
+    ENTITIES,
+    EVENTS,
+    LEXICON,
+    LEXICON_LOCK,
+)
 
 CORPUS_FIRST_YEAR = 1992
 CORPUS_LAST_YEAR = 2023
 
+#: What a verbatim record does to a phrase that will not fit on one line. The
+#: patterns join words with `\s+`, which spans every one of these; a prefilter
+#: is a plain substring test, which spans none of them.
+WHITESPACE_RUNS = ("\n", "  ", " \t ", "\n  ")
+
+
+def as_the_record_might_hold_it(example: str) -> list[str]:
+    """The example wrapped, indented and shouted, as well as verbatim."""
+    return [
+        example,
+        example.upper(),
+        *(example.replace(" ", run) for run in WHITESPACE_RUNS),
+    ]
+
 
 class TestFilesExist:
     @pytest.mark.parametrize(
-        "path", [LEXICON, ENTITIES, COUNTRY_ALIASES, COUNCIL_MEMBERSHIP, EVENTS]
+        "path", [LEXICON, LEXICON_LOCK, ENTITIES, COUNTRY_ALIASES, COUNCIL_MEMBERSHIP, EVENTS]
     )
     def test_present(self, path):
         assert path.exists(), f"{path} is missing"
@@ -41,6 +66,11 @@ def membership():
 
 @pytest.fixture(scope="module")
 def lex():
+    """The committed lexicon, checked against its lock.
+
+    `load()` checks the lock unless told not to, so every test taking this
+    fixture is also standing on a lock that describes the file.
+    """
     return lexicon.load()
 
 
@@ -158,6 +188,51 @@ class TestLexicon:
             for example in term.examples:
                 assert any(literal.lower() in example.lower() for literal in term.prefilters)
 
+    def test_no_prefilter_contains_whitespace(self, lex):
+        """A multi-word literal cannot be found in a phrase the record broke
+        across a line, so the fast path would drop the match instead of the
+        speech."""
+        for term in lex.terms.values():
+            for literal in term.prefilters:
+                assert not any(char.isspace() for char in literal), f"{term.name}: {literal!r}"
+
+    def test_every_prefilter_is_ascii(self, lex):
+        """The fast path is upper-case containment, the pattern runs under
+        `re.IGNORECASE`, and the two agree only on ASCII: `re.IGNORECASE` folds
+        U+0130 'İ' to 'i' where upper-casing does not."""
+        for term in lex.terms.values():
+            for literal in term.prefilters:
+                assert literal.isascii(), f"{term.name}: {literal!r}"
+
+    def test_the_prefilter_never_loses_a_match_to_whitespace(self, lex):
+        """The property the prefilter exists under: it may only make counting
+        faster, never change what is counted. Checked against the regex run
+        directly on the same text, over the whitespace a verbatim record
+        actually contains."""
+        for term in lex.terms.values():
+            texts = [
+                text
+                for example in term.examples
+                for text in as_the_record_might_hold_it(example)
+            ]
+            counted = term.count(pd.Series(texts))
+            for text, count in zip(texts, counted, strict=True):
+                assert count == len(term.regex.findall(text)), f"{term.name}: {text!r}"
+
+    def test_every_pattern_records_the_version_it_last_changed_in(self, lex):
+        """`pattern_since` is what lets a gold sample or a committed model run
+        survive a version bump that did not touch the term it is keyed to."""
+        for term in lex.terms.values():
+            assert isinstance(term.pattern_since, int), term.name
+            assert 1 <= term.pattern_since <= lex.version, term.name
+
+    def test_a_term_is_compatible_with_every_version_since_its_pattern_changed(self, lex):
+        term = lex.terms["genocide"]
+        assert lex.compatible("genocide", term.pattern_since)
+        assert lex.compatible("genocide", lex.version)
+        assert not lex.compatible("genocide", term.pattern_since - 1)
+        assert not lex.compatible("genocide", lex.version + 1)
+
     def test_tiers_and_registers_are_populated(self, lex):
         for term in lex.terms.values():
             assert term.tier
@@ -183,3 +258,94 @@ class TestLexicon:
         assert "genocide_ocr_variants" in lex.terms
         assert not lex.terms["genocide_ocr_variants"].enabled
         assert "genocide_ocr_variants" not in {t.name for t in lex.active}
+
+
+def a_term(name: str, pattern: str, pattern_since: int) -> lexicon.Term:
+    """One term, as `load()` would have built it."""
+    return lexicon.Term(
+        name=name,
+        pattern=pattern,
+        tier="core",
+        register="core",
+        pattern_since=pattern_since,
+        examples=(name,),
+        prefilters=(name,),
+        regex=re.compile(pattern, re.IGNORECASE),
+    )
+
+
+def a_lock(version: int, terms: dict[str, lexicon.Term]) -> dict[str, object]:
+    """The lock `tools/lock_lexicon.py` would write for `terms`."""
+    return {
+        "version": version,
+        "terms": {
+            name: {
+                "pattern_since": term.pattern_since,
+                "pattern_sha256": lexicon.pattern_sha256(term.pattern),
+            }
+            for name, term in sorted(terms.items())
+        },
+    }
+
+
+class TestLexiconLock:
+    """`pattern_since` is a claim about a pattern; the lock is what holds it.
+
+    Editing a pattern and leaving its `pattern_since` behind would let 15
+    aggregate a committed model run enumerated from the regex that is no longer
+    in the file. The lock records each pattern's digest beside the version it is
+    declared to date from, and `load()` refuses a lexicon it no longer describes.
+    """
+
+    def test_the_committed_lock_describes_the_committed_lexicon(self, lex):
+        """`load()` already checked this — the point here is that a failure
+        names the lock and the command that rewrites it."""
+        lock = json.loads(LEXICON_LOCK.read_text(encoding="utf-8"))
+        lexicon.check_lock(lex.terms, lex.version, lock)
+        assert lock["version"] == lex.version
+        assert set(lock["terms"]) == set(lex.terms), "every term is locked, disabled included"
+
+    def test_an_edited_pattern_with_a_stale_pattern_since_is_refused(self):
+        """The case the lock exists for."""
+        terms = {"genocide": a_term("genocide", r"\bgenocid\w*", 2)}
+        lock = a_lock(3, terms)
+        edited = {"genocide": a_term("genocide", r"\bgenocid\w*|\bshoah\b", 2)}
+        with pytest.raises(ValueError, match="pattern of 'genocide' changed"):
+            lexicon.check_lock(edited, 3, lock)
+
+    def test_an_edited_pattern_passes_only_once_the_lock_is_rewritten(self):
+        """Bumping `pattern_since` is half of it: the lock still records the old
+        digest until the tool is run, and that is what the message asks for."""
+        old = a_lock(3, {"genocide": a_term("genocide", r"\bgenocid\w*", 2)})
+        bumped = {"genocide": a_term("genocide", r"\bgenocid\w*|\bshoah\b", 3)}
+        with pytest.raises(ValueError, match="pattern of 'genocide' changed"):
+            lexicon.check_lock(bumped, 3, old)
+        lexicon.check_lock(bumped, 3, a_lock(3, bumped))
+
+    def test_a_pattern_since_edited_on_its_own_is_refused(self):
+        """The declaration moved and the pattern did not, which the lock also
+        knows about: one of the two is wrong."""
+        terms = {"genocide": a_term("genocide", r"\bgenocid\w*", 2)}
+        moved = {"genocide": a_term("genocide", r"\bgenocid\w*", 3)}
+        with pytest.raises(ValueError, match="declares pattern_since 3"):
+            lexicon.check_lock(moved, 3, a_lock(3, terms))
+
+    def test_a_term_missing_from_the_lock_is_refused(self):
+        terms = {"genocide": a_term("genocide", r"\bgenocid\w*", 2)}
+        lock = a_lock(3, terms)
+        terms["holocaust"] = a_term("holocaust", r"\bholocaust\b", 3)
+        with pytest.raises(ValueError, match="does not lock"):
+            lexicon.check_lock(terms, 3, lock)
+
+    def test_a_locked_term_the_lexicon_dropped_is_refused(self):
+        terms = {"genocide": a_term("genocide", r"\bgenocid\w*", 2)}
+        lock = a_lock(3, {**terms, "holocaust": a_term("holocaust", r"\bholocaust\b", 3)})
+        with pytest.raises(ValueError, match="no longer defines"):
+            lexicon.check_lock(terms, 3, lock)
+
+    def test_a_version_mismatch_is_refused(self):
+        """A lock left behind by a bump describes a file that no longer exists,
+        whatever it says about the patterns."""
+        terms = {"genocide": a_term("genocide", r"\bgenocid\w*", 2)}
+        with pytest.raises(ValueError, match="locks lexicon version 2"):
+            lexicon.check_lock(terms, 3, a_lock(2, terms))

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 from typing import Final
@@ -328,8 +329,17 @@ def merge(
     annotations: pd.DataFrame,
     *,
     referents: set[str] | None = None,
+    compatible: Callable[[str, str], bool] | None = None,
 ) -> pd.DataFrame:
-    """Join human work to generated candidates, refusing ambiguous identities."""
+    """Join human work to generated candidates, refusing ambiguous identities.
+
+    `compatible` decides, per annotated row, whether the term that row was coded
+    on still enumerates the same occurrences at the version it records — pass
+    `Lexicon.compatible`. Candidates are regenerated at the current lexicon
+    version, so without it a coded row keeps the version it was coded at and any
+    bump of the lexicon would refuse the whole file. Omitted, the strict rule
+    stands: an annotation may only record a version some candidate records too.
+    """
     missing_candidates = sorted(CANDIDATE_REQUIRED - set(candidates.columns))
     if missing_candidates:
         raise ValueError(f"Candidate file is missing columns: {', '.join(missing_candidates)}")
@@ -362,18 +372,48 @@ def merge(
                 f"candidates={sorted(candidate_versions)}, annotations={sorted(annotation_versions)}"
             )
 
-        candidate_lexicons = set(candidates["lexicon_version"].astype(str))
-        annotation_lexicons = set(nonempty["lexicon_version"].astype(str))
-        if annotation_lexicons - candidate_lexicons:
-            raise ValueError(
-                "Annotation lexicon is incompatible with the generated candidates: "
-                f"candidates={sorted(candidate_lexicons)}, annotations={sorted(annotation_lexicons)}"
-            )
+        if compatible is None:
+            candidate_lexicons = set(candidates["lexicon_version"].astype(str))
+            annotation_lexicons = set(nonempty["lexicon_version"].astype(str))
+            if annotation_lexicons - candidate_lexicons:
+                raise ValueError(
+                    "Annotation lexicon is incompatible with the generated candidates: "
+                    f"candidates={sorted(candidate_lexicons)}, "
+                    f"annotations={sorted(annotation_lexicons)}"
+                )
 
         known = set(candidates["occurrence_id"].astype(str))
         unknown = sorted(set(nonempty["occurrence_id"].astype(str)) - known)
         if unknown:
             raise ValueError(f"Annotations refer to unknown occurrence IDs: {', '.join(unknown[:5])}")
+
+        if compatible is not None:
+            # Per row and per term, after the check above, so an ID nobody
+            # generated is reported as unknown rather than as incompatible.
+            # `occurrence_id` is built from the term, so two candidate rows for
+            # one occurrence — the same match drawn into two sampling frames —
+            # always name the same term.
+            terms = dict(
+                zip(
+                    candidates["occurrence_id"].astype(str),
+                    candidates["term"].astype(str),
+                    strict=True,
+                )
+            )
+            for occurrence, recorded in zip(
+                nonempty["occurrence_id"].astype(str),
+                nonempty["lexicon_version"].astype(str).str.strip(),
+                strict=True,
+            ):
+                term = terms[occurrence]
+                if not compatible(term, recorded):
+                    raise ValueError(
+                        f"Annotation of occurrence {occurrence} was coded against lexicon "
+                        f"version {recorded} and '{term}' no longer enumerates it: a "
+                        "coded row holds from the version its term's pattern last changed "
+                        "in up to the current one."
+                    )
+
         _validate_labels(candidates, nonempty, referents or set(DEFAULT_REFERENTS))
 
     review = candidates.merge(
@@ -401,11 +441,15 @@ def write_outputs(
     review_path: Path,
     frame_paths: dict[str, Path] | None = None,
     referent_path: Path | None = None,
+    compatible: Callable[[str, str], bool] | None = None,
 ) -> pd.DataFrame:
-    """Regenerate candidates and review while never writing the human-owned file."""
+    """Regenerate candidates and review while never writing the human-owned file.
+
+    `compatible` is forwarded to `merge`; see it for what the rule decides.
+    """
     annotations = read_annotations(annotation_path)
     referents = read_referents(referent_path) if referent_path else set(DEFAULT_REFERENTS)
-    review = merge(candidates, annotations, referents=referents)
+    review = merge(candidates, annotations, referents=referents, compatible=compatible)
     artifacts.atomic_write_text(candidate_path, candidates.to_csv(index=False, lineterminator="\n"))
     for frame, path in (frame_paths or {}).items():
         selected = candidates.loc[candidates["sampling_frame"] == frame]

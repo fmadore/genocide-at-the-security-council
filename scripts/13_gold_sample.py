@@ -375,6 +375,9 @@ def run(probability: int, coverage: int, seed: int) -> None:
             audit.COVERAGE: GOLD_COVERAGE,
         },
         referent_path=REFERENTS,
+        # A coded row survives a bump that did not touch `genocide`; see
+        # `Lexicon.compatible`.
+        compatible=lex.compatible,
     )
     coded = review.loc[review["coder"].astype("string").str.len().gt(0)]
     annotated = len(coded.drop_duplicates(["occurrence_id", "coder"]))
