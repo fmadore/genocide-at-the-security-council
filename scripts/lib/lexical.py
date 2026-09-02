@@ -4,8 +4,8 @@ Three measurements, each with the same discipline: report an effect size next to
 every significance figure, and say what the comparison was made against.
 
 **Log-likelihood (G²)** ranks a word by how confidently we can say its rate
-differs between two corpora. It is a significance measure, and on 59 million
-tokens almost everything is significant — so every row also carries **log ratio**
+differs between two corpora. It is a significance measure, and on 58.9 million
+words almost everything is significant — so every row also carries **log ratio**
 (Hardie 2014), which says by how much. A word can top the G² table on a rate
 difference of 1.2x; the log ratio is what stops that being read as a finding.
 

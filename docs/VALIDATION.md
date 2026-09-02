@@ -424,6 +424,21 @@ co-occurs with `genocide` by construction, so `lib/lexical.py::definitional_pair
 suppresses those edges from the co-occurrence network and names the reason, as it already
 did for the `denial` pattern that used to carry `genocid` inside itself.
 
+**The four committed model runs are no longer aggregable, and this is the price the
+procedure names.** `genocide` now carries `pattern_since: 4`, and `15_usage.py` refuses a
+run whose recorded `lexicon_version` predates the version its term's pattern last changed
+in. All four runs in `model_annotations/genocide/runs/` record version 2, so 15 will stop
+with *"was made against an incompatible lexicon"* and `/usage` cannot be rebuilt until they
+are re-registered. Three things bound how bad that is. The two annotation files —
+`annotations/lexicon/annotations.csv` and `annotations/genocide/annotations.csv` — are
+header-only, so **no human coding is lost** and 03 and 13 are unaffected. The new pattern
+matches a strict *subset* of the old one at *identical spans*, so every surviving
+occurrence keeps the `occurrence_id` it was annotated under: what the runs need is a
+re-enumeration against v4 with their 31 génocidaire rows dropped, not new annotation.
+And item 4 of the review's plan already calls for prompt v2 and a fresh run, so the
+cheapest order is to do both at once. Until one or the other happens, `make payload` stops
+at 15.
+
 **What is owed.** The measurements above were taken by applying the committed lexicon to
 the committed corpus, so they are the run's numbers rather than an estimate of them. What
 has not happened is the run: `03` through `12` and `export_web.py` have not been

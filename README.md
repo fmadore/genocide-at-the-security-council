@@ -256,7 +256,9 @@ sexual violence rather than genocide memory. It adds `massacre`, `mass killing`,
 `intent to destroy` and `incitement`, gives the Residual Mechanism back to `tribunals`,
 and stops `holocaust` counting the nuclear kind. Every figure it moves was measured on
 the corpus before it was committed and is tabulated in
-[`docs/VALIDATION.md`](docs/VALIDATION.md).
+[`docs/VALIDATION.md`](docs/VALIDATION.md), including the price: editing the `genocide`
+pattern is what the lexicon procedure warns costs a committed model run, and `15` will
+refuse the four in `model_annotations/` until they are re-enumerated against v4.
 
 Since the same day, a rate *per 100,000 words* divides by words. It used to divide by the
 codebook's `tokens` column — quanteda's count over the full text, punctuation and numbers
