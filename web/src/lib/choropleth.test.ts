@@ -44,6 +44,8 @@ const row = (name: string, extra: Partial<CountryMeasureRow> = {}): CountryMeasu
 	tokens: 500_000,
 	speeches: 25,
 	speech_rate: 0.05,
+	speech_rate_low: 0.034,
+	speech_rate_high: 0.073,
 	sufficient: true,
 	occurrences: 60,
 	token_rate: 12,

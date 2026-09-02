@@ -221,7 +221,7 @@ What follows from that, worth knowing before you start:
 | [`lib/entities.py`](lib/entities.py) | The `country_org` crosswalk: aliases in, type/ISO3/centroid out. |
 | [`lib/council.py`](lib/council.py) | Council membership by year; the P5 / E10 / non-member / UN / non-state split. |
 | [`lib/lexicon.py`](lib/lexicon.py) | Loads, compiles and counts `config/lexicon.yml`. |
-| [`lib/series.py`](lib/series.py) | Periods, denominators, rates, breakdowns; change-point detection; the event overlay. |
+| [`lib/series.py`](lib/series.py) | Periods, denominators, rates with their Wilson 95% bounds, breakdowns; change-point detection with a meeting-block null (`meeting_blocks`, `rate_change_point`); the event overlay. |
 | [`lib/actors.py`](lib/actors.py) | Per-speaker aggregation over `lib/series.py`'s arithmetic; the minimum-sample rule; ISO3 collisions and what may be mapped. |
 | [`lib/kwic.py`](lib/kwic.py) | Sentence segmentation for the genre, and concordance-line extraction. |
 | [`lib/occurrences.py`](lib/occurrences.py) | One enumeration of a term's occurrences, carrying both the audit `occurrence_id` and the KWIC line id; 13, 14 and 15 share it. |
@@ -270,7 +270,10 @@ are; a count written down here is one that goes stale on the next commit.
 a bad alias or a mistyped Council term fails here rather than halfway through a pipeline
 run. [`tests/test_series.py`](../tests/test_series.py) checks exploratory segmentation and
 the denominator-aware binomial/Poisson breakpoint models against constructed series with
-known answers. [`tests/test_actors.py`](../tests/test_actors.py) does the same for the
+known answers — including that the meeting-block null is harder to clear than the
+independent-speech one when the word clusters into a few debates, and no harder when every
+meeting shifts — and that the Wilson bounds every speech rate carries bracket the rate,
+narrow with the denominator, and are blanked exactly where the rate is withheld. [`tests/test_actors.py`](../tests/test_actors.py) does the same for the
 per-country table, on the cases that would leave it looking right while being wrong: an
 untyped speaker, a blank ISO3, a denominator one short of the minimum, and a historical
 state sharing a living one's code.

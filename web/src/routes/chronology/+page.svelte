@@ -13,7 +13,10 @@
 		readChronologyState,
 		splitEvidenceQuery,
 		type ChronologyChoices,
-		type ChronologyUnit as Unit
+		type ChronologyUnit as Unit,
+		bandOwner,
+		intervalBand,
+		isIntervalBand
 	} from '$lib/chronology';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
@@ -46,7 +49,7 @@
 		tooltip
 	} from '$lib/theme';
 	import type { BreakdownRow, CouncilEvent, Measure } from '$lib/types';
-	import type { EChartsOption } from 'echarts';
+	import type { EChartsOption, LineSeriesOption } from 'echarts';
 	import { onMount, tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { PageData } from './$types';
@@ -205,6 +208,8 @@
 					source.corpus.tokens[index],
 					measure.speeches[index] ?? null,
 					measure.speech_rate[index] ?? null,
+					measure.speech_rate_low[index] ?? null,
+					measure.speech_rate_high[index] ?? null,
 					measure.occurrences?.[index] ?? null,
 					measure.token_rate?.[index] ?? null
 				]);
@@ -221,6 +226,8 @@
 				'corpus_tokens',
 				'speeches',
 				'speech_rate',
+				'speech_rate_wilson95_low',
+				'speech_rate_wilson95_high',
 				'occurrences',
 				'token_rate_per_100k'
 			],
@@ -301,6 +308,8 @@
 						row.held,
 						row.speeches,
 						row.speech_rate,
+						row.speech_rate_low,
+						row.speech_rate_high,
 						row.occurrences ?? null,
 						row.token_rate ?? null
 					]);
@@ -317,6 +326,8 @@
 				'held',
 				'speeches',
 				'speech_rate',
+				'speech_rate_wilson95_low',
+				'speech_rate_wilson95_high',
 				'occurrences',
 				'token_rate_per_100k'
 			],
@@ -392,9 +403,14 @@
 		const p = $colours;
 		const usable = selected.filter((n) => allMeasures[n] && !unavailable.includes(n));
 		const named = usable.length <= LABELLABLE;
+		// The band is drawn only for the share of speeches: it is the one unit
+		// that is a proportion with a known denominator, so it is the one unit
+		// with a Wilson interval to draw.
+		const banded = unit === 'speech_rate';
 		return {
 			textStyle,
-			legend: named ? undefined : legend(p),
+			// When a legend is needed it lists the lines and not their bands.
+			legend: named ? undefined : { ...legend(p), data: usable.map(label) },
 			grid: {
 				...grid(named),
 				top: named ? 12 : 34,
@@ -411,6 +427,7 @@
 				formatter: (params) => {
 					const rows = (Array.isArray(params) ? params : [params]) as {
 						axisValue?: string;
+						dataIndex?: number;
 						marker?: string;
 						seriesName?: string;
 						value?: unknown;
@@ -422,9 +439,23 @@
 							: isRate && unit === 'speech_rate'
 								? percent(v as number)
 								: decimal(v as number);
+					// The two halves of a band are series too; the reader gets the
+					// interval as a range beside the line's value, not as two rows.
+					const interval = (seriesName: string | undefined, index: number | undefined) => {
+						if (!banded || index == null) return '';
+						const internal = usable.find((n) => label(n) === bandOwner(seriesName ?? ''));
+						const low = internal ? allMeasures[internal].speech_rate_low[index] : null;
+						const high = internal ? allMeasures[internal].speech_rate_high[index] : null;
+						return low == null || high == null
+							? ''
+							: ` <span style="opacity:.65">${percent(low)}–${percent(high)}</span>`;
+					};
 					const series = rows
+						.filter((r) => !isIntervalBand(r.seriesName))
 						.map(
-							(r) => `${r.marker ?? ''}${escapeHtml(r.seriesName ?? '')} <b>${show(r.value)}</b>`
+							(r) =>
+								`${r.marker ?? ''}${escapeHtml(r.seriesName ?? '')} <b>${show(r.value)}</b>` +
+								interval(r.seriesName, r.dataIndex)
 						)
 						.join('<br>');
 					const events = byYearLookup.get(year) ?? [];
@@ -458,29 +489,41 @@
 					textStyle: { color: p.inkFaint, fontSize: 11 }
 				}
 			],
-			series: usable.map((name, i) => ({
-				name: label(name),
-				type: 'line',
-				data: allMeasures[name][unit] ?? [],
-				symbol: 'circle',
-				symbolSize: grain === 'year' ? 5 : 0,
-				lineStyle: { width: 2.2, color: colourOf(name, p) },
-				itemStyle: { color: colourOf(name, p) },
-				endLabel: named ? endLabel(colourOf(name, p), label(name)) : undefined,
-				emphasis: { focus: 'series' },
-				// Silent: the rule is a mark, not a hover target. What it means is read
-				// off the axis tooltip, which fires anywhere in the year's column.
-				markLine:
-					i === 0 && eventMarks.length
-						? {
-								silent: true,
-								symbol: 'none',
-								lineStyle: { color: p.inkFaint, width: 1, type: 'solid', opacity: 0.35 },
-								label: { show: false },
-								data: eventMarks.map(([year]) => ({ xAxis: year, name: year }))
-							}
-						: undefined
-			}))
+			series: [
+				...(banded
+					? usable.flatMap((name) =>
+							intervalBand(
+								label(name),
+								colourOf(name, p),
+								allMeasures[name].speech_rate_low,
+								allMeasures[name].speech_rate_high
+							)
+						)
+					: []),
+				...usable.map((name, i): LineSeriesOption => ({
+					name: label(name),
+					type: 'line',
+					data: allMeasures[name][unit] ?? [],
+					symbol: 'circle',
+					symbolSize: grain === 'year' ? 5 : 0,
+					lineStyle: { width: 2.2, color: colourOf(name, p) },
+					itemStyle: { color: colourOf(name, p) },
+					endLabel: named ? endLabel(colourOf(name, p), label(name)) : undefined,
+					emphasis: { focus: 'series' },
+					// Silent: the rule is a mark, not a hover target. What it means is read
+					// off the axis tooltip, which fires anywhere in the year's column.
+					markLine:
+						i === 0 && eventMarks.length
+							? {
+									silent: true,
+									symbol: 'none',
+									lineStyle: { color: p.inkFaint, width: 1, type: 'solid', opacity: 0.35 },
+									label: { show: false },
+									data: eventMarks.map(([year]) => ({ xAxis: year, name: year }))
+								}
+							: undefined
+				}))
+			]
 		};
 	});
 
@@ -551,14 +594,42 @@
 		const p = $colours;
 		const ramp = categorical(p);
 		const years = [...new Set(block.rows.map((r) => String(r.period)))].sort();
+		const cell = (category: string, year: string) =>
+			block.rows.find(
+				(candidate) => String(candidate.period) === year && candidate.category === category
+			) ?? null;
 		return {
 			textStyle,
 			grid: grid(),
-			legend: legend(p),
+			legend: { ...legend(p), data: block.categories },
 			tooltip: {
 				...tooltip(p),
 				trigger: 'axis',
-				valueFormatter: (v) => (v == null ? '—' : percent(v as number))
+				formatter: (params) => {
+					const rows = (Array.isArray(params) ? params : [params]) as {
+						axisValue?: string;
+						marker?: string;
+						seriesName?: string;
+						value?: unknown;
+					}[];
+					const year = rows[0]?.axisValue ?? '';
+					const lines = rows
+						.filter((r) => !isIntervalBand(r.seriesName))
+						.map((r) => {
+							const row = cell(r.seriesName ?? '', year);
+							const value = (r.value as { value?: number } | number | null | undefined) ?? null;
+							const shown =
+								value == null
+									? '—'
+									: percent(typeof value === 'number' ? value : (value.value ?? 0));
+							const range = row
+								? ` <span style="opacity:.65">${percent(row.speech_rate_low)}–${percent(row.speech_rate_high)} · ${count(row.held)} speeches</span>`
+								: '';
+							return `${r.marker ?? ''}${escapeHtml(r.seriesName ?? '')} <b>${shown}</b>${range}`;
+						})
+						.join('<br>');
+					return `<b>${escapeHtml(year)}</b><br>${lines}`;
+				}
 			},
 			xAxis: { ...axisX(p), type: 'category', data: years },
 			yAxis: {
@@ -570,21 +641,29 @@
 					formatter: (v: number) => `${(v * 100).toFixed(0)}%`
 				}
 			},
-			series: block.categories.map((category, i) => ({
-				name: category,
-				type: 'line',
-				data: years.map((y) => {
-					const row = block.rows.find(
-						(candidate) => String(candidate.period) === y && candidate.category === category
-					);
-					return row ? { value: row.speech_rate, held: row.held } : null;
-				}),
-				connectNulls: false,
-				symbol: 'none',
-				lineStyle: { width: 2, color: ramp[i % ramp.length] },
-				itemStyle: { color: ramp[i % ramp.length] },
-				emphasis: { focus: 'series' }
-			}))
+			series: [
+				...block.categories.flatMap((category, i) =>
+					intervalBand(
+						category,
+						ramp[i % ramp.length],
+						years.map((y) => cell(category, y)?.speech_rate_low ?? null),
+						years.map((y) => cell(category, y)?.speech_rate_high ?? null)
+					)
+				),
+				...block.categories.map((category, i): LineSeriesOption => ({
+					name: category,
+					type: 'line',
+					data: years.map((y) => {
+						const row = cell(category, y);
+						return row ? { value: row.speech_rate, held: row.held } : null;
+					}),
+					connectNulls: false,
+					symbol: 'none',
+					lineStyle: { width: 2, color: ramp[i % ramp.length] },
+					itemStyle: { color: ramp[i % ramp.length] },
+					emphasis: { focus: 'series' }
+				}))
+			]
 		};
 	});
 
@@ -662,6 +741,14 @@
 				<strong>register</strong> &mdash; the family of vocabulary it belongs to &mdash; so terms that
 				do similar work in a speech share a hue.
 			</p>
+			{#if unit === 'speech_rate'}
+				<p>
+					Each line sits in a faint <strong>band</strong>: its 95% interval (Wilson), the range the
+					share could plausibly take given how many speeches that {grain} held. A wide band is a
+					{grain} the Council spoke little in; where two bands overlap, the lines are not telling the
+					two terms apart. Hover to read the interval beside the value.
+				</p>
+			{/if}
 			<p>
 				{#if showEvents && grain === 'year'}Faint vertical lines mark the years carrying one of the
 					{data.overlay.events.length}
@@ -1010,11 +1097,21 @@
 				is expected to contain more of everything.
 			</p>
 			<p>
-				The p-value comes from {count(data.breaks.inference.trials)} simulated series in which the rate
-				never changes and the whole search is repeated from scratch. A result counts only below
-				{percent(data.breaks.inference.per_test_alpha)}, a threshold already tightened to allow for
-				several tests being run at once ({data.breaks.inference.correction}). The intervals describe
-				the combined rate on either side of the split.
+				{#if data.breaks.inference.null === 'meeting_block_permutation'}
+					The p-value comes from {count(data.breaks.inference.trials)} series in which the rate never
+					changes and the whole search is repeated from scratch. Each one is made by moving whole
+					<strong>meetings</strong> between years, so a single debate that used the word two hundred times
+					counts as one draw rather than two hundred. The second p-value is the same test under the older
+					assumption that every speech is an independent coin flip; the gap between the two is how much
+					of the apparent signal was one debate.
+				{:else}
+					The p-value comes from {count(data.breaks.inference.trials)} simulated series in which the rate
+					never changes and the whole search is repeated from scratch, treating every speech as an independent
+					draw.
+				{/if}
+				A result counts only below {percent(data.breaks.inference.per_test_alpha)}, a threshold
+				already tightened to allow for several tests being run at once ({data.breaks.inference
+					.correction}). The intervals describe the combined rate on either side of the split.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -1033,20 +1130,24 @@
 					<th class="num">Earlier</th>
 					<th class="num">Later</th>
 					<th class="num">Ratio</th>
-					<th class="num">p</th>
+					<th class="num">p, meetings moved</th>
+					<th class="num">p, speeches independent</th>
 				</tr>
 			</thead>
 			<tbody>
 				{#each Object.entries(genocideInference) as [name, result] (name)}
-					{#if !result || !result.accepted}
+					{#if !result}
 						<tr class="none">
 							<td>{UNITS.find((u) => u.id === name)?.label ?? name}</td>
-							<td colspan="5">no change detected; one steady rate survives the test</td>
+							<td colspan="6">no split improves on one steady rate</td>
 						</tr>
 					{:else}
-						<tr>
+						<tr class:none={!result.accepted}>
 							<td>{UNITS.find((u) => u.id === name)?.label ?? name}</td>
-							<td><strong>{result.label}</strong></td>
+							<td>
+								{#if result.accepted}<strong>{result.label}</strong>{:else}{result.label}
+									<span class="verdict">best split; not accepted</span>{/if}
+							</td>
 							<td class="num"
 								>{name === 'speech_rate'
 									? percent(result.before)
@@ -1063,7 +1164,8 @@
 								class:down={(result.ratio ?? 1) < 1}
 								>{result.ratio == null ? '—' : `${decimal(result.ratio)}×`}</td
 							>
-							<td class="num">{result.p_value.toFixed(4)}</td>
+							<td class="num"><strong>{result.p_value.toFixed(4)}</strong></td>
+							<td class="num">{result.p_value_independent.toFixed(4)}</td>
 						</tr>
 					{/if}
 				{/each}
@@ -1369,6 +1471,13 @@
 
 	.num.down {
 		color: var(--state-ok);
+	}
+
+	.verdict {
+		display: block;
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink-3);
 	}
 
 	tr.none td {

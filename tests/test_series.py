@@ -409,3 +409,187 @@ class TestRateChangePoint:
                 min_size=2,
                 trials=10,
             )
+
+
+class TestWilsonInterval:
+    def test_the_interval_brackets_the_rate_and_stays_in_range(self):
+        low, high = series.wilson_interval([0, 12, 60], [60, 60, 60])
+        assert low[0] == 0.0 and high[2] == 1.0
+        assert 0.0 < low[1] < 0.2 < high[1] < 1.0
+        # Wald on 12/60 would give ±0.101; Wilson is asymmetric around 0.2.
+        assert (0.2 - low[1]) < (high[1] - 0.2)
+
+    def test_it_is_the_interval_the_segment_rates_already_used(self):
+        left, right = series._rate_interval(12, 60, "binomial")
+        low, high = series.wilson_interval(12, 60)
+        assert (left, right) == pytest.approx((float(low), float(high)))
+
+    def test_a_share_of_nothing_has_no_interval(self):
+        low, high = series.wilson_interval([0], [0])
+        assert np.isnan(low[0]) and np.isnan(high[0])
+
+    def test_more_speeches_give_a_narrower_interval(self):
+        low, high = series.wilson_interval([3, 300], [100, 10_000])
+        assert (high[1] - low[1]) < (high[0] - low[0])
+
+    def test_measure_carries_the_bounds_and_withholding_blanks_them(self, corpus):
+        periods = series.period(corpus, "year")
+        totals = series.denominators(corpus, periods)
+        frame = series.measure(corpus, periods, totals, "has_genocide", "n_genocide")
+        assert list(frame.columns[:4]) == [
+            "speeches",
+            "speech_rate",
+            "speech_rate_low",
+            "speech_rate_high",
+        ]
+        assert (frame["speech_rate_low"] <= frame["speech_rate"]).all()
+        assert (frame["speech_rate"] <= frame["speech_rate_high"]).all()
+        held = series.withhold_below(frame, totals["speeches"], minimum=5)
+        assert held["speech_rate_low"].isna().all()
+        assert held["speech_rate_high"].isna().all()
+        assert (held["speeches"] == frame["speeches"]).all()
+
+    def test_a_breakdown_row_carries_its_own_bounds(self, corpus):
+        periods = series.period(corpus, "year")
+        frame = series.breakdown(corpus, periods, "speaker_group", "has_genocide", "n_genocide")
+        p5 = frame[frame["speaker_group"] == "P5"].iloc[0]
+        low, high = series.wilson_interval(p5["speeches"], p5["held"])
+        assert p5["speech_rate_low"] == pytest.approx(float(low))
+        assert p5["speech_rate_high"] == pytest.approx(float(high))
+
+
+class TestMeetingBlocks:
+    def test_a_block_is_a_meeting_with_its_speeches_and_its_hits(self, corpus):
+        periods = series.period(corpus, "year")
+        blocks = series.meeting_blocks(corpus, periods, "has_genocide", None)
+        assert len(blocks) == 4  # two meetings a year, two years
+        assert blocks["exposure"].tolist() == [2, 2, 2, 2]
+        assert blocks["count"].tolist() == [1, 0, 1, 0]
+        assert blocks["period"].tolist() == [2000, 2000, 2001, 2001]
+
+    def test_token_exposure_sums_the_meeting(self, corpus):
+        periods = series.period(corpus, "year")
+        blocks = series.meeting_blocks(corpus, periods, "n_genocide", "tokens")
+        assert blocks["exposure"].tolist() == [2_000] * 4
+        assert blocks["count"].tolist() == [3, 0, 3, 0]
+
+    def test_blocks_add_back_up_to_the_series(self, corpus):
+        periods = series.period(corpus, "year")
+        totals = series.denominators(corpus, periods)
+        frame = series.measure(corpus, periods, totals, "has_genocide", "n_genocide")
+        blocks = series.meeting_blocks(corpus, periods, "has_genocide", None)
+        summed = blocks.groupby("period")[["count", "exposure"]].sum()
+        assert summed["count"].tolist() == frame["speeches"].tolist()
+        assert summed["exposure"].tolist() == totals["speeches"].tolist()
+
+
+def _clustered_corpus(dense_years: tuple[int, ...], rng: np.random.Generator):
+    """32 years x 10 meetings x 20 speeches; a dense meeting says the word in
+    15 of its 20 speeches, a plain one in 0 or 1. The dense meetings sit in
+    `dense_years`, two per year, so the word clusters into debates rather than
+    being spread thinly over the year."""
+    rows = []
+    for year_index in range(32):
+        for meeting in range(10):
+            dense = year_index in dense_years and meeting < 2
+            hits = 15 if dense else int(rng.integers(0, 2))
+            rows.append(
+                {"period": year_index, "count": hits, "exposure": 20, "meeting": meeting}
+            )
+    blocks = pd.DataFrame(rows)
+    aggregated = blocks.groupby("period")[["count", "exposure"]].sum()
+    return blocks, aggregated["count"].to_numpy(), aggregated["exposure"].to_numpy()
+
+
+class TestBlockNull:
+    def test_the_block_null_is_harder_to_clear_when_the_word_clusters(self):
+        blocks, counts, exposure = _clustered_corpus((12, 13, 14, 15), np.random.default_rng(1))
+        found = series.rate_change_point(
+            counts, exposure, YEARS, family="binomial", trials=399, seed=7, blocks=blocks
+        )
+        assert found is not None
+        assert found["null"] == series.NULL_MEETING_BLOCK
+        assert found["blocks"] == 320
+        # Same statistic, same split; only the calibration differs, and the
+        # clustering can only make the observed split easier to reach by chance.
+        assert found["p_value"] >= found["p_value_independent"]
+        assert found["p_value_independent"] == pytest.approx(1 / 400)
+
+    def test_without_blocks_the_published_p_is_the_independent_one(self):
+        _, counts, exposure = _clustered_corpus((12, 13, 14, 15), np.random.default_rng(1))
+        found = series.rate_change_point(
+            counts, exposure, YEARS, family="binomial", trials=199, seed=7
+        )
+        assert found is not None
+        assert found["null"] == series.NULL_INDEPENDENT
+        assert found["blocks"] is None
+        assert found["p_value"] == found["p_value_independent"]
+
+    def test_a_genuine_level_shift_survives_the_block_null(self):
+        # Every meeting after the split carries more of the word: the shift is
+        # in the register, not in one debate, and permuting meetings cannot
+        # reproduce it.
+        rows = [
+            {"period": y, "count": 6 if y >= 16 else 1, "exposure": 20, "meeting": m}
+            for y in range(32)
+            for m in range(10)
+        ]
+        blocks = pd.DataFrame(rows)
+        aggregated = blocks.groupby("period")[["count", "exposure"]].sum()
+        found = series.rate_change_point(
+            aggregated["count"].to_numpy(),
+            aggregated["exposure"].to_numpy(),
+            YEARS,
+            family="binomial",
+            trials=199,
+            seed=3,
+            blocks=blocks,
+        )
+        assert found is not None
+        assert found["label"] == "2008"
+        assert found["accepted"] is True
+        assert found["p_value"] == pytest.approx(1 / 200)
+
+    def test_the_same_seed_gives_the_same_block_p(self):
+        blocks, counts, exposure = _clustered_corpus((5, 6, 7, 8), np.random.default_rng(2))
+        run = lambda: series.rate_change_point(  # noqa: E731
+            counts, exposure, YEARS, family="binomial", trials=99, seed=11, blocks=blocks
+        )
+        assert run() == run()
+
+    def test_blocks_that_do_not_add_up_are_refused(self):
+        blocks, counts, exposure = _clustered_corpus((5, 6, 7, 8), np.random.default_rng(2))
+        with pytest.raises(ValueError, match="do not add up"):
+            series.rate_change_point(
+                counts + 1, exposure, YEARS, family="binomial", trials=9, blocks=blocks
+            )
+
+    def test_a_block_outside_the_series_is_refused(self):
+        blocks, counts, exposure = _clustered_corpus((5, 6, 7, 8), np.random.default_rng(2))
+        astray = blocks.copy()
+        astray.loc[0, "period"] = 40
+        with pytest.raises(ValueError, match="fall in a period"):
+            series.rate_change_point(
+                counts, exposure, YEARS, family="binomial", trials=9, blocks=astray
+            )
+
+    def test_poisson_blocks_carry_token_exposure(self):
+        rows = [
+            {"period": y, "count": 3 if y >= 16 else 0, "exposure": 5_000, "meeting": m}
+            for y in range(32)
+            for m in range(6)
+        ]
+        blocks = pd.DataFrame(rows)
+        aggregated = blocks.groupby("period")[["count", "exposure"]].sum()
+        found = series.rate_change_point(
+            aggregated["count"].to_numpy(),
+            aggregated["exposure"].to_numpy(),
+            YEARS,
+            family="poisson",
+            trials=199,
+            seed=5,
+            blocks=blocks,
+        )
+        assert found is not None
+        assert found["label"] == "2008"
+        assert found["accepted"] is True

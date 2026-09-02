@@ -13,12 +13,18 @@ substantially the Council's own reporting cycle rather than a discourse.
 Every series carries three numbers for the same period — speeches, occurrences,
 and both rates — because the three tell different stories and the raw one tells
 the wrong story by default. The corpus runs from 1,023 speeches in 1992 to 7,621
-in 2023; anything not divided by that is a chart of the Council's growth.
+in 2023; anything not divided by that is a chart of the Council's growth. Every
+speech rate also carries its Wilson 95% interval, so a share is published with
+the width its denominator gives it rather than as a bare point.
 
 The change-point pass is where that becomes a finding rather than a caveat. It
 is run on the raw count *and* on the rate, and the note reports both, so the
 difference between "genocide was said more often" and "genocide was said more
-often than other things" is on the page rather than in a footnote.
+often than other things" is on the page rather than in a footnote. The rate
+test's null permutes meetings across years rather than treating every speech
+as an independent draw — one debate can hold two hundred occurrences — and the
+p-value under the older independent null is published beside it, so the size
+of that clustering is a number rather than a sentence.
 
 Usage:
     python scripts/04_series.py [--top-agenda 20] [--trials 2000] [--seed 20260807]
@@ -183,6 +189,8 @@ def build_series(
                 **attributes,
                 "speeches": frame["speeches"].tolist(),
                 "speech_rate": rates(frame["speech_rate"], 6),
+                "speech_rate_low": rates(frame["speech_rate_low"], 6),
+                "speech_rate_high": rates(frame["speech_rate_high"], 6),
             }
             if count_column is not None:
                 block[name] |= {  # type: ignore[operator]
@@ -222,6 +230,8 @@ def build_breakdowns(
                         "held": int(row.held),
                         "speeches": int(row.speeches),
                         "speech_rate": round(float(row.speech_rate), 6),
+                        "speech_rate_low": round(float(row.speech_rate_low), 6),
+                        "speech_rate_high": round(float(row.speech_rate_high), 6),
                         **(
                             {}
                             if count_column is None
@@ -324,6 +334,8 @@ def build_month_of_year(
             "tokens": totals["tokens"].tolist(),
             "speeches": measured["speeches"].tolist(),
             "speech_rate": rates(measured["speech_rate"], 6),
+            "speech_rate_low": rates(measured["speech_rate_low"], 6),
+            "speech_rate_high": rates(measured["speech_rate_high"], 6),
             "sufficient": measured["sufficient"].tolist(),
         }
         if count_column is not None:
@@ -474,12 +486,20 @@ def build_change_points(
     min_size: int,
     alpha: float,
     max_breaks: int = 4,
+    speeches: pd.DataFrame | None = None,
 ) -> dict[str, object]:
     """Explore regime shifts and triangulate them with rate-aware inference.
 
     Running all three is the point: a break present in `occurrences` and absent
     in `speech_rate` says the Council said the word more often because it said
     more of everything.
+
+    `speeches` is the flagged corpus the annual frames were built from. When it
+    is given, the rate tests are calibrated against a null that permutes
+    meetings across years (`series.meeting_blocks`); without it they fall back
+    to the independent-speech null, which the artefact then says in `null`.
+    The pipeline always passes it; the parameter is optional so the function
+    can be exercised on aggregated fixtures.
     """
     out: dict[str, object] = {
         "method": (
@@ -530,11 +550,23 @@ def build_change_points(
         ("terms", "genocide", "token_rate", "occurrences", "tokens", "poisson")
     )
     adjusted_alpha = alpha / len(model_specs)
+    position = {label: index for index, label in enumerate(periods)}
+    year_of = series.period(speeches, "year") if speeches is not None else None
     inferred: dict[str, dict[str, object]] = {}
     for offset, (kind, name, measure, count_column, exposure_name, family) in enumerate(
         model_specs
     ):
         frame = computed[kind][name]
+        blocks = None
+        if speeches is not None:
+            has_column, raw_count_column = series.columns_for(kind, name)
+            blocks = series.meeting_blocks(
+                speeches,
+                year_of,
+                has_column if family == "binomial" else raw_count_column,
+                None if family == "binomial" else "tokens",
+            )
+            blocks["period"] = blocks["period"].map(position)
         result = series.rate_change_point(
             frame[count_column].to_numpy(dtype=int),
             corpus[exposure_name],
@@ -544,15 +576,23 @@ def build_change_points(
             trials=trials,
             alpha=adjusted_alpha,
             seed=seed + offset,
+            blocks=blocks,
         )
         inferred.setdefault(name, {})[measure] = result
 
+    clustered = speeches is not None
     out["inference"] = {
         "method": (
             "Single two-rate maximum likelihood partition: binomial for speech prevalence; "
-            "Poisson for occurrences with token exposure; parametric maximum-search "
-            "bootstrap under a constant-rate null"
+            "Poisson for occurrences with token exposure; "
+            + (
+                "calibrated by permuting meetings across years under a constant-rate null, "
+                "with the independent-speech parametric bootstrap reported beside it"
+                if clustered
+                else "parametric maximum-search bootstrap under a constant-rate null"
+            )
         ),
+        "null": series.NULL_MEETING_BLOCK if clustered else series.NULL_INDEPENDENT,
         "familywise_alpha": alpha,
         "per_test_alpha": adjusted_alpha,
         "correction": f"Bonferroni across {len(model_specs)} planned rate tests",
@@ -561,11 +601,20 @@ def build_change_points(
             "The test allows for how many speeches each year held and repeats its whole "
             "search under a no-change model, but finding a split does not prove that "
             "anything changed abruptly: a series that rises gradually will also produce a "
-            "best two-rate split somewhere. Each year is treated as independent of the "
-            "last, the way speeches cluster into meetings is not modelled, and the "
-            "intervals assume the split fell where the search put it. Read the size of "
-            "the change alongside the plotted series and the concordance evidence, and do "
-            "not read the date as a cause."
+            "best two-rate split somewhere. "
+            + (
+                "The null moves whole meetings between years, so a single debate that "
+                "used the word two hundred times counts as one draw rather than two "
+                "hundred; the p-value under the older assumption that every speech is "
+                "independent is kept beside it, and the gap between the two is the size "
+                "of that clustering. "
+                if clustered
+                else "Each year is treated as independent of the last and the way speeches "
+                "cluster into meetings is not modelled. "
+            )
+            + "The intervals assume the split fell where the search put it. Read the size "
+            "of the change alongside the plotted series and the concordance evidence, and "
+            "do not read the date as a cause."
         ),
         "series": inferred,
     }
@@ -677,6 +726,71 @@ def calendar_lines(monthly: dict) -> list[str]:
     ]
 
 
+UNIT_NAMES = {"speech_rate": "share of speeches", "token_rate": "rate per 100k tokens"}
+
+
+def inference_lines(inference: dict) -> list[str]:
+    """The corrected rate tests, in words that are true by construction."""
+    clustered = inference.get("null") == series.NULL_MEETING_BLOCK
+    lines = [
+        "### Rate tests",
+        "",
+        f"Threshold {inference['per_test_alpha']:.4g} per test ({inference['correction']}), "
+        f"{inference['trials']:,} trials, null: `{inference.get('null', 'unstated')}`.",
+        "",
+    ]
+    for name, by_measure in inference["series"].items():
+        for measure, result in by_measure.items():
+            unit = UNIT_NAMES.get(measure, measure)
+            if result is None:
+                lines.append(f"- `{name}`, {unit}: no two-rate partition improves on one rate.")
+                continue
+            scale = 100_000 if measure == "token_rate" else 1
+            before = result["before"] * scale
+            after = result["after"] * scale
+            shown = (
+                f"{before:.2%} → {after:.2%}" if scale == 1 else f"{before:.2f} → {after:.2f}"
+            )
+            ratio = "" if result["ratio"] is None else f", x{result['ratio']:.2f}"
+            calibration = f"p = {result['p_value']:.4f}"
+            if clustered:
+                calibration += (
+                    f" under the meeting-block null, against "
+                    f"{result['p_value_independent']:.4f} with speeches treated as independent"
+                )
+            outcome = (
+                "clears the corrected threshold"
+                if result["accepted"]
+                else "does not clear the corrected threshold"
+            )
+            lines.append(
+                f"- `{name}`, {unit}: best partition starts in **{result['label']}** "
+                f"({shown}{ratio}); {calibration}; **{outcome}**."
+            )
+    lines.append("")
+    accepted = [
+        (name, measure)
+        for name, by_measure in inference["series"].items()
+        for measure, result in by_measure.items()
+        if result is not None and result["accepted"]
+    ]
+    if not accepted:
+        lines += [
+            "No rate test clears its threshold: one steady rate is not rejected for any "
+            "measure, and any break in the raw counts is the Council's growth.",
+            "",
+        ]
+    elif all(name != "genocide" for name, _ in accepted):
+        lines += [
+            "Only the wider set rejects a single rate. The normalised structure is in the "
+            "atrocity vocabulary as a whole rather than in `genocide` alone; whether that "
+            "wider set is the real object of study is an open question, and this is "
+            "evidence that it may be.",
+            "",
+        ]
+    return lines
+
+
 def build_note(
     speeches: pd.DataFrame,
     annual: dict,
@@ -700,47 +814,21 @@ def build_note(
         for year in years
     ]
 
-    # State the raw-versus-rate contrast in words, derived from what was found
-    # rather than asserted, so the sentence stays true if the lexicon changes.
-    tracked = change["series"].get("genocide", {})
-    raw_breaks = tracked.get("occurrences", [])
-    rate_breaks = tracked.get("speech_rate", [])
-    if raw_breaks and not rate_breaks:
-        verdict = [
-            f"**The raw series breaks at {', '.join(b['label'] for b in raw_breaks)}. The rate "
-            "does not break anywhere.** The Council said `genocide` more often after 2013 "
-            "because it said more of everything: speeches per year roughly doubled over the "
-            "same span. On the measure that controls for that, the 2014 spike is inside the "
-            "range the series has occupied since 1992, and the largest normalised year in the "
-            "corpus remains 1994.",
-            "",
-        ]
-    elif rate_breaks:
-        verdict = [
-            "The rate itself breaks at "
-            + ", ".join(f"**{b['label']}** (x{b['ratio']:.2f})" for b in rate_breaks)
-            + " — a shift that survives the corpus's growth and is therefore about "
-            "discourse rather than volume.",
-            "",
-        ]
-    else:
-        verdict = ["Neither the raw series nor the rate carries a detectable break.", ""]
+    # The verdict is read off the corrected `inference` block — the numbers the
+    # site publishes — and every sentence is built from the result rather than
+    # written in advance. The previous version narrated the exploratory block
+    # with years typed into the prose ("after 2013", "remains 1994"), which
+    # would have stayed true in words whatever the data said.
+    inference = change["inference"]
+    verdict = inference_lines(inference)
 
-    # The comparison that matters: is the object `genocide`, or the
-    # atrocity vocabulary it travels inside? If only the wider set has normalised
-    # structure, that is an argument, and it should not have to be noticed by eye.
-    wider = change["series"].get("atrocity_core", {}).get("speech_rate", [])
-    if wider and not rate_breaks:
-        verdict += [
-            "The wider `atrocity_core` set *does* break on the rate, at "
-            + ", ".join(f"**{b['label']}** (x{b['ratio']:.2f})" for b in wider)
-            + ". The normalised structure is in the atrocity vocabulary as a whole rather "
-            "than in `genocide` alone. Whether that wider set is the real object of study is "
-            "an open question; this is evidence that it may be.",
-            "",
-        ]
-
-    change_lines: list[str] = []
+    change_lines: list[str] = [
+        "### Exploratory segmentation",
+        "",
+        "Not a result. Kept visible as a diagnostic of where a reordering of the same "
+        "annual values would and would not split.",
+        "",
+    ]
     for label, found in change["series"].items():
         change_lines.append(f"**`{label}`**")
         change_lines.append("")
@@ -898,16 +986,27 @@ def run(
         min_size,
         alpha,
         max_breaks,
+        speeches=speeches,
     )
+    for name, by_measure in change["inference"]["series"].items():  # type: ignore[index]
+        for measure, result in by_measure.items():
+            if result is None:
+                console.info(f"{name}/{measure}: no partition improves on one rate")
+                continue
+            console.info(
+                f"{name}/{measure}: {result['label']} "
+                f"p={result['p_value']:.4f} (independent null {result['p_value_independent']:.4f}) "
+                f"{'accepted' if result['accepted'] else 'not accepted'}"
+            )
     for name, found in change["series"].items():  # type: ignore[union-attr]
         for column, breaks in found.items():
             if breaks:
                 console.info(
-                    f"{name}/{column}: "
+                    f"exploratory {name}/{column}: "
                     + ", ".join(f"{b['label']} (p={b['p_value']:.4f})" for b in breaks)
                 )
             else:
-                console.info(f"{name}/{column}: no significant break")
+                console.info(f"exploratory {name}/{column}: no significant break")
 
     console.step("Loading the event overlay")
     events = series.load_events()

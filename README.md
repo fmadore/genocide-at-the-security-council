@@ -238,13 +238,20 @@ survive normalisation, and `scripts/04` is where that gets settled rather than a
 
 The primary inferential layer scans one annual two-rate partition with the denominator intact:
 binomial likelihood for speech prevalence and Poisson likelihood for occurrences with
-token exposure. Two thousand no-change simulations repeat the complete breakpoint search,
-with Bonferroni correction across the three planned rate tests. The strongest partitions
-start in 2017 for genocide speech prevalence (later/earlier rate ratio 0.71), 2016 for its
-token rate (0.65), and 1996 for atrocity-core speech prevalence (0.71). Rejecting a constant
-rate does not prove an abrupt historical break: smooth trends, meeting-level clustering and
-Poisson overdispersion remain limitations. The raw-count breaks and wild binary segmentation
-remain visible as explicitly exploratory descriptions.
+token exposure. Two thousand no-change series repeat the complete breakpoint search, with
+Bonferroni correction across the three planned rate tests. Since 2 September 2026 those
+series are built by permuting whole meetings across years rather than treating every
+speech as an independent draw — one debate can hold two hundred occurrences — and the
+p-value under the older independent-speech null is published beside the block one, so the
+size of that clustering is a number on the page. The strongest partitions start in 2017 for
+genocide speech prevalence (later/earlier rate ratio 0.71), 2016 for its token rate (0.65),
+and 1996 for atrocity-core speech prevalence (0.71); **these are the partitions and ratios,
+which the null does not move, and their p-values were last computed under the independent
+null** — the re-run that re-calibrates them is recorded as owed in
+[`docs/VALIDATION.md`](docs/VALIDATION.md), under “The rate tests under a meeting-block null”. Rejecting a constant rate does not prove an
+abrupt historical break: smooth trends and Poisson overdispersion remain limitations. Every
+share of speeches on the site carries its Wilson 95% interval. The raw-count breaks and wild
+binary segmentation remain visible as explicitly exploratory descriptions.
 
 ### The same word, doing different work
 

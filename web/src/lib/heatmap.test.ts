@@ -48,6 +48,8 @@ function measure(rates: (number | null)[], extra: Partial<MonthlyMeasure> = {}):
 	return {
 		speeches: rates.map((rate) => (rate === null ? 1 : Math.round(rate * 200))),
 		speech_rate: rates,
+		speech_rate_low: rates.map((rate) => (rate === null ? null : rate * 0.7)),
+		speech_rate_high: rates.map((rate) => (rate === null ? null : rate * 1.4)),
 		occurrences: rates.map(() => 7),
 		token_rate: rates.map((rate) => (rate === null ? null : rate * 100)),
 		tier: 'core',

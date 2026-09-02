@@ -73,7 +73,7 @@
 			id: '04_series.py',
 			does: 'Works out rates by year and by quarter, breaks them down by speaker and by debate, tests for changes in the rate, and attaches the reference dates.',
 			checks:
-				'The share of speeches is modelled as a series of coin flips; the count of occurrences is modelled against the number of words spoken. The test for a change in rate is repeated in full on simulated data where no change exists, and the threshold is tightened to account for three tests being run. A second, exploratory change-point method is kept visible but is never a result.',
+				'The share of speeches is modelled as a series of coin flips; the count of occurrences is modelled against the number of words spoken. The test for a change in rate is repeated in full on data where no change exists, made by moving whole meetings between years so that one debate is one draw, and the threshold is tightened to account for three tests being run. Every share of speeches is published with its Wilson 95% interval. A second, exploratory change-point method is kept visible but is never a result.',
 			artefact: 'series/*.json',
 			state: 'verified',
 			says: 'Verified'
@@ -248,10 +248,25 @@
 		steady rate or by two? The share of speeches is modelled as a series of coin flips; the count of
 		occurrences is modelled against the number of words spoken, so a year in which the Council said
 		more is expected to contain more of everything. The whole search is then repeated on
-		{count(data.breaks.inference.trials)} simulated series in which the rate never changes, which is what
-		turns a split into a p-value. A result counts only below
+		{count(data.breaks.inference.trials)} series in which the rate never changes, which is what turns
+		a split into a p-value.
+		{#if data.breaks.inference.null === 'meeting_block_permutation'}
+			Those series are made by moving whole <strong>meetings</strong> between years rather than flipping
+			each speech on its own: speeches are not independent of one another, because whether the word can
+			be said at all is fixed by the agenda of the debate they belong to, and one debate can hold two
+			hundred occurrences. The p-value under the older independent-speech assumption is published beside
+			the block one, so the size of that clustering is on the page.
+		{/if}
+		A result counts only below
 		{percent(data.breaks.inference.per_test_alpha)}, a threshold already tightened to allow for
 		several tests being run at once ({data.breaks.inference.correction}).
+	</p>
+	<p>
+		Every <strong>share of speeches</strong> on the site &mdash; a year's, a month's, a speaker's, a category's
+		&mdash; is a proportion with a known denominator, and is published with its 95% Wilson interval: the
+		band on a line, the whisker beside a row. The interval says how much the share could move with the
+		number of speeches it rests on; it does not correct for meetings clustering, which only the change-point
+		null does.
 	</p>
 	<p class="caveat">
 		{data.breaks.inference.caveat}

@@ -10,7 +10,9 @@ date; the open human checks are unchanged, because none of them is work a re-run
 has inspected the original PDF. Amended 28 August 2026: checks 6 and 7 added for Phase L
 (the genocide gold sample and the model-run register), and check 2 updated for the seeded
 referent list. Amended 30 August 2026: the first two model runs registered in §7. Amended 1 September 2026: lexicon v3 registered below, with
-the two counting corrections it carries and the re-count it still owes.
+the two counting corrections it carries and the re-count it still owes. Amended 2 September
+2026: the rate change-point test's meeting-block null and the Wilson intervals registered
+below, with the re-calibration they owe.
 
 ## How to inspect an original record
 
@@ -253,6 +255,37 @@ delta as two components with opposite signs: the de-duplication removes exactly 
 to `war_crimes`, `mass_atrocity` and `genocide_convention`, all three in the same register.
 The net delta therefore has no sign known in advance, and neither component is bounded by
 the other.
+
+### The rate tests under a meeting-block null
+
+Registered 2 September 2026 (roadmap S1, first slice; review §3.1, §3.3, §5.2). Two
+changes to what the published series carry, neither of which moves a count:
+
+- **The rate change-point p-values are calibrated by permuting meetings across years.**
+  `lib/series.py::rate_change_point` used to simulate every no-change series by drawing each
+  year's speeches independently at the pooled rate. Speeches are not independent: whether
+  *genocide* can be said at all is fixed by the agenda of the debate, and S/PV.7155 alone
+  holds 198 occurrences. The null now shuffles which meeting fell in which year, each year
+  keeping its number of meetings and each meeting travelling with all of its speeches and
+  hits, and repeats the search. The artefact names the null it used (`inference.null`), the
+  number of blocks, and keeps the independent-speech p-value beside the block one
+  (`p_value_independent`); `accepted` follows the block p. The partition, the two rates and
+  their ratio are the same statistic as before and do not move.
+- **Every speech rate carries Wilson 95% bounds** (`speech_rate_low`, `speech_rate_high`),
+  from the one implementation in `lib/series.py::wilson_interval`, blanked exactly where the
+  rate is withheld. They describe sampling width given the denominator; they do not correct
+  for clustering, and the site says so.
+
+On a synthetic 32-year corpus with two dense debates, the token-rate split read p = 0.015
+under the independent null and 0.69 under the block null — the direction the review
+predicted, on data built to show it.
+
+**Open check: re-calibrate on the corpus.** The environment the change was written in could
+not reach Dataverse, so `04_series.py` and `11_countries.py` have not been re-run. Until
+they are, the three p-values in `README.md` (2017 and 2016 for `genocide`, 1996 for
+`atrocity_core`) are the independent-null ones; record the block p-values beside them here
+when the run lands, note which of the three survive the corrected threshold, and rewrite
+the README paragraph from the artefact rather than by hand.
 
 ### Documents versus meeting symbols
 

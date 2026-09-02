@@ -503,10 +503,47 @@ artifact.
 
 ### S1. Meeting-clustered uncertainty
 
+**Status: first slice complete on 2 September 2026; the corpus re-run is owed.** This is
+item 2 of the prioritised plan in [`REVIEW_2026-09-01.md`](REVIEW_2026-09-01.md) §8, and
+the review's §3.1, §3.3 and §5.2 are its specification.
+
 Add meeting-block bootstrap intervals and sensitivity to high-volume meetings to existing
 actor and time comparisons. Use cluster-robust or beta/negative-binomial alternatives only
 where the estimand and observed dispersion warrant them. Publish the unit of resampling,
 seed, repetitions and failure/withholding rules.
+
+The first slice lands the two changes the review ranked highest:
+
+1. **The rate change-point test is calibrated against a meeting-block null.**
+   `lib/series.py::rate_change_point` takes the per-meeting blocks that
+   `series.meeting_blocks` builds (period, count, exposure) and, for every trial, permutes
+   the assignment of meetings to years — each year keeps its number of meetings, a meeting
+   travels with all of its speeches and all of its hits — before repeating the whole
+   search. The published `p_value` is the block one; the parametric independent-speech
+   p-value the site used until now is kept beside it as `p_value_independent`, and the
+   artefact names the null it used in `null` and the number of blocks in `blocks`.
+   `accepted` follows the block p-value. The function refuses blocks that do not add back
+   up to the counts and exposure they are meant to calibrate.
+2. **Every `speech_rate` carries its Wilson 95% interval.** `series.wilson_interval` is
+   the one implementation; `series.measure` writes `speech_rate_low` and
+   `speech_rate_high` beside the rate, `withhold_below` blanks all three on the same rule,
+   and the bounds reach `series/annual.json`, `quarterly.json`, `monthly.json` (grid and
+   pooled calendar), `breakdowns.json` and `countries/countries.json`. The site draws them
+   as bands on the chronology's main and split-by-category figures and as a whisker column
+   on the actor ranking, and prints the range in every hover box and CSV.
+
+Also in the slice, from the same review section: the findings note is built from the
+corrected `inference` block rather than the exploratory one, and no year is typed into its
+prose; the change-point figure shows both p-values and marks a best split that is not
+accepted as such rather than reporting "no change detected".
+
+Acceptance: `python -m pytest` and `ruff check .` pass; `npm run lint`, `npm run check`,
+`npm test` and the Playwright journeys pass on the fixtures; the contract diff is additive
+only. **What is owed:** a run of `04_series.py` and `11_countries.py` against the corpus, so
+that the published p-values are re-calibrated and `README.md`'s change-point paragraph can
+be rewritten from the new artefact — the environment this slice was written in cannot reach
+Dataverse (see `VALIDATION.md`, “The rate tests under a meeting-block null”). Left for later slices of S1: meeting-block intervals on
+the collocate and keyness tables (with S5), the funnel plot (S3), the mixed model (§3.6).
 
 ### S2. Actor-by-year prevalence matrix
 
@@ -931,3 +968,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-08-30 | L7 diffusion of the word           | complete   | pending | `python -m pytest -q` (766 passed, `tests/test_usage.py` at 52); `ruff check .`; `--update-contract` diff = 19 insertions, 0 deletions, all inside the `diffusion` shapes; `npm test`; `npm run check`; `npm run lint`; `npm run test:e2e` (2 new `/usage` journeys, axe clean); `npm run build`; the synthetic render read in the browser | Same feedback, second round: the diffusion question — when each delegation first said, first asserted, first rejected the word for each referent. No new model call: `usage.json` gains a `diffusion` block of dated first events per (referent, delegation) in three milestone classes, each carrying its KWIC line id; on the synthetic fixture the `mention` events equal the matrix cells exactly (1,801), which is the invariant that says the two blocks count the same population. `/usage` gains a cumulative step figure (assertion solid, refusal dashed, mention drawn only when it differs from assertion) over a fixed cross-referent time axis, with the chronology table — the historian's deliverable — beneath it, driven by the same `?referent=` state as the matrix, and the caveat in the figure's own apparatus: the curve counts delegations speaking in this corpus, absence is not refusal. |
 | 2026-08-31 | L8 the second opinion              | complete   | pending | `python -m pytest -q` (803 passed; `tests/test_gemini.py` 26, all offline; the request-parity and same-population tests bind 14 and 16); `ruff check .`; contract diff = 33 insertions, only the comparison shapes; `15_usage.py` verified in both states — synthetic pair (overlap 5,952, contested 1,642) and real run + empty comparison — against the same contract; `npm test` (448); `npm run check`; `npm run lint`; `npm run test:e2e` (26 journeys incl. the none-state variant); `npm run build` against the real payload, unchanged | Gemini 3.7 Flash as counter-instrument (API surface verified on ai.google.dev, 2026-08-31; `gemini-3.7-flash`, thinking high, Batch at half price, `responseJsonSchema` passthrough). 16 is 14's sibling; a test asserts both providers are sent byte-identical messages and schema, and another that they annotate the same documented population. `comparison_run.txt` names the counter-instrument; 15 refuses a different prompt hash and a self-comparison, computes per-field observed/kappa and per-occurrence `contested`/`alt`, and never redraws matrix, stance or diffusion from it. The view marks contested rows, filters on `contested=1`, tables the agreement in the apparatus and lists the most contested passages with a full CSV — each surface carrying the sentence that governs the phase: agreement between two models is stability across instruments, never accuracy. **No comparison run exists yet**: `comparison_run.txt` is empty, the live payload renders the none state, and the run waits on a `GEMINI_API_KEY` (~$12 in Batch). |
 | 2026-09-01 | Lexicon v3 (review §3.4, item 1) | complete   | pending | `python -m pytest` (all passed on the merged tree; `tests/test_lexicon.py` new, `tests/test_config.py` +4, `tests/test_usage.py` +5); `ruff check .`; the v2 literal `war crime` shown to count 0 where the regex counts 1 on `war\ncrimes` | Two counting corrections from `docs/REVIEW_2026-09-01.md`: prefilters made whitespace-free and provably contained in every match, and register/total roll-ups summed over `lexicon.summable` so a nested term is not counted on top of its parent. No pattern changed. `pattern_since` per term, pinned by `config/lexicon.lock.json` and `tools/lock_lexicon.py`, and `Lexicon.compatible` let 15 and the annotation merge accept v2 artefacts under v3; `summable` walks the whole nesting chain and the loader refuses self-nesting and cycles; `09_export_speeches.py` now reconciles per-term counts rather than the de-duplicated total. Corpus-level effect to be recorded in `VALIDATION.md` on the next run of 03; the network policy of the environment the fix was written in did not reach Dataverse. |
+| 2026-09-02 | S1, first slice (review §8, item 2) | complete   | pending | `python -m pytest` (858 passed; `tests/test_series.py` +17 for `wilson_interval`, `meeting_blocks` and the block null); `ruff check .`; a synthetic 32-year corpus with two dense debates run through `build_series`, `build_change_points`, `build_monthly`, `build_breakdowns` and `build_note` — the token-rate split read p = 0.015 under the independent null and 0.69 under the block null; `npm run lint`; `npm run check` (0 errors); `npm test` (452 passed, `chronology.test.ts` +4); `npm run test:e2e` (26 Chromium journeys) and `npm run test:e2e:sw` (1 built-site journey, which is also the fixture build) on the fixtures, run through a throwaway config pointing at the environment's pre-installed Chromium because the pinned headless shell was absent; the contract diff is 43 insertions and no deletion. `npm run build` prerenders against `web/static/data/`, which this environment cannot populate, so it was not run. | The rate change-point null now permutes meetings across years (`series.meeting_blocks`, `rate_change_point(blocks=…)`); the independent-speech p-value is published beside the block one as `p_value_independent`, the artefact names its `null` and its `blocks`, and `accepted` follows the block p. Every `speech_rate` — annual, quarterly, monthly, pooled calendar, breakdown row, speaker row — carries Wilson 95% bounds, blanked by the same withholding rule as the rate; the site draws them as bands (chronology, split figure) and a whisker column (actors), and prints them in hovers and CSVs. The findings note reads the corrected `inference` block and types no year into its prose. Contract, TS types and fixtures moved together, with the new fields required rather than optional because the pipeline always writes them. **Owed:** the corpus re-run, blocked on Dataverse from this environment; `README.md` says which of its numbers are still the independent-null ones. |

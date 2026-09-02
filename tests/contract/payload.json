@@ -33,6 +33,8 @@
       "occurrences?": "int",
       "period": "str",
       "speech_rate": "float|null",
+      "speech_rate_high": "float|null",
+      "speech_rate_low": "float|null",
       "speeches": "int",
       "sufficient": "bool",
       "token_rate?": "float|null",
@@ -968,6 +970,8 @@
     "speech_rate": [
      "float"
     ],
+    "speech_rate_high": "float",
+    "speech_rate_low": "float",
     "speeches": [
      "int"
     ],
@@ -987,6 +991,8 @@
     "speech_rate": [
      "float"
     ],
+    "speech_rate_high": "float",
+    "speech_rate_low": "float",
     "speeches": [
      "int"
     ]
@@ -1001,6 +1007,8 @@
     "speech_rate": [
      "float"
     ],
+    "speech_rate_high": "float",
+    "speech_rate_low": "float",
     "speeches": [
      "int"
     ],
@@ -1026,6 +1034,8 @@
        "occurrences?": "int",
        "period": "int",
        "speech_rate": "float",
+       "speech_rate_high": "float",
+       "speech_rate_low": "float",
        "speeches": "int",
        "token_rate?": "float"
       }
@@ -1042,6 +1052,8 @@
        "occurrences?": "int",
        "period": "int",
        "speech_rate": "float",
+       "speech_rate_high": "float",
+       "speech_rate_low": "float",
        "speeches": "int",
        "token_rate?": "float"
       }
@@ -1058,6 +1070,8 @@
        "occurrences?": "int",
        "period": "int",
        "speech_rate": "float",
+       "speech_rate_high": "float",
+       "speech_rate_low": "float",
        "speeches": "int",
        "token_rate?": "float"
       }
@@ -1074,6 +1088,8 @@
        "occurrences?": "int",
        "period": "int",
        "speech_rate": "float",
+       "speech_rate_high": "float",
+       "speech_rate_low": "float",
        "speeches": "int",
        "token_rate?": "float"
       }
@@ -1090,6 +1106,8 @@
        "occurrences?": "int",
        "period": "int",
        "speech_rate": "float",
+       "speech_rate_high": "float",
+       "speech_rate_low": "float",
        "speeches": "int",
        "token_rate?": "float"
       }
@@ -1106,6 +1124,8 @@
        "occurrences?": "int",
        "period": "int",
        "speech_rate": "float",
+       "speech_rate_high": "float",
+       "speech_rate_low": "float",
        "speeches": "int",
        "token_rate?": "float"
       }
@@ -1150,6 +1170,7 @@
    "correction": "str",
    "familywise_alpha": "float",
    "method": "str",
+   "null": "str",
    "per_test_alpha": "float",
    "series": {
     "*": {
@@ -1164,6 +1185,7 @@
       "before_ci95": [
        "float"
       ],
+      "blocks": "int",
       "counts": [
        "int"
       ],
@@ -1174,7 +1196,9 @@
       "gain": "float",
       "index": "int",
       "label": "str",
+      "null": "str",
       "p_value": "float",
+      "p_value_independent": "float",
       "ratio": "float"
      },
      "token_rate?": {
@@ -1188,6 +1212,7 @@
       "before_ci95": [
        "float"
       ],
+      "blocks": "int",
       "counts": [
        "int"
       ],
@@ -1198,7 +1223,9 @@
       "gain": "float",
       "index": "int",
       "label": "str",
+      "null": "str",
       "p_value": "float",
+      "p_value_independent": "float",
       "ratio": "float"
      }
     }
@@ -1411,6 +1438,8 @@
       "speech_rate": [
        "float"
       ],
+      "speech_rate_high": "float",
+      "speech_rate_low": "float",
       "speeches": [
        "int"
       ],
@@ -1438,6 +1467,8 @@
      "speech_rate": [
       "float"
      ],
+     "speech_rate_high": "float",
+     "speech_rate_low": "float",
      "speeches": [
       "int"
      ],
@@ -1475,6 +1506,8 @@
     "speech_rate": [
      "float|null"
     ],
+    "speech_rate_high": "float|null",
+    "speech_rate_low": "float|null",
     "speeches": [
      "int"
     ],
@@ -1494,6 +1527,8 @@
     "speech_rate": [
      "float|null"
     ],
+    "speech_rate_high": "float|null",
+    "speech_rate_low": "float|null",
     "speeches": [
      "int"
     ]
@@ -1511,6 +1546,8 @@
     "speech_rate": [
      "float|null"
     ],
+    "speech_rate_high": "float|null",
+    "speech_rate_low": "float|null",
     "speeches": [
      "int"
     ],
@@ -1577,6 +1614,8 @@
     "speech_rate": [
      "float"
     ],
+    "speech_rate_high": "float",
+    "speech_rate_low": "float",
     "speeches": [
      "int"
     ],
@@ -1596,6 +1635,8 @@
     "speech_rate": [
      "float"
     ],
+    "speech_rate_high": "float",
+    "speech_rate_low": "float",
     "speeches": [
      "int"
     ]
@@ -1610,6 +1651,8 @@
     "speech_rate": [
      "float"
     ],
+    "speech_rate_high": "float",
+    "speech_rate_low": "float",
     "speeches": [
      "int"
     ],

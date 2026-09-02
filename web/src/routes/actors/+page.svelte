@@ -21,6 +21,7 @@
 		scale
 	} from '$lib/actors';
 	import type { ActorRow, ActorView, MapPoint, Ordering } from '$lib/actors';
+	import type { CountryMeasureRow } from '$lib/types';
 	import { fills } from '$lib/choropleth';
 	import type { Patch } from '$lib/choropleth';
 	import { provenanceOf } from '$lib/export';
@@ -144,6 +145,8 @@
 					row.tokens,
 					row.speeches,
 					row.speech_rate,
+					row.speech_rate_low,
+					row.speech_rate_high,
 					// Two columns a set measure has no figure for. Dropped rather
 					// than written empty: a blank column reads as data that went
 					// missing, and this one was never computed.
@@ -163,6 +166,8 @@
 				'tokens',
 				'term_bearing_speeches',
 				'speech_rate',
+				'speech_rate_wilson95_low',
+				'speech_rate_wilson95_high',
 				...(has.occurrences ? ['occurrences', `token_rate_per_${artefact.rate_per_tokens}`] : []),
 				'sufficient',
 				'mappable'
@@ -201,6 +206,9 @@
 			heading: shortCountry(speaker.country_org),
 			lines: [
 				`${percent(row.speech_rate ?? 0)} of ${count(row.held)} speeches`,
+				...(row.speech_rate_low != null && row.speech_rate_high != null
+					? [`95% interval ${percent(row.speech_rate_low)}–${percent(row.speech_rate_high)}`]
+					: []),
 				// Both of these are figures a set measure does not have.
 				...(has.occurrences
 					? [
@@ -215,6 +223,23 @@
 			]
 		};
 	}
+
+	/* The whisker column is scaled to the widest upper bound on the page, so
+	   every row's interval is drawn on one axis and the rows can be compared. */
+	const whiskerScale = $derived(
+		Math.max(...result.rows.map((entry) => entry.row.speech_rate_high ?? 0), 1e-6)
+	);
+	const whisker = (row: CountryMeasureRow) => {
+		if (row.speech_rate == null || row.speech_rate_low == null || row.speech_rate_high == null) {
+			return null;
+		}
+		const at = (value: number) => `${((value / whiskerScale) * 100).toFixed(2)}%`;
+		return {
+			low: at(row.speech_rate_low),
+			high: at(row.speech_rate_high),
+			point: at(row.speech_rate)
+		};
+	};
 
 	/** What a ranking is called. `title` capitalises it for a control; prose keeps it low. */
 	const label = (o: Ordering, title = false) => {
@@ -419,6 +444,13 @@
 						<dt>{shortCountry(entry.speaker.country_org)}</dt>
 						<dd>
 							{percent(entry.row.speech_rate ?? 0)} of {count(entry.row.held)} speeches
+							{#if entry.row.speech_rate_low != null && entry.row.speech_rate_high != null}
+								<span class="interval"
+									>(95% interval {percent(entry.row.speech_rate_low)}&ndash;{percent(
+										entry.row.speech_rate_high
+									)})</span
+								>
+							{/if}
 							{#if has.occurrences}&middot; {count(entry.row.occurrences ?? 0)} occurrences{/if}
 							&middot; {entry.speaker.first_year}&ndash;{entry.speaker.last_year}
 						</dd>
@@ -470,6 +502,7 @@
 						<th scope="col" class="num">Speeches</th>
 						<th scope="col" class="num">Using the term</th>
 						<th scope="col" class="num">Share</th>
+						<th scope="col" class="whisker-head">95% interval</th>
 						{#if has.occurrences}
 							<th scope="col" class="num">Per {count(artefact.rate_per_tokens)} words</th>
 						{/if}
@@ -477,6 +510,7 @@
 				</thead>
 				<tbody>
 					{#each result.rows as entry (entry.speaker.country_org)}
+						{@const w = whisker(entry.row)}
 						<tr
 							class:picked={entry.speaker.country_org === selected}
 							class:unmapped={!entry.speaker.mappable}
@@ -501,6 +535,24 @@
 							<td class="num">{count(entry.row.held)}</td>
 							<td class="num">{count(entry.row.speeches)}</td>
 							<td class="num">{percent(entry.row.speech_rate ?? 0)}</td>
+							<td class="whisker">
+								{#if w}
+									<span
+										class="rail"
+										style:--low={w.low}
+										style:--high={w.high}
+										style:--point={w.point}
+										aria-hidden="true"
+									></span>
+									<span class="range"
+										>{percent(entry.row.speech_rate_low ?? 0)}&ndash;{percent(
+											entry.row.speech_rate_high ?? 0
+										)}</span
+									>
+								{:else}
+									<span class="nil">—</span>
+								{/if}
+							</td>
 							{#if has.occurrences}
 								<td class="num">{decimal(entry.row.token_rate ?? 0)}</td>
 							{/if}
@@ -776,5 +828,52 @@
 		overflow: hidden;
 		clip-path: inset(50%);
 		white-space: nowrap;
+	}
+	/* The interval column: a rail the width of the cell, scaled to the widest
+	   upper bound on the page, with the Wilson bounds as a bar and the rate
+	   as a tick. Read left to right like the map's circles, and unlike them
+	   it survives a screen reader, which gets the printed range. */
+	.whisker-head {
+		white-space: nowrap;
+	}
+
+	td.whisker {
+		min-width: 9rem;
+		white-space: nowrap;
+	}
+
+	.rail {
+		position: relative;
+		display: inline-block;
+		vertical-align: middle;
+		width: 4.5rem;
+		height: 0.75rem;
+		margin-inline-end: 0.5rem;
+		background: linear-gradient(
+			to right,
+			transparent var(--low),
+			var(--rule) var(--low),
+			var(--rule) var(--high),
+			transparent var(--high)
+		);
+		border-radius: 1px;
+	}
+
+	.rail::after {
+		content: '';
+		position: absolute;
+		top: -0.15rem;
+		bottom: -0.15rem;
+		left: var(--point);
+		width: 2px;
+		margin-left: -1px;
+		background: var(--ink);
+	}
+
+	.range,
+	.interval {
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink-3);
 	}
 </style>

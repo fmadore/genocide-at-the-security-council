@@ -507,6 +507,11 @@ def as_rows(frame: pd.DataFrame, period_key: str) -> list[dict[str, object]]:
             "tokens": _count(row["tokens"]),
             "speeches": _count(row["speeches"]),
             "speech_rate": _rate(row["speech_rate"], 6),
+            # The Wilson bounds `lib.series.measure` wrote beside the rate, so a
+            # speaker's 12 of 60 is drawn with the width it has. Null exactly
+            # when the rate is: the same withholding rule blanks all three.
+            "speech_rate_low": _rate(row.get("speech_rate_low"), 6),
+            "speech_rate_high": _rate(row.get("speech_rate_high"), 6),
             "sufficient": bool(row["sufficient"]),
         }
         if not pd.isna(row["occurrences"]):

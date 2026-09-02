@@ -19,6 +19,8 @@
 		"genocide": {
 			"speeches": [1, 4, 3],
 			"speech_rate": [0.1, 0.2, 0.1],
+			"speech_rate_low": [0.0179, 0.0807, 0.0351],
+			"speech_rate_high": [0.4042, 0.4162, 0.256],
 			"occurrences": [1, 6, 8],
 			"token_rate": [100, 272.7272727273, 222.2222222222],
 			"tier": "core",
@@ -29,6 +31,8 @@
 		"core": {
 			"speeches": [1, 4, 3],
 			"speech_rate": [0.1, 0.2, 0.1],
+			"speech_rate_low": [0.0179, 0.0807, 0.0351],
+			"speech_rate_high": [0.4042, 0.4162, 0.256],
 			"occurrences": [1, 6, 8],
 			"token_rate": [100, 272.7272727273, 222.2222222222],
 			"terms": ["genocide"]

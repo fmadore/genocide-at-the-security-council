@@ -417,10 +417,16 @@
 				the same as a speech that repeats it twenty times. Both views are here for that reason.
 			</p>
 			<p>
-				The test re-runs its whole search on {count(data.breaks.inference.trials)} simulated series in
-				which the rate never changes, and reports how often chance alone produces a split this strong.
-				It cannot tell an abrupt break from a gradual trend, treats each year as independent of the last,
-				and ignores the way speeches cluster into meetings. The split describes the series; it is not
+				The test re-runs its whole search on {count(data.breaks.inference.trials)} series in which the
+				rate never changes, and reports how often chance alone produces a split this strong.
+				{#if data.breaks.inference.null === 'meeting_block_permutation'}
+					Those series are built by moving whole meetings between years, so one debate that used the
+					word two hundred times is one draw rather than two hundred.
+				{:else}
+					It treats each year as independent of the last and ignores the way speeches cluster into
+					meetings.
+				{/if}
+				It cannot tell an abrupt break from a gradual trend. The split describes the series; it is not
 				a date on which something happened.
 			</p>
 		{/snippet}
