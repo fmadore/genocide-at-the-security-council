@@ -22,7 +22,7 @@
 # and the major is capped because 3.0 already moved the library's HTTP client
 # once. 14 uses the Batch API over the Responses API endpoint with a strict
 # JSON-schema text format; those surfaces are stable across the 3.x line.
-openai>=3.5,<4
+openai>=3.6.0,<4
 
 # Step 16, the Gemini counter-instrument. Range verified against PyPI on
 # 31 August 2026: 2.20.0 is the current release (requires Python >= 3.10) and the

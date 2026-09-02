@@ -21,11 +21,11 @@
 
 # --- Embedding (step 06) ---------------------------------------------------
 torch>=2.13,<3
-transformers>=5.14,<6
-sentence-transformers>=5.7,<6
+transformers>=5.16.1,<6
+sentence-transformers>=6.0.0,<7
 accelerate>=1.14,<2
 # Used directly by scripts/lib/download_models.py, not only via transformers.
-huggingface_hub>=1.27,<2
+huggingface_hub>=1.29.0,<2
 
 # --- Topics (step 07) ------------------------------------------------------
 # scikit-learn provides NMF, TF-IDF and — since 1.3 — HDBSCAN, so the separate
@@ -51,5 +51,5 @@ matplotlib>=3.11.1,<4
 # exact artefact is named in this file and a compute node with no internet can
 # still have it. spaCy 3.8 pairs with model version 3.8.0 (the upstream
 # compatibility table is the authority; re-check it when bumping spaCy).
-spacy>=3.8.15,<4
+spacy>=3.8.16,<4
 en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

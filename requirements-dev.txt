@@ -1,5 +1,5 @@
 # Everything in requirements.txt, plus the tools CI runs.
 -r requirements.txt
 
-pytest>=9.1,<10
-ruff>=0.16.1,<0.17
+pytest>=9.1.1,<10
+ruff>=0.16.5,<0.17
