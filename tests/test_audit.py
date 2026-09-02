@@ -433,7 +433,7 @@ def test_committed_referents_declare_a_kind_and_reserve_the_defaults() -> None:
 #: asserting a verdict, a year dropped from a description — update the digest
 #: alone, and say in the commit message which it was.
 REFERENT_MEANING_VERSION = 2
-REFERENT_MEANING_SHA256 = "f0d96131826a6db8b603583d5d9a9a3f3f37d624521060a742b87ed4a3b8b37c"
+REFERENT_MEANING_SHA256 = "1814a801c51d2b4dfad81d3c68fd10e2043f1b2622d141d7f8d4be9b6f1cb19e"
 
 RUNS = ("2026-08-30-luna-v1", "2026-08-31-gemini-v1")
 
@@ -446,6 +446,32 @@ def run_referents(run: str) -> set[str]:
     path = ROOT / "model_annotations" / "genocide" / "runs" / run / "annotations.jsonl"
     with path.open(encoding="utf-8") as handle:
         return {str(json.loads(line)["referent"]) for line in handle}
+
+
+def test_no_current_identifier_or_label_carries_a_year() -> None:
+    """The `years` column is where a date belongs, and only there.
+
+    A year in an identifier or a label is read as part of the category, and one
+    model read the rendered ranges as constraints rather than as documentation —
+    it declined to place a 2009 Gaza speech on `gaza` and filed it under `other`
+    as "gaza (2008-2009)". Version 2 takes the years out of `rwanda_1994`,
+    `ukraine_2022`, "Kosovo 1998-1999" and "East Timor 1999", so a new
+    identifier may not bring one back in. The four retired rows keep theirs:
+    they are what a committed run recorded.
+
+    Over cases and historical referents, which are what `years` documents and
+    where a date could be mistaken for a bound. A meta referent has no `years`
+    and no onset, and `genocide_convention_law` keeps "the 1948 Convention",
+    which is the treaty's name rather than a range anything could be tested
+    against.
+    """
+    table = referent_table()
+    dated = table["kind"].isin(["case", "historical"])
+    current = table.loc[dated & (table["retired_in"].astype(str).str.strip() == "")]
+    year = re.compile(r"\b(1[89]|20)\d{2}\b")
+    assert [name for name in current["id"] if year.search(name)] == []
+    assert [label for label in current["label"] if year.search(label)] == []
+    assert [text for text in current["description"] if year.search(text)] == []
 
 
 def test_the_committed_list_declares_the_version_its_rows_belong_to() -> None:

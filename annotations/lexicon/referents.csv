@@ -14,7 +14,7 @@ burundi,Burundi,Speeches invoking the mass violence in Burundi as genocide or ge
 iraq_kurds_anfal,Iraqi Kurds and Anfal,Speeches invoking the Anfal campaign and the Halabja attack against Iraq's Kurdish population as genocide or genocidal.,case,IRQ,1988,1,,
 east_timor,East Timor,Speeches invoking the violence around East Timor's independence ballot as genocide or genocidal.,case,TLS,1999,1,,
 cambodia_khmer_rouge,Cambodia under the Khmer Rouge,"Speeches invoking the mass killing under the Khmer Rouge, including the work of the Extraordinary Chambers, as genocide or genocidal.",case,KHM,1975-1979,1,,
-bangladesh_1971,Bangladesh and the war of separation,Speeches invoking the mass killing during the war that separated East Pakistan from Pakistan as genocide or genocidal.,case,BGD,1971,2,,
+bangladesh,Bangladesh and the war of separation,Speeches invoking the mass killing during the war that separated East Pakistan from Pakistan as genocide or genocidal.,case,BGD,1971,2,,
 isil_yazidi,ISIL and the Yazidis,Speeches invoking ISIL's campaign against the Yazidi population of northern Iraq as genocide or genocidal.,case,IRQ,2014-,1,,
 isil_iraq_syria,ISIL and other populations of Iraq and Syria,"Speeches invoking ISIL's crimes against populations of Iraq and Syria other than the Yazidis as genocide or genocidal, such as Christians, Shia Muslims and Turkmen.",case,,2014-,2,,
 syria,Syria,Speeches invoking the conduct of the parties to the war in Syria as genocide or genocidal.,case,SYR,2011-,2,,
@@ -25,7 +25,7 @@ xinjiang_uyghurs,Xinjiang and the Uyghurs,Speeches invoking China's treatment of
 india_muslims,Muslims in India,Speeches invoking the treatment of the Muslim population of India as genocide or genocidal.,case,IND,,2,,
 afghanistan_hazara,Afghanistan and the Hazaras,"Speeches invoking mass violence in Afghanistan as genocide or genocidal, in particular attacks on its Hazara population.",case,AFG,1996-,2,,
 nagorno_karabakh,Nagorno-Karabakh,Speeches invoking the Nagorno-Karabakh conflict and the departure of its Armenian population as genocide or genocidal.,case,AZE,1988-2023,1,,
-khojaly_1992,Khojaly,"Speeches invoking the killings at Khojaly as genocide or genocidal, which Azerbaijan raises as an event of its own.",case,AZE,1992,2,,
+khojaly,Khojaly,"Speeches invoking the killings at Khojaly as genocide or genocidal, which Azerbaijan raises as an event of its own.",case,AZE,1992,2,,
 abkhazia_south_ossetia,Abkhazia and South Ossetia,Speeches invoking the conflicts in Abkhazia and South Ossetia and the displacement of their populations as genocide or genocidal.,case,GEO,1992-2008,2,,
 crimean_tatars,Crimean Tatars,"Speeches invoking the wartime deportation of the Crimean Tatars, or their treatment under the occupation of Crimea, as genocide or genocidal.",case,UKR,1944-,2,,
 ukraine_2022,Ukraine since 2022,"Speeches invoking genocide in connection with the war in Ukraine, in either direction: against Russia's conduct and in Russia's own claims about Donbas.",case,UKR,2022-,1,2,ukraine

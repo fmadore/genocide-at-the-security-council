@@ -211,8 +211,8 @@ disagree, the human label is the label; the disagreement is reported as a disagr
 
 - **2.2 — 2 September 2026.** Referent list version 2. Twelve categories the two full model
   runs asked for by name in `proposed_referent` — `israel_palestine`, `isil_iraq_syria`,
-  `syria`, `croatia_yugoslav_wars`, `bangladesh_1971`, `abkhazia_south_ossetia`,
-  `afghanistan_hazara`, `khojaly_1992`, `india_muslims`, `holodomor`,
+  `syria`, `croatia_yugoslav_wars`, `bangladesh`, `abkhazia_south_ossetia`,
+  `afghanistan_hazara`, `khojaly`, `india_muslims`, `holodomor`,
   `apartheid_south_africa`, `crimean_tatars` — each proposed independently by both
   instruments and each naming a determinate case. Years leave the identifiers, the labels
   and the descriptions and stay in `years`: `rwanda_1994` → `rwanda`, `ukraine_2022` →

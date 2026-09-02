@@ -202,10 +202,10 @@ nothing in either committed run was rewritten, and no run has yet been made agai
 | `isil_iraq_syria` | 68 | 3 | 71 |
 | `syria` | 21 | 18 | 39 |
 | `croatia_yugoslav_wars` | 17 | 15 | 32 |
-| `bangladesh_1971` | 14 | 14 | 28 |
+| `bangladesh` | 14 | 14 | 28 |
 | `abkhazia_south_ossetia` | 13 | 13 | 26 |
 | `afghanistan_hazara` | 8 | 8 | 16 |
-| `khojaly_1992` | 3 | 6 | 9 |
+| `khojaly` | 3 | 6 | 9 |
 | `india_muslims` | 2 | 7 | 9 |
 | `holodomor` | 4 | 4 | 8 |
 | `apartheid_south_africa` | 4 | 4 | 8 |
