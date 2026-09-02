@@ -221,9 +221,13 @@ def test_the_wilson_bounds_share_the_rate_shape_everywhere() -> None:
 
     def walk(node: object, path: str) -> None:
         if isinstance(node, dict):
-            # A rate is a leaf type or an array of one; the inference block also
-            # keys a measure `speech_rate`, and that is an object, not a rate.
-            if "speech_rate" in node and not isinstance(node["speech_rate"], dict):
+            # A rate is a leaf type or an array of one; the change-point artefact
+            # also keys a measure `speech_rate`, holding objects, and that is not a rate.
+            rate = node.get("speech_rate")
+            is_rate = isinstance(rate, str) or (
+                isinstance(rate, list) and all(isinstance(item, str) for item in rate)
+            )
+            if is_rate:
                 for key in ("speech_rate_low", "speech_rate_high"):
                     if key not in node:
                         mismatched.append(f"{path}.{key}: missing")
