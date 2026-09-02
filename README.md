@@ -32,7 +32,7 @@ every chart as SVG or PNG with its filters written into the image.
 | Lexicon flagging & precision audit | ✅ `scripts/03`; generated candidates are separate from durable annotations, **0 rows coded** |
 | Temporal series & change points | ✅ `scripts/04` · [`config/events.csv`](config/events.csv) |
 | Lexicometry — collocates, keyness, network | ✅ `scripts/05` · [`config/stopwords.txt`](config/stopwords.txt) |
-| Concordance (79,569 lines, 22 terms) | ✅ `scripts/08`; a line is reachable by term, year, month, speaker and meeting |
+| Concordance (75,342 lines, 28 terms) | ✅ `scripts/08`; a line is reachable by term, year, month, speaker and meeting |
 | Month resolution — grid and pooled calendar | ✅ `scripts/04` → `series/monthly.json`; 331 of 384 months clear the 100-speech minimum, the other 53 are drawn as withheld |
 | Download beside every figure | ✅ [`web/src/lib/export.ts`](web/src/lib/export.ts): the artefact's numbers as CSV with provenance, the picture as SVG or PNG with its filters drawn into it |
 | Speech export & web payload | ✅ `scripts/09`, `scripts/export_web.py` |
@@ -81,7 +81,7 @@ What `make payload` runs, in order:
 03_lexicon.py          → speeches_flagged.parquet (lexicon counts)
 04_series.py           → derived/series/*.json    (rates, intervals, change points)
 05_lexical.py          → derived/lexical/*.json   (collocates, keyness, PMI)
-08_kwic.py             → derived/kwic/*.json      (79,569 concordance lines)
+08_kwic.py             → derived/kwic/*.json      (75,342 concordance lines)
 09_export_speeches.py  → web/static/data/speeches (6,595 document files)
 11_countries.py        → derived/countries/*.json (per-speaker denominators)
 12_speaker_keyness.py  → derived/countries/       (per-speaker matched keyness)

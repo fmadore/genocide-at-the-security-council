@@ -84,7 +84,8 @@ the 1990s and early 2000s. Any lexical measurement must account for it: counts a
 | Speeches | 106,302 | **106,302** ✅ |
 | Meetings | 6,233 | **6,582** distinct `S/PV.*` symbols ⚠️ |
 | Documents (resumptions included) | — | **6,595** |
-| Tokens | 66,392,703 | **66,392,703** ✅ (sum of `tokens`, after repair) |
+| Tokens (codebook) | 66,392,703 | **66,392,703** ✅ (sum of `tokens`, after repair) |
+| Words in the speech bodies | — | **58,904,180** (`lib/lexical.py::TOKEN_RE`, the denominator of every rate) |
 | Period | 1992-01-06 → 2023-12-30 | ✅ identical |
 | Raw text characters | — | 388.8 M |
 
@@ -223,7 +224,7 @@ Findings worth knowing, since they frame how the corpus can be read:
 - **Three growth regimes.** 1,023 speeches in 1992 → 7,621 in 2023 (×7.4). Plateaus:
   1992-1999 (~1,400/yr), 2000-2004 (>2,500), 2005-2007 (dip), 2008-2013 (~3,000), a break
   in 2014 (4,769) then continuous growth. Covid dip in 2020.
-  **Every time series must be normalised** (rate per speech or per 100k tokens), otherwise
+  **Every time series must be normalised** (rate per speech or per 100k words), otherwise
   you are measuring corpus growth.
 - **The P5 does not dominate.** From 2014 onward the rise in total volume is not matched by
   the P5's share: it comes from the E10 and from guests at open debates.
@@ -241,68 +242,101 @@ Findings worth knowing, since they frame how the corpus can be read:
 
 ## 8. First findings — the semantic field of genocide
 
-This section began as a reconnaissance scan. The table is now aligned with lexicon v3 (the
-run of 2 September 2026; the v2 readings and what moved between them are in
+This section began as a reconnaissance scan. The table is now aligned with lexicon v4 (2
+September 2026, measured on `speeches_norm.parquet`; what moved between v2, v3 and v4 is in
 [`VALIDATION.md`](VALIDATION.md)); generated artifacts and that register remain the
 authority if a future lexicon version changes these figures.
 
-Scan across all 106,302 speeches (case-insensitive regex; total occurrences).
+Every active term, across all 106,302 speeches (case-insensitive regex; total occurrences).
+Seven terms are **anchored**: they are counted only where the sentence holding the match
+also says `genocid*`, which is why `commemoration` and `survivors` are so much smaller here
+than a scan for those words would suggest. `config/lexicon.yml` says of each one why.
 
-| Term | Speeches | % corpus | Occurrences |
-|---|---:|---:|---:|
-| `impunity` | 9,662 | 9.09% | 13,616 |
-| `international criminal court` / `ICC` | 4,766 | 4.48% | 12,476 |
-| `war crime(s)` | 4,664 | 4.39% | 6,588 |
-| `atrocity` / `atrocities` | 4,244 | 3.99% | 6,120 |
-| `crimes against humanity` | 3,465 | 3.26% | 4,136 |
-| **`genocid*`** | **3,273** | **3.08%** | **6,092** |
-| `responsibility to protect` / `R2P` | 1,353 | 1.27% | 1,795 |
-| `ethnic cleansing` | 1,229 | 1.16% | 1,705 |
-| `mass atrocity` / `mass atrocities` | 624 | 0.59% | 784 |
-| `ethnic hatred/violence/conflict` | 477 | 0.45% | 523 |
-| `never again` | 305 | 0.29% | 338 |
-| `exterminat*` | 224 | 0.21% | 281 |
-| `holocaust` / `shoah` | 181 | 0.17% | 244 |
-| `genocide convention` | 135 | 0.13% | 153 |
+| Term | Register | Speeches | % corpus | Occurrences |
+|---|---|---:|---:|---:|
+| `impunity` | accountability | 9,662 | 9.09% | 13,616 |
+| `tribunals` | accountability | 2,626 | 2.47% | 13,030 |
+| `icc` | accountability | 4,766 | 4.48% | 12,476 |
+| `war_crimes` | legal | 4,664 | 4.39% | 6,588 |
+| `atrocity` | legal | 4,244 | 3.99% | 6,120 |
+| **`genocide`** | **core** | **3,268** | **3.07%** | **6,061** |
+| `crimes_against_humanity` | legal | 3,465 | 3.26% | 4,136 |
+| `icj` | accountability | 1,447 | 1.36% | 2,399 |
+| `massacre` | descriptive | 1,588 | 1.49% | 2,313 |
+| `early_warning` | preventive | 1,606 | 1.51% | 1,960 |
+| `responsibility_to_protect` | preventive | 1,353 | 1.27% | 1,795 |
+| `ethnic_cleansing` | legal | 1,229 | 1.16% | 1,705 |
+| `mass_atrocity` | legal | 624 | 0.59% | 784 |
+| `never_again` | commemorative | 305 | 0.29% | 338 |
+| `commemoration` ⚓ | commemorative | 199 | 0.19% | 321 |
+| `extermination` | legal | 224 | 0.21% | 281 |
+| `denial` ⚓ | contentious | 186 | 0.17% | 269 |
+| `holocaust` | commemorative | 175 | 0.16% | 238 |
+| `prevention_of_genocide` | preventive | 212 | 0.20% | 237 |
+| `mass_killing` | descriptive | 149 | 0.14% | 158 |
+| `genocide_convention` | legal | 135 | 0.13% | 153 |
+| `survivors` ⚓ | commemorative | 73 | 0.07% | 106 |
+| `glorification` ⚓ | contentious | 93 | 0.09% | 103 |
+| `incitement` ⚓ | preventive | 47 | 0.04% | 49 |
+| `genocidal_ideology` | contentious | 30 | 0.03% | 39 |
+| `genocidaires` | core | 21 | 0.02% | 31 |
+| `intent_to_destroy` ⚓ | legal | 16 | 0.02% | 23 |
+| `ethnic_violence` ⚓ | contentious | 13 | 0.01% | 13 |
 
-Forms of `genocid*`: `genocide` (5,685), `genocidal` (313), `genocides` (62),
-`genocidaires` (29), `genocidaire` (2), `genocida` (1). Marginal OCR variants (`genecide`)
-should be caught by a tolerant regex.
+⚓ marks an anchored term.
+
+Forms of `genocid*`, over both core patterns: `genocide` (5,685), `genocidal` (313),
+`genocides` (62), `genocidaires` (29), `genocidaire` (2), `genocida` (1). The two
+`genocidaire` spellings are the `genocidaires` term, 31 occurrences; the other four are
+`genocide`, 6,061; and the two sum to the 6,092 the single v3 pattern matched. Marginal OCR variants (`genecide`) should be caught by
+a tolerant regex; the French `génocidaires` occurs 8 further times and is out of both
+patterns on purpose.
 
 **Available subsets**
 
-| Criterion | Speeches | Tokens |
-|---|---:|---:|
-| ≥ 1 occurrence of `genocid*` | 3,273 | 3,483,289 |
-| ≥ 2 occurrences | 1,061 | 1,264,919 |
-| ≥ 3 occurrences | 518 | 685,911 |
-| ≥ 5 occurrences | 208 | 302,824 |
-| Atrocity core (genocide ∪ ethnic cleansing ∪ CAH ∪ war crimes ∪ mass atrocity) | 7,814 | — |
-| Active lexicon (22 terms) | 23,271 | — |
+Words, not codebook tokens: since 2 September 2026 every denominator in this repository is
+the word count of the speech bodies (`lib/lexical.py::TOKEN_RE`), 58,904,180 of them
+against the codebook's 66,392,703 tokens over the full texts.
 
-The last two rows are v2 readings: the `has_` flags for `war crime(s)`, `mass atrocity`,
-`R2P` and `ICC` grew under v3 and the unions with them; `03_lexicon.py` does not print the
-unions, so they wait to be read from the artefact.
+| Criterion | Speeches | Words |
+|---|---:|---:|
+| ≥ 1 occurrence of `genocide` | 3,268 | 3,448,202 |
+| ≥ 2 occurrences | 1,055 | 1,219,863 |
+| ≥ 3 occurrences | 513 | 640,885 |
+| ≥ 5 occurrences | 205 | 279,191 |
+| Atrocity core (genocide ∪ ethnic cleansing ∪ CAH ∪ war crimes ∪ mass atrocity) | 7,979 | 8,272,922 |
+| Active lexicon (28 terms) | 20,892 | 19,908,544 |
+
+The union of `genocide` and `genocidaires` is 3,273 speeches, the figure every earlier
+version of this table gave for `genocid*`. The active-lexicon union is *smaller* than the
+23,271 the v2 table gave over 22 terms, and v4 has 28: the seven anchors take far more
+speeches out of the commemorative and contentious registers than `massacre`,
+`mass_killing`, `icj`, `incitement` and `intent_to_destroy` put back.
 
 ### 8.1 Chronology
 
-The normalised rate tells a story the raw counts hide. Occurrences per 100,000 tokens:
+The normalised rate tells a story the raw counts hide. Occurrences of `genocide` per
+100,000 **words** (lexicon v4; the v3 figures over the codebook's token denominator ran
+about 11% lower and are in [`VALIDATION.md`](VALIDATION.md)):
 
 ```
-1994  28.5  ████████████████████████████  Rwanda
-2014  22.6  ██████████████████████        Ukraine/Crimea, ISIS/Yazidis, CAR, Rwanda +20
-1993  17.0  █████████████████             Bosnia
-1995  16.4  ████████████████              Srebrenica
-2015  16.0  ███████████████               Srebrenica +20 (Russian veto), Daesh
-1999  15.0  ███████████████               Kosovo, East Timor
-1996  14.6  ██████████████
-2000  12.9  ████████████                  Carlsson report on Rwanda
-2005  12.7  ████████████                  Darfur, World Summit (R2P)
+1994  32.2  ████████████████████████████████  Rwanda
+2014  25.4  █████████████████████████         Ukraine/Crimea, ISIS/Yazidis, CAR, Rwanda +20
+1993  19.3  ███████████████████               Bosnia
+1995  18.5  ██████████████████                Srebrenica
+2015  18.0  ██████████████████                Srebrenica +20 (Russian veto), Daesh
+1999  16.6  █████████████████                 Kosovo, East Timor
+1996  16.4  ████████████████
+2000  14.3  ██████████████                    Carlsson report on Rwanda
+2005  14.3  ██████████████                    Darfur, World Summit (R2P)
 …
-2022   9.4  █████████                     Ukraine
-2023   8.8  █████████                     Gaza, Ukraine
-1997   4.7  ████                          absolute trough
+2022  10.6  ███████████                       Ukraine
+2023   9.9  ██████████                        Gaza, Ukraine
+1997   5.3  █████                             absolute trough
 ```
+
+Adding `genocidaires` back moves only 2014 (25.4 to 25.6), 1999, 2000, 2006 and 2007 by a
+tenth: the actor label is a Great Lakes word, and it is rare.
 
 **The 2014 peak (659 occurrences) exceeds 1994 (228) in absolute volume** while remaining
 below it in density. This is the single most interesting result of the first scan: the word
