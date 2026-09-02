@@ -205,3 +205,39 @@ class TestCommittedContract:
         list to warn about, not a problem to fail on."""
         promised = {"series/annual.json": {"meta": {}}}
         assert contract.check(tmp_path, promised) == ([], ["series/annual.json"])
+
+
+def test_the_wilson_bounds_share_the_rate_shape_everywhere() -> None:
+    """A hand-edited contract can declare a bound as a float where the rate is an
+    array — which is exactly what happened on 2 September 2026, and what failed
+    the first deploy after PR #3 at the export seam. Wherever the contract
+    promises a `speech_rate`, its two bounds must promise the same shape."""
+    import json
+
+    from lib.paths import CONTRACT
+
+    promised = json.loads(CONTRACT.read_text(encoding="utf-8"))
+    mismatched: list[str] = []
+
+    def walk(node: object, path: str) -> None:
+        if isinstance(node, dict):
+            # A rate is a leaf type or an array of one; the change-point artefact
+            # also keys a measure `speech_rate`, holding objects, and that is not a rate.
+            rate = node.get("speech_rate")
+            is_rate = isinstance(rate, str) or (
+                isinstance(rate, list) and all(isinstance(item, str) for item in rate)
+            )
+            if is_rate:
+                for key in ("speech_rate_low", "speech_rate_high"):
+                    if key not in node:
+                        mismatched.append(f"{path}.{key}: missing")
+                    elif node[key] != node["speech_rate"]:
+                        mismatched.append(f"{path}.{key}: {node[key]!r} != {node['speech_rate']!r}")
+            for key, value in node.items():
+                walk(value, f"{path}.{key}")
+        elif isinstance(node, list):
+            for value in node:
+                walk(value, f"{path}[]")
+
+    walk(promised, "")
+    assert mismatched == []
