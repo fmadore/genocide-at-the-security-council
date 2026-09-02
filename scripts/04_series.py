@@ -570,7 +570,7 @@ def build_change_points(
         for kind, name in TRACKED
     ]
     model_specs.append(
-        ("terms", "genocide", "token_rate", "occurrences", "words", "poisson")
+        ("terms", "genocide_qualification", "token_rate", "occurrences", "words", "poisson")
     )
     adjusted_alpha = alpha / len(model_specs)
     position = {label: index for index, label in enumerate(periods)}
