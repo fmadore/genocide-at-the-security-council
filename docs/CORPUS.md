@@ -241,28 +241,29 @@ Findings worth knowing, since they frame how the corpus can be read:
 
 ## 8. First findings — the semantic field of genocide
 
-This section began as a reconnaissance scan. The table is now aligned with lexicon v2;
-generated artifacts and [`VALIDATION.md`](VALIDATION.md) remain the authority if a future
-lexicon version changes these figures.
+This section began as a reconnaissance scan. The table is now aligned with lexicon v3 (the
+run of 2 September 2026; the v2 readings and what moved between them are in
+[`VALIDATION.md`](VALIDATION.md)); generated artifacts and that register remain the
+authority if a future lexicon version changes these figures.
 
 Scan across all 106,302 speeches (case-insensitive regex; total occurrences).
 
 | Term | Speeches | % corpus | Occurrences |
 |---|---:|---:|---:|
 | `impunity` | 9,662 | 9.09% | 13,616 |
-| `international criminal court` / `ICC` | 4,057 | 3.82% | 11,739 |
-| `war crime(s)` | 4,326 | 4.07% | 6,241 |
+| `international criminal court` / `ICC` | 4,766 | 4.48% | 12,476 |
+| `war crime(s)` | 4,664 | 4.39% | 6,588 |
 | `atrocity` / `atrocities` | 4,244 | 3.99% | 6,120 |
 | `crimes against humanity` | 3,465 | 3.26% | 4,136 |
 | **`genocid*`** | **3,273** | **3.08%** | **6,092** |
-| `responsibility to protect` / `R2P` | 1,144 | 1.08% | 1,577 |
+| `responsibility to protect` / `R2P` | 1,353 | 1.27% | 1,795 |
 | `ethnic cleansing` | 1,229 | 1.16% | 1,705 |
-| `mass atrocity` / `mass atrocities` | 573 | 0.54% | 733 |
+| `mass atrocity` / `mass atrocities` | 624 | 0.59% | 784 |
 | `ethnic hatred/violence/conflict` | 477 | 0.45% | 523 |
-| `never again` | 287 | 0.27% | 320 |
+| `never again` | 305 | 0.29% | 338 |
 | `exterminat*` | 224 | 0.21% | 281 |
 | `holocaust` / `shoah` | 181 | 0.17% | 244 |
-| `genocide convention` | 92 | 0.09% | 110 |
+| `genocide convention` | 135 | 0.13% | 153 |
 
 Forms of `genocid*`: `genocide` (5,685), `genocidal` (313), `genocides` (62),
 `genocidaires` (29), `genocidaire` (2), `genocida` (1). Marginal OCR variants (`genecide`)
@@ -278,6 +279,10 @@ should be caught by a tolerant regex.
 | ≥ 5 occurrences | 208 | 302,824 |
 | Atrocity core (genocide ∪ ethnic cleansing ∪ CAH ∪ war crimes ∪ mass atrocity) | 7,814 | — |
 | Active lexicon (22 terms) | 23,271 | — |
+
+The last two rows are v2 readings: the `has_` flags for `war crime(s)`, `mass atrocity`,
+`R2P` and `ICC` grew under v3 and the unions with them; `03_lexicon.py` does not print the
+unions, so they wait to be read from the artefact.
 
 ### 8.1 Chronology
 
