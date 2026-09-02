@@ -193,7 +193,7 @@ is one the pipeline actually writes.
 |---|---|
 | **Source** | Schoenfeld, Eckhard, Patz, van Meegdenburg & Pires — [doi:10.7910/DVN/KGVSYH](https://doi.org/10.7910/DVN/KGVSYH), v6.1 |
 | **Licence** | **CC0 1.0** — public domain |
-| **Coverage** | 1992-01-06 → 2023-12-30 · 106,302 speeches · 6,595 documents / 6,582 meeting symbols · 66.4 M tokens |
+| **Coverage** | 1992-01-06 → 2023-12-30 · 106,302 speeches · 6,595 documents / 6,582 meeting symbols · 58.9 M words in the speech bodies (66.4 M codebook tokens) |
 | **Paper** | [arXiv:1906.10969](https://arxiv.org/abs/1906.10969) |
 
 The raw distribution has two undocumented defects that silently corrupt a naive read — a
@@ -246,6 +246,23 @@ counting a nested term twice in its register. On the corpus that moved six terms
 crimes` from 4,326 to 4,664 speeches, `ICC` from 4,057 to 4,766 — and left `genocide` at
 3,273 speeches and 6,092 occurrences; the re-count is in the same file.
 
+Lexicon v4 (2 September 2026) does change patterns. It gives `genocidaires` — an actor
+label for the ex-FAR and Interahamwe — its own term, so the headline count measures the
+word as qualification of an event; the two patterns are disjoint and their sum is still
+6,092 across 3,273 speeches. It adds a sentence **anchor**: seven terms are now counted
+only where the sentence holding them also says `genocid*`, because the commemorative
+register as built was tracking the anniversary of resolution 1325 and the survivors of
+sexual violence rather than genocide memory. It adds `massacre`, `mass killing`, `ICJ`,
+`intent to destroy` and `incitement`, gives the Residual Mechanism back to `tribunals`,
+and stops `holocaust` counting the nuclear kind. Every figure it moves was measured on
+the corpus before it was committed and is tabulated in
+[`docs/VALIDATION.md`](docs/VALIDATION.md).
+
+Since the same day, a rate *per 100,000 words* divides by words. It used to divide by the
+codebook's `tokens` column — quanteda's count over the full text, punctuation and numbers
+included, 66,392,703 against the 58,904,180 words the corpus actually holds — so every
+published rate stood 11.3% below the label it carried.
+
 ### What the 2014 peak turns out to be
 
 The first finding above — *the 2014 peak exceeds 1994 in absolute volume* — does not
@@ -253,7 +270,7 @@ survive normalisation, and `scripts/04` is where that gets settled rather than a
 
 The primary inferential layer scans one annual two-rate partition with the denominator intact:
 binomial likelihood for speech prevalence and Poisson likelihood for occurrences with
-token exposure. Two thousand no-change series repeat the complete breakpoint search, with
+word exposure. Two thousand no-change series repeat the complete breakpoint search, with
 Bonferroni correction across the three planned rate tests. Since 2 September 2026 those
 series are built by permuting whole meetings across years rather than treating every
 speech as an independent draw — one debate can hold two hundred occurrences — and the
