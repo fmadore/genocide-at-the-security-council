@@ -41,6 +41,19 @@ def as_the_record_might_hold_it(example: str) -> list[str]:
     ]
 
 
+def in_a_sentence_that_qualifies(example: str) -> str:
+    """The example put where an anchored term is allowed to count it.
+
+    An anchored term counts nothing outside a sentence that also says
+    `genocid*`, so its examples have to be carried into one before any property
+    about *how many* it counts can be tested. One sentence, with the node word
+    after the example rather than before it, so the anchor is not doing the
+    work a leading word would do for a pattern that happens to start with a
+    boundary.
+    """
+    return f"They spoke of {example} in the genocide."
+
+
 class TestFilesExist:
     @pytest.mark.parametrize(
         "path", [LEXICON, LEXICON_LOCK, ENTITIES, COUNTRY_ALIASES, COUNCIL_MEMBERSHIP, EVENTS]
@@ -206,18 +219,45 @@ class TestLexicon:
 
     def test_the_prefilter_never_loses_a_match_to_whitespace(self, lex):
         """The property the prefilter exists under: it may only make counting
-        faster, never change what is counted. Checked against the regex run
-        directly on the same text, over the whitespace a verbatim record
-        actually contains."""
+        faster, never change what is counted. Checked against the term's own
+        matching rule run directly on the same text — `Term.spans`, not the
+        bare regex, because for an anchored term the two differ by design —
+        over the whitespace a verbatim record actually contains."""
         for term in lex.terms.values():
             texts = [
                 text
                 for example in term.examples
-                for text in as_the_record_might_hold_it(example)
+                for raw in as_the_record_might_hold_it(example)
+                for text in ([raw] if term.anchor is None else [raw, in_a_sentence_that_qualifies(raw)])
             ]
             counted = term.count(pd.Series(texts))
             for text, count in zip(texts, counted, strict=True):
-                assert count == len(term.regex.findall(text)), f"{term.name}: {text!r}"
+                assert count == len(term.spans(text)), f"{term.name}: {text!r}"
+
+    def test_an_anchored_term_counts_nothing_outside_a_genocide_sentence(self, lex):
+        """What the anchor is for. The same words in a sentence that does not
+        say the node word are a different agenda's words, and the review of
+        1 September 2026 §3.4 is the record of how much of the commemorative
+        and contentious registers they were."""
+        anchored = [term for term in lex.active if term.anchor is not None]
+        assert anchored, "v4 anchors seven terms; something has been dropped"
+        for term in anchored:
+            for example in term.examples:
+                assert term.spans(f"The Council recalled {example} that day.") == []
+                assert term.spans(in_a_sentence_that_qualifies(example))
+
+    def test_an_anchor_does_not_reach_across_a_sentence_boundary(self, lex):
+        """A sentence, not a paragraph and not a window. The neighbouring
+        sentence saying the word is what a co-occurrence measure would count
+        and what this deliberately does not."""
+        term = lex.terms["commemoration"]
+        assert term.spans("We marked the anniversary. It was a genocide.") == []
+        assert term.spans("We marked the anniversary of the genocide. It was grave.")
+
+    def test_every_anchor_is_one_the_loader_knows(self, lex):
+        """A mistyped anchor would silently mean 'none' and inflate the term."""
+        for term in lex.terms.values():
+            assert term.anchor is None or term.anchor in lexicon.ANCHORS, term.name
 
     def test_every_pattern_records_the_version_it_last_changed_in(self, lex):
         """`pattern_since` is what lets a gold sample or a committed model run
@@ -249,8 +289,84 @@ class TestLexicon:
 
     def test_the_core_term_matches_its_own_word(self, lex):
         regex = lex.terms["genocide"].regex
-        for word in ("genocide", "Genocide", "genocidal", "genocides", "genocidaires"):
+        for word in ("genocide", "Genocide", "genocidal", "genocides"):
             assert regex.search(word), word
+
+    def test_the_core_term_leaves_the_actor_label_to_its_own_term(self, lex):
+        """§3.4 of the review: `\\bgenocid\\w*` folded an actor label for the
+        ex-FAR and Interahamwe into the count of the word as qualification of
+        an event, and the two model runs disagree on exactly those cases."""
+        for word in ("genocidaire", "genocidaires", "Genocidaires"):
+            assert not lex.terms["genocide"].regex.search(word), word
+            assert lex.terms["genocidaires"].regex.search(word), word
+
+    def test_the_two_core_patterns_partition_the_old_union(self, lex):
+        """What keeps v3's headline count reportable: the patterns are
+        disjoint and between them they match what `\\bgenocid\\w*` matched, so
+        `n_genocide + n_genocidaires` is the number the old column held."""
+        union = re.compile(r"\bgenocid\w*", re.IGNORECASE)
+        genocide, actors = lex.terms["genocide"], lex.terms["genocidaires"]
+        for word in ("genocide", "genocidal", "genocides", "genocidaire", "genocidaires"):
+            assert len(union.findall(word)) == len(genocide.regex.findall(word)) + len(
+                actors.regex.findall(word)
+            ), word
+
+    def test_the_repaired_terms_no_longer_match_what_the_review_found(self, lex):
+        """The five noisy terms of §3.4, each against the phrase that was
+        driving its series."""
+        assert not lex.terms["holocaust"].regex.search("a nuclear holocaust")
+        assert not lex.terms["holocaust"].regex.search("an atomic holocaust")
+        assert lex.terms["holocaust"].regex.search("the Holocaust")
+        assert not lex.terms["tribunals"].regex.search(
+            "the International Tribunal for the Law of the Sea"
+        )
+        assert lex.terms["tribunals"].regex.search("the International Residual Mechanism")
+        assert lex.terms["tribunals"].regex.search(
+            "the Mechanism for International Criminal Tribunals"
+        )
+        # `denial` and the rest are repaired by the anchor rather than by the
+        # pattern, so the phrase is tested through the whole matching rule.
+        assert lex.terms["denial"].spans("the denial of humanitarian access") == []
+        assert lex.terms["denial"].spans("Serbia denied that the genocide occurred")
+        assert lex.terms["survivors"].spans("survivors of sexual violence") == []
+        assert lex.terms["glorification"].spans("the glorification of terrorism") == []
+        assert lex.terms["commemoration"].spans(
+            "the anniversary of resolution 1325"
+        ) == []
+
+    def test_denial_catches_the_inflections_the_old_pattern_missed(self, lex):
+        """`deny\\w*` matched *denying* and missed *denies* and *denied*,
+        which is where most of the denying in this corpus is done."""
+        for form in ("denies", "denied", "denying", "denial", "denials"):
+            assert lex.terms["denial"].regex.search(form), form
+
+    def test_the_added_terms_are_present_and_match_their_phrase(self, lex):
+        """The five §3.4 asks for, each by the phrase it was asked for."""
+        expected = {
+            "massacre": "the Boipatong massacre",
+            "mass_killing": "the mass killings in Srebrenica",
+            "icj": "the International Court of Justice",
+            "intent_to_destroy": "with intent to destroy the group, genocide",
+            "incitement": "incitement to commit genocide",
+        }
+        for name, phrase in expected.items():
+            assert name in lex.terms, name
+            assert lex.terms[name].spans(phrase), name
+
+    def test_the_core_register_is_no_longer_a_copy_of_one_term(self, lex):
+        """Housekeeping from §3.4: `core` held only `genocide`, so
+        `has_register_core` said exactly what `has_genocide` said."""
+        members = [term.name for term in lex.by_register()["core"]]
+        assert len(members) > 1, members
+
+    def test_the_header_names_every_register_the_file_uses(self, lex):
+        """The other half of the housekeeping: the header claimed four
+        discursive families while the file carried six, so a reader who
+        trusted it would have looked for two registers that were never
+        described. Enumerating them there is what keeps the claim checkable."""
+        header = LEXICON.read_text(encoding="utf-8").split("\nversion:")[0]
+        missing = sorted(r for r in lex.by_register() if r not in header)
+        assert missing == [], f"the header does not name {missing}"
 
     def test_ocr_variants_are_held_back_by_default(self, lex):
         """Folding OCR noise into the headline count silently would overstate

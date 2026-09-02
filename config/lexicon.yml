@@ -4,12 +4,31 @@
 # case-insensitively to the speech body (after the opening form of address has
 # been stripped).
 #
-# `register` groups terms into the four discursive families that emerged from
-# the collocate analysis (see docs/CORPUS.md §8.5). `tier` marks how central a
-# term is to the object of study:
-#   core     — the word itself
+# `register` groups terms into the discursive families that emerged from the
+# collocate analysis (see docs/CORPUS.md §8.5). There are seven, and the header
+# said "four" until v4 while the file held six: core, legal, preventive,
+# commemorative, contentious, accountability, and — new in v4 — descriptive,
+# the vocabulary of mass violence that names it without qualifying it, which is
+# the vocabulary whose replacement by *genocide* this study is about.
+#
+# `tier` marks how central a term is to the object of study:
+#   core     — the word itself and the phrases built on it
 #   atrocity — the Rome Statute / R2P cluster it travels inside
-#   adjacent — the accountability vocabulary that surrounds both
+#   adjacent — the accountability and memory vocabulary that surrounds both
+#
+# `anchor` is new in v4 and is the other half of a term's matching rule. A term
+# with `anchor: sentence` is counted only where the sentence holding the match
+# also says `genocid*`; a term without one is counted wherever its pattern
+# matches. The rule for choosing is stated once here rather than argued term by
+# term: **anchor a term whose surface form is used right across the Council's
+# agenda, so that only its co-occurrence with the node word makes it about this
+# study's object; leave unanchored a form that is already specific to atrocity
+# talk.** Measured on the corpus, the difference is not marginal —
+# `commemoration` falls from 6,533 occurrences to 321, `survivors` from 4,013
+# to 106 — because what the unanchored terms were counting was the anniversary
+# of resolution 1325 and the survivors of sexual violence. Changing an anchor
+# changes what a term enumerates exactly as editing its pattern does, so it
+# bumps `pattern_since` and is recorded in the lock.
 #
 # `prefilters` exist for speed and for nothing else: a speech containing none of
 # them is skipped without running the regex. A literal must therefore be
@@ -22,20 +41,52 @@
 # it (`re.IGNORECASE` folds U+0130 'İ' to 'i'; upper-casing does not). The
 # guarantee is therefore exactly this: for the whitespace-free ASCII literals
 # the loader requires, skipping a speech that holds none of them cannot lose an
-# occurrence. Prefer one distinctive word per alternative of the pattern.
+# occurrence. Prefer one distinctive word per alternative of the pattern. An
+# anchored term takes `genocid` as a further literal of the same kind, added by
+# `lib/lexicon.py` rather than written here.
 #
-# `pattern_since` is the lexicon version at which that term's `pattern` last
-# changed. Bump it to the new `version` whenever you edit a pattern, and leave
-# it alone otherwise: it is what lets an artefact keyed to a single term — a
-# gold sample, a committed model run — survive a version bump that did not
-# touch that term. See `Lexicon.compatible` in scripts/lib/lexicon.py. The bump
-# is not left to memory: `config/lexicon.lock.json` records a digest of every
-# pattern beside the version it is declared to date from, and the loader refuses
-# a lexicon the lock no longer describes, so run `python tools/lock_lexicon.py`
-# after editing a pattern.
+# `pattern_since` is the lexicon version at which that term's matching rule —
+# its `pattern` or its `anchor` — last changed. Bump it to the new `version`
+# whenever you edit either, and leave it alone otherwise: it is what lets an
+# artefact keyed to a single term — a gold sample, a committed model run —
+# survive a version bump that did not touch that term. See `Lexicon.compatible`
+# in scripts/lib/lexicon.py. The bump is not left to memory:
+# `config/lexicon.lock.json` records a digest of every pattern and every term's
+# anchor beside the version they are declared to date from, and the loader
+# refuses a lexicon the lock no longer describes, so run
+# `python tools/lock_lexicon.py` after editing a pattern or an anchor.
 #
 # Changing this file changes every downstream count. Bump `version` and record
 # what moved.
+#
+# v4 — 2026-09-02
+#   Item 9 of the review of 1 September 2026 (§3.3, §3.4). Every figure it
+#   moves was measured on the corpus first; the numbers are in
+#   docs/VALIDATION.md.
+#   - `genocidaires` is its own term. `\bgenocid\w*` folded an actor label for
+#     ex-FAR and Interahamwe in the DRC debates into the count of the word as
+#     event qualification, and the two model runs disagree on exactly those
+#     occurrences. The split is exact: the two patterns are disjoint and
+#     `n_genocide + n_genocidaires` reproduces v3's `n_genocide` to the
+#     occurrence (6,061 + 31 = 6,092), which is how the old union stays
+#     reportable.
+#   - Five terms are anchored to the sentence (`commemoration`, `survivors`,
+#     `denial`, `glorification`, `ethnic_violence`) and two new ones are
+#     (`incitement`, `intent_to_destroy`). See `anchor` above.
+#   - `ethnic_hatred` is renamed `ethnic_violence`: the pattern always matched
+#     *ethnic conflict* and *ethnic violence* far more often than *ethnic
+#     hatred*, and a term should be called what it counts.
+#   - `denial` loses the `genocid` alternative it carried — the anchor makes it
+#     redundant — and gains the inflections `deny\w*` missed: *denies*,
+#     *denied*.
+#   - `holocaust` no longer counts *nuclear holocaust* or *atomic holocaust*.
+#   - `tribunals` gains the Residual Mechanism, whose absence made the
+#     accountability register decay after 2015 for institutional reasons, and
+#     stops matching the International Tribunal for the Law of the Sea.
+#   - New: `massacre`, `mass_killing`, `icj`, `intent_to_destroy`,
+#     `incitement`.
+#   - `genocidaires` joins `genocide` in the `core` register, so
+#     `has_register_core` is no longer a duplicate of `has_genocide`.
 #
 # v3 — 2026-09-01
 #   - prefilters rewritten as whitespace-free literals, so a phrase broken
@@ -46,20 +97,44 @@
 #   - no `pattern` changed: every term keeps `pattern_since: 2`, so the gold
 #     sample and the committed model runs recorded against v2 remain valid.
 
-version: 3
-updated: 2026-09-01
+version: 4
+updated: 2026-09-02
 
 terms:
   genocide:
-    pattern: '\bgenocid\w*'
+    pattern: '\bgenocid(?!aire)\w*'
     prefilters: [genocid]
-    examples: [genocide, genocidal, genocides, genocidaires]
+    examples: [genocide, genocidal, genocides]
     tier: core
     register: core
-    pattern_since: 2
+    pattern_since: 4
     note: >
-      Matches genocide, genocidal, genocides, genocidaire(s). 6,092 occurrences
-      across 3,273 speeches.
+      The word as event qualification: genocide, genocidal, genocides. The
+      actor label genocidaire(s) is excluded and counted as its own term —
+      calling a militia leader a génocidaire says something about who did it,
+      not about whether the Council is calling the event a genocide, and
+      folding the two together is what the two model runs disagreed over. The
+      split moves the v3 figure of 6,092 occurrences across 3,273 speeches to
+      6,061 across 3,268; the union of this term and `genocidaires` is the old
+      number exactly.
+
+  genocidaires:
+    pattern: '\bgenocidaires?\b'
+    prefilters: [genocidaire]
+    examples: [genocidaire, genocidaires]
+    tier: core
+    register: core
+    pattern_since: 4
+    note: >
+      The actor label, almost always for the ex-FAR and Interahamwe in the
+      Great Lakes debates: 31 occurrences across 21 speeches, 5 of which say
+      nothing else the `genocide` pattern matches. Split out of
+      `genocide` at v4 so that the headline count measures the word as
+      qualification of an event. Deliberately ASCII: the French spelling
+      *génocidaires* occurs 8 further times and is left out for the same reason
+      the OCR-tolerant net is held back — absorbing a spelling the old count
+      never held would confound the split with a widening. Report it with the
+      OCR delta if it is ever wanted.
 
   genocide_ocr_variants:
     pattern: '\b(?:gen[eo]cid|senocid|qenocid)\w*'
@@ -132,6 +207,25 @@ terms:
     pattern_since: 2
     nested_under: genocide
 
+  intent_to_destroy:
+    pattern: '\bintent\s+to\s+destroy\b|\bin\s+whole\s+or\s+in\s+part\b'
+    prefilters: [destroy, whole]
+    examples: [intent to destroy, in whole or in part]
+    tier: core
+    register: legal
+    pattern_since: 4
+    anchor: sentence
+    note: >
+      Article II of the Convention read into the record: the mental element,
+      and the phrase that qualifies the destruction. Anchored, because "in
+      whole or in part" is also how the Council talks about withdrawing a
+      peacekeeping operation and about a successor State's ownership of
+      assets. Unanchored the two alternatives match 50 occurrences across 37
+      speeches; anchored, 23 across 16. The anchor costs the handful of
+      Article II(c) quotations that do not repeat the word in the same
+      sentence, and that is the cheaper error: this term is meant to find
+      where the definition itself is being argued over.
+
   responsibility_to_protect:
     pattern: '\bresponsibility\s+to\s+protect\b|\bR2P\b'
     prefilters: [protect, r2p]
@@ -157,6 +251,25 @@ terms:
     register: preventive
     pattern_since: 2
 
+  incitement:
+    pattern: '\bincit\w*'
+    prefilters: [incit]
+    examples: [incitement, incite, inciting, incited]
+    tier: adjacent
+    register: preventive
+    pattern_since: 4
+    anchor: sentence
+    note: >
+      Article III of the Convention makes direct and public incitement to
+      commit genocide punishable in itself, and it is the offence the
+      prevention machinery — the Special Adviser, the early-warning language —
+      exists to catch before the fact. Anchored, and heavily: the Council says
+      "incitement" 2,767 times across 2,087 speeches, and it is almost always
+      incitement to violence, to hatred or to terrorism. In the same sentence
+      as `genocid*` it is 49 occurrences across 47 speeches. The unanchored
+      series measures the Council's incitement vocabulary, which is a real
+      object and not this one.
+
   never_again:
     pattern: '\bnever\s+again\b'
     prefilters: [never]
@@ -166,15 +279,29 @@ terms:
     pattern_since: 2
     note: >
       Filtered on `never` rather than `again`: "again" is a substring of
-      "against", which is everywhere in this corpus, so it would filter nothing.
+      "against", which is everywhere in this corpus, so it would filter
+      nothing. Deliberately *not* anchored, unlike the rest of this register:
+      "never again" is itself the commemorative formula of atrocity memory and
+      is not a phrase the Council uses about anything else. Anchoring it would
+      leave 30 occurrences of 338 and would measure the promise only where it
+      is spelled out, which is precisely where it is least worth counting.
 
   holocaust:
-    pattern: '\bholocaust\b|\bshoah\b'
+    pattern: '\b(?<!nuclear\s)(?<!atomic\s)holocaust\b|\bshoah\b'
     prefilters: [holocaust, shoah]
     examples: [Holocaust, Shoah]
     tier: adjacent
     register: commemorative
-    pattern_since: 2
+    pattern_since: 4
+    note: >
+      *Nuclear holocaust* and *atomic holocaust* are excluded: they are the
+      disarmament register, not genocide memory, and they account for 6 of the
+      244 v3 occurrences. Not anchored, for the same reason `never_again` is
+      not — the Shoah is the reference genocide and Holocaust Remembrance Day
+      is discussed on its own terms. Anchoring would leave 25 occurrences of
+      238. The lookbehinds are fixed-width, so *nuclear  holocaust* across a
+      double space is still counted; the record's line breaks are single
+      characters and are covered.
 
   commemoration:
     pattern: '\bcommemorat\w*|\banniversar\w+'
@@ -182,7 +309,14 @@ terms:
     examples: [commemoration, commemorating, anniversary]
     tier: adjacent
     register: commemorative
-    pattern_since: 2
+    pattern_since: 4
+    anchor: sentence
+    note: >
+      The reason the anchor exists. Unanchored this matched 6,533 occurrences
+      across 4,504 speeches, and they are the anniversary of resolution 1325,
+      the anniversary of the Charter, national days and the commemoration of
+      the Organization itself. In the same sentence as `genocid*` it is 321
+      occurrences across 199 speeches, which is genocide memory.
 
   survivors:
     pattern: '\bsurvivors?\b'
@@ -190,15 +324,32 @@ terms:
     examples: [survivor, survivors]
     tier: adjacent
     register: commemorative
-    pattern_since: 2
+    pattern_since: 4
+    anchor: sentence
+    note: >
+      Anchored: the commonest thing said after "survivors" in this corpus is
+      "of sexual violence", 478 times, and the women-and-peace-and-security
+      agenda would otherwise drive the whole series. 4,013 occurrences
+      unanchored, 106 anchored.
 
   denial:
-    pattern: '\bdenial\b|\bdeny\w*\s+(?:the\s+)?genocid\w*|\bgenocide\s+denial\b'
-    prefilters: [denial, deny]
-    examples: [denial, denying the genocide, genocide denial]
+    pattern: '\bdenials?\b|\bden(?:y|ies|ied|ying)\b'
+    prefilters: [denial, deny, denie, denying]
+    examples: [denial, denials, deny, denies, denied, denying]
     tier: adjacent
     register: contentious
-    pattern_since: 2
+    pattern_since: 4
+    anchor: sentence
+    note: >
+      Two repairs and an anchor. `deny\w*` missed *denies* and *denied*, which
+      is where most of the denying is done; bare `\bdenial\b` matched "denial
+      of humanitarian access" and "denial of access", which are the two
+      commonest things it matched at all (321 and 157 of 1,636). The v3
+      pattern also carried `genocid` inside itself, which made the
+      denial–genocide edge of the co-occurrence network partly definitional;
+      the anchor replaces that with a declared one, and `lib/lexical.py`
+      suppresses the edge and says why. 1,653 occurrences unanchored, 269
+      anchored across 186 speeches.
 
   glorification:
     pattern: '\bglorif\w+'
@@ -206,7 +357,15 @@ terms:
     examples: [glorification, glorifying]
     tier: adjacent
     register: contentious
-    pattern_since: 2
+    pattern_since: 4
+    anchor: sentence
+    note: >
+      Anchored: unanchored, the commonest completion is "glorification of war"
+      (111 of 501) and the next are the glorification of terrorism under
+      S/RES/1624 and of convicted war criminals. The genuine object — the
+      annual contest over the glorification of Nazism and of convicted
+      génocidaires — survives the anchor at 103 occurrences across 93
+      speeches.
 
   genocidal_ideology:
     pattern: '\bgenocidal\s+ideolog\w+|\bideolog\w+\s+of\s+genocide\b'
@@ -216,14 +375,29 @@ terms:
     register: contentious
     pattern_since: 2
     nested_under: genocide
+    note: >
+      Not anchored, and it needs no anchor: the pattern carries the node word
+      itself, so every match is already in a sentence that says it.
 
-  ethnic_hatred:
+  ethnic_violence:
     pattern: '\bethnic\s+(?:hatred|violence|conflict)'
     prefilters: [ethnic]
     examples: [ethnic hatred, ethnic violence, ethnic conflict]
     tier: adjacent
     register: contentious
-    pattern_since: 2
+    pattern_since: 4
+    anchor: sentence
+    note: >
+      Named `ethnic_hatred` until v4, which was a misnomer: the pattern has
+      always matched *ethnic conflict* and *ethnic violence* far more often
+      than *ethnic hatred*. Anchored, it is the contentious thing it was meant
+      to be — the vocabulary offered instead of, or against, the
+      qualification — and it is rare: 13 occurrences across 13 speeches,
+      against 523 unanchored. Recorded as a limitation rather than dressed up:
+      a term this thin supports no series of its own and will be withheld
+      under every minimum on the site. What it does do is stop the contentious
+      register being a measure of how often the Council says "ethnic
+      conflict".
 
   impunity:
     pattern: '\bimpunity\b'
@@ -241,17 +415,79 @@ terms:
     register: accountability
     pattern_since: 2
 
-  tribunals:
-    pattern: '\b(?:ICTR|ICTY)\b|international\s+(?:criminal\s+)?tribunal'
-    prefilters: [ictr, icty, tribunal]
-    examples: [ICTR, ICTY, international criminal tribunal, international tribunal]
+  icj:
+    pattern: '\binternational\s+court\s+of\s+justice\b|\bICJ\b'
+    prefilters: [court, icj]
+    examples: [International Court of Justice, ICJ]
     tier: adjacent
     register: accountability
-    pattern_since: 2
+    pattern_since: 4
+    note: >
+      Four of the 35 reference dates in config/events.csv are filings or
+      judgments at the Court, and the Convention's own compromissory clause is
+      what puts a genocide claim there rather than at the ICC. 2,399
+      occurrences across 1,447 speeches, of which the bare abbreviation
+      accounts for 72. Not anchored: the Court is an institution this study is
+      about wherever it is invoked, and unlike "incitement" the name is not a
+      general-purpose word. One known false positive, and it is left standing
+      rather than patched around: the International Commission of Jurists
+      abbreviates to ICJ too, and does so once in this corpus.
+
+  tribunals:
+    pattern: '\b(?:ICTR|ICTY|IRMCT|MICT)\b|\binternational\s+(?:criminal\s+)?tribunals?(?!\s+for\s+the\s+law\s+of\s+the\s+sea)|\bresidual\s+mechanism\b|\bmechanism\s+for\s+international\s+criminal\s+tribunals\b'
+    prefilters: [ictr, icty, irmct, mict, tribunal, mechanism]
+    examples: [ICTR, ICTY, IRMCT, international criminal tribunal, international tribunal, Residual Mechanism, Mechanism for International Criminal Tribunals]
+    tier: adjacent
+    register: accountability
+    pattern_since: 4
+    note: >
+      Two repairs, both institutional. The v3 pattern matched the
+      International Tribunal for the Law of the Sea, 36 times, which has
+      nothing to do with atrocity; the lookahead drops it. And it missed the
+      Residual Mechanism, which took over the ICTR's and the ICTY's work from
+      2012 and their remaining docket entirely after 2015, so the
+      accountability register decayed at exactly the point the institution was
+      renamed. Adding it moves the term from 11,392 occurrences across 2,568
+      speeches to 13,030 across 2,626.
+
+  massacre:
+    pattern: '\bmassacr(?:e|es|ed|ing)\b'
+    prefilters: [massacr]
+    examples: [massacre, massacres, massacred, massacring]
+    tier: adjacent
+    register: descriptive
+    pattern_since: 4
+    note: >
+      The pre-qualification vocabulary, and half the reason the descriptive
+      register exists: the Council named Boipatong and Srebrenica massacres
+      before it named anything a genocide, and whether *genocide* displaces
+      *massacre* is the study's question rather than a side issue. 2,313
+      occurrences across 1,588 speeches. Not anchored — the point is precisely
+      the sentences where the two words do *not* appear together.
+
+  mass_killing:
+    pattern: '\bmass\s+killings?\b'
+    prefilters: [killing]
+    examples: [mass killing, mass killings]
+    tier: adjacent
+    register: descriptive
+    pattern_since: 4
+    note: >
+      The other half of the descriptive register, and the phrase the R2P
+      literature reaches for when it wants to avoid the legal term. 158
+      occurrences across 149 speeches. Not anchored, for the same reason
+      `massacre` is not.
 
 # Convenience groupings used by the dashboard's filter chips.
 sets:
-  core: [genocide, genocide_convention, prevention_of_genocide, genocidal_ideology]
+  # The union `genocide` was until v4, so the old headline count stays
+  # reportable: the two patterns are disjoint, so the speeches are the union of
+  # the flags and the occurrences are the sum of the counts.
+  genocide_union: [genocide, genocidaires]
+  core: [genocide, genocidaires, genocide_convention, prevention_of_genocide, genocidal_ideology]
   atrocity_core: [genocide, ethnic_cleansing, crimes_against_humanity, war_crimes, mass_atrocity]
   rome_triad: [genocide, war_crimes, crimes_against_humanity]
   r2p_quartet: [genocide, war_crimes, crimes_against_humanity, ethnic_cleansing]
+  # The vocabulary that names mass violence without qualifying it, beside the
+  # word that qualifies it. The contrast the study is built on.
+  qualification: [genocide, massacre, mass_killing]

@@ -3,18 +3,20 @@
     python tools/lock_lexicon.py          # rewrite the lock
     python tools/lock_lexicon.py --check  # verify only; exits non-zero on a mismatch
 
-`pattern_since` is a hand-written claim about a hand-written regex: it says the
-version in which that term's `pattern` last changed, and it is what lets a gold
-sample or a committed model run survive a version bump that did not touch the
-term it is keyed to. Nothing inside `config/lexicon.yml` can tell whether the
-claim survived the last edit, so an edited pattern with a forgotten bump would
-let `15_usage.py` aggregate a run enumerated from a regex the file no longer
-holds.
+`pattern_since` is a hand-written claim about a hand-written matching rule: it
+says the version in which that term's `pattern` or `anchor` last changed, and it
+is what lets a gold sample or a committed model run survive a version bump that
+did not touch the term it is keyed to. Nothing inside `config/lexicon.yml` can
+tell whether the claim survived the last edit, so an edited rule with a
+forgotten bump would let `15_usage.py` aggregate a run enumerated from a regex
+the file no longer holds.
 
-The lock closes that: it records each pattern's SHA-256 beside the
-`pattern_since` it is declared to date from, and `lexicon.load()` refuses a
-lexicon the lock no longer describes. A forgotten bump therefore fails at 03 and
-in CI rather than validating stale artefacts.
+The lock closes that: it records each pattern's SHA-256 and each term's anchor
+beside the `pattern_since` they are declared to date from, and `lexicon.load()`
+refuses a lexicon the lock no longer describes. A forgotten bump therefore fails
+at 03 and in CI rather than validating stale artefacts. The anchor is recorded
+literally rather than hashed with the pattern so that a lock diff says in words
+which terms started or stopped requiring `genocid*` in the sentence.
 
 The lock is **committed**, like `web/static/geo/countries.json` and unlike
 anything under `data/`: it is derived from a hand-edited config rather than from
@@ -47,6 +49,7 @@ def lock_for(lex: lexicon.Lexicon) -> dict[str, object]:
             name: {
                 "pattern_since": term.pattern_since,
                 "pattern_sha256": lexicon.pattern_sha256(term.pattern),
+                "anchor": term.anchor,
             }
             for name, term in sorted(lex.terms.items())
         },
@@ -61,12 +64,15 @@ def read_lock() -> dict[str, object]:
 
 
 def unbumped(lex: lexicon.Lexicon, old: dict[str, object]) -> list[str]:
-    """Terms whose pattern moved since `old` without their `pattern_since` moving.
+    """Terms whose matching rule moved since `old` without their `pattern_since`.
 
-    A term the old lock does not hold is a new term, and a new pattern is a
-    changed pattern. Writing the lock for either without the bump would record
-    the forgetting rather than catch it, which is the one thing this file is
-    for.
+    The rule is the pattern and the anchor together: an anchored term counts
+    strictly fewer occurrences than its pattern matches, so anchoring one
+    invalidates an artefact keyed to it exactly as a regex edit would, and the
+    lock has to catch both. A term the old lock does not hold is a new term, and
+    a new rule is a changed rule. Writing the lock for either without the bump
+    would record the forgetting rather than catch it, which is the one thing
+    this file is for.
     """
     entries = old.get("terms")
     entries = entries if isinstance(entries, dict) else {}
@@ -74,7 +80,11 @@ def unbumped(lex: lexicon.Lexicon, old: dict[str, object]) -> list[str]:
     for name, term in lex.terms.items():
         entry = entries.get(name)
         digest = lexicon.pattern_sha256(term.pattern)
-        changed = not isinstance(entry, dict) or entry.get("pattern_sha256") != digest
+        changed = (
+            not isinstance(entry, dict)
+            or entry.get("pattern_sha256") != digest
+            or entry.get("anchor") != term.anchor
+        )
         if changed and term.pattern_since != lex.version:
             stale.append(name)
     return sorted(stale)

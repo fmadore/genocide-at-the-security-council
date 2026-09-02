@@ -96,15 +96,16 @@ def offsets(
     them in JavaScript would be a second thing to keep true.
 
     Matching runs on the body and the spans are shifted back, so what is
-    highlighted is exactly what was counted. A term with no occurrence is left
-    out rather than mapped to an empty list.
+    highlighted is exactly what was counted. Through `Term.spans` rather than
+    the raw regex, so an anchored term highlights the occurrences that survived
+    its anchor and not the ones its pattern also matched. A term with no
+    occurrence is left out rather than mapped to an empty list.
     """
     body = source[body_start:]
     found: dict[str, list[list[int]]] = {}
     for term in terms:
         spans = [
-            [body_start + match.start(), body_start + match.end()]
-            for match in term.regex.finditer(body)
+            [body_start + start, body_start + end] for start, end in term.spans(body)
         ]
         if spans:
             found[term.name] = spans
@@ -131,8 +132,9 @@ REQUIRED = [
 def extract(speeches: pd.DataFrame, term: Term, width: int = WIDTH) -> Iterator[Line]:
     """Every occurrence of `term`, in speech order.
 
-    Matching runs on the body, so a term inside a form of address cannot be
-    counted — which is what makes these lines agree with 03's totals. The
+    Matching runs on the body through `Term.spans`, so a term inside a form of
+    address cannot be counted and an anchored term yields a line only where its
+    anchor held — which is what makes these lines agree with 03's totals. The
     offsets emitted are shifted back into whole-text coordinates.
     """
     if missing := [c for c in REQUIRED if c not in speeches.columns]:
@@ -144,14 +146,14 @@ def extract(speeches: pd.DataFrame, term: Term, width: int = WIDTH) -> Iterator[
     for row in present.itertuples():
         offset = int(row.body_start)
         body = row.text[offset:]
-        matches = list(term.regex.finditer(body))
+        matches = term.spans(body)
         if not matches:
             continue
 
         spans = sentence_spans(body)
         stem = row.filename.removesuffix(".txt")
-        for ordinal, match in enumerate(matches, start=1):
-            left, keyword, right = text_lib.window(body, match.start(), match.end(), width)
+        for ordinal, (match_start, match_end) in enumerate(matches, start=1):
+            left, keyword, right = text_lib.window(body, match_start, match_end, width)
             yield Line(
                 id=f"{stem}#{ordinal}",
                 spv=row.meeting_symbol,
@@ -161,10 +163,10 @@ def extract(speeches: pd.DataFrame, term: Term, width: int = WIDTH) -> Iterator[
                 group=row.speaker_group,
                 type=row.participanttype,
                 agenda=row.agenda_item_manual,
-                start=offset + match.start(),
-                end=offset + match.end(),
+                start=offset + match_start,
+                end=offset + match_end,
                 left=left,
                 kw=keyword,
                 right=right,
-                sent=sentence_at(body, match.start(), spans),
+                sent=sentence_at(body, match_start, spans),
             )
