@@ -234,7 +234,7 @@ the pre-2020 Nagorno-Karabakh rows are Azerbaijan's standing statement about the
 a whole, and the two Ukraine rows are the Duma's 2014 accusation over Donbas. v2 therefore
 leaves no pre-onset assignment possible on the same evidence.
 
-**What v2 costs.** The rendered table grows from about 4,200 characters to 6,715, and it is
+**What v2 costs.** The rendered table grows from about 4,200 characters to 6,705, and it is
 the fixed prefix of every request: at roughly four characters to the token that is some 600
 more input tokens on each of 3,273 requests, about 2M per run, against Luna's 13.8M. The
 review's recommendation to enable prompt caching (§4.2.8) is worth more after v2 than before
