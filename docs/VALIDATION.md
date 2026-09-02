@@ -242,9 +242,13 @@ than against the lexicon's version, so the gold sample and the two model runs re
 above must not move.
 
 **Open check: re-count under v3.** The size of the first gap is unmeasured until
-`03_lexicon.py` runs on the corpus. Record the v3 counts for the seven terms above beside
-the v2 ones, confirm `genocide` at 3,273 / 6,092, and note the `n_register_legal` delta,
-which is bounded above by the 733 `mass_atrocity` occurrences.
+`03_lexicon.py` runs on the corpus. Record the v3 counts for the seven terms in the v2 table
+beside the v2 ones and confirm `genocide` at 3,273 / 6,092. Record the `n_register_legal`
+delta as two components with opposite signs: the de-duplication removes exactly the v3
+`mass_atrocity` count (733 under v2, and v3 can only raise it), while the prefilter fix adds
+to `war_crimes`, `mass_atrocity` and `genocide_convention`, all three in the same register.
+The net delta therefore has no sign known in advance, and neither component is bounded by
+the other.
 
 ### Documents versus meeting symbols
 
