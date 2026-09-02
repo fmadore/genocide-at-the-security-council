@@ -48,7 +48,7 @@ and compares their analytical values with `tests/golden/`. Leave them unset othe
 | 10 | `10_lemmatise.py` | `speeches_flagged.parquet` | `derived/lemmas/` | 🔬 optional |
 | 11 | `11_countries.py` | `speeches_flagged.parquet`, `config/entities.csv` | `derived/countries/countries.json` | ✅ |
 | 12 | `12_speaker_keyness.py` | `speeches_flagged.parquet`, `config/stopwords.txt` | `derived/countries/speaker_keyness.json` | ✅ |
-| 13 | `13_gold_sample.py` | `speeches_norm.parquet`, `config/lexicon.yml`, `annotations/genocide/` | `data/interim/genocide_gold_*.csv` | ✅ |
+| 13 | `13_gold_sample.py` | `speeches_norm.parquet`, `config/lexicon.yml`, `annotations/genocide/`, `model_annotations/genocide/` | `data/interim/genocide_gold_*.csv` | ✅ |
 | 14 | `14_llm_annotate.py` | `speeches_norm.parquet`, `model_annotations/genocide/PROMPT.md`, the OpenAI API | `model_annotations/genocide/runs/<id>/` | ✋ manual, paid |
 | 15 | `15_usage.py` | `model_annotations/genocide/`, `annotations/genocide/`, `speeches_norm.parquet` | `derived/usage/*.json` | 🧪 experimental |
 | 16 | `16_llm_annotate_gemini.py` | `speeches_norm.parquet`, `model_annotations/genocide/PROMPT.md`, the Gemini API | `model_annotations/genocide/runs/<id>/` | ✋ manual, paid |
@@ -146,11 +146,36 @@ python scripts/16_llm_annotate_gemini.py --run-id <date>-gemini-v1 --model gemin
 python scripts/15_usage.py && python scripts/export_web.py
 ```
 
-15 then computes where the two instruments disagree — per-field agreement, per-occurrence
-`contested` flags — and refuses a comparison made against a different prompt hash. The
-comparison is computed, never merged: `current_run.txt` still names the only run the
-matrix, stance and diffusion figures are drawn from, and agreement between two models is
-stability across instruments, never accuracy.
+15 then computes where the two instruments disagree — per-field agreement with PABAK
+beside a withheld kappa, the per-referent cross-instrument F1, Krippendorff's α under MASI
+for `function`, per-occurrence `contested` flags — and refuses a comparison made against a
+different prompt hash. It also computes the **retest**: each model against another
+committed run of itself with the byte-identical prompt, discovered rather than named, which
+is the noise floor the cross-model figures have to be read against. The comparison is
+computed, never merged: `current_run.txt` still names the only run the matrix, stance and
+diffusion figures are drawn from, and agreement between two models is stability across
+instruments, never accuracy.
+
+**Run 13 again once both runs are committed.** Its third sampling frame is cut from the
+pair named in `current_run.txt` and `comparison_run.txt`, and is empty without them. The
+frames are written to one file each under `data/interim/`, and nothing under `annotations/`
+is touched by any of it.
+
+**A run's manifest records effort, and effort is counted as it happens.** `requests.sent` is
+incremented when a batch job is created or a live call is made, `requests.returned` when a
+`custom_id` is answered for the first time in the run, and `passes` carries one row per
+pass with its mode. A manifest written before that — the Gemini run of 31 August — can be
+repaired from the raw job outputs the run left under `data/interim/llm_raw/`:
+
+```bash
+python tools/recount_run.py 2026-08-31-gemini-v1          # what it would change
+python tools/recount_run.py 2026-08-31-gemini-v1 --write  # rewrite; review the diff
+```
+
+It refuses a run whose raw directory has been deleted rather than guessing, and records in
+the manifest's own `recount` block what could not be recovered. `cost_usd` stays null until
+a price table is recorded beside the run: both APIs report tokens and neither reports a
+price, and `docs/VALIDATION.md` §7 carries the check that owes it.
 
 Human coding proceeds in parallel: `FM` and `JG` fill
 `annotations/genocide/annotations.csv` per the codebook; after each tranche, rerun 15 and
@@ -239,8 +264,9 @@ What follows from that, worth knowing before you start:
 | [`lib/actors.py`](lib/actors.py) | Per-speaker aggregation over `lib/series.py`'s arithmetic; the minimum-sample rule; ISO3 collisions and what may be mapped. |
 | [`lib/kwic.py`](lib/kwic.py) | Sentence segmentation for the genre, and concordance-line extraction. |
 | [`lib/occurrences.py`](lib/occurrences.py) | One enumeration of a term's occurrences, carrying both the audit `occurrence_id` and the KWIC line id; 13, 14 and 15 share it. |
-| [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: prompt parsing, request building, response validation against the codebook's vocabularies, evidence-quote location, resume rules. No network, no SDK import at module level. |
-| [`lib/usage.py`](lib/usage.py) | Aggregation for the usage layer: eligible/assigned funnel, the actor × referent matrix, withholding, and the human/model agreement arithmetic. |
+| [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: prompt parsing, request building, response validation against the codebook's vocabularies, evidence-quote location in three passes (exact, whitespace-collapsed, then folded and flagged `evidence_relocated`), resume rules. No network, no SDK import at module level. |
+| [`lib/annotate.py`](lib/annotate.py) | What 14 and 16 do identically: one enumeration of the population, the output ceiling, the manifest and its refusals. Neither SDK is imported here. |
+| [`lib/usage.py`](lib/usage.py) | Aggregation for the usage layer: eligible/assigned funnel, the actor × referent matrix, withholding, and the agreement arithmetic — kappa with its withholding rule, PABAK, Krippendorff's α under MASI, per-label kappa, the per-class support floor. |
 | [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood as a floor with log ratio and logDice as the rank, dispersion (documents, meetings, DP), matched controls, PMI with definitional pairs suppressed. |
 | [`lib/keyness.py`](lib/keyness.py) | One speaker against the room: the corpus as a count matrix, the strata, the two gates, agenda composition. |
 | [`lib/embeddings.py`](lib/embeddings.py) | The model registry, the chunking policy for long speeches, pooling, neighbours. |

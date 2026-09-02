@@ -110,19 +110,39 @@ the exact column count; row count and total tokens then match the codebook. Conf
 source that the agenda is *The Role of the Security Council in Humanitarian Crises* and the
 document contains 36 corpus speech records. Priority: low.
 
-### 6. Genocide gold sample — 0 of 200 rows coded
+### 6. Genocide gold sample — 0 of 735 rows coded
 
-`scripts/13_gold_sample.py` draws 200 candidates over 195 distinct `genocide` occurrences:
-120 by equal probability, 80 by coverage over decade × usage-cue strata (rejection,
-quotation, commemorative, dense meeting, plain — the cue is a sampling stratum, never a
-label). Candidates and the review join are generated files under `data/interim/`; human
+`scripts/13_gold_sample.py` draws 735 candidates over 688 distinct `genocide` occurrences,
+in three frames that are reported separately or not at all:
+
+| Frame | Rows | Read as |
+|---|---:|---|
+| probability | 120 | weighted by its own inclusion probabilities: the unbiased estimate of accuracy over the corpus, and the only thing here that estimates one |
+| coverage | 80 | one occurrence per decade × usage-cue stratum, then a random fill: presence, not measurability |
+| disagreement | 535 | unweighted: a purposive over-sample of what the two committed runs read differently, for per-class recall |
+
+The cue is a sampling stratum and never a label — `rejection`, `quotation`,
+`commemorative`, `dense_meeting`, `plain`, read off the ±150-character window — and so is a
+model label in the third frame: it says this occurrence is worth a coder's time, never what
+the coder should write. That frame's six strata, disjoint and assigned rarest first, hold
+134 occurrences either run called `rejects_or_denies` (all taken), 41 whose referent
+predates the case it names (all taken), 369 either called `other` (60 drawn), 716
+`attributes_or_reports` (100), 519 `hypothetical_or_conditional` (100) and 636 contested on
+stance or referent (100). **The two frames must never be pooled**: their inclusion
+probabilities differ by a factor of seven, and a rate over the union estimates nothing.
+Every row records the probability that put it there.
+
+Candidates and the review join are generated files under `data/interim/`; human
 work lives only in the versioned
 [`annotations/genocide/annotations.csv`](../annotations/genocide/annotations.csv), coded by
 `FM` and `JG` under the codebook's two-coder protocol — the full sample double-coded, a
 shared pilot outside the scored sample first, adjudication preserving both original rows.
 `scripts/15_usage.py` computes and publishes the agreement; nothing is hand-typed into an
 artefact. Priority: high — the `/usage` view reports its model layer as unvalidated until
-this is done.
+this is done. The sample grew from 195 occurrences to 688 on 2 September 2026 and the
+coding burden with it, from 390 coder-occurrence rows to 1,376; the coders may work the
+probability and coverage frames first, since those are what the overall estimate needs, and
+the disagreement frame is what makes anything per class sayable.
 
 ### 7. Model annotation runs
 
@@ -145,6 +165,28 @@ quotes (0.25%) are flagged `evidence_valid=false` in the run and excluded from e
 discourse figure; nothing was repaired. The pilot covers the first 50 genocide-bearing
 speeches in corpus order and is kept for comparison, not published.
 
+**The eighteen unlocated quotes, read one by one (2 September 2026).** Ten of them are not
+fabrications and the locator now finds them: six carry a quotation mark the model put in
+front of a verbatim span the record does not have there, two straddle a word the record's
+OCR hyphenates across a line break (`Secretary- General's`), and two differ from the record
+in the case of one letter, where a mid-sentence clause was presented as a sentence. A third
+locating pass folds NFKC, the record's curly quotes and dashes, that hyphenation and case,
+and strips the model's own wrapping marks off the quote alone; on the two committed runs it
+recovers eight of Luna's fifteen and two of Gemini's three, moves no other row's offsets,
+and flags what it placed as `evidence_relocated`. The remaining eight stay unplaced and
+should: three are false positives answered with the literal string `not_applicable`, one is
+a quote found in a different sentence of the same speech, and four are passages the model
+paraphrased or spliced.
+
+**Neither committed run carries the flag or the recovery.** A run is written once and read
+back as it was; `lib.llm.validate_row` holds new runs to both rules and reads these two
+under `appending=False`, because refusing to aggregate them would delete the evidence
+rather than improve it. The published `evidence_invalid` figures of 15 and 3 are therefore
+what the locator of 30 August found, and the ten recoveries arrive with the next run. The
+same applies to the three false positives whose evidence quote is the string
+`not_applicable`: the codebook always required a span for a false positive, the prompt's
+cascade invited a model to skip it, and it is now refused at the write seam alone.
+
 `2026-08-31-gemini-pilot` is the counter-instrument's pilot over that same first 50
 speeches, so the two pilots enumerate one population: all 91 occurrence ids join, and
 every one of the 91 evidence quotes was located as an exact substring of its speech.
@@ -161,24 +203,76 @@ luna's 15) and are flagged rather than repaired. One speech, `UNSC_2022_SPV.9062
 was first refused for `MAX_TOKENS` and succeeded on a live retry; `failures.jsonl` keeps
 that record.
 
+**Its manifest was recounted on 2 September 2026** by `tools/recount_run.py`, from the raw
+job outputs the run left in `data/interim/llm_raw/` (not committed, and named in the
+manifest's own `recount` block). The counters it was written by added what each pass
+*intended* to ask rather than what it sent, and counted every answer a `--poll`
+re-downloaded:
+
+| Figure | As written | Recounted |
+|---|---:|---:|
+| requests submitted / sent | 7,966 | 3,274 |
+| requests returned | 4,474 | 3,273 |
+| input tokens | 19,104,227 | 13,856,820 |
+| output tokens | 1,298,193 | 935,939 |
+| thinking tokens | 9,682,944 | 7,247,728 |
+
+The eleven job output files hold 3,273 lines and 3,273 distinct speech keys between them —
+exactly one request per speech in the documented population — plus the one live retry, so
+`sent: 3274` is what the raw record evidences. **What is unrecoverable**: the per-pass
+history. A pass whose first chunk the batch quota refused created no job and left no file,
+and a live call that failed left no line; the manifest's 7,966 decomposes as 3,273 + 2,473
++ 1,673 + 473 over four batch passes plus 74 more from one or two live passes of which one
+call is evidenced. The `recount` block says so rather than reconstructing it, and `sent` is
+a floor. `2026-08-31-gemini-pilot` was recounted the same way and its figures were already
+right. **Neither Luna run can be recounted**: their raw directories are gone, so their
+manifests keep the old `submitted` key and `15_usage.py` reads either, publishing
+`requests_recounted` so the view can say which.
+
+**`cost_usd` is still null in all four manifests, and is owed.** Both APIs report tokens
+and neither reports a price. Nothing in this repository records a rate: the roadmap's
+"~$12" and "half price in Batch" are prose, and a figure computed here from a pricing page
+would be a number in a research manifest that nothing in the repository produced. Recording
+the price table — the URL, the date it was read, the input, output and thinking rates, the
+batch discount — and computing the figure from the recounted token totals above is a
+checkable half-hour that needs the author to read those rates off the two providers' pages.
+
 Observed agreement between the two runs, over all 6,092 occurrences:
 
-| Field | Agreement | Cohen's kappa |
-|---|---:|---:|
-| `verdict` | 99.9% | 0.000 |
-| `quotation` | 90.2% | 0.615 |
-| `referent` | 87.6% | 0.853 |
-| `stance` | 81.2% | 0.688 |
-| `function` (set equality) | 69.9% | — |
+| Field | Agreement | Cohen's kappa | PABAK | Same model, twice (Luna / Gemini) |
+|---|---:|---:|---:|---:|
+| `verdict` | 99.9% | withheld | 0.999 | 98.9% / 100% |
+| `quotation` | 90.2% | 0.615 | 0.878 | 96.7% / 98.9% |
+| `referent` | 87.6% | 0.853 | 0.872 | 94.5% / 98.9% |
+| `stance` | 81.2% | 0.688 | 0.781 | 94.5% / 98.9% |
+| `function` (set equality) | 69.9% | α (MASI) 0.697 | — | Jaccard 0.886 / 0.969 |
 
-3,068 occurrences (50.4%) are contested on at least one field. The `verdict` kappa of 0.000
-is an artefact of the metric and not a disagreement: both instruments call almost every
-occurrence a true positive, so there is nearly no variance for kappa to normalise against,
-and the 99.9% raw agreement is the figure that means anything. Quote it with that caveat or
-not at all.
+3,068 occurrences (50.4%) are contested on at least one field. **`verdict`'s kappa is
+withheld and not published as 0.000.** Both instruments call all but six of 6,092
+occurrences a true positive; chance agreement under those marginals is 0.998, and dividing
+99.9% agreement by the 0.2% left over produces a number that reads as failure about the
+most stable field in the run. The rule is a floor of one per cent on the smaller rater's
+non-modal mass, which catches `verdict` in both runs and `confidence` from Gemini's side
+(99.06% `high`), and which the three informative fields clear by an order of magnitude.
+PABAK — kappa's formula against a uniform chance over the codebook's own category counts —
+is published in its place.
+
+**The last column is the noise floor**, and the middle two cannot be read without it. It is
+each model against another run of *itself* with the byte-identical prompt, over the 91
+pilot occurrences: Luna writes all five fields identically on 69 of 91 and Gemini on 83, so
+about a quarter of Luna's own labels move between two calls of one instrument. A
+cross-model disagreement of a fifth is to be read against that and not against zero.
+
+**Per referent, how far a label survives a second instrument.** Below 0.8 the `/usage`
+diffusion figure withholds the chronology, because a first assertion is then a property of
+which model was asked: `unclear` 0.08, `hypothetical_future` 0.40, `drc_great_lakes` 0.61,
+`other` 0.72, `gaza` 0.75, `genocide_convention_law` 0.77. Sixteen further referents carry
+fewer than twenty occurrences in the published run and are counted rather than rated.
+`attributes_or_reports` and the `attributed_or_reported` quotation label are marked
+instrument-dependent wherever they appear.
 
 The whole table measures stability across two instruments and never accuracy. Both models
-can be confidently wrong together, and the human gold sample — still 0 of 200 coded —
+can be confidently wrong together, and the human gold sample — still 0 of 688 coded —
 remains the only calibration either run has.
 
 When a run is added, record it here and re-check the artefact counts on the Methods page
