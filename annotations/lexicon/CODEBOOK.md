@@ -1,8 +1,9 @@
 # Lexicon audit codebook
 
-Codebook version 2.1 — 28 August 2026. Annotation schema version 2, unchanged: no field
-definition and no controlled value has moved since 24 August 2026. See the changelog at the
-end.
+Codebook version 2.2 — 2 September 2026. Annotation schema version 2, unchanged: no field
+definition has moved since 24 August 2026. The controlled referent list is at version 2 and
+carries its own version columns, so a run coded against version 1 stays readable. See the
+changelog at the end.
 
 ## Purpose and unit
 
@@ -118,6 +119,45 @@ identifier from the passage, exactly as before, and never from a country code or
 A description says what speeches invoke, not whether the event was a genocide; that judgement is
 outside this codebook.
 
+**A passage naming two cases is coded as the first one named**, and the pair goes into
+`comment` — `proposed_referent`, for a model run — as the speaker gave it. "Rwanda and
+Srebrenica" is `rwanda`, "the former Yugoslavia and Rwanda" is `croatia_yugoslav_wars`.
+This is a convention and not a finding: 44 of the two model runs' 641 `other` rows are such
+a pair, 5% of the bucket, and they have to go somewhere consistent. The rejected alternative
+was a pair referent for each combination that occurs, which would add a category per pair —
+seven distinct ones appear in the runs — each carrying a handful of rows and none
+comparable to the single-case referent it overlaps. Coding the first named keeps the pair
+recoverable from the free text while leaving the single-case counts on one scale. Where a
+passage names a case and something more specific inside it — Khojaly inside
+Nagorno-Karabakh, the Yazidis inside ISIL's crimes — that is not a compound: code the more
+specific identifier.
+
+**Where a passage names a period a referent's `years` does not cover, code the referent
+anyway.** The range is documentation. A 2009 speech about Gaza is `israel_palestine` because
+that is what the speech is about, not because 2009 falls in a range.
+
+### The list is versioned
+
+`referents.csv` carries three more columns, and they are the file's own bookkeeping rather
+than anything a coder chooses. `since` is the list version at which an identifier's meaning
+was last set. `retired_in` is the version at which it stopped being offered; a retired
+identifier is not on the list you code from, and the model annotation prompt does not render
+it. `superseded_by` names what it became.
+
+Retired rows stay in the file, and that is the point of the columns. Two paid model runs
+recorded 12,184 rows against version 1, and renaming a case would otherwise orphan every row
+that used the old name — 4,590 of them. `scripts/15_usage.py` reads a run against the
+version the run recorded, refuses one that used an identifier its own list could not have
+offered, and reports a superseded identifier under its successor so a version 1 run and a
+version 2 run can be read side by side.
+
+`iso3` and `years` never move `since`, because this codebook already calls both
+documentation: correcting a date range cannot invalidate a run that was coded from passages.
+Widening or narrowing what a description covers does move it, and adds a version.
+
+The list version is the highest version any row mentions, so there is no separate number to
+keep in step.
+
 ## Evidence span
 
 `evidence_start` and `evidence_end` are zero-based offsets in the normalized speech body,
@@ -168,6 +208,22 @@ disagree, the human label is the label; the disagreement is reported as a disagr
 
 ## Changelog
 
+- **2.2 — 2 September 2026.** Referent list version 2. Twelve categories the two full model
+  runs asked for by name in `proposed_referent` — `israel_palestine`, `isil_iraq_syria`,
+  `syria`, `croatia_yugoslav_wars`, `bangladesh_1971`, `abkhazia_south_ossetia`,
+  `afghanistan_hazara`, `khojaly_1992`, `india_muslims`, `holodomor`,
+  `apartheid_south_africa`, `crimean_tatars` — each proposed independently by both
+  instruments and each naming a determinate case. Years leave the identifiers, the labels
+  and the descriptions and stay in `years`: `rwanda_1994` → `rwanda`, `ukraine_2022` →
+  `ukraine`, `drc_great_lakes` → `drc`. `armenian_genocide` keeps its identifier and loses
+  the verdict from its label and its description, as do `bosnia_srebrenica`, `holocaust`
+  and the description that becomes `rwanda`'s: the table is rendered into the annotation
+  prompt, and a label that asserts the qualification can push the stance field that is
+  supposed to measure it. `hypothetical_future` is retired without a successor — it is a
+  modal property rather than a referent — and its rows in the committed runs are left as
+  they are rather than remapped. Adds the compound rule, the three version columns, and the
+  statement that a passage outside a referent's `years` still takes that referent. The
+  annotation schema stays version 2 and the `referent` coding rule is unchanged.
 - **2.1 — 28 August 2026.** `referents.csv` is seeded with a reviewed controlled list and gains
   the descriptive columns `kind`, `iso3` and `years`; the `referent` coding rule is unchanged.
   Adds the two-coder protocol for the genocide gold sample and states that model output is

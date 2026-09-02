@@ -433,7 +433,7 @@ def test_committed_referents_declare_a_kind_and_reserve_the_defaults() -> None:
 #: asserting a verdict, a year dropped from a description — update the digest
 #: alone, and say in the commit message which it was.
 REFERENT_MEANING_VERSION = 2
-REFERENT_MEANING_SHA256 = "12d9d9ea28f4d3ed0f8c4306f50f69d42e45ebd4e7814981a363846186646e00"
+REFERENT_MEANING_SHA256 = "f0d96131826a6db8b603583d5d9a9a3f3f37d624521060a742b87ed4a3b8b37c"
 
 RUNS = ("2026-08-30-luna-v1", "2026-08-31-gemini-v1")
 

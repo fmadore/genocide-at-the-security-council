@@ -379,7 +379,7 @@ def matrix_rows(
 ) -> list[dict[str, object]]:
     """Sparse actor x referent cells over assigned rows, with a stance breakdown.
 
-    Sparse because the product is 200 speakers by 29 referents and all but a few
+    Sparse because the product is 200 speakers by 40 referents and all but a few
     hundred cells are empty; a dense grid would be six times the payload and
     would say nothing a missing key does not. The order is the two blocks' own
     order, so a consumer that renders the matrix never has to sort it again and

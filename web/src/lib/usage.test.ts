@@ -405,6 +405,25 @@ describe('the column order', () => {
 		]);
 	});
 
+	it('keeps a retired referent only while a run still has counts under it', () => {
+		// The list is versioned so an older run stays readable: on that run the
+		// column is full and belongs here. On a run made after the withdrawal it is
+		// empty, and the empty-column sentence would call it a case the delegations
+		// declined to invoke rather than one the instrument was never offered.
+		const withCounts = orderReferents([
+			referent('rwanda', { occurrences: 5 }),
+			referent('rwanda_1994', { occurrences: 3, retired: true, superseded_by: 'rwanda' })
+		]);
+		expect(withCounts.map((r) => r.id)).toEqual(['rwanda', 'rwanda_1994']);
+
+		const withoutCounts = orderReferents([
+			referent('rwanda', { occurrences: 5 }),
+			referent('rwanda_1994', { occurrences: 0, retired: true, superseded_by: 'rwanda' }),
+			referent('holocaust', { occurrences: 0 })
+		]);
+		expect(withoutCounts.map((r) => r.id)).toEqual(['rwanda', 'holocaust']);
+	});
+
 	it('keeps a referent nothing was assigned to, rather than hiding it', () => {
 		const plan = matrixPlan(corpus(), state());
 		expect(plan.columns.map((column) => column.referent.id)).toContain('holocaust');

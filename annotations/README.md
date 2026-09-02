@@ -10,6 +10,15 @@ and codebook pilot begins, leave that file header-only. Follow `lexicon/CODEBOOK
 reviewed case or entity identifiers to `lexicon/referents.csv` before using them in an
 annotation row.
 
+`lexicon/referents.csv` is versioned in place. Adding a referent gives it `since` set to the
+next version; withdrawing one sets `retired_in` and, where there is a successor,
+`superseded_by`, and leaves the row where it is. Rows are never deleted: a committed model
+run records the identifiers it was offered, and a deletion would orphan every row that used
+one. The list version is the highest version any row mentions, so nothing has to be kept in
+step by hand. Correcting `iso3` or `years` is documentation and changes no version;
+`tests/test_audit.py` holds the meaning-bearing columns to a digest, so an edit that changes
+what an identifier covers cannot pass unnoticed.
+
 ## `genocide/`
 
 `genocide/annotations.csv` is the gold sample that evaluates the model-assisted usage layer.
@@ -21,8 +30,8 @@ against, so a case coded once is not yet gold.
 
 Same schema, same codebook, same rules: the columns are the fifteen in
 `lexicon/annotations.csv`, the labels are the ones defined in `lexicon/CODEBOOK.md`
-(codebook 2.1, annotation schema 2), and new referents go into `lexicon/referents.csv`
-first. A separate file rather than more rows in
+(codebook 2.2, annotation schema 2, referent list 2), and new referents go into
+`lexicon/referents.csv` first. A separate file rather than more rows in
 `lexicon/annotations.csv` because each sample validates its own candidates: an annotation
 whose occurrence is absent from the candidates it is merged against is refused, so one file
 per sample is what keeps both merges honest. As with the lexicon file, the pipeline reads it

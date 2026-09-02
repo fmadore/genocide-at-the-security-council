@@ -70,8 +70,9 @@ The controlled referent identifiers live in
 seeded on 28 August 2026 (codebook v2.1) with 29 identifiers — cases invoked before the
 Council, historical memory cases, meta-referents and the three reserved values — and grows
 only through reviewed diffs; both coders must review it before scored coding or a model
-run. Coding describes discourse and does not decide whether an underlying event legally
-constitutes genocide.
+run. It is at version 2 as of 2 September 2026: 44 rows, of which 40 are current and 4 are
+retired and kept so that the runs coded against version 1 stay readable. Coding describes
+discourse and does not decide whether an underlying event legally constitutes genocide.
 
 Report precision separately for the core term and extended lexicon, with denominators and
 uncertain cases. Any regex change invalidates the verdicts for that term and requires a new
@@ -184,6 +185,71 @@ remains the only calibration either run has.
 When a run is added, record it here and re-check the artefact counts on the Methods page
 against its manifest. Automatic resolutions (a relocated evidence quote, a normalised
 whitespace match) are counted in the manifest, never silently absorbed.
+
+#### Referent list v2, and what it would absorb
+
+Both runs were coded against referent list v1. The list moved to v2 on 2 September 2026, and
+the figures below say what that version would take from the two runs' residue if the same
+evidence were coded again. They are a projection over `proposed_referent`, not a re-coding:
+nothing in either committed run was rewritten, and no run has yet been made against v2.
+
+641 rows across the two runs carry `referent: other` with a `proposed_referent` — 346 Luna,
+295 Gemini, 330 distinct strings. Clustered by the string the model wrote:
+
+| New referent | Luna | Gemini | Both |
+|---|---:|---:|---:|
+| `israel_palestine` | 102 | 133 | 235 |
+| `isil_iraq_syria` | 68 | 3 | 71 |
+| `syria` | 21 | 18 | 39 |
+| `croatia_yugoslav_wars` | 17 | 15 | 32 |
+| `bangladesh_1971` | 14 | 14 | 28 |
+| `abkhazia_south_ossetia` | 13 | 13 | 26 |
+| `afghanistan_hazara` | 8 | 8 | 16 |
+| `khojaly_1992` | 3 | 6 | 9 |
+| `india_muslims` | 2 | 7 | 9 |
+| `holodomor` | 4 | 4 | 8 |
+| `apartheid_south_africa` | 4 | 4 | 8 |
+| `crimean_tatars` | 3 | 4 | 7 |
+| `gaza`, already on the list | 4 | 1 | 5 |
+| **taken by a referent** | **263** | **230** | **493** |
+| compounds, coded as the first case named | 22 | 22 | 44 |
+| still `other` | 61 | 43 | 104 |
+
+v2 takes 76.0% of Luna's `other` rows and 78.0% of Gemini's, 76.9% across both; with the
+compound rule, 83.8% of the bucket leaves `other` for a controlled identifier.
+
+The `isil_iraq_syria` column is the most informative and the least symmetric. Luna files 68
+non-Yazidi ISIL proposals under `other`; Gemini files 3, and instead extends `isil_yazidi`
+to cover them — 259 rows against Luna's 184. The gap is the same one seen from two sides,
+and the new referent closes it in both directions.
+
+**Pre-onset rows.** 46 assignments across the two runs place a referent on a speech earlier
+than the referent's `years`: Luna's 32 `gaza` rows before 2023 (17 in the January 2009
+debate, 10 in 2014, 2 in 2010, 2 in 2021, 1 in 2008), 12 `nagorno_karabakh` rows before 2020
+(6 per run), and 2 Luna `ukraine_2022` rows in 2014. Under v2, `israel_palestine` takes all
+32 of the Gaza rows, and the other 14 are resolved by correcting two documentation ranges
+rather than by adding anything: the Nagorno-Karabakh conflict is dated from 1988 rather than
+2020, and `ukraine` from 2014 rather than 2022, both of which the evidence quotes support —
+the pre-2020 Nagorno-Karabakh rows are Azerbaijan's standing statement about the conflict as
+a whole, and the two Ukraine rows are the Duma's 2014 accusation over Donbas. v2 therefore
+leaves no pre-onset assignment possible on the same evidence.
+
+**What v2 refuses.** The United States as perpetrator is proposed 5 times across both runs,
+and the five are four different things: 9/11, "United States foreign interventions",
+"alleged United States atrocities in listed countries", and the atomic bombings twice.
+Native Americans are proposed zero times in either run, and the two `indigenous` proposals
+both read *Indigenous peoples of Russia*. Neither is added. The bar every added category
+cleared — proposed independently by both instruments, five rows or more, naming a
+determinate case — is the bar these fail, and it is more than twice the two occurrences at
+which `crime of crimes` was refused as a lexicon term.
+
+Five clusters clear the same bar and are **not** added, because the review's list was
+reviewed by both coders as L1 requires and these were not: Ba'athist Iraq outside Anfal
+(9 rows, both runs), Côte d'Ivoire's post-electoral crisis (8), Argentina's dictatorship
+(7), Libya (7), Yemen (6). They are the first question for the next review of the list.
+Two larger residual clusters are refused on the third clause rather than on count: the
+Iranian regime and its ideology (13 rows) and "Christians and religious minorities in the
+Middle East" (10) name an actor and a theme, not a case.
 
 ## Mechanically reconciled
 
