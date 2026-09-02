@@ -168,7 +168,7 @@ def build_series(
         ],
         "corpus": {
             "speeches": totals["speeches"].tolist(),
-            "tokens": totals["tokens"].tolist(),
+            "words": totals["words"].tolist(),
             "meetings": totals["meetings"].tolist(),
         },
     }
@@ -331,7 +331,7 @@ def build_month_of_year(
         )
         block = {
             "held": totals["speeches"].tolist(),
-            "tokens": totals["tokens"].tolist(),
+            "words": totals["words"].tolist(),
             "speeches": measured["speeches"].tolist(),
             "speech_rate": rates(measured["speech_rate"], 6),
             "speech_rate_low": rates(measured["speech_rate_low"], 6),
@@ -547,7 +547,7 @@ def build_change_points(
         for kind, name in TRACKED
     ]
     model_specs.append(
-        ("terms", "genocide", "token_rate", "occurrences", "tokens", "poisson")
+        ("terms", "genocide", "token_rate", "occurrences", "words", "poisson")
     )
     adjusted_alpha = alpha / len(model_specs)
     position = {label: index for index, label in enumerate(periods)}
@@ -564,7 +564,7 @@ def build_change_points(
                 speeches,
                 year_of,
                 has_column if family == "binomial" else raw_count_column,
-                None if family == "binomial" else "tokens",
+                None if family == "binomial" else "words",
             )
             blocks["period"] = blocks["period"].map(position)
         result = series.rate_change_point(
@@ -740,7 +740,7 @@ def calendar_lines(monthly: dict) -> list[str]:
     ]
 
 
-UNIT_NAMES = {"speech_rate": "share of speeches", "token_rate": "rate per 100k tokens"}
+UNIT_NAMES = {"speech_rate": "share of speeches", "token_rate": "rate per 100k words"}
 
 
 def inference_lines(inference: dict) -> list[str]:
@@ -886,7 +886,7 @@ def build_note(
             "",
             "## `genocide`, per year",
             "",
-            "| Year | Speeches held | With `genocid*` | Occurrences | Rate | Per 100k tokens |",
+            "| Year | Speeches held | With `genocid*` | Occurrences | Rate | Per 100k words |",
             "|---|---:|---:|---:|---:|---:|",
             *rows,
             "",
@@ -1039,7 +1039,8 @@ def run(
             "lexicon_version": lex.version,
             "speeches": len(speeches),
             "meetings": int(speeches["meeting_symbol"].nunique()),
-            "tokens": int(speeches["tokens"].sum()),
+            "words": int(speeches["words"].sum()),
+            "codebook_tokens": int(speeches["tokens"].sum()),
             "speakers": int(speeches["country_org"].nunique()),
             "rate_per_tokens": series.RATE_PER,
         },

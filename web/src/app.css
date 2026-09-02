@@ -31,6 +31,7 @@
 	--reg-commemorative: #6b5b95;
 	--reg-contentious: #a63d40;
 	--reg-accountability: #b07817;
+	--reg-descriptive: #8e3f77;
 
 	/* ---- semantic, resolved independently of the register ramp ---- */
 	--state-ok: #4a6b2e;
@@ -116,6 +117,7 @@
 	--reg-commemorative: #a99ad0;
 	--reg-contentious: #e08688;
 	--reg-accountability: #e0b152;
+	--reg-descriptive: #cf95c4;
 
 	--state-ok: #8fbf62;
 	--state-warn: #d9a93e;
@@ -146,6 +148,7 @@
 		--reg-commemorative: #a99ad0;
 		--reg-contentious: #e08688;
 		--reg-accountability: #e0b152;
+		--reg-descriptive: #cf95c4;
 
 		--state-ok: #8fbf62;
 		--state-warn: #d9a93e;
@@ -295,6 +298,9 @@ mark[data-register='contentious'] {
 }
 mark[data-register='accountability'] {
 	box-shadow: inset 0 -2px 0 var(--reg-accountability);
+}
+mark[data-register='descriptive'] {
+	box-shadow: inset 0 -2px 0 var(--reg-descriptive);
 }
 
 ::selection {

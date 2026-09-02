@@ -38,13 +38,14 @@
       "speeches": "int",
       "sufficient": "bool",
       "token_rate?": "float|null",
-      "tokens": "int"
+      "words": "int"
      }
     ],
     "tier?": "str"
    }
   },
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -73,7 +74,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   },
   "minimum_speeches": "int",
   "minimum_speeches_rule": "str",
@@ -87,7 +88,7 @@
     "speakers_at_minimum": "int",
     "speeches": "int",
     "speeches_at_minimum": "int",
-    "tokens": "int"
+    "words": "int"
    }
   ],
   "rate_per_tokens": "int",
@@ -1044,12 +1045,13 @@
    "speeches": [
     "int"
    ],
-   "tokens": [
+   "words": [
     "int"
    ]
   },
   "freq": "str",
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -1076,7 +1078,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   },
   "periods": [
    "int"
@@ -1265,6 +1267,7 @@
    }
   },
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -1291,7 +1294,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   }
  },
  "series/change_points.json": {
@@ -1364,6 +1367,7 @@
    "trials": "int"
   },
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -1390,7 +1394,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   },
   "method": "str",
   "parameters": {
@@ -1458,6 +1462,7 @@
    }
   ],
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -1484,7 +1489,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   }
  },
  "series/monthly.json": {
@@ -1495,7 +1500,7 @@
    "speeches": [
     "int"
    ],
-   "tokens": [
+   "words": [
     "int"
    ]
   },
@@ -1511,6 +1516,7 @@
   "freq": "str",
   "informative_zero_minimum": "int",
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -1537,7 +1543,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   },
   "minimum_speeches": "int",
   "minimum_speeches_rule": "str",
@@ -1584,7 +1590,7 @@
       "token_rate?": [
        "float"
       ],
-      "tokens": [
+      "words": [
        "int"
       ]
      },
@@ -1720,12 +1726,13 @@
    "speeches": [
     "int"
    ],
-   "tokens": [
+   "words": [
     "int"
    ]
   },
   "freq": "str",
   "meta": {
+   "codebook_tokens": "int",
    "configs": [
     {
      "bytes": "int",
@@ -1752,7 +1759,7 @@
    "script": "str",
    "speakers": "int",
    "speeches": "int",
-   "tokens": "int"
+   "words": "int"
   },
   "periods": [
    "str"
@@ -1876,8 +1883,8 @@
     "role": "null",
     "speaker": "str",
     "text": "str",
-    "tokens": "int",
-    "type": "str"
+    "type": "str",
+    "words": "int"
    }
   ],
   "spv": "str",

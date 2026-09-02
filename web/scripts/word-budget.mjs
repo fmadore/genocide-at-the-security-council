@@ -24,8 +24,11 @@
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('../src/', import.meta.url).pathname;
+// `fileURLToPath` rather than `.pathname`, which on Windows hands back
+// `/C:/…` and sends `readdirSync` looking for `C:\C:\…`.
+const ROOT = fileURLToPath(new URL('../src/', import.meta.url));
 const BUDGET = { question: 20, reading: 60, caveat: 50, more: 150 };
 
 function* svelteFiles(dir) {

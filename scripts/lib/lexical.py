@@ -129,6 +129,26 @@ def tokenise(source: str) -> Tokens:
     return Tokens(words, starts)
 
 
+def word_count(texts) -> list[int]:
+    """Words in each text, by :data:`TOKEN_RE` and by nothing else.
+
+    The denominator of every "per 100,000 words" figure on the site, written
+    into `speeches_norm.parquet` by 02 so that it is counted once and divided
+    by everywhere. Before 2 September 2026 those figures divided by the
+    codebook's `tokens` column — quanteda's count over the full text,
+    punctuation and numbers included — which is 12.7% larger than this, so the
+    rates ran 11.3% below the label they carried (review of 1 September 2026,
+    §3.3).
+
+    Counting here rather than in 02 keeps the tokeniser in one module: this is
+    the same `TOKEN_RE` the keyness tables, the collocate windows and the
+    language page's 59-million-word universe are built on, and a denominator
+    counted by a second rule would eventually disagree with the numerator it
+    divides.
+    """
+    return [len(TOKEN_RE.findall(source.lower())) for source in texts]
+
+
 def vocabulary(texts) -> Counter[str]:
     """Corpus-wide token frequencies. The reference every rate is read against."""
     counts: Counter[str] = Counter()

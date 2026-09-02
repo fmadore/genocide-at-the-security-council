@@ -218,7 +218,7 @@
 					measure.kind,
 					measure.register ?? null,
 					source.corpus.speeches[index],
-					source.corpus.tokens[index],
+					source.corpus.words[index],
 					measure.speeches[index] ?? null,
 					measure.speech_rate[index] ?? null,
 					measure.speech_rate_low[index] ?? null,

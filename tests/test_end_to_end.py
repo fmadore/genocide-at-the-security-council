@@ -71,7 +71,14 @@ def synthetic_corpus(seed: int = 20_260_902) -> pd.DataFrame:
                         "filename": f"UNSC_{year}_{symbol.replace('/', '')}_spch{i:04d}.txt",
                         "year": year,
                         "date": pd.Timestamp(f"{year}-{1 + meeting * 2:02d}-{1 + i:02d}"),
-                        "tokens": len(words) + 2,
+                        # `words` is the denominator 04 divides by, counted on
+                        # the body as 02 counts it; `tokens` is the codebook's
+                        # figure over the whole text, which is larger here for
+                        # the same reason it is larger in the corpus — the
+                        # form of address and the full stop are tokens and not
+                        # words.
+                        "words": len(words),
+                        "tokens": len(words) + 4,
                         "meeting_symbol": symbol,
                         "country_org": str(rng.choice(speakers)),
                         "iso3": None,

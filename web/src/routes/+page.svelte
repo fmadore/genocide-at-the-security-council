@@ -55,7 +55,7 @@
 						kind,
 						measure.register ?? null,
 						data.series.corpus.speeches[index],
-						data.series.corpus.tokens[index],
+						data.series.corpus.words[index],
 						measure.speeches[index] ?? null,
 						measure.speech_rate[index] ?? null,
 						measure.occurrences?.[index] ?? null,
@@ -93,7 +93,7 @@
 
 	const totals = $derived({
 		speeches: sum(corpus.speeches),
-		tokens: sum(corpus.tokens),
+		words: sum(corpus.words),
 		meetings: sum(corpus.meetings),
 		bearing: sum(genocide.speeches),
 		occurrences: sum(genocide.occurrences ?? []),
@@ -189,7 +189,8 @@
 		'preventive',
 		'commemorative',
 		'core',
-		'contentious'
+		'contentious',
+		'descriptive'
 	];
 
 	const registerRows = $derived.by(() => {
@@ -344,7 +345,7 @@
 			<dt class="label">Speeches in the corpus</dt>
 			<dd>{count(totals.speeches)}</dd>
 			<p>
-				across {count(totals.meetings)} meeting records, {decimal(totals.tokens / 1e6)} million words
+				across {count(totals.meetings)} meeting records, {decimal(totals.words / 1e6)} million words
 			</p>
 		</div>
 		<div>

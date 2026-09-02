@@ -8,7 +8,15 @@ const terms = [
 	{ name: 'atrocity', register: 'legal', speeches: 2500 },
 	{ name: 'denial', register: 'contentious', speeches: 400 }
 ];
-const registers = ['core', 'legal', 'preventive', 'commemorative', 'contentious', 'accountability'];
+const registers = [
+	'core',
+	'legal',
+	'preventive',
+	'commemorative',
+	'contentious',
+	'accountability',
+	'descriptive'
+];
 
 describe('the order of the matrix', () => {
 	it('seriates by register, then by speeches, so the register blocks sit on the diagonal', () => {

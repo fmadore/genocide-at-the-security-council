@@ -12,7 +12,7 @@
 	const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 	const totals = $derived({
 		speeches: sum(data.series.corpus.speeches),
-		tokens: sum(data.series.corpus.tokens),
+		words: sum(data.series.corpus.words),
 		meetings: sum(data.series.corpus.meetings)
 	});
 
@@ -177,7 +177,7 @@
 		<a href="https://doi.org/10.7910/DVN/KGVSYH">UN Security Council Debates</a> (Schoenfeld,
 		Eckhard, Patz, van Meegdenburg &amp; Pires), Harvard Dataverse v6.1, released CC0 into the
 		public domain. {count(totals.speeches)} speeches from {count(totals.meetings)} meeting records,
-		{count(totals.tokens)} words, 6 January 1992 to 30 December 2023. A fresh copy of the
+		{count(totals.words)} words, 6 January 1992 to 30 December 2023. A fresh copy of the
 		<a href={REPO}>repository</a> and two scripts rebuild the working table from that DOI; none of the
 		files derived from it are stored in the repository.
 	</p>
