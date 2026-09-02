@@ -2077,6 +2077,7 @@
    "prompt_version": "str",
    "reasoning_effort": "str",
    "requests": "int",
+   "requests_recounted": "bool",
    "run_date": "str",
    "run_id": "str",
    "tokens": {

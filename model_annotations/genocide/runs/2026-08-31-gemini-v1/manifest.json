@@ -28,8 +28,8 @@
  ],
  "requests": {
   "planned": 3273,
-  "submitted": 7966,
-  "returned": 4474,
+  "sent": 3274,
+  "returned": 3273,
   "complete": 3273
  },
  "occurrences": {
@@ -39,10 +39,30 @@
  "parse_failures": 0,
  "evidence_invalid": 3,
  "usage": {
-  "input_tokens": 19104227,
-  "output_tokens": 1298193,
-  "reasoning_tokens": 9682944
+  "input_tokens": 13856820,
+  "output_tokens": 935939,
+  "reasoning_tokens": 7247728
  },
  "cost_usd": null,
- "status": "complete"
+ "status": "complete",
+ "recount": {
+  "at": "2026-09-02T10:36:06Z",
+  "by": "tools/recount_run.py",
+  "from": "data/interim/llm_raw/2026-08-31-gemini-v1/ (not committed)",
+  "was": {
+   "requests": {
+    "submitted": 7966,
+    "returned": 4474
+   },
+   "usage": {
+    "input_tokens": 19104227,
+    "output_tokens": 1298193,
+    "reasoning_tokens": 9682944
+   }
+  },
+  "unrecoverable": [
+   "the per-pass history: a pass the batch quota refused created no job and left no file, and a live call that failed left no line",
+   "`sent` is therefore a floor — the requests the raw record evidences"
+  ]
+ }
 }

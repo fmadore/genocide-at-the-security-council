@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from lib import gemini, lexicon, llm, occurrences
+from lib import annotate, gemini, lexicon, llm, occurrences
 
 ROOT = Path(__file__).resolve().parents[1]
 PROMPT = ROOT / "model_annotations" / "genocide" / "PROMPT.md"
@@ -313,6 +313,45 @@ def test_both_steps_annotate_the_same_documented_population() -> None:
     assert step.RUNS == openai_step.RUNS
 
 
+def test_the_two_steps_share_the_enumeration_rather_than_agreeing_about_it() -> None:
+    """Identity, not equality.
+
+    The review of 1 September 2026 (§4.5, item 10) is right that the assertions
+    above pin constants: two `gather` functions can agree on
+    `DOCUMENTED_SPEECHES` to the digit and still enumerate different speeches.
+    What makes the two runs comparable is that there is one enumeration, and
+    that is what this asserts — the same function object, reached from both
+    steps, and the same manifest writer and the same refusal.
+    """
+    for name in ("gather", "output_ceiling", "read_manifest", "write_manifest", "refuse_mismatch"):
+        assert getattr(annotate, name) is not None
+        assert not hasattr(step, name), f"16 defines its own {name} again"
+        assert not hasattr(openai_step, name), f"14 defines its own {name} again"
+    assert step.Speech is openai_step.Speech is annotate.Speech
+    assert step.Outcome is openai_step.Outcome is annotate.Outcome
+    assert step.COLUMNS is openai_step.COLUMNS is annotate.COLUMNS
+
+
+def test_the_ceiling_provisions_a_speech_for_its_thinking_and_not_only_its_json() -> None:
+    """The recorded MAX_TOKENS failure, and what the run says the bound must be.
+
+    One Gemini speech with three occurrences was truncated at the old ceiling of
+    `12,000 + 1,200 * n` = 15,600 tokens and lost; another with two came within
+    271 tokens of its own. Over the 3,273 answers the run returned, thinking
+    plus output reached 18,781 tokens on a single speech, and the length of the
+    thinking is not a function of the occurrence count. So the base carries it.
+    """
+    speech = next(iter(one_speech().values()))
+    assert len(speech.occurrences) == 2
+    truncated = 15_600  # what the speech that was lost had to work inside
+    assert annotate.output_ceiling(speech, step.MAX_OUTPUT_TOKENS) > truncated
+    assert annotate.output_ceiling(speech, step.MAX_OUTPUT_TOKENS) > 18_781
+    # Clamped to whatever the provider will actually accept, per provider.
+    assert annotate.output_ceiling(speech, 1_000) == 1_000
+    assert step.MAX_OUTPUT_TOKENS == gemini.MODEL_OUTPUT_LIMIT
+    assert openai_step.MAX_OUTPUT_TOKENS == 100_000
+
+
 # --- What comes back ---------------------------------------------------------
 
 
@@ -455,7 +494,7 @@ def paths_in(directory: Path) -> dict[str, Path]:
 
 def test_a_canned_reply_becomes_validated_rows_in_the_run_file(tmp_path: Path) -> None:
     scope = one_speech()
-    outcome = step.Outcome(responses={next(iter(scope)): response(answer(1, 2))}, submitted=1)
+    outcome = step.Outcome(responses={next(iter(scope)): response(answer(1, 2))}, requests=1)
     paths = paths_in(tmp_path)
     tally = step.harvest(outcome, scope, run_meta(), REFERENTS, paths)
 
@@ -478,7 +517,7 @@ def test_a_canned_reply_becomes_validated_rows_in_the_run_file(tmp_path: Path) -
 
 def test_a_reply_that_is_not_json_loses_its_speech_and_writes_no_rows(tmp_path: Path) -> None:
     scope = one_speech()
-    outcome = step.Outcome(responses={next(iter(scope)): response("{oops")}, submitted=1)
+    outcome = step.Outcome(responses={next(iter(scope)): response("{oops")}, requests=1)
     paths = paths_in(tmp_path)
     tally = step.harvest(outcome, scope, run_meta(), REFERENTS, paths)
 
@@ -495,7 +534,7 @@ def test_a_reply_that_is_not_json_loses_its_speech_and_writes_no_rows(tmp_path: 
 def test_a_reply_outside_the_codebook_is_refused_and_not_repaired(tmp_path: Path) -> None:
     scope = one_speech()
     outcome = step.Outcome(
-        responses={next(iter(scope)): response(answer(1, 2, stance="agrees"))}, submitted=1
+        responses={next(iter(scope)): response(answer(1, 2, stance="agrees"))}, requests=1
     )
     paths = paths_in(tmp_path)
     tally = step.harvest(outcome, scope, run_meta(), REFERENTS, paths)
@@ -506,7 +545,7 @@ def test_a_reply_outside_the_codebook_is_refused_and_not_repaired(tmp_path: Path
 def test_a_truncated_reply_is_recorded_with_its_finish_reason(tmp_path: Path) -> None:
     scope = one_speech()
     outcome = step.Outcome(
-        responses={next(iter(scope)): response(answer(1), finish="MAX_TOKENS")}, submitted=1
+        responses={next(iter(scope)): response(answer(1), finish="MAX_TOKENS")}, requests=1
     )
     paths = paths_in(tmp_path)
     tally = step.harvest(outcome, scope, run_meta(), REFERENTS, paths)
@@ -567,27 +606,27 @@ def test_a_speech_this_run_already_wrote_is_not_asked_again(tmp_path: Path) -> N
 
 def test_a_completed_run_is_never_written_into_twice() -> None:
     with pytest.raises(SystemExit):
-        step.refuse_mismatch({"status": "complete"}, "a-run", gemini.MODEL_ID, "f" * 64)
+        annotate.refuse_mismatch({"status": "complete"}, "a-run", gemini.MODEL_ID, "f" * 64)
     with pytest.raises(SystemExit):
-        step.refuse_mismatch(
+        annotate.refuse_mismatch(
             {"model": "gemini-3.6-flash", "prompt_sha256": "f" * 64},
             "a-run",
             gemini.MODEL_ID,
             "f" * 64,
         )
     with pytest.raises(SystemExit):
-        step.refuse_mismatch(
+        annotate.refuse_mismatch(
             {"model": gemini.MODEL_ID, "prompt_sha256": "a" * 64},
             "a-run",
             gemini.MODEL_ID,
             "f" * 64,
         )
-    step.refuse_mismatch({}, "a-run", gemini.MODEL_ID, "f" * 64)
+    annotate.refuse_mismatch({}, "a-run", gemini.MODEL_ID, "f" * 64)
 
 
 def test_the_manifest_carries_14_s_keys_and_the_job_names(tmp_path: Path) -> None:
     path = tmp_path / "manifest.json"
-    manifest = step.write_manifest(
+    manifest = annotate.write_manifest(
         path,
         {},
         meta=run_meta(),
@@ -597,12 +636,13 @@ def test_the_manifest_carries_14_s_keys_and_the_job_names(tmp_path: Path) -> Non
         batch_ids=["batches/456", "batches/123"],
         planned_requests=2,
         planned_occurrences=3,
-        submitted=2,
+        requests=2,
         returned=0,
         complete=0,
         written=0,
         parse_failures=0,
         evidence_invalid=0,
+        evidence_relocated=0,
         usage=dict(gemini.EMPTY_USAGE),
     )
     assert manifest["model"] == gemini.MODEL_ID
@@ -613,7 +653,7 @@ def test_the_manifest_carries_14_s_keys_and_the_job_names(tmp_path: Path) -> Non
     assert json.loads(path.read_text(encoding="utf-8")) == manifest
 
     # Effort accumulates across passes; the artefact's own counts are measured.
-    resumed = step.write_manifest(
+    resumed = annotate.write_manifest(
         path,
         manifest,
         meta=run_meta(),
@@ -623,19 +663,63 @@ def test_the_manifest_carries_14_s_keys_and_the_job_names(tmp_path: Path) -> Non
         batch_ids=["batches/123"],
         planned_requests=2,
         planned_occurrences=3,
-        submitted=0,
+        requests=0,
         returned=2,
         complete=2,
         written=3,
         parse_failures=0,
         evidence_invalid=0,
+        evidence_relocated=0,
         usage={"input_tokens": 8, "output_tokens": 63, "reasoning_tokens": 1180},
     )
-    assert resumed["requests"] == {"planned": 2, "submitted": 2, "returned": 2, "complete": 2}
+    assert resumed["requests"] == {"planned": 2, "sent": 2, "returned": 2, "complete": 2}
     assert resumed["usage"]["reasoning_tokens"] == 1180
     assert resumed["batch_ids"] == ["batches/123", "batches/456"]
     assert resumed["status"] == "complete"
     assert resumed["created"] == manifest["created"]
+    # One row per pass, in order, so a manifest says how a run was assembled.
+    assert [entry["mode"] for entry in resumed["passes"]] == ["batch", "poll"]
+    assert [entry["requests"] for entry in resumed["passes"]] == [2, 0]
+    assert [entry["returned"] for entry in resumed["passes"]] == [0, 2]
+
+
+def test_a_pass_that_sent_nothing_adds_nothing_to_the_request_count(tmp_path: Path) -> None:
+    # The fault of §4.5, item 1, in miniature: the Gemini run recorded 7,966
+    # requests over a corpus of 3,273 because every pass added the size of what
+    # it meant to ask, including one whose first chunk the quota refused. What
+    # is added now is what a caller counted after a job existed.
+    manifest = {"requests": {"planned": 3273, "sent": 800, "returned": 800, "complete": 800}}
+    refused = annotate.write_manifest(
+        tmp_path / "manifest.json",
+        manifest,
+        meta=run_meta(),
+        referents_sha256="c" * 64,
+        mode="batch",
+        limit=None,
+        batch_ids=[],
+        planned_requests=3273,
+        planned_occurrences=6092,
+        requests=0,
+        returned=0,
+        complete=800,
+        written=1500,
+        parse_failures=0,
+        evidence_invalid=0,
+        evidence_relocated=0,
+        usage=dict(gemini.EMPTY_USAGE),
+    )
+    assert refused["requests"]["sent"] == 800
+    assert refused["passes"][-1]["requests"] == 0
+
+
+def test_an_answer_downloaded_twice_is_returned_once() -> None:
+    # A --poll reads every job the manifest records, so a resumed run downloads
+    # answers written on an earlier pass. `returned: 4474` over 3,273 requests
+    # is what counting them again looks like.
+    answered = frozenset({"speech-a", "speech-b"})
+    assert annotate.fresh_returns(["speech-a", "speech-b"], answered) == 0
+    assert annotate.fresh_returns(["speech-a", "speech-c"], answered) == 1
+    assert annotate.fresh_returns([], answered) == 0
 
 
 # --- Nothing here needs the SDK ----------------------------------------------

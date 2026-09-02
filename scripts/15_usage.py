@@ -534,7 +534,14 @@ def model_block(
         "prompt_version": str(manifest.get("prompt_version", "")),
         "prompt_sha256": prompt_digest,
         "reasoning_effort": str(manifest.get("reasoning_effort", "")),
-        "requests": int(requests.get("submitted", 0) or 0),
+        # `sent`, and `submitted` only where a manifest predates the recount.
+        # The old key counted intentions — the Gemini run recorded 7,966 over a
+        # corpus of 3,273 — and the view prints this figure as "Requests", so
+        # reading the old key first would publish the number the review found.
+        # `tools/recount_run.py` writes `sent`; a run whose raw record is gone
+        # keeps `submitted`, and `docs/VALIDATION.md` §7 says which are which.
+        "requests": int(requests.get("sent", requests.get("submitted", 0)) or 0),
+        "requests_recounted": "sent" in requests,
         "occurrences_total": int(total),
         "occurrences_annotated": len(rows),
         "parse_failures": int(manifest.get("parse_failures", 0) or 0),
