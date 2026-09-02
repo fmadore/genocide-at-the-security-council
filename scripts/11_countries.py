@@ -64,6 +64,13 @@ TRACKED: list[tuple[str, str]] = [
     ("sets", "atrocity_core"),
 ]
 
+#: The measure the table opens on, reconciles against and derives its
+#: withholding rule from: the first tracked one. Named once, because the
+#: rehearsal of 2 September 2026 found `TRACKED` renamed to the derived measure
+#: while five reads of `computed[HEADLINE]` and the prevalence line still
+#: named the raw term, and the step died on the first of them.
+HEADLINE = TRACKED[0][1]
+
 #: Columns read from the corpus. The whole table is 100 columns wide and 419 MB
 #: of it is speech text this step never looks at.
 COLUMNS = [
@@ -239,10 +246,10 @@ def build_standing(
         if problems := actors.reconcile_standing(frame, subset, window.key):
             console.fail("the membership composition does not reconcile", problems)
 
-        measured = computed["genocide"][window.key]
+        measured = computed[HEADLINE][window.key]
         disagreeing = [
             f"{name}: {int(frame.loc[name, 'held']):,} speeches here, "
-            f"{int(measured.loc[name, 'held']):,} in the genocide measure"
+            f"{int(measured.loc[name, 'held']):,} in the {HEADLINE} measure"
             for name in frame.index
             if name in measured.index and int(frame.loc[name, "held"]) != int(measured.loc[name, "held"])
         ]
@@ -304,7 +311,7 @@ def build_periods(
     out = []
     for window in slices:
         subset = speeches[window.mask(speeches["year"])]
-        frame = computed["genocide"][window.key]
+        frame = computed[HEADLINE][window.key]
         out.append(
             {
                 **window.as_dict(),
@@ -335,7 +342,7 @@ def build_note(
     required: int,
     prevalence: float,
 ) -> str:
-    whole = computed["genocide"][actors.WHOLE]
+    whole = computed[HEADLINE][actors.WHOLE]
     cleared = whole[whole["sufficient"]].sort_values("speech_rate", ascending=False)
     types = pd.Series({s["country_org"]: s["entity_type"] for s in speakers})
     groups = pd.Series({s["country_org"]: s["un_regional_group"] or "—" for s in speakers})
@@ -352,13 +359,13 @@ def build_note(
     # carry a rate at all; if that is never more than one, the ambiguity binds on
     # a count map and nowhere else, and the note may say so.
     def carries_rate(key: str, name: str) -> bool:
-        frame = computed["genocide"][key]
+        frame = computed[HEADLINE][key]
         return bool(name in frame.index and frame.loc[name, "sufficient"])
 
     contested = max(
         (
             sum(carries_rate(key, name) for name in names)
-            for key in computed["genocide"]
+            for key in computed[HEADLINE]
             for names in payload["iso3_collisions"].values()
         ),
         default=0,
@@ -525,10 +532,10 @@ def build_note(
             "|---|---:|---:|",
             f"| Speeches | {int(whole['held'].sum()):,} | {len(speeches):,} |",
             f"| Words | {int(whole['words'].sum()):,} | {int(speeches['words'].sum()):,} |",
-            f"| `genocid*` speeches | {int(whole['speeches'].sum()):,} | "
-            f"{int(speeches['has_genocide'].sum()):,} |",
-            f"| `genocid*` occurrences | {int(whole['occurrences'].sum()):,} | "
-            f"{int(speeches['n_genocide'].sum()):,} |",
+            f"| `{HEADLINE}` speeches | {int(whole['speeches'].sum()):,} | "
+            f"{int(speeches[f'has_{HEADLINE}'].sum()):,} |",
+            f"| `{HEADLINE}` occurrences | {int(whole['occurrences'].sum()):,} | "
+            f"{int(speeches[f'n_{HEADLINE}'].sum()):,} |",
             "",
             "A `country_org` absent from `config/entities.csv` stops the run, as it does in "
             "02. So does a crosswalk edited since 02 last ran, because this table would then "
@@ -564,7 +571,7 @@ def run(minimum: int) -> None:
     lex = lexicon.load()
     console.info(f"lexicon version {lex.version}, {len(lex.active)} active terms")
 
-    prevalence = float(speeches["has_genocide"].mean())
+    prevalence = float(speeches[f"has_{HEADLINE}"].mean())
     required = actors.informative_zero_minimum(prevalence)
     console.info(
         f"corpus prevalence {prevalence:.2%}; a zero is informative from {required} speeches"

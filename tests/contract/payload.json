@@ -2118,7 +2118,7 @@
      "token_rate?": [
       "float"
      ],
-     "tokens": [
+     "words": [
       "int"
      ]
     }

@@ -595,17 +595,24 @@ under the independent null and 0.69 under the block null — the direction the r
 predicted, on data built to show it.
 
 **Re-calibrated on the corpus, 2 September 2026** (`04_series.py` and `11_countries.py`,
-deploy run 59; 2,000 permutations, Bonferroni over the three planned tests):
+deploy run 59 over lexicon v3; then, later the same day, a rehearsal of 02 through 04 over
+the corpus in a scratch data root at lexicon v4 with the headline moved to
+`genocide_qualification`, whose numbers are the ones below and which the next deploy
+reproduces or contradicts in its log; 2,000 permutations, Bonferroni over the three
+planned tests):
 
 | Test | Best split | Later / earlier rate | p, independent null | p, meeting-block null | Accepted |
 |---|---|---:|---:|---:|---|
-| `genocide` speech rate | 2017 | 0.71 | 0.0005 | 0.0010 | yes |
-| `genocide` token rate | 2016 | 0.65 | 0.0005 | 0.0095 | yes |
-| `atrocity_core` speech rate | 1996 | 0.71 | 0.0005 | 0.0255 | no |
+| `genocide_qualification` speech rate | 2017 | 0.71 | 0.0005 | 0.0005 | yes |
+| `genocide_qualification` token rate | 2016 | 0.65 | 0.0005 | 0.0095 | yes |
+| `atrocity_core` speech rate | 1996 | 0.72 | 0.0005 | 0.0255 | no |
 
-The partitions and the ratios did not move, as the design says they cannot. The two
-`genocide` splits survive the corrected threshold (0.05 / 3); the 1996 `atrocity_core`
-split does not, and the site shows it as the best split rather than as a break. Under the
+The partitions and the ratios did not move, as the design says they cannot: the v3 run
+over the raw `genocide` term gave the same three splits with block-null p-values of 0.0010,
+0.0095 and 0.0255, and the token rate's denominator change scales both halves of the ratio
+alike. The two headline splits survive the corrected threshold (0.05 / 3); the 1996
+`atrocity_core` split does not, and the site shows it as the best split rather than as a
+break. Under the
 independent null all three sat at the floor of 2,000 draws; the block null lifts them by
 two to fifty times, which is the size of the clustering the review predicted.
 `README.md`'s change-point paragraph is rewritten from this artefact. The exploratory
