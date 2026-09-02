@@ -29,6 +29,7 @@
  * marker that stands for more than one speaker can say how many.
  */
 
+import { headlineMeasure } from './headline';
 import type { Countries, CountryMeasure, CountryMeasureRow, CountryPeriod, Speaker } from './types';
 
 export interface ActorRow {
@@ -48,10 +49,7 @@ export interface ActorState {
 /** Defaults follow the artefact, so a later corpus extension does not create a stale URL contract. */
 export function actorDefaults(data: Countries): ActorState {
 	return {
-		measure:
-			['genocide_qualification', 'genocide'].find((name) => data.measures[name]) ??
-			Object.keys(data.measures)[0] ??
-			'',
+		measure: headlineMeasure(Object.keys(data.measures)) ?? Object.keys(data.measures)[0] ?? '',
 		period: data.periods.some((period) => period.key === 'all')
 			? 'all'
 			: (data.periods[0]?.key ?? ''),
