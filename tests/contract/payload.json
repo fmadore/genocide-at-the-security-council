@@ -1089,8 +1089,12 @@
     "speech_rate": [
      "float"
     ],
-    "speech_rate_high": "float",
-    "speech_rate_low": "float",
+    "speech_rate_high": [
+     "float"
+    ],
+    "speech_rate_low": [
+     "float"
+    ],
     "speeches": [
      "int"
     ],
@@ -1110,8 +1114,12 @@
     "speech_rate": [
      "float"
     ],
-    "speech_rate_high": "float",
-    "speech_rate_low": "float",
+    "speech_rate_high": [
+     "float"
+    ],
+    "speech_rate_low": [
+     "float"
+    ],
     "speeches": [
      "int"
     ]
@@ -1126,8 +1134,12 @@
     "speech_rate": [
      "float"
     ],
-    "speech_rate_high": "float",
-    "speech_rate_low": "float",
+    "speech_rate_high": [
+     "float"
+    ],
+    "speech_rate_low": [
+     "float"
+    ],
     "speeches": [
      "int"
     ],
@@ -1557,8 +1569,12 @@
       "speech_rate": [
        "float"
       ],
-      "speech_rate_high": "float",
-      "speech_rate_low": "float",
+      "speech_rate_high": [
+       "float"
+      ],
+      "speech_rate_low": [
+       "float"
+      ],
       "speeches": [
        "int"
       ],
@@ -1586,8 +1602,12 @@
      "speech_rate": [
       "float"
      ],
-     "speech_rate_high": "float",
-     "speech_rate_low": "float",
+     "speech_rate_high": [
+      "float"
+     ],
+     "speech_rate_low": [
+      "float"
+     ],
      "speeches": [
       "int"
      ],
@@ -1625,8 +1645,12 @@
     "speech_rate": [
      "float|null"
     ],
-    "speech_rate_high": "float|null",
-    "speech_rate_low": "float|null",
+    "speech_rate_high": [
+     "float|null"
+    ],
+    "speech_rate_low": [
+     "float|null"
+    ],
     "speeches": [
      "int"
     ],
@@ -1646,8 +1670,12 @@
     "speech_rate": [
      "float|null"
     ],
-    "speech_rate_high": "float|null",
-    "speech_rate_low": "float|null",
+    "speech_rate_high": [
+     "float|null"
+    ],
+    "speech_rate_low": [
+     "float|null"
+    ],
     "speeches": [
      "int"
     ]
@@ -1665,8 +1693,12 @@
     "speech_rate": [
      "float|null"
     ],
-    "speech_rate_high": "float|null",
-    "speech_rate_low": "float|null",
+    "speech_rate_high": [
+     "float|null"
+    ],
+    "speech_rate_low": [
+     "float|null"
+    ],
     "speeches": [
      "int"
     ],
@@ -1733,8 +1765,12 @@
     "speech_rate": [
      "float"
     ],
-    "speech_rate_high": "float",
-    "speech_rate_low": "float",
+    "speech_rate_high": [
+     "float"
+    ],
+    "speech_rate_low": [
+     "float"
+    ],
     "speeches": [
      "int"
     ],
@@ -1754,8 +1790,12 @@
     "speech_rate": [
      "float"
     ],
-    "speech_rate_high": "float",
-    "speech_rate_low": "float",
+    "speech_rate_high": [
+     "float"
+    ],
+    "speech_rate_low": [
+     "float"
+    ],
     "speeches": [
      "int"
     ]
@@ -1770,8 +1810,12 @@
     "speech_rate": [
      "float"
     ],
-    "speech_rate_high": "float",
-    "speech_rate_low": "float",
+    "speech_rate_high": [
+     "float"
+    ],
+    "speech_rate_low": [
+     "float"
+    ],
     "speeches": [
      "int"
     ],
