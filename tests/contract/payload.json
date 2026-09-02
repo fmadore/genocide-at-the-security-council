@@ -1963,9 +1963,12 @@
     {
      "contested": "int",
      "field": "str",
-     "kappa": "float",
+     "kappa": "float|null",
+     "kappa_withheld": "bool",
+     "minority_share": "float",
      "n": "int",
-     "observed": "float"
+     "observed": "float",
+     "pabak": "float"
     }
    ],
    "function_contested": "int",
@@ -2096,6 +2099,9 @@
    {
     "actor": "str",
     "eligible": "int",
+    "separated": "bool",
+    "share_high": "float|null",
+    "share_low": "float|null",
     "share_rejects": "float|null",
     "stances": {
      "asserts": "int",
