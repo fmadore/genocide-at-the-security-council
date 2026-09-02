@@ -241,6 +241,11 @@ def read_referent_table(path: Path) -> list[Referent]:
     the richer fields, tolerating a header that has not yet grown them. A row
     with no declared kind is reserved if it is one of the three reserved IDs and
     a case otherwise, which is what the file meant before `kind` existed.
+
+    Retired identifiers are left out, because the model is offered only what is
+    current. They stay in the file so a committed run that used one can still be
+    read, but rendering them would invite a new run to reuse a category the
+    list has withdrawn, and the run would then be neither v1 nor v2.
     """
     table = pd.read_csv(path, dtype="string", keep_default_na=False)
     missing = sorted({"id", "label", "description"} - set(table.columns))
@@ -249,6 +254,8 @@ def read_referent_table(path: Path) -> list[Referent]:
     referents = []
     for values in table.to_dict(orient="records"):
         identifier = str(values["id"])
+        if str(values.get("retired_in") or "").strip():
+            continue
         default = "reserved" if identifier in audit.DEFAULT_REFERENTS else "case"
         referents.append(
             Referent(
@@ -458,6 +465,20 @@ def check_labels(entry: Mapping[str, object], referents: set[str]) -> tuple[str,
 
     Mirrors `audit._validate_labels` for the fields the model supplies. Returns
     the function labels as a tuple so a caller does not parse them twice.
+
+    `proposed_referent` is required when the referent is `other` and refused on a
+    false positive, but is no longer refused on a controlled referent. The
+    compound rule the codebook now carries — a passage naming two cases is coded
+    as the first one named — has to leave the pair recorded somewhere, and this
+    field is where the model already writes free text about a referent. About one
+    in twenty of the two runs' `other` rows is such a pair, so losing them would
+    lose the evidence for whether the rule is the right one. The rejected
+    alternative was a `compound_referents` field of its own, which is a schema
+    change: it would move the annotation schema off version 2 and oblige the
+    human codebook to grow a column no coder has been trained on, to carry
+    something this field already carries. What the schema can check it checks;
+    the narrower rule — the pair as the speaker named it, and nothing else —
+    lives in the prompt, which is where rules a validator cannot see belong.
     """
     for field, allowed in ENUMS.items():
         value = str(entry[field])
@@ -479,8 +500,8 @@ def check_labels(entry: Mapping[str, object], referents: set[str]) -> tuple[str,
     proposed = str(entry["proposed_referent"]).strip()
     if referent == "other" and not proposed:
         raise ValueError("referent 'other' requires a proposed_referent.")
-    if referent != "other" and proposed:
-        raise ValueError(f"proposed_referent is only for referent 'other', not '{referent}'.")
+    if str(entry["verdict"]) == "false_positive" and proposed:
+        raise ValueError("A false positive has no proposed_referent.")
     return functions
 
 

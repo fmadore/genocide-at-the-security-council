@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import json
 import re
 from pathlib import Path
 
@@ -416,6 +418,129 @@ def test_committed_referents_declare_a_kind_and_reserve_the_defaults() -> None:
     reserved = table.loc[table["id"].isin(audit.DEFAULT_REFERENTS), "kind"]
     assert len(reserved) == len(audit.DEFAULT_REFERENTS)
     assert set(reserved) == {"reserved"}
+
+
+# --- The controlled list is versioned, so two paid runs stay readable --------
+
+#: The digest of the columns that say what an identifier *means*, paired with the
+#: list version they belong to. `iso3` and `years` are left out on purpose: the
+#: codebook calls both documentation rather than coding, so correcting a date
+#: range must not read as a change of meaning. This is the loud failure the
+#: lexicon gets from `config/lexicon.lock.json`, at one line instead of a
+#: generated file inside a directory no script writes into. When it fails, ask
+#: whether the edit changed which passages an identifier covers: if it did, bump
+#: that row's `since` and this digest; if it did not — a label that stopped
+#: asserting a verdict, a year dropped from a description — update the digest
+#: alone, and say in the commit message which it was.
+REFERENT_MEANING_VERSION = 2
+REFERENT_MEANING_SHA256 = "12d9d9ea28f4d3ed0f8c4306f50f69d42e45ebd4e7814981a363846186646e00"
+
+RUNS = ("2026-08-30-luna-v1", "2026-08-31-gemini-v1")
+
+
+def referent_list() -> audit.ReferentList:
+    return audit.read_referent_list(referent_path())
+
+
+def run_referents(run: str) -> set[str]:
+    path = ROOT / "model_annotations" / "genocide" / "runs" / run / "annotations.jsonl"
+    with path.open(encoding="utf-8") as handle:
+        return {str(json.loads(line)["referent"]) for line in handle}
+
+
+def test_the_committed_list_declares_the_version_its_rows_belong_to() -> None:
+    referents = referent_list()
+    assert referents.version == REFERENT_MEANING_VERSION
+    assert referents.current < referents.all
+    assert referents.current >= audit.DEFAULT_REFERENTS
+
+
+def test_the_meaning_bearing_columns_have_not_moved_without_a_decision() -> None:
+    table = referent_table()
+    columns = ("id", "label", "description", "kind", "since", "retired_in", "superseded_by")
+    body = "\n".join(
+        "|".join(str(row[column]) for column in columns)
+        for row in table.to_dict(orient="records")
+    )
+    assert hashlib.sha256(body.encode("utf-8")).hexdigest() == REFERENT_MEANING_SHA256
+
+
+def test_every_retired_identifier_still_resolves() -> None:
+    referents = referent_list()
+    retired = set(referents.retired_in)
+    assert retired == {"rwanda_1994", "drc_great_lakes", "ukraine_2022", "hypothetical_future"}
+    for name in retired:
+        assert referents.resolve(name) in referents.current or name == "hypothetical_future"
+    # Retired with a successor lands on a current identifier; retired without one
+    # stays itself, because naming a successor for `hypothetical_future` would
+    # decide on the model's behalf what its 126 rows meant.
+    assert referents.resolve("rwanda_1994") == "rwanda"
+    assert referents.resolve("drc_great_lakes") == "drc"
+    assert referents.resolve("ukraine_2022") == "ukraine"
+    assert referents.resolve("hypothetical_future") == "hypothetical_future"
+
+
+def test_a_retired_identifier_is_offered_to_no_new_annotation() -> None:
+    referents = referent_list()
+    for name in referents.retired_in:
+        assert name not in referents.current
+        assert not referents.compatible(name, referents.version)
+        assert referents.compatible(name, 1)
+
+
+@pytest.mark.parametrize("run", RUNS)
+def test_every_referent_in_a_committed_run_survives_the_current_list(run: str) -> None:
+    """The constraint the whole version scheme exists to satisfy.
+
+    Both paid runs recorded v1 identifiers on 6,092 rows each. Every one of them
+    has to still name something after v2, and has to still be compatible with the
+    version the run was made against — a run that recorded no version at all was
+    made against v1.
+    """
+    referents = referent_list()
+    used = run_referents(run)
+    assert used <= referents.all
+    assert all(referents.compatible(name, 1) for name in used)
+    assert all(referents.resolve(name) in referents.all for name in used)
+
+
+def test_a_successor_must_be_a_referent_the_file_holds_and_a_retirement() -> None:
+    path = ROOT / "annotations" / "lexicon" / "referents.csv"
+    header = pd.read_csv(path, dtype="string", keep_default_na=False).columns.tolist()
+    assert header[-3:] == ["since", "retired_in", "superseded_by"]
+
+
+def test_a_dangling_or_stranded_successor_is_refused(tmp_path) -> None:
+    reserved = (
+        "other,Other,Known,reserved,,,1,,\n"
+        "unclear,Unclear,Unknown,reserved,,,1,,\n"
+        "not_applicable,N/A,False positive,reserved,,,1,,\n"
+    )
+    header = "id,label,description,kind,iso3,years,since,retired_in,superseded_by\n"
+    path = tmp_path / "referents.csv"
+
+    path.write_text(header + reserved + "old,Old,Was,case,,,1,2,gone\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="does not hold"):
+        audit.read_referent_list(path)
+
+    path.write_text(
+        header + reserved + "old,Old,Was,case,,,1,,new\nnew,New,Is,case,,,2,,\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="has not retired"):
+        audit.read_referent_list(path)
+
+
+def test_a_file_without_the_version_columns_is_read_as_version_one(tmp_path) -> None:
+    path = tmp_path / "referents.csv"
+    path.write_text(
+        "id,label,description\nother,Other,Known\nunclear,Unclear,Unknown\n"
+        "not_applicable,N/A,False positive\n",
+        encoding="utf-8",
+    )
+    referents = audit.read_referent_list(path)
+    assert referents.version == 1
+    assert referents.current == referents.all == audit.DEFAULT_REFERENTS
 
 
 def test_duplicate_generated_candidate_ids_are_refused() -> None:

@@ -153,6 +153,44 @@ def test_referent_table_is_grouped_and_leaves_nothing_out(referent_file: Path) -
         assert identifier in rendered
 
 
+def test_a_retired_referent_is_never_rendered_into_the_prompt(tmp_path: Path) -> None:
+    """The model is offered only what the list currently holds.
+
+    The retired row stays in the file so a committed run that used it can still
+    be read, but rendering it would invite the next run to reuse a category the
+    list has withdrawn.
+    """
+    path = tmp_path / "referents.csv"
+    path.write_text(
+        "id,label,description,kind,iso3,years,since,retired_in,superseded_by\n"
+        "other,Other,Known,reserved,,,1,,\n"
+        "unclear,Unclear,Unknown,reserved,,,1,,\n"
+        "not_applicable,N/A,False positive,reserved,,,1,,\n"
+        "rwanda_1994,Rwanda 1994,The 1994 genocide.,case,RWA,1994,1,2,rwanda\n"
+        "rwanda,Rwanda,Speeches invoking the mass killing of Tutsi.,case,RWA,1994,2,,\n",
+        encoding="utf-8",
+    )
+    rendered = llm.render_referents(llm.read_referent_table(path))
+    assert "rwanda_1994" not in rendered
+    assert "rwanda — Rwanda (1994) — Speeches invoking" in rendered
+    assert audit.read_referents(path) == {"other", "unclear", "not_applicable", "rwanda"}
+    assert audit.read_referent_list(path).all == {
+        "other",
+        "unclear",
+        "not_applicable",
+        "rwanda_1994",
+        "rwanda",
+    }
+
+
+def test_the_committed_prompt_renders_only_current_referents() -> None:
+    path = ROOT / "annotations" / "lexicon" / "referents.csv"
+    referents = audit.read_referent_list(path)
+    rendered = llm.render_referents(llm.read_referent_table(path))
+    lines = {line.strip().split(" — ")[0] for line in rendered.splitlines() if " — " in line}
+    assert lines == referents.current
+
+
 def test_a_referent_file_without_a_kind_column_still_renders(tmp_path: Path) -> None:
     path = tmp_path / "referents.csv"
     path.write_text(
@@ -366,7 +404,7 @@ def test_the_referent_must_come_from_the_run_s_own_list() -> None:
         )
 
 
-def test_a_proposed_referent_belongs_to_other_and_only_to_other() -> None:
+def test_a_proposed_referent_is_required_by_other_and_refused_by_a_false_positive() -> None:
     accepted = llm.validate_response(
         payload(entry(1, referent="other", proposed_referent="Western Sahara")),
         ordinals=[1],
@@ -376,12 +414,37 @@ def test_a_proposed_referent_belongs_to_other_and_only_to_other() -> None:
 
     with pytest.raises(ValueError, match="requires a proposed_referent"):
         llm.validate_response(payload(entry(1, referent="other")), ordinals=[1], referents=REFERENTS)
-    with pytest.raises(ValueError, match="only for referent 'other'"):
+    with pytest.raises(ValueError, match="false positive has no proposed_referent"):
         llm.validate_response(
-            payload(entry(1, proposed_referent="Western Sahara")),
+            payload(
+                entry(
+                    1,
+                    verdict="false_positive",
+                    quotation="not_applicable",
+                    stance="not_applicable",
+                    function=["not_applicable"],
+                    referent="not_applicable",
+                    proposed_referent="Western Sahara",
+                )
+            ),
             ordinals=[1],
             referents=REFERENTS,
         )
+
+
+def test_a_compound_passage_keeps_its_pair_beside_the_referent_it_was_coded_as() -> None:
+    """The codebook codes "Rwanda and Srebrenica" as the first case named.
+
+    The pair is 5 % of what the two runs filed under `other`, so it has to be
+    recorded rather than dropped when the row stops being `other`; the schema
+    permits it here and the prompt says what may go in it.
+    """
+    accepted = llm.validate_response(
+        payload(entry(1, referent="rwanda_1994", proposed_referent="Rwanda and Srebrenica")),
+        ordinals=[1],
+        referents=REFERENTS,
+    )
+    assert accepted[1]["proposed_referent"] == "Rwanda and Srebrenica"
 
 
 def test_a_response_that_is_not_the_agreed_shape_is_refused() -> None:

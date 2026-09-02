@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Final
@@ -246,8 +247,96 @@ def read_annotations(path: Path) -> pd.DataFrame:
     return annotations.loc[:, list(ANNOTATION_FIELDS)].copy()
 
 
-def read_referents(path: Path) -> set[str]:
-    """Read the controlled referent identifiers used by the annotation schema."""
+@dataclass(frozen=True)
+class ReferentList:
+    """The controlled list and the versions that keep an older run readable.
+
+    The list has to do two jobs at once. A *new* annotation may use only what the
+    list currently offers, because a model is shown only the current identifiers
+    and a coder is told to add a referent before using it. An *older* run has to
+    stay readable for as long as it is committed, because two paid runs record
+    v1 identifiers on 12,184 rows and renaming a case cannot be allowed to orphan
+    them. Both jobs are served from one file: a retired identifier keeps its row,
+    carries the version at which it stopped being offered, and names whatever it
+    became.
+
+    The version is derived rather than declared. It is the highest version any
+    row mentions, so there is no file-level number that a hand-edit can forget to
+    bump, and a release that only retires rows still moves it because
+    `retired_in` counts too. The rejected alternative was a lock file beside
+    `config/lexicon.lock.json`: it would catch a description edited without a
+    `since` bump, which this does not, but it puts a generated file next to a
+    human-owned one and `annotations/` is a directory no script writes into. The
+    golden test over this file does that job instead.
+
+    `since` records the version at which an identifier's *meaning* was last set,
+    exactly as `pattern_since` does for a lexicon term. It is what decides
+    whether a run is compatible, so editing a label to stop asserting a verdict
+    leaves it alone — the identifier still covers the same passages — while
+    widening a description to cover passages it did not cover before bumps it.
+    `iso3` and `years` never bump it: the codebook says both are documentation
+    rather than coding, so correcting a date range cannot invalidate a run.
+    """
+
+    version: int
+    since: Mapping[str, int]
+    retired_in: Mapping[str, int]
+    superseded_by: Mapping[str, str]
+
+    @property
+    def all(self) -> set[str]:
+        """Every identifier the file holds, retired ones included."""
+        return set(self.since)
+
+    @property
+    def current(self) -> set[str]:
+        """The identifiers a new annotation may use, and the prompt may render."""
+        return {name for name in self.since if name not in self.retired_in}
+
+    def resolve(self, identifier: str) -> str:
+        """What a recorded identifier is called now.
+
+        Following `superseded_by` until it runs out, so a run made against v1 and
+        a run made against v2 can be counted in the same column. An identifier
+        retired without a successor resolves to itself and is reported under its
+        own name: `hypothetical_future` was retired because it is a modal
+        property rather than a referent, and choosing `genocide_in_general` or
+        `unclear` on its behalf would put a judgement in the model's mouth that
+        the model did not make.
+        """
+        seen = {identifier}
+        while (successor := self.superseded_by.get(identifier, "")) and successor not in seen:
+            identifier = successor
+            seen.add(identifier)
+        return identifier
+
+    def compatible(self, identifier: str, recorded: str | int) -> bool:
+        """Could a run made against list version `recorded` have used this?
+
+        Two ways it could not: the identifier did not yet mean what it means now,
+        or it had already been retired and was therefore never rendered into that
+        run's prompt. Either says the run and the manifest disagree about which
+        list was in front of the model, which is a provenance failure rather than
+        a counting one. A run that recorded no version at all was made against
+        version 1, the only version that had no number.
+        """
+        version = int(recorded) if str(recorded).strip() else 1
+        if self.since.get(identifier, version + 1) > version:
+            return False
+        retired = self.retired_in.get(identifier)
+        return retired is None or retired > version
+
+
+def read_referent_list(path: Path) -> ReferentList:
+    """Read the controlled list with its retirements and its version.
+
+    The identifier checks live here rather than in the caller because every
+    reader of this file depends on them: an identifier with surrounding
+    whitespace, a blank one or a duplicate would each fragment one referent into
+    two silently, which is the failure the controlled list exists to prevent. A
+    file that has not yet grown the version columns is read as version 1 with
+    nothing retired, which is what it meant before they existed.
+    """
     table = pd.read_csv(path, dtype="string", keep_default_na=False)
     required = {"id", "label", "description"}
     missing = sorted(required - set(table.columns))
@@ -258,13 +347,62 @@ def read_referents(path: Path) -> set[str]:
         raise ValueError("Referent IDs must not contain surrounding whitespace.")
     if identifiers.eq("").any() or identifiers.duplicated().any():
         raise ValueError("Referent IDs must be nonempty and unique.")
-    referents = set(identifiers)
-    missing_defaults = sorted(DEFAULT_REFERENTS - referents)
+    missing_defaults = sorted(DEFAULT_REFERENTS - set(identifiers))
     if missing_defaults:
         raise ValueError(
             "Referent file is missing reserved IDs: " + ", ".join(missing_defaults)
         )
-    return referents
+
+    since: dict[str, int] = {}
+    retired_in: dict[str, int] = {}
+    superseded_by: dict[str, str] = {}
+    for values in table.to_dict(orient="records"):
+        name = str(values["id"])
+        since[name] = _version_cell(values.get("since"), name, "since", default=1)
+        if retired := _version_cell(values.get("retired_in"), name, "retired_in", default=0):
+            retired_in[name] = retired
+        if successor := str(values.get("superseded_by") or "").strip():
+            superseded_by[name] = successor
+
+    unknown = sorted(set(superseded_by.values()) - set(since))
+    if unknown:
+        raise ValueError(
+            "Referent file supersedes IDs onto ones it does not hold: " + ", ".join(unknown)
+        )
+    stranded = sorted(name for name in superseded_by if name not in retired_in)
+    if stranded:
+        raise ValueError(
+            "Referent file names a successor for IDs it has not retired: " + ", ".join(stranded)
+        )
+    return ReferentList(
+        version=max([*since.values(), *retired_in.values(), 1]),
+        since=since,
+        retired_in=retired_in,
+        superseded_by=superseded_by,
+    )
+
+
+def _version_cell(value: object, name: str, column: str, *, default: int) -> int:
+    """One version number from the file, or the default an empty cell means."""
+    text = str(value or "").strip()
+    if not text:
+        return default
+    if not text.isdigit() or int(text) < 1:
+        raise ValueError(f"Referent '{name}' has a non-numeric {column}: {text}")
+    return int(text)
+
+
+def read_referents(path: Path) -> set[str]:
+    """The identifiers a new annotation may use.
+
+    Current ones only. This is the authority the annotation schema is closed
+    over, and a retired identifier is one the prompt no longer renders and a
+    coder is no longer offered, so accepting it here would let a run use a
+    category the instrument never showed it. Reading an *older* run is the other
+    question and wants :func:`read_referent_list`, whose `all` holds the retired
+    identifiers too.
+    """
+    return read_referent_list(path).current
 
 
 def _annotation_values(row: pd.Series, field: str, allowed: frozenset[str]) -> None:
