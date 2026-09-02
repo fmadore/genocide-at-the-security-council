@@ -168,7 +168,19 @@ def audit_sample(
 
     occurrences = pd.DataFrame(rows)
     probability = audit.probability_sample(occurrences, size, seed, audit.PROBABILITY)
-    coverage = audit.coverage_sample(occurrences, size, seed + 1)
+    # The coverage frame promises one occurrence per term and period, so its size
+    # is a property of the lexicon, not a setting: 22 terms fitted under 100, the
+    # 28 of v4 make 109 strata and the deploy of 2 September 2026 stopped here.
+    # Growing to the strata count keeps the promise; `coverage_sample` still
+    # refuses a size it cannot honour, for a caller that names one on purpose.
+    strata = occurrences.groupby(["term", "period"]).ngroups
+    coverage_size = max(size, strata)
+    if coverage_size > size:
+        console.info(
+            f"coverage sample grown from {size} to {coverage_size}: one occurrence per "
+            f"term and period is {strata} strata under lexicon v{lex.version}"
+        )
+    coverage = audit.coverage_sample(occurrences, coverage_size, seed + 1)
 
     rows.clear()
     for term in lex.disabled:
