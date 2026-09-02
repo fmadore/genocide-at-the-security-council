@@ -404,7 +404,7 @@ def refuse_stale_referents(
     provenance failure rather than a counting one.
 
     Renaming a case would otherwise orphan the rows that used the old name —
-    4,590 of the two committed runs' 12,184 — so a retired identifier keeps its
+    3,934 of the two committed runs' 12,184 — so a retired identifier keeps its
     row in the file and names its successor, and this returns how many rows of
     the run carry one. Resolving them is a translation and not a repair, which
     is the distinction that lets it stand in a script that refuses everything

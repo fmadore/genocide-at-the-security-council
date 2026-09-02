@@ -146,7 +146,8 @@ it. `superseded_by` names what it became.
 
 Retired rows stay in the file, and that is the point of the columns. Two paid model runs
 recorded 12,184 rows against version 1, and renaming a case would otherwise orphan every row
-that used the old name — 4,590 of them. `scripts/15_usage.py` reads a run against the
+that used the old name — 3,934 of them, and 126 more under an identifier retired without a
+successor. `scripts/15_usage.py` reads a run against the
 version the run recorded, refuses one that used an identifier its own list could not have
 offered, and reports a superseded identifier under its successor so a version 1 run and a
 version 2 run can be read side by side.

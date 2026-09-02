@@ -504,6 +504,28 @@ def test_every_referent_in_a_committed_run_survives_the_current_list(run: str) -
     assert all(referents.resolve(name) in referents.all for name in used)
 
 
+def test_the_committed_runs_carry_the_recorded_number_of_superseded_rows() -> None:
+    """The size of what the version scheme is protecting.
+
+    Recorded rather than merely asserted, because these three counts are the
+    whole argument for keeping retired rows in the file: without them, a rename
+    would silently drop this many rows from every figure `/usage` publishes. The
+    126 `hypothetical_future` rows are deliberately not in the total — that
+    identifier is retired without a successor and resolves to itself.
+    """
+    referents = referent_list()
+    counts: dict[str, int] = {}
+    for run in RUNS:
+        path = ROOT / "model_annotations" / "genocide" / "runs" / run / "annotations.jsonl"
+        with path.open(encoding="utf-8") as handle:
+            for line in handle:
+                name = str(json.loads(line)["referent"])
+                if referents.resolve(name) != name:
+                    counts[name] = counts.get(name, 0) + 1
+    assert counts == {"rwanda_1994": 3566, "drc_great_lakes": 199, "ukraine_2022": 169}
+    assert sum(counts.values()) == 3934
+
+
 def test_a_successor_must_be_a_referent_the_file_holds_and_a_retirement() -> None:
     path = ROOT / "annotations" / "lexicon" / "referents.csv"
     header = pd.read_csv(path, dtype="string", keep_default_na=False).columns.tolist()
