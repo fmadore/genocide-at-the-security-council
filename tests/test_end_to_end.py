@@ -73,7 +73,14 @@ def synthetic_corpus(seed: int = 20_260_902) -> pd.DataFrame:
                         "filename": f"UNSC_{year}_{symbol.replace('/', '')}_spch{i:04d}.txt",
                         "year": year,
                         "date": pd.Timestamp(f"{year}-{1 + meeting * 2:02d}-{1 + i:02d}"),
-                        "tokens": len(words) + 2,
+                        # `words` is the denominator 04 divides by, counted on
+                        # the body as 02 counts it; `tokens` is the codebook's
+                        # figure over the whole text, which is larger here for
+                        # the same reason it is larger in the corpus — the
+                        # form of address and the full stop are tokens and not
+                        # words.
+                        "words": len(words),
+                        "tokens": len(words) + 4,
                         "meeting_symbol": symbol,
                         "country_org": str(rng.choice(speakers)),
                         "iso3": None,
@@ -112,6 +119,10 @@ def analytical(series_dir: Path, kwic_dir: Path, frames_dir: Path) -> dict[str, 
     change = json.loads((series_dir / "change_points.json").read_text(encoding="utf-8"))
     monthly = json.loads((series_dir / "monthly.json").read_text(encoding="utf-8"))
     genocide = annual["terms"]["genocide"]
+    # The published headline since lexicon v4: the raw term minus its actor
+    # label. Held beside the raw one, because the whole point of the derived
+    # measure is that a reader can see both and subtract.
+    qualification = annual["terms"]["genocide_qualification"]
     index = json.loads((kwic_dir / "index.json").read_text(encoding="utf-8"))
     lines = json.loads((kwic_dir / "genocide.json").read_text(encoding="utf-8"))["lines"]
     node_frames = json.loads((frames_dir / "frames.json").read_text(encoding="utf-8"))
@@ -129,6 +140,9 @@ def analytical(series_dir: Path, kwic_dir: Path, frames_dir: Path) -> dict[str, 
                     "occurrences",
                     "token_rate",
                 )
+            },
+            "genocide_qualification": {
+                key: qualification[key] for key in ("speeches", "occurrences", "token_rate")
             },
             "legal_register_occurrences": annual["registers"]["legal"]["occurrences"],
             "atrocity_core_speeches": annual["sets"]["atrocity_core"]["speeches"],

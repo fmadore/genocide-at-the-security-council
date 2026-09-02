@@ -11,8 +11,13 @@ Three things this step reports rather than hides:
   headline count.
 - **The check against the documented figures.** `genocid*` is documented at
   3,273 speeches / 6,092 occurrences (docs/CORPUS.md §8). Counting on the body
-  instead of the raw text should not move that; a difference means the form of
-  address is eating real words.
+  instead of the raw text does not move that; a difference is either the form
+  of address eating real words or a deliberate change of pattern, and the note
+  says which. Since lexicon v4 three terms differ on purpose — `genocide`
+  leaves the actor label to `genocidaires`, `holocaust` drops *nuclear
+  holocaust*, and `ethnic_violence` is anchored to the sentence — and the sum
+  of `genocide` and `genocidaires` still reproduces the documented union
+  exactly.
 - **A precision sample.** Generated candidates and human annotations are kept
   separate, then joined by stable occurrence identity for review. A pipeline
   rerun never writes the versioned annotation file.
@@ -47,6 +52,13 @@ from lib.paths import (
 #: ad-hoc patterns. The formalised lexicon should reproduce these; where it does
 #: not, the difference is a change in what the pattern *means* and has to be
 #: stated rather than left for a reader to trip over. Speeches, occurrences.
+#:
+#: The figures are the reconnaissance baseline and are deliberately not moved
+#: when the lexicon is: they are what makes a version's effect legible. Since
+#: v4 the ones that differ are `genocide` (the actor label left to
+#: `genocidaires`), `holocaust` (*nuclear holocaust* dropped) and
+#: `ethnic_violence` — the term v3 called `ethnic_hatred`, listed here under
+#: its new name so the comparison survives the rename.
 DOCUMENTED: dict[str, tuple[int, int]] = {
     "impunity": (9_662, 13_616),
     "icc": (4_744, 6_590),
@@ -57,7 +69,7 @@ DOCUMENTED: dict[str, tuple[int, int]] = {
     "responsibility_to_protect": (1_353, 1_773),
     "ethnic_cleansing": (1_229, 1_705),
     "mass_atrocity": (532, 649),
-    "ethnic_hatred": (477, 523),
+    "ethnic_violence": (477, 523),
     "never_again": (305, 338),
     "extermination": (224, 281),
     "holocaust": (181, 242),
@@ -149,8 +161,8 @@ def audit_sample(
     for term in lex.active:
         holders = counts.index[counts[f"{lexicon.HAS}{term.name}"]]
         for index, body in bodies.loc[holders].items():
-            for match in term.regex.finditer(body):
-                append(term, index, body, match.start(), match.end())
+            for start, end in term.spans(body):
+                append(term, index, body, start, end)
     if not rows:
         return pd.DataFrame()
 
@@ -162,12 +174,11 @@ def audit_sample(
     for term in lex.disabled:
         peers = [peer for peer in lex.active if peer.tier == term.tier]
         for index, body in bodies.items():
-            matches = list(term.regex.finditer(body))
+            matches = term.spans(body)
             if not matches:
                 continue
-            peer_spans = [match.span() for peer in peers for match in peer.regex.finditer(body)]
-            for match in matches:
-                start, end = match.span()
+            peer_spans = [span for peer in peers for span in peer.spans(body)]
+            for start, end in matches:
                 overlaps = any(
                     start < peer_end and peer_start < end
                     for peer_start, peer_end in peer_spans
@@ -193,7 +204,8 @@ def build_note(
         n_speeches = int(counts[f"{lexicon.HAS}{term.name}"].sum())
         n_occurrences = int(counts[f"{lexicon.COUNT}{term.name}"].sum())
         rows.append(
-            f"| `{term.name}` | {term.tier} | {term.register} | {n_speeches:,} | "
+            f"| `{term.name}` | {term.tier} | {term.register} | "
+            f"{term.anchor or '—'} | {n_speeches:,} | "
             f"{n_speeches / total:.2%} | {n_occurrences:,} |"
         )
 
@@ -243,8 +255,12 @@ def build_note(
             "",
             "## Terms",
             "",
-            "| Term | Tier | Register | Speeches | % corpus | Occurrences |",
-            "|---|---|---|---:|---:|---:|",
+            "An anchored term is counted only where the sentence holding the match also",
+            "says `genocid*`. What that is for, and why each anchored term is anchored, is",
+            "in `config/lexicon.yml`; what it costs is in `docs/VALIDATION.md`.",
+            "",
+            "| Term | Tier | Register | Anchor | Speeches | % corpus | Occurrences |",
+            "|---|---|---|---|---:|---:|---:|",
             *rows,
             "",
             "## Registers",

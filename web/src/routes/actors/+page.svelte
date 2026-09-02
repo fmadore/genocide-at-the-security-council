@@ -32,7 +32,7 @@
 	let { data }: { data: PageData } = $props();
 	const artefact = $derived(data.countries);
 
-	let measure = $state('genocide');
+	let measure = $state('genocide_qualification');
 	let period = $state('all');
 	let order = $state<Ordering>('speech_rate');
 	let selected = $state<string | null>(null);
@@ -117,7 +117,7 @@
 					speaker?.iso3 ?? null,
 					speaker?.un_regional_group ?? null,
 					row.held,
-					row.tokens,
+					row.words,
 					row.speeches,
 					row.speech_rate,
 					row.speech_rate_low,
@@ -138,7 +138,7 @@
 				'iso3',
 				'un_regional_group',
 				'speeches_held',
-				'tokens',
+				'words',
 				'term_bearing_speeches',
 				'speech_rate',
 				'speech_rate_wilson95_low',

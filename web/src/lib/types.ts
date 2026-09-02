@@ -45,7 +45,7 @@ export interface AnnualSeries {
 	meta: LexiconMeta;
 	freq: 'year' | 'quarter';
 	periods: (number | string)[];
-	corpus: { speeches: number[]; tokens: number[]; meetings: number[] };
+	corpus: { speeches: number[]; words: number[]; meetings: number[] };
 	terms: Record<string, Measure>;
 	registers: Record<string, Measure>;
 	sets: Record<string, Measure>;
@@ -85,7 +85,7 @@ export interface AgendaItem {
 
 interface CalendarReading {
 	held: number[];
-	tokens: number[];
+	words: number[];
 	speeches: number[];
 	speech_rate: (number | null)[];
 	sufficient: boolean[];
@@ -128,7 +128,7 @@ export interface MonthlySeries {
 	freq: 'month';
 	/** `YYYY-MM`, the complete grid: `years.length * 12` of them, in order. */
 	periods: string[];
-	corpus: { speeches: number[]; tokens: number[]; meetings: number[] };
+	corpus: { speeches: number[]; words: number[]; meetings: number[] };
 	/** Per period, whether its denominator clears `minimum_speeches`. */
 	sufficient: boolean[];
 	terms: Record<string, MonthlyMeasure>;
@@ -410,7 +410,7 @@ export interface Speech {
 	group: string;
 	type: string;
 	language: string | null;
-	tokens: number;
+	words: number;
 	/** Where the speech proper begins, past its opening form of address. */
 	body_start: number;
 	text: string;
@@ -456,7 +456,7 @@ export interface CountryPeriod {
 	first_year: number;
 	last_year: number;
 	speeches: number;
-	tokens: number;
+	words: number;
 	speakers: number;
 	/** Speakers in this period that clear `minimum_speeches`. The rest are null. */
 	speakers_at_minimum: number;
@@ -490,7 +490,7 @@ export interface CountryMeasureRow {
 	period: string;
 	/** The speaker's own denominator: speeches it delivered in this period. */
 	held: number;
-	tokens: number;
+	words: number;
 	/** Speeches bearing the measure's terms. */
 	speeches: number;
 	/** Null whenever `sufficient` is false, so a withheld slice cannot be drawn. */

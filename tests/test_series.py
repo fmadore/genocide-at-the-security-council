@@ -28,7 +28,11 @@ def corpus():
                     "row_id": f"{year}-{i}",
                     "year": year,
                     "date": pd.Timestamp(f"{year}-0{1 + i}-15"),
-                    "tokens": 1_000,
+                    # The denominator, and the codebook figure it is not:
+                    # deliberately different, so a rate that divided by the
+                    # wrong one would be visible in the arithmetic below.
+                    "words": 1_000,
+                    "tokens": 1_200,
                     "meeting_symbol": f"S/PV.{year}{i // 2}",
                     "speaker_group": "P5" if i < 2 else "E10",
                     "has_genocide": i == 0,
@@ -99,7 +103,7 @@ class TestMonthGrid:
         assert len(totals) == 24
         assert int(totals.loc["2000-01", "speeches"]) == 1
         assert int(totals.loc["2000-07", "speeches"]) == 0
-        assert int(totals.loc["2000-07", "tokens"]) == 0
+        assert int(totals.loc["2000-07", "words"]) == 0
 
 
 class TestWithholding:
@@ -184,6 +188,26 @@ class TestColumns:
 
 
 class TestMeasure:
+    def test_the_token_rate_divides_by_words_and_not_by_codebook_tokens(self, corpus):
+        """§3.3 of the review of 1 September 2026. The codebook counts
+        punctuation and numbers as tokens, so dividing by them put every "per
+        100,000 words" figure below the label it carried. The fixture makes the
+        two denominators different on purpose: 4,000 words against 4,800
+        tokens, so 3 occurrences read 75 per 100,000 and never 62.5."""
+        periods = series.period(corpus, "year")
+        totals = series.denominators(corpus, periods)
+
+        assert totals["words"].tolist() == [4_000, 4_000]
+        assert totals["tokens"].tolist() == [4_800, 4_800]
+        out = series.measure(corpus, periods, totals, "has_genocide", "n_genocide")
+        assert out["token_rate"].tolist() == [75.0, 75.0]
+
+    def test_the_codebook_count_is_carried_beside_the_denominator(self, corpus):
+        """Kept rather than dropped: a reader comparing a rate here against the
+        dataset's own documentation is entitled to both numbers."""
+        totals = series.denominators(corpus, series.period(corpus, "year"))
+        assert {"speeches", "words", "tokens", "meetings"} <= set(totals.columns)
+
     def test_rates_use_the_corpus_denominator_not_the_term(self, corpus):
         periods = series.period(corpus, "year")
         totals = series.denominators(corpus, periods)
@@ -192,7 +216,7 @@ class TestMeasure:
         assert out["speeches"].tolist() == [1, 1]
         assert out["occurrences"].tolist() == [3, 3]
         assert out["speech_rate"].tolist() == [0.25, 0.25]
-        # 3 occurrences in 4,000 tokens = 75 per 100,000.
+        # 3 occurrences in 4,000 words = 75 per 100,000.
         assert out["token_rate"].tolist() == [75.0, 75.0]
 
     def test_a_set_reports_speeches_and_withholds_occurrences(self, corpus):
@@ -469,7 +493,7 @@ class TestMeetingBlocks:
 
     def test_token_exposure_sums_the_meeting(self, corpus):
         periods = series.period(corpus, "year")
-        blocks = series.meeting_blocks(corpus, periods, "n_genocide", "tokens")
+        blocks = series.meeting_blocks(corpus, periods, "n_genocide", "words")
         assert blocks["exposure"].tolist() == [2_000] * 4
         assert blocks["count"].tolist() == [3, 0, 3, 0]
 

@@ -75,7 +75,7 @@ DECADES: tuple[tuple[int, int], ...] = (
 WHOLE = "all"
 
 #: Columns a speech table must carry to be aggregated here.
-REQUIRED_COLUMNS = ("row_id", "year", "country_org", "tokens", "meeting_symbol")
+REQUIRED_COLUMNS = ("row_id", "year", "country_org", "words", "meeting_symbol")
 
 
 @dataclass(frozen=True)
@@ -141,7 +141,7 @@ def by_country(
 
     The arithmetic is `lib.series`'s, with the speaker standing where the period
     normally stands: :func:`lib.series.denominators` gives each speaker the
-    speeches and tokens it is divided by, and :func:`lib.series.measure` divides
+    speeches and words it is divided by, and :func:`lib.series.measure` divides
     by them. Reusing it is the whole point — a rate computed a second way here
     would eventually disagree with the one 04 publishes, and nothing in the
     output would say which was wrong.
@@ -438,7 +438,7 @@ def reconcile(
     """
     checks: list[tuple[str, int, int]] = [
         ("speeches held", int(frame["held"].sum()), len(speeches)),
-        ("tokens", int(frame["tokens"].sum()), int(speeches["tokens"].sum())),
+        ("words", int(frame["words"].sum()), int(speeches["words"].sum())),
         (
             "term-bearing speeches",
             int(frame["speeches"].sum()),
@@ -469,7 +469,7 @@ def reconcile_periods(
     whole = computed[WHOLE]
     parts = [computed[window.key] for window in slices if window.key != WHOLE]
     problems: list[str] = []
-    for column in ("held", "tokens", "speeches", "occurrences"):
+    for column in ("held", "words", "speeches", "occurrences"):
         if whole[column].isna().all():
             continue  # a set carries no occurrence count; see series.measure
         got = sum(int(part[column].sum()) for part in parts)
@@ -504,7 +504,7 @@ def as_rows(frame: pd.DataFrame, period_key: str) -> list[dict[str, object]]:
             "country_org": str(name),
             "period": period_key,
             "held": _count(row["held"]),
-            "tokens": _count(row["tokens"]),
+            "words": _count(row["words"]),
             "speeches": _count(row["speeches"]),
             "speech_rate": _rate(row["speech_rate"], 6),
             # The Wilson bounds `lib.series.measure` wrote beside the rate, so a

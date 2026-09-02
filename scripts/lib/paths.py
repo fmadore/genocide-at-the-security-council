@@ -112,9 +112,29 @@ DOI = "doi:10.7910/DVN/KGVSYH"
 DATAVERSE = "https://dataverse.harvard.edu"
 DATASET_VERSION = "6.1"
 
-# Ground truth from the codebook, asserted by the build.
+# Ground truth from the codebook, asserted by the build. `EXPECTED_TOKENS` is
+# quanteda's count over the full text of every speech, punctuation and numbers
+# included, and it is kept as provenance: reproducing it is what says the tar
+# and the TSV describe the same corpus. It is *not* the denominator of a rate —
+# see `EXPECTED_WORDS`.
 EXPECTED_SPEECHES = 106_302
 EXPECTED_TOKENS = 66_392_703
+
+# Words in the speech bodies, counted with `lib.lexical.TOKEN_RE` and asserted
+# by 02. This is the denominator every "per 100,000 words" figure divides by.
+#
+# Until 2 September 2026 those figures divided by `EXPECTED_TOKENS` instead
+# (review of 1 September 2026, §3.3). Two things were wrong with that. The
+# codebook's tokens include punctuation and numbers, so the denominator was
+# 12.7% larger than the number of words and every published rate was 11.3%
+# below what its own label claimed; and the label said "words", which was not
+# what had been counted. Of the two remedies the review named — count words
+# once, or relabel the unit "tokens (codebook)" — this is the first, because
+# the numerator is a count of words in speech bodies and the language page
+# already reports its universe in these same units. Relabelling would have left
+# a rate whose numerator and denominator came from different tokenisers and
+# different texts.
+EXPECTED_WORDS = 58_904_180
 
 
 def ensure_dirs() -> None:

@@ -19,9 +19,15 @@ through `15_usage.py` before `export_web.py` refused a hand-edited contract, cor
 PR #6; run 61, on the push that followed, published the result); the re-count, the
 re-calibration and the vocabulary
 counts below are read from that run's console output, and what a log cannot show is left
-open. Amended 2 September 2026, later still: the grammatical frames of the node registered
-below, read from a run of `17_frames.py` over the corpus, with the human reading of the
-codebook left open.
+open. Amended 2 September 2026, later still: lexicon v4 and the word denominator
+registered below. Their effect is measured on the corpus rather than owed — both were
+applied to `speeches_norm.parquet` read-only before the change was committed — and what
+remains owed is the pipeline run that puts those numbers into the artefacts. The headline
+figure is a derived measure, `genocide` minus `genocidaires`, rather than a narrowed
+pattern: `genocide` itself is untouched at v4, so the gold sample and the four committed
+model runs stay valid and 15 goes on aggregating them. Amended the same day: the
+grammatical frames of the node registered below, read from a run of `17_frames.py` over
+the corpus, with the human reading of the codebook left open.
 
 ## How to inspect an original record
 
@@ -391,6 +397,178 @@ the prefilter. The `has_` unions (atrocity core, active lexicon) move with `war_
 `mass_atrocity`, `responsibility_to_protect` and `icc`; 03 does not print them, and
 `docs/CORPUS.md` §8 marks the two it quotes as v2 readings until they are read from the
 artefact.
+
+### The denominator of a token rate is words, counted once
+
+Registered 2 September 2026 (review §3.3; item 9 of its prioritised plan). Every
+"per 100,000 words" figure divided a body-only regex count by the codebook's `tokens`
+column, which is quanteda's count over the *full* text with punctuation and numbers in
+it. Measured on `speeches_norm.parquet`: **66,392,703 codebook tokens against 58,904,180
+words**, the words counted with the `lib/lexical.py::TOKEN_RE` the keyness tables and the
+collocate windows already use. The word count is 88.72% of the token count, so every rate
+published before this date sat **11.28% below** the label it carried, and correcting it
+multiplies every token rate by **1.1271**.
+
+Of the two remedies the review named — count words once, or relabel the unit "tokens
+(codebook)" — this is the first. The numerator is a count of words in speech bodies and
+the language page already reports its own universe in these units; relabelling would have
+left a rate whose halves were counted by two rules over two texts. `02_normalise.py` now
+writes a `words` column and asserts its total against `lib/paths.py::EXPECTED_WORDS`, as
+01 asserts the codebook's token sum, and `lib/series.py::denominators` carries both
+columns while `measure` divides by `words`. The codebook figure is unchanged and
+unmoved: still asserted at 01 and 11, still stamped into every artefact's `meta`, now
+under the name `codebook_tokens`.
+
+The series key `token_rate` keeps its name — it is a published key, a shareable URL and a
+line of `tests/contract/payload.json`, and the axis label already says which unit it is
+in. What was renamed is the denominator itself: `corpus.words` in the series payloads,
+`words` on an actor row, a period row and a speech, and the `words` column of the monthly
+grid's CSV, whose header said `tokens` while the page called the number words.
+
+**No count moves and no speech rate moves.** `tests/golden/end_to_end_04_08.json` was
+regenerated and the diff is exactly this: every `token_rate` and the two segment means of
+the Poisson change-point test scale by the ratio of the denominators; no speech rate, no
+Wilson bound, no p-value, no break label and no concordance line changed.
+
+### Lexicon v4: the actor label, the sentence anchor, five terms and five repairs
+
+Lexicon v4 (2 September 2026) is item 9 of the review's plan and its §3.4. Unlike v3 it
+changes patterns, and it adds a second half to a term's matching rule: an **anchor**. A
+term declaring `anchor: sentence` is counted only where the sentence holding the match
+also matches `\bgenocid\w*`. The rule for choosing is in the header of
+`config/lexicon.yml`: anchor a form the Council uses right across its agenda, so that only
+its co-occurrence with the node word makes it about this study's object; leave unanchored
+a form already specific to atrocity talk.
+
+**Measured on the corpus, 2 September 2026.** These are not projections. The committed v4
+lexicon and a v3 rebuilt from the previous commit were both applied through
+`lib/lexicon.py::apply` to the 106,302 bodies of `speeches_norm.parquet`, read-only, in a
+scratch script; the figures are what `03_lexicon.py` will print. Speeches / occurrences:
+
+| Term | v3 | v4 | What changed |
+|---|---:|---:|---|
+| `genocide` | 3,273 / 6,092 | 3,273 / 6,092 | nothing; the pattern is deliberately untouched |
+| `genocidaires` | — | 21 / 31 | new, nested under `genocide` |
+| `genocide_qualification` (derived) | — | 3,268 / 6,061 | new; `genocide` minus `genocidaires` |
+| `commemoration` | 4,504 / 6,533 | 199 / 321 | anchored |
+| `survivors` | 1,922 / 4,013 | 73 / 106 | anchored |
+| `denial` | 1,431 / 1,653 | 186 / 269 | anchored, inflections added, `genocid` dropped |
+| `glorification` | 422 / 501 | 93 / 103 | anchored |
+| `ethnic_hatred` → `ethnic_violence` | 477 / 523 | 13 / 13 | renamed and anchored |
+| `holocaust` | 181 / 244 | 175 / 238 | *nuclear* and *atomic holocaust* excluded |
+| `tribunals` | 2,568 / 11,392 | 2,626 / 13,030 | Residual Mechanism in, Law of the Sea out |
+| `massacre` | — | 1,588 / 2,313 | new |
+| `mass_killing` | — | 149 / 158 | new |
+| `icj` | — | 1,447 / 2,399 | new |
+| `incitement` | — | 47 / 49 | new, anchored |
+| `intent_to_destroy` | — | 16 / 23 | new, anchored |
+
+Every other term is untouched and reads identically under both versions.
+
+**Both numbers are published, and neither has to be reconstructed.** `n_genocide` is the
+v3 column unchanged, 6,092 across 3,273 speeches; `n_genocidaires` is 31 across 21
+speeches; and `n_genocide_qualification` is the difference, 6,061 across 3,268 — five
+speeches drop out because the only `genocid*` word they hold is the actor label. The
+`core` register counts the raw term's spans once (`genocidaires` is nested under it, so
+`summable` drops the child) and is therefore 6,092, the union of the node word in all its
+forms; it is no longer a duplicate of `has_genocide` only in the sense that the register
+now has two members, and the *derived* measure is what the chronology and the actor table
+publish. The French spelling *génocidaires* occurs 8 further times and is deliberately
+left out of `genocidaires`: no earlier count held it, and absorbing it here would confound
+the split with a widening. It is recorded as a known limitation, alongside the one
+*International Commission of Jurists* that `\bICJ\b` will match.
+
+**Registers, and the effect of both changes at once.** The rate column combines the new
+denominator with the new counts, which is what the site will publish:
+
+| Register | v3 occurrences | v4 occurrences | v3 per 100k | v4 per 100k |
+|---|---:|---:|---:|---:|
+| accountability | 37,484 | 41,521 | 56.46 | 70.49 |
+| commemorative | 11,128 | 1,003 | 16.76 | 1.70 |
+| contentious | 2,716 | 424 | 4.09 | 0.72 |
+| core | 6,092 | 6,092 | 9.18 | 10.34 |
+| descriptive | — | 2,471 | — | 4.20 |
+| legal | 18,983 | 19,006 | 28.59 | 32.27 |
+| preventive | 3,992 | 4,041 | 6.01 | 6.86 |
+
+`n_lexicon_total` falls from 79,966 to 74,129 occurrences (125.85 per 100k under the new
+denominator, against 120.44 under the old). `core` is unmoved at 6,092 because
+`genocidaires` is nested under `genocide` and `summable` counts the parent's spans once;
+the derived `genocide_qualification` sits beside the register at 6,061 and enters no
+roll-up. The `atrocity_core`, `rome_triad` and `r2p_quartet` unions are unmoved for the
+same reason — 7,981, 7,155 and 7,700 speeches, exactly v3 — since the term they are built
+on did not change.
+
+**What the anchors cost, and what they bought.** The commemorative register as v3 built it
+was 91% not about genocide memory: the commonest completion of `anniversar\w+` is the
+anniversary of resolution 1325 and of the Charter, and the commonest words after
+`survivors` are *of sexual violence*, 478 times. `denial` was worse: *denial of
+humanitarian access* and *denial of access* account for 478 of its 1,636 bare-`denial`
+matches, and `deny\w*` had been missing *denies* and *denied* entirely. Two commemorative
+terms are deliberately **not** anchored, and the cost of anchoring them is recorded here so
+the decision can be argued with: `never_again` would fall from 338 occurrences to 30 and
+`holocaust` from 238 to 25. Both are formulae of atrocity memory in their own right; the
+Council does not use them for anything else, and Holocaust Remembrance Day is discussed on
+its own terms.
+
+**Two terms the review asked us to consider were measured and not added.** `crime of
+crimes` occurs **twice** in thirty-two years — both genuine, and far too few to carry a
+series or to clear any minimum on the site. `persecut\w*` occurs 1,006 times across 814
+speeches and is religious persecution, persecution of minorities and of journalists: a
+human-rights register rather than an atrocity-qualification one. Anchored it would be 19
+occurrences, which is `ethnic_violence`'s problem without `ethnic_violence`'s argument.
+
+**Known limitations, recorded rather than repaired.** `ethnic_violence` anchored is 13
+occurrences: it stops the contentious register being a measure of how often the Council
+says *ethnic conflict*, but it supports no series of its own and will be withheld under
+every minimum. `intent_to_destroy` anchored loses the Article II(c) quotations that do not
+repeat the word in the same sentence. `holocaust`'s exclusion of *nuclear holocaust* uses
+fixed-width lookbehinds, so the phrase broken across a double space would still count —
+the record's line breaks are single characters and are covered. And an anchored term
+co-occurs with `genocide` by construction, so `lib/lexical.py::definitional_pairs`
+suppresses those edges from the co-occurrence network and names the reason, as it already
+did for the `denial` pattern that used to carry `genocid` inside itself.
+
+**The split is published as a subtraction, and `genocide`'s pattern does not move.** The
+review asked for `genocidaires` as its own term so that `\bgenocid\w*` would stop folding
+an actor label into the count of the word as event qualification. There were two ways to
+do that and they cost very different things. Narrowing `genocide` to `\bgenocid(?!aire)\w*`
+would have changed the term's `pattern_since`, and `15_usage.py` refuses a run whose
+recorded `lexicon_version` predates the version its term's pattern last changed in: all
+four runs in `model_annotations/genocide/runs/` record version 2, so `/usage` would have
+gone dark and `make payload` would have stopped at 15 until a fresh run was paid for — to
+move a published figure by 31 occurrences in 6,092, half a per cent. v4 does the other
+thing. `genocide` keeps `\bgenocid\w*` and `pattern_since: 2`, so every occurrence
+identity in the corpus is the one the gold sample and the four runs were annotated under,
+the concordance keeps its 6,092 lines, and 15 keeps aggregating. `genocidaires` is a term
+of its own, declared `nested_under: genocide` so no roll-up counts its spans twice, and
+the published headline is the **derived measure** `genocide_qualification` =
+`n_genocide` − `n_genocidaires`, declared in the `derived` block of
+`config/lexicon.yml` and computed by `lib/lexicon.py::apply`.
+
+A derived measure has no pattern, enumerates no occurrence and appears in no concordance.
+That separation is the point: what a published *figure* should report and what an
+*occurrence* is are different questions, and the `pattern_since` gate exists to protect
+the second. The subtraction is exact because the two patterns partition the union —
+`genocidaires` matches only where `genocide` matches, once per span — which
+`tests/test_config.py` asserts on the forms the corpus holds rather than leaving in a
+comment, and which `apply` re-checks at runtime by refusing a negative difference. The
+consequence worth stating plainly is that the disjoint-pattern version is available for
+free the day a v4 model run exists: narrowing the pattern then is a two-line edit that
+reproduces exactly the numbers this derived measure already publishes.
+
+The evidence is not hidden by the choice. The raw `genocide` series is published beside
+the derived one in every artefact that carries either; the concordance enumerates the raw
+term, and the 31 actor-label lines read under `genocidaires`, which has its own
+concordance file. The chronology's evidence links point at the raw term on purpose, since
+those are the lines behind the rate.
+
+**What is owed.** The measurements above were taken by applying the committed lexicon to
+the committed corpus, so they are the run's numbers rather than an estimate of them. What
+has not happened is the run: `03` through `12` and `export_web.py` have not been
+re-executed, so `data/derived/` and the published site still carry v3 counts over the
+codebook denominator. Nothing else is owed by this change — no new human check, and no
+figure whose value could not be read off the corpus in advance.
 
 ### The rate tests under a meeting-block null
 

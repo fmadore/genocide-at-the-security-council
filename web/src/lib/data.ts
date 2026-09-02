@@ -102,7 +102,7 @@ function validateMeta(record: JsonRecord, path: string): void {
 const validateAnnual: Validator = (record, path) => {
 	const periods = arrayAt(record, 'periods');
 	const corpus = recordAt(record, 'corpus');
-	for (const field of ['speeches', 'tokens', 'meetings']) {
+	for (const field of ['speeches', 'words', 'meetings']) {
 		if (requireArray(corpus, field, `${path}.corpus`).length !== periods.length) {
 			throw new Error(`${path}.corpus.${field} must align with periods.`);
 		}

@@ -52,9 +52,16 @@ from lib.paths import (
 )
 
 #: Measures the change-point pass and the breakdowns run on, as (kind, name).
-#: `genocide` is the object of study; `atrocity_core` is the set that may be the
-#: real one, so both are dated rather than one being assumed.
-TRACKED = [("terms", "genocide"), ("sets", "atrocity_core")]
+#: `genocide_qualification` is the object of study; `atrocity_core` is the set
+#: that may be the real one, so both are dated rather than one being assumed.
+#:
+#: The headline is the *derived* measure, `genocide` minus `genocidaires`,
+#: since lexicon v4: a delegation calling the ex-FAR génocidaires is naming who
+#: did it, not qualifying the event, and 31 occurrences of the raw term are
+#: that. The raw term keeps its own series in the artefact beside this one, and
+#: the concordance enumerates it, so nothing is hidden by the choice — see
+#: `config/lexicon.yml`'s `derived` block.
+TRACKED = [("terms", "genocide_qualification"), ("sets", "atrocity_core")]
 
 #: Speeches a month must hold before its rates are published.
 #:
@@ -115,7 +122,23 @@ def measures(lex: lexicon.Lexicon) -> dict[str, dict[str, dict]]:
     by_register = lex.by_register()
     return {
         "terms": {
-            term.name: {"tier": term.tier, "register": term.register} for term in lex.active
+            **{
+                term.name: {"tier": term.tier, "register": term.register}
+                for term in lex.active
+            },
+            # A derived measure travels with the terms because it is a term's
+            # series minus another's and a reader picks it from the same list.
+            # It carries `derived_from` so that list can say so, and it is not a
+            # member of its register's roll-up — see `lexicon.apply`.
+            **{
+                measure.name: {
+                    "tier": measure.tier,
+                    "register": measure.register,
+                    "derived_from": measure.minuend,
+                    "derived_minus": list(measure.subtrahends),
+                }
+                for measure in lex.derived.values()
+            },
         },
         "registers": {
             register: {
@@ -168,7 +191,7 @@ def build_series(
         ],
         "corpus": {
             "speeches": totals["speeches"].tolist(),
-            "tokens": totals["tokens"].tolist(),
+            "words": totals["words"].tolist(),
             "meetings": totals["meetings"].tolist(),
         },
     }
@@ -331,7 +354,7 @@ def build_month_of_year(
         )
         block = {
             "held": totals["speeches"].tolist(),
-            "tokens": totals["tokens"].tolist(),
+            "words": totals["words"].tolist(),
             "speeches": measured["speeches"].tolist(),
             "speech_rate": rates(measured["speech_rate"], 6),
             "speech_rate_low": rates(measured["speech_rate_low"], 6),
@@ -547,7 +570,7 @@ def build_change_points(
         for kind, name in TRACKED
     ]
     model_specs.append(
-        ("terms", "genocide", "token_rate", "occurrences", "tokens", "poisson")
+        ("terms", "genocide", "token_rate", "occurrences", "words", "poisson")
     )
     adjusted_alpha = alpha / len(model_specs)
     position = {label: index for index, label in enumerate(periods)}
@@ -564,7 +587,7 @@ def build_change_points(
                 speeches,
                 year_of,
                 has_column if family == "binomial" else raw_count_column,
-                None if family == "binomial" else "tokens",
+                None if family == "binomial" else "words",
             )
             blocks["period"] = blocks["period"].map(position)
         result = series.rate_change_point(
@@ -740,7 +763,7 @@ def calendar_lines(monthly: dict) -> list[str]:
     ]
 
 
-UNIT_NAMES = {"speech_rate": "share of speeches", "token_rate": "rate per 100k tokens"}
+UNIT_NAMES = {"speech_rate": "share of speeches", "token_rate": "rate per 100k words"}
 
 
 def inference_lines(inference: dict) -> list[str]:
@@ -886,7 +909,7 @@ def build_note(
             "",
             "## `genocide`, per year",
             "",
-            "| Year | Speeches held | With `genocid*` | Occurrences | Rate | Per 100k tokens |",
+            "| Year | Speeches held | With `genocid*` | Occurrences | Rate | Per 100k words |",
             "|---|---:|---:|---:|---:|---:|",
             *rows,
             "",
@@ -1039,7 +1062,8 @@ def run(
             "lexicon_version": lex.version,
             "speeches": len(speeches),
             "meetings": int(speeches["meeting_symbol"].nunique()),
-            "tokens": int(speeches["tokens"].sum()),
+            "words": int(speeches["words"].sum()),
+            "codebook_tokens": int(speeches["tokens"].sum()),
             "speakers": int(speeches["country_org"].nunique()),
             "rate_per_tokens": series.RATE_PER,
         },

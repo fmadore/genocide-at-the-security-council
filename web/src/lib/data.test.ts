@@ -45,7 +45,7 @@ const meta = { script: '04_series.py', generated: '2026-08-09T08:54:11Z' };
 const annualPayload = (overrides: Record<string, unknown> = {}) => ({
 	meta,
 	periods: [1992, 1993],
-	corpus: { speeches: [12, 14], tokens: [900, 1100], meetings: [3, 4] },
+	corpus: { speeches: [12, 14], words: [900, 1100], meetings: [3, 4] },
 	terms: {},
 	...overrides
 });
@@ -179,12 +179,12 @@ describe('the validators that are about the research rather than the types', () 
 	it('refuses a corpus series that does not line up with its own periods', async () => {
 		const { annual } = await fresh();
 		const { fetcher } = responder(
-			annualPayload({ corpus: { speeches: [12, 14], tokens: [900], meetings: [3, 4] } })
+			annualPayload({ corpus: { speeches: [12, 14], words: [900], meetings: [3, 4] } })
 		);
 		// Silently, a short array plots as a truncated line rather than an error,
 		// so the misalignment has to be refused here and it has to say which
 		// field is short.
-		await expect(annual(fetcher)).rejects.toThrow(/corpus\.tokens must align with periods/);
+		await expect(annual(fetcher)).rejects.toThrow(/corpus\.words must align with periods/);
 	});
 
 	it.each([
