@@ -16,13 +16,14 @@ against rows written by hand. Two kinds of assertion:
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import sys
 from pathlib import Path
 
 import pandas as pd
 import pytest
-from lib import audit, lexicon, usage
+from lib import audit, lexicon, llm, usage
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -1382,6 +1383,103 @@ def test_the_gold_block_carries_the_frames_and_the_function_agreement() -> None:
     assert usage.gold_block(
         annotations(), rows(), sample_size=1, unique_occurrences=1
     )["frames"] == []
+
+
+# --- The prompt is versioned the same way ------------------------------------
+
+RUNS = ROOT / "model_annotations" / "genocide" / "runs"
+
+
+def prompt_library_at(tmp_path: Path, monkeypatch) -> Path:
+    """This repository's real v1 prompt, archived under a synthetic v2.
+
+    The v1 bytes are the committed file's own, copied rather than invented,
+    because what is being asserted is that the four *paid* runs resolve — and a
+    fixture prompt would assert nothing about them. The v2 file is synthetic
+    for the opposite reason: no v2 run has been bought, and inventing its
+    numbers is what this whole layer refuses to do. Its wording is irrelevant;
+    only its digest is under test.
+    """
+    directory = tmp_path / "genocide"
+    (directory / llm.ARCHIVE).mkdir(parents=True)
+    real = llm.load_prompt_library(ROOT / "model_annotations" / "genocide" / "PROMPT.md")
+    v1 = next(pack for pack in real.packs if pack.version == 1)
+    later = max(pack.version for pack in real.packs) + 1
+    (directory / llm.ARCHIVE / "v1.md").write_text(v1.text, encoding="utf-8", newline="")
+    (directory / "PROMPT.md").write_text(
+        v1.text.replace("version: 1", f"version: {later}", 1),
+        encoding="utf-8",
+        newline="",
+    )
+    monkeypatch.setattr(step, "PROMPT", directory / "PROMPT.md")
+    return directory / "PROMPT.md"
+
+
+def test_the_paid_runs_and_a_v2_run_are_read_through_one_library(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The constraint the archive exists for, stated as an assertion.
+
+    Every committed run records the same prompt digest and `prompt_version: 1`.
+    Before the archive, editing `PROMPT.md` made all four un-aggregatable at
+    once and took `/usage` down with them. Here the file has been edited — it
+    is v2 — and the four still resolve, to the v1 text they were made with,
+    while a run made with the new bytes resolves to the new text. Both readings
+    come out of one library in one process, which is what "side by side" means:
+    not that two prompts may be compared, which `refuse_other_prompt` still
+    forbids, but that revising the instrument no longer orphans what was bought
+    under the old one.
+    """
+    current = prompt_library_at(tmp_path, monkeypatch)
+    library = llm.load_prompt_library(current)
+    v1_text = next(pack for pack in library.packs if pack.version == 1).text
+    later_text = library.current.text
+    assert v1_text != later_text
+
+    manifests = [
+        json.loads(path.read_text(encoding="utf-8"))
+        for path in sorted(RUNS.glob("*/manifest.json"))
+    ]
+    assert len(manifests) == 4, "the four committed runs of 30 and 31 August 2026"
+    for manifest in manifests:
+        resolved = step.resolve_prompt(manifest)
+        assert resolved.version == 1
+        assert resolved.text == v1_text
+        assert resolved.name == "prompts/v1.md"
+
+    synthetic = {
+        "prompt_version": library.current.version,
+        "prompt_sha256": library.current.sha256,
+    }
+    resolved = step.resolve_prompt(synthetic)
+    assert resolved.version == library.current.version >= 2
+    assert resolved.text == later_text
+    assert resolved.name == "PROMPT.md"
+
+
+def test_a_prompt_this_checkout_does_not_hold_is_refused_loudly(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """The one failure left. It has to name every digest the checkout does hold,
+    because the reader's next move is to find the file that is missing."""
+    prompt_library_at(tmp_path, monkeypatch)
+    with pytest.raises(SystemExit):
+        step.resolve_prompt({"prompt_version": 3, "prompt_sha256": "b" * 64})
+    printed = capsys.readouterr()
+    message = printed.out + printed.err
+    assert "does not hold" in message
+    assert "prompts/v1.md" in message
+
+
+def test_a_version_line_the_bytes_contradict_is_a_provenance_failure(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The digest is what was measured; the version line is a claim about it."""
+    current = prompt_library_at(tmp_path, monkeypatch)
+    with pytest.raises(SystemExit):
+        step.resolve_prompt(
+            {"prompt_version": 1, "prompt_sha256": llm.prompt_sha256(current)}
+        )
 
 
 # --- The referent list is versioned the same way -----------------------------

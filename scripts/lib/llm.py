@@ -14,7 +14,10 @@ Four things this module is responsible for:
   PROMPT.md` holds the system message and the per-speech user template as fenced
   blocks. Its raw bytes are hashed into every manifest and every row, so a label
   can always be traced to the exact wording that produced it, and editing the
-  file is a visible version change rather than a silent drift.
+  file is a visible version change rather than a silent drift. The superseded
+  wordings are kept beside it under `prompts/`, and a run is resolved against
+  the one whose bytes it recorded — so revising the prompt costs a new run id
+  and not the runs already paid for.
 - **The model's labels are checked against the human codebook's own vocabulary.**
   The enums come from :mod:`lib.audit` — the frozensets the human annotation file
   is validated against — so the model cannot invent a category the codebook does
@@ -170,14 +173,77 @@ _WHITESPACE_RE = re.compile(r"\s+")
 # --- The prompt ------------------------------------------------------------
 
 
+#: The directory beside `PROMPT.md` that keeps the *superseded* prompt texts,
+#: one file per version, named `v<n>.md`.
+#:
+#: Every run records the SHA-256 of the prompt file's raw bytes, on the manifest
+#: and on all 6,092 of its rows, and 15 publishes that prompt verbatim beside
+#: the labels it produced. So the digest is the run's only handle on the wording
+#: it was made with, and until this directory existed there was exactly one file
+#: that digest could be compared against: editing `PROMPT.md` made both
+#: committed runs unpublishable, and `/usage` went dark. That is not a
+#: hypothetical — it is the reason two changes were declined in one afternoon,
+#: `genocidaires` and the referent identifiers, each of which would have been a
+#: better instrument bought at the price of the two runs already paid for.
+#:
+#: The escape is the one `referents.csv` takes for its own list: keep every past
+#: state, and resolve a run against the state it names rather than against
+#: today's. A run resolves *by digest*, not by the `prompt_version` number,
+#: because the digest is what was actually recorded and a version line is a
+#: human's claim about it — the number is checked against the resolved file and
+#: a disagreement is a provenance failure, which is the only thing it is good
+#: for.
+#:
+#: The archive holds superseded versions **only**, and `PROMPT.md` alone holds
+#: the current one. The rejected alternative was an archive holding every
+#: version, `prompts/v2.md` being a byte-for-byte copy of `PROMPT.md`: it reads
+#: more evenly, and it costs a state in which the two copies differ, which is
+#: the one failure a digest cannot repair and would have to refuse. One writable
+#: prompt and an append-only history behind it cannot reach that state at all.
+ARCHIVE: Final = "prompts"
+
+_ARCHIVE_NAME_RE = re.compile(r"^v(?P<version>[1-9]\d*)\.md$")
+
+
 @dataclass(frozen=True)
 class PromptPack:
     """One version of the prompt, with the digest that identifies it."""
 
     version: int
     sha256: str
+    #: The file's raw text, as read. Carried rather than re-read from disk
+    #: because a superseded version is published from the archive while
+    #: `PROMPT.md` holds something else, and a caller that went back to a path
+    #: would have to know which of the two it was holding.
+    text: str
     system_template: str
     user_template: str
+    #: What to call this file when a message has to name it.
+    name: str = "PROMPT.md"
+
+
+@dataclass(frozen=True)
+class PromptLibrary:
+    """The current prompt and every superseded one, keyed by digest."""
+
+    current: PromptPack
+    superseded: tuple[PromptPack, ...]
+
+    @property
+    def packs(self) -> tuple[PromptPack, ...]:
+        """Newest first, which is the order a failure message lists them in."""
+        return (self.current, *sorted(self.superseded, key=lambda p: -p.version))
+
+    def by_digest(self, digest: str) -> PromptPack | None:
+        """The prompt whose bytes hash to `digest`, or nothing if none does."""
+        for pack in self.packs:
+            if pack.sha256 == digest:
+                return pack
+        return None
+
+    def describe(self) -> list[str]:
+        """One line per known prompt, for the message that refuses an unknown."""
+        return [f"v{pack.version} {pack.sha256[:12]}... in {pack.name}" for pack in self.packs]
 
 
 def prompt_sha256(path: Path) -> str:
@@ -216,8 +282,10 @@ def load_prompt(path: Path) -> PromptPack:
     pack = PromptPack(
         version=int(version.group("version")),
         sha256=prompt_sha256(path),
+        text=source,
         system_template=_section(source, "System", path),
         user_template=_section(source, "User template", path),
+        name=path.name,
     )
     for template, declared, name in (
         (pack.system_template, SYSTEM_PLACEHOLDERS, "System"),
@@ -229,6 +297,80 @@ def load_prompt(path: Path) -> PromptPack:
                 f"{path.name}: '## {name}' is missing placeholders: {', '.join(missing)}"
             )
     return pack
+
+
+def load_prompt_library(path: Path) -> PromptLibrary:
+    """`PROMPT.md` and every superseded version beside it, checked as one set.
+
+    The current file is the one 14 and 16 render; the files under
+    :data:`ARCHIVE` are the ones earlier runs were made with, and each is loaded
+    through :func:`load_prompt` rather than merely hashed, so a text that no
+    longer parses into two templates is found here and not on the day someone
+    tries to reproduce a run from it.
+
+    Four rules, each of which exists because breaking it would make a run's
+    digest ambiguous or its version a lie:
+
+    - an archived file is named for the version it declares, `v<n>.md`, so the
+      directory can be read without opening anything;
+    - no two prompts in the library share a version number;
+    - every archived version is below the current one. The archive is history,
+      and a version above `PROMPT.md`'s means an edit went backwards. This is
+      also what forbids parking a copy of the current text in the archive, which
+      is the layout rejected above;
+    - no two share a digest. The three rules above already make that
+      unreachable — two files with different `version:` lines cannot have the
+      same bytes — so this one is held for the invariant rather than for a case
+      anyone has produced: :meth:`PromptLibrary.by_digest` returns one pack, and
+      a library that could answer with two would make it a coin toss.
+
+    An empty or absent archive is the ordinary state of a repository whose
+    prompt has never been revised, and is not an error.
+    """
+    current = load_prompt(path)
+    directory = path.parent / ARCHIVE
+    superseded: list[PromptPack] = []
+    for file in sorted(directory.glob("*.md")) if directory.is_dir() else []:
+        name = _ARCHIVE_NAME_RE.match(file.name)
+        if not name:
+            raise ValueError(
+                f"{ARCHIVE}/{file.name}: an archived prompt is named for its version, "
+                "as v<n>.md."
+            )
+        pack = load_prompt(file)
+        if pack.version != int(name.group("version")):
+            raise ValueError(
+                f"{ARCHIVE}/{file.name} declares version {pack.version}; "
+                "the file name and the header have to agree."
+            )
+        if pack.version >= current.version:
+            raise ValueError(
+                f"{ARCHIVE}/{file.name} is version {pack.version} and {path.name} is "
+                f"version {current.version}; the archive holds superseded versions only."
+            )
+        superseded.append(
+            PromptPack(
+                version=pack.version,
+                sha256=pack.sha256,
+                text=pack.text,
+                system_template=pack.system_template,
+                user_template=pack.user_template,
+                name=f"{ARCHIVE}/{file.name}",
+            )
+        )
+
+    packs = [current, *superseded]
+    for field, label in (("version", "version"), ("sha256", "digest")):
+        seen: dict[object, str] = {}
+        for pack in packs:
+            value = getattr(pack, field)
+            if value in seen:
+                raise ValueError(
+                    f"{pack.name} and {seen[value]} have the same prompt {label} "
+                    f"({str(value)[:12]}); a prompt version is one file and one digest."
+                )
+            seen[value] = pack.name
+    return PromptLibrary(current=current, superseded=tuple(superseded))
 
 
 def _fill(template: str, values: Mapping[str, object]) -> str:

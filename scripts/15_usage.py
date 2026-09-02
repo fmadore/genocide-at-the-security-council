@@ -32,9 +32,12 @@ and the comparison block is written in its empty state when nothing is.
 that enumerated the term differently, a row naming an occurrence this corpus
 does not have, a row whose `source_sha256` says the speech has changed
 underneath it, a label the current referent list no longer holds, an occurrence
-annotated twice — each stops the run. So does a prompt file whose bytes no
-longer hash to what the run recorded, because `usage.json` publishes that prompt
-verbatim and a reader is entitled to believe it is the one the model was given.
+annotated twice — each stops the run. So does a run whose recorded prompt digest
+matches neither `PROMPT.md` nor any superseded wording under `prompts/`, because
+`usage.json` publishes that prompt verbatim and a reader is entitled to believe
+it is the one the model was given. Revising the prompt is therefore not a
+break: the old text moves into `prompts/v<n>.md`, the runs made with it go on
+resolving to it, and only a wording this repository no longer holds is refused.
 The single tolerated gap is coverage: a run that did not reach every occurrence
 is aggregated under `--allow-partial` and reports honestly how much of the
 corpus it covers. A comparison run has no such gate — it is read over the
@@ -482,40 +485,84 @@ def resolve_referents(
     return [{**row, "referent": referents.resolve(str(row.get("referent", "")))} for row in rows]
 
 
-def refuse_stale_prompt(manifest: dict[str, object]) -> str:
-    """`usage.json` publishes the prompt verbatim, so it must be the run's own.
+def resolve_prompt(
+    manifest: dict[str, object], *, what: str = "the run"
+) -> llm.PromptPack:
+    """The prompt this run was actually made with, found by its digest.
 
-    The digest is over the file's raw bytes, as `lib.llm.prompt_sha256` computes
-    it, and the prompt's own header says an edit is a new version and a new run
-    id. Publishing today's file beside yesterday's labels would misattribute
-    every one of them.
+    `usage.json` publishes the prompt verbatim beside the labels it produced, so
+    it has to be the run's own; the digest recorded on the manifest and on every
+    row is the only handle the run has on it. Until the archive existed there
+    was one file that digest could be compared against, and the comparison was
+    an equality: any edit to `PROMPT.md` made both committed runs
+    un-aggregatable and took `/usage` down with them. That price was refused
+    twice in one afternoon, for `genocidaires` and for the referent identifiers,
+    and refusing it a third time would have meant never improving the
+    instrument.
+
+    So the question changes from "is this today's prompt?" to "is this a prompt
+    this repository still holds?" — the same move `referents.csv` makes for its
+    own list, and for the same reason. :func:`lib.llm.load_prompt_library` reads
+    `PROMPT.md` and every superseded version under `prompts/`, and a run
+    resolves to whichever of them its bytes hash to. Only a digest that appears
+    nowhere is refused, and then loudly: a run whose wording this checkout does
+    not hold cannot be published, because the alternative is publishing some
+    other wording under its labels.
+
+    The recorded `prompt_version` is checked against the resolved file's own
+    header rather than used to find it. The digest is what was measured; the
+    version line is a human's claim about it, and the only useful thing to do
+    with a claim is to test it.
     """
     if not PROMPT.is_file():
         console.fail(f"{rel(PROMPT)} is missing — the run's prompt cannot be published")
-    digest = llm.prompt_sha256(PROMPT)
+    try:
+        library = llm.load_prompt_library(PROMPT)
+    except (ValueError, FileNotFoundError) as exc:
+        console.fail(f"the prompt archive beside {rel(PROMPT)} cannot be read", [str(exc)])
     recorded = str(manifest.get("prompt_sha256", ""))
-    if digest != recorded:
+    pack = library.by_digest(recorded)
+    if pack is None:
         console.fail(
-            f"{rel(PROMPT)} is not the prompt this run was made with",
+            f"{what} was made with a prompt this checkout does not hold",
             [
-                f"the run records {recorded[:12] or '(none)'}..., "
-                f"the file now hashes to {digest[:12]}...",
-                "an edited prompt is a new prompt version and a new run id; restore the "
-                "file or aggregate the run that matches it",
+                f"it records {recorded[:12] or '(none)'}...",
+                *(f"this checkout holds {line}" for line in library.describe()),
+                f"a revised prompt keeps its old text as {llm.ARCHIVE}/v<n>.md, so an "
+                "earlier run stays readable; restore that file, or aggregate a run whose "
+                "prompt is here",
             ],
         )
-    return PROMPT.read_text(encoding="utf-8")
+    declared = str(manifest.get("prompt_version", "")).strip()
+    if declared and declared != str(pack.version):
+        console.fail(
+            f"{what} records a prompt version its own bytes contradict",
+            [
+                f"the manifest says v{declared}; {pack.name} hashes to "
+                f"{pack.sha256[:12]}... and declares v{pack.version}",
+                "the digest is what was measured and the version line is a claim about "
+                "it; one of the two was edited after the run",
+            ],
+        )
+    return pack
 
 
 def refuse_other_prompt(manifest: dict[str, object], digest: str) -> None:
     """A second opinion is a second model, not a second questionnaire.
 
-    The comparison run must have been made from the same PROMPT.md bytes as the
+    The comparison run must have been made from the same prompt bytes as the
     published one. If it was not, every disagreement between the two confounds
     the instrument with the questionnaire — the models were asked different
     questions — and no arithmetic downstream can say which difference produced
     which disagreement. There is nothing to repair here: the comparison is either
     of the same question or it is not a comparison.
+
+    The archive does not loosen this. It lets a v1 run and a v2 run each be
+    published, one aggregation at a time, under the wording each was made with;
+    it does not let one be laid over the other and the difference called an
+    instrument effect. So this compares against the digest
+    :func:`resolve_prompt` returned for the published run, which is that run's
+    own and not the file's.
     """
     recorded = str(manifest.get("prompt_sha256", ""))
     if recorded != digest:
@@ -1267,7 +1314,11 @@ def run(args: argparse.Namespace) -> None:
 
     console.step("Checking the run against this corpus")
     refuse_stale_lexicon(manifest, raw_rows, lex)
-    prompt_text = refuse_stale_prompt(manifest)
+    prompt = resolve_prompt(manifest)
+    console.info(
+        f"prompt v{prompt.version}, sha256 {prompt.sha256[:12]}, published from "
+        f"{prompt.name}"
+    )
     referent_list = audit.read_referent_list(REFERENTS)
     # Existence is checked against every identifier the file holds, including the
     # retired ones: a run that used a referent this list has since withdrawn is
@@ -1292,7 +1343,7 @@ def run(args: argparse.Namespace) -> None:
         # comparison can fail. Coverage is the one thing not checked: a
         # comparison run is read over the occurrences both runs reached, so a
         # short one narrows the comparison rather than invalidating the counts.
-        refuse_other_prompt(comparison_manifest, str(manifest.get("prompt_sha256", "")))
+        refuse_other_prompt(comparison_manifest, prompt.sha256)
         refuse_stale_lexicon(
             comparison_manifest, comparison_raw, lex, what="the comparison run"
         )
@@ -1470,6 +1521,11 @@ def run(args: argparse.Namespace) -> None:
             # resolved is reported under names its own prompt never showed it.
             "referents_version": referent_list.version,
             "run_referents_version": int(str(manifest.get("referents_version", "") or 1)),
+            # The prompt has no such pair: nothing is resolved onto a later
+            # wording, so what is published is the run's own version and the
+            # file it was found in.
+            "prompt_version": prompt.version,
+            "prompt_file": prompt.name,
             "term": TERM,
             "run_id": run_id,
             "run_dir": rel(directory),
@@ -1487,8 +1543,11 @@ def run(args: argparse.Namespace) -> None:
     # for whoever opens the file.
     payload = {
         "meta": meta,
-        "model": model_block(manifest, run_id, llm.prompt_sha256(PROMPT), rows, len(found)),
-        "prompt": prompt_text,
+        # The run's own digest and the run's own text, from wherever the
+        # library resolved them, so a v1 run keeps saying v1 after the file
+        # beside it has become v2.
+        "model": model_block(manifest, run_id, prompt.sha256, rows, len(found)),
+        "prompt": prompt.text,
         "referents": blocks["referents"],
         "actors": blocks["actors"],
         "minimum_occurrences": args.minimum,

@@ -24,7 +24,8 @@ this directory at all, so no published lexicon count depends on a model having b
 
 ```
 genocide/
-  PROMPT.md                    the versioned prompt; its raw bytes are hashed into every run
+  PROMPT.md                    the current prompt; its raw bytes are hashed into every run
+  prompts/v<n>.md              the superseded prompts, kept so their runs stay readable
   current_run.txt              the run id the dashboard shows, or empty for none
   comparison_run.txt           the run id read against it as a second opinion, or empty
   runs/<run_id>/
@@ -39,6 +40,30 @@ tell two runs apart. Runs are append-only and are never edited in place: `annota
 grows as batches return, and a rerun with a changed prompt is a new run id, never a rewrite of
 an old one. The prompt hash is recorded in the manifest *and* in every row, so a row can be
 matched to the exact prompt text that produced it without trusting the directory name.
+
+## `prompts/`
+
+The superseded prompt texts, one file per version, named `v<n>.md`. `PROMPT.md` holds the
+current one and is the only file 14 and 16 render; when it is revised, its old text moves
+here unchanged and `PROMPT.md` gets a higher `version:` line.
+
+This directory exists because the digest is the whole provenance. Every run records the
+SHA-256 of the prompt file's raw bytes on its manifest and on each of its rows, and 15
+publishes that prompt verbatim beside the labels it produced — so before this directory
+existed there was exactly one file the digest could be compared against, and editing
+`PROMPT.md` made every committed run un-aggregatable at once. Two improvements were declined
+on 2 September 2026 for that price alone. Now a run resolves *by digest* against `PROMPT.md`
+and every file here, and only a wording this repository no longer holds is refused.
+
+Two rules keep the resolution unambiguous, and `lib.llm.load_prompt_library` enforces both:
+a file here is named for the version it declares, and every version here is *below*
+`PROMPT.md`'s. So the current text is never duplicated into this directory — the rejected
+alternative, an archive holding every version including the current one, reads more evenly
+and costs a state in which two copies of one version differ, which is the single failure a
+digest cannot arbitrate.
+
+A run's `prompt_version` is checked against the resolved file's own header rather than used
+to find it: the digest is what was measured, and the version line is a claim about it.
 
 `failures.jsonl` is committed alongside the annotations. A speech whose response fails
 validation contributes no rows, which leaves a coverage gap; 15 reports that gap rather than
@@ -64,7 +89,9 @@ the agreement between the two — per field, and per occurrence — and writes i
 `usage.json` and `occurrences.json`. It never merges them: no label from the comparison run
 enters a count, replaces a published label, or breaks a tie. A comparison run made against a
 different prompt is refused outright, because a disagreement between two models asked two
-questions cannot be told apart from a disagreement about one.
+questions cannot be told apart from a disagreement about one. The prompt archive does not
+loosen this: it lets a v1 run and a v2 run each be published, one aggregation at a time,
+under the wording each was made with, and never lets one be laid over the other.
 
 What agreement here means is narrow, and it is the reason the file is empty by default.
 Two models agreeing shows that a label is **stable across instruments** — the same
