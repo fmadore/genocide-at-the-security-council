@@ -4,20 +4,22 @@
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
+	import Contents from '$lib/Contents.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import PageMeta from '$lib/PageMeta.svelte';
-	import WordCloud from '$lib/WordCloud.svelte';
+	import DotPlot from '$lib/DotPlot.svelte';
+	import TermMatrix from '$lib/TermMatrix.svelte';
 	import {
 		languageParams,
+		profilePlan,
 		readLanguageState,
 		type Alignment,
-		type CloudFacet,
 		type KeynessView,
 		type LanguageChoices,
+		type ProfileFacet,
 		type SliceKind
 	} from '$lib/language';
-	import { plan } from '$lib/wordcloud';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import {
@@ -30,7 +32,7 @@
 		signed,
 		termLabel
 	} from '$lib/format';
-	import { axisX, axisY, colours, grid, registerColour, textStyle, tooltip } from '$lib/theme';
+	import { axisX, axisY, colours, grid, textStyle, tooltip } from '$lib/theme';
 	import { PAGE_METADATA } from '$lib/seo';
 	import type { CollocateBlock, Word } from '$lib/types';
 	import type { EChartsOption } from 'echarts';
@@ -42,7 +44,8 @@
 
 	/* Live chart handles, for the image half of the export. */
 	let scatterFigure = $state<Chart | null>(null);
-	let graphFigure = $state<Chart | null>(null);
+	let dotFigure = $state<DotPlot | null>(null);
+	let matrixFigure = $state<TermMatrix | null>(null);
 
 	/** Every node at every window, not the one pair on screen. */
 	function collocateTable(): ExportRequest {
@@ -58,6 +61,10 @@
 						word.reference,
 						word.g2,
 						word.log_ratio,
+						word.log_dice ?? null,
+						word.documents,
+						word.meetings,
+						word.dp,
 						block.occurrences,
 						block.window_tokens
 					]);
@@ -74,6 +81,10 @@
 				'reference',
 				'g2',
 				'log_ratio',
+				'log_dice',
+				'documents',
+				'meetings',
+				'dp',
 				'node_occurrences',
 				'window_tokens'
 			],
@@ -100,6 +111,10 @@
 						word.reference,
 						word.g2,
 						word.log_ratio,
+						word.log_dice ?? null,
+						word.documents,
+						word.meetings,
+						word.dp,
 						block.occurrences,
 						block.window_tokens,
 						(block.speeches ?? 0) >= data.sliced.minimum_speeches
@@ -118,6 +133,10 @@
 				'reference',
 				'g2',
 				'log_ratio',
+				'log_dice',
+				'documents',
+				'meetings',
+				'dp',
 				'occurrences',
 				'window_tokens',
 				'meets_minimum'
@@ -140,12 +159,32 @@
 		];
 		for (const [reading, words] of readings) {
 			for (const word of words ?? []) {
-				rows.push([reading, word.word, word.target, word.reference, word.g2, word.log_ratio]);
+				rows.push([
+					reading,
+					word.word,
+					word.target,
+					word.reference,
+					word.g2,
+					word.log_ratio,
+					word.documents,
+					word.meetings,
+					word.dp
+				]);
 			}
 		}
 		return {
 			title: 'Compared with a like-for-like speech',
-			columns: ['reading', 'word', 'target', 'reference', 'g2', 'log_ratio'],
+			columns: [
+				'reading',
+				'word',
+				'target',
+				'reference',
+				'g2',
+				'log_ratio',
+				'documents',
+				'meetings',
+				'dp'
+			],
 			rows,
 			provenance: provenanceOf(data.keyness.meta, 'lexical/keyness.json'),
 			filters: [
@@ -221,65 +260,64 @@
 
 	/* --- The same table, drawn as a cloud --------------------------------- */
 
-	let cloudFacet = $state<CloudFacet>('whole');
+	let profileFacet = $state<ProfileFacet>('whole');
 	/* Opened on the term and window the sliced artefact was counted at, so that
 	   the whole-corpus cloud and any facet of it are the same question put to
 	   different populations rather than two different questions. Read once and
 	   untracked: these are the initial positions of controls the reader then
 	   owns, not a derivation of the payload. */
-	let cloudNode = $state(untrack(() => data.sliced.term));
-	let cloudWidth = $state(untrack(() => String(data.sliced.width)));
-	let cloudMember = $state('');
-	let cloudLimit = $state('40');
-	let cloudFloor = $state('0');
+	let profileNode = $state(untrack(() => data.sliced.term));
+	let profileWidth = $state(untrack(() => String(data.sliced.width)));
+	let profileMember = $state('');
+	let profileLimit = $state('40');
+	let profileFloor = $state('0');
 
-	const cloudMembers = $derived(cloudFacet === 'whole' ? [] : Object.keys(data.sliced[cloudFacet]));
+	const profileMembers = $derived(
+		profileFacet === 'whole' ? [] : Object.keys(data.sliced[profileFacet])
+	);
 
 	$effect(() => {
 		// Changing the facet invalidates the member chosen inside the old one.
-		const options = cloudFacet === 'whole' ? [] : Object.keys(data.sliced[cloudFacet]);
-		if (options.length > 0 && !options.includes(cloudMember)) cloudMember = options[0];
+		const options = profileFacet === 'whole' ? [] : Object.keys(data.sliced[profileFacet]);
+		if (options.length > 0 && !options.includes(profileMember)) profileMember = options[0];
 	});
 
-	const cloudBlock = $derived<CollocateBlock | undefined>(
-		cloudFacet === 'whole'
-			? data.collocates.nodes[cloudNode]?.widths[cloudWidth]
-			: data.sliced[cloudFacet][cloudMember]
+	const profileBlock = $derived<CollocateBlock | undefined>(
+		profileFacet === 'whole'
+			? data.collocates.nodes[profileNode]?.widths[profileWidth]
+			: data.sliced[profileFacet][profileMember]
 	);
 
 	/* One call chooses the rows. The cloud draws them and the table lists them,
 	   so there is no arrangement of the controls under which the two disagree. */
-	const cloudSelection = $derived(
-		plan({
-			block: cloudBlock,
-			minimumSpeeches: cloudFacet === 'whole' ? null : minimumSpeeches,
-			limit: Number(cloudLimit),
-			floor: Number(cloudFloor)
+	const profileSelection = $derived(
+		profilePlan({
+			block: profileBlock,
+			minimumSpeeches: profileFacet === 'whole' ? null : minimumSpeeches,
+			limit: Number(profileLimit),
+			floor: Number(profileFloor)
 		})
 	);
 
-	/* The slice's own name, so one selection always draws one picture. */
-	const cloudSeed = $derived(
-		cloudFacet === 'whole' ? `whole:${cloudNode}:${cloudWidth}` : `${cloudFacet}:${cloudMember}`
-	);
 	/* Slices exist for one term at one width only, and the controls say so
 	   rather than implying the facet follows the Term and Window above. */
-	const cloudTerm = $derived(cloudFacet === 'whole' ? cloudNode : data.sliced.term);
-	const cloudSource = $derived(
-		cloudFacet === 'whole'
+	const profileTerm = $derived(profileFacet === 'whole' ? profileNode : data.sliced.term);
+	const profileSource = $derived(
+		profileFacet === 'whole'
 			? '05_lexical.py → lexical/collocates.json'
 			: '05_lexical.py → lexical/collocates_sliced.json'
 	);
-	const cloudLabel = (word: Word) =>
-		`${word.word}: ${count(word.target)} near ${termLabel(cloudTerm)}, ` +
-		`G² ${count(Math.round(word.g2))}, log ratio ${signed(word.log_ratio)}`;
-	const cloudScope = $derived(
-		cloudFacet === 'whole' ? 'the whole corpus' : memberLabel(cloudFacet, cloudMember)
+	const profileScope = $derived(
+		profileFacet === 'whole' ? 'the whole corpus' : memberLabel(profileFacet, profileMember)
 	);
 
 	const keywords = $derived(
 		keynessView === 'matched' ? data.keyness.keywords : data.keyness.keywords_unmatched
 	);
+	/** The dispersion cell: speeches / meetings, with a dash where no meeting was counted. */
+	const spread = (word: { documents: number; meetings: number | null }) =>
+		`${count(word.documents)} / ${word.meetings == null ? '—' : count(word.meetings)}`;
+
 	const matchedByWord = $derived(new Map(data.keyness.keywords.map((w) => [w.word, w.log_ratio])));
 
 	/* Zoom is held here rather than left inside ECharts so that "Reset" can put it
@@ -357,7 +395,7 @@
 					type: 'scatter',
 					symbolSize: 7,
 					data: words.map((w) => [Math.max(w.g2, 1), w.log_ratio, w.word, w.target]),
-					itemStyle: { color: p.accent, opacity: 0.55 },
+					itemStyle: { color: p.inkSoft, opacity: 0.55 },
 					label: {
 						show: true,
 						formatter: (params) =>
@@ -373,73 +411,22 @@
 		};
 	});
 
-	/* The lexicon as a graph. Edge weight is normalised PMI so a rare term
-	   cannot buy a thick edge with rarity alone. */
-	const graph: EChartsOption = $derived.by(() => {
-		const p = $colours;
-		const periodBlock = period === 'whole' ? null : data.network.by_period[period];
-		const edges = periodBlock?.edges ?? data.network.edges;
-		const used = new Set(edges.flatMap((e) => [e.source, e.target]));
-		const periodCounts = new Map(periodBlock?.terms.map((term) => [term.name, term.speeches]));
-		const terms = data.network.terms
-			.filter((term) => used.has(term.name))
-			.map((term) => ({ ...term, speeches: periodCounts.get(term.name) ?? term.speeches }));
-		const maxSpeeches = Math.max(1, ...terms.map((t) => t.speeches));
-		return {
-			textStyle,
-			tooltip: {
-				...tooltip(p),
-				trigger: 'item',
-				formatter: (params) => {
-					const d = params as unknown as { dataType?: string; data: Record<string, unknown> };
-					return d.dataType === 'edge'
-						? `<b>${escapeHtml(termLabel(String(d.data.source)))}</b> &amp; <b>${escapeHtml(termLabel(String(d.data.target)))}</b>` +
-								`<br>${count(Number(d.data.speeches))} speeches use both` +
-								`<br>nPMI ${decimal(Number(d.data.npmi))}`
-						: `<b>${escapeHtml(termLabel(String(d.data.name)))}</b><br>${count(Number(d.data.speeches))} speeches`;
-				}
-			},
-			series: [
-				{
-					type: 'graph',
-					layout: 'force',
-					roam: true,
-					draggable: true,
-					center: ['50%', '50%'],
-					force: { repulsion: 340, edgeLength: [60, 190], gravity: 0.16 },
-					label: {
-						show: true,
-						position: 'right',
-						color: p.ink,
-						fontSize: 12,
-						formatter: (params) => termLabel(String((params as unknown as { name: string }).name))
-					},
-					labelLayout: { hideOverlap: true },
-					emphasis: { focus: 'adjacency', lineStyle: { width: 5 } },
-					data: terms.map((t) => ({
-						name: t.name,
-						speeches: t.speeches,
-						symbolSize: 10 + 30 * Math.sqrt(t.speeches / maxSpeeches),
-						itemStyle: { color: registerColour(t.register, p) }
-					})),
-					links: edges.map((e) => ({
-						source: e.source,
-						target: e.target,
-						speeches: e.speeches,
-						npmi: e.npmi,
-						lineStyle: {
-							width: Math.max(0.6, e.npmi * 7),
-							opacity: 0.25 + e.npmi * 0.5,
-							color: p.inkFaint,
-							curveness: 0.06
-						}
-					}))
-				}
-			]
-		};
-	});
-
 	const periods = $derived(['whole', ...Object.keys(data.network.by_period)]);
+
+	/* The matrix's rows: every active term, with the period's own speech counts
+	   where a period is chosen, so the diagonal says what the cells divide by. */
+	const matrixTerms = $derived.by(() => {
+		const periodBlock = period === 'whole' ? null : data.network.by_period[period];
+		const periodCounts = new Map(periodBlock?.terms.map((term) => [term.name, term.speeches]));
+		return data.network.terms.map((term) => ({
+			name: term.name,
+			register: term.register,
+			speeches: periodCounts.get(term.name) ?? term.speeches
+		}));
+	});
+	const matrixEdges = $derived(
+		period === 'whole' ? data.network.edges : (data.network.by_period[period]?.edges ?? [])
+	);
 
 	function topWords(b: CollocateBlock | undefined, n = 18): Word[] {
 		return b?.collocates.slice(0, n) ?? [];
@@ -470,7 +457,7 @@
 			by_speaker_group: Object.keys(data.sliced.by_speaker_group)
 		},
 		periods: ['whole', ...Object.keys(data.network.by_period)],
-		cloudDefault: { node: data.sliced.term, width: String(data.sliced.width) }
+		profileDefault: { node: data.sliced.term, width: String(data.sliced.width) }
 	}));
 
 	onMount(() => {
@@ -481,12 +468,12 @@
 		sliceA = state.sliceA;
 		sliceB = state.sliceB;
 		align = state.align;
-		cloudFacet = state.cloudFacet;
-		cloudNode = state.cloudNode;
-		cloudWidth = state.cloudWidth;
-		cloudMember = state.cloudMember;
-		cloudLimit = state.cloudLimit;
-		cloudFloor = state.cloudFloor;
+		profileFacet = state.profileFacet;
+		profileNode = state.profileNode;
+		profileWidth = state.profileWidth;
+		profileMember = state.profileMember;
+		profileLimit = state.profileLimit;
+		profileFloor = state.profileFloor;
 		keynessView = state.keynessView;
 		period = state.period;
 		void tick().then(() => {
@@ -504,12 +491,12 @@
 				sliceA,
 				sliceB,
 				align,
-				cloudFacet,
-				cloudNode,
-				cloudWidth,
-				cloudMember,
-				cloudLimit,
-				cloudFloor,
+				profileFacet,
+				profileNode,
+				profileWidth,
+				profileMember,
+				profileLimit,
+				profileFloor,
 				keynessView,
 				period
 			},
@@ -561,9 +548,6 @@
 		const value = params.value as [number, number, string] | undefined;
 		if (value?.[2]) void goto(concordanceHref(node, value[2]));
 	};
-	const openNetworkTerm = (params: { name?: string; dataType?: string }) => {
-		if (params.dataType !== 'edge' && params.name) void goto(concordanceHref(params.name));
-	};
 </script>
 
 <PageMeta meta={PAGE_METADATA['/language/']} />
@@ -580,14 +564,28 @@
 			said in the same speech.
 		</p>
 		<p class="standfirst">
-			Every table here uses two measures side by side. <strong>Log-likelihood</strong> (written G²)
+			Every table here reports two kinds of measure. <strong>Log-likelihood</strong> (written G²)
 			says how confident we can be that a word turns up at a rate chance alone would not produce;
-			<strong>log ratio</strong> says how large that difference is. Across {count(
-				data.collocates.meta.corpus_tokens as number
-			)} words almost anything reaches statistical significance, so confidence on its own is not a finding
-			&mdash; the tables rank by confidence and report the size beside it.
+			<strong>log ratio</strong> and, for collocates, <strong>logDice</strong> say how large that
+			difference is. Across {count(data.collocates.meta.corpus_tokens as number)} words almost anything
+			reaches statistical significance, so confidence is a floor and never an order: a row must clear
+			G² {decimal(data.collocates.meta.g2_floor as number)} to appear at all, and the rows that clear
+			it are ranked by effect. Each also carries its <strong>spread</strong> &mdash; the speeches and
+			distinct meetings it appears in, and DP, which runs from 0 for a word spread like the text to 1
+			for one confined to a corner of it &mdash; so a word that belongs to one debate is not mistaken
+			for one that belongs to the register.
 		</p>
 	</header>
+
+	<Contents
+		figures={[
+			{ title: 'The words that sit near a term' },
+			{ title: 'The profile of a term' },
+			{ title: 'The same word in two mouths' },
+			{ title: 'Compared with a like-for-like speech' },
+			{ title: 'Which terms travel together' }
+		]}
+	/>
 
 	<Figure
 		title="The words that sit near a term"
@@ -620,36 +618,18 @@
 
 		{#snippet reading()}
 			<p>
-				Each point is a word that appears within the chosen window of the term &mdash; corpus
-				linguists call such words <em>collocates</em>. <strong>Further right</strong> means more
-				confidence that the word turns up near the term at a different rate from the rest of the
-				corpus. <strong>Further up</strong> means a larger difference: a log ratio of +3 is eight times
-				the corpus rate, +7 is more than a hundred times.
-			</p>
-			<p>
-				The words worth attention are high <em>and</em> right. A word far right but low is simply common
-				enough that even a small difference can be measured, which says more about how often it occurs
-				than about how the Council speaks.
-			</p>
-			<p>
-				Most collocates crowd into the lower left, where labels collide and the chart hides some of
-				them. <strong>Scroll on the plot to zoom, drag to pan</strong>, or drag the bar under the
-				axis; <em>Reset zoom</em> returns to the full view. Zooming filters nothing out and the axes never
-				move, so a close-up remains comparable with the whole.
+				Each point is a word within the chosen window of the term, a <em>collocate</em>.
+				<strong>Further right</strong> is more confidence that its rate near the term differs from
+				the corpus; <strong>further up</strong> is a larger difference, log ratio +3 being eight
+				times the corpus rate. The words worth attention are high <em>and</em> right. Scroll to zoom;
+				nothing is removed.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				A wider window asks a different question rather than a better one: &plusmn;5 words catches
-				the phrase the term sits in, &plusmn;15 catches the argument around it. Compare the two; do
-				not average them.
-			</p>
-			<p>
-				Function words &mdash; <em>the</em>, <em>of</em>, <em>and</em> &mdash; are removed using a
-				published list. Words belonging to the setting, such as <em>council</em>,
-				<em>resolution</em>
-				and <em>president</em>, are deliberately kept, because whether they sit close to the term is
-				one of the things being asked.
+				A word far right but low is merely common enough for a small difference to be measured. A
+				wider window asks a different question, not a better one: &plusmn;5 catches the phrase,
+				&plusmn;15 the argument around it. Compare the two; do not average them.
 			</p>
 		{/snippet}
 
@@ -667,6 +647,8 @@
 					><tr
 						><th>Word</th><th class="num">Near</th><th class="num">G²</th><th class="num"
 							>Log ratio</th
+						><th class="num">logDice</th><th class="num">Speeches / meetings</th><th class="num"
+							>DP</th
 						></tr
 					></thead
 				>
@@ -677,6 +659,9 @@
 							<td class="num">{count(word.target)}</td>
 							<td class="num">{count(Math.round(word.g2))}</td>
 							<td class="num">{signed(word.log_ratio)}</td>
+							<td class="num">{word.log_dice == null ? '—' : decimal(word.log_dice)}</td>
+							<td class="num">{spread(word)}</td>
+							<td class="num">{decimal(word.dp)}</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -685,39 +670,43 @@
 	</Figure>
 
 	<Figure
-		title="The same table as a cloud"
-		question="What shape does that neighbourhood have, and does it hold for a single speaker or a single decade?"
-		source={cloudSource}
-		download={{ name: ['unsc', 'collocates', 'cloud', cloudFacet], table: collocateTable }}
+		title="The profile of a term"
+		question="Which words mark this term's neighbourhood, and does the profile hold for one speaker or one decade?"
+		source={profileSource}
+		download={{
+			name: ['unsc', 'collocates', 'profile', profileFacet],
+			table: collocateTable,
+			chart: () => dotFigure?.svg() ?? null
+		}}
 	>
 		{#snippet controls()}
 			<label>
 				Drawn from
-				<select bind:value={cloudFacet}>
+				<select bind:value={profileFacet}>
 					<option value="whole">Whole corpus</option>
 					<option value="by_country">One speaker</option>
 					<option value="by_speaker_group">One speaker group</option>
 					<option value="by_period">One period</option>
 				</select>
 			</label>
-			{#if cloudFacet === 'whole'}
+			{#if profileFacet === 'whole'}
 				<label>
 					Term
-					<select bind:value={cloudNode}>
+					<select bind:value={profileNode}>
 						{#each nodes as n (n)}<option value={n}>{termLabel(n)}</option>{/each}
 					</select>
 				</label>
 				<label>
 					Window
-					<select bind:value={cloudWidth}>
+					<select bind:value={profileWidth}>
 						{#each widths as w (w)}<option value={w}>&plusmn;{w} words</option>{/each}
 					</select>
 				</label>
 			{:else}
 				<label>
 					Which
-					<select bind:value={cloudMember}>
-						{#each cloudMembers as m (m)}<option value={m}>{memberLabel(cloudFacet, m)}</option
+					<select bind:value={profileMember}>
+						{#each profileMembers as m (m)}<option value={m}>{memberLabel(profileFacet, m)}</option
 							>{/each}
 					</select>
 				</label>
@@ -728,7 +717,7 @@
 			{/if}
 			<label>
 				Words
-				<select bind:value={cloudLimit}>
+				<select bind:value={profileLimit}>
 					<option value="25">25</option>
 					<option value="40">40</option>
 					<option value="60">60</option>
@@ -737,7 +726,7 @@
 			</label>
 			<label>
 				At least
-				<select bind:value={cloudFloor}>
+				<select bind:value={profileFloor}>
 					<option value="0">any frequency</option>
 					<option value="10">10 beside the term</option>
 					<option value="25">25 beside the term</option>
@@ -751,76 +740,58 @@
 
 		{#snippet reading()}
 			<p>
-				Every word drawn here is a row of the table beneath it, and one decision governs both: what
-				the cloud leaves out, the table leaves out too. <strong>Size carries the log ratio</strong>
-				&mdash; how many times a word's rate beside the term exceeds its rate in the rest of the corpus.
-				Which words appear at all is decided by the other measure, log-likelihood.
-			</p>
-			<p>
-				A large word is therefore not a common word. The list is chosen by confidence and drawn by
-				size of effect, so a word used two hundred times can sit beside one used thirty times and be
-				the smaller of the two. <em>At least</em> raises the minimum frequency, if you would rather the
-				cloud stopped rewarding words the corpus barely contains.
-			</p>
-			<p>
-				Every word links to its lines in the concordance and can be reached by keyboard. The scale
-				is relative to what is on screen: the largest word in view holds the largest log ratio in
-				view, so compare within one cloud rather than between two.
+				One row per word in the artefact's own order, strongest logDice first. The dot's
+				<strong>position</strong> is the log ratio, its <strong>area</strong> the frequency beside
+				the term, and the <strong>spread</strong> mark fills as the word is spread more evenly over the
+				speeches. Every word links to its lines in the concordance; hover for its numbers.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				Words are counted <strong>exactly as they appear</strong>. <em>crime</em> and
-				<em>crimes</em>
-				are two separate words here, each carrying part of the evidence for the same idea and each smaller
-				than a merged entry would be. A step that merges such forms exists and runs, but it is deliberately
-				not used yet: switching it on would move figures already published here before the hand-check
-				of the word list is finished. Until then, a cloud of this corpus is partly a picture of English
-				word endings rather than of the Council, and the words to trust least are those with the commonest
-				variants.
+				Words are counted exactly as they appear: <em>crime</em> and <em>crimes</em> are two rows, each
+				carrying part of the evidence for one idea. A profile drawn from fifty speeches is a sketch, not
+				a portrait; the speech count is printed under the heading.
 			</p>
-			<p>
-				Position and colour carry nothing. Two words sit next to each other because the layout found
-				room there, not because they occur together; the network figure below is the one that
-				answers that question. Area carries nothing either: size is set on a word's height, so a
-				long word takes up far more of the picture than a short one with the same log ratio.
-			</p>
+		{/snippet}
+		{#snippet more()}
 			<p>
 				{count(data.collocates.meta.stopwords as number)} function words are removed using
-				<code>config/stopwords.txt</code>, and a word occurring fewer than
-				{count(data.collocates.meta.min_count as number)} times beside the term never enters the table
-				at all. Words belonging to the setting &mdash; <em>council</em>, <em>resolution</em> &mdash; are
-				deliberately kept.
+				<code>config/stopwords.txt</code>; words of the setting (<em>council</em>,
+				<em>resolution</em>) are kept on purpose. A word occurring fewer than
+				{count(data.collocates.meta.min_count as number)} times beside the term, or below the G² floor,
+				never enters the table. A lemma layer that merges inflected forms exists and is not switched on,
+				because it would move published figures before the hand-check of the word list.
 			</p>
 		{/snippet}
 
-		{#if cloudSelection.refusal?.kind === 'below-minimum'}
+		{#if profileSelection.refusal?.kind === 'below-minimum'}
 			<p class="withheld">
-				<strong>{memberLabel(cloudFacet, cloudMember)}</strong> has
-				{count(cloudSelection.refusal.speeches ?? 0)} speeches using the term, fewer than the
-				{count(cloudSelection.refusal.minimum ?? 0)} needed before a profile is drawn at all. Nothing
+				<strong>{memberLabel(profileFacet, profileMember)}</strong> has
+				{count(profileSelection.refusal.speeches ?? 0)} speeches using the term, fewer than the
+				{count(profileSelection.refusal.minimum ?? 0)} needed before a profile is drawn at all. Nothing
 				is drawn and nothing is listed. The whole corpus is a different set of speeches, so it is not
 				shown here instead.
 			</p>
-		{:else if cloudSelection.refusal}
+		{:else if profileSelection.refusal}
 			<p class="withheld">
-				No word in {cloudScope} occurs at least {cloudFloor} times beside the term, so there is nothing
+				No word in {profileScope} occurs at least {profileFloor} times beside the term, so there is nothing
 				to draw. Lower the minimum frequency.
 			</p>
 		{:else}
-			<WordCloud
-				words={cloudSelection.rows}
-				href={(word) => concordanceHref(cloudTerm, word.word)}
-				label={cloudLabel}
-				seed={cloudSeed}
-				description="Cloud of the words that sit near the term, each sized by its log ratio and linking to its lines in the concordance."
+			<DotPlot
+				bind:this={dotFigure}
+				rows={profileSelection.rows}
+				term={termLabel(profileTerm)}
+				href={(word) => concordanceHref(profileTerm, word.word)}
+				description="Dot plot of the words that sit near the term: position by log ratio, area by frequency, a spread mark per word; each word links to its lines in the concordance."
 			/>
 			<p class="stated">
-				{count(cloudSelection.rows.length)} words drawn, out of {count(cloudSelection.available)} held
-				for
-				{cloudScope}: {count(cloudSelection.filtered)} fall below the minimum frequency and
-				{count(cloudSelection.truncated)} fall beyond the number of words asked for. The table below holds
-				those same {count(cloudSelection.rows.length)} words, in the same order.
+				{count(profileSelection.rows.length)} words drawn, out of {count(
+					profileSelection.available
+				)}
+				held for {profileScope}: {count(profileSelection.filtered)} fall below the minimum frequency and
+				{count(profileSelection.truncated)} beyond the number asked for. The table holds the same words,
+				in the same order.
 			</p>
 			<details class="data-table">
 				<summary><Icon icon={ChevronRight} />View the same words as a table</summary>
@@ -829,16 +800,21 @@
 						><tr
 							><th>Word</th><th class="num">Near</th><th class="num">G²</th><th class="num"
 								>Log ratio</th
+							><th class="num">logDice</th><th class="num">Speeches / meetings</th><th class="num"
+								>DP</th
 							></tr
 						></thead
 					>
 					<tbody>
-						{#each cloudSelection.rows as word (word.word)}
+						{#each profileSelection.rows as word (word.word)}
 							<tr>
-								<td><a href={concordanceHref(cloudTerm, word.word)}>{word.word}</a></td>
+								<td><a href={concordanceHref(profileTerm, word.word)}>{word.word}</a></td>
 								<td class="num">{count(word.target)}</td>
 								<td class="num">{count(Math.round(word.g2))}</td>
 								<td class="num">{signed(word.log_ratio)}</td>
+								<td class="num">{word.log_dice == null ? '—' : decimal(word.log_dice)}</td>
+								<td class="num">{spread(word)}</td>
+								<td class="num">{decimal(word.dp)}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -898,32 +874,25 @@
 
 		{#snippet reading()}
 			<p>
-				Two lists of neighbouring words, each worked out from its own set of speeches at &plusmn;{data
-					.sliced.width} words, but both measured against the <em>same</em> whole-corpus background.
-				The two columns share <strong>one scale</strong>, so a longer bar is a larger log ratio
-				wherever it appears.
-			</p>
-			<p>
-				<strong>By rank</strong> puts each column's own strongest words in its own order. Rows do
-				not line up, and what the figure shows is that the two <em>sets</em> of words differ.
-				<strong>By word</strong> gives each word a single row with both sides' figures on it, so what
-				the figure shows is how far apart the two speakers are on the same word. A dash means the word
-				does not appear in that speaker's list at all.
-			</p>
-			<p>
-				Try <strong>Rwanda</strong> against any other speaker. Most delegations return the three crimes
-				named in the Rome Statute of the International Criminal Court &mdash; genocide, crimes against
-				humanity, war crimes. Rwanda returns a vocabulary of denial and prosecution.
+				Two profiles at &plusmn;{data.sliced.width} words, each from its own speeches, both against the
+				same corpus background, on <strong>one scale</strong>. <strong>By rank</strong> lists each
+				side's strongest words in its own order, so the sets differ; <strong>by word</strong>
+				gives one row per word with both figures, so the distance on a word shows, a dash where a side
+				lacks it.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				These sets of speeches differ enormously in size, which is why the speech count is printed
-				under each heading. A list drawn from fifty speeches is a sketch, not a portrait.
+				These sets of speeches differ enormously in size, which is why each heading prints its
+				count; a list from fifty speeches is a sketch. Comparing two periods mixes who was speaking
+				with when: membership and the agenda both turn over.
 			</p>
+		{/snippet}
+		{#snippet more()}
 			<p>
-				Comparing two periods mixes up who was speaking with when they spoke: Council membership
-				turns over, and so does the agenda.
+				Try <strong>Rwanda</strong> against any other speaker. Most delegations return the three crimes
+				of the Rome Statute &mdash; genocide, crimes against humanity, war crimes. Rwanda returns a vocabulary
+				of denial and prosecution.
 			</p>
 		{/snippet}
 
@@ -1016,6 +985,8 @@
 					<tr
 						><th>Profile</th><th>Word</th><th class="num">Near</th><th class="num">G²</th><th
 							class="num">Log ratio</th
+						><th class="num">logDice</th><th class="num">Speeches / meetings</th><th class="num"
+							>DP</th
 						></tr
 					>
 				</thead>
@@ -1028,6 +999,9 @@
 								<td class="num">{count(w.target)}</td>
 								<td class="num">{count(Math.round(w.g2))}</td>
 								<td class="num">{signed(w.log_ratio)}</td>
+								<td class="num">{w.log_dice == null ? '—' : decimal(w.log_dice)}</td>
+								<td class="num">{spread(w)}</td>
+								<td class="num">{decimal(w.dp)}</td>
 							</tr>
 						{/each}
 					{/each}
@@ -1058,32 +1032,29 @@
 
 		{#snippet reading()}
 			<p>
-				The table rests on {count(data.keyness.target_speeches)} complete pairs, drawn from
-				{count(data.keyness.eligible_target_speeches)} speeches that use the word. Each of those is paired
-				with a speech that does not use it but shares its
-				<strong>{matchedOn(data.keyness.matched_on)}</strong>. What survives the comparison is
-				closer to the vocabulary of the idea than of the occasion.
-			</p>
-			<p>
-				Switch to <strong>the whole corpus</strong> to see what the pairing removed. Watch
-				<em>bosnia</em>, <em>herzegovina</em> and <em>tribunals</em>: near the top of the unpaired
-				table, and gone once year and agenda item are held constant.
+				{count(data.keyness.target_speeches)} speeches that use the word, each paired with one that does
+				not but shares its <strong>{matchedOn(data.keyness.matched_on)}</strong>; what survives is
+				closer to the idea than to the occasion. Rows are ranked by log ratio above the G² floor,
+				and the <strong>spread</strong> columns tell a register's word from one debate's.
+				<a href="{resolve('/methods')}#keyness">Method: the pairing &rarr;</a>
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				{data.keyness.short_strata.length} groups could not be filled. These are debates in which nearly
-				everyone used the word, so no comparable speech was left over. They are left short rather than
-				filled from elsewhere, which would have tilted the table quietly towards the crisis years.
+				<strong>The whole-corpus column is not a result:</strong> it is what the pairing improves
+				on, shown so the improvement can be checked. {data.keyness.short_strata.length} groups could not
+				be filled and are left short rather than tilted towards the crisis years.
 			</p>
+		{/snippet}
+		{#snippet more()}
 			<p>
-				The whole-corpus column is <strong>not a result</strong>. It is the comparison the pairing
-				exists to improve on, shown so that the improvement can be checked.
-			</p>
-			<p>
-				Because the partner speech is drawn at random, the pairing was repeated across
-				{data.keyness.stability.repetitions} consecutive draws, and the range those draws produced is
-				available for every word in the table.
+				Switch to <strong>the whole corpus</strong> to see what the pairing removed:
+				<em>bosnia</em>,
+				<em>herzegovina</em> and <em>tribunals</em> sit near the top of the unpaired table and are
+				gone once year and agenda item are held constant. Because the partner is drawn at random,
+				the pairing was repeated across {data.keyness.stability.repetitions} draws; the range each word's
+				log ratio covered is in the download. The same comparison, one delegation at a time, is
+				<a href="{resolve('/actors')}#speaker-keyness">on the Actors page</a>.
 			</p>
 		{/snippet}
 
@@ -1095,6 +1066,8 @@
 					<th class="num">In these speeches</th>
 					<th class="num">G²</th>
 					<th class="num">Log ratio</th>
+					<th class="num">Speeches / meetings</th>
+					<th class="num">DP</th>
 					{#if keynessView === 'unmatched'}<th class="num">Like-for-like</th>{/if}
 				</tr>
 			</thead>
@@ -1106,6 +1079,8 @@
 						<td class="num">{count(w.target)}</td>
 						<td class="num">{count(Math.round(w.g2))}</td>
 						<td class="num">{signed(w.log_ratio)}</td>
+						<td class="num">{spread(w)}</td>
+						<td class="num">{decimal(w.dp)}</td>
 						{#if keynessView === 'unmatched'}
 							<td class="num" class:gone={!matchedByWord.has(w.word)}>
 								{matchedByWord.has(w.word) ? signed(matchedByWord.get(w.word)!) : 'drops out'}
@@ -1124,7 +1099,7 @@
 		download={{
 			name: ['unsc', 'network'],
 			table: networkTable,
-			chart: () => graphFigure?.svg() ?? null
+			chart: () => matrixFigure?.svg() ?? null
 		}}
 	>
 		{#snippet controls()}
@@ -1143,38 +1118,29 @@
 
 		{#snippet reading()}
 			<p>
-				Each circle is a term from the word list, sized by how many speeches use it and coloured by
-				its register. A line joins two terms that appear in the <em>same speech</em>, and its
-				thickness shows how much more often the two turn up together than two unrelated terms of the
-				same frequency would.
+				One row and one column per term, in register order. A cell is <strong>shaded</strong> by how
+				much more often the two terms share a speech than chance would put them together;
+				<strong>hatched</strong> where fewer than {data.network.min_speeches} speeches share them;
+				<strong>crossed</strong> where the pair is written into the word list itself. Hover a cell for
+				its numbers.
 			</p>
-			<p>Drag to rearrange, scroll to zoom, hover over a line for its numbers.</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				Two terms count as linked if they appear anywhere in the same speech, even four hundred
-				words apart and in unrelated sentences. This is a map of vocabularies used on the same
-				occasion, not of phrases.
-			</p>
-			<p>
-				The thickness measure is adjusted for how often each term occurs. Without that adjustment, a
-				term appearing in only thirty speeches would dominate the picture, because the raw measure
-				rewards rarity.
-			</p>
-			<p>
-				A phrase is never drawn as evidence of association with a word already inside it: <em
-					>mass atrocity</em
-				>
-				and <em>atrocity</em> are not linked on the strength of the second sitting within the first.
+				Two terms count as together if they appear anywhere in the same speech, even four hundred
+				words apart: this is a map of vocabularies used on one occasion, not of phrases. The measure
+				is adjusted for frequency, so a rare term cannot buy a dark cell with rarity.
 			</p>
 		{/snippet}
 
-		<Chart
-			bind:this={graphFigure}
-			option={graph}
-			height="520px"
-			description="Network of terms from the word list, with a line joining two terms wherever they appear in the same speech."
-			onclick={openNetworkTerm}
+		<TermMatrix
+			bind:this={matrixFigure}
+			terms={matrixTerms}
+			edges={matrixEdges}
+			suppressed={data.network.suppressed_nested_edges ?? []}
+			minimum={data.network.min_speeches}
+			href={(term) => concordanceHref(term)}
+			description="Matrix of the word list's terms, ordered by register, with each cell shaded by how much more often two terms share a speech than chance would put them together."
 		/>
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View the strongest network edges as a table</summary>

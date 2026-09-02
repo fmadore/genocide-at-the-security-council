@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import Contents from '$lib/Contents.svelte';
 	import CountryMap from '$lib/CountryMap.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
@@ -17,12 +18,10 @@
 		orderings,
 		plan,
 		points,
-		readActorState,
-		scale
+		readActorState
 	} from '$lib/actors';
-	import type { ActorRow, ActorView, MapPoint, Ordering } from '$lib/actors';
-	import { fills } from '$lib/choropleth';
-	import type { Patch } from '$lib/choropleth';
+	import type { MapPoint, Ordering } from '$lib/actors';
+	import type { CountryMeasureRow } from '$lib/types';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, entityType, percent, shortCountry, termLabel } from '$lib/format';
@@ -38,9 +37,6 @@
 	let order = $state<Ordering>('speech_rate');
 	let selected = $state<string | null>(null);
 	let urlReady = $state(false);
-	/* Circles first, and on purpose. They key on the speaker and can carry the
-	   four that are on no map at all; the fill keys on territory and cannot. */
-	let view = $state<ActorView>('points');
 
 	const measures = $derived(Object.keys(artefact.measures));
 	const shared = $derived(ambiguous(artefact));
@@ -51,7 +47,6 @@
 		measure = state.measure;
 		period = state.period;
 		order = state.order;
-		view = state.view;
 		void tick().then(() => {
 			urlReady = true;
 		});
@@ -59,7 +54,7 @@
 
 	$effect(() => {
 		if (!urlReady) return;
-		const params = actorParams({ measure, period, order, view }, artefact);
+		const params = actorParams({ measure, period, order }, artefact);
 		const search = params.toString();
 		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
 	});
@@ -84,28 +79,9 @@
 		if (!rankings.includes(order)) order = result.order;
 	});
 
-	/* Size stands for the figure the table is ranked by, so a large marker and a
-	   high row are the same statement. Computed over what is on screen, which
-	   makes a marker comparable within one view and not across two. */
+	/* The dots locate; the table measures. Nothing about a marker follows the
+	   ranked figure any more, so there is no scale to compute here. */
 	const drawn = $derived(points(result.rows, shared));
-	const figure = (entry: ActorRow) =>
-		result.order === 'token_rate'
-			? (entry.row.token_rate ?? 0)
-			: result.order === 'speeches'
-				? entry.row.speeches
-				: result.order === 'held'
-					? entry.row.held
-					: (entry.row.speech_rate ?? 0);
-	const at = $derived(scale(drawn.map((point) => figure(point.speakers[0]))));
-	const weight = (point: MapPoint) => at(figure(point.speakers[0]));
-
-	/* The same rows keyed on territory instead of on the speaker. `$lib/choropleth`
-	   says what that costs and what it refuses to do about it; nothing here
-	   decides anything the circles do not. */
-	const painted = $derived(fills(result, shared, figure));
-	/* Reported by the map once the boundary file is here, because nothing before
-	   then knows which codes it carries. */
-	let unbounded = $state<Patch[]>([]);
 
 	const chosen = $derived(
 		drawn.find((p) => p.speakers[0].speaker.country_org === selected) ?? null
@@ -144,6 +120,8 @@
 					row.tokens,
 					row.speeches,
 					row.speech_rate,
+					row.speech_rate_low,
+					row.speech_rate_high,
 					// Two columns a set measure has no figure for. Dropped rather
 					// than written empty: a blank column reads as data that went
 					// missing, and this one was never computed.
@@ -163,6 +141,8 @@
 				'tokens',
 				'term_bearing_speeches',
 				'speech_rate',
+				'speech_rate_wilson95_low',
+				'speech_rate_wilson95_high',
 				...(has.occurrences ? ['occurrences', `token_rate_per_${artefact.rate_per_tokens}`] : []),
 				'sufficient',
 				'mappable'
@@ -201,6 +181,9 @@
 			heading: shortCountry(speaker.country_org),
 			lines: [
 				`${percent(row.speech_rate ?? 0)} of ${count(row.held)} speeches`,
+				...(row.speech_rate_low != null && row.speech_rate_high != null
+					? [`95% interval ${percent(row.speech_rate_low)}–${percent(row.speech_rate_high)}`]
+					: []),
 				// Both of these are figures a set measure does not have.
 				...(has.occurrences
 					? [
@@ -215,6 +198,23 @@
 			]
 		};
 	}
+
+	/* The whisker column is scaled to the widest upper bound on the page, so
+	   every row's interval is drawn on one axis and the rows can be compared. */
+	const whiskerScale = $derived(
+		Math.max(...result.rows.map((entry) => entry.row.speech_rate_high ?? 0), 1e-6)
+	);
+	const whisker = (row: CountryMeasureRow) => {
+		if (row.speech_rate == null || row.speech_rate_low == null || row.speech_rate_high == null) {
+			return null;
+		}
+		const at = (value: number) => `${((value / whiskerScale) * 100).toFixed(2)}%`;
+		return {
+			low: at(row.speech_rate_low),
+			high: at(row.speech_rate_high),
+			point: at(row.speech_rate)
+		};
+	};
 
 	/** What a ranking is called. `title` capitalises it for a control; prose keeps it low. */
 	const label = (o: Ordering, title = false) => {
@@ -243,13 +243,19 @@
 		</p>
 	</header>
 
+	<Contents
+		figures={[
+			{ title: 'Speakers by rate' },
+			{ title: 'Who held a seat when they spoke' },
+			{ title: 'What a delegation says that the room does not' }
+		]}
+	/>
+
 	<Figure
 		title="Speakers by rate"
 		question="Which delegations used the vocabulary most, as a share of their own speeches?"
 		source="11_countries.py → countries/countries.json"
-		note={view === 'points'
-			? 'The radius of a circle carries the rate, not its area. Read the table for the numbers.'
-			: 'Area is territory, not evidence: a country is prominent here because it is large. Read the table.'}
+		note="Every dot is the same size: the map locates a delegation, the table carries its rate."
 		download={{ name: ['unsc', measure, period, 'speakers'], table }}
 	>
 		{#snippet controls()}
@@ -273,90 +279,122 @@
 					{/each}
 				</select>
 			</label>
-			<div class="view">
-				<span class="label" id="map-view">Map</span>
-				<div class="segmented" role="group" aria-labelledby="map-view">
-					<button
-						type="button"
-						title="One circle per delegation, sized by the ranked figure. Colour carries nothing."
-						aria-pressed={view === 'points'}
-						onclick={() => (view = 'points')}>Circles</button
-					>
-					<button
-						type="button"
-						title="Territory shaded by the ranked figure. A country code held by two speakers is left blank rather than shaded."
-						aria-pressed={view === 'choropleth'}
-						onclick={() => (view = 'choropleth')}>Filled</button
-					>
-				</div>
-			</div>
 		{/snippet}
 
 		{#snippet reading()}
-			{#if view === 'points'}
-				<p>
-					One circle per delegation that spoke often enough to be measured. The radius carries the
-					same figure the table is ranked by; colour carries nothing. A heavier ring marks a
-					delegation whose three-letter country code (ISO3) another speaker shares.
-				</p>
-			{:else}
-				<p>
-					Territory shaded by the same figure the table is ranked by, running up from zero rather
-					than from the lowest country. Two delegations here spoke often enough to be measured and
-					never used the word, and a scale that began at the lowest value would shade them as merely
-					quiet. The shading follows the <strong>square root</strong> of the rate: the middle delegation
-					runs at about a tenth of the highest, so shading in direct proportion would leave half the world
-					the colour of the page. Grey means a delegation heard from too rarely for a rate; blank means
-					a state that did not speak at all in this period.
-				</p>
-			{/if}
 			<p>
-				Click a {view === 'points' ? 'circle' : 'country'} to pick out its row in the table, or a row
-				to pick out its
-				{view === 'points' ? 'circle' : 'country'}. Two country codes are held by more than one
-				speaker and are marked with an asterisk in the table; in every period shown, only one holder
-				of each has spoken often enough to be measured, so nothing on this map stands for two
-				delegations at once.
-				{#if view === 'points'}
-					Circles that would land on the same coordinates are grouped rather than stacked, so that
-					stays true as the corpus grows.
-				{:else}
-					A code shared by two measurable speakers would be outlined and left blank rather than
-					given one of their two numbers.
-				{/if}
+				Ranked by the figure you chose; each row's <strong>whisker</strong> is the 95% Wilson interval
+				of its share. Click a row to pick a delegation out on the map, or a dot to pick its row. Dots
+				are all one size: the map locates, the table measures. An asterisk marks a country code held by
+				two speakers.
 			</p>
 		{/snippet}
 
 		{#snippet caveat()}
-			<p>{artefact.centroid_rule}</p>
-			{#if view === 'choropleth'}
-				<p>
-					<strong>Shading a country claims more than a circle does.</strong> A marker over Kigali is
-					a way of finding Rwanda in a list; a shaded outline is the country itself, and for the
-					historical speakers here that outline belongs to a successor state. Yugoslavia would shade
-					modern Serbia, Zaire modern Democratic Republic of the Congo. Area carries no evidence
-					either: Russia and Canada draw the eye because they are large, and {count(
-						unbounded.length
-					)} delegations are too small to have an outline at this scale and are marked with a dot instead.
-					The circles and the table are built on the speaker and carry none of this.
-				</p>
-			{/if}
 			<p>
-				{count(result.under.length)} speakers delivered fewer than {count(result.minimum)} speeches in
-				this period and carry no rate. They are not ranked low; they are not ranked. {artefact.minimum_speeches_rule}
+				{artefact.centroid_rule}
+				{count(result.under.length)} speakers delivered fewer than
+				{count(result.minimum)} speeches this period and carry no rate: they are not ranked low, they
+				are not ranked.
+				{#if !has.occurrences}<em>{termLabel(measure)}</em> gathers overlapping phrases, so it counts
+					speeches using any of them and has no occurrence total.{/if}
 			</p>
-			{#if !has.occurrences}
+		{/snippet}
+		{#snippet more()}
+			<p>{artefact.minimum_speeches_rule}</p>
+			{#if unmapped.length}
 				<p>
-					{termLabel(measure)} gathers several overlapping phrases at once, so it counts
-					<em>speeches that used any of them</em> and has no total for occurrences: a speech saying
-					both
-					<em>genocide</em> and <em>war crimes</em> would be counted twice by adding the members
-					together. <code>11_countries.py</code> withholds that figure rather than publishing a wrong
-					one, which is why the per-word column and the ranking that uses it are missing here instead
-					of showing zero.
+					{count(unmapped.length)} of the ranked speakers appear on no map: {unmapped
+						.slice(0, 4)
+						.map((entry) => shortCountry(entry.speaker.country_org))
+						.join(', ')}{unmapped.length > 4 ? ' and others' : ''} are not states and have no place on
+					a globe. They are in the table on purpose.
 				</p>
 			{/if}
+			{#each collisions as [code, holders] (code)}
+				<p>
+					{code} is shared by {holders.join(' and ')}: a successor state's code is the only way to
+					place a historical state on a map. They are never merged; a combined total would belong to
+					no state that ever spoke.
+				</p>
+			{/each}
 		{/snippet}
+
+		<section class="table-wrap">
+			<h3 class="sr-only">Speakers, ranked</h3>
+			<div class="scroll">
+				<table>
+					<caption class="sr-only">
+						Speakers ranked by {label(result.order)} for {termLabel(measure)}, {result.period
+							?.label}
+					</caption>
+					<thead>
+						<tr>
+							<th scope="col">Speaker</th>
+							<th scope="col">Group</th>
+							<th scope="col" class="num">Speeches</th>
+							<th scope="col" class="num">Using the term</th>
+							<th scope="col" class="num">Share</th>
+							<th scope="col" class="whisker-head">95% interval</th>
+							{#if has.occurrences}
+								<th scope="col" class="num">Per {count(artefact.rate_per_tokens)} words</th>
+							{/if}
+						</tr>
+					</thead>
+					<tbody>
+						{#each result.rows as entry (entry.speaker.country_org)}
+							{@const w = whisker(entry.row)}
+							<tr
+								class:picked={entry.speaker.country_org === selected}
+								class:unmapped={!entry.speaker.mappable}
+							>
+								<th scope="row">
+									<button
+										type="button"
+										onclick={() =>
+											(selected =
+												selected === entry.speaker.country_org ? null : entry.speaker.country_org)}
+									>
+										{shortCountry(entry.speaker.country_org)}
+									</button>
+									{#if entry.speaker.iso3 && shared.has(entry.speaker.iso3)}
+										<abbr
+											title="This three-letter country code is held by more than one speaker in the corpus."
+											>{entry.speaker.iso3}*</abbr
+										>
+									{/if}
+								</th>
+								<td>{entry.speaker.un_regional_group ?? entityType(entry.speaker.entity_type)}</td>
+								<td class="num">{count(entry.row.held)}</td>
+								<td class="num">{count(entry.row.speeches)}</td>
+								<td class="num">{percent(entry.row.speech_rate ?? 0)}</td>
+								<td class="whisker">
+									{#if w}
+										<span
+											class="rail"
+											style:--low={w.low}
+											style:--high={w.high}
+											style:--point={w.point}
+											aria-hidden="true"
+										></span>
+										<span class="range"
+											>{percent(entry.row.speech_rate_low ?? 0)}&ndash;{percent(
+												entry.row.speech_rate_high ?? 0
+											)}</span
+										>
+									{:else}
+										<span class="nil">—</span>
+									{/if}
+								</td>
+								{#if has.occurrences}
+									<td class="num">{decimal(entry.row.token_rate ?? 0)}</td>
+								{/if}
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</section>
 
 		{#if result.refusal}
 			<p class="refusal">
@@ -370,32 +408,7 @@
 		{:else}
 			<CountryMap
 				points={drawn}
-				{weight}
 				{selected}
-				{view}
-				fills={painted}
-				unit={label(result.order)}
-				format={(value) =>
-					result.order === 'speech_rate'
-						? percent(value)
-						: result.order === 'token_rate'
-							? decimal(value)
-							: count(value)}
-				onmissing={(patches) => (unbounded = patches)}
-				explain={(patch) => {
-					const point = drawn.find((p) => p.speakers[0].speaker.country_org === patch.key);
-					if (patch.state === 'drawn' && point) return describeSpeaker(point);
-					return {
-						heading: patch.holders.map(shortCountry).join(', ') || patch.iso3,
-						lines:
-							patch.state === 'contested'
-								? [
-										`${patch.holders.length} speakers hold ${patch.iso3}`,
-										'not filled: no one rate belongs here'
-									]
-								: [`fewer than ${count(result.minimum)} speeches in this period`, 'no rate']
-					};
-				}}
 				onselect={(point) => (selected = point?.speakers[0].speaker.country_org ?? null)}
 				describe={describeSpeaker}
 			/>
@@ -419,8 +432,24 @@
 						<dt>{shortCountry(entry.speaker.country_org)}</dt>
 						<dd>
 							{percent(entry.row.speech_rate ?? 0)} of {count(entry.row.held)} speeches
+							{#if entry.row.speech_rate_low != null && entry.row.speech_rate_high != null}
+								<span class="interval"
+									>(95% interval {percent(entry.row.speech_rate_low)}&ndash;{percent(
+										entry.row.speech_rate_high
+									)})</span
+								>
+							{/if}
 							{#if has.occurrences}&middot; {count(entry.row.occurrences ?? 0)} occurrences{/if}
 							&middot; {entry.speaker.first_year}&ndash;{entry.speaker.last_year}
+						</dd>
+						<dd class="read">
+							<a
+								class="more"
+								href="{resolve('/usage')}?actor={encodeURIComponent(entry.speaker.country_org)}"
+							>
+								Which genocide it means by the word <Icon icon={ChevronRight} />
+							</a>
+							<span class="interval">model-derived, experimental</span>
 						</dd>
 						{#if links.length === 1}
 							<dd class="read">
@@ -451,66 +480,6 @@
 		</aside>
 	{/if}
 
-	<section class="table-wrap">
-		<h2>The table behind the map</h2>
-		<p class="prose">
-			The same {count(result.rows.length)} rows, in the same order. The table is the main presentation
-			and the map is a way into it: a circle cannot be reached by keyboard or read aloud by a screen reader,
-			and a row can.
-		</p>
-		<div class="scroll">
-			<table>
-				<caption class="sr-only">
-					Speakers ranked by {label(result.order)} for {termLabel(measure)}, {result.period?.label}
-				</caption>
-				<thead>
-					<tr>
-						<th scope="col">Speaker</th>
-						<th scope="col">Group</th>
-						<th scope="col" class="num">Speeches</th>
-						<th scope="col" class="num">Using the term</th>
-						<th scope="col" class="num">Share</th>
-						{#if has.occurrences}
-							<th scope="col" class="num">Per {count(artefact.rate_per_tokens)} words</th>
-						{/if}
-					</tr>
-				</thead>
-				<tbody>
-					{#each result.rows as entry (entry.speaker.country_org)}
-						<tr
-							class:picked={entry.speaker.country_org === selected}
-							class:unmapped={!entry.speaker.mappable}
-						>
-							<th scope="row">
-								<button
-									type="button"
-									onclick={() =>
-										(selected =
-											selected === entry.speaker.country_org ? null : entry.speaker.country_org)}
-								>
-									{shortCountry(entry.speaker.country_org)}
-								</button>
-								{#if entry.speaker.iso3 && shared.has(entry.speaker.iso3)}
-									<abbr
-										title="This three-letter country code is held by more than one speaker in the corpus."
-										>{entry.speaker.iso3}*</abbr
-									>
-								{/if}
-							</th>
-							<td>{entry.speaker.un_regional_group ?? entityType(entry.speaker.entity_type)}</td>
-							<td class="num">{count(entry.row.held)}</td>
-							<td class="num">{count(entry.row.speeches)}</td>
-							<td class="num">{percent(entry.row.speech_rate ?? 0)}</td>
-							{#if has.occurrences}
-								<td class="num">{decimal(entry.row.token_rate ?? 0)}</td>
-							{/if}
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	</section>
-
 	<!-- The same artefact, a different block, and a question the ranking above
 	     cannot answer: not how often a delegation used the word, but what
 	     position it held when it spoke at all. It reads `countries.json`'s
@@ -528,47 +497,6 @@
 	<div id="speaker-keyness">
 		<SpeakerKeyness data={data.keyness} />
 	</div>
-
-	<section class="apparatus">
-		<h2>What this table will not tell you</h2>
-		<ul>
-			<li>
-				<strong>{count(result.under.length)} speakers have no rate at all.</strong>
-				{artefact.minimum_speeches_rule}
-			</li>
-			{#if unmapped.length}
-				<li>
-					<strong>{count(unmapped.length)} of the ranked speakers appear on no map.</strong>
-					{unmapped
-						.slice(0, 4)
-						.map((entry) => entry.speaker.country_org)
-						.join(', ')}{unmapped.length > 4 ? ', and others' : ''} are not states and have no place on
-					a globe. They are in the table and missing from the figure above, on purpose.
-				</li>
-			{/if}
-			{#each collisions as [code, holders] (code)}
-				<li>
-					<strong>{code} is shared by {holders.length} speakers.</strong>
-					{holders.join(', ')} carry the same country code, because using a successor state's code is
-					the only way to place a historical state on a map at all. They are never merged: a combined
-					total would belong to no state that ever spoke.
-				</li>
-			{/each}
-			<li>
-				<strong>A country's map position is not where anyone spoke.</strong>
-				{artefact.centroid_rule}
-			</li>
-			<li>
-				<strong>The shaded map is built on territory; the table is built on the speaker.</strong>
-				Shading needs a country code, so it inherits everything a code cannot carry: a historical speaker
-				appears inside its successor's borders, a large state draws the eye for being large, and {count(
-					unbounded.length
-				)} delegations have no outline at this scale and are marked with a dot. Where two measurable speakers
-				share a code, the country is outlined and left blank rather than given one of their two rates.
-				The circles and this table carry none of these problems.
-			</li>
-		</ul>
-	</section>
 </article>
 
 <style>
@@ -597,18 +525,8 @@
 	}
 
 	/* The view switch, in the figure's control bar beside the three selects. */
-	.view {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-	}
 
-	.view .label {
-		display: inline;
-	}
-
-	.refusal,
-	.prose {
+	.refusal {
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		color: var(--ink-3);
@@ -679,10 +597,6 @@
 	}
 
 	.table-wrap,
-	.apparatus {
-		margin-top: var(--sp-7);
-	}
-
 	h2 {
 		font-family: var(--sans);
 		font-size: var(--step-1);
@@ -756,19 +670,6 @@
 		margin-inline-start: var(--sp-1);
 	}
 
-	.apparatus ul {
-		max-width: var(--measure);
-		margin: 0;
-		padding-inline-start: var(--sp-4);
-		font-family: var(--sans);
-		font-size: var(--step--1);
-		color: var(--ink-2);
-	}
-
-	.apparatus li {
-		margin-bottom: var(--sp-3);
-	}
-
 	.sr-only {
 		position: absolute;
 		width: 1px;
@@ -776,5 +677,52 @@
 		overflow: hidden;
 		clip-path: inset(50%);
 		white-space: nowrap;
+	}
+	/* The interval column: a rail the width of the cell, scaled to the widest
+	   upper bound on the page, with the Wilson bounds as a bar and the rate
+	   as a tick. Read left to right like the map's circles, and unlike them
+	   it survives a screen reader, which gets the printed range. */
+	.whisker-head {
+		white-space: nowrap;
+	}
+
+	td.whisker {
+		min-width: 9rem;
+		white-space: nowrap;
+	}
+
+	.rail {
+		position: relative;
+		display: inline-block;
+		vertical-align: middle;
+		width: 4.5rem;
+		height: 0.75rem;
+		margin-inline-end: 0.5rem;
+		background: linear-gradient(
+			to right,
+			transparent var(--low),
+			var(--rule) var(--low),
+			var(--rule) var(--high),
+			transparent var(--high)
+		);
+		border-radius: 1px;
+	}
+
+	.rail::after {
+		content: '';
+		position: absolute;
+		top: -0.15rem;
+		bottom: -0.15rem;
+		left: var(--point);
+		width: 2px;
+		margin-left: -1px;
+		background: var(--ink);
+	}
+
+	.range,
+	.interval {
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink-3);
 	}
 </style>

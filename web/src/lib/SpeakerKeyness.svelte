@@ -132,24 +132,12 @@
 
 	{#snippet reading()}
 		<p>
-			One row per word, ordered by how confident the comparison is (G²). <strong
-				>Bar length carries the log ratio</strong
-			>: how many times more often this speaker used the word than the speeches it is compared
-			against, doubling with every whole number. A word can reach the top of the table on a small
-			difference, which is why length carries the size of the effect rather than the confidence.
+			One row per word, ranked by log ratio; <strong>bar length carries it</strong>, one unit per
+			doubling. Words below the G² floor are not shown. An asterisk marks a word from the speaker's
+			name.
+			{#if control === 'matched'}The bracket is the range the log ratio covered across {data.repetitions}
+				draws of the comparison set; a wide one says more about the draw than the speaker.{/if}
 		</p>
-		<p>
-			An asterisk marks a word taken from the speaker's own name. Those rows are marked rather than
-			deleted: how often a delegation names itself says something about how it speaks, and removing
-			rows would change the ranking of everything below them.
-		</p>
-		{#if control === 'matched'}
-			<p>
-				The bracket after a row is the range its log ratio covered across {data.repetitions} draws of
-				the comparison set, this one among them. A wide bracket says more about the luck of the draw than
-				about the speaker.
-			</p>
-		{/if}
 	{/snippet}
 
 	{#snippet caveat()}
@@ -162,6 +150,14 @@
 			{/if}
 		</p>
 		<p>{data.self_reference_rule}</p>
+	{/snippet}
+	{#snippet more()}
+		<p>
+			The same comparison for the speeches that use <em>genocide</em>, against the whole corpus of
+			like-for-like speeches, is
+			<a href="{resolve('/language')}#compared-with-a-like-for-like-speech">on the Language page</a
+			>.
+		</p>
 	{/snippet}
 
 	{#if plan.missing}
@@ -222,6 +218,8 @@
 					<th scope="col" class="num">This speaker</th>
 					<th scope="col" class="num">Compared with</th>
 					<th scope="col" class="num">G²</th>
+					<th scope="col" class="num">Speeches / meetings</th>
+					<th scope="col" class="num">DP</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -251,6 +249,10 @@
 						<td class="num">{count(row.target)}</td>
 						<td class="num">{count(row.reference)}</td>
 						<td class="num">{count(Math.round(row.g2))}</td>
+						<td class="num"
+							>{count(row.documents)} / {row.meetings == null ? '—' : count(row.meetings)}</td
+						>
+						<td class="num">{decimal(row.dp)}</td>
 					</tr>
 				{/each}
 			</tbody>

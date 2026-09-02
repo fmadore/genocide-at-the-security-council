@@ -38,13 +38,11 @@ export interface ActorRow {
 
 /** How a speaker may be ranked. Both come from the artefact; neither is derived here. */
 export type Ordering = 'speech_rate' | 'token_rate' | 'speeches' | 'held';
-export type ActorView = 'points' | 'choropleth';
 
 export interface ActorState {
 	measure: string;
 	period: string;
 	order: Ordering;
-	view: ActorView;
 }
 
 /** Defaults follow the artefact, so a later corpus extension does not create a stale URL contract. */
@@ -54,8 +52,7 @@ export function actorDefaults(data: Countries): ActorState {
 		period: data.periods.some((period) => period.key === 'all')
 			? 'all'
 			: (data.periods[0]?.key ?? ''),
-		order: 'speech_rate',
-		view: 'points'
+		order: 'speech_rate'
 	};
 }
 
@@ -74,12 +71,9 @@ export function readActorState(params: URLSearchParams, data: Countries): ActorS
 		askedOrder && orderings(data.measures[measure]).includes(askedOrder)
 			? askedOrder
 			: defaults.order;
-	return {
-		measure,
-		period,
-		order,
-		view: params.get('view') === 'choropleth' ? 'choropleth' : defaults.view
-	};
+	// `view` used to choose circles or a choropleth; the choropleth went with the
+	// review of 1 September 2026 and an old `view=` in a copied URL is ignored.
+	return { measure, period, order };
 }
 
 /** Serialize only controls that differ from the artefact-aware defaults. */
@@ -89,7 +83,6 @@ export function actorParams(state: ActorState, data: Countries): URLSearchParams
 	if (state.measure !== defaults.measure) params.set('measure', state.measure);
 	if (state.period !== defaults.period) params.set('period', state.period);
 	if (state.order !== defaults.order) params.set('order', state.order);
-	if (state.view !== defaults.view) params.set('view', state.view);
 	return params;
 }
 
@@ -108,11 +101,11 @@ export interface ActorPlan {
 	 *
 	 * They are never sorted and never handed to the ranking: naming near-misses
 	 * beside a ranked table invites reading them as ranked, which is why the
-	 * interface reports `under.length` and not these rows. The list exists for
-	 * the choropleth, which has to fill their territory as *withheld* rather than
-	 * leave it the colour of a state that never spoke at all — the same
-	 * distinction the chronology's grid draws between a hatched cell and a white
-	 * one, and for the same reason.
+	 * interface reports `under.length` and not these rows. The list itself is
+	 * kept so the count can be checked against the rows it summarises, and so a
+	 * later figure that must mark a withheld speaker as *withheld* rather than
+	 * absent — the distinction the chronology's grid draws between a hatched
+	 * cell and a white one — has them to hand.
 	 */
 	under: ActorRow[];
 	/** Speakers the artefact has no row for in this period. */

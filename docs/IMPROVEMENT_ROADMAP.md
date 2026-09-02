@@ -389,7 +389,7 @@ break copied URLs.
 
 ### U8. Titles and prose that name what they do
 
-**Status: complete on 27 August 2026.**
+**Status: complete on 27 August 2026.** Follow-up in U9.
 
 The same feedback reported two pages as unclear. Both causes are prose, not analysis.
 
@@ -414,6 +414,42 @@ The same feedback reported two pages as unclear. Both causes are prose, not anal
   was drawn from, and reuses the computed months rather than restating them as literals.
 - The full frontend and browser gates pass, and the built site is inspected, because this is
   production-facing prose with no unit surface of its own.
+
+### U10. The referent path, and the page's own map
+
+**Status: complete on 2 September 2026.** Item 11 of the prioritised plan in
+[`REVIEW_2026-09-01.md`](REVIEW_2026-09-01.md) §8; §5.3 is its specification.
+
+The historian's question — when, and by whom, was the word used about Rwanda — is a
+referent question, and it routed only through the experimental `/usage` page, unsignposted.
+Now the concordance carries a **referent** facet for `genocide`, drawn from the published
+model run (`usage/occurrences.json` joined on the line id, labels from `usage.json`), marked
+*model-derived, experimental* beside the control and carried in the URL as `referent=`;
+without the run loaded the filter keeps nothing rather than everything, so a copied link
+never shows the whole corpus under a referent's name. A delegation's panel on Actors links
+to `/usage?actor=…`. Every `Figure` has an `id` (a slug of its title, from
+`$lib/figures.ts`, or one it declares) and its title is its own anchor; the four
+multi-figure pages open with a `Contents` list of their figures. The chronology's term
+picker is grouped under register headings rather than by a coloured edge; corpus keyness
+and per-speaker keyness link to each other from their `more` notes; and the usage unit
+toggle's rules, which lived only in `title` tooltips, are printed beside it.
+
+### U9. A word budget for every figure
+
+**Status: complete on 2 September 2026.** Item 3 of the prioritised plan in
+[`REVIEW_2026-09-01.md`](REVIEW_2026-09-01.md) §8; §5.1 is its specification.
+
+Every `Figure` is held to a budget: `question` ≤ 20 words, `reading` ≤ 60, `caveat` ≤ 50,
+counted with every conditional branch and each `{expression}` as one word, the way the
+review counted. `web/scripts/word-budget.mjs` reads every `<Figure>` under `src/` and
+fails `npm run lint` on overflow, so the budget is a gate rather than a wish. Overflow a
+reader might still want — a withholding rule in full, a second-order caveat, a worked
+example — goes in a new `more` snippet, a disclosure in the margin capped at 150 words;
+method goes to Methods behind an anchor (`#change-points`, `#keyness`, `#word-list`);
+engineering narration and restated marks are deleted. The 26-word download hint under
+eighteen figures became the CSV button's tooltip. On the actors page the closing list that
+re-ran the figure's caveats is gone, and `minimum_speeches_rule` and `centroid_rule` are
+printed once. Apparatus fell from 4,964 words over twenty figures to 2,210.
 
 ## Phase M — maintainability and measured payload improvements
 
@@ -443,6 +479,23 @@ Retain the map and its current geography. During actor-page work:
 
 No SVG-map replacement is planned.
 
+**Amended 2 September 2026** (review §8, item 8; §5.2): MapLibre stays, as a locator. The
+circles were sized linearly in the radius by the ranked figure, which overstates every
+difference quadratically, and the choropleth shaded a successor state's territory for a
+historical speaker and drew the eye to whichever country was large. Both went: every dot
+is the same size and the same ink, the selection takes the accent, and the ranked table —
+with its Wilson whisker column — is the figure, set above the map inside the same frame.
+`$lib/choropleth` and its tests are deleted; `view=` in a copied URL is ignored. The
+boundary file `web/static/geo/countries.json` and `tools/build_boundaries.py` are no
+longer read by the site and can go when the next static audit runs. The same item
+replaced the word cloud with a dot plot (`$lib/DotPlot.svelte`, `dotplot.ts`: position by
+log ratio, area by frequency, a spread mark for DP, every word a link) and the force
+network with a register-ordered adjacency matrix (`$lib/TermMatrix.svelte`, `matrix.ts`:
+shaded by nPMI, hatched below the minimum, crossed where the pair is definitional), and
+reserved the register hues for registers: the split-by-category figure, the standing
+bands and the stance profile now take weights of ink (`theme.categoricalNeutral`).
+`d3-cloud` is removed from the dependencies.
+
 ### M3. Optimize evidence access from observed requests
 
 Instrument locally or inspect hosting logs if available before changing sharding. Candidate
@@ -457,6 +510,27 @@ Each change needs before/after transfer, request-count and interaction measureme
 add a query service while static files meet the need.
 
 ### M4. Small pipeline and deployment cleanup
+
+**Amended 2 September 2026** (review §8, item 13; §6.4–6.5). The `Makefile` is now the
+pipeline's single DAG — one target per step, keyed on the file it writes, declared against
+every input it reads, with `raw` phony so 00 always MD5-checks the corpus — and
+`deploy.yml` runs `make payload` rather than a copied list; `README.md` and
+`docs/CLUSTER.md` point at it. `tests/test_end_to_end.py` runs 04 and 08 as subprocesses
+over a deterministic synthetic corpus, with the data, notes and web roots redirected by
+`GENOCIDE_DATA_ROOT`, `GENOCIDE_NOTES_ROOT` and `GENOCIDE_WEB_DATA_ROOT`, and compares
+their analytical values — rates, intervals, both p-values, KWIC lines — against
+`tests/golden/end_to_end_04_08.json`; `UPDATE_GOLDEN=1` regenerates it, and the diff is the
+review. Writing it found two places where 04's note formatted a withheld month as a number
+and one sentence the review had flagged as unconditional; both are fixed.
+`tests/test_requirements.py` holds `requirements.lock` inside the declared ranges, and
+`.github/dependabot.yml` groups weekly updates for pip, npm and Actions. 11 and 12 assert
+the codebook's totals and refuse a synthetic corpus, so the end-to-end test stops at 04 and
+08; 05 needs a corpus large enough for anything to clear the G² floor. **Owed, and not
+doable from a runner:** a tagged release with `data/derived/` and the manifests deposited on
+Zenodo, so the payload exists somewhere other than an Actions cache that evicts after seven
+idle days — the checklist is: run `make payload` on the pinned corpus, tag the commit, attach
+`data/derived/manifests/` and `web/static/data/manifest.json`, deposit `data/derived/` on
+Zenodo under the CC0 data licence, and write the DOI into `CITATION.cff`.
 
 Do these independently, only when the relevant file is already being changed:
 
@@ -503,10 +577,47 @@ artifact.
 
 ### S1. Meeting-clustered uncertainty
 
+**Status: first slice complete on 2 September 2026; the corpus re-run is owed.** This is
+item 2 of the prioritised plan in [`REVIEW_2026-09-01.md`](REVIEW_2026-09-01.md) §8, and
+the review's §3.1, §3.3 and §5.2 are its specification.
+
 Add meeting-block bootstrap intervals and sensitivity to high-volume meetings to existing
 actor and time comparisons. Use cluster-robust or beta/negative-binomial alternatives only
 where the estimand and observed dispersion warrant them. Publish the unit of resampling,
 seed, repetitions and failure/withholding rules.
+
+The first slice lands the two changes the review ranked highest:
+
+1. **The rate change-point test is calibrated against a meeting-block null.**
+   `lib/series.py::rate_change_point` takes the per-meeting blocks that
+   `series.meeting_blocks` builds (period, count, exposure) and, for every trial, permutes
+   the assignment of meetings to years — each year keeps its number of meetings, a meeting
+   travels with all of its speeches and all of its hits — before repeating the whole
+   search. The published `p_value` is the block one; the parametric independent-speech
+   p-value the site used until now is kept beside it as `p_value_independent`, and the
+   artefact names the null it used in `null` and the number of blocks in `blocks`.
+   `accepted` follows the block p-value. The function refuses blocks that do not add back
+   up to the counts and exposure they are meant to calibrate.
+2. **Every `speech_rate` carries its Wilson 95% interval.** `series.wilson_interval` is
+   the one implementation; `series.measure` writes `speech_rate_low` and
+   `speech_rate_high` beside the rate, `withhold_below` blanks all three on the same rule,
+   and the bounds reach `series/annual.json`, `quarterly.json`, `monthly.json` (grid and
+   pooled calendar), `breakdowns.json` and `countries/countries.json`. The site draws them
+   as bands on the chronology's main and split-by-category figures and as a whisker column
+   on the actor ranking, and prints the range in every hover box and CSV.
+
+Also in the slice, from the same review section: the findings note is built from the
+corrected `inference` block rather than the exploratory one, and no year is typed into its
+prose; the change-point figure shows both p-values and marks a best split that is not
+accepted as such rather than reporting "no change detected".
+
+Acceptance: `python -m pytest` and `ruff check .` pass; `npm run lint`, `npm run check`,
+`npm test` and the Playwright journeys pass on the fixtures; the contract diff is additive
+only. **What is owed:** a run of `04_series.py` and `11_countries.py` against the corpus, so
+that the published p-values are re-calibrated and `README.md`'s change-point paragraph can
+be rewritten from the new artefact — the environment this slice was written in cannot reach
+Dataverse (see `VALIDATION.md`, “The rate tests under a meeting-block null”). Left for later slices of S1: meeting-block intervals on
+the collocate and keyness tables (with S5), the funnel plot (S3), the mixed model (§3.6).
 
 ### S2. Actor-by-year prevalence matrix
 
@@ -531,11 +642,49 @@ network.
 
 ### S5. Lexical robustness and shift
 
+**Status: first slice complete on 2 September 2026; the corpus re-run is owed.** This is
+item 7 of the prioritised plan in [`REVIEW_2026-09-01.md`](REVIEW_2026-09-01.md) §8, and
+the review's §3.2 is its specification.
+
 For every collocate add distinct meetings, speakers and years; meeting dispersion;
 leave-one-meeting-out sensitivity; surface/lemma sensitivity; weighted log-odds; and
 meeting-level bootstrap intervals where feasible. Then expose a collocate-by-period matrix
 using color for direction/magnitude, size for frequency and a separate mark for dispersion.
 Do not add another word cloud.
+
+The first slice changes what a table row is and how a table is ordered:
+
+1. **Significance is a floor, not a rank.** `lib/lexical.py::compare` keeps a row only
+   when |G²| clears `G2_FLOOR` (10.83, p < 0.001) and orders the kept rows by effect —
+   `log_ratio` for keyword tables, `log_dice` (Rychlý 2008) for collocate tables, which
+   now carry it — with G² and then the word as tie-breakers so every run orders alike.
+   The floor and the ranking are written into each artefact's `meta`.
+2. **Every row carries its dispersion.** `lexical.dispersion` gives the documents and
+   distinct meetings a word appears in and Gries's DP over the target speeches (or the
+   collocate windows); `DocumentTerms.dispersion` computes the same numbers over the
+   speaker-keyness matrix and a test holds the two equal. Collocate tables, the keyness
+   table, the sliced profiles and every speaker's keyword table carry `documents`,
+   `meetings` and `dp`; the site prints them beside every row and its CSVs export them.
+3. **The tokeniser no longer loses the scare-quoted word.** `TOKEN_RE` cannot end on an
+   apostrophe or hyphen — `'genocide'` was a type of its own — and may carry a digit after
+   its first letter, so `R2P` is one word. Consequence recorded below: the lemma layer
+   from `10_lemmatise.py` is aligned token by token to the old pattern and must be
+   regenerated before `05 --vocabulary lemma` runs again; `lemmas.tokens` refuses a stale
+   row rather than shifting every window after it.
+4. **Definitional edges are suppressed by rule, with their reason.** `denial`'s pattern
+   contains `genocid`, so the `denial`–`genocide` edge was partly a fact about the lexicon;
+   `lexical.definitional_pairs` finds such pairs by running each term's regex over the
+   other's declared examples, the network no longer draws them, and the artefact lists
+   every suppressed pair with why.
+
+Acceptance: `python -m pytest` and `ruff check .` pass; `npm run lint`, `npm run check`,
+`npm test` and the Playwright journeys pass; the contract diff is additive only. **What is
+owed:** `05_lexical.py` and `12_speaker_keyness.py` re-run on the corpus — every table
+re-ranks, and `README.md`'s collocate paragraph names the top words from the old order —
+and `10_lemmatise.py` on the cluster before the lemma sensitivity reading is redrawn. Left
+for later slices: leave-one-meeting-out sensitivity, meeting-block intervals on the effect
+sizes (the 20-seed band is still control-draw variance only), the collocate-by-period
+matrix, and the dot plot that replaces the cloud (review item 8).
 
 ### S6. Sequential recurrence within meetings
 
@@ -931,3 +1080,9 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-08-30 | L7 diffusion of the word           | complete   | pending | `python -m pytest -q` (766 passed, `tests/test_usage.py` at 52); `ruff check .`; `--update-contract` diff = 19 insertions, 0 deletions, all inside the `diffusion` shapes; `npm test`; `npm run check`; `npm run lint`; `npm run test:e2e` (2 new `/usage` journeys, axe clean); `npm run build`; the synthetic render read in the browser | Same feedback, second round: the diffusion question — when each delegation first said, first asserted, first rejected the word for each referent. No new model call: `usage.json` gains a `diffusion` block of dated first events per (referent, delegation) in three milestone classes, each carrying its KWIC line id; on the synthetic fixture the `mention` events equal the matrix cells exactly (1,801), which is the invariant that says the two blocks count the same population. `/usage` gains a cumulative step figure (assertion solid, refusal dashed, mention drawn only when it differs from assertion) over a fixed cross-referent time axis, with the chronology table — the historian's deliverable — beneath it, driven by the same `?referent=` state as the matrix, and the caveat in the figure's own apparatus: the curve counts delegations speaking in this corpus, absence is not refusal. |
 | 2026-08-31 | L8 the second opinion              | complete   | pending | `python -m pytest -q` (803 passed; `tests/test_gemini.py` 26, all offline; the request-parity and same-population tests bind 14 and 16); `ruff check .`; contract diff = 33 insertions, only the comparison shapes; `15_usage.py` verified in both states — synthetic pair (overlap 5,952, contested 1,642) and real run + empty comparison — against the same contract; `npm test` (448); `npm run check`; `npm run lint`; `npm run test:e2e` (26 journeys incl. the none-state variant); `npm run build` against the real payload, unchanged | Gemini 3.7 Flash as counter-instrument (API surface verified on ai.google.dev, 2026-08-31; `gemini-3.7-flash`, thinking high, Batch at half price, `responseJsonSchema` passthrough). 16 is 14's sibling; a test asserts both providers are sent byte-identical messages and schema, and another that they annotate the same documented population. `comparison_run.txt` names the counter-instrument; 15 refuses a different prompt hash and a self-comparison, computes per-field observed/kappa and per-occurrence `contested`/`alt`, and never redraws matrix, stance or diffusion from it. The view marks contested rows, filters on `contested=1`, tables the agreement in the apparatus and lists the most contested passages with a full CSV — each surface carrying the sentence that governs the phase: agreement between two models is stability across instruments, never accuracy. **No comparison run exists yet**: `comparison_run.txt` is empty, the live payload renders the none state, and the run waits on a `GEMINI_API_KEY` (~$12 in Batch). |
 | 2026-09-01 | Lexicon v3 (review §3.4, item 1) | complete   | pending | `python -m pytest` (all passed on the merged tree; `tests/test_lexicon.py` new, `tests/test_config.py` +4, `tests/test_usage.py` +5); `ruff check .`; the v2 literal `war crime` shown to count 0 where the regex counts 1 on `war\ncrimes` | Two counting corrections from `docs/REVIEW_2026-09-01.md`: prefilters made whitespace-free and provably contained in every match, and register/total roll-ups summed over `lexicon.summable` so a nested term is not counted on top of its parent. No pattern changed. `pattern_since` per term, pinned by `config/lexicon.lock.json` and `tools/lock_lexicon.py`, and `Lexicon.compatible` let 15 and the annotation merge accept v2 artefacts under v3; `summable` walks the whole nesting chain and the loader refuses self-nesting and cycles; `09_export_speeches.py` now reconciles per-term counts rather than the de-duplicated total. Corpus-level effect to be recorded in `VALIDATION.md` on the next run of 03; the network policy of the environment the fix was written in did not reach Dataverse. |
+| 2026-09-02 | S1, first slice (review §8, item 2) | complete   | pending | `python -m pytest` (858 passed; `tests/test_series.py` +17 for `wilson_interval`, `meeting_blocks` and the block null); `ruff check .`; a synthetic 32-year corpus with two dense debates run through `build_series`, `build_change_points`, `build_monthly`, `build_breakdowns` and `build_note` — the token-rate split read p = 0.015 under the independent null and 0.69 under the block null; `npm run lint`; `npm run check` (0 errors); `npm test` (452 passed, `chronology.test.ts` +4); `npm run test:e2e` (26 Chromium journeys) and `npm run test:e2e:sw` (1 built-site journey, which is also the fixture build) on the fixtures, run through a throwaway config pointing at the environment's pre-installed Chromium because the pinned headless shell was absent; the contract diff is 43 insertions and no deletion. `npm run build` prerenders against `web/static/data/`, which this environment cannot populate, so it was not run. | The rate change-point null now permutes meetings across years (`series.meeting_blocks`, `rate_change_point(blocks=…)`); the independent-speech p-value is published beside the block one as `p_value_independent`, the artefact names its `null` and its `blocks`, and `accepted` follows the block p. Every `speech_rate` — annual, quarterly, monthly, pooled calendar, breakdown row, speaker row — carries Wilson 95% bounds, blanked by the same withholding rule as the rate; the site draws them as bands (chronology, split figure) and a whisker column (actors), and prints them in hovers and CSVs. The findings note reads the corrected `inference` block and types no year into its prose. Contract, TS types and fixtures moved together, with the new fields required rather than optional because the pipeline always writes them. **Owed:** the corpus re-run, blocked on Dataverse from this environment; `README.md` says which of its numbers are still the independent-null ones. |
+| 2026-09-02 | S5, first slice (review §8, item 7) | complete   | pending | `python -m pytest` (879 passed; `tests/test_lexical.py` +21 for the floor, the ranking, dispersion, logDice, the tokeniser and definitional pairs; `tests/test_keyness.py` +2 holding the matrix dispersion equal to the pure-Python one); `ruff check .`; a synthetic corpus run through `build_collocates`, `build_slices`, `build_keyness`, `build_network` and `build_note`, and `lib.keyness.speaker_keyness` on the same; `npm run lint`; `npm run check` (0 errors); `npm test` (452 passed); `npm run test:e2e` (26 journeys) and `npm run test:e2e:sw` through the throwaway Chromium config; the contract diff is 119 insertions and no deletion. | Tables are ranked by effect among rows clearing G² 10.83 — log ratio for keywords, logDice for collocates, which now carry it — and every row carries `documents`, `meetings` and `dp`. `TOKEN_RE` cannot end on an apostrophe or hyphen and may carry a digit, so `'genocide'` and `R2P` are the words they are. Definitional pairs are found from the declared examples and listed with their reason; the `denial`–`genocide` edge is no longer drawn. The language page prints the spread beside every row, the speaker keyness table too, and the standfirst says the floor and the rank. **Owed:** the corpus re-run of 05 and 12, and 10 on the cluster for the lemma layer, which the tokeniser change makes stale. |
+| 2026-09-02 | U9 word budget; M2 amended (review §8, items 3 and 8) | complete   | pending | `node web/scripts/word-budget.mjs` (20 figures, 2,210 words, no slot over); `npm run lint` (now includes the budget); `npm run check` (0 errors, 0 warnings); `npm test` (440 passed: the cloud's 43 tests went with it, `dotplot.test.ts` +7, `matrix.test.ts` +6, `language.test.ts` +7 for the profile selection); `npm run test:e2e` (26 journeys) and `npm run test:e2e:sw` through the throwaway Chromium config; `ruff check .` for the 05 docstring | Item 3: a `more` snippet on `Figure`, the download hint as a tooltip, Methods anchors, every figure rewritten to budget and the budget enforced on lint; the actors page loses its duplicated apparatus and the change-point test is explained once, on Methods. Item 8: the word cloud is a dot plot, the force network a matrix, the map a uniform-dot locator under the ranked table with no choropleth, and the register hues mean registers only. No number moved. The one URL contract change is `view=`, now ignored. |
+| 2026-09-02 | Item 15: legal milestones, the event rail, meeting labels | complete   | pending | `python -m pytest tests/test_series.py -q` and `series.load_events()` over the committed file (43 events, 6 kinds); `npm test` (`format.test.ts` new); `npm run check`; `npm run lint`; the journeys | Eight legal milestones join `config/events.csv` (Akayesu, Krstić, S/2005/60, *Bosnia v. Serbia*, the first al-Bashir warrant, S/PV.7155, Karadžić, Mladić), registered in `VALIDATION.md` as an open check on their dates. The chronology draws reference dates as ticks on a rail under the axis, on a second grid that shares the zoom, one series per kind with kind chips, in place of 35 full-height rules. `meetingLabel` prints a resumed sitting as the UN titles it (`S/PV.3745 (Resumption 1)`) in the concordance and the reader, and the Digital Library search uses the base symbol. |
+| 2026-09-02 | U10 referent path and page anchors (review §8, item 11) | complete   | pending | `npm test` (`concordance.test.ts` +3 for the facet, `figures.test.ts` new); `npm run check`; `npm run lint` (budget unchanged); the journeys | Referent facet in the concordance from the published run, marked model-derived; `/usage?actor=` link from the actor panel; figure ids and a Contents list on the four multi-figure pages; the term picker grouped by register; keyness pages cross-linked; the usage unit rules visible. |
+| 2026-09-02 | M4 amended: the DAG, the end-to-end test, lock sync, Dependabot (review §8, item 13) | complete   | pending | `make -n payload` (twelve steps in dependency order); `python -m pytest` (882 passed: `test_end_to_end.py` and `test_requirements.py` new); `ruff check .`; nothing written under `notes/`, `data/` or `web/static/data/` by the test | `Makefile` as the single DAG and `deploy.yml` calling `make payload`; `README.md` and `docs/CLUSTER.md` point at it. The end-to-end test runs 04 and 08 over a synthetic corpus with redirected roots against golden JSON, and found two withheld-rate formatting faults and the unconditional calendar sentence in 04's note. Lock-sync test and grouped Dependabot. **Owed:** the tagged release and the Zenodo deposit, which need the corpus and an account. |

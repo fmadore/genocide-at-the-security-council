@@ -63,21 +63,32 @@ python -m pip install --require-hashes -r requirements.lock
 ```
 
 ```bash
-python scripts/00_fetch_data.py      # ~500 MB from Harvard Dataverse into data/raw/
-                                     # (no network once it is there: config/dataset-pin.json
-                                     #  carries Harvard's MD5s, so a present corpus verifies offline)
-python scripts/01_build_parquet.py   # → data/derived/speeches.parquet (131 MB)
-python scripts/02_normalise.py       # → speeches_norm.parquet    (aliases, entities, groups)
-python scripts/03_lexicon.py         # → speeches_flagged.parquet (lexicon counts)
-python scripts/04_series.py          # → derived/series/*.json    (rates, change points)
-python scripts/05_lexical.py         # → derived/lexical/*.json   (collocates, keyness, PMI)
-python scripts/08_kwic.py            # → derived/kwic/*.json      (79,569 concordance lines)
-python scripts/09_export_speeches.py # → web/static/data/speeches (6,595 document files)
-python scripts/11_countries.py       # → derived/countries/*.json (per-speaker denominators)
-python scripts/12_speaker_keyness.py # → derived/countries/       (per-speaker matched keyness)
-python scripts/15_usage.py           # → derived/usage/*.json     (model-assisted usage layer,
-                                     #  from the committed run named in model_annotations/)
-python scripts/export_web.py         # → web/static/data          (assembles the payload)
+make payload      # the whole pipeline, from the fetch to the exported payload
+make -n payload   # what would run, in what order, without running it
+```
+
+The [`Makefile`](Makefile) is the pipeline's graph: one target per step, keyed on the file
+the step writes and declared against every input it reads, so an edited config or script
+rebuilds what it invalidates and nothing more. The deploy workflow runs the same target.
+What `make payload` runs, in order:
+
+```text
+00_fetch_data.py       ~500 MB from Harvard Dataverse into data/raw/ (no network once it
+                       is there: config/dataset-pin.json carries Harvard's MD5s, so a
+                       present corpus verifies offline)
+01_build_parquet.py    → data/derived/speeches.parquet (131 MB), meetings.parquet
+02_normalise.py        → speeches_norm.parquet    (aliases, entities, groups)
+03_lexicon.py          → speeches_flagged.parquet (lexicon counts)
+04_series.py           → derived/series/*.json    (rates, intervals, change points)
+05_lexical.py          → derived/lexical/*.json   (collocates, keyness, PMI)
+08_kwic.py             → derived/kwic/*.json      (79,569 concordance lines)
+09_export_speeches.py  → web/static/data/speeches (6,595 document files)
+11_countries.py        → derived/countries/*.json (per-speaker denominators)
+12_speaker_keyness.py  → derived/countries/       (per-speaker matched keyness)
+13_gold_sample.py      → data/interim/            (the genocide gold sample, deterministic)
+15_usage.py            → derived/usage/*.json     (model-assisted usage layer, from the
+                                                   committed run named in model_annotations/)
+export_web.py          → web/static/data          (assembles and checks the payload)
 ```
 
 Then the dashboard:
@@ -238,19 +249,29 @@ survive normalisation, and `scripts/04` is where that gets settled rather than a
 
 The primary inferential layer scans one annual two-rate partition with the denominator intact:
 binomial likelihood for speech prevalence and Poisson likelihood for occurrences with
-token exposure. Two thousand no-change simulations repeat the complete breakpoint search,
-with Bonferroni correction across the three planned rate tests. The strongest partitions
-start in 2017 for genocide speech prevalence (later/earlier rate ratio 0.71), 2016 for its
-token rate (0.65), and 1996 for atrocity-core speech prevalence (0.71). Rejecting a constant
-rate does not prove an abrupt historical break: smooth trends, meeting-level clustering and
-Poisson overdispersion remain limitations. The raw-count breaks and wild binary segmentation
-remain visible as explicitly exploratory descriptions.
+token exposure. Two thousand no-change series repeat the complete breakpoint search, with
+Bonferroni correction across the three planned rate tests. Since 2 September 2026 those
+series are built by permuting whole meetings across years rather than treating every
+speech as an independent draw — one debate can hold two hundred occurrences — and the
+p-value under the older independent-speech null is published beside the block one, so the
+size of that clustering is a number on the page. The strongest partitions start in 2017 for
+genocide speech prevalence (later/earlier rate ratio 0.71), 2016 for its token rate (0.65),
+and 1996 for atrocity-core speech prevalence (0.71); **these are the partitions and ratios,
+which the null does not move, and their p-values were last computed under the independent
+null** — the re-run that re-calibrates them is recorded as owed in
+[`docs/VALIDATION.md`](docs/VALIDATION.md), under “The rate tests under a meeting-block null”. Rejecting a constant rate does not prove an
+abrupt historical break: smooth trends and Poisson overdispersion remain limitations. Every
+share of speeches on the site carries its Wilson 95% interval. The raw-count breaks and wild
+binary segmentation remain visible as explicitly exploratory descriptions.
 
 ### The same word, doing different work
 
-`scripts/05` profiles what `genocide` travels with — by log-likelihood over a stated
-function-word stoplist, with log ratio beside every figure, because on 59 million tokens
-significance is cheap and effect size is not.
+`scripts/05` profiles what `genocide` travels with — over a stated function-word stoplist,
+with log-likelihood as a floor a row must clear and never as its rank, because on 59
+million tokens significance is cheap and effect size is not. Rows are ranked by effect
+(logDice for collocates, log ratio for keywords) and each carries its dispersion — the
+speeches and meetings it appears in, and Gries's DP — so one debate's word is not read as
+the register's.
 
 Almost every speaker's strongest collocates are the Rome Statute triad: `crimes`,
 `humanity`, `war`. **Rwanda's are not.** Across its 187 genocide-bearing speeches the

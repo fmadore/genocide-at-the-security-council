@@ -84,6 +84,8 @@
 					"tokens": 200000,
 					"speeches": 30,
 					"speech_rate": 0.1,
+					"speech_rate_low": 0.0708,
+					"speech_rate_high": 0.1391,
 					"sufficient": true,
 					"occurrences": 45,
 					"token_rate": 22.5
@@ -95,6 +97,8 @@
 					"tokens": 300000,
 					"speeches": 20,
 					"speech_rate": 0.05,
+					"speech_rate_low": 0.0326,
+					"speech_rate_high": 0.0761,
 					"sufficient": true,
 					"occurrences": 25,
 					"token_rate": 8.3333333333

@@ -47,6 +47,8 @@ const row = (name: string, extra: Partial<CountryMeasureRow> = {}): CountryMeasu
 	tokens: 500_000,
 	speeches: 25,
 	speech_rate: 0.05,
+	speech_rate_low: 0.034,
+	speech_rate_high: 0.073,
 	sufficient: true,
 	occurrences: 60,
 	token_rate: 12,
@@ -93,8 +95,7 @@ describe('actor URL state', () => {
 		const state = {
 			measure: 'genocide',
 			period: 'all',
-			order: 'token_rate' as const,
-			view: 'choropleth' as const
+			order: 'token_rate' as const
 		};
 		expect(readActorState(actorParams(state, data), data)).toEqual(state);
 	});
@@ -108,8 +109,7 @@ describe('actor URL state', () => {
 		expect(state).toEqual({
 			measure: 'genocide',
 			period: 'all',
-			order: 'speech_rate',
-			view: 'points'
+			order: 'speech_rate'
 		});
 		expect(actorParams(state, data).toString()).toBe('');
 	});

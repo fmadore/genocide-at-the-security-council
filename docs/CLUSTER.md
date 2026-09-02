@@ -182,9 +182,13 @@ Then fetch the corpus and the weights — both need the internet, so both run on
 the login node:
 
 ```bash
-python scripts/00_fetch_data.py
+make raw                                   # 00: fetch, or MD5-verify, the pinned corpus
 bash scripts/cluster/download_models.sh
 ```
+
+The step order is the repository's `Makefile`, which the batch scripts below call into
+(`make cluster` is 06, 07 and the lemma re-run of 05, in dependency order); it is not
+copied here.
 
 ## Running
 

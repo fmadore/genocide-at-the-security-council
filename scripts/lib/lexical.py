@@ -20,6 +20,15 @@ speech exists is reported rather than absorbed.
 are linked when they are used in the same intervention. Normalised PMI travels
 alongside because raw PMI is unbounded and rewards rarity — `genocidal_ideology`
 would otherwise dominate a graph it appears in 30 speeches of.
+
+**Significance is a floor, not a ranking** (review of 1 September 2026, §3.2).
+G² on pooled token counts treats every token as independent, so a collocate
+repeated fifty times in one speech ranks as if it appeared in fifty speeches.
+Tables are therefore ranked by effect — log ratio for keywords, logDice for
+collocates — among the rows that clear :data:`G2_FLOOR`, and every row carries
+its **dispersion**: the documents and distinct meetings it appears in, and
+Gries's DP, so a reader can tell a property of the register from a property of
+one debate.
 """
 
 from __future__ import annotations
@@ -28,6 +37,7 @@ import bisect
 import math
 import re
 from collections import Counter
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -36,15 +46,26 @@ import pandas as pd
 from .lexicon import HAS, Lexicon, Term
 from .paths import STOPWORDS, rel
 
-#: Words: letters, with internal apostrophes and hyphens kept. Digits are
-#: dropped — resolution numbers and dates are not vocabulary, and they would
-#: swamp any table they were let into. The curly apostrophe is named by code
-#: point: the OCR carries both, and they are identical on screen.
-TOKEN_RE = re.compile("[a-z][a-z'" + chr(0x2019) + "-]*")
+#: Words: a letter, then letters, digits, internal apostrophes and hyphens,
+#: ending on a letter or digit. A token cannot *start* with a digit —
+#: resolution numbers and dates are not vocabulary, and they would swamp any
+#: table they were let into — but may carry one, so `R2P` is one word rather
+#: than `r` and `p`. It cannot *end* on an apostrophe or hyphen either: the
+#: earlier pattern kept them, so a scare-quoted `'genocide'` tokenised as
+#: `genocide'`, a separate type, and the one usage this study most wants to
+#: see — the distanced, contested one — dropped out of every keyness table.
+#: The curly apostrophe is named by code point: the OCR carries both, and they
+#: are identical on screen.
+TOKEN_RE = re.compile("[a-z](?:[a-z0-9'" + chr(0x2019) + "-]*[a-z0-9])?")
 
 #: Below this many occurrences in the target, a word is noise however extreme
 #: its statistic. G² is unreliable on small expected counts.
 MIN_COUNT = 5
+
+#: The significance floor a row must clear before it is ranked at all: G² for
+#: one degree of freedom at p < 0.001. Below it the effect size is a number
+#: about noise. It is a floor and never an ordering — see the module docstring.
+G2_FLOOR = 10.83
 
 
 def load_stopwords() -> frozenset[str]:
@@ -116,6 +137,77 @@ def vocabulary(texts) -> Counter[str]:
     return counts
 
 
+def document_vocabulary(texts) -> list[Counter[str]]:
+    """The same counts, one `Counter` per document, for :func:`dispersion`."""
+    return [Counter(TOKEN_RE.findall(source.lower())) for source in texts]
+
+
+# --- Dispersion ------------------------------------------------------------
+
+
+def dispersion(
+    documents: Sequence[Counter[str]],
+    sizes: Sequence[int],
+    meetings: Sequence[object] | None = None,
+) -> dict[str, dict[str, object]]:
+    """Per word: the documents and meetings it appears in, and Gries's DP.
+
+    A frequency says how often; dispersion says how *evenly*. DP (Gries 2008)
+    compares the share of a word's occurrences that fall in each document with
+    the share of the text that document is: 0 when the word is spread exactly
+    as the text is, 1 when the whole of it sits in a document of vanishing
+    size. A collocate at DP 0.95 is one debate's word; at 0.3 it is the
+    register's.
+
+    `documents` are per-document counts, `sizes` their token totals (the
+    windows' sizes for a collocate table, the speeches' for a keyword table),
+    `meetings` the meeting each document came from, so that a word repeated
+    across thirty speeches of one sitting is not mistaken for one spread across
+    thirty sittings. The DP sum is taken only over documents holding the word —
+    every absent document contributes exactly its expected share — which is
+    what keeps this linear in the number of (document, word) pairs.
+    """
+    if len(documents) != len(sizes):
+        raise ValueError(f"{len(documents)} documents against {len(sizes)} sizes")
+    if meetings is not None and len(meetings) != len(documents):
+        raise ValueError(f"{len(documents)} documents against {len(meetings)} meetings")
+    total = float(sum(sizes))
+    if total <= 0:
+        return {}
+    expected = [size / total for size in sizes]
+
+    frequency: Counter[str] = Counter()
+    for counts in documents:
+        frequency.update(counts)
+
+    difference: dict[str, float] = {}
+    covered: dict[str, float] = {}
+    seen_in: Counter[str] = Counter()
+    seen_at: dict[str, set[object]] = {}
+    for index, counts in enumerate(documents):
+        share = expected[index]
+        meeting = None if meetings is None else meetings[index]
+        for word, count in counts.items():
+            if count <= 0:
+                continue
+            observed = count / frequency[word]
+            difference[word] = difference.get(word, 0.0) + abs(share - observed)
+            covered[word] = covered.get(word, 0.0) + share
+            seen_in[word] += 1
+            if meetings is not None:
+                seen_at.setdefault(word, set()).add(meeting)
+
+    return {
+        word: {
+            "documents": seen_in[word],
+            "meetings": len(seen_at[word]) if meetings is not None else None,
+            "dp": round(0.5 * (difference[word] + 1.0 - covered[word]), 4),
+        }
+        for word in frequency
+        if frequency[word] > 0
+    }
+
+
 # --- Statistics ------------------------------------------------------------
 
 
@@ -157,6 +249,19 @@ def log_ratio(a: int, b: int, target_total: int, reference_total: int) -> float:
     return math.log2(target_rate / reference_rate)
 
 
+def log_dice(joint: int, node: int, collocate: int) -> float:
+    """logDice (Rychlý 2008): the collocation measure that does not reward rarity.
+
+    ``14 + log2(2·f(node, collocate) / (f(node) + f(collocate)))``, with 14 the
+    score of a pair that never appears apart. It is independent of corpus size,
+    so a value means the same thing in a 1994 slice and in the whole corpus,
+    which G² and log ratio do not offer.
+    """
+    if joint <= 0 or node + collocate <= 0:
+        return float("-inf")
+    return 14.0 + math.log2(2.0 * joint / (node + collocate))
+
+
 def compare(
     target: Counter[str],
     reference: Counter[str],
@@ -165,30 +270,57 @@ def compare(
     stopwords: frozenset[str],
     min_count: int = MIN_COUNT,
     limit: int | None = None,
+    *,
+    floor: float = G2_FLOOR,
+    rank: str = "log_ratio",
+    dispersion: Mapping[str, Mapping[str, object]] | None = None,
+    extra: Callable[[str, int], dict[str, object]] | None = None,
 ) -> list[dict[str, object]]:
-    """Rank words by how strongly the target's rate differs from the reference.
+    """Rank words by how much the target's rate differs from the reference.
 
     `reference` is expected to *contain* the target's counts — the whole corpus,
     not its complement — and they are subtracted here so the two sides of the
     contingency table do not overlap.
+
+    A row must clear `floor` on |G²| to be kept at all, and the kept rows are
+    ordered by `rank` (descending), then by G², then by word, so a tie settles
+    the same way on every run. `rank` names a column the row carries: `log_ratio`
+    for a keyword table, or a column `extra` adds — `collocates` adds `log_dice`
+    and ranks on it. `dispersion`, from :func:`dispersion`, contributes
+    `documents`, `meetings` and `dp` to every row; a caller that has
+    per-document counts should always pass it, because a table without
+    dispersion cannot tell one debate's word from the register's.
     """
     rows = []
     for word, count in target.items():
         if count < min_count or word in stopwords:
             continue
         elsewhere = max(reference.get(word, 0) - count, 0)
-        rows.append(
-            {
-                "word": word,
-                "target": count,
-                "reference": elsewhere,
-                "g2": round(log_likelihood(count, elsewhere, target_total, reference_total), 3),
-                "log_ratio": round(
-                    log_ratio(count, elsewhere, target_total, reference_total), 3
-                ),
+        g2 = log_likelihood(count, elsewhere, target_total, reference_total)
+        if abs(g2) < floor:
+            continue
+        row: dict[str, object] = {
+            "word": word,
+            "target": count,
+            "reference": elsewhere,
+            "g2": round(g2, 3),
+            "log_ratio": round(log_ratio(count, elsewhere, target_total, reference_total), 3),
+        }
+        if extra is not None:
+            row |= extra(word, count)
+        if dispersion is not None:
+            spread = dispersion.get(word)
+            if spread is None:
+                raise KeyError(f"no dispersion for {word!r}, which the target counts")
+            row |= {
+                "documents": spread["documents"],
+                "meetings": spread["meetings"],
+                "dp": spread["dp"],
             }
-        )
-    rows.sort(key=lambda r: -float(r["g2"]))  # type: ignore[arg-type]
+        rows.append(row)
+    if rows and rank not in rows[0]:
+        raise KeyError(f"cannot rank on {rank!r}: rows carry {sorted(rows[0])}")
+    rows.sort(key=lambda r: (-float(r[rank]), -float(r["g2"]), str(r["word"])))  # type: ignore[arg-type]
     return rows[:limit] if limit else rows
 
 
@@ -205,20 +337,30 @@ def collocates(
     min_count: int = MIN_COUNT,
     limit: int | None = 100,
     tokeniser=None,
+    meetings: Sequence[object] | None = None,
+    floor: float = G2_FLOOR,
 ) -> tuple[list[dict[str, object]], int, int]:
     """Words attracted to `term` within `width` tokens.
 
     Returns the ranked rows, the number of node occurrences behind them, and the
     total tokens in the windows — both needed to say how much evidence a table
-    rests on.
+    rests on. Rows are ranked by logDice among those clearing the G² floor, and
+    each carries its dispersion over the node-bearing speeches: the speeches
+    and meetings whose windows hold the word, and DP over the windows.
 
     `tokeniser(index, source) -> Tokens` overrides how a speech is turned into
     countable units; `lib.lemmas` supplies one that yields lemmas while keeping
     the surface offsets. It is a callback rather than a second parameter holding
     the lemma rows because `lemmas` imports this module, and the node spans below
     must go on being found in the original text whatever is being counted.
+
+    `meetings` is aligned to `bodies` and names the meeting each speech came
+    from; without it the `meetings` column is null rather than guessed.
     """
     window: Counter[str] = Counter()
+    per_speech: list[Counter[str]] = []
+    sizes: list[int] = []
+    from_meetings: list[object] = []
     occurrences = 0
     for index, source in enumerate(bodies):
         matches = list(term.regex.finditer(source))
@@ -226,9 +368,17 @@ def collocates(
             continue
         tokens = tokenise(source) if tokeniser is None else tokeniser(index, source)
         occurrences += len(matches)
-        window.update(tokens.context([(match.start(), match.end()) for match in matches], width))
+        context = Counter(
+            tokens.context([(match.start(), match.end()) for match in matches], width)
+        )
+        window.update(context)
+        per_speech.append(context)
+        sizes.append(sum(context.values()))
+        if meetings is not None:
+            from_meetings.append(meetings[index])
 
     window_total = sum(window.values())
+    spread = dispersion(per_speech, sizes, from_meetings if meetings is not None else None)
     rows = compare(
         window,
         reference,
@@ -237,6 +387,14 @@ def collocates(
         stopwords,
         min_count,
         limit,
+        floor=floor,
+        rank="log_dice",
+        dispersion=spread,
+        extra=lambda word, count: {
+            "log_dice": round(
+                log_dice(count, occurrences, max(reference.get(word, 0), count)), 3
+            )
+        },
     )
     return rows, occurrences, window_total
 
@@ -330,6 +488,43 @@ def matched_control(
 # --- Co-occurrence network -------------------------------------------------
 
 
+def definitional_pairs(lex: Lexicon) -> list[dict[str, str]]:
+    """Pairs of terms whose co-occurrence is written into the lexicon itself.
+
+    Two ways a pair can be definitional rather than observed. A term declared
+    `nested_under` another matches inside its parent's span, so the two always
+    co-occur. And a term whose pattern *contains* another term — `denial`'s
+    pattern holds `genocid`, so "denying the genocide" is a `genocide` hit by
+    construction — co-occurs with it for the same reason, though nothing in the
+    config says so. The second case is found by running each term's regex over
+    the other's declared `examples`: an example is the config's own statement
+    of what the pattern is for, so a second term matching it is a second term
+    matching by definition. Every suppressed pair is returned with its reason,
+    so the artefact can list what the graph does not draw and say why.
+    """
+    pairs: list[dict[str, str]] = []
+    active = list(lex.active)
+    for i, left in enumerate(active):
+        for right in active[i + 1 :]:
+            if left.nested_under == right.name or right.nested_under == left.name:
+                pairs.append(
+                    {"source": left.name, "target": right.name, "reason": "nested"}
+                )
+                continue
+            for a, b in ((left, right), (right, left)):
+                hit = next((ex for ex in b.examples if a.regex.search(ex)), None)
+                if hit is not None:
+                    pairs.append(
+                        {
+                            "source": a.name,
+                            "target": b.name,
+                            "reason": f"`{a.name}` matches `{b.name}`'s example “{hit}”",
+                        }
+                    )
+                    break
+    return pairs
+
+
 def pmi_network(
     frame: pd.DataFrame, lex: Lexicon, min_speeches: int = 20
 ) -> list[dict[str, object]]:
@@ -337,7 +532,9 @@ def pmi_network(
 
     Two terms are linked when the same intervention uses both. Normalised PMI
     is carried alongside the raw value: PMI is unbounded and rewards rarity, so
-    a term appearing in thirty speeches would otherwise own the graph.
+    a term appearing in thirty speeches would otherwise own the graph. Pairs
+    :func:`definitional_pairs` names are never drawn: their co-occurrence is a
+    fact about the lexicon, not about the speeches.
     """
     total = len(frame)
     if total == 0:
@@ -346,13 +543,14 @@ def pmi_network(
     names = [t.name for t in lex.active]
     present = {name: frame[f"{HAS}{name}"].to_numpy() for name in names}
     counts = {name: int(present[name].sum()) for name in names}
+    definitional = {
+        frozenset((pair["source"], pair["target"])) for pair in definitional_pairs(lex)
+    }
 
     edges = []
     for i, left in enumerate(names):
         for right in names[i + 1 :]:
-            left_term = lex.terms[left]
-            right_term = lex.terms[right]
-            if left_term.nested_under == right or right_term.nested_under == left:
+            if frozenset((left, right)) in definitional:
                 continue
             together = int((present[left] & present[right]).sum())
             if together < min_speeches:

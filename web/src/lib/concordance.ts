@@ -52,6 +52,12 @@ export interface ConcordanceState {
 	participantType: string;
 	agenda: string;
 	spv: string;
+	/**
+	 * A referent from the published model run, or empty. Model-derived: the
+	 * concordance can narrow to "the occurrences the model placed on Rwanda",
+	 * and says so beside the control, but it is a reading and not a coding.
+	 */
+	referent: string;
 	from: number;
 	to: number;
 	month: number | null;
@@ -67,6 +73,7 @@ export const CONCORDANCE_DEFAULTS: ConcordanceState = {
 	participantType: '',
 	agenda: '',
 	spv: '',
+	referent: '',
 	from: 1992,
 	to: 2023,
 	month: null,
@@ -93,6 +100,7 @@ export function readConcordanceState(params: URLSearchParams): ConcordanceState 
 		participantType: params.get('type') ?? '',
 		agenda: params.get('agenda') ?? '',
 		spv: params.get('spv') ?? '',
+		referent: params.get('referent') ?? '',
 		from: year(params.get('from'), CONCORDANCE_DEFAULTS.from),
 		to: year(params.get('to'), CONCORDANCE_DEFAULTS.to),
 		month: readMonth(params.get(MONTH_PARAM)),
@@ -111,6 +119,7 @@ export function concordanceParams(state: ConcordanceState): URLSearchParams {
 	if (state.participantType) params.set('type', state.participantType);
 	if (state.agenda) params.set('agenda', state.agenda);
 	if (state.spv) params.set('spv', state.spv);
+	if (state.referent) params.set('referent', state.referent);
 	if (state.from !== CONCORDANCE_DEFAULTS.from) params.set('from', String(state.from));
 	if (state.to !== CONCORDANCE_DEFAULTS.to) params.set('to', String(state.to));
 	if (state.month !== null) params.set(MONTH_PARAM, String(state.month));
@@ -151,7 +160,13 @@ export interface ConcordanceResult {
 /** Apply the same filtering and corpus-linguistic sort in every consumer. */
 export function filterConcordance(
 	lines: readonly KwicLine[],
-	state: ConcordanceState
+	state: ConcordanceState,
+	/**
+	 * Occurrence id → referent id, from `usage/occurrences.json`. Without it a
+	 * referent filter keeps nothing rather than everything: a URL that asks for
+	 * Rwanda must never show the whole corpus under a heading that says Rwanda.
+	 */
+	referents: ReadonlyMap<string, string> | null = null
 ): ConcordanceResult {
 	let matcher: ((line: KwicLine) => boolean) | null = null;
 	let badRegex = false;
@@ -178,6 +193,7 @@ export function filterConcordance(
 		if (state.participantType && line.type !== state.participantType) return false;
 		if (state.agenda && line.agenda !== state.agenda) return false;
 		if (state.spv && line.spv !== state.spv) return false;
+		if (state.referent && referents?.get(line.id) !== state.referent) return false;
 		return matcher ? matcher(line) : true;
 	});
 

@@ -24,6 +24,14 @@ export interface LexiconMeta extends BaseMeta {
 export interface Measure {
 	speeches: number[];
 	speech_rate: number[];
+	/**
+	 * Wilson 95% bounds of `speech_rate`, period by period, written by
+	 * `lib/series.py::measure` beside the rate itself. A share of 60 speeches
+	 * and a share of 6,000 are not the same number, and the band is how a
+	 * chart says so.
+	 */
+	speech_rate_low: number[];
+	speech_rate_high: number[];
 	/** Absent for sets: a union has no occurrence count of its own. */
 	occurrences?: number[];
 	token_rate?: number[];
@@ -56,6 +64,9 @@ export interface MonthlyMeasure {
 	speeches: number[];
 	/** Null wherever `MonthlySeries.sufficient` is false. Never `NaN`. */
 	speech_rate: (number | null)[];
+	/** Null exactly where `speech_rate` is: one withholding rule blanks all three. */
+	speech_rate_low: (number | null)[];
+	speech_rate_high: (number | null)[];
 	occurrences?: number[];
 	token_rate?: (number | null)[];
 	tier?: string;
@@ -146,6 +157,9 @@ export interface BreakdownRow {
 	held: number;
 	speeches: number;
 	speech_rate: number;
+	/** Wilson 95% bounds of `speech_rate` over this row's own `held`. */
+	speech_rate_low: number;
+	speech_rate_high: number;
 	occurrences?: number;
 	token_rate?: number;
 }
@@ -168,12 +182,27 @@ export interface Break {
 	interval_stop: number;
 }
 
+/**
+ * What the rate test's p-value was calibrated against. `meeting_block_permutation`
+ * moves whole meetings between years, so a debate that used the word two
+ * hundred times is one draw; `independent_parametric` is the older null in
+ * which every speech is an independent coin flip, kept beside the block
+ * p-value so the size of the clustering is visible.
+ */
+export type RateNull = 'meeting_block_permutation' | 'independent_parametric';
+
 export interface RateBreak {
 	index: number;
 	label: string;
 	family: 'binomial' | 'poisson';
 	gain: number;
+	null: RateNull;
+	/** Meetings the block null permuted; null when the independent null was used. */
+	blocks: number | null;
+	/** Under `null`. `accepted` follows this one. */
 	p_value: number;
+	/** Under the independent-speech null, whatever `null` says. */
+	p_value_independent: number;
 	alpha: number;
 	accepted: boolean;
 	before: number;
@@ -193,6 +222,7 @@ export interface ChangePoints {
 	series: Record<string, Record<string, Break[]>>;
 	inference: {
 		method: string;
+		null: RateNull;
 		familywise_alpha: number;
 		per_test_alpha: number;
 		correction: string;
@@ -222,12 +252,27 @@ export interface Events {
 
 /* --- 05_lexical.py ------------------------------------------------------- */
 
+/**
+ * One row of a collocate or keyword table.
+ *
+ * G² is a floor the row cleared, never its rank: tables are ordered by effect
+ * (`log_dice` for collocates, `log_ratio` for keywords). The three dispersion
+ * fields say how evenly the word is spread over the speeches the table was
+ * cut from — `documents` it appears in, distinct `meetings` (null only where
+ * the pipeline had no meeting to count), and Gries's DP, 0 for a word spread
+ * as the text is and 1 for one confined to a vanishing corner of it.
+ */
 export interface Word {
 	word: string;
 	target: number;
 	reference: number;
 	g2: number;
 	log_ratio: number;
+	/** logDice (Rychlý 2008), collocate tables only; 14 is a pair never seen apart. */
+	log_dice?: number;
+	documents: number;
+	meetings: number | null;
+	dp: number;
 }
 
 export interface CollocateBlock {
@@ -298,7 +343,8 @@ export interface Network {
 	terms: { name: string; tier: string; register: string; speeches: number }[];
 	edges: Edge[];
 	by_period: Record<string, { terms: { name: string; speeches: number }[]; edges: Edge[] }>;
-	suppressed_nested_edges: { source: string; target: string }[];
+	/** Pairs the graph never draws: nested, or one term matching another's example. */
+	suppressed_nested_edges: { source: string; target: string; reason?: string }[];
 }
 
 /* --- 08_kwic.py ---------------------------------------------------------- */
@@ -449,6 +495,9 @@ export interface CountryMeasureRow {
 	speeches: number;
 	/** Null whenever `sufficient` is false, so a withheld slice cannot be drawn. */
 	speech_rate: number | null;
+	/** Wilson 95% bounds of `speech_rate`; null exactly when the rate is. */
+	speech_rate_low: number | null;
+	speech_rate_high: number | null;
 	sufficient: boolean;
 	/**
 	 * Absent on a set measure, and deliberately so: `atrocity_core` is a union of
@@ -486,6 +535,10 @@ export interface Keyword {
 	reference: number;
 	g2: number;
 	log_ratio: number;
+	/** Dispersion over the speaker's matched speeches; see `Word`. */
+	documents: number;
+	meetings: number | null;
+	dp: number;
 	/**
 	 * True when the word appears in the speaker's own canonical name. Mechanical
 	 * and therefore partial upstream — it catches `federation` and misses

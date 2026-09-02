@@ -154,7 +154,10 @@ def sha256(path: Path, chunk: int = 1 << 20) -> str:
 
 def describe_file(path: Path, root: Path) -> dict[str, object]:
     return {
-        "path": path.relative_to(root).as_posix(),
+        # Relative to the repository where it can be; an input outside it — the
+        # end-to-end test's temporary tree — is named absolutely rather than
+        # refused, because the hash beside it is what the manifest is for.
+        "path": path.relative_to(root).as_posix() if path.is_relative_to(root) else path.as_posix(),
         "bytes": path.stat().st_size,
         "sha256": sha256(path),
     }

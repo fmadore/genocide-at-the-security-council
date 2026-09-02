@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Bookmark from '@lucide/svelte/icons/bookmark';
 	import Check from '@lucide/svelte/icons/check';
@@ -24,8 +25,9 @@
 		yearClick
 	} from '$lib/concordance';
 	import type { ConcordanceSort, FacetDimension } from '$lib/concordance';
+	import { USAGE_TERM } from '$lib/usage';
 	import ResultProfile from '$lib/ResultProfile.svelte';
-	import { kwic, meetingOf } from '$lib/data';
+	import { kwic, meetingOf, usage, usageOccurrences } from '$lib/data';
 	import { filename, provenanceOf, saveCsv, toCsv } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import Figure from '$lib/Figure.svelte';
@@ -36,6 +38,7 @@
 		bytes,
 		count,
 		isoDate,
+		meetingLabel,
 		shortCountry,
 		termLabel,
 		unSearch
@@ -95,6 +98,13 @@
 	let agenda = $state('');
 	/** One meeting symbol, so the reader can come back the way it sent you. */
 	let spv = $state('');
+	/* The referent facet: model-derived, from the published run, and only for
+	   the term the run annotated. The two artefacts it needs are fetched once,
+	   when that term is chosen, and the control is not offered otherwise. */
+	let referent = $state('');
+	let referentOf = $state<Map<string, string> | null>(null);
+	const referentLabels = new SvelteMap<string, string>();
+	let referentsFailed = $state<string | null>(null);
 	let from = $state(1992);
 	let to = $state(2023);
 	/* A month of the year, orthogonal to the year bounds above: `month = 6` with
@@ -122,6 +132,7 @@
 		participantType = state.participantType;
 		agenda = state.agenda;
 		spv = state.spv;
+		referent = state.referent;
 		from = state.from;
 		to = state.to;
 		month = state.month;
@@ -159,6 +170,7 @@
 		participantType,
 		agenda,
 		spv,
+		referent,
 		from,
 		to,
 		month,
@@ -210,7 +222,44 @@
 	const agendas = $derived([...new Set(lines.map((l) => l.agenda))].sort());
 	const participantTypes = $derived([...new Set(lines.map((l) => l.type))].sort());
 
-	const result = $derived(filterConcordance(lines, currentState()));
+	const referentsOffered = $derived(term === USAGE_TERM);
+
+	/* The published run's referent per occurrence, and the controlled list's
+	   labels, loaded once the term the run annotated is on screen. A referent in
+	   the URL for any other term is dropped by the filter's own rule: without
+	   the map it keeps nothing, and the status line says so. */
+	$effect(() => {
+		if (!urlReady || !referentsOffered || referentOf) return;
+		Promise.all([usageOccurrences(), usage()])
+			.then(([occurrences, run]) => {
+				referentOf = new Map(
+					occurrences.occurrences
+						.filter((row) => row.referent)
+						.map((row) => [row.id, row.referent] as [string, string])
+				);
+				for (const r of run.referents) referentLabels.set(r.id, r.label);
+			})
+			.catch((error: Error) => {
+				referentsFailed = error.message;
+			});
+	});
+
+	/* Referents the loaded lines actually carry, with their counts, for the control. */
+	const referentOptions = $derived.by(() => {
+		if (!referentOf) return [] as { id: string; label: string; count: number }[];
+		const counts: Record<string, number> = {};
+		for (const line of lines) {
+			const id = referentOf.get(line.id);
+			if (id) counts[id] = (counts[id] ?? 0) + 1;
+		}
+		return Object.entries(counts)
+			.map(([id, count]) => ({ id, label: referentLabels.get(id) ?? termLabel(id), count }))
+			.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+	});
+
+	const result = $derived(
+		filterConcordance(lines, currentState(), referentsOffered ? referentOf : null)
+	);
 	const badRegex = $derived(result.badRegex);
 	const filtered = $derived(result.lines);
 
@@ -262,6 +311,7 @@
 		participantType = '';
 		agenda = '';
 		spv = '';
+		referent = '';
 		from = CONCORDANCE_DEFAULTS.from;
 		to = CONCORDANCE_DEFAULTS.to;
 		month = null;
@@ -398,28 +448,18 @@
 
 		{#snippet reading()}
 			<p>
-				The <strong>bold centre</strong> is what the search pattern matched; corpus linguists call
-				it the <em>node</em>. The columns either side hold the
-				{data.index.meta.width as number} characters around it, with line breaks removed. Click any line
-				to open the full sentence and the details needed to cite it.
-			</p>
-			<p>
-				<strong>Sorting by left or right context</strong> is a standard technique in corpus
-				linguistics, the study of language through large collections of text. It puts the words
-				<em>around</em> the match into alphabetical order, so repeated turns of phrase stack up down the
-				column and can be read as patterns rather than one at a time.
+				The <strong>bold centre</strong> is what the pattern matched, the <em>node</em>; either side
+				holds the {data.index.meta.width as number} characters around it, line breaks removed. Click a
+				line for the full sentence and the details to cite it.
+				<strong>Sorting by left or right context</strong> puts the surrounding words in alphabetical order,
+				so repeated phrasings stack down the column.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				A concordance line is evidence that a word was used, not evidence of a position. &ldquo;We
-				reject the claim that this is genocide&rdquo; and &ldquo;this is genocide&rdquo; each count
-				as one occurrence. Reading the sentence is the least you should do; reading the speech is
-				better, and one click away.
-			</p>
-			<p>
-				The counts here match the totals elsewhere on this site exactly. The export refuses to run
-				rather than hand over a concordance that disagrees with the figures drawn from it.
+				A concordance line is evidence that a word was used, not of a position: &ldquo;we reject the
+				claim that this is genocide&rdquo; and &ldquo;this is genocide&rdquo; each count once. Read
+				the sentence at least; the speech is one click away.
 			</p>
 		{/snippet}
 
@@ -472,6 +512,22 @@
 					{/each}
 				</select>
 			</label>
+			{#if referentsOffered}
+				<label>
+					Referent
+					<select bind:value={referent} disabled={!referentOf}>
+						<option value="">All</option>
+						{#each referentOptions as option (option.id)}
+							<option value={option.id}>{option.label} ({count(option.count)})</option>
+						{/each}
+					</select>
+					<span class="model-derived"
+						>{referentsFailed
+							? 'unavailable: the model run did not load'
+							: 'model-derived, experimental'}</span
+					>
+				</label>
+			{/if}
 			{#if spv}
 				<button class="chip" onclick={() => (spv = '')}>
 					<span class="symbol">{spv}</span>
@@ -528,7 +584,7 @@
 						aria-expanded={expanded === line.id}
 					>
 						<span class="meta">
-							<span class="spv">{line.spv}</span>
+							<span class="spv">{meetingLabel(line.spv)}</span>
 							<span class="who">{shortCountry(line.country)}</span>
 						</span>
 						<span class="left"
@@ -590,7 +646,7 @@
 									<dt>Record</dt>
 									<dd>
 										<a class="symbol" href={unSearch(line.spv)}
-											>{line.spv}<Icon icon={ExternalLink} /></a
+											>{meetingLabel(line.spv)}<Icon icon={ExternalLink} /></a
 										>
 									</dd>
 								</div>
@@ -1082,5 +1138,10 @@
 
 	tr.current td {
 		background: var(--mark);
+	}
+	.model-derived {
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink-3);
 	}
 </style>

@@ -73,7 +73,7 @@
 			id: '04_series.py',
 			does: 'Works out rates by year and by quarter, breaks them down by speaker and by debate, tests for changes in the rate, and attaches the reference dates.',
 			checks:
-				'The share of speeches is modelled as a series of coin flips; the count of occurrences is modelled against the number of words spoken. The test for a change in rate is repeated in full on simulated data where no change exists, and the threshold is tightened to account for three tests being run. A second, exploratory change-point method is kept visible but is never a result.',
+				'The share of speeches is modelled as a series of coin flips; the count of occurrences is modelled against the number of words spoken. The test for a change in rate is repeated in full on data where no change exists, made by moving whole meetings between years so that one debate is one draw, and the threshold is tightened to account for three tests being run. Every share of speeches is published with its Wilson 95% interval. A second, exploratory change-point method is kept visible but is never a result.',
 			artefact: 'series/*.json',
 			state: 'verified',
 			says: 'Verified'
@@ -82,7 +82,7 @@
 			id: '05_lexical.py',
 			does: 'Finds the words that sit near each term, the words that mark out a speech using the term against a comparable speech that does not, and a map of which terms share a speech.',
 			checks:
-				'Each speech using the term is paired with one from the same year, debate and speaker group. Twenty consecutive random draws show how much the pairing itself moves the answer, and the unpaired comparison is kept only for contrast. Overlapping context windows are merged, and a phrase is never counted as evidence of association with a word already inside it.',
+				'Each speech using the term is paired with one from the same year, debate and speaker group. Twenty consecutive random draws show how much the pairing itself moves the answer, and the unpaired comparison is kept only for contrast. Overlapping context windows are merged, and a phrase is never counted as evidence of association with a word already inside it. Significance is a floor: a row must clear G² 10.83 and is then ranked by effect — logDice for collocates, log ratio for keywords — and every row carries the speeches and meetings it appears in and its dispersion (DP).',
 			artefact: 'lexical/*.json',
 			state: 'verified',
 			says: 'Verified'
@@ -224,14 +224,14 @@
 
 	<h2>Choices that shape what you see</h2>
 
-	<h3>Rates, not counts</h3>
+	<h3 id="rates">Rates, not counts</h3>
 	<p>
 		The Council held more than seven times as many speeches in 2023 as in 1992. A raw count plotted
 		over those years is therefore mostly a picture of that growth, which is why every series on this
 		site opens on a rate and offers the raw count as an alternative rather than the other way round.
 	</p>
 
-	<h3>The word list is a proposal, not a result</h3>
+	<h3 id="word-list">The word list is a proposal, not a result</h3>
 	<p>
 		<code>genocid*</code> matches
 		{percent(sum(data.series.terms.genocide.speeches) / totals.speeches)} of speeches. What counts as
@@ -242,16 +242,31 @@
 		for the analysis, not something it discovered.
 	</p>
 
-	<h3>Change points</h3>
+	<h3 id="change-points">Change points</h3>
 	<p>
 		One test is run per series, and it asks a single question: is this line better described by one
 		steady rate or by two? The share of speeches is modelled as a series of coin flips; the count of
 		occurrences is modelled against the number of words spoken, so a year in which the Council said
 		more is expected to contain more of everything. The whole search is then repeated on
-		{count(data.breaks.inference.trials)} simulated series in which the rate never changes, which is what
-		turns a split into a p-value. A result counts only below
+		{count(data.breaks.inference.trials)} series in which the rate never changes, which is what turns
+		a split into a p-value.
+		{#if data.breaks.inference.null === 'meeting_block_permutation'}
+			Those series are made by moving whole <strong>meetings</strong> between years rather than flipping
+			each speech on its own: speeches are not independent of one another, because whether the word can
+			be said at all is fixed by the agenda of the debate they belong to, and one debate can hold two
+			hundred occurrences. The p-value under the older independent-speech assumption is published beside
+			the block one, so the size of that clustering is on the page.
+		{/if}
+		A result counts only below
 		{percent(data.breaks.inference.per_test_alpha)}, a threshold already tightened to allow for
 		several tests being run at once ({data.breaks.inference.correction}).
+	</p>
+	<p>
+		Every <strong>share of speeches</strong> on the site &mdash; a year's, a month's, a speaker's, a category's
+		&mdash; is a proportion with a known denominator, and is published with its 95% Wilson interval: the
+		band on a line, the whisker beside a row. The interval says how much the share could move with the
+		number of speeches it rests on; it does not correct for meetings clustering, which only the change-point
+		null does.
 	</p>
 	<p class="caveat">
 		{data.breaks.inference.caveat}
@@ -261,7 +276,7 @@
 		{data.breaks.caveat}
 	</p>
 
-	<h3>What distinguishes a speech, and what it is compared against</h3>
+	<h3 id="keyness">What distinguishes a speech, and what it is compared against</h3>
 	<p>
 		Set a speech that uses <em>genocide</em> against the rest of the corpus and the words that come
 		back describe the occasion — the debate, the year, the region — rather than the concept. Each
@@ -277,7 +292,7 @@
 		each word.
 	</p>
 
-	<h3>Where one sentence ends and the next begins</h3>
+	<h3 id="sentences">Where one sentence ends and the next begins</h3>
 	<p>
 		The sentence is the unit this site offers for quotation, so sentence boundaries are found by
 		explicit rules written for this kind of document — <code>Mr.</code>, <code>para.</code>,

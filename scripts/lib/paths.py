@@ -9,21 +9,35 @@ things live. Import with:
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from .artifacts import atomic_write_text
 
 ROOT = Path(__file__).resolve().parents[2]
 
-DATA = ROOT / "data"
+
+def _root(variable: str, default: Path) -> Path:
+    """A directory root, overridable from the environment.
+
+    Only the end-to-end test in `tests/test_end_to_end.py` sets these: it runs
+    the numbered scripts as subprocesses over a synthetic corpus and must not
+    write into the repository's own `data/`, `notes/` or `web/static/data/`.
+    Everything else leaves them unset and gets the tree the docs describe.
+    """
+    value = os.environ.get(variable)
+    return Path(value).resolve() if value else default
+
+
+DATA = _root("GENOCIDE_DATA_ROOT", ROOT / "data")
 RAW = DATA / "raw"          # as downloaded from Dataverse — never modified
 INTERIM = DATA / "interim"  # intermediate artefacts
 DERIVED = DATA / "derived"  # canonical parquet + analysis outputs
 
 CONFIG = ROOT / "config"
 DOCS = ROOT / "docs"
-NOTES = ROOT / "notes"      # Markdown findings notes emitted by scripts
-WEB_DATA = ROOT / "web" / "static" / "data"  # dashboard payloads
+NOTES = _root("GENOCIDE_NOTES_ROOT", ROOT / "notes")  # Markdown findings notes emitted by scripts
+WEB_DATA = _root("GENOCIDE_WEB_DATA_ROOT", ROOT / "web" / "static" / "data")  # dashboard payloads
 
 # The shape the dashboard is written against, committed and reviewed as a diff.
 # `export_web.py` checks the payload against it at the seam; see lib/contract.py.

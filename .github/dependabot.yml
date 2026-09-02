@@ -1,0 +1,23 @@
+# Weekly, grouped, so an update is one reviewable pull request per ecosystem
+# rather than one per package. The Python lock is regenerated with hashes from
+# `requirements.txt`; Dependabot proposes the range change and the lock follows.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        patterns: ['*']
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    groups:
+      web:
+        patterns: ['*']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

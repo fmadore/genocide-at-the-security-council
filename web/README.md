@@ -58,7 +58,7 @@ state changes, but changes with the analytical content or declared configuration
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/`                 | The question in fifteen seconds: headline figures, the raw-versus-rate contrast, register shares                                                                    |
 | `/chronology`       | Every term and register over 32 years or 128 quarters in four units, with change points, participant-type breakdowns and 35 reference dates, plus the monthly views |
-| `/language`         | Collocates as effect-size-against-significance, the same table as a cloud, two speakers side by side, matched keyness, the co-occurrence graph                      |
+| `/language`         | Collocates as effect-size-against-significance, the same table as a dot plot, two speakers side by side, matched keyness, the co-occurrence matrix                  |
 | `/actors`           | 601 speakers against their own denominators: the ranking, the locator map, the membership composition and the per-speaker matched keyness                           |
 | `/concordance`      | All 79,569 lines, filterable by term, speaker, participant type, agenda, meeting, year and month, with context sorting and CSV export                               |
 | `/reader/[meeting]` | The full verbatim record with matches highlighted by register                                                                                                       |
@@ -137,7 +137,7 @@ src/
 
 **What a component may decide is nothing.** Every filter, gate, scale and ordering a view
 performs at render time lives in a plain module beside it — `actors.ts`, `concordance.ts`,
-`heatmap.ts`, `keyness.ts`, `standing.ts`, `wordcloud.ts`, `highlight.ts`, `scroll.ts` —
+`heatmap.ts`, `keyness.ts`, `standing.ts`, `dotplot.ts`, `matrix.ts`, `highlight.ts`, `scroll.ts` —
 each with a `.test.ts` next to it, because logic reachable only by mounting a component is
 logic nobody will test twice. `docs/PLAN.md` §7 states the rule; the colocated unit suite
 holds it.

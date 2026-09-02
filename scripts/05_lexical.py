@@ -8,10 +8,11 @@ data/derived/lexical/, plus a findings note.
     keyness.json            genocide speeches against a matched control set
     network.json            PMI between the lexicon's terms, whole corpus and by period
 
-The word clouds docs/PLAN.md §7 asks for are a rendering of these tables, not
-a separate artefact: a cloud sized by log-likelihood over a stated stoplist is
-the collocate table drawn differently, and shipping it as its own file would
-invite it to drift from the numbers it claims to depict.
+The profile figures on the site are a rendering of these tables, not a
+separate artefact: a dot plot ranked by logDice over a stated stoplist is the
+collocate table drawn differently, and shipping it as its own file would
+invite it to drift from the numbers it claims to depict. (docs/PLAN.md §7
+asked for word clouds; the review of 1 September 2026 replaced them.)
 
 `--vocabulary lemma` counts the lemma layer from `10_lemmatise.py` instead of
 surface forms, so `killing`, `killed` and `kills` share one row rather than
@@ -79,6 +80,12 @@ class Counting:
             return lexical.vocabulary(frames.body(frame))
         return lemmas.vocabulary(self.rows.loc[frame.index])
 
+    def documents(self, frame: pd.DataFrame) -> list:
+        """The same counts, one `Counter` per speech, for `lexical.dispersion`."""
+        if self.mode == "surface":
+            return lexical.document_vocabulary(frames.body(frame))
+        return [lemmas.vocabulary([row]) for row in self.rows.loc[frame.index]]
+
     def tokeniser(self, frame: pd.DataFrame):
         """A callback for `lexical.collocates`, or None for surface counting."""
         if self.mode == "surface":
@@ -144,6 +151,8 @@ COLUMNS = [
     "speaker_group",
     "text",
     "body_start",
+    # The unit of dispersion: every table's `meetings` column counts it.
+    "meeting_symbol",
 ]
 
 
@@ -162,6 +171,7 @@ def build_collocates(
     stopwords: frozenset[str],
     limit: int,
     tokeniser=None,
+    meetings: list | None = None,
 ) -> dict[str, object]:
     """Each node at each window width, over the whole corpus."""
     out: dict[str, object] = {}
@@ -177,6 +187,7 @@ def build_collocates(
                 stopwords,
                 limit=limit,
                 tokeniser=tokeniser,
+                meetings=meetings,
             )
             widths[str(width)] = {
                 "occurrences": occurrences,
@@ -219,6 +230,7 @@ def build_slices(
             stopwords,
             limit=limit,
             tokeniser=counting.tokeniser(subset),
+            meetings=subset["meeting_symbol"].tolist(),
         )
         return {
             "speeches": len(subset),
@@ -280,10 +292,20 @@ def build_keyness(
         f"({control.coverage:.1%}); {len(control.short_strata)} strata short"
     )
 
-    target_counts = counting.counts(speeches.loc[control.target_index])
+    targets = speeches.loc[control.target_index]
+    target_counts = counting.counts(targets)
     control_counts = counting.counts(speeches.loc[control.control_index])
     target_total = sum(target_counts.values())
     control_total = sum(control_counts.values())
+
+    # Dispersion over the target speeches: a keyword is a property of the
+    # register only if it is spread across them, and of one debate if not.
+    documents = counting.documents(targets)
+    spread = lexical.dispersion(
+        documents,
+        [sum(counts.values()) for counts in documents],
+        targets["meeting_symbol"].tolist(),
+    )
 
     # `compare` subtracts the target from its reference, so the control counts
     # are handed over as-is: the two corpora are already disjoint.
@@ -295,6 +317,7 @@ def build_keyness(
         control_total,
         stopwords,
         limit=limit,
+        dispersion=spread,
     )
 
     unmatched = lexical.compare(
@@ -304,6 +327,7 @@ def build_keyness(
         max(reference_total - target_total, 1),
         stopwords,
         limit=limit,
+        dispersion=spread,
     )
 
     primary_words = [str(row["word"]) for row in rows]
@@ -396,11 +420,10 @@ def build_network(speeches: pd.DataFrame, lex: lexicon.Lexicon, minimum: int) ->
         ],
         "edges": whole,
         "by_period": by_period,
-        "suppressed_nested_edges": [
-            {"source": term.nested_under, "target": term.name}
-            for term in lex.active
-            if term.nested_under is not None
-        ],
+        # Every pair the graph does not draw, with its reason: a term nested
+        # inside another, or a term whose pattern contains another's — the
+        # `denial`-`genocide` edge was partly definitional and used to be drawn.
+        "suppressed_nested_edges": lexical.definitional_pairs(lex),
     }
 
 
@@ -449,7 +472,10 @@ def build_note(
 ) -> str:
     def table(rows: list[dict], top: int = 15) -> list[str]:
         return [
-            f"| {i} | `{r['word']}` | {r['target']:,} | {r['g2']:,.0f} | {r['log_ratio']:+.2f} |"
+            f"| {i} | `{r['word']}` | {r['target']:,} | {r['g2']:,.0f} | {r['log_ratio']:+.2f} | "
+            + (f"{r['log_dice']:.2f} | " if "log_dice" in r else "")
+            + f"{r['documents']:,} / {r['meetings'] if r['meetings'] is not None else '—'} | "
+            f"{r['dp']:.2f} |"
             for i, r in enumerate(rows[:top], start=1)
         ]
 
@@ -507,8 +533,8 @@ def build_note(
             f"±5 tokens, {genocide['5']['occurrences']:,} occurrences, "
             f"{genocide['5']['window_tokens']:,} tokens in window.",
             "",
-            "| # | Word | In window | G² | Log ratio |",
-            "|---:|---|---:|---:|---:|",
+            "| # | Word | In window | G² | Log ratio | logDice | Speeches / meetings | DP |",
+            "|---|---|---:|---:|---:|---:|---:|---:|",
             *table(genocide["5"]["collocates"]),
             "",
             f"At ±15 ({genocide['15']['window_tokens']:,} tokens): "
@@ -555,8 +581,8 @@ def build_note(
             f"- Stability rerun across {keyness['stability']['repetitions']:,} consecutive "
             "seeds; the JSON reports the 5th, median and 95th percentile log ratios.",
             "",
-            "| # | Word | In target | G² | Log ratio |",
-            "|---:|---|---:|---:|---:|",
+            "| # | Word | In target | G² | Log ratio | Speeches / meetings | DP |",
+            "|---|---|---:|---:|---:|---:|---:|",
             *table(keyness["keywords"], 20),
             "",
             "### What the matching actually removed",
@@ -637,6 +663,7 @@ def run(
         stopwords,
         limit,
         tokeniser=counting.tokeniser(holders),
+        meetings=holders["meeting_symbol"].tolist(),
     )
 
     console.step("Collocates, sliced")
@@ -679,6 +706,8 @@ def run(
             "corpus_types": len(reference),
             "stopwords": len(stopwords),
             "min_count": lexical.MIN_COUNT,
+            "g2_floor": lexical.G2_FLOOR,
+            "ranked_by": {"collocates": "log_dice", "keywords": "log_ratio"},
             "limit": limit,
             "vocabulary": vocabulary,
             **(

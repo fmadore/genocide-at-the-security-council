@@ -17,6 +17,7 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import DiffusionChart from '$lib/DiffusionChart.svelte';
 	import Figure from '$lib/Figure.svelte';
+	import Contents from '$lib/Contents.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import PageMeta from '$lib/PageMeta.svelte';
 	import UsageMatrix from '$lib/UsageMatrix.svelte';
@@ -560,6 +561,14 @@
 		{/if}
 	</section>
 
+	<Contents
+		figures={[
+			{ title: 'Which genocide each delegation means' },
+			{ title: 'When each delegation first said it' },
+			{ title: 'Who rejects the word' }
+		]}
+	/>
+
 	<Figure
 		title="Which genocide each delegation means"
 		question="Which genocide is each delegation talking about when it says the word?"
@@ -585,6 +594,11 @@
 					>
 				</div>
 			</div>
+			<span class="unit-note"
+				>{unit === 'count'
+					? 'occurrences placed on a referent, published for every delegation'
+					: "a share of the delegation's own placed occurrences, withheld below the minimum"}</span
+			>
 			<label>
 				Ordered by
 				<select bind:value={sort}>
@@ -602,42 +616,32 @@
 
 		{#snippet reading()}
 			<p>
-				One row per delegation, one column per referent on the model's controlled list. A shaded
-				cell is that delegation placing the word on that genocide; the deeper the amber, the more of
-				them. <strong>Click a cell</strong> to read the occurrences behind it, a row heading for a delegation
-				on its own, or a column heading for one referent across every delegation.
-			</p>
-			<p>
-				The last columns, ruled off and set in italic, are not genocides. They are the ways of
-				talking about the category &mdash; the Convention, the legal definition, an office's title,
-				a warning about no case in particular &mdash; together with
-				<em>other known referent</em>, which is a real referent the controlled list has not given a
-				name to yet. Ranked among Rwanda and Srebrenica by count, each would read as one more case.
-			</p>
-			<p>
-				A share is withheld below {count(artefact.minimum_occurrences)} eligible occurrences and the cell
-				is hatched instead. A count is published at every denominator, because two occurrences out of
-				two is a fact about the record and &ldquo;100% of this delegation's uses&rdquo; is not.
+				Rows are delegations, columns referents; a shaded cell is the word placed on that genocide,
+				deeper amber for more. <strong>Click a cell</strong> for the occurrences behind it, a row or
+				column heading for the whole line. The last columns, ruled off in italic, are ways of
+				talking about the category, not genocides. A share is withheld below
+				{count(artefact.minimum_occurrences)} occurrences.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>These columns are a model's reading, not a coding.</strong>
-				<code>{artefact.model.id}</code> assigned every referent here, and no human has yet checked any
-				of them. A wrong referent looks exactly like a right one in a table of counts.
+				<strong>These columns are a model's reading, not a coding:</strong>
+				<code>{artefact.model.id}</code> assigned every referent and no human has checked one; a wrong
+				referent looks like a right one. A referent is not an endorsement: it says what a speaker was
+				talking about, never whether they were right.
 			</p>
+		{/snippet}
+		{#snippet more()}
 			<p>
 				The rows do not add up to the corpus, and the disclosure under the figure says by how much:
 				{count(plan.disclosure.ineligible)} occurrences never became eligible &mdash; the model judged
-				them not a real use of the word, or could not find its own evidence span in the speech &mdash;
-				and {count(plan.disclosure.unassigned)} more were eligible and could not be placed on any referent
-				at all.
-			</p>
-			<p>
-				A referent is not an endorsement. The list carries the situations argued before the Council,
-				including ones whose characterisation as genocide is contested and one — the embargo against
-				Cuba — that is a claim about a sanctions regime. Placing an occurrence on a referent says
-				what a speaker was talking about, never whether they were right.
+				them not a real use of the word, or could not find its own evidence span &mdash; and
+				{count(plan.disclosure.unassigned)} more were eligible and could not be placed on any referent.
+				<em>Other known referent</em> is a real referent the controlled list has not named yet. The list
+				carries the situations argued before the Council, including ones whose characterisation is contested
+				and one, the embargo against Cuba, that is a claim about a sanctions regime. A count is published
+				at every denominator, because two of two is a fact about the record and &ldquo;100%&rdquo; is
+				not.
 			</p>
 		{/snippet}
 
@@ -845,41 +849,28 @@
 	>
 		{#snippet reading()}
 			<p>
-				One referent at a time. The <strong>solid amber curve</strong> is the delegations that have
-				asserted this genocide — each counted once, on the date of its first assertion — and the
-				<strong>dashed ink curve</strong> the delegations that have used the word in order to refuse it
-				for this case. Both only rise, so a flat run is a stretch in which nobody new joined.
-			</p>
-			<p>
-				A faint hairline appears above them where it says something the assertion curve does not:
-				the delegations that placed the word on this referent at all, whatever they were doing with
-				it. Where every delegation's first placed use was already an assertion the two coincide, and
-				only one is drawn.
-			</p>
-			<p>
-				The vertical scale is this referent's own, and the time axis is every referent's, so
-				switching between them moves the curve along a fixed span rather than redrawing it.
-				<strong>The chronology under the figure is the same events as text</strong>, oldest first,
-				each with a way into the speech it was read from.
+				The <strong>solid amber curve</strong> counts delegations that have asserted this genocide;
+				the <strong>dashed ink curve</strong> those that used the word to refuse it. Both only rise.
+				A faint hairline above them, drawn only where it differs, counts every delegation that
+				placed the word here at all.
+				<strong>The chronology below is the same events as text.</strong>
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>This is a curve of delegations speaking in this corpus</strong>, not of states
-				holding a view. Only a delegation that took the floor can appear on it, so an absence here
-				is not a refusal: it is silence, a delegation off the Council, or a debate that was never
-				opened to it.
+				<strong>A curve of delegations speaking in this corpus</strong>, not of states holding a
+				view: an absence is silence, a seat not held or a debate never opened, and membership turns
+				over yearly. The milestones are <code>{artefact.model.id}</code>'s readings; a mislabelled
+				stance moves a delegation from one curve to the other.
 			</p>
+		{/snippet}
+		{#snippet more()}
 			<p>
-				Participation is not constant. Council membership turns over every year, and the open
-				debates that let a non-member speak are called unevenly, so a rise can be a change in who
-				was in the room rather than in what was being said. The same caution the rest of this site
-				applies to any count over a body with a rotating membership.
-			</p>
-			<p>
-				<strong>The milestones are a model's readings</strong>, on the same terms as everything else
-				on this page: <code>{artefact.model.id}</code> decided which occurrence was an assertion and which
-				was a refusal, and a mislabelled stance moves a delegation from one curve to the other.
+				The vertical scale is this referent's own and the time axis is every referent's, so
+				switching referents moves the curve along a fixed span rather than redrawing it.
+				Participation is not constant: the open debates that let a non-member speak are called
+				unevenly, so a rise can be a change in who was in the room rather than in what was being
+				said.
 			</p>
 		{/snippet}
 
@@ -966,33 +957,19 @@
 			{#snippet reading()}
 				<p>
 					Every occurrence <code>{comparison.model}</code> labelled differently from
-					<code>{artefact.model.id}</code>, hardest first: the rows at the top are the passages the
-					two instruments disagree about on the most fields.
-				</p>
-				<p>
-					The two reading columns are one occurrence read twice, line for line against the field
-					beside them. <strong>Neither is the correction of the other</strong>: the left is what
-					this site counts, the right is what a second machine said, and no human has checked
-					either. Follow the identifier to read the passage whole and decide for yourself.
+					<code>{artefact.model.id}</code>, hardest first: the top rows disagree on the most fields.
+					The two reading columns are one occurrence read twice;
+					<strong>neither corrects the other</strong>, and no human has checked either. Follow the
+					identifier to read the passage whole.
 				</p>
 			{/snippet}
 			{#snippet caveat()}
 				<p>
 					<strong
 						>Agreement between two models measures stability across instruments, never accuracy.</strong
-					>
-					Two models trained on overlapping text can be wrong about a passage in the same way, and an
-					occurrence they agree on is not thereby correct. The human gold sample is the only calibration
-					on this page.
-				</p>
-				<p>
-					A disagreement is therefore not an error found. It is a passage where a label turned out
-					to depend on which instrument was reading — which is worth knowing about a method, and
-					says nothing about which of the two readings a coder would arrive at.
-				</p>
-				<p>
-					The counts everywhere else on this page are the published run's alone. Nothing in this
-					table has been merged into the matrix, the stance profile or the diffusion curve.
+					> Two models can be wrong in the same way; the human gold sample is the only calibration here.
+					A disagreement is not an error found. Nothing here is merged into the matrix, stance profile
+					or diffusion curve.
 				</p>
 			{/snippet}
 
@@ -1092,28 +1069,18 @@
 	>
 		{#snippet reading()}
 			<p>
-				Each row is one delegation's eligible occurrences divided by what it was doing with the
-				word. The rows are ordered by the <strong>rejects or denies</strong> band: the delegations at
-				the top are the ones that most often used the word in order to refuse it.
-			</p>
-			<p>
-				This is the figure for the comparison the project's collaborators asked for &mdash; whether
-				a delegation invokes only the consensual cases, whether another applies the word to a
-				sanctions regime, whether a third spends its uses denying the term. It lets that question be
-				asked. It does not answer it here, and the ordering will move when the labels are checked.
+				Each row divides one delegation's eligible occurrences by what it was doing with the word,
+				ordered by the <strong>rejects or denies</strong> band: the delegations at the top most often
+				used the word to refuse it. It lets the collaborators' question be asked, not answered: whether
+				a delegation invokes only consensual cases, or spends its uses denying the term.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>A stance is the hardest of these labels to get right</strong>, and the one a model
-				is most likely to invert: &ldquo;we reject the claim that this is genocide&rdquo; and
-				&ldquo;this is genocide&rdquo; differ by three words. Until the gold sample is coded there
-				is no measured error rate for this column and none can be guessed at.
-			</p>
-			<p>
-				{count(ranking.withheld.length)} delegations have fewer than {count(ranking.minimum)} eligible
-				occurrences and carry no share. They are not ranked low; they are not ranked. Their counts are
-				in the table below.
+				<strong>A stance is the label a model most easily inverts:</strong> &ldquo;we reject the
+				claim that this is genocide&rdquo; and &ldquo;this is genocide&rdquo; differ by three words,
+				and no error rate exists until the gold sample is coded. {count(ranking.withheld.length)}
+				delegations with fewer than {count(ranking.minimum)} occurrences carry no share.
 			</p>
 		{/snippet}
 
@@ -1599,19 +1566,19 @@
 	}
 
 	.stance[data-stance='asserts'] {
-		box-shadow: inset 0 -2px 0 var(--reg-contentious);
+		box-shadow: inset 0 -2px 0 var(--ink);
 	}
 	.stance[data-stance='attributes_or_reports'] {
-		box-shadow: inset 0 -2px 0 var(--reg-commemorative);
+		box-shadow: inset 0 -2px 0 var(--ink-2);
 	}
 	.stance[data-stance='rejects_or_denies'] {
 		box-shadow: inset 0 -2px 0 var(--ink);
 	}
 	.stance[data-stance='hypothetical_or_conditional'] {
-		box-shadow: inset 0 -2px 0 var(--reg-preventive);
+		box-shadow: inset 0 -2px 0 var(--ink-3);
 	}
 	.stance[data-stance='neutral_legal_reference'] {
-		box-shadow: inset 0 -2px 0 var(--reg-legal);
+		box-shadow: inset 0 -2px 0 var(--rule-strong);
 	}
 	.stance[data-stance='unclear'],
 	.stance[data-stance='not_applicable'] {
@@ -1822,7 +1789,7 @@
 	}
 
 	.milestone[data-milestone='asserts'] {
-		box-shadow: inset 0 -2px 0 var(--reg-contentious);
+		box-shadow: inset 0 -2px 0 var(--ink);
 	}
 
 	.milestone[data-milestone='rejects_or_denies'] {
@@ -1907,21 +1874,17 @@
 	.key,
 	.stances {
 		--tint: 32%;
-		--stance-asserts: color-mix(in oklab, var(--reg-contentious) var(--tint), transparent);
-		--stance-attributes-or-reports: color-mix(
-			in oklab,
-			var(--reg-commemorative) var(--tint),
-			transparent
-		);
+		--stance-asserts: color-mix(in oklab, var(--ink) var(--tint), transparent);
+		--stance-attributes-or-reports: color-mix(in oklab, var(--ink-2) var(--tint), transparent);
 		--stance-rejects-or-denies: color-mix(in oklab, var(--ink) var(--tint), transparent);
 		--stance-hypothetical-or-conditional: color-mix(
 			in oklab,
-			var(--reg-preventive) var(--tint),
+			var(--ink-3) var(--tint),
 			transparent
 		);
 		--stance-neutral-legal-reference: color-mix(
 			in oklab,
-			var(--reg-legal) var(--tint),
+			var(--rule-strong) var(--tint),
 			transparent
 		);
 		--stance-unclear: color-mix(in oklab, var(--ink-3) calc(var(--tint) / 2), transparent);

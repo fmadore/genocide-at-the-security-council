@@ -112,7 +112,12 @@
 	<span class="label">Download</span>
 	<div class="row">
 		{#if spec.table}
-			<button type="button" onclick={csv} disabled={busy !== null}>
+			<button
+				type="button"
+				onclick={csv}
+				disabled={busy !== null}
+				title="Every row behind this figure, not only what is drawn; the file names the script and word-list version that produced it."
+			>
 				<Icon icon={Download} />
 				{busy === 'csv' ? 'Building…' : 'CSV'}
 			</button>
@@ -128,18 +133,14 @@
 	</div>
 	{#if problem}
 		<p class="problem" role="status">{problem}</p>
-	{:else}
-		<p class="hint">
-			The CSV holds every row behind this figure, not only what is drawn on screen, and each file
-			names the script and word-list version that produced it.
-		</p>
 	{/if}
 </div>
 
 <style>
 	/* Laid out along the figure's source strip rather than stacked in the
-	   margin, where each button took a line of its own. The hint keeps its own
-	   row — it is a sentence, not a control. */
+	   margin, where each button took a line of its own. What the CSV holds is
+	   said once, as the button's tooltip: printed under eighteen figures it was
+	   468 words nobody read twice. */
 	.download {
 		display: flex;
 		flex-wrap: wrap;
@@ -185,7 +186,6 @@
 		cursor: default;
 	}
 
-	.hint,
 	.problem {
 		flex-basis: 100%;
 		margin: 0;

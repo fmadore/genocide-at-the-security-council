@@ -164,6 +164,56 @@ class DocumentTerms:
         present = np.flatnonzero(totals)
         return Counter({self.words[i]: int(totals[i]) for i in present})
 
+    def dispersion(
+        self, rows: np.ndarray, meetings: np.ndarray | None = None
+    ) -> dict[str, dict[str, object]]:
+        """:func:`lib.lexical.dispersion` over the given rows, vectorised.
+
+        The same numbers the pure-Python version gives on the same documents —
+        asserted in `tests/test_keyness.py` — computed here over the matrix
+        because a speaker with two thousand speeches, re-paired twenty times,
+        cannot afford to rebuild two thousand `Counter`s per draw. `meetings`
+        is the meeting of every document in the *matrix* (positional, like the
+        rows), or None for a null column.
+        """
+        rows = np.asarray(rows, dtype=np.int64)
+        if rows.size == 0:
+            return {}
+        lengths = self.indptr[rows + 1] - self.indptr[rows]
+        positions = _gather(self.indptr, rows)
+        if positions.size == 0:
+            return {}
+        local = np.repeat(np.arange(rows.size), lengths)
+        terms = self.terms[positions]
+        counts = self.counts[positions].astype(float)
+        sizes = np.bincount(local, weights=counts, minlength=rows.size)
+        total = float(sizes.sum())
+        if total <= 0:
+            return {}
+        expected = sizes / total
+        vocabulary = len(self.words)
+        frequency = np.bincount(terms, weights=counts, minlength=vocabulary)
+        observed = counts / frequency[terms]
+        difference = np.bincount(
+            terms, weights=np.abs(expected[local] - observed), minlength=vocabulary
+        )
+        covered = np.bincount(terms, weights=expected[local], minlength=vocabulary)
+        documents = np.bincount(terms, minlength=vocabulary)
+        distinct: np.ndarray | None = None
+        if meetings is not None:
+            codes = pd.factorize(np.asarray(meetings)[rows])[0]
+            key = np.unique(terms.astype(np.int64) * (codes.max() + 1) + codes[local])
+            distinct = np.bincount(key // (codes.max() + 1), minlength=vocabulary)
+        present = np.flatnonzero(frequency)
+        return {
+            self.words[i]: {
+                "documents": int(documents[i]),
+                "meetings": None if distinct is None else int(distinct[i]),
+                "dp": round(float(0.5 * (difference[i] + 1.0 - covered[i])), 4),
+            }
+            for i in present
+        }
+
 
 def build(texts) -> DocumentTerms:
     """Count every document once, into the compressed form above.
@@ -283,8 +333,14 @@ def speaker_keyness(
     repetitions: int = 0,
     minimum: int = MIN_PAIRS,
     min_coverage: float = MIN_COVERAGE,
+    floor: float = lexical.G2_FLOOR,
 ) -> dict[str, object]:
     """One speaker's keywords against a matched control, and against the corpus.
+
+    Rows are ranked by log ratio among those clearing `floor` on G², and each
+    carries its dispersion over the speaker's matched speeches — documents,
+    distinct meetings (when `frame` carries `meeting_symbol`) and DP — so a
+    keyword that is one debate's can be told from one that is the speaker's.
 
     `reference` is the whole corpus's counts; the unmatched table is computed
     against it exactly as 05 does, so the two artefacts' unmatched columns are
@@ -333,6 +389,10 @@ def speaker_keyness(
     control_counts = matrix.counter(controls.to_numpy())
     target_total = sum(target_counts.values())
     control_total = sum(control_counts.values())
+    spread = matrix.dispersion(
+        targets.to_numpy(),
+        frame["meeting_symbol"].to_numpy() if "meeting_symbol" in frame.columns else None,
+    )
 
     # `compare` subtracts the target from its reference, so the control counts go
     # in as-is: the two corpora are disjoint by construction.
@@ -343,6 +403,8 @@ def speaker_keyness(
         control_total,
         stopwords,
         limit=limit,
+        floor=floor,
+        dispersion=spread,
     )
     unmatched = lexical.compare(
         target_counts,
@@ -351,6 +413,8 @@ def speaker_keyness(
         max(reference_total - target_total, 1),
         stopwords,
         limit=limit,
+        floor=floor,
+        dispersion=spread,
     )
     own = self_reference(name)
     for row in (*rows, *unmatched):

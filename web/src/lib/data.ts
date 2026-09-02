@@ -106,6 +106,19 @@ const validateAnnual: Validator = (record, path) => {
 			throw new Error(`${path}.corpus.${field} must align with periods.`);
 		}
 	}
+	// A band drawn from bounds one period short would slide every later year's
+	// interval onto the wrong year without failing anywhere.
+	for (const kind of ['terms', 'registers', 'sets']) {
+		if (!(kind in record)) continue;
+		for (const [name, measure] of Object.entries(recordAt(record, kind))) {
+			if (!isRecord(measure)) throw new Error(`${path}.${kind}.${name} must be an object.`);
+			for (const field of ['speech_rate_low', 'speech_rate_high']) {
+				if (requireArray(measure, field, `${path}.${kind}.${name}`).length !== periods.length) {
+					throw new Error(`${path}.${kind}.${name}.${field} must align with periods.`);
+				}
+			}
+		}
+	}
 };
 
 const validateMonthly: Validator = (record, path) => {

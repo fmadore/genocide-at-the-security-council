@@ -143,5 +143,21 @@ export function isoDate(value: string): string {
 }
 
 /** The UN Digital Library record for an `S/PV.####` symbol. */
+/**
+ * A meeting symbol as the UN prints it.
+ *
+ * The corpus writes a resumed sitting as `S/PV.3745Resumption1`; the record
+ * itself is `S/PV.3745 (Resumption 1)`, and a citation that carries the
+ * corpus form names a document that does not exist under that name. The base
+ * symbol is kept beside it for the search, which is by document symbol.
+ */
+export function meetingLabel(spv: string): string {
+	const match = /^(.*?)Resumption(\d+)$/i.exec(spv);
+	return match ? `${match[1]} (Resumption ${match[2]})` : spv;
+}
+
+/** The symbol without its resumption suffix: what the Digital Library indexes. */
+export const meetingBase = (spv: string): string => spv.replace(/Resumption\d+$/i, '');
+
 export const unSearch = (spv: string) =>
-	`https://digitallibrary.un.org/search?ln=en&p=${encodeURIComponent(spv)}`;
+	`https://digitallibrary.un.org/search?ln=en&p=${encodeURIComponent(meetingBase(spv))}`;

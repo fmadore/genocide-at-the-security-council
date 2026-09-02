@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
+	import Contents from '$lib/Contents.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Heatmap from '$lib/Heatmap.svelte';
 	import Icon from '$lib/Icon.svelte';
@@ -13,7 +14,10 @@
 		readChronologyState,
 		splitEvidenceQuery,
 		type ChronologyChoices,
-		type ChronologyUnit as Unit
+		type ChronologyUnit as Unit,
+		bandOwner,
+		intervalBand,
+		isIntervalBand
 	} from '$lib/chronology';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
@@ -34,9 +38,10 @@
 	import { count, decimal, escapeHtml, isoDate, monthLabel, percent, termLabel } from '$lib/format';
 	import { PAGE_METADATA } from '$lib/seo';
 	import {
+		REGISTER_ORDER,
 		axisX,
 		axisY,
-		categorical,
+		categoricalNeutral,
 		colours,
 		endLabel,
 		grid,
@@ -46,7 +51,7 @@
 		tooltip
 	} from '$lib/theme';
 	import type { BreakdownRow, CouncilEvent, Measure } from '$lib/types';
-	import type { EChartsOption } from 'echarts';
+	import type { EChartsOption, LineSeriesOption } from 'echarts';
 	import { onMount, tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { PageData } from './$types';
@@ -76,6 +81,17 @@
 	let grain = $state<'year' | 'quarter'>('year');
 	let selected = $state<string[]>(['genocide']);
 	let showEvents = $state(true);
+	/* Which kinds of reference date the rail shows. Presentational, like the
+	   overlay toggle itself: not written into the URL. */
+	const EVENT_KINDS = ['atrocity', 'conflict', 'council', 'institutional', 'legal', 'contested'];
+	let eventKinds = $state<string[]>([...EVENT_KINDS]);
+	const toggleKind = (kind: string) => {
+		eventKinds = eventKinds.includes(kind)
+			? eventKinds.filter((k) => k !== kind)
+			: [...eventKinds, kind];
+	};
+	const kindStroke = (kind: string, p = $colours) =>
+		categoricalNeutral(p)[EVENT_KINDS.indexOf(kind) % 6].color;
 	let split = $state<string>('none');
 	let urlReady = $state(false);
 
@@ -205,6 +221,8 @@
 					source.corpus.tokens[index],
 					measure.speeches[index] ?? null,
 					measure.speech_rate[index] ?? null,
+					measure.speech_rate_low[index] ?? null,
+					measure.speech_rate_high[index] ?? null,
 					measure.occurrences?.[index] ?? null,
 					measure.token_rate?.[index] ?? null
 				]);
@@ -221,6 +239,8 @@
 				'corpus_tokens',
 				'speeches',
 				'speech_rate',
+				'speech_rate_wilson95_low',
+				'speech_rate_wilson95_high',
 				'occurrences',
 				'token_rate_per_100k'
 			],
@@ -301,6 +321,8 @@
 						row.held,
 						row.speeches,
 						row.speech_rate,
+						row.speech_rate_low,
+						row.speech_rate_high,
 						row.occurrences ?? null,
 						row.token_rate ?? null
 					]);
@@ -317,6 +339,8 @@
 				'held',
 				'speeches',
 				'speech_rate',
+				'speech_rate_wilson95_low',
+				'speech_rate_wilson95_high',
 				'occurrences',
 				'token_rate_per_100k'
 			],
@@ -340,6 +364,25 @@
 		...Object.fromEntries(
 			Object.entries(source.sets).map(([k, v]) => [`set:${k}`, { ...v, kind: 'set' }])
 		)
+	});
+
+	/* The picker, grouped: one group per register holding its terms and the
+	   register itself, then the sets. A coloured edge on a flat list of 32 chips
+	   was "grouped by register" in name only. */
+	const chipGroups = $derived.by(() => {
+		const groups: { heading: string; colour: string; names: string[] }[] = [];
+		for (const register of REGISTER_ORDER) {
+			const names = Object.keys(allMeasures).filter(
+				(name) =>
+					name === `register:${register}` ||
+					(!name.includes(':') && allMeasures[name].register === register)
+			);
+			if (names.length)
+				groups.push({ heading: register, colour: registerColour(register, $colours), names });
+		}
+		const sets = Object.keys(allMeasures).filter((name) => name.startsWith('set:'));
+		if (sets.length) groups.push({ heading: 'sets', colour: $colours.ink, names: sets });
+		return groups;
 	});
 
 	const isRate = $derived(unit === 'speech_rate' || unit === 'token_rate');
@@ -375,6 +418,7 @@
 		if (!showEvents || grain !== 'year') return [];
 		const byYear = new SvelteMap<string, CouncilEvent[]>();
 		for (const e of data.overlay.events) {
+			if (!eventKinds.includes(e.kind)) continue;
 			const key = String(e.year);
 			byYear.set(key, [...(byYear.get(key) ?? []), e]);
 		}
@@ -388,18 +432,38 @@
 	   lesser evil, which is the one case `theme.ts` keeps it for. */
 	const LABELLABLE = 8;
 
+	/* Reference-date ticks are series on the rail grid; the tooltip and the
+	   legend must not list them as lines. */
+	const EVENT_TICK = 'event:';
+	const isEventTick = (name: string | undefined) => (name ?? '').startsWith(EVENT_TICK);
+	const railShown = $derived(showEvents && grain === 'year' && eventKinds.length > 0);
+
 	const main: EChartsOption = $derived.by(() => {
 		const p = $colours;
 		const usable = selected.filter((n) => allMeasures[n] && !unavailable.includes(n));
 		const named = usable.length <= LABELLABLE;
+		// The band is drawn only for the share of speeches: it is the one unit
+		// that is a proportion with a known denominator, so it is the one unit
+		// with a Wilson interval to draw.
+		const banded = unit === 'speech_rate';
 		return {
 			textStyle,
-			legend: named ? undefined : legend(p),
-			grid: {
-				...grid(named),
-				top: named ? 12 : 34,
-				bottom: showEvents && grain === 'year' ? 30 : 8
-			},
+			// When a legend is needed it lists the lines and not their bands.
+			legend: named ? undefined : { ...legend(p), data: usable.map(label) },
+			// Two grids: the plot, and under its axis a rail for the reference dates.
+			// A tick on a rail is an annotation; the full-height rules this replaced
+			// were a fence (review of 1 September 2026, §5.2), 35 of them over 32
+			// years. The rail shares the x axis through the zoom, so a tick always
+			// sits under its year.
+			grid: [
+				{
+					...grid(named),
+					top: named ? 12 : 34,
+					bottom: railShown ? 52 : 30
+				},
+				{ ...grid(named), top: undefined, height: 14, bottom: 28 }
+			],
+			axisPointer: { link: [{ xAxisIndex: 'all' }] },
 			tooltip: {
 				...tooltip(p),
 				trigger: 'axis',
@@ -411,6 +475,7 @@
 				formatter: (params) => {
 					const rows = (Array.isArray(params) ? params : [params]) as {
 						axisValue?: string;
+						dataIndex?: number;
 						marker?: string;
 						seriesName?: string;
 						value?: unknown;
@@ -422,9 +487,23 @@
 							: isRate && unit === 'speech_rate'
 								? percent(v as number)
 								: decimal(v as number);
+					// The two halves of a band are series too; the reader gets the
+					// interval as a range beside the line's value, not as two rows.
+					const interval = (seriesName: string | undefined, index: number | undefined) => {
+						if (!banded || index == null) return '';
+						const internal = usable.find((n) => label(n) === bandOwner(seriesName ?? ''));
+						const low = internal ? allMeasures[internal].speech_rate_low[index] : null;
+						const high = internal ? allMeasures[internal].speech_rate_high[index] : null;
+						return low == null || high == null
+							? ''
+							: ` <span style="opacity:.65">${percent(low)}–${percent(high)}</span>`;
+					};
 					const series = rows
+						.filter((r) => !isIntervalBand(r.seriesName) && !isEventTick(r.seriesName))
 						.map(
-							(r) => `${r.marker ?? ''}${escapeHtml(r.seriesName ?? '')} <b>${show(r.value)}</b>`
+							(r) =>
+								`${r.marker ?? ''}${escapeHtml(r.seriesName ?? '')} <b>${show(r.value)}</b>` +
+								interval(r.seriesName, r.dataIndex)
 						)
 						.join('<br>');
 					const events = byYearLookup.get(year) ?? [];
@@ -436,20 +515,28 @@
 					return `<b>${escapeHtml(year)}</b><br>${series}${dates}`;
 				}
 			},
-			xAxis: { ...axisX(p), type: 'category', data: periods },
-			yAxis: {
-				...axisY(p),
-				type: 'value',
-				axisLabel: {
-					color: p.inkFaint,
-					fontSize: 12,
-					formatter: (v: number) => (unit === 'speech_rate' ? `${(v * 100).toFixed(1)}%` : count(v))
-				}
-			},
+			xAxis: [
+				{ ...axisX(p), type: 'category', data: periods },
+				{ type: 'category', gridIndex: 1, data: periods, show: false }
+			],
+			yAxis: [
+				{
+					...axisY(p),
+					type: 'value',
+					axisLabel: {
+						color: p.inkFaint,
+						fontSize: 12,
+						formatter: (v: number) =>
+							unit === 'speech_rate' ? `${(v * 100).toFixed(1)}%` : count(v)
+					}
+				},
+				{ type: 'value', gridIndex: 1, show: false, min: -1, max: 1 }
+			],
 			dataZoom: [
-				{ type: 'inside', throttle: 50 },
+				{ type: 'inside', throttle: 50, xAxisIndex: [0, 1] },
 				{
 					type: 'slider',
+					xAxisIndex: [0, 1],
 					height: 18,
 					bottom: 0,
 					borderColor: p.rule,
@@ -458,29 +545,48 @@
 					textStyle: { color: p.inkFaint, fontSize: 11 }
 				}
 			],
-			series: usable.map((name, i) => ({
-				name: label(name),
-				type: 'line',
-				data: allMeasures[name][unit] ?? [],
-				symbol: 'circle',
-				symbolSize: grain === 'year' ? 5 : 0,
-				lineStyle: { width: 2.2, color: colourOf(name, p) },
-				itemStyle: { color: colourOf(name, p) },
-				endLabel: named ? endLabel(colourOf(name, p), label(name)) : undefined,
-				emphasis: { focus: 'series' },
-				// Silent: the rule is a mark, not a hover target. What it means is read
-				// off the axis tooltip, which fires anywhere in the year's column.
-				markLine:
-					i === 0 && eventMarks.length
-						? {
-								silent: true,
-								symbol: 'none',
-								lineStyle: { color: p.inkFaint, width: 1, type: 'solid', opacity: 0.35 },
-								label: { show: false },
-								data: eventMarks.map(([year]) => ({ xAxis: year, name: year }))
-							}
-						: undefined
-			}))
+			series: [
+				...(banded
+					? usable.flatMap((name) =>
+							intervalBand(
+								label(name),
+								colourOf(name, p),
+								allMeasures[name].speech_rate_low,
+								allMeasures[name].speech_rate_high
+							)
+						)
+					: []),
+				...usable.map((name): LineSeriesOption => ({
+					name: label(name),
+					type: 'line',
+					data: allMeasures[name][unit] ?? [],
+					symbol: 'circle',
+					symbolSize: grain === 'year' ? 5 : 0,
+					lineStyle: { width: 2.2, color: colourOf(name, p) },
+					itemStyle: { color: colourOf(name, p) },
+					endLabel: named ? endLabel(colourOf(name, p), label(name)) : undefined,
+					emphasis: { focus: 'series' }
+				})),
+				// The rail: one scatter series per kind, so a kind can be switched off
+				// and told apart by weight of ink. Silent, like the rules were: what a
+				// tick means is read off the axis tooltip, which lists the year's dates.
+				...(railShown
+					? EVENT_KINDS.filter((kind) => eventKinds.includes(kind)).map((kind) => ({
+							name: `${EVENT_TICK}${kind}`,
+							type: 'scatter' as const,
+							xAxisIndex: 1,
+							yAxisIndex: 1,
+							symbol: 'rect',
+							symbolSize: [3, 12],
+							silent: true,
+							data: data.overlay.events
+								.filter((e) => e.kind === kind)
+								.map((e) => [String(e.year), 0] as [string, number]),
+							itemStyle: { color: kindStroke(kind, p) },
+							z: 3
+						}))
+					: [])
+			]
 		};
 	});
 
@@ -549,16 +655,44 @@
 		const block = splitBlock;
 		if (!block) return null;
 		const p = $colours;
-		const ramp = categorical(p);
+		const strokes = categoricalNeutral(p);
 		const years = [...new Set(block.rows.map((r) => String(r.period)))].sort();
+		const cell = (category: string, year: string) =>
+			block.rows.find(
+				(candidate) => String(candidate.period) === year && candidate.category === category
+			) ?? null;
 		return {
 			textStyle,
 			grid: grid(),
-			legend: legend(p),
+			legend: { ...legend(p), data: block.categories },
 			tooltip: {
 				...tooltip(p),
 				trigger: 'axis',
-				valueFormatter: (v) => (v == null ? '—' : percent(v as number))
+				formatter: (params) => {
+					const rows = (Array.isArray(params) ? params : [params]) as {
+						axisValue?: string;
+						marker?: string;
+						seriesName?: string;
+						value?: unknown;
+					}[];
+					const year = rows[0]?.axisValue ?? '';
+					const lines = rows
+						.filter((r) => !isIntervalBand(r.seriesName))
+						.map((r) => {
+							const row = cell(r.seriesName ?? '', year);
+							const value = (r.value as { value?: number } | number | null | undefined) ?? null;
+							const shown =
+								value == null
+									? '—'
+									: percent(typeof value === 'number' ? value : (value.value ?? 0));
+							const range = row
+								? ` <span style="opacity:.65">${percent(row.speech_rate_low)}–${percent(row.speech_rate_high)} · ${count(row.held)} speeches</span>`
+								: '';
+							return `${r.marker ?? ''}${escapeHtml(r.seriesName ?? '')} <b>${shown}</b>${range}`;
+						})
+						.join('<br>');
+					return `<b>${escapeHtml(year)}</b><br>${lines}`;
+				}
 			},
 			xAxis: { ...axisX(p), type: 'category', data: years },
 			yAxis: {
@@ -570,21 +704,33 @@
 					formatter: (v: number) => `${(v * 100).toFixed(0)}%`
 				}
 			},
-			series: block.categories.map((category, i) => ({
-				name: category,
-				type: 'line',
-				data: years.map((y) => {
-					const row = block.rows.find(
-						(candidate) => String(candidate.period) === y && candidate.category === category
-					);
-					return row ? { value: row.speech_rate, held: row.held } : null;
-				}),
-				connectNulls: false,
-				symbol: 'none',
-				lineStyle: { width: 2, color: ramp[i % ramp.length] },
-				itemStyle: { color: ramp[i % ramp.length] },
-				emphasis: { focus: 'series' }
-			}))
+			series: [
+				...block.categories.flatMap((category, i) =>
+					intervalBand(
+						category,
+						strokes[i % strokes.length].color,
+						years.map((y) => cell(category, y)?.speech_rate_low ?? null),
+						years.map((y) => cell(category, y)?.speech_rate_high ?? null)
+					)
+				),
+				...block.categories.map((category, i): LineSeriesOption => ({
+					name: category,
+					type: 'line',
+					data: years.map((y) => {
+						const row = cell(category, y);
+						return row ? { value: row.speech_rate, held: row.held } : null;
+					}),
+					connectNulls: false,
+					symbol: 'none',
+					lineStyle: {
+						width: 2,
+						color: strokes[i % strokes.length].color,
+						type: strokes[i % strokes.length].dash
+					},
+					itemStyle: { color: strokes[i % strokes.length].color },
+					emphasis: { focus: 'series' }
+				}))
+			]
 		};
 	});
 
@@ -598,6 +744,15 @@
 		const link = splitEvidenceQuery('genocide', split, params.seriesName, params.name);
 		if (link) void goto(`${resolve('/concordance')}?${link.query}`);
 	}
+
+	/* The figures on this page, for the contents list; the ids follow the titles. */
+	const FIGURES = [
+		{ title: 'The word list over time' },
+		{ title: "The vocabulary's calendar" },
+		{ title: 'The same twelve months, pooled' },
+		{ title: 'Testing for a change in the rate' },
+		{ title: 'Who says it, and in what debate' }
+	];
 
 	const genocideBreaks = $derived(data.breaks.series.genocide ?? {});
 	const genocideInference = $derived(data.breaks.inference.series.genocide ?? {});
@@ -623,6 +778,8 @@
 			on what they are divided by, and both readings are offered here on purpose.
 		</p>
 	</header>
+
+	<Contents figures={FIGURES} />
 
 	<Figure
 		title="The word list over time"
@@ -652,37 +809,42 @@
 				<input type="checkbox" bind:checked={showEvents} disabled={grain !== 'year'} />
 				Reference dates
 			</label>
+			{#if showEvents && grain === 'year'}
+				<span class="kinds" role="group" aria-label="Kinds of reference date on the rail">
+					{#each EVENT_KINDS as kind (kind)}
+						<button
+							type="button"
+							class="chip small"
+							class:on={eventKinds.includes(kind)}
+							style:--chip={kindStroke(kind)}
+							aria-pressed={eventKinds.includes(kind)}
+							onclick={() => toggleKind(kind)}>{kind}</button
+						>
+					{/each}
+				</span>
+			{/if}
 			<span class="unit-note">{UNITS.find((u) => u.id === unit)?.note}</span>
 		{/snippet}
 
 		{#snippet reading()}
 			<p>
-				Pick terms from the list under the chart. Drag the bar under the axis to zoom in on a
-				stretch of years, or scroll on the plot itself. Colour follows the term's
-				<strong>register</strong> &mdash; the family of vocabulary it belongs to &mdash; so terms that
-				do similar work in a speech share a hue.
-			</p>
-			<p>
-				{#if showEvents && grain === 'year'}Faint vertical lines mark the years carrying one of the
-					{data.overlay.events.length}
-					<a href="#reference-dates">reference dates</a>. Hover anywhere inside such a year to read
-					the date and what it marks, listed below that year's values. They are there for context
-					and explain nothing in the chart &mdash; see the note below.{:else}Reference dates are
-					hidden.{/if}
+				Pick terms under the chart; drag the bar under the axis to zoom. Colour follows the term's
+				<strong>register</strong>.
+				{#if unit === 'speech_rate'}The faint <strong>band</strong> around each line is its 95%
+					Wilson interval: wide where the {grain} held few speeches; overlapping bands are not telling
+					the terms apart.{/if}
+				{#if showEvents && grain === 'year'}Ticks on the rail mark
+					<a href="#reference-dates">reference dates</a> by kind; hover a year to read them.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>The two raw counts measure the Council's output, not its language.</strong> The
-				Council held {count(source.corpus.speeches[0])} speeches in {source.periods[0]} and
+				<strong>The two raw counts measure the Council's output, not its language:</strong>
+				{count(source.corpus.speeches[0])} speeches in {source.periods[0]},
 				{count(source.corpus.speeches[source.corpus.speeches.length - 1])} in
-				{source.periods[source.periods.length - 1]}. A line that is not divided by that is mostly a
-				picture of the growth.
-			</p>
-			<p>
-				Sets of terms (<em>atrocity core</em>, <em>Rome triad</em>) have no occurrence count of
-				their own, because a speech using two members of the set would be counted twice. They are
-				available only in the two share-based units.
+				{source.periods[source.periods.length - 1]}. A line not divided by that is a picture of the
+				growth. Sets have no occurrence count, because a speech using two members would count twice,
+				and show only in share units.
 			</p>
 		{/snippet}
 
@@ -706,19 +868,24 @@
 				Grouped by register. A <strong>set</strong> counts several terms together; a
 				<strong>register</strong> counts every term in one family of vocabulary at once.
 			</p>
-			<div class="chips">
-				{#each Object.keys(allMeasures) as name (name)}
-					<button
-						class="chip"
-						class:on={selected.includes(name)}
-						style:--chip={colourOf(name)}
-						onclick={() => toggle(name)}
-						aria-pressed={selected.includes(name)}
-					>
-						{label(name)}
-					</button>
-				{/each}
-			</div>
+			{#each chipGroups as group (group.heading)}
+				<div class="chip-group">
+					<span class="group-label" style:--chip={group.colour}>{group.heading}</span>
+					<div class="chips">
+						{#each group.names as name (name)}
+							<button
+								class="chip"
+								class:on={selected.includes(name)}
+								style:--chip={colourOf(name)}
+								onclick={() => toggle(name)}
+								aria-pressed={selected.includes(name)}
+							>
+								{label(name)}
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/each}
 			{#if unavailable.length}
 				<p class="warn">
 					{unavailable.map(label).join(', ')} cannot be shown in this unit, because a set of terms has
@@ -786,62 +953,41 @@
 		{/snippet}
 
 		{#snippet reading()}
-			<!-- Stated first, and drawn from the same computed months as the caveat
-			     below, because the title invites the expectation this grid refuses:
-			     the calendar it finds is the Council's own timetable, not the
-			     commemorative one. A reader who meets that only in the note opposite
-			     has already read the darkest squares as remembrance. -->
 			{#if column.shared}
 				<p>
 					<strong>The strongest months are {strongest.map((row) => row.name).join(' and ')}</strong
-					>, and most of their speeches sit under one agenda item —
-					<em>{column.shared}</em>. Expect a reporting timetable here rather than a calendar of
-					commemoration; the note opposite says what that does and does not license.
+					>, and most of their speeches sit under one agenda item, <em>{column.shared}</em>: expect
+					a reporting timetable, not a calendar of commemoration.
 				</p>
 			{/if}
 			<p>
-				One square per month, {byMonth.years[0]}–{byMonth.years[byMonth.years.length - 1]}, with
-				years running down and months across. The shading runs from the colour of the page at zero
-				to the darkest tone at <strong>{showRate(heat.high)}</strong>, the strongest month in the
-				grid. It starts at zero rather than at the quietest month, so a month in which nobody said
-				the word looks empty, which is what it was.
-			</p>
-			<p>
-				<strong>The shading is deliberately not proportional.</strong> A handful of months sit far
-				above the rest: the middle month runs at about
-				{showRate(byMonth.corpus_speech_prevalence)} and the strongest at {showRate(heat.high)}.
-				Shading in direct proportion would leave half the grid indistinguishable from the page, so
-				it follows the square root of the rate instead. Every square keeps its place in the order
-				and nothing is cut off at the top, but the number should be read off the key rather than
-				guessed from the darkness.
-			</p>
-			<p>
-				<strong>Hatched squares carry no rate.</strong>
-				{count(heat.withheld)} of the {count(heat.cells.length)} months hold fewer than
-				{count(heat.minimum)} speeches. Their counts stay in the table and in the download; what they
-				do not get is a shade. The note opposite says why.
+				Shading is the share of that month's speeches on a square-root scale, darkest at
+				<strong>{showRate(heat.high)}</strong>: read the key, not the darkness. Hatched squares held
+				fewer than {count(heat.minimum)} speeches and carry no rate.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			{#if column.shared}
 				<p>
-					<strong>The darkest months largely follow a reporting timetable.</strong>
-					{strongest.map((row) => row.name).join(' and ')} are the strongest months, and the agenda item
-					behind most of the speeches in both is
-					<em>{column.shared}</em>. The international tribunals reported to the Council twice a
-					year, so what stands out here is partly when the Council was scheduled to discuss the
-					subject rather than when it chose to. The table under the pooled figure below names the
-					agenda item behind each month.
+					<strong>The darkest months follow the tribunals' semi-annual reporting</strong> to the Council,
+					not a commemorative calendar; the table under the pooled figure names the agenda item behind
+					each month.
 				</p>
 			{/if}
 			<p>
-				{byMonth.minimum_speeches_rule}
+				A month's vocabulary is the vocabulary of the debates held in it, and nothing here corrects
+				for that.
 			</p>
+		{/snippet}
+		{#snippet more()}
+			<p>{byMonth.minimum_speeches_rule}</p>
 			<p>
-				A month's vocabulary is the vocabulary of whatever debates were held in it. That is the same
-				problem the
-				<a href="{resolve('/actors')}#speaker-keyness">speaker-by-speaker comparison</a> on the Actors
-				page is designed around, and nothing in this figure corrects for it.
+				The scale starts at zero rather than at the quietest month, so a month in which nobody said
+				the word looks empty. It follows the square root of the rate because a handful of months sit
+				far above the rest &mdash; the middle month runs at about
+				{showRate(byMonth.corpus_speech_prevalence)} &mdash; and direct proportion would leave half the
+				grid the colour of the page. Nothing is cut off at the top. The
+				{count(heat.withheld)} withheld months keep their counts in the table and the download.
 			</p>
 		{/snippet}
 
@@ -927,22 +1073,12 @@
 	>
 		{#snippet reading()}
 			<p>
-				Each row gathers all {byMonth.years.length} instances of that month across the corpus. The bar
-				behind a row is drawn from the number printed beside it, so the two cannot drift apart.
-			</p>
-			<p>
-				<strong>Without</strong> repeats the figure with {column.excludedYears.join(' and ')} removed.
-				Those are the corpus's two largest years for this vocabulary, and a seasonal pattern that is really
-				one spike seen through a monthly lens would not survive their removal.
-			</p>
-			<p>
-				{#if linkable}
-					Each month opens every instance of it in the concordance: all {byMonth.years.length} Junes rather
-					than one of them, which is what the row is measured against.
-				{:else}
-					The months do not link here. <em>{termLabel(gridMeasure)}</em> gathers {gridTerms.length} terms,
-					and the concordance shows one at a time.
-				{/if}
+				Each row gathers every one of that month across {byMonth.years.length} years.
+				<strong>Without</strong> drops {column.excludedYears.join(' and ')}, the two largest years:
+				a seasonal pattern that is one spike seen monthly would not survive.
+				{#if linkable}Each month opens all {byMonth.years.length} instances of it in the concordance.{:else}Months
+					do not link here: <em>{termLabel(gridMeasure)}</em> gathers
+					{gridTerms.length} terms and the concordance shows one at a time.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -1003,25 +1139,22 @@
 	>
 		{#snippet reading()}
 			<p>
-				Each row asks the same question of the same annual series in a different unit: split the
-				years at the best possible point, and is the difference between the two halves larger than
-				chance would produce? The share of speeches is modelled as a series of coin flips; the count
-				of occurrences is modelled against the number of words spoken each year, so a talkative year
-				is expected to contain more of everything.
-			</p>
-			<p>
-				The p-value comes from {count(data.breaks.inference.trials)} simulated series in which the rate
-				never changes and the whole search is repeated from scratch. A result counts only below
-				{percent(data.breaks.inference.per_test_alpha)}, a threshold already tightened to allow for
-				several tests being run at once ({data.breaks.inference.correction}). The intervals describe
-				the combined rate on either side of the split.
+				Each row splits one annual series at its best point and asks whether the halves differ more
+				than chance would.
+				{#if data.breaks.inference.null === 'meeting_block_permutation'}The first p-value moves
+					whole
+					<strong>meetings</strong> between years, so one debate is one draw; the second treats every
+					speech as independent. The gap between them is the clustering.{:else}The p-value treats
+					each speech as independent.{/if}
+				<a href="{resolve('/methods')}#change-points">Method: change points &rarr;</a>
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>{data.breaks.inference.caveat}</p>
 			<p>
-				Each side of a split must cover at least {data.breaks.parameters.min_size} periods, so a single
-				unusual year cannot be reported as a lasting change.
+				Each side of a split covers at least {data.breaks.parameters.min_size} periods, so one unusual
+				year cannot be a lasting change; a result counts only below
+				{percent(data.breaks.inference.per_test_alpha)} after {data.breaks.inference.correction}.
 			</p>
 		{/snippet}
 
@@ -1033,20 +1166,24 @@
 					<th class="num">Earlier</th>
 					<th class="num">Later</th>
 					<th class="num">Ratio</th>
-					<th class="num">p</th>
+					<th class="num">p, meetings moved</th>
+					<th class="num">p, speeches independent</th>
 				</tr>
 			</thead>
 			<tbody>
 				{#each Object.entries(genocideInference) as [name, result] (name)}
-					{#if !result || !result.accepted}
+					{#if !result}
 						<tr class="none">
 							<td>{UNITS.find((u) => u.id === name)?.label ?? name}</td>
-							<td colspan="5">no change detected; one steady rate survives the test</td>
+							<td colspan="6">no split improves on one steady rate</td>
 						</tr>
 					{:else}
-						<tr>
+						<tr class:none={!result.accepted}>
 							<td>{UNITS.find((u) => u.id === name)?.label ?? name}</td>
-							<td><strong>{result.label}</strong></td>
+							<td>
+								{#if result.accepted}<strong>{result.label}</strong>{:else}{result.label}
+									<span class="verdict">best split; not accepted</span>{/if}
+							</td>
 							<td class="num"
 								>{name === 'speech_rate'
 									? percent(result.before)
@@ -1063,7 +1200,8 @@
 								class:down={(result.ratio ?? 1) < 1}
 								>{result.ratio == null ? '—' : `${decimal(result.ratio)}×`}</td
 							>
-							<td class="num">{result.p_value.toFixed(4)}</td>
+							<td class="num"><strong>{result.p_value.toFixed(4)}</strong></td>
+							<td class="num">{result.p_value_independent.toFixed(4)}</td>
 						</tr>
 					{/if}
 				{/each}
@@ -1107,33 +1245,26 @@
 		{/snippet}
 		{#snippet reading()}
 			<p>
-				Each line is one category measured against itself: speeches in that category using
-				<code>genocid*</code>, divided by all speeches in that category. Every line is therefore
-				scaled to its own output, and a category that spoke rarely is not pushed down the chart for
-				having spoken rarely.
+				Each line is one category measured against itself &mdash; its speeches using
+				<code>genocid*</code>, divided by all its speeches &mdash; inside its 95% Wilson band. A
+				category that spoke rarely is not pushed down for it.
+				{#if split === 'participanttype'}Participant type is the role recorded in the source corpus;
+					each point links to the concordance for that role and year.{/if}
 			</p>
-			{#if split === 'participanttype'}
-				<p>
-					Participant type is the role recorded for the speech in the source corpus. Each plotted
-					point links to the matching concordance lines for that role and year.
-				</p>
-			{/if}
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>A rate says nothing about how much evidence is behind it.</strong> A category with twenty
-				speeches in a year can swing between 0% and 25% on a single mention. A line breaks where the category
-				held no speeches at all that year.
+				<strong>A rate says nothing about the evidence behind it:</strong> twenty speeches can swing from
+				0% to 25% on one mention, which the band shows. A line breaks where the category held no speeches.
+				Delivery language partly restates who is speaking; video-link speeches are unknown, not assumed
+				English.
 			</p>
+		{/snippet}
+		{#snippet more()}
 			<p>
-				Delivery language partly restates who is speaking. Speeches given by video link are shown as
-				unknown rather than assumed to be English, because that document format carries no marker of
-				the language either way.
-			</p>
-			<p>
-				An em dash in the evidence column means the concordance artifact does not carry that split,
-				not that the category has no speeches. Speaker group, participant type and agenda item do
-				carry exact evidence links.
+				An em dash in the evidence column means the concordance does not carry that split, not that
+				the category has no speeches; speaker group, participant type and agenda item carry exact
+				links.
 			</p>
 		{/snippet}
 
@@ -1371,6 +1502,13 @@
 		color: var(--state-ok);
 	}
 
+	.verdict {
+		display: block;
+		font-family: var(--mono);
+		font-size: var(--step--2);
+		color: var(--ink-3);
+	}
+
 	tr.none td {
 		color: var(--ink-3);
 		font-style: italic;
@@ -1406,5 +1544,30 @@
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--ink-3);
+	}
+	.kinds {
+		display: inline-flex;
+		flex-wrap: wrap;
+		gap: var(--sp-1);
+	}
+
+	.chip.small {
+		font-size: var(--step--2);
+		padding: 0.1em 0.5em;
+	}
+
+	.chip-group {
+		margin-bottom: var(--sp-2);
+	}
+
+	.group-label {
+		display: block;
+		margin-bottom: var(--sp-1);
+		font-family: var(--sans);
+		font-size: var(--step--2);
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--chip);
 	}
 </style>

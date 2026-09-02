@@ -10,7 +10,10 @@ date; the open human checks are unchanged, because none of them is work a re-run
 has inspected the original PDF. Amended 28 August 2026: checks 6 and 7 added for Phase L
 (the genocide gold sample and the model-run register), and check 2 updated for the seeded
 referent list. Amended 30 August 2026: the first two model runs registered in §7. Amended 1 September 2026: lexicon v3 registered below, with
-the two counting corrections it carries and the re-count it still owes.
+the two counting corrections it carries and the re-count it still owes. Amended 2 September
+2026: the rate change-point test's meeting-block null and the Wilson intervals registered
+below, with the re-calibration they owe; and, the same day, the lexical tables' floor,
+effect ranking and dispersion, with the re-run and the lemma layer they owe.
 
 ## How to inspect an original record
 
@@ -180,11 +183,21 @@ whitespace match) are counted in the manifest, never silently absorbed.
 
 ### Primary-source chronology overlay
 
-All 35 entries in `config/events.csv` now have a non-empty `source` and an HTTPS
-`source_url` pointing to the relevant UN, ICC, ICJ, OHCHR or archived government record.
-The config loader rejects missing source URLs, and the dashboard links directly to them.
-These dates are contextual annotations only; the models do not use them and the interface
-does not imply causal attribution.
+All 43 entries in `config/events.csv` now have a non-empty `source` and an HTTPS
+`source_url` pointing to the relevant UN, ICC, ICJ, ICTY/ICTR, OHCHR or archived government
+record. The config loader rejects missing source URLs, and the dashboard links directly to
+them. These dates are contextual annotations only; the models do not use them and the
+interface does not imply causal attribution.
+
+**Open check: eight legal milestones added on 2 September 2026** (review §3.5, item 15):
+Akayesu (1998-09-02), Krstić (2001-08-02), the Darfur Commission report S/2005/60
+(dated 2005-02-01 as transmitted), *Bosnia v. Serbia* (2007-02-26), the first al-Bashir
+warrant (2009-03-04), S/PV.7155 (2014-04-16, kind `council`), Karadžić (2016-03-24) and
+Mladić (2017-11-22). Dates and labels were written from the review and from memory of the
+judgments; each `source_url` is the tribunal's, the Court's or the UN's own page for the
+case or document, and the date should be read off that page before any of these is cited
+from the chart. The rail under the chronology draws them by kind, with a kind filter, in
+place of the full-height rules.
 
 ### Lexicon v2 replaces reconnaissance counts
 
@@ -253,6 +266,70 @@ delta as two components with opposite signs: the de-duplication removes exactly 
 to `war_crimes`, `mass_atrocity` and `genocide_convention`, all three in the same register.
 The net delta therefore has no sign known in advance, and neither component is bounded by
 the other.
+
+### The rate tests under a meeting-block null
+
+Registered 2 September 2026 (roadmap S1, first slice; review §3.1, §3.3, §5.2). Two
+changes to what the published series carry, neither of which moves a count:
+
+- **The rate change-point p-values are calibrated by permuting meetings across years.**
+  `lib/series.py::rate_change_point` used to simulate every no-change series by drawing each
+  year's speeches independently at the pooled rate. Speeches are not independent: whether
+  *genocide* can be said at all is fixed by the agenda of the debate, and S/PV.7155 alone
+  holds 198 occurrences. The null now shuffles which meeting fell in which year, each year
+  keeping its number of meetings and each meeting travelling with all of its speeches and
+  hits, and repeats the search. The artefact names the null it used (`inference.null`), the
+  number of blocks, and keeps the independent-speech p-value beside the block one
+  (`p_value_independent`); `accepted` follows the block p. The partition, the two rates and
+  their ratio are the same statistic as before and do not move.
+- **Every speech rate carries Wilson 95% bounds** (`speech_rate_low`, `speech_rate_high`),
+  from the one implementation in `lib/series.py::wilson_interval`, blanked exactly where the
+  rate is withheld. They describe sampling width given the denominator; they do not correct
+  for clustering, and the site says so.
+
+On a synthetic 32-year corpus with two dense debates, the token-rate split read p = 0.015
+under the independent null and 0.69 under the block null — the direction the review
+predicted, on data built to show it.
+
+**Open check: re-calibrate on the corpus.** The environment the change was written in could
+not reach Dataverse, so `04_series.py` and `11_countries.py` have not been re-run. Until
+they are, the three p-values in `README.md` (2017 and 2016 for `genocide`, 1996 for
+`atrocity_core`) are the independent-null ones; record the block p-values beside them here
+when the run lands, note which of the three survive the corrected threshold, and rewrite
+the README paragraph from the artefact rather than by hand.
+
+### Lexical tables: a floor, an effect ranking, and dispersion
+
+Registered 2 September 2026 (roadmap S5, first slice; review §3.2). Four changes to what a
+collocate or keyword row is:
+
+- **G² is a floor.** A row must clear |G²| ≥ 10.83 (p < 0.001, one degree of freedom) to
+  appear, and the rows that clear it are ranked by effect — log ratio for keyword tables,
+  logDice for collocate tables, which now carry it. Tables used to be ranked by G², which
+  on 59 million tokens puts the commonest words first however small their rate difference.
+  Every table on the site and in the notes therefore re-orders on the next run of 05 and
+  12; the words do not change, their order and their cut-off do.
+- **Dispersion per row.** `documents`, distinct `meetings` and Gries's DP over the target
+  speeches (keywords) or the windows (collocates), from `lib/lexical.py::dispersion` and
+  its vectorised twin `DocumentTerms.dispersion`, held equal by a test.
+- **The tokeniser.** `TOKEN_RE` cannot end on an apostrophe or hyphen and may carry a digit
+  after its first letter. `'genocide'` in scare quotes was `genocide'`, a separate type,
+  and `R2P` was `r` and `p`; both now count as the words they are. Every vocabulary count
+  moves by the number of such tokens, which the re-run will state here.
+- **Definitional edges.** `lexical.definitional_pairs` names every pair whose co-occurrence
+  is written into the lexicon — nesting, or one term's regex matching another's declared
+  example — and the network does not draw them. On the current lexicon the rule adds one
+  pair the nesting rule missed: `genocide`–`denial`, because `denial`'s pattern contains
+  `genocid`. `war_crimes`–`crimes_against_humanity` is not caught, and should not be.
+
+**Open check: re-run 05 and 12, and 10 on the cluster.** The environment the change was
+written in could not reach Dataverse. When the run lands: record here how many tokens the
+tokeniser change moved (types ending on `'`, `’` or `-`, and tokens carrying a digit), the
+G²-floor cut-off's effect on each table's length, and the new top collocates against the
+old ones named in `README.md` and `docs/CORPUS.md` §8.5. The lemma layer
+(`data/interim/lemmas/lemmas.parquet`) is aligned token by token to the old pattern:
+`lemmas.tokens` will refuse it, and `10_lemmatise.py` must run before `05 --vocabulary
+lemma` is read again.
 
 ### Documents versus meeting symbols
 

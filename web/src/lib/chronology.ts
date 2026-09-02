@@ -1,3 +1,5 @@
+import type { LineSeriesOption } from 'echarts';
+
 export type ChronologyUnit = 'speech_rate' | 'token_rate' | 'occurrences' | 'speeches';
 export type ChronologyGrain = 'year' | 'quarter';
 export type CalendarUnit = 'speech_rate' | 'token_rate';
@@ -125,4 +127,61 @@ export function chronologyParams(
 	if (state.calendarUnit !== defaults.calendarUnit) params.set('calendarUnit', state.calendarUnit);
 	if (state.split !== defaults.split) params.set('split', state.split);
 	return params;
+}
+
+/* --- Uncertainty bands ------------------------------------------------------
+   Every `speech_rate` comes with its Wilson bounds. A band is drawn as two
+   stacked line series: an invisible floor at the lower bound and a filled
+   strip of height (high − low) on top of it. Both are named after the line
+   they belong to with a suffix, so a tooltip or a legend can tell them apart
+   from the line and leave them out. */
+
+export const BAND_SUFFIX = ' · 95% interval';
+
+/** Whether a series name is one half of an interval band rather than a line. */
+export const isIntervalBand = (seriesName: string | undefined): boolean =>
+	typeof seriesName === 'string' && seriesName.endsWith(BAND_SUFFIX);
+
+/** The line a band series belongs to, or the name unchanged if it is not a band. */
+export const bandOwner = (seriesName: string): string =>
+	isIntervalBand(seriesName) ? seriesName.slice(0, -BAND_SUFFIX.length) : seriesName;
+
+/**
+ * The two ECharts series that draw a band between `low` and `high`.
+ *
+ * Where either bound is missing the band has a gap, never a guess: a null in
+ * `low` makes both series null at that index. `high` is stored as the strip's
+ * height rather than its value because ECharts stacks by addition.
+ */
+export function intervalBand(
+	name: string,
+	colour: string,
+	low: readonly (number | null)[],
+	high: readonly (number | null)[],
+	opacity = 0.14
+): [LineSeriesOption, LineSeriesOption] {
+	const floor = low.map((value, index) => (value == null || high[index] == null ? null : value));
+	const height = high.map((value, index) => {
+		const base = low[index];
+		return value == null || base == null ? null : Math.max(value - base, 0);
+	});
+	const shared = {
+		type: 'line' as const,
+		stack: `${name}${BAND_SUFFIX}`,
+		symbol: 'none' as const,
+		silent: true as const,
+		lineStyle: { opacity: 0 },
+		emphasis: { disabled: true as const },
+		tooltip: { show: false as const },
+		z: 1
+	};
+	return [
+		{ ...shared, name: `${name}${BAND_SUFFIX}`, data: floor },
+		{
+			...shared,
+			name: `${name}${BAND_SUFFIX}`,
+			data: height,
+			areaStyle: { color: colour, opacity }
+		}
+	];
 }

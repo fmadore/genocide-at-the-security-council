@@ -20,6 +20,14 @@ exploratory detector must not be presented as confirmatory evidence.
 No `ruptures` dependency: on 32 annual points the whole search is a few
 milliseconds of numpy, and a method this consequential is better read than
 imported.
+
+Two things the rates carry since the review of 1 September 2026. Every
+`speech_rate` travels with its Wilson 95% interval (:func:`wilson_interval`),
+so a share of 60 speeches and a share of 6,000 are no longer the same number
+on a chart. And the rate change-point test no longer treats speeches as
+independent trials: its null is built by permuting *meetings* across periods
+(:func:`meeting_blocks`, :func:`rate_change_point`), so a single debate that
+holds two hundred occurrences counts as one draw rather than two hundred.
 """
 
 from __future__ import annotations
@@ -126,6 +134,45 @@ def denominators(frame: pd.DataFrame, periods: pd.Series, index=None) -> pd.Data
     return out
 
 
+#: The 97.5th percentile of the standard normal: a two-sided 95% interval.
+Z95 = 1.959963984540054
+
+
+def wilson_interval(
+    successes, trials, z: float = Z95
+) -> tuple[np.ndarray, np.ndarray]:
+    """Wilson score interval for a binomial share, elementwise.
+
+    Every `speech_rate` on the site is a proportion with a known denominator,
+    and until this existed none of them said how wide it was. Wilson rather
+    than the Wald ±1.96·sqrt(p(1-p)/n): at the shares this corpus runs at (about 3%)
+    and the denominators an actor or a month can have (tens of speeches), Wald
+    dips below zero and covers the truth far less often than it claims. Wilson
+    is the interval Brown, Cai and DasGupta (2001) recommend for exactly that
+    regime, and it is what :func:`_rate_interval` already used for a segment
+    rate; it is now one function so the two cannot drift apart.
+
+    Returns ``(low, high)`` as float arrays. A zero denominator gives NaN on
+    both sides — no interval is the honest answer for a share of nothing — and
+    a withheld rate is blanked downstream by :func:`withhold_below` on the same
+    rule as the rate itself.
+    """
+    k = np.asarray(successes, dtype=float)
+    n = np.asarray(trials, dtype=float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        p = np.where(n > 0, k / np.where(n > 0, n, 1.0), np.nan)
+        denominator = 1.0 + z**2 / n
+        centre = (p + z**2 / (2.0 * n)) / denominator
+        margin = z * np.sqrt(p * (1.0 - p) / n + z**2 / (4.0 * n**2)) / denominator
+    low = np.where(n > 0, np.clip(centre - margin, 0.0, 1.0), np.nan)
+    high = np.where(n > 0, np.clip(centre + margin, 0.0, 1.0), np.nan)
+    # Exact at the ends: a share of none is bounded below by 0 and a share of
+    # all by 1, and the arithmetic lands a rounding error short of both.
+    low = np.where((n > 0) & (k <= 0), 0.0, low)
+    high = np.where((n > 0) & (k >= n), 1.0, high)
+    return low, high
+
+
 def measure(
     frame: pd.DataFrame,
     periods: pd.Series,
@@ -133,10 +180,15 @@ def measure(
     has_column: str,
     count_column: str | None,
 ) -> pd.DataFrame:
-    """One term's series: speeches, occurrences, and both rates.
+    """One term's series: speeches, occurrences, both rates, and the interval.
 
     Reindexed onto `totals`, so a term absent from a period reads as a zero
     rather than dropping the period from the chart.
+
+    `speech_rate_low` and `speech_rate_high` are the Wilson 95% bounds of the
+    speech rate, computed here beside the rate so that every consumer — the
+    annual chart, the monthly grid, a speaker's row — gets the same interval
+    by the same arithmetic rather than its own.
 
     ``count_column=None`` is for a *union* of terms — a set has no occurrence
     count of its own, because summing its members would count a speech saying
@@ -154,6 +206,9 @@ def measure(
     out = pd.DataFrame(index=totals.index)
     out["speeches"] = grouped["speeches"].astype("int64")
     out["speech_rate"] = out["speeches"] / totals["speeches"]
+    low, high = wilson_interval(out["speeches"].to_numpy(), totals["speeches"].to_numpy())
+    out["speech_rate_low"] = low
+    out["speech_rate_high"] = high
     if count_column is None:
         out["occurrences"] = pd.NA
         out["token_rate"] = pd.NA
@@ -212,7 +267,7 @@ def withhold_below(frame: pd.DataFrame, held: pd.Series, minimum: int) -> pd.Dat
     """
     out = frame.copy()
     out["sufficient"] = held.reindex(out.index) >= minimum
-    for column in ("speech_rate", "token_rate"):
+    for column in ("speech_rate", "speech_rate_low", "speech_rate_high", "token_rate"):
         if column in out.columns:
             out.loc[~out["sufficient"], column] = np.nan
     return out
@@ -257,6 +312,9 @@ def breakdown(
         .reset_index()
     )
     grouped["speech_rate"] = grouped["speeches"] / grouped["held"]
+    low, high = wilson_interval(grouped["speeches"].to_numpy(), grouped["held"].to_numpy())
+    grouped["speech_rate_low"] = low
+    grouped["speech_rate_high"] = high
     if count_column is None:
         grouped["occurrences"] = pd.NA
         grouped["token_rate"] = pd.NA
@@ -581,17 +639,117 @@ def _rate_interval(count: int, exposure: int, family: str) -> tuple[float, float
     if exposure <= 0:
         return float("nan"), float("nan")
     if family == "binomial":
-        z = 1.959963984540054
-        p = count / exposure
-        denominator = 1 + z**2 / exposure
-        centre = (p + z**2 / (2 * exposure)) / denominator
-        margin = z * np.sqrt(p * (1 - p) / exposure + z**2 / (4 * exposure**2)) / denominator
-        return max(0.0, centre - margin), min(1.0, centre + margin)
+        low, high = wilson_interval(count, exposure)
+        return float(low), float(high)
     rate = count / exposure
     if count == 0:
         return 0.0, -np.log(0.05) / exposure
-    factor = np.exp(1.959963984540054 / np.sqrt(count))
+    factor = np.exp(Z95 / np.sqrt(count))
     return rate / factor, rate * factor
+
+
+def meeting_blocks(
+    frame: pd.DataFrame,
+    periods: pd.Series,
+    count_column: str,
+    exposure_column: str | None,
+) -> pd.DataFrame:
+    """One row per meeting: the period it fell in, its count and its exposure.
+
+    This is the unit the rate change-point test resamples. A speech is not an
+    independent trial — whether *genocide* is sayable at all is fixed by the
+    agenda of the meeting it was given in, and S/PV.7155 alone holds 198
+    occurrences — so the null has to move meetings, not speeches.
+
+    `exposure_column=None` counts speeches, which is the binomial exposure;
+    a column name (``tokens``) sums it, which is the Poisson one. `count_column`
+    is summed either way: a `has_` flag sums to term-bearing speeches, an
+    `n_` column to occurrences.
+
+    A meeting that spans two periods — none does at annual grain, since a
+    meeting is one sitting on one date, but the function does not rely on it —
+    is split into one block per period, because a block is defined by where it
+    can be moved *from* as much as by what it carries.
+    """
+    keys = [periods.rename("period"), frame["meeting_symbol"].rename("meeting_symbol")]
+    aggregated = {"count": (count_column, "sum")}
+    if exposure_column is None:
+        aggregated["exposure"] = ("meeting_symbol", "size")
+    else:
+        aggregated["exposure"] = (exposure_column, "sum")
+    out = frame.groupby(keys, sort=True).agg(**aggregated).reset_index()
+    out["count"] = out["count"].astype("int64")
+    out["exposure"] = out["exposure"].astype("int64")
+    return out
+
+
+#: The two nulls :func:`rate_change_point` can calibrate against.
+NULL_INDEPENDENT = "independent_parametric"
+NULL_MEETING_BLOCK = "meeting_block_permutation"
+
+
+def _independent_null_p(
+    observed: np.ndarray,
+    held: np.ndarray,
+    candidates: np.ndarray,
+    family: str,
+    gain: float,
+    trials: int,
+    rng: np.random.Generator,
+) -> float:
+    """The parametric null: every speech an independent draw at the pooled rate.
+
+    Kept, and published beside the block p-value, because the gap between the
+    two is itself a finding: it is the size of the clustering the caveat used
+    to describe in words.
+    """
+    null_rate = float(observed.sum()) / float(held.sum())
+    exceed = 1
+    for _ in range(trials):
+        if family == "binomial":
+            simulated = rng.binomial(held, null_rate)
+        else:
+            simulated = rng.poisson(held * null_rate)
+        if likelihood_gains(simulated, held, candidates, family).max() >= gain:
+            exceed += 1
+    return exceed / (trials + 1)
+
+
+def _block_null_p(
+    blocks: pd.DataFrame,
+    n_periods: int,
+    candidates: np.ndarray,
+    family: str,
+    gain: float,
+    trials: int,
+    rng: np.random.Generator,
+) -> float:
+    """The block null: meetings are exchangeable across periods.
+
+    Under "the rate never changed", which meeting fell in which year carries no
+    information about its count, so the null is every assignment of the
+    observed meetings to the observed years that keeps each year's number of
+    meetings. Each trial shuffles that assignment, re-aggregates counts and
+    exposure per period — a meeting travels with all of its speeches and all
+    of its hits — and repeats the whole search. Exposure therefore varies
+    between trials, as it would if the calendar had been different, and the
+    within-meeting dependence the independent null ignores is preserved
+    exactly, because a block is never broken.
+    """
+    where = blocks["period"].to_numpy(dtype=np.int64)
+    count = blocks["count"].to_numpy(dtype=np.int64)
+    exposure = blocks["exposure"].to_numpy(dtype=np.int64)
+    exceed = 1
+    for _ in range(trials):
+        shuffled = rng.permutation(where)
+        simulated_counts = np.bincount(shuffled, weights=count, minlength=n_periods)
+        simulated_exposure = np.bincount(shuffled, weights=exposure, minlength=n_periods)
+        if (
+            likelihood_gains(simulated_counts, simulated_exposure, candidates, family).max()
+            >= gain
+        ):
+            exceed += 1
+    return exceed / (trials + 1)
 
 
 def rate_change_point(
@@ -604,13 +762,27 @@ def rate_change_point(
     trials: int = 2_000,
     alpha: float = 0.05,
     seed: int = 20_260_807,
+    blocks: pd.DataFrame | None = None,
 ) -> dict[str, object] | None:
     """Test the strongest single rate change while preserving denominators.
 
-    The bootstrap simulates the no-change model with the observed exposure in
-    every period and recalculates the maximum over all candidate years. Thus
-    denominator variation and breakpoint search are both represented in the
-    null. ``alpha`` is supplied by the caller after across-series correction.
+    The statistic is the likelihood-ratio gain of the best two-rate partition,
+    searched over every split that leaves `min_size` periods on each side.
+    What it is calibrated against is the choice that matters:
+
+    - with `blocks` (from :func:`meeting_blocks`), the null permutes meetings
+      across periods, so the reported `p_value` allows for speeches clustering
+      into debates. This is the published number.
+    - without, every speech is an independent draw at the pooled rate and the
+      p-value is the parametric one the site used until September 2026.
+
+    When blocks are given, both are computed and the parametric one is kept as
+    `p_value_independent`; `accepted` follows `p_value`. `blocks` must
+    reproduce `counts` and `exposure` period by period, and the function
+    refuses when they do not, because a null built from different data than the
+    statistic is not a null.
+
+    ``alpha`` is supplied by the caller after across-series correction.
     """
     observed = np.asarray(counts, dtype=np.int64)
     held = np.asarray(exposure, dtype=np.int64)
@@ -621,6 +793,16 @@ def rate_change_point(
         raise ValueError("counts must be non-negative and exposure positive")
     if family == "binomial" and (observed > held).any():
         raise ValueError("binomial successes cannot exceed trials")
+    if blocks is not None:
+        where = blocks["period"].to_numpy(dtype=np.int64)
+        if where.size and (where.min() < 0 or where.max() >= observed.size):
+            raise ValueError("every block must fall in a period of the series")
+        block_counts = np.bincount(where, weights=blocks["count"], minlength=observed.size)
+        block_exposure = np.bincount(where, weights=blocks["exposure"], minlength=observed.size)
+        if not (
+            np.array_equal(block_counts, observed) and np.array_equal(block_exposure, held)
+        ):
+            raise ValueError("the blocks do not add up to the counts and exposure they test")
     candidates = np.arange(min_size, observed.size - min_size + 1, dtype=np.int64)
     if candidates.size == 0:
         return None
@@ -633,16 +815,13 @@ def rate_change_point(
         return None
 
     rng = np.random.default_rng(seed)
-    null_rate = float(observed.sum()) / float(held.sum())
-    exceed = 1
-    for _ in range(trials):
-        if family == "binomial":
-            simulated = rng.binomial(held, null_rate)
-        else:
-            simulated = rng.poisson(held * null_rate)
-        if likelihood_gains(simulated, held, candidates, family).max() >= gain:
-            exceed += 1
-    p_value = exceed / (trials + 1)
+    p_independent = _independent_null_p(observed, held, candidates, family, gain, trials, rng)
+    if blocks is None:
+        p_value = p_independent
+        null = NULL_INDEPENDENT
+    else:
+        p_value = _block_null_p(blocks, observed.size, candidates, family, gain, trials, rng)
+        null = NULL_MEETING_BLOCK
 
     left_count, right_count = int(observed[:split].sum()), int(observed[split:].sum())
     left_exposure, right_exposure = int(held[:split].sum()), int(held[split:].sum())
@@ -652,7 +831,10 @@ def rate_change_point(
         "label": str(labels[split]),
         "family": family,
         "gain": round(gain, 8),
+        "null": null,
+        "blocks": None if blocks is None else len(blocks),
         "p_value": round(p_value, 5),
+        "p_value_independent": round(p_independent, 5),
         "alpha": alpha,
         "accepted": p_value <= alpha,
         "before": before,

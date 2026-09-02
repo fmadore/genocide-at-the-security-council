@@ -81,3 +81,42 @@ describe('chronology breakdown evidence', () => {
 		expect(splitEvidenceQuery('genocide', 'delivery_language', 'French', 2014)).toBeNull();
 	});
 });
+
+describe('interval bands', () => {
+	it('draws a floor at the lower bound and a strip of the interval height', async () => {
+		const { intervalBand } = await import('./chronology');
+		const [floor, strip] = intervalBand('genocide', '#123456', [0.01, 0.02], [0.03, 0.05]);
+		expect(floor.data).toEqual([0.01, 0.02]);
+		const heights = strip.data as number[];
+		expect(heights[0]).toBeCloseTo(0.02, 12);
+		expect(heights[1]).toBeCloseTo(0.03, 12);
+		expect(strip.areaStyle).toEqual({ color: '#123456', opacity: 0.14 });
+		expect(floor.stack).toBe(strip.stack);
+		expect(floor.tooltip?.show).toBe(false);
+		expect(floor.silent).toBe(true);
+	});
+
+	it('leaves a gap where a bound is withheld rather than guessing', async () => {
+		const { intervalBand } = await import('./chronology');
+		const [floor, strip] = intervalBand('g', '#000', [0.01, null, 0.02], [0.03, 0.04, null]);
+		expect(floor.data).toEqual([0.01, null, null]);
+		const heights = strip.data as (number | null)[];
+		expect(heights[0]).toBeCloseTo(0.02, 12);
+		expect(heights.slice(1)).toEqual([null, null]);
+	});
+
+	it('never draws a negative strip', async () => {
+		const { intervalBand } = await import('./chronology');
+		const [, strip] = intervalBand('g', '#000', [0.05], [0.04]);
+		expect(strip.data).toEqual([0]);
+	});
+
+	it('tells a band from the line it belongs to', async () => {
+		const { isIntervalBand, bandOwner, BAND_SUFFIX } = await import('./chronology');
+		expect(isIntervalBand(`Genocide${BAND_SUFFIX}`)).toBe(true);
+		expect(isIntervalBand('Genocide')).toBe(false);
+		expect(isIntervalBand(undefined)).toBe(false);
+		expect(bandOwner(`Genocide${BAND_SUFFIX}`)).toBe('Genocide');
+		expect(bandOwner('Genocide')).toBe('Genocide');
+	});
+});

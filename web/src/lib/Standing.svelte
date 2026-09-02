@@ -119,33 +119,21 @@
 
 	{#snippet reading()}
 		<p>
-			Each row is one speaker's own speeches, divided up by the position it held when it gave them.
-			The two <strong>seated</strong> bands are the UN Charter's two kinds of Council membership: the
-			five permanent members and the ten elected ones. The three unseated bands are kept apart because
-			they are not the same thing as each other.
-		</p>
-		<p>
-			Of {count(result.counts.changed + result.counts.always + result.counts.never)} speakers in this
-			period,
-			<strong>{count(result.counts.changed)}</strong>
-			spoke both from a seat and from outside one, {count(result.counts.always)} only ever from a seat,
-			and {count(result.counts.never)} never from one.
-			{#if named}
-				{shortCountry(named.row.country_org)} is the clearest case: {count(named.row.held)} speeches,
-				{percent(named.row.seated_share ?? 0)} of them from a seat.
-			{/if}
+			Each row is one speaker's speeches, divided by the position it held when giving them: the two
+			<strong>seated</strong> bands are the Charter's permanent and elected membership. Of {count(
+				result.counts.changed + result.counts.always + result.counts.never
+			)} speakers, <strong>{count(result.counts.changed)}</strong> spoke both from a seat and
+			outside one, {count(result.counts.always)} only from a seat, {count(result.counts.never)} never.
+			{#if named}{shortCountry(named.row.country_org)} is the clearest case: {count(named.row.held)}
+				speeches, {percent(named.row.seated_share ?? 0)} from a seat.{/if}
 		</p>
 	{/snippet}
 	{#snippet caveat()}
 		<p>{data.standing.membership_rule}</p>
 		<p>
 			<strong>There is no minimum sample here</strong>, unlike every rate on this page. {data
-				.standing.seated_rule}
-		</p>
-		<p>
-			A whole-corpus row is not the sum of the period rows, and the two should not be read side by
-			side: a speaker can hold a seat for a decade and still count as a non-member across the corpus
-			as a whole.
+				.standing.seated_rule} A whole-corpus row is not the sum of the period rows: a speaker can hold
+			a seat for a decade and still count as a non-member across the corpus.
 		</p>
 	{/snippet}
 
@@ -219,11 +207,14 @@
 	.key,
 	table {
 		--tint: 32%;
-		--band-p5: color-mix(in oklab, var(--ink) var(--tint), transparent);
-		--band-e10: color-mix(in oklab, var(--reg-accountability) var(--tint), transparent);
-		--band-non-member-state: color-mix(in oklab, var(--reg-legal) var(--tint), transparent);
-		--band-un: color-mix(in oklab, var(--reg-commemorative) var(--tint), transparent);
-		--band-non-state: color-mix(in oklab, var(--reg-preventive) var(--tint), transparent);
+		/* Weights of ink, not the register hues: those mean one thing on this site,
+		   and a seat is not a register. Seated darker, unseated lighter, so the
+		   Charter's two kinds of membership read as a block. */
+		--band-p5: color-mix(in oklab, var(--ink) 55%, transparent);
+		--band-e10: color-mix(in oklab, var(--ink) 38%, transparent);
+		--band-non-member-state: color-mix(in oklab, var(--ink) 22%, transparent);
+		--band-un: color-mix(in oklab, var(--ink) 12%, transparent);
+		--band-non-state: color-mix(in oklab, var(--ink) 6%, transparent);
 	}
 
 	.key {
