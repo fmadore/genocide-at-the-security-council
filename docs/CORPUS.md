@@ -566,5 +566,127 @@ files are never read again.
 
 ---
 
+## 11. Leader and government datasets, evaluated against this corpus
+
+Roadmap item R15 states the problem: the site treats a speech as a State speaking, and it is
+a government speaking. Rwanda is the clean case — nobody calls the killings a genocide until
+the government changes, and then everybody does, because the new government legitimates itself
+by accusing the old one. Read as *Rwanda's position over time* that is a puzzle; read as two
+governments it is not. This section evaluates the three datasets that could date such a change.
+**Nothing here is adopted.** It records what was checked, on what evidence, and what is still
+unknown.
+
+### 11.1 The join this corpus can support
+
+`source_cow_ccode` is present on **158,563 of the 158,603 rows whose `entity_type` is `state`**
+(99.97%), over **200 distinct Correlates of War codes** against 211 distinct `country_org`
+values. The 40 uncoded rows are name-variant edges rather than a coverage problem — *Turkish
+Federated State of Cyprus* (8+2), *East Timor* (11), *India or Netherland* (4), and single rows
+under `USA`, `Czechia`, `Türkiye`, `Côte d'Ivoire` and a few more. COW codes are what this
+literature keys on, so the join exists.
+
+⚠️ `iso3` is **empty on every row** of the migrated corpus (0 of 167,642, dtype `string`). It
+was populated under the Schoenfeld corpus. Anything below that would rather key on ISO must
+wait for that column to be rebuilt, or go through COW.
+
+### 11.2 Coverage, measured against this corpus and not in the abstract
+
+The corpus runs 1946–2024 and holds 158,603 state speeches, 3,578 of them containing
+`genocid*`. What each dataset's temporal window leaves uncovered:
+
+| dataset | window | state speeches uncovered | genocide-bearing uncovered |
+|---|---|---:|---:|
+| Archigos 4.1 | 1875–2015 | 45,933 (29.0%) | **1,267 (35.4%)** |
+| CHISOLS 5.0 | 1919–2018 | 30,451 (19.2%) | **897 (25.1%)** |
+| WhoGov v4 | 1966–2025 | 24,055 (15.2%) | **101 (2.8%)** |
+
+The ordering by *speeches* and the ordering by *the object of study* are not the same, and that
+is the finding. WhoGov leaves the largest share of the corpus uncovered after Archigos, and the
+smallest share of the thing this project is about, because its blind spot is 1946–1965 — two
+decades in which the Council barely used the word. Archigos's blind spot is 2016–2024, which is
+where a third of the genocide talk is: 189 of 211 states speak after 2015, and the states
+holding the most genocide-bearing speeches in that window are the United States (70), France
+(51), Ukraine (50), Rwanda (49), the United Kingdom (47), Russia (29), Syria (28) and Israel
+(26) — the centre of the question, not its margin.
+
+**Archigos 4.1 is therefore not adopted for this corpus.** Not because it is a worse dataset —
+it is the field's reference — but because its window and this corpus's centre of gravity do not
+overlap where it matters. It would silently blank the Ukraine and Gaza material entirely.
+
+### 11.3 The dataset that fits the corpus and the dataset that fits the question are different
+
+This is the tension to resolve before any of it is built.
+
+**WhoGov** ([Nyrup & Bramwell 2020](https://doi.org/10.1017/S0003055420000490), APSR 114(4):
+1366–1374; v4 released June 2026) records cabinet members in July of each year, 1966–2025, for
+countries above 400,000 population — 60,458 cabinet members, 177 countries, 9,495 country-years.
+It reaches the end of the corpus, which nothing else does. But what it measures is cabinet
+*composition*. It answers "did the government change" well and "did the government's base
+change" only by inference.
+
+**CHISOLS** ([Mattes, Leeds & Matsumura 2016](https://doi.org/10.1177/0022343315625760), JPR
+53(2): 259–267; v5.0, 1919–2018, countries above 500,000 population) measures precisely the
+thing R15 needs: which leadership changes bring to power a leader whose primary support is drawn
+from **different societal groups** than the predecessor's. That is the Rwandan mechanism stated
+as a variable, and no other dataset here states it. It stops in 2018 and so misses a quarter of
+the genocide-bearing speeches.
+
+The honest reading is that these are complementary and neither is sufficient: WhoGov as the
+spine that covers the corpus, CHISOLS as the interpretive layer wherever it reaches, and an
+explicit hole after 2018 for the question that matters most. A figure drawn from CHISOLS alone
+must state that it stops in 2018, or it will read as "no source-of-support changes after 2018".
+
+### 11.4 Two problems that apply to all three
+
+**Identifier systems do not agree.** Archigos uses **Gleditsch–Ward** codes, not COW — its
+`ccode` column is renamed `gwcode` in the `peacesciencer` port for exactly this reason. G–W and
+COW diverge on precisely the cases this corpus argues about: Germany, Yemen, Serbia and
+Yugoslavia. Any Archigos join needs a documented crosswalk, and the crosswalk is where the
+errors would be. **The code systems used by CHISOLS and WhoGov could not be established from
+public documentation** — see §11.5.
+
+**Population thresholds exclude states that speak here.** CHISOLS requires above 500,000 and
+WhoGov above 400,000. Twenty-three likely sub-threshold states account for 1,491 speeches
+(0.94%) — negligible — but **76 genocide-bearing** ones, and they are not evenly spread:
+Liechtenstein 47, Malta 13, Maldives 7, Grenada 3, then singles. Liechtenstein is **twelfth
+among all states** by genocide-bearing speeches, ahead of Jordan, Iran and Cuba, because small
+states with no stake in a conflict speak on international law when larger ones speak on
+interests. Both datasets structurally exclude it. Any overlay must publish which states it
+cannot cover rather than dropping them into an unmarked residue.
+
+### 11.5 What is not established, and how to settle it
+
+Each of these is a download away and none of them was guessed at here.
+
+1. **CHISOLS's country-code system and variable names.** The user manual is a PDF that did not
+   yield to text extraction and the project site does not state them. The Harvard deposit
+   ([doi:10.7910/DVN/AMBAXV](https://doi.org/10.7910/DVN/AMBAXV), CC0) is the **2016 JPR
+   replication archive, not v5.0** — two Stata/tab files, a do-file and a log, with no codebook.
+   Current releases come from [chisols.org](http://www.chisols.org/).
+2. **WhoGov's identifiers, licence and format.** Neither the Nuffield page nor the QoG
+   datafinder entry states them. (Note also that QoG lists WhoGov as 1966–2023 with 8,057
+   country-years while Nuffield states 1966–2025 with 9,495 — the QoG mirror is a version
+   behind, so take the release from the source.)
+3. **Whether either can be pinned.** This project pins its corpus by DOI, version and MD5, and
+   refuses a corpus its own pin does not describe. A dependency distributed from a project
+   website, versioned by a number in a filename, cannot be pinned that way. That is a real cost
+   for a reproducibility chain built the way this one is, and it may be the deciding argument
+   between the two.
+
+### 11.6 What this does not become
+
+The individual level is a different project and is not proposed. `speaker` holds 10,813 distinct
+name strings with no stable person identifier, so any question about the circulation of
+particular diplomats — the people who specialise in this subject and reappear across situations
+and decades — needs name disambiguation first.
+
+And an overlay is a new analysis, not a new decoration: under *Later analytical specifications*
+in [`IMPROVEMENT_ROADMAP.md`](IMPROVEMENT_ROADMAP.md) it would have to be preregistered rather
+than added quietly to the descriptive dashboard. The part of R15 that ships without any of this
+is the epistemological statement itself — that the unit is a government and the site does not
+currently model the difference — which costs nothing and is true now.
+
+---
+
 *Notes compiled from version 6.1 of the dataset, the January 2025 codebook, the arXiv v3
 paper (March 2025) and a full profiling pass over the local data.*
