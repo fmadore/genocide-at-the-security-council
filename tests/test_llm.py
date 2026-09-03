@@ -76,11 +76,18 @@ def labels(**changes: object) -> dict[str, object]:
     entry = {
         "verdict": "true_positive",
         "quotation": "not_quoted",
-        "stance": "asserts",
+        "concrete_case": "yes",
+        "speaker_position": "asserts",
         "function": ["accusation_or_qualification"],
         "referent": "rwanda_1994",
         "proposed_referent": "",
+        "referent_source": "passage",
+        "accused_actor": "",
+        "victim_group": "",
+        "own_state_accused": "no",
+        "salience": "substantive",
         "evidence_quote": "this is genocide",
+        "rationale": "The speaker applies the word in their own voice.",
         "confidence": "high",
     }
     entry.update(changes)
@@ -95,12 +102,29 @@ def entry(ordinal: int, **changes: object) -> dict[str, object]:
     return {"ordinal": ordinal, **labels(**changes)}
 
 
+#: The codebook's cascade for a false positive, at schema 3: every closed field
+#: answered `not_applicable`, both free-text label fields empty.
+CASCADE_FP: dict[str, object] = {
+    "verdict": "false_positive",
+    "quotation": "not_applicable",
+    "concrete_case": "not_applicable",
+    "speaker_position": "not_applicable",
+    "function": ["not_applicable"],
+    "referent": "not_applicable",
+    "referent_source": "not_applicable",
+    "accused_actor": "",
+    "victim_group": "",
+    "own_state_accused": "not_applicable",
+    "salience": "not_applicable",
+}
+
+
 # --- The prompt is the run's provenance -------------------------------------
 
 
 def test_prompt_parses_into_the_two_templates_the_step_sends() -> None:
     pack = llm.load_prompt(PROMPT)
-    assert pack.version == 1
+    assert pack.version == 2
     assert "{referents_table}" in pack.system_template
     for placeholder in llm.USER_PLACEHOLDERS:
         assert "{" + placeholder + "}" in pack.user_template
@@ -115,7 +139,7 @@ def test_prompt_states_the_task_boundary_and_the_cascade() -> None:
     assert "You never decide whether an underlying event legally constitutes genocide" in flat
     assert 'If verdict is "false_positive"' in flat
     assert "reserved for false positives" in flat
-    for label in sorted(audit.STANCES | audit.QUOTATIONS | audit.FUNCTIONS | audit.CONFIDENCE):
+    for label in sorted(audit.POSITIONS | audit.QUOTATIONS | audit.FUNCTIONS | audit.CONFIDENCE):
         assert label in system, f"the prompt never names {label}"
 
 
@@ -137,6 +161,166 @@ def test_a_prompt_without_its_sections_is_refused(tmp_path: Path) -> None:
         llm.load_prompt(path)
 
 
+# --- The prompt archive keeps an older run readable --------------------------
+
+#: A minimal prompt whose `version:` line is the only thing that varies, which
+#: is the smallest edit that is genuinely a new prompt and so a new digest.
+PROMPT_TEMPLATE = (
+    "# Prompt\n\nversion: VERSION\n\n## System\n\n```text\n{referents_table}\n```\n"
+    "\n## User template\n\n```text\n"
+    + "\n".join("{" + key + "}" for key in llm.USER_PLACEHOLDERS)
+    + "\n```\n"
+)
+
+
+def prompt_text(version: int) -> str:
+    """The template at one version.
+
+    `str.replace` and not `str.format`, because both fenced blocks are full of
+    the placeholders the templates themselves declare.
+    """
+    return PROMPT_TEMPLATE.replace("VERSION", str(version))
+
+
+def archived(directory: Path, *versions: int) -> Path:
+    """A prompt library on disk: `PROMPT.md` at the highest version given."""
+    directory.mkdir(parents=True, exist_ok=True)
+    current, *older = sorted(versions, reverse=True)
+    path = directory / "PROMPT.md"
+    path.write_text(prompt_text(current), encoding="utf-8", newline="\n")
+    if older:
+        (directory / llm.ARCHIVE).mkdir(exist_ok=True)
+        for version in older:
+            (directory / llm.ARCHIVE / f"v{version}.md").write_text(
+                prompt_text(version), encoding="utf-8", newline="\n"
+            )
+    return path
+
+
+def test_a_library_with_no_archive_is_the_ordinary_state(tmp_path: Path) -> None:
+    library = llm.load_prompt_library(archived(tmp_path, 1))
+    assert library.current.version == 1
+    assert library.superseded == ()
+    assert library.by_digest(library.current.sha256) is library.current
+    assert library.by_digest("f" * 64) is None
+
+
+def test_every_version_the_repository_holds_is_resolvable_by_its_digest(
+    tmp_path: Path,
+) -> None:
+    """The whole point: a digest a run recorded finds the wording it names.
+
+    Resolution is by digest and never by the `version:` line, because the digest
+    is what the run actually recorded and the line is a claim about it.
+    """
+    library = llm.load_prompt_library(archived(tmp_path, 1, 2, 3))
+    assert [pack.version for pack in library.packs] == [3, 2, 1]
+    for pack in library.packs:
+        assert library.by_digest(pack.sha256) is pack
+        assert hashlib.sha256(pack.text.encode("utf-8")).hexdigest() == pack.sha256
+    assert library.describe()[0].startswith("v3 ")
+    assert library.describe()[-1].endswith(f"in {llm.ARCHIVE}/v1.md")
+
+
+def test_a_copy_of_the_current_prompt_parked_in_the_archive_is_refused(
+    tmp_path: Path,
+) -> None:
+    """The rejected layout, refused rather than merely not adopted.
+
+    An archive that held every version — `prompts/v2.md` a byte-for-byte copy of
+    a v2 `PROMPT.md` — reads more evenly and costs a state in which the two
+    copies differ, which is the one failure a digest cannot repair. The
+    superseded-only rule is what forbids reaching it, and it is the rule that
+    fires here: the copy declares the current version, so it is not superseded.
+    """
+    path = archived(tmp_path, 1, 2)
+    (tmp_path / llm.ARCHIVE / "v2.md").write_bytes(path.read_bytes())
+    with pytest.raises(ValueError, match="superseded versions only"):
+        llm.load_prompt_library(path)
+
+
+def test_an_archived_prompt_is_named_for_the_version_it_declares(tmp_path: Path) -> None:
+    path = archived(tmp_path / "unnamed", 1, 2)
+    archive = path.parent / llm.ARCHIVE
+    (archive / "v1.md").rename(archive / "old.md")
+    with pytest.raises(ValueError, match="named for its version"):
+        llm.load_prompt_library(path)
+
+    path = archived(tmp_path / "misnamed", 1, 2)
+    archive = path.parent / llm.ARCHIVE
+    (archive / "v1.md").rename(archive / "v9.md")
+    with pytest.raises(ValueError, match="file name and the header"):
+        llm.load_prompt_library(path)
+
+
+def test_the_archive_holds_superseded_versions_only(tmp_path: Path) -> None:
+    """A version above `PROMPT.md`'s means an edit went backwards, and the
+    archive would then hold the instrument rather than its history."""
+    path = archived(tmp_path, 2, 3)
+    archive = path.parent / llm.ARCHIVE
+    (archive / "v2.md").unlink()
+    (archive / "v4.md").write_text(
+        prompt_text(4), encoding="utf-8", newline="\n"
+    )
+    with pytest.raises(ValueError, match="superseded versions only"):
+        llm.load_prompt_library(path)
+
+
+def test_the_repository_holds_every_version_from_one_to_the_current(tmp_path: Path) -> None:
+    """Asserted against the real files, as the prompt's own digest test is: the
+    archive is provenance, and provenance that only holds in a fixture is none.
+    A gap in the sequence is a run that resolves to nothing."""
+    library = llm.load_prompt_library(PROMPT)
+    assert library.current.sha256 == llm.prompt_sha256(PROMPT)
+    assert {pack.version for pack in library.packs} == set(
+        range(1, library.current.version + 1)
+    )
+
+
+# --- The fixed prefix, and asking for it to be cached ------------------------
+
+
+def test_the_cache_key_names_the_prefix_and_nothing_about_the_run() -> None:
+    """Two runs of one prompt share a cache, which is most of the point.
+
+    The prefix is the prompt's own text with the referent table rendered into it,
+    so the key is derived from those two files' digests and from nothing else. A
+    key that carried the run id would give the pilot and the corpus run separate
+    caches and charge the second one full price for a prefix it had already sent
+    3,273 times.
+    """
+    first = llm.cache_key("a" * 64, "b" * 64)
+    assert first == llm.cache_key("a" * 64, "b" * 64)
+    assert first != llm.cache_key("a" * 64, "c" * 64)
+    assert first != llm.cache_key("c" * 64, "b" * 64)
+    assert first.startswith("unsc-genocide-")
+
+
+def test_a_request_carries_the_cache_key_only_when_there_is_one(tmp_path: Path) -> None:
+    """Omitted rather than blank, so a run made without it is the request that
+    was sent before the field existed and the two stay comparable."""
+    found = enumerate_bodies(BODIES)
+    request = llm.build_request(
+        {"filename": "one.txt"}, BODIES["one.txt"], found[:1], llm.load_prompt(PROMPT), "table"
+    )
+    plain = llm.request_body(
+        request, model="a-model", reasoning_effort="medium", max_output_tokens=99
+    )
+    assert "prompt_cache_key" not in plain
+
+    keyed = llm.request_body(
+        request,
+        model="a-model",
+        reasoning_effort="medium",
+        max_output_tokens=99,
+        prompt_cache_key="unsc-genocide-abc-def",
+    )
+    assert keyed["prompt_cache_key"] == "unsc-genocide-abc-def"
+    # The question itself is untouched: a cached run and an uncached one are the
+    # same instrument, or the ablation measures the cache and not the effort.
+    assert {key: value for key, value in keyed.items() if key != "prompt_cache_key"} == plain
+
+
 # --- The controlled referents -----------------------------------------------
 
 
@@ -151,6 +335,44 @@ def test_referent_table_is_grouped_and_leaves_nothing_out(referent_file: Path) -
     assert rendered.index("rwanda_1994") < rendered.index("holocaust") < rendered.index("other")
     for identifier in REFERENTS:
         assert identifier in rendered
+
+
+def test_a_retired_referent_is_never_rendered_into_the_prompt(tmp_path: Path) -> None:
+    """The model is offered only what the list currently holds.
+
+    The retired row stays in the file so a committed run that used it can still
+    be read, but rendering it would invite the next run to reuse a category the
+    list has withdrawn.
+    """
+    path = tmp_path / "referents.csv"
+    path.write_text(
+        "id,label,description,kind,iso3,years,since,retired_in,superseded_by\n"
+        "other,Other,Known,reserved,,,1,,\n"
+        "unclear,Unclear,Unknown,reserved,,,1,,\n"
+        "not_applicable,N/A,False positive,reserved,,,1,,\n"
+        "rwanda_1994,Rwanda 1994,The 1994 genocide.,case,RWA,1994,1,2,rwanda\n"
+        "rwanda,Rwanda,Speeches invoking the mass killing of Tutsi.,case,RWA,1994,2,,\n",
+        encoding="utf-8",
+    )
+    rendered = llm.render_referents(llm.read_referent_table(path))
+    assert "rwanda_1994" not in rendered
+    assert "rwanda — Rwanda (1994) — Speeches invoking" in rendered
+    assert audit.read_referents(path) == {"other", "unclear", "not_applicable", "rwanda"}
+    assert audit.read_referent_list(path).all == {
+        "other",
+        "unclear",
+        "not_applicable",
+        "rwanda_1994",
+        "rwanda",
+    }
+
+
+def test_the_committed_prompt_renders_only_current_referents() -> None:
+    path = ROOT / "annotations" / "lexicon" / "referents.csv"
+    referents = audit.read_referent_list(path)
+    rendered = llm.render_referents(llm.read_referent_table(path))
+    lines = {line.strip().split(" — ")[0] for line in rendered.splitlines() if " — " in line}
+    assert lines == referents.current
 
 
 def test_a_referent_file_without_a_kind_column_still_renders(tmp_path: Path) -> None:
@@ -251,7 +473,7 @@ def test_the_request_body_pins_the_model_the_effort_and_the_schema() -> None:
 
 def test_a_well_formed_response_is_accepted() -> None:
     accepted = llm.validate_response(
-        payload(entry(1), entry(2, verdict="uncertain", stance="unclear", confidence="low")),
+        payload(entry(1), entry(2, verdict="uncertain", speaker_position="unclear", confidence="low")),
         ordinals=[1, 2],
         referents=REFERENTS,
     )
@@ -279,8 +501,8 @@ def test_the_ordinal_set_must_equal_the_one_that_was_asked() -> None:
 
 
 def test_a_label_outside_the_codebook_is_refused() -> None:
-    with pytest.raises(ValueError, match="Unknown stance label: agrees"):
-        llm.validate_response(payload(entry(1, stance="agrees")), ordinals=[1], referents=REFERENTS)
+    with pytest.raises(ValueError, match="Unknown speaker_position label: agrees"):
+        llm.validate_response(payload(entry(1, speaker_position="agrees")), ordinals=[1], referents=REFERENTS)
     with pytest.raises(ValueError, match="Unknown function label: rhetoric"):
         llm.validate_response(
             payload(entry(1, function=["rhetoric"])), ordinals=[1], referents=REFERENTS
@@ -325,28 +547,14 @@ def test_a_false_positive_takes_the_whole_cascade_or_none_of_it() -> None:
     with pytest.raises(ValueError, match="must use not_applicable"):
         llm.validate_response(
             payload(
-                entry(
-                    1,
-                    verdict="false_positive",
-                    quotation="not_applicable",
-                    stance="not_applicable",
-                    function=["not_applicable"],
-                    referent="rwanda_1994",
-                )
+                entry(1, **{**CASCADE_FP, "referent": "rwanda_1994"})
             ),
             ordinals=[1],
             referents=REFERENTS,
         )
     accepted = llm.validate_response(
         payload(
-            entry(
-                1,
-                verdict="false_positive",
-                quotation="not_applicable",
-                stance="not_applicable",
-                function=["not_applicable"],
-                referent="not_applicable",
-            )
+            entry(1, **CASCADE_FP)
         ),
         ordinals=[1],
         referents=REFERENTS,
@@ -355,7 +563,7 @@ def test_a_false_positive_takes_the_whole_cascade_or_none_of_it() -> None:
 
     with pytest.raises(ValueError, match="reserved for false positives"):
         llm.validate_response(
-            payload(entry(1, stance="not_applicable")), ordinals=[1], referents=REFERENTS
+            payload(entry(1, speaker_position="not_applicable")), ordinals=[1], referents=REFERENTS
         )
 
 
@@ -366,7 +574,7 @@ def test_the_referent_must_come_from_the_run_s_own_list() -> None:
         )
 
 
-def test_a_proposed_referent_belongs_to_other_and_only_to_other() -> None:
+def test_a_proposed_referent_is_required_by_other_and_refused_by_a_false_positive() -> None:
     accepted = llm.validate_response(
         payload(entry(1, referent="other", proposed_referent="Western Sahara")),
         ordinals=[1],
@@ -376,12 +584,29 @@ def test_a_proposed_referent_belongs_to_other_and_only_to_other() -> None:
 
     with pytest.raises(ValueError, match="requires a proposed_referent"):
         llm.validate_response(payload(entry(1, referent="other")), ordinals=[1], referents=REFERENTS)
-    with pytest.raises(ValueError, match="only for referent 'other'"):
+    with pytest.raises(ValueError, match="false positive has no proposed_referent"):
         llm.validate_response(
-            payload(entry(1, proposed_referent="Western Sahara")),
+            payload(
+                entry(1, **CASCADE_FP, proposed_referent="Western Sahara")
+            ),
             ordinals=[1],
             referents=REFERENTS,
         )
+
+
+def test_a_compound_passage_keeps_its_pair_beside_the_referent_it_was_coded_as() -> None:
+    """The codebook codes "Rwanda and Srebrenica" as the first case named.
+
+    The pair is 5 % of what the two runs filed under `other`, so it has to be
+    recorded rather than dropped when the row stops being `other`; the schema
+    permits it here and the prompt says what may go in it.
+    """
+    accepted = llm.validate_response(
+        payload(entry(1, referent="rwanda_1994", proposed_referent="Rwanda and Srebrenica")),
+        ordinals=[1],
+        referents=REFERENTS,
+    )
+    assert accepted[1]["proposed_referent"] == "Rwanda and Srebrenica"
 
 
 def test_a_response_that_is_not_the_agreed_shape_is_refused() -> None:
@@ -535,6 +760,7 @@ def meta() -> llm.RunMeta:
         prompt_sha256="f" * 64,
         reasoning_effort="high",
         lexicon_version="2",
+        referents_version="2",
         term="genocide",
         annotated_at="2026-09-05",
     )
@@ -605,11 +831,7 @@ def test_a_false_positive_needs_a_located_quote_of_its_own() -> None:
     body = "The Genocide Convention was adopted in 1948 and is in force."
     rows = rows_for(
         body,
-        verdict="false_positive",
-        quotation="not_applicable",
-        stance="not_applicable",
-        function=["not_applicable"],
-        referent="not_applicable",
+        **CASCADE_FP,
         evidence_quote="not_applicable",
     )
     with pytest.raises(ValueError, match="located evidence quote"):
@@ -620,11 +842,7 @@ def test_a_false_positive_with_its_own_quote_is_accepted() -> None:
     body = "The Genocide Convention was adopted in 1948 and is in force."
     rows = rows_for(
         body,
-        verdict="false_positive",
-        quotation="not_applicable",
-        stance="not_applicable",
-        function=["not_applicable"],
-        referent="not_applicable",
+        **CASCADE_FP,
         evidence_quote="The Genocide Convention was adopted in 1948",
     )
     llm.validate_row(rows[0], REFERENTS)

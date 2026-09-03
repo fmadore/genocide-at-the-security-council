@@ -19,7 +19,7 @@
 		"occurrences_annotated": 12,
 		"parse_failures": 0,
 		"evidence_invalid": 1,
-		"abstention": { "verdict_uncertain": 1, "referent_unclear": 2, "stance_unclear": 1 },
+		"abstention": { "verdict_uncertain": 1, "referent_unclear": 2, "position_unclear": 1 },
 		"tokens": { "input": 0, "output": 0 }
 	},
 	"prompt": "You are given one occurrence of the word genocide in a UN Security Council speech.\nSay which genocide it refers to, using an identifier from the controlled list, and what the speaker is doing with the word.\nQuote the shortest span of the speech that supports both answers, verbatim.\nAnswer unclear rather than guessing.",
@@ -30,7 +30,9 @@
 			"kind": "case",
 			"iso3": "RWA",
 			"years": "1994",
-			"occurrences": 3
+			"occurrences": 3,
+			"retired": false,
+			"superseded_by": ""
 		},
 		{
 			"id": "genocide_convention_law",
@@ -38,7 +40,9 @@
 			"kind": "meta",
 			"iso3": "",
 			"years": "",
-			"occurrences": 3
+			"occurrences": 3,
+			"retired": false,
+			"superseded_by": ""
 		},
 		{
 			"id": "bosnia_srebrenica",
@@ -46,7 +50,9 @@
 			"kind": "case",
 			"iso3": "BIH",
 			"years": "1992-1995",
-			"occurrences": 2
+			"occurrences": 2,
+			"retired": false,
+			"superseded_by": ""
 		},
 		{
 			"id": "holocaust",
@@ -54,7 +60,9 @@
 			"kind": "historical",
 			"iso3": "",
 			"years": "1941-1945",
-			"occurrences": 0
+			"occurrences": 0,
+			"retired": false,
+			"superseded_by": ""
 		},
 		{
 			"id": "unclear",
@@ -62,7 +70,9 @@
 			"kind": "reserved",
 			"iso3": "",
 			"years": "",
-			"occurrences": 0
+			"occurrences": 0,
+			"retired": false,
+			"superseded_by": ""
 		}
 	],
 	"actors": [
@@ -103,12 +113,12 @@
 			"actor": "Rwanda",
 			"referent": "rwanda_1994",
 			"count": 2,
-			"stances": {
+			"positions": {
 				"asserts": 0,
-				"attributes_or_reports": 0,
-				"rejects_or_denies": 1,
-				"hypothetical_or_conditional": 1,
-				"neutral_legal_reference": 0,
+				"reports_without_position": 0,
+				"rejects": 1,
+				"conditional": 1,
+				"no_position": 0,
 				"unclear": 0,
 				"not_applicable": 0
 			}
@@ -117,12 +127,12 @@
 			"actor": "Rwanda",
 			"referent": "genocide_convention_law",
 			"count": 2,
-			"stances": {
+			"positions": {
 				"asserts": 0,
-				"attributes_or_reports": 0,
-				"rejects_or_denies": 0,
-				"hypothetical_or_conditional": 0,
-				"neutral_legal_reference": 2,
+				"reports_without_position": 0,
+				"rejects": 0,
+				"conditional": 0,
+				"no_position": 2,
 				"unclear": 0,
 				"not_applicable": 0
 			}
@@ -131,12 +141,12 @@
 			"actor": "France",
 			"referent": "bosnia_srebrenica",
 			"count": 2,
-			"stances": {
+			"positions": {
 				"asserts": 1,
-				"attributes_or_reports": 1,
-				"rejects_or_denies": 0,
-				"hypothetical_or_conditional": 0,
-				"neutral_legal_reference": 0,
+				"reports_without_position": 1,
+				"rejects": 0,
+				"conditional": 0,
+				"no_position": 0,
 				"unclear": 0,
 				"not_applicable": 0
 			}
@@ -145,12 +155,12 @@
 			"actor": "France",
 			"referent": "genocide_convention_law",
 			"count": 1,
-			"stances": {
+			"positions": {
 				"asserts": 0,
-				"attributes_or_reports": 0,
-				"rejects_or_denies": 0,
-				"hypothetical_or_conditional": 0,
-				"neutral_legal_reference": 1,
+				"reports_without_position": 0,
+				"rejects": 0,
+				"conditional": 0,
+				"no_position": 1,
 				"unclear": 0,
 				"not_applicable": 0
 			}
@@ -159,28 +169,28 @@
 			"actor": "European Union",
 			"referent": "rwanda_1994",
 			"count": 1,
-			"stances": {
+			"positions": {
 				"asserts": 1,
-				"attributes_or_reports": 0,
-				"rejects_or_denies": 0,
-				"hypothetical_or_conditional": 0,
-				"neutral_legal_reference": 0,
+				"reports_without_position": 0,
+				"rejects": 0,
+				"conditional": 0,
+				"no_position": 0,
 				"unclear": 0,
 				"not_applicable": 0
 			}
 		}
 	],
-	"stance_by_actor": [
+	"position_by_actor": [
 		{
 			"actor": "Rwanda",
 			"eligible": 5,
 			"sufficient": true,
-			"stances": {
+			"positions": {
 				"asserts": 1,
-				"attributes_or_reports": 0,
-				"rejects_or_denies": 1,
-				"hypothetical_or_conditional": 1,
-				"neutral_legal_reference": 2,
+				"reports_without_position": 0,
+				"rejects": 1,
+				"conditional": 1,
+				"no_position": 2,
 				"unclear": 0,
 				"not_applicable": 0
 			},
@@ -190,12 +200,12 @@
 			"actor": "France",
 			"eligible": 3,
 			"sufficient": true,
-			"stances": {
+			"positions": {
 				"asserts": 1,
-				"attributes_or_reports": 1,
-				"rejects_or_denies": 0,
-				"hypothetical_or_conditional": 0,
-				"neutral_legal_reference": 1,
+				"reports_without_position": 1,
+				"rejects": 0,
+				"conditional": 0,
+				"no_position": 1,
 				"unclear": 0,
 				"not_applicable": 0
 			},
@@ -205,12 +215,12 @@
 			"actor": "European Union",
 			"eligible": 2,
 			"sufficient": false,
-			"stances": {
+			"positions": {
 				"asserts": 1,
-				"attributes_or_reports": 0,
-				"rejects_or_denies": 0,
-				"hypothetical_or_conditional": 0,
-				"neutral_legal_reference": 0,
+				"reports_without_position": 0,
+				"rejects": 0,
+				"conditional": 0,
+				"no_position": 0,
 				"unclear": 1,
 				"not_applicable": 0
 			},
@@ -218,7 +228,7 @@
 		}
 	],
 	"diffusion": {
-		"milestones": ["mention", "asserts", "rejects_or_denies"],
+		"milestones": ["mention", "asserts", "rejects"],
 		"referents": [
 			{
 				"id": "rwanda_1994",
@@ -227,28 +237,28 @@
 						"date": "2014-06-11",
 						"actor": "Rwanda",
 						"milestone": "mention",
-						"stance": "hypothetical_or_conditional",
+						"speaker_position": "conditional",
 						"id": "UNSC_2014_SPV.7000_spch0001#1"
 					},
 					{
 						"date": "2014-06-11",
 						"actor": "Rwanda",
-						"milestone": "rejects_or_denies",
-						"stance": "rejects_or_denies",
+						"milestone": "rejects",
+						"speaker_position": "rejects",
 						"id": "UNSC_2014_SPV.7000_spch0001#2"
 					},
 					{
 						"date": "2016-04-05",
 						"actor": "European Union",
 						"milestone": "mention",
-						"stance": "asserts",
+						"speaker_position": "asserts",
 						"id": "UNSC_2016_SPV.7802_spch0012#1"
 					},
 					{
 						"date": "2016-04-05",
 						"actor": "European Union",
 						"milestone": "asserts",
-						"stance": "asserts",
+						"speaker_position": "asserts",
 						"id": "UNSC_2016_SPV.7802_spch0012#1"
 					}
 				]
@@ -260,14 +270,14 @@
 						"date": "2015-07-08",
 						"actor": "France",
 						"milestone": "mention",
-						"stance": "asserts",
+						"speaker_position": "asserts",
 						"id": "UNSC_2015_SPV.7481_spch0007#1"
 					},
 					{
 						"date": "2015-07-08",
 						"actor": "France",
 						"milestone": "asserts",
-						"stance": "asserts",
+						"speaker_position": "asserts",
 						"id": "UNSC_2015_SPV.7481_spch0007#1"
 					}
 				]
@@ -284,11 +294,11 @@
 		"occurrences_annotated": 4,
 		"overlap": 4,
 		"evidence_invalid": 0,
-		"abstention": { "verdict_uncertain": 0, "referent_unclear": 1, "stance_unclear": 0 },
+		"abstention": { "verdict_uncertain": 0, "referent_unclear": 1, "position_unclear": 0 },
 		"fields": [
 			{ "field": "verdict", "n": 4, "observed": 1.0, "kappa": null, "contested": 0 },
 			{ "field": "quotation", "n": 4, "observed": 1.0, "kappa": 1.0, "contested": 0 },
-			{ "field": "stance", "n": 4, "observed": 0.5, "kappa": 0.2, "contested": 2 },
+			{ "field": "speaker_position", "n": 4, "observed": 0.5, "kappa": 0.2, "contested": 2 },
 			{ "field": "referent", "n": 4, "observed": 0.75, "kappa": 0.6, "contested": 1 }
 		],
 		"function_jaccard": 0.875,

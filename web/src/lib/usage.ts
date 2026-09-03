@@ -9,7 +9,7 @@
  * **Three denominators, never one.** An occurrence is a match; an *eligible*
  * occurrence is one the model judged a real use of the word with a quotable
  * span behind it; an *assigned* occurrence is an eligible one it could place on
- * a concrete referent. The matrix counts assigned, the stance profile counts
+ * a concrete referent. The matrix counts assigned, the speaker_position profile counts
  * eligible, and `matrixPlan` reports the gap between all three rather than
  * closing it — a table whose columns sum to less than the corpus is the honest
  * shape here, and the disclosure line is what makes it readable.
@@ -41,7 +41,7 @@
  * That is a reading list, not an error report: agreement between two models
  * measures stability across instruments, never accuracy, and the human gold
  * sample remains the only calibration. Nothing below lets the second reading
- * into a count — the matrix, the stance profile and the diffusion curve are
+ * into a count — the matrix, the speaker_position profile and the diffusion curve are
  * drawn from the published run alone, and `contestedList` and the contested
  * filter are the only places the other run appears at all.
  *
@@ -60,8 +60,8 @@ import { decimal, percent, termLabel } from './format';
 import { tone } from './theme';
 import type {
 	KwicLine,
-	Stance,
-	StanceCounts,
+	Position,
+	PositionCounts,
 	Usage,
 	UsageActor,
 	UsageAlternative,
@@ -86,42 +86,59 @@ import type {
 export const USAGE_TERM = 'genocide';
 
 /**
- * The seven stances, in the codebook's own order.
+ * The seven positions, in the codebook's own order.
  *
  * Fixed rather than read off a payload, because it is the order the stacked bar
  * draws in: two delegations are comparable only if the same band is in the same
  * place in both, and an order derived from each row's own counts would move it.
  */
-export const STANCES: readonly Stance[] = [
+export const POSITIONS: readonly Position[] = [
 	'asserts',
-	'attributes_or_reports',
-	'rejects_or_denies',
-	'hypothetical_or_conditional',
-	'neutral_legal_reference',
+	'reports_without_position',
+	'rejects',
+	'conditional',
+	'no_position',
 	'unclear',
 	'not_applicable'
 ];
 
-const STANCE_LABELS: Record<Stance, string> = {
+const POSITION_LABELS: Record<Position, string> = {
 	asserts: 'Asserts',
-	attributes_or_reports: 'Attributes or reports',
-	rejects_or_denies: 'Rejects or denies',
-	hypothetical_or_conditional: 'Hypothetical or conditional',
-	neutral_legal_reference: 'Neutral legal reference',
+	reports_without_position: 'Reports without a position',
+	rejects: 'Rejects',
+	conditional: 'Conditional',
+	no_position: 'No position (not a case)',
 	unclear: 'Unclear',
 	not_applicable: 'Not applicable'
 };
 
-/** What a stance is called on screen. An unknown value degrades to readable words. */
-export const stanceLabel = (stance: string): string =>
-	STANCE_LABELS[stance as Stance] ?? termLabel(stance);
+/**
+ * What `concrete_case` is called on screen.
+ *
+ * Annotation schema 3 splits the abstract-or-concrete decision out of the
+ * position field, and a run coded against schema 2 answers it by derivation
+ * from its own referent — so `unclear` here is a real reading and not a gap.
+ */
+const CASE_LABELS: Record<string, string> = {
+	yes: 'A named case',
+	no: 'No case (legal or abstract)',
+	unclear: 'Unclear',
+	not_applicable: 'Not applicable'
+};
 
-/** Every stance at zero. An absent key and a measured zero must not be confused. */
-export const emptyStances = (): StanceCounts =>
-	Object.fromEntries(STANCES.map((stance) => [stance, 0])) as StanceCounts;
+/** What a `concrete_case` value is called on screen. */
+export const caseLabel = (value: string): string => CASE_LABELS[value] ?? termLabel(value);
 
-const sumStances = (stances: StanceCounts): number =>
-	STANCES.reduce((total, stance) => total + (stances[stance] ?? 0), 0);
+/** What a speaker_position is called on screen. An unknown value degrades to readable words. */
+export const positionLabel = (speaker_position: string): string =>
+	POSITION_LABELS[speaker_position as Position] ?? termLabel(speaker_position);
+
+/** Every speaker_position at zero. An absent key and a measured zero must not be confused. */
+export const emptyPositions = (): PositionCounts =>
+	Object.fromEntries(POSITIONS.map((speaker_position) => [speaker_position, 0])) as PositionCounts;
+
+const sumPositions = (positions: PositionCounts): number =>
+	POSITIONS.reduce((total, speaker_position) => total + (positions[speaker_position] ?? 0), 0);
 
 /**
  * How many rows the matrix draws before it starts leaving speakers out.
@@ -167,7 +184,7 @@ export interface UsageState {
 	/**
 	 * Narrow the drill-down to the occurrences two models read differently.
 	 *
-	 * A filter on the quotations and on nothing else: the matrix, the stance
+	 * A filter on the quotations and on nothing else: the matrix, the speaker_position
 	 * profile and the diffusion curve are drawn from the published run alone and
 	 * a second opinion never redraws them.
 	 */
@@ -265,7 +282,7 @@ export interface MatrixCell {
 	 */
 	contested: number;
 	contestedShare: number | null;
-	stances: StanceCounts;
+	positions: PositionCounts;
 	/** 0–1 against the largest drawn cell. A length may use this. */
 	weight: number;
 	/** Where it sits on the colour ramp, which is not `weight`. Never a length. */
@@ -394,10 +411,18 @@ const notACase = (referent: UsageReferent) =>
  * above would then describe wrongly — as cases nobody invoked. The third
  * reserved value, `other`, does carry occurrences and does keep a column: it is
  * a real referent that has not been given an identifier yet.
+ *
+ * **A retired referent keeps its column only while it has counts.** The list is
+ * versioned so that a run made before a category was withdrawn stays readable,
+ * and on such a run the column is full and belongs here. On a run made after the
+ * withdrawal it is empty, and the sentence above would describe it wrongly: it
+ * is not a case these delegations declined to invoke, it is a category the
+ * instrument was never offered.
  */
 export function orderReferents(referents: readonly UsageReferent[]): UsageReferent[] {
 	const ranked = [...referents]
 		.filter((referent) => referent.occurrences > 0 || referent.kind !== 'reserved')
+		.filter((referent) => referent.occurrences > 0 || !referent.retired)
 		.sort((a, b) => b.occurrences - a.occurrences || a.label.localeCompare(b.label));
 	return [...ranked.filter((r) => !notACase(r)), ...ranked.filter(notACase)];
 }
@@ -445,7 +470,7 @@ export function matrixPlan(data: Usage, state: UsageState): MatrixPlan {
 					share,
 					contested,
 					contestedShare: count > 0 ? contested / count : null,
-					stances: found?.stances ?? emptyStances(),
+					positions: found?.positions ?? emptyPositions(),
 					weight: 0,
 					tone: 0,
 					state: cellState,
@@ -558,11 +583,11 @@ export function stepFocus(plan: MatrixPlan, at: Focus, pressed: string): Focus {
 }
 
 /* -------------------------------------------------------------------------- *
- * The stance profile
+ * The speaker_position profile
  * -------------------------------------------------------------------------- */
 
-export interface StanceSegment {
-	stance: Stance;
+export interface PositionSegment {
+	speaker_position: Position;
 	count: number;
 	share: number;
 	/** Cumulative bounds as percentages, so a bar is one gradient and not five. */
@@ -570,13 +595,13 @@ export interface StanceSegment {
 	to: number;
 }
 
-export interface StanceProfile {
+export interface PositionProfile {
 	actor: string;
 	eligible: number;
-	/** The seven stances summed: the bar's own denominator. */
+	/** The seven positions summed: the bar's own denominator. */
 	total: number;
-	stances: StanceCounts;
-	segments: StanceSegment[];
+	positions: PositionCounts;
+	segments: PositionSegment[];
 	shareRejects: number;
 	/** The count behind the share, which is a fact at every denominator. */
 	rejects: number;
@@ -588,9 +613,9 @@ export interface StanceProfile {
 	separated: boolean;
 }
 
-export interface StanceRankingResult {
+export interface PositionRankingResult {
 	/** Speakers whose share may be published, most rejecting first. */
-	rows: StanceProfile[];
+	rows: PositionProfile[];
 	/**
 	 * Speakers under the minimum, unranked and counts only.
 	 *
@@ -598,20 +623,20 @@ export interface StanceRankingResult {
 	 * beside a ranked table invites reading them as ranked, which is the same
 	 * objection `actors.ts` makes about its own `under` list.
 	 */
-	withheld: { actor: string; eligible: number; stances: StanceCounts; total: number }[];
+	withheld: { actor: string; eligible: number; positions: PositionCounts; total: number }[];
 	minimum: number;
 }
 
-function segmentsOf(stances: StanceCounts, total: number): StanceSegment[] {
-	const segments: StanceSegment[] = [];
+function segmentsOf(positions: PositionCounts, total: number): PositionSegment[] {
+	const segments: PositionSegment[] = [];
 	let cursor = 0;
-	for (const stance of STANCES) {
-		const count = stances[stance] ?? 0;
+	for (const speaker_position of POSITIONS) {
+		const count = positions[speaker_position] ?? 0;
 		if (count <= 0) continue;
 		const share = total > 0 ? count / total : 0;
 		const from = cursor * 100;
 		cursor += share;
-		segments.push({ stance, count, share, from, to: cursor * 100 });
+		segments.push({ speaker_position, count, share, from, to: cursor * 100 });
 	}
 	return segments;
 }
@@ -632,22 +657,22 @@ function segmentsOf(stances: StanceCounts, total: number): StanceSegment[] {
  * null read through `?? 0` would put every rarely-heard delegation at the foot
  * of a ranking of rejection, which is a claim about them that nothing measured.
  */
-export function stanceRanking(data: Usage): StanceRankingResult {
-	const rows: StanceProfile[] = [];
-	const withheld: StanceRankingResult['withheld'] = [];
+export function positionRanking(data: Usage): PositionRankingResult {
+	const rows: PositionProfile[] = [];
+	const withheld: PositionRankingResult['withheld'] = [];
 
-	for (const row of data.stance_by_actor) {
-		const stances = { ...emptyStances(), ...row.stances };
-		const total = sumStances(stances);
+	for (const row of data.position_by_actor) {
+		const positions = { ...emptyPositions(), ...row.positions };
+		const total = sumPositions(positions);
 		if (row.sufficient && row.share_rejects !== null && Number.isFinite(row.share_rejects)) {
 			rows.push({
 				actor: row.actor,
 				eligible: row.eligible,
 				total,
-				stances,
-				segments: segmentsOf(stances, total),
+				positions,
+				segments: segmentsOf(positions, total),
 				shareRejects: row.share_rejects,
-				rejects: stances.rejects_or_denies ?? 0,
+				rejects: positions.rejects ?? 0,
 				low: row.share_low,
 				high: row.share_high,
 				intervalText:
@@ -657,7 +682,7 @@ export function stanceRanking(data: Usage): StanceRankingResult {
 				separated: Boolean(row.separated)
 			});
 		} else {
-			withheld.push({ actor: row.actor, eligible: row.eligible, stances, total });
+			withheld.push({ actor: row.actor, eligible: row.eligible, positions, total });
 		}
 	}
 
@@ -698,14 +723,14 @@ export interface ContestedField {
 /**
  * How one compared field's value is written on screen.
  *
- * Not `termLabel` for all five: a stance has a name the rest of the page already
+ * Not `termLabel` for all five: a speaker_position has a name the rest of the page already
  * uses, a referent has one only the artefact's own list carries, and `function`
  * is several labels pipe-joined. Written in one place so that a disagreement
  * reads in the same words as the label it disagrees with.
  */
 function readingOf(field: string, value: string, referents: ReadonlyMap<string, string>): string {
 	if (!value) return '—';
-	if (field === 'stance') return stanceLabel(value);
+	if (field === 'speaker_position') return positionLabel(value);
 	if (field === 'referent') return referents.get(value) ?? termLabel(value);
 	if (field === 'function') {
 		return value.split('|').filter(Boolean).map(termLabel).join(', ') || '—';
@@ -717,7 +742,7 @@ function readingOf(field: string, value: string, referents: ReadonlyMap<string, 
 const publishedLabels = (occurrence: UsageOccurrence): Record<string, string> => ({
 	verdict: occurrence.verdict,
 	quotation: occurrence.quotation,
-	stance: occurrence.stance,
+	speaker_position: occurrence.speaker_position,
 	function: occurrence.function ?? '',
 	referent: occurrence.referent
 });
@@ -728,7 +753,7 @@ const secondLabels = (alt: UsageAlternative | null): Record<string, string> =>
 		? {
 				verdict: alt.verdict,
 				quotation: alt.quotation,
-				stance: alt.stance,
+				speaker_position: alt.speaker_position,
 				function: alt.function ?? '',
 				referent: alt.referent
 			}
@@ -743,9 +768,9 @@ const referentNames = (referents: readonly UsageReferent[] = []): ReadonlyMap<st
  *
  * Ordered by `COMPARED_FIELDS` rather than by the artefact's array, so that two
  * occurrences contested on the same pair of fields list them in the same order —
- * the same reason `STANCES` is fixed rather than derived. A field the row names
+ * the same reason `POSITIONS` is fixed rather than derived. A field the row names
  * and the second reading is silent on is dropped: the boundary refuses that
- * payload, and a row printing "stance: asserts → —" would be an alternative
+ * payload, and a row printing "speaker_position: asserts → —" would be an alternative
  * nobody proposed.
  */
 function contestedFields(
@@ -789,12 +814,24 @@ export interface EvidenceRow {
 	agenda: string;
 	sentence: string;
 	keyword: string;
-	stance: string;
-	stanceLabel: string;
+	speaker_position: string;
+	positionLabel: string;
+	/** How the run answered `concrete_case`, or the empty string on a run without it. */
+	caseLabel: string;
 	/** The rhetorical functions, split out of the pipe-joined field. */
 	functions: string[];
 	confidence: string;
 	referent: string;
+	/**
+	 * Annotation schema 3's fields, in reading order, and only the ones this run
+	 * actually answered.
+	 *
+	 * A run coded against schema 2 answered none of them and gets an empty list,
+	 * which is what the view is meant to show: not a row of blanks that reads as
+	 * "no accused actor", but no row at all. `lib.llm.resolve_row` translates what
+	 * schema 2 measured and refuses to guess what it did not.
+	 */
+	schemaFields: { label: string; value: string }[];
 	evidenceQuote: string;
 	evidenceValid: boolean;
 	/** True when the model's span says something the sentence on screen does not. */
@@ -810,6 +847,28 @@ export interface EvidenceRow {
 	contested: ContestedField[];
 	reader: ReaderLink;
 	concordance: EvidenceLink;
+}
+
+/**
+ * The schema-3 fields this occurrence actually carries, in reading order.
+ *
+ * Empty on a run coded against schema 2, which answered none of them: the six
+ * were added on 2 September 2026 and a v1 run has no image of any of them. An
+ * empty string is therefore "not asked" and never "nothing to report", and a
+ * caller that rendered it as a value would publish six blanks as findings.
+ */
+export function schemaThreeFields(occurrence: UsageOccurrence): { label: string; value: string }[] {
+	const declared: [string, string | undefined][] = [
+		['Referent read from', occurrence.referent_source],
+		['Accused', occurrence.accused_actor],
+		['Victim group', occurrence.victim_group],
+		['Speaker’s own State accused', occurrence.own_state_accused],
+		['Salience', occurrence.salience],
+		['Rationale', occurrence.rationale]
+	];
+	return declared
+		.filter(([, value]) => Boolean(value && value.trim()))
+		.map(([label, value]) => ({ label, value: termLabel(String(value)) }));
 }
 
 /**
@@ -916,13 +975,15 @@ export function drillDown(
 			agenda: line.agenda,
 			sentence: line.sent,
 			keyword: line.kw,
-			stance: occurrence.stance,
-			stanceLabel: stanceLabel(occurrence.stance),
+			speaker_position: occurrence.speaker_position,
+			positionLabel: positionLabel(occurrence.speaker_position),
+			caseLabel: occurrence.concrete_case ? caseLabel(occurrence.concrete_case) : '',
 			// Pipe-joined without spaces, per the codebook. An empty field is no
 			// functions rather than one called "".
 			functions: (occurrence.function ?? '').split('|').filter(Boolean),
 			confidence: occurrence.confidence,
 			referent: occurrence.referent,
+			schemaFields: schemaThreeFields(occurrence),
 			evidenceQuote: quote,
 			evidenceValid: occurrence.evidence_valid,
 			quoteDiffers: Boolean(quote.trim()) && flatten(quote) !== flatten(line.sent),
@@ -953,7 +1014,7 @@ export function drillDown(
  * -------------------------------------------------------------------------- */
 
 /** The three firsts, in the order that settles a tie between them. */
-export const MILESTONES: readonly UsageMilestone[] = ['mention', 'asserts', 'rejects_or_denies'];
+export const MILESTONES: readonly UsageMilestone[] = ['mention', 'asserts', 'rejects'];
 
 /**
  * Back to front, which is not the rank.
@@ -962,12 +1023,12 @@ export const MILESTONES: readonly UsageMilestone[] = ['mention', 'asserts', 'rej
  * top; refusal is the counter-curve and is drawn under it; the faint envelope of
  * every delegation that placed the word at all goes down first.
  */
-const DRAW_ORDER: readonly UsageMilestone[] = ['mention', 'rejects_or_denies', 'asserts'];
+const DRAW_ORDER: readonly UsageMilestone[] = ['mention', 'rejects', 'asserts'];
 
 const MILESTONE_LABELS: Record<UsageMilestone, string> = {
 	mention: 'Placed the word on it',
 	asserts: 'Asserted it',
-	rejects_or_denies: 'Refused the word for it'
+	rejects: 'Refused the word for it'
 };
 
 /** What a milestone is called on screen. An unknown value degrades to readable words. */
@@ -1017,8 +1078,8 @@ export interface DiffusionPoint {
 	/** `YYYY-MM-DD`. */
 	date: string;
 	actor: string;
-	stance: string;
-	stanceLabel: string;
+	speaker_position: string;
+	positionLabel: string;
 	/** The KWIC line identifier, which is this project's locator for a use. */
 	id: string;
 	/** Delegations that had crossed this milestone once this one had. Never falls. */
@@ -1337,8 +1398,8 @@ export function diffusionPlan(data: Usage, state: UsageState): DiffusionPlan {
 		const placed: DiffusionPoint[] = points.map(({ event, value }) => ({
 			date: event.date,
 			actor: event.actor,
-			stance: event.stance,
-			stanceLabel: stanceLabel(event.stance),
+			speaker_position: event.speaker_position,
+			positionLabel: positionLabel(event.speaker_position),
 			id: event.id,
 			value,
 			x: x(stamp(event.date)),
@@ -1423,8 +1484,8 @@ export interface DiffusionRow {
 	actor: string;
 	milestone: UsageMilestone;
 	milestoneLabel: string;
-	stance: string;
-	stanceLabel: string;
+	speaker_position: string;
+	positionLabel: string;
 	/** Which delegation this was to cross that milestone. 1 is the first. */
 	ordinal: number;
 	reader: ReaderLink;
@@ -1448,8 +1509,8 @@ export function diffusionChronology(
 				actor: point.actor,
 				milestone: series.milestone,
 				milestoneLabel: series.label,
-				stance: point.stance,
-				stanceLabel: point.stanceLabel,
+				speaker_position: point.speaker_position,
+				positionLabel: point.positionLabel,
 				ordinal: point.value,
 				reader: readerLink(point.id),
 				spv: line?.spv ?? '',
@@ -1599,7 +1660,7 @@ export function comparisonApparatus(data: Usage): ComparisonApparatus {
 		overlap: block.overlap,
 		evidenceInvalid: block.evidence_invalid,
 		abstained:
-			abstention.verdict_uncertain + abstention.referent_unclear + abstention.stance_unclear,
+			abstention.verdict_uncertain + abstention.referent_unclear + abstention.position_unclear,
 		abstention,
 		fields: block.fields.map(fieldRow),
 		referents: block.referents ?? [],
@@ -1627,7 +1688,7 @@ export function comparisonApparatus(data: Usage): ComparisonApparatus {
  * Fields whose label is a property of the instrument as much as of the passage.
  *
  * The review of 1 September 2026 (§4.6) names two by hand and the run's own
- * numbers say why. `attributes_or_reports` has a cross-instrument F1 of 0.37:
+ * numbers say why. `reports_without_position` has a cross-instrument F1 of 0.37:
  * 445 occurrences are `attributes` to one model and `asserts` to the other, the
  * largest single disagreement in the corpus, and the prompt gives no rule for
  * the boundary. `attributed_or_reported`, the quotation label the same
@@ -1636,7 +1697,7 @@ export function comparisonApparatus(data: Usage): ComparisonApparatus {
  * that prints one says so.
  */
 export const INSTRUMENT_DEPENDENT: ReadonlySet<string> = new Set([
-	'attributes_or_reports',
+	'reports_without_position',
 	'attributed_or_reported'
 ]);
 
@@ -1769,9 +1830,9 @@ export interface ContestedListing {
  * follows: a reading list whose rows cannot be read back to the record is a list
  * of labels. What the join lost is reported rather than absorbed.
  *
- * **The published labels stay published.** Nothing here replaces a stance or a
+ * **The published labels stay published.** Nothing here replaces a speaker_position or a
  * referent with the second model's; both readings are carried side by side, and
- * the matrix, the stance profile and the diffusion curve are drawn from the
+ * the matrix, the speaker_position profile and the diffusion curve are drawn from the
  * published run alone.
  */
 export function contestedList(
@@ -1904,7 +1965,7 @@ export const MATRIX_COLUMNS = [
 	'eligible',
 	'assigned',
 	'sufficient',
-	...STANCES.map((stance) => `stance_${stance}`)
+	...POSITIONS.map((speaker_position) => `position_${speaker_position}`)
 ];
 
 export function matrixExportRows(data: Usage): (string | number | boolean | null)[][] {
@@ -1930,7 +1991,7 @@ export function matrixExportRows(data: Usage): (string | number | boolean | null
 			actor?.eligible ?? null,
 			assigned,
 			actor?.sufficient ?? null,
-			...STANCES.map((stance) => cell.stances[stance] ?? 0)
+			...POSITIONS.map((speaker_position) => cell.positions[speaker_position] ?? 0)
 		];
 	});
 }
@@ -1951,7 +2012,7 @@ export const DIFFUSION_COLUMNS = [
 	'date',
 	'actor',
 	'milestone',
-	'stance',
+	'speaker_position',
 	'id'
 ];
 
@@ -1968,7 +2029,7 @@ export function diffusionExportRows(data: Usage): (string | number | boolean | n
 				event.date,
 				event.actor,
 				event.milestone,
-				event.stance,
+				event.speaker_position,
 				event.id
 			]);
 	});
@@ -1985,7 +2046,7 @@ export function diffusionExportRows(data: Usage): (string | number | boolean | n
  * share, so the file carries the gap instead of having been cut by it.
  *
  * The labels are the artefact's own values, not the page's wording: a file is
- * read by a script, and `rejects_or_denies` is what joins back to the run.
+ * read by a script, and `rejects` is what joins back to the run.
  */
 export const CONTESTED_COLUMNS = [
 	'id',
@@ -2043,20 +2104,20 @@ export function contestedExportRows(
 	return rows.map((entry) => entry.row);
 }
 
-export const STANCE_COLUMNS = [
+export const POSITION_COLUMNS = [
 	'country_org',
 	'iso3',
 	'group',
 	'eligible',
 	'sufficient',
 	'share_rejects',
-	...STANCES.map((stance) => `stance_${stance}`)
+	...POSITIONS.map((speaker_position) => `position_${speaker_position}`)
 ];
 
-/** Every speaker's stance profile, including the ones whose share is withheld. */
-export function stanceExportRows(data: Usage): (string | number | boolean | null)[][] {
+/** Every speaker's speaker_position profile, including the ones whose share is withheld. */
+export function positionExportRows(data: Usage): (string | number | boolean | null)[][] {
 	const actors = new Map(data.actors.map((actor) => [actor.country_org, actor]));
-	return data.stance_by_actor.map((row) => {
+	return data.position_by_actor.map((row) => {
 		const actor = actors.get(row.actor);
 		return [
 			row.actor,
@@ -2065,7 +2126,7 @@ export function stanceExportRows(data: Usage): (string | number | boolean | null
 			row.eligible,
 			row.sufficient,
 			row.share_rejects,
-			...STANCES.map((stance) => row.stances[stance] ?? 0)
+			...POSITIONS.map((speaker_position) => row.positions[speaker_position] ?? 0)
 		];
 	});
 }

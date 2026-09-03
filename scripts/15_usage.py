@@ -10,7 +10,7 @@ anyone with the corpus and the repository.
 It writes two artefacts into `data/derived/usage/`:
 
 - `usage.json` — the aggregate. Who invoked the word about what, with what
-  stance, when each delegation first reached each case, how much of the run was
+  position, when each delegation first reached each case, how much of the run was
   eligible to be counted at all, and how the model scored against the human gold
   sample.
 - `occurrences.json` — one row per annotated occurrence, so a reader can get
@@ -32,9 +32,12 @@ and the comparison block is written in its empty state when nothing is.
 that enumerated the term differently, a row naming an occurrence this corpus
 does not have, a row whose `source_sha256` says the speech has changed
 underneath it, a label the current referent list no longer holds, an occurrence
-annotated twice — each stops the run. So does a prompt file whose bytes no
-longer hash to what the run recorded, because `usage.json` publishes that prompt
-verbatim and a reader is entitled to believe it is the one the model was given.
+annotated twice — each stops the run. So does a run whose recorded prompt digest
+matches neither `PROMPT.md` nor any superseded wording under `prompts/`, because
+`usage.json` publishes that prompt verbatim and a reader is entitled to believe
+it is the one the model was given. Revising the prompt is therefore not a
+break: the old text moves into `prompts/v<n>.md`, the runs made with it go on
+resolving to it, and only a wording this repository no longer holds is refused.
 The single tolerated gap is coverage: a run that did not reach every occurrence
 is aggregated under `--allow-partial` and reports honestly how much of the
 corpus it covers. A comparison run has no such gate — it is read over the
@@ -133,13 +136,27 @@ SPEAKER_COLUMNS = ["country_org", "iso3", "entity_type", "speaker_group"]
 OCCURRENCE_COLUMNS = [*SPEAKER_COLUMNS, "date"]
 
 #: The model's fields, in the order `occurrences.json` writes them.
+#:
+#: The six after `referent_source` are annotation schema 3's, and a row from a
+#: run coded against schema 2 carries them as empty strings — `lib.llm.resolve_row`
+#: does not guess them, and the view renders a field it finds empty as absent
+#: rather than as an answer. That is what "a v1 run keeps working" looks like at
+#: the row level: everything schema 2 measured is here, and everything it did
+#: not is visibly not here.
 ROW_FIELDS = (
     "verdict",
     "quotation",
-    "stance",
+    "concrete_case",
+    "speaker_position",
     "function",
     "referent",
     "proposed_referent",
+    "referent_source",
+    "accused_actor",
+    "victim_group",
+    "own_state_accused",
+    "salience",
+    "rationale",
     "confidence",
     "evidence_quote",
     "evidence_valid",
@@ -158,13 +175,23 @@ def read_referents(path: Path) -> list[dict[str, str]]:
     does not include `iso3` because a model has no use for an ISO code. The usage
     view does: it puts a case on a map. Widening the prompt's dataclass to carry
     a field the prompt never shows would be the worse of the two duplications.
+
+    Retired referents are published too, and marked. A run made before a
+    retirement counted rows under the old identifier, and the block has to hold
+    a row for each of them or those counts land nowhere; a run made after it
+    counts none, and the view needs to know that an empty column is a withdrawn
+    category rather than a case no delegation ever raised.
     """
     table = pd.read_csv(path, dtype="string", keep_default_na=False)
     missing = sorted({"id", "label", "kind", "iso3", "years"} - set(table.columns))
     if missing:
         console.fail(f"{rel(path)} is missing columns: {', '.join(missing)}")
     return [
-        {key: str(row[key]) for key in ("id", "label", "kind", "iso3", "years")}
+        {
+            **{key: str(row[key]) for key in ("id", "label", "kind", "iso3", "years")},
+            "retired": bool(str(row.get("retired_in", "") or "").strip()),
+            "superseded_by": str(row.get("superseded_by", "") or "").strip(),
+        }
         for row in table.to_dict(orient="records")
     ]
 
@@ -376,40 +403,236 @@ def refuse_stale_lexicon(
         )
 
 
-def refuse_stale_prompt(manifest: dict[str, object]) -> str:
-    """`usage.json` publishes the prompt verbatim, so it must be the run's own.
+def refuse_stale_referents(
+    manifest: dict[str, object],
+    rows: list[dict[str, object]],
+    referents: audit.ReferentList,
+    *,
+    what: str = "the run",
+) -> int:
+    """A run is coded against one referent list; the list has moved since.
 
-    The digest is over the file's raw bytes, as `lib.llm.prompt_sha256` computes
-    it, and the prompt's own header says an edit is a new version and a new run
-    id. Publishing today's file beside yesterday's labels would misattribute
-    every one of them.
+    The lexicon's rule, transposed. What decides compatibility is not the list's
+    version number but the identifier's own `since` and `retired_in`, so a
+    version bump that added twelve categories leaves a run that used none of them
+    exactly where it was. Two ways a run can fail: it used an identifier that did
+    not yet mean what it means now, or one that had already been retired and was
+    therefore never rendered into its prompt. Either says the manifest and the
+    rows disagree about which list was in front of the model, which is a
+    provenance failure rather than a counting one.
+
+    Renaming a case would otherwise orphan the rows that used the old name —
+    3,934 of the two committed runs' 12,184 — so a retired identifier keeps its
+    row in the file and names its successor, and this returns how many rows of
+    the run carry one. Resolving them is a translation and not a repair, which
+    is the distinction that lets it stand in a script that refuses everything
+    else: the mapping is a column of a human-owned file, so the reader looks it
+    up rather than inferring it, and every superseded identifier has exactly one
+    answer. An identifier retired without a successor resolves to itself and is
+    published under its own name.
+
+    Returns the number of rows carrying a superseded identifier, so the caller
+    can say so rather than translating silently.
+    """
+    recorded = str(manifest.get("referents_version", ""))
+    provenance = (
+        f"{rel(REFERENTS)} is now version {referents.version}; a run that records no "
+        "version was made against version 1"
+    )
+    if recorded.strip() and int(recorded) > referents.version:
+        console.fail(
+            f"{what} was made against a newer referent list than this checkout holds",
+            [
+                f"it records version {recorded}; {provenance}",
+                "check out the commit whose referent list matches the run, or aggregate "
+                "a run this list can read",
+            ],
+        )
+    # Hundreds of thousands of rows carry a handful of distinct (version,
+    # identifier) pairs; the question is about the pair, so ask it once each.
+    pairs = {
+        (str(row.get("referents_version", "") or recorded), str(row.get("referent", "")))
+        for row in rows
+    }
+    stale = sorted(
+        f"{name} (run version {version or '1'}, "
+        f"introduced at {referents.since.get(name, '?')}"
+        + (
+            f", retired at {referents.retired_in[name]}"
+            if name in referents.retired_in
+            else ""
+        )
+        + ")"
+        for version, name in pairs
+        if not referents.compatible(name, version)
+    )
+    if stale:
+        console.fail(
+            f"{what} used referents the list it records could not have offered",
+            [
+                *stale[:8],
+                *([f"... and {len(stale) - 8} more"] if len(stale) > 8 else []),
+                provenance,
+                "a referent is offered to a run only between its `since` and its "
+                "`retired_in`; re-annotate, or aggregate the run that matches this list",
+            ],
+        )
+    return sum(
+        1
+        for row in rows
+        if referents.resolve(str(row.get("referent", ""))) != row.get("referent")
+    )
+
+
+def resolve_schema(
+    manifest: dict[str, object],
+    rows: list[dict[str, object]],
+    *,
+    what: str = "the run",
+) -> tuple[list[dict[str, object]], dict[str, int]]:
+    """Read a run at its own annotation schema, in the current vocabulary.
+
+    The referent list's rule, applied to the fields themselves. Schema 3 split
+    `stance` into `speaker_position` and `concrete_case` and added six fields;
+    the four committed runs are 12,366 rows coded against schema 2, and refusing
+    them would mean the schema could never move without buying every run again.
+    So a schema-2 row is *translated* — `lib.llm.resolve_row` — and the artefact
+    says what the translation could not answer.
+
+    Two numbers come back with the rows, and both are published rather than
+    smoothed over:
+
+    - `unanswered`, the count of rows carrying none of the six fields schema 3
+      adds. For a v1 run it is every row, which is the honest statement of what
+      such a run cannot say and the reason the pilot exists.
+    - `split_decision`, the count of rows whose recorded `stance` and recorded
+      `referent` disagree about whether a case is in view — an assertion filed
+      under `genocide_in_general`, or a neutral legal reference filed under a
+      named case. That is the review's §4.2 item 1 measured rather than argued:
+      800 rows of the Luna run and 535 of the Gemini one took the
+      abstract-or-concrete decision twice and differently, and schema 3's lock
+      between `concrete_case` and `no_position` is what stops a third.
+    """
+    recorded = str(manifest.get("schema_version", "") or llm.SCHEMA_VERSION)
+    if recorded not in (llm.SCHEMA_VERSION, audit.LEGACY_SCHEMA_VERSION):
+        console.fail(
+            f"{what} records an annotation schema this checkout cannot read",
+            [
+                f"it says version {recorded}; this checkout reads "
+                f"{audit.LEGACY_SCHEMA_VERSION} and {llm.SCHEMA_VERSION}",
+                "check out the commit whose codebook matches the run",
+            ],
+        )
+    resolved = [llm.resolve_row(row) for row in rows]
+    counts = {
+        "unanswered": sum(
+            1
+            for row in resolved
+            if not any(str(row.get(field, "")).strip() for field in llm.UNANSWERED_BY_V1)
+        ),
+        "split_decision": sum(
+            1
+            for row in resolved
+            if (str(row.get("concrete_case")) == "no")
+            != (str(row.get("speaker_position")) == "no_position")
+        ),
+    }
+    return resolved, counts
+
+
+def resolve_referents(
+    rows: list[dict[str, object]], referents: audit.ReferentList
+) -> list[dict[str, object]]:
+    """Rewrite each row's referent to whatever that identifier is called now.
+
+    So that a v1 run and a v2 run can be read side by side: the second-opinion
+    comparison counts agreement on the `referent` string, and `rwanda_1994`
+    against `rwanda` is a rename rather than a disagreement. The run's own
+    version stays in the artefact's provenance block, and the file's
+    `superseded_by` column says what was translated into what, so nothing is
+    lost that a reader would need to undo it.
+    """
+    return [{**row, "referent": referents.resolve(str(row.get("referent", "")))} for row in rows]
+
+
+def resolve_prompt(
+    manifest: dict[str, object], *, what: str = "the run"
+) -> llm.PromptPack:
+    """The prompt this run was actually made with, found by its digest.
+
+    `usage.json` publishes the prompt verbatim beside the labels it produced, so
+    it has to be the run's own; the digest recorded on the manifest and on every
+    row is the only handle the run has on it. Until the archive existed there
+    was one file that digest could be compared against, and the comparison was
+    an equality: any edit to `PROMPT.md` made both committed runs
+    un-aggregatable and took `/usage` down with them. That price was refused
+    twice in one afternoon, for `genocidaires` and for the referent identifiers,
+    and refusing it a third time would have meant never improving the
+    instrument.
+
+    So the question changes from "is this today's prompt?" to "is this a prompt
+    this repository still holds?" — the same move `referents.csv` makes for its
+    own list, and for the same reason. :func:`lib.llm.load_prompt_library` reads
+    `PROMPT.md` and every superseded version under `prompts/`, and a run
+    resolves to whichever of them its bytes hash to. Only a digest that appears
+    nowhere is refused, and then loudly: a run whose wording this checkout does
+    not hold cannot be published, because the alternative is publishing some
+    other wording under its labels.
+
+    The recorded `prompt_version` is checked against the resolved file's own
+    header rather than used to find it. The digest is what was measured; the
+    version line is a human's claim about it, and the only useful thing to do
+    with a claim is to test it.
     """
     if not PROMPT.is_file():
         console.fail(f"{rel(PROMPT)} is missing — the run's prompt cannot be published")
-    digest = llm.prompt_sha256(PROMPT)
+    try:
+        library = llm.load_prompt_library(PROMPT)
+    except (ValueError, FileNotFoundError) as exc:
+        console.fail(f"the prompt archive beside {rel(PROMPT)} cannot be read", [str(exc)])
     recorded = str(manifest.get("prompt_sha256", ""))
-    if digest != recorded:
+    pack = library.by_digest(recorded)
+    if pack is None:
         console.fail(
-            f"{rel(PROMPT)} is not the prompt this run was made with",
+            f"{what} was made with a prompt this checkout does not hold",
             [
-                f"the run records {recorded[:12] or '(none)'}..., "
-                f"the file now hashes to {digest[:12]}...",
-                "an edited prompt is a new prompt version and a new run id; restore the "
-                "file or aggregate the run that matches it",
+                f"it records {recorded[:12] or '(none)'}...",
+                *(f"this checkout holds {line}" for line in library.describe()),
+                f"a revised prompt keeps its old text as {llm.ARCHIVE}/v<n>.md, so an "
+                "earlier run stays readable; restore that file, or aggregate a run whose "
+                "prompt is here",
             ],
         )
-    return PROMPT.read_text(encoding="utf-8")
+    declared = str(manifest.get("prompt_version", "")).strip()
+    if declared and declared != str(pack.version):
+        console.fail(
+            f"{what} records a prompt version its own bytes contradict",
+            [
+                f"the manifest says v{declared}; {pack.name} hashes to "
+                f"{pack.sha256[:12]}... and declares v{pack.version}",
+                "the digest is what was measured and the version line is a claim about "
+                "it; one of the two was edited after the run",
+            ],
+        )
+    return pack
 
 
 def refuse_other_prompt(manifest: dict[str, object], digest: str) -> None:
     """A second opinion is a second model, not a second questionnaire.
 
-    The comparison run must have been made from the same PROMPT.md bytes as the
+    The comparison run must have been made from the same prompt bytes as the
     published one. If it was not, every disagreement between the two confounds
     the instrument with the questionnaire — the models were asked different
     questions — and no arithmetic downstream can say which difference produced
     which disagreement. There is nothing to repair here: the comparison is either
     of the same question or it is not a comparison.
+
+    The archive does not loosen this. It lets a v1 run and a v2 run each be
+    published, one aggregation at a time, under the wording each was made with;
+    it does not let one be laid over the other and the difference called an
+    instrument effect. So this compares against the digest
+    :func:`resolve_prompt` returned for the published run, which is that run's
+    own and not the file's.
     """
     recorded = str(manifest.get("prompt_sha256", ""))
     if recorded != digest:
@@ -550,7 +773,7 @@ def model_block(
         "abstention": {
             "verdict_uncertain": int((verdict == "uncertain").sum()),
             "referent_unclear": int((rows["referent"].astype(str) == "unclear").sum()),
-            "stance_unclear": int((rows["stance"].astype(str) == "unclear").sum()),
+            "position_unclear": int((rows["speaker_position"].astype(str) == "unclear").sum()),
         },
         "tokens": {
             "input": int(tokens.get("input_tokens", 0) or 0),
@@ -564,7 +787,7 @@ def retest_block(
 ) -> list[dict[str, object]]:
     """The same model, the same prompt, asked twice: the noise floor of each run.
 
-    Two models disagreeing on a fifth of the stance labels means nothing until a
+    Two models disagreeing on a fifth of the position labels means nothing until a
     reader knows how far *one* model disagrees with itself. The review of
     1 September 2026 (§4.6) asks for the retest figures beside the cross-model
     ones for exactly that reason, and both runs have a sibling that supplies
@@ -596,7 +819,14 @@ def retest_block(
                 continue
             if str(sibling.get("prompt_sha256")) != digest:
                 continue
-            sibling_rows = llm.read_rows(candidate.parent / "annotations.jsonl")
+            # Resolved onto the current vocabulary like everything else: a
+            # retest is the same instrument answering the same questionnaire,
+            # and reading its rows at a different schema from the run they are
+            # compared against would report every label as a disagreement.
+            sibling_rows = [
+                llm.resolve_row(row)
+                for row in llm.read_rows(candidate.parent / "annotations.jsonl")
+            ]
             overlap = len(usage.comparison_overlap(rows, sibling_rows))
             if overlap and (best is None or overlap > best[0]):
                 best = (overlap, str(sibling.get("run_id", "")), sibling_rows)
@@ -637,7 +867,7 @@ def occurrence_rows(
     second chance to be wrong about it.
 
     `contested` and `alt` are the second opinion, per occurrence: the fields a
-    comparison run labelled differently, and that run's own five labels where it
+    comparison run labelled differently, and that run's own six labels where it
     did. Three different situations write the same empty `contested`, and that is
     deliberate — no comparison run, a comparison run that did not reach this
     occurrence, and a comparison run that agreed. Distinguishing them at the row
@@ -651,8 +881,8 @@ def occurrence_rows(
             "occurrence_id": str(row["occurrence_id"]),
         }
         for field in ROW_FIELDS:
-            value = row[field]
-            entry[field] = bool(value) if field == "evidence_valid" else str(value)
+            value = row.get(field, "")
+            entry[field] = bool(value) if field == "evidence_valid" else str(value or "")
         fields, alternative = contested.get(str(row["occurrence_id"]), ([], None))
         entry["contested"] = fields
         entry["alt"] = alternative
@@ -704,11 +934,11 @@ def build_note(
     gold = payload["gold"]
     actors = payload["actors"]
     referents = [row for row in payload["referents"] if int(row["occurrences"]) > 0]
-    stances = payload["stance_by_actor"]
+    positions = payload["position_by_actor"]
     annotated = int(model["occurrences_annotated"])
     total = int(model["occurrences_total"])
     withheld = [row for row in actors if not row["sufficient"]]
-    withheld_shares = [row for row in stances if not row["sufficient"]]
+    withheld_shares = [row for row in positions if not row["sufficient"]]
 
     def share(value: int, of: int) -> str:
         return f"{value / of:.1%}" if of else "—"
@@ -720,9 +950,9 @@ def build_note(
     def percent(value: object) -> str:
         return "withheld" if value is None else f"{float(value):.1%}"
 
-    ranked = sorted(stances, key=lambda row: -int(row["eligible"]))
+    ranked = sorted(positions, key=lambda row: -int(row["eligible"]))
     denial = sorted(
-        (row for row in stances if row["share_rejects"] is not None),
+        (row for row in positions if row["share_rejects"] is not None),
         key=lambda row: -float(row["share_rejects"]),
     )
 
@@ -749,7 +979,7 @@ def build_note(
         rejecting = {
             event["actor"]
             for event in entry["events"]
-            if event["milestone"] == "rejects_or_denies"
+            if event["milestone"] == "rejects"
         }
         first = min(mentions, key=lambda event: (str(event["date"]), str(event["id"])))
         spread.append(
@@ -869,8 +1099,8 @@ def build_note(
             "|---|---:|---:|",
             f"| `verdict` = `uncertain` | {model['abstention']['verdict_uncertain']:,} | "
             f"{share(model['abstention']['verdict_uncertain'], annotated)} |",
-            f"| `stance` = `unclear` | {model['abstention']['stance_unclear']:,} | "
-            f"{share(model['abstention']['stance_unclear'], annotated)} |",
+            f"| `speaker_position` = `unclear` | {model['abstention']['position_unclear']:,} | "
+            f"{share(model['abstention']['position_unclear'], annotated)} |",
             f"| `referent` = `unclear` | {model['abstention']['referent_unclear']:,} | "
             f"{share(model['abstention']['referent_unclear'], annotated)} |",
             f"| evidence not located | {model['evidence_invalid']:,} | "
@@ -893,7 +1123,7 @@ def build_note(
             "## Who uses it",
             "",
             f"{len(actors):,} speakers have at least one annotated occurrence. Ranked by "
-            "eligible occurrences, which is the denominator the stance composition is cut "
+            "eligible occurrences, which is the denominator the position composition is cut "
             "from.",
             "",
             "| Speaker | Group | Occurrences | Eligible | Assigned | Rejects or denies |",
@@ -904,7 +1134,7 @@ def build_note(
             "",
             "When each delegation first used the word about a case, and in which "
             "direction. A **mention** is a delegation's first assigned occurrence of "
-            "that referent whatever stance it carried; the last two columns count the "
+            "that referent whatever position it carried; the last two columns count the "
             "delegations whose first assertion, or first rejection, of the "
             "characterisation is on record. The same occurrence can be both a first "
             "mention and a first assertion, so the columns overlap and do not add up.",
@@ -939,7 +1169,7 @@ def build_note(
             "is whether a rare word appears in it at all; here the occurrences are already "
             "in hand and the question is only how they divide.",
             "",
-            f"- {len(withheld_shares):,} of {len(stances):,} speakers carry no "
+            f"- {len(withheld_shares):,} of {len(positions):,} speakers carry no "
             "`share_rejects` (fewer than "
             f"{minimum} eligible occurrences).",
             f"- {len(withheld):,} of {len(actors):,} speakers are marked insufficient in the "
@@ -1056,8 +1286,8 @@ def build_note(
                     f"**{comparison['contested_any']:,} of "
                     f"{comparison['overlap']:,} compared occurrences** "
                     f"({share(int(comparison['contested_any']), int(comparison['overlap']))}) "
-                    "are contested on at least one of the five fields. Each of them "
-                    "carries the other run's five labels in `occurrences.json`, under "
+                    "are contested on at least one of the six fields. Each of them "
+                    "carries the other run's six labels in `occurrences.json`, under "
                     "`alt`.",
                     "",
                 ]
@@ -1122,6 +1352,8 @@ def run(args: argparse.Namespace) -> None:
     )
     comparison_manifest: dict[str, object] = {}
     comparison_raw: list[dict[str, object]] = []
+    comparison_schema: dict[str, int] = {"unanswered": 0, "split_decision": 0}
+    comparison_schema_version = ""
     if comparison_dir is None:
         console.info(
             f"no comparison run selected in {rel(COMPARISON_RUN)}; the second opinion "
@@ -1161,22 +1393,69 @@ def run(args: argparse.Namespace) -> None:
 
     console.step("Checking the run against this corpus")
     refuse_stale_lexicon(manifest, raw_rows, lex)
-    prompt_text = refuse_stale_prompt(manifest)
-    referents = audit.read_referents(REFERENTS)
-    refuse_bad_rows(raw_rows, enumerated, referents)
+    prompt = resolve_prompt(manifest)
+    console.info(
+        f"prompt v{prompt.version}, sha256 {prompt.sha256[:12]}, published from "
+        f"{prompt.name}"
+    )
+    referent_list = audit.read_referent_list(REFERENTS)
+    # Existence is checked against every identifier the file holds, including the
+    # retired ones: a run that used a referent this list has since withdrawn is
+    # not a broken run, it is an older one, and the version check below is what
+    # says whether it was entitled to use it.
+    refuse_bad_rows(raw_rows, enumerated, referent_list.all)
+    superseded = refuse_stale_referents(manifest, raw_rows, referent_list)
     refuse_partial(len(raw_rows), len(found), args.allow_partial)
-    console.info(f"{len(referents)} controlled referents, every row validated against them")
+    console.info(
+        f"referent list v{referent_list.version}: {len(referent_list.current)} current, "
+        f"{len(referent_list.retired_in)} retired, every row validated against them"
+    )
+    if superseded:
+        console.info(
+            f"{superseded:,} rows carry a superseded referent and are read under its "
+            "successor; the run's own version is in the artefact's provenance"
+        )
+    raw_rows = resolve_referents(raw_rows, referent_list)
+    raw_rows, schema_counts = resolve_schema(manifest, raw_rows)
+    if schema_counts["unanswered"]:
+        console.info(
+            f"{schema_counts['unanswered']:,} rows were coded against annotation schema "
+            f"{audit.LEGACY_SCHEMA_VERSION} and carry none of the six fields schema "
+            f"{llm.SCHEMA_VERSION} adds; they are read, never guessed at"
+        )
+    if schema_counts["split_decision"]:
+        console.info(
+            f"{schema_counts['split_decision']:,} rows record a position on a passage "
+            "their own referent says names no case — the split decision schema "
+            f"{llm.SCHEMA_VERSION} locks"
+        )
 
     if comparison_raw:
         # Every identity check the published run passed, plus the one only a
         # comparison can fail. Coverage is the one thing not checked: a
         # comparison run is read over the occurrences both runs reached, so a
         # short one narrows the comparison rather than invalidating the counts.
-        refuse_other_prompt(comparison_manifest, str(manifest.get("prompt_sha256", "")))
+        refuse_other_prompt(comparison_manifest, prompt.sha256)
         refuse_stale_lexicon(
             comparison_manifest, comparison_raw, lex, what="the comparison run"
         )
-        refuse_bad_rows(comparison_raw, enumerated, referents, what="the comparison run")
+        refuse_bad_rows(
+            comparison_raw, enumerated, referent_list.all, what="the comparison run"
+        )
+        # The comparison may be a run made against a different version of the
+        # list — that is the point of reading two runs side by side — so it is
+        # checked against its own recorded version and resolved onto the same
+        # current identifiers before either is counted.
+        refuse_stale_referents(
+            comparison_manifest, comparison_raw, referent_list, what="the comparison run"
+        )
+        comparison_raw = resolve_referents(comparison_raw, referent_list)
+        comparison_raw, comparison_schema = resolve_schema(
+            comparison_manifest, comparison_raw, what="the comparison run"
+        )
+        comparison_schema_version = str(
+            comparison_manifest.get("schema_version", "") or audit.LEGACY_SCHEMA_VERSION
+        )
         if len(comparison_raw) < len(found):
             console.warn(
                 f"the comparison run annotates {len(comparison_raw):,} of {len(found):,} "
@@ -1243,7 +1522,7 @@ def run(args: argparse.Namespace) -> None:
     for entry in retest:
         console.info(
             f"{entry['model']} vs {entry['retest_run_id']}: {entry['overlap']:,} shared, "
-            f"{entry['identical']:,} identical on all five fields"
+            f"{entry['identical']:,} identical on every compared field"
         )
     if not retest:
         console.info("no run of either model with the same prompt to retest against")
@@ -1274,8 +1553,8 @@ def run(args: argparse.Namespace) -> None:
             ),
             (
                 "shares withheld",
-                f"{sum(1 for row in blocks['stance_by_actor'] if not row['sufficient']):,} "
-                f"of {len(blocks['stance_by_actor']):,}",
+                f"{sum(1 for row in blocks['position_by_actor'] if not row['sufficient']):,} "
+                f"of {len(blocks['position_by_actor']):,}",
             ),
             (
                 "contested",
@@ -1335,6 +1614,26 @@ def run(args: argparse.Namespace) -> None:
         configs=[LEXICON, REFERENTS, PROMPT, GOLD_ANNOTATIONS],
         extra={
             "lexicon_version": lex.version,
+            # Both: the list the counts were cut on, and the list the run was
+            # made against, because a run whose superseded identifiers were
+            # resolved is reported under names its own prompt never showed it.
+            "referents_version": referent_list.version,
+            "run_referents_version": int(str(manifest.get("referents_version", "") or 1)),
+            # The prompt has no such pair: nothing is resolved onto a later
+            # wording, so what is published is the run's own version and the
+            # file it was found in.
+            "prompt_version": prompt.version,
+            "prompt_file": prompt.name,
+            # The schema the counts are reported in, and the schema the run was
+            # coded against, for the same reason the referent pair is carried:
+            # a resolved row is reported under names its own codebook did not
+            # have.
+            "schema_version": llm.SCHEMA_VERSION,
+            "run_schema_version": str(
+                manifest.get("schema_version", "") or audit.LEGACY_SCHEMA_VERSION
+            ),
+            "rows_without_schema_3_fields": schema_counts["unanswered"],
+            "rows_with_split_case_decision": schema_counts["split_decision"],
             "term": TERM,
             "run_id": run_id,
             "run_dir": rel(directory),
@@ -1352,13 +1651,16 @@ def run(args: argparse.Namespace) -> None:
     # for whoever opens the file.
     payload = {
         "meta": meta,
-        "model": model_block(manifest, run_id, llm.prompt_sha256(PROMPT), rows, len(found)),
-        "prompt": prompt_text,
+        # The run's own digest and the run's own text, from wherever the
+        # library resolved them, so a v1 run keeps saying v1 after the file
+        # beside it has become v2.
+        "model": model_block(manifest, run_id, prompt.sha256, rows, len(found)),
+        "prompt": prompt.text,
         "referents": blocks["referents"],
         "actors": blocks["actors"],
         "minimum_occurrences": args.minimum,
         "matrix": blocks["matrix"],
-        "stance_by_actor": blocks["stance_by_actor"],
+        "position_by_actor": blocks["position_by_actor"],
         "diffusion": diffusion,
         "comparison": comparison,
         "retest": retest,
@@ -1405,6 +1707,11 @@ def run(args: argparse.Namespace) -> None:
                 "comparison_run_id": comparison_id,
                 "comparison_run_dir": "" if comparison_dir is None else rel(comparison_dir),
                 "comparison_state": comparison["state"],
+                # A comparison may be a run of a different schema — that is one
+                # of the things two runs may differ by — so its own resolution
+                # is reported beside the published run's rather than folded in.
+                "comparison_schema_version": comparison_schema_version,
+                "comparison_rows_without_schema_3_fields": comparison_schema["unanswered"],
                 "comparison_overlap": comparison["overlap"],
                 "comparison_contested": comparison["contested_any"],
                 "retest_runs": [entry["retest_run_id"] for entry in retest],

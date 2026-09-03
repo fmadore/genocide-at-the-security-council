@@ -243,6 +243,14 @@ def write_manifest(
     how much came back new and how much was a re-download — so the manifest says
     how a run was assembled and not only what it ended at. The Gemini run took
     six passes under a full batch quota, and nothing in its manifest said so.
+
+    The three provenance versions — `prompt_version`, `referents_version` and
+    `lexicon_version` — are written here and nowhere else, from the `RunMeta`
+    each step assembles from its own arguments. Which list was in front of the
+    model is not a property of the provider, so recording it twice, once per
+    step, is exactly the drift this module exists to prevent: the digest beside
+    each of them says *which* file, and the version says *which state of it*,
+    and 15 refuses a run whose two disagree.
     """
     before = previous.get("requests") if isinstance(previous.get("requests"), dict) else {}
     tokens = previous.get("usage") if isinstance(previous.get("usage"), dict) else {}
@@ -260,6 +268,7 @@ def write_manifest(
         "prompt_version": meta.prompt_version,
         "prompt_sha256": meta.prompt_sha256,
         "referents_sha256": referents_sha256,
+        "referents_version": meta.referents_version,
         "lexicon_version": meta.lexicon_version,
         "schema_version": llm.SCHEMA_VERSION,
         "mode": mode,

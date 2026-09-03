@@ -72,10 +72,10 @@ from . import series
 #: noise. The counts are published at every denominator either way.
 MINIMUM_OCCURRENCES: Final = 20
 
-#: The corpus-wide share of eligible occurrences whose stance is
-#: `rejects_or_denies`, as both committed runs measure it: 106 of 6,092, 1.7%.
+#: The corpus-wide share of eligible occurrences the speaker refuses,
+#: `rejects`, as both committed runs measure it: 106 of 6,092, 1.7%.
 #:
-#: It is written here because :func:`stance_rows` needs something to test a
+#: It is written here because :func:`position_rows` needs something to test a
 #: speaker's own share against. The review of 1 September 2026 (§4.5, item 11)
 #: is right that :data:`MINIMUM_OCCURRENCES` alone does not make `share_rejects`
 #: rankable — at n = 20 the expected count against this base rate is 0.35, so a
@@ -90,16 +90,17 @@ MINIMUM_OCCURRENCES: Final = 20
 #: consumer's business, and the flag is what tells it which rows can be ordered.
 BASE_REJECTION_SHARE: Final = 0.0174
 
-#: The codebook's stance vocabulary, in the codebook's order rather than sorted.
-#: Every stance block writes all seven, zero-filled: an absent key would make
+#: The codebook's position vocabulary, in the codebook's order rather than
+#: sorted. Every position block writes all seven, zero-filled: an absent key
+#: would make
 #: "this speaker never denied anything" indistinguishable from "this speaker's
 #: denials were not counted", and no consumer can tell those apart from JSON.
-STANCES: Final[tuple[str, ...]] = (
+POSITIONS: Final[tuple[str, ...]] = (
     "asserts",
-    "attributes_or_reports",
-    "rejects_or_denies",
-    "hypothetical_or_conditional",
-    "neutral_legal_reference",
+    "reports_without_position",
+    "rejects",
+    "conditional",
+    "no_position",
     "unclear",
     "not_applicable",
 )
@@ -110,9 +111,9 @@ UNASSIGNED: Final[frozenset[str]] = frozenset({"unclear", "not_applicable"})
 #: The three dated firsts :func:`diffusion_rows` records for a delegation and a
 #: referent, in the order the curves are read in: that it used the word about the
 #: case at all, that it asserted the characterisation, that it refused it. Two of
-#: the three are stances and one is not, which is the point — a delegation can
+#: the three are positions and one is not, which is the point — a delegation can
 #: reach a case long before it takes a position on it.
-MILESTONES: Final[tuple[str, ...]] = ("mention", "asserts", "rejects_or_denies")
+MILESTONES: Final[tuple[str, ...]] = ("mention", "asserts", "rejects")
 
 #: The minority share below which Cohen's kappa is withheld rather than
 #: published. Set at one per cent by the review of 1 September 2026 (§4.5,
@@ -122,7 +123,7 @@ MILESTONES: Final[tuple[str, ...]] = ("mention", "asserts", "rejects_or_denies")
 #: produces a number that reads as "no better than chance" about the most
 #: stable field in the run. `confidence` fails the same test from the other
 #: side, Gemini having written `high` 99.06% of the time. The three fields that
-#: carry information — quotation, stance, referent — clear the floor by an order
+#: carry information — quotation, position, referent — clear the floor by an order
 #: of magnitude in both runs, so nothing informative is suppressed by it.
 KAPPA_MINORITY_FLOOR: Final = 0.01
 
@@ -134,12 +135,15 @@ KAPPA_MINORITY_FLOOR: Final = 0.01
 #: *fixed*: a chance correction that moved when a referent was added would make
 #: two runs of the same instrument incomparable across a vocabulary revision.
 #: When the codebook does move, the test fails, and updating this is part of
-#: the same reviewed diff.
+#: the same reviewed diff. Referent list v2 is such a move: 29 became 40, being
+#: the 41 identifiers the file now holds less the one it retires, because the
+#: correction is against what a coder or a model was actually offered.
 FIELD_CATEGORIES: Final[dict[str, int]] = {
     "verdict": 3,
     "quotation": 5,
-    "stance": 7,
-    "referent": 29,
+    "concrete_case": 4,
+    "speaker_position": 7,
+    "referent": 40,
 }
 
 #: Reference occurrences a class needs before its precision, recall and F1 are
@@ -159,16 +163,23 @@ CLASS_SUPPORT_FLOOR: Final = 20
 #: The fields one label per occurrence, and therefore the ones kappa and a
 #: confusion table are defined on. `function` is multi-label and is reported as a
 #: Jaccard overlap by the note instead; see :func:`jaccard`.
-SINGLE_LABEL_FIELDS: Final[tuple[str, ...]] = ("verdict", "quotation", "stance", "referent")
+SINGLE_LABEL_FIELDS: Final[tuple[str, ...]] = (
+    "verdict",
+    "quotation",
+    "concrete_case",
+    "speaker_position",
+    "referent",
+)
 
 #: Every field a second opinion is compared on, in the order `lib.llm` writes
 #: them into a row and :func:`contested_rows` lists them. The four above plus
 #: `function`, which is here because a reader looking at a disagreement wants all
-#: five labels and not the ones a statistic happens to be defined on.
+#: six labels and not the ones a statistic happens to be defined on.
 COMPARED_FIELDS: Final[tuple[str, ...]] = (
     "verdict",
     "quotation",
-    "stance",
+    "concrete_case",
+    "speaker_position",
     "function",
     "referent",
 )
@@ -183,7 +194,8 @@ MULTI_LABEL_FIELD: Final = "function"
 ABSTENTIONS: Final[dict[str, str]] = {
     "verdict": "uncertain",
     "quotation": "unclear",
-    "stance": "unclear",
+    "concrete_case": "unclear",
+    "speaker_position": "unclear",
     "referent": "unclear",
 }
 
@@ -197,7 +209,8 @@ REQUIRED_COLUMNS: Final[tuple[str, ...]] = (
     "occurrence_id",
     "country_org",
     "verdict",
-    "stance",
+    "concrete_case",
+    "speaker_position",
     "referent",
     "evidence_valid",
 )
@@ -309,12 +322,12 @@ def assigned_mask(rows: pd.DataFrame) -> pd.Series:
     return eligible_mask(rows) & named
 
 
-def stance_counts(rows: pd.DataFrame) -> dict[str, int]:
-    """All seven stance keys, zero-filled, over whatever rows are handed in."""
-    counts = dict.fromkeys(STANCES, 0)
+def position_counts(rows: pd.DataFrame) -> dict[str, int]:
+    """All seven position keys, zero-filled, over whatever rows are handed in."""
+    counts = dict.fromkeys(POSITIONS, 0)
     if rows.empty:
         return counts
-    for label, count in rows["stance"].map(_text).value_counts().items():
+    for label, count in rows["speaker_position"].map(_text).value_counts().items():
         if label in counts:
             counts[label] = int(count)
     return counts
@@ -334,7 +347,7 @@ def funnel(rows: pd.DataFrame) -> dict[str, int]:
                 "referent_unclear",
                 "referent_other",
                 "assigned",
-                "stance_unclear",
+                "position_unclear",
             ),
             0,
         )
@@ -351,7 +364,7 @@ def funnel(rows: pd.DataFrame) -> dict[str, int]:
         "referent_unclear": int((referent == "unclear").sum()),
         "referent_other": int((referent == "other").sum()),
         "assigned": int(assigned_mask(rows).sum()),
-        "stance_unclear": int((rows["stance"].map(_text) == "unclear").sum()),
+        "position_unclear": int((rows["speaker_position"].map(_text) == "unclear").sum()),
     }
 
 
@@ -421,6 +434,12 @@ def referent_rows(
             "iso3": _text(referent.get("iso3")),
             "years": _text(referent.get("years")),
             "occurrences": int(counts.get(_text(referent["id"]), 0)),
+            # A withdrawn category, kept so an older run's counts have somewhere
+            # to land. On a run made after the retirement it is empty, and the
+            # view needs the flag to tell that apart from a case no delegation
+            # ever raised.
+            "retired": bool(referent.get("retired", False)),
+            "superseded_by": _text(referent.get("superseded_by")),
         }
         for referent in referents
     ]
@@ -434,9 +453,9 @@ def matrix_rows(
     referent_order: Sequence[str],
     contested: frozenset[str] = frozenset(),
 ) -> list[dict[str, object]]:
-    """Sparse actor x referent cells over assigned rows, with a stance breakdown.
+    """Sparse actor x referent cells over assigned rows, with a position breakdown.
 
-    Sparse because the product is 200 speakers by 29 referents and all but a few
+    Sparse because the product is 200 speakers by 40 referents and all but a few
     hundred cells are empty; a dense grid would be six times the payload and
     would say nothing a missing key does not. The order is the two blocks' own
     order, so a consumer that renders the matrix never has to sort it again and
@@ -460,7 +479,7 @@ def matrix_rows(
                 "referent": str(referent),
                 "count": len(group),
                 "contested": disputed,
-                "stances": stance_counts(group),
+                "positions": position_counts(group),
             }
         )
     cells.sort(
@@ -472,12 +491,12 @@ def matrix_rows(
     return cells
 
 
-def stance_rows(
+def position_rows(
     rows: pd.DataFrame,
     actor_order: Sequence[str],
     minimum: int = MINIMUM_OCCURRENCES,
 ) -> list[dict[str, object]]:
-    """Per speaker: the stance composition of its eligible occurrences.
+    """Per speaker: the position composition of its eligible occurrences.
 
     Cut from *eligible* rather than from assigned rows, because a speaker can
     reject the characterisation without the passage naming a case clearly enough
@@ -506,17 +525,17 @@ def stance_rows(
     out: list[dict[str, object]] = []
     for actor in actor_order:
         group = grouped.get(actor)
-        counts = stance_counts(group) if group is not None else dict.fromkeys(STANCES, 0)
+        counts = position_counts(group) if group is not None else dict.fromkeys(POSITIONS, 0)
         total = int(sum(counts.values()))
         enough = total >= minimum
-        rejects = int(counts["rejects_or_denies"])
+        rejects = int(counts["rejects"])
         interval = share_interval(rejects, total) if enough and total else (None, None)
         out.append(
             {
                 "actor": actor,
                 "eligible": total,
                 "sufficient": bool(enough),
-                "stances": counts,
+                "positions": counts,
                 "share_rejects": (
                     _round(rejects / total) if enough and total else None
                 ),
@@ -554,9 +573,9 @@ def diffusion_rows(
 
     An **event** is a dated first. Per (referent, speaker) pair there are up to
     three of them, one per :data:`MILESTONES` entry: `mention` is that speaker's
-    first assigned occurrence of the referent whatever stance it carried,
-    `asserts` its first occurrence stanced `asserts`, `rejects_or_denies` its
-    first stanced `rejects_or_denies`. One occurrence legitimately produces two
+    first assigned occurrence of the referent whatever position it carried,
+    `asserts` its first occurrence positioned `asserts`, `rejects` its
+    first positioned `rejects`. One occurrence legitimately produces two
     events — a delegation's first word about a case was also, often, its first
     assertion of it — and both are written rather than collapsed, because the
     curves drawn from them are counted separately and a reader comparing "spoke
@@ -606,15 +625,15 @@ def diffusion_rows(
             _text(row["line_id"]),
             _text(row["referent"]),
             _text(row["country_org"]),
-            _text(row["stance"]),
+            _text(row["speaker_position"]),
         )
         for row in kept.to_dict(orient="records")
     )
     events: dict[str, list[dict[str, object]]] = {}
     seen: set[tuple[str, str, str]] = set()
-    for date, line_id, referent, actor, stance in ordered:
+    for date, line_id, referent, actor, speaker_position in ordered:
         for milestone in MILESTONES:
-            if milestone != "mention" and stance != milestone:
+            if milestone != "mention" and speaker_position != milestone:
                 continue
             if (referent, actor, milestone) in seen:
                 continue
@@ -624,7 +643,7 @@ def diffusion_rows(
                     "date": date,
                     "actor": actor,
                     "milestone": milestone,
-                    "stance": stance,
+                    "speaker_position": speaker_position,
                     "id": line_id,
                 }
             )
@@ -669,7 +688,7 @@ def aggregate(
         "referents": referent_block,
         "actors": actors,
         "matrix": matrix_rows(rows, actor_order, referent_order, contested),
-        "stance_by_actor": stance_rows(rows, actor_order, minimum),
+        "position_by_actor": position_rows(rows, actor_order, minimum),
     }
 
 
@@ -1195,7 +1214,7 @@ def reference_coverage(annotations: pd.DataFrame) -> dict[str, dict[str, object]
     is not a thing, and picking one coder would make the model's score depend on
     which of them it happens to resemble — but it is also the *easy subset*, and
     it is a different subset for every field. The review of 1 September 2026
-    (§4.5, item 6) is blunt about what that means: an accuracy of 0.9 on stance
+    (§4.5, item 6) is blunt about what that means: an accuracy of 0.9 on position
     over the 81% of occurrences the coders agreed on is not an accuracy of 0.9,
     and the artefact carried no way to tell.
 
@@ -1327,7 +1346,7 @@ def model_vs_human(
     Every row carries what :func:`reference_coverage` measured for its field, so
     that the score is never read without the share of double-coded occurrences
     it was *not* computed over. The two coders disagree at different rates on
-    different fields — stance most, referent least — so the denominators differ
+    different fields — position most, referent least — so the denominators differ
     row by row and the easy subset is a different subset in each. `excluded` is
     the count of occurrences that left no reference label for the field, and
     `excluded_share` the fraction of the double-coded sample that is.
@@ -1707,7 +1726,7 @@ def contested_rows(
 
     The fields are listed in :data:`COMPARED_FIELDS` order — the order `lib.llm`
     writes them into a row — so a reader moving between two artefacts meets them
-    in one order. The second element carries the comparison run's own five labels
+    in one order. The second element carries the comparison run's own six labels
     in full, so that whoever has been told an occurrence is contested can see
     what the other reading was without loading a second run; it is None exactly
     where the two runs agree on everything, because a reading identical to the
@@ -1781,8 +1800,8 @@ def comparison_block(
             "referent_unclear": int(
                 sum(_text(row.get("referent")) == "unclear" for row in rows)
             ),
-            "stance_unclear": int(
-                sum(_text(row.get("stance")) == "unclear" for row in rows)
+            "position_unclear": int(
+                sum(_text(row.get("speaker_position")) == "unclear" for row in rows)
             ),
         },
         "fields": comparison_fields(published, comparison),

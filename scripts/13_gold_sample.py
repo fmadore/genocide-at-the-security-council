@@ -14,7 +14,7 @@ weighted by its recorded probabilities is a rate about the corpus. The coverage
 frame guarantees that every period and every usage cue is seen at all. The
 disagreement frame, added after the review of 1 September 2026 (§4.4), is a
 deliberate over-sample of what the two runs read differently — all 134
-occurrences either called `rejects_or_denies`, all 41 whose referent predates
+occurrences either called `rejects`, all 41 whose referent predates
 the case it names, and a hundred each of the three large contested strata — and
 exists because an equal-probability draw of 200 contains about three rejections
 and cannot say anything per class. Nothing in it estimates a corpus quantity,
@@ -266,9 +266,9 @@ GOLD_DISAGREEMENT = INTERIM / "genocide_gold_disagreement.csv"
 #:
 #: The review of 1 September 2026 (§4.4) proposed this design and estimated the
 #: strata from the two runs' marginals. Recomputed from the runs as they are,
-#: four of the six agree with it to the occurrence — `rejects_or_denies` 134,
-#: `attributes_or_reports` 789, `hypothetical_or_conditional` 614, contested on
-#: stance or referent 1,703 — and two do not. `other` is 410 and not 641: 641 is
+#: four of the six agree with it to the occurrence — `rejects` 134,
+#: `reports_without_position` 789, `conditional` 614, contested on
+#: position or referent 1,703 — and two do not. `other` is 410 and not 641: 641 is
 #: Luna's 346 plus Gemini's 295, and an occurrence both runs filed under `other`
 #: is one occurrence. And the pre-onset stratum holds 42 occurrences in all —
 #: Luna's 32 `gaza` rows before 2023, six `nagorno_karabakh` rows before 2020 in
@@ -288,12 +288,12 @@ GOLD_DISAGREEMENT = INTERIM / "genocide_gold_disagreement.csv"
 #: *which* referents the controlled list is missing, and a census of the two
 #: strata small enough to have one.
 DISAGREEMENT_SIZES: dict[str, int | None] = {
-    "rejects_or_denies": None,
+    "rejects": None,
     "pre_onset_referent": None,
     "other_referent": 60,
-    "attributes_or_reports": 100,
-    "hypothetical_or_conditional": 100,
-    "contested_stance_or_referent": 100,
+    "reports_without_position": 100,
+    "conditional": 100,
+    "contested_speaker_position_or_referent": 100,
 }
 
 #: The name of the second frame, beside `audit.PROBABILITY` and
@@ -311,6 +311,14 @@ def read_run(run_id: str) -> dict[str, dict[str, object]]:
     code independently, and a model label is a sampling stratum in exactly the
     sense the cue already is — it says this occurrence is worth a coder's time,
     never what the coder should write.
+
+    Every row is read through `lib.llm.resolve_row`, so a run coded against
+    annotation schema 2 and a run coded against 3 are stratified by the same
+    vocabulary. The strata are pure renames across that boundary — a
+    `rejects` row is a `rejects` row and the same occurrence — so the
+    frame sizes recorded in `docs/VALIDATION.md` are unchanged by the move; what
+    would change them is reading two schemas as though one of them meant the
+    other, which is what this prevents.
     """
     if not run_id:
         return {}
@@ -319,7 +327,7 @@ def read_run(run_id: str) -> dict[str, dict[str, object]]:
         console.warn(f"{rel(path)} does not exist; the disagreement frame will be empty")
         return {}
     return {
-        str(row.get("occurrence_id", "")): row
+        str(row.get("occurrence_id", "")): llm.resolve_row(row)
         for row in llm.read_rows(path)
         if row.get("occurrence_id")
     }
@@ -365,22 +373,22 @@ def classify_stratum(
     first, second = published.get(identifier), comparison.get(identifier)
     if first is None or second is None:
         return ""
-    stances = {str(first.get("stance", "")), str(second.get("stance", ""))}
+    positions = {str(first.get("speaker_position", "")), str(second.get("speaker_position", ""))}
     referents = {str(first.get("referent", "")), str(second.get("referent", ""))}
     year = int(str(row["date"])[:4] or 0)
 
-    if "rejects_or_denies" in stances:
-        return "rejects_or_denies"
+    if "rejects" in positions:
+        return "rejects"
     if any(year and onsets.get(referent, 0) > year for referent in referents):
         return "pre_onset_referent"
     if "other" in referents:
         return "other_referent"
-    if "attributes_or_reports" in stances:
-        return "attributes_or_reports"
-    if "hypothetical_or_conditional" in stances:
-        return "hypothetical_or_conditional"
-    if len(stances) > 1 or len(referents) > 1:
-        return "contested_stance_or_referent"
+    if "reports_without_position" in positions:
+        return "reports_without_position"
+    if "conditional" in positions:
+        return "conditional"
+    if len(positions) > 1 or len(referents) > 1:
+        return "contested_speaker_position_or_referent"
     return ""
 
 

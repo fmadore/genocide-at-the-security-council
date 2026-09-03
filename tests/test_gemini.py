@@ -112,11 +112,18 @@ def labels(**changes: object) -> dict[str, object]:
     entry = {
         "verdict": "true_positive",
         "quotation": "not_quoted",
-        "stance": "asserts",
+        "concrete_case": "yes",
+        "speaker_position": "asserts",
         "function": ["accusation_or_qualification"],
         "referent": "rwanda_1994",
         "proposed_referent": "",
+        "referent_source": "passage",
+        "accused_actor": "",
+        "victim_group": "",
+        "own_state_accused": "no",
+        "salience": "substantive",
         "evidence_quote": "this is genocide",
+        "rationale": "The speaker applies the word in their own voice.",
         "confidence": "high",
     }
     entry.update(changes)
@@ -385,6 +392,7 @@ def test_the_live_response_is_read_by_the_same_reader_in_its_own_spelling() -> N
         "input_tokens": 8,
         "output_tokens": 63,
         "reasoning_tokens": 1180,
+        "cached_tokens": 0,
     }
 
 
@@ -393,13 +401,27 @@ def test_thinking_tokens_are_reported_as_the_reasoning_count_never_estimated() -
         "input_tokens": 8,
         "output_tokens": 63,
         "reasoning_tokens": 1180,
+        "cached_tokens": 0,
     }
     assert gemini.usage_of({"candidates": []}) == gemini.EMPTY_USAGE
     assert gemini.usage_of({"usageMetadata": {"promptTokenCount": 8}}) == {
         "input_tokens": 8,
         "output_tokens": 0,
         "reasoning_tokens": 0,
+        "cached_tokens": 0,
     }
+
+
+def test_a_cached_prefix_is_reported_from_the_provider_and_never_inferred() -> None:
+    """What the review asked for, as a measurement rather than a switch.
+
+    Gemini caches a repeated prefix without being asked, so there is nothing to
+    turn on; what was missing is the number saying whether it happened. A
+    response that does not report it is a cache miss and reads as zero.
+    """
+    cached = {"usageMetadata": {"promptTokenCount": 8000, "cachedContentTokenCount": 7600}}
+    assert gemini.usage_of(cached)["cached_tokens"] == 7600
+    assert gemini.usage_of({"usageMetadata": {"promptTokenCount": 8000}})["cached_tokens"] == 0
 
 
 def test_a_truncated_blocked_or_empty_answer_says_which_it_was() -> None:
@@ -467,6 +489,7 @@ def run_meta() -> llm.RunMeta:
         prompt_sha256="f" * 64,
         reasoning_effort="high",
         lexicon_version="2",
+        referents_version="2",
         term="genocide",
         annotated_at="2026-09-08",
     )
@@ -534,12 +557,12 @@ def test_a_reply_that_is_not_json_loses_its_speech_and_writes_no_rows(tmp_path: 
 def test_a_reply_outside_the_codebook_is_refused_and_not_repaired(tmp_path: Path) -> None:
     scope = one_speech()
     outcome = step.Outcome(
-        responses={next(iter(scope)): response(answer(1, 2, stance="agrees"))}, requests=1
+        responses={next(iter(scope)): response(answer(1, 2, speaker_position="agrees"))}, requests=1
     )
     paths = paths_in(tmp_path)
     tally = step.harvest(outcome, scope, run_meta(), REFERENTS, paths)
     assert (tally["written"], tally["failures"]) == (0, 1)
-    assert "Unknown stance label" in str(llm.read_rows(paths["failures"])[0]["reason"])
+    assert "Unknown speaker_position label" in str(llm.read_rows(paths["failures"])[0]["reason"])
 
 
 def test_a_truncated_reply_is_recorded_with_its_finish_reason(tmp_path: Path) -> None:

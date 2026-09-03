@@ -4,8 +4,18 @@
 		"generated": "2026-09-01T00:00:00Z",
 		"git_commit": "fixture",
 		"lexicon_version": 2,
-		"inputs": [{ "path": "model_annotations/luna-v1.csv", "sha256": "fixture-input" }],
-		"configs": [{ "path": "annotations/lexicon/referents.csv", "sha256": "fixture-config" }]
+		"inputs": [
+			{
+				"path": "model_annotations/luna-v1.csv",
+				"sha256": "fixture-input"
+			}
+		],
+		"configs": [
+			{
+				"path": "annotations/lexicon/referents.csv",
+				"sha256": "fixture-config"
+			}
+		]
 	},
 	"occurrences": [
 		{
@@ -13,10 +23,17 @@
 			"occurrence_id": "1111111111111111111111111111111111111111111111111111111111111111",
 			"verdict": "true_positive",
 			"quotation": "not_quoted",
-			"stance": "hypothetical_or_conditional",
+			"concrete_case": "yes",
+			"speaker_position": "conditional",
 			"function": "warning_or_prevention",
 			"referent": "rwanda_1994",
 			"proposed_referent": "",
+			"referent_source": "passage",
+			"accused_actor": "the Government named in the passage",
+			"victim_group": "the Tutsi in Rwanda",
+			"own_state_accused": "no",
+			"salience": "substantive",
+			"rationale": "The passage applies the word to the case in the speaker's own voice.",
 			"confidence": "high",
 			"evidence_quote": "We warned that genocide could occur.",
 			"evidence_valid": true,
@@ -28,18 +45,25 @@
 			"occurrence_id": "2222222222222222222222222222222222222222222222222222222222222222",
 			"verdict": "true_positive",
 			"quotation": "attributed_or_reported",
-			"stance": "rejects_or_denies",
+			"concrete_case": "yes",
+			"speaker_position": "rejects",
 			"function": "accusation_or_qualification",
 			"referent": "rwanda_1994",
 			"proposed_referent": "",
+			"referent_source": "",
+			"accused_actor": "",
+			"victim_group": "",
+			"own_state_accused": "",
+			"salience": "",
+			"rationale": "",
 			"confidence": "medium",
 			"evidence_quote": "We reject the claim of genocide.",
 			"evidence_valid": true,
-			"contested": ["stance"],
+			"contested": ["speaker_position"],
 			"alt": {
 				"verdict": "true_positive",
 				"quotation": "attributed_or_reported",
-				"stance": "attributes_or_reports",
+				"speaker_position": "reports_without_position",
 				"function": "accusation_or_qualification",
 				"referent": "rwanda_1994"
 			}
@@ -49,18 +73,25 @@
 			"occurrence_id": "3333333333333333333333333333333333333333333333333333333333333333",
 			"verdict": "true_positive",
 			"quotation": "not_quoted",
-			"stance": "asserts",
+			"concrete_case": "yes",
+			"speaker_position": "asserts",
 			"function": "accusation_or_qualification|accountability",
 			"referent": "bosnia_srebrenica",
 			"proposed_referent": "",
+			"referent_source": "",
+			"accused_actor": "",
+			"victim_group": "",
+			"own_state_accused": "",
+			"salience": "",
+			"rationale": "",
 			"confidence": "high",
 			"evidence_quote": "must call this genocide by its name",
 			"evidence_valid": true,
-			"contested": ["stance", "function", "referent"],
+			"contested": ["speaker_position", "function", "referent"],
 			"alt": {
 				"verdict": "true_positive",
 				"quotation": "not_quoted",
-				"stance": "rejects_or_denies",
+				"speaker_position": "rejects",
 				"function": "accusation_or_qualification",
 				"referent": "genocide_convention_law"
 			}
@@ -70,10 +101,17 @@
 			"occurrence_id": "4444444444444444444444444444444444444444444444444444444444444444",
 			"verdict": "true_positive",
 			"quotation": "attributed_or_reported",
-			"stance": "attributes_or_reports",
+			"concrete_case": "yes",
+			"speaker_position": "reports_without_position",
 			"function": "commemoration",
 			"referent": "bosnia_srebrenica",
 			"proposed_referent": "",
+			"referent_source": "",
+			"accused_actor": "",
+			"victim_group": "",
+			"own_state_accused": "",
+			"salience": "",
+			"rationale": "",
 			"confidence": "medium",
 			"evidence_quote": "the word genocide remains contested",
 			"evidence_valid": true,

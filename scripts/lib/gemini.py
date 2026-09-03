@@ -126,6 +126,7 @@ EMPTY_USAGE: Final[dict[str, int]] = {
     "input_tokens": 0,
     "output_tokens": 0,
     "reasoning_tokens": 0,
+    "cached_tokens": 0,
 }
 
 #: `usageMetadata` names, mapped onto the manifest's provider-neutral ones. The
@@ -136,6 +137,12 @@ USAGE_FIELDS: Final = {
     "input_tokens": ("promptTokenCount", "prompt_token_count"),
     "output_tokens": ("candidatesTokenCount", "candidates_token_count"),
     "reasoning_tokens": ("thoughtsTokenCount", "thoughts_token_count"),
+    # How much of the prompt was served from cache and billed at the cached
+    # rate. Gemini caches a repeated prefix without being asked, so there is
+    # nothing to switch on — but nothing was measuring it either, and a run that
+    # does not report its cached share cannot say what caching saved. A response
+    # that omits the field reports zero, which is what a cache miss is.
+    "cached_tokens": ("cachedContentTokenCount", "cached_content_token_count"),
 }
 
 

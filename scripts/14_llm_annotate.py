@@ -86,7 +86,12 @@ BATCH_TERMINAL = frozenset({"completed", "failed", "expired", "cancelled"})
 #: `lib.annotate.output_ceiling` clamps to. 100k sits under Luna's 128k.
 MAX_OUTPUT_TOKENS = 100_000
 
-EMPTY_USAGE = {"input_tokens": 0, "output_tokens": 0, "reasoning_tokens": 0}
+EMPTY_USAGE = {
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "reasoning_tokens": 0,
+    "cached_tokens": 0,
+}
 
 
 
@@ -161,10 +166,17 @@ def usage_of(body: dict[str, object]) -> dict[str, int]:
         return dict(EMPTY_USAGE)
     details = usage.get("output_tokens_details")
     reasoning = details.get("reasoning_tokens", 0) if isinstance(details, dict) else 0
+    # `cached_tokens` is the share of the input served from the prompt cache and
+    # billed at the cached rate. Reported, never inferred: it is the only number
+    # that says whether the fixed prefix was actually cached, and a run without
+    # it can only guess at what caching saved.
+    inputs = usage.get("input_tokens_details")
+    cached = inputs.get("cached_tokens", 0) if isinstance(inputs, dict) else 0
     return {
         "input_tokens": int(usage.get("input_tokens") or 0),
         "output_tokens": int(usage.get("output_tokens") or 0),
         "reasoning_tokens": int(reasoning or 0),
+        "cached_tokens": int(cached or 0),
     }
 
 
@@ -172,7 +184,12 @@ def usage_of(body: dict[str, object]) -> dict[str, int]:
 
 
 def batch_input(
-    path: Path, speeches: Sequence[Speech], build: Builder, model: str, effort: str
+    path: Path,
+    speeches: Sequence[Speech],
+    build: Builder,
+    model: str,
+    effort: str,
+    cache_key: str = "",
 ) -> int:
     """One `/v1/responses` request per speech, one JSON object per line."""
     lines = [
@@ -186,6 +203,7 @@ def batch_input(
                     model=model,
                     reasoning_effort=effort,
                     max_output_tokens=annotate.output_ceiling(speech, MAX_OUTPUT_TOKENS),
+                    prompt_cache_key=cache_key,
                 ),
             },
             ensure_ascii=False,
@@ -205,6 +223,7 @@ def submit(
     model: str,
     effort: str,
     raw: Path,
+    cache_key: str = "",
 ) -> tuple[list[str], int]:
     """Upload and create one batch per chunk, returning the ids and what they hold.
 
@@ -220,7 +239,7 @@ def submit(
     ]
     for number, chunk in enumerate(chunks, start=1):
         path = raw / f"batch-{number:03d}.input.jsonl"
-        count = batch_input(path, chunk, build, model, effort)
+        count = batch_input(path, chunk, build, model, effort, cache_key)
 
         def upload(path: Path = path) -> object:
             # Reopened per attempt: a retry over a consumed stream uploads an
@@ -321,6 +340,7 @@ def live(
     effort: str,
     workers: int,
     raw: Path,
+    cache_key: str = "",
 ) -> Outcome:
     """Direct Responses API calls, a bounded number of them at a time."""
     outcome = Outcome(requests=len(speeches))
@@ -331,6 +351,7 @@ def live(
             model=model,
             reasoning_effort=effort,
             max_output_tokens=annotate.output_ceiling(speech, MAX_OUTPUT_TOKENS),
+            prompt_cache_key=cache_key,
         )
 
         def call() -> object:
@@ -460,11 +481,31 @@ def run(args: argparse.Namespace) -> None:
 
     console.step("Reading the prompt and the controlled referents")
     pack = llm.load_prompt(PROMPT)
-    referents = audit.read_referents(REFERENTS)
+    # Current identifiers only, on both paths: the table the model is shown and
+    # the set its answers are checked against are the same list, so a retired
+    # category cannot be chosen and cannot be accepted if it somehow is.
+    referent_list = audit.read_referent_list(REFERENTS)
+    referents = referent_list.current
     table = llm.render_referents(llm.read_referent_table(REFERENTS))
     referents_sha256 = artifacts.sha256(REFERENTS)
     console.info(f"prompt version {pack.version}, sha256 {pack.sha256[:12]}")
-    console.info(f"{len(referents)} controlled referents, sha256 {referents_sha256[:12]}")
+    console.info(
+        f"referent list v{referent_list.version}: {len(referents)} offered, "
+        f"sha256 {referents_sha256[:12]}"
+    )
+
+    # The fixed prefix is the system message: the prompt's text with the referent
+    # table rendered into it, identical in all 3,273 requests and about 9M of the
+    # first run's 13.8M input tokens (review §4.2, item 8). Both providers cache
+    # such a prefix without being asked; a key is what keeps the requests that
+    # share it on one cache instead of several. `--no-prompt-cache` omits the
+    # field entirely, which reproduces a run made before it existed.
+    cache_key = (
+        "" if args.no_prompt_cache else llm.cache_key(pack.sha256, referents_sha256)
+    )
+    console.info(
+        f"prompt cache key {cache_key}" if cache_key else "prompt cache key omitted"
+    )
 
     previous = annotate.read_manifest(paths["manifest"])
     annotate.refuse_mismatch(previous, args.run_id, args.model, pack.sha256)
@@ -482,6 +523,7 @@ def run(args: argparse.Namespace) -> None:
         prompt_sha256=pack.sha256,
         reasoning_effort=args.reasoning_effort,
         lexicon_version=str(lexicon_version),
+        referents_version=str(referent_list.version),
         term=TERM,
         annotated_at=datetime.now(UTC).date().isoformat(),
     )
@@ -535,6 +577,7 @@ def run(args: argparse.Namespace) -> None:
             effort=args.reasoning_effort,
             workers=args.concurrency,
             raw=raw,
+            cache_key=cache_key,
         )
     else:
         console.step(f"Submitting {len(remaining):,} speeches to the Batch API")
@@ -546,6 +589,7 @@ def run(args: argparse.Namespace) -> None:
             model=args.model,
             effort=args.reasoning_effort,
             raw=raw,
+            cache_key=cache_key,
         )
         # Before a single result exists: an interrupted run must be resumable
         # with --poll rather than resubmitted and paid for a second time. The
@@ -663,6 +707,14 @@ def main() -> None:
         default="high",
         choices=("none", "low", "medium", "high", "xhigh", "max"),
         help="reasoning effort, default high",
+    )
+    parser.add_argument(
+        "--no-prompt-cache",
+        action="store_true",
+        help=(
+            "omit prompt_cache_key, reproducing a request made before caching was "
+            "asked for. The prefix may still be cached; nothing routes it."
+        ),
     )
     parser.add_argument("--limit", type=int, help="pilot: the first N genocide-bearing speeches")
     parser.add_argument("--live", action="store_true", help="direct calls instead of the Batch API")

@@ -14,7 +14,10 @@ Four things this module is responsible for:
   PROMPT.md` holds the system message and the per-speech user template as fenced
   blocks. Its raw bytes are hashed into every manifest and every row, so a label
   can always be traced to the exact wording that produced it, and editing the
-  file is a visible version change rather than a silent drift.
+  file is a visible version change rather than a silent drift. The superseded
+  wordings are kept beside it under `prompts/`, and a run is resolved against
+  the one whose bytes it recorded — so revising the prompt costs a new run id
+  and not the runs already paid for.
 - **The model's labels are checked against the human codebook's own vocabulary.**
   The enums come from :mod:`lib.audit` — the frozensets the human annotation file
   is validated against — so the model cannot invent a category the codebook does
@@ -68,6 +71,57 @@ ROW_FIELDS: Final = (
     "source_sha256",
     "schema_version",
     "lexicon_version",
+    "referents_version",
+    "run_id",
+    "model",
+    "prompt_version",
+    "prompt_sha256",
+    "reasoning_effort",
+    "verdict",
+    "quotation",
+    "concrete_case",
+    "speaker_position",
+    "function",
+    "referent",
+    "proposed_referent",
+    "referent_source",
+    "accused_actor",
+    "victim_group",
+    "own_state_accused",
+    "salience",
+    "evidence_quote",
+    "evidence_start",
+    "evidence_end",
+    "evidence_valid",
+    "evidence_relocated",
+    "rationale",
+    "confidence",
+    "annotated_at",
+)
+
+#: The shape of the two runs of 30 and 31 August 2026 and their two pilots,
+#: which are the only files that will ever have it: 12,184 rows written against
+#: annotation schema 2, before the relocating locator existed and before the
+#: referent list carried a version.
+#:
+#: Written out rather than derived from :data:`ROW_FIELDS` by exclusion, because
+#: it is no longer a subset — it carries `stance`, which schema 3 replaced with
+#: `concrete_case` and `speaker_position`. A validator that refused this shape
+#: would defeat the point of versioning anything: the versions exist so that
+#: improving the instrument does not orphan the runs that were paid for under
+#: the old one. So the shape is named here and accepted where a committed run is
+#: read back, never at the write seam, and `lib.llm.resolve_row` says what each
+#: of its rows means in schema 3's vocabulary.
+LEGACY_ROW_FIELDS: Final = (
+    "occurrence_id",
+    "line_id",
+    "filename",
+    "term",
+    "start",
+    "end",
+    "source_sha256",
+    "schema_version",
+    "lexicon_version",
     "run_id",
     "model",
     "prompt_version",
@@ -83,7 +137,6 @@ ROW_FIELDS: Final = (
     "evidence_start",
     "evidence_end",
     "evidence_valid",
-    "evidence_relocated",
     "confidence",
     "annotated_at",
 )
@@ -95,11 +148,18 @@ RESPONSE_FIELDS: Final = (
     "ordinal",
     "verdict",
     "quotation",
-    "stance",
+    "concrete_case",
+    "speaker_position",
     "function",
     "referent",
     "proposed_referent",
+    "referent_source",
+    "accused_actor",
+    "victim_group",
+    "own_state_accused",
+    "salience",
     "evidence_quote",
+    "rationale",
     "confidence",
 )
 
@@ -107,13 +167,32 @@ RESPONSE_FIELDS: Final = (
 ENUMS: Final[dict[str, frozenset[str]]] = {
     "verdict": audit.VERDICTS,
     "quotation": audit.QUOTATIONS,
+    "concrete_case": audit.CONCRETE_CASE,
+    "speaker_position": audit.POSITIONS,
+    "referent_source": audit.REFERENT_SOURCES,
+    "own_state_accused": audit.OWN_STATE_ACCUSED,
+    "salience": audit.SALIENCE,
+    "confidence": audit.CONFIDENCE,
+}
+
+#: The same, for a row written against annotation schema 2.
+LEGACY_ENUMS: Final[dict[str, frozenset[str]]] = {
+    "verdict": audit.VERDICTS,
+    "quotation": audit.QUOTATIONS,
     "stance": audit.STANCES,
     "confidence": audit.CONFIDENCE,
 }
 
-#: The fields a false positive must set to `not_applicable`, and which may not
-#: carry that value otherwise.
-CASCADE: Final = ("quotation", "stance", "function", "referent")
+#: The fields a false positive must set to `not_applicable`, and the subset in
+#: which that value may not appear otherwise. Both come from `lib.audit`, which
+#: is where the human codebook's own rules live: the model is held to the
+#: coder's cascade and not to one of its own.
+CASCADE: Final = audit.CASCADE_FIELDS
+RESERVED: Final = audit.RESERVED_FIELDS
+FREE_TEXT_CASCADE: Final = audit.FREE_TEXT_CASCADE_FIELDS
+
+#: The schema-2 cascade, for reading a committed run back.
+LEGACY_CASCADE: Final = ("quotation", "stance", "function", "referent")
 
 #: The name the structured-output schema is registered under in a request.
 SCHEMA_NAME: Final = "unsc_occurrence_annotations"
@@ -153,14 +232,77 @@ _WHITESPACE_RE = re.compile(r"\s+")
 # --- The prompt ------------------------------------------------------------
 
 
+#: The directory beside `PROMPT.md` that keeps the *superseded* prompt texts,
+#: one file per version, named `v<n>.md`.
+#:
+#: Every run records the SHA-256 of the prompt file's raw bytes, on the manifest
+#: and on all 6,092 of its rows, and 15 publishes that prompt verbatim beside
+#: the labels it produced. So the digest is the run's only handle on the wording
+#: it was made with, and until this directory existed there was exactly one file
+#: that digest could be compared against: editing `PROMPT.md` made both
+#: committed runs unpublishable, and `/usage` went dark. That is not a
+#: hypothetical — it is the reason two changes were declined in one afternoon,
+#: `genocidaires` and the referent identifiers, each of which would have been a
+#: better instrument bought at the price of the two runs already paid for.
+#:
+#: The escape is the one `referents.csv` takes for its own list: keep every past
+#: state, and resolve a run against the state it names rather than against
+#: today's. A run resolves *by digest*, not by the `prompt_version` number,
+#: because the digest is what was actually recorded and a version line is a
+#: human's claim about it — the number is checked against the resolved file and
+#: a disagreement is a provenance failure, which is the only thing it is good
+#: for.
+#:
+#: The archive holds superseded versions **only**, and `PROMPT.md` alone holds
+#: the current one. The rejected alternative was an archive holding every
+#: version, `prompts/v2.md` being a byte-for-byte copy of `PROMPT.md`: it reads
+#: more evenly, and it costs a state in which the two copies differ, which is
+#: the one failure a digest cannot repair and would have to refuse. One writable
+#: prompt and an append-only history behind it cannot reach that state at all.
+ARCHIVE: Final = "prompts"
+
+_ARCHIVE_NAME_RE = re.compile(r"^v(?P<version>[1-9]\d*)\.md$")
+
+
 @dataclass(frozen=True)
 class PromptPack:
     """One version of the prompt, with the digest that identifies it."""
 
     version: int
     sha256: str
+    #: The file's raw text, as read. Carried rather than re-read from disk
+    #: because a superseded version is published from the archive while
+    #: `PROMPT.md` holds something else, and a caller that went back to a path
+    #: would have to know which of the two it was holding.
+    text: str
     system_template: str
     user_template: str
+    #: What to call this file when a message has to name it.
+    name: str = "PROMPT.md"
+
+
+@dataclass(frozen=True)
+class PromptLibrary:
+    """The current prompt and every superseded one, keyed by digest."""
+
+    current: PromptPack
+    superseded: tuple[PromptPack, ...]
+
+    @property
+    def packs(self) -> tuple[PromptPack, ...]:
+        """Newest first, which is the order a failure message lists them in."""
+        return (self.current, *sorted(self.superseded, key=lambda p: -p.version))
+
+    def by_digest(self, digest: str) -> PromptPack | None:
+        """The prompt whose bytes hash to `digest`, or nothing if none does."""
+        for pack in self.packs:
+            if pack.sha256 == digest:
+                return pack
+        return None
+
+    def describe(self) -> list[str]:
+        """One line per known prompt, for the message that refuses an unknown."""
+        return [f"v{pack.version} {pack.sha256[:12]}... in {pack.name}" for pack in self.packs]
 
 
 def prompt_sha256(path: Path) -> str:
@@ -199,8 +341,10 @@ def load_prompt(path: Path) -> PromptPack:
     pack = PromptPack(
         version=int(version.group("version")),
         sha256=prompt_sha256(path),
+        text=source,
         system_template=_section(source, "System", path),
         user_template=_section(source, "User template", path),
+        name=path.name,
     )
     for template, declared, name in (
         (pack.system_template, SYSTEM_PLACEHOLDERS, "System"),
@@ -212,6 +356,80 @@ def load_prompt(path: Path) -> PromptPack:
                 f"{path.name}: '## {name}' is missing placeholders: {', '.join(missing)}"
             )
     return pack
+
+
+def load_prompt_library(path: Path) -> PromptLibrary:
+    """`PROMPT.md` and every superseded version beside it, checked as one set.
+
+    The current file is the one 14 and 16 render; the files under
+    :data:`ARCHIVE` are the ones earlier runs were made with, and each is loaded
+    through :func:`load_prompt` rather than merely hashed, so a text that no
+    longer parses into two templates is found here and not on the day someone
+    tries to reproduce a run from it.
+
+    Four rules, each of which exists because breaking it would make a run's
+    digest ambiguous or its version a lie:
+
+    - an archived file is named for the version it declares, `v<n>.md`, so the
+      directory can be read without opening anything;
+    - no two prompts in the library share a version number;
+    - every archived version is below the current one. The archive is history,
+      and a version above `PROMPT.md`'s means an edit went backwards. This is
+      also what forbids parking a copy of the current text in the archive, which
+      is the layout rejected above;
+    - no two share a digest. The three rules above already make that
+      unreachable — two files with different `version:` lines cannot have the
+      same bytes — so this one is held for the invariant rather than for a case
+      anyone has produced: :meth:`PromptLibrary.by_digest` returns one pack, and
+      a library that could answer with two would make it a coin toss.
+
+    An empty or absent archive is the ordinary state of a repository whose
+    prompt has never been revised, and is not an error.
+    """
+    current = load_prompt(path)
+    directory = path.parent / ARCHIVE
+    superseded: list[PromptPack] = []
+    for file in sorted(directory.glob("*.md")) if directory.is_dir() else []:
+        name = _ARCHIVE_NAME_RE.match(file.name)
+        if not name:
+            raise ValueError(
+                f"{ARCHIVE}/{file.name}: an archived prompt is named for its version, "
+                "as v<n>.md."
+            )
+        pack = load_prompt(file)
+        if pack.version != int(name.group("version")):
+            raise ValueError(
+                f"{ARCHIVE}/{file.name} declares version {pack.version}; "
+                "the file name and the header have to agree."
+            )
+        if pack.version >= current.version:
+            raise ValueError(
+                f"{ARCHIVE}/{file.name} is version {pack.version} and {path.name} is "
+                f"version {current.version}; the archive holds superseded versions only."
+            )
+        superseded.append(
+            PromptPack(
+                version=pack.version,
+                sha256=pack.sha256,
+                text=pack.text,
+                system_template=pack.system_template,
+                user_template=pack.user_template,
+                name=f"{ARCHIVE}/{file.name}",
+            )
+        )
+
+    packs = [current, *superseded]
+    for field, label in (("version", "version"), ("sha256", "digest")):
+        seen: dict[object, str] = {}
+        for pack in packs:
+            value = getattr(pack, field)
+            if value in seen:
+                raise ValueError(
+                    f"{pack.name} and {seen[value]} have the same prompt {label} "
+                    f"({str(value)[:12]}); a prompt version is one file and one digest."
+                )
+            seen[value] = pack.name
+    return PromptLibrary(current=current, superseded=tuple(superseded))
 
 
 def _fill(template: str, values: Mapping[str, object]) -> str:
@@ -243,6 +461,11 @@ def read_referent_table(path: Path) -> list[Referent]:
     the richer fields, tolerating a header that has not yet grown them. A row
     with no declared kind is reserved if it is one of the three reserved IDs and
     a case otherwise, which is what the file meant before `kind` existed.
+
+    Retired identifiers are left out, because the model is offered only what is
+    current. They stay in the file so a committed run that used one can still be
+    read, but rendering them would invite a new run to reuse a category the
+    list has withdrawn, and the run would then be neither v1 nor v2.
     """
     table = pd.read_csv(path, dtype="string", keep_default_na=False)
     missing = sorted({"id", "label", "description"} - set(table.columns))
@@ -251,6 +474,8 @@ def read_referent_table(path: Path) -> list[Referent]:
     referents = []
     for values in table.to_dict(orient="records"):
         identifier = str(values["id"])
+        if str(values.get("retired_in") or "").strip():
+            continue
         default = "reserved" if identifier in audit.DEFAULT_REFERENTS else "case"
         referents.append(
             Referent(
@@ -324,14 +549,33 @@ def response_schema() -> dict[str, object]:
                         "ordinal": {"type": "integer"},
                         "verdict": {"type": "string", "enum": sorted(audit.VERDICTS)},
                         "quotation": {"type": "string", "enum": sorted(audit.QUOTATIONS)},
-                        "stance": {"type": "string", "enum": sorted(audit.STANCES)},
+                        "concrete_case": {
+                            "type": "string",
+                            "enum": sorted(audit.CONCRETE_CASE),
+                        },
+                        "speaker_position": {
+                            "type": "string",
+                            "enum": sorted(audit.POSITIONS),
+                        },
                         "function": {
                             "type": "array",
                             "items": {"type": "string", "enum": sorted(audit.FUNCTIONS)},
                         },
                         "referent": {"type": "string"},
                         "proposed_referent": {"type": "string"},
+                        "referent_source": {
+                            "type": "string",
+                            "enum": sorted(audit.REFERENT_SOURCES),
+                        },
+                        "accused_actor": {"type": "string"},
+                        "victim_group": {"type": "string"},
+                        "own_state_accused": {
+                            "type": "string",
+                            "enum": sorted(audit.OWN_STATE_ACCUSED),
+                        },
+                        "salience": {"type": "string", "enum": sorted(audit.SALIENCE)},
                         "evidence_quote": {"type": "string"},
+                        "rationale": {"type": "string"},
                         "confidence": {"type": "string", "enum": sorted(audit.CONFIDENCE)},
                     },
                 },
@@ -401,20 +645,46 @@ def build_request(
     )
 
 
+def cache_key(prompt_digest: str, referents_digest: str) -> str:
+    """The routing key for the fixed prefix these two files make.
+
+    Every request in a run opens with the same system message: the prompt's own
+    text with the referents table rendered into it. That prefix is about 8,000
+    tokens of the roughly 4,200 a request averages beyond it, and it was sent
+    3,273 times — the review of 1 September (§4.2, item 8) measured some 9M of
+    Luna's 13.8M input tokens as the fixed part, and found neither script asking
+    for it to be cached.
+
+    Caching is automatic on both providers once a prefix is long enough; what a
+    key buys is that requests sharing a prefix are routed to the same cache
+    rather than spread over several. So it is derived from exactly what the
+    prefix is made of — the prompt bytes and the referent file's — and changes
+    when either does, which is when the cached prefix is no longer the same
+    text. Never the run id: two runs of one prompt should share the cache, which
+    is most of the point of a pilot at all.
+    """
+    return f"unsc-genocide-{prompt_digest[:12]}-{referents_digest[:12]}"
+
+
 def request_body(
     request: SpeechRequest,
     *,
     model: str,
     reasoning_effort: str,
     max_output_tokens: int,
+    prompt_cache_key: str = "",
 ) -> dict[str, object]:
     """The `/v1/responses` body, identical in a batch line and in a live call.
 
     Built here rather than in 14 so that the two paths cannot drift: a pilot run
     made with `--live` and a corpus run made through the Batch API have to be
     asking the same question, or the pilot measures nothing.
+
+    `prompt_cache_key` is omitted entirely when empty rather than sent as a blank
+    string, so a run made without it is byte-identical to a run made before the
+    field existed and the two remain comparable.
     """
-    return {
+    body: dict[str, object] = {
         "model": model,
         "reasoning": {"effort": reasoning_effort},
         "input": [
@@ -431,6 +701,9 @@ def request_body(
         },
         "max_output_tokens": max_output_tokens,
     }
+    if prompt_cache_key:
+        body["prompt_cache_key"] = prompt_cache_key
+    return body
 
 
 # --- Reading one speech's response -----------------------------------------
@@ -455,13 +728,32 @@ def _functions(value: object) -> tuple[str, ...]:
     return tuple(parts)
 
 
-def check_labels(entry: Mapping[str, object], referents: set[str]) -> tuple[str, ...]:
+def check_labels(
+    entry: Mapping[str, object], referents: set[str], *, schema: str = SCHEMA_VERSION
+) -> tuple[str, ...]:
     """The codebook's rules over one occurrence's labels, whatever wrote them.
 
     Mirrors `audit._validate_labels` for the fields the model supplies. Returns
     the function labels as a tuple so a caller does not parse them twice.
+
+    `schema` is the annotation schema the entry is coded against. Schema 3 is
+    what a model is asked for and what a new row is written at; schema 2 is the
+    vocabulary of the four committed runs, read here so that 15 can aggregate
+    them without their being re-coded — which would mean buying them again.
+
+    `proposed_referent` is required when the referent is `other` and refused on a
+    false positive, but is not refused on a controlled referent. The compound
+    rule the codebook carries — a passage naming two cases is coded as the first
+    one named — has to leave the pair recorded somewhere, and this field is where
+    the model already writes free text about a referent. About one in twenty of
+    the two runs' `other` rows is such a pair, so losing them would lose the
+    evidence for whether the rule is the right one. The rejected alternative was
+    a `compound_referents` field of its own, which would oblige the human
+    codebook to grow a column no coder has been trained on, to carry something
+    this field already carries.
     """
-    for field, allowed in ENUMS.items():
+    legacy = str(schema) == audit.LEGACY_SCHEMA_VERSION
+    for field, allowed in (LEGACY_ENUMS if legacy else ENUMS).items():
         value = str(entry[field])
         if value not in allowed:
             raise ValueError(f"Unknown {field} label: {value or '(blank)'}")
@@ -471,18 +763,41 @@ def check_labels(entry: Mapping[str, object], referents: set[str]) -> tuple[str,
     if referent not in referents:
         raise ValueError(f"Unknown referent: {referent or '(blank)'}")
 
-    reserved = {str(entry["quotation"]), str(entry["stance"]), referent, *functions}
+    cascade = LEGACY_CASCADE if legacy else CASCADE
+    reserved = LEGACY_CASCADE if legacy else RESERVED
     if str(entry["verdict"]) == "false_positive":
-        if reserved != {"not_applicable"}:
+        answered = {str(entry[field]) for field in cascade if field != "function"}
+        if answered | set(functions) != {"not_applicable"}:
             raise ValueError("False positives must use not_applicable discourse labels.")
-    elif "not_applicable" in reserved:
-        raise ValueError("not_applicable is reserved for false positives.")
+        if not legacy and any(
+            str(entry[field]).strip() for field in FREE_TEXT_CASCADE
+        ):
+            raise ValueError("False positives leave the free-text label fields empty.")
+    else:
+        answered = {str(entry[field]) for field in reserved if field != "function"}
+        if "not_applicable" in answered | set(functions):
+            raise ValueError("not_applicable is reserved for false positives.")
+
+    if not legacy:
+        # One decision, checked once: `concrete_case: no` and
+        # `speaker_position: no_position` are two names for the finding that the
+        # word is applied to no case here. A row carrying one without the other
+        # has taken the decision twice and differently, which is the fault
+        # schema 3 exists to remove.
+        blank = str(entry["concrete_case"]) == "no"
+        if blank != (str(entry["speaker_position"]) == "no_position"):
+            raise ValueError(
+                "concrete_case 'no' and speaker_position 'no_position' are one decision: "
+                f"got {entry['concrete_case']!r} and {entry['speaker_position']!r}."
+            )
+        if str(entry["verdict"]) != "false_positive" and not str(entry["rationale"]).strip():
+            raise ValueError("Every annotation carries a one-sentence rationale.")
 
     proposed = str(entry["proposed_referent"]).strip()
     if referent == "other" and not proposed:
         raise ValueError("referent 'other' requires a proposed_referent.")
-    if referent != "other" and proposed:
-        raise ValueError(f"proposed_referent is only for referent 'other', not '{referent}'.")
+    if str(entry["verdict"]) == "false_positive" and proposed:
+        raise ValueError("A false positive has no proposed_referent.")
     return functions
 
 
@@ -531,11 +846,18 @@ def validate_response(
         labels[ordinal] = {
             "verdict": str(entry["verdict"]),
             "quotation": str(entry["quotation"]),
-            "stance": str(entry["stance"]),
+            "concrete_case": str(entry["concrete_case"]),
+            "speaker_position": str(entry["speaker_position"]),
             "function": functions,
             "referent": str(entry["referent"]),
             "proposed_referent": str(entry["proposed_referent"]).strip(),
+            "referent_source": str(entry["referent_source"]),
+            "accused_actor": str(entry["accused_actor"]).strip(),
+            "victim_group": str(entry["victim_group"]).strip(),
+            "own_state_accused": str(entry["own_state_accused"]),
+            "salience": str(entry["salience"]),
             "evidence_quote": str(entry["evidence_quote"]),
+            "rationale": str(entry["rationale"]).strip(),
             "confidence": str(entry["confidence"]),
         }
 
@@ -788,6 +1110,7 @@ class RunMeta:
     prompt_sha256: str
     reasoning_effort: str
     lexicon_version: str
+    referents_version: str
     term: str
     annotated_at: str
 
@@ -817,6 +1140,7 @@ def annotation_rows(
                 "source_sha256": occurrence.source_sha256,
                 "schema_version": SCHEMA_VERSION,
                 "lexicon_version": meta.lexicon_version,
+                "referents_version": meta.referents_version,
                 "run_id": meta.run_id,
                 "model": meta.model,
                 "prompt_version": meta.prompt_version,
@@ -824,28 +1148,27 @@ def annotation_rows(
                 "reasoning_effort": meta.reasoning_effort,
                 "verdict": entry["verdict"],
                 "quotation": entry["quotation"],
-                "stance": entry["stance"],
+                "concrete_case": entry["concrete_case"],
+                "speaker_position": entry["speaker_position"],
                 "function": "|".join(entry["function"]),
                 "referent": entry["referent"],
                 "proposed_referent": entry["proposed_referent"],
+                "referent_source": entry["referent_source"],
+                "accused_actor": entry["accused_actor"],
+                "victim_group": entry["victim_group"],
+                "own_state_accused": entry["own_state_accused"],
+                "salience": entry["salience"],
                 "evidence_quote": quote,
                 "evidence_start": start,
                 "evidence_end": end,
                 "evidence_valid": valid,
                 "evidence_relocated": relocated,
+                "rationale": entry["rationale"],
                 "confidence": entry["confidence"],
                 "annotated_at": meta.annotated_at,
             }
         )
     return rows
-
-
-#: The key set of a run written before the relocating locator existed, and so
-#: before `evidence_relocated`. The two committed runs of 30 and 31 August 2026
-#: are the only files that will ever have it.
-LEGACY_ROW_FIELDS: Final = tuple(
-    field for field in ROW_FIELDS if field != "evidence_relocated"
-)
 
 
 def validate_row(
@@ -858,12 +1181,15 @@ def validate_row(
     writes it rather than by whatever reads it next.
 
     `appending` is true at the write seam and false where a committed run is
-    read back, and two rules hold only at the seam. A run that has been paid for
-    cannot be made to satisfy a rule written after it, and refusing to aggregate
-    it would delete the evidence rather than improve it:
+    read back, and two things hold only at the seam. A run that has been paid
+    for cannot be made to satisfy a rule written after it, and refusing to
+    aggregate it would delete the evidence rather than improve it:
 
-    - `evidence_relocated`, which a run written before the relocating locator
-      existed does not carry. Absent, it is read as false, which is what it is.
+    - the older row shape, :data:`LEGACY_ROW_FIELDS`. It is annotation schema 2:
+      one `stance` field where there are now two, no `referents_version`, no
+      `evidence_relocated`, and none of the six fields schema 3 adds. Every
+      committed run has it, and it is accepted on the way in and never on the
+      way out.
     - a false positive's own located quote. Three rows of the first run answered
       the evidence field with the literal string `not_applicable`, which the
       prompt's cascade invited and nothing refused; the codebook requires a span
@@ -871,7 +1197,12 @@ def validate_row(
       match is not the word being used" is a claim about a passage and is
       unreadable without it. New runs are held to it. The first run's three rows
       are recorded in `docs/VALIDATION.md` §7 instead.
+
+    The row's own `schema_version` has to agree with its shape, which is what
+    stops a schema-2 file being read as though its `stance` column meant what
+    `speaker_position` means.
     """
+    legacy = tuple(row) == LEGACY_ROW_FIELDS
     shapes = (ROW_FIELDS,) if appending else (ROW_FIELDS, LEGACY_ROW_FIELDS)
     if tuple(row) not in shapes:
         unexpected = sorted(set(row) - set(ROW_FIELDS))
@@ -880,7 +1211,8 @@ def validate_row(
             raise ValueError(f"Row keys are wrong: unexpected={unexpected}, missing={absent}")
         raise ValueError("Row keys are in the wrong order; see llm.ROW_FIELDS.")
 
-    check_labels(row, referents)
+    expected_schema = audit.LEGACY_SCHEMA_VERSION if legacy else SCHEMA_VERSION
+    check_labels(row, referents, schema=expected_schema)
 
     for field in ("start", "end"):
         if isinstance(row[field], bool) or not isinstance(row[field], int):
@@ -926,14 +1258,79 @@ def validate_row(
             f"{quote[:40] or '(blank)'!r} was not found around it."
         )
 
-    if str(row["schema_version"]) != SCHEMA_VERSION:
-        raise ValueError(f"Row schema version is not {SCHEMA_VERSION}: {row['schema_version']}")
+    if str(row["schema_version"]) != expected_schema:
+        raise ValueError(
+            f"Row schema version is not {expected_schema}: {row['schema_version']}; "
+            "the row's shape and the version it records have to be the same schema."
+        )
     coded = str(row["annotated_at"])
     try:
         if date.fromisoformat(coded).isoformat() != coded:
             raise ValueError
     except ValueError as exc:
         raise ValueError(f"annotated_at must be an ISO date: {coded or '(blank)'}") from exc
+
+
+def resolve_row(row: Mapping[str, object]) -> dict[str, object]:
+    """One run row in schema 3's vocabulary, whichever schema wrote it.
+
+    The counterpart of `15_usage.py::resolve_referents`, and the same argument:
+    a superseded value is *translated* rather than refused, because the four
+    committed runs are 12,184 rows that cannot be re-coded without being bought
+    again, and refusing them would mean the schema could never move.
+
+    A schema-3 row is returned unchanged. A schema-2 row is read as follows:
+
+    - `stance` becomes `speaker_position` through
+      :data:`lib.audit.POSITION_FROM_STANCE`, which is six renames and one value
+      that changed meaning;
+    - `concrete_case` is derived by :func:`lib.audit.concrete_case_from_v1` from
+      the stance and the referent, and is `unclear` wherever those two cannot
+      answer it;
+    - the six fields schema 3 adds have **no v1 image at all** and are returned
+      empty — `referent_source`, `accused_actor`, `victim_group`,
+      `own_state_accused`, `salience` and `rationale`. They are not guessed, and
+      the aggregation reports them as absent for the whole run rather than
+      counting an empty string as an answer. That is the honest statement of
+      what a v1 run can and cannot say, and it is the reason the pilot exists.
+
+    The row keeps its own `schema_version`, so nothing downstream can mistake a
+    resolved row for one that was coded at 3.
+    """
+    if tuple(row) != LEGACY_ROW_FIELDS:
+        return dict(row)
+    stance = str(row.get("stance", ""))
+    referent = str(row.get("referent", ""))
+    resolved = {key: value for key, value in row.items() if key != "stance"}
+    resolved.update(
+        {
+            "referents_version": "1",
+            "concrete_case": audit.concrete_case_from_v1(stance, referent),
+            "speaker_position": audit.POSITION_FROM_STANCE.get(stance, "unclear"),
+            "referent_source": "",
+            "accused_actor": "",
+            "victim_group": "",
+            "own_state_accused": "",
+            "salience": "",
+            "evidence_relocated": bool(row.get("evidence_relocated", False)),
+            "rationale": "",
+        }
+    )
+    return {field: resolved.get(field, "") for field in ROW_FIELDS}
+
+
+#: The schema-3 fields a schema-2 row cannot answer, in the order the artefact
+#: reports them. Named here so that the aggregation and the view agree on what
+#: "this run does not carry it" means, and so a reader can see at a glance what
+#: the pilot is for.
+UNANSWERED_BY_V1: Final = (
+    "referent_source",
+    "accused_actor",
+    "victim_group",
+    "own_state_accused",
+    "salience",
+    "rationale",
+)
 
 
 # --- The run file ------------------------------------------------------------

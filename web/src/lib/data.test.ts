@@ -220,7 +220,7 @@ describe('the validators that are about the research rather than the types', () 
 		actors: [{ country_org: 'Rwanda' }],
 		minimum_occurrences: 20,
 		matrix: [],
-		stance_by_actor: [],
+		position_by_actor: [],
 		diffusion: { milestones: ['mention'], referents: [] },
 		comparison: { state: 'none', model: '', overlap: 0, contested_any: 0, fields: [] },
 		gold: { state: 'not_started' },
@@ -252,7 +252,7 @@ describe('the validators that are about the research rather than the types', () 
 					model: '',
 					overlap: 12,
 					contested_any: 0,
-					fields: [{ field: 'stance', n: 12, observed: 1, kappa: null, contested: 0 }]
+					fields: [{ field: 'speaker_position', n: 12, observed: 1, kappa: null, contested: 0 }]
 				}
 			})
 		);
@@ -302,21 +302,23 @@ describe('the validators that are about the research rather than the types', () 
 
 	it('refuses a disagreement with no second reading, and a second reading with no disagreement', async () => {
 		const { usageOccurrences } = await fresh();
-		const silent = responder(occurrence({ contested: ['stance'], alt: null }));
+		const silent = responder(occurrence({ contested: ['speaker_position'], alt: null }));
 		await expect(usageOccurrences(silent.fetcher)).rejects.toThrow(
-			/is contested on stance and carries no second reading/
+			/is contested on speaker_position and carries no second reading/
 		);
 
 		const { usageOccurrences: second } = await fresh();
-		const unasked = responder(occurrence({ contested: [], alt: { stance: 'asserts' } }));
+		const unasked = responder(occurrence({ contested: [], alt: { speaker_position: 'asserts' } }));
 		await expect(second(unasked.fetcher)).rejects.toThrow(
 			/is contested on nothing, so its second reading must be null and is a reading/
 		);
 
 		const { usageOccurrences: third } = await fresh();
-		const partial = responder(occurrence({ contested: ['stance'], alt: { referent: 'bosnia' } }));
+		const partial = responder(
+			occurrence({ contested: ['speaker_position'], alt: { referent: 'bosnia' } })
+		);
 		await expect(third(partial.fetcher)).rejects.toThrow(
-			/is contested on stance and its second reading says nothing there/
+			/is contested on speaker_position and its second reading says nothing there/
 		);
 	});
 

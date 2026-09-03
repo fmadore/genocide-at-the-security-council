@@ -291,7 +291,14 @@ const COMPARISON_STATES = new Set(['computed', 'none']);
  * because `usage.ts` already imports from this module, so one list can serve
  * both without the two files importing each other.
  */
-export const COMPARED_FIELDS = ['verdict', 'quotation', 'stance', 'function', 'referent'] as const;
+export const COMPARED_FIELDS = [
+	'verdict',
+	'quotation',
+	'concrete_case',
+	'speaker_position',
+	'function',
+	'referent'
+] as const;
 
 const COMPARED = new Set<string>(COMPARED_FIELDS);
 
@@ -328,7 +335,7 @@ const validateUsageComparison = (record: JsonRecord, path: string): void => {
 		throw new Error(`${path}.comparison claims a second opinion and does not name the model.`);
 	}
 	if (Number(comparison.contested_any) > Number(comparison.overlap)) {
-		// A part larger than the whole, which is the objection the matrix's stance
+		// A part larger than the whole, which is the objection the matrix's speaker_position
 		// bands answer: the contested occurrences are a subset of the compared ones
 		// and the page states the one as a share of the other.
 		throw new Error(
@@ -402,27 +409,27 @@ const validateUsage: Validator = (record, path) => {
 				`${path}.matrix[${index}] names the referent ${cell.referent}, which is not on the list.`
 			);
 		}
-		const stances = requireRecord(cell, 'stances', `${path}.matrix[${index}]`);
-		const total = Object.values(stances).reduce<number>(
+		const positions = requireRecord(cell, 'positions', `${path}.matrix[${index}]`);
+		const total = Object.values(positions).reduce<number>(
 			(sum, value) => sum + Number(value ?? 0),
 			0
 		);
-		// Short is drawable and over is not: the stance bands are parts of the
+		// Short is drawable and over is not: the speaker_position bands are parts of the
 		// cell's own count, and a part larger than the whole is a bar that runs
 		// past the number printed beside it.
 		if (total > Number(cell.count)) {
 			throw new Error(
 				`${path}.matrix[${index}] (${cell.actor} × ${cell.referent}) divides ${cell.count} ` +
-					`occurrences into ${total} stances.`
+					`occurrences into ${total} positions.`
 			);
 		}
 	}
 
-	for (const [index, row] of arrayAt(record, 'stance_by_actor').entries()) {
-		if (!isRecord(row)) throw new Error(`${path}.stance_by_actor[${index}] must be an object.`);
+	for (const [index, row] of arrayAt(record, 'position_by_actor').entries()) {
+		if (!isRecord(row)) throw new Error(`${path}.position_by_actor[${index}] must be an object.`);
 		if (!actors.has(String(row.actor))) {
 			throw new Error(
-				`${path}.stance_by_actor[${index}] names ${row.actor}, who is not in the actor table.`
+				`${path}.position_by_actor[${index}] names ${row.actor}, who is not in the actor table.`
 			);
 		}
 		// The same substantive check `validateCountries` makes: the figure ranks
@@ -430,7 +437,7 @@ const validateUsage: Validator = (record, path) => {
 		// no share would be ranked at the top or the bottom by a null.
 		if (row.sufficient === true && !Number.isFinite(row.share_rejects)) {
 			throw new Error(
-				`${path}.stance_by_actor[${index}] (${row.actor}) claims to be sufficient without a share.`
+				`${path}.position_by_actor[${index}] (${row.actor}) claims to be sufficient without a share.`
 			);
 		}
 	}
@@ -709,7 +716,7 @@ export const REQUIRED = {
 		actors: 'array',
 		minimum_occurrences: 'number',
 		matrix: 'array',
-		stance_by_actor: 'array',
+		position_by_actor: 'array',
 		diffusion: 'object',
 		comparison: 'object',
 		gold: 'object'

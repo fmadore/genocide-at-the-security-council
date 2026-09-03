@@ -583,9 +583,11 @@ corpus-wide run:
 No model output may overwrite corpus text, lexicon counts or human annotations.
 
 Where each requirement lives as of 28 August 2026: (1) the schema is the codebook's own —
-verdict, quotation, stance, function, referent, confidence — enforced by
-`scripts/lib/llm.py`, with `unclear` as a first-class abstention and a verbatim evidence
-quote in place of free-form rationale; (2) `scripts/13_gold_sample.py` draws the gold
+since annotation schema 3 on 2 September 2026, verdict, quotation, `concrete_case`,
+`speaker_position`, function, referent, `referent_source`, `accused_actor`, `victim_group`,
+`own_state_accused`, `salience`, `rationale`, confidence — enforced by `scripts/lib/llm.py`,
+with `unclear` as a first-class abstention, a verbatim evidence quote, and a one-sentence
+rationale beside it rather than in place of it; (2) `scripts/13_gold_sample.py` draws the gold
 sample in three frames — 120 by equal probability, 80 by decade × usage cue (rejection,
 quotation, commemorative, dense meeting) so denied and commemorative uses are oversampled
 rather than hoped for, and, since 2 September 2026, 535 from the strata the two committed
