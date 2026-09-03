@@ -57,8 +57,9 @@ commit, split it in the log without inventing a new architectural layer.
 |     3 | U1–U8 evidence navigation and browser coverage | Make existing claims reproducible and test complete user journeys     | No                                            |
 |     4 | M1–M5 maintainability and payload access       | Reduce change risk without a broad refactor                           | No                                            |
 |     5 | S1–S6 stronger descriptive analysis            | Add uncertainty and views that expose evidence, not decoration        | No, except where noted                        |
-|     6 | H1–H2 human-coded interpretation               | Answer what the term is doing rhetorically                            | Yes                                           |
-|     7 | E1–E2 institutional and historical extension   | Add new data sources and new claims only after the core is stable     | No, but substantial research review is needed |
+|     6 | R1–R15 the second reader's second review       | Say on each figure where its numbers came from, before adding figures | Both coders review three lists; no coding yet |
+|     7 | H1–H2 human-coded interpretation               | Answer what the term is doing rhetorically                            | Yes                                           |
+|     8 | E1–E2 institutional and historical extension   | Add new data sources and new claims only after the core is stable     | No, but substantial research review is needed |
 
 ## Phase I — research integrity
 
@@ -987,6 +988,771 @@ apparatus, and lists the most contested passages as a reading list with a full C
 - Every surface that shows a disagreement names both models and carries the
   stability-not-validation sentence.
 
+## Phase R — the second reader's second review
+
+**Source.** A recorded working session with Joël Glasman, in two parts, read on 3 September
+2026. Phase L came out of his first round of feedback (implementation log, 28 August); this
+is the second round, and it was held over the site as it then stood — the
+`2026-08-30-luna-v1` run, prompt v1, referent list v1, *Rwanda 1994* still a column heading.
+It is a conversation and not an audit: nothing in it was computed, two figures quoted in it
+do not survive checking, and what is recorded below is the author's decision on each point
+rather than the transcript. R1–R8 come from the first part, R9–R15 from the second.
+
+**Relation to [`REVIEW_2026-09-01.md`](REVIEW_2026-09-01.md).** The two overlap and were made
+independently, which is worth something: where the reader and the review agree, the finding is
+not an artefact of either one's method. The review is the more precise instrument on the
+prompt (§4.2), the referent list (§4.3), the evaluation design (§4.4) and the figures (§5.2);
+the session is the more precise instrument on what the *dashboard* claims about itself, which
+the review treated as prose length (§5.1) rather than as provenance. Sections of the review
+are cited item by item below. Nothing here supersedes it.
+
+**What the session asked for that is already done**, and should not be reopened: dates out of
+referent labels (`rwanda_1994` → `rwanda`, `ukraine_2022` → `ukraine`, `drc_great_lakes` →
+`drc`, years demoted to documentation the coding rule ignores); the Great Lakes dissolved into
+the DRC; Gaza doubled by an undated `israel_palestine`; the Holodomor separated from Ukraine
+and Khojaly from Nagorno-Karabakh; `hypothetical_future` retired; twelve referents added from
+the `other` bucket, which v2 projects to reduce by 76.9%; the case question (`concrete_case`)
+asked once and before the position, which is the layer separation the session asked for; the
+distancing rule; ten worked examples taken from the corpus; and the meeting symbol and agenda
+item already passed to the model, with `referent_source` recording when a referent was read
+off them alone. The session's proposal that the United States be added as a case was tested
+against both runs and refused on evidence (`VALIDATION.md` §7, *What v2 refuses*).
+
+**One figure from the session does not survive checking.** `economic_sanctions_other` holds 14
+occurrences in the published run and `cuba_us_sanctions` 5, not the 813 read off the screen
+during the conversation. R1 therefore rests on the epistemological argument alone, and the
+volume argument is withdrawn.
+
+**The prerequisite.** No run has been made against prompt v2, so the published site still
+reads the schema-2 runs: `accused_actor`, `victim_group`, `own_state_accused`, `salience` and
+`referent_source` do not exist in any committed row. R2 is entirely blocked on a v2 run, R1
+rewrites the vocabulary such a run would use, and R3 and R4 describe surfaces whose columns
+that run renames. **Make the run before building on any of it**, on the pilot design already
+provisioned in `VALIDATION.md` §7. Nothing in R5, R6 or R7 depends on it.
+
+**The corpus underneath this phase is being replaced.** The session asked whether the record
+could be extended past 1992–2023 by scraping the Security Council's own documents. It is
+being extended, and not by scraping: the author found a second published corpus and began the
+migration on 3 September 2026 — Sakamoto and Matsuoka, *The UNSC Meetings and Speeches*,
+Harvard Dataverse `doi:10.7910/DVN/CKPTRB` v5.0, CC0, released 31 March 2026, **1946 to 2024:
+167,642 speeches over 9,464 meetings with speeches**, against Schoenfeld et al.'s 106,302 over
+6,582. The work is in the tree and uncommitted at the time of writing (`00`, `01`, `02`,
+`lib/council.py`, `lib/entities.py`, `lib/paths.py`, the dataset pin, and a new
+`tests/test_build_sakamoto.py`); it is not an item of this phase and is recorded here because
+every figure in this phase is measured on a corpus that is moving. Scraping is therefore not
+proposed: a DOI-pinned, immutably versioned, CC0 corpus is worth more than a crawl of
+`undocs.org` on every axis this project cares about — checksums, citability and the fact that
+somebody else maintains it.
+
+Two consequences the phase inherits, neither of them optional:
+
+- **The model layer does not follow.** `15_usage.py` drops any row whose `source_sha256` says
+  the speech has changed, so a corpus swap does not corrupt `/usage` — it empties it. There
+  is no partial credit here and the guard is right. The committed runs cover 3,273 speeches
+  and 6,092 occurrences of the old corpus; the new one carries **4,133 genocide-bearing
+  speeches and 7,747 occurrences**, a quarter more, and 535 of those speeches are before 1992
+  and 445 after 2023 — periods no run has ever seen.
+- **Every number in this phase is corpus-dated.** Figures below are marked *(1946–2024)* where
+  they were recomputed on the new corpus and *(1992–2023)* where they were not. A number
+  without a corpus is not a number here.
+
+**The order of work**, settled in the session and governing R1, R2 and the function layer.
+Referents first; then a second model over the same occurrences; then read *only* the
+occurrences the two instruments disagree on, and ask whether one of them is systematically
+worse or whether the errors are random, because the first case chooses an instrument and the
+second does not; then refine the vocabulary on what that reading found. The rhetorical
+`function` field waits for all of it — in the session's words, going to function before the
+referent is secure would be premature. L8 already builds the comparison run and
+`REVIEW_2026-09-01.md` §4.4 already specifies the disagreement-stratified sample; what is new
+is that the sequence is now a decision rather than an option.
+
+### R1. Two classifications, not one: the situation, and what is being called genocide
+
+**Decision, 3 September 2026.** The list mixes two questions and answers them in one column.
+`darfur`, `rwanda` and `gaza` name situations; `cuba_us_sanctions` and
+`economic_sanctions_other` name a *kind of act* being characterised; `colonial_era` names a
+period; the three non-case referents name a register of speech. A single column cannot hold
+them without the coder — human or model — silently choosing which question to answer, and the
+review's §4.3 revision improved the situations without touching the mixture.
+
+Split it. `referent` keeps one job: which situation, event or people the word is applied to. A
+second field, `modality`, records what is being characterised — armed conflict, ethnic or
+religious persecution, economic sanctions, military intervention or occupation, colonial rule,
+famine or starvation, forced displacement. The Iraq sanctions rows then read as *Iraq* +
+*economic sanctions* rather than as a category that is neither, and the question the session
+kept returning to — is a sanctions regime being called genocide, and by whom, across all the
+countries it is claimed of — becomes a column rather than a search.
+
+The cost is real and is not hidden: splitting a populated category makes two sparser ones, and
+some rows will carry a modality with no situation to attach it to (`colonial_era`'s 7
+occurrences may be exactly that). A modality that ends up on fewer rows than the category it
+replaced is a finding about the corpus, not a failure of the split, and it must be published
+as one.
+
+Fine categories also destroy the sum. `referents.csv` therefore gains a `group` column —
+`great_lakes`, `former_yugoslavia`, `the_sudans`, `iraq_and_syria`, `israel_and_palestine`,
+`the_caucasus`, `ukraine_and_russia` — so the matrix can collapse to groups and answer "how
+many delegations place the word anywhere in the Great Lakes" without abandoning the
+granularity that makes a cell readable.
+
+**One occurrence, two cases.** The second part of the session sharpened this, and it is not
+the problem it first looks like. A speech that discusses two genocides produces two
+occurrences, each annotated separately with the whole speech as context, and nothing is lost.
+The problem is *one* occurrence naming two cases — "genocide in Rwanda and in the Congo" —
+where the current rule, code the first named and put the pair in `proposed_referent`, is
+exactly the wrong answer: it discards half the evidence and records the loss in a free-text
+field that only fires when the model also chose `other`. The convention therefore hides its
+own frequency. 44 such pairs appear across the two runs, but only among the 641 `other` rows;
+how often a compound was silently flattened onto a controlled identifier is unknown, and
+unknowable from the committed runs.
+
+**The decision is a bounded second slot, not a list.** `referent_secondary` takes one further
+identifier or nothing; three or more cases in one occurrence stay `other` with the list in
+`proposed_referent`. The three alternatives were considered and are recorded so the bound is
+not mistaken for an oversight. Making `referent` a list breaks the sentence the matrix is
+built on — *a cell is a count of occurrences* — and turns a single-label field into a
+multi-label one, which costs Cohen's κ and buys a distribution nobody has asked to see.
+Emitting two rows for one occurrence breaks `occurrence_id` as a primary key, which every
+join in the pipeline uses. A second slot keeps every existing count valid on the primary
+field, needs no new statistics — the pair scores as a set with Jaccard exactly as `function`
+already does — and makes the loss measurable for the first time: the share of occurrences
+whose secondary slot is filled *is* the measurement of what the old convention was throwing
+away. What it still costs is stated rather than hidden: a passage naming three cases is
+degraded, and the bound at two is a decision taken on 5% of one bucket, not a finding.
+
+**Change.** `annotations/lexicon/referents.csv` to v3 (`group` column; the two modality-shaped
+identifiers retired with successors, per the versioning rule the file already enforces); a new
+`annotations/lexicon/modalities.csv` on the same pattern, seeded from the two runs' evidence
+quotes rather than invented; codebook to 4 and annotation schema to 4; prompt to v3 with the
+modality block and its own worked examples; `15_usage.py` publishes `modality` beside
+`referent` and a `group` roll-up; the `/usage` matrix gains a *collapse to groups* control and
+a modality axis. **Both coders review the modality list before any run uses it**, as L1
+requires of the referent list and for the same reason.
+
+**Acceptance and tests.**
+
+- A run recording referent version 2 is still read under v3 through `superseded_by`; the
+  existing staleness refusal covers modality identically.
+- The group roll-up is a partition: every case referent belongs to exactly one group, asserted
+  in `tests/test_audit.py`, and the collapsed matrix's row totals equal the expanded one's.
+- `modality` is `not_applicable` on a false positive and on a non-case mention, by the same
+  cascade that governs `referent`, and the cascade test covers it.
+- The published figure states how many occurrences carry a modality and no situation.
+- `referent_secondary` is empty or one identifier from the same list, never equal to
+  `referent`, and never filled when `referent` is a reserved identifier; the matrix publishes
+  primary-only counts by default and offers *primary or secondary* as a unit, the way it
+  already offers count and share. The share of occurrences using the second slot is
+  published, because it is the only measurement of what the previous convention cost.
+
+### R2. The accuser and the accused
+
+**Decision, 3 September 2026.** Schema 3 extracts `accused_actor` and `own_state_accused` and
+nothing aggregates either; they appear only in the detail of a single occurrence. The
+session's question — how many delegations accuse the United States of genocide, counting Cuba
+on the embargo and Iraq on the sanctions together — is not answerable from the site today, and
+it is closer to the study's own question than the referent matrix is. A referent matrix says
+what the Council talks about. An accuser-by-accused matrix says who the Council accuses, which
+is the thing a historian of the institution wants.
+
+`accused_actor` is free text by design, because the passage's own words are the evidence. It
+therefore needs the same treatment `referent` got: a controlled list beside it, not a model
+normalising itself. `annotations/lexicon/accused.csv` maps observed strings to identifiers
+over four kinds — States, non-State armed groups, international bodies and individuals —
+seeded from the runs' strings and reviewed by both coders. An unmapped string stays unmapped
+and is disclosed; it is never guessed into a neighbour.
+
+The diagonal is not noise. `own_state_accused` already marks the cell where the speaker is the
+accused, and those cells are the denials — the most legible rhetorical act in the corpus, and
+the one the China example in the session turns on.
+
+**Change.** `annotations/lexicon/accused.csv`; normalisation in `scripts/lib/usage.py` against
+that file alone; an `accused` block in `usage/usage.json`; a second matrix on `/usage`, drawn
+by the existing `UsageMatrix`, rows the speaking delegation and columns the accused actor,
+cells clickable to their occurrences like the first; self-accusation marked, not filtered.
+
+**Acceptance and tests.**
+
+- Blocked on a v2 run: with the schema-2 runs the block is empty and the figure states so
+  rather than drawing nothing. The empty state satisfies the same payload contract as the
+  computed one, as L8 requires of the comparison block.
+- The share of eligible occurrences carrying no accused actor is published beside the figure.
+  A passage that accuses no one is data — the prompt says so — and a matrix that hides its own
+  denominator would make that look like coverage.
+- Every unmapped string is counted, and the count is in the disclosure.
+- The figure carries the model-derived mark of R3.
+
+### R3. Provenance on the face of every figure: computed, mixed, model-derived
+
+**Decision, 3 September 2026.** The site marks provenance by page — a ledger on Methods, an
+*experimental* blurb in the navigation, a caveat under the `/usage` figures, a *model-derived,
+experimental* label beside the concordance's referent facet. The session asked for it by
+figure, on a three-step scale: green where the number is computed from the record, red where
+it is entirely a model's reading, amber where a figure mixes the two. That is a scale of
+**provenance**, not of reliability, and it is the more defensible of the two — a model label
+can be right and a computed count can measure the wrong thing.
+
+Two constraints on the implementation.
+
+*The colour is derived, not asserted.* `Figure` already names the script and artefact behind
+it in `source`. The mark is a pure function of that string: scripts 01–13 and 17 are computed,
+14 and 16 are model-derived, 15 is model-derived because its inputs are, and a figure whose
+`source` names both is mixed. An author cannot mislabel a figure without lying about where its
+numbers came from, and `web/scripts/word-budget.mjs` already walks every `<Figure>` in the
+tree, so the check is a lint rule rather than a convention.
+
+*Green is labelled "computed from the record", never "objective".* The session used the word
+with its own scare quotes, and they belong. The lexicon is a hand-built instrument, the
+reference dates are a curated overlay and the frames codebook is a hand-written regex; each is
+computed and none is neutral. The scale says who produced a number, which is checkable; it
+does not say the number is true.
+
+*The mark also belongs in the navigation.* The second part of the session read the site
+view by view and sorted it unprompted — concordance and chronology are "the indisputable,
+objective thing", Actors is "algorithmic mechanics", Usage "goes into the LLM", Methods is
+something else again — which is the same three-step scale applied to pages. A reader choosing
+a view should see what kind of thing is behind it before they arrive, not after. A page takes
+the weakest mark any figure on it carries, so `/usage` reads model-derived and `/concordance`
+reads computed even once R9 puts a model-derived facet on it.
+
+One finding from the same pass belongs here rather than in R14: **the Language view's purpose
+did not survive contact with its reader.** "Language, for me, what is that?" is not a
+complaint about a figure; it is a view whose name and question do not tell a historian what
+it is for. Naming it is part of this item, because a provenance mark on a page nobody can
+place does not help.
+
+**Change.** `provenance` derived in `$lib/figures.ts` from `source`, with tests; a mark in
+`Figure`'s caption, one legend on Methods, and a link from each mark to it; the four
+hand-written restatements on `/usage`, `/concordance` and `+layout.svelte` removed in favour
+of the one mark. Nineteen figures across six views; the six ECharts and MapLibre ones carry it
+into full screen under R5. The same three values are carried in `+layout.svelte`'s navigation,
+derived from the figures each view holds rather than declared a second time, and `/language`
+is renamed to say what it answers.
+
+**Acceptance and tests.**
+
+- The derivation is total: every `source` string in the tree resolves to exactly one of three
+  values, asserted over the parsed figure list rather than over a hand-kept inventory.
+- A figure drawing model output whose mark says computed fails `npm run lint`.
+- The mark survives full screen, print and the fallback tables.
+- The Methods ledger's four states stay: they describe a *pipeline step*'s standard of proof
+  and are a different claim from where a figure's numbers came from.
+
+### R4. `confidence` comes off the model schema and off the page
+
+**Decision, 3 September 2026.** The field measures nothing. Gemini wrote `high` on 6,035 of
+6,092 occurrences (99.06%) and `low` on none; Luna wrote `low` four times; neither run
+returned a single `uncertain` verdict. `lib/usage.py` already excludes it from Cohen's kappa
+for exactly this reason, on the review's §4.5 item 5, and §4.6 lists it among the things
+`/usage` should not show. It is nevertheless still requested by the prompt, still stored on
+every row, and still printed under every occurrence on the page, where "confidence high" reads
+to a visitor as a warrant it is not.
+
+Remove it from the model's schema, from the payload and from the page. The uncertainty signals
+that do discriminate are already computed and are not shown: `referent_source`, which
+distinguishes a referent read off the passage from one read off the meeting header, and the
+cross-instrument contest flag, which is a disagreement between two independent instruments
+rather than a model's opinion of itself.
+
+**Keep the human coder's `confidence`.** A person who writes `low` is abstaining, which is the
+behaviour the model does not have, and the codebook's instruction to record it is sound. If it
+should go from the human schema too, that is a codebook 4 decision and is not taken here.
+
+**Change.** Drop `confidence` from the JSON schema and `MODEL_FIELDS` in `scripts/lib/llm.py`,
+from the prompt's FIELDS block in prompt v3, from the `usage/occurrences.json` row and from
+`usage/+page.svelte`'s occurrence line. `lib.audit`'s `ANNOTATION_FIELDS` keeps it for the
+human file. The two committed runs keep the column they were written with; nothing rewrites a
+committed run.
+
+**Acceptance and tests.**
+
+- A schema-3 run's rows still load after the field is dropped from the reader; the payload
+  contract is updated on both sides.
+- The kappa floor's comment in `lib/usage.py`, which cites the 99.06%, is kept as the record
+  of why the field went.
+
+### R5. Full screen on every ECharts and MapLibre figure
+
+**Decision, 3 September 2026.** Asked for twice in one session, over a table too wide to read
+in the column it sits in. Five ECharts figures (`Chart.svelte`: the home page ×2, chronology
+×2, language ×1) and the MapLibre map on Actors get a full-screen control — six figures, one
+of which is the home page's register chart and so is R7's to re-cut or remove first.
+
+**One correction to the scope.** The table the session actually wanted to enlarge — the
+delegation-by-referent matrix — is `UsageMatrix.svelte`, an HTML table, and is neither ECharts
+nor MapLibre. Building the control for the chart libraries alone would miss the request that
+produced it. Put the affordance on `Figure`, where the caption and the R3 mark already live,
+and turn it on for the six chart and map figures **and** the matrix, with the other figures
+able to opt in later.
+
+**Change.** A `fullscreen` opt-in on `Figure` using the Fullscreen API, with a CSS
+fixed-overlay fallback for iOS Safari, which has no `requestFullscreen` on the phone. Escape
+closes it, focus returns to the trigger, and the caption — question, reading, caveat, source,
+provenance mark — goes with it: a figure without its account of itself is the decoration
+`Figure.svelte` exists to prevent.
+
+**Acceptance and tests.**
+
+- ECharts instances and the map both `resize()` on entering and on leaving; a chart that keeps
+  its old canvas size is the defect this control most easily ships with.
+- Keyboard: the trigger is reachable, Escape exits, focus is restored, and the overlay traps
+  focus while open.
+- `prefers-reduced-motion` is honoured on the transition.
+- An end-to-end spec opens the matrix full screen and reads a cell, so the original request is
+  covered by a test and not only by the chart libraries.
+
+### R6. The referent list is published beside the prompt
+
+**Decision, 3 September 2026.** `/usage` publishes the prompt in full and does not publish the
+controlled list the prompt renders into itself — the list that decides what every column of
+the main table can possibly say. During the session this was the first thing looked for and
+not found. The payload carries `id`, `label`, `kind`, `iso3` and `years`; the `description`,
+which is the definition a coder and the model both read, is dropped at the export seam.
+
+Publish it where the prompt is. Both are the instrument, and the prompt without the list is
+half of it.
+
+**Change.** `scripts/lib/usage.py` adds `description`, `since`, `retired_in` and
+`superseded_by` to the referent block, and the same for the modality and accused lists when R1
+and R2 land. `/usage` renders it as a disclosure beside the prompt, one row per identifier
+with its occurrence count in the published run, on the pattern of the frames codebook already
+on `/language`. Retired identifiers are shown as retired and named with their successor, so a
+reader of an older run can see what a column used to be called.
+
+**Acceptance and tests.**
+
+- The list shown is the list the run recorded: it is keyed to the run's referent version, and a
+  run recording an earlier version renders that version's rows, not today's file.
+- Payload contract fixtures updated on both sides for the new required fields.
+- The descriptions are already written for a reader; no second, friendlier copy is authored.
+
+### R7. The lexicon stops aggregating
+
+**Decision, 3 September 2026.** The register and set roll-ups go. A count of *the legal
+register* is a count of a category the analyst invented, published as though it were a property
+of the corpus, and the reader cannot tell which of six words moved when the line moves. The
+site keeps individual terms — a single word or a fixed phrase — and nothing sums over them.
+
+**The positive argument is about who composes the group.** The picker already lets a reader
+select several terms at once, so the aggregate was never a capability the site would lose; it
+was a *default grouping*, chosen by the analyst and presented as a thing. The session put it
+plainly: we do better by letting people compose the group themselves than by offering one,
+because a reader who ticks four terms knows what is in their line and a reader who clicks
+*legal* believes they understand something they have not been shown. Removing the aggregates
+does not remove a measure. It moves the choice of what to add together from the author to the
+reader, which is the only place it can be made honestly.
+
+**`r2p_quartet` is the clearest case and goes with them.** The responsibility to protect was
+codified in the early 2000s: it does not exist in 1992, and a line drawn across the whole
+corpus under that name projects a category backwards over half the record it describes. It is
+the Rome Statute anachronism again, in a set rather than in a gloss. The session's second
+objection is worse for it — no two jurists agree whether R2P states an obligation or a
+possibility — so the label names a thing whose content is contested by the people who made it.
+As a selectable curve it invites a reader to believe the Council had a doctrine before it had
+one.
+
+**The legal ladder, corrected.** An earlier draft of this item said no convention defines
+ethnic cleansing. That is true and incomplete, and the session's own formulation is the one to
+use, because it is what the intensity ordinal below is built on. Three tiers, not two:
+*genocide* (1948 Convention), *war crimes* (1949 Geneva Conventions) and *crimes against
+humanity* are **crimes** in international law; *ethnic cleansing* appears in legal texts but as
+an **aggravating qualification of a crime and not a crime itself**; *atrocity* has **no legal
+existence at all**. Filing the first four together under `legal` flattened three different
+kinds of thing into one.
+
+The review's §3.4 finding is settled by the same change rather than won: it found the register
+roll-ups double-counting nested terms, which lexicon v4 repaired; removing them retires the
+class of fault.
+
+One objection from the session was already absorbed before it was raised. *Ethnic hatred*
+"appears nowhere" — correct, and lexicon v4 renamed `ethnic_hatred` to `ethnic_violence` for
+exactly that reason, its own note recording that the pattern always matched *ethnic conflict*
+and *ethnic violence* far more often. No change is owed.
+
+Two things survive and one must be corrected. `register` survives as a shelf label for grouping
+and colouring the term picker, and `tier` as documentation; neither is a measure. The `tier`
+gloss in `config/lexicon.yml` — "the Rome Statute / R2P cluster" — is documentation about a
+corpus that begins in 1992, six years before the Rome Statute, and should be re-glossed on the
+1948 and 1949 instruments.
+
+**This removes a home-page figure**, and that is the item's real cost. *Register share,
+1992–2023* is the second of the two figures on the home page and is drawn from
+`has_register_*`. It is re-cut as individual terms or it goes; the choice is the author's and is
+not taken here. `README.md`, `PLAN.md` and `/methods#word-list` all describe six registers as a
+published measure and follow it.
+
+**The intensity ordinal is adopted, and it is built on legal status.** Not on a feeling of
+force, which no two readers would order the same way, but on the three tiers above: a term
+that names a crime defined by treaty outranks one that aggravates a crime, which outranks one
+with no standing in law at all. That ordering is arguable in public and can be cited to the
+instruments, which "how strong does this word feel" cannot. The view it buys asks, for one
+situation, whether a delegation climbs the ladder before it uses the word — the euphemism
+question of R10, seen from the vocabulary rather than from the meeting. The ordinal is
+hand-assigned and reviewed by both coders, which makes any figure drawn from it **mixed**
+under R3, not computed.
+
+**Change.** `lib/lexicon.apply` stops writing `n_register_*`, `has_register_*`, `has_set_*`,
+`n_lexicon_total` and `n_lexicon_terms`; the `sets:` block leaves `config/lexicon.yml`
+altogether, `r2p_quartet` included; `04_series.py` stops publishing the register series; the
+chronology picker drops the `register:*` and `set:*` measures and keeps the register as its
+grouping, with multi-term selection made obvious enough that a reader reaches for it where the
+aggregate used to be; the home page's second figure is re-cut or removed; `intensity` is added
+to `config/lexicon.yml` at a new version with a lock refresh.
+
+**Acceptance and tests.**
+
+- No payload carries a summed measure over more than one term; asserted at the export seam,
+  not by inspection.
+- Every prose claim about "six registers" is found and changed in the same commit — README,
+  PLAN, Methods, chronology — or the site describes a measure it no longer publishes.
+- The intensity scale is a total order over the terms, and any view drawn from it carries the
+  mixed provenance mark.
+
+### R8. The atrocity vocabulary without the word
+
+**Decision, 3 September 2026.** The model layer reads only speeches containing `genocid*`, and
+the session's sharpest example is the case that design cannot see. In the published run
+`xinjiang_uyghurs` holds two occurrences, both China's, both refusals: the only delegation that
+puts the word on Xinjiang is the one being accused. Everyone else frames the case in the
+vocabulary of genocide and stops short of the word — which is the object of study, and it is
+invisible to an instrument that enumerates the word.
+
+The corpus for it already exists and is already counted. `ethnic_cleansing`,
+`crimes_against_humanity` and `war_crimes` are unanchored, so 03 counts them corpus-wide, 08
+builds their concordance lines and 09 exports their speeches. Measured on
+`speeches_flagged.parquet` *(1946–2024)*: **4,716 speeches carry one of the three and never say
+`genocid*`**, holding 8,056 occurrences of the four atrocity terms — war crimes 4,332, crimes
+against humanity 2,376, ethnic cleansing 932, mass atrocity 416 — against the genocide layer's
+4,133 speeches and 7,747 occurrences. *(On the 1992–2023 corpus the same measurement gave 4,286
+and 7,494.)* The session settled the vocabulary at these three: "if we do the three, we are
+strong", with the caveat recorded that *war crimes* is specific but *war* and *crimes* are not,
+which is why the phrase and not its parts is the pattern.
+
+**Two stages, and only the first is cheap.** The session did not ask for the model run first.
+It asked for an **overview**: a second corpus set beside the first, so the chronology can show
+what the Council says when it is not saying genocide, and so the project can state
+quantitatively that the Council rarely reaches for the word *relative to* the other ugly words.
+That is arithmetic over counts the pipeline already has, it needs no model, it is **computed**
+under R3, and it can be done now. Fine-grained treatment stays on `genocide` — the session said
+so explicitly, and it is a legitimate place to stop. The site-wide control this implies is
+R9's.
+
+The second stage is the model layer, and its problem is design rather than price. About a fifth
+more occurrences than the run already made puts it near $5 and forty minutes on the Batch API.
+But the question is not "was this genocide" — the prompt's task boundary refuses that and must
+keep refusing it — it is whether *this passage frames a determinate case in the vocabulary of
+genocide without using the word*, a discourse question of the same kind as `concrete_case`. The
+expected answer is **no** most of the time: *war crimes* is the Council's routine vocabulary,
+and a field that cannot comfortably answer no will manufacture a finding. That is the risk this
+item carries, and it is why nothing from it merges into the genocide matrix.
+
+**Change.** *Stage one:* the three terms' speech counts and rates published beside the
+genocide series on the chronology, and the genocide-free set named as a corpus in its own right
+so R9 can switch to it. *Stage two:* a new enumeration over the three terms in genocide-free
+speeches; a `genocide_framing` field (yes / no / unclear) with the same cascade discipline as
+`concrete_case`, plus referent and modality; its own run, its own gold sample and its own
+agreement figures before anything is published from it; a separate view, never a column added
+to the existing matrix.
+
+**Acceptance and tests.**
+
+- Stage one publishes no model output and carries the computed mark; stage two is published
+  only behind its own human-coded sample, on the rule `PLAN.md` §5 already sets for the model
+  layer. Two full runs and a cheap price are not a warrant.
+- The negative rate is a headline of the artefact and not a footnote: an instrument that
+  answers yes to most of 8,056 routine occurrences has failed, and the number that says so is
+  published first.
+- The genocide matrix, the diffusion curves and the position profiles are unchanged by either
+  stage.
+
+### R9. The meeting becomes a unit, and the corpus gets a scope
+
+**Decision, 3 September 2026.** Everything on this site is a speech or a delegation. The
+meeting exists as a filename and as a destination for the reader, and never as a unit of
+analysis — which means the site cannot ask the question the second part of the session kept
+returning to: *in the meetings where somebody says genocide, what do the others say?* A
+delegation's silence is only legible against the debate it sat in.
+
+The session also asked for a control, and the two asks are one design. R8's genocide-free
+atrocity speeches are only interesting **next to** the genocide-bearing ones they shared a
+meeting with, so the site needs to be able to say which corpus a view is drawn from. Three
+scopes, one control, carried in the URL as U2 requires *(counts on 1946–2024)*:
+
+| scope | what it holds | speeches |
+|---|---|---:|
+| **the word** | speeches containing `genocid*` — today's implicit default | 4,133 |
+| **the vocabulary** | those plus speeches with ethnic cleansing, crimes against humanity or war crimes | 8,849 |
+| **the debate** | every speech in a meeting where at least one delegation said `genocid*` | 50,735, in 1,556 meetings |
+
+**The trap this must not fall into.** A scope selects a *reading set*, never a denominator.
+The home page's rate is a share of all 167,642 speeches and it must stay one under every
+scope, or the headline becomes a number whose base moves when a control is touched — the
+opposite of what R14 is trying to repair. The scope says which speeches are listed, tabulated
+and drawn; it never says which speeches the corpus has.
+
+This also promotes `/reader/[meeting]` from an escape hatch to a destination: once the meeting
+is a unit, the natural move from any figure is into the debate, with every speech in it and
+the vocabulary of each marked.
+
+**Change.** A `meetings` artefact carrying, per meeting, its date, agenda, speeches, the
+delegations present and the terms each used; a scope control in the layout, URL-carried,
+defaulting to *the word* so no existing link changes meaning; the concordance, chronology and
+actors views reading it; the reader view showing the whole debate with each speech's
+vocabulary marked.
+
+**Acceptance and tests.**
+
+- Every published rate keeps the full corpus as its denominator under all three scopes, and a
+  test asserts it rather than a reviewer noticing.
+- A URL without a scope parameter renders exactly what it renders today.
+- The meeting artefact reconciles to the speech table on speech counts, as every other
+  artefact in the pipeline reconciles to its input.
+- The scope control states, beside itself, how many speeches each scope holds. A control that
+  silently changes a population is a control that produces mistakes.
+
+### R10. Counter-concepts: what is said instead of genocide
+
+**Decision, 3 September 2026.** The session's best research question, and the one this
+instrument is furthest from answering. In Koselleck's terms a concept travels with its
+opposite, and the history of one cannot be written without the other: the interesting question
+is not only when the Council says *genocide* but **what it says in order not to**. Two
+candidate counter-vocabularies were named, and they belong to different speakers. The
+**humanitarian** register euphemises for the bystander — Rwanda in 1994, Gaza now — because
+naming the crime would trigger an obligation to act. **Terrorism** is the counter-accusation of
+the accused: the others call it genocide, you call them terrorists. The strong form of the
+hypothesis is that the pair *inverts* — the same two words, with the roles exchanged depending
+on who is speaking — which would show a shared grammar underneath what looks like each state
+saying whatever suits it.
+
+**A measurement that says the naive version of this must not be built.** Taking the meetings
+where somebody says genocide, and asking how often the *silent* speeches in those same meetings
+use each vocabulary:
+
+| | terroris\* | humanitarian |
+|---|---:|---:|
+| silent speeches, in genocide meetings *(1946–2024)* | 13.1% | 24.9% |
+| speeches in meetings where nobody says it *(1946–2024)* | 12.0% | 18.3% |
+| silent speeches, in genocide meetings *(1992–2023)* | 15.3% | 29.7% |
+| speeches in meetings where nobody says it *(1992–2023)* | 19.5% | 31.0% |
+
+**The sign of the terrorism contrast flips between the two corpora** — below the baseline on
+1992–2023, above it on 1946–2024 — and the humanitarian contrast goes from flat to clearly
+positive. A comparison whose direction depends on which decades are included is not measuring
+what it claims to measure. The confound is the agenda: a counter-terrorism debate is not a
+genocide debate, and the raw contrast is mostly a statement about what the Council had on its
+order paper. The item therefore does **not** ship an unadjusted co-occurrence figure. It ships
+the paired design the pipeline already uses for keyness — each speech matched to a comparable
+one, and the strongest available match is *within the same meeting*, which holds the agenda
+exactly rather than approximately, with the referent held too once R1 lands.
+
+**A second measurement, about the instrument rather than the question.** *terroris\* * appears
+in 944 of the 4,133 genocide-bearing speeches, 22.8% *(1946–2024)*; on the corpus the session
+was looking at, 669 of 3,273. The concordance's ±150-character window showed 66. The window is
+right for reading a use and wrong for finding a relation, by a factor of ten, and the session
+identified this unaided. Co-occurrence at speech and meeting level is R9's artefact, not the
+concordance's.
+
+**Neither vocabulary is in the lexicon.** There is no `terrorism` term and no humanitarian
+family in `config/lexicon.yml` today; *terrorism* is reachable only as a free-text filter over
+concordance lines. They are added as individual terms under R7's rule — never as a group.
+
+**Change.** `terrorism` and a small humanitarian set of individual terms added to the lexicon
+at a new version with a lock refresh; a meeting-paired comparison in `05_lexical.py` or a
+sibling, reported with the dispersion and the interval every other lexical table carries; a
+figure that answers "when this delegation was silent on genocide in this debate, what did it
+say instead", drawn only in the paired form.
+
+**Acceptance and tests.**
+
+- No unadjusted co-occurrence contrast is published. The paired estimate carries its matching
+  rule, its interval and how much the pairing itself moves the answer, exactly as the existing
+  keyness tables do.
+- The figure states that a vocabulary is not an intention: a delegation using humanitarian
+  language is not thereby shown to be avoiding anything, and the caption says so.
+- Both directions of the hypothesised inversion are drawn, or neither is. Publishing only the
+  half that fits is the failure mode this question invites.
+
+### R11. The crime of aggression
+
+**Decision, 3 September 2026.** International law divides in two, and this lexicon only knows
+one half. There is the law *against* war — you may not attack your neighbour — and the law
+*within* it: you may not kill civilians, prisoners or the wounded. The word list holds war
+crimes, crimes against humanity, genocide and the atrocity vocabulary, all of them the second
+half. There is no `aggression` pattern in `config/lexicon.yml` at all.
+
+The session's historical note is the argument for adding it. At Nuremberg the tribunal's
+obsession was not the killing of the Jews but whether the defendants had attacked their
+neighbours; the category that mattered most to the founding moment of this whole vocabulary is
+the one missing from the list. For a corpus that now begins in 1946 — the Council's first
+meetings, and the years in which that hierarchy was still being argued — the omission is
+larger than it was for a corpus beginning in 1992.
+
+**Change.** An `aggression` term in `config/lexicon.yml` at a new version with a lock refresh,
+its pattern written for the phrase and not for *aggression* alone, which is ordinary Council
+prose; the jus ad bellum / jus in bello distinction recorded in the file's own documentation,
+where the tier gloss R7 corrects already lives; the term offered in the picker like any other.
+
+**Acceptance and tests.**
+
+- The pattern's examples are attested in the corpus and quoted with their line ids, on the rule
+  every other term follows.
+- Adding a term bumps the lexicon version and every downstream count is regenerated, not
+  patched.
+
+### R12. Figures whose purpose is not established
+
+**Recorded on 3 September 2026; no decision taken.** The session read the site figure by figure
+and three of them did not survive the reading. This item records that, and deliberately stops
+there: which figures go is the author's call and is not made here.
+
+- **"The vocabulary's calendar" and "The same twelve months, pooled"** (chronology). The reader
+  could not say what question they answer. Worse, the exchange over them shows them inviting a
+  wrong one: looking for April 1994 and Rwanda, he found peaks in February, April and June, and
+  the explanation is that they are not Rwanda but Bosnia. A within-year seasonal figure over a
+  vocabulary that spans every situation on the agenda mixes cases the reader assumes are one.
+  If they stay, they need a referent filter, which is R1's; if that filter is what makes them
+  legible, they were the wrong figures before it.
+- **"Which terms travel together"** (language) and **"The words that sit near a term"**. Read
+  as purely statistical proximity, useful to the authors as a development step and not to a
+  reader: "once you want a finished thing, this has to go".
+
+The principle behind all three, and the reason this item is not just a list: **the more
+information you put in, the harder it is to use the right information.** And behind that, a
+strategic reading the author should weigh before deciding anything here — that the project's
+centre of gravity should move toward model-assisted classification and corpus exploration, and
+away from lexicometry, not because the lexicometry is wrong but because it has been done
+elsewhere with simpler tools and is not what is new here. That reframing, if adopted, changes
+the information architecture of the whole site and is much larger than three figures. It is
+recorded, not adopted.
+
+### R13. The epistemological page
+
+**Decision, 3 September 2026.** Methods answers *how every number was made*. Nothing on the
+site answers *why this is a defensible way to study the Council at all* — what the object is,
+why a machine-read corpus can bear on it, and what the approach cannot do. The session offered
+to write it, and it should be written by the second reader rather than by the pipeline's
+author: it is a historian's argument, not an engineering note.
+
+Its content, as the session set it out: why we do this, why it makes sense, and what the
+problems are, in the terms of historical and sociological research. The audience argument is
+the whole justification — for trained historians it is obvious that both halves are needed;
+for a visitor it is not, and a site that publishes only the machinery implies the machinery is
+the argument. And the lesson of the project is precisely that all of this has to be watched:
+the LLM, the algorithms, the word list, the referent vocabulary. A page that says so is not a
+disclaimer, it is the finding.
+
+Methods then becomes what it should be — *if you want to know what happens under the bonnet,
+here it is* — rather than the site's only account of itself. This page is also where the
+epistemological statements that have nowhere else to go are made: that the tool is an
+instrument for targeted reading and not a statistics engine, and R15's point about who is
+taken to be speaking.
+
+**Change.** A new view, authored by Joël Glasman and credited to him, linked from the home
+page and from every provenance legend; Methods keeps its ledger and loses the burden of being
+the epistemology; `README.md`'s acknowledgement becomes an authorship note for that page.
+
+**Acceptance and tests.**
+
+- The page is signed. An unsigned epistemological argument on a site whose whole discipline is
+  provenance would be the one unprovenanced thing on it.
+- Nothing on it restates the pipeline. If a sentence could go in Methods, it goes in Methods.
+
+### R14. Navigation and legibility of long pages
+
+**Decision, 3 September 2026.** The views descend a long way. `/usage` is 2,207 lines of
+component for four figures, `/language` 1,706 for six, `/chronology` 1,576 for five,
+`/concordance` 1,147 for one, and a reader who wants the third figure scrolls past two figures,
+their apparatus and their evidence lists to reach it. `Contents.svelte` exists and does the
+right thing, but it is a flat inline list of figure titles, rendered once at the top of four of
+the seven views, and it scrolls away with everything else — so it helps the reader who has not
+started and nobody else.
+
+The fix is one of two shapes and the choice is open: **sub-pages in the navigation**, splitting
+the long views into named destinations, or **a jump list that persists** — sticky, showing
+where the reader is, covering every view including the three that have none. Sub-pages give
+shorter pages and better links at the cost of losing the comparison a single scroll allows;
+a persistent contents keeps the page whole and does less. Either way the figure anchors already
+exist from U10 and `figures.ts` already derives them, so this is presentation and not new
+identity.
+
+**One piece of evidence that the problem is not only length.** The reader took the home page's
+headline rate to be a share of the genocide-bearing speeches rather than of all of them, and
+the author's own response was that it is not clear enough on the page *despite the pile of
+text*. That is the strongest possible finding about apparatus: an expert reader, told at
+length, still read the wrong denominator. More words made it worse. The headline figure states
+its denominator in the figure, in the mark, not in a paragraph near it.
+
+**Change.** A sticky, position-aware contents on every multi-figure view, or a split into
+sub-pages — one, decided before implementation, not both; the home page's rate figure states
+its base on the axis or in the unit label; the same treatment for any other figure whose
+denominator is not visible from the mark.
+
+**Acceptance and tests.**
+
+- Every view with more than one figure offers a way to reach the last one without scrolling
+  through the others, and it is reachable by keyboard.
+- An end-to-end spec asserts the denominator is present in the rate figure's own accessible
+  description, not merely in the prose beside it.
+- If sub-pages are chosen, every existing deep link keeps working.
+
+### R15. Governments, not States
+
+**Decision, 3 September 2026 — the statement now, the analysis later.** The site treats a
+speech as a State speaking. It is a government speaking, and often the distinction is the
+finding: nobody calls Rwanda's killings a genocide until the government changes, and then
+everybody does, because the new government legitimates itself by accusing the old one. Read as
+*Rwanda's position over time*, that is a puzzle; read as two governments, it is not. The same
+mechanism will be behind other reversals in the corpus.
+
+The corpus carries the join. `source_cow_ccode` is present on 158,563 of 167,642 rows over 200
+distinct codes, and Correlates of War codes are what the leader and government datasets key on
+— so a government-change overlay is a join and not a research project. Candidates to evaluate,
+each of which must be checked for coverage against 1946–2024 before it is adopted, because
+several stop well short of 2024: **Archigos** (heads of state, COW-keyed), **CHISOLS** (flags
+the leader changes that change the *source* of a leader's support, which is exactly the Rwandan
+case), **WhoGov** (cabinet composition), **REIGN**, and **V-Dem** for regime characteristics at
+country-year. None is adopted here; the item is to check them.
+
+The individual level is harder and is not proposed. `speaker` holds 10,813 distinct name
+strings with no stable person identifier, so anything about the circulation of particular
+diplomats — the people who specialise in this subject and reappear across situations — needs
+name disambiguation first, which is its own project.
+
+**Change.** The epistemological statement goes on R13's page now: what the unit of analysis is,
+why it is a government and not a State, and that the site does not currently model the
+difference. The dataset evaluation is a note in `docs/CORPUS.md`. Any overlay is deferred and
+must be preregistered as a new analysis, on the rule the *Later analytical specifications*
+section already sets.
+
+**Acceptance and tests.**
+
+- Nothing is joined before its coverage is stated against the corpus's own span; a leader table
+  ending in 2015 laid over a corpus ending in 2024 would silently blank a decade.
+- The epistemological statement ships whether or not any dataset is adopted. It costs nothing
+  and it is true now.
+
+### Carried, not decided
+
+Raised in the session, not ruled on, and recorded so they are not lost:
+
+- **A second pass over the residue with the meeting's neighbouring speeches.** The prompt
+  already passes the meeting symbol and agenda item, and `referent_source` records a referent
+  read off them alone; the neighbours are not passed. 343 `other` and 49 `unclear` in the
+  published run, of which v2 projects to absorb about three quarters, so the remainder may not
+  be worth a second instrument.
+- **The evidence-location rate as a figure.** 15 unlocatable spans in 6,092, 99.75% found
+  verbatim in the record. It is the strongest honesty claim the layer has, and it is a line of
+  disclosure.
+- **Lemkin's own vocabulary.** The session began a point about Raphael Lemkin's 1943 coinage
+  and the near-synonyms he worked with, and the recording does not carry the end of it. Worth
+  asking again: the terms a concept was invented *against* are R10's question moved back to the
+  beginning.
+- **Circulation of individuals.** R15 defers this on name disambiguation, but the underlying
+  question — that some delegates specialise in this subject and reappear across situations and
+  decades — is a good one and is now answerable in principle over a corpus that runs from 1946.
+- **The noisy adjacent terms** of review §3.4 — `survivors`, `commemoration`, `denial`,
+  `glorification`, `holocaust`. R7 removes the aggregates; it does not make these terms measure
+  genocide talk.
+
 ## Phase E — institutional and historical extension
 
 ### E1. Rhetoric and formal Council action
@@ -1097,3 +1863,5 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-09-02 | Item 9, follow-up: the headline rule in one place | complete | pending | PR #8's Dashboard job: `evidence.spec.ts:51` found the home page's heading and no chart, three retries; locally `npx playwright test` 26 passed with `--retries=1` (the first `goto('/')` on a cold `vite dev` can abort while it re-optimises echarts); `npm run check` 0 errors; `npm test` 489 (`headline.test.ts` +4); `npm run lint` unchanged at 2,332 words | The chronology and the actor table fell back from `genocide_qualification` to the raw term; the home page did not, read the derived key directly, and crashed on the e2e fixture, which is an artefact cut before v4 and carries only `genocide`. The rule now lives once in `web/src/lib/headline.ts` and all three views use it; the exported SVG names the measure actually drawn, and the caveat's *genocidaires* sentence is shown only when the derived measure is what the figure draws. The fixture is left as it is on purpose: it is the pre-v4 artefact the fallback exists for, and the derived path is what every real payload takes. |
 | 2026-09-02 | The deploy after PR #9: three faults behind 03, found by rehearsing the pipeline over the corpus | complete | pending | Deploy run 33649536447 on `main` at 07f377e failed in 03 (`Coverage sample size 100 is smaller than its 109 strata`); 02, 03, 04, 08, 11, 13, 15 and 17 then run in sequence over the real corpus in a scratch data root (`GENOCIDE_DATA_ROOT` and its two siblings), each exit code read; `lib.contract.check` over the twelve artefacts they write: 0 problems; `python -m pytest` 1,028 passed (`test_audit.py` +1); `ruff check .`; `UPDATE_GOLDEN=1` on `test_end_to_end.py` and the diff read; `npm test` 489 | 03's coverage frame promises one occurrence per term and period, and 28 terms make 109 strata for a sample of 100: the step sizes the frame up to its strata and says so (100 → 109, 210 candidates). Two more faults were waiting behind it, both from the headline's move to `genocide_qualification` in item 9: 04 still ran the Poisson test on the raw term, so the inference block had a member with no `speech_rate` and the contract would have refused the payload in `export_web.py`; 11 had renamed `TRACKED` and kept five reads of `computed["genocide"]` and a prevalence over `has_genocide` on columns it no longer read, and died on the first. The test moves to the derived measure (2016, p = 0.0095, unchanged year), 11 names its headline once, and the contract's monthly block says `words`. The rehearsal is the lesson: an agent that measures a lexicon read-only never runs the step, and `test_end_to_end.py` runs 04, 08 and 17 but not 03 or 11. 11 asserts the real corpus totals and cannot join the synthetic run, so `tests/test_countries_step.py` runs its builders on exactly the frame `load_corpus` hands them and holds its source to reaching the headline through `HEADLINE`; 03's sizing fault needs the real lexicon against the real periods and is guarded by the unit test in `test_audit.py`, not by a synthetic run. 12 and 09 were rehearsed too (126 of 133 speakers published; 6,000 meetings, 373 MB) and their artefacts check clean. Owed: 05 alone was not rehearsed — its change since the last deploy is a docstring — and the deploy's log is its check. |
 | 2026-09-02 | Item 4: prompt v2, referents v2 onto main, annotation schema 3, the pilot provisioned | complete | pending | `python -m pytest` (1,059 passed on the branch, from 1,027); `ruff check .`; `15_usage.py` run end to end from a scratch data root against both the real v1 pair and a synthetic schema-3 pair, both satisfying one contract; `npm run check` (0 errors); `npm test` (490); `npm run lint` (21 figures, 2,332 words); `npx playwright test` (26); then, after the merge with the deploy repair, 13, 15 and 17 rehearsed over the corpus and the contract checked by the orchestrator | Referents v2 merged onto main; `referents_version` recorded once in `lib/annotate.py::write_manifest`, and the two legacy row shapes become one. `PROMPT.md`'s digest no longer has to equal today's file: `prompts/v<n>.md` keeps every superseded wording and 15 resolves a run by digest, refusing only one it has never seen — the escape that makes editing the prompt possible at all, after the price was refused twice on 2 September. The archive holds superseded versions only; an archive holding every version costs a state in which two copies of one version differ, and a test refuses it. Prompt v2 splits `stance` into `speaker_position` and `concrete_case`, locked at one value; defines `reports_without_position` positively with a settled legal status counted as an assertion; adds six fields and ten worked examples drawn verbatim from the corpus with their line ids; and writes down the distancing, commemoration, title and accountability rules — two of which state what both committed runs already do in 98% and 176/176 of cases. Codebook 3 / annotation schema 3 follows, and no committed run is refused: `llm.resolve_row` translates a schema-2 row, `audit.concrete_case_from_v1` derives the case decision from the recorded referent, and the six added fields are reported absent rather than guessed — 6,092 rows of a v1 run. Two things the translation measured: 800 Luna rows and 535 Gemini rows take the abstract-or-concrete decision twice and differently, and asked apart the two instruments agree on it at 0.951/κ 0.893 against 0.812/κ 0.688 asked together. Prompt caching added on both providers with `cached_tokens` reported from each provider's own counter; the v2 prefix is 7,700 tokens against v1's 3,400, so caching is the condition on which v2 is affordable rather than an optimisation. Owed: the pilot and the full run, both the author's decision, and `cost_usd`, which still has no price table. |
+| 2026-09-03 | Phase R defined: the second reader's second review | documented | pending | Documentation only; no code changed, so no gate was re-run. Every claim in the phase was recomputed from committed artefacts: the confidence distributions from the two `annotations.jsonl` (Gemini `high` 6,035/6,092, no `low`; Luna `low` 4), the referent counts and `comparison.state: "none"` from `web/build/data/usage/usage.json`, the schema-2 field list from the head of `runs/2026-08-30-luna-v1/annotations.jsonl`, and R8's corpus size with pandas over `data/derived/speeches_flagged.parquet` (4,286 speeches carrying `ethnic_cleansing`, `crimes_against_humanity` or `war_crimes` and no `genocid*`; 7,494 occurrences of the four atrocity terms in them). `grep` confirms no test or script reads this file. | A recorded working session with Joël Glasman, the second after the one that produced Phase L, read against the site as it stood on the `2026-08-30-luna-v1` run. Recorded as a phase rather than as untracked edits, on the precedent of the 28 August entry, and cited section by section against `REVIEW_2026-09-01.md`, which was made independently and reaches several of the same findings. Eight items, all decided by the author: R1 splits the referent column into situation + modality with a `group` roll-up (referents v3, schema 4, prompt v3); R2 adds the accuser-by-accused matrix the study's own question wants, from schema 3's `accused_actor`; R3 puts a derived provenance mark — computed / mixed / model-derived — on every figure, read off `Figure`'s `source` string so it cannot be asserted falsely, and labelled "computed from the record" rather than "objective" because the lexicon is a hand-built instrument; R4 removes `confidence` from the model schema and the page and keeps it for human coders, who do abstain; R5 adds full screen, extended past the requested ECharts and MapLibre figures to the matrix that prompted the request and is neither; R6 publishes the referent list beside the prompt it is rendered into; R7 removes the register and set aggregates, adopts an intensity ordinal, and accepts that this re-cuts or removes the home page's second figure; R8 sizes the run over atrocity vocabulary in speeches that never say the word. Two things the session said are corrected here rather than carried: the 813 occurrences read off the screen for the sanctions category are 14, so R1 rests on the epistemological argument alone; and R2 is entirely blocked on a run against prompt v2, since no committed row carries `accused_actor`. Nothing is implemented; R1–R4 wait on that v2 run, R5–R7 do not. |
+| 2026-09-03 | Phase R extended: the session's second part, R9-R15 | documented | pending | Documentation only; no code changed. New claims recomputed from artefacts: the corpus swap read from `config/dataset-pin.json`, `data/raw/dataset-manifest.json` and `data/derived/manifests/01_build_parquet.json` (Sakamoto-Matsuoka v5.0, `doi:10.7910/DVN/CKPTRB`, 167,642 speeches over 9,464 meetings, 1946-2024); R8's and R9's counts and R10's contrasts recomputed with pandas over the new `speeches_flagged.parquet` (4,133 genocide-bearing speeches, 7,747 occurrences; 4,716 speeches with the three atrocity terms and no `genocid*`; 1,556 meetings holding 50,735 speeches); R15's join key from `source_cow_ccode` (158,563 of 167,642 rows, 200 codes); R14's page sizes from `wc -l` over the routes and `Contents.svelte` read for what it does. | The second half of the same recorded session. Seven new items and five amendments. Amendments: R1 gains `referent_secondary`, a bounded second slot chosen over a list field (which would break "a cell is a count of occurrences" and cost Cohen's kappa) and over a second row (which would break `occurrence_id`); R3 carries the provenance mark into the navigation and names `/language`'s unclear purpose; R7 gains the composition argument (the reader ticks the terms, the author does not pre-group them), retires `r2p_quartet` on the 1992-vs-2000s anachronism, and rebuilds the intensity ordinal on legal status after correcting this document's own claim about ethnic cleansing - it is cited in legal texts as an aggravating qualification of a crime, not as a crime, which is a third tier the earlier draft collapsed; R8 splits into a cheap computed overview and the model layer, on the session's own sequencing. New: R9 makes the meeting a unit and adds a three-value corpus scope, with the rule that a scope never moves a denominator; R10 records the counter-concept question and the measurement that refuses its naive form - the terrorism contrast changes sign between the two corpora (13.1% vs 12.0% on 1946-2024; 15.3% vs 19.5% on 1992-2023), so the unadjusted comparison measures the agenda and the item ships only a meeting-paired design; R11 adds the crime of aggression, absent from the lexicon and central at Nuremberg; R12 records three figures whose purpose did not survive their reader, explicitly without deciding; R13 commissions a signed epistemological page from the second reader; R14 takes the long-page navigation and the home page's misread denominator; R15 states the government/State distinction now and defers the leader-dataset join. The corpus migration is recorded in the preamble rather than as an item: it is the author's work in progress and it answers the session's scraping question by making scraping unnecessary. |
