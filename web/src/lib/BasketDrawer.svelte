@@ -203,8 +203,7 @@
 							maxlength={MAX_NOTE}
 							placeholder="A note for yourself…"
 							value={item.note}
-							onchange={(event) => basket.note(item.id, event.currentTarget.value)}
-						></textarea>
+							onchange={(event) => basket.note(item.id, event.currentTarget.value)}></textarea>
 					</label>
 
 					<div class="actions">
