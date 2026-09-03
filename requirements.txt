@@ -10,7 +10,7 @@
 # Exact environment:
 #     python -m pip install --require-hashes -r requirements.lock
 
-numpy>=2.3,<3
-pandas>=3.0,<4
-pyarrow>=23,<26
+numpy>=2.5.2,<3
+pandas>=3.0.5,<4
+pyarrow>=25.0.1,<26
 PyYAML>=6.0.3,<7
