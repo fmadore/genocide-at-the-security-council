@@ -15,14 +15,21 @@
 # this file. `setup_env.sh` additionally asserts that installing these did not
 # move numpy, pandas or pyarrow off the versions the lock pinned.
 #
-# Ranges verified against PyPI on 9 August 2026; the lower bound of each is the
-# then-current release, so a fresh install gets it and a rebuild a year from now
-# does not silently jump a major.
+# Ranges verified against PyPI on 3 September 2026. The lower bound of each is the
+# current release at the time it was last set, so a fresh install gets a recent
+# one and a rebuild a year from now does not silently jump a major.
+# sentence-transformers is the one held back on purpose; see the note below it.
 
 # --- Embedding (step 06) ---------------------------------------------------
 torch>=2.13,<3
 transformers>=5.16.1,<6
-sentence-transformers>=6.0.0,<7
+# Held below 6 until a run has confirmed the vectors are unchanged. 6.0 fixes, in
+# its own words, a class of silent scoring bugs caused by half precision, and 06
+# encodes in bfloat16 — so the major can move the embeddings themselves, which is
+# a change to the artefact rather than to the build. The surface 06 uses
+# (`processor_kwargs`, `get_embedding_dimension`) is unchanged in 6.x, so lifting
+# the cap is a one-line edit once a comparison run has been read.
+sentence-transformers>=5.7,<6
 accelerate>=1.14,<2
 # Used directly by scripts/lib/download_models.py, not only via transformers.
 huggingface_hub>=1.29.0,<2
