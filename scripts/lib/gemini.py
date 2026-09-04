@@ -72,7 +72,7 @@ The Interactions API (`client.interactions.create`, with `response_format` and a
 top-level `generation_config.thinking_level`) is now Google's recommended surface
 and `generateContent` is labelled legacy. The Batch API has no Interactions
 equivalent: it is defined over `GenerateContentRequest`, and batch is what makes
-6,092 occurrences affordable at half price. So the default path is Batch over
+7,747 occurrences affordable at half price. So the default path is Batch over
 `generateContent`, which the 3.7 Flash model page lists as supported, and
 `--live` uses the same `generateContent` body so that a pilot and a corpus run
 ask an identical question. The day batch grows an Interactions form, this module

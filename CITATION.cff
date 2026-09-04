@@ -14,7 +14,7 @@ license: MIT
 abstract: >-
   Data pipeline, computational analysis and interactive dashboard studying the
   use of the word "genocide" and its semantic neighbourhood in United Nations
-  Security Council debates, 1992-2023.
+  Security Council debates, 1946-2024.
 keywords:
   - United Nations Security Council
   - genocide
@@ -30,37 +30,27 @@ keywords:
   - reproducible research
 references:
   - type: database
-    title: "The UN Security Council Debates"
-    version: "6.1"
-    doi: "10.7910/DVN/KGVSYH"
-    year: 2019
+    title: "The UNSC Meetings and Speeches"
+    version: "5.0"
+    doi: "10.7910/DVN/CKPTRB"
+    year: 2023
     publisher:
       name: "Harvard Dataverse"
     license: CC0-1.0
     authors:
-      - family-names: Schoenfeld
-        given-names: Mirco
-        orcid: "https://orcid.org/0000-0002-2843-3137"
-      - family-names: Eckhard
-        given-names: Steffen
-      - family-names: Patz
-        given-names: Ronny
-      - family-names: van Meegdenburg
-        given-names: Hilde
-      - family-names: Pires
-        given-names: Antonio
+      - family-names: Sakamoto
+        given-names: Takuto
+        orcid: "https://orcid.org/0000-0002-7027-5849"
+      - family-names: Matsuoka
+        given-names: Tomoyuki
   - type: article
-    title: "The UN Security Council debates 1992-2023"
-    year: 2025
-    url: "https://arxiv.org/abs/1906.10969"
+    title: "The Security Council in its entirety: unveiling 80 years of deliberation through the UNSC Meetings and Speeches dataset"
+    year: 2026
+    doi: "10.1093/jopres/xjag018"
     authors:
-      - family-names: Schoenfeld
-        given-names: Mirco
-      - family-names: Eckhard
-        given-names: Steffen
-      - family-names: Patz
-        given-names: Ronny
-      - family-names: van Meegdenburg
-        given-names: Hilde
-      - family-names: Pires
-        given-names: Antonio
+      - family-names: Sakamoto
+        given-names: Takuto
+      - family-names: Matsuoka
+        given-names: Tomoyuki
+      - family-names: Ito
+        given-names: Hiroto

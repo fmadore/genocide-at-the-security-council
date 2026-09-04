@@ -1,13 +1,11 @@
-"""Normalise the corpus: aliases, case, form of address, speaker groups.
+"""Normalise the corpus: source affiliations, text and speaker groups.
 
 Reads data/derived/speeches.parquet and writes speeches_norm.parquet with the
 columns every later step depends on:
 
-    country_org      canonical, after config/country_aliases.csv
-    entity_type      state / igo / un / ngo / civil_society / academia / company / other
-    iso3, lat, lon   states only, from config/entities.csv
-    un_regional_group
-    speaker_group    P5 / E10 / Non-member state / UN / Non-state, per year
+    country_org      source affiliation (COW-normalised by the source for states)
+    entity_type      state / igo / un / ngo / other, from source flags
+    speaker_group    P5 / E10 / Non-member state / UN / Non-state, from source flags
     text             line endings normalised to LF
     body_start       where the speech begins, past the form of address
     words            words in the body, by lib.lexical.TOKEN_RE
@@ -20,8 +18,8 @@ the full text with punctuation and numbers in it and stays beside it as
 provenance: the two differ by 12.7%, and dividing by the wrong one is what made
 every published rate 11.3% low (review of 1 September 2026, §3.3).
 
-The run stops rather than writing a plausible-looking artefact if a speaker is
-missing from the crosswalk, or if the Council roster does not add up.
+No hand-curated speaker alias, entity crosswalk or membership roster changes
+the canonical data. Geographic fields remain nullable enrichment slots.
 
 Usage:
     python scripts/02_normalise.py
@@ -40,9 +38,6 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import artifacts, console, council, entities, frames, language, lexical, text
 from lib.paths import (
-    COUNCIL_MEMBERSHIP,
-    COUNTRY_ALIASES,
-    ENTITIES,
     EXPECTED_WORDS,
     MANIFESTS,
     ROOT,
@@ -111,39 +106,13 @@ def normalise_case(speeches: pd.DataFrame) -> list[tuple[str, int, int]]:
 
 
 def attach_entities(speeches: pd.DataFrame) -> pd.DataFrame:
-    """Canonicalise speakers and join the crosswalk, failing on any unknown."""
-    aliases = entities.load_aliases()
-    raw_distinct = speeches["country_org"].nunique()
-    speeches["country_org"] = entities.canonicalise(speeches["country_org"], aliases)
-    console.info(
-        f"country_org: {raw_distinct:,} distinct -> {speeches['country_org'].nunique():,} "
-        f"after {len(aliases)} aliases"
-    )
-
-    crosswalk = entities.load_entities()
-    if problems := entities.validate(crosswalk):
-        console.fail("config/entities.csv is not internally consistent", problems)
-    if problems := entities.validate_coverage(speeches["country_org"], crosswalk):
-        console.fail("the crosswalk does not cover every speaker", problems)
-
-    joined = entities.attach(speeches, crosswalk)
-    if int(joined["entity_type"].isna().sum()):
-        console.fail("entity_type is null after the join, which should be impossible")
-    return joined
+    """Attach the affiliation category supplied by the source dataset."""
+    return entities.attach_source_metadata(speeches)
 
 
 def attach_speaker_group(speeches: pd.DataFrame) -> pd.DataFrame:
-    """Derive P5 / E10 / non-member / UN / non-state, per speech-year."""
-    membership = council.membership_by_year()
-    first, last = int(speeches["year"].min()), int(speeches["year"].max())
-
-    if problems := council.validate(membership, first, last):
-        console.fail("config/council_membership.csv does not add up", problems)
-    in_period = membership[membership["year"].between(first, last)]
-    if problems := council.validate_against_corpus(in_period, speeches):
-        console.fail("the Council roster disagrees with the corpus", problems)
-
-    speeches["speaker_group"] = council.speaker_group(speeches, membership)
+    """Derive P5 / E10 / non-member / UN / non-state from source flags."""
+    speeches["speaker_group"] = council.speaker_group(speeches)
     return speeches
 
 
@@ -156,7 +125,7 @@ def build_note(speeches: pd.DataFrame, counts: dict[str, int], case_changes) -> 
     lines = [
         "# 02 — Normalise",
         "",
-        f"{total:,} speeches, {speeches['country_org'].nunique():,} canonical speakers.",
+        f"{total:,} speeches, {speeches['country_org'].nunique():,} source affiliations.",
         "",
         "## Words",
         "",
@@ -164,20 +133,16 @@ def build_note(speeches: pd.DataFrame, counts: dict[str, int], case_changes) -> 
         "  `lib.lexical.TOKEN_RE` — the same rule the keyness tables and the collocate",
         "  windows are built on. This is the denominator of every *per 100,000 words*",
         "  figure the site publishes.",
-        f"- The codebook's `tokens` column holds {counts['tokens']:,} over the full",
-        f"  texts, punctuation and numbers included: {counts['tokens'] / counts['words']:.1%}",
-        "  of the word count. It stays in the table as provenance and is asserted by 01;",
-        "  it is not divided by. Dividing by it is what put every published rate",
-        f"  {1 - counts['words'] / counts['tokens']:.1%} below the label it carried until",
-        "  2 September 2026.",
+        f"- The source's `count` field totals {counts['tokens']:,}; it is retained as",
+        "  `source_word_count`/`tokens` for provenance but is not the analytical",
+        "  denominator.",
         "",
         "## Form of address",
         "",
         f"- Matched in **{counts['addressed']:,}** speeches "
         f"({counts['addressed'] / total:.2%}).",
         f"- The remaining {total - counts['addressed']:,} open straight into prose and are "
-        "left untruncated. Most belong to the separate VTC record format rather than being "
-        "continuations.",
+        "left untruncated. The source distributes speech bodies without the printed address.",
         "",
         "## Delivery language",
         "",
@@ -185,8 +150,8 @@ def build_note(speeches: pd.DataFrame, counts: dict[str, int], case_changes) -> 
         f"({counts['languages'] / total:.1%}) from `(spoke in …)` markers.",
         f"- {counts['fuzzy']:,} needed approximate matching against OCR damage; every case "
         "is listed in `docs/VALIDATION.md`.",
-        "- Missing markers in in-person verbatim records are classified as inferred English.",
-        "- VTC records carry no delivery-language marker and remain `Unknown (VTC)`.",
+        "- The source does not preserve delivery-language markers; these transcripts remain",
+        "  `Unknown` rather than being inferred to be English.",
         "",
         "| Language | Speeches |",
         "|---|---:|",
@@ -199,6 +164,10 @@ def build_note(speeches: pd.DataFrame, counts: dict[str, int], case_changes) -> 
         *[f"| {g} | {n:,} | {n / total:.1%} |" for g, n in groups.items()],
         "",
         "## Entity types",
+        "",
+        "These categories come directly from the dataset flags. `un_org` takes precedence",
+        "over `igo`, because UN bodies carry both flags in the source; an unflagged",
+        "affiliation remains `other`.",
         "",
         "| Type | Speeches | Distinct entities |",
         "|---|---:|---:|",
@@ -263,7 +232,7 @@ def normalise() -> None:
     else:
         console.info("no case collisions found")
 
-    console.step("Attaching the entity crosswalk")
+    console.step("Attaching source affiliation categories")
     speeches = attach_entities(speeches)
     console.table(
         [(t, f"{n:,}") for t, n in speeches["entity_type"].value_counts().items()]
@@ -283,7 +252,7 @@ def normalise() -> None:
         ROOT,
         "02_normalise.py",
         inputs=[SPEECHES],
-        configs=[COUNTRY_ALIASES, ENTITIES, COUNCIL_MEMBERSHIP],
+        configs=[],
         extra={
             "outputs": [artifacts.describe_file(SPEECHES_NORM, ROOT)],
             "speeches": len(speeches),

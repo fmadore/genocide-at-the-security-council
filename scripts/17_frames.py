@@ -31,13 +31,9 @@ wrong while looking right.
   1990s occurrences fall outside the codebook against a tenth of 2018's. A frame
   that gained share while the residue shrank may have gained nothing.
 
-The triangulation against the two committed model runs is the external check the
-review promises for free. Both runs label all 6,092 occurrences with a position
-and `function`; the frames are computed from the text with no model involved, so
-crossing them says where a construction and a label agree — and where a label is
-doing something the construction does not support. Nothing here adjudicates: the
-frames are not ground truth for the model and the model is not ground truth for
-the frames.
+Triangulation is optional. The migrated corpus currently has no selected model
+run, so the frames are computed from text and the model block is explicitly
+empty. A future run can be crossed with them without changing the frame counts.
 
 Usage:
     python scripts/17_frames.py [--trials 2000] [--no-model]
@@ -99,9 +95,8 @@ MINIMUM_OCCURRENCES = 40
 MINIMUM_FOR_TEST = 250
 
 #: Eight-year blocks. Coarser than the chronology's years because this is a
-#: composition of a few thousand occurrences rather than a rate over 106,302
-#: speeches: at annual grain a seventeen-way split has cells of four. Four blocks
-#: divide 1992-2023 evenly and each holds over 800 occurrences.
+#: composition of a few thousand occurrences rather than a rate over 167,642
+#: speeches: at annual grain a seventeen-way split has cells of four.
 BLOCK_YEARS = 8
 
 STORE = MODEL_ANNOTATIONS / TERM

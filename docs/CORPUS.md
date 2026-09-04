@@ -1,692 +1,127 @@
-# UN Security Council Debates — corpus notes
+# Canonical corpus
 
-Working notes on the *UN Security Council Debates* dataset (Schoenfeld, Eckhard, Patz,
-van Meegdenburg & Pires), in preparation for an interactive dashboard on the use of the
-word **genocide** in the Security Council.
+This project exclusively uses **Sakamoto & Matsuoka, _The UNSC Meetings and
+Speeches_, version 5.0**. The former Schoenfeld 1992–2023 corpus is no longer a
+pipeline input.
 
----
-
-## 1. Identification
-
-| | |
+| Field | Value |
 |---|---|
-| **Title** | The UN Security Council Debates |
-| **Authors** | Mirco Schoenfeld (U. Bayreuth, [ORCID](https://orcid.org/0000-0002-2843-3137)) · Steffen Eckhard (U. Konstanz) · Ronny Patz (LMU Munich) · Hilde van Meegdenburg (Leiden) · Antonio Pires (UF Pernambuco) |
-| **Repository** | Harvard Dataverse — [doi:10.7910/DVN/KGVSYH](https://doi.org/10.7910/DVN/KGVSYH) |
-| **Version used** | **6.1**, released 19 February 2025 |
-| **Licence** | **CC0 1.0** (public domain) — no reuse restrictions |
-| **Primary source** | `S/PV.*` verbatim records, <https://research.un.org/en/docs/sc/quick/meetings/> |
-| **Companion paper** | Schoenfeld *et al.* (2025), *The UN Security Council debates 1992-2023*, [arXiv:1906.10969v3](https://arxiv.org/abs/1906.10969) (cs.DL, 17 March 2025) |
-| **Contact** | mirco.schoenfeld@tum.de |
-| **Related dataset** | [UNSC debates on Afghanistan](https://doi.org/10.7910/DVN/OM9RG8) |
-
-> ⚠️ Dataverse's `timePeriodCovered` field reads **1995-01-06 → 2020-12-29**. This is stale
-> metadata that was not updated for v6.1. The actual coverage, verified against the data,
-> is **1992-01-06 → 2023-12-30**; the codebook and the paper both confirm 1992-2023. Do not
-> cite the Dataverse period.
-
-**Recommended citation**
-
-> Schoenfeld, M., Eckhard, S., Patz, R., van Meegdenburg, H., & Pires, A. (2019).
-> *The UN Security Council Debates* [Data set]. Harvard Dataverse, V6.1.
-> <https://doi.org/10.7910/DVN/KGVSYH>
-
----
-
-## 2. Files
-
-| File | Size | Contents |
-|---|---:|---|
-| `speeches.tar` | 474 MB | 106,302 `.txt` files, one per speech, under `speeches/` |
-| `speaker.tsv` | 33 MB | Per-**speech** metadata (26 columns) |
-| `meta.tsv` | 605 KB | Per-**meeting** metadata (9 columns) |
-| `docs.RData` | 119 MB | R object: full texts (convertible to a `quanteda` corpus) |
-| `docs_meta.RData` | 2.1 MB | R object: `speaker.tsv` and `meta.tsv` merged |
-| `Codebook.pdf` | 105 KB | Variable documentation (January 2025) |
-
-The `.RData` files are redundant with the TSVs + tar. **The pipeline uses only the TSVs and
-the tar** — no R dependency.
-
-The local folder also holds the paper: `1906.10969v3.pdf` (+ `1906.10969v3.txt`).
-
----
-
-## 3. Structure and production chain
-
-The verbatim records are two-column PDFs. The authors' pipeline:
-
-1. **Reflow** the two-column layout with `k2pdfopt` → high-resolution image;
-2. **OCR** with `tesseract` for older documents; for recent, natively digital records, a
-   direct **PDF → DOCX** export instead (no OCR);
-3. **Cleanup**: ligatures, em-dashes and non-ASCII spaces removed;
-4. **Segmentation** into speeches by regex on the forms of address (`The President:`,
-   `Mr. Levitte (France) (spoke in French):`, `Ms. …`, plus `Sir`, `Baron`, `Sheikh`,
-   `Nana`, `Dato` — 28 markers in total);
-5. **Attribution**: country taken from the participants list on page 1 (separately OCR'd
-   with dedicated settings); for guests absent from that list, extracted from the
-   parenthetical at the start of the speech, or **entered manually**.
-
-Consecutive speeches by the same speaker are merged (the case of an interposed vote). Over
-500 official communiqués were excluded.
-
-**Methodological consequences.** `country_org` attribution is semi-automatic and therefore
-uneven: highly reliable for Council members, shakier for invited speakers. OCR noise is
-real and visible (`interpretation fron Arabic`, `nredecessor`, `senocide`), concentrated in
-the 1990s and early 2000s. Any lexical measurement must account for it: counts are
-**floors**, not exact values.
-
----
-
-## 4. Verified volumetrics
-
-| Measure | Codebook / paper | Verified against the data |
-|---|---:|---:|
-| Speeches | 106,302 | **106,302** ✅ |
-| Meetings | 6,233 | **6,582** distinct `S/PV.*` symbols ⚠️ |
-| Documents (resumptions included) | — | **6,595** |
-| Tokens (codebook) | 66,392,703 | **66,392,703** ✅ (sum of `tokens`, after repair) |
-| Words in the speech bodies | — | **58,904,180** (`lib/lexical.py::TOKEN_RE`, the denominator of every rate) |
-| Period | 1992-01-06 → 2023-12-30 | ✅ identical |
-| Raw text characters | — | 388.8 M |
-
-**On the 6,233 / 6,582 discrepancy:** the paper reports 6,233 meetings, but `meta.tsv`
-holds 6,595 rows (one per *document*), covering 6,582 distinct meeting identifiers. The
-difference comes from **resumptions** (`S/PV.9052 (Resumption 1)`): 14,853 speeches carry a
-`Resumption` marker in `document_symbol`. The paper's 6,233 appears stale or based on a
-different counting rule. **Use 6,582 meetings / 6,595 documents**, and document the choice.
-
----
-
-## 5. Technical traps (⚠️ handle before any analysis)
-
-### 5.1 Encoding — UTF-8, not the system codepage
-
-Both TSVs are **valid UTF-8**. On Windows, `pandas.read_csv()` without an explicit
-`encoding=` falls back to cp1252 and yields mojibake (`C�te D'ivoire`,
-`Peace And Security � Terrorist Acts`). Always force it:
-
-```python
-pd.read_csv(path, sep='\t', quoting=3, encoding='utf-8',
-            na_values=['NA'], keep_default_na=False, dtype=str)
-```
-
-`quoting=3` (`QUOTE_NONE`) is mandatory: fields contain R-style doubled apostrophes
-(`D''Affaires`) and unescaped quotation marks.
-
-### 5.2 36 rows split by a literal `\n`
-
-`speaker.tsv` has 106,520 physical lines for 106,302 speeches. Meeting **S/PV.5225**
-(2005-07-12, *The Role Of The Security Council In Humanitarian Crises*) carries a literal
-newline inside its `agenda_item3` value, so each of its 36 speeches is spread across two
-physical lines (21 tabs + 4 tabs = 25).
-
-A naive read yields 106,338 rows, 36 of them corrupt (empty year, speaker, country). The
-repair is to join lines until the tab count reaches 25:
-
-```python
-def repair(path, n_tabs):
-    out, buf = [], ''
-    for ln in open(path, encoding='utf-8').read().split('\n'):
-        buf = ln if not buf else buf + ' ' + ln
-        if buf.count('\t') >= n_tabs:
-            out.append(buf); buf = ''
-    return out
-# speaker.tsv → n_tabs=25 ; meta.tsv → n_tabs=8
-```
-
-After repair: **exactly 106,302 rows**, and a perfect join against the tar (0 missing
-texts, 0 orphan files).
-
-### 5.3 Normalising `country_org`
-
-630 distinct values, of which only ~195 are states; the rest are NGOs, regional
-organisations, UN agencies, universities and even companies (*Goldman Sachs*, *Microsoft*,
-*Mastercard*, *Anthropic (Firm)*). 295 values occur exactly once.
-
-Aliases and duplicates to merge before any aggregation:
-
-| Alias A | Alias B |
-|---|---|
-| `Turkey` (732) | `Türkiye` (61) |
-| `Czech Republic` (197) | `Czechia` (10) |
-| `Cape Verde` (125) | `Cabo Verde` (2) |
-| `Bolivia (Plurinational State Of)` (751) | `Plurinational State Of Bolivia` (2) |
-| `Micronesia (Federated States of)` (2) | `Federated States Of Micronesia` (4) |
-| `Interpol` / `INTERPOL` · `Group Of Five For The Sahel` / `Group of Five for the Sahel` | (3 case collisions) |
-
-`agenda_item2` has 16 comparable case collisions (`Children and armed conflict` vs
-`Children And Armed Conflict`). **Normalise case before any `groupby`.**
-
-A **`country_org` → ISO-3166 alpha-3 + entity-type crosswalk** (state / IGO / NGO / civil
-society / UN agency / other) also needs to be built: it is a prerequisite for mapping and
-for separating state from non-state speakers.
-
-### 5.4 `UN` = 4,709 speeches
-
-`country_org = "UN"` bundles the Secretary-General, special representatives and senior
-officials: the **6th "speaker" in the corpus**, on par with each individual P5 member. This
-is the paper's central finding (the "P6"). The `role` field gives the position, but is
-empty in 86% of rows — usable only on the populated subset (≈3,100 speeches with a job
-title).
-
----
-
-## 6. Variable dictionary
-
-### `speaker.tsv` — 106,302 rows × 26 columns
-
-| Column | Filled | Card. | Description |
-|---|---:|---:|---|
-| *(index)* | 100% | 106,302 | R row identifier |
-| `filename` | 100% | 106,302 | `UNSC_{year}_SPV.{n}_spch{nnnn}.txt` — **join key to the tar** |
-| `date` | 100% | 4,094 | ISO date `YYYY-MM-DD` |
-| `day` / `month` / `year` | 100% | 31/12/32 | Date components |
-| `speaker` | **99.0%** | 7,527 | Speaker name (1,115 missing) |
-| `speaker_undl` | **7.2%** | 891 | UNDL identifier — too sparse for systematic use |
-| `speaker_country` | **0.1%** | 33 | 130 values only — unusable |
-| `country_org` | 100% | 630 | Country or organisation represented — ⚠️ see §5.3 |
-| `role` | **86.8%** non-null but **89,238 empty strings** | 518 | UN position; ≈3,100 usable values |
-| `participanttype` | 100% | 3 (+2 noise) | `The President` (39,483) · `Mentioned` (38,181) · `Guest` (28,630); 8 `The PRESIDENT` to normalise |
-| `speech_number` | 100% | 179 | Position of the speech within the meeting |
-| `record_speech` | **5.9%** | 4,874 | Undocumented in the codebook — purpose unknown |
-| `tokens` / `types` / `sentences` | 100% | — | `quanteda` metrics; means 624 / 273 / 22 |
-| `topic` | 100% | 591 | Agenda item as printed in the record |
-| `agenda_item1` | 100% | 6 | Repertoire, level 1: `Thematic` (41,865) · `Africa` (23,119) · `Middle East` (20,413) · `Europe` (11,268) · `Asia` (6,499) · `Americas` (3,138) |
-| `agenda_item2` | 89.5% | 125 | Repertoire, level 2 |
-| `agenda_item3` | 90.1% | 183 | Repertoire, level 3 |
-| `agenda_item4` | **23.9%** | 234 | Repertoire, level 4 |
-| `agenda_item_manual` | 100% | 100 | **Harmonised manual label — the most usable field** |
-| `document_symbol` | 100% | 6,595 | Document symbol (resumptions included) |
-| `meeting_symbol` | 100% | 6,582 | Meeting symbol |
-| `speech_format` | 100% | 2 | `In-Person` (101,194) · `VTC` (5,072, concentrated 2020-2022) |
-
-Useful derived column: `basename = filename.replace(r'_spch\d+\.txt$', '')` → joins to
-`meta.tsv.basename` (perfect match after repair).
-
-### `meta.tsv` — 6,595 rows × 9 columns
-
-`basename` · `date` · `topic` · `year` · `month` · `day` · `spv` · `num_speeches`.
-`num_speeches` ranges from 1 to 179 and underpins the paper's meeting typology (§7).
-
-### Text files
-
-One UTF-8 file per speech, no header. The text **includes the opening form of address**
-(`Mr. AL-KIDWA (Palestine) (interpretation from Arabic): …`) — strip it before any lexical
-counting, or country names will be over-represented. Mean length 3,658 characters (median
-3,437); no empty files.
-
----
-
-## 7. What the paper establishes (arXiv:1906.10969v3)
-
-Findings worth knowing, since they frame how the corpus can be read:
-
-- **Three growth regimes.** 1,023 speeches in 1992 → 7,621 in 2023 (×7.4). Plateaus:
-  1992-1999 (~1,400/yr), 2000-2004 (>2,500), 2005-2007 (dip), 2008-2013 (~3,000), a break
-  in 2014 (4,769) then continuous growth. Covid dip in 2020.
-  **Every time series must be normalised** (rate per speech or per 100k words), otherwise
-  you are measuring corpus growth.
-- **The P5 does not dominate.** From 2014 onward the rise in total volume is not matched by
-  the P5's share: it comes from the E10 and from guests at open debates.
-- **The "P6".** The UN administration is the 6th speaker (4,709 speeches), on par with each
-  permanent member.
-- **Four meeting types** (from the `num_speeches` distribution): adoption meeting
-  (1 speech) · briefing (2-3) · limited formal debate (15-40, mode ≈ 20) · open or intensive
-  debate (40-180). Every session above 100 speeches falls between 2013 and 2020.
-- **New themes** emerging within the period: *Women, Peace and Security*, *Climate-related
-  Disasters*.
-- The paper is a *data paper*: it contains **no lexical or content analysis whatsoever**.
-  The ground for studying the word "genocide" is entirely open.
-
----
-
-## 8. First findings — the semantic field of genocide
-
-This section began as a reconnaissance scan. The table is now aligned with lexicon v4 (2
-September 2026, measured on `speeches_norm.parquet`; what moved between v2, v3 and v4 is in
-[`VALIDATION.md`](VALIDATION.md)); generated artifacts and that register remain the
-authority if a future lexicon version changes these figures.
-
-Every active term, across all 106,302 speeches (case-insensitive regex; total occurrences).
-Seven terms are **anchored**: they are counted only where the sentence holding the match
-also says `genocid*`, which is why `commemoration` and `survivors` are so much smaller here
-than a scan for those words would suggest. `config/lexicon.yml` says of each one why.
-
-| Term | Register | Speeches | % corpus | Occurrences |
-|---|---|---:|---:|---:|
-| `impunity` | accountability | 9,662 | 9.09% | 13,616 |
-| `tribunals` | accountability | 2,626 | 2.47% | 13,030 |
-| `icc` | accountability | 4,766 | 4.48% | 12,476 |
-| `war_crimes` | legal | 4,664 | 4.39% | 6,588 |
-| `atrocity` | legal | 4,244 | 3.99% | 6,120 |
-| `genocide` | core | 3,273 | 3.08% | 6,092 |
-| `crimes_against_humanity` | legal | 3,465 | 3.26% | 4,136 |
-| `icj` | accountability | 1,447 | 1.36% | 2,399 |
-| `massacre` | descriptive | 1,588 | 1.49% | 2,313 |
-| `early_warning` | preventive | 1,606 | 1.51% | 1,960 |
-| `responsibility_to_protect` | preventive | 1,353 | 1.27% | 1,795 |
-| `ethnic_cleansing` | legal | 1,229 | 1.16% | 1,705 |
-| `mass_atrocity` | legal | 624 | 0.59% | 784 |
-| `never_again` | commemorative | 305 | 0.29% | 338 |
-| `commemoration` ⚓ | commemorative | 199 | 0.19% | 321 |
-| `extermination` | legal | 224 | 0.21% | 281 |
-| `denial` ⚓ | contentious | 186 | 0.17% | 269 |
-| `holocaust` | commemorative | 175 | 0.16% | 238 |
-| `prevention_of_genocide` | preventive | 212 | 0.20% | 237 |
-| `mass_killing` | descriptive | 149 | 0.14% | 158 |
-| `genocide_convention` | legal | 135 | 0.13% | 153 |
-| `survivors` ⚓ | commemorative | 73 | 0.07% | 106 |
-| `glorification` ⚓ | contentious | 93 | 0.09% | 103 |
-| `incitement` ⚓ | preventive | 47 | 0.04% | 49 |
-| `genocidal_ideology` | contentious | 30 | 0.03% | 39 |
-| `genocidaires` | core | 21 | 0.02% | 31 |
-| **`genocide_qualification`** (derived) | **core** | **3,268** | **3.07%** | **6,061** |
-| `intent_to_destroy` ⚓ | legal | 16 | 0.02% | 23 |
-| `ethnic_violence` ⚓ | contentious | 13 | 0.01% | 13 |
-
-⚓ marks an anchored term. **`genocide_qualification` is derived, not matched**: it is
-`genocide` minus `genocidaires`, and it is the figure the chronology, the change-point
-tests and the actor table publish, because a delegation calling the ex-FAR
-*génocidaires* is naming who did it rather than qualifying the event. The raw term is
-published beside it and is what the concordance enumerates; `genocidaires` has its own 31
-lines. The `genocide` pattern is deliberately unchanged at v4, so every occurrence
-identity, the gold sample and the four committed model runs stand — see
-[`VALIDATION.md`](VALIDATION.md).
-
-Forms of `genocid*`: `genocide` (5,685), `genocidal` (313), `genocides` (62),
-`genocidaires` (29), `genocidaire` (2), `genocida` (1), summing to the term's 6,092. The
-two `genocidaire` spellings, 31 occurrences, are what `genocide_qualification` subtracts,
-and §8.7 sorts every form into noun, adjective and perpetrator noun and says why the last
-of the three is counted apart. Marginal OCR variants (`genecide`) should be caught by a
-tolerant regex; the French `génocidaires` occurs 8 further times and is outside both
-patterns on purpose.
-
-**Available subsets**
-
-Words, not codebook tokens: since 2 September 2026 every denominator in this repository is
-the word count of the speech bodies (`lib/lexical.py::TOKEN_RE`), 58,904,180 of them
-against the codebook's 66,392,703 tokens over the full texts.
-
-| Criterion | Speeches | Words |
-|---|---:|---:|
-| ≥ 1 occurrence of `genocide_qualification` | 3,268 | 3,448,202 |
-| ≥ 2 occurrences | 1,055 | 1,219,863 |
-| ≥ 3 occurrences | 513 | 640,885 |
-| ≥ 5 occurrences | 205 | 279,191 |
-| Atrocity core (genocide ∪ ethnic cleansing ∪ CAH ∪ war crimes ∪ mass atrocity) | 7,981 | 8,277,171 |
-| Active lexicon (28 terms) | 20,892 | 19,908,544 |
-
-The first four rows count the qualifying uses; the raw term reaches 3,273 speeches, the
-figure every earlier version of this table gave for `genocid*`, and the five it adds are
-speeches whose only `genocid*` word is the actor label. The atrocity-core union is the v3
-number unchanged, because the term it is built on is unchanged. The active-lexicon union
-is *smaller* than the 23,271 the v2 table gave over 22 terms, and v4 has 28: the seven
-anchors take far more speeches out of the commemorative and contentious registers than
-`massacre`, `mass_killing`, `icj`, `incitement` and `intent_to_destroy` put back.
-
-### 8.1 Chronology
-
-The normalised rate tells a story the raw counts hide. Occurrences of
-`genocide_qualification` per 100,000 **words** (lexicon v4; the v3 figures over the
-codebook's token denominator ran about 11% lower and are in
-[`VALIDATION.md`](VALIDATION.md)):
-
-```
-1994  32.2  ████████████████████████████████  Rwanda
-2014  25.4  █████████████████████████         Ukraine/Crimea, ISIS/Yazidis, CAR, Rwanda +20
-1993  19.3  ███████████████████               Bosnia
-1995  18.5  ██████████████████                Srebrenica
-2015  18.0  ██████████████████                Srebrenica +20 (Russian veto), Daesh
-1999  16.6  █████████████████                 Kosovo, East Timor
-1996  16.4  ████████████████
-2000  14.3  ██████████████                    Carlsson report on Rwanda
-2005  14.3  ██████████████                    Darfur, World Summit (R2P)
-…
-2022  10.6  ███████████                       Ukraine
-2023   9.9  ██████████                        Gaza, Ukraine
-1997   5.3  █████                             absolute trough
-```
-
-Reading the raw `genocide` term instead moves only 2014 (25.4 to 25.6), 1999, 2000, 2006
-and 2007, by a tenth each: the actor label is a Great Lakes word, and it is rare.
-
-**The 2014 peak (659 occurrences) exceeds 1994 (228) in absolute volume** while remaining
-below it in density. This is the single most interesting result of the first scan: the word
-has a second life after 2013, driven by new uses (Ukraine, Yazidis, commemorations, R2P)
-rather than by one crisis.
-
-### 8.2 Who says the word?
-
-**By volume:** UN (227) · **Rwanda (187)** · United States (163) · France (127) ·
-United Kingdom (94) · Bosnia and Herzegovina (56) · Argentina (54) · Ukraine (54) ·
-European Union (51) · Liechtenstein (46).
-
-**By rate** (≥ 200 speeches overall):
-
-| Country / organisation | Speeches | with "genocide" | Rate |
-|---|---:|---:|---:|
-| **Rwanda** | 697 | 187 | **26.8%** |
-| Armenia | 124 | 35 | 28.2% (below threshold, but notable) |
-| **Liechtenstein** | 217 | 46 | **21.2%** |
-| Bosnia and Herzegovina | 404 | 56 | 13.9% |
-| Iraq | 246 | 32 | 13.0% |
-| Tanzania | 236 | 23 | 9.8% |
-| Slovenia | 308 | 29 | 9.4% |
-| Croatia | 461 | 43 | 9.3% |
-| Cuba | 233 | 19 | 8.2% |
-| Azerbaijan | 478 | 38 | 8.0% |
-| Israel | 430 | 33 | 7.7% |
-| **Russian Federation** | 5,101 | 43 | **0.84%** |
-
-Two usage regimes emerge: **states carrying a genocide memory** (Rwanda, Armenia, Bosnia,
-Croatia, Israel) and **norm-entrepreneur states** (Liechtenstein, Slovenia, Costa Rica,
-Luxembourg, Canada — the ICC and R2P advocacy bloc). Russia, by contrast, uses the word 32
-times less often than Rwanda despite giving 7 times more speeches — an asymmetry worth
-explaining.
-
-**By participant type:** `Guest` 6.31% · `Mentioned` 3.42% · `The President` 0.41%.
-Guests — civil society, survivors, NGOs — are the word's primary carriers; the presidency,
-whose interventions are procedural, barely uses it.
-
-### 8.3 In which files?
-
-| Agenda item | Speeches | with "genocide" | Rate |
-|---|---:|---:|---:|
-| International Tribunals | 1,501 | 437 | **29.1%** |
-| Rwanda | 452 | 124 | **27.4%** |
-| Middle East (dedicated heading) | 159 | 32 | 20.1% |
-| Rule of Law | 673 | 109 | 16.2% |
-| Protection of Civilians | 3,716 | 384 | 10.3% |
-| Bosnia and Herzegovina | 3,185 | 300 | 9.4% |
-| Myanmar | 260 | 20 | 7.7% |
-| Great Lakes | 608 | 44 | 7.2% |
-| Burundi | 747 | 54 | 7.2% |
-| Maintenance of Int'l Peace and Security | 7,776 | 288 | 3.7% |
-| Israel/Palestine | 10,212 | 148 | **1.45%** |
-| Syria | 4,876 | 25 | **0.51%** |
-
-By region (`agenda_item1`): `Thematic` 4.41% · `Europe` 4.21% · `Africa` 2.67% ·
-`Middle East` 1.38% · `Asia` 0.72% · `Americas` 0.13%.
-
-**Two surprises to pursue.** (a) The word is *thematic* before it is *situational*: it
-circulates mainly in debates on tribunals, protection of civilians and the rule of law —
-a legal and commemorative register. (b) Israel/Palestine and Syria, the two largest files
-in the corpus, are **among the poorest in "genocide"** — which makes the 2023 reversal all
-the more visible.
-
-### 8.4 Co-occurrence
-
-Share of genocide-bearing speeches that also contain:
-
-| Term | In genocide speeches | Corpus baseline | Ratio |
-|---|---:|---:|---:|
-| `war crimes` | 48.2% | 4.4% | ×11 |
-| `crimes against humanity` | 47.2% | 3.3% | ×14 |
-| `impunity` | 41.3% | 9.1% | ×4.5 |
-| `ICC` | 26.6% | 4.5% | ×6 |
-| `atrocit*` | 24.3% | 3.6% | ×6.8 |
-| `ethnic cleansing` | 16.4% | 1.2% | ×14 |
-| `R2P` | 10.5% | 1.3% | ×8 |
-| `mass atrocity` | 7.1% | 0.5% | ×14 |
-| `genocide convention` | 3.9% | 0.13% | ×30 |
-
-The word almost never travels alone: it appears inside a **canonical legal triad**
-(genocide / war crimes / crimes against humanity) inherited from the Rome Statute, extended
-since 2005 by the R2P quartet (+ ethnic cleansing).
-
-### 8.5 Collocates (log-likelihood, ±8-word window)
-
-```
-crimes 19618 · humanity 10793 · against 7838 · war 6655 · rwanda 4093 ·
-cleansing 2922 · ethnic 2074 · srebrenica 2041 · tutsi 1520 · rwandan 1508 ·
-prevention 1482 · crime 1349 · denial 1173 · committed 996 · responsible 960 ·
-punishment 774 · violations 612 · adviser 573 · perpetrators 563 ·
-twentieth 529 · glorification 525 · atrocities 488 · anniversary 473 ·
-victims 473 · protect 461 · criminals 401 · prosecution 390 · ideology 372 ·
-perpetrated 365 · justice 304 · impunity 297 · convicted 294 · mass 284 ·
-commemoration 251 · tutsis 241 · prevent 236 · dieng 236 · survivors 216
-```
-
-Four registers read straight off this list:
-
-1. **Legal** — `crimes`, `punishment`, `prosecution`, `convicted`, `perpetrators`, `impunity`
-2. **Preventive** — `prevention`, `prevent`, `protect`, `adviser` (the *Special Adviser on
-   the Prevention of Genocide*), `dieng` (Adama Dieng, Special Adviser 2012-2020)
-3. **Commemorative** — `twentieth`, `anniversary`, `commemoration`, `victims`, `survivors`
-4. **Contentious** — `denial`, `glorification`, `ideology` (denial and instrumentalisation)
-
-The commemorative and contentious registers are the two least expected, and probably the
-richest for analysis.
-
-### 8.6 Densest meetings
-
-| Date | Symbol | Subject | Occurrences |
-|---|---|---|---:|
-| 2014-04-16 | S/PV.7155 | Threats to International Peace and Security | **198** |
-| 2000-04-14 | S/PV.4127 | Rwanda — report on the 1994 genocide | 115 |
-| 2015-07-08 | S/PV.7481 | Bosnia and Herzegovina (Russian veto on Srebrenica) | 115 |
-| 2019-07-17 | S/PV.8576 | International Residual Mechanism for Criminal Tribunals | 62 |
-| 2014-06-05 | S/PV.7192 | ICTY & ICTR | 58 |
-| 1994-11-08 | S/PV.3453 | The situation concerning Rwanda (creation of the ICTR) | 55 |
-| 2022-06-21 | S/PV.9069 | Maintenance of Peace and Security of Ukraine | 55 |
-
-These sessions make an excellent test set for the concordancer and for validating LLM
-extractions.
-
-### 8.7 What the word is doing — grammatical frames
-
-The counts above say how often the word is said. `17_frames.py` asks what it is *doing*
-when it is said, by reading a ±90-character window round each of the 6,092 occurrences and
-filing it under one of seventeen constructions or an `unframed` residue. Shares here divide
-by occurrences of the node, never by speeches, so a frame can grow in a year the rate falls.
-
-| Frame | Occurrences | Share | What it evidences |
-|---|---:|---:|---|
-| `atrocity_triad` | 1,446 | 23.7% | One item of the standing list: *genocide, war crimes and crimes against humanity* |
-| `unframed` | 1,231 | 20.2% | No pattern reached it |
-| `perpetration` | 495 | 8.1% | Agency attributed: *committed*, *those responsible for*, *a policy of* |
-| `named_case` | 480 | 7.9% | The settled name of a case: *the 1994 genocide in Rwanda* |
-| `prevention` | 297 | 4.9% | The duty as a norm: *prevent*, *protect populations from* |
-| `crime_of` | 259 | 4.3% | The offence as a legal category: *the crime of genocide* |
-| `commemoration` | 258 | 4.2% | The event as memory: *the anniversary of*, *the victims of* |
-| `denial_or_ideology` | 252 | 4.1% | Denial named as an offence: *genocide denial*, *genocide ideology* |
-| `acts_of` | 237 | 3.9% | The countable-instance hedge: *acts of genocide* |
-| `qualification` | 201 | 3.3% | The label applied: *constitutes*, *amounts to*, *described as* |
-| `accountability` | 194 | 3.2% | A legal process already under way: *convicted of*, *genocide fugitives* |
-| `legal_instrument` | 179 | 2.9% | Inside an instrument's name: the 1948 Convention |
-| `mandate_or_office` | 176 | 2.9% | Inside an office's name: the Special Adviser on the Prevention of Genocide |
-| `risk_or_threat` | 108 | 1.8% | Not yet happened: *the risk of*, *another genocide* |
-| `directed_against` | 107 | 1.8% | The victim group in the complement: *genocide against the Tutsi* |
-| `distancing` | 78 | 1.3% | The label as somebody else's: scare quotes, *so-called*, *allegations of* |
-| `occurrence` | 58 | 1.0% | The event predicated directly: *genocide occurred* |
-| `intent_or_definition` | 36 | 0.6% | The Convention's mental element: *genocidal intent* |
-
-Three readings the frequency series cannot give:
-
-1. **Nearly a quarter of all uses are the catalogue**, and the share rose from 12.4% before
-   2002 to 26.6% after. §8.4 above shows the triad in the co-occurrence table; this counts
-   the occurrences that *are* it. A passing item in a list and a substantive accusation are
-   the same word at the same rate.
-2. **Nomination is rarer than the vocabulary suggests.** The constructions in which a
-   speaker applies the label to an event — `qualification`, `occurrence`, `directed_against`
-   — are 366 occurrences between them, 6.0%. Explicit refusal (`distancing`) is 78, 1.3%.
-3. **The registers move at different dates.** `perpetration` halves after 2008;
-   `commemoration` rises after 2004 and `denial_or_ideology` after 2018, both against the
-   Rwanda and Srebrenica anniversary cycle and the Mechanism's reporting. All five splits
-   survive a null that permutes meetings rather than occurrences; `prevention`'s and
-   `named_case`'s do not. `docs/VALIDATION.md` carries the table.
-
-**The wordform.** `\bgenocid\w*` folds four things into one count:
-
-| Category | Occurrences | Forms |
-|---|---:|---|
-| noun | 5,747 | `genocide` 5,685, `genocides` 62 |
-| adjective | 313 | `genocidal` |
-| perpetrator noun | 31 | `genocidaires` 29, `genocidaire` 2 |
-| other | 1 | `genocida` (an OCR spelling, S/PV.3136, 1992) |
-
-The four partition the 6,092 exactly. The perpetrator noun labels the ex-FAR and
-Interahamwe of the Great Lakes debates rather than qualifying an event, so the count of the
-word as event qualification is the other **6,061**; both numbers are published, because the
-concordance is cut from the whole pattern and the headline is not.
-
----
-
-## 9. Reproducibility
-
-Minimal preparation chain (Python 3.12 x64, `pandas` + `pyarrow`):
-
-1. Repair the split lines in both TSVs (§5.2);
-2. Read as UTF-8, `quoting=QUOTE_NONE`, `na_values=['NA']`;
-3. Type the numeric columns and the date;
-4. Stream `speeches.tar` with `tarfile` (≈6 s, 106,302 files) and join on `filename`;
-5. Write `speeches.parquet` (131 MB zstd) and `meetings.parquet` (0.13 MB).
-
-Assertions to enforce: 106,302 rows · 0 missing texts · 0 orphan files · 0 unparsed dates ·
-unique `filename`.
-
-The resulting parquet is the **single source** for everything downstream; the original
-files are never read again.
-
----
-
-## 10. Limitations to state in any publication
-
-1. **Public meetings only.** Closed consultations, where most decisions are made, are
-   absent. The corpus documents official speech, not negotiation.
-2. **OCR noise**, unquantified by the authors and unevenly distributed over time.
-3. **Semi-automatic speaker attribution**, with an unaudited manual component.
-4. **Translation.** Records are in English; 40.2% carry an explicit non-English delivery
-   marker and are official translations. Missing in-person markers imply English under the
-   record convention, while 5,072 VTC speeches remain unknown. Stylistic analysis partly
-   measures UN translation services, not only the speaker.
-5. **Partly stale Dataverse metadata** (§1) and two valid counting units: 6,595 corpus
-   documents versus 6,582 distinct meeting symbols (§4).
-6. **`role` is empty in 86% of rows**: analyses by UN function rest on a non-random subset.
-
----
-
-## 11. Leader and government datasets, evaluated against this corpus
-
-Roadmap item R15 states the problem: the site treats a speech as a State speaking, and it is
-a government speaking. Rwanda is the clean case — nobody calls the killings a genocide until
-the government changes, and then everybody does, because the new government legitimates itself
-by accusing the old one. Read as *Rwanda's position over time* that is a puzzle; read as two
-governments it is not. This section evaluates the three datasets that could date such a change.
-**Nothing here is adopted.** It records what was checked, on what evidence, and what is still
-unknown.
-
-### 11.1 The join this corpus can support
-
-`source_cow_ccode` is present on **158,563 of the 158,603 rows whose `entity_type` is `state`**
-(99.97%), over **200 distinct Correlates of War codes** against 211 distinct `country_org`
-values. The 40 uncoded rows are name-variant edges rather than a coverage problem — *Turkish
-Federated State of Cyprus* (8+2), *East Timor* (11), *India or Netherland* (4), and single rows
-under `USA`, `Czechia`, `Türkiye`, `Côte d'Ivoire` and a few more. COW codes are what this
-literature keys on, so the join exists.
-
-⚠️ `iso3` is **empty on every row** of the migrated corpus (0 of 167,642, dtype `string`). It
-was populated under the Schoenfeld corpus. Anything below that would rather key on ISO must
-wait for that column to be rebuilt, or go through COW.
-
-### 11.2 Coverage, measured against this corpus and not in the abstract
-
-The corpus runs 1946–2024 and holds 158,603 state speeches, 3,578 of them containing
-`genocid*`. What each dataset's temporal window leaves uncovered:
-
-| dataset | window | state speeches uncovered | genocide-bearing uncovered |
-|---|---|---:|---:|
-| Archigos 4.1 | 1875–2015 | 45,933 (29.0%) | **1,267 (35.4%)** |
-| CHISOLS 5.0 | 1919–2018 | 30,451 (19.2%) | **897 (25.1%)** |
-| WhoGov v4 | 1966–2025 | 24,055 (15.2%) | **101 (2.8%)** |
-
-The ordering by *speeches* and the ordering by *the object of study* are not the same, and that
-is the finding. WhoGov leaves the largest share of the corpus uncovered after Archigos, and the
-smallest share of the thing this project is about, because its blind spot is 1946–1965 — two
-decades in which the Council barely used the word. Archigos's blind spot is 2016–2024, which is
-where a third of the genocide talk is: 189 of 211 states speak after 2015, and the states
-holding the most genocide-bearing speeches in that window are the United States (70), France
-(51), Ukraine (50), Rwanda (49), the United Kingdom (47), Russia (29), Syria (28) and Israel
-(26) — the centre of the question, not its margin.
-
-**Archigos 4.1 is therefore not adopted for this corpus.** Not because it is a worse dataset —
-it is the field's reference — but because its window and this corpus's centre of gravity do not
-overlap where it matters. It would silently blank the Ukraine and Gaza material entirely.
-
-### 11.3 The dataset that fits the corpus and the dataset that fits the question are different
-
-This is the tension to resolve before any of it is built.
-
-**WhoGov** ([Nyrup & Bramwell 2020](https://doi.org/10.1017/S0003055420000490), APSR 114(4):
-1366–1374; v4 released June 2026) records cabinet members in July of each year, 1966–2025, for
-countries above 400,000 population — 60,458 cabinet members, 177 countries, 9,495 country-years.
-It reaches the end of the corpus, which nothing else does. But what it measures is cabinet
-*composition*. It answers "did the government change" well and "did the government's base
-change" only by inference.
-
-**CHISOLS** ([Mattes, Leeds & Matsumura 2016](https://doi.org/10.1177/0022343315625760), JPR
-53(2): 259–267; v5.0, 1919–2018, countries above 500,000 population) measures precisely the
-thing R15 needs: which leadership changes bring to power a leader whose primary support is drawn
-from **different societal groups** than the predecessor's. That is the Rwandan mechanism stated
-as a variable, and no other dataset here states it. It stops in 2018 and so misses a quarter of
-the genocide-bearing speeches.
-
-The honest reading is that these are complementary and neither is sufficient: WhoGov as the
-spine that covers the corpus, CHISOLS as the interpretive layer wherever it reaches, and an
-explicit hole after 2018 for the question that matters most. A figure drawn from CHISOLS alone
-must state that it stops in 2018, or it will read as "no source-of-support changes after 2018".
-
-### 11.4 Two problems that apply to all three
-
-**Identifier systems do not agree.** Archigos uses **Gleditsch–Ward** codes, not COW — its
-`ccode` column is renamed `gwcode` in the `peacesciencer` port for exactly this reason. G–W and
-COW diverge on precisely the cases this corpus argues about: Germany, Yemen, Serbia and
-Yugoslavia. Any Archigos join needs a documented crosswalk, and the crosswalk is where the
-errors would be. **The code systems used by CHISOLS and WhoGov could not be established from
-public documentation** — see §11.5.
-
-**Population thresholds exclude states that speak here.** CHISOLS requires above 500,000 and
-WhoGov above 400,000. Twenty-three likely sub-threshold states account for 1,491 speeches
-(0.94%) — negligible — but **76 genocide-bearing** ones, and they are not evenly spread:
-Liechtenstein 47, Malta 13, Maldives 7, Grenada 3, then singles. Liechtenstein is **twelfth
-among all states** by genocide-bearing speeches, ahead of Jordan, Iran and Cuba, because small
-states with no stake in a conflict speak on international law when larger ones speak on
-interests. Both datasets structurally exclude it. Any overlay must publish which states it
-cannot cover rather than dropping them into an unmarked residue.
-
-### 11.5 What is not established, and how to settle it
-
-Each of these is a download away and none of them was guessed at here.
-
-1. **CHISOLS's country-code system and variable names.** The user manual is a PDF that did not
-   yield to text extraction and the project site does not state them. The Harvard deposit
-   ([doi:10.7910/DVN/AMBAXV](https://doi.org/10.7910/DVN/AMBAXV), CC0) is the **2016 JPR
-   replication archive, not v5.0** — two Stata/tab files, a do-file and a log, with no codebook.
-   Current releases come from [chisols.org](http://www.chisols.org/).
-2. **WhoGov's identifiers, licence and format.** Neither the Nuffield page nor the QoG
-   datafinder entry states them. (Note also that QoG lists WhoGov as 1966–2023 with 8,057
-   country-years while Nuffield states 1966–2025 with 9,495 — the QoG mirror is a version
-   behind, so take the release from the source.)
-3. **Whether either can be pinned.** This project pins its corpus by DOI, version and MD5, and
-   refuses a corpus its own pin does not describe. A dependency distributed from a project
-   website, versioned by a number in a filename, cannot be pinned that way. That is a real cost
-   for a reproducibility chain built the way this one is, and it may be the deciding argument
-   between the two.
-
-### 11.6 What this does not become
-
-The individual level is a different project and is not proposed. `speaker` holds 10,813 distinct
-name strings with no stable person identifier, so any question about the circulation of
-particular diplomats — the people who specialise in this subject and reappear across situations
-and decades — needs name disambiguation first.
-
-And an overlay is a new analysis, not a new decoration: under *Later analytical specifications*
-in [`IMPROVEMENT_ROADMAP.md`](IMPROVEMENT_ROADMAP.md) it would have to be preregistered rather
-than added quietly to the descriptive dashboard. The part of R15 that ships without any of this
-is the epistemological statement itself — that the unit is a government and the site does not
-currently model the difference — which costs nothing and is true now.
-
----
-
-*Notes compiled from version 6.1 of the dataset, the January 2025 codebook, the arXiv v3
-paper (March 2025) and a full profiling pass over the local data.*
+| DOI | [10.7910/DVN/CKPTRB](https://doi.org/10.7910/DVN/CKPTRB) |
+| Pinned version | 5.0, published 31 March 2026 |
+| Source licence | CC0 1.0 |
+| Consumed files | `speeches.tsv`, `meetings.tsv` |
+| Observed coverage | 17 January 1946 to 30 December 2024 |
+| Speeches | 167,642 |
+| Meetings with speeches | 9,464 |
+| Meeting records | 10,294 |
+| Source-reported words | 87,678,254 |
+| Project analytical words | 86,854,907 |
+
+The complete pin—Dataverse file identifiers, sizes, and MD5 checksums—is in
+[`config/dataset-pin.json`](../config/dataset-pin.json).
+`scripts/00_fetch_data.py` rejects any file whose checksum differs.
+
+## Why a single corpus
+
+Using the same source throughout 1946–2024 avoids an artificial break in 1992
+in OCR, speech segmentation, identifiers, affiliations, and speaker categories.
+This makes longitudinal comparisons more coherent than joining two corpora
+produced with different methods.
+
+The canonical pipeline retains the text distributed by the dataset. It does not
+therefore perform local OCR. A future OCR pass could provide targeted quality
+control for problematic documents without silently replacing the source text.
+
+## Adaptation to the project schema
+
+`scripts/01_build_parquet.py` adapts the two TSV files without modifying speech
+content:
+
+- `row_id` and `record_speech` use `speech_id`;
+- `record_id` and `basename` use the meeting identifier;
+- `meeting_symbol` uses the source-provided `S/PV` symbol;
+- `text` contains the complete speech transcript;
+- `source_affiliation` preserves the raw affiliation;
+- `country_org` uses `affiliation_cow` for states when available, and the raw
+  affiliation otherwise;
+- every original indicator is retained under a `source_*` name.
+
+The canonical raw Parquet file is `data/derived/speeches.parquet`. The normalised
+file adds counts and categories in `data/derived/speeches_norm.parquet`, after
+which the lexicon step creates `data/derived/speeches_flagged.parquet`.
+
+## Affiliation and institutional status
+
+The former manual annotations no longer classify speakers.
+
+`entity_type` is derived for each speech from the source indicators:
+
+1. `source_state` becomes `state`;
+2. `source_un_org` becomes `un`;
+3. `source_igo` becomes `igo`;
+4. `source_ngo` becomes `ngo`;
+5. no indicator becomes `other`.
+
+`un_org` takes precedence over `igo`, because UN bodies carry both indicators
+in the dataset. The category is a property of an intervention: the same
+affiliation label can be coded differently between rows, and the pipeline does
+not overwrite it with an assumed permanent actor category.
+
+Likewise, `speaker_group` uses `source_permanent_member` and
+`source_elected_member` to produce `P5`, `E10`, `Non-member state`, `UN`, or
+`Non-state`. This covers the full period, including years before the former
+manually maintained membership file.
+
+The historical `config/entities.csv` file no longer participates in either
+classification. Step 11 may still use it to obtain an ISO3 code and centroid for
+map display, using an exact case-insensitive match only. A missing match leaves
+the actor unmapped; it does not rename the actor, change its type, or remove it
+from any total.
+
+## Validation totals
+
+After normalisation:
+
+| Source category | Speeches |
+|---|---:|
+| State | 158,603 |
+| UN | 1,716 |
+| Other IGO | 445 |
+| NGO | 376 |
+| Other / unspecified | 6,502 |
+
+| Status at the time of the speech | Speeches |
+|---|---:|
+| E10 | 83,464 |
+| P5 | 47,363 |
+| Non-member state | 27,776 |
+| Non-state | 7,323 |
+| UN | 1,716 |
+
+Lexicon v4 finds `genocid*` in **4,133 speeches**, with **7,747 occurrences**.
+These figures replace the former 1992–2023 totals in every annotation-stage
+population check.
+
+## Limitations that must remain visible
+
+- The transcripts are in English. The language actually spoken cannot be
+  recovered from this distribution and remains `Unknown`.
+- `source_word_count` differs slightly from the project's tokenisation. Project
+  rates use only `words`, computed once by `lib.lexical`.
+- `other` means “no source indicator,” not “civil society.”
+- Geographic fields are optional and incomplete enrichments, never an
+  aggregation key.
+- The LLM runs dated August 2026 were produced against the former corpus. They
+  are archived, their pointers are empty, and they must be recomputed against
+  the new `occurrence_id` values.
+
+## Citation
+
+> Sakamoto, T., & Matsuoka, T. (2023). _The UNSC Meetings and Speeches_
+> (Version 5.0) [Data set]. Harvard Dataverse.
+> https://doi.org/10.7910/DVN/CKPTRB
+
+Associated article: Sakamoto, T., Matsuoka, T., & Ito, H. (2026), “The Security
+Council in its entirety: unveiling 80 years of deliberation through the UNSC
+Meetings and Speeches dataset”, _Journal of Peace Research_,
+[doi:10.1093/jopres/xjag018](https://doi.org/10.1093/jopres/xjag018).

@@ -411,7 +411,7 @@ def test_a_population_that_is_not_the_documented_one_is_refused() -> None:
     speeches, bodies = corpus()
     problems = gold.check_population(occurrences.enumerate_term(speeches, bodies, term()))
     assert len(problems) == 2
-    assert "6,092" in problems[0] and "3,273" in problems[1]
+    assert "7,747" in problems[0] and "4,133" in problems[1]
     assert all("docs/CORPUS.md §8" in problem for problem in problems)
 
 

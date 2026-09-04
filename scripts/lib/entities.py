@@ -1,4 +1,9 @@
-"""The country_org crosswalk: aliases in, entity attributes out.
+"""Speaker affiliation helpers.
+
+The canonical corpus uses the affiliation and category flags distributed with
+Sakamoto--Matsuoka v5.  The hand-curated files in ``config/`` are retained for
+legacy artefacts and optional geographic enrichment, but they are not allowed
+to rename or classify speakers in the canonical build.
 
 `country_org` holds 629 distinct values, of which only about 195 are states.
 The rest are IGOs, UN bodies, NGOs, local associations, universities and a
@@ -51,6 +56,88 @@ UN_REGIONAL_GROUPS: frozenset[str] = frozenset(
 )
 
 ENTITY_COLUMNS = ["entity_type", "iso3", "un_regional_group", "lat", "lon"]
+
+SOURCE_TYPE_FLAGS = {
+    "source_state": "state",
+    "source_un_org": "un",
+    "source_igo": "igo",
+    "source_ngo": "ngo",
+}
+
+
+def source_entity_type(speeches: pd.DataFrame) -> pd.Series:
+    """Classify affiliations from the source flags, without manual overrides.
+
+    ``un_org`` is a subset of ``igo`` in the source, so UN takes precedence.
+    Rows carrying none of the four flags remain the source's residual ``other``
+    category rather than receiving an inferred label.
+    """
+    missing = [column for column in SOURCE_TYPE_FLAGS if column not in speeches]
+    if missing:
+        raise KeyError(f"source affiliation flags missing: {', '.join(missing)}")
+
+    result = pd.Series("other", index=speeches.index, dtype="string")
+    result[speeches["source_ngo"]] = "ngo"
+    result[speeches["source_igo"]] = "igo"
+    result[speeches["source_un_org"]] = "un"
+    result[speeches["source_state"]] = "state"
+    return result
+
+
+def attach_source_metadata(speeches: pd.DataFrame) -> pd.DataFrame:
+    """Attach source-derived type plus empty optional geographic attributes."""
+    out = speeches.copy()
+    out["entity_type"] = source_entity_type(out)
+    out["iso3"] = pd.Series(pd.NA, index=out.index, dtype="string")
+    out["un_regional_group"] = pd.Series(pd.NA, index=out.index, dtype="string")
+    out["lat"] = pd.Series(float("nan"), index=out.index, dtype="float64")
+    out["lon"] = pd.Series(float("nan"), index=out.index, dtype="float64")
+    return out
+
+
+def source_affiliation_crosswalk(speeches: pd.DataFrame) -> pd.DataFrame:
+    """Collapse speech-level source flags into one actor-level description.
+
+    An affiliation receives every category the source ever asserts for it,
+    with the same state > UN > IGO > NGO precedence as row-level typing.  This
+    supplies actor tables without importing the legacy manual crosswalk.
+    """
+    required = ["country_org", *SOURCE_TYPE_FLAGS]
+    missing = [column for column in required if column not in speeches]
+    if missing:
+        raise KeyError(f"source affiliation columns missing: {', '.join(missing)}")
+    flags = (
+        speeches[required]
+        .groupby("country_org", sort=True, as_index=False)
+        .max()
+    )
+    flags["entity_type"] = source_entity_type(flags)
+    flags["iso3"] = pd.Series(pd.NA, index=flags.index, dtype="string")
+    flags["un_regional_group"] = pd.Series(pd.NA, index=flags.index, dtype="string")
+    flags["lat"] = pd.Series(float("nan"), index=flags.index, dtype="float64")
+    flags["lon"] = pd.Series(float("nan"), index=flags.index, dtype="float64")
+    return flags[["country_org", *ENTITY_COLUMNS]]
+
+
+def enrich_geography(
+    source: pd.DataFrame, geography: pd.DataFrame | None = None
+) -> pd.DataFrame:
+    """Add optional map fields on exact, case-insensitive name matches only.
+
+    This never changes ``country_org`` or ``entity_type``.  The legacy table is
+    used solely as a geographic lookup, and unmatched source labels remain
+    explicitly unmappable rather than being manually reconciled.
+    """
+    geography = load_entities() if geography is None else geography
+    columns = ["iso3", "un_regional_group", "lat", "lon"]
+    lookup = geography.assign(_key=geography["country_org"].str.casefold()).set_index("_key")
+    keys = source["country_org"].str.casefold()
+    out = source.copy()
+    is_state = out["entity_type"] == "state"
+    for column in columns:
+        values = keys.map(lookup[column])
+        out.loc[is_state, column] = values[is_state]
+    return out
 
 
 def load_aliases() -> dict[str, str]:

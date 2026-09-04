@@ -552,7 +552,7 @@ const validateUsageOccurrences: Validator = (record, path) => {
  * small, and every one of them is wanted again the moment the reader goes back.
  *
  * The two families fetched by name are the ones with no ceiling of their own —
- * 22 concordances and 6,595 speech files — and a reader who opens every term
+ * 29 concordances and 9,464 speech files—and a reader who opens every term
  * held all of them at once, in the parsed form, which is several times the
  * transferred size. Those get a least-recently-used bound instead: enough to
  * make going back to the previous term or the previous speech free, not enough
@@ -765,8 +765,8 @@ export const speakerKeyness = at<SpeakerKeyness>(
 );
 
 /* The experimental layer, in two files rather than one: the summary is a few
-   tens of kilobytes and every reader of the view needs it, and the 6,092
-   annotated occurrences behind it are wanted only by a reader who opens a cell.
+   tens of kilobytes and every reader of the view needs it, while the annotated
+   occurrences behind it are wanted only by a reader who opens a cell.
    The concordance splits its index from its lines for the same reason. */
 export const usage = at<Usage>('usage/usage.json', validateUsage);
 export const usageOccurrences = at<UsageOccurrences>(

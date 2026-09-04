@@ -13,7 +13,7 @@ export const PAGE_METADATA = {
 		path: '/',
 		title: SITE_NAME,
 		description:
-			'Explore when, how and by whom the vocabulary of genocide was used in UN Security Council debates from 1992 to 2023.'
+			'Explore when, how and by whom the vocabulary of genocide was used in UN Security Council debates from 1946 to 2024.'
 	},
 	'/chronology/': {
 		path: '/chronology/',
@@ -96,15 +96,15 @@ export const STRUCTURED_DATA_JSON = JSON.stringify({
 			'@id': `${canonicalUrl('/')}#analytical-data`,
 			name: `${SITE_NAME} — analytical data`,
 			description:
-				'Derived tables supporting the site’s analysis of genocide-related vocabulary in UN Security Council debates, 1992–2023.',
+				'Derived tables supporting the site’s analysis of genocide-related vocabulary in UN Security Council debates, 1946–2024.',
 			url: canonicalUrl('/'),
 			license: 'https://creativecommons.org/licenses/by/4.0/',
 			creator,
 			isBasedOn: {
 				'@type': 'Dataset',
-				name: 'The UN Security Council Debates',
-				'@id': 'https://doi.org/10.7910/DVN/KGVSYH',
-				version: '6.1',
+				name: 'The UNSC Meetings and Speeches',
+				'@id': 'https://doi.org/10.7910/DVN/CKPTRB',
+				version: '5.0',
 				license: 'https://creativecommons.org/publicdomain/zero/1.0/'
 			}
 		}

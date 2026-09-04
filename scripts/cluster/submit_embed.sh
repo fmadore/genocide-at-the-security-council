@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# Step 06: encode all 106,302 speeches on one GPU.
+# Step 06: encode all 167,642 speeches on one GPU.
 #
 #   sbatch scripts/cluster/submit_embed.sh
 #   UNSC_MODEL=qwen3-4b sbatch scripts/cluster/submit_embed.sh

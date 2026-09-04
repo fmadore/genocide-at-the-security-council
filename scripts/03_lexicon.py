@@ -9,8 +9,8 @@ Three things this step reports rather than hides:
 - **The OCR delta.** How many extra speeches the OCR-tolerant pattern finds,
   measured against the plain one and listed in the note, never folded into the
   headline count.
-- **The check against the documented figures.** `genocid*` is documented at
-  3,273 speeches / 6,092 occurrences (docs/CORPUS.md §8). Counting on the body
+- **The check against the migration baseline.** `genocid*` is documented at
+  4,133 speeches / 7,747 occurrences (docs/CORPUS.md). Counting on the body
   instead of the raw text does not move that; a difference is either the form
   of address eating real words or a deliberate change of pattern, and the note
   says which. Since lexicon v4 three terms differ on purpose — `genocide`
@@ -60,20 +60,20 @@ from lib.paths import (
 #: `ethnic_violence` — the term v3 called `ethnic_hatred`, listed here under
 #: its new name so the comparison survives the rename.
 DOCUMENTED: dict[str, tuple[int, int]] = {
-    "impunity": (9_662, 13_616),
-    "icc": (4_744, 6_590),
-    "war_crimes": (4_664, 6_588),
-    "atrocity": (3_775, 5_087),
-    "crimes_against_humanity": (3_465, 4_136),
-    "genocide": (3_273, 6_092),
-    "responsibility_to_protect": (1_353, 1_773),
-    "ethnic_cleansing": (1_229, 1_705),
-    "mass_atrocity": (532, 649),
-    "ethnic_violence": (477, 523),
-    "never_again": (305, 338),
-    "extermination": (224, 281),
-    "holocaust": (181, 242),
-    "genocide_convention": (135, 153),
+    "impunity": (10_260, 14_285),
+    "icc": (4_794, 11_000),
+    "war_crimes": (4_820, 6_761),
+    "atrocity": (5_156, 7_476),
+    "crimes_against_humanity": (3_725, 4_434),
+    "genocide": (4_133, 7_747),
+    "responsibility_to_protect": (1_365, 1_800),
+    "ethnic_cleansing": (1_280, 1_780),
+    "mass_atrocity": (651, 812),
+    "ethnic_violence": (16, 16),
+    "never_again": (371, 408),
+    "extermination": (582, 790),
+    "holocaust": (358, 465),
+    "genocide_convention": (228, 269),
 }
 
 AUDIT_CANDIDATES = INTERIM / "lexicon_audit_candidates.csv"

@@ -38,7 +38,7 @@ const contract: Record<string, Record<string, unknown>> = payload;
 
 /**
  * The two artefacts fetched by name are contracted through one representative
- * file, because each is written by a single loop: 6,595 documents and 22
+ * file, because each is written by a single loop: 9,464 documents and 29
  * concordances share one shape apiece, and sampling 425 MB to confirm that
  * twice over would slow the export for no extra finding.
  */

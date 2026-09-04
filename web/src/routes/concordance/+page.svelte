@@ -14,6 +14,8 @@
 	import { occurrenceItem } from '$lib/basket';
 	import {
 		CONCORDANCE_DEFAULTS,
+		CORPUS_END_YEAR,
+		CORPUS_START_YEAR,
 		concordanceParams,
 		describeMonth,
 		describeSort,
@@ -105,8 +107,8 @@
 	let referentOf = $state<Map<string, string> | null>(null);
 	const referentLabels = new SvelteMap<string, string>();
 	let referentsFailed = $state<string | null>(null);
-	let from = $state(1992);
-	let to = $state(2023);
+	let from = $state(CORPUS_START_YEAR);
+	let to = $state(CORPUS_END_YEAR);
 	/* A month of the year, orthogonal to the year bounds above: `month = 6` with
 	   from = to = 2014 is one square of the heatmap, and the same month with the
 	   years left alone is one row of the calendar beside it. What the parameter
@@ -372,7 +374,7 @@
 			participantType ? `participant type: ${participantType}` : null,
 			agenda ? `agenda: ${agenda}` : null,
 			spv ? `meeting: ${spv}` : null,
-			from !== 1992 || to !== 2023 ? `years: ${from}–${to}` : null,
+			from !== CORPUS_START_YEAR || to !== CORPUS_END_YEAR ? `years: ${from}–${to}` : null,
 			describeMonth(month),
 			`sorted by: ${describeSort(sort)}`
 		].filter((line): line is string => line !== null);
@@ -494,9 +496,9 @@
 			</label>
 			<label>
 				Years
-				<input type="number" min="1992" max="2023" bind:value={from} />
+				<input type="number" min={CORPUS_START_YEAR} max={CORPUS_END_YEAR} bind:value={from} />
 				<span>&ndash;</span>
-				<input type="number" min="1992" max="2023" bind:value={to} />
+				<input type="number" min={CORPUS_START_YEAR} max={CORPUS_END_YEAR} bind:value={to} />
 			</label>
 			<!-- The month of the year, not a month of one year: with the years above
 			     left alone this is every June in the corpus, which is the row the

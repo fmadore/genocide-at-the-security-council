@@ -101,7 +101,7 @@ def validate_against_corpus(
 
 
 def drift(speeches: pd.DataFrame, membership: pd.DataFrame | None = None) -> list[str]:
-    """Where the `speaker_group` 02 froze into the corpus no longer matches config/.
+    """Where the frozen ``speaker_group`` no longer matches its inputs.
 
     `02_normalise.py` derives the group once and writes it into the parquet, and
     every step after it reads that column rather than recomputing — which is the
@@ -110,9 +110,8 @@ def drift(speeches: pd.DataFrame, membership: pd.DataFrame | None = None) -> lis
     corpus and nothing in any artefact built from it, while the config file and
     the published figures quietly disagreed about who sat on the Council.
 
-    The same stance `lib.actors.crosswalk_drift` takes on `entities.csv`: stop,
-    and re-run 02, rather than build one artefact from the new file while the
-    rest of the payload carries the old one.
+    On the Sakamoto corpus the inputs are source flags stored on each speech.
+    The legacy roster remains supported only for older fixtures.
     """
     if "speaker_group" not in speeches.columns:
         return []
@@ -128,7 +127,7 @@ def drift(speeches: pd.DataFrame, membership: pd.DataFrame | None = None) -> lis
     )
     shown = [
         f"{row.country_org} ({row.year}): {row.speaker_group} in the corpus, "
-        f"{row.config} in config/council_membership.csv ({row.speeches:,} speeches)"
+            f"{row.config} when recomputed ({row.speeches:,} speeches)"
         for row in pairs.head(8).itertuples()
     ]
     if len(pairs) > 8:
@@ -143,6 +142,23 @@ def speaker_group(
 
     Expects ``year``, ``country_org`` and ``entity_type`` columns.
     """
+    source_columns = {"source_permanent_member", "source_elected_member"}
+    if source_columns <= set(speeches.columns):
+        permanent = speeches["source_permanent_member"].fillna(False).astype(bool)
+        elected = speeches["source_elected_member"].fillna(False).astype(bool)
+        if bool((permanent & elected).any()):
+            raise ValueError("a speech cannot be both permanent and elected")
+        if bool(((permanent | elected) & (speeches["entity_type"] != "state")).any()):
+            raise ValueError("a source Council member must be typed as a state")
+
+        group = pd.Series(NON_STATE, index=speeches.index, dtype="object")
+        group[speeches["entity_type"] == "un"] = UN_GROUP
+        is_state = speeches["entity_type"] == "state"
+        group[is_state] = NON_MEMBER
+        group[is_state & permanent] = PERMANENT
+        group[is_state & elected] = ELECTED
+        return group
+
     membership = membership_by_year() if membership is None else membership
     seat_of = dict(
         zip(

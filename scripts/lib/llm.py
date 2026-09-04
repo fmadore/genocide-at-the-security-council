@@ -236,7 +236,7 @@ _WHITESPACE_RE = re.compile(r"\s+")
 #: one file per version, named `v<n>.md`.
 #:
 #: Every run records the SHA-256 of the prompt file's raw bytes, on the manifest
-#: and on all 6,092 of its rows, and 15 publishes that prompt verbatim beside
+#: and on all 7,747 of its rows, and 15 publishes that prompt verbatim beside
 #: the labels it produced. So the digest is the run's only handle on the wording
 #: it was made with, and until this directory existed there was exactly one file
 #: that digest could be compared against: editing `PROMPT.md` made both

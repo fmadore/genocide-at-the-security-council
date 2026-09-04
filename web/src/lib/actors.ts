@@ -334,8 +334,8 @@ export interface ConcordanceLink {
  * misrepresents its scope.
  *
  * **The period travels with the link.** The rate a reader is reading is for one
- * period, so the years bound the concordance too. Sending them to 1992–2023 from
- * a 2020–2023 rate would show lines the figure never counted.
+ * period, so the years bound the concordance too. Sending a period-specific rate
+ * to the full corpus range would show lines the figure never counted.
  */
 export function occurrences(data: Countries, measure: string, entry: ActorRow): ConcordanceLink[] {
 	const measured = data.measures[measure];

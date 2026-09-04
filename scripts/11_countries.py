@@ -12,9 +12,8 @@ reading them.
 Everything the step is careful about is a way for a per-country table to be
 wrong while looking right:
 
-- a speaker missing from `config/entities.csv` would be dropped by the join and
-  leave a total that is quietly short, so an untyped speaker stops the run, the
-  same stance `02_normalise.py` takes;
+- affiliation types and Council status are read from the source flags, so the
+  actor table cannot drift from a separate hand-maintained classification;
 - a rate over a handful of speeches outranks every real one, so rates are
   withheld below `actors.MIN_SPEECHES` rather than published small;
 - three speakers share a successor's ISO 3166 code with a living state, so the
@@ -40,9 +39,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import actors, artifacts, console, council, entities, frames, lexicon, series
 from lib.paths import (
-    COUNCIL_MEMBERSHIP,
     COUNTRIES,
-    COUNTRY_ALIASES,
     ENTITIES,
     EXPECTED_SPEECHES,
     EXPECTED_TOKENS,
@@ -87,6 +84,12 @@ COLUMNS = [
     "speaker_group",
     "lat",
     "lon",
+    "source_state",
+    "source_un_org",
+    "source_igo",
+    "source_ngo",
+    "source_permanent_member",
+    "source_elected_member",
 ]
 
 
@@ -142,31 +145,22 @@ def load_corpus(minimum: int) -> tuple[pd.DataFrame, pd.DataFrame]:
             ],
         )
 
-    crosswalk = entities.load_entities()
-    if problems := entities.validate(crosswalk):
-        console.fail("config/entities.csv is not internally consistent", problems)
-    if problems := entities.validate_coverage(speeches["country_org"], crosswalk):
-        console.fail(
-            "the crosswalk does not cover every speaker, so a per-country total "
-            "would be short by an unknown amount",
-            problems,
-        )
-    if problems := actors.crosswalk_drift(speeches, crosswalk):
-        console.fail(
-            "config/entities.csv has changed since 02_normalise.py last ran",
-            [*problems[:8], "re-run 02_normalise.py and everything after it"],
-        )
+    crosswalk = entities.source_affiliation_crosswalk(speeches)
+    geography = entities.load_entities()
+    if problems := entities.validate(geography):
+        console.fail("the optional geography lookup is inconsistent", problems)
+    crosswalk = entities.enrich_geography(crosswalk, geography)
     if problems := council.drift(speeches):
         console.fail(
-            "config/council_membership.csv has changed since 02_normalise.py last ran",
+            "source membership flags disagree with speaker_group",
             [*problems, "re-run 02_normalise.py and everything after it"],
         )
     if problems := actors.check_coverage(speeches["year"]):
         console.fail("the declared periods do not partition the corpus", problems)
 
     console.info(
-        f"{speeches['country_org'].nunique():,} canonical speakers, "
-        f"{int((crosswalk['entity_type'] == 'state').sum()):,} of them states in the crosswalk"
+        f"{speeches['country_org'].nunique():,} source affiliations, "
+        f"{int((crosswalk['entity_type'] == 'state').sum()):,} typed as states by the source"
     )
     seated = int(speeches["speaker_group"].isin(actors.SEATED).sum())
     console.info(
@@ -608,7 +602,7 @@ def run(minimum: int) -> None:
         ROOT,
         "11_countries.py",
         inputs=[SPEECHES_FLAGGED],
-        configs=[LEXICON, ENTITIES, COUNTRY_ALIASES, COUNCIL_MEMBERSHIP],
+        configs=[LEXICON, ENTITIES],
         extra={
             "lexicon_version": lex.version,
             "speeches": len(speeches),

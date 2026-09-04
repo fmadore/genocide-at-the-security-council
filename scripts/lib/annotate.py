@@ -50,8 +50,8 @@ TERM: Final = "genocide"
 #: that enumerates anything else is annotating a different corpus, and its rows
 #: could not be joined to the published counts. Only `--limit` may leave this
 #: unmet, and the manifest records the limit that did.
-DOCUMENTED_SPEECHES: Final = 3_273
-DOCUMENTED_OCCURRENCES: Final = 6_092
+DOCUMENTED_SPEECHES: Final = 4_133
+DOCUMENTED_OCCURRENCES: Final = 7_747
 
 #: Columns a run needs. The normalised frame is 99 columns and 389 MB of text;
 #: reading all of it to use eight of them is a minute of nothing.

@@ -89,8 +89,8 @@ TERM = "genocide"
 #: whose rows were drawn from a different enumeration cannot be joined to the
 #: published counts, so this is checked here too rather than assumed from the
 #: fact that 14 checked it once.
-DOCUMENTED_SPEECHES = 3_273
-DOCUMENTED_OCCURRENCES = 6_092
+DOCUMENTED_SPEECHES = 4_133
+DOCUMENTED_OCCURRENCES = 7_747
 
 STORE = MODEL_ANNOTATIONS / TERM
 PROMPT = STORE / "PROMPT.md"
@@ -1311,7 +1311,8 @@ def build_note(
             "many delegations are in a position to speak at all varies with Council "
             "membership and with which debates were opened to non-members.",
             "- **The gold sample is the only calibration.** Until it is coded, accuracy is "
-            "unmeasured; after it is, it is measured on 200 occurrences and not on 6,092.",
+            "unmeasured; after it is, corpus accuracy is estimated from the probability "
+            "frame rather than asserted over the full occurrence population.",
             *(
                 [
                     "- **A second opinion is not a second measurement.** The comparison "
@@ -1332,8 +1333,120 @@ def build_note(
 # --- Orchestration -----------------------------------------------------------
 
 
+def run_without_model() -> None:
+    """Write an explicit empty usage layer while the migrated corpus has no run."""
+    console.step("No current model run; writing the migration state")
+    speeches = frames.read(SPEECHES_NORM, columns=COLUMNS)
+    bodies = frames.body(speeches)
+    lex = lexicon.load()
+    found = occurrences_lib.enumerate_term(speeches, bodies, lex.terms[TERM])
+    if problems := check_population(found):
+        console.fail("the enumeration disagrees with docs/CORPUS.md", problems)
+
+    if not GOLD_CANDIDATES.is_file():
+        console.fail(
+            f"{rel(GOLD_CANDIDATES)} is missing",
+            ["run 13_gold_sample.py first"],
+        )
+    candidates = pd.read_csv(GOLD_CANDIDATES, dtype="string", keep_default_na=False)
+    annotations = audit.read_annotations(GOLD_ANNOTATIONS)
+    empty = pd.DataFrame()
+    prompt_text = PROMPT.read_text(encoding="utf-8") if PROMPT.is_file() else ""
+    referent_rows = [{**row, "occurrences": 0} for row in read_referents(REFERENTS)]
+    zeros = {
+        "verdict_uncertain": 0,
+        "referent_unclear": 0,
+        "position_unclear": 0,
+    }
+    meta = artifacts.provenance(
+        ROOT,
+        "15_usage.py",
+        inputs=[SPEECHES_NORM, GOLD_CANDIDATES],
+        configs=[LEXICON, REFERENTS, PROMPT, GOLD_ANNOTATIONS],
+        extra={
+            "state": "awaiting_new_model_run",
+            "occurrences_total": len(found),
+            "occurrences_annotated": 0,
+            "outputs": [],
+        },
+    )
+    payload = {
+        "meta": meta,
+        "model": {
+            "id": "not-run",
+            "run_id": "",
+            "run_date": "",
+            "prompt_version": "",
+            "prompt_sha256": llm.prompt_sha256(PROMPT) if PROMPT.is_file() else "",
+            "reasoning_effort": "",
+            "requests": 0,
+            "requests_recounted": False,
+            "occurrences_total": len(found),
+            "occurrences_annotated": 0,
+            "parse_failures": 0,
+            "evidence_invalid": 0,
+            "abstention": zeros,
+            "tokens": {"input": 0, "output": 0},
+        },
+        "prompt": prompt_text,
+        "referents": referent_rows,
+        "actors": [],
+        "minimum_occurrences": 20,
+        "matrix": [],
+        "position_by_actor": [],
+        "diffusion": {"milestones": list(usage.MILESTONES), "referents": []},
+        "comparison": usage.comparison_block([], []),
+        "retest": [],
+        "gold": usage.gold_block(
+            annotations,
+            empty,
+            sample_size=len(candidates),
+            unique_occurrences=int(candidates["occurrence_id"].nunique()),
+            candidates=candidates,
+        ),
+    }
+    with artifacts.atomic_directory(USAGE) as staged:
+        artifacts.atomic_write_json(staged / "usage.json", payload)
+        artifacts.atomic_write_json(
+            staged / "occurrences.json", {"meta": meta, "occurrences": []}
+        )
+    write_note(
+        "15_usage.md",
+        "# 15 — Usage\n\nNo model run is selected after the corpus migration. "
+        f"The empty artefact records {len(found):,} occurrences awaiting annotation; "
+        "no historical label was joined to the new corpus.\n",
+    )
+    artifacts.atomic_write_json(
+        MANIFESTS / "15_usage.json",
+        artifacts.provenance(
+            ROOT,
+            "15_usage.py",
+            inputs=[SPEECHES_NORM, GOLD_CANDIDATES],
+            configs=[LEXICON, REFERENTS, PROMPT, GOLD_ANNOTATIONS],
+            extra={
+                "state": "awaiting_new_model_run",
+                "occurrences_total": len(found),
+                "occurrences_annotated": 0,
+                "outputs": [
+                    artifacts.describe_file(USAGE / "usage.json", ROOT),
+                    artifacts.describe_file(USAGE / "occurrences.json", ROOT),
+                ],
+            },
+        ),
+        indent=1,
+    )
+    console.info(f"wrote an empty, explicit usage layer in {rel(USAGE)}")
+
+
 def run(args: argparse.Namespace) -> None:
     ensure_dirs()
+
+    selected = args.run or (
+        CURRENT_RUN.read_text(encoding="utf-8").strip() if CURRENT_RUN.is_file() else ""
+    )
+    if args.run_dir is None and not selected:
+        run_without_model()
+        return
 
     console.step("Choosing the run")
     directory, run_id = select_run(args.run, args.run_dir)

@@ -1,7 +1,7 @@
 # Model annotation prompt — `genocide`
 
 version: 2
-date: 2026-09-02
+date: 2026-09-03
 codebook: `annotations/lexicon/CODEBOOK.md`, schema version 3
 
 The raw bytes of this file are hashed with SHA-256 into every run manifest and into every
@@ -77,7 +77,7 @@ has yet been made against this prompt.
 
 ```text
 You are annotating occurrences of the word "genocide" in the verbatim records of the United
-Nations Security Council, 1992-2023.
+Nations Security Council, 1946-2024.
 
 TASK BOUNDARY. You classify discourse. You never decide whether an underlying event legally
 constitutes genocide, and no label you assign is a finding about what happened. The question

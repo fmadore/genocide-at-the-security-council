@@ -9,7 +9,7 @@
 // simple.
 //
 // **What it does not do.** It does not try to make the site work offline before
-// it has been used. `web/static/data/` is 468 MB across 6,632 files — 6,595 of
+// it has been used. `web/static/data/` is about 675 MB across 9,510 files—9,464 of
 // them one per meeting — and precaching that is not a heavy version of the right
 // idea, it is the wrong idea: a reader who opens the Overview would spend their
 // month's data on 6,594 meetings they will never read. `svelte.config.js` keeps
@@ -45,7 +45,7 @@ const worker = self as unknown as ServiceWorkerGlobalScope;
 const CACHE = `unsc-${version}`;
 
 // The SPA shell adapter-static writes for routes that are not prerendered — the
-// reader, which has 6,595 possible URLs and is a route rather than 6,595 pages.
+// reader, which has 9,464 possible URLs and is a route rather than 9,464 pages.
 // It belongs to no `$service-worker` array: `build` is Vite's output, `files` is
 // `static/`, and this is the adapter's own. Hence the literal.
 const FALLBACK = `${base}/404.html`;

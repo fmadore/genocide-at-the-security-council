@@ -43,6 +43,10 @@ export const MONTH_PARAM = 'month';
 
 export type ConcordanceSort = 'date' | 'country' | 'agenda' | 'left' | 'right';
 
+/** Inclusive bounds of the pinned Sakamoto–Matsuoka v5.0 corpus. */
+export const CORPUS_START_YEAR = 1946;
+export const CORPUS_END_YEAR = 2024;
+
 export interface ConcordanceState {
 	term: string;
 	query: string;
@@ -74,8 +78,8 @@ export const CONCORDANCE_DEFAULTS: ConcordanceState = {
 	agenda: '',
 	spv: '',
 	referent: '',
-	from: 1992,
-	to: 2023,
+	from: CORPUS_START_YEAR,
+	to: CORPUS_END_YEAR,
 	month: null,
 	sort: 'date'
 };

@@ -1,7 +1,7 @@
 """The grammatical frames the node appears in, as a codebook over the concordance.
 
 The review of 1 September 2026 (§3.6, item 2) asks for a regex pass over the
-6,092 occurrences of *genocide*: *acts of genocide*, *crime of genocide*, *risk
+7,747 occurrences of *genocide*: *acts of genocide*, *crime of genocide*, *risk
 of genocide*, *amounts to genocide*, *so-called genocide*, *genocide against X*,
 *genocidal intent*, and the noun / adjective / perpetrator-noun split. The
 question behind it is not lexical but pragmatic: the same word does nomination,
@@ -25,7 +25,7 @@ published numbers mean.
 
 **A window, not a parse.** Each occurrence is classified from a ±90-character
 window with the node marked, and nothing else. There is no parser in this
-repository, spaCy is not a dependency, and a dependency parse of 6,092 windows
+repository, spaCy is not a dependency, and a dependency parse of 7,747 windows
 would be a second instrument to validate for a distinction most of these frames
 do not need: *acts of*, *crime of*, *so-called* and *against* are adjacency, and
 adjacency is what a window measures. What the window cannot do is resolve a

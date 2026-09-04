@@ -1,7 +1,7 @@
 """Draw the human gold sample the model-assisted usage layer is measured against.
 
-`genocide` is the term that layer is built on: 6,092 occurrences in 3,273 of the
-106,302 speeches. Step 14 annotates all of them with a model, and a model run is
+`genocide` is the term that layer is built on: 7,747 occurrences in 4,133 of the
+167,642 speeches. Step 14 annotates all of them with a model, and a model run is
 worth exactly as much as the human sample it was scored against. This step draws
 that sample — 120 occurrences by equal probability, 80 more chosen to cover every
 period and cue stratum, and 535 more from the strata two committed model runs
@@ -26,10 +26,10 @@ Three properties it is built for:
 
 - **One enumeration, checked against the published one.** The occurrences come
   from `lib.occurrences`, the module 13, 14 and 15 share, and the run refuses to
-  continue unless it reproduces the 3,273 speeches / 6,092 occurrences documented
-  in docs/CORPUS.md §8. A gold sample drawn from a different population than the
+  continue unless it reproduces the 4,133 speeches / 7,747 occurrences documented
+  in docs/CORPUS.md. A gold sample drawn from a different population than the
   one the model annotates would measure nothing.
-- **Hard cases on purpose.** 4,759 of the 6,092 occurrences are plain uses; an
+- **Hard cases on purpose.** Most occurrences are plain uses; an
   equal-probability sample of 200 would contain about four rejections and none of
   several periods. Each occurrence therefore carries a `cue` read off its ±150
   character window — `rejection`, `quotation`, `commemorative`, `dense_meeting`,
@@ -85,8 +85,8 @@ TERM = "genocide"
 #: docs/CORPUS.md §8, and reproduced exactly by 03 and 08. The gold sample is
 #: only comparable to the model run if both enumerate this same population, so
 #: these are asserted rather than reported.
-DOCUMENTED_SPEECHES = 3_273
-DOCUMENTED_OCCURRENCES = 6_092
+DOCUMENTED_SPEECHES = 4_133
+DOCUMENTED_OCCURRENCES = 7_747
 
 #: Only the columns the sample needs. The frame is 131 MB, nearly all of it text.
 COLUMNS = [
@@ -519,8 +519,8 @@ def build_note(
             f"**{population:,} occurrences** of `{TERM}` in "
             f"{candidates['filename'].nunique():,} speeches, the population step 14 "
             "annotates in full.",
-            "Checked against the 3,273 speeches / 6,092 occurrences documented in",
-            "docs/CORPUS.md §8; the run fails rather than sampling a population that",
+            "Checked against the 4,133 speeches / 7,747 occurrences documented in",
+            "docs/CORPUS.md; the run fails rather than sampling a population that",
             "disagrees with the published one.",
             "",
             "## The sample",

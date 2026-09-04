@@ -73,7 +73,7 @@ for (const path of publicPages) {
 }
 
 const home = readFileSync(resolve('build', 'index.html'), 'utf8');
-for (const marker of ['"@type":"SoftwareApplication"', '"@type":"Dataset"', '10.7910/DVN/KGVSYH']) {
+for (const marker of ['"@type":"SoftwareApplication"', '"@type":"Dataset"', '10.7910/DVN/CKPTRB']) {
 	if (!home.includes(marker)) metadataProblems.push(`index.html JSON-LD: ${marker}`);
 }
 if (metadataProblems.length) {

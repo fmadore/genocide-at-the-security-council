@@ -64,6 +64,14 @@ def loaded_corpus(step) -> pd.DataFrame:
         for i in range(5)
     ]
     frame = pd.DataFrame(rows)
+    frame = frame.assign(
+        source_state=True,
+        source_un_org=False,
+        source_igo=False,
+        source_ngo=False,
+        source_permanent_member=False,
+        source_elected_member=True,
+    )
     wanted = step.COLUMNS + [
         column
         for kind, name in step.TRACKED

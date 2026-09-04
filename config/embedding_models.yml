@@ -38,10 +38,9 @@ models:
     repo: Qwen/Qwen3-Embedding-0.6B
     revision: main
     dimensions: 1024
-    # The model handles 32k, but the longest speech in the corpus is 13,569
-    # words (~18k subword tokens) and only 4 exceed 8,192 words at all. An 8k
-    # window keeps activation memory predictable and chunks a handful of
-    # speeches rather than sizing every batch for the worst case.
+    # The model handles 32k. An 8k window keeps activation memory predictable
+    # and chunks unusually long speeches rather than sizing every batch for the
+    # worst case.
     max_tokens: 8192
     batch_size: 16
     torch_dtype: bfloat16
@@ -51,8 +50,9 @@ models:
     licence: apache-2.0
     note: >-
       Default. 596M parameters, strong on MTEB clustering, permissive licence.
-      Measured: 16 minutes for the whole corpus on one H100 (9 August 2026),
-      106,311 encoded pieces for 106,302 speeches.
+      The former corpus took 16 minutes on one H100 (9 August 2026). The v5.0
+      corpus is larger, so its runtime and encoded-piece count must be measured
+      by the next step-06 run rather than inferred from that benchmark.
 
   qwen3-4b:
     repo: Qwen/Qwen3-Embedding-4B

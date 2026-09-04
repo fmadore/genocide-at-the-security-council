@@ -2,7 +2,7 @@
  * The frame profile: what the word is doing, and how that differs in a slice.
  *
  * The figure is a dot plot with two marks per row. An open dot is the frame's
- * share of all 6,092 occurrences of the node; a filled dot with a Wilson whisker
+ * share of all occurrences of the node; a filled dot with a Wilson whisker
  * is its share in whichever slice the reader has chosen — an eight-year block, a
  * speaker group. The reading is the distance between them, and the whisker says
  * whether that distance is worth reading at all.
@@ -27,7 +27,7 @@ export interface FrameRow {
 	frame: string;
 	/** The gloss from the codebook, or the residue's own sentence. */
 	gloss: string;
-	/** Share over every occurrence of the node. Never withheld: n is 6,092. */
+	/** Share over every occurrence of the node. This overall value is never withheld. */
 	overall: number;
 	overallOccurrences: number;
 	/** Share within the chosen slice, and its Wilson bounds. Null when withheld. */

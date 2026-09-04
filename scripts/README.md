@@ -37,7 +37,7 @@ and compares their analytical values with `tests/golden/`. Leave them unset othe
 |---|---|---|---|---|
 | 00 | `00_fetch_data.py` | Dataverse API | `data/raw/` | ✅ |
 | 01 | `01_build_parquet.py` | `data/raw/` | `derived/speeches.parquet`, `meetings.parquet` | ✅ |
-| 02 | `02_normalise.py` | `speeches.parquet`, `config/{entities,country_aliases,council_membership}.csv` | `derived/speeches_norm.parquet` | ✅ |
+| 02 | `02_normalise.py` | `speeches.parquet` and its source metadata flags | `derived/speeches_norm.parquet` | ✅ |
 | 03 | `03_lexicon.py` | `speeches_norm.parquet`, `config/lexicon.yml` | `derived/speeches_flagged.parquet` | ✅ |
 | 04 | `04_series.py` | `speeches_flagged.parquet`, `config/events.csv` | `derived/series/*.json` | ✅ |
 | 05 | `05_lexical.py` | `speeches_flagged.parquet`, `config/stopwords.txt` | `derived/lexical/*.json` | ✅ |
@@ -46,7 +46,7 @@ and compares their analytical values with `tests/golden/`. Leave them unset othe
 | 08 | `08_kwic.py` | `speeches_flagged.parquet` | `derived/kwic/*.json` | ✅ |
 | 09 | `09_export_speeches.py` | `speeches_flagged.parquet`, `meetings.parquet` | `web/static/data/speeches/*.json` | ✅ |
 | 10 | `10_lemmatise.py` | `speeches_flagged.parquet` | `derived/lemmas/` | 🔬 optional |
-| 11 | `11_countries.py` | `speeches_flagged.parquet`, `config/entities.csv` | `derived/countries/countries.json` | ✅ |
+| 11 | `11_countries.py` | `speeches_flagged.parquet`; `config/entities.csv` for optional geography only | `derived/countries/countries.json` | ✅ |
 | 12 | `12_speaker_keyness.py` | `speeches_flagged.parquet`, `config/stopwords.txt` | `derived/countries/speaker_keyness.json` | ✅ |
 | 13 | `13_gold_sample.py` | `speeches_norm.parquet`, `config/lexicon.yml`, `annotations/genocide/`, `model_annotations/genocide/` | `data/interim/genocide_gold_*.csv` | ✅ |
 | 14 | `14_llm_annotate.py` | `speeches_norm.parquet`, `model_annotations/genocide/PROMPT.md`, the OpenAI API | `model_annotations/genocide/runs/<id>/` | ✋ manual, paid |
@@ -105,7 +105,7 @@ and its key as two files so that the file a human opens does not contain the ans
 gold sample and is deterministic. **14 is never run by CI or the deploy**: it needs
 `OPENAI_API_KEY`, the extra dependency in
 [`../requirements-llm.txt`](../requirements-llm.txt), and money — a full run sends all
-6,092 `genocide` occurrences to the model. Its output is committed under
+7,747 `genocide` occurrences to the model. Its output is committed under
 `model_annotations/`, which is why the deploy can rebuild the payload without ever holding
 a key. 15 is deterministic again: it joins the committed run, the human gold rows and the
 corpus into `derived/usage/`, refusing a run whose term pattern, occurrence identities or
@@ -289,7 +289,7 @@ What follows from that, worth knowing before you start:
 | [`lib/frames.py`](lib/frames.py) | Parquet read/write; `body()` reconstructs a speech minus its form of address. |
 | [`lib/text.py`](lib/text.py) | Line endings, the opening form of address, delivery language, sentence segmentation, case collisions. |
 | [`lib/language.py`](lib/language.py) | Explicit, inferred and unknown delivery-language policy. |
-| [`lib/entities.py`](lib/entities.py) | The `country_org` crosswalk: aliases in, type/ISO3/centroid out. |
+| [`lib/entities.py`](lib/entities.py) | Source-derived affiliation types; optional legacy ISO3/centroid enrichment without renaming. |
 | [`lib/council.py`](lib/council.py) | Council membership by year; the P5 / E10 / non-member / UN / non-state split. |
 | [`lib/lexicon.py`](lib/lexicon.py) | Loads, compiles and counts `config/lexicon.yml`; `Term.spans` applies a term's whole rule, pattern and sentence anchor together. |
 | [`lib/series.py`](lib/series.py) | Periods, denominators (words, not the codebook's tokens), rates with their Wilson 95% bounds, breakdowns; change-point detection with a meeting-block null (`meeting_blocks`, `rate_change_point`); the event overlay. |

@@ -312,8 +312,8 @@ def test_both_providers_are_sent_the_same_two_messages() -> None:
 
 
 def test_both_steps_annotate_the_same_documented_population() -> None:
-    assert step.DOCUMENTED_SPEECHES == openai_step.DOCUMENTED_SPEECHES == 3_273
-    assert step.DOCUMENTED_OCCURRENCES == openai_step.DOCUMENTED_OCCURRENCES == 6_092
+    assert step.DOCUMENTED_SPEECHES == openai_step.DOCUMENTED_SPEECHES == 4_133
+    assert step.DOCUMENTED_OCCURRENCES == openai_step.DOCUMENTED_OCCURRENCES == 7_747
     assert step.COLUMNS == openai_step.COLUMNS
     assert step.TERM == openai_step.TERM
     assert step.PROMPT == openai_step.PROMPT

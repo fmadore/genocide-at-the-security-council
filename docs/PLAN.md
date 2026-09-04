@@ -4,7 +4,9 @@ This roadmap separates work that makes the existing claims trustworthy from opti
 analyses that would create new claims. The order is deliberate: a topic model, map or LLM
 layer is not a substitute for validating the corpus, lexicon and denominators it consumes.
 
-Status: 11 August 2026.
+Status: corpus migration completed 3 September 2026. Historical implementation
+notes below may retain the figures current when they were written; the canonical
+source and current totals are in `docs/CORPUS.md`.
 
 ## Research contract
 
@@ -48,7 +50,8 @@ release depends on them.
 Status: complete in the current implementation; regenerated artifacts still require the
 release checks below.
 
-- Pin Harvard Dataverse v6.1 by default; make “latest” an explicit opt-in.
+- Pin Sakamoto–Matsuoka Harvard Dataverse v5.0 by file id, size and MD5; make
+  “latest” an explicit opt-in.
 - Validate checksums, strict UTF-8 decoding, tab counts, repaired record counts, dates,
   joins, entity coordinates and complete Council-year coverage.
 - Correct the singular/plural atrocity patterns. Require examples and safe literal
@@ -118,7 +121,7 @@ and commit metadata.
 
 Status: implemented; first live deployment still depends on repository Pages settings.
 
-The Pages workflow rebuilds the 491 MB payload from Dataverse v6.1 rather than committing
+The Pages workflow rebuilds the payload from Sakamoto–Matsuoka Dataverse v5.0 rather than committing
 generated data or relying on one workstation. It installs the hashed Python lock, runs steps
 00–09 plus 11, 12 and `export_web.py`, builds every public route and uploads the static
 artifact. Since 11 August 2026 it does that only when it has to: §2.1 records the two caches

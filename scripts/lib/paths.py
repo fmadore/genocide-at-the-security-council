@@ -108,17 +108,20 @@ FRAMES = DERIVED / "frames"        # 17
 MANIFESTS = DERIVED / "manifests"  # machine-readable provenance, all stages
 
 # Harvard Dataverse
-DOI = "doi:10.7910/DVN/KGVSYH"
+DOI = "doi:10.7910/DVN/CKPTRB"
 DATAVERSE = "https://dataverse.harvard.edu"
-DATASET_VERSION = "6.1"
+DATASET_VERSION = "5.0"
 
 # Ground truth from the codebook, asserted by the build. `EXPECTED_TOKENS` is
 # quanteda's count over the full text of every speech, punctuation and numbers
 # included, and it is kept as provenance: reproducing it is what says the tar
 # and the TSV describe the same corpus. It is *not* the denominator of a rate —
 # see `EXPECTED_WORDS`.
-EXPECTED_SPEECHES = 106_302
-EXPECTED_TOKENS = 66_392_703
+EXPECTED_SPEECHES = 167_642
+# The source calls this field a word count. The legacy name remains in the
+# canonical table because downstream artefacts already carry `tokens`, but it
+# is provenance only and is never used as a lexical denominator.
+EXPECTED_TOKENS = 87_678_254
 
 # Words in the speech bodies, counted with `lib.lexical.TOKEN_RE` and asserted
 # by 02. This is the denominator every "per 100,000 words" figure divides by.
@@ -134,7 +137,7 @@ EXPECTED_TOKENS = 66_392_703
 # already reports its universe in these same units. Relabelling would have left
 # a rate whose numerator and denominator came from different tokenisers and
 # different texts.
-EXPECTED_WORDS = 58_904_180
+EXPECTED_WORDS = 86_854_907
 
 
 def ensure_dirs() -> None:

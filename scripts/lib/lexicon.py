@@ -55,7 +55,7 @@ ANCHOR_RE = re.compile(r"\bgenocid\w*", re.IGNORECASE)
 #: Every string :data:`ANCHOR_RE` matches contains it, on exactly the rule the
 #: per-term prefilters are held to, so the fast path cannot lose an anchored
 #: match — and segmentation runs on the three thousand speeches that say the
-#: word rather than on all 106,302.
+#: word rather than on all 167,642 speeches.
 ANCHOR_PREFILTER = "genocid"
 
 #: The anchors a term may declare. One for now, and its name is the unit:

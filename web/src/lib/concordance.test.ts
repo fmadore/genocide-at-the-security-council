@@ -161,6 +161,12 @@ const line = (over: Partial<KwicLine>): KwicLine => ({
 });
 
 describe('the complete concordance query state', () => {
+	it('defaults to the complete 1946–2024 corpus', () => {
+		expect(CONCORDANCE_DEFAULTS.from).toBe(1946);
+		expect(CONCORDANCE_DEFAULTS.to).toBe(2024);
+		expect(readConcordanceState(new URLSearchParams())).toEqual(CONCORDANCE_DEFAULTS);
+	});
+
 	it('round-trips every analytical control', () => {
 		const state = {
 			...CONCORDANCE_DEFAULTS,

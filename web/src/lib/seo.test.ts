@@ -44,6 +44,6 @@ describe('discovery documents', () => {
 			'SoftwareApplication',
 			'Dataset'
 		]);
-		expect(graph[1].isBasedOn['@id']).toBe('https://doi.org/10.7910/DVN/KGVSYH');
+		expect(graph[1].isBasedOn['@id']).toBe('https://doi.org/10.7910/DVN/CKPTRB');
 	});
 });

@@ -1206,13 +1206,9 @@
 		{/snippet}
 		{#snippet more()}
 			<p>
-				The corpus places 106 of 6,092 occurrences on <em>rejects or denies</em>, so a delegation
-				with twenty occurrences is expected to have a third of one. A single rejection there reads
-				as 5% and looks like three times the corpus; its 95% interval runs from under 1% to about
-				25%. Raising the minimum until 5% could be separated from 1.7% would need about 220
-				occurrences and would keep three delegations, losing the finding the column exists for. So
-				the counts and the shares stay, the interval is printed beside each, and only the rows the
-				interval separates are ordered.
+				This ranking is unavailable until a model run has annotated the migrated corpus. Once a run
+				exists, counts and shares will be shown with their intervals, and only rows whose interval
+				separates from the corpus baseline will be ordered.
 			</p>
 		{/snippet}
 

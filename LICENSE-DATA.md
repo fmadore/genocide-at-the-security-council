@@ -8,7 +8,7 @@ licence.
 
 | Layer | What | Licence |
 |---|---|---|
-| Source corpus | The UN Security Council Debates, Harvard Dataverse v6.1, DOI [10.7910/DVN/KGVSYH](https://doi.org/10.7910/DVN/KGVSYH) | CC0 1.0, by its depositors |
+| Source corpus | Sakamoto & Matsuoka, *The UNSC Meetings and Speeches*, Harvard Dataverse v5.0, DOI [10.7910/DVN/CKPTRB](https://doi.org/10.7910/DVN/CKPTRB) | CC0 1.0, by its depositors |
 | Code | Everything under `scripts/`, `web/`, `tests/`, `tools/`, `config/` | MIT |
 | Derived artefacts | Everything under `data/derived/` and `notes/`, plus the figures, tables and prose of the dashboard and `docs/` | **CC BY 4.0** |
 
@@ -26,9 +26,9 @@ Attribution should name this repository and its author, and — because a derive
 worth nothing without the record it came from — the source corpus as well:
 
 > Madore, F. (2026). *UN Security Council Debates — genocide discourse dashboard*.
-> <https://github.com/fmadore/genocide-at-the-security-council>. Derived from Schoenfeld, M.,
-> Eckhard, S., Patz, R., van Meegdenburg, H., & Pires, A. (2019), *The UN Security Council
-> Debates* [Data set], Harvard Dataverse V6.1, <https://doi.org/10.7910/DVN/KGVSYH> (CC0).
+> <https://github.com/fmadore/genocide-at-the-security-council>. Derived from Sakamoto, T.,
+> & Matsuoka, T. (2023), *The UNSC Meetings and Speeches* [Data set], Harvard Dataverse
+> V5.0, <https://doi.org/10.7910/DVN/CKPTRB> (CC0).
 
 See [`CITATION.cff`](CITATION.cff) for machine-readable metadata.
 

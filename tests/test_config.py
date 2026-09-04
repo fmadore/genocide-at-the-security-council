@@ -23,8 +23,10 @@ from lib.paths import (
     LEXICON_LOCK,
 )
 
-CORPUS_FIRST_YEAR = 1992
-CORPUS_LAST_YEAR = 2023
+CORPUS_FIRST_YEAR = 1946
+CORPUS_LAST_YEAR = 2024
+LEGACY_MEMBERSHIP_FIRST_YEAR = 1992
+LEGACY_MEMBERSHIP_LAST_YEAR = 2023
 
 #: What a verbatim record does to a phrase that will not fit on one line. The
 #: patterns join words with `\s+`, which spans every one of these; a prefilter
@@ -140,10 +142,17 @@ class TestAliases:
 
 
 class TestCouncilMembership:
-    def test_seats_add_up_across_the_corpus_period(self, membership):
+    def test_seats_add_up_across_the_legacy_membership_period(self, membership):
         """Five permanent and ten elected, every year — fixed by the Charter,
         so a year that does not add up is a typo in the config."""
-        assert council.validate(membership, CORPUS_FIRST_YEAR, CORPUS_LAST_YEAR) == []
+        assert (
+            council.validate(
+                membership,
+                LEGACY_MEMBERSHIP_FIRST_YEAR,
+                LEGACY_MEMBERSHIP_LAST_YEAR,
+            )
+            == []
+        )
 
     def test_members_are_named_as_the_corpus_names_them(self, membership):
         known = set(entities.load_entities()["country_org"])
@@ -161,7 +170,7 @@ class TestEvents:
         assert len(events) > 0
 
     def test_every_event_falls_inside_the_corpus_period(self, events):
-        """An annotation outside 1992-2023 would be drawn off the end of every
+        """An annotation outside 1946-2024 would be drawn off the end of every
         axis in the dashboard, or silently dropped."""
         assert events["year"].between(CORPUS_FIRST_YEAR, CORPUS_LAST_YEAR).all()
 

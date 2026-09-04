@@ -133,10 +133,15 @@ MIN_PROFILE_SPEECHES = 20
 #: chosen to flatter a result — 04's change points are the empirical dating,
 #: and these are deliberately not them.
 PERIODS: list[tuple[str, int, int]] = [
-    ("1992-1999", 1992, 1999),
+    ("1946-1949", 1946, 1949),
+    ("1950-1959", 1950, 1959),
+    ("1960-1969", 1960, 1969),
+    ("1970-1979", 1970, 1979),
+    ("1980-1989", 1980, 1989),
+    ("1990-1999", 1990, 1999),
     ("2000-2009", 2000, 2009),
     ("2010-2019", 2010, 2019),
-    ("2020-2023", 2020, 2023),
+    ("2020-2024", 2020, 2024),
 ]
 
 #: What a control speech has to match on. Year holds the occasion constant,

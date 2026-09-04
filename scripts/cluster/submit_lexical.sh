@@ -11,7 +11,7 @@
 # environment does not.
 #
 # It is here rather than on the login node because the matched-keyness stability
-# pass refits the control set twenty times over 106,302 speeches.
+# pass refits the control set twenty times over 167,642 speeches.
 # ---------------------------------------------------------------------------
 #SBATCH --job-name=unsc-lexical
 #SBATCH --partition=normal

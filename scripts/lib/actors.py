@@ -58,17 +58,22 @@ informative_zero_minimum = series.informative_zero_minimum
 #: map as a finding; this is the denominator at which it is entitled to be one.
 #: `11_countries.py` recomputes the requirement against the corpus it loads and
 #: says so if 100 stops meeting it.
-MIN_SPEECHES = 100
+MIN_SPEECHES = 125
 
 #: Multi-year slices, matching `05_lexical.py`'s so that a speaker's collocate
 #: profile and its rate are cut on the same boundaries. Round decades, fixed
 #: before any result was looked at: 04's change points are the empirical dating,
 #: and these are deliberately not them.
 DECADES: tuple[tuple[int, int], ...] = (
-    (1992, 1999),
+    (1946, 1949),
+    (1950, 1959),
+    (1960, 1969),
+    (1970, 1979),
+    (1980, 1989),
+    (1990, 1999),
     (2000, 2009),
     (2010, 2019),
-    (2020, 2023),
+    (2020, 2024),
 )
 
 #: Key of the slice covering the whole corpus.

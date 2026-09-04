@@ -14,11 +14,7 @@
     "un_regional_group": "null|str"
    }
   ],
-  "iso3_collisions": {
-   "*": [
-    "str"
-   ]
-  },
+  "iso3_collisions": {},
   "measures": {
    "*": {
     "derived_from?": "str",
@@ -49,6 +45,7 @@
    }
   },
   "meta": {
+   "analysis_hash": "str",
    "codebook_tokens": "int",
    "configs": [
     {
@@ -132,6 +129,7 @@
    "str"
   ],
   "meta": {
+   "analysis_hash": "str",
    "configs": [
     {
      "bytes": "int",
@@ -648,59 +646,7 @@
   },
   "triangulation": {
    "rule": "str",
-   "runs": [
-    {
-     "coverage": "float",
-     "function": {
-      "field": "str",
-      "labels": [
-       "str"
-      ],
-      "multi_label": "bool",
-      "rows": [
-       {
-        "counts": [
-         {
-          "label": "str",
-          "occurrences": "int"
-         }
-        ],
-        "frame": "str",
-        "modal_label": "str",
-        "modal_share": "float",
-        "occurrences": "int",
-        "row_total": "int"
-       }
-      ]
-     },
-     "matched": "int",
-     "model": "str",
-     "rows": "int",
-     "run_id": "str",
-     "speaker_position": {
-      "field": "str",
-      "labels": [
-       "str"
-      ],
-      "multi_label": "bool",
-      "rows": [
-       {
-        "counts": [
-         {
-          "label": "str",
-          "occurrences": "int"
-         }
-        ],
-        "frame": "str",
-        "modal_label": "str",
-        "modal_share": "float",
-        "occurrences": "int",
-        "row_total": "int"
-       }
-      ]
-     }
-    }
-   ]
+   "runs": []
   },
   "unframed_rule": "str",
   "window": "int"
@@ -716,7 +662,7 @@
     "end": "int",
     "group": "str",
     "id": "str",
-    "iso3": "null|str",
+    "iso3": "null",
     "kw": "str",
     "left": "str",
     "right": "str",
@@ -727,6 +673,7 @@
    }
   ],
   "meta": {
+   "analysis_hash": "str",
    "configs": [
     {
      "bytes": "int",
@@ -758,6 +705,7 @@
  },
  "kwic/index.json": {
   "meta": {
+   "analysis_hash": "str",
    "configs": [
     {
      "bytes": "int",
@@ -800,6 +748,7 @@
  },
  "lexical/collocates.json": {
   "meta": {
+   "analysis_hash": "str",
    "configs": [
     {
      "bytes": "int",
@@ -831,7 +780,8 @@
     "keywords": "str"
    },
    "script": "str",
-   "stopwords": "int"
+   "stopwords": "int",
+   "vocabulary": "str"
   },
   "nodes": {
    "crimes_against_humanity": {
@@ -1012,43 +962,43 @@
  },
  "lexical/collocates_sliced.json": {
   "by_country": {
-   "Argentina": {
-    "collocates": [
-     {
-      "documents": "int",
-      "dp": "float",
-      "g2": "float",
-      "log_dice": "float",
-      "log_ratio": "float",
-      "meetings": "int",
-      "reference": "int",
-      "target": "int",
-      "word": "str"
-     }
-    ],
-    "occurrences": "int",
-    "speeches": "int",
-    "window_tokens": "int"
-   },
-   "Bosnia And Herzegovina": {
-    "collocates": [
-     {
-      "documents": "int",
-      "dp": "float",
-      "g2": "float",
-      "log_dice": "float",
-      "log_ratio": "float",
-      "meetings": "int",
-      "reference": "int",
-      "target": "int",
-      "word": "str"
-     }
-    ],
-    "occurrences": "int",
-    "speeches": "int",
-    "window_tokens": "int"
-   },
    "France": {
+    "collocates": [
+     {
+      "documents": "int",
+      "dp": "float",
+      "g2": "float",
+      "log_dice": "float",
+      "log_ratio": "float",
+      "meetings": "int",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   },
+   "Israel": {
+    "collocates": [
+     {
+      "documents": "int",
+      "dp": "float",
+      "g2": "float",
+      "log_dice": "float",
+      "log_ratio": "float",
+      "meetings": "int",
+      "reference": "int",
+      "target": "int",
+      "word": "str"
+     }
+    ],
+    "occurrences": "int",
+    "speeches": "int",
+    "window_tokens": "int"
+   },
+   "Russia": {
     "collocates": [
      {
       "documents": "int",
@@ -1084,7 +1034,7 @@
     "speeches": "int",
     "window_tokens": "int"
    },
-   "UN": {
+   "Syria": {
     "collocates": [
      {
       "documents": "int",
@@ -1102,7 +1052,7 @@
     "speeches": "int",
     "window_tokens": "int"
    },
-   "Ukraine": {
+   "United Kingdom": {
     "collocates": [
      {
       "documents": "int",
@@ -1120,7 +1070,7 @@
     "speeches": "int",
     "window_tokens": "int"
    },
-   "United Kingdom Of Great Britain And Northern Ireland": {
+   "United Nations": {
     "collocates": [
      {
       "documents": "int",
@@ -1138,7 +1088,7 @@
     "speeches": "int",
     "window_tokens": "int"
    },
-   "United States Of America": {
+   "United States of America": {
     "collocates": [
      {
       "documents": "int",
@@ -1270,6 +1220,7 @@
    }
   },
   "meta": {
+   "analysis_hash": "str",
    "configs": [
     {
      "bytes": "int",
@@ -1301,7 +1252,8 @@
     "keywords": "str"
    },
    "script": "str",
-   "stopwords": "int"
+   "stopwords": "int",
+   "vocabulary": "str"
   },
   "minimum_speeches": "int",
   "term": "str",
@@ -1340,6 +1292,7 @@
    "str"
   ],
   "meta": {
+   "analysis_hash": "str",
    "configs": [
     {
      "bytes": "int",
@@ -1371,7 +1324,8 @@
     "keywords": "str"
    },
    "script": "str",
-   "stopwords": "int"
+   "stopwords": "int",
+   "vocabulary": "str"
   },
   "seed": "int",
   "short_strata": [
@@ -1431,6 +1385,7 @@
    }
   ],
   "meta": {
+   "analysis_hash": "str",
    "configs": [
     {
      "bytes": "int",
@@ -1462,7 +1417,8 @@
     "keywords": "str"
    },
    "script": "str",
-   "stopwords": "int"
+   "stopwords": "int",
+   "vocabulary": "str"
   },
   "min_speeches": "int",
   "suppressed_nested_edges": [
@@ -1488,7 +1444,7 @@
     "basename": "str",
     "date": "str",
     "occurrences": "int",
-    "region": "str",
+    "region": "null|str",
     "speeches": "int",
     "spv": "str",
     "terms": [
@@ -1499,6 +1455,7 @@
    }
   ],
   "meta": {
+   "analysis_hash": "str",
    "configs": [
     {
      "bytes": "int",
@@ -1538,6 +1495,7 @@
   },
   "freq": "str",
   "meta": {
+   "analysis_hash": "str",
    "codebook_tokens": "int",
    "configs": [
     {
@@ -1586,6 +1544,9 @@
     ],
     "speeches": [
      "int"
+    ],
+    "summed": [
+     "str"
     ],
     "terms": [
      "str"
@@ -1758,6 +1719,7 @@
    }
   },
   "meta": {
+   "analysis_hash": "str",
    "codebook_tokens": "int",
    "configs": [
     {
@@ -1858,6 +1820,7 @@
    "trials": "int"
   },
   "meta": {
+   "analysis_hash": "str",
    "codebook_tokens": "int",
    "configs": [
     {
@@ -1936,7 +1899,19 @@
       "ratio": "float"
      }
     ],
-    "token_rate?": []
+    "token_rate?": [
+     {
+      "after": "float",
+      "before": "float",
+      "gain": "float",
+      "index": "int",
+      "interval_start": "int",
+      "interval_stop": "int",
+      "label": "str",
+      "p_value": "float",
+      "ratio": "float"
+     }
+    ]
    }
   }
  },
@@ -1953,6 +1928,7 @@
    }
   ],
   "meta": {
+   "analysis_hash": "str",
    "codebook_tokens": "int",
    "configs": [
     {
@@ -2007,6 +1983,7 @@
   "freq": "str",
   "informative_zero_minimum": "int",
   "meta": {
+   "analysis_hash": "str",
    "codebook_tokens": "int",
    "configs": [
     {
@@ -2055,6 +2032,10 @@
         "speeches": "int"
        }
       ]
+     ],
+     "derived_from?": "str",
+     "derived_minus?": [
+      "str"
      ],
      "excluding": {
       "held": [
@@ -2111,6 +2092,9 @@
      "sufficient": [
       "bool"
      ],
+     "summed?": [
+      "str"
+     ],
      "terms?": [
       "str"
      ],
@@ -2150,6 +2134,9 @@
     ],
     "speeches": [
      "int"
+    ],
+    "summed": [
+     "str"
     ],
     "terms": [
      "str"
@@ -2227,6 +2214,7 @@
   },
   "freq": "str",
   "meta": {
+   "analysis_hash": "str",
    "codebook_tokens": "int",
    "configs": [
     {
@@ -2275,6 +2263,9 @@
     ],
     "speeches": [
      "int"
+    ],
+    "summed": [
+     "str"
     ],
     "terms": [
      "str"
@@ -2332,11 +2323,12 @@
    }
   }
  },
- "speeches/UNSC_1992_SPV.3137.json": {
+ "speeches/SC00001-01.json": {
   "agenda": "str",
   "basename": "str",
   "date": "str",
   "meta": {
+   "analysis_hash": "str",
    "configs": [
     {
      "bytes": "int",
@@ -2376,7 +2368,7 @@
      ]
     },
     "id": "str",
-    "iso3": "str",
+    "iso3": "null",
     "language": "str",
     "n": "int",
     "role": "null",
@@ -2392,7 +2384,6 @@
  },
  "usage/occurrences.json": {
   "meta": {
-   "allow_partial": "bool",
    "analysis_hash": "str",
    "configs": [
     {
@@ -2410,68 +2401,20 @@
      "sha256": "str"
     }
    ],
-   "lexicon_version": "int",
-   "minimum_occurrences": "int",
-   "model": "str",
    "occurrences_annotated": "int",
    "occurrences_total": "int",
+   "outputs": [],
    "packages": {
     "*": "str"
    },
-   "prompt_file": "str",
-   "prompt_version": "int",
    "python": "str",
-   "referents_version": "int",
-   "rows_with_split_case_decision": "int",
-   "rows_without_schema_3_fields": "int",
-   "run_dir": "str",
-   "run_id": "str",
-   "run_referents_version": "int",
-   "run_schema_version": "str",
-   "schema_version": "str",
    "script": "str",
-   "term": "str"
+   "state": "str"
   },
-  "occurrences": [
-   {
-    "accused_actor": "str",
-    "alt": "null|object",
-    "concrete_case": "str",
-    "confidence": "str",
-    "contested": [
-     "str"
-    ],
-    "evidence_quote": "str",
-    "evidence_valid": "bool",
-    "function": "str",
-    "id": "str",
-    "occurrence_id": "str",
-    "own_state_accused": "str",
-    "proposed_referent": "str",
-    "quotation": "str",
-    "rationale": "str",
-    "referent": "str",
-    "referent_source": "str",
-    "salience": "str",
-    "speaker_position": "str",
-    "verdict": "str",
-    "victim_group": "str"
-   }
-  ]
+  "occurrences": []
  },
  "usage/usage.json": {
-  "actors": [
-   {
-    "assigned": "int",
-    "country_org": "str",
-    "eligible": "int",
-    "entity_type": "str",
-    "group": "str",
-    "iso3": "null|str",
-    "occurrences": "int",
-    "sufficient": "bool"
-   }
-  ],
+  "actors": [],
   "comparison": {
    "abstention": {
     "position_unclear": "int",
@@ -2480,47 +2423,17 @@
    },
    "contested_any": "int",
    "evidence_invalid": "int",
-   "fields": [
-    {
-     "contested": "int",
-     "field": "str",
-     "kappa": "float|null",
-     "kappa_withheld": "bool",
-     "minority_share": "float",
-     "n": "int",
-     "observed": "float",
-     "pabak": "float"
-    }
-   ],
-   "function_alpha_masi": "float|null",
+   "fields": [],
+   "function_alpha_masi": "null",
    "function_contested": "int",
-   "function_jaccard": "float|null",
-   "function_labels": [
-    {
-     "kappa": "float",
-     "label": "str",
-     "left": "int",
-     "observed": "float",
-     "right": "int"
-    }
-   ],
+   "function_jaccard": "null",
+   "function_labels": [],
    "model": "str",
    "occurrences_annotated": "int",
    "overlap": "int",
    "prompt_sha256": "str",
    "reasoning_effort": "str",
-   "referents": [
-    {
-     "correct": "int",
-     "f1": "float|null",
-     "label": "str",
-     "measurable": "bool",
-     "precision": "float|null",
-     "predicted": "int",
-     "recall": "float|null",
-     "support": "int"
-    }
-   ],
+   "referents": [],
    "run_date": "str",
    "run_id": "str",
    "state": "str"
@@ -2529,20 +2442,7 @@
    "milestones": [
     "str"
    ],
-   "referents": [
-    {
-     "events": [
-      {
-       "actor": "str",
-       "date": "str",
-       "id": "str",
-       "milestone": "str",
-       "speaker_position": "str"
-      }
-     ],
-     "id": "str"
-    }
-   ]
+   "referents": []
   },
   "gold": {
    "adjudicated": "int",
@@ -2559,8 +2459,8 @@
    ],
    "human_agreement": [],
    "human_function": {
-    "alpha_masi": "float|null",
-    "jaccard": "float|null",
+    "alpha_masi": "null",
+    "jaccard": "null",
     "labels": [],
     "n": "int"
    },
@@ -2570,25 +2470,8 @@
    "state": "str",
    "unique_occurrences": "int"
   },
-  "matrix": [
-   {
-    "actor": "str",
-    "contested": "int",
-    "count": "int",
-    "positions": {
-     "asserts": "int",
-     "conditional": "int",
-     "no_position": "int",
-     "not_applicable": "int",
-     "rejects": "int",
-     "reports_without_position": "int",
-     "unclear": "int"
-    },
-    "referent": "str"
-   }
-  ],
+  "matrix": [],
   "meta": {
-   "allow_partial": "bool",
    "analysis_hash": "str",
    "configs": [
     {
@@ -2606,27 +2489,15 @@
      "sha256": "str"
     }
    ],
-   "lexicon_version": "int",
-   "minimum_occurrences": "int",
-   "model": "str",
    "occurrences_annotated": "int",
    "occurrences_total": "int",
+   "outputs": [],
    "packages": {
     "*": "str"
    },
-   "prompt_file": "str",
-   "prompt_version": "int",
    "python": "str",
-   "referents_version": "int",
-   "rows_with_split_case_decision": "int",
-   "rows_without_schema_3_fields": "int",
-   "run_dir": "str",
-   "run_id": "str",
-   "run_referents_version": "int",
-   "run_schema_version": "str",
-   "schema_version": "str",
    "script": "str",
-   "term": "str"
+   "state": "str"
   },
   "minimum_occurrences": "int",
   "model": {
@@ -2652,26 +2523,7 @@
     "output": "int"
    }
   },
-  "position_by_actor": [
-   {
-    "actor": "str",
-    "eligible": "int",
-    "positions": {
-     "asserts": "int",
-     "conditional": "int",
-     "no_position": "int",
-     "not_applicable": "int",
-     "rejects": "int",
-     "reports_without_position": "int",
-     "unclear": "int"
-    },
-    "separated": "bool",
-    "share_high": "float|null",
-    "share_low": "float|null",
-    "share_rejects": "float|null",
-    "sufficient": "bool"
-   }
-  ],
+  "position_by_actor": [],
   "prompt": "str",
   "referents": [
    {

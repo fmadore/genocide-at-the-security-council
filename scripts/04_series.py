@@ -12,8 +12,8 @@ substantially the Council's own reporting cycle rather than a discourse.
 
 Every series carries three numbers for the same period — speeches, occurrences,
 and both rates — because the three tell different stories and the raw one tells
-the wrong story by default. The corpus runs from 1,023 speeches in 1992 to 7,621
-in 2023; anything not divided by that is a chart of the Council's growth. Every
+the wrong story by default. Annual speech volume varies substantially across
+1946-2024; anything not divided by that is partly a chart of the Council's growth. Every
 speech rate also carries its Wilson 95% interval, so a share is published with
 the width its denominator gives it rather than as a bare point.
 
@@ -73,7 +73,7 @@ TRACKED = [("terms", "genocide_qualification"), ("sets", "atrocity_core")]
 #: the requirement against the corpus it loads and says so if 100 stops meeting
 #: it. It is the same number `lib.actors` declares for a speaker's slice, by the
 #: same argument applied to a different denominator, and not by inheritance.
-MIN_SPEECHES_PER_MONTH = 100
+MIN_SPEECHES_PER_MONTH = 125
 
 #: Dropped in the second reading of the calendar figure. The corpus's two
 #: largest years for this vocabulary: if a calendar pattern is really the Rwanda

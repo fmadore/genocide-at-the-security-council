@@ -1,9 +1,8 @@
 /**
  * Which measure a view opens on when nobody has chosen yet.
  *
- * Since lexicon v4 the published headline is `genocide_qualification` — the
- * `genocide` term minus its `genocidaires` actor label, 31 of the raw term's
- * 6,092 occurrences. The raw term stays in every artefact and is what the
+ * Since lexicon v4 the published headline is `genocide_qualification`—the
+ * `genocide` term minus its `genocidaires` actor label. The raw term stays in every artefact and is what the
  * concordance enumerates, so a reader can always select it; this only decides
  * what is drawn before anyone does.
  *

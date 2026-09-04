@@ -12,7 +12,7 @@ context window: hand it a 40-minute intervention and it will return a vector for
 the opening and discard the argument. Speeches above the window are therefore cut
 into overlapping token windows and recombined by a token-weighted mean, so the
 whole text contributes in proportion to its length. The corpus makes this cheap —
-at an 8,192-token window only a few hundred of 106,302 speeches need it at all —
+at an 8,192-token window only unusually long speeches need it at all—
 but the alternative is an artefact that is quietly wrong about its longest and
 most substantial speeches. Every chunk count is written to the index, so the
 affected rows can be excluded from any analysis that would rather not trust them.
@@ -139,7 +139,7 @@ class Plan:
 def plan_chunks(texts: list[str], tokenizer, max_tokens: int, overlap: int = CHUNK_OVERLAP) -> Plan:
     """Split only the documents that exceed the context window.
 
-    The tokenizer is consulted for the candidates alone. Tokenising 106,302
+    The tokenizer is consulted for the candidates alone. Tokenising 167,642
     speeches to discover that 106,000 of them are short is a waste of a GPU
     reservation; a word count with a generous inflation factor picks the
     candidates, and the exact test is applied only to those.
@@ -308,7 +308,7 @@ def top_neighbours(
     """Cosine top-k of each query row against the corpus.
 
     Both sides are unit vectors, so the dot product is the cosine. The corpus is
-    106,302 x 1,024; a full similarity matrix would be 45 GB, so queries are
+    167,642 x 1,024; a full similarity matrix would be far too large, so queries are
     processed in blocks and only the top k survive each block.
     """
     if k < 1:

@@ -90,8 +90,7 @@
 	const corpus = $derived(data.series.corpus);
 	/* The published headline since lexicon v4: `genocide` minus its
 	   `genocidaires` actor label. Calling the ex-FAR génocidaires names who did
-	   it rather than qualifying the event, and 31 of the raw term's 6,092
-	   occurrences are that. The raw term is still in the artefact and still what
+	   it rather than qualifying the event. The raw term is still in the artefact and still what
 	   the concordance enumerates; the figure below says so in one line — and only
 	   when the derived measure is what it draws, since an artefact cut before v4
 	   carries the raw term alone and this page must still open on it. */
@@ -342,11 +341,11 @@
 	<header class="lede">
 		<h1>The word, and what it was doing there</h1>
 		<p class="standfirst">
-			Between 1992 and 2023 the UN Security Council produced {count(totals.meetings)} meeting records
-			holding {count(totals.speeches)} speeches. In {count(totals.bearing)} of them &mdash; {percent(
-				totals.bearing / totals.speeches
-			)} &mdash; someone said <em>genocide</em>. This site asks which speeches those were, and what
-			the word was doing in them.
+			Between {years[0]} and {years[years.length - 1]} the UN Security Council produced {count(
+				totals.meetings
+			)} meeting records holding {count(totals.speeches)} speeches. In {count(totals.bearing)} of them
+			&mdash; {percent(totals.bearing / totals.speeches)} &mdash; someone said <em>genocide</em>.
+			This site asks which speeches those were, and what the word was doing in them.
 		</p>
 	</header>
 

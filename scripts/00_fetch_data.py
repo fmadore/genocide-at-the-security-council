@@ -22,8 +22,8 @@ Only `--latest` still requires the API, because asking what Harvard published
 most recently is a question no local file can answer.
 
 Usage:
-    python scripts/00_fetch_data.py               # the 3 files the pipeline needs
-    python scripts/00_fetch_data.py --all         # including the two .RData files
+    python scripts/00_fetch_data.py               # the 2 files the pipeline needs
+    python scripts/00_fetch_data.py --all         # every file recorded in the pin
     python scripts/00_fetch_data.py --force       # re-download regardless of MD5
     python scripts/00_fetch_data.py --latest      # ask the API for the newest version
 """
@@ -50,9 +50,10 @@ from lib.paths import CONFIG, DATASET_VERSION, DATAVERSE, DOI, RAW
 #: for how the values were obtained and what changing the pin involves.
 PIN = CONFIG / "dataset-pin.json"
 
-# The pipeline reads only these three. docs.RData / docs_meta.RData are
-# redundant R serialisations of the same content (119 MB) — opt in with --all.
-REQUIRED = {"speeches.tar", "speaker.tsv", "meta.tsv"}
+# The Sakamoto-Matsuoka distribution is already a pair of UTF-8 TSV tables:
+# one row per speech and one row per meeting. The documentation files are not
+# runtime inputs and are therefore not downloaded by default.
+REQUIRED = {"speeches.tsv", "meetings.tsv"}
 USER_AGENT = (
     "genocide-at-the-security-council/1.0 "
     "(+https://github.com/fmadore/genocide-at-the-security-council)"
@@ -327,7 +328,7 @@ def download(file_id: int, dest: Path, size: int) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--all", action="store_true", help="also fetch the .RData files")
+    ap.add_argument("--all", action="store_true", help="fetch every file recorded in the pin")
     ap.add_argument("--force", action="store_true", help="re-download even if MD5 matches")
     ap.add_argument(
         "--latest",

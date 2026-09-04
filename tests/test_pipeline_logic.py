@@ -31,6 +31,22 @@ def membership():
 
 
 class TestSpeakerGroup:
+    def test_source_membership_flags_take_precedence(self):
+        speeches = pd.DataFrame(
+            {
+                "year": [1950, 1950, 1950],
+                "country_org": ["P", "E", "N"],
+                "entity_type": ["state", "state", "state"],
+                "source_permanent_member": [True, False, False],
+                "source_elected_member": [False, True, False],
+            }
+        )
+        assert council.speaker_group(speeches).tolist() == [
+            council.PERMANENT,
+            council.ELECTED,
+            council.NON_MEMBER,
+        ]
+
     def test_membership_is_read_per_year_not_per_country(self, membership):
         """Rwanda sat on the Council in 1994-1995 and nowhere else in the
         corpus. Collapsing that to one label per country would erase the
@@ -79,6 +95,25 @@ class TestSpeakerGroup:
         assert set(council.speaker_group(speeches, membership)) <= set(
             council.SPEAKER_GROUPS
         )
+
+
+class TestSourceEntityType:
+    def test_source_flags_classify_without_a_crosswalk(self):
+        speeches = pd.DataFrame(
+            {
+                "source_state": [True, False, False, False, False],
+                "source_un_org": [False, True, False, False, False],
+                "source_igo": [False, True, True, False, False],
+                "source_ngo": [False, False, False, True, False],
+            }
+        )
+        assert entities.source_entity_type(speeches).tolist() == [
+            "state",
+            "un",
+            "igo",
+            "ngo",
+            "other",
+        ]
 
 
 class TestCouncilValidation:

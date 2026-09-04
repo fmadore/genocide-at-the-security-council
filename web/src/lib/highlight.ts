@@ -3,7 +3,7 @@
  *
  * The keyword itself is already distinguished — it is the node the concordance
  * was built around, and it is styled as such. What was missing is the reader's
- * own query: filtering 6,092 lines down to 37 tells you the term is in there
+ * own query: filtering thousands of lines down to a few dozen tells you the term is in there
  * somewhere, and then leaves you to find it by eye in every snippet.
  *
  * Returned as segments rather than as HTML, so the caller renders them through

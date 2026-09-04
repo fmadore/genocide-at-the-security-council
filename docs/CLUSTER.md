@@ -1,7 +1,7 @@
 # Running the GPU steps on the Bayreuth cluster
 
 Steps 00–05, 08, 09, 11 and 12 run on a laptop. Steps **06 (embeddings)** and
-**07 (the topic comparison)** do not: encoding 106,302 speeches is GPU work, and
+**07 (the topic comparison)** do not: encoding 167,642 speeches is GPU work, and
 the stability battery in 07 refits a dozen models. Both run on the University of
 Bayreuth HPC cluster, whose GPU nodes are reachable with an ordinary university
 account — no separate HPC registration, and no data leaves the university.

@@ -1,12 +1,12 @@
 """Export the corpus as one JSON file per meeting, for the reader view.
 
-Reads speeches_flagged.parquet and meetings.parquet, writes 6,595 files to
+Reads speeches_flagged.parquet and meetings.parquet, writes 9,464 files to
 web/static/data/speeches/ plus an index at web/static/data/meetings.json.
 
-One file per meeting, not per speech and not one blob. The full text is 389 MB —
-too much to hand a browser at once, and 106,302 individual files is more than a
-static host should be asked to hold. Bundling by meeting gives files averaging
-59 kB: one fetch opens a whole session with every speech in it, which is exactly
+One file per meeting, not per speech and not one blob. The full export is about
+599 MB—too much to hand a browser at once, and 167,642 individual files is more
+than a static host should be asked to hold. Bundling by meeting gives files averaging
+about 63 kB: one fetch opens a whole session with every speech in it, which is exactly
 the unit a reader wants when they click a concordance line.
 
 Each speech carries its lexicon hits as character offsets, so the reader
@@ -97,8 +97,8 @@ def build_speech(row, terms: list[lexicon.Term]) -> dict[str, object]:
 def terms_present(row, lex: lexicon.Lexicon) -> list[lexicon.Term]:
     """Only the terms this speech is already flagged for.
 
-    Testing all 22 regexes against all 106,302 speeches would be a minute of
-    work to rediscover what 03 already recorded.
+    Testing every regex against all 167,642 speeches would repeat work that
+    step 03 already recorded.
     """
     return [t for t in lex.active if getattr(row, f"{lexicon.HAS}{t.name}")]
 
@@ -112,9 +112,9 @@ def build_meeting(meeting, speeches: pd.DataFrame, lex: lexicon.Lexicon) -> dict
         "spv": first["meeting_symbol"],
         "date": f"{meeting.date:%Y-%m-%d}",
         "year": int(meeting.year),
-        "topic": meeting.topic,
-        "region": first["agenda_item1"],
-        "agenda": first["agenda_item_manual"],
+        "topic": clean(meeting.topic),
+        "region": clean(first["agenda_item1"]),
+        "agenda": clean(first["agenda_item_manual"]),
         "speeches": exported,
     }
 
@@ -236,12 +236,12 @@ def run(scope: str, indent: int | None) -> None:
 
     console.step("Writing one file per meeting")
     grouped = dict(list(speeches.groupby("basename", sort=False)))
-    rows, total_bytes, written = [], 0, 0
+    rows, total_bytes, written, skipped_empty = [], 0, 0, 0
     with artifacts.atomic_directory(SPEECH_DIR) as staged:
         for meeting in meetings.itertuples():
             group = grouped.get(meeting.basename)
             if group is None:
-                console.warn(f"{meeting.basename} has no speeches — skipped")
+                skipped_empty += 1
                 continue
             built = build_meeting(meeting, group, lex)
             path = staged / f"{meeting.basename}.json"
@@ -267,6 +267,8 @@ def run(scope: str, indent: int | None) -> None:
         console.info(
             f"{written:,} speeches and {exported_occurrences:,} occurrence offsets, both matching"
         )
+        if skipped_empty:
+            console.warn(f"{skipped_empty:,} meeting records have no speeches and were skipped")
 
     console.step("Writing the index")
     artifacts.atomic_write_json(INDEX, {"meta": meta, "meetings": rows})

@@ -27,9 +27,8 @@ while looking right:
   partners for 123 of its 4,709 speeches. `keyness.MIN_COVERAGE` is the second
   gate, `coverage` is published for every speaker either way, and
   `withheld_because` says which one closed;
-- `speaker_group` is one of the matching keys and 02 freezes it into the corpus,
-  so an edit to `config/council_membership.csv` since would silently change what
-  "comparable" means; `council.drift` stops the run instead;
+- `speaker_group` is one of the matching keys and is derived from the source's
+  per-speech membership flags; `council.drift` checks that frozen result;
 - counting through a matrix is an optimisation, and an optimisation that changed
   the numbers would be invisible here, so `tests/test_keyness.py` asserts the
   matrix returns what `lexical.vocabulary` returns and that the stratum code
@@ -53,7 +52,6 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import artifacts, console, council, frames, keyness, lexical
 from lib.paths import (
-    COUNCIL_MEMBERSHIP,
     COUNTRIES,
     EXPECTED_SPEECHES,
     ROOT,
@@ -72,10 +70,9 @@ COLUMNS = [
     "country_org",
     "agenda_item_manual",
     "speaker_group",
-    # `council.drift` recomputes speaker_group from config, and needs the same
-    # inputs 02 had to do it: entity_type is how the UN Secretariat is told from
-    # a state that happens never to have sat.
     "entity_type",
+    "source_permanent_member",
+    "source_elected_member",
     "words",
     "text",
     "body_start",
@@ -105,9 +102,8 @@ def load_corpus() -> pd.DataFrame:
         )
     if problems := council.drift(speeches):
         console.fail(
-            "config/council_membership.csv has changed since 02_normalise.py last ran, "
-            "so speaker_group — one of the matching keys — no longer means what the "
-            "corpus says it means",
+            "the source membership flags disagree with speaker_group, one of the "
+            "matching keys",
             [*problems, "re-run 02_normalise.py and everything after it"],
         )
     if not speeches.index.equals(pd.RangeIndex(len(speeches))):
@@ -434,7 +430,7 @@ def run(
         ROOT,
         "12_speaker_keyness.py",
         inputs=[SPEECHES_FLAGGED],
-        configs=[STOPWORDS, COUNCIL_MEMBERSHIP],
+        configs=[STOPWORDS],
         extra={
             "stopwords": len(stopwords),
             "min_count": lexical.MIN_COUNT,

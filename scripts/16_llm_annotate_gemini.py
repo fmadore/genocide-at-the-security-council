@@ -1,10 +1,10 @@
-"""Annotate the same 6,092 `genocide` occurrences with a second model, by hand.
+"""Annotate the same 7,747 `genocide` occurrences with a second model, by hand.
 
 **This step is never run by CI and never run by the deploy.** It is 14's sibling
 and its counter-instrument: the same corpus, the same enumeration, the same
 committed prompt hashed raw into every row, asked of a model from a different
 laboratory. One model's reading of the Council is a reading; two independent
-readings of the same 6,092 occurrences can disagree, and the size and shape of
+readings of the same 7,747 occurrences can disagree, and the size and shape of
 that disagreement is a measurement — which is the whole of Phase L8. Nothing
 here writes into `annotations/`, into any parquet, or into any lexicon artefact
 (docs/PLAN.md §5). What it produces is a committed input,
@@ -47,7 +47,7 @@ cookbook `quickstarts/Batch_mode.ipynb`, both checked 31 August 2026.
 
 Google now recommends the Interactions API over `generateContent` for 3.x
 models. The Batch API has no Interactions form — it is defined over
-`GenerateContentRequest` — and batch is what makes 3,273 speeches affordable, so
+`GenerateContentRequest` — and batch is what makes 4,133 speeches affordable, so
 both paths here use `generateContent`, which the 3.7 Flash model page lists as
 supported. `lib.gemini`'s docstring records that choice and where it would
 change.

@@ -79,8 +79,8 @@ import type {
 /**
  * The one lexicon term this layer annotates.
  *
- * `genocide` alone: 6,092 occurrences across 3,273 speeches was the run that
- * was made, and a link out of this view has to name the term it is showing
+ * `genocide` alone is the population annotated by this layer, and a link out
+ * of this view has to name the term it is showing
  * rather than inherit whatever the concordance last had.
  */
 export const USAGE_TERM = 'genocide';

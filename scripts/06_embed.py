@@ -2,7 +2,7 @@
 
 Reads speeches_flagged.parquet and writes data/derived/embeddings/:
 
-    vectors.npy      106,302 x D, float16, L2-normalised, in index order
+    vectors.npy      167,642 x D, float16, L2-normalised, in index order
     index.parquet    row_id per position, plus how each speech was encoded
     neighbours.json  nearest neighbours of the genocide-bearing speeches
     manifest.json    model, revision, device, driver, package versions

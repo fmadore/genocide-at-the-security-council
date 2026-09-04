@@ -113,16 +113,14 @@
 <footer>
 	<div class="inner">
 		<p>
-			Built from the <a href="https://doi.org/10.7910/DVN/KGVSYH">UN Security Council Debates</a>
-			corpus (Schoenfeld, Eckhard, Patz, van Meegdenburg &amp; Pires, v6.1, CC0). Every figure on this
-			site is produced by a versioned script from a single data file; see
+			Built from <a href="https://doi.org/10.7910/DVN/CKPTRB">The UNSC Meetings and Speeches</a>
+			(Sakamoto &amp; Matsuoka, v5.0, CC0). Every figure on this site is produced by a versioned script
+			from a single data file; see
 			<a href={resolve('/methods')}>Methods</a>.
 		</p>
 		<p class="quiet">
-			The record is in English throughout: a speech given in another language reaches it already
-			translated, and at least 40.2% of speeches are translations of that kind. Where the record
-			carries no marker of how a speech was delivered, an in-person speech is read as English by
-			convention; speeches given by video link carry no marker at all, so their language is unknown.
+			The distributed transcripts are in English. The source does not retain a reliable marker of
+			the language actually spoken, so delivery language remains unknown rather than inferred.
 			Everything here measures the English verbatim record rather than the room it was written from.
 		</p>
 		<p class="quiet">

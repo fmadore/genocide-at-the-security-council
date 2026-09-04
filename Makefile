@@ -18,7 +18,7 @@
 PY ?= python
 LIB := $(wildcard scripts/lib/*.py)
 
-RAW_FILES := data/raw/speeches.tar data/raw/speaker.tsv data/raw/meta.tsv
+RAW_FILES := data/raw/speeches.tsv data/raw/meetings.tsv
 SPEECHES  := data/derived/speeches.parquet
 NORM      := data/derived/speeches_norm.parquet
 FLAGGED   := data/derived/speeches_flagged.parquet
@@ -58,7 +58,7 @@ MEETINGS  := data/derived/meetings.parquet
 $(SPEECHES) $(MEETINGS) &: $(RAW_FILES) scripts/01_build_parquet.py $(LIB) config/dataset-pin.json
 	$(PY) scripts/01_build_parquet.py
 
-$(NORM): $(SPEECHES) scripts/02_normalise.py $(LIB) config/entities.csv config/country_aliases.csv config/council_membership.csv
+$(NORM): $(SPEECHES) scripts/02_normalise.py $(LIB)
 	$(PY) scripts/02_normalise.py
 
 $(FLAGGED): $(NORM) scripts/03_lexicon.py $(LIB) config/lexicon.yml config/lexicon.lock.json annotations/lexicon/annotations.csv

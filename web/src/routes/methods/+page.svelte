@@ -44,18 +44,18 @@
 	}[] = [
 		{
 			id: '01_build_parquet.py',
-			does: 'Joins the three published files into one table and checks it.',
+			does: 'Adapts the two published TSV files into one speech table and one meeting table.',
 			checks:
-				'Row counts, word totals, join completeness and date parsing are all checked against the corpus codebook. Two faults in the published files that the codebook does not mention — a character-encoding trap and 36 rows split in two by a stray line break — are repaired here.',
+				'Row counts, source word totals, unique identifiers, join completeness and date parsing are checked against the pinned v5 files.',
 			artefact: 'speeches.parquet',
 			state: 'verified',
 			says: 'Verified'
 		},
 		{
 			id: '02_normalise.py',
-			does: 'Settles on one spelling per speaker, works out who held a Council seat in each year, finds the form of address that opens each speech, and recovers the language it was delivered in.',
+			does: 'Counts the analytical words and attaches the source dataset’s affiliation and Council-membership categories.',
 			checks:
-				'Refuses to run if a speaker is missing from the name table, or if a Council year does not hold exactly five permanent and ten elected seats.',
+				'Uses the source state, UN, IGO, NGO, permanent-member and elected-member flags without manual speaker reclassification.',
 			artefact: 'speeches_normalised',
 			state: 'verified',
 			says: 'Verified'
@@ -64,7 +64,7 @@
 			id: '03_lexicon.py',
 			does: 'Counts every word on the list in the body of every speech.',
 			checks:
-				'Each search pattern has to match the examples declared alongside it, and a fast plain-text filter runs before the exact count. A sample of 200 rows is drawn for hand-checking, spread across occurrences, speeches, individual words and periods. A looser pattern that tolerates scanning errors is reported separately; it adds one speech in 106,302.',
+				'Each search pattern has to match the examples declared alongside it. A sample of 200 rows is drawn for hand-checking across occurrences, speeches, words and periods.',
 			artefact: 'speeches_flagged',
 			state: 'open',
 			says: '0 / 200 audited'
@@ -174,10 +174,10 @@
 
 	<h2>The corpus</h2>
 	<p>
-		<a href="https://doi.org/10.7910/DVN/KGVSYH">UN Security Council Debates</a> (Schoenfeld,
-		Eckhard, Patz, van Meegdenburg &amp; Pires), Harvard Dataverse v6.1, released CC0 into the
-		public domain. {count(totals.speeches)} speeches from {count(totals.meetings)} meeting records,
-		{count(totals.words)} words, 6 January 1992 to 30 December 2023. A fresh copy of the
+		<a href="https://doi.org/10.7910/DVN/CKPTRB">The UNSC Meetings and Speeches</a> (Sakamoto &amp;
+		Matsuoka), Harvard Dataverse v5.0, released CC0 into the public domain. {count(totals.speeches)} speeches
+		from {count(totals.meetings)} meeting records,
+		{count(totals.words)} words, 17 January 1946 to 30 December 2024. A fresh copy of the
 		<a href={REPO}>repository</a> and two scripts rebuild the working table from that DOI; none of the
 		files derived from it are stored in the repository.
 	</p>
@@ -321,17 +321,14 @@
 			cancels the verdicts for that word and restarts its sample.
 		</li>
 		<li>
-			<strong>At least two speeches in five are translations.</strong> The record states a non-English
-			delivery language for 40.2% of speeches. Where an in-person speech carries no such marker, it is
-			read as English by the convention of the document series; 5,072 speeches delivered by video link
-			stay unknown, because that format carries no marker either way. What is measured throughout is the
-			English verbatim record rather than the room it was written from.
+			<strong>Delivery language is unavailable.</strong> The distributed transcripts are in English, but
+			this dataset does not retain a reliable marker of the language actually spoken. The pipeline therefore
+			records it as unknown rather than treating translated text as original English speech.
 		</li>
 		<li>
-			<strong>Speaker attribution is weaker for 4.9% of speeches.</strong> These are the speeches
-			that begin without the usual opening formula &mdash; <code>The President:</code> or
-			<code>Mr. Smith (United Kingdom):</code> &mdash; and are read as a continuation of the speech before
-			them.
+			<strong>Affiliation categories are source metadata.</strong> A row with none of the source’s
+			state, UN, IGO or NGO flags remains <code>other</code>; the project does not infer a category
+			from the organisation’s name.
 		</li>
 	</ul>
 

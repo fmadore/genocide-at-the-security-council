@@ -22,26 +22,23 @@ what an identifier covers cannot pass unnoticed.
 ## `genocide/`
 
 `genocide/annotations.csv` is the gold sample that evaluates the model-assisted usage layer.
-`scripts/13_gold_sample.py` draws 688 distinct occurrences of `genocide` from the 6,092 the
-model annotates in full, in three frames, and writes the candidates to
+`scripts/13_gold_sample.py` currently draws 200 candidate rows (199 distinct occurrences)
+from the 7,747 occurrences in the canonical corpus, in two pre-model frames, and writes them to
 `data/interim/genocide_gold_*.csv`. Two coders code every one of them independently; the
 agreement between them is what the model's scores are read against, so a case coded once is
 not yet gold.
 
-**Three frames, and they are never pooled.** 120 occurrences by equal probability, which is
+**The frames are never pooled.** There are 120 occurrences drawn with equal probability, which is
 the only part of the sample that estimates anything about the corpus and is weighted by its
-own inclusion probabilities; 80 more covering every period and usage-cue stratum, so that
-nothing is missing entirely; and 535 drawn from the strata the two committed model runs read
-differently — every occurrence either run called `rejects_or_denies`, every one whose
-referent predates the case it names, and a hundred each of the three large contested strata.
-That third frame is what makes anything per class sayable: an equal-probability draw of 200
-holds about three rejections. It is read unweighted, and a rate computed over the union of
-the frames would estimate nothing. Every candidate row records the inclusion probability
-that put it there.
+its own inclusion probabilities; 80 more cover every period and usage-cue stratum, so that
+nothing is missing entirely. Once two replacement model runs exist, the script can add a
+third frame drawn from the strata those runs read differently. That disagreement frame is
+read unweighted; a rate computed over the union of the frames would estimate nothing. Every
+candidate row records the inclusion probability that put it there.
 
-**A model label is a sampling stratum, exactly as the cue is.** The third frame is cut from
-`model_annotations/`, and what it says about an occurrence is that it is worth a coder's
-time — never what the coder should write. Nothing under this directory is read while a
+**A model label can be a sampling stratum, exactly as the cue is.** The optional third frame
+is cut from `model_annotations/`, and what it says about an occurrence is that it is worth a
+coder's time—never what the coder should write. Nothing under this directory is read while a
 candidate is being drawn, and nothing here is written by any script.
 
 Same schema, same codebook, same rules: the columns are the fifteen in

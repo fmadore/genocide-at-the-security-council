@@ -33,7 +33,7 @@ from typing import Any
 
 #: Artefacts the dashboard fetches, as paths under `web/static/data/`.
 #:
-#: `speeches/` is represented by one document rather than by all 6,595: they are
+#: `speeches/` is represented by one document rather than by all 9,464: they are
 #: written by one loop in `09_export_speeches.py`, so a shape change reaches
 #: every one of them, and parsing 425 MB to learn that twice over would make the
 #: export slower for no extra finding. The same argument does not apply to
@@ -72,7 +72,7 @@ TRACKED: list[str] = [
 
 #: A representative document from `speeches/`, chosen by name rather than by
 #: position so the contract does not silently follow a change in sort order.
-SPEECH_SAMPLE = "speeches/UNSC_1992_SPV.3137.json"
+SPEECH_SAMPLE = "speeches/SC00001-01.json"
 
 #: Keys whose *contents* vary with the data rather than with the code, so only
 #: their presence and type are contracted. `iso3_collisions` is keyed on whichever

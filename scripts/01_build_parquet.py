@@ -1,25 +1,19 @@
-"""Build the canonical parquet files from the raw Dataverse distribution.
+"""Adapt Sakamoto-Matsuoka v5 into the pipeline's canonical parquet tables.
 
-Reads data/raw/{speaker.tsv, meta.tsv, speeches.tar}; repairs the two known
-defects (literal newlines inside a field; the cp1252 encoding trap on Windows);
-joins metadata to full text; validates against the codebook's figures; writes
-data/derived/{speeches,meetings}.parquet.
+The source distribution already contains one UTF-8 TSV row per speech and one
+per Security Council meeting. This step gives those fields the stable names
+used by the analysis without pretending that unavailable Schoenfeld variables
+(notably delivery language and quanteda token counts) still exist.
 
-Everything downstream reads the parquet, never the raw files.
-
-Usage:
-    python scripts/01_build_parquet.py
-
-Requires an x64 Python 3.12 — pyarrow publishes no 32-bit wheel.
+Reads data/raw/{speeches.tsv,meetings.tsv} and writes
+data/derived/{speeches,meetings}.parquet. Everything downstream reads those
+parquet files and never reaches back into the raw distribution.
 """
 
 from __future__ import annotations
 
 import argparse
-import io
 import sys
-import tarfile
-import time
 from pathlib import Path
 
 import pandas as pd
@@ -39,153 +33,261 @@ from lib.paths import (
     write_note,
 )
 
-# Expected field counts, i.e. (number of columns - 1) tabs per logical row.
-SPEAKER_TABS = 25
-META_TABS = 8
+SPEECH_FILE = RAW / "speeches.tsv"
+MEETING_FILE = RAW / "meetings.tsv"
+
+SPEECH_REQUIRED = {
+    "speech_id",
+    "record_id",
+    "doc_name",
+    "meeting_num",
+    "year",
+    "month",
+    "day",
+    "topic",
+    "agenda",
+    "order",
+    "speaker",
+    "affiliation",
+    "position",
+    "president",
+    "secretary_general",
+    "procedural",
+    "count",
+    "speech",
+    "affiliation_cow",
+    "cow_ccode",
+    "permanent_member",
+    "elected_member",
+    "state",
+    "igo",
+    "un_org",
+    "ngo",
+}
+
+MEETING_REQUIRED = {
+    "record_id",
+    "year",
+    "month",
+    "day",
+    "meeting_num",
+    "closed",
+    "topic",
+    "agenda",
+    "agenda_categories",
+    "pres_name",
+    "pres_country",
+    "speeches",
+    "word_count",
+    "outcome",
+    "record",
+    "record_url",
+    "RES",
+    "RES_url",
+    "PRST",
+    "PRST_url",
+}
+
+INTEGER_COLUMNS = ("year", "month", "day", "meeting_num")
+BOOLEAN_COLUMNS = (
+    "president",
+    "secretary_general",
+    "procedural",
+    "permanent_member",
+    "elected_member",
+    "state",
+    "igo",
+    "un_org",
+    "ngo",
+)
 
 
-def repair_lines(path: Path, n_tabs: int) -> tuple[list[str], int]:
-    """Read a TSV whose fields may contain literal newlines.
-
-    Meeting S/PV.5225 has a newline inside agenda_item3, splitting each of its
-    36 speeches across two physical lines. Rejoin lines until the tab count
-    reaches the expected field count.
-    """
-    text = path.read_text(encoding="utf-8")
-    out: list[str] = []
-    repaired = 0
-    buf = ""
-    parts = 0
-    for physical_lines, line in enumerate(text.split("\n"), start=1):
-        parts += 1
-        buf = line if not buf else f"{buf} {line}"
-        tabs = buf.count("\t")
-        if tabs > n_tabs:
-            raise ValueError(
-                f"{path}: logical row ending near physical line {physical_lines} has "
-                f"{tabs} tabs; expected exactly {n_tabs}"
-            )
-        if tabs == n_tabs:
-            if parts > 1:
-                repaired += 1
-            out.append(buf)
-            buf = ""
-            parts = 0
-    if buf.strip():
-        raise ValueError(f"{path}: incomplete final logical row with {buf.count(chr(9))} tabs")
-    return out, repaired
-
-
-def read_tsv(path: Path, n_tabs: int) -> tuple[pd.DataFrame, int]:
-    """Read a repaired TSV as strings, with encoding and quoting forced.
-
-    quoting=3 (QUOTE_NONE) is required: fields carry R-style doubled
-    apostrophes (D''Affaires) and unescaped quotation marks. encoding='utf-8'
-    is required because Windows would otherwise fall back to cp1252 and
-    silently mangle every accented place name.
-    """
-    lines, repaired = repair_lines(path, n_tabs)
-    df = pd.read_csv(
-        io.StringIO("\n".join(lines)),
+def read_source(path: Path, required: set[str]) -> pd.DataFrame:
+    """Read a source TSV, including quoted speech fields with embedded newlines."""
+    frame = pd.read_csv(
+        path,
         sep="\t",
-        quoting=3,
-        dtype=str,
-        na_values=["NA"],
-        keep_default_na=False,
         encoding="utf-8",
+        dtype="string",
+        keep_default_na=False,
+        na_values=["", "NULL", "NA"],
+        low_memory=False,
     )
-    df.rename(columns={df.columns[0]: "row_id"}, inplace=True)
-    if len(df.columns) != n_tabs + 1:
-        raise ValueError(f"{path}: read {len(df.columns)} columns; expected {n_tabs + 1}")
-    # Blank strings are missing values, not empty categories.
-    for col in df.columns:
-        df[col] = df[col].replace("", pd.NA)
-    return df, repaired
+    unnamed = [column for column in frame.columns if column.startswith("Unnamed:")]
+    if unnamed:
+        frame = frame.drop(columns=unnamed)
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise ValueError(f"{path}: missing source columns: {', '.join(missing)}")
+    return frame
 
 
-def load_texts(tar_path: Path) -> dict[str, str]:
-    """Stream speeches.tar into {filename: text}. ~6 s for 106,302 members."""
-    texts: dict[str, str] = {}
-    with tarfile.open(tar_path, "r") as tf:
-        for member in tf:
-            if not member.isfile():
-                continue
-            fh = tf.extractfile(member)
-            if fh is None:
-                continue
-            try:
-                texts[member.name.split("/")[-1]] = fh.read().decode("utf-8", errors="strict")
-            except UnicodeDecodeError as exc:
-                raise UnicodeDecodeError(
-                    exc.encoding,
-                    exc.object,
-                    exc.start,
-                    exc.end,
-                    f"{member.name}: {exc.reason}",
-                ) from exc
-    return texts
+def as_boolean(values: pd.Series, name: str) -> pd.Series:
+    """Parse Dataverse's textual booleans and refuse unknown values."""
+    lowered = values.astype("string").str.lower()
+    known = {"true": True, "false": False, "1": True, "0": False}
+    unknown = sorted(set(lowered.dropna()) - set(known))
+    if unknown:
+        raise ValueError(f"{name}: unknown boolean values: {', '.join(unknown[:5])}")
+    return lowered.map(known).fillna(False).astype(bool)
 
 
-def validate(speeches: pd.DataFrame, meetings: pd.DataFrame, texts: dict) -> list[str]:
-    """Return a list of problems; empty means the build is trustworthy."""
+def as_integer(values: pd.Series, name: str) -> pd.Series:
+    parsed = pd.to_numeric(values, errors="coerce")
+    if parsed.isna().any():
+        raise ValueError(f"{name}: {int(parsed.isna().sum())} values are not integers")
+    return parsed.astype("int32")
+
+
+def make_date(frame: pd.DataFrame) -> pd.Series:
+    return pd.to_datetime(frame[["year", "month", "day"]], errors="coerce")
+
+
+def broad_agenda(values: pd.Series) -> pd.Series:
+    """Take the first Repertoire category as the one-valued dashboard facet."""
+    first = values.astype("string").str.split(";").str[0].str.strip()
+    return first.replace({"Thematic Issues": "Thematic"})
+
+
+def participant_type(frame: pd.DataFrame) -> pd.Series:
+    """Derive explicit, mutually exclusive speaking capacities."""
+    result = pd.Series("Guest", index=frame.index, dtype="string")
+    member = frame["permanent_member"] | frame["elected_member"]
+    result.loc[member] = "Council member"
+    result.loc[frame["secretary_general"] | frame["un_org"]] = "UN official"
+    result.loc[frame["president"] & ~frame["procedural"]] = "Council President"
+    result.loc[frame["procedural"]] = "Procedural"
+    return result
+
+
+def adapt_meetings(raw: pd.DataFrame) -> pd.DataFrame:
+    meetings = raw.copy()
+    for column in INTEGER_COLUMNS:
+        meetings[column] = as_integer(meetings[column], column)
+    meetings["closed"] = as_boolean(meetings["closed"], "closed")
+    meetings["source_speeches_available"] = as_boolean(meetings["speeches"], "speeches")
+    meetings["date"] = make_date(meetings)
+    meetings["basename"] = meetings["record_id"]
+    meetings["spv"] = meetings["record"]
+    meetings["meeting_symbol"] = meetings["record"]
+    meetings["agenda_item1"] = broad_agenda(meetings["agenda_categories"])
+    meetings["agenda_item_manual"] = meetings["topic"].fillna(meetings["agenda"])
+    meetings["source_word_count"] = pd.to_numeric(
+        meetings["word_count"], errors="coerce"
+    ).astype("Int64")
+    meetings = meetings.drop(columns=["speeches", "word_count"])
+    return meetings
+
+
+def adapt_speeches(raw: pd.DataFrame, meetings: pd.DataFrame) -> pd.DataFrame:
+    speeches = raw.copy()
+    for column in (*INTEGER_COLUMNS, "order", "count"):
+        speeches[column] = as_integer(speeches[column], column)
+    for column in BOOLEAN_COLUMNS:
+        speeches[column] = as_boolean(speeches[column], column)
+
+    meeting_meta = meetings[
+        [
+            "record_id",
+            "record",
+            "record_url",
+            "agenda_categories",
+            "agenda_item1",
+            "closed",
+        ]
+    ]
+    speeches = speeches.merge(meeting_meta, on="record_id", how="left", validate="many_to_one")
+
+    speeches["row_id"] = speeches["speech_id"]
+    speeches["filename"] = speeches["speech_id"] + ".txt"
+    speeches["basename"] = speeches["record_id"]
+    speeches["date"] = make_date(speeches)
+    speeches["speaker"] = speeches["speaker"].fillna("Unknown speaker")
+    speeches["country_org"] = speeches["affiliation"].fillna("Unknown affiliation")
+    state_with_cow_name = speeches["state"] & speeches["affiliation_cow"].notna()
+    speeches.loc[state_with_cow_name, "country_org"] = speeches.loc[
+        state_with_cow_name, "affiliation_cow"
+    ]
+    speeches["role"] = speeches["position"]
+    speeches["participanttype"] = participant_type(speeches)
+    speeches["speech_number"] = speeches["order"].astype("int32")
+    speeches["tokens"] = speeches["count"].astype("int32")
+    speeches["source_word_count"] = speeches["count"].astype("int32")
+    speeches["text"] = speeches["speech"].fillna("")
+    speeches["n_chars"] = speeches["text"].str.len().astype("int32")
+    speeches["document_symbol"] = speeches["record"]
+    speeches["meeting_symbol"] = speeches["record"]
+    speeches["agenda_item_manual"] = speeches["topic"].fillna(speeches["agenda"])
+    for column in ("agenda_item2", "agenda_item3", "agenda_item4"):
+        speeches[column] = pd.Series(pd.NA, index=speeches.index, dtype="string")
+
+    # The source contains the English transcript but has already removed the
+    # printed form-of-address marker that identifies the language of delivery.
+    # "Transcript" deliberately maps to Unknown in lib.language instead of
+    # turning every translated intervention into inferred English.
+    speeches["speech_format"] = "Transcript"
+    speeches["record_speech"] = speeches["speech_id"]
+
+    source_renames = {
+        "affiliation": "source_affiliation",
+        "president": "source_president",
+        "secretary_general": "source_secretary_general",
+        "procedural": "source_procedural",
+        "affiliation_cow": "source_affiliation_cow",
+        "cow_ccode": "source_cow_ccode",
+        "permanent_member": "source_permanent_member",
+        "elected_member": "source_elected_member",
+        "state": "source_state",
+        "igo": "source_igo",
+        "un_org": "source_un_org",
+        "ngo": "source_ngo",
+        "closed": "source_closed_meeting",
+    }
+    speeches = speeches.rename(columns=source_renames)
+    speeches = speeches.drop(columns=["speech", "count", "order", "position"])
+    return speeches
+
+
+def validate(speeches: pd.DataFrame, meetings: pd.DataFrame) -> list[str]:
     problems: list[str] = []
-    if len(speeches) != EXPECTED_SPEECHES:
+    if EXPECTED_SPEECHES and len(speeches) != EXPECTED_SPEECHES:
         problems.append(f"row count {len(speeches):,} != {EXPECTED_SPEECHES:,}")
     if speeches["filename"].nunique() != len(speeches):
         problems.append("filename is not unique")
-    if speeches["text"].isna().any():
-        problems.append(f"{int(speeches['text'].isna().sum())} speeches have no text")
-    if orphans := set(texts) - set(speeches["filename"]):
-        problems.append(f"{len(orphans)} tar members absent from speaker.tsv")
     if speeches["date"].isna().any():
-        problems.append(f"{int(speeches['date'].isna().sum())} unparsed dates")
+        problems.append(f"{int(speeches['date'].isna().sum())} unparsed speech dates")
+    if meetings["date"].isna().any():
+        problems.append(f"{int(meetings['date'].isna().sum())} unparsed meeting dates")
     if empty := int((speeches["n_chars"] == 0).sum()):
-        problems.append(f"{empty} empty texts")
-    if missing := int((~speeches["basename"].isin(set(meetings["basename"]))).sum()):
-        problems.append(f"{missing} speeches with no meeting row")
+        problems.append(f"{empty} empty speech texts")
+    if missing := int((~speeches["record_id"].isin(set(meetings["record_id"]))).sum()):
+        problems.append(f"{missing} speeches have no meeting row")
     total_tokens = int(speeches["tokens"].sum())
-    if total_tokens != EXPECTED_TOKENS:
-        problems.append(f"token sum {total_tokens:,} != codebook {EXPECTED_TOKENS:,}")
+    if EXPECTED_TOKENS and total_tokens != EXPECTED_TOKENS:
+        problems.append(f"source word sum {total_tokens:,} != {EXPECTED_TOKENS:,}")
     return problems
 
 
 def build() -> None:
     ensure_dirs()
-
-    missing = [f for f in ("speaker.tsv", "meta.tsv", "speeches.tar") if not (RAW / f).exists()]
+    missing = [path.name for path in (SPEECH_FILE, MEETING_FILE) if not path.exists()]
     if missing:
         print(f"Missing from {RAW}: {', '.join(missing)}", file=sys.stderr)
         print("Run: python scripts/00_fetch_data.py", file=sys.stderr)
         sys.exit(1)
 
-    print("Reading speaker.tsv ...")
-    speeches, speaker_repairs = read_tsv(RAW / "speaker.tsv", SPEAKER_TABS)
-    print("Reading meta.tsv ...")
-    meetings, meta_repairs = read_tsv(RAW / "meta.tsv", META_TABS)
-    print(f"  speeches={speeches.shape}  meetings={meetings.shape}")
+    print("Reading meetings.tsv ...")
+    meetings = adapt_meetings(read_source(MEETING_FILE, MEETING_REQUIRED))
+    print("Reading speeches.tsv ...")
+    speeches = adapt_speeches(read_source(SPEECH_FILE, SPEECH_REQUIRED), meetings)
 
-    # Derived join key back to meta.tsv.basename
-    speeches["basename"] = speeches["filename"].str.replace(r"_spch\d+\.txt$", "", regex=True)
+    counts = speeches.groupby("record_id").size()
+    meetings["num_speeches"] = meetings["record_id"].map(counts).fillna(0).astype("int32")
 
-    for col in ["year", "month", "day", "speech_number", "tokens", "types", "sentences"]:
-        speeches[col] = pd.to_numeric(speeches[col], errors="coerce").astype("Int32")
-    for col in ["year", "month", "day", "num_speeches"]:
-        meetings[col] = pd.to_numeric(meetings[col], errors="coerce").astype("Int32")
-    speeches["date"] = pd.to_datetime(speeches["date"], errors="coerce")
-    meetings["date"] = pd.to_datetime(meetings["date"], errors="coerce")
-
-    print("Streaming speeches.tar ...")
-    t0 = time.time()
-    texts = load_texts(RAW / "speeches.tar")
-    print(f"  {len(texts):,} speech files in {time.time() - t0:.0f}s")
-
-    speeches["text"] = speeches["filename"].map(texts)
-    speeches["n_chars"] = speeches["text"].fillna("").str.len()
-
-    if problems := validate(speeches, meetings, texts):
+    if problems := validate(speeches, meetings):
         print("\nVALIDATION FAILED:", file=sys.stderr)
-        for p in problems:
-            print(f"  - {p}", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
         sys.exit(1)
     print("Validation passed.")
 
@@ -193,10 +295,10 @@ def build() -> None:
     frames.write(meetings, MEETINGS)
 
     summary = (
-        f"{len(speeches):,} speeches | {speeches['basename'].nunique():,} documents | "
-        f"{speeches['meeting_symbol'].nunique():,} meeting symbols | "
+        f"{len(speeches):,} speeches | {int((meetings['num_speeches'] > 0).sum()):,} "
+        f"meetings with speeches | {len(meetings):,} meeting records | "
         f"{speeches['date'].min():%Y-%m-%d} to {speeches['date'].max():%Y-%m-%d} | "
-        f"{int(speeches['tokens'].sum()):,} tokens"
+        f"{int(speeches['tokens'].sum()):,} source words"
     )
     print(f"\nWrote {SPEECHES.relative_to(DERIVED.parents[1])} "
           f"({SPEECHES.stat().st_size / 1e6:.1f} MB)")
@@ -206,27 +308,28 @@ def build() -> None:
 
     write_note(
         "01_build.md",
-        f"# 01 — Build\n\n{summary}\n\n"
-        f"- Repaired {speaker_repairs + meta_repairs:,} logical rows split across physical "
-        "lines\n"
-        f"- Token sum matches the codebook exactly ({EXPECTED_TOKENS:,})\n"
-        f"- 0 missing texts, 0 orphan tar members, 0 unparsed dates\n",
+        "# 01 - Build\n\n"
+        f"{summary}\n\n"
+        "- Source: Sakamoto-Matsuoka, *The UNSC Meetings and Speeches*, v5.0.\n"
+        "- The source English transcript starts at the speech body; no form of address "
+        "was reconstructed.\n"
+        "- `tokens` preserves the source's reported word count for compatibility; "
+        "step 02 computes the analytical word denominator independently.\n",
     )
-
     manifest = artifacts.provenance(
         ROOT,
         "01_build_parquet.py",
-        inputs=[RAW / "speaker.tsv", RAW / "meta.tsv", RAW / "speeches.tar"],
+        inputs=[SPEECH_FILE, MEETING_FILE],
         extra={
+            "source": "Sakamoto-Matsuoka v5.0",
             "outputs": [
                 artifacts.describe_file(SPEECHES, ROOT),
                 artifacts.describe_file(MEETINGS, ROOT),
             ],
-            "repairs": speaker_repairs + meta_repairs,
             "speeches": len(speeches),
-            "documents": speeches["basename"].nunique(),
-            "meeting_symbols": speeches["meeting_symbol"].nunique(),
-            "tokens": int(speeches["tokens"].sum()),
+            "meetings": len(meetings),
+            "meetings_with_speeches": int((meetings["num_speeches"] > 0).sum()),
+            "source_words": int(speeches["tokens"].sum()),
         },
     )
     artifacts.atomic_write_json(MANIFESTS / "01_build_parquet.json", manifest, indent=1)

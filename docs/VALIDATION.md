@@ -1,5 +1,10 @@
 # Validation register
 
+> **Corpus migration, 3 September 2026.** The canonical input is now
+> Sakamoto–Matsuoka v5 (1946–2024). Schoenfeld-era checks and examples retained
+> below are historical records, not current population totals. Current
+> invariants are documented in `docs/CORPUS.md` and manifests 01–03.
+
 The corpus is OCR-derived from two-column `S/PV.*` verbatim records. This register keeps
 approximations, human-review tasks and resolved discrepancies visible instead of silently
 absorbing them into the pipeline.
