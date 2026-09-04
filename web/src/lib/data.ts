@@ -790,18 +790,30 @@ export const kwic = (term: string, f?: typeof fetch) =>
 export const meeting = (basename: string, f?: typeof fetch) =>
 	json<Meeting>(`speeches/${encodeURIComponent(basename)}.json`, f, REQUIRED['speeches/*.json']);
 
-/** `UNSC_2015_SPV.7481_spch0007#3` → the meeting file that speech lives in. */
+/**
+ * A speech identifier, split into the meeting it belongs to and its ordinal
+ * within that meeting: `SC00232-01-005` → `SC00232-01` and `005`.
+ *
+ * The meeting half keeps its own trailing number — a record is `SC00232-01`,
+ * the `-01` being the part of the meeting rather than a speech — so the
+ * pattern requires the two numeric tails a speech has and a record does not.
+ * That is what makes `meetingOf` idempotent: handed a meeting basename it
+ * returns it unchanged rather than stripping the part number off it.
+ */
+const SPEECH_ID = /^(.+-\d+)-\d+$/;
+
+/** `SC00232-01-005#1` → the meeting file that speech lives in. */
 export function meetingOf(lineId: string): string {
-	const speech = lineId.split('#')[0];
-	return speech.replace(/_spch\d+$/, '');
+	const speech = speechOf(lineId);
+	return SPEECH_ID.exec(speech)?.[1] ?? speech;
 }
 
-/** `UNSC_2015_SPV.7481_spch0007#3` → `UNSC_2015_SPV.7481_spch0007`. */
+/** `SC00232-01-005#1` → `SC00232-01-005`. */
 export function speechOf(lineId: string): string {
 	return lineId.split('#')[0];
 }
 
-/** `UNSC_2015_SPV.7481_spch0007#3` → the one-based occurrence ordinal `3`. */
+/** `SC00232-01-005#3` → the one-based occurrence ordinal `3`. */
 export function occurrenceOf(lineId: string): number | null {
 	const match = /#([1-9]\d*)$/.exec(lineId);
 	return match ? Number(match[1]) : null;

@@ -76,7 +76,7 @@ test('the exports carry per-row provenance and read back as what was saved', asy
 	expect(csv).toContain('# licence: CC BY 4.0');
 	expect(csv).toContain('each row carries the lexicon version and analytical hash');
 	expect(csv).toContain('lexicon_version');
-	expect(csv).toContain('UNSC_2014_SPV.7000_spch0001#1');
+	expect(csv).toContain('SC07000-01-001#1');
 	expect(csv).toContain('Kept for the paper.');
 
 	const jsonPending = page.waitForEvent('download');
@@ -85,7 +85,7 @@ test('the exports carry per-row provenance and read back as what was saved', asy
 	expect(json.version).toBe(1);
 	expect(json.licence).toBe('CC BY 4.0');
 	expect(json.items).toHaveLength(1);
-	expect(json.items[0].id).toBe('UNSC_2014_SPV.7000_spch0001#1');
+	expect(json.items[0].id).toBe('SC07000-01-001#1');
 	expect(json.items[0].note).toBe('Kept for the paper.');
 
 	const mdPending = page.waitForEvent('download');

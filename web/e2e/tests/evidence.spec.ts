@@ -44,8 +44,8 @@ test('the filtered CSV records filters, provenance, and only matching rows', asy
 	expect(csv).toContain('# artifact: kwic/genocide.json');
 	expect(csv).toContain('# pipeline commit: fixture');
 	expect(csv).toContain('# on screen: search: warned; sorted by: date');
-	expect(csv).toContain('UNSC_2014_SPV.7000_spch0001#1');
-	expect(csv).not.toContain('UNSC_2014_SPV.7000_spch0001#2');
+	expect(csv).toContain('SC07000-01-001#1');
+	expect(csv).not.toContain('SC07000-01-001#2');
 });
 
 test('an exported figure embeds its reading and provenance in the image', async ({ page }) => {
@@ -80,20 +80,20 @@ test('a concordance hit opens, copies, and traverses exact occurrences', async (
 	const evidence = page.getByRole('link', { name: 'Read the whole speech' });
 	await expect(evidence).toHaveAttribute(
 		'href',
-		`${base}/reader/UNSC_2014_SPV.7000?term=genocide&speech=UNSC_2014_SPV.7000_spch0001&occurrence=UNSC_2014_SPV.7000_spch0001%231`
+		`${base}/reader/SC07000-01?term=genocide&speech=SC07000-01-001&occurrence=SC07000-01-001%231`
 	);
 	await evidence.click();
 
 	await expect(
 		page.getByRole('heading', { name: 'Protection of civilians', level: 1 })
 	).toBeVisible();
-	await expect(page.locator('li.target')).toHaveAttribute('id', 'UNSC_2014_SPV.7000_spch0001');
+	await expect(page.locator('li.target')).toHaveAttribute('id', 'SC07000-01-001');
 	await expect(page.locator('li.target mark')).toHaveCount(2);
 	await expect(page.locator('mark.occurrence')).toHaveCount(1);
 	await expect(page.locator('mark.occurrence')).toHaveText('genocide');
 	await expect(page.locator('mark.occurrence')).toHaveAttribute(
 		'data-occurrence',
-		'UNSC_2014_SPV.7000_spch0001#1'
+		'SC07000-01-001#1'
 	);
 	await expect(page.locator('mark.occurrence')).toBeInViewport();
 	await page.getByRole('button', { name: 'Copy occurrence link' }).click();
@@ -104,13 +104,13 @@ test('a concordance hit opens, copies, and traverses exact occurrences', async (
 	const quotation = await page.evaluate(() => navigator.clipboard.readText());
 	expect(quotation).toContain('“We warned that genocide could occur.”');
 	expect(quotation).toContain('Rwanda, UN Security Council, S/PV.7000 (2014-06-11).');
-	expect(quotation).toContain('occurrence UNSC_2014_SPV.7000_spch0001#1.');
+	expect(quotation).toContain('occurrence SC07000-01-001#1.');
 	expect(quotation).toContain(page.url());
 	await expect(page.getByText('1 of 4', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Next occurrence' }).click();
 	await expect(page.locator('mark.occurrence')).toHaveAttribute(
 		'data-occurrence',
-		'UNSC_2014_SPV.7000_spch0001#2'
+		'SC07000-01-001#2'
 	);
 	await expect(page.getByText('2 of 4', { exact: true })).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Previous occurrence' })).toBeVisible();
@@ -127,7 +127,7 @@ test('a concordance hit opens, copies, and traverses exact occurrences', async (
 	// well as the delegation — which the concordance alone could not do.
 	expect(ris).toContain('AU  - Ms. Example (Rwanda)');
 	expect(ris).toContain('M1  - S/PV.7000');
-	expect(ris).toContain('UNSC_2014_SPV.7000_spch0001#2');
+	expect(ris).toContain('SC07000-01-001#2');
 	expect(ris.trimEnd().endsWith('ER  -')).toBe(true);
 
 	await expectNoAxeViolations(page);

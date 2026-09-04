@@ -338,29 +338,30 @@ describe('the validators that are about the research rather than the types', () 
 describe('reading an identifier back to the file it came from', () => {
 	it('finds the meeting and the speech behind a concordance line', async () => {
 		const { meetingOf, occurrenceOf, speechOf } = await fresh();
-		expect(meetingOf('UNSC_2015_SPV.7481_spch0007#3')).toBe('UNSC_2015_SPV.7481');
-		expect(speechOf('UNSC_2015_SPV.7481_spch0007#3')).toBe('UNSC_2015_SPV.7481_spch0007');
-		expect(occurrenceOf('UNSC_2015_SPV.7481_spch0007#3')).toBe(3);
+		expect(meetingOf('SC00232-01-005#3')).toBe('SC00232-01');
+		expect(speechOf('SC00232-01-005#3')).toBe('SC00232-01-005');
+		expect(occurrenceOf('SC00232-01-005#3')).toBe(3);
 	});
 
 	it('leaves an identifier with no occurrence ordinal alone', async () => {
 		const { meetingOf, speechOf } = await fresh();
-		expect(speechOf('UNSC_2015_SPV.7481_spch0007')).toBe('UNSC_2015_SPV.7481_spch0007');
-		expect(meetingOf('UNSC_2015_SPV.7481_spch0007')).toBe('UNSC_2015_SPV.7481');
+		expect(speechOf('SC00232-01-005')).toBe('SC00232-01-005');
+		expect(meetingOf('SC00232-01-005')).toBe('SC00232-01');
 	});
 
-	it('returns a meeting basename unchanged when there is no speech suffix to strip', async () => {
+	it('returns a meeting basename unchanged when there is no speech ordinal to strip', async () => {
 		const { meetingOf } = await fresh();
-		// Documented rather than assumed: the suffix is optional in the regex, so
-		// a meeting id passed in comes straight back out.
-		expect(meetingOf('UNSC_2015_SPV.7481#1')).toBe('UNSC_2015_SPV.7481');
-		expect(meetingOf('UNSC_2015_SPV.7481')).toBe('UNSC_2015_SPV.7481');
+		// The part number a record carries — the `-01` of `SC00232-01` — looks like
+		// a speech ordinal on its own, so this asserts the one case that would make
+		// the reader ask for a file that cannot exist.
+		expect(meetingOf('SC00232-01#1')).toBe('SC00232-01');
+		expect(meetingOf('SC00232-01')).toBe('SC00232-01');
 	});
 
 	it('rejects a missing, zero-based, or malformed occurrence ordinal', async () => {
 		const { occurrenceOf } = await fresh();
-		expect(occurrenceOf('UNSC_2015_SPV.7481_spch0007')).toBeNull();
-		expect(occurrenceOf('UNSC_2015_SPV.7481_spch0007#0')).toBeNull();
-		expect(occurrenceOf('UNSC_2015_SPV.7481_spch0007#third')).toBeNull();
+		expect(occurrenceOf('SC00232-01-005')).toBeNull();
+		expect(occurrenceOf('SC00232-01-005#0')).toBeNull();
+		expect(occurrenceOf('SC00232-01-005#third')).toBeNull();
 	});
 });

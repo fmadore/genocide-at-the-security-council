@@ -228,18 +228,16 @@ const diffusion: UsageDiffusion = {
 	referents: [
 		{
 			id: 'convention',
-			events: [
-				moment('1996-02-02', 'Alpha', 'mention', 'no_position', 'UNSC_1996_SPV.3600_spch0001#1')
-			]
+			events: [moment('1996-02-02', 'Alpha', 'mention', 'no_position', 'SC03600-01-001#1')]
 		},
 		{
 			id: 'rwanda_1994',
 			events: [
-				moment('1994-04-21', 'Alpha', 'mention', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1'),
-				moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1'),
-				moment('1998-06-01', 'Bravo', 'mention', 'rejects', 'UNSC_1998_SPV.3888_spch0002#1'),
-				moment('1998-06-01', 'Bravo', 'rejects', 'rejects', 'UNSC_1998_SPV.3888_spch0002#1'),
-				moment('2004-04-07', 'Bravo', 'asserts', 'asserts', 'UNSC_2004_SPV.4940_spch0011#1')
+				moment('1994-04-21', 'Alpha', 'mention', 'asserts', 'SC03368-01-005#1'),
+				moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'SC03368-01-005#1'),
+				moment('1998-06-01', 'Bravo', 'mention', 'rejects', 'SC03888-01-002#1'),
+				moment('1998-06-01', 'Bravo', 'rejects', 'rejects', 'SC03888-01-002#1'),
+				moment('2004-04-07', 'Bravo', 'asserts', 'asserts', 'SC04940-01-011#1')
 			]
 		}
 	]
@@ -785,8 +783,8 @@ describe('the quotations behind a cell', () => {
 	});
 
 	const lines = [
-		line('UNSC_2014_SPV.7000_spch0001#1'),
-		line('UNSC_2015_SPV.7481_spch0007#1', {
+		line('SC07000-01-001#1'),
+		line('SC07481-01-007#1', {
 			spv: 'S/PV.7481',
 			date: '2015-07-08',
 			country: 'France',
@@ -796,16 +794,11 @@ describe('the quotations behind a cell', () => {
 	];
 
 	it('shows nothing at all until something is selected', () => {
-		expect(drillDown([annotation('UNSC_2014_SPV.7000_spch0001#1')], lines)).toEqual([]);
+		expect(drillDown([annotation('SC07000-01-001#1')], lines)).toEqual([]);
 	});
 
 	it('joins an annotation to the sentence it labels, on the line identifier alone', () => {
-		const rows = drillDown(
-			[annotation('UNSC_2014_SPV.7000_spch0001#1')],
-			lines,
-			'Rwanda',
-			'rwanda_1994'
-		);
+		const rows = drillDown([annotation('SC07000-01-001#1')], lines, 'Rwanda', 'rwanda_1994');
 		expect(rows).toHaveLength(1);
 		expect(rows[0]).toMatchObject({
 			country: 'Rwanda',
@@ -820,22 +813,20 @@ describe('the quotations behind a cell', () => {
 	it('drops an annotation whose line is not in the concordance file', () => {
 		// The view's whole promise is that a label reads back to a sentence. An
 		// annotation with no line would be a row of labels under no quotation.
-		expect(drillDown([annotation('UNSC_1999_SPV.4011_spch0003#2')], lines, 'Rwanda')).toEqual([]);
+		expect(drillDown([annotation('SC04011-01-003#2')], lines, 'Rwanda')).toEqual([]);
 	});
 
 	it('narrows on the speaker, on the referent, or on both', () => {
 		const all = [
-			annotation('UNSC_2014_SPV.7000_spch0001#1'),
-			annotation('UNSC_2015_SPV.7481_spch0007#1', {
+			annotation('SC07000-01-001#1'),
+			annotation('SC07481-01-007#1', {
 				referent: 'bosnia',
 				speaker_position: 'asserts'
 			})
 		];
-		expect(drillDown(all, lines, 'France').map((row) => row.id)).toEqual([
-			'UNSC_2015_SPV.7481_spch0007#1'
-		]);
+		expect(drillDown(all, lines, 'France').map((row) => row.id)).toEqual(['SC07481-01-007#1']);
 		expect(drillDown(all, lines, '', 'rwanda_1994').map((row) => row.id)).toEqual([
-			'UNSC_2014_SPV.7000_spch0001#1'
+			'SC07000-01-001#1'
 		]);
 		expect(drillDown(all, lines, 'France', 'rwanda_1994')).toEqual([]);
 		expect(drillDown(all, lines, '', 'bosnia')).toHaveLength(1);
@@ -844,7 +835,7 @@ describe('the quotations behind a cell', () => {
 	it('says when the model’s evidence span is not simply the sentence', () => {
 		const [same] = drillDown(
 			[
-				annotation('UNSC_2014_SPV.7000_spch0001#1', {
+				annotation('SC07000-01-001#1', {
 					evidence_quote: '  we WARNED that genocide could occur. '
 				})
 			],
@@ -856,7 +847,7 @@ describe('the quotations behind a cell', () => {
 
 		const [narrower] = drillDown(
 			[
-				annotation('UNSC_2014_SPV.7000_spch0001#1', {
+				annotation('SC07000-01-001#1', {
 					evidence_quote: 'warned that genocide could occur'
 				})
 			],
@@ -867,10 +858,10 @@ describe('the quotations behind a cell', () => {
 	});
 
 	it('carries a link into the record and a link back into the concordance', () => {
-		const [row] = drillDown([annotation('UNSC_2014_SPV.7000_spch0001#1')], lines, 'Rwanda');
-		expect(row.reader.meeting).toBe('UNSC_2014_SPV.7000');
+		const [row] = drillDown([annotation('SC07000-01-001#1')], lines, 'Rwanda');
+		expect(row.reader.meeting).toBe('SC07000-01');
 		expect(row.reader.query).toBe(
-			'term=genocide&speech=UNSC_2014_SPV.7000_spch0001&occurrence=UNSC_2014_SPV.7000_spch0001%231'
+			'term=genocide&speech=SC07000-01-001&occurrence=SC07000-01-001%231'
 		);
 		// The concordance cannot name one line, so the link lands on the smallest
 		// set it can express that certainly contains it.
@@ -880,7 +871,7 @@ describe('the quotations behind a cell', () => {
 	it('carries both readings of a contested occurrence, and none where the two agreed', () => {
 		const rows = drillDown(
 			[
-				annotation('UNSC_2014_SPV.7000_spch0001#1', {
+				annotation('SC07000-01-001#1', {
 					contested: ['referent', 'speaker_position'],
 					alt: {
 						verdict: 'true_positive',
@@ -890,7 +881,7 @@ describe('the quotations behind a cell', () => {
 						referent: 'bosnia'
 					}
 				}),
-				annotation('UNSC_2015_SPV.7481_spch0007#1', { referent: 'rwanda_1994' })
+				annotation('SC07481-01-007#1', { referent: 'rwanda_1994' })
 			],
 			lines,
 			'',
@@ -913,7 +904,7 @@ describe('the quotations behind a cell', () => {
 	it('names a contested referent by its identifier when the list is not to hand', () => {
 		const [row] = drillDown(
 			[
-				annotation('UNSC_2014_SPV.7000_spch0001#1', {
+				annotation('SC07000-01-001#1', {
 					contested: ['referent'],
 					alt: {
 						verdict: 'true_positive',
@@ -936,8 +927,8 @@ describe('the quotations behind a cell', () => {
 
 	it('narrows to the contested occurrences without a second enumeration of them', () => {
 		const all = [
-			annotation('UNSC_2014_SPV.7000_spch0001#1'),
-			annotation('UNSC_2015_SPV.7481_spch0007#1', {
+			annotation('SC07000-01-001#1'),
+			annotation('SC07481-01-007#1', {
 				referent: 'rwanda_1994',
 				contested: ['speaker_position'],
 				alt: {
@@ -954,7 +945,7 @@ describe('the quotations behind a cell', () => {
 		expect(drillDown(all, lines, '', 'rwanda_1994')[1].contested).toEqual([]);
 		expect(drillDown(all, lines, '', 'rwanda_1994', { compared: true })).toHaveLength(2);
 		const only = drillDown(all, lines, '', 'rwanda_1994', { compared: true, contestedOnly: true });
-		expect(only.map((row) => row.id)).toEqual(['UNSC_2015_SPV.7481_spch0007#1']);
+		expect(only.map((row) => row.id)).toEqual(['SC07481-01-007#1']);
 		// The filter narrows the same list rather than building another: everything
 		// a row carries is what it carried unfiltered.
 		expect(only[0].sentence).toBe('The Council must call this genocide by its name.');
@@ -965,20 +956,14 @@ describe('the quotations behind a cell', () => {
 
 	it('orders by date and settles every tie on the identifier', () => {
 		const rows = drillDown(
-			[
-				annotation('UNSC_2015_SPV.7481_spch0007#1', { referent: 'bosnia' }),
-				annotation('UNSC_2014_SPV.7000_spch0001#1')
-			],
+			[annotation('SC07481-01-007#1', { referent: 'bosnia' }), annotation('SC07000-01-001#1')],
 			lines,
 			'',
 			''
 		);
 		expect(rows).toEqual([]);
 		const both = drillDown(
-			[
-				annotation('UNSC_2015_SPV.7481_spch0007#1', { referent: 'rwanda_1994' }),
-				annotation('UNSC_2014_SPV.7000_spch0001#1')
-			],
+			[annotation('SC07481-01-007#1', { referent: 'rwanda_1994' }), annotation('SC07000-01-001#1')],
 			lines,
 			'',
 			'rwanda_1994'
@@ -1050,7 +1035,7 @@ describe('how a referent spread through the Council', () => {
 				actor: 'Alpha',
 				milestone: 'first_referral' as UsageMilestone,
 				speaker_position: 'asserts',
-				id: 'UNSC_1994_SPV.3368_spch0005#1'
+				id: 'SC03368-01-005#1'
 			}
 		]);
 		const plan = diffusionPlan(later, state());
@@ -1091,7 +1076,7 @@ describe('how a referent spread through the Council', () => {
 					`Speaker ${index}`,
 					'asserts',
 					'asserts',
-					`UNSC_2000_SPV.4100_spch${String(index).padStart(4, '0')}#1`
+					`SC04100-01-${String(index).padStart(3, '0')}#1`
 				)
 			)
 		);
@@ -1111,8 +1096,8 @@ describe('how a referent spread through the Council', () => {
 
 	it('drops the envelope when it is the assertion curve drawn a second time', () => {
 		const folded = only([
-			moment('1994-04-21', 'Alpha', 'mention', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1'),
-			moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1')
+			moment('1994-04-21', 'Alpha', 'mention', 'asserts', 'SC03368-01-005#1'),
+			moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'SC03368-01-005#1')
 		]);
 		const plan = diffusionPlan(folded, state());
 		expect(plan.drawn.map((series) => series.milestone)).toEqual(['asserts']);
@@ -1156,9 +1141,7 @@ describe('how a referent spread through the Council', () => {
 	});
 
 	it('draws a block holding one dated event down the middle rather than dividing by zero', () => {
-		const single = only([
-			moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1')
-		]);
+		const single = only([moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'SC03368-01-005#1')]);
 		const plan = diffusionPlan(single, state());
 		expect(plan.ticks).toEqual([]);
 		expect(plan.series[1].points[0].x).toBeCloseTo(
@@ -1213,8 +1196,8 @@ describe('the chronology the curve summarises', () => {
 					{
 						id: 'rwanda_1994',
 						events: [
-							moment('1994-04-21', 'Alpha', 'mention', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1'),
-							moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'UNSC_1994_SPV.3368_spch0005#1')
+							moment('1994-04-21', 'Alpha', 'mention', 'asserts', 'SC03368-01-005#1'),
+							moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'SC03368-01-005#1')
 						]
 					}
 				]
@@ -1227,9 +1210,9 @@ describe('the chronology the curve summarises', () => {
 
 	it('links into the record from the identifier alone, and into the concordance only with a line', () => {
 		const [first] = diffusionChronology(plan());
-		expect(first.reader.meeting).toBe('UNSC_1994_SPV.3368');
+		expect(first.reader.meeting).toBe('SC03368-01');
 		expect(first.reader.query).toBe(
-			'term=genocide&speech=UNSC_1994_SPV.3368_spch0005&occurrence=UNSC_1994_SPV.3368_spch0005%231'
+			'term=genocide&speech=SC03368-01-005&occurrence=SC03368-01-005%231'
 		);
 		// The concordance cannot be addressed without a record symbol, and the
 		// symbol lives in a file this page fetches only on demand. A null rather
@@ -1237,7 +1220,7 @@ describe('the chronology the curve summarises', () => {
 		expect(first.concordance).toBeNull();
 		expect(first.spv).toBe('');
 
-		const joined = diffusionChronology(plan(), [record('UNSC_1994_SPV.3368_spch0005#1')]);
+		const joined = diffusionChronology(plan(), [record('SC03368-01-005#1')]);
 		expect(joined[0].spv).toBe('S/PV.3368');
 		expect(joined[0].concordance?.query).toBe('term=genocide&country=Rwanda&spv=S%2FPV.3368');
 		// A row whose line is not in the file keeps its reader link and loses only
@@ -1367,26 +1350,22 @@ describe('the contested passages', () => {
 	const data = corpus({ comparison: comparison({ overlap: 4, contested_any: 2 }) });
 
 	const three = coded(
-		'UNSC_2015_SPV.7481_spch0007#1',
+		'SC07481-01-007#1',
 		['speaker_position', 'function', 'referent'],
 		other({ speaker_position: 'rejects', function: 'accountability', referent: 'bosnia' })
 	);
 	const one = coded(
-		'UNSC_2014_SPV.7000_spch0001#1',
+		'SC07000-01-001#1',
 		['speaker_position'],
 		other({ speaker_position: 'reports_without_position' })
 	);
-	const agreed = coded('UNSC_2014_SPV.7000_spch0001#2', []);
-	const unquotable = coded(
-		'UNSC_1999_SPV.4011_spch0003#2',
-		['verdict'],
-		other({ verdict: 'false_positive' })
-	);
+	const agreed = coded('SC07000-01-001#2', []);
+	const unquotable = coded('SC04011-01-003#2', ['verdict'], other({ verdict: 'false_positive' }));
 
 	const files = [
-		record('UNSC_2014_SPV.7000_spch0001#1'),
-		record('UNSC_2014_SPV.7000_spch0001#2'),
-		record('UNSC_2015_SPV.7481_spch0007#1', {
+		record('SC07000-01-001#1'),
+		record('SC07000-01-001#2'),
+		record('SC07481-01-007#1', {
 			spv: 'S/PV.7481',
 			date: '2015-07-08',
 			country: 'France',
@@ -1427,13 +1406,13 @@ describe('the contested passages', () => {
 		// The published labels stay published: nothing here is replaced.
 		expect(listing.rows[0].referent).toBe('rwanda_1994');
 		expect(listing.rows[0].sentence).toBe('The Council must call this genocide by its name.');
-		expect(listing.rows[0].reader.meeting).toBe('UNSC_2015_SPV.7481');
+		expect(listing.rows[0].reader.meeting).toBe('SC07481-01');
 		expect(listing.rows[0].concordance.query).toBe('term=genocide&country=France&spv=S%2FPV.7481');
 	});
 
 	it('drops a contested occurrence it cannot quote, and counts what it dropped', () => {
 		const listing = contestedList(data, [one, unquotable], files);
-		expect(listing.rows.map((row) => row.id)).toEqual(['UNSC_2014_SPV.7000_spch0001#1']);
+		expect(listing.rows.map((row) => row.id)).toEqual(['SC07000-01-001#1']);
 		expect(listing.contested).toBe(2);
 		expect(listing.quotable).toBe(1);
 		expect(listing.unquotable).toBe(1);
@@ -1443,11 +1422,7 @@ describe('the contested passages', () => {
 
 	it('caps the list and hands the interface what the cap cost', () => {
 		const many = Array.from({ length: CONTESTED_CAP + 7 }, (_, index) =>
-			coded(
-				`UNSC_2014_SPV.7000_spch${String(index).padStart(4, '0')}#1`,
-				['speaker_position'],
-				other()
-			)
+			coded(`SC07000-01-${String(index).padStart(3, '0')}#1`, ['speaker_position'], other())
 		);
 		const rows = many.map((occurrence) => record(occurrence.id));
 		const listing = contestedList(data, many, rows);
@@ -1466,9 +1441,9 @@ describe('the contested passages', () => {
 		// Chronological, with the unjoinable row first because it has no date —
 		// carried with nulls rather than filtered out, so the file holds the gap.
 		expect(rows.map((row) => row[CONTESTED_COLUMNS.indexOf('id')])).toEqual([
-			'UNSC_1999_SPV.4011_spch0003#2',
-			'UNSC_2014_SPV.7000_spch0001#1',
-			'UNSC_2015_SPV.7481_spch0007#1'
+			'SC04011-01-003#2',
+			'SC07000-01-001#1',
+			'SC07481-01-007#1'
 		]);
 		expect(rows[0][CONTESTED_COLUMNS.indexOf('date')]).toBeNull();
 		expect(rows[0][CONTESTED_COLUMNS.indexOf('actor')]).toBeNull();

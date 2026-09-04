@@ -5,7 +5,7 @@
 		"git_commit": "fixture",
 		"lexicon_version": 2
 	},
-	"basename": "UNSC_2014_SPV.7000",
+	"basename": "SC07000-01",
 	"spv": "S/PV.7000",
 	"date": "2014-06-11",
 	"year": 2014,
@@ -14,7 +14,7 @@
 	"agenda": "Protection of civilians",
 	"speeches": [
 		{
-			"id": "UNSC_2014_SPV.7000_spch0001",
+			"id": "SC07000-01-001",
 			"n": 1,
 			"speaker": "Ms. Example",
 			"role": "Representative",

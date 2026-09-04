@@ -238,28 +238,28 @@
 						"actor": "Rwanda",
 						"milestone": "mention",
 						"speaker_position": "conditional",
-						"id": "UNSC_2014_SPV.7000_spch0001#1"
+						"id": "SC07000-01-001#1"
 					},
 					{
 						"date": "2014-06-11",
 						"actor": "Rwanda",
 						"milestone": "rejects",
 						"speaker_position": "rejects",
-						"id": "UNSC_2014_SPV.7000_spch0001#2"
+						"id": "SC07000-01-001#2"
 					},
 					{
 						"date": "2016-04-05",
 						"actor": "European Union",
 						"milestone": "mention",
 						"speaker_position": "asserts",
-						"id": "UNSC_2016_SPV.7802_spch0012#1"
+						"id": "SC07802-01-012#1"
 					},
 					{
 						"date": "2016-04-05",
 						"actor": "European Union",
 						"milestone": "asserts",
 						"speaker_position": "asserts",
-						"id": "UNSC_2016_SPV.7802_spch0012#1"
+						"id": "SC07802-01-012#1"
 					}
 				]
 			},
@@ -271,14 +271,14 @@
 						"actor": "France",
 						"milestone": "mention",
 						"speaker_position": "asserts",
-						"id": "UNSC_2015_SPV.7481_spch0007#1"
+						"id": "SC07481-01-007#1"
 					},
 					{
 						"date": "2015-07-08",
 						"actor": "France",
 						"milestone": "asserts",
 						"speaker_position": "asserts",
-						"id": "UNSC_2015_SPV.7481_spch0007#1"
+						"id": "SC07481-01-007#1"
 					}
 				]
 			}

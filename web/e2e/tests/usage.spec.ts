@@ -140,7 +140,7 @@ test('a cell opens the occurrences behind it, and a way into the record', async 
 		evidence.getByRole('link', { name: 'Read the whole speech' }).first()
 	).toHaveAttribute(
 		'href',
-		`${base}/reader/UNSC_2014_SPV.7000?term=genocide&speech=UNSC_2014_SPV.7000_spch0001&occurrence=UNSC_2014_SPV.7000_spch0001%231`
+		`${base}/reader/SC07000-01?term=genocide&speech=SC07000-01-001&occurrence=SC07000-01-001%231`
 	);
 	// The concordance cannot name one line, so the link lands on the delegation
 	// and the record it came from.
@@ -221,7 +221,7 @@ test('the diffusion figure draws one referent and lists the firsts behind it', a
 	// concordance link needs a record symbol this fixture has no line for.
 	await expect(rows.nth(0).getByRole('link').first()).toHaveAttribute(
 		'href',
-		`${base}/reader/UNSC_2014_SPV.7000?term=genocide&speech=UNSC_2014_SPV.7000_spch0001&occurrence=UNSC_2014_SPV.7000_spch0001%231`
+		`${base}/reader/SC07000-01?term=genocide&speech=SC07000-01-001&occurrence=SC07000-01-001%231`
 	);
 	await expect(rows.nth(2).getByRole('link', { name: 'concordance' })).toHaveCount(0);
 
@@ -394,7 +394,7 @@ test('the reading list ranks the contested passages hardest first', async ({ pag
 	// The reader link idiom the chronology uses: the identifier is the link.
 	await expect(rows.nth(0).getByRole('link').first()).toHaveAttribute(
 		'href',
-		`${base}/reader/UNSC_2015_SPV.7481?term=genocide&speech=UNSC_2015_SPV.7481_spch0007&occurrence=UNSC_2015_SPV.7481_spch0007%231`
+		`${base}/reader/SC07481-01?term=genocide&speech=SC07481-01-007&occurrence=SC07481-01-007%231`
 	);
 	await expect(rows.nth(0).getByRole('link', { name: 'concordance' })).toHaveAttribute(
 		'href',
