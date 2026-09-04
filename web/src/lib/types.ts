@@ -442,7 +442,26 @@ export interface Meeting {
 	topic: string;
 	region: string;
 	agenda: string;
+	scope_counts: Record<'word' | 'vocabulary' | 'debate', number>;
+	delegations: MeetingDelegation[];
 	speeches: Speech[];
+}
+
+export interface MeetingDelegation {
+	country: string;
+	iso3: string | null;
+	group: string;
+	type: string;
+	speeches: number;
+	terms: string[];
+}
+
+export interface CorpusScope {
+	id: 'word' | 'vocabulary' | 'debate';
+	label: string;
+	definition: string;
+	speeches: number;
+	meetings: number;
 }
 
 export interface MeetingSummary {
@@ -454,12 +473,16 @@ export interface MeetingSummary {
 	region: string;
 	agenda: string;
 	speeches: number;
+	delegations: number;
+	scope_counts: Record<'word' | 'vocabulary' | 'debate', number>;
 	terms: string[];
 	occurrences: number;
 }
 
 export interface MeetingIndex {
 	meta: LexiconMeta;
+	corpus: { speeches: number; meetings: number };
+	scopes: CorpusScope[];
 	meetings: MeetingSummary[];
 }
 

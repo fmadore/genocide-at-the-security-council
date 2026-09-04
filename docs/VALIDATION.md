@@ -984,6 +984,22 @@ This is an overview population, not a claim that the three phrases are interchan
 chronology publishes them as three separate selectable lines beside `genocide_qualification`.
 No model label from the genocide occurrence layer is joined to this population.
 
+### Meeting scopes and reconciliation
+
+Step 09 defines R9's reading sets from the same flags as step 04 and publishes them beside a
+separate, fixed corpus denominator. On the pinned 1946–2024 corpus the index records 167,642
+speeches in 9,464 meetings; *the word* holds 4,133 speeches in 1,556 meetings, *the
+vocabulary* 8,849 speeches in 2,629 meetings, and *the debate* all 50,735 speeches in those
+1,556 word-bearing meetings. The export run of 4 September 2026 reconciled all 167,642
+speeches and 83,011 occurrence offsets to `speeches_flagged.parquet` before atomically
+replacing its 9,464 meeting files.
+
+Each meeting file now lists the delegations present, the number of speeches each made, and
+the terms each used. Its `scope_counts` counts speeches, not occurrences; the debate count is
+the meeting's full speech count when any speech says `genocid*`, otherwise zero. Unit tests
+fix the overlap rule and missing-column refusal, while the web boundary refuses a scope that
+exceeds the fixed corpus denominator.
+
 ## Self-hosted model run gates
 
 **Implemented gate; execution open: reasoning ladder.** `scripts/probe_reasoning.py` probes

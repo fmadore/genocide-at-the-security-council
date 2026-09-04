@@ -39,7 +39,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, console, frames, language, lexicon, series
+from lib import artifacts, console, frames, language, lexicon, scopes, series
 from lib.paths import (
     EVENTS,
     LEXICON,
@@ -66,11 +66,7 @@ TRACKED = [("terms", "genocide_qualification"), ("sets", "atrocity_core")]
 #: R8's comparison corpus. These are phrases with determinate legal meanings,
 #: not the broader convenience set in the lexicon. A speech enters once when it
 #: carries any member and leaves whenever it carries `genocid*` too.
-GENOCIDE_FREE_ATROCITY_TERMS = (
-    "ethnic_cleansing",
-    "crimes_against_humanity",
-    "war_crimes",
-)
+GENOCIDE_FREE_ATROCITY_TERMS = scopes.ATROCITY_TERMS
 
 #: Speeches a month must hold before its rates are published.
 #:

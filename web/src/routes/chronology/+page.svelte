@@ -845,11 +845,6 @@
 				The chart opens with four explicit terms: <em>genocide</em>, <em>ethnic cleansing</em>,
 				<em>crimes against humanity</em> and <em>war crimes</em>. Add or remove terms under the
 				chart; drag the bar under the axis to zoom.
-				{#if unit === 'speech_rate'}The faint <strong>band</strong> around each line is its 95%
-					Wilson interval: wide where the {grain} held few speeches; overlapping bands are not telling
-					the terms apart.{/if}
-				{#if showEvents && grain === 'year'}Ticks on the rail mark
-					<a href="#reference-dates">reference dates</a> by kind; hover a year to read them.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -875,6 +870,19 @@
 					separate and readable; no missing union is reconstructed in the browser.
 				{/if}
 			</p>
+			{#if unit === 'speech_rate'}
+				<p>
+					The faint <strong>band</strong> around each line is its 95% Wilson interval: wide where
+					the
+					{grain} held few speeches; overlapping bands are not telling the terms apart.
+				</p>
+			{/if}
+			{#if showEvents && grain === 'year'}
+				<p>
+					Ticks on the rail mark <a href="#reference-dates">reference dates</a> by kind; hover a year
+					to read them.
+				</p>
+			{/if}
 		{/snippet}
 
 		<Chart

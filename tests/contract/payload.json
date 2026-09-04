@@ -662,7 +662,7 @@
     "end": "int",
     "group": "str",
     "id": "str",
-    "iso3": "null",
+    "iso3": "null|str",
     "kw": "str",
     "left": "str",
     "right": "str",
@@ -1438,13 +1438,23 @@
   ]
  },
  "meetings.json": {
+  "corpus": {
+   "meetings": "int",
+   "speeches": "int"
+  },
   "meetings": [
    {
     "agenda": "str",
     "basename": "str",
     "date": "str",
+    "delegations": "int",
     "occurrences": "int",
     "region": "null|str",
+    "scope_counts": {
+     "debate": "int",
+     "vocabulary": "int",
+     "word": "int"
+    },
     "speeches": "int",
     "spv": "str",
     "terms": [
@@ -1479,7 +1489,16 @@
    "python": "str",
    "scope": "str",
    "script": "str"
-  }
+  },
+  "scopes": [
+   {
+    "definition": "str",
+    "id": "str",
+    "label": "str",
+    "meetings": "int",
+    "speeches": "int"
+   }
+  ]
  },
  "series/annual.json": {
   "corpora": {
@@ -2399,6 +2418,18 @@
   "agenda": "str",
   "basename": "str",
   "date": "str",
+  "delegations": [
+   {
+    "country": "str",
+    "group": "str",
+    "iso3": "null|str",
+    "speeches": "int",
+    "terms": [
+     "str"
+    ],
+    "type": "str"
+   }
+  ],
   "meta": {
    "analysis_hash": "str",
    "configs": [
@@ -2426,6 +2457,11 @@
    "script": "str"
   },
   "region": "str",
+  "scope_counts": {
+   "debate": "int",
+   "vocabulary": "int",
+   "word": "int"
+  },
   "speeches": [
    {
     "body_start": "int",
@@ -2440,7 +2476,7 @@
      ]
     },
     "id": "str",
-    "iso3": "null",
+    "iso3": "null|str",
     "language": "str",
     "n": "int",
     "role": "null",

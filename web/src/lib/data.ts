@@ -187,6 +187,37 @@ const validateEvents: Validator = (record, path) => {
 	}
 };
 
+const validateMeetingIndex: Validator = (record, path) => {
+	const corpus = recordAt(record, 'corpus');
+	const corpusSpeeches = corpus.speeches;
+	const corpusMeetings = corpus.meetings;
+	if (!Number.isInteger(corpusSpeeches) || !Number.isInteger(corpusMeetings)) {
+		throw new Error(`${path}.corpus must carry integer speech and meeting denominators.`);
+	}
+
+	const expected = ['word', 'vocabulary', 'debate'];
+	const scopes = arrayAt(record, 'scopes');
+	const ids: string[] = [];
+	for (const [index, value] of scopes.entries()) {
+		if (!isRecord(value)) throw new Error(`${path}.scopes[${index}] must be an object.`);
+		ids.push(String(value.id));
+		if (
+			!Number.isInteger(value.speeches) ||
+			!Number.isInteger(value.meetings) ||
+			Number(value.speeches) > Number(corpusSpeeches) ||
+			Number(value.meetings) > Number(corpusMeetings)
+		) {
+			throw new Error(`${path}.scopes[${index}] must fit inside the fixed corpus denominator.`);
+		}
+	}
+	if (ids.join(',') !== expected.join(',')) {
+		throw new Error(`${path}.scopes must declare word, vocabulary and debate in that order.`);
+	}
+	if (Number((scopes[0] as JsonRecord).speeches) > Number((scopes[1] as JsonRecord).speeches)) {
+		throw new Error(`${path}.scopes.word must be contained by scopes.vocabulary.`);
+	}
+};
+
 const validateCountries: Validator = (record, path) => {
 	// The membership block is drawn as a composition: five bands that fill a
 	// speaker's own denominator. If they do not sum to it, the bar comes up short
@@ -807,7 +838,7 @@ export const REQUIRED = {
 	},
 	'kwic/index.json': { meta: 'object', terms: 'array' },
 	'kwic/*.json': { meta: 'object', term: 'string', lines: 'array' },
-	'meetings.json': { meta: 'object', meetings: 'array' },
+	'meetings.json': { meta: 'object', corpus: 'object', scopes: 'array', meetings: 'array' },
 	'speeches/*.json': { meta: 'object', speeches: 'array' }
 } as const satisfies Record<string, Shape>;
 
@@ -854,7 +885,7 @@ export const usageOccurrences = at<UsageOccurrences>(
 export const nodeFrames = at<NodeFrames>('frames/frames.json', validateNodeFrames);
 
 export const kwicIndex = at<KwicIndex>('kwic/index.json');
-export const meetingIndex = at<MeetingIndex>('meetings.json');
+export const meetingIndex = at<MeetingIndex>('meetings.json', validateMeetingIndex);
 
 /* Fetched by name rather than fixed, so the path is built per call. */
 export const kwic = (term: string, f?: typeof fetch) =>

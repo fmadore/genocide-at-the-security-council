@@ -161,6 +161,34 @@ describe('what a bad response is turned into', () => {
 });
 
 describe('the validators that are about the research rather than the types', () => {
+	it('keeps reading scopes separate from the fixed corpus denominator', async () => {
+		const { meetingIndex } = await fresh();
+		const payload = {
+			meta,
+			corpus: { speeches: 100, meetings: 10 },
+			scopes: [
+				{ id: 'word', speeches: 12, meetings: 4 },
+				{ id: 'vocabulary', speeches: 25, meetings: 7 },
+				{ id: 'debate', speeches: 61, meetings: 4 }
+			],
+			meetings: []
+		};
+		await expect(meetingIndex(responder(payload).fetcher)).resolves.toMatchObject({
+			corpus: { speeches: 100 }
+		});
+
+		const movingBase = {
+			...payload,
+			scopes: payload.scopes.map((scope) =>
+				scope.id === 'debate' ? { ...scope, speeches: 101 } : scope
+			)
+		};
+		const { meetingIndex: freshMeetingIndex } = await fresh();
+		await expect(freshMeetingIndex(responder(movingBase).fetcher)).rejects.toThrow(
+			/must fit inside the fixed corpus denominator/
+		);
+	});
+
 	it('refuses a chronology event with no link to its primary record, naming which one', async () => {
 		const { events } = await fresh();
 		const { fetcher } = responder({
