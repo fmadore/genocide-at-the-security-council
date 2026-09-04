@@ -22,6 +22,10 @@ record or propose a rewrite.
   requests that users actually make rather than treating total generated size as a defect.
 - Do not revive topic modelling or add generic sentiment analysis without a new research
   question and evidence that the method answers it reliably.
+- Annotate with open weights served on university hardware rather than with hosted commercial
+  APIs. A run has to be reproducible from its own record, and a model reachable only as a
+  service cannot be pinned the way the corpus, the lexicon and the prompt already are. See
+  Phase C; the reason is reproducibility, not cost and not confidentiality.
 
 ## Baseline and working rules
 
@@ -58,8 +62,9 @@ commit, split it in the log without inventing a new architectural layer.
 |     4 | M1–M5 maintainability and payload access       | Reduce change risk without a broad refactor                           | No                                            |
 |     5 | S1–S6 stronger descriptive analysis            | Add uncertainty and views that expose evidence, not decoration        | No, except where noted                        |
 |     6 | R1–R15 the second reader's second review       | Say on each figure where its numbers came from, before adding figures | Both coders review three lists; no coding yet |
-|     7 | H1–H2 human-coded interpretation               | Answer what the term is doing rhetorically                            | Yes                                           |
-|     8 | E1–E2 institutional and historical extension   | Add new data sources and new claims only after the core is stable     | No, but substantial research review is needed |
+|     7 | C1–C7 the models move to the cluster           | Every committed run is stale after the corpus migration, and the next run should be one a reader can repeat | No |
+|     8 | H1–H2 human-coded interpretation               | Answer what the term is doing rhetorically                            | Yes                                           |
+|     9 | E1–E2 institutional and historical extension   | Add new data sources and new claims only after the core is stable     | No, but substantial research review is needed |
 
 ## Phase I — research integrity
 
@@ -826,6 +831,12 @@ separate row.
 
 ### L3. Annotate every genocide occurrence
 
+**Superseded in transport by Phase C, 4 September 2026.** The paid hosted API and its Batch
+queue are replaced by an open-weights model served on the cluster. What L3 requires of the
+step — the schema, abstention as a value, the committed run, the manifest, the verified
+evidence quote, the absence from CI — is unchanged and is why the swap is only a transport
+change. The text below stands as the decision that was made at the time.
+
 **Change.** `scripts/lib/llm.py` and `scripts/14_llm_annotate.py` annotate all genocide
 occurrences with the codebook's own schema — verdict, quotation, stance, function, referent,
 evidence quote, confidence — with abstention an allowed value in every field rather than a
@@ -952,6 +963,13 @@ rather than leaving it to a methods page.
   the chronology resolves to the reader at the exact occurrence.
 
 ### L8. The second opinion — a comparison run from an independent model
+
+**Counter-instrument changed by Phase C, 4 September 2026.** Gemini 3.7 Flash is replaced by
+`deepseek-ai/DeepSeek-V4-Flash-0731`, or by `google/gemma-4-31B-it` if that model cannot be
+served on the cluster, read against a published run from `Qwen/Qwen3.8-27B`. The requirement
+it satisfies — a second model from a different family, the byte-identical prompt, agreement
+computed and never merged — is unchanged, and C6 adds the one thing the new pair needs that
+the old one did not. The text below stands as the decision that was made at the time.
 
 **Decision, 31 August 2026.** One model's labels carry one model's habits — the near-zero
 abstention of the first run is exactly the kind of artefact a single instrument cannot see in
@@ -1753,6 +1771,371 @@ Raised in the session, not ruled on, and recorded so they are not lost:
   `glorification`, `holocaust`. R7 removes the aggregates; it does not make these terms measure
   genocide talk.
 
+## Phase C — the models move to the cluster
+
+**Decision, 4 September 2026.** The two instruments of Phase L stop being hosted commercial
+APIs. Both become open-weights models served on the University of Bayreuth cluster the
+embedding steps already use: `Qwen/Qwen3.8-27B` as the published run and
+`deepseek-ai/DeepSeek-V4-Flash-0731` as the counter-instrument, each at its own maximum
+reasoning level, behind an OpenAI-compatible vLLM endpoint on a compute node. The families
+stay independent, which is what L8 requires of a counter-instrument: 27B dense against 304B
+mixture-of-experts, Apache-2.0 against MIT, two laboratories that did not train each other's
+model.
+
+**Which of the two is published is a scheduling decision as much as an analytical one.** The
+published run is the one that will be made again — after a prompt revision, after a referent
+list changes, after a corpus migration like the one that just voided both committed runs — so
+it should be the instrument that fits on one card, starts in a queue rather than waiting for a
+whole node, and asks nothing of the serving stack that the cluster does not already do. That
+is Qwen. DeepSeek is the more demanding model in every respect (C4), and putting it in the
+counter-instrument slot means that if it cannot be served, what is lost is a comparison rather
+than the layer. If it cannot be served at all, `google/gemma-4-31B-it` takes its place — 31B
+dense, Apache-2.0, ungated, a third family, and one card.
+
+The order of the reasons matters, because two of the usual ones do not apply here and citing
+them would be false.
+
+**Reproducibility, which is the whole argument.** `gpt-5.6-luna` and `gemini-3.7-flash` name
+routes to systems that can be revised, re-routed or retired without notice and without a
+version anyone outside the provider can cite. A checkpoint is an artefact: a repository id at
+a revision with a digest, which a reader with a GPU can load in five years and run again. This
+repository already hashes the prompt into every row, versions the lexicon, pins the corpus by
+DOI and gives every occurrence a stable identity. The model was the one input in that chain
+that could not be pinned, and it was the input doing the interpreting. C5 makes the weights
+carry a revision the way everything else here carries one.
+
+**Measurability of the reasoning level.** Running at maximum reasoning is a claim about the
+instrument, and it is checkable only where the request reaches one process whose log can be
+read. The sibling repository measured a documented three-level ladder collapsing to on/off
+through a hosted router — two levels indistinguishable in latency and in reasoning length, one
+backend reporting a single reasoning token while emitting thousands of characters of it. That
+is not a fault a hosted run can detect in itself, and C3 turns it into a gate.
+
+**Not cost, and not confidentiality.** A full run over the old corpus was a few dollars and
+half an hour through the Batch API; price has never constrained anything in this project and
+it is not the reason. Nor is data protection: the corpus is the public verbatim record of the
+Security Council, published by the United Nations and re-published on Dataverse. Both are real
+arguments in other projects and neither is an argument in this one. Recording that stops
+either from being cited later as though it had been the motive.
+
+What the swap gives up is stated with it. The OpenAI and Gemini Batch APIs carried the queue,
+the retries and the resumption server-side; a 24-hour Slurm allocation carries none of that,
+which is why C4 makes resumability a requirement rather than a convenience. And structured
+output is weaker on a server with no router in front of it: an open model behind
+`response_format` still fences its JSON or prefaces it with a sentence often enough to need a
+recovery path.
+
+**Both runs have to be made again in any case.** The migration to Sakamoto–Matsuoka v5
+retired every committed run — their occurrence identities do not address the new corpus, and
+both pointer files are already empty. The instrument decision therefore costs no comparability
+that the migration had not already spent, which is why it is taken now rather than after
+another run. The next run is also the run that carries prompt v3 and annotation schema 4, so
+R1, R2 and R4 arrive on the new instruments or not at all.
+
+This phase changes the transport and the instruments. It changes nothing about what the layer
+may claim: Phase L's four standing conditions and the closing rule of `PLAN.md` §5 hold
+unchanged, and C6 is the one place where the new pair needs a new precaution.
+
+### C1. One transport, two instruments
+
+**Change.** 14 and 16 are two scripts because the OpenAI Batch API and the Gemini Batch API
+are two APIs. vLLM makes both instruments the same API, so the counter-instrument stops being
+a second script: fold the two into one step against an OpenAI-compatible endpoint, selected by
+`--model`, with the endpoint read from the environment and never from an argument or a
+catalogue. Where a model is served today is deployment state — on a scheduler it changes with
+every job — while what a run must record is the model and the route, which C5 covers.
+
+`scripts/lib/llm.py` keeps everything it already does and is where the value of the layer
+actually sits: prompt and referent rendering, the JSON schema, label checking, evidence
+location against the speech body, the row shape, and `completed()`. None of that is
+provider-specific and none of it should move. `scripts/lib/gemini.py`,
+`16_llm_annotate_gemini.py` and `tests/test_gemini.py` retire with the hosted path; the runs
+they produced stay committed as provenance, and git history holds the code that made them.
+
+Two transport details the hosted path did not need:
+
+- **JSON recovery.** Parse the response as JSON; failing that, unwrap a Markdown fence;
+  failing that, take the outermost balanced span; failing that, record a failure. What is
+  never allowed is repair — a response that does not carry a parsable document is a refusal,
+  not a value to be reconstructed.
+- **A reasoning parser.** vLLM's `--reasoning-parser` keeps the thinking block in
+  `reasoning_content`. Without it a thinking model's chain of thought arrives inside
+  `content` and every structured answer has to be dug out of an essay. It is a serving flag
+  rather than a client behaviour, so C5 records it with the rest of the launch.
+
+**Acceptance and tests.**
+
+- The two instruments differ by `--model` and by their manifests, not by a code path; a row
+  from either satisfies one validator and one contract.
+- The tests never open a socket, as 14's and 16's never did.
+- A fenced or prefaced response is parsed; anything else is a recorded failure with its
+  reason, and no field is filled by inference from a malformed response.
+- Retiring the Gemini step does not retire its runs: `2026-08-31-gemini-v1` stays readable and
+  its prompt stays resolvable through `prompts/`.
+
+### C2. The serving harness, and where it runs
+
+**Change.** `scripts/cluster/` gains the serving pattern already proven in
+`iwac-ai-pipelines/serving/` and, through it, in festus-transcribe: one sourced `env.sh`
+holding every site-specific value as `${OVERRIDE:-default}`, a login-node setup script that
+builds the environment and prefetches the weights, a batch script that serves the model for
+interactive use over an SSH tunnel, and an unattended job that serves, annotates and stops.
+The `#SBATCH` defaults name a partition and a GPU type, which are `sinfo` facts rather than
+configuration anyone inherits, and every one of them is overridable on the command line.
+
+One thing is simpler here than in the sibling repository, and it is worth saying why rather
+than copying the complexity across. There, the corpus sits behind an archive's credentials, so
+a sample had to be prepared on the machine holding the keys and shipped to the cluster as a
+file. Here the corpus is already on the cluster — `data/` is a symlink to `/workdir` and
+`submit_corpus.sh` builds the parquet — and the annotation step needs no key at all once the
+endpoint is local. So the unattended job reads `speeches_flagged.parquet`, talks to
+`127.0.0.1`, and has nothing to protect: the server binds loopback, there is no port to expose
+and no token to manage. A `trap` stops the server on exit, including on `scancel`, because an
+orphaned vLLM would hold the GPU for the remainder of the allocation.
+
+vLLM gets its own environment, a third beside locked and extras, on the argument
+`docs/CLUSTER.md` already makes for the first split: an inference server resolves its own
+torch, and installing it into either existing environment would move a pin that a published
+figure depends on. The annotator itself runs **locked** plus `requirements-llm.txt`, whose
+only remaining entry is an OpenAI SDK now used as a protocol client. A JSON body crosses
+between the environments; an environment does not.
+
+**Acceptance and tests.**
+
+- No account name, host, home directory or token appears in a tracked file; `test_privacy.py`
+  covers the new scripts, and `test_cluster.py` covers them the way it covers the existing
+  submit scripts.
+- The serving environment cannot install into the locked one, and the run's manifest names
+  which environment produced it.
+- The unattended job leaves no server running after it exits, by any exit path.
+- Nothing in the harness requires the author to be at the keyboard when the scheduler starts
+  the job.
+
+### C3. Maximum reasoning, declared and demonstrated
+
+**Change.** Both instruments run at their own top level, which is not the same string in each:
+
+| Model | Role | Where the level is sent | Levels | Maximum |
+| --- | --- | --- | --- | --- |
+| `Qwen/Qwen3.8-27B` | published | `reasoning_effort` inside `chat_template_kwargs` | `low`, `medium`, `xhigh` | `xhigh` |
+| `deepseek-ai/DeepSeek-V4-Flash-0731` | counter-instrument | `reasoning_effort` on the request | `low`, `high`, `max` | `max` |
+| `google/gemma-4-31B-it` | counter-instrument, if DeepSeek cannot be served | thinking level in `chat_template_kwargs` | documented ladder, measured as on/off | `high` |
+
+Qwen reads the level out of its chat template rather than off the request body, which is why
+it travels in `chat_template_kwargs` — vLLM's channel for arguments into a template — and why
+sending it the way DeepSeek is sent silently changes nothing. Neither level is defaulted in
+code: the requested value is an argument and the effective value is recorded per run.
+
+The third row is the reason the next paragraph exists. Gemma 4 is precisely the model whose
+documented ladder was measured, in the sibling repository, as behaving like a switch: the
+levels between the ends were indistinguishable in latency and in reasoning length. It is a
+capable, ungated, Apache-2.0 model from a third family and a perfectly good counter-instrument
+— but it may have two usable settings rather than four, and a run of it must say which of
+those it got rather than which one it asked for.
+
+Declaring a level is not the same as getting one. Before either corpus run, a probe over a
+handful of speeches at each level records latency and reasoning-token count per level, and a
+ladder that turns out to be flat blocks the run rather than annotating 4,133 speeches at a
+depth nobody can demonstrate. The probe reads speeches already on disk, writes its table
+beside the run, and touches nothing under `model_annotations/` or `annotations/`.
+
+Maximum reasoning also has a consequence for the instrument that is easy to miss. It
+lengthens responses — DeepSeek recommends a 384k output ceiling at `high` and `max` — and a
+response cut off at `max_tokens` is a refusal that looks like an answer. It must be counted as
+a failure and never as an abstention: abstention is a value the model chose, truncation is a
+value it never reached, and the distinction is the one the codebook's `unclear` depends on.
+
+**Acceptance and tests.**
+
+- The manifest records the parameter name, the value, and where it was sent, for each run.
+- A probe artefact exists per model per run, and a flat ladder refuses the run in words.
+- Truncation appears in `failures.jsonl` with its own reason and in the manifest as its own
+  count, distinguishable from a parse failure and from an abstention.
+- Sampling parameters are recorded as sent, not as recommended by a model card.
+
+### C4. Size the job before submitting it
+
+**Change.** Compute the run's shape from the corpus before requesting an allocation. Measured
+over `data/derived/speeches_flagged.parquet` on 4 September 2026:
+
+- 4,133 speeches carry `genocid*`, holding 7,747 occurrences. The unit of a request is the
+  speech, as it is now.
+- Their text is 32.7M characters — roughly 8.2M tokens at four characters to the token, before
+  the system prompt and the referent list are added to each request.
+- The longest is 151,713 characters, about 38k tokens. Six speeches exceed 24k and two exceed
+  32k, so the 32,768-token context the sibling repository serves with would truncate the two
+  longest speeches in the corpus, which are exactly the plenary records most worth reading.
+  Serve 65,536, and check the count above it rather than assuming it.
+
+Hardware, from the partition table in `docs/CLUSTER.md`:
+
+- **Published run.** `Qwen/Qwen3.8-27B` is 27B dense; bf16 weights are about 56 GB and fit one
+  H100 with room for the cache at 64k. The official FP8 repository is about half that and would
+  fit one L40S on `normal`, which usually starts sooner — but quantisation changes outputs, so
+  it is a different instrument and C5 records which one was loaded. One card is the reason this
+  is the published run: it can be re-run whenever the prompt moves.
+- **Counter-instrument.** `DeepSeek-V4-Flash-0731` is 304B with six of 256 experts active per
+  token, fp8 block-quantised, roughly 170 GB across 48 shards. It needs the whole four-H100
+  node, and the margin under 320 GB is what the KV cache has to come out of.
+- **Its substitute.** `google/gemma-4-31B-it` is 31B dense and Apache-2.0, about 63 GB in bf16
+  — one H100 — with an ungated repository and a quantised official variant. It is a third
+  family, so L8's independence requirement is met either way.
+
+Walltime: the `GPU` partition's ceiling is 24 hours. The only measured throughput available is
+the sibling repository's 127 requests per hour at a middle effort level on two L40s; at
+maximum effort, over texts several times longer, 4,133 requests will not fit in one allocation
+on that evidence. **Resumability across walltime is therefore a requirement, not a nicety**:
+rows appended one at a time, completed occurrences skipped on restart, and rows written under
+a different prompt digest ignored rather than reused, so that resuming across a prompt edit
+cannot mix two instruments in one file. `lib.llm.completed` already does the skipping; what is
+new is that the job is expected to be killed rather than to fail.
+
+Smoke first, on `dev` inside its 90-minute wall, over a few dozen speeches: it proves the
+serving path, the reasoning parser, the schema and the resume, and — following 06's rule — it
+writes to its own directory so that a smoke run can never be mistaken for a corpus run.
+
+**Gate: DeepSeek may not be servable here, and that has to be tested before it is promised.**
+It is the counter-instrument rather than the published run precisely because of what follows,
+so a failure here costs the comparison and not the layer.
+Its own recipes target four GB300s with a `deep_gemm` MoE backend and an fp4 indexer cache.
+Hopper has neither; `deep_gemm` wants an `nvcc` the cluster venv does not have, which is why
+the sibling repository disables it outright; and the release ships **no Jinja chat template**,
+offering an `encoding/` folder of Python scripts instead — which is not what a vLLM
+OpenAI-compatible server renders a conversation with. The release also expects
+`--trust-remote-code`, which `config/embedding_models.yml` refuses on principle for step 06.
+That rule was written for an unattended job pulling arbitrary repositories; this is a manual
+run of a named revision under the author's own account, so the two are not the same case — but
+the exception is written down with the vLLM version that needed it, and a vLLM with native
+`deepseek_v4` support is preferred to granting it.
+
+None of this is known to be fatal and none of it is verified. If the model cannot be served
+honestly on this hardware, the substitute is decided in advance rather than improvised:
+**`google/gemma-4-31B-it`**, a third family on one card, whose ladder C3 already expects to be
+shorter than its documentation. What is not allowed is to quantise the analytical instrument
+until it fits, or to slip back to a hosted API without saying so. The decision is recorded
+either way, with what was tried and where it failed, because "we used Gemma" and "we wanted
+DeepSeek and this cluster could not serve it" are different sentences in a methods section.
+
+**Acceptance and tests.**
+
+- The context length is set from the corpus, and the number of speeches above it is zero,
+  checked rather than assumed.
+- A job killed at its walltime and resubmitted produces one run, not two, with no duplicated
+  occurrence and no row from a foreign prompt digest.
+- The smoke run cannot overwrite a corpus run.
+- A model that cannot be served is a recorded decision with its evidence, never a silent
+  substitution.
+
+### C5. The weights get a digest
+
+**Change.** A run's manifest gains what a self-hosted route makes knowable and a hosted one
+never did: `route`, the served model id, **the Hugging Face repository revision** — the commit
+of the weights, which is the thing that actually reproduces — the quantisation as loaded, the
+vLLM version, the GPU model and count, the serving flags that can change output (context
+length, reasoning parser, speculative decoding, MoE backend), the reasoning parameter and its
+value, the sampling parameters, the output cap and the truncation count.
+
+A model name is a label; a revision is an identity. `deepseek-v4-flash` names a family,
+`DeepSeek-V4-Flash-0731` names a release, and a repository can be updated under either without
+changing the string a manifest holds. This is the first time in this project that a model
+input can be pinned as hard as the corpus is pinned by its DOI, and it should be pinned that
+hard — otherwise the move to open weights buys the *possibility* of reproduction without
+recording the fact needed to perform it.
+
+Speculative decoding gets its own field rather than a footnote. DSpark ships inside the
+DeepSeek checkpoint and switches on with a flag, and whether it leaves outputs identical to the
+target model on this hardware is not something to assume in a manifest — record that it was
+on, at what draft depth, and leave the claim about equivalence to whoever measures it.
+
+**Acceptance and tests.**
+
+- A manifest naming a model but no revision fails review, the way a run naming no prompt hash
+  would.
+- The serving command can be rebuilt from the manifest alone.
+- The `/usage` apparatus names the served model and its revision, not a marketing name, and
+  the disclosure sentence says the run was made on hardware the project controls.
+- The two committed hosted runs keep their manifests unchanged; the new fields are absent
+  there rather than back-filled with guesses.
+
+### C6. Two laboratories under one regulator is a shared blind spot
+
+**Decision.** L8's sentence — agreement between two models measures stability across
+instruments, never accuracy — was written because two models can share training habits and be
+confidently wrong together. The new pair sharpens that from a caution into a specific,
+checkable exposure, and the phase that creates it is the phase that has to say so.
+
+Qwen and DeepSeek are released by laboratories operating under one national regulatory
+framework for generative models, and the corpus is a record of States accusing one another of
+genocide. Where that framework bears on the subject matter — accusations involving China, and
+the situations it is sensitive about — a shared reticence would not appear as disagreement. It
+would appear as agreement, or as abstention on both sides, and both of those currently read as
+stability. The retired pair had its own shared exposure, two American laboratories with their
+own content policies and their own silences; the point is not that one pair is compromised and
+the other clean, but that the exposure is different, is knowable, and has never been
+displayed.
+
+Substituting Gemma 4 for DeepSeek (C4) changes this exposure without removing the need to
+measure it. That pair spans two regulatory regimes rather than one, which is a real gain, and
+it trades it for a model with well-documented refusal behaviour of its own. Either way the
+check below is the same, and which pair actually shipped is a sentence the page has to carry —
+the shared blind spot named is a property of the pair, not a fixed paragraph.
+
+**Change.** 15 publishes, per referent and per instrument, the abstention rate, the refusal
+rate and the validation-failure rate, each with the denominator that qualifies it and each
+subject to the same withholding floor as every other share on the site — a case below the
+floor says so rather than vanishing. The `/usage` apparatus shows them beside the agreement
+table, under the stability-not-validation sentence they qualify. The gold sample keeps its
+role as the only calibration, and L2's stratification is checked to reach the contested cases
+the corpus actually contains rather than assumed to have covered them.
+
+**Acceptance and tests.**
+
+- Per-referent abstention, refusal and failure rates for each instrument appear in the payload
+  and on the page, with denominators.
+- A refusal to answer is distinguishable in the artefacts from an abstention chosen inside the
+  schema and from a response that failed validation.
+- The limit is stated in words where the stability-not-validation sentence already is, and
+  names the exposure the pair that actually shipped has, rather than gesturing at "model bias"
+  or describing a pair that was not used.
+- No agreement figure is published without the abstention figures beside it.
+
+### C7. Documentation, the ledger and the acknowledgement
+
+**Change.** The documents that currently describe a paid hosted run, in the order a reader
+meets them:
+
+- `docs/CLUSTER.md`: a serving section, the third environment, and step 14 in the "What runs
+  where" table, which today knows only 06, 07 and 10 as cluster work.
+- `scripts/README.md`: the run book for 14 replaced end to end — no key, no cost, a smoke run,
+  a resumable job, and the pointer files as reviewed diffs.
+- `model_annotations/README.md`: the manifest fields of C5, and the sentence that a run is now
+  reproducible from its own record rather than only auditable against it.
+- `.env.example`: `OPENAI_API_KEY` and the two Gemini variables go; the serving values arrive;
+  the file keeps saying that no Python step reads it.
+- `requirements-llm.txt`: `google-genai` goes, `openai` stays with its comment rewritten — it
+  is a protocol client for an endpoint we run, not a vendor SDK, and the header sentence about
+  spending money is no longer true.
+- `docs/PLAN.md` §5: requirement (4) is where the revision belongs, and the dated mapping
+  gains a line for the transport change.
+- `docs/VALIDATION.md`: register entries for the reasoning probe, the truncation count and the
+  per-referent abstention check.
+- `README.md`: the status row names both instruments and says the layer runs on university
+  hardware.
+
+**The acknowledgement.** `docs/CLUSTER.md` records that work on the cluster carries the DFG
+hardware acknowledgement for project 523317330. Until now that touched only the embeddings,
+on which no published figure depends. Once the model layer runs there, every model-derived
+figure on the site does. If any such figure is published, the acknowledgement goes into
+`CITATION.cff`, the README and the Methods page — with the current wording confirmed with the
+HPC team rather than copied from a sibling repository.
+
+**Acceptance.**
+
+- A reader can run the layer from `scripts/README.md` alone, on the cluster, without a key.
+- No document still says that 14 needs an API key or costs money.
+- The acknowledgement decision is recorded either way, so that a later reader can tell it was
+  considered rather than forgotten.
+
 ## Phase E — institutional and historical extension
 
 ### E1. Rhetoric and formal Council action
@@ -1865,3 +2248,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-09-02 | Item 4: prompt v2, referents v2 onto main, annotation schema 3, the pilot provisioned | complete | pending | `python -m pytest` (1,059 passed on the branch, from 1,027); `ruff check .`; `15_usage.py` run end to end from a scratch data root against both the real v1 pair and a synthetic schema-3 pair, both satisfying one contract; `npm run check` (0 errors); `npm test` (490); `npm run lint` (21 figures, 2,332 words); `npx playwright test` (26); then, after the merge with the deploy repair, 13, 15 and 17 rehearsed over the corpus and the contract checked by the orchestrator | Referents v2 merged onto main; `referents_version` recorded once in `lib/annotate.py::write_manifest`, and the two legacy row shapes become one. `PROMPT.md`'s digest no longer has to equal today's file: `prompts/v<n>.md` keeps every superseded wording and 15 resolves a run by digest, refusing only one it has never seen — the escape that makes editing the prompt possible at all, after the price was refused twice on 2 September. The archive holds superseded versions only; an archive holding every version costs a state in which two copies of one version differ, and a test refuses it. Prompt v2 splits `stance` into `speaker_position` and `concrete_case`, locked at one value; defines `reports_without_position` positively with a settled legal status counted as an assertion; adds six fields and ten worked examples drawn verbatim from the corpus with their line ids; and writes down the distancing, commemoration, title and accountability rules — two of which state what both committed runs already do in 98% and 176/176 of cases. Codebook 3 / annotation schema 3 follows, and no committed run is refused: `llm.resolve_row` translates a schema-2 row, `audit.concrete_case_from_v1` derives the case decision from the recorded referent, and the six added fields are reported absent rather than guessed — 6,092 rows of a v1 run. Two things the translation measured: 800 Luna rows and 535 Gemini rows take the abstract-or-concrete decision twice and differently, and asked apart the two instruments agree on it at 0.951/κ 0.893 against 0.812/κ 0.688 asked together. Prompt caching added on both providers with `cached_tokens` reported from each provider's own counter; the v2 prefix is 7,700 tokens against v1's 3,400, so caching is the condition on which v2 is affordable rather than an optimisation. Owed: the pilot and the full run, both the author's decision, and `cost_usd`, which still has no price table. |
 | 2026-09-03 | Phase R defined: the second reader's second review | documented | pending | Documentation only; no code changed, so no gate was re-run. Every claim in the phase was recomputed from committed artefacts: the confidence distributions from the two `annotations.jsonl` (Gemini `high` 6,035/6,092, no `low`; Luna `low` 4), the referent counts and `comparison.state: "none"` from `web/build/data/usage/usage.json`, the schema-2 field list from the head of `runs/2026-08-30-luna-v1/annotations.jsonl`, and R8's corpus size with pandas over `data/derived/speeches_flagged.parquet` (4,286 speeches carrying `ethnic_cleansing`, `crimes_against_humanity` or `war_crimes` and no `genocid*`; 7,494 occurrences of the four atrocity terms in them). `grep` confirms no test or script reads this file. | A recorded working session with Joël Glasman, the second after the one that produced Phase L, read against the site as it stood on the `2026-08-30-luna-v1` run. Recorded as a phase rather than as untracked edits, on the precedent of the 28 August entry, and cited section by section against `REVIEW_2026-09-01.md`, which was made independently and reaches several of the same findings. Eight items, all decided by the author: R1 splits the referent column into situation + modality with a `group` roll-up (referents v3, schema 4, prompt v3); R2 adds the accuser-by-accused matrix the study's own question wants, from schema 3's `accused_actor`; R3 puts a derived provenance mark — computed / mixed / model-derived — on every figure, read off `Figure`'s `source` string so it cannot be asserted falsely, and labelled "computed from the record" rather than "objective" because the lexicon is a hand-built instrument; R4 removes `confidence` from the model schema and the page and keeps it for human coders, who do abstain; R5 adds full screen, extended past the requested ECharts and MapLibre figures to the matrix that prompted the request and is neither; R6 publishes the referent list beside the prompt it is rendered into; R7 removes the register and set aggregates, adopts an intensity ordinal, and accepts that this re-cuts or removes the home page's second figure; R8 sizes the run over atrocity vocabulary in speeches that never say the word. Two things the session said are corrected here rather than carried: the 813 occurrences read off the screen for the sanctions category are 14, so R1 rests on the epistemological argument alone; and R2 is entirely blocked on a run against prompt v2, since no committed row carries `accused_actor`. Nothing is implemented; R1–R4 wait on that v2 run, R5–R7 do not. |
 | 2026-09-03 | Phase R extended: the session's second part, R9-R15 | documented | pending | Documentation only; no code changed. New claims recomputed from artefacts: the corpus swap read from `config/dataset-pin.json`, `data/raw/dataset-manifest.json` and `data/derived/manifests/01_build_parquet.json` (Sakamoto-Matsuoka v5.0, `doi:10.7910/DVN/CKPTRB`, 167,642 speeches over 9,464 meetings, 1946-2024); R8's and R9's counts and R10's contrasts recomputed with pandas over the new `speeches_flagged.parquet` (4,133 genocide-bearing speeches, 7,747 occurrences; 4,716 speeches with the three atrocity terms and no `genocid*`; 1,556 meetings holding 50,735 speeches); R15's join key from `source_cow_ccode` (158,563 of 167,642 rows, 200 codes); R14's page sizes from `wc -l` over the routes and `Contents.svelte` read for what it does. | The second half of the same recorded session. Seven new items and five amendments. Amendments: R1 gains `referent_secondary`, a bounded second slot chosen over a list field (which would break "a cell is a count of occurrences" and cost Cohen's kappa) and over a second row (which would break `occurrence_id`); R3 carries the provenance mark into the navigation and names `/language`'s unclear purpose; R7 gains the composition argument (the reader ticks the terms, the author does not pre-group them), retires `r2p_quartet` on the 1992-vs-2000s anachronism, and rebuilds the intensity ordinal on legal status after correcting this document's own claim about ethnic cleansing - it is cited in legal texts as an aggravating qualification of a crime, not as a crime, which is a third tier the earlier draft collapsed; R8 splits into a cheap computed overview and the model layer, on the session's own sequencing. New: R9 makes the meeting a unit and adds a three-value corpus scope, with the rule that a scope never moves a denominator; R10 records the counter-concept question and the measurement that refuses its naive form - the terrorism contrast changes sign between the two corpora (13.1% vs 12.0% on 1946-2024; 15.3% vs 19.5% on 1992-2023), so the unadjusted comparison measures the agenda and the item ships only a meeting-paired design; R11 adds the crime of aggression, absent from the lexicon and central at Nuremberg; R12 records three figures whose purpose did not survive their reader, explicitly without deciding; R13 commissions a signed epistemological page from the second reader; R14 takes the long-page navigation and the home page's misread denominator; R15 states the government/State distinction now and defers the leader-dataset join. The corpus migration is recorded in the preamble rather than as an item: it is the author's work in progress and it answers the session's scraping question by making scraping unnecessary. |
+| 2026-09-04 | Phase C defined: the models move to the cluster | documented | pending | Documentation only; no code changed, so no gate was re-run. New claims computed rather than quoted: the run's shape from `data/derived/speeches_flagged.parquet` with pandas (4,133 speeches carrying `genocid*`, 7,747 occurrences, 32.7M characters, longest 151,713 characters and six above ~24k tokens at four characters to the token); the three checkpoints read off the Hugging Face repositories on 4 September 2026 (`Qwen/Qwen3.8-27B`, 27B dense, Apache-2.0, `reasoning_effort` low/medium/xhigh inside `chat_template_kwargs`; `deepseek-ai/DeepSeek-V4-Flash-0731`, 304B, fp8 block-quantised, 48 shards totalling ~170 GB, `reasoning_effort` low/high/max, no Jinja chat template, recipes targeting 4xGB300 with a `deep_gemm` MoE backend; `google/gemma-4-31B-it`, 31B dense, Apache-2.0, ungated, whose ladder the sibling repository measured as a switch); the partition table and the environment split from `docs/CLUSTER.md`; the serving pattern and the one measured throughput figure from `iwac-ai-pipelines/serving/`. | The model layer stops calling hosted commercial APIs and moves to open weights served with vLLM on the Bayreuth cluster: Qwen3.8-27B as the published run, DeepSeek-V4-Flash-0731 as the counter-instrument with Gemma 4 31B named in advance as its substitute, each at its own maximum reasoning level. The published slot goes to the model that fits one card, because the published run is the one that gets made again after every prompt revision, and it puts the demanding model where a serving failure costs a comparison rather than the layer. The argument is reproducibility and the measurability of a reasoning level, and the phase says in its own preamble that cost and confidentiality are **not** the reasons here, so neither can be cited later as though it had been. C1 folds 14 and 16 into one step because vLLM makes both instruments one API; C2 puts the harness in `scripts/cluster/` with a third venv for vLLM and an unattended job that needs no key at all, the corpus already being on the cluster; C3 makes maximum reasoning a measured claim, with a probe that blocks a run whose ladder is flat and with truncation counted as failure rather than as abstention; C4 sizes the job (65,536-token context, one H100 for Qwen, the whole four-H100 node for DeepSeek, resumability across a 24-hour wall as a requirement) and gates the DeepSeek path on a `dev` smoke test, since Hopper has neither the MoE backend nor the fp4 indexer its recipes assume, the release ships no chat template, and it wants the `--trust-remote-code` step 06 refuses on principle; C5 records the weights' repository revision, which is the first time a model input can be pinned as hard as the corpus is by its DOI; C6 states the new pair's shared regulatory exposure — one national framework over both labs, on a corpus about who accuses whom — says how substituting Gemma changes it, and makes per-referent abstention and refusal publishable so that a shared silence cannot read as stability; C7 lists the documents that still describe a paid run and puts the DFG acknowledgement (523317330) in scope for every model-derived figure. L3 and L8 are not rewritten: each gains a dated pointer saying what Phase C supersedes and what it leaves standing. Nothing is implemented, and the phase is timed by the corpus migration — both pointer files are already empty, so the instrument swap costs no comparability that the v5 migration had not already spent, and the next run is also R1's prompt v3 and schema 4. |
