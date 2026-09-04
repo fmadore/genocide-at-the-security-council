@@ -361,7 +361,7 @@ def load_prompt(path: Path) -> PromptPack:
 def load_prompt_library(path: Path) -> PromptLibrary:
     """`PROMPT.md` and every superseded version beside it, checked as one set.
 
-    The current file is the one 14 and 16 render; the files under
+    The current file is the one 14 renders; the files under
     :data:`ARCHIVE` are the ones earlier runs were made with, and each is loaded
     through :func:`load_prompt` rather than merely hashed, so a text that no
     longer parses into two templates is found here and not on the day someone
@@ -673,6 +673,9 @@ def request_body(
     reasoning_effort: str,
     max_output_tokens: int,
     prompt_cache_key: str = "",
+    reasoning_location: str = "request",
+    temperature: float | None = None,
+    top_p: float | None = None,
 ) -> dict[str, object]:
     """The `/v1/responses` body, identical in a batch line and in a live call.
 
@@ -684,9 +687,10 @@ def request_body(
     string, so a run made without it is byte-identical to a run made before the
     field existed and the two remain comparable.
     """
+    if reasoning_location not in {"request", "chat_template_kwargs"}:
+        raise ValueError(f"Unknown reasoning parameter location: {reasoning_location}")
     body: dict[str, object] = {
         "model": model,
-        "reasoning": {"effort": reasoning_effort},
         "input": [
             {"role": "developer", "content": request.system},
             {"role": "user", "content": request.user},
@@ -701,8 +705,16 @@ def request_body(
         },
         "max_output_tokens": max_output_tokens,
     }
+    if reasoning_location == "request":
+        body["reasoning"] = {"effort": reasoning_effort}
+    else:
+        body["chat_template_kwargs"] = {"reasoning_effort": reasoning_effort}
     if prompt_cache_key:
         body["prompt_cache_key"] = prompt_cache_key
+    if temperature is not None:
+        body["temperature"] = temperature
+    if top_p is not None:
+        body["top_p"] = top_p
     return body
 
 
@@ -816,10 +828,7 @@ def validate_response(
     bad response here would be inventing an annotation.
     """
     if isinstance(payload, str | bytes):
-        try:
-            payload = json.loads(payload)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"Response is not JSON: {exc}") from exc
+        payload = response_document(payload)
     if not isinstance(payload, Mapping):
         raise ValueError(f"Response must be a JSON object, not {type(payload).__name__}.")
     entries = payload.get("occurrences")
@@ -867,6 +876,64 @@ def validate_response(
         absent = sorted(expected - set(labels))
         raise ValueError(f"Ordinals do not match the request: unexpected={extra}, missing={absent}")
     return labels
+
+
+def response_document(payload: str | bytes) -> object:
+    """Extract one JSON document without repairing what the model wrote.
+
+    vLLM's structured-output constraint normally returns the document alone,
+    but open-weight models can still wrap it in a Markdown fence or introduce
+    it with prose.  Those wrappers carry no annotation value, so they may be
+    removed.  Missing commas, unclosed braces and other malformed JSON are
+    never repaired: the caller records the speech as a failure instead.
+
+    The recovery order is deliberate and is the one promised in roadmap C1:
+    exact JSON, one fenced block, then the first balanced object or array.
+    Strings and escapes are tracked while balancing so braces inside an
+    evidence quotation cannot terminate the document early.
+    """
+    text = payload.decode("utf-8") if isinstance(payload, bytes) else payload
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as error:
+        exact_error = str(error)
+
+    fenced = re.fullmatch(r"\s*```(?:json)?\s*\n?(.*?)\n?```\s*", text, re.DOTALL | re.IGNORECASE)
+    if fenced:
+        try:
+            return json.loads(fenced.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+
+    starts = ((text.find("{"), "{", "}"), (text.find("["), "[", "]"))
+    candidates = sorted(item for item in starts if item[0] >= 0)
+    for start, opening, closing in candidates:
+        depth = 0
+        quoted = escaped = False
+        for index in range(start, len(text)):
+            character = text[index]
+            if quoted:
+                if escaped:
+                    escaped = False
+                elif character == "\\":
+                    escaped = True
+                elif character == '"':
+                    quoted = False
+                continue
+            if character == '"':
+                quoted = True
+            elif character == opening:
+                depth += 1
+            elif character == closing:
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start : index + 1]
+                    try:
+                        return json.loads(candidate)
+                    except json.JSONDecodeError:
+                        break
+
+    raise ValueError(f"Response is not JSON: {exact_error}")
 
 
 # --- Locating the evidence --------------------------------------------------
@@ -1176,7 +1243,7 @@ def validate_row(
 ) -> None:
     """The gate a row passes to be written into a committed run, or read back out.
 
-    Used by 14 and 16 on the way out, by 15 on the way in, and by the tests on
+    Used by 14 on the way out, by 15 on the way in, and by the tests on
     constructed rows, so that the file's shape is asserted by the thing that
     writes it rather than by whatever reads it next.
 
@@ -1355,11 +1422,11 @@ def append_rows(path: Path, rows: Iterable[Mapping[str, object]]) -> int:
     """Append rows and get them onto the disk before returning.
 
     Deliberately not atomic-replace, which is how every other artefact in this
-    repository is written. A run is hours of paid API calls arriving in pieces,
-    and rewriting the whole file per batch would risk the one failure mode that
-    actually matters here: losing work already paid for. The file only ever
-    grows, each line is complete when written, and a crash costs the batch in
-    flight rather than the run.
+    repository is written. A run is hours of GPU work arriving in pieces, and
+    rewriting the whole file per response would risk the one failure mode that
+    actually matters here: losing completed inference. The file only ever
+    grows, each line is complete when written, and a crash costs only requests
+    still in flight rather than the run.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     written = 0

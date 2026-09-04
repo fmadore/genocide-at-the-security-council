@@ -227,6 +227,35 @@ describe('the validators that are about the research rather than the types', () 
 		...overrides
 	});
 
+	const selfHostedModel = () => ({
+		id: 'Qwen/Qwen3.8-27B',
+		prompt_sha256: 'a'.repeat(64),
+		runtime: {
+			route: 'openai-compatible-responses',
+			served_model: 'Qwen/Qwen3.8-27B',
+			model_revision: '1'.repeat(40),
+			quantization: 'none',
+			vllm_version: '0.28.0',
+			environments: { annotator: 'locked+llm-client-overlay', server: 'vllm' },
+			hardware: { gpu_model: 'NVIDIA H100 80GB HBM3', gpu_count: 1 },
+			serving: {
+				max_model_len: 65536,
+				reasoning_parser: 'qwen3',
+				tensor_parallel_size: 1,
+				prefix_caching: true,
+				speculative_decoding: null,
+				moe_backend: null
+			},
+			reasoning: {
+				parameter: 'reasoning_effort',
+				value: 'xhigh',
+				location: 'chat_template_kwargs'
+			},
+			sampling: { temperature: 0, top_p: 1 },
+			max_output_tokens: 65536
+		}
+	});
+
 	const occurrence = (extra: Record<string, unknown>) => ({
 		meta,
 		occurrences: [
@@ -258,6 +287,22 @@ describe('the validators that are about the research rather than the types', () 
 		);
 		await expect(usage(fetcher)).rejects.toThrow(
 			/comparison says no second opinion was run and reports 1 agreement rows over 12/
+		);
+	});
+
+	it('accepts complete self-hosted provenance and refuses an incomplete runtime block', async () => {
+		const { usage } = await fresh();
+		const valid = responder(usagePayload({ model: selfHostedModel() }));
+		await expect(usage(valid.fetcher)).resolves.toMatchObject({
+			model: { runtime: { model_revision: '1'.repeat(40) } }
+		});
+
+		const { usage: second } = await fresh();
+		const model = selfHostedModel();
+		model.runtime.model_revision = '';
+		const incomplete = responder(usagePayload({ model }));
+		await expect(second(incomplete.fetcher)).rejects.toThrow(
+			/model_revision must be a non-empty string/
 		);
 	});
 

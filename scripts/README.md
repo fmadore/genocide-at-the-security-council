@@ -49,9 +49,8 @@ and compares their analytical values with `tests/golden/`. Leave them unset othe
 | 11 | `11_countries.py` | `speeches_flagged.parquet`; `config/entities.csv` for optional geography only | `derived/countries/countries.json` | ✅ |
 | 12 | `12_speaker_keyness.py` | `speeches_flagged.parquet`, `config/stopwords.txt` | `derived/countries/speaker_keyness.json` | ✅ |
 | 13 | `13_gold_sample.py` | `speeches_norm.parquet`, `config/lexicon.yml`, `annotations/genocide/`, `model_annotations/genocide/` | `data/interim/genocide_gold_*.csv` | ✅ |
-| 14 | `14_llm_annotate.py` | `speeches_norm.parquet`, `model_annotations/genocide/PROMPT.md`, the OpenAI API | `model_annotations/genocide/runs/<id>/` | ✋ manual, paid |
+| 14 | `14_llm_annotate.py` | `speeches_norm.parquet`, prompt, a local vLLM Responses endpoint | `model_annotations/genocide/runs/<id>/` | ✋ scheduled, experimental |
 | 15 | `15_usage.py` | `model_annotations/genocide/`, `annotations/genocide/`, `speeches_norm.parquet` | `derived/usage/*.json` | 🧪 experimental |
-| 16 | `16_llm_annotate_gemini.py` | `speeches_norm.parquet`, `model_annotations/genocide/PROMPT.md`, the Gemini API | `model_annotations/genocide/runs/<id>/` | ✋ manual, paid |
 | 17 | `17_frames.py` | `speeches_flagged.parquet`, `config/lexicon.yml`, `model_annotations/genocide/` | `derived/frames/*.json` | ✅ |
 | — | `export_web.py` | `derived/{series,lexical,kwic,countries,usage,frames}/` | `web/static/data/` | ✅ |
 | — | `score_intrusion.py` | `derived/topics/intrusion_{task,key}.csv` | `derived/topics/intrusion_score.json` | 🔬 after a human |
@@ -102,12 +101,11 @@ and its key as two files so that the file a human opens does not contain the ans
 
 **13, 14 and 15 are the model-assisted usage layer** (Phase L in
 [`../docs/IMPROVEMENT_ROADMAP.md`](../docs/IMPROVEMENT_ROADMAP.md)). 13 draws the human
-gold sample and is deterministic. **14 is never run by CI or the deploy**: it needs
-`OPENAI_API_KEY`, the extra dependency in
-[`../requirements-llm.txt`](../requirements-llm.txt), and money — a full run sends all
-7,747 `genocide` occurrences to the model. Its output is committed under
-`model_annotations/`, which is why the deploy can rebuild the payload without ever holding
-a key. 15 is deterministic again: it joins the committed run, the human gold rows and the
+gold sample and is deterministic. **14 is never run by CI or the deploy**: it reads a local
+OpenAI-compatible vLLM endpoint on a cluster compute node and needs no key. A full run sends
+all 7,747 `genocide` occurrences to the pinned open-weights model. Its output is committed
+under `model_annotations/`, which is why the deploy can rebuild the payload without a GPU.
+15 is deterministic again: it joins the committed run, the human gold rows and the
 corpus into `derived/usage/`, refusing a run whose term pattern, occurrence identities or
 source digests no longer match. Besides the actor × referent matrix and the position
 profiles, its `usage.json` carries a `diffusion` block (Phase L7): per referent, the dated
@@ -118,14 +116,19 @@ adoption curves and their clickable chronology.
 ## The model annotation run
 
 ```bash
-python -m pip install -r requirements-llm.txt   # once, on the machine that runs 14
-python scripts/13_gold_sample.py                # the gold sample the run is judged against
-python scripts/14_llm_annotate.py --run-id <date>-luna-pilot --model gpt-5.6-luna --limit 50
-#   read runs/<pilot-id>/annotations.jsonl and failures.jsonl; commit the pilot run
-python scripts/14_llm_annotate.py --run-id <date>-luna-v1 --model gpt-5.6-luna
-#   gpt-5.6-luna exactly — the gpt-5.6 alias routes to Sol, a different model
-#   Batch API, resumable with --poll; commit the run, then name it in
-#   model_annotations/genocide/current_run.txt (a reviewed diff)
+# If the corpus environments already exist, this installs only the two
+# annotation environments; otherwise setup_env.sh prepares everything.
+bash scripts/cluster/setup_annotation_env.sh
+UNSC_ANNOTATION_MODEL=qwen bash scripts/cluster/download_annotation_model.sh
+UNSC_ANNOTATION_MODEL=qwen UNSC_RUN_ID=<date>-qwen-smoke \
+  UNSC_LIMIT=12 UNSC_SMOKE=1 sbatch --partition=dev --time=01:30:00 \
+  scripts/cluster/submit_annotate.sh
+# Read data/interim/model_annotation_probes/<run-id>/probe.json and
+# data/interim/model_annotation_smoke/<run-id>/; neither can be published.
+UNSC_ANNOTATION_MODEL=qwen UNSC_RUN_ID=<date>-qwen-v3 \
+  sbatch scripts/cluster/submit_annotate.sh
+# Resume with the identical command after walltime; completed speeches are skipped.
+# Commit the finished run, then name it in current_run.txt as a reviewed diff.
 python scripts/15_usage.py
 python scripts/export_web.py
 ```
@@ -136,14 +139,15 @@ labelled synthetic run under `data/interim/synthetic_run/`;
 `python scripts/15_usage.py --run-dir data/interim/synthetic_run` aggregates it. Synthetic
 runs are never committed under `model_annotations/`.
 
-The comparison run (Phase L8) is the same procedure through the other door. 16 is 14's
-Gemini sibling — same enumeration, same `PROMPT.md`, byte-compatible rows — keyed by
-`GEMINI_API_KEY` (or `GOOGLE_API_KEY`; see `.env.example` for the precedence quirk):
+The comparison run (Phase L8) is the same procedure through the same transport. Only the
+model profile changes, so the enumeration, prompt, validator and row shape cannot drift:
 
 ```bash
-python scripts/16_llm_annotate_gemini.py --run-id <date>-gemini-v1 --model gemini-3.7-flash
-#   Batch API, resumable with --poll; commit the run, then name it in
-#   model_annotations/genocide/comparison_run.txt (a reviewed diff)
+UNSC_ANNOTATION_MODEL=deepseek bash scripts/cluster/download_annotation_model.sh
+UNSC_ANNOTATION_MODEL=deepseek UNSC_RUN_ID=<date>-deepseek-v3 \
+  sbatch --gres=gpu:h100:4 scripts/cluster/submit_annotate.sh
+# If the recorded DeepSeek serving gate fails, use the pre-declared gemma profile.
+# Commit the run, then name it in comparison_run.txt as a reviewed diff.
 python scripts/15_usage.py && python scripts/export_web.py
 ```
 
@@ -162,10 +166,17 @@ pair named in `current_run.txt` and `comparison_run.txt`, and is empty without t
 frames are written to one file each under `data/interim/`, and nothing under `annotations/`
 is touched by any of it.
 
-**A run's manifest records effort, and effort is counted as it happens.** `requests.sent` is
-incremented when a batch job is created or a live call is made, `requests.returned` when a
-`custom_id` is answered for the first time in the run, and `passes` carries one row per
-pass with its mode. A manifest written before that — the Gemini run of 31 August — can be
+**A run's manifest records effort and the instrument.** Alongside request and token counts,
+new self-hosted runs record the model repository revision, vLLM version, GPU, context,
+reasoning parser and parameter placement, quantisation and sampling parameters. A manifest
+does not take the requested reasoning level on trust: the unattended job first asks the same
+three speeches at every level declared by the selected profile, records median latency and
+reasoning-token counts under `data/interim/model_annotation_probes/<run-id>/probe.json`, and
+refuses to start annotation when every level is flat. A successful probe is reused when an
+identical run resumes after walltime.
+
+A manifest
+written before that — the Gemini run of 31 August — can be
 repaired from the raw job outputs the run left under `data/interim/llm_raw/`:
 
 ```bash
@@ -297,7 +308,7 @@ What follows from that, worth knowing before you start:
 | [`lib/kwic.py`](lib/kwic.py) | Concordance-line extraction; re-exports the sentence segmentation it used to own. |
 | [`lib/occurrences.py`](lib/occurrences.py) | One enumeration of a term's occurrences, carrying both the audit `occurrence_id` and the KWIC line id; 13, 14 and 15 share it. |
 | [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: prompt parsing, request building, response validation against the codebook's vocabularies, evidence-quote location in three passes (exact, whitespace-collapsed, then folded and flagged `evidence_relocated`), resume rules. No network, no SDK import at module level. |
-| [`lib/annotate.py`](lib/annotate.py) | What 14 and 16 do identically: one enumeration of the population, the output ceiling, the manifest and its refusals. Neither SDK is imported here. |
+| [`lib/annotate.py`](lib/annotate.py) | Step 14's provider-independent population, output ceiling, manifest and refusal rules. No SDK is imported here. |
 | [`lib/usage.py`](lib/usage.py) | Aggregation for the usage layer: eligible/assigned funnel, the actor × referent matrix, withholding, and the agreement arithmetic — kappa with its withholding rule, PABAK, Krippendorff's α under MASI, per-label kappa, the per-class support floor. |
 | [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood as a floor with log ratio and logDice as the rank, dispersion (documents, meetings, DP), matched controls, PMI with definitional pairs suppressed. |
 | [`lib/keyness.py`](lib/keyness.py) | One speaker against the room: the corpus as a count matrix, the strata, the two gates, agenda composition. |
@@ -313,7 +324,7 @@ with what it returns, is plain Python and is tested on any machine.
 
 ## Cluster
 
-[`cluster/`](cluster) holds the Slurm harness for steps 06 and 07 —
+[`cluster/`](cluster) holds the Slurm harness for steps 06, 07, 10 and 14 —
 `setup_env.sh`, `download_models.sh`, `submit_*.sh`, plus `push_code.sh` and
 `fetch_results.sh`, which run on your own machine. Nothing in it names an account or a
 host: the cluster is addressed through an ssh alias you define in `~/.ssh/config`, and

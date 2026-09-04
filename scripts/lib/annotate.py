@@ -1,20 +1,13 @@
-"""What 14 and 16 do identically, in one place, so that they cannot drift.
+"""The provider-independent population and run record for annotation step 14.
 
-`14_llm_annotate.py` and `16_llm_annotate_gemini.py` ask two models the same
-question about the same population with the same prompt bytes, and the whole
-value of the second run rests on that being true. Until now it was true because
-the second script was written by copying the first: `gather`, `output_ceiling`,
-`read_manifest`, `write_manifest` and `refuse_mismatch` existed twice, with a
-comment in 16 saying so and a test pinning the constants either side. The review
-of 1 September 2026 (§4.5, item 10) is right that pinning constants is not
-testing behaviour — two `gather` functions can agree on `DOCUMENTED_SPEECHES`
-and still enumerate differently — so they live here instead, and the parity test
-runs them.
+Both selected instruments now pass through `14_llm_annotate.py`, so they share
+this enumeration, output ceiling, manifest and refusal by construction. The
+historical hosted implementations remain in git history; their committed runs
+are still accepted by the readers.
 
 A module and not a base class. There is one enumeration and one manifest shape,
-not a family of them, and the two steps differ where the provider differs: how a
-request is built, how a response is read, how tokens are named. Those stay in
-the steps, beside the SDK each needs, and nothing here imports either SDK.
+not a family of provider implementations, and nothing here imports the optional
+OpenAI protocol client.
 
 **Counting requests.** The manifest's `requests` block describes *effort*, and
 the review found it describing intention instead (§4.5, item 1). The Gemini run
@@ -32,7 +25,7 @@ was done rather than what was attempted.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -224,6 +217,10 @@ def write_manifest(
     evidence_invalid: int,
     evidence_relocated: int,
     usage: dict[str, int],
+    runtime: Mapping[str, object] | None = None,
+    truncations: int = 0,
+    pass_id: str = "",
+    source_commit: str | None = None,
 ) -> dict[str, object]:
     """One manifest per run, rewritten atomically after every pass.
 
@@ -257,9 +254,23 @@ def write_manifest(
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     done = planned_requests > 0 and complete >= planned_requests
     history = [dict(entry) for entry in previous.get("passes") or [] if isinstance(entry, dict)]
-    history.append(
-        {"at": now, "mode": mode, "requests": int(requests), "returned": int(returned)}
-    )
+    pass_entry: dict[str, object] = {
+        "at": now,
+        "mode": mode,
+        "requests": int(requests),
+        "returned": int(returned),
+    }
+    if pass_id:
+        pass_entry["pass_id"] = pass_id
+    if pass_id and history and history[-1].get("pass_id") == pass_id:
+        # A live vLLM pass checkpoints after every response. Keep one history
+        # row per scheduler invocation while making every counter durable.
+        earlier = history[-1]
+        pass_entry["requests"] = int(earlier.get("requests", 0)) + int(requests)
+        pass_entry["returned"] = int(earlier.get("returned", 0)) + int(returned)
+        history[-1] = pass_entry
+    else:
+        history.append(pass_entry)
     manifest = {
         "run_id": meta.run_id,
         "term": meta.term,
@@ -275,7 +286,7 @@ def write_manifest(
         "limit": limit,
         "created": previous.get("created", now),
         "completed": now if done else None,
-        "git_commit": artifacts.git_commit(ROOT),
+        "git_commit": source_commit if source_commit is not None else artifacts.git_commit(ROOT),
         "batch_ids": sorted({*(previous.get("batch_ids") or []), *batch_ids}),
         "requests": {
             "planned": planned_requests,
@@ -286,6 +297,7 @@ def write_manifest(
         "passes": history,
         "occurrences": {"planned": planned_occurrences, "written": written},
         "parse_failures": parse_failures,
+        "truncation_count": int(previous.get("truncation_count", 0)) + int(truncations),
         "evidence_invalid": evidence_invalid,
         "evidence_relocated": evidence_relocated,
         "usage": {key: int(tokens.get(key, 0)) + value for key, value in usage.items()},
@@ -297,6 +309,8 @@ def write_manifest(
         "cost_usd": None,
         "status": "complete" if done else "in_progress",
     }
+    if runtime is not None:
+        manifest["runtime"] = dict(runtime)
     artifacts.atomic_write_json(path, manifest, indent=1)
     return manifest
 

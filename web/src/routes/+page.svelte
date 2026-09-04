@@ -394,6 +394,8 @@
 	</section>
 
 	<Figure
+		fullscreen
+		onfullscreenchange={() => contrastFigure?.resize()}
 		title="Occurrences and share of speeches, {years[0]}&ndash;{years[years.length - 1]}"
 		question="Did the Council come to talk about genocide more, or simply to talk more?"
 		source="04_series.py → series/annual.json, series/change_points.json"
@@ -478,6 +480,8 @@
 	</section>
 
 	<Figure
+		fullscreen
+		onfullscreenchange={() => registerFigure?.resize()}
 		title="Register share, {years[0]}&ndash;{years[years.length - 1]}"
 		question="Which family of words does genocide sit in, and does that mix change over time?"
 		source="05_lexical.py registers via 03_lexicon.py → series/annual.json"

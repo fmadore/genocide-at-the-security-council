@@ -96,6 +96,10 @@
 
 	let container: HTMLDivElement;
 	let map: import('maplibre-gl').Map | null = null;
+
+	export function resize(): void {
+		requestAnimationFrame(() => map?.resize());
+	}
 	let hover: import('maplibre-gl').Popup;
 	let ready = $state(false);
 	let failed = $state<string | null>(null);

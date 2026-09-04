@@ -4,7 +4,7 @@
 #
 #     bash scripts/cluster/setup_env.sh
 #
-# Creates TWO environments on /workdir and points the repository's data/
+# Creates THREE isolated environments on /workdir and points the repository's data/
 # directory there as well. See scripts/cluster/env.sh for why they are separate.
 # ---------------------------------------------------------------------------
 set -euo pipefail
@@ -29,6 +29,12 @@ echo "==> installing the pinned pipeline (requirements.lock, hashed)"
 python -m pip install --require-hashes -r "$REPO/requirements.lock"
 python -c "import pandas, pyarrow, numpy; print(f'    pandas {pandas.__version__}  pyarrow {pyarrow.__version__}  numpy {numpy.__version__}')"
 deactivate
+
+# The annotation client overlays the locked interpreter without modifying its
+# site-packages. vLLM is deliberately not installed here.
+mkdir -p "$LLM_CLIENT_PACKAGES"
+python3 -m pip install --upgrade --target "$LLM_CLIENT_PACKAGES" \
+  -r "$REPO/requirements-llm.txt"
 
 # --- 2. The extras environment: the optional steps --------------------------
 # requirements.txt (ranges, not the lock) plus the cluster extras, resolved
@@ -86,7 +92,20 @@ python -c "import umap, sklearn; print(f'    umap {umap.__version__}  scikit-lea
 python -c "import spacy; print(f'    spacy {spacy.__version__}')"
 deactivate
 
-# --- 3. data/ -> /workdir ---------------------------------------------------
+# --- 3. The vLLM server: its own torch resolver -----------------------------
+if [[ ! -f "$VLLM_VENV/bin/activate" ]]; then
+  echo "==> creating the vLLM environment at $VLLM_VENV"
+  python3 -m venv "$VLLM_VENV"
+fi
+# shellcheck disable=SC1091
+source "$VLLM_VENV/bin/activate"
+python -m pip install --upgrade pip wheel
+echo "==> installing the pinned inference server"
+python -m pip install -r "$REPO/requirements-vllm.txt"
+python -c "import vllm; print(f'    vLLM {vllm.__version__}')"
+deactivate
+
+# --- 4. data/ -> /workdir ---------------------------------------------------
 # lib/paths.py resolves the corpus relative to the repository root, so the code
 # stays on /home (backed up) while the 900 MB of parquet it reads lives on
 # /workdir (large, purgeable, re-creatable from Dataverse by 00_fetch_data.py).
@@ -109,11 +128,12 @@ cat <<'NEXT'
        python scripts/00_fetch_data.py
        sbatch scripts/cluster/submit_corpus.sh          # steps 01-03, CPU
 
-  2. Prefetch the embedding model (login node — compute nodes run offline):
+  2. Prefetch the embedding and annotation models (login node — compute nodes run offline):
        bash scripts/cluster/download_models.sh
+       UNSC_ANNOTATION_MODEL=qwen bash scripts/cluster/download_annotation_model.sh
 
-  3. Check the GPU path end to end on a 90-minute dev node:
-       sbatch scripts/cluster/smoke.sh
+  3. Check the annotation path end to end with a bounded H100 run:
+       UNSC_LIMIT=12 UNSC_SMOKE=1 sbatch --partition=GPU --gres=gpu:h100:1 --time=02:00:00 scripts/cluster/submit_annotate.sh
 
   4. Run the optional steps:
        sbatch scripts/cluster/submit_embed.sh           # 06, one GPU

@@ -37,6 +37,7 @@
 	let order = $state<Ordering>('speech_rate');
 	let selected = $state<string | null>(null);
 	let urlReady = $state(false);
+	let countryMap = $state<CountryMap | null>(null);
 
 	const measures = $derived(Object.keys(artefact.measures));
 	const shared = $derived(ambiguous(artefact));
@@ -252,6 +253,8 @@
 	/>
 
 	<Figure
+		fullscreen
+		onfullscreenchange={() => countryMap?.resize()}
 		title="Speakers by rate"
 		question="Which delegations used the vocabulary most, as a share of their own speeches?"
 		source="11_countries.py → countries/countries.json"
@@ -407,6 +410,7 @@
 			</p>
 		{:else}
 			<CountryMap
+				bind:this={countryMap}
 				points={drawn}
 				{selected}
 				onselect={(point) => (selected = point?.speakers[0].speaker.country_org ?? null)}

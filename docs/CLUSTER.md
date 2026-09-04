@@ -1,8 +1,7 @@
 # Running the GPU steps on the Bayreuth cluster
 
-Steps 00–05, 08, 09, 11 and 12 run on a laptop. Steps **06 (embeddings)** and
-**07 (the topic comparison)** do not: encoding 167,642 speeches is GPU work, and
-the stability battery in 07 refits a dozen models. Both run on the University of
+Steps 00–05, 08, 09, 11 and 12 run on a laptop. Steps **06 (embeddings)**,
+**07 (the topic comparison)** and **14 (model annotation)** use the University of
 Bayreuth HPC cluster, whose GPU nodes are reachable with an ordinary university
 account — no separate HPC registration, and no data leaves the university.
 
@@ -53,14 +52,16 @@ against the obvious mistake — pasting a working command into the documentation
 | `06_embed.py` | `submit_embed.sh`, 1 GPU | extras | 16 min for the corpus on an H100 |
 | `07_topics.py` | `submit_topics.sh`, CPU | extras | NMF/UMAP/HDBSCAN are not GPU work |
 | `10_lemmatise.py` | `submit_lemmas.sh`, CPU | extras | spaCy parallelises over processes |
+| `download_annotation_model.sh` | login node | vLLM | prefetches one pinned checkpoint |
+| `14_llm_annotate.py` | `submit_annotate.sh`, GPU | locked + client overlay; vLLM server | interprets occurrences through loopback |
 | `04`, `05`, `08`, `09`, `11`, `12` | anywhere | locked | unchanged; a laptop is fine |
 
 Asking for a GPU that will sit idle means queueing behind everyone who needs
 one, so 07 and 10 deliberately do not request one.
 
-### Two environments, and why
+### Three environments, and why
 
-`setup_env.sh` builds both.
+`setup_env.sh` builds all three.
 
 **Locked** (`/workdir/$USER/unsc/venv`) is `requirements.lock` installed with
 `--require-hashes`, and nothing else. Everything that produces a published figure
@@ -78,6 +79,47 @@ The consequence is visible and intended: a manifest from step 06 or 10 will name
 a different numpy from one written by step 01. `setup_env.sh` prints the
 differences when it finishes, and every run records its own resolved versions.
 Lift the split when numba catches up — nothing else depends on it.
+
+**vLLM** (`/workdir/$USER/unsc/venv-vllm`) contains only the pinned inference
+server and the Torch stack it resolves. It cannot modify either analytical
+environment. Step 14 itself uses the locked interpreter plus an OpenAI protocol
+client installed into a separate target directory; only JSON crosses between
+that process and vLLM. New run manifests record both sides.
+
+## Model annotation
+
+The server binds `127.0.0.1`, uses weights prefetched at an immutable Hugging
+Face revision, and runs offline on the compute node. No API key is involved.
+
+```bash
+# Login node: install only the annotation environments when the corpus is
+# already prepared. Use setup_env.sh instead on a new cluster account.
+bash scripts/cluster/setup_annotation_env.sh
+UNSC_ANNOTATION_MODEL=qwen bash scripts/cluster/download_annotation_model.sh
+
+# A bounded smoke writes only under data/interim/. Qwen's bf16 checkpoint needs
+# an H100; the annotation profile remains identical to the eventual corpus run.
+UNSC_ANNOTATION_MODEL=qwen UNSC_RUN_ID=2026-09-04-qwen-smoke \
+  UNSC_LIMIT=12 UNSC_SMOKE=1 sbatch --partition=GPU --gres=gpu:h100:1 \
+  --time=02:00:00 scripts/cluster/submit_annotate.sh
+
+# Interactive serving, when inspecting requests through an SSH tunnel.
+UNSC_ANNOTATION_MODEL=qwen sbatch scripts/cluster/serve_annotation.sh
+```
+
+`qwen` is the published profile; `deepseek` is the counter-instrument and
+requests four H100s; `gemma` is the pre-declared substitute if the DeepSeek
+serving smoke fails. Their revisions and reasoning placements live in
+`scripts/cluster/env.sh`. `submit_annotate.sh` traps every exit path and stops
+the server, so cancellation cannot leave a process holding the GPU. Before it asks the corpus,
+the job runs the selected profile's reasoning ladder over the same three speeches and writes
+`data/interim/model_annotation_probes/<run-id>/probe.json`. Identical resumed jobs reuse a
+passed probe; a flat ladder stops in words before a corpus row is written.
+
+On 4 September 2026 the same annotation smoke was submitted twice to `dev` with both idle
+L40s. Slurm killed both allocations at zero elapsed time, before either output file was
+opened. That is a partition/node-startup failure, not evidence about vLLM or the model; use
+the H100 command above until a later L40 allocation demonstrates otherwise.
 
 ## The cluster, as it actually is
 

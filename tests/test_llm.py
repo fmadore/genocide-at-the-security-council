@@ -468,6 +468,26 @@ def test_the_request_body_pins_the_model_the_effort_and_the_schema() -> None:
     assert json.loads(json.dumps(body, ensure_ascii=False)) == body
 
 
+def test_reasoning_can_be_sent_through_the_model_s_chat_template() -> None:
+    body = llm.request_body(
+        build(),
+        model="Qwen/Qwen3.8-27B",
+        reasoning_effort="xhigh",
+        reasoning_location="chat_template_kwargs",
+        max_output_tokens=99,
+    )
+    assert body["chat_template_kwargs"] == {"reasoning_effort": "xhigh"}
+    assert "reasoning" not in body
+    with pytest.raises(ValueError, match="reasoning parameter location"):
+        llm.request_body(
+            build(),
+            model="a-model",
+            reasoning_effort="high",
+            reasoning_location="somewhere",
+            max_output_tokens=99,
+        )
+
+
 # --- What comes back ---------------------------------------------------------
 
 
@@ -489,6 +509,35 @@ def test_a_response_may_arrive_as_json_text() -> None:
     assert accepted[1]["referent"] == "rwanda_1994"
     with pytest.raises(ValueError, match="not JSON"):
         llm.validate_response("{oops", ordinals=[1], referents=REFERENTS)
+
+
+@pytest.mark.parametrize(
+    "wrapped",
+    [
+        "```json\n{document}\n```",
+        "The requested annotation follows.\n{document}",
+        "prefix with a stray [bracket]\n{document}\ntrailing prose",
+    ],
+)
+def test_a_fenced_or_prefaced_json_response_is_unwrapped_without_repair(wrapped: str) -> None:
+    document = json.dumps(payload(entry(1, evidence_quote='a literal {brace} and "quote"')))
+    accepted = llm.validate_response(
+        wrapped.format(document=document), ordinals=[1], referents=REFERENTS
+    )
+    assert accepted[1]["evidence_quote"] == 'a literal {brace} and "quote"'
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    [
+        "```json\n{oops\n```",
+        "The requested annotation follows: {\"occurrences\": [}",
+        "No annotation document was produced.",
+    ],
+)
+def test_json_recovery_never_repairs_a_malformed_response(malformed: str) -> None:
+    with pytest.raises(ValueError, match="not JSON"):
+        llm.validate_response(malformed, ordinals=[1], referents=REFERENTS)
 
 
 def test_the_ordinal_set_must_equal_the_one_that_was_asked() -> None:

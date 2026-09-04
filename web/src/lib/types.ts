@@ -846,6 +846,8 @@ export interface UsageModel {
 	run_id: string;
 	run_date: string;
 	prompt_version: string;
+	/** Controlled-list version whose rows were rendered into this run's prompt. */
+	referents_version: string;
 	/** 64 hex characters over the prompt text below. A changed prompt is a new run. */
 	prompt_sha256: string;
 	reasoning_effort: string;
@@ -868,6 +870,28 @@ export interface UsageModel {
 	/** Occurrences the model declined to place, by the field it declined on. */
 	abstention: { verdict_uncertain: number; referent_unclear: number; position_unclear: number };
 	tokens: { input: number; output: number };
+	/** Present only for self-hosted runs; historical hosted manifests stay untouched. */
+	runtime?: {
+		route: string;
+		served_model: string;
+		model_revision: string;
+		quantization: string;
+		vllm_version: string;
+		environments: { annotator: string; server: string };
+		hardware: { gpu_model: string; gpu_count: number };
+		serving: {
+			max_model_len: number;
+			reasoning_parser: string;
+			tensor_parallel_size: number;
+			prefix_caching: boolean;
+			speculative_decoding: unknown;
+			moe_backend: string | null;
+		};
+		reasoning: { parameter: string; value: string; location: string };
+		sampling: { temperature: number; top_p: number };
+		max_output_tokens: number;
+	};
+	truncation_count?: number;
 }
 
 /**
@@ -883,9 +907,15 @@ export interface UsageModel {
 export interface UsageReferent {
 	id: string;
 	label: string;
+	/** The definition shown verbatim to the model and human coders. */
+	description: string;
 	kind: string;
 	iso3: string;
 	years: string;
+	/** First controlled-list version in which this identifier had this meaning. */
+	since: number;
+	/** First version that stopped offering it, or null while current. */
+	retired_in: number | null;
 	/** Assigned occurrences carrying this referent, across every speaker. */
 	occurrences: number;
 	/**

@@ -12,6 +12,7 @@
 		"run_id": "2026-09-01-luna-v1",
 		"run_date": "2026-09-01",
 		"prompt_version": "1",
+		"referents_version": "1",
 		"prompt_sha256": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
 		"reasoning_effort": "high",
 		"requests": 2,
@@ -27,9 +28,12 @@
 		{
 			"id": "rwanda_1994",
 			"label": "Rwanda (1994)",
+			"description": "The 1994 genocide against the Tutsi in Rwanda and its aftermath.",
 			"kind": "case",
 			"iso3": "RWA",
 			"years": "1994",
+			"since": 1,
+			"retired_in": null,
 			"occurrences": 3,
 			"retired": false,
 			"superseded_by": ""
@@ -37,9 +41,12 @@
 		{
 			"id": "genocide_convention_law",
 			"label": "Genocide Convention and legal definition",
+			"description": "References to the Genocide Convention and legal definitions of genocide.",
 			"kind": "meta",
 			"iso3": "",
 			"years": "",
+			"since": 1,
+			"retired_in": null,
 			"occurrences": 3,
 			"retired": false,
 			"superseded_by": ""
@@ -47,9 +54,12 @@
 		{
 			"id": "bosnia_srebrenica",
 			"label": "Bosnia and Srebrenica",
+			"description": "The war in Bosnia and Herzegovina, including Srebrenica.",
 			"kind": "case",
 			"iso3": "BIH",
 			"years": "1992-1995",
+			"since": 1,
+			"retired_in": null,
 			"occurrences": 2,
 			"retired": false,
 			"superseded_by": ""
@@ -57,9 +67,12 @@
 		{
 			"id": "holocaust",
 			"label": "The Holocaust",
+			"description": "The genocide of European Jews during the Second World War.",
 			"kind": "historical",
 			"iso3": "",
 			"years": "1941-1945",
+			"since": 1,
+			"retired_in": null,
 			"occurrences": 0,
 			"retired": false,
 			"superseded_by": ""
@@ -67,9 +80,12 @@
 		{
 			"id": "unclear",
 			"label": "Unclear referent",
+			"description": "The available context does not support a reliable assignment.",
 			"kind": "reserved",
 			"iso3": "",
 			"years": "",
+			"since": 1,
+			"retired_in": null,
 			"occurrences": 0,
 			"retired": false,
 			"superseded_by": ""

@@ -830,6 +830,8 @@
 	</Figure>
 
 	<Figure
+		fullscreen
+		onfullscreenchange={() => scatterFigure?.resize()}
 		title="The words that sit near a term"
 		question="Which words appear near this term far more often than chance would put them there?"
 		source="05_lexical.py → lexical/collocates.json"

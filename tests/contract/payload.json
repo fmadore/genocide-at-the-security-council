@@ -2513,6 +2513,7 @@
    "parse_failures": "int",
    "prompt_sha256": "str",
    "prompt_version": "str",
+   "referents_version": "str",
    "reasoning_effort": "str",
    "requests": "int",
    "requests_recounted": "bool",
@@ -2527,12 +2528,15 @@
   "prompt": "str",
   "referents": [
    {
+    "description": "str",
     "id": "str",
     "iso3": "str",
     "kind": "str",
     "label": "str",
     "occurrences": "int",
     "retired": "bool",
+    "retired_in": null,
+    "since": "int",
     "superseded_by": "str",
     "years": "str"
    }

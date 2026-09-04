@@ -12,7 +12,7 @@
 #   make cluster    the GPU / spaCy steps, on a machine that has them
 #   make -n payload what would run, and in what order
 #
-# 14 and 16 are never targets: they spend money and write a run by hand.
+# 14 is never a target: it reserves a cluster GPU and writes a reviewed run.
 # 15 aggregates the run named in model_annotations/genocide/current_run.txt.
 
 PY ?= python

@@ -968,3 +968,20 @@ or genuinely nothing.
 The source distribution contains 6,595 document records but 6,582 distinct
 `meeting_symbol` values. The web reader therefore exports 6,595 files; aggregate Council
 statistics use 6,582 distinct symbols. Documentation and UI must name the relevant unit.
+
+## Self-hosted model run gates
+
+**Implemented gate; execution open: reasoning ladder.** `scripts/probe_reasoning.py` probes
+the same bounded set of speeches at every profile level and retains latency and reported
+reasoning-token counts in `data/interim/model_annotation_probes/<run-id>/probe.json`. A flat
+ladder blocks the run in words; the first cluster smoke still owes the actual probe artefact.
+
+**Open check: truncation.** Step 14 records a response stopped at `max_output_tokens` as a
+truncation failure, not as an abstention, and publishes `truncation_count` in the manifest.
+The first smoke must demonstrate the distinction with the pinned vLLM version and the corpus
+run must finish at zero truncations or document every affected speech.
+
+**Open check: paired abstention and refusal.** Before an agreement figure from the new pair
+is published, step 15 must report per-referent abstention, transport refusal and validation
+failure for each instrument with their denominators and withholding floor. Agreement remains
+stability across instruments, never validation.

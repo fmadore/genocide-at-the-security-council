@@ -82,6 +82,10 @@
 		return element?.querySelector('svg') ?? null;
 	}
 
+	export function resize(): void {
+		requestAnimationFrame(() => chart?.resize());
+	}
+
 	/**
 	 * The two settings every figure on this site carries, around the option the
 	 * route built.

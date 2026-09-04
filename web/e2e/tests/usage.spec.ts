@@ -70,6 +70,13 @@ test('the page says whose reading this is before it draws anything', async ({ pa
 	await expect(experiment).toContainText('12 of 12 occurrences');
 	// An untouched gold sample is reported as untouched, never as a zero score.
 	await expect(experiment).toContainText('not started — 0 of 200 coded');
+	await page.getByText('Show the controlled referent list (version 1, 5 identifiers)').click();
+	const codebook = page.locator('details.referent-codebook');
+	await expect(codebook).toContainText('rwanda_1994');
+	await expect(codebook).toContainText(
+		'The 1994 genocide against the Tutsi in Rwanda and its aftermath.'
+	);
+	await expect(codebook.getByRole('row', { name: /Rwanda \(1994\)/ })).toContainText('3');
 
 	const matrix = matrixOf(page);
 	// Referents ranked by weight, with the meta referent moved past the cases
@@ -94,6 +101,34 @@ test('the page says whose reading this is before it draws anything', async ({ pa
 		'1 referent on the list is used by no delegation drawn here'
 	);
 
+	await expectNoAxeViolations(page);
+});
+
+test('the matrix opens full screen, remains readable, and restores keyboard focus', async ({
+	page
+}) => {
+	// Exercise the fixed overlay used by iOS Safari, where the element Fullscreen
+	// API is absent. Chromium's native path is covered by the same component state.
+	await page.addInitScript(() => {
+		Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+			value: undefined,
+			configurable: true
+		});
+	});
+	await openUsage(page);
+	const matrix = matrixOf(page);
+	const trigger = matrix.getByRole('button', {
+		name: 'View full screen: Which genocide each delegation means'
+	});
+	await trigger.click();
+
+	await expect(matrix).toHaveClass(/fullscreen-open/);
+	await expect(
+		matrix.getByRole('button', { name: /^Rwanda × Rwanda \(1994\): 2 occurrences/ })
+	).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(matrix).not.toHaveClass(/fullscreen-open/);
+	await expect(trigger).toBeFocused();
 	await expectNoAxeViolations(page);
 });
 

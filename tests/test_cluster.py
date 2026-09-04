@@ -26,7 +26,11 @@ SCRIPTS = sorted(CLUSTER.glob("*.sh"))
 SOURCED = {"env.sh"}
 #: Run on the user's own machine, not on the cluster.
 LOCAL = {"fetch_results.sh", "push_code.sh"}
-SUBMIT = [p for p in SCRIPTS if p.name.startswith("submit_") or p.name == "smoke.sh"]
+SUBMIT = [
+    p
+    for p in SCRIPTS
+    if p.name.startswith("submit_") or p.name in {"smoke.sh", "serve_annotation.sh"}
+]
 
 
 def read(path: Path) -> str:
@@ -70,7 +74,9 @@ def test_batch_jobs_set_up_their_environment(path: Path) -> None:
     text = read(path)
     assert "scripts/cluster/env.sh" in text, "must source the shared settings"
     assert "load_python" in text
-    assert "activate_venv" in text or "activate_extras" in text
+    assert any(
+        name in text for name in ("activate_venv", "activate_extras", "activate_vllm", "activate_annotator")
+    )
 
 
 #: The release pipeline runs in the locked environment; the optional steps get
@@ -94,11 +100,24 @@ def test_the_optional_steps_run_in_the_extras_environment(name: str) -> None:
     assert "activate_extras" in text
 
 
-def test_setup_builds_both_environments() -> None:
+def test_setup_builds_three_isolated_environments() -> None:
     text = read(CLUSTER / "setup_env.sh")
     assert "--require-hashes" in text, "the locked environment must install with hashes"
     assert "$EXTRAS_VENV" in text
     assert "requirements-cluster.txt" in text
+    assert "$VLLM_VENV" in text
+    assert "requirements-vllm.txt" in text
+    assert "--target \"$LLM_CLIENT_PACKAGES\"" in text
+    assert "--target \"$VENV\"" not in text
+
+
+def test_annotation_only_setup_cannot_modify_the_locked_environment() -> None:
+    text = read(CLUSTER / "setup_annotation_env.sh")
+    assert 'source "$(dirname "${BASH_SOURCE[0]}")/env.sh"' in text
+    assert '--target "$LLM_CLIENT_PACKAGES"' in text
+    assert 'source "$VLLM_VENV/bin/activate"' in text
+    assert '--target "$VENV"' not in text
+    assert 'source "$VENV/bin/activate"' not in text
 
 
 @pytest.mark.parametrize("path", SUBMIT, ids=lambda p: p.name)
@@ -124,8 +143,49 @@ def test_cluster_side_scripts_do_not_hardcode_a_home(path: Path) -> None:
 def test_gpu_jobs_run_offline() -> None:
     """Compute nodes have no internet. A job that quietly downloaded its own
     weights would be a job whose model version depends on when it ran."""
-    for name in ("submit_embed.sh", "smoke.sh"):
+    for name in ("submit_embed.sh", "smoke.sh", "serve_annotation.sh", "submit_annotate.sh"):
         assert "HF_HUB_OFFLINE" in read(CLUSTER / name)
+
+
+def test_annotation_server_is_loopback_pinned_and_always_stopped() -> None:
+    serve = read(CLUSTER / "serve_annotation.sh")
+    unattended = read(CLUSTER / "submit_annotate.sh")
+    for text in (serve, unattended):
+        assert '--host 127.0.0.1' in text
+        assert '--revision "$VLLM_MODEL_REVISION"' in text
+        assert '--reasoning-parser "$VLLM_REASONING_PARSER"' in text
+        assert "activate_vllm" in text
+    assert "trap stop_server EXIT INT TERM" in unattended
+    assert "activate_annotator" in unattended
+    assert "OPENAI_API_KEY" not in unattended
+    assert "scripts/probe_reasoning.py" in unattended
+    assert '"$VLLM_REASONING_LEVELS"' in unattended
+
+
+def test_each_annotation_profile_declares_a_reasoning_ladder() -> None:
+    text = read(CLUSTER / "env.sh")
+    for ladder in ("low,medium,xhigh", "low,high,max", "low,medium,high"):
+        assert ladder in text
+
+
+def test_annotation_profiles_pin_every_selected_checkpoint() -> None:
+    text = read(CLUSTER / "env.sh")
+    expected = {
+        "Qwen/Qwen3.8-27B": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+        "deepseek-ai/DeepSeek-V4-Flash-0731": "7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+        "google/gemma-4-31B-it": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+    }
+    for model, revision in expected.items():
+        assert model in text
+        assert revision in text
+
+
+def test_annotation_smoke_output_cannot_be_a_committed_run() -> None:
+    job = read(CLUSTER / "submit_annotate.sh")
+    step = (ROOT / "scripts" / "14_llm_annotate.py").read_text(encoding="utf-8")
+    assert "UNSC_SMOKE" in job and "--smoke" in job
+    assert 'SMOKE_RUNS = INTERIM / "model_annotation_smoke"' in step
+    assert 'if args.smoke and args.limit is None' in step
 
 
 def test_the_topic_job_does_not_request_a_gpu() -> None:

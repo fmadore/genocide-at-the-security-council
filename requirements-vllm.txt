@@ -1,0 +1,3 @@
+# Serving environment only. Verified against PyPI on 4 September 2026;
+# 0.28.0 is the current release. A model run records this exact version.
+vllm==0.28.0

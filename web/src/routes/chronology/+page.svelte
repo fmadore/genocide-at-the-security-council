@@ -785,6 +785,8 @@
 	<Contents figures={FIGURES} />
 
 	<Figure
+		fullscreen
+		onfullscreenchange={() => seriesFigure?.resize()}
 		title="The word list over time"
 		question="When was each term said, and does the answer hold up once you allow for how much the Council spoke?"
 		source="04_series.py → series/annual.json, series/quarterly.json, series/events.json"
@@ -1229,6 +1231,8 @@
 	</Figure>
 
 	<Figure
+		fullscreen
+		onfullscreenchange={() => splitFigure?.resize()}
 		title="Who says it, and in what debate"
 		question="Is the rise or fall concentrated in one kind of speaker, or one part of the agenda?"
 		source="04_series.py → series/breakdowns.json"

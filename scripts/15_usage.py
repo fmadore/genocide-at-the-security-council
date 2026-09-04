@@ -1,6 +1,6 @@
 """Aggregate one committed model run into the artefacts the usage view reads.
 
-`14_llm_annotate.py` is the only step that spends money and the only one CI and
+`14_llm_annotate.py` is the only step that reserves a model-serving GPU and the only one CI and
 the deploy can never re-run. What it leaves behind — `model_annotations/genocide/
 runs/<run_id>/` — is therefore a *committed input*, read here exactly as the
 human annotations under `annotations/` are read by 03. This step is the opposite
@@ -166,7 +166,7 @@ ROW_FIELDS = (
 # --- Reading the inputs ------------------------------------------------------
 
 
-def read_referents(path: Path) -> list[dict[str, str]]:
+def read_referents(path: Path) -> list[dict[str, object]]:
     """The controlled referent list with the columns the artefact publishes.
 
     A third reader of `referents.csv`, deliberately. `lib.audit.read_referents`
@@ -183,12 +183,30 @@ def read_referents(path: Path) -> list[dict[str, str]]:
     category rather than a case no delegation ever raised.
     """
     table = pd.read_csv(path, dtype="string", keep_default_na=False)
-    missing = sorted({"id", "label", "kind", "iso3", "years"} - set(table.columns))
+    required = {
+        "id",
+        "label",
+        "description",
+        "kind",
+        "iso3",
+        "years",
+        "since",
+        "retired_in",
+        "superseded_by",
+    }
+    missing = sorted(required - set(table.columns))
     if missing:
         console.fail(f"{rel(path)} is missing columns: {', '.join(missing)}")
     return [
         {
-            **{key: str(row[key]) for key in ("id", "label", "kind", "iso3", "years")},
+            **{
+                key: str(row[key])
+                for key in ("id", "label", "description", "kind", "iso3", "years")
+            },
+            "since": int(str(row.get("since") or "1")),
+            "retired_in": (
+                int(str(row["retired_in"])) if str(row.get("retired_in") or "") else None
+            ),
             "retired": bool(str(row.get("retired_in", "") or "").strip()),
             "superseded_by": str(row.get("superseded_by", "") or "").strip(),
         }
@@ -749,13 +767,22 @@ def model_block(
     tokens = manifest.get("usage") if isinstance(manifest.get("usage"), dict) else {}
     requests = manifest.get("requests") if isinstance(manifest.get("requests"), dict) else {}
     verdict = rows["verdict"].astype(str)
-    return {
+    runtime = manifest.get("runtime")
+    if runtime is not None:
+        if not isinstance(runtime, dict):
+            raise ValueError("Run manifest runtime must be an object.")
+        if not str(runtime.get("model_revision", "")).strip():
+            raise ValueError("Self-hosted run manifest has no model_revision.")
+    block = {
         "id": str(manifest.get("model", "")),
         "run_id": run_id or str(manifest.get("run_id", "")),
         "run_date": stamp[:10],
         # A string, because it is an identifier rather than a quantity: nothing
         # here adds prompt versions up or compares them as numbers.
         "prompt_version": str(manifest.get("prompt_version", "")),
+        # Missing means v1: the first two committed runs predate the explicit
+        # field but carry the v1 list digest and identifiers.
+        "referents_version": str(manifest.get("referents_version", "") or "1"),
         "prompt_sha256": prompt_digest,
         "reasoning_effort": str(manifest.get("reasoning_effort", "")),
         # `sent`, and `submitted` only where a manifest predates the recount.
@@ -780,6 +807,10 @@ def model_block(
             "output": int(tokens.get("output_tokens", 0) or 0),
         },
     }
+    if runtime is not None:
+        block["runtime"] = runtime
+        block["truncation_count"] = int(manifest.get("truncation_count", 0) or 0)
+    return block
 
 
 def retest_block(
@@ -1352,6 +1383,7 @@ def run_without_model() -> None:
     annotations = audit.read_annotations(GOLD_ANNOTATIONS)
     empty = pd.DataFrame()
     prompt_text = PROMPT.read_text(encoding="utf-8") if PROMPT.is_file() else ""
+    referent_list = audit.read_referent_list(REFERENTS)
     referent_rows = [{**row, "occurrences": 0} for row in read_referents(REFERENTS)]
     zeros = {
         "verdict_uncertain": 0,
@@ -1377,6 +1409,7 @@ def run_without_model() -> None:
             "run_id": "",
             "run_date": "",
             "prompt_version": "",
+            "referents_version": str(referent_list.version),
             "prompt_sha256": llm.prompt_sha256(PROMPT) if PROMPT.is_file() else "",
             "reasoning_effort": "",
             "requests": 0,

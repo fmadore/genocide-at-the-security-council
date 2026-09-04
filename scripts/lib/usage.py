@@ -6,7 +6,7 @@ artefacts the usage view is drawn from. Everything between those two sentences â
 the counting, the withholding, the agreement arithmetic â€” lives here, in plain
 numpy and pandas, so that it can be tested on constructed rows by a machine with
 no corpus, no run and no key. That is the same division `lib.llm` makes against
-the API, and for the same reason: a run costs money and cannot be repeated by CI
+the model server, and for the same reason: a run needs a GPU and cannot be repeated by CI
 to find out whether the aggregation was right.
 
 Four decisions are made here rather than in the step, because they are what the
@@ -430,9 +430,16 @@ def referent_rows(
         {
             "id": _text(referent["id"]),
             "label": _text(referent.get("label")),
+            "description": _text(referent.get("description")),
             "kind": _text(referent.get("kind")),
             "iso3": _text(referent.get("iso3")),
             "years": _text(referent.get("years")),
+            "since": int(referent.get("since", 1) or 1),
+            "retired_in": (
+                int(referent["retired_in"])
+                if referent.get("retired_in") not in (None, "")
+                else None
+            ),
             "occurrences": int(counts.get(_text(referent["id"]), 0)),
             # A withdrawn category, kept so an older run's counts have somewhere
             # to land. On a run made after the retirement it is empty, and the

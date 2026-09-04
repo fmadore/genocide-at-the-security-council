@@ -126,6 +126,27 @@
 		run.fields.find((row) => row.field === field)?.observedText ?? '—';
 	const referentLabel = (id: string) =>
 		artefact.referents.find((entry) => entry.id === id)?.label ?? termLabel(id);
+	const instrumentVersion = $derived(Number.parseInt(artefact.model.referents_version, 10) || 1);
+	/** Exactly the identifiers offered to this run, reconstructed from the list's
+	 * since/retired bounds rather than silently showing today's vocabulary. */
+	const instrumentReferents = $derived(
+		artefact.referents.filter(
+			(entry) =>
+				entry.since <= instrumentVersion &&
+				(entry.retired_in === null || entry.retired_in > instrumentVersion)
+		)
+	);
+	function instrumentOccurrences(entry: UsageReferent): number {
+		let current = entry;
+		const seen = [entry.id];
+		while (current.superseded_by && !seen.includes(current.superseded_by)) {
+			seen.push(current.superseded_by);
+			const successor = artefact.referents.find((row) => row.id === current.superseded_by);
+			if (!successor) break;
+			current = successor;
+		}
+		return current.occurrences;
+	}
 
 	/* ---- the evidence, fetched at the first drill-down and not before -------
 	   Two artefacts, requested together rather than in sequence: they are
@@ -414,8 +435,23 @@
 		<dl>
 			<div>
 				<dt>Model</dt>
-				<dd><code>{artefact.model.id}</code></dd>
+				<dd>
+					<code>{artefact.model.id}</code>
+					{#if artefact.model.runtime}
+						&middot; revision <code>{artefact.model.runtime.model_revision.slice(0, 12)}</code>
+					{/if}
+				</dd>
 			</div>
+			{#if artefact.model.runtime}
+				<div>
+					<dt>Serving</dt>
+					<dd>
+						vLLM {artefact.model.runtime.vllm_version} on {artefact.model.runtime.hardware
+							.gpu_count}
+						&times; {artefact.model.runtime.hardware.gpu_model}; project-controlled hardware
+					</dd>
+				</div>
+			{/if}
 			<div>
 				<dt>Run</dt>
 				<dd><code>{artefact.model.run_id}</code> &middot; {artefact.model.run_date}</dd>
@@ -450,6 +486,9 @@
 				<dt>Refused</dt>
 				<dd>
 					{count(artefact.model.parse_failures)} unparseable &middot;
+					{#if artefact.model.truncation_count !== undefined}
+						{count(artefact.model.truncation_count)} truncated &middot;
+					{/if}
 					{count(artefact.model.evidence_invalid)} evidence spans not found in the speech
 				</dd>
 			</div>
@@ -660,6 +699,7 @@
 	/>
 
 	<Figure
+		fullscreen
 		title="Which genocide each delegation means"
 		question="Which genocide is each delegation talking about when it says the word?"
 		source="15_usage.py → usage/usage.json"
@@ -1322,16 +1362,51 @@
 	</Figure>
 
 	<section class="prompt-block">
-		<h2>The prompt</h2>
+		<h2>The instrument</h2>
 		<p class="quiet">
-			The instruction the model was given, verbatim, at version {artefact.model.prompt_version}. A
-			change to any character of it is a different run with a different
-			<code>sha256</code>, and the labels are not comparable across the two.
+			The instruction and controlled referent list the model was given, verbatim. A change to the
+			prompt or to what an identifier means makes a different instrument; the versions below belong
+			to this run, not necessarily to today's files.
 		</p>
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />Show the prompt (<code>sha256:{shortSha}</code>)</summary
 			>
 			<pre>{artefact.prompt}</pre>
+		</details>
+		<details class="data-table referent-codebook">
+			<summary
+				><Icon icon={ChevronRight} />Show the controlled referent list (version {instrumentVersion},
+				{count(instrumentReferents.length)} identifiers)</summary
+			>
+			<div class="table-scroll">
+				<table>
+					<thead>
+						<tr>
+							<th scope="col">Identifier</th>
+							<th scope="col">Definition</th>
+							<th scope="col">Occurrences</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each instrumentReferents as entry (entry.id)}
+							<tr>
+								<th scope="row">
+									{entry.label}<br /><code>{entry.id}</code>
+									{#if entry.retired}
+										<br /><span class="quiet"
+											>Retired in version {entry.retired_in}{entry.superseded_by
+												? `; succeeded by ${referentLabel(entry.superseded_by)}`
+												: ''}</span
+										>
+									{/if}
+								</th>
+								<td>{entry.description}</td>
+								<td class="number">{count(instrumentOccurrences(entry))}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
 		</details>
 	</section>
 

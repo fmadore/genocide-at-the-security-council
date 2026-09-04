@@ -25,6 +25,7 @@
 	 * No panel, no border, no radius: a figure is separated from the page by a
 	 * rule and by space, like everything else here.
 	 */
+	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import DownloadControls from './Download.svelte';
 	import type { DownloadSpec } from './Download.svelte';
@@ -50,6 +51,10 @@
 		 * appears only where there is an artefact behind it to hand over.
 		 */
 		download?: DownloadSpec;
+		/** Opt in only where the figure materially benefits from the full viewport. */
+		fullscreen?: boolean;
+		/** Chart and map wrappers use this to resize after both layout transitions. */
+		onfullscreenchange?: (expanded: boolean) => void;
 		children: Snippet;
 	}
 
@@ -64,13 +69,124 @@
 		controls,
 		note,
 		download,
+		fullscreen = false,
+		onfullscreenchange,
 		children
 	}: Props = $props();
+
+	let element: HTMLElement;
+	let trigger = $state.raw<HTMLButtonElement>();
+	let expanded = $state(false);
+	let native = false;
+	let oldOverflow = '';
+
+	function afterLayout(open: boolean) {
+		requestAnimationFrame(() => requestAnimationFrame(() => onfullscreenchange?.(open)));
+	}
+
+	function lockPage() {
+		oldOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+	}
+
+	function unlockPage() {
+		document.body.style.overflow = oldOverflow;
+	}
+
+	function setExpanded(open: boolean, usesNative = false) {
+		if (expanded === open) return;
+		expanded = open;
+		native = open && usesNative;
+		if (open) lockPage();
+		else unlockPage();
+		afterLayout(open);
+		if (!open) requestAnimationFrame(() => trigger?.focus());
+	}
+
+	async function toggleFullscreen() {
+		if (expanded) {
+			if (native && document.fullscreenElement) await document.exitFullscreen();
+			else setExpanded(false);
+			return;
+		}
+		try {
+			if (element.requestFullscreen) {
+				await element.requestFullscreen();
+				setExpanded(true, true);
+				return;
+			}
+		} catch {
+			// Denied requests and iOS Safari use the same fixed fallback.
+		}
+		setExpanded(true);
+	}
+
+	function keepFocus(event: KeyboardEvent) {
+		if (!expanded || event.key !== 'Tab') return;
+		const focusable = [
+			...element.querySelectorAll<HTMLElement>(
+				'a[href], button:not([disabled]), select:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+			)
+		].filter((item) => item.offsetParent !== null);
+		if (!focusable.length) return;
+		const first = focusable[0];
+		const last = focusable.at(-1)!;
+		if (event.shiftKey && document.activeElement === first) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && document.activeElement === last) {
+			event.preventDefault();
+			first.focus();
+		}
+	}
+
+	onMount(() => {
+		const fullscreenChanged = () => {
+			if (native && document.fullscreenElement !== element) setExpanded(false);
+		};
+		const keyboard = (event: KeyboardEvent) => {
+			if (event.key === 'Escape' && expanded && !native) setExpanded(false);
+			else keepFocus(event);
+		};
+		document.addEventListener('fullscreenchange', fullscreenChanged);
+		window.addEventListener('keydown', keyboard);
+		return () => {
+			document.removeEventListener('fullscreenchange', fullscreenChanged);
+			window.removeEventListener('keydown', keyboard);
+			if (expanded) unlockPage();
+		};
+	});
 </script>
 
-<figure class="figure" id={figureId({ title, id })}>
+<figure
+	bind:this={element}
+	class="figure"
+	class:fullscreen-open={expanded}
+	id={figureId({ title, id })}
+>
 	<figcaption class="head">
-		<h2><a class="anchor" href="#{figureId({ title, id })}">{title}</a></h2>
+		<div class="title-row">
+			<h2><a class="anchor" href="#{figureId({ title, id })}">{title}</a></h2>
+			{#if fullscreen}
+				<button
+					bind:this={trigger}
+					type="button"
+					class="fullscreen-toggle"
+					onclick={toggleFullscreen}
+					aria-pressed={expanded}
+					aria-label={expanded ? `Exit full screen: ${title}` : `View full screen: ${title}`}
+				>
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						{#if expanded}
+							<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+						{:else}
+							<path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" />
+						{/if}
+					</svg>
+					<span>{expanded ? 'Close full screen' : 'Full screen'}</span>
+				</button>
+			{/if}
+		</div>
 		<p class="question">{question}</p>
 	</figcaption>
 
@@ -135,6 +251,78 @@
 	.head h2 {
 		margin: 0 0 0.1em;
 		font-size: var(--step-2);
+	}
+
+	.title-row {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: var(--sp-3);
+	}
+
+	.fullscreen-toggle {
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		gap: var(--sp-1);
+		padding: 0.35rem 0.55rem;
+		font-size: var(--step--2);
+		line-height: 1;
+		color: var(--ink-2);
+		background: transparent;
+		border: var(--hair) solid var(--rule-strong);
+	}
+
+	.fullscreen-toggle:hover {
+		color: var(--ink);
+		background: var(--paper-2);
+	}
+
+	.fullscreen-toggle svg {
+		width: 1rem;
+		height: 1rem;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.75;
+		stroke-linecap: square;
+	}
+
+	.figure:fullscreen,
+	.figure.fullscreen-open {
+		box-sizing: border-box;
+		width: 100vw;
+		height: 100vh;
+		margin: 0;
+		padding: clamp(1rem, 3vw, 3rem);
+		overflow: auto;
+		overscroll-behavior: contain;
+		background: var(--paper);
+	}
+
+	/* Fixed fallback for browsers without element.requestFullscreen, notably
+	   iOS Safari. The native selector above and this class share one layout. */
+	.figure.fullscreen-open:not(:fullscreen) {
+		position: fixed;
+		inset: 0;
+		z-index: 1000;
+	}
+
+	.figure:fullscreen .split,
+	.figure.fullscreen-open .split {
+		min-height: 0;
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.figure.fullscreen-open {
+			animation: fullscreen-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+		}
+	}
+
+	@keyframes fullscreen-in {
+		from {
+			opacity: 0.7;
+			clip-path: inset(2rem);
+		}
 	}
 
 	/* The title is its own anchor: a heading a reader can copy a link from,

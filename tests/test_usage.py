@@ -1,6 +1,6 @@
 """The usage aggregation, checked on constructed rows.
 
-`15_usage.py` reads a run that costs money to produce and a corpus that CI does
+`15_usage.py` reads a run that needs a serving GPU and a corpus that CI does
 not have, so everything it decides lives in `lib.usage` and is asserted here
 against rows written by hand. Two kinds of assertion:
 
@@ -1171,6 +1171,33 @@ def test_what_the_second_run_did_is_counted_over_all_of_its_rows() -> None:
     # agreement figures below them are over the overlap alone.
     assert (block["evidence_invalid"], block["abstention"]["referent_unclear"]) == (1, 1)
     assert (block["overlap"], block["contested_any"]) == (1, 0)
+
+
+def test_a_self_hosted_model_block_publishes_and_requires_the_weights_revision() -> None:
+    runtime = {
+        "route": "openai-compatible-responses",
+        "served_model": "Qwen/Qwen3.8-27B",
+        "model_revision": "1" * 40,
+        "vllm_version": "0.28.0",
+        "environments": {"annotator": "locked+llm-client-overlay", "server": "vllm"},
+    }
+    manifest = {
+        "model": "Qwen/Qwen3.8-27B",
+        "runtime": runtime,
+        "truncation_count": 2,
+    }
+    block = step.model_block(manifest, "qwen-run", "f" * 64, rows({}), 7_747)
+    assert block["runtime"] == runtime
+    assert block["truncation_count"] == 2
+
+    with pytest.raises(ValueError, match="model_revision"):
+        step.model_block(
+            {**manifest, "runtime": {**runtime, "model_revision": ""}},
+            "qwen-run",
+            "f" * 64,
+            rows({}),
+            7_747,
+        )
 
 
 def test_an_empty_comparison_is_written_as_a_state_rather_than_as_an_absence() -> None:

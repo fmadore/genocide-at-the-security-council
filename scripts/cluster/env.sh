@@ -52,6 +52,8 @@ load_dotenv
 # ran under, which is how any difference is read back later.
 VENV="${UNSC_VENV:-/workdir/$USER/unsc/venv}"
 EXTRAS_VENV="${UNSC_EXTRAS_VENV:-/workdir/$USER/unsc/venv-extras}"
+VLLM_VENV="${UNSC_VLLM_VENV:-/workdir/$USER/unsc/venv-vllm}"
+LLM_CLIENT_PACKAGES="${UNSC_LLM_CLIENT_PACKAGES:-/workdir/$USER/unsc/llm-client}"
 
 # Hugging Face cache — /workdir (3 TB), never /home (15 GB).
 export HF_HOME="${HF_HOME:-/workdir/$USER/unsc/hf_cache}"
@@ -103,6 +105,69 @@ activate_venv() { _activate "$VENV" "locked"; }
 
 #: The optional-steps environment — 06, 07, 10.
 activate_extras() { _activate "$EXTRAS_VENV" "extras"; }
+
+# The annotator uses the locked pipeline interpreter plus a target-installed
+# protocol client. This keeps the release environment byte-for-byte locked and
+# keeps vLLM's torch resolver in the third, serving-only environment.
+activate_annotator() {
+  activate_venv
+  if [[ ! -d "$LLM_CLIENT_PACKAGES" ]]; then
+    echo "ERROR: no annotation client at $LLM_CLIENT_PACKAGES — run setup_env.sh." >&2
+    exit 1
+  fi
+  export PYTHONPATH="$LLM_CLIENT_PACKAGES${PYTHONPATH:+:$PYTHONPATH}"
+  echo "==> overlay: annotation protocol client ($LLM_CLIENT_PACKAGES)"
+}
+
+activate_vllm() { _activate "$VLLM_VENV" "vLLM serving"; }
+
+# Immutable instrument profiles. Override deployment state (port, cache,
+# concurrency) freely; changing an analytical input such as revision,
+# quantisation or reasoning level must produce a different manifest/run id.
+configure_annotation_model() {
+  local profile="${UNSC_ANNOTATION_MODEL:-qwen}"
+  case "$profile" in
+    qwen)
+      VLLM_MODEL_ID="${VLLM_MODEL_ID:-Qwen/Qwen3.8-27B}"
+      VLLM_MODEL_REVISION="${VLLM_MODEL_REVISION:-1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0}"
+      VLLM_REASONING_PARSER="${VLLM_REASONING_PARSER:-qwen3}"
+      VLLM_REASONING_EFFORT="${VLLM_REASONING_EFFORT:-xhigh}"
+      VLLM_REASONING_LEVELS="${VLLM_REASONING_LEVELS:-low,medium,xhigh}"
+      VLLM_REASONING_LOCATION="${VLLM_REASONING_LOCATION:-chat_template_kwargs}"
+      ;;
+    deepseek)
+      VLLM_MODEL_ID="${VLLM_MODEL_ID:-deepseek-ai/DeepSeek-V4-Flash-0731}"
+      VLLM_MODEL_REVISION="${VLLM_MODEL_REVISION:-7872f01b1d1fe23eabc4c98b48bffcef5a386062}"
+      VLLM_REASONING_PARSER="${VLLM_REASONING_PARSER:-deepseek_v4}"
+      VLLM_REASONING_EFFORT="${VLLM_REASONING_EFFORT:-max}"
+      VLLM_REASONING_LEVELS="${VLLM_REASONING_LEVELS:-low,high,max}"
+      VLLM_REASONING_LOCATION="${VLLM_REASONING_LOCATION:-request}"
+      ;;
+    gemma)
+      VLLM_MODEL_ID="${VLLM_MODEL_ID:-google/gemma-4-31B-it}"
+      VLLM_MODEL_REVISION="${VLLM_MODEL_REVISION:-842da3794eaa0b77d5f08bae87a17459d91ff475}"
+      VLLM_REASONING_PARSER="${VLLM_REASONING_PARSER:-gemma4}"
+      VLLM_REASONING_EFFORT="${VLLM_REASONING_EFFORT:-high}"
+      VLLM_REASONING_LEVELS="${VLLM_REASONING_LEVELS:-low,medium,high}"
+      VLLM_REASONING_LOCATION="${VLLM_REASONING_LOCATION:-chat_template_kwargs}"
+      ;;
+    *) echo "ERROR: unknown UNSC_ANNOTATION_MODEL '$profile' (qwen, deepseek, gemma)." >&2; exit 2 ;;
+  esac
+  VLLM_PORT="${VLLM_PORT:-8000}"
+  VLLM_MAX_MODEL_LEN="${VLLM_MAX_MODEL_LEN:-65536}"
+  VLLM_TENSOR_PARALLEL_SIZE="${VLLM_TENSOR_PARALLEL_SIZE:-1}"
+  VLLM_QUANTIZATION="${VLLM_QUANTIZATION:-none}"
+  VLLM_GPU_MEMORY_UTILIZATION="${VLLM_GPU_MEMORY_UTILIZATION:-0.90}"
+  VLLM_TEMPERATURE="${VLLM_TEMPERATURE:-0.0}"
+  VLLM_TOP_P="${VLLM_TOP_P:-1.0}"
+  VLLM_BASE_URL="${VLLM_BASE_URL:-http://127.0.0.1:$VLLM_PORT/v1}"
+  export VLLM_MODEL_ID VLLM_MODEL_REVISION VLLM_REASONING_PARSER
+  export VLLM_REASONING_EFFORT VLLM_REASONING_LOCATION VLLM_PORT
+  export VLLM_REASONING_LEVELS
+  export VLLM_MAX_MODEL_LEN VLLM_TENSOR_PARALLEL_SIZE VLLM_QUANTIZATION
+  export VLLM_GPU_MEMORY_UTILIZATION VLLM_BASE_URL
+  export VLLM_TEMPERATURE VLLM_TOP_P
+}
 
 # Match the thread pools to what Slurm actually granted. Left alone, OpenMP and
 # BLAS size themselves from the number of cores on the *node* (64+ here), which

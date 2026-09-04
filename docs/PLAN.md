@@ -576,8 +576,8 @@ corpus-wide run:
 2. Create a stratified human-coded gold set including difficult negatives, quoted/denied
    claims, commemorative uses and OCR damage.
 3. Measure per-class precision, recall, macro F1, abstention and evidence-span validity.
-4. Run prompt/model sensitivity and negative controls; keep model and prompt versions in
-   every output.
+4. Run prompt/model sensitivity and negative controls; keep the prompt version and the
+   immutable model-weight repository revision in every run record.
 5. Require a second human coder on a subset and report agreement. Adjudicate disagreements
    before setting thresholds.
 6. Ship only categories that meet predeclared thresholds. Mark all model-derived fields in
@@ -601,10 +601,13 @@ and F1 against the human rows above a support floor of twenty, with counts below
 macro and a support-weighted average, the share of double-coded occurrences each field's
 score was *not* computed over, and evidence validity; the `/usage` view displays them
 beside the model output, including the honest zero state while coding is under way;
-(4) model id and prompt hash travel in every output row and every run manifest, and the
-pilot and full runs stay committed side by side under `model_annotations/` — the
-second-model sensitivity run landed as L8 on 31 August 2026, and a second-*prompt* one is
-still owed before any citable claim; (5) both coders, FM and JG, code the full sample independently,
+(4) model id and prompt hash travel in every output row and every run manifest. Since
+4 September 2026, step 14 uses one OpenAI-compatible transport to pinned open weights on
+university hardware; a new manifest also records the Hugging Face revision, vLLM version,
+hardware, serving flags, reasoning placement and sampling parameters. Historical hosted
+runs remain readable without guessed back-fills. Pilot and full runs stay committed side by
+side under `model_annotations/`, and a second-*prompt* run is still owed before any citable
+claim; (5) both coders, FM and JG, code the full sample independently,
 100% double-coded, with adjudication per the codebook; (6) shares are withheld below a
 declared minimum, every model-derived surface is marked experimental, and the supporting
 quotation is one click away everywhere — predeclared per-class thresholds for promoting a

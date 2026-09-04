@@ -69,7 +69,7 @@ export_web.py          assembles and validates the dashboard payload
 
 Steps 06, 07, and 10 (embeddings, topics, and lemmatisation) remain optional and
 require the environment described in [`docs/CLUSTER.md`](docs/CLUSTER.md).
-Steps 14 and 16 make paid LLM calls and are never run by CI.
+Step 14 runs pinned open-weights models on university hardware and is never run by CI.
 
 ## Produced data
 
@@ -107,6 +107,9 @@ versioned for provenance. The `current_run.txt` and `comparison_run.txt`
 pointers are empty after migration. A new run must cover all 7,747 current
 occurrences; see [`model_annotations/README.md`](model_annotations/README.md)
 and [`scripts/README.md`](scripts/README.md).
+The next published and comparison instruments are `Qwen/Qwen3.8-27B` and
+`deepseek-ai/DeepSeek-V4-Flash-0731` (with `google/gemma-4-31B-it` as the recorded
+fallback), served locally through vLLM at pinned Hugging Face revisions.
 
 ## Licence and citation
 

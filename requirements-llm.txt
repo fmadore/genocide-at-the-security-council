@@ -1,33 +1,25 @@
-# The dependencies of the model annotation steps (14 and 16), and of nothing else.
+# The protocol client used by model annotation step 14, and by nothing else.
 #
 # Separate from `requirements.txt` for the same reason `requirements-cluster.txt`
 # is separate: a step that does not run in CI and does not run in the deploy
 # should not put a package into the environment that both of them install. CI
 # installs `requirements.lock` only, so it never sees this file — which is what
-# makes the lazy `import openai` inside `14_llm_annotate.py`'s functions, and the
-# lazy `from google import genai` inside `16_llm_annotate_gemini.py`'s, an
-# enforced discipline rather than a stylistic preference. `scripts/lib/llm.py`
-# and `scripts/lib/gemini.py`, where all the logic lives, import nothing from
-# here at all and are unit-tested on a machine that has never installed it.
+# makes the lazy `import openai` inside `14_llm_annotate.py` an enforced
+# discipline rather than a stylistic preference. `scripts/lib/llm.py`, where
+# the analytical contract lives, imports nothing from here and is unit-tested
+# on a machine that has never installed it.
 #
 # Not hash-pinned. Reproducing a run does not mean reinstalling this file: a run
 # is a committed artefact under `model_annotations/`, and what identifies it is
 # the model id, the prompt hash and the referent hash recorded in its manifest,
 # none of which the client library version can change.
 #
-# Install only when you are about to spend money:
+# Install in the locked annotation environment on the cluster:
 #     python -m pip install -r requirements-llm.txt
 #
-# Range verified against PyPI on 3 September 2026; 3.7.0 is the current release.
-# The major is capped because 3.0 already moved the library's HTTP client
-# once. 14 uses the Batch API over the Responses API endpoint with a strict
-# JSON-schema text format; those surfaces are stable across the 3.x line.
+# Range verified against PyPI on 3 September 2026; 3.7.0 was the current release.
+# The package is used as a protocol client for the OpenAI-compatible Responses
+# endpoint served by vLLM, not as a client for a hosted vendor. The major stays
+# capped because 3.0 already moved the HTTP client once; the run manifest pins
+# the server and weights that determine the analytical output.
 openai>=3.6.0,<4
-
-# Step 16, the Gemini counter-instrument. Range verified against PyPI on
-# 31 August 2026: 2.20.0 is the current release (requires Python >= 3.10) and the
-# major is capped because a 3.0 would be free to move `client.batches`, which is
-# the surface 16 depends on — file upload, job creation, polling and result
-# download. 16 uses `client.batches` and `client.models.generate_content` with
-# `response_json_schema`; both are stable across the 2.x line.
-google-genai>=2.20,<3

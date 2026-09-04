@@ -1290,6 +1290,12 @@ committed run.
 
 ### R5. Full screen on every ECharts and MapLibre figure
 
+**Status: complete on 4 September 2026.** The opt-in now lives on `Figure`, is enabled for
+the five ECharts figures, the Actors map and the delegation-by-referent matrix, and carries
+the complete caption and provenance apparatus into both the native and fixed-overlay paths.
+The matrix browser spec exercises the fallback, reads a real cell, exits with Escape, checks
+focus restoration and runs the accessibility scan.
+
 **Decision, 3 September 2026.** Asked for twice in one session, over a table too wide to read
 in the column it sits in. Five ECharts figures (`Chart.svelte`: the home page ×2, chronology
 ×2, language ×1) and the MapLibre map on Actors get a full-screen control — six figures, one
@@ -1319,6 +1325,13 @@ provenance mark — goes with it: a figure without its account of itself is the 
   covered by a test and not only by the chart libraries.
 
 ### R6. The referent list is published beside the prompt
+
+**Status: complete on 4 September 2026.** The usage payload now carries the definitions and
+version bounds from the controlled list, and the model block records which version the run
+saw (with the two pre-field hosted runs correctly read as version 1). The page reconstructs
+only the identifiers valid at that version, publishes their definitions and run counts beside
+the prompt, and marks an identifier that was retired later with its successor. The browser
+spec reads the identifier, definition and count from the disclosure.
 
 **Decision, 3 September 2026.** `/usage` publishes the prompt in full and does not publish the
 controlled list the prompt renders into itself — the list that decides what every column of
@@ -1838,6 +1851,11 @@ unchanged, and C6 is the one place where the new pair needs a new precaution.
 
 ### C1. One transport, two instruments
 
+**Status, 4 September 2026: complete locally.** One vLLM Responses transport now serves both
+profiles; the retired Gemini implementation is gone while its committed runs and archived
+prompt remain readable. Offline tests cover both reasoning placements, strict JSON recovery,
+truncation and the shared row contract.
+
 **Change.** 14 and 16 are two scripts because the OpenAI Batch API and the Gemini Batch API
 are two APIs. vLLM makes both instruments the same API, so the counter-instrument stops being
 a second script: fold the two into one step against an OpenAI-compatible endpoint, selected by
@@ -1874,6 +1892,13 @@ Two transport details the hosted path did not need:
   its prompt stays resolvable through `prompts/`.
 
 ### C2. The serving harness, and where it runs
+
+**Status, 4 September 2026: installed on the cluster; GPU smoke queued.** The filtered dirty
+working tree was transferred, the client overlay and isolated vLLM 0.28.0 environment were
+installed without moving the locked environment, and the exact Qwen revision was downloaded
+and checksum-verified. Development-partition allocations 748011 and 748012 were both killed
+by Slurm at zero elapsed time before the script opened either log. The equivalent bounded
+one-H100 smoke is queued as 748013; this is scheduler evidence, not yet serving evidence.
 
 **Change.** `scripts/cluster/` gains the serving pattern already proven in
 `iwac-ai-pipelines/serving/` and, through it, in festus-transcribe: one sourced `env.sh`
@@ -1912,6 +1937,11 @@ between the environments; an environment does not.
   the job.
 
 ### C3. Maximum reasoning, declared and demonstrated
+
+**Status, 4 September 2026: gate implemented; demonstration job 748013 queued.** Each profile declares
+its full ladder and parameter placement. The unattended job now runs a paired corpus-speech
+probe, records latency and reasoning-token medians under `data/interim`, reuses an identical
+passed probe on resume, and refuses a flat ladder. No probe artefact exists until the GPU smoke.
 
 **Change.** Both instruments run at their own top level, which is not the same string in each:
 
@@ -1955,6 +1985,12 @@ value it never reached, and the distinction is the one the codebook's `unclear` 
 
 ### C4. Size the job before submitting it
 
+**Status, 4 September 2026: local durability complete; hardware gates pending.** The 65,536
+context and requested hardware are explicit. Raw receipts and validated rows are flushed one
+response at a time, and the manifest checkpoints atomically after each response while folding
+them into one scheduler pass. Restart skips only complete rows from the same prompt and model;
+the dev smoke and the DeepSeek/Gemma serving decision remain open.
+
 **Change.** Compute the run's shape from the corpus before requesting an allocation. Measured
 over `data/derived/speeches_flagged.parquet` on 4 September 2026:
 
@@ -1990,9 +2026,11 @@ a different prompt digest ignored rather than reused, so that resuming across a 
 cannot mix two instruments in one file. `lib.llm.completed` already does the skipping; what is
 new is that the job is expected to be killed rather than to fail.
 
-Smoke first, on `dev` inside its 90-minute wall, over a few dozen speeches: it proves the
-serving path, the reasoning parser, the schema and the resume, and — following 06's rule — it
-writes to its own directory so that a smoke run can never be mistaken for a corpus run.
+Smoke first, over a few dozen speeches: it proves the serving path, the reasoning parser, the
+schema and the resume, and — following 06's rule — it writes to its own directory so that a
+smoke run can never be mistaken for a corpus run. The 4 September attempt established that
+`dev` advertises two idle L40s but can still kill an allocation before the batch script
+starts; after two zero-runtime failures, the smoke moved unchanged to one H100 on `GPU`.
 
 **Gate: DeepSeek may not be servable here, and that has to be tested before it is promised.**
 It is the counter-instrument rather than the published run precisely because of what follows,
@@ -2028,6 +2066,11 @@ DeepSeek and this cluster could not serve it" are different sentences in a metho
 
 ### C5. The weights get a digest
 
+**Status, 4 September 2026: complete locally; first real manifest pending.** New manifests
+require and publish the immutable repository revision, vLLM version, hardware, serving flags,
+reasoning placement, sampling and truncation count. The web boundary rejects a partial runtime
+block but accepts both untouched hosted manifests; `/usage` displays revision and hardware.
+
 **Change.** A run's manifest gains what a self-hosted route makes knowable and a hosted one
 never did: `route`, the served model id, **the Hugging Face repository revision** — the commit
 of the weights, which is the thing that actually reproduces — the quantisation as loaded, the
@@ -2058,6 +2101,11 @@ on, at what draft depth, and leave the claim about equivalence to whoever measur
   there rather than back-filled with guesses.
 
 ### C6. Two laboratories under one regulator is a shared blind spot
+
+**Status, 4 September 2026: first slice complete.** New failure rows carry a machine-readable
+`transport_refusal`, `truncation` or `validation_failure` kind, distinct from abstention values
+inside a valid schema. Their per-referent denominators, withholding and paired UI have not yet
+been implemented; they depend on the actual pair that clears the serving smoke.
 
 **Decision.** L8's sentence — agreement between two models measures stability across
 instruments, never accuracy — was written because two models can share training habits and be
@@ -2100,6 +2148,11 @@ the corpus actually contains rather than assumed to have covered them.
 - No agreement figure is published without the abstention figures beside it.
 
 ### C7. Documentation, the ledger and the acknowledgement
+
+**Status, 4 September 2026: documentation migrated; acknowledgement wording pending.** The
+current run books, environment example, dependency files and methods mapping describe the
+keyless vLLM route. The exact DFG acknowledgement still needs confirmation before it can be
+placed in `CITATION.cff`, the README and every model-derived page.
 
 **Change.** The documents that currently describe a paid hosted run, in the order a reader
 meets them:
@@ -2249,3 +2302,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-09-03 | Phase R defined: the second reader's second review | documented | pending | Documentation only; no code changed, so no gate was re-run. Every claim in the phase was recomputed from committed artefacts: the confidence distributions from the two `annotations.jsonl` (Gemini `high` 6,035/6,092, no `low`; Luna `low` 4), the referent counts and `comparison.state: "none"` from `web/build/data/usage/usage.json`, the schema-2 field list from the head of `runs/2026-08-30-luna-v1/annotations.jsonl`, and R8's corpus size with pandas over `data/derived/speeches_flagged.parquet` (4,286 speeches carrying `ethnic_cleansing`, `crimes_against_humanity` or `war_crimes` and no `genocid*`; 7,494 occurrences of the four atrocity terms in them). `grep` confirms no test or script reads this file. | A recorded working session with Joël Glasman, the second after the one that produced Phase L, read against the site as it stood on the `2026-08-30-luna-v1` run. Recorded as a phase rather than as untracked edits, on the precedent of the 28 August entry, and cited section by section against `REVIEW_2026-09-01.md`, which was made independently and reaches several of the same findings. Eight items, all decided by the author: R1 splits the referent column into situation + modality with a `group` roll-up (referents v3, schema 4, prompt v3); R2 adds the accuser-by-accused matrix the study's own question wants, from schema 3's `accused_actor`; R3 puts a derived provenance mark — computed / mixed / model-derived — on every figure, read off `Figure`'s `source` string so it cannot be asserted falsely, and labelled "computed from the record" rather than "objective" because the lexicon is a hand-built instrument; R4 removes `confidence` from the model schema and the page and keeps it for human coders, who do abstain; R5 adds full screen, extended past the requested ECharts and MapLibre figures to the matrix that prompted the request and is neither; R6 publishes the referent list beside the prompt it is rendered into; R7 removes the register and set aggregates, adopts an intensity ordinal, and accepts that this re-cuts or removes the home page's second figure; R8 sizes the run over atrocity vocabulary in speeches that never say the word. Two things the session said are corrected here rather than carried: the 813 occurrences read off the screen for the sanctions category are 14, so R1 rests on the epistemological argument alone; and R2 is entirely blocked on a run against prompt v2, since no committed row carries `accused_actor`. Nothing is implemented; R1–R4 wait on that v2 run, R5–R7 do not. |
 | 2026-09-03 | Phase R extended: the session's second part, R9-R15 | documented | pending | Documentation only; no code changed. New claims recomputed from artefacts: the corpus swap read from `config/dataset-pin.json`, `data/raw/dataset-manifest.json` and `data/derived/manifests/01_build_parquet.json` (Sakamoto-Matsuoka v5.0, `doi:10.7910/DVN/CKPTRB`, 167,642 speeches over 9,464 meetings, 1946-2024); R8's and R9's counts and R10's contrasts recomputed with pandas over the new `speeches_flagged.parquet` (4,133 genocide-bearing speeches, 7,747 occurrences; 4,716 speeches with the three atrocity terms and no `genocid*`; 1,556 meetings holding 50,735 speeches); R15's join key from `source_cow_ccode` (158,563 of 167,642 rows, 200 codes); R14's page sizes from `wc -l` over the routes and `Contents.svelte` read for what it does. | The second half of the same recorded session. Seven new items and five amendments. Amendments: R1 gains `referent_secondary`, a bounded second slot chosen over a list field (which would break "a cell is a count of occurrences" and cost Cohen's kappa) and over a second row (which would break `occurrence_id`); R3 carries the provenance mark into the navigation and names `/language`'s unclear purpose; R7 gains the composition argument (the reader ticks the terms, the author does not pre-group them), retires `r2p_quartet` on the 1992-vs-2000s anachronism, and rebuilds the intensity ordinal on legal status after correcting this document's own claim about ethnic cleansing - it is cited in legal texts as an aggravating qualification of a crime, not as a crime, which is a third tier the earlier draft collapsed; R8 splits into a cheap computed overview and the model layer, on the session's own sequencing. New: R9 makes the meeting a unit and adds a three-value corpus scope, with the rule that a scope never moves a denominator; R10 records the counter-concept question and the measurement that refuses its naive form - the terrorism contrast changes sign between the two corpora (13.1% vs 12.0% on 1946-2024; 15.3% vs 19.5% on 1992-2023), so the unadjusted comparison measures the agenda and the item ships only a meeting-paired design; R11 adds the crime of aggression, absent from the lexicon and central at Nuremberg; R12 records three figures whose purpose did not survive their reader, explicitly without deciding; R13 commissions a signed epistemological page from the second reader; R14 takes the long-page navigation and the home page's misread denominator; R15 states the government/State distinction now and defers the leader-dataset join. The corpus migration is recorded in the preamble rather than as an item: it is the author's work in progress and it answers the session's scraping question by making scraping unnecessary. |
 | 2026-09-04 | Phase C defined: the models move to the cluster | documented | pending | Documentation only; no code changed, so no gate was re-run. New claims computed rather than quoted: the run's shape from `data/derived/speeches_flagged.parquet` with pandas (4,133 speeches carrying `genocid*`, 7,747 occurrences, 32.7M characters, longest 151,713 characters and six above ~24k tokens at four characters to the token); the three checkpoints read off the Hugging Face repositories on 4 September 2026 (`Qwen/Qwen3.8-27B`, 27B dense, Apache-2.0, `reasoning_effort` low/medium/xhigh inside `chat_template_kwargs`; `deepseek-ai/DeepSeek-V4-Flash-0731`, 304B, fp8 block-quantised, 48 shards totalling ~170 GB, `reasoning_effort` low/high/max, no Jinja chat template, recipes targeting 4xGB300 with a `deep_gemm` MoE backend; `google/gemma-4-31B-it`, 31B dense, Apache-2.0, ungated, whose ladder the sibling repository measured as a switch); the partition table and the environment split from `docs/CLUSTER.md`; the serving pattern and the one measured throughput figure from `iwac-ai-pipelines/serving/`. | The model layer stops calling hosted commercial APIs and moves to open weights served with vLLM on the Bayreuth cluster: Qwen3.8-27B as the published run, DeepSeek-V4-Flash-0731 as the counter-instrument with Gemma 4 31B named in advance as its substitute, each at its own maximum reasoning level. The published slot goes to the model that fits one card, because the published run is the one that gets made again after every prompt revision, and it puts the demanding model where a serving failure costs a comparison rather than the layer. The argument is reproducibility and the measurability of a reasoning level, and the phase says in its own preamble that cost and confidentiality are **not** the reasons here, so neither can be cited later as though it had been. C1 folds 14 and 16 into one step because vLLM makes both instruments one API; C2 puts the harness in `scripts/cluster/` with a third venv for vLLM and an unattended job that needs no key at all, the corpus already being on the cluster; C3 makes maximum reasoning a measured claim, with a probe that blocks a run whose ladder is flat and with truncation counted as failure rather than as abstention; C4 sizes the job (65,536-token context, one H100 for Qwen, the whole four-H100 node for DeepSeek, resumability across a 24-hour wall as a requirement) and gates the DeepSeek path on a `dev` smoke test, since Hopper has neither the MoE backend nor the fp4 indexer its recipes assume, the release ships no chat template, and it wants the `--trust-remote-code` step 06 refuses on principle; C5 records the weights' repository revision, which is the first time a model input can be pinned as hard as the corpus is by its DOI; C6 states the new pair's shared regulatory exposure — one national framework over both labs, on a corpus about who accuses whom — says how substituting Gemma changes it, and makes per-referent abstention and refusal publishable so that a shared silence cannot read as stability; C7 lists the documents that still describe a paid run and puts the DFG acknowledgement (523317330) in scope for every model-derived figure. L3 and L8 are not rewritten: each gains a dated pointer saying what Phase C supersedes and what it leaves standing. Nothing is implemented, and the phase is timed by the corpus migration — both pointer files are already empty, so the instrument swap costs no comparability that the v5 migration had not already spent, and the next run is also R1's prompt v3 and schema 4. |
+| 2026-09-04 | Phase C implementation, local slice: C1–C5 and C7 | in progress | pending | `python -m pytest` (1,076 passed); `ruff check .`; Bash `-n` over the cluster harness; `npm test` (492); `npm run check` (0 errors, 0 warnings); `npm run lint` (21 figures, 2,332 words); `npm run build` (13 entry points, 4 icons); `npm run test:e2e` (26 journeys) | Replaced both hosted transports with one keyless OpenAI-compatible vLLM path; preserved legacy run readability; added strict fence/balanced-JSON recovery without repair; pinned Qwen, DeepSeek and Gemma revisions; added isolated serving/client environments, offline downloads, loopback serving and an unattended cleanup trap; made responses, rows, failures and manifest counters durable one response at a time across scheduler walltime; added a blocking, resumable reasoning-ladder probe; and published validated runtime provenance on `/usage`. C6 remains open. Cluster installation and smoke are not claimed: the read-only VPN/SSH check found the repository and an idle dev GPU, but transferring the working tree was withheld because it requires explicit authorisation to copy repository contents to the remote system. |

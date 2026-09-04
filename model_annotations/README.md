@@ -9,11 +9,11 @@
 
 Files below this directory are durable, version-controlled research inputs, exactly as the
 ones under `annotations/` are. The difference is who wrote them: `scripts/14_llm_annotate.py`
-writes a run once, by hand, against a paid API. Every later step reads it. Nothing rebuilds
-it — not a pipeline re-run, not CI, not the deploy.
+writes a run through a pinned open-weights model on university hardware. Every later step
+reads it. Nothing rebuilds it — not a pipeline re-run, not CI, not the deploy.
 
 That is a constraint, not a filing preference. The GitHub Pages deploy rebuilds all derived
-data from the pinned corpus, and it can never make a paid API call. A model run therefore has
+data from the pinned corpus, and it never starts a GPU model. A model run therefore has
 to arrive the way the human annotations arrive: already present, committed, reviewable as a
 diff. A run kept under `data/` would be git-ignored, missing from the deploy, and unciteable.
 
@@ -36,22 +36,22 @@ genocide/
   current_run.txt              the run id the dashboard shows, or empty for none
   comparison_run.txt           the run id read against it as a second opinion, or empty
   runs/<run_id>/
-    manifest.json              model, prompt hash, counts, token usage, status
+    manifest.json              weights revision, runtime, prompt, counts, usage, status
     annotations.jsonl          one row per annotated occurrence
     failures.jsonl             one row per speech whose response was refused, with the reason
 ```
 
 One directory per lexicon term, one directory per run. A run id names the day, the model and
-the prompt version — `2026-09-05-luna-v1` — because those three are what a reader needs to
+the prompt version — `2026-09-05-qwen-v3` — because those three are what a reader needs to
 tell two runs apart. Runs are append-only and are never edited in place: `annotations.jsonl`
-grows as batches return, and a rerun with a changed prompt is a new run id, never a rewrite of
+grows as responses return, and a rerun with a changed prompt is a new run id, never a rewrite of
 an old one. The prompt hash is recorded in the manifest *and* in every row, so a row can be
 matched to the exact prompt text that produced it without trusting the directory name.
 
 ## `prompts/`
 
 The superseded prompt texts, one file per version, named `v<n>.md`. `PROMPT.md` holds the
-current one and is the only file 14 and 16 render; when it is revised, its old text moves
+current one and is the only file 14 renders; when it is revised, its old text moves
 here unchanged and `PROMPT.md` gets a higher `version:` line.
 
 This directory exists because the digest is the whole provenance. Every run records the
@@ -76,9 +76,16 @@ to find it: the digest is what was measured, and the version line is a claim abo
 validation contributes no rows, which leaves a coverage gap; 15 reports that gap rather than
 smoothing over it, and the failure file says which speeches and why.
 
-Raw API responses are *not* here. They go to `data/interim/llm_raw/<run_id>/`, which is
+Raw protocol responses are *not* here. They go to `data/interim/llm_raw/<run_id>/`, which is
 git-ignored, because they are large, they carry nothing the validated rows do not, and they
 are for debugging one run rather than for citing it.
+
+For self-hosted runs, `manifest.json` also records the immutable Hugging Face revision,
+served model id, quantisation, vLLM version, GPU model and count, context length, reasoning
+parser, tensor-parallel size, prefix/speculative settings, reasoning parameter placement,
+sampling parameters, output ceiling and truncation count. The server command can therefore
+be reconstructed from the run record. The four hosted 2026-08 runs predate these fields and
+are intentionally not back-filled with guesses.
 
 ## `current_run.txt`
 

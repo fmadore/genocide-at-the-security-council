@@ -355,6 +355,68 @@ const validateUsageComparison = (record: JsonRecord, path: string): void => {
 };
 
 /**
+ * A self-hosted run is only reproducible when its optional runtime block is
+ * complete. Historical hosted artefacts omit the block altogether and remain
+ * valid; a half-written block, however, must not be presented as provenance.
+ */
+const validateUsageRuntime = (model: JsonRecord, path: string): void => {
+	if (!('runtime' in model)) return;
+	const runtime = requireRecord(model, 'runtime', `${path}.model`);
+	for (const field of ['route', 'served_model', 'model_revision', 'quantization', 'vllm_version']) {
+		if (typeof runtime[field] !== 'string' || !runtime[field].trim()) {
+			throw new Error(`${path}.model.runtime.${field} must be a non-empty string.`);
+		}
+	}
+	if (!/^[0-9a-f]{40}$/i.test(runtime.model_revision as string)) {
+		throw new Error(`${path}.model.runtime.model_revision must be a 40-character commit SHA.`);
+	}
+	const environments = requireRecord(runtime, 'environments', `${path}.model.runtime`);
+	for (const field of ['annotator', 'server']) {
+		if (typeof environments[field] !== 'string' || !environments[field].trim()) {
+			throw new Error(`${path}.model.runtime.environments.${field} must be a non-empty string.`);
+		}
+	}
+
+	const hardware = requireRecord(runtime, 'hardware', `${path}.model.runtime`);
+	if (typeof hardware.gpu_model !== 'string' || !hardware.gpu_model.trim()) {
+		throw new Error(`${path}.model.runtime.hardware.gpu_model must name the GPU.`);
+	}
+	if (!Number.isInteger(hardware.gpu_count) || Number(hardware.gpu_count) < 1) {
+		throw new Error(`${path}.model.runtime.hardware.gpu_count must be a positive integer.`);
+	}
+
+	const serving = requireRecord(runtime, 'serving', `${path}.model.runtime`);
+	for (const field of ['max_model_len', 'tensor_parallel_size']) {
+		if (!Number.isInteger(serving[field]) || Number(serving[field]) < 1) {
+			throw new Error(`${path}.model.runtime.serving.${field} must be a positive integer.`);
+		}
+	}
+	if (typeof serving.reasoning_parser !== 'string' || !serving.reasoning_parser.trim()) {
+		throw new Error(`${path}.model.runtime.serving.reasoning_parser must be a non-empty string.`);
+	}
+	if (typeof serving.prefix_caching !== 'boolean') {
+		throw new Error(`${path}.model.runtime.serving.prefix_caching must be a boolean.`);
+	}
+
+	const reasoning = requireRecord(runtime, 'reasoning', `${path}.model.runtime`);
+	for (const field of ['parameter', 'value', 'location']) {
+		if (typeof reasoning[field] !== 'string' || !reasoning[field].trim()) {
+			throw new Error(`${path}.model.runtime.reasoning.${field} must be a non-empty string.`);
+		}
+	}
+
+	const sampling = requireRecord(runtime, 'sampling', `${path}.model.runtime`);
+	for (const field of ['temperature', 'top_p']) {
+		if (!Number.isFinite(sampling[field])) {
+			throw new Error(`${path}.model.runtime.sampling.${field} must be a finite number.`);
+		}
+	}
+	if (!Number.isInteger(runtime.max_output_tokens) || Number(runtime.max_output_tokens) < 1) {
+		throw new Error(`${path}.model.runtime.max_output_tokens must be a positive integer.`);
+	}
+};
+
+/**
  * The experimental layer, refused on the four things it can get wrong quietly.
  *
  * This artefact is model output, which is exactly why the boundary is stricter
@@ -370,6 +432,7 @@ const validateUsage: Validator = (record, path) => {
 	if (typeof model.id !== 'string' || typeof model.prompt_sha256 !== 'string') {
 		throw new Error(`${path}.model must name the model it ran and the prompt it ran with.`);
 	}
+	validateUsageRuntime(model, path);
 
 	const gold = recordAt(record, 'gold');
 	if (typeof gold.state !== 'string' || !GOLD_STATES.has(gold.state)) {

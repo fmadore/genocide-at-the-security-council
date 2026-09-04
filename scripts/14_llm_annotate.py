@@ -1,45 +1,28 @@
-"""Annotate every `genocide` occurrence with a model, once, by hand.
+"""Annotate every `genocide` occurrence through a local vLLM server.
 
 **This step is never run by CI and never run by the deploy.** It is the only
-thing in the repository that spends money, and the only thing that cannot be
-reproduced by re-running the pipeline: the GitHub Pages build rebuilds all
-derived data from the pinned corpus and has no key, no budget and no way to
-re-ask a model. What it produces is therefore a *committed input* —
+thing in the repository that writes model interpretations, and the GitHub Pages
+build never runs it. What it produces is therefore a *committed input* —
 `model_annotations/genocide/runs/<run_id>/` — read by `15_usage.py` exactly as
 the human annotations under `annotations/` are read by 03. See
 `model_annotations/README.md`, and docs/PLAN.md §5: no model output may
 overwrite corpus text, lexicon counts or human annotations. Nothing here writes
 into `annotations/`, into any parquet, or into any lexicon artefact.
 
-The key is read from `OPENAI_API_KEY` in the environment. This repository has no
-dotenv loader — `.env` is shell configuration for the cluster harness, sourced by
-`scripts/cluster/env.sh` and never by a Python step — so export the variable in
-your shell for the length of the run. It is never written into a manifest, a row
-or a log.
-
-The default path is the **Batch API** over the Responses API: one request per
-speech, chunked, with every batch id written into the manifest the moment it
-exists, so an interrupted run resumes with `--poll` instead of being resubmitted
-and paid for twice. `--live` calls the Responses API directly with bounded
-concurrency, for a pilot small enough that waiting a day would be the expensive
-part.
+The OpenAI-compatible base URL is read from `VLLM_BASE_URL` in the environment,
+never from an argument. The server normally binds to loopback on the compute
+node, so the annotation job needs no API key and exposes no port. The model id
+is still an explicit argument because it identifies the analytical instrument.
 
 A speech whose response fails validation contributes no rows. It is recorded in
 `failures.jsonl` with the reason and left absent, because the alternative — a
 repaired or retried-until-plausible annotation — is an annotation nobody wrote.
 15 reports the resulting coverage gap.
 
-The model this study targets is `gpt-5.6-luna` (Responses + Batch endpoints,
-structured outputs, reasoning effort none|low|medium|high|xhigh|max, 128k output
-ceiling — developers.openai.com/api/docs/models/gpt-5.6-luna, checked
-2026-08-30). Pass the id exactly: the `gpt-5.6` alias routes to Sol, a different
-model, and the id recorded in every row is the id that was actually asked.
-
 Usage:
-    export OPENAI_API_KEY=...
-    python scripts/14_llm_annotate.py --run-id 2026-09-05-luna-v1 \\
-        --model gpt-5.6-luna [--reasoning-effort high] [--limit 25] \\
-        [--live] [--poll] [--retry-failures]
+    export VLLM_BASE_URL=http://127.0.0.1:8000/v1
+    python scripts/14_llm_annotate.py --run-id 2026-09-05-qwen-pilot \\
+        --model Qwen/Qwen3.8-27B --reasoning-effort xhigh --limit 25
 """
 
 from __future__ import annotations
@@ -47,11 +30,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import random
 import sys
-import time
 from collections.abc import Callable, Sequence
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -60,17 +41,17 @@ from lib import annotate, artifacts, audit, console, llm
 from lib.annotate import Builder, Outcome, Speech
 from lib.paths import INTERIM, MODEL_ANNOTATIONS, ROOT, ensure_dirs, rel
 
-#: The population, the columns, the ceiling and the manifest are 16's too, and
-#: live in `lib.annotate` so the two steps cannot drift apart; see its docstring.
+#: The population, columns, ceiling and manifest live in `lib.annotate`, where
+#: transport-independent run rules cannot drift from this entry point.
 TERM = annotate.TERM
 DOCUMENTED_SPEECHES = annotate.DOCUMENTED_SPEECHES
 DOCUMENTED_OCCURRENCES = annotate.DOCUMENTED_OCCURRENCES
 COLUMNS = annotate.COLUMNS
-BATCH_CHUNK = annotate.BATCH_CHUNK
 
 STORE = MODEL_ANNOTATIONS / TERM
 PROMPT = STORE / "PROMPT.md"
 RUNS = STORE / "runs"
+SMOKE_RUNS = INTERIM / "model_annotation_smoke"
 CURRENT_RUN = STORE / "current_run.txt"
 REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
 
@@ -79,12 +60,9 @@ REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
 #: nothing the validated rows do not.
 RAW = INTERIM / "llm_raw"
 
-#: The Batch API's documented terminal states.
-BATCH_TERMINAL = frozenset({"completed", "failed", "expired", "cancelled"})
-
-#: The provider's own hard ceiling on one response, which
-#: `lib.annotate.output_ceiling` clamps to. 100k sits under Luna's 128k.
-MAX_OUTPUT_TOKENS = 100_000
+#: The server is launched with a 65,536-token context. The output bound remains
+#: generous but cannot claim more room than that shared window provides.
+MAX_OUTPUT_TOKENS = 65_536
 
 EMPTY_USAGE = {
     "input_tokens": 0,
@@ -94,41 +72,25 @@ EMPTY_USAGE = {
 }
 
 
+class ResponseTruncated(ValueError):
+    """The server reached the output cap before an answer existed."""
+
+
 
 
 # --- The API, kept behind functions so the import stays lazy -----------------
 
 
 def client(timeout: float = 900.0):
-    """An SDK client. Imported here, so CI never needs the package installed."""
+    """A protocol client for the vLLM Responses endpoint.
+
+    Imported lazily so the deterministic pipeline and CI do not install the
+    optional SDK.  vLLM requires an API-key-shaped value in the OpenAI client,
+    but the loopback server does not authenticate it.
+    """
     from openai import OpenAI
 
-    return OpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=timeout)
-
-
-def _transient(error: BaseException) -> bool:
-    from openai import (
-        APIConnectionError,
-        APITimeoutError,
-        InternalServerError,
-        RateLimitError,
-    )
-
-    return isinstance(
-        error, RateLimitError | APIConnectionError | APITimeoutError | InternalServerError
-    )
-
-
-def with_backoff(call: Callable[[], object], *, attempts: int = 6, base: float = 2.0) -> object:
-    """Retry only what the API says is worth retrying, with growing waits."""
-    for attempt in range(attempts):
-        try:
-            return call()
-        except Exception as error:
-            if attempt == attempts - 1 or not _transient(error):
-                raise
-            time.sleep(base * 2**attempt + random.uniform(0, 1))
-    raise RuntimeError("unreachable")
+    return OpenAI(base_url=os.environ["VLLM_BASE_URL"], api_key="not-used", timeout=timeout)
 
 
 def output_text(body: dict[str, object]) -> str:
@@ -142,6 +104,8 @@ def output_text(body: dict[str, object]) -> str:
     if status == "incomplete":
         details = body.get("incomplete_details")
         reason = details.get("reason", "unknown") if isinstance(details, dict) else "unknown"
+        if reason in {"max_output_tokens", "max_tokens"}:
+            raise ResponseTruncated(f"response incomplete ({reason})")
         raise ValueError(f"response incomplete ({reason})")
     chunks = []
     for item in body.get("output") or []:
@@ -180,155 +144,7 @@ def usage_of(body: dict[str, object]) -> dict[str, int]:
     }
 
 
-# --- Batch mode --------------------------------------------------------------
-
-
-def batch_input(
-    path: Path,
-    speeches: Sequence[Speech],
-    build: Builder,
-    model: str,
-    effort: str,
-    cache_key: str = "",
-) -> int:
-    """One `/v1/responses` request per speech, one JSON object per line."""
-    lines = [
-        json.dumps(
-            {
-                "custom_id": speech.custom_id,
-                "method": "POST",
-                "url": "/v1/responses",
-                "body": llm.request_body(
-                    build(speech),
-                    model=model,
-                    reasoning_effort=effort,
-                    max_output_tokens=annotate.output_ceiling(speech, MAX_OUTPUT_TOKENS),
-                    prompt_cache_key=cache_key,
-                ),
-            },
-            ensure_ascii=False,
-        )
-        for speech in speeches
-    ]
-    artifacts.atomic_write_text(path, "\n".join(lines) + "\n")
-    return len(lines)
-
-
-def submit(
-    api: object,
-    speeches: Sequence[Speech],
-    build: Builder,
-    *,
-    run_id: str,
-    model: str,
-    effort: str,
-    raw: Path,
-    cache_key: str = "",
-) -> tuple[list[str], int]:
-    """Upload and create one batch per chunk, returning the ids and what they hold.
-
-    The request count comes back with the ids because it is the only place it
-    is known: a chunk that raised before `batches.create` returned sent
-    nothing, and a manifest that recorded the intention would be counting a
-    request nobody made. The Gemini run's 7,966 is what that costs.
-    """
-    identifiers = []
-    sent = 0
-    chunks = [
-        speeches[start : start + BATCH_CHUNK] for start in range(0, len(speeches), BATCH_CHUNK)
-    ]
-    for number, chunk in enumerate(chunks, start=1):
-        path = raw / f"batch-{number:03d}.input.jsonl"
-        count = batch_input(path, chunk, build, model, effort, cache_key)
-
-        def upload(path: Path = path) -> object:
-            # Reopened per attempt: a retry over a consumed stream uploads an
-            # empty file, and the batch that follows would be silently empty.
-            with path.open("rb") as stream:
-                return api.files.create(file=stream, purpose="batch")
-
-        uploaded = with_backoff(upload)
-
-        def create(input_file_id: str = uploaded.id, chunk_number: int = number) -> object:
-            return api.batches.create(
-                input_file_id=input_file_id,
-                endpoint="/v1/responses",
-                completion_window="24h",
-                metadata={"run_id": run_id, "chunk": str(chunk_number)},
-            )
-
-        batch = with_backoff(create)
-        identifiers.append(str(batch.id))
-        sent += count
-        console.info(f"batch {number}/{len(chunks)}: {batch.id} ({count} requests)")
-    return identifiers, sent
-
-
-def poll(api: object, batch_ids: Sequence[str], *, seconds: int, raw: Path) -> Outcome:
-    """Wait for every batch, then read its output and error files."""
-    pending = list(batch_ids)
-    finished: dict[str, object] = {}
-    while pending:
-        for batch_id in list(pending):
-
-            def retrieve(identifier: str = batch_id) -> object:
-                return api.batches.retrieve(identifier)
-
-            batch = with_backoff(retrieve)
-            if batch.status in BATCH_TERMINAL:
-                counts = getattr(batch, "request_counts", None)
-                detail = f" ({counts.completed} returned, {counts.failed} failed)" if counts else ""
-                console.info(f"{batch_id}: {batch.status}{detail}")
-                finished[batch_id] = batch
-                pending.remove(batch_id)
-        if pending:
-            console.info(f"{len(pending)} batch(es) still running; next check in {seconds}s")
-            time.sleep(seconds)
-
-    outcome = Outcome()
-    for batch_id, batch in finished.items():
-        for attribute, suffix in (("output_file_id", "output"), ("error_file_id", "errors")):
-            file_id = getattr(batch, attribute, None)
-            if not file_id:
-                continue
-
-            def download(identifier: str = str(file_id)) -> object:
-                return api.files.content(identifier)
-
-            content = with_backoff(download)
-            payload = content.text if hasattr(content, "text") else content.read().decode("utf-8")
-            artifacts.atomic_write_text(raw / f"{batch_id}.{suffix}.jsonl", payload)
-            read_results(payload, outcome, batch_id=batch_id)
-        if batch.status != "completed":
-            console.warn(f"{batch_id} ended as {batch.status}")
-    return outcome
-
-
-def read_results(payload: str, outcome: Outcome, *, batch_id: str) -> None:
-    """Split one batch output file into usable bodies and recorded failures."""
-    for line in payload.splitlines():
-        if not line.strip():
-            continue
-        try:
-            result = json.loads(line)
-        except json.JSONDecodeError as error:
-            outcome.failures.append(
-                {"custom_id": "", "reason": f"batch line is not JSON: {error}", "batch": batch_id}
-            )
-            continue
-        custom_id = str(result.get("custom_id", ""))
-        response = result.get("response") or {}
-        status = response.get("status_code")
-        if result.get("error") or status != 200:
-            reason = result.get("error") or f"HTTP {status}"
-            outcome.failures.append(
-                {"custom_id": custom_id, "reason": str(reason)[:300], "batch": batch_id}
-            )
-            continue
-        outcome.responses[custom_id] = response.get("body") or {}
-
-
-# --- Live mode ---------------------------------------------------------------
+# --- OpenAI-compatible transport --------------------------------------------
 
 
 def live(
@@ -338,12 +154,16 @@ def live(
     *,
     model: str,
     effort: str,
+    reasoning_location: str,
+    temperature: float,
+    top_p: float,
     workers: int,
     raw: Path,
     cache_key: str = "",
+    on_result: Callable[[Outcome], None] | None = None,
 ) -> Outcome:
-    """Direct Responses API calls, a bounded number of them at a time."""
-    outcome = Outcome(requests=len(speeches))
+    """Direct Responses API calls, durably yielded one response at a time."""
+    outcome = Outcome()
 
     def ask(speech: Speech) -> tuple[str, dict[str, object] | None, str]:
         body = llm.request_body(
@@ -352,35 +172,44 @@ def live(
             reasoning_effort=effort,
             max_output_tokens=annotate.output_ceiling(speech, MAX_OUTPUT_TOKENS),
             prompt_cache_key=cache_key,
+            reasoning_location=reasoning_location,
+            temperature=temperature,
+            top_p=top_p,
         )
 
-        def call() -> object:
-            return api.responses.create(**body)
-
         try:
-            response = with_backoff(call)
+            response = api.responses.create(**body)
         except Exception as error:  # recorded as a failure, not retried further
             return speech.custom_id, None, f"{type(error).__name__}: {error}"[:300]
         return speech.custom_id, response.model_dump(mode="json"), ""
 
-    records = []
+    raw_file = raw / f"live-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{os.getpid()}.jsonl"
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        for done, (custom_id, body, error) in enumerate(pool.map(ask, speeches), start=1):
+        futures = {pool.submit(ask, speech): speech.custom_id for speech in speeches}
+        for done, future in enumerate(as_completed(futures), start=1):
+            custom_id, body, error = future.result()
+            result = Outcome(requests=1)
             if body is None:
-                outcome.failures.append({"custom_id": custom_id, "reason": error, "batch": "live"})
+                failure = {
+                    "custom_id": custom_id,
+                    "kind": "transport_refusal",
+                    "reason": error,
+                    "batch": "live",
+                }
+                result.failures.append(failure)
+                outcome.failures.append(failure)
             else:
+                result.responses[custom_id] = body
                 outcome.responses[custom_id] = body
-                records.append(
-                    json.dumps(
-                        {"custom_id": custom_id, "response": {"status_code": 200, "body": body}},
-                        ensure_ascii=False,
-                    )
+                llm.append_rows(
+                    raw_file,
+                    [{"custom_id": custom_id, "response": {"status_code": 200, "body": body}}],
                 )
+            outcome.requests += 1
+            if on_result is not None:
+                on_result(result)
             if done % 25 == 0 or done == len(speeches):
                 console.info(f"{done:,}/{len(speeches):,} speeches answered")
-    if records:
-        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-        artifacts.atomic_write_text(raw / f"live-{stamp}.jsonl", "\n".join(records) + "\n")
     return outcome
 
 
@@ -397,28 +226,26 @@ def harvest(
 ) -> dict[str, int]:
     """Validate, locate the evidence, and append. One bad speech loses one speech.
 
-    `already` names the speeches whose rows are on disk. A `--poll` reads every
-    batch the manifest records, not only the ones still outstanding, so a
-    resumed run downloads answers that were written on an earlier pass;
-    appending them a second time corrupts no label — the answers are identical —
-    but it doubles the file, and every count taken from it afterwards is wrong.
-    `usage.row_problems` would then refuse the run rather than repair it, which
-    is the right refusal about a fault that should not have happened.
-
-    16 gained this guard at commit 2fbd205, under load, and 14 did not, because
-    the batch path it was found on is the one 14 had already finished with. It
-    is the same parameter, doing the same thing, and the two harvests differ now
-    only in how a provider names a token.
+    `already` names speeches whose complete rows were on disk before this
+    scheduler pass began. It guards a resumed run against duplicating durable
+    rows. `usage.row_problems` would refuse duplicates rather than repair them,
+    which is the right refusal about a fault that should not have happened.
     """
     rows: list[dict[str, object]] = []
     failures = list(outcome.failures)
-    invalid = relocated = 0
+    invalid = relocated = truncations = 0
     totals = dict(EMPTY_USAGE)
 
     for custom_id, body in outcome.responses.items():
         speech = scope.get(custom_id)
         if speech is None:
-            failures.append({"custom_id": custom_id, "reason": "not a speech in this run"})
+            failures.append(
+                {
+                    "custom_id": custom_id,
+                    "kind": "validation_failure",
+                    "reason": "not a speech in this run",
+                }
+            )
             continue
         if speech.filename in already:
             continue
@@ -433,8 +260,20 @@ def harvest(
             annotated = llm.annotation_rows(speech.occurrences, speech.body, labels, meta)
             for row in annotated:
                 llm.validate_row(row, referents)
+        except ResponseTruncated as error:
+            truncations += 1
+            failures.append(
+                {"custom_id": custom_id, "kind": "truncation", "reason": f"truncated: {error}"}
+            )
+            continue
         except (ValueError, KeyError) as error:
-            failures.append({"custom_id": custom_id, "reason": f"{type(error).__name__}: {error}"})
+            failures.append(
+                {
+                    "custom_id": custom_id,
+                    "kind": "validation_failure",
+                    "reason": f"{type(error).__name__}: {error}",
+                }
+            )
             continue
         invalid += sum(1 for row in annotated if not row["evidence_valid"])
         relocated += sum(1 for row in annotated if row["evidence_relocated"])
@@ -454,7 +293,62 @@ def harvest(
         "failures": len(failures),
         "evidence_invalid": invalid,
         "evidence_relocated": relocated,
+        "truncations": truncations,
         **totals,
+    }
+
+
+def runtime_record(args: argparse.Namespace) -> dict[str, object]:
+    """The self-hosted facts required to reproduce a new run."""
+    required = {
+        "model_revision": "VLLM_MODEL_REVISION",
+        "vllm_version": "VLLM_VERSION",
+        "gpu_model": "VLLM_GPU_MODEL",
+        "gpu_count": "VLLM_GPU_COUNT",
+        "max_model_len": "VLLM_MAX_MODEL_LEN",
+        "reasoning_parser": "VLLM_REASONING_PARSER",
+        "quantization": "VLLM_QUANTIZATION",
+        "tensor_parallel_size": "VLLM_TENSOR_PARALLEL_SIZE",
+    }
+    absent = [variable for variable in required.values() if not os.environ.get(variable)]
+    if absent:
+        console.fail(
+            "The vLLM runtime record is incomplete",
+            [f"missing {', '.join(absent)}", "use scripts/cluster/submit_annotate.sh"],
+        )
+    values = {key: os.environ[variable] for key, variable in required.items()}
+    revision = values["model_revision"]
+    if len(revision) != 40 or any(character not in "0123456789abcdefABCDEF" for character in revision):
+        console.fail("VLLM_MODEL_REVISION must be a full 40-character commit SHA")
+    return {
+        "route": "openai-compatible-responses",
+        "served_model": args.model,
+        "model_revision": revision,
+        "quantization": values["quantization"],
+        "vllm_version": values["vllm_version"],
+        "environments": {
+            "annotator": "locked+llm-client-overlay",
+            "server": "vllm",
+        },
+        "hardware": {
+            "gpu_model": values["gpu_model"],
+            "gpu_count": int(values["gpu_count"]),
+        },
+        "serving": {
+            "max_model_len": int(values["max_model_len"]),
+            "reasoning_parser": values["reasoning_parser"],
+            "tensor_parallel_size": int(values["tensor_parallel_size"]),
+            "prefix_caching": True,
+            "speculative_decoding": None,
+            "moe_backend": os.environ.get("VLLM_MOE_BACKEND") or None,
+        },
+        "reasoning": {
+            "parameter": "reasoning_effort",
+            "value": args.reasoning_effort,
+            "location": args.reasoning_location,
+        },
+        "sampling": {"temperature": args.temperature, "top_p": args.top_p},
+        "max_output_tokens": MAX_OUTPUT_TOKENS,
     }
 
 
@@ -463,16 +357,24 @@ def harvest(
 
 def run(args: argparse.Namespace) -> None:
     ensure_dirs()
-    if "OPENAI_API_KEY" not in os.environ:
+    if args.concurrency < 1:
+        console.fail("--concurrency must be at least 1")
+    if args.limit is not None and args.limit < 1:
+        console.fail("--limit must be at least 1")
+    if args.temperature < 0 or not 0 < args.top_p <= 1:
+        console.fail("sampling values are invalid", ["temperature must be >= 0 and top-p in (0, 1]"])
+    if args.smoke and args.limit is None:
+        console.fail("--smoke requires --limit", ["a smoke run must never cover the full corpus"])
+    if "VLLM_BASE_URL" not in os.environ:
         console.fail(
-            "OPENAI_API_KEY is not set",
+            "VLLM_BASE_URL is not set",
             [
-                "this step calls a paid API by hand; CI and the deploy never run it",
-                "export the key in your shell — it is never written to any artefact",
+                "start the pinned vLLM server before running this step",
+                "export its OpenAI-compatible /v1 URL; never put the route on the command line",
             ],
         )
 
-    directory = RUNS / args.run_id
+    directory = (SMOKE_RUNS if args.smoke else RUNS) / args.run_id
     paths = {
         "manifest": directory / "manifest.json",
         "annotations": directory / "annotations.jsonl",
@@ -494,21 +396,14 @@ def run(args: argparse.Namespace) -> None:
         f"sha256 {referents_sha256[:12]}"
     )
 
-    # The fixed prefix is the system message: the prompt's text with the referent
-    # table rendered into it, identical in all 3,273 requests and about 9M of the
-    # first run's 13.8M input tokens (review §4.2, item 8). Both providers cache
-    # such a prefix without being asked; a key is what keeps the requests that
-    # share it on one cache instead of several. `--no-prompt-cache` omits the
-    # field entirely, which reproduces a run made before it existed.
-    cache_key = (
-        "" if args.no_prompt_cache else llm.cache_key(pack.sha256, referents_sha256)
-    )
-    console.info(
-        f"prompt cache key {cache_key}" if cache_key else "prompt cache key omitted"
-    )
-
     previous = annotate.read_manifest(paths["manifest"])
     annotate.refuse_mismatch(previous, args.run_id, args.model, pack.sha256)
+    runtime = runtime_record(args)
+    if previous.get("runtime") not in (None, runtime):
+        console.fail(
+            f"Run {args.run_id} was started with a different vLLM runtime",
+            ["a changed weight revision or serving configuration requires a new --run-id"],
+        )
 
     console.step("Enumerating the term")
     everything, speeches, lexicon_version = annotate.gather(args.limit)
@@ -553,79 +448,11 @@ def run(args: argparse.Namespace) -> None:
     def build(speech: Speech) -> llm.SpeechRequest:
         return llm.build_request(speech.meta, speech.body, speech.occurrences, pack, table)
 
-    direct = args.live or args.retry_failures
-    mode = "poll" if args.poll else ("live" if direct else "batch")
-    api = client()
-    batch_ids: list[str] = []
-
-    if args.poll:
-        batch_ids = [str(value) for value in previous.get("batch_ids") or []]
-        if not batch_ids:
-            console.fail("--poll: the manifest records no batch ids to poll")
-        console.step(f"Polling {len(batch_ids)} batch(es)")
-        outcome = poll(api, batch_ids, seconds=args.poll_seconds, raw=raw)
-    elif not remaining:
-        console.step("Nothing left to ask")
-        outcome = Outcome()
-    elif direct:
-        console.step(f"Asking {len(remaining):,} speeches directly ({args.concurrency} at a time)")
-        outcome = live(
-            api,
-            remaining,
-            build,
-            model=args.model,
-            effort=args.reasoning_effort,
-            workers=args.concurrency,
-            raw=raw,
-            cache_key=cache_key,
-        )
-    else:
-        console.step(f"Submitting {len(remaining):,} speeches to the Batch API")
-        batch_ids, sent = submit(
-            api,
-            remaining,
-            build,
-            run_id=args.run_id,
-            model=args.model,
-            effort=args.reasoning_effort,
-            raw=raw,
-            cache_key=cache_key,
-        )
-        # Before a single result exists: an interrupted run must be resumable
-        # with --poll rather than resubmitted and paid for a second time. The
-        # count is what `submit` actually created jobs for, so a submission that
-        # stopped halfway records the half it paid for.
-        annotate.write_manifest(
-            paths["manifest"],
-            previous,
-            meta=meta,
-            referents_sha256=referents_sha256,
-            mode=mode,
-            limit=args.limit,
-            batch_ids=batch_ids,
-            planned_requests=len(speeches),
-            planned_occurrences=planned_occurrences,
-            requests=sent,
-            returned=0,
-            complete=len(already),
-            written=len(llm.read_rows(paths["annotations"])),
-            parse_failures=0,
-            evidence_invalid=0,
-            evidence_relocated=0,
-            usage=dict(EMPTY_USAGE),
-        )
-        console.info(f"batch ids recorded in {rel(paths['manifest'])}")
-        previous = annotate.read_manifest(paths["manifest"])
-        console.step(f"Polling {len(batch_ids)} batch(es)")
-        outcome = poll(api, batch_ids, seconds=args.poll_seconds, raw=raw)
-        outcome.requests = 0  # the batches were counted when they were created
-
-    console.step("Validating and writing")
-    tally = harvest(outcome, scope, meta, referents, paths, already=frozenset(already))
-    console.info(f"{tally['written']:,} rows appended to {rel(paths['annotations'])}")
-    if tally["failures"]:
-        console.warn(f"{tally['failures']} speeches refused; see {rel(paths['failures'])}")
-
+    # Establish the artefact counts once, then update them from each response.
+    # Re-reading the full JSONL after every speech would turn a linear run into
+    # a quadratic one; relying on memory alone would lose the checkpoint on a
+    # walltime kill. Rows, failures and the atomic manifest are therefore all
+    # flushed by `checkpoint` before the next completed future is consumed.
     rows = llm.read_rows(paths["annotations"])
     per_speech: dict[str, int] = {}
     for row in rows:
@@ -636,33 +463,94 @@ def run(args: argparse.Namespace) -> None:
         for speech in speeches
         if per_speech.get(speech.filename, 0) >= len(speech.occurrences)
     }
-    outstanding = len(
+    outstanding_ids = (
         {str(row.get("custom_id", "")) for row in llm.read_rows(paths["failures"])}
         & {speech.custom_id for speech in speeches if speech.filename not in covered}
     )
-
-    manifest = annotate.write_manifest(
-        paths["manifest"],
-        previous,
-        meta=meta,
-        referents_sha256=referents_sha256,
-        mode=mode,
-        limit=args.limit,
-        batch_ids=batch_ids,
-        planned_requests=len(speeches),
-        planned_occurrences=planned_occurrences,
-        requests=outcome.requests,
-        returned=annotate.fresh_returns(outcome.responses, answered),
-        complete=len(covered),
-        written=len(rows),
-        parse_failures=outstanding,
-        evidence_invalid=sum(1 for row in rows if not row.get("evidence_valid")),
-        evidence_relocated=sum(1 for row in rows if row.get("evidence_relocated")),
-        usage={key: tally[key] for key in EMPTY_USAGE},
+    written = len(rows)
+    evidence_invalid = sum(1 for row in rows if not row.get("evidence_valid"))
+    evidence_relocated = sum(1 for row in rows if row.get("evidence_relocated"))
+    mode = "vllm"
+    source_commit = artifacts.git_commit(ROOT)
+    pass_id = (
+        f"{os.environ.get('SLURM_JOB_ID', 'local')}-"
+        f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}-{os.getpid()}"
     )
+    manifest = previous
+    total_appended = total_failures = 0
+
+    def checkpoint(result: Outcome) -> None:
+        nonlocal manifest, written, evidence_invalid, evidence_relocated
+        nonlocal total_appended, total_failures
+        tally = harvest(result, scope, meta, referents, paths, already=frozenset(already))
+        total_appended += tally["written"]
+        total_failures += tally["failures"]
+        written += tally["written"]
+        evidence_invalid += tally["evidence_invalid"]
+        evidence_relocated += tally["evidence_relocated"]
+
+        result_ids = {*result.responses, *(str(row.get("custom_id", "")) for row in result.failures)}
+        successful: set[str] = set()
+        if tally["written"]:
+            for custom_id in result.responses:
+                speech = scope.get(custom_id)
+                if speech is not None and tally["written"] == len(speech.occurrences):
+                    covered.add(speech.filename)
+                    successful.add(custom_id)
+        outstanding_ids.difference_update(successful)
+        outstanding_ids.update(result_ids - successful)
+
+        manifest = annotate.write_manifest(
+            paths["manifest"],
+            manifest,
+            meta=meta,
+            referents_sha256=referents_sha256,
+            mode=mode,
+            limit=args.limit,
+            batch_ids=[],
+            planned_requests=len(speeches),
+            planned_occurrences=planned_occurrences,
+            requests=result.requests,
+            returned=annotate.fresh_returns(result.responses, answered),
+            complete=len(covered),
+            written=written,
+            parse_failures=len(outstanding_ids),
+            evidence_invalid=evidence_invalid,
+            evidence_relocated=evidence_relocated,
+            usage={key: tally[key] for key in EMPTY_USAGE},
+            runtime=runtime,
+            truncations=tally["truncations"],
+            pass_id=pass_id,
+            source_commit=source_commit,
+        )
+
+    api = client()
+    if not remaining:
+        console.step("Nothing left to ask")
+        checkpoint(Outcome())
+    else:
+        console.step(f"Asking {len(remaining):,} speeches directly ({args.concurrency} at a time)")
+        live(
+            api,
+            remaining,
+            build,
+            model=args.model,
+            effort=args.reasoning_effort,
+            reasoning_location=args.reasoning_location,
+            temperature=args.temperature,
+            top_p=args.top_p,
+            workers=args.concurrency,
+            raw=raw,
+            on_result=checkpoint,
+        )
+
+    console.step("Validated and written")
+    console.info(f"{total_appended:,} rows appended to {rel(paths['annotations'])}")
+    if total_failures:
+        console.warn(f"{total_failures} speeches refused; see {rel(paths['failures'])}")
 
     console.step("Run")
-    located = len(rows) - int(manifest["evidence_invalid"])
+    located = written - int(manifest["evidence_invalid"])
     console.table(
         [
             ("run", manifest["run_id"]),
@@ -670,9 +558,9 @@ def run(args: argparse.Namespace) -> None:
             ("reasoning effort", manifest["reasoning_effort"]),
             ("prompt", f"v{manifest['prompt_version']} {manifest['prompt_sha256'][:12]}"),
             ("speeches", f"{len(covered):,} of {len(speeches):,} complete"),
-            ("occurrences", f"{len(rows):,} of {planned_occurrences:,} annotated"),
-            ("refused", f"{outstanding} speeches"),
-            ("evidence located", f"{located:,} of {len(rows):,}"),
+            ("occurrences", f"{written:,} of {planned_occurrences:,} annotated"),
+            ("refused", f"{len(outstanding_ids)} speeches"),
+            ("evidence located", f"{located:,} of {written:,}"),
             ("of those relocated", f"{manifest['evidence_relocated']:,}"),
             ("requests", f"{manifest['requests']['sent']:,} sent over "
              f"{len(manifest['passes'])} pass(es)"),
@@ -685,45 +573,41 @@ def run(args: argparse.Namespace) -> None:
             f"commit {rel(directory)}, then put {args.run_id} in {rel(CURRENT_RUN)} to publish it"
         )
     else:
-        console.info(f"resume with --poll --run-id {args.run_id}")
+        console.info(f"resume with --run-id {args.run_id} and the same model settings")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--run-id", required=True, help="e.g. 2026-09-05-luna-v1")
+    parser.add_argument("--run-id", required=True, help="e.g. 2026-09-05-qwen-pilot")
     parser.add_argument(
         "--model",
         required=True,
-        help=(
-            "exact API model id, recorded verbatim in every row — for this study "
-            "`gpt-5.6-luna`; never the `gpt-5.6` alias, which routes to Sol"
-        ),
+        help="exact served model id, recorded verbatim in every row and the manifest",
     )
-    # The documented set for the GPT-5.6 family (developers.openai.com, model page
-    # for gpt-5.6-luna, checked 2026-08-30). Closed on purpose: a new effort level
-    # arriving in the API becomes a reviewable diff here, not a silent pass-through.
     parser.add_argument(
         "--reasoning-effort",
-        default="high",
-        choices=("none", "low", "medium", "high", "xhigh", "max"),
-        help="reasoning effort, default high",
+        required=True,
+        choices=("low", "medium", "high", "xhigh", "max"),
+        help="model-specific requested level; no implicit default",
     )
     parser.add_argument(
-        "--no-prompt-cache",
-        action="store_true",
-        help=(
-            "omit prompt_cache_key, reproducing a request made before caching was "
-            "asked for. The prefix may still be cached; nothing routes it."
-        ),
+        "--reasoning-location",
+        required=True,
+        choices=("request", "chat_template_kwargs"),
+        help="where this model's template reads reasoning_effort",
     )
     parser.add_argument("--limit", type=int, help="pilot: the first N genocide-bearing speeches")
-    parser.add_argument("--live", action="store_true", help="direct calls instead of the Batch API")
-    parser.add_argument("--poll", action="store_true", help="resume: poll the manifest's batch ids")
     parser.add_argument(
-        "--retry-failures", action="store_true", help="re-ask only the refused speeches, live"
+        "--smoke",
+        action="store_true",
+        help="write under data/interim/model_annotation_smoke; requires --limit",
     )
-    parser.add_argument("--poll-seconds", type=int, default=60, help="seconds between batch checks")
-    parser.add_argument("--concurrency", type=int, default=4, help="live calls in flight")
+    parser.add_argument(
+        "--retry-failures", action="store_true", help="re-ask only previously refused speeches"
+    )
+    parser.add_argument("--concurrency", type=int, default=4, help="requests in flight")
+    parser.add_argument("--temperature", type=float, required=True, help="sampling temperature")
+    parser.add_argument("--top-p", type=float, required=True, help="nucleus-sampling probability")
     run(parser.parse_args())
 
 
