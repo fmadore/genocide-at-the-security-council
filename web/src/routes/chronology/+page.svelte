@@ -79,7 +79,12 @@
 
 	let unit = $state<Unit>('speech_rate');
 	let grain = $state<'year' | 'quarter'>('year');
-	let selected = $state<string[]>(['genocide_qualification']);
+	let selected = $state<string[]>([
+		'genocide_qualification',
+		'ethnic_cleansing',
+		'crimes_against_humanity',
+		'war_crimes'
+	]);
 	let showEvents = $state(true);
 	/* Which kinds of reference date the rail shows. Presentational, like the
 	   overlay toggle itself: not written into the URL. */
@@ -97,6 +102,10 @@
 
 	const source = $derived(grain === 'year' ? data.year : data.quarter);
 	const periods = $derived(source.periods.map(String));
+	const genocideFreeAtrocity = $derived(data.year.corpora?.genocide_free_atrocity ?? null);
+	const genocideFreeAtrocitySpeeches = $derived(
+		(genocideFreeAtrocity?.speeches ?? []).reduce((total, value) => total + value, 0)
+	);
 
 	/* Live chart handles, for the image half of the export. */
 	let seriesFigure = $state<Chart | null>(null);
@@ -833,8 +842,9 @@
 
 		{#snippet reading()}
 			<p>
-				Pick terms under the chart; drag the bar under the axis to zoom. Colour follows the term's
-				<strong>register</strong>.
+				The chart opens with four explicit terms: <em>genocide</em>, <em>ethnic cleansing</em>,
+				<em>crimes against humanity</em> and <em>war crimes</em>. Add or remove terms under the
+				chart; drag the bar under the axis to zoom.
 				{#if unit === 'speech_rate'}The faint <strong>band</strong> around each line is its 95%
 					Wilson interval: wide where the {grain} held few speeches; overlapping bands are not telling
 					the terms apart.{/if}
@@ -850,6 +860,20 @@
 				{source.periods[source.periods.length - 1]}. A line not divided by that is a picture of the
 				growth. Sets have no occurrence count, because a speech using two members would count twice,
 				and show only in share units.
+			</p>
+		{/snippet}
+		{#snippet more()}
+			<p>
+				{#if genocideFreeAtrocity}
+					The pipeline names <strong>{count(genocideFreeAtrocitySpeeches)} speeches</strong> as
+					<em>atrocity vocabulary without the word</em>: they use <em>ethnic cleansing</em>,
+					<em>crimes against humanity</em> or <em>war crimes</em> and contain no
+					<code>genocid*</code> match. A speech using two of the phrases enters once. This is a corpus
+					boundary for comparison, not a measure that treats the phrases as interchangeable.
+				{:else}
+					This archived payload predates the named comparison corpus. The four term series remain
+					separate and readable; no missing union is reconstructed in the browser.
+				{/if}
 			</p>
 		{/snippet}
 
@@ -870,7 +894,8 @@
 		<section class="picker">
 			<h3>Terms</h3>
 			<p class="hint">
-				Grouped by register. A <strong>set</strong> counts several terms together; a
+				Select any number of individual terms; the opening four make the atrocity comparison
+				explicit. Grouped by register. A <strong>set</strong> counts several terms together; a
 				<strong>register</strong> counts every term in one family of vocabulary at once.
 			</p>
 			{#each chipGroups as group (group.heading)}

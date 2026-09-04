@@ -969,6 +969,21 @@ The source distribution contains 6,595 document records but 6,582 distinct
 `meeting_symbol` values. The web reader therefore exports 6,595 files; aggregate Council
 statistics use 6,582 distinct symbols. Documentation and UI must name the relevant unit.
 
+### Atrocity vocabulary without `genocid*`
+
+Step 04 now names a comparison corpus by a row-level predicate rather than by summing term
+series: a speech uses `ethnic_cleansing`, `crimes_against_humanity` or `war_crimes`, and its
+`has_genocide` flag is false. Applied to the 1946–2024 flagged corpus on 4 September 2026,
+the union contains **4,716 speeches**. A speech carrying two member phrases enters once; a
+speech carrying one of them and `genocid*` enters neither this corpus nor its denominator by
+accident—it is excluded explicitly. The annual, quarterly and monthly blocks carry the
+predicate's members, exclusion, counts, rates and Wilson bounds; the end-to-end golden fixes
+the arithmetic on a constructed overlap and the unit test refuses a missing membership flag.
+
+This is an overview population, not a claim that the three phrases are interchangeable. The
+chronology publishes them as three separate selectable lines beside `genocide_qualification`.
+No model label from the genocide occurrence layer is joined to this population.
+
 ## Self-hosted model run gates
 
 **Implemented gate; execution open: reasoning ladder.** `scripts/probe_reasoning.py` probes

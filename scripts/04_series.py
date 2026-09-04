@@ -63,6 +63,15 @@ from lib.paths import (
 #: `config/lexicon.yml`'s `derived` block.
 TRACKED = [("terms", "genocide_qualification"), ("sets", "atrocity_core")]
 
+#: R8's comparison corpus. These are phrases with determinate legal meanings,
+#: not the broader convenience set in the lexicon. A speech enters once when it
+#: carries any member and leaves whenever it carries `genocid*` too.
+GENOCIDE_FREE_ATROCITY_TERMS = (
+    "ethnic_cleansing",
+    "crimes_against_humanity",
+    "war_crimes",
+)
+
 #: Speeches a month must hold before its rates are published.
 #:
 #: Derived, not declared: at the corpus prevalence of about 3.1%, observing no
@@ -162,6 +171,52 @@ def rates(values, digits: int) -> list[float | None]:
     return [None if pd.isna(v) else round(float(v), digits) for v in values]
 
 
+def comparison_corpora(
+    speeches: pd.DataFrame,
+    periods: pd.Series,
+    totals: pd.DataFrame,
+    *,
+    minimum: int | None = None,
+) -> dict[str, dict[str, object]]:
+    """Named corpus slices whose membership is a reproducible row predicate.
+
+    This is deliberately not a set measure. It defines which speeches a later
+    analysis may read, and counts each qualifying speech once even when it uses
+    two or three member phrases. The member term series remain separate.
+    """
+    columns = [f"has_{term}" for term in GENOCIDE_FREE_ATROCITY_TERMS]
+    missing = sorted({"has_genocide", *columns} - set(speeches.columns))
+    if missing:
+        raise ValueError("Comparison corpus is missing columns: " + ", ".join(missing))
+    included = speeches[columns].fillna(False).astype(bool).any(axis=1)
+    has_genocide = speeches["has_genocide"].fillna(False).astype(bool)
+    working = speeches.assign(has_genocide_free_atrocity=included & ~has_genocide)
+    measured = series.measure(
+        working,
+        periods,
+        totals,
+        "has_genocide_free_atrocity",
+        None,
+    )
+    if minimum is not None:
+        measured = series.withhold_below(measured, totals["speeches"], minimum)
+    return {
+        "genocide_free_atrocity": {
+            "label": "Atrocity vocabulary without genocid*",
+            "definition": (
+                "Speeches using ethnic cleansing, crimes against humanity or war crimes "
+                "and containing no genocid* match."
+            ),
+            "members": list(GENOCIDE_FREE_ATROCITY_TERMS),
+            "excludes": ["genocide"],
+            "speeches": measured["speeches"].tolist(),
+            "speech_rate": rates(measured["speech_rate"], 6),
+            "speech_rate_low": rates(measured["speech_rate_low"], 6),
+            "speech_rate_high": rates(measured["speech_rate_high"], 6),
+        }
+    }
+
+
 def build_series(
     speeches: pd.DataFrame,
     lex: lexicon.Lexicon,
@@ -197,6 +252,12 @@ def build_series(
     }
     if minimum is not None:
         payload["sufficient"] = (totals["speeches"] >= minimum).tolist()
+    payload["corpora"] = comparison_corpora(
+        speeches,
+        periods,
+        totals,
+        minimum=minimum,
+    )
 
     computed: dict[str, dict[str, pd.DataFrame]] = {}
     for kind, entries in measures(lex).items():

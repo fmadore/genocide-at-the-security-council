@@ -36,11 +36,33 @@ describe('the headline the chronology opens on', () => {
 		},
 		splits: ['none']
 	};
+	const withAtrocityComparison: ChronologyChoices = {
+		...withDerived,
+		series: {
+			year: ['genocide_qualification', 'ethnic_cleansing', 'crimes_against_humanity', 'war_crimes'],
+			quarter: [
+				'genocide_qualification',
+				'ethnic_cleansing',
+				'crimes_against_humanity',
+				'war_crimes'
+			]
+		}
+	};
 
 	it('opens on the derived measure, not the raw term', () => {
 		const state = readChronologyState(new URLSearchParams(''), withDerived);
 		expect(state.series).toEqual(['genocide_qualification']);
 		expect(state.calendarMeasure).toBe('genocide_qualification');
+	});
+
+	it('opens the R8 comparison as four explicit terms when all are available', () => {
+		const state = readChronologyState(new URLSearchParams(''), withAtrocityComparison);
+		expect(state.series).toEqual([
+			'genocide_qualification',
+			'ethnic_cleansing',
+			'crimes_against_humanity',
+			'war_crimes'
+		]);
 	});
 
 	it('falls back to the raw term when the artefact has no derived measure', () => {

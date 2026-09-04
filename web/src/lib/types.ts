@@ -41,11 +41,25 @@ export interface Measure {
 	members?: string[];
 }
 
+/** A named population of speeches, not a summed vocabulary measure. */
+export interface CorpusSlice {
+	label: string;
+	definition: string;
+	members: string[];
+	excludes: string[];
+	speeches: number[];
+	speech_rate: (number | null)[];
+	speech_rate_low: (number | null)[];
+	speech_rate_high: (number | null)[];
+}
+
 export interface AnnualSeries {
 	meta: LexiconMeta;
 	freq: 'year' | 'quarter';
 	periods: (number | string)[];
 	corpus: { speeches: number[]; words: number[]; meetings: number[] };
+	/** Present on artifacts written after R8; optional so archived payloads remain readable. */
+	corpora?: Record<string, CorpusSlice>;
 	terms: Record<string, Measure>;
 	registers: Record<string, Measure>;
 	sets: Record<string, Measure>;
@@ -129,6 +143,7 @@ export interface MonthlySeries {
 	/** `YYYY-MM`, the complete grid: `years.length * 12` of them, in order. */
 	periods: string[];
 	corpus: { speeches: number[]; words: number[]; meetings: number[] };
+	corpora?: Record<string, CorpusSlice>;
 	/** Per period, whether its denominator clears `minimum_speeches`. */
 	sufficient: boolean[];
 	terms: Record<string, MonthlyMeasure>;

@@ -1482,6 +1482,30 @@
   }
  },
  "series/annual.json": {
+  "corpora": {
+   "genocide_free_atrocity": {
+    "definition": "str",
+    "excludes": [
+     "str"
+    ],
+    "label": "str",
+    "members": [
+     "str"
+    ],
+    "speech_rate": [
+     "float"
+    ],
+    "speech_rate_high": [
+     "float"
+    ],
+    "speech_rate_low": [
+     "float"
+    ],
+    "speeches": [
+     "int"
+    ]
+   }
+  },
   "corpus": {
    "meetings": [
     "int"
@@ -1960,6 +1984,30 @@
   }
  },
  "series/monthly.json": {
+  "corpora": {
+   "genocide_free_atrocity": {
+    "definition": "str",
+    "excludes": [
+     "str"
+    ],
+    "label": "str",
+    "members": [
+     "str"
+    ],
+    "speech_rate": [
+     "float|null"
+    ],
+    "speech_rate_high": [
+     "float|null"
+    ],
+    "speech_rate_low": [
+     "float|null"
+    ],
+    "speeches": [
+     "int"
+    ]
+   }
+  },
   "corpus": {
    "meetings": [
     "int"
@@ -2201,6 +2249,30 @@
   ]
  },
  "series/quarterly.json": {
+  "corpora": {
+   "genocide_free_atrocity": {
+    "definition": "str",
+    "excludes": [
+     "str"
+    ],
+    "label": "str",
+    "members": [
+     "str"
+    ],
+    "speech_rate": [
+     "float"
+    ],
+    "speech_rate_high": [
+     "float"
+    ],
+    "speech_rate_low": [
+     "float"
+    ],
+    "speeches": [
+     "int"
+    ]
+   }
+  },
   "corpus": {
    "meetings": [
     "int"
@@ -2513,8 +2585,8 @@
    "parse_failures": "int",
    "prompt_sha256": "str",
    "prompt_version": "str",
-   "referents_version": "str",
    "reasoning_effort": "str",
+   "referents_version": "str",
    "requests": "int",
    "requests_recounted": "bool",
    "run_date": "str",
@@ -2535,7 +2607,7 @@
     "label": "str",
     "occurrences": "int",
     "retired": "bool",
-    "retired_in": null,
+    "retired_in": "int|null",
     "since": "int",
     "superseded_by": "str",
     "years": "str"

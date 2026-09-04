@@ -107,6 +107,16 @@ const validateAnnual: Validator = (record, path) => {
 			throw new Error(`${path}.corpus.${field} must align with periods.`);
 		}
 	}
+	if ('corpora' in record) {
+		for (const [name, corpusSlice] of Object.entries(recordAt(record, 'corpora'))) {
+			if (!isRecord(corpusSlice)) throw new Error(`${path}.corpora.${name} must be an object.`);
+			for (const field of ['speeches', 'speech_rate', 'speech_rate_low', 'speech_rate_high']) {
+				if (requireArray(corpusSlice, field, `${path}.corpora.${name}`).length !== periods.length) {
+					throw new Error(`${path}.corpora.${name}.${field} must align with periods.`);
+				}
+			}
+		}
+	}
 	// A band drawn from bounds one period short would slide every later year's
 	// interval onto the wrong year without failing anywhere.
 	for (const kind of ['terms', 'registers', 'sets']) {

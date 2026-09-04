@@ -144,6 +144,7 @@ def analytical(series_dir: Path, kwic_dir: Path, frames_dir: Path) -> dict[str, 
             "genocide_qualification": {
                 key: qualification[key] for key in ("speeches", "occurrences", "token_rate")
             },
+            "genocide_free_atrocity": annual["corpora"]["genocide_free_atrocity"],
             "legal_register_occurrences": annual["registers"]["legal"]["occurrences"],
             "atrocity_core_speeches": annual["sets"]["atrocity_core"]["speeches"],
         },

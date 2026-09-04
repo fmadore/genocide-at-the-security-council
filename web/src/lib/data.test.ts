@@ -187,6 +187,25 @@ describe('the validators that are about the research rather than the types', () 
 		await expect(annual(fetcher)).rejects.toThrow(/corpus\.words must align with periods/);
 	});
 
+	it('refuses a named comparison corpus that does not line up with its periods', async () => {
+		const { annual } = await fresh();
+		const { fetcher } = responder(
+			annualPayload({
+				corpora: {
+					genocide_free_atrocity: {
+						speeches: [2],
+						speech_rate: [0.1, 0.2],
+						speech_rate_low: [0.01, 0.05],
+						speech_rate_high: [0.3, 0.4]
+					}
+				}
+			})
+		);
+		await expect(annual(fetcher)).rejects.toThrow(
+			/corpora\.genocide_free_atrocity\.speeches must align with periods/
+		);
+	});
+
 	it.each([
 		['NaN', Number.NaN],
 		['Infinity', Number.POSITIVE_INFINITY],

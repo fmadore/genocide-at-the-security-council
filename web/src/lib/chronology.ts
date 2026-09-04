@@ -47,11 +47,21 @@ export function splitEvidenceQuery(
 
 const UNITS: readonly ChronologyUnit[] = ['speech_rate', 'token_rate', 'occurrences', 'speeches'];
 
+export const ATROCITY_COMPARISON = [
+	'genocide_qualification',
+	'ethnic_cleansing',
+	'crimes_against_humanity',
+	'war_crimes'
+] as const;
+
 /* The headline rule is shared with the home page and the actor table; see
    `$lib/headline`. Falling back through the raw term keeps an older artefact
    drawable rather than opening on whatever sorts first. */
 const defaultSeries = (choices: ChronologyChoices, grain: ChronologyGrain) => {
 	const available = choices.series[grain];
+	if (ATROCITY_COMPARISON.every((name) => available.includes(name))) {
+		return [...ATROCITY_COMPARISON];
+	}
 	const headline = headlineMeasure(available);
 	return headline ? [headline] : available.slice(0, 1);
 };
