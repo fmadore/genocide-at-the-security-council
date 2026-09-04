@@ -77,7 +77,7 @@
 	<div class="inner">
 		<a class="wordmark" href={resolve('/')}>
 			<strong><mark>Genocide</mark> at the Security Council</strong>
-			<span class="symbol">1992&ndash;2023</span>
+			<span class="symbol">1946&ndash;2024</span>
 		</a>
 		<nav aria-label="Sections">
 			<ul>
