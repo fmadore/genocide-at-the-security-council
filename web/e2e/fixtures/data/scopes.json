@@ -1,0 +1,32 @@
+{
+	"meta": {
+		"script": "09_export_speeches.py",
+		"generated": "2026-09-05T00:00:00Z",
+		"git_commit": "fixture",
+		"lexicon_version": 4
+	},
+	"corpus": { "speeches": 60, "meetings": 9 },
+	"scopes": [
+		{
+			"id": "word",
+			"label": "The word",
+			"definition": "Speeches containing a genocid* match.",
+			"speeches": 8,
+			"meetings": 4
+		},
+		{
+			"id": "vocabulary",
+			"label": "The vocabulary",
+			"definition": "Speeches containing the four explicit atrocity terms.",
+			"speeches": 12,
+			"meetings": 6
+		},
+		{
+			"id": "debate",
+			"label": "The debate",
+			"definition": "Every speech in a meeting containing a genocid* match.",
+			"speeches": 30,
+			"meetings": 4
+		}
+	]
+}

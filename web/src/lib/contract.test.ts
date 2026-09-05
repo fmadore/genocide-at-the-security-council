@@ -33,6 +33,7 @@ import { REQUIRED } from './data';
  * `src/routes` imports this, so the 32 kB never reaches a bundle.
  */
 import payload from '../../../tests/contract/payload.json';
+import fixtureScopes from '../../e2e/fixtures/data/scopes.json';
 
 const contract: Record<string, Record<string, unknown>> = payload;
 
@@ -54,6 +55,10 @@ const resolve = (artefact: string): string | undefined => {
 };
 
 describe('what the dashboard requires against what the pipeline writes', () => {
+	it('keeps the root layout scope fixture available to browser tests', () => {
+		expect(fixtureScopes.scopes.map((scope) => scope.id)).toEqual(['word', 'vocabulary', 'debate']);
+	});
+
 	it.each(Object.keys(REQUIRED))('%s has a declared shape', (artefact) => {
 		// A new accessor with no entry in the contract is the gap this whole
 		// mechanism exists to close, so it fails here rather than at a reader's
