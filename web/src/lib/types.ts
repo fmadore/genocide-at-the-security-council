@@ -486,6 +486,8 @@ export interface MeetingIndex {
 	meetings: MeetingSummary[];
 }
 
+export type ScopeIndex = Pick<MeetingIndex, 'meta' | 'corpus' | 'scopes'>;
+
 /* --- 11_countries.py ------------------------------------------------------ */
 
 export interface CountryPeriod {

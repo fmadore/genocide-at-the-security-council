@@ -101,3 +101,11 @@ def test_meeting_inventory_counts_each_speech_once_and_names_delegations() -> No
             "terms": [],
         },
     ]
+
+
+def test_small_scope_payload_keeps_the_denominator_outside_the_reading_sets() -> None:
+    payload = meeting_export.scope_payload(corpus(), {"script": "09_export_speeches.py"})
+
+    assert payload["corpus"] == {"speeches": 4, "meetings": 3}
+    assert [row["id"] for row in payload["scopes"]] == ["word", "vocabulary", "debate"]
+    assert "meetings" not in payload

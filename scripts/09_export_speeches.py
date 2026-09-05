@@ -44,6 +44,7 @@ from lib.paths import (
 
 SPEECH_DIR = WEB_DATA / "speeches"
 INDEX = WEB_DATA / "meetings.json"
+SCOPES_INDEX = WEB_DATA / "scopes.json"
 
 COLUMNS = [
     "filename",
@@ -178,6 +179,18 @@ def summarise(meeting: dict) -> dict[str, object]:
     }
 
 
+def scope_payload(speeches: pd.DataFrame, meta: dict[str, object]) -> dict[str, object]:
+    """The small shared-layout artefact, kept out of the 3 MB meeting index."""
+    return {
+        "meta": meta,
+        "corpus": {
+            "speeches": len(speeches),
+            "meetings": int(speeches["meeting_symbol"].nunique()),
+        },
+        "scopes": scopes.summary(speeches),
+    }
+
+
 def build_note(
     rows: list[dict], total_speeches: int, total_bytes: int, scope: str, skipped: int
 ) -> str:
@@ -275,6 +288,7 @@ def run(scope: str, indent: int | None) -> None:
         configs=[LEXICON],
         extra={"lexicon_version": lex.version, "scope": scope},
     )
+    shared_scopes = scope_payload(speeches, meta)
 
     console.step("Writing one file per meeting")
     grouped = dict(list(speeches.groupby("basename", sort=False)))
@@ -317,15 +331,14 @@ def run(scope: str, indent: int | None) -> None:
         INDEX,
         {
             "meta": meta,
-            "corpus": {
-                "speeches": len(speeches),
-                "meetings": int(speeches["meeting_symbol"].nunique()),
-            },
-            "scopes": scopes.summary(speeches),
+            "corpus": shared_scopes["corpus"],
+            "scopes": shared_scopes["scopes"],
             "meetings": rows,
         },
     )
+    artifacts.atomic_write_json(SCOPES_INDEX, shared_scopes)
     console.info(f"wrote {rel(INDEX)}  ({INDEX.stat().st_size / 1e6:.1f} MB)")
+    console.info(f"wrote {rel(SCOPES_INDEX)}  ({SCOPES_INDEX.stat().st_size / 1e3:.1f} kB)")
     console.info(f"wrote {len(rows):,} files to {rel(SPEECH_DIR)}  ({total_bytes / 1e6:.0f} MB)")
 
     note = write_note(

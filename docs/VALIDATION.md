@@ -1000,6 +1000,10 @@ the meeting's full speech count when any speech says `genocid*`, otherwise zero.
 fix the overlap rule and missing-column refusal, while the web boundary refuses a scope that
 exceeds the fixed corpus denominator.
 
+The shared layout reads the same totals from `scopes.json`, a 1.3 kB projection rather than
+the 3.1 MB meeting index. Both are written from one in-memory object in step 09, and both are
+covered by the payload contract; the compact projection cannot drift into a second predicate.
+
 ## Self-hosted model run gates
 
 **Implemented gate; execution open: reasoning ladder.** `scripts/probe_reasoning.py` probes

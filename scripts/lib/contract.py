@@ -68,6 +68,7 @@ TRACKED: list[str] = [
     "kwic/index.json",
     "kwic/genocide.json",
     "meetings.json",
+    "scopes.json",
 ]
 
 #: A representative document from `speeches/`, chosen by name rather than by

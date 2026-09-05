@@ -1500,6 +1500,47 @@
    }
   ]
  },
+ "scopes.json": {
+  "corpus": {
+   "meetings": "int",
+   "speeches": "int"
+  },
+  "meta": {
+   "analysis_hash": "str",
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "scope": "str",
+   "script": "str"
+  },
+  "scopes": [
+   {
+    "definition": "str",
+    "id": "str",
+    "label": "str",
+    "meetings": "int",
+    "speeches": "int"
+   }
+  ]
+ },
  "series/annual.json": {
   "corpora": {
    "genocide_free_atrocity": {

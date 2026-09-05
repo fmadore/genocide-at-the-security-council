@@ -26,6 +26,7 @@ import type {
 	Network,
 	NodeFrames,
 	SlicedCollocates,
+	ScopeIndex,
 	SpeakerKeyness,
 	Usage,
 	UsageOccurrences
@@ -839,6 +840,7 @@ export const REQUIRED = {
 	'kwic/index.json': { meta: 'object', terms: 'array' },
 	'kwic/*.json': { meta: 'object', term: 'string', lines: 'array' },
 	'meetings.json': { meta: 'object', corpus: 'object', scopes: 'array', meetings: 'array' },
+	'scopes.json': { meta: 'object', corpus: 'object', scopes: 'array' },
 	'speeches/*.json': { meta: 'object', speeches: 'array' }
 } as const satisfies Record<string, Shape>;
 
@@ -886,6 +888,7 @@ export const nodeFrames = at<NodeFrames>('frames/frames.json', validateNodeFrame
 
 export const kwicIndex = at<KwicIndex>('kwic/index.json');
 export const meetingIndex = at<MeetingIndex>('meetings.json', validateMeetingIndex);
+export const scopeIndex = at<ScopeIndex>('scopes.json', validateMeetingIndex);
 
 /* Fetched by name rather than fixed, so the path is built per call. */
 export const kwic = (term: string, f?: typeof fetch) =>

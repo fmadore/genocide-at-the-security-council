@@ -66,7 +66,11 @@ PARTS = [
 
 #: Written by 09, not copied. Listed so the manifest describes the whole payload
 #: rather than only the part this script moved.
-IN_PLACE = [("speeches", "09_export_speeches.py"), ("meetings.json", "09_export_speeches.py")]
+IN_PLACE = [
+    ("speeches", "09_export_speeches.py"),
+    ("meetings.json", "09_export_speeches.py"),
+    ("scopes.json", "09_export_speeches.py"),
+]
 
 
 def copy_part(source: Path, name: str) -> dict[str, object]:

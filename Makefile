@@ -26,6 +26,7 @@ SERIES    := data/derived/series/annual.json
 LEXICAL   := data/derived/lexical/collocates.json
 KWIC      := data/derived/kwic/index.json
 SPEECHES_WEB := web/static/data/meetings.json
+SCOPES_WEB := web/static/data/scopes.json
 COUNTRIES := data/derived/countries/countries.json
 SPEAKER_KEYNESS := data/derived/countries/speaker_keyness.json
 GOLD      := data/interim/genocide_gold_candidates.csv
@@ -74,7 +75,7 @@ $(LEXICAL): $(FLAGGED) scripts/05_lexical.py $(LIB) config/stopwords.txt
 $(KWIC): $(FLAGGED) scripts/08_kwic.py $(LIB)
 	$(PY) scripts/08_kwic.py
 
-$(SPEECHES_WEB): $(FLAGGED) $(MEETINGS) scripts/09_export_speeches.py $(LIB)
+$(SPEECHES_WEB) $(SCOPES_WEB) &: $(FLAGGED) $(MEETINGS) scripts/09_export_speeches.py $(LIB)
 	$(PY) scripts/09_export_speeches.py
 
 $(COUNTRIES): $(FLAGGED) scripts/11_countries.py $(LIB) config/entities.csv
@@ -101,10 +102,10 @@ $(USAGE): $(NORM) $(GOLD) scripts/15_usage.py $(LIB) config/lexicon.yml $(wildca
 $(NODE_FRAMES): $(FLAGGED) scripts/17_frames.py $(LIB) config/lexicon.yml $(wildcard model_annotations/genocide/*) $(wildcard model_annotations/genocide/runs/*/*)
 	$(PY) scripts/17_frames.py
 
-derived: $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(GOLD) $(USAGE) $(NODE_FRAMES)
+derived: $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(GOLD) $(USAGE) $(NODE_FRAMES)
 
 # --- The site's payload -------------------------------------------------------
-$(PAYLOAD): $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(USAGE) $(NODE_FRAMES) scripts/export_web.py $(LIB) tests/contract/payload.json
+$(PAYLOAD): $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(USAGE) $(NODE_FRAMES) scripts/export_web.py $(LIB) tests/contract/payload.json
 	$(PY) scripts/export_web.py
 
 payload: $(PAYLOAD)
