@@ -41,10 +41,13 @@
  * otherwise. `$lib/concordance` now owns a month parameter, and `evidence()`
  * below is where a cell uses it. The link is still one term at a time, because
  * the concordance shows one — a set measure is drawn here and read there term
- * by term, the same rule `$lib/actors` states for a speaker's quotations.
+ * by term, the same rule `$lib/actors` states for a speaker's quotations. The
+ * measure this figure opens on is a subtraction and has no concordance of its
+ * own; it opens the term it subtracts from, and `widening()` is how the figure
+ * says whose lines those are.
  */
 
-import { pooledQuery, cellQuery, type EvidenceQuery } from './concordance';
+import { pooledQuery, cellQuery, evidenceTerm, type EvidenceQuery } from './concordance';
 import { MONTH_NAMES } from './format';
 // The ramp and the transform that positions a value on it are one pair, and the
 // speaker map draws from the same pair. They live in `theme.ts` so that neither
@@ -224,13 +227,67 @@ export interface EvidenceLink extends EvidenceQuery {
  * sets — and the link this function exists to make honest used to send a reader
  * from `atrocity_core` to a file that does not exist and a retry button.
  *
+ * **A derived measure stands for its minuend.** It reads as the first case and
+ * is the second: `genocide_qualification` is published in `terms` and this
+ * figure opens on it, but a subtraction has no pattern and matches no span, so
+ * `08_kwic.py` — which writes a file per active *term* — never wrote one for
+ * it, and `config/lexicon.yml` says as much in the `derived` block: such a
+ * measure "enumerates no occurrence and appears in no concordance". Resolving
+ * through `derived_from` is what stops the link from asking for that file. It
+ * is not a silent redirect: the term it lands on holds *more* lines than the
+ * measure counts, and `widening()` is what the interface says so with.
+ *
  * Kept rather than inlined, because it is what the caller asks before it draws:
  * 384 squares cannot each carry several links, so a measure that resolves to
  * anything but one term declines to link at all and the figure says so.
  */
 export function termsOf(data: MonthlySeries, measure: string): string[] {
-	if (measure in data.terms) return [measure];
-	return [];
+	const found = data.terms[measure];
+	if (!found) return [];
+	const term = evidenceTerm(measure, found);
+	return term in data.terms ? [term] : [];
+}
+
+/**
+ * By how much the lines a measure opens are wider than the measure itself.
+ *
+ * Null for a measure that is its own term, which is every measure but one. For
+ * a derived measure it is the difference the subtraction removes, and the
+ * interface is obliged to state it: `genocide`'s concordance holds the
+ * `genocidaires` spans `genocide_qualification` takes out, so a reader who
+ * clicked a figure of the one and read the lines of the other would be counting
+ * evidence the figure excluded.
+ *
+ * The size is read off the subtracted terms' own published rows rather than
+ * written into a component, so a later corpus moves it. It is withheld — null,
+ * never a sum — where more than one term is subtracted or one of them withholds
+ * its occurrence count: two subtrahends' speech counts cannot be added, because
+ * a speech bearing both would be counted twice, which is the double count that
+ * kept `atrocity_core` from publishing an occurrence figure at all.
+ */
+export interface Widening {
+	/** The term whose concordance actually opens. */
+	term: string;
+	/** What the measure subtracts from it, and what those lines therefore still hold. */
+	subtracted: string[];
+	/** Corpus-wide, or null where it cannot be stated without inventing it. */
+	speeches: number | null;
+	occurrences: number | null;
+}
+
+export function widening(data: MonthlySeries, measure: string): Widening | null {
+	const found = data.terms[measure];
+	if (!found?.derived_from) return null;
+	const subtracted = found.derived_minus ?? [];
+	const only = subtracted.length === 1 ? data.terms[subtracted[0]] : undefined;
+	const total = (values: number[] | undefined) =>
+		values ? values.reduce((sum, value) => sum + value, 0) : null;
+	return {
+		term: found.derived_from,
+		subtracted,
+		speeches: total(only?.speeches),
+		occurrences: total(only?.occurrences)
+	};
 }
 
 /**

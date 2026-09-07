@@ -20,6 +20,7 @@
 		intervalBand,
 		isIntervalBand
 	} from '$lib/chronology';
+	import { evidenceTerm } from '$lib/concordance';
 	import { provenanceOf } from '$lib/export';
 	import { DEFAULT_SCOPE, SCOPE_IDS, reading, readScope, scopeOf, withScope } from '$lib/scope';
 	import type { ExportRequest } from '$lib/export';
@@ -34,7 +35,8 @@
 		measures as monthlyMeasures,
 		pooledEvidence,
 		termsOf,
-		units as monthlyUnits
+		units as monthlyUnits,
+		widening
 	} from '$lib/heatmap';
 	import type { CalendarRow, Cell, Unit as GridUnit } from '$lib/heatmap';
 	import { count, decimal, escapeHtml, isoDate, monthLabel, percent, termLabel } from '$lib/format';
@@ -237,6 +239,12 @@
 	   note under the table says which case a reader is in. */
 	const gridTerms = $derived(termsOf(byMonth, gridMeasure));
 	const linkable = $derived(gridTerms.length === 1);
+	/* The measure this figure opens on is a subtraction, and a subtraction has no
+	   concordance: the link resolves to the term it subtracts from, which holds
+	   the spans the measure removes as well as the ones it counts. What follows
+	   is how much wider that is, read off the artefact so the sentence cannot
+	   drift from the corpus the way a number written here would. */
+	const wider = $derived(widening(byMonth, gridMeasure));
 	const cellLink = (cell: Cell) =>
 		linkable ? (evidence(byMonth, gridMeasure, cell)[0] ?? null) : null;
 	const rowLink = (row: CalendarRow) =>
@@ -434,6 +442,15 @@
 	const allMeasures = $derived<Record<string, Measure & { kind: string }>>(
 		Object.fromEntries(Object.entries(source.terms).map(([k, v]) => [k, { ...v, kind: 'term' }]))
 	);
+
+	/* The terms behind the drawn lines, where a line is a subtraction rather
+	   than a term. Named in the reading note so that a reader who clicks a point
+	   knows whose lines opened; see `drillChronology`. */
+	const drawnTerms = $derived([
+		...new Set(
+			selected.map((name) => allMeasures[name]?.derived_from).filter((name) => name !== undefined)
+		)
+	]);
 
 	/* The picker, grouped: one group per register, holding that register's terms.
 	   The register itself used to be selectable here, and so did four named sets;
@@ -808,7 +825,7 @@
 	function splitHref(row: BreakdownRow): string | null {
 		/* The raw term, not the derived measure: a derived measure enumerates
 		   no occurrence, and the lines behind this rate are `genocide`'s. The
-		   31 that are the actor label read under `genocidaires`. */
+		   18 that are the actor label read under `genocidaires`. */
 		const link = splitEvidenceQuery('genocide', split, row.category, row.period);
 		return link ? `${resolve('/concordance')}?${link.query}` : null;
 	}
@@ -837,7 +854,12 @@
 		const internal = Object.keys(allMeasures).find((name) => termLabel(name) === params.seriesName);
 		if (!internal) return;
 		const year = params.name.slice(0, 4);
-		void goto(`${resolve('/concordance')}?term=${internal}&from=${year}&to=${year}`);
+		/* The term, not always the measure. A drawn line may be a subtraction,
+		   and a subtraction has no concordance to open; it opens the lines of
+		   the term it subtracts from, which the reading note names. The same
+		   resolution the calendar grid makes, for the same reason. */
+		const term = evidenceTerm(internal, allMeasures[internal]);
+		void goto(`${resolve('/concordance')}?term=${term}&from=${year}&to=${year}`);
 	}
 </script>
 
@@ -944,6 +966,13 @@
 				<em>crimes against humanity</em> and <em>war crimes</em>. Add or remove terms under the
 				chart; drag the bar under the axis to zoom.
 			</p>
+			{#if drawnTerms.length}
+				<p>
+					Clicking a point opens that year's lines, and a measure that is a subtraction opens
+					<em>{drawnTerms.map(termLabel).join(' and ')}</em>'s: only a lexicon term has a
+					concordance.
+				</p>
+			{/if}
 		{/snippet}
 		{#snippet caveat()}
 			<p>
@@ -1165,6 +1194,16 @@
 						Every number opens that month's lines in the concordance, that month alone rather than
 						the year around it. Months with no rate link too: the minimum applies to the rate, and
 						the lines beneath it are the record itself rather than an estimate drawn from it.
+						{#if wider}
+							Those lines are <em>{termLabel(wider.term)}</em>'s. This measure subtracts
+							<em>{wider.subtracted.map(termLabel).join(' and ')}</em> from it and the concordance
+							enumerates the raw term, so what opens also holds
+							{#if wider.occurrences !== null && wider.speeches !== null}the {count(
+									wider.occurrences
+								)} occurrences, across {count(wider.speeches)} speeches corpus-wide,{:else}the
+								occurrences{/if}
+							that this figure takes out.
+						{/if}
 					{:else}
 						The numbers do not link here. The concordance holds a file for each term, and
 						<em>{termLabel(gridMeasure)}</em>
@@ -1235,6 +1274,13 @@
 		{#if column.refusal}
 			<p class="empty">This measure has no pooled-month figures.</p>
 		{:else}
+			{#if linkable && wider}
+				<p class="hint">
+					A month's name opens <em>{termLabel(wider.term)}</em>'s lines rather than this measure's.
+					The concordance holds a file for each lexicon term, and the subtraction that makes this
+					measure is not one of them.
+				</p>
+			{/if}
 			<table class="calendar">
 				<thead>
 					<tr>

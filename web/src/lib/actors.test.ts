@@ -22,7 +22,8 @@ import {
 	plan,
 	points,
 	readActorState,
-	scale
+	scale,
+	widening
 } from './actors';
 import type { Countries, CountryMeasureRow, Speaker } from './types';
 
@@ -441,6 +442,66 @@ describe('the link into the concordance', () => {
 		expect(
 			occurrences(data, 'genocide', { ...entry, row: { ...entry.row, period: 'ghost' } })
 		).toBeNull();
+	});
+});
+
+/**
+ * The file the "Read the occurrences" link asks for, against the files that exist.
+ *
+ * `countries.json` publishes one measure, and it is the derived
+ * `genocide_qualification`. `08_kwic.py` writes a concordance per active
+ * lexicon term and a derived measure is not one — `config/lexicon.yml` says it
+ * "appears in no concordance" — so a link that named the measure named a file
+ * that was never written, on every row of this table. The URL was well formed
+ * and the failure waited for a reader's click, which is why the check here is
+ * the concordance index rather than the artefact.
+ */
+describe('every link the actor table offers names a concordance that exists', () => {
+	/** What `kwic/index.json` lists, in miniature: a file per term, nothing derived. */
+	const HELD = new Set(['genocide', 'genocidaires', 'war_crimes']);
+
+	/** The published shape: the derived headline, beside the raw term it subtracts from. */
+	const published = () => {
+		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
+		data.measures = {
+			genocide_qualification: {
+				kind: 'terms',
+				derived_from: 'genocide',
+				derived_minus: ['genocidaires'],
+				rows: [row('Rwanda')]
+			}
+		};
+		return data;
+	};
+
+	it.each(['genocide', 'genocide_qualification'])(
+		'%s opens lines the concordance has a file for',
+		(name) => {
+			const data = name === 'genocide' ? corpus([speaker('Rwanda')], [row('Rwanda')]) : published();
+			const entry = plan({ data, measure: name, period: 'all' }).rows[0];
+			const link = occurrences(data, name, entry)!;
+			expect(HELD).toContain(link.term);
+			expect(HELD).toContain(new URLSearchParams(link.query).get('term'));
+		}
+	);
+
+	it('resolves the derived measure to the term it subtracts from', () => {
+		const data = published();
+		const entry = plan({ data, measure: 'genocide_qualification', period: 'all' }).rows[0];
+		const link = occurrences(data, 'genocide_qualification', entry)!;
+		expect(link.term).toBe('genocide');
+		expect(new URLSearchParams(link.query).get('country')).toBe('Rwanda');
+	});
+
+	// The link opens a superset, and this is what the interface names it by.
+	// `countries.json` carries no row for the subtrahend, so the size of the
+	// difference is not stateable here and is not stated: the chronology reads
+	// it off `series/monthly.json`, which does carry one.
+	it('names the term whose lines open and what they hold beyond the measure', () => {
+		const wider = widening(published(), 'genocide_qualification')!;
+		expect(wider.term).toBe('genocide');
+		expect(wider.subtracted).toEqual(['genocidaires']);
+		expect(widening(published(), 'genocide')).toBeNull();
 	});
 });
 

@@ -25,6 +25,7 @@ import {
 	gridRows,
 	pooledEvidence,
 	units,
+	widening,
 	type Unit
 } from './heatmap';
 import { tone } from './theme';
@@ -407,5 +408,92 @@ describe('the evidence behind a pooled row', () => {
 		expect(pooledEvidence(data, 'war_crimes', june).map((link) => link.term)).toEqual([
 			'war_crimes'
 		]);
+	});
+});
+
+/**
+ * The file a link asks for, against the files `08_kwic.py` actually wrote.
+ *
+ * `kwic/index.json` lists one concordance per active lexicon term. A derived
+ * measure is not a term — `config/lexicon.yml` says it "has no pattern,
+ * enumerates no occurrence and appears in no concordance" — so no file was ever
+ * written for `genocide_qualification`, and that is the measure this figure
+ * opens on. Nothing upstream of a reader's click can notice: the link is well
+ * formed, the name is a real published measure, and the fetch behind it 404s.
+ *
+ * So the check is the index rather than the payload. Every measure the grid and
+ * the pooled calendar can be switched to is asked for its evidence here, and
+ * the term that comes back has to be one the concordance holds.
+ */
+describe('every link the grid offers names a concordance that exists', () => {
+	/** What `kwic/index.json` lists, in miniature: a file per term, nothing derived. */
+	const HELD = new Set(['genocide', 'war_crimes', 'genocidaires']);
+
+	/** The published shape since lexicon v4: the raw term, its subtrahend, and the difference. */
+	function withDerived(): MonthlySeries {
+		const data = payload();
+		const rates = data.terms.genocide.speech_rate;
+		return {
+			...data,
+			terms: {
+				...data.terms,
+				genocidaires: measure(rates),
+				genocide_qualification: measure(rates, {
+					derived_from: 'genocide',
+					derived_minus: ['genocidaires']
+				})
+			},
+			month_of_year: {
+				...data.month_of_year,
+				measures: {
+					...data.month_of_year.measures,
+					genocidaires: calendarBlock(),
+					genocide_qualification: calendarBlock({
+						derived_from: 'genocide',
+						derived_minus: ['genocidaires']
+					})
+				}
+			}
+		};
+	}
+
+	it.each(['genocide', 'war_crimes', 'genocidaires', 'genocide_qualification'])(
+		'%s opens lines the concordance has a file for',
+		(name) => {
+			const data = withDerived();
+			const cell = at(grid({ data, measure: name }), 1993, 6)!;
+			const june = calendar(data, name).rows.find((row) => row.month === 6)!;
+			const opened = [...evidence(data, name, cell), ...pooledEvidence(data, name, june)].map(
+				(link) => link.term
+			);
+			expect(opened).toHaveLength(2);
+			for (const term of opened) expect(HELD).toContain(term);
+		}
+	);
+
+	it('resolves the derived measure to the term it subtracts from', () => {
+		const data = withDerived();
+		const cell = at(grid({ data, measure: 'genocide_qualification' }), 1993, 6)!;
+		const [link] = evidence(data, 'genocide_qualification', cell);
+		expect(link.term).toBe('genocide');
+		expect(new URLSearchParams(link.query).get('term')).toBe('genocide');
+	});
+
+	// The resolution widens the evidence, so the figure has to be able to say by
+	// how much. Read off the subtrahend's own rows rather than written into the
+	// component: a later corpus moves the number, and a sentence carrying a
+	// figure the payload no longer holds is worse than no sentence.
+	it('measures how much wider the lines it opens are', () => {
+		const data = withDerived();
+		const wider = widening(data, 'genocide_qualification')!;
+		expect(wider.term).toBe('genocide');
+		expect(wider.subtracted).toEqual(['genocidaires']);
+		const subtrahend = data.terms.genocidaires;
+		expect(wider.speeches).toBe(subtrahend.speeches.reduce((a, b) => a + b, 0));
+		expect(wider.occurrences).toBe(subtrahend.occurrences!.reduce((a, b) => a + b, 0));
+	});
+
+	it('says nothing about widening for a measure that is its own term', () => {
+		expect(widening(withDerived(), 'genocide')).toBeNull();
 	});
 });

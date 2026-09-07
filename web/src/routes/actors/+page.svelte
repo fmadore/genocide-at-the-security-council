@@ -19,7 +19,8 @@
 		orderings,
 		plan,
 		points,
-		readActorState
+		readActorState,
+		widening
 	} from '$lib/actors';
 	import type { MapPoint, Ordering } from '$lib/actors';
 	import type { CountryMeasureRow } from '$lib/types';
@@ -50,6 +51,10 @@
 
 	const measures = $derived(Object.keys(artefact.measures));
 	const shared = $derived(ambiguous(artefact));
+	/* The published measure is a subtraction and no concordance enumerates one,
+	   so a link resolves to the term it subtracts from — which holds the spans
+	   the measure removes as well as the ones it counts. The aside says so. */
+	const wider = $derived(widening(artefact, measure));
 	const result = $derived(plan({ data: artefact, measure, period, order }));
 
 	onMount(() => {
@@ -571,6 +576,11 @@
 			<p class="scoped">
 				Each link carries this speaker and {result.period?.label ?? period} through to the concordance,
 				so what opens is the evidence behind the rate above rather than the whole corpus.
+				{#if wider}
+					The lines are <em>{termLabel(wider.term)}</em>'s: this measure subtracts
+					<em>{wider.subtracted.map(termLabel).join(' and ')}</em> from it, and only a lexicon term has
+					a concordance, so they hold the occurrences the rate leaves out as well as those it counts.
+				{/if}
 			</p>
 		</aside>
 	{/if}

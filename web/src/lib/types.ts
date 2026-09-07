@@ -42,6 +42,20 @@ export interface Measure {
 	tier?: string;
 	/** The shelf the term picker groups and colours by. Never a measure. */
 	register?: string;
+	/**
+	 * The term a *derived* measure subtracts from, absent on a term itself.
+	 *
+	 * `config/lexicon.yml`'s `derived` block writes it, and it is the only thing
+	 * that tells a consumer apart a measure standing for a pattern from one
+	 * standing for a subtraction. That distinction is load-bearing wherever a
+	 * figure offers to open its own evidence: `08_kwic.py` writes a concordance
+	 * per active term, and a derived measure "has no pattern, enumerates no
+	 * occurrence and appears in no concordance". Its lines are its minuend's,
+	 * which is what `heatmap.termsOf` and `actors.occurrences` resolve through.
+	 */
+	derived_from?: string;
+	/** What is taken out of `derived_from`. Those spans are in the minuend's lines. */
+	derived_minus?: string[];
 }
 
 /** A named population of speeches, not a summed vocabulary measure. */
@@ -87,6 +101,9 @@ export interface MonthlyMeasure {
 	token_rate?: (number | null)[];
 	tier?: string;
 	register?: string;
+	/** See `Measure.derived_from`. The chronology's grid resolves its links through it. */
+	derived_from?: string;
+	derived_minus?: string[];
 	terms?: string[];
 	members?: string[];
 }
@@ -113,6 +130,9 @@ export interface CalendarMeasure extends CalendarReading {
 	kind: 'terms';
 	tier?: string;
 	register?: string;
+	/** See `Measure.derived_from`. */
+	derived_from?: string;
+	derived_minus?: string[];
 	/** The same twelve figures with the artefact's control years dropped. */
 	excluding: CalendarReading;
 	/** Twelve entries, largest item first. The confound, per month. */
@@ -580,6 +600,9 @@ export interface CountryMeasure {
 	kind: 'terms';
 	tier?: string;
 	register?: string;
+	/** See `Measure.derived_from`. The actor table resolves its links through it. */
+	derived_from?: string;
+	derived_minus?: string[];
 	rows: CountryMeasureRow[];
 }
 

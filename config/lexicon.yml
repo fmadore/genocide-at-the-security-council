@@ -600,12 +600,17 @@ derived:
     register: core
     note: >
       The word as qualification of an event: `genocide` minus the actor label.
-      6,061 occurrences across 3,268 speeches, against the 6,092 across 3,273
+      7,729 occurrences across 4,130 speeches, against the 7,747 across 4,133
       of the raw term. This is the figure the chronology, the change-point
       tests and the actor table publish, because a delegation calling the
       ex-FAR *génocidaires* is naming who did it rather than saying the Council
-      should call the event a genocide, and the two model runs disagree on
-      exactly those 31 occurrences. The raw term stays published beside it and
+      should call the event a genocide. The two committed model runs disagreed
+      on exactly this set of occurrences, which is the observation the measure
+      was built on; they annotated the 1992-2023 corpus and have not been
+      remade, so that is a statement about the runs and not about the 18 spans
+      counted here. The raw term stays published beside it and
       is what the concordance enumerates, so the difference is always one
-      subtraction away and the evidence for it is 31 readable lines under
-      `genocidaires`.
+      subtraction away and the evidence for it is 18 readable lines under
+      `genocidaires` — which is also what a figure of this measure opens when a
+      reader asks to read it, since a subtraction has no concordance of its own.
+      Every count here is on the pinned 1946-2024 corpus, and moves with it.
