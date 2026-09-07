@@ -1913,12 +1913,26 @@ Two transport details the hosted path did not need:
 
 ### C2. The serving harness, and where it runs
 
-**Status, 4 September 2026: installed on the cluster; GPU smoke queued.** The filtered dirty
-working tree was transferred, the client overlay and isolated vLLM 0.28.0 environment were
-installed without moving the locked environment, and the exact Qwen revision was downloaded
-and checksum-verified. Development-partition allocations 748011 and 748012 were both killed
-by Slurm at zero elapsed time before the script opened either log. The equivalent bounded
-one-H100 smoke is queued as 748013; this is scheduler evidence, not yet serving evidence.
+**Status, 7 September 2026: the harness serves; two blocking faults found and fixed.** The
+filtered dirty working tree was transferred, the client overlay and isolated vLLM 0.28.0
+environment were installed without moving the locked environment, and the exact Qwen revision
+was downloaded and checksum-verified.
+
+Four jobs then failed without producing evidence, and both causes were environmental rather
+than in the instrument. First, `/home` was full at 15 G of 15 G, so Slurm could not open
+`logs/annotate-%j.out` and cancelled `748010`–`748013` at zero elapsed time; the September entry
+in `docs/CLUSTER.md` that read this as a partition fault was wrong and has been corrected.
+Clearing `~/.cache/pip` recovered 5.1 G. Second, with the disk repaired, `760172` reached the
+compute node, saw the H100 and started vLLM 0.28.0, which then refused the pinned revision
+offline: `download_annotation_model.sh` passed `--cache-dir "$HF_HOME"`, writing the checkpoint
+to `$HF_HOME/models--Qwen--Qwen3.8-27B` while every reader resolves the hub cache as
+`$HF_HOME/hub/`. The flag is removed — `download_models.sh` never passed it, and its weights
+have always landed where vLLM looks — and the 70 GB already on disk was moved rather than
+fetched again.
+
+That is the first serving evidence: the environment loads, the GPU is visible and vLLM starts.
+`760189` carries the bounded one-H100 smoke on the repaired cache. No probe or annotation
+artefact exists yet.
 
 **Change.** `scripts/cluster/` gains the serving pattern already proven in
 `iwac-ai-pipelines/serving/` and, through it, in festus-transcribe: one sourced `env.sh`
@@ -1958,10 +1972,12 @@ between the environments; an environment does not.
 
 ### C3. Maximum reasoning, declared and demonstrated
 
-**Status, 4 September 2026: gate implemented; demonstration job 748013 queued.** Each profile declares
+**Status, 7 September 2026: gate implemented; demonstration job 760189 queued.** Each profile declares
 its full ladder and parameter placement. The unattended job now runs a paired corpus-speech
 probe, records latency and reasoning-token medians under `data/interim`, reuses an identical
-passed probe on resume, and refuses a flat ladder. No probe artefact exists until the GPU smoke.
+passed probe on resume, and refuses a flat ladder. No probe artefact exists until the GPU
+smoke, whose first four attempts were lost to a full `/home` and a misplaced weights cache
+rather than to anything the ladder does; see C2.
 
 **Change.** Both instruments run at their own top level, which is not the same string in each:
 
@@ -2326,3 +2342,4 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-09-04 | R8 stage one: genocide-free atrocity corpus | complete | pending | `python -m pytest` (1,085 passed); `ruff check .`; `python scripts/04_series.py`; `python scripts/15_usage.py`; `python scripts/export_web.py` (19 artefacts, 9,510 files); `npm test` (494); `npm run check` (0 errors, 0 warnings); `npm run lint`; `npm run build` (13 entry points, 4 icons); desktop and mobile visual review | Step 04 now publishes one named, non-overlapping corpus slice: speeches containing ethnic cleansing, crimes against humanity or war crimes while containing no `genocid*`. The union counts each speech once even when it contains several terms and yields 4,716 speeches on the pinned 167,642-speech corpus. Chronology opens with the four explicit terms separately, preserving the reader's ability to compose comparisons; the named corpus and its exact predicate live in the extended method note for R9 to consume without silently moving any denominator. |
 | 2026-09-04 | R9 data foundation: meetings and scopes | in progress | pending | `python scripts/09_export_speeches.py` (167,642 speeches and 83,011 offsets reconciled; 9,464 files); `python scripts/export_web.py` (19 artefacts, 9,510 files); `python -m pytest` (1,088 passed); `ruff check .`; `npm test` (495); `npm run check` (0 errors, 0 warnings); `npm run lint`; `npm run build` (13 entry points, 4 icons) | The three reading sets now have one shared predicate used by steps 04 and 09. The meeting index keeps its 167,642-speech corpus denominator separate and records 4,133 speeches / 1,556 meetings for *the word*, 8,849 / 2,629 for *the vocabulary*, and 50,735 / 1,556 for *the debate*. Every meeting file gains the delegations present, each delegation's speech count and terms, and speech-level scope counts. The web boundary refuses an incomplete scope list, a moving base, or a word population larger than its vocabulary. Remaining R9 work is the URL-carried layout control and its application to chronology, concordance, actors and the reader. |
 | 2026-09-05 | R9 compact scope projection | complete | pending | `python scripts/09_export_speeches.py` (167,642 speeches and 83,011 offsets reconciled); `python scripts/export_web.py` (20 artefacts, 9,511 files); `python -m pytest` (1,089 passed); `ruff check .`; `npm test` (502); `npm run check` (0 errors, 0 warnings); `npm run lint`; `npm run build` (13 entry points, 4 icons) | Step 09 writes `scopes.json` from the same in-memory scope object as `meetings.json`. The 1.3 kB projection is contracted, validated and loaded by the root layout, replacing the otherwise necessary 3.1 MB global fetch. The first build caught and repaired the root layout's displaced prerender declarations; the closing build verifies every public entry point. No selector is exposed yet: displaying one before chronology, concordance and actors apply it would claim a filter that does not exist. |
+| 2026-09-07 | C2 unblocked: the annotation harness reaches the GPU | in progress | pending | `ssh festus 'df -h ~'` (15 G of 15 G, 0 available — the cause); `sacct -X -j 748010..748013` (four jobs, batch step CANCELLED at 00:00:00, no log written); `rm -rf ~/.cache/pip` (5.1 G recovered, `/home` to 71%); `sbatch --partition=GPU --gres=gpu:h100:1` 760172 (RUNNING, then FAILED with a log: vLLM 0.28.0 started, H100 visible, `LocalEntryNotFoundError` on the pinned revision); cache inspected (`snapshots/1d4bf0f2…` present under `$HF_HOME` rather than `$HF_HOME/hub`, 32 blobs, 70 GB, 0 incomplete); `mv` into `hub/` (0 broken symlinks, 18 safetensors shards); `bash -n scripts/cluster/download_annotation_model.sh`; resubmitted as 760189 | Two environmental faults, neither in the instrument, both of which produced evidence that pointed away from themselves. A full `/home` cannot open a job's own log, so Slurm cancels the batch step before the script runs; the absence of a log was the diagnosis rather than a symptom to explain around, and `docs/CLUSTER.md` now says so and states the rule — a job that fails at zero elapsed time with no log is a filesystem problem until proved otherwise. The second fault was ours: `download_annotation_model.sh` passed `--cache-dir "$HF_HOME"`, which writes the repository one level above the hub cache every reader resolves from `HF_HOME`, so an offline node reported a missing revision for weights that were present and verified. The flag is removed rather than redirected, matching `download_models.sh`, which never passed it. Nothing is yet demonstrated about the reasoning ladder or the model: 760172 is the first evidence that the environment loads and vLLM serves, and no probe artefact exists. |

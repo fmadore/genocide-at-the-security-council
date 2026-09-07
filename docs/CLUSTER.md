@@ -116,10 +116,28 @@ the job runs the selected profile's reasoning ladder over the same three speeche
 `data/interim/model_annotation_probes/<run-id>/probe.json`. Identical resumed jobs reuse a
 passed probe; a flat ladder stops in words before a corpus row is written.
 
-On 4 September 2026 the same annotation smoke was submitted twice to `dev` with both idle
-L40s. Slurm killed both allocations at zero elapsed time, before either output file was
-opened. That is a partition/node-startup failure, not evidence about vLLM or the model; use
-the H100 command above until a later L40 allocation demonstrates otherwise.
+### The four jobs that failed at zero elapsed time, and what it was
+
+On 4 and 5 September 2026 four annotation jobs failed the same way: `748010` never started,
+`748011` and `748012` were allocated on `dev`, and `748013` waited fifteen hours for an H100
+on `GPU`. Each ended with its batch step `CANCELLED` at `00:00:00` elapsed and no output file
+anywhere on the filesystem.
+
+An earlier revision of this document read that as a partition or node-startup failure. **It
+was not.** On 7 September `df -h ~` reported `/home` at **15 G of 15 G, 0 available**. The
+job's own log is `logs/annotate-%j.out`, which lives on `/home`; Slurm creates it *before* it
+runs the first line of the script, and when it cannot, it cancels the batch step and records
+an empty allocation. The absence of the log was not a symptom to be explained around — it was
+the whole diagnosis, and it pointed at the quota this document already warns about two
+sections below.
+
+The lesson is cheap to state and was expensive to miss: **a job that fails at zero elapsed
+time with no log is a filesystem problem until proved otherwise.** Read `df -h ~` before
+reading anything about Slurm, the partition, vLLM or the model. Nothing in these four failures
+is evidence about any of them, and the `dev`/L40 path remains untested rather than suspect.
+
+Clearing `~/.cache/pip` recovered 5.1 G and returned `/home` to 71%. Job `760172` was then
+submitted with the H100 command above and queued normally.
 
 ## The cluster, as it actually is
 
@@ -179,8 +197,12 @@ and the submit scripts copy finished outputs back to `~/unsc-archive` when they
 succeed. Set `UNSC_ARCHIVE=off` in `.env` to skip that.
 
 **Watch the `/home` quota.** 15 GB is not much once a project keeps a venv there,
-and a full `/home` does not fail politely: it truncates the next `rsync` or
-`tar`, leaving a repository that is half old and half new. `archive_outputs`
+and a full `/home` does not fail politely. It truncates the next `rsync` or
+`tar`, leaving a repository that is half old and half new, and it kills every
+submitted job at zero elapsed time, because Slurm opens `logs/annotate-%j.out`
+on `/home` before it runs a line of the script. Four jobs were lost to that in
+September 2026 and misread as a partition fault; the account above is worth
+reading before debugging a job that produced no log. `archive_outputs`
 therefore checks free space and declines with a warning rather than filling the
 disk, and `push_code.sh` verifies its transfer arrived instead of assuming. If
 either complains:
