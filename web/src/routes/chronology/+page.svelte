@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
@@ -19,7 +20,9 @@
 		intervalBand,
 		isIntervalBand
 	} from '$lib/chronology';
+	import { evidenceTerm } from '$lib/concordance';
 	import { provenanceOf } from '$lib/export';
+	import { DEFAULT_SCOPE, SCOPE_IDS, reading, readScope, scopeOf, withScope } from '$lib/scope';
 	import type { ExportRequest } from '$lib/export';
 	import {
 		CALENDAR_COLUMNS,
@@ -32,7 +35,8 @@
 		measures as monthlyMeasures,
 		pooledEvidence,
 		termsOf,
-		units as monthlyUnits
+		units as monthlyUnits,
+		widening
 	} from '$lib/heatmap';
 	import type { CalendarRow, Cell, Unit as GridUnit } from '$lib/heatmap';
 	import { count, decimal, escapeHtml, isoDate, monthLabel, percent, termLabel } from '$lib/format';
@@ -46,6 +50,7 @@
 		endLabel,
 		grid,
 		legend,
+		neutral,
 		registerColour,
 		textStyle,
 		tooltip
@@ -107,6 +112,74 @@
 		(genocideFreeAtrocity?.speeches ?? []).reduce((total, value) => total + value, 0)
 	);
 
+	/* --- The reading set the masthead selected -----------------------------
+	   R9's scope, cut by year. It draws its own population rather than
+	   re-basing the term series below it: those keep the corpus denominator,
+	   and so does this — a share here is a share of the year's speeches, not of
+	   the reading set the control chose. */
+	/* `url.searchParams` is unreadable while a page is prerendered, by design:
+	   a static file cannot depend on a query string. The answer there is the
+	   default, which is the guarantee R9 makes anyway — a URL carrying no scope
+	   renders what the site rendered before R9 — and hydration applies the rest. */
+	const scope = $derived(browser ? readScope(page.url.searchParams) : DEFAULT_SCOPE);
+	const chosenScope = $derived(scopeOf(data.scopeIndex, scope));
+	const scopeYears = $derived(
+		data.scopeIndex.years.map((year) => ({ year: year.year, ...reading(year, scope) }))
+	);
+	let scopeChart = $state<Chart | null>(null);
+
+	const scopeOption: EChartsOption = $derived.by(() => {
+		const p = $colours;
+		return {
+			textStyle,
+			grid: grid(),
+			tooltip: {
+				trigger: 'axis',
+				...tooltip(p),
+				formatter: (params: unknown) => {
+					const [first] = params as { dataIndex: number }[];
+					const row = scopeYears[first.dataIndex];
+					return (
+						`<strong>${row.year}</strong><br>${count(row.speeches)} of ` +
+						`${count(row.held)} speeches — ${row.share === null ? '—' : percent(row.share)}`
+					);
+				}
+			},
+			xAxis: { type: 'category', data: scopeYears.map((row) => String(row.year)), ...axisX(p) },
+			yAxis: {
+				type: 'value',
+				...axisY(p),
+				axisLabel: { ...axisY(p).axisLabel, formatter: percent }
+			},
+			series: [
+				{
+					type: 'line',
+					name: chosenScope.label,
+					showSymbol: false,
+					lineStyle: { width: 2, color: neutral(p) },
+					itemStyle: { color: neutral(p) },
+					endLabel: endLabel(neutral(p), chosenScope.label),
+					data: scopeYears.map((row) => row.share)
+				} satisfies LineSeriesOption
+			]
+		};
+	});
+
+	function scopeTable(): ExportRequest {
+		return {
+			title: 'The reading set, year by year',
+			columns: ['year', 'speeches_held', ...SCOPE_IDS.map((id) => `speeches_${id}`)],
+			rows: data.scopeIndex.years.map((year) => [
+				year.year,
+				year.held,
+				...SCOPE_IDS.map((id) => year.scopes[id])
+			]),
+			provenance: provenanceOf(data.scopeIndex.meta, 'scopes.json'),
+			filters: [`drawn: ${chosenScope.label}`],
+			scope: 'all three reading sets for every year, whichever one the figure was drawing'
+		};
+	}
+
 	/* Live chart handles, for the image half of the export. */
 	let seriesFigure = $state<Chart | null>(null);
 	let splitFigure = $state<Chart | null>(null);
@@ -166,6 +239,12 @@
 	   note under the table says which case a reader is in. */
 	const gridTerms = $derived(termsOf(byMonth, gridMeasure));
 	const linkable = $derived(gridTerms.length === 1);
+	/* The measure this figure opens on is a subtraction, and a subtraction has no
+	   concordance: the link resolves to the term it subtracts from, which holds
+	   the spans the measure removes as well as the ones it counts. What follows
+	   is how much wider that is, read off the artefact so the sentence cannot
+	   drift from the corpus the way a number written here would. */
+	const wider = $derived(widening(byMonth, gridMeasure));
 	const cellLink = (cell: Cell) =>
 		linkable ? (evidence(byMonth, gridMeasure, cell)[0] ?? null) : null;
 	const rowLink = (row: CalendarRow) =>
@@ -259,7 +338,7 @@
 				grain === 'year' ? 'series/annual.json' : 'series/quarterly.json'
 			),
 			filters: [
-				`drawn: ${selected.map(label).join(', ')}`,
+				`drawn: ${selected.map(termLabel).join(', ')}`,
 				`unit: ${UNITS.find((u) => u.id === unit)?.label ?? unit}`,
 				`grain: ${grain}`,
 				`events overlay: ${showEvents ? 'on' : 'off'}`
@@ -360,39 +439,47 @@
 		};
 	}
 
-	const allMeasures = $derived<Record<string, Measure & { kind: string }>>({
-		...Object.fromEntries(
-			Object.entries(source.terms).map(([k, v]) => [k, { ...v, kind: 'term' }])
-		),
-		...Object.fromEntries(
-			Object.entries(source.registers).map(([k, v]) => [
-				`register:${k}`,
-				{ ...v, kind: 'register' }
-			])
-		),
-		...Object.fromEntries(
-			Object.entries(source.sets).map(([k, v]) => [`set:${k}`, { ...v, kind: 'set' }])
-		)
-	});
+	const allMeasures = $derived<Record<string, Measure & { kind: string }>>(
+		Object.fromEntries(Object.entries(source.terms).map(([k, v]) => [k, { ...v, kind: 'term' }]))
+	);
 
-	/* The picker, grouped: one group per register holding its terms and the
-	   register itself, then the sets. A coloured edge on a flat list of 32 chips
-	   was "grouped by register" in name only. */
+	/* The terms behind the drawn lines, where a line is a subtraction rather
+	   than a term. Named in the reading note so that a reader who clicks a point
+	   knows whose lines opened; see `drillChronology`. */
+	const drawnTerms = $derived([
+		...new Set(
+			selected.map((name) => allMeasures[name]?.derived_from).filter((name) => name !== undefined)
+		)
+	]);
+
+	/* The picker, grouped: one group per register, holding that register's terms.
+	   The register itself used to be selectable here, and so did four named sets;
+	   R7 removed both, because a line summed over a family of words moves without
+	   telling the reader which word moved it. The grouping survives as the shelf
+	   it always was — a way to find a term, and the colour the term is drawn in.
+	   Each heading now selects its whole shelf as separate lines, which is the
+	   honest version of what clicking `legal` used to do. */
 	const chipGroups = $derived.by(() => {
 		const groups: { heading: string; colour: string; names: string[] }[] = [];
 		for (const register of REGISTER_ORDER) {
 			const names = Object.keys(allMeasures).filter(
-				(name) =>
-					name === `register:${register}` ||
-					(!name.includes(':') && allMeasures[name].register === register)
+				(name) => allMeasures[name].register === register
 			);
 			if (names.length)
 				groups.push({ heading: register, colour: registerColour(register, $colours), names });
 		}
-		const sets = Object.keys(allMeasures).filter((name) => name.startsWith('set:'));
-		if (sets.length) groups.push({ heading: 'sets', colour: $colours.ink, names: sets });
 		return groups;
 	});
+
+	/* Whether a whole shelf is on the chart, and the control that puts it there.
+	   Selecting a register draws its terms as one line each: the reader can see
+	   which of them is moving, and can drop the ones they did not mean. */
+	const allSelected = (names: string[]) => names.every((name) => selected.includes(name));
+	function toggleGroup(names: string[]) {
+		selected = allSelected(names)
+			? selected.filter((name) => !names.includes(name))
+			: [...selected, ...names.filter((name) => !selected.includes(name))];
+	}
 
 	const isRate = $derived(unit === 'speech_rate' || unit === 'token_rate');
 	const unavailable = $derived(
@@ -401,21 +488,10 @@
 		)
 	);
 
-	const label = (name: string) =>
-		name.startsWith('register:')
-			? `${termLabel(name.slice(9))} (register)`
-			: name.startsWith('set:')
-				? `${termLabel(name.slice(4))} (set)`
-				: termLabel(name);
-
 	// A term with no register of its own is drawn in ink, not in the accent: the
 	// accent belongs to what the reader can act on, never to a series.
 	const colourOf = (name: string, p = $colours) =>
-		name.startsWith('register:')
-			? registerColour(name.slice(9), p)
-			: allMeasures[name]?.register
-				? registerColour(allMeasures[name].register!, p)
-				: p.ink;
+		allMeasures[name]?.register ? registerColour(allMeasures[name].register!, p) : p.ink;
 
 	function toggle(name: string) {
 		selected = selected.includes(name) ? selected.filter((n) => n !== name) : [...selected, name];
@@ -458,7 +534,7 @@
 		return {
 			textStyle,
 			// When a legend is needed it lists the lines and not their bands.
-			legend: named ? undefined : { ...legend(p), data: usable.map(label) },
+			legend: named ? undefined : { ...legend(p), data: usable.map(termLabel) },
 			// Two grids: the plot, and under its axis a rail for the reference dates.
 			// A tick on a rail is an annotation; the full-height rules this replaced
 			// were a fence (review of 1 September 2026, §5.2), 35 of them over 32
@@ -500,7 +576,7 @@
 					// interval as a range beside the line's value, not as two rows.
 					const interval = (seriesName: string | undefined, index: number | undefined) => {
 						if (!banded || index == null) return '';
-						const internal = usable.find((n) => label(n) === bandOwner(seriesName ?? ''));
+						const internal = usable.find((n) => termLabel(n) === bandOwner(seriesName ?? ''));
 						const low = internal ? allMeasures[internal].speech_rate_low[index] : null;
 						const high = internal ? allMeasures[internal].speech_rate_high[index] : null;
 						return low == null || high == null
@@ -558,7 +634,7 @@
 				...(banded
 					? usable.flatMap((name) =>
 							intervalBand(
-								label(name),
+								termLabel(name),
 								colourOf(name, p),
 								allMeasures[name].speech_rate_low,
 								allMeasures[name].speech_rate_high
@@ -566,14 +642,14 @@
 						)
 					: []),
 				...usable.map((name): LineSeriesOption => ({
-					name: label(name),
+					name: termLabel(name),
 					type: 'line',
 					data: allMeasures[name][unit] ?? [],
 					symbol: 'circle',
 					symbolSize: grain === 'year' ? 5 : 0,
 					lineStyle: { width: 2.2, color: colourOf(name, p) },
 					itemStyle: { color: colourOf(name, p) },
-					endLabel: named ? endLabel(colourOf(name, p), label(name)) : undefined,
+					endLabel: named ? endLabel(colourOf(name, p), termLabel(name)) : undefined,
 					emphasis: { focus: 'series' }
 				})),
 				// The rail: one scatter series per kind, so a kind can be switched off
@@ -610,11 +686,7 @@
 		{ id: 'delivery_language', label: 'Delivery language' }
 	];
 
-	const seriesNames = (source: typeof data.year) => [
-		...Object.keys(source.terms),
-		...Object.keys(source.registers).map((name) => `register:${name}`),
-		...Object.keys(source.sets).map((name) => `set:${name}`)
-	];
+	const seriesNames = (source: typeof data.year) => Object.keys(source.terms);
 	const urlChoices: ChronologyChoices = $derived.by(() => ({
 		series: { year: seriesNames(data.year), quarter: seriesNames(data.quarter) },
 		calendar: Object.fromEntries(
@@ -641,16 +713,23 @@
 
 	$effect(() => {
 		if (!urlReady) return;
-		const params = chronologyParams(
-			{
-				unit,
-				grain,
-				series: selected,
-				calendarMeasure: gridMeasure,
-				calendarUnit: gridUnit,
-				split
-			},
-			urlChoices
+		/* The scope is layout state and the page owns everything else in the
+		   query, so it is merged back in here: a page that rebuilt its own URL
+		   from its own controls would silently drop the reader's reading set on
+		   the next keystroke. */
+		const params = withScope(
+			chronologyParams(
+				{
+					unit,
+					grain,
+					series: selected,
+					calendarMeasure: gridMeasure,
+					calendarUnit: gridUnit,
+					split
+				},
+				urlChoices
+			),
+			scope
 		);
 		const search = params.toString();
 		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
@@ -746,7 +825,7 @@
 	function splitHref(row: BreakdownRow): string | null {
 		/* The raw term, not the derived measure: a derived measure enumerates
 		   no occurrence, and the lines behind this rate are `genocide`'s. The
-		   31 that are the actor label read under `genocidaires`. */
+		   18 that are the actor label read under `genocidaires`. */
 		const link = splitEvidenceQuery('genocide', split, row.category, row.period);
 		return link ? `${resolve('/concordance')}?${link.query}` : null;
 	}
@@ -759,6 +838,7 @@
 
 	/* The figures on this page, for the contents list; the ids follow the titles. */
 	const FIGURES = [
+		{ title: 'The reading set, year by year' },
 		{ title: 'The word list over time' },
 		{ title: "The vocabulary's calendar" },
 		{ title: 'The same twelve months, pooled' },
@@ -771,10 +851,15 @@
 
 	function drillChronology(params: { name?: string; seriesName?: string }) {
 		if (!params.name || !params.seriesName) return;
-		const internal = Object.keys(allMeasures).find((name) => label(name) === params.seriesName);
-		if (!internal || internal.startsWith('set:') || internal.startsWith('register:')) return;
+		const internal = Object.keys(allMeasures).find((name) => termLabel(name) === params.seriesName);
+		if (!internal) return;
 		const year = params.name.slice(0, 4);
-		void goto(`${resolve('/concordance')}?term=${internal}&from=${year}&to=${year}`);
+		/* The term, not always the measure. A drawn line may be a subtraction,
+		   and a subtraction has no concordance to open; it opens the lines of
+		   the term it subtracts from, which the reading note names. The same
+		   resolution the calendar grid makes, for the same reason. */
+		const term = evidenceTerm(internal, allMeasures[internal]);
+		void goto(`${resolve('/concordance')}?term=${term}&from=${year}&to=${year}`);
 	}
 </script>
 
@@ -792,6 +877,41 @@
 	</header>
 
 	<Contents figures={FIGURES} />
+
+	<Figure
+		fullscreen
+		onfullscreenchange={() => scopeChart?.resize()}
+		title="The reading set, year by year"
+		question="How much of each year's record does the selected reading set hold?"
+		source="09_export_speeches.py → scopes.json"
+		note="The line is the reading set as a share of the speeches the Council held that year."
+		download={{
+			name: ['unsc', 'reading-set', scope],
+			table: scopeTable,
+			chart: () => scopeChart?.svg() ?? null
+		}}
+	>
+		{#snippet reading()}
+			<p>
+				<strong>{chosenScope.label}</strong> holds {count(chosenScope.speeches)} speeches across
+				{count(chosenScope.meetings)} meetings. Change it in the masthead; the line follows.
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>
+				A reading set is not a denominator. Every year divides by the speeches the Council held that
+				year — {count(data.scopeIndex.corpus.speeches)} in all — so the term series below keep their base
+				whichever set is selected.
+			</p>
+		{/snippet}
+
+		<Chart
+			bind:this={scopeChart}
+			option={scopeOption}
+			height="260px"
+			description="Line chart of the selected reading set as a share of each year's speeches."
+		/>
+	</Figure>
 
 	<Figure
 		fullscreen
@@ -846,6 +966,13 @@
 				<em>crimes against humanity</em> and <em>war crimes</em>. Add or remove terms under the
 				chart; drag the bar under the axis to zoom.
 			</p>
+			{#if drawnTerms.length}
+				<p>
+					Clicking a point opens that year's lines, and a measure that is a subtraction opens
+					<em>{drawnTerms.map(termLabel).join(' and ')}</em>'s: only a lexicon term has a
+					concordance.
+				</p>
+			{/if}
 		{/snippet}
 		{#snippet caveat()}
 			<p>
@@ -900,15 +1027,26 @@
 		     ("pick terms from the list below the chart") a small lie about where
 		     the list was. -->
 		<section class="picker">
-			<h3>Terms</h3>
+			<h3>Terms &mdash; select as many as you like</h3>
 			<p class="hint">
-				Select any number of individual terms; the opening four make the atrocity comparison
-				explicit. Grouped by register. A <strong>set</strong> counts several terms together; a
-				<strong>register</strong> counts every term in one family of vocabulary at once.
+				Every line is one word or one fixed phrase, and the chart adds nothing together: four are
+				drawn to open with, so that the atrocity comparison is explicit rather than implied. Tick
+				more and they are drawn beside each other. Selecting a <strong>register</strong> draws its whole
+				family as separate lines, which is what a family of words can honestly be shown as &mdash; a single
+				line summed over six of them moves without telling you which one moved.
 			</p>
 			{#each chipGroups as group (group.heading)}
 				<div class="chip-group">
-					<span class="group-label" style:--chip={group.colour}>{group.heading}</span>
+					<button
+						class="group-label"
+						class:on={allSelected(group.names)}
+						style:--chip={group.colour}
+						onclick={() => toggleGroup(group.names)}
+						aria-pressed={allSelected(group.names)}
+						title="Draw all {group.names.length} {group.heading} terms as separate lines"
+					>
+						{group.heading}
+					</button>
 					<div class="chips">
 						{#each group.names as name (name)}
 							<button
@@ -918,7 +1056,7 @@
 								onclick={() => toggle(name)}
 								aria-pressed={selected.includes(name)}
 							>
-								{label(name)}
+								{termLabel(name)}
 							</button>
 						{/each}
 					</div>
@@ -926,8 +1064,8 @@
 			{/each}
 			{#if unavailable.length}
 				<p class="warn">
-					{unavailable.map(label).join(', ')} cannot be shown in this unit, because a set of terms has
-					no occurrence count of its own. Switch to a share-based unit to see it.
+					{unavailable.map(termLabel).join(', ')} cannot be shown in this unit, because it carries no
+					occurrence count of its own. Switch to a share-based unit to see it.
 				</p>
 			{/if}
 		</section>
@@ -939,7 +1077,7 @@
 					><tr
 						><th>Period</th
 						>{#each selected.filter((name) => !unavailable.includes(name)) as name (name)}<th
-								class="num">{label(name)}</th
+								class="num">{termLabel(name)}</th
 							>{/each}</tr
 					></thead
 				>
@@ -1056,11 +1194,20 @@
 						Every number opens that month's lines in the concordance, that month alone rather than
 						the year around it. Months with no rate link too: the minimum applies to the rate, and
 						the lines beneath it are the record itself rather than an estimate drawn from it.
+						{#if wider}
+							Those lines are <em>{termLabel(wider.term)}</em>'s. This measure subtracts
+							<em>{wider.subtracted.map(termLabel).join(' and ')}</em> from it and the concordance
+							enumerates the raw term, so what opens also holds
+							{#if wider.occurrences !== null && wider.speeches !== null}the {count(
+									wider.occurrences
+								)} occurrences, across {count(wider.speeches)} speeches corpus-wide,{:else}the
+								occurrences{/if}
+							that this figure takes out.
+						{/if}
 					{:else}
-						The numbers do not link here. The concordance shows one term at a time, and
+						The numbers do not link here. The concordance holds a file for each term, and
 						<em>{termLabel(gridMeasure)}</em>
-						gathers {gridTerms.length} of them ({gridTerms.map(termLabel).join(', ')}). Select one
-						of those above to open a month's lines.
+						is not one of them. Select a term above to open a month's lines.
 					{/if}
 				</p>
 				<table>
@@ -1115,8 +1262,8 @@
 				<strong>Without</strong> drops {column.excludedYears.join(' and ')}, the two largest years:
 				a seasonal pattern that is one spike seen monthly would not survive.
 				{#if linkable}Each month opens all {byMonth.years.length} instances of it in the concordance.{:else}Months
-					do not link here: <em>{termLabel(gridMeasure)}</em> gathers
-					{gridTerms.length} terms and the concordance shows one at a time.{/if}
+					do not link here: the concordance holds a file per term, and
+					<em>{termLabel(gridMeasure)}</em> is not one.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -1127,6 +1274,13 @@
 		{#if column.refusal}
 			<p class="empty">This measure has no pooled-month figures.</p>
 		{:else}
+			{#if linkable && wider}
+				<p class="hint">
+					A month's name opens <em>{termLabel(wider.term)}</em>'s lines rather than this measure's.
+					The concordance holds a file for each lexicon term, and the subtraction that makes this
+					measure is not one of them.
+				</p>
+			{/if}
 			<table class="calendar">
 				<thead>
 					<tr>
@@ -1600,14 +1754,32 @@
 		margin-bottom: var(--sp-2);
 	}
 
+	/* A control now, not a caption: it draws the whole shelf as separate lines.
+	   It keeps the caption's typography, because it is still the thing that says
+	   which shelf the chips below it sit on. */
 	.group-label {
 		display: block;
 		margin-bottom: var(--sp-1);
+		padding: 0;
+		border: 0;
+		background: none;
 		font-family: var(--sans);
 		font-size: var(--step--2);
 		font-weight: 700;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--chip);
+		cursor: pointer;
+	}
+
+	.group-label:hover,
+	.group-label:focus-visible {
+		text-decoration: underline;
+		text-underline-offset: 0.3em;
+	}
+
+	.group-label.on {
+		text-decoration: underline;
+		text-underline-offset: 0.3em;
 	}
 </style>

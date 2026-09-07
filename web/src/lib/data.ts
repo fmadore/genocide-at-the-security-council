@@ -120,14 +120,11 @@ const validateAnnual: Validator = (record, path) => {
 	}
 	// A band drawn from bounds one period short would slide every later year's
 	// interval onto the wrong year without failing anywhere.
-	for (const kind of ['terms', 'registers', 'sets']) {
-		if (!(kind in record)) continue;
-		for (const [name, measure] of Object.entries(recordAt(record, kind))) {
-			if (!isRecord(measure)) throw new Error(`${path}.${kind}.${name} must be an object.`);
-			for (const field of ['speech_rate_low', 'speech_rate_high']) {
-				if (requireArray(measure, field, `${path}.${kind}.${name}`).length !== periods.length) {
-					throw new Error(`${path}.${kind}.${name}.${field} must align with periods.`);
-				}
+	for (const [name, measure] of Object.entries(recordAt(record, 'terms'))) {
+		if (!isRecord(measure)) throw new Error(`${path}.terms.${name} must be an object.`);
+		for (const field of ['speech_rate_low', 'speech_rate_high']) {
+			if (requireArray(measure, field, `${path}.terms.${name}`).length !== periods.length) {
+				throw new Error(`${path}.terms.${name}.${field} must align with periods.`);
 			}
 		}
 	}
@@ -155,19 +152,17 @@ const validateMonthly: Validator = (record, path) => {
 	// makes: the figure draws exactly the cells that claim to be sufficient, so a
 	// sufficient cell with no rate would reach the grid as a null — and on a
 	// heatmap a null is drawn in the colour a measured zero has.
-	for (const kind of ['terms', 'registers', 'sets']) {
-		for (const [name, measure] of Object.entries(recordAt(record, kind))) {
-			if (!isRecord(measure)) throw new Error(`${path}.${kind}.${name} must be an object.`);
-			const rates = requireArray(measure, 'speech_rate', `${path}.${kind}.${name}`);
-			if (rates.length !== periods.length) {
-				throw new Error(`${path}.${kind}.${name}.speech_rate must align with periods.`);
-			}
-			const wrong = rates.findIndex((rate, index) => sufficient[index] && !Number.isFinite(rate));
-			if (wrong >= 0) {
-				throw new Error(
-					`${path}.${kind}.${name} claims ${periods[wrong]} is sufficient without a rate.`
-				);
-			}
+	for (const [name, measure] of Object.entries(recordAt(record, 'terms'))) {
+		if (!isRecord(measure)) throw new Error(`${path}.terms.${name} must be an object.`);
+		const rates = requireArray(measure, 'speech_rate', `${path}.terms.${name}`);
+		if (rates.length !== periods.length) {
+			throw new Error(`${path}.terms.${name}.speech_rate must align with periods.`);
+		}
+		const wrong = rates.findIndex((rate, index) => sufficient[index] && !Number.isFinite(rate));
+		if (wrong >= 0) {
+			throw new Error(
+				`${path}.terms.${name} claims ${periods[wrong]} is sufficient without a rate.`
+			);
 		}
 	}
 };
@@ -216,6 +211,31 @@ const validateMeetingIndex: Validator = (record, path) => {
 	}
 	if (Number((scopes[0] as JsonRecord).speeches) > Number((scopes[1] as JsonRecord).speeches)) {
 		throw new Error(`${path}.scopes.word must be contained by scopes.vocabulary.`);
+	}
+};
+
+/**
+ * The meeting index's refusals, plus the two cuts the scope control drives.
+ *
+ * Each cut is checked against its own `held` rather than against the corpus
+ * total, because that is the number the site divides by: a reading set larger
+ * than the population it was selected from would draw a share above one and
+ * look like a finding.
+ */
+const validateScopeIndex: Validator = (record, path) => {
+	validateMeetingIndex(record, path);
+	for (const key of ['years', 'delegations']) {
+		for (const [index, cut] of arrayAt(record, key).entries()) {
+			if (!isRecord(cut) || !Number.isInteger(cut.held)) {
+				throw new Error(`${path}.${key}[${index}] must carry its own integer denominator.`);
+			}
+			const sets = recordAt(cut, 'scopes');
+			for (const id of ['word', 'vocabulary', 'debate']) {
+				if (!Number.isInteger(sets[id]) || Number(sets[id]) > Number(cut.held)) {
+					throw new Error(`${path}.${key}[${index}].scopes.${id} must fit inside its own held.`);
+				}
+			}
+		}
 	}
 };
 
@@ -774,8 +794,6 @@ export const REQUIRED = {
 		periods: 'array',
 		corpus: 'object',
 		terms: 'object',
-		registers: 'object',
-		sets: 'object',
 		sufficient: 'array',
 		years: 'array',
 		minimum_speeches: 'number',
@@ -840,7 +858,13 @@ export const REQUIRED = {
 	'kwic/index.json': { meta: 'object', terms: 'array' },
 	'kwic/*.json': { meta: 'object', term: 'string', lines: 'array' },
 	'meetings.json': { meta: 'object', corpus: 'object', scopes: 'array', meetings: 'array' },
-	'scopes.json': { meta: 'object', corpus: 'object', scopes: 'array' },
+	'scopes.json': {
+		meta: 'object',
+		corpus: 'object',
+		scopes: 'array',
+		years: 'array',
+		delegations: 'array'
+	},
 	'speeches/*.json': { meta: 'object', speeches: 'array' }
 } as const satisfies Record<string, Shape>;
 
@@ -888,7 +912,7 @@ export const nodeFrames = at<NodeFrames>('frames/frames.json', validateNodeFrame
 
 export const kwicIndex = at<KwicIndex>('kwic/index.json');
 export const meetingIndex = at<MeetingIndex>('meetings.json', validateMeetingIndex);
-export const scopeIndex = at<ScopeIndex>('scopes.json', validateMeetingIndex);
+export const scopeIndex = at<ScopeIndex>('scopes.json', validateScopeIndex);
 
 /* Fetched by name rather than fixed, so the path is built per call. */
 export const kwic = (term: string, f?: typeof fetch) =>

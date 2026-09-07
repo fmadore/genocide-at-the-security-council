@@ -25,7 +25,7 @@ export const PAGE_METADATA = {
 		path: '/language/',
 		title: `Language — ${SITE_NAME}`,
 		description:
-			'Examine the words, registers and contexts surrounding genocide-related vocabulary in UN Security Council speeches.'
+			'Examine the words, collocates and contexts surrounding genocide-related vocabulary in UN Security Council speeches.'
 	},
 	'/actors/': {
 		path: '/actors/',

@@ -21,7 +21,7 @@ Website: <https://fmadore.github.io/genocide-at-the-security-council/>
 | Speeches | 167,642 |
 | Meetings with speeches | 9,464 |
 | Analytical words | 86,854,907 |
-| `genocid*` (lexicon v4) | 4,133 speeches · 7,747 occurrences |
+| `genocid*` (lexicon v5) | 4,133 speeches · 7,747 occurrences |
 
 Detailed documentation of the schema, source categories, and limitations is in
 [`docs/CORPUS.md`](docs/CORPUS.md).

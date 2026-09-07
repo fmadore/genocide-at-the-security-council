@@ -29,6 +29,7 @@
  * marker that stands for more than one speaker can say how many.
  */
 
+import { evidenceTerm } from './concordance';
 import { headlineMeasure } from './headline';
 import type { Countries, CountryMeasure, CountryMeasureRow, CountryPeriod, Speaker } from './types';
 
@@ -272,11 +273,12 @@ export interface Figures {
 /**
  * Which figures a measure actually carries.
  *
- * `atrocity_core` is a union of five overlapping terms, so a speech that says
- * both `genocide` and `war crimes` would be counted twice in any sum of their
- * occurrences. `11_countries.py` says so in as many words and withholds the
- * count rather than computing a wrong one: a set row has `held`, `speeches` and
- * `speech_rate` and no `occurrences` or `token_rate` at all.
+ * Every measure in this artefact carries an occurrence count since lexicon v5,
+ * and the check stays because of what it caught. `atrocity_core` was a union of
+ * five overlapping terms, so a speech saying both `genocide` and `war crimes`
+ * would have been counted twice in any sum of their occurrences;
+ * `11_countries.py` withheld the count rather than computing a wrong one, and a
+ * set row had `held`, `speeches` and `speech_rate` and nothing else.
  *
  * Read through `?? 0` — which is how every consumer reads a nullable number here
  * — a withheld figure becomes `0.00 per 100,000 words`, and a deliberate silence
@@ -285,8 +287,9 @@ export interface Figures {
  * absence is detected once, here, and the interface drops the column, the
  * ordering and the tooltip line rather than filling them with a zero.
  *
- * Presence is read off the rows rather than inferred from `kind`, so a future
- * set measure that does carry counts is shown them without editing this.
+ * Presence is read off the rows rather than inferred from `kind`, which is why
+ * R7 could remove the only measure that withheld a count without this needing
+ * an edit — and why a later measure that withholds one is handled already.
  */
 export function carries(measure: CountryMeasure | undefined): Figures {
 	return { occurrences: measure?.rows.some((row) => row.occurrences !== undefined) ?? false };
@@ -315,44 +318,76 @@ export interface ConcordanceLink {
  * `term`, `country`, `from` and `to` from the URL, so the filter is expressible;
  * what was missing is a caller that expresses it.
  *
- * Three rules, all of which can be got wrong in ways that look right:
+ * Two rules, both of which can be got wrong in ways that look right:
  *
  * **No link when there is nothing to read.** A speaker can clear the minimum and
  * still never use the term. Offering "read the occurrences" for none of them
  * sends a reader to an empty table to discover what the row already said. The
- * test is the term-bearing speech count rather than the occurrence count,
- * because a set measure has no occurrence count at all — see `carries()` — and
- * `undefined < 1` is false, so the obvious guard would have let every set row
- * through while appearing to check.
- *
- * **A set becomes one link per member.** `atrocity_core` sums five terms and the
- * concordance shows one, so a single link would quietly present a fifth of the
- * evidence as all of it. The members are returned in the artefact's order and
- * the interface says the reading is term by term. Their individual counts are
- * not in this artefact, so a member link can land on nothing — which the
- * concordance states plainly, and which is a smaller cost than a link that
- * misrepresents its scope.
+ * test is the term-bearing speech count rather than the occurrence count: a
+ * measure may withhold its occurrences, and `undefined < 1` is false, so the
+ * obvious guard would let such a row through while appearing to check.
  *
  * **The period travels with the link.** The rate a reader is reading is for one
  * period, so the years bound the concordance too. Sending a period-specific rate
  * to the full corpus range would show lines the figure never counted.
+ *
+ * One link or none. It returned a list until R7, because `atrocity_core` summed
+ * five terms while the concordance shows one, and a single link would have
+ * presented a fifth of the evidence as all of it. Every measure is one term now,
+ * so the list would have exactly one member on every row that has any, and a
+ * shape that can only be one thing should say so.
+ *
+ * **The measure is not always the term.** This table publishes one measure and
+ * it is the derived `genocide_qualification`, which no concordance enumerates —
+ * `08_kwic.py` writes a file per active lexicon term and a subtraction is not
+ * one. Naming the measure in the URL named a file that was never written, on
+ * every row. The link resolves through `derived_from` instead, which widens what
+ * opens; `widening()` is what the interface names that widening by.
  */
-export function occurrences(data: Countries, measure: string, entry: ActorRow): ConcordanceLink[] {
+export function occurrences(
+	data: Countries,
+	measure: string,
+	entry: ActorRow
+): ConcordanceLink | null {
 	const measured = data.measures[measure];
-	if (!measured || entry.row.speeches < 1) return [];
+	if (!measured || entry.row.speeches < 1) return null;
 	const period = data.periods.find((candidate) => candidate.key === entry.row.period);
-	if (!period) return [];
+	if (!period) return null;
 
-	const terms = measured.kind === 'sets' ? (measured.members ?? []) : [measure];
-	return terms.map((term) => {
-		const params = new URLSearchParams({
-			term,
-			country: entry.speaker.country_org,
-			from: String(period.first_year),
-			to: String(period.last_year)
-		});
-		return { term, query: params.toString() };
+	const term = evidenceTerm(measure, measured);
+	const params = new URLSearchParams({
+		term,
+		country: entry.speaker.country_org,
+		from: String(period.first_year),
+		to: String(period.last_year)
 	});
+	return { term, query: params.toString() };
+}
+
+/**
+ * Whose lines a measure's link opens, when they are not the measure's own.
+ *
+ * Null for a measure that is its own term. For a derived one it names the term
+ * the concordance holds and what the measure takes out of it, so the interface
+ * can say that the lines are a superset rather than letting a reader assume the
+ * figure and the evidence are the same set of spans.
+ *
+ * It carries no size, unlike the chronology's: `countries.json` publishes the
+ * derived measure alone and holds no row for the term it subtracts, so the size
+ * of the difference is not in this artefact and this view does not state one.
+ * The chronology reads it off `series/monthly.json`, which does carry both.
+ */
+export interface Widening {
+	/** The term whose concordance actually opens. */
+	term: string;
+	/** What the measure subtracts from it, and what those lines therefore still hold. */
+	subtracted: string[];
+}
+
+export function widening(data: Countries, measure: string): Widening | null {
+	const measured = data.measures[measure];
+	if (!measured?.derived_from) return null;
+	return { term: measured.derived_from, subtracted: measured.derived_minus ?? [] };
 }
 
 /**

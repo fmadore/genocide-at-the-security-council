@@ -379,15 +379,17 @@ comparable — and the figure prints the range, which cannot exclude a member of
 it was computed from.
 
 One thing the shipped view got wrong and now does not, recorded because the failure looked
-exactly like a result. `atrocity_core` is a union of five overlapping terms, so
-`11_countries.py` withholds its occurrence count rather than double-counting a speech that
-uses two of them; the row simply has no `occurrences` and no `token_rate`. Read through the
+exactly like a result. `atrocity_core` was a union of five overlapping terms, so
+`11_countries.py` withheld its occurrence count rather than double-counting a speech that
+used two of them; the row simply had no `occurrences` and no `token_rate`. Read through the
 `?? 0` every consumer uses for a nullable number, that withholding was published as
 `0.00 per 100,000 words` and `NaN occurrences`, and the ranking control offered to order
 133 speakers by a figure none of them had. The interface now detects the absence once
 (`carries()`), and drops the column, the ordering and the tooltip line instead of filling
 them — and `plan()` reports which ordering it actually used, so the control cannot name a
-figure the table is not in.
+figure the table is not in. R7 has since removed the union itself: every measure here is one
+term, so nothing withholds a count today. The detection stays, because it reads the rows
+rather than the kind, and the next measure that withholds one will meet it.
 
 Gate: no profile or ranking for a slice below the declared minimum; aliases and membership
 must pass existing crosswalk tests. Country centroids may support navigation, but they must
@@ -856,12 +858,13 @@ concordance. Five additions are worth building, in this order:
    Building it surfaced a defect in the link it replaced, recorded because it had been
    shipped and because nothing would have reported it. The old link was
    `?term=<measure>&from=<year>&to=<year>` for whatever the grid was drawing, and the
-   concordance holds one file per term: ten of the thirty-two measures — six registers and
-   four sets — are not terms, so selecting `atrocity_core` and following its year link
-   reached a file that does not exist and a retry button. A set is now expanded to its
-   members exactly as `lib/actors` does for a speaker's quotations, and because 384 squares
-   cannot each carry five links, a multi-term measure declines to link and the note under
-   the table names the terms to draw instead. Refusing is the repair.
+   concordance holds one file per term: ten of the then thirty-two measures — six registers
+   and four sets — were not terms, so selecting `atrocity_core` and following its year link
+   reached a file that does not exist and a retry button. The repair was to expand a set to
+   its members exactly as `lib/actors` did for a speaker's quotations, and to let a measure
+   standing for several terms decline to link at all, since 384 squares cannot each carry
+   five. R7 has since removed every measure that was not a term, so the expansion has
+   nothing left to expand; the refusal stays as the rule a later multi-term measure meets.
 
 Requirements that apply to all five:
 
@@ -869,7 +872,7 @@ Requirements that apply to all five:
 - no visual introduces a number that does not exist in a JSON artifact with a manifest.
   The actor view broke this on 10 August 2026 and was fixed the same day, which is worth
   keeping because of *how* it broke: nothing invented a number, it read a field that was
-  never written. `atrocity_core` has no occurrence count by design, and `?? 0` — the idiom
+  never written. `atrocity_core` had no occurrence count by design, and `?? 0` — the idiom
   every consumer here uses for a nullable figure — turned that silence into
   `0.00 per 100,000 words`. The general lesson is that a missing key and a measured zero
   are indistinguishable downstream unless something checks, so the check belongs once, in

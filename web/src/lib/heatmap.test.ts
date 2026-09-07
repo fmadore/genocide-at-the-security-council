@@ -25,6 +25,7 @@ import {
 	gridRows,
 	pooledEvidence,
 	units,
+	widening,
 	type Unit
 } from './heatmap';
 import { tone } from './theme';
@@ -101,14 +102,14 @@ function payload(options: Partial<MonthlySeries> = {}): MonthlySeries {
 			meetings: speeches.map(() => 12)
 		},
 		sufficient,
-		terms: { genocide: measure(rates) },
-		registers: {},
-		sets: {
-			atrocity_core: measure(rates, {
-				occurrences: undefined,
-				token_rate: undefined,
-				members: ['genocide', 'war_crimes']
-			})
+		// Two terms, and the second withholds its occurrence count. Nothing in
+		// the artefact does that today — `atrocity_core` did until lexicon v5,
+		// being a union of overlapping phrases — but the interface has to keep
+		// detecting the absence, because reading it through `?? 0` publishes a
+		// withheld figure as `0.00 per 100,000 words`.
+		terms: {
+			genocide: measure(rates),
+			war_crimes: measure(rates, { occurrences: undefined, token_rate: undefined })
 		},
 		years: YEARS,
 		months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
@@ -131,7 +132,7 @@ function payload(options: Partial<MonthlySeries> = {}): MonthlySeries {
 			excluding_rule: 'The same twelve figures with 1994 and 1995 dropped.',
 			agenda_column: 'agenda_item_manual',
 			agenda_rule: 'The agenda items behind each month.',
-			measures: { genocide: calendarBlock(), atrocity_core: calendarBlock({ kind: 'sets' }) }
+			measures: { genocide: calendarBlock(), war_crimes: calendarBlock() }
 		},
 		...options
 	};
@@ -238,13 +239,13 @@ describe('the units a measure can carry', () => {
 	it('offers a per-token rate only where there is an occurrence count', () => {
 		const data = payload();
 		expect(units(data.terms.genocide)).toEqual(['speech_rate', 'token_rate']);
-		// A set is a union of overlapping terms and has no occurrence count at
-		// all; offering one would publish a withheld figure as 0.00 per 100,000.
-		expect(units(data.sets.atrocity_core)).toEqual(['speech_rate']);
+		// A measure that withholds its occurrence count is offered no per-token
+		// rate; offering one would publish the withholding as 0.00 per 100,000.
+		expect(units(data.terms.war_crimes)).toEqual(['speech_rate']);
 	});
 
 	it('falls back rather than drawing a unit the measure is not in', () => {
-		const plan = grid({ data: payload(), measure: 'atrocity_core', unit: 'token_rate' as Unit });
+		const plan = grid({ data: payload(), measure: 'war_crimes', unit: 'token_rate' as Unit });
 		expect(plan.unit).toBe('speech_rate');
 		expect(plan.drawn).toBeGreaterThan(0);
 	});
@@ -304,7 +305,7 @@ describe('what leaves in a file', () => {
 	it('exports every measure and every month, not the one on screen', () => {
 		const rows = gridRows(payload());
 		expect(rows).toHaveLength(2 * 24);
-		expect(rows.map((row) => row[3])).toContain('atrocity_core');
+		expect(rows.map((row) => row[3])).toContain('war_crimes');
 	});
 
 	it('keeps a withheld month in the file with its null and its flag', () => {
@@ -376,17 +377,15 @@ describe('the evidence behind a square', () => {
 	});
 
 	// The guard is the term-bearing speech count, never the occurrence count: a
-	// set has none, and `undefined < 1` is false, so a check on occurrences would
-	// let every set through while appearing to work.
-	it('becomes one link per member for a set that has no occurrence count', () => {
+	// measure may withhold one, and `undefined < 1` is false, so a check on
+	// occurrences would let every such cell through while appearing to work.
+	it('still links a cell whose measure withholds its occurrence count', () => {
 		const data = payload();
-		const cell = at(grid({ data, measure: 'atrocity_core' }), 1993, 6)!;
+		const cell = at(grid({ data, measure: 'war_crimes' }), 1993, 6)!;
 		expect(cell.occurrences).toBeNull();
-		const links = evidence(data, 'atrocity_core', cell);
-		expect(links.map((link) => link.term)).toEqual(['genocide', 'war_crimes']);
-		for (const link of links) {
-			expect(readMonth(new URLSearchParams(link.query).get('month'))).toBe(6);
-		}
+		const links = evidence(data, 'war_crimes', cell);
+		expect(links.map((link) => link.term)).toEqual(['war_crimes']);
+		expect(readMonth(new URLSearchParams(links[0].query).get('month'))).toBe(6);
 	});
 });
 
@@ -403,12 +402,98 @@ describe('the evidence behind a pooled row', () => {
 		expect(links[0].scope).toBe('every June');
 	});
 
-	it('splits a set into its members here too', () => {
+	it('names the term the row was read for, whatever the row withholds', () => {
 		const data = payload();
-		const june = calendar(data, 'atrocity_core').rows.find((row) => row.month === 6)!;
-		expect(pooledEvidence(data, 'atrocity_core', june).map((link) => link.term)).toEqual([
-			'genocide',
+		const june = calendar(data, 'war_crimes').rows.find((row) => row.month === 6)!;
+		expect(pooledEvidence(data, 'war_crimes', june).map((link) => link.term)).toEqual([
 			'war_crimes'
 		]);
+	});
+});
+
+/**
+ * The file a link asks for, against the files `08_kwic.py` actually wrote.
+ *
+ * `kwic/index.json` lists one concordance per active lexicon term. A derived
+ * measure is not a term — `config/lexicon.yml` says it "has no pattern,
+ * enumerates no occurrence and appears in no concordance" — so no file was ever
+ * written for `genocide_qualification`, and that is the measure this figure
+ * opens on. Nothing upstream of a reader's click can notice: the link is well
+ * formed, the name is a real published measure, and the fetch behind it 404s.
+ *
+ * So the check is the index rather than the payload. Every measure the grid and
+ * the pooled calendar can be switched to is asked for its evidence here, and
+ * the term that comes back has to be one the concordance holds.
+ */
+describe('every link the grid offers names a concordance that exists', () => {
+	/** What `kwic/index.json` lists, in miniature: a file per term, nothing derived. */
+	const HELD = new Set(['genocide', 'war_crimes', 'genocidaires']);
+
+	/** The published shape since lexicon v4: the raw term, its subtrahend, and the difference. */
+	function withDerived(): MonthlySeries {
+		const data = payload();
+		const rates = data.terms.genocide.speech_rate;
+		return {
+			...data,
+			terms: {
+				...data.terms,
+				genocidaires: measure(rates),
+				genocide_qualification: measure(rates, {
+					derived_from: 'genocide',
+					derived_minus: ['genocidaires']
+				})
+			},
+			month_of_year: {
+				...data.month_of_year,
+				measures: {
+					...data.month_of_year.measures,
+					genocidaires: calendarBlock(),
+					genocide_qualification: calendarBlock({
+						derived_from: 'genocide',
+						derived_minus: ['genocidaires']
+					})
+				}
+			}
+		};
+	}
+
+	it.each(['genocide', 'war_crimes', 'genocidaires', 'genocide_qualification'])(
+		'%s opens lines the concordance has a file for',
+		(name) => {
+			const data = withDerived();
+			const cell = at(grid({ data, measure: name }), 1993, 6)!;
+			const june = calendar(data, name).rows.find((row) => row.month === 6)!;
+			const opened = [...evidence(data, name, cell), ...pooledEvidence(data, name, june)].map(
+				(link) => link.term
+			);
+			expect(opened).toHaveLength(2);
+			for (const term of opened) expect(HELD).toContain(term);
+		}
+	);
+
+	it('resolves the derived measure to the term it subtracts from', () => {
+		const data = withDerived();
+		const cell = at(grid({ data, measure: 'genocide_qualification' }), 1993, 6)!;
+		const [link] = evidence(data, 'genocide_qualification', cell);
+		expect(link.term).toBe('genocide');
+		expect(new URLSearchParams(link.query).get('term')).toBe('genocide');
+	});
+
+	// The resolution widens the evidence, so the figure has to be able to say by
+	// how much. Read off the subtrahend's own rows rather than written into the
+	// component: a later corpus moves the number, and a sentence carrying a
+	// figure the payload no longer holds is worse than no sentence.
+	it('measures how much wider the lines it opens are', () => {
+		const data = withDerived();
+		const wider = widening(data, 'genocide_qualification')!;
+		expect(wider.term).toBe('genocide');
+		expect(wider.subtracted).toEqual(['genocidaires']);
+		const subtrahend = data.terms.genocidaires;
+		expect(wider.speeches).toBe(subtrahend.speeches.reduce((a, b) => a + b, 0));
+		expect(wider.occurrences).toBe(subtrahend.occurrences!.reduce((a, b) => a + b, 0));
+	});
+
+	it('says nothing about widening for a measure that is its own term', () => {
+		expect(widening(withDerived(), 'genocide')).toBeNull();
 	});
 });

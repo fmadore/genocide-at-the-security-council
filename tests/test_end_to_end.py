@@ -145,8 +145,13 @@ def analytical(series_dir: Path, kwic_dir: Path, frames_dir: Path) -> dict[str, 
                 key: qualification[key] for key in ("speeches", "occurrences", "token_rate")
             },
             "genocide_free_atrocity": annual["corpora"]["genocide_free_atrocity"],
-            "legal_register_occurrences": annual["registers"]["legal"]["occurrences"],
-            "atrocity_core_speeches": annual["sets"]["atrocity_core"]["speeches"],
+            # Held one term at a time since lexicon v5. The legal register's
+            # occurrences and the atrocity core's speeches used to stand here,
+            # and both were sums this project chose rather than measurements the
+            # corpus offers; `war_crimes` is one of the words they were made of.
+            "war_crimes": {
+                key: annual["terms"]["war_crimes"][key] for key in ("speeches", "occurrences")
+            },
         },
         "inference": {
             name: {

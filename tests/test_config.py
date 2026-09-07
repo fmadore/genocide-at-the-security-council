@@ -13,6 +13,7 @@ import re
 
 import pandas as pd
 import pytest
+import yaml
 from lib import council, entities, lexicon, series
 from lib.paths import (
     COUNCIL_MEMBERSHIP,
@@ -287,10 +288,15 @@ class TestLexicon:
             assert term.tier
             assert term.register
 
-    def test_sets_reference_defined_terms(self, lex):
-        for name, members in lex.sets.items():
-            missing = [m for m in members if m not in lex.terms]
-            assert missing == [], f"set '{name}' references {missing}"
+    def test_the_file_declares_no_sets(self, lex):
+        """R7. A named group of terms published as a measure was a grouping
+        this file chose on the reader's behalf, and `r2p_quartet` drew a line
+        across the whole corpus under a doctrine codified in the 2000s. The
+        loader refuses the block rather than ignoring it, so a revival fails
+        where it is written."""
+        raw = yaml.safe_load(LEXICON.read_text(encoding="utf-8"))
+        assert "sets" not in raw
+        assert not hasattr(lex, "sets")
 
     def test_nested_terms_reference_defined_parents(self, lex):
         for term in lex.terms.values():
@@ -360,16 +366,18 @@ class TestLexicon:
         assert counts["n_genocide_qualification"].tolist() == [1, 0, 1, 0]
         assert counts["has_genocide_qualification"].tolist() == [True, False, True, False]
 
-    def test_a_derived_measure_stays_out_of_every_roll_up(self, lex):
-        """It restates its minuend, which every roll-up already holds, so
-        adding it would count those spans twice."""
+    def test_the_derived_measure_is_the_only_arithmetic_over_two_terms(self, lex):
+        """And it subtracts rather than adds. R7 took every sum out of `apply`;
+        what is left is one column per term, one per derived measure, and no
+        column whose movement a reader cannot attribute to a word."""
         bodies = pd.Series(["A genocide, and the genocidaires who committed it."])
         counts = lexicon.apply(bodies, lex)
         assert int(counts["n_genocide"].iloc[0]) == 2
-        # `genocidaires` is nested under `genocide`, so the register counts the
-        # parent's two spans once and the derived measure not at all.
-        assert int(counts["n_register_core"].iloc[0]) == 2
-        assert int(counts["n_lexicon_terms"].iloc[0]) == 2, "two terms, not three"
+        assert int(counts["n_genocidaires"].iloc[0]) == 1
+        assert int(counts["n_genocide_qualification"].iloc[0]) == 1
+        summed = [c for c in counts.columns if c.startswith(("n_register_", "has_register_",
+                                                             "has_set_", "n_lexicon_"))]
+        assert summed == []
 
     def test_the_repaired_terms_no_longer_match_what_the_review_found(self, lex):
         """The five noisy terms of §3.4, each against the phrase that was
@@ -413,17 +421,10 @@ class TestLexicon:
             assert name in lex.terms, name
             assert lex.terms[name].spans(phrase), name
 
-    def test_the_core_register_is_no_longer_a_copy_of_one_term(self, lex):
-        """Housekeeping from §3.4: `core` held only `genocide`, so
-        `has_register_core` said exactly what `has_genocide` said."""
-        members = [term.name for term in lex.by_register()["core"]]
-        assert len(members) > 1, members
-
     def test_the_header_names_every_register_the_file_uses(self, lex):
-        """The other half of the housekeeping: the header claimed four
-        discursive families while the file carried six, so a reader who
-        trusted it would have looked for two registers that were never
-        described. Enumerating them there is what keeps the claim checkable."""
+        """A register is a shelf label rather than a measure, and a shelf whose
+        name appears nowhere in the header is a grouping a reader cannot place.
+        Enumerating them there is what keeps the claim checkable."""
         header = LEXICON.read_text(encoding="utf-8").split("\nversion:")[0]
         missing = sorted(r for r in lex.by_register() if r not in header)
         assert missing == [], f"the header does not name {missing}"

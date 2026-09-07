@@ -1321,7 +1321,6 @@ def lexicon_at(version: int, pattern_since: int) -> lexicon.Lexicon:
                 regex=re.compile(pattern, re.IGNORECASE),
             )
         },
-        sets={},
     )
 
 

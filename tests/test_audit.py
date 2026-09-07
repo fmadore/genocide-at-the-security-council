@@ -214,7 +214,6 @@ def test_pipeline_builds_three_distinct_frames_from_declared_patterns() -> None:
         version=2,
         updated="2026-08-09",
         terms={active.name: active, disabled.name: disabled},
-        sets={},
     )
     bodies = pd.Series(
         ["genocide here", "another genocide", "an OCR genecide"], index=[0, 1, 2]
@@ -264,7 +263,6 @@ def test_coverage_frame_grows_to_its_strata_rather_than_failing_the_step() -> No
         version=4,
         updated="2026-09-02",
         terms={"genocide": term("genocide", r"\bgenocide\b"), "war": term("war", r"\bwar\b")},
-        sets={},
     )
     years = [1992, 2001, 2010, 1993, 2002]
     bodies = pd.Series(

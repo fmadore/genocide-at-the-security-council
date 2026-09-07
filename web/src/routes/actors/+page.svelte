@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Contents from '$lib/Contents.svelte';
@@ -18,13 +19,22 @@
 		orderings,
 		plan,
 		points,
-		readActorState
+		readActorState,
+		widening
 	} from '$lib/actors';
 	import type { MapPoint, Ordering } from '$lib/actors';
 	import type { CountryMeasureRow } from '$lib/types';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, entityType, percent, shortCountry, termLabel } from '$lib/format';
+	import {
+		DEFAULT_SCOPE,
+		SCOPE_IDS,
+		rankedDelegations,
+		readScope,
+		scopeOf,
+		withScope
+	} from '$lib/scope';
 	import { PAGE_METADATA } from '$lib/seo';
 	import type { PageData } from './$types';
 	import { onMount, tick } from 'svelte';
@@ -41,6 +51,10 @@
 
 	const measures = $derived(Object.keys(artefact.measures));
 	const shared = $derived(ambiguous(artefact));
+	/* The published measure is a subtraction and no concordance enumerates one,
+	   so a link resolves to the term it subtracts from — which holds the spans
+	   the measure removes as well as the ones it counts. The aside says so. */
+	const wider = $derived(widening(artefact, measure));
 	const result = $derived(plan({ data: artefact, measure, period, order }));
 
 	onMount(() => {
@@ -55,7 +69,11 @@
 
 	$effect(() => {
 		if (!urlReady) return;
-		const params = actorParams({ measure, period, order }, artefact);
+		/* The scope is layout state and the page owns everything else in the
+		   query, so it is merged back in here: a page that rebuilt its own URL
+		   from its own controls would silently drop the reader's reading set on
+		   the next keystroke. */
+		const params = withScope(actorParams({ measure, period, order }, artefact), scope);
 		const search = params.toString();
 		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
 	});
@@ -65,11 +83,11 @@
 		selected = null;
 	});
 
-	/* What this measure has a number for. `atrocity_core` is a union of five
-	   overlapping terms, so 11 withholds its occurrence count rather than
-	   double-counting a speech that uses two of them — and a withheld figure read
-	   through `?? 0` is published as `0.00 per 100,000 words`. Everything below
-	   that would print one is gated on this instead. */
+	/* What this measure has a number for. Every measure carries an occurrence
+	   count since lexicon v5 removed the unions, but the gate stays: `11` may
+	   withhold a figure rather than compute a wrong one, and a withheld figure
+	   read through `?? 0` is published as `0.00 per 100,000 words`. Everything
+	   below that would print one is gated on this instead. */
 	const has = $derived(carries(artefact.measures[measure]));
 	const rankings = $derived(orderings(artefact.measures[measure]));
 
@@ -123,9 +141,9 @@
 					row.speech_rate,
 					row.speech_rate_low,
 					row.speech_rate_high,
-					// Two columns a set measure has no figure for. Dropped rather
-					// than written empty: a blank column reads as data that went
-					// missing, and this one was never computed.
+					// Two columns a withholding measure has no figure for. Dropped
+					// rather than written empty: a blank column reads as data that
+					// went missing, and this one was never computed.
 					...(has.occurrences ? [row.occurrences, row.token_rate] : []),
 					row.sufficient,
 					speaker?.mappable ?? null
@@ -158,8 +176,8 @@
 				...(has.occurrences
 					? []
 					: [
-							`occurrences and token rate: withheld — ${termLabel(measure)} is a union of ` +
-								`overlapping terms and a sum would double-count`
+							`occurrences and token rate: withheld — ${termLabel(measure)} is published ` +
+								`without an occurrence count`
 						])
 			],
 			scope:
@@ -185,7 +203,7 @@
 				...(row.speech_rate_low != null && row.speech_rate_high != null
 					? [`95% interval ${percent(row.speech_rate_low)}–${percent(row.speech_rate_high)}`]
 					: []),
-				// Both of these are figures a set measure does not have.
+				// Both of these are figures a withholding measure does not have.
 				...(has.occurrences
 					? [
 							`${decimal(row.token_rate ?? 0)} per ${count(artefact.rate_per_tokens)} words`,
@@ -197,6 +215,39 @@
 					: []),
 				...(point.shared ? [`${speaker.iso3} is held by more than one speaker`] : [])
 			]
+		};
+	}
+
+	/* --- The reading set the masthead selected -----------------------------
+	   Who is in it, measured against their own record. The rate below is the
+	   share of a delegation's *own* speeches, so the reading set changes the
+	   numerator and never the base — which is what lets the debate scope ask
+	   who sat in those meetings without inflating anybody's rate. */
+	/* `url.searchParams` is unreadable while a page is prerendered, by design:
+	   a static file cannot depend on a query string. The answer there is the
+	   default, which is the guarantee R9 makes anyway — a URL carrying no scope
+	   renders what the site rendered before R9 — and hydration applies the rest. */
+	const scope = $derived(browser ? readScope(page.url.searchParams) : DEFAULT_SCOPE);
+	const chosenScope = $derived(scopeOf(data.scopeIndex, scope));
+	const RANKED = 20;
+	const inScope = $derived(
+		rankedDelegations(data.scopeIndex, scope, artefact.minimum_speeches, RANKED)
+	);
+
+	function scopeTable(): ExportRequest {
+		return {
+			title: 'The reading set, by delegation',
+			columns: ['country_org', 'speeches_held', ...SCOPE_IDS.map((id) => `speeches_${id}`)],
+			rows: data.scopeIndex.delegations.map((row) => [
+				row.country_org,
+				row.held,
+				...SCOPE_IDS.map((id) => row.scopes[id])
+			]),
+			provenance: provenanceOf(data.scopeIndex.meta, 'scopes.json'),
+			filters: [`drawn: ${chosenScope.label}`, `ranked: top ${RANKED}`],
+			scope:
+				`every speaker the three reading sets hold, including the ` +
+				`${count(artefact.minimum_speeches)}-speech minimum's withheld rows, which the figure does not rank`
 		};
 	}
 
@@ -246,11 +297,68 @@
 
 	<Contents
 		figures={[
+			{ title: 'The reading set, by delegation' },
 			{ title: 'Speakers by rate' },
 			{ title: 'Who held a seat when they spoke' },
 			{ title: 'What a delegation says that the room does not' }
 		]}
 	/>
+
+	<Figure
+		title="The reading set, by delegation"
+		question="Inside the selected reading set, who spoke, and how much of their own record is it?"
+		source="09_export_speeches.py → scopes.json"
+		note="Share is of a delegation's own speeches in the whole corpus, never of the reading set."
+		download={{ name: ['unsc', 'reading-set', 'delegations', scope], table: scopeTable }}
+	>
+		{#snippet reading()}
+			<p>
+				<strong>{chosenScope.label}</strong>: {count(chosenScope.speeches)} speeches in
+				{count(chosenScope.meetings)} meetings. The {RANKED} delegations whose own record it covers most.
+				Change the set in the masthead.
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>
+				Under <em>the debate</em> a delegation is counted for every speech it made in a meeting where
+				someone said the word, whether or not it said anything. That is the point of the set, and it is
+				not a measure of what the delegation said.
+			</p>
+		{/snippet}
+		{#snippet more()}
+			<p>{artefact.minimum_speeches_rule}</p>
+		{/snippet}
+
+		<section class="table-wrap">
+			<h3 class="sr-only">The reading set, by delegation</h3>
+			<div class="scroll">
+				<table>
+					<caption class="sr-only"
+						>Delegations ranked by the share of their own speeches that {chosenScope.label.toLowerCase()}
+						holds</caption
+					>
+					<thead>
+						<tr>
+							<th scope="col">Speaker</th>
+							<th scope="col" class="num">Speeches</th>
+							<th scope="col" class="num">In the set</th>
+							<th scope="col" class="num">Share</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each inScope as row (row.country_org)}
+							<tr>
+								<th scope="row">{shortCountry(row.country_org)}</th>
+								<td class="num">{count(row.held)}</td>
+								<td class="num">{count(row.speeches)}</td>
+								<td class="num">{row.share === null ? '—' : percent(row.share)}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</section>
+	</Figure>
 
 	<Figure
 		fullscreen
@@ -299,8 +407,8 @@
 				{count(result.under.length)} speakers delivered fewer than
 				{count(result.minimum)} speeches this period and carry no rate: they are not ranked low, they
 				are not ranked.
-				{#if !has.occurrences}<em>{termLabel(measure)}</em> gathers overlapping phrases, so it counts
-					speeches using any of them and has no occurrence total.{/if}
+				{#if !has.occurrences}<em>{termLabel(measure)}</em> is published without an occurrence total,
+					so the rate here is a share of speeches and nothing else.{/if}
 			</p>
 		{/snippet}
 		{#snippet more()}
@@ -431,7 +539,7 @@
 			{/if}
 			<dl>
 				{#each chosen.speakers as entry (entry.speaker.country_org)}
-					{@const links = occurrences(artefact, measure, entry)}
+					{@const link = occurrences(artefact, measure, entry)}
 					<div>
 						<dt>{shortCountry(entry.speaker.country_org)}</dt>
 						<dd>
@@ -455,23 +563,11 @@
 							</a>
 							<span class="interval">model-derived, experimental</span>
 						</dd>
-						{#if links.length === 1}
+						{#if link}
 							<dd class="read">
-								<a class="more" href="{resolve('/concordance')}?{links[0].query}">
+								<a class="more" href="{resolve('/concordance')}?{link.query}">
 									Read the occurrences <Icon icon={ChevronRight} />
 								</a>
-							</dd>
-						{:else if links.length > 1}
-							<!-- The concordance shows one term. A single link for a set would
-							     offer a fifth of the evidence as all of it, so the members are
-							     listed and the reading is term by term. -->
-							<dd class="read">
-								<span>Read them one word at a time:</span>
-								{#each links as link, index (link.term)}<a
-										href="{resolve('/concordance')}?{link.query}">{termLabel(link.term)}</a
-									>{#if index < links.length - 1}<span aria-hidden="true">
-											&middot;
-										</span>{/if}{/each}
 							</dd>
 						{/if}
 					</div>
@@ -480,6 +576,11 @@
 			<p class="scoped">
 				Each link carries this speaker and {result.period?.label ?? period} through to the concordance,
 				so what opens is the evidence behind the rate above rather than the whole corpus.
+				{#if wider}
+					The lines are <em>{termLabel(wider.term)}</em>'s: this measure subtracts
+					<em>{wider.subtracted.map(termLabel).join(' and ')}</em> from it, and only a lexicon term has
+					a concordance, so they hold the occurrences the rate leaves out as well as those it counts.
+				{/if}
 			</p>
 		</aside>
 	{/if}

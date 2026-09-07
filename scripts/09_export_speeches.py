@@ -180,7 +180,13 @@ def summarise(meeting: dict) -> dict[str, object]:
 
 
 def scope_payload(speeches: pd.DataFrame, meta: dict[str, object]) -> dict[str, object]:
-    """The small shared-layout artefact, kept out of the 3 MB meeting index."""
+    """The small shared-layout artefact, kept out of the 3 MB meeting index.
+
+    It carries the two cuts the consuming views need — by year and by speaker —
+    because a scope that changes only a number beside a control is a control
+    nothing obeys, and fetching the meeting index to obey it would cost 3 MB on
+    every page.
+    """
     return {
         "meta": meta,
         "corpus": {
@@ -188,6 +194,8 @@ def scope_payload(speeches: pd.DataFrame, meta: dict[str, object]) -> dict[str, 
             "meetings": int(speeches["meeting_symbol"].nunique()),
         },
         "scopes": scopes.summary(speeches),
+        "years": scopes.by_year(speeches),
+        "delegations": scopes.by_delegation(speeches),
     }
 
 
@@ -260,12 +268,11 @@ def run(scope: str, indent: int | None) -> None:
 
     lex = lexicon.load()
     flags = [f"{lexicon.HAS}{t.name}" for t in lex.active]
-    # The per-term counts, not `n_lexicon_total`. Neither is exported; both are
-    # read so the run can check its own offsets against what 03 recorded, rather
-    # than trusting that two passes of the same regexes agree. The offsets are
-    # per term — a "mass atrocity" is highlighted as `mass_atrocity` and as
-    # `atrocity`, two entries over one span — where the total counts a term
-    # nested inside another only once, so only the per-term counts compare.
+    # The per-term counts. Not exported: they are read so the run can check its
+    # own offsets against what 03 recorded, rather than trusting that two passes
+    # of the same regexes agree. The offsets are per term — a "mass atrocity" is
+    # highlighted as `mass_atrocity` and as `atrocity`, two entries over one
+    # span — and since lexicon v5 there is no total to compare against anyway.
     term_counts = [f"{lexicon.COUNT}{t.name}" for t in lex.active]
 
     console.step("Reading")

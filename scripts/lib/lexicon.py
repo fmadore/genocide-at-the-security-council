@@ -3,8 +3,17 @@
 `config/lexicon.yml` is a hypothesis about what "discussing genocide" looks
 like in a verbatim record, not a ground truth. This module keeps it honest:
 
-- every term carries its own `tier` and `register`, so a count can always be
-  traced back to the discursive family it belongs to;
+- every term carries its own `tier` and `register`, and neither is a measure.
+  They are shelf labels: `register` groups and colours the term picker, `tier`
+  documents how central a term is. Nothing here sums a register, a set or the
+  lexicon as a whole, because a count of *the legal register* is a count of a
+  category `config/lexicon.yml` invented, and a reader watching that line move
+  cannot tell which of six words moved it. What the site publishes is one
+  measure per term, and the reader composes any group of them;
+- five terms carry an `intensity`, the legal ladder: a strict ordering of the
+  atrocity vocabulary by the standing its object has in international law
+  rather than by how forceful the word feels. It is hand-assigned, so a figure
+  drawn from it is mixed provenance and never computed;
 - terms marked ``enabled: false`` — the OCR-tolerant net — are compiled and
   measured but kept out of the headline columns, so their contribution is
   reported as a delta rather than folded silently into the total;
@@ -30,7 +39,7 @@ import bisect
 import hashlib
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 import pandas as pd
@@ -87,6 +96,11 @@ class Term:
     #: ``"sentence"`` to count only where the sentence holding a match also
     #: matches :data:`ANCHOR_RE`; ``None`` to count every match.
     anchor: str | None = None
+    #: The term's rung on the legal ladder, higher being further up, or
+    #: ``None`` for a term the ladder does not order. Hand-assigned from the
+    #: instruments — see the gloss in config/lexicon.yml — so anything drawn
+    #: from it is mixed provenance under R3.
+    intensity: int | None = None
     regex: re.Pattern[str] = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
 
     def spans(self, source: str) -> list[tuple[int, int]]:
@@ -198,7 +212,6 @@ class Lexicon:
     version: int
     updated: str
     terms: dict[str, Term]
-    sets: dict[str, list[str]]
     derived: dict[str, Derived] = field(default_factory=dict)
 
     @property
@@ -255,50 +268,6 @@ class Lexicon:
         return out
 
 
-def summable(terms: Sequence[Term], table: Mapping[str, Term]) -> list[Term]:
-    """The subset of ``terms`` that can be added into a single occurrence count.
-
-    A nested term's matches lie inside its parent's — every "mass atrocity" is
-    also an "atrocity", every "Genocide Convention" also a `genocid*` — so
-    adding a child and its parent to one sum counts the same span twice. This
-    drops each term with *any* ancestor summed alongside it, in the order given.
-    A term whose ancestors are all absent from the list stays: nothing else in
-    that sum covers it, which is why a child counts in full in its own register
-    when its parent belongs to another.
-
-    ``table`` is the whole lexicon's terms, and the chain is walked through it
-    rather than through ``terms``: with A ← B ← C and B out of the sum — another
-    register, or disabled — C still sits inside A, so looking only one level up
-    would keep both and count C's spans twice.
-
-    Nesting is declared in `config/lexicon.yml`, not proven span by span, and a
-    few alternatives inside a nested pattern do not sit inside a parent match:
-    `convention on the prevention and punishment` matches `genocide_convention`
-    on its own, with the parent's `genocid*` following as a separate span
-    ("...of the Crime of Genocide"), and `special adviser on the prevention`
-    likewise for `prevention_of_genocide`. Treating every nested occurrence as
-    already counted by the parent therefore undercounts those few mentions. That
-    is the safer direction: the roll-up understates rather than inflates.
-    """
-    summed = {term.name for term in terms}
-
-    def covered(term: Term) -> bool:
-        """Whether an ancestor of `term` is summed alongside it."""
-        seen = {term.name}
-        parent = term.nested_under
-        # `check_nesting` refuses a cycle, so this walk terminates on a loaded
-        # lexicon; `seen` keeps a hand-built one from spinning forever here
-        # rather than at the point that built it.
-        while parent is not None and parent not in seen:
-            if parent in summed:
-                return True
-            seen.add(parent)
-            parent = table[parent].nested_under if parent in table else None
-        return False
-
-    return [term for term in terms if not covered(term)]
-
-
 def pattern_sha256(pattern: str) -> str:
     """The digest the lock pins a term's pattern by.
 
@@ -308,14 +277,34 @@ def pattern_sha256(pattern: str) -> str:
     return hashlib.sha256(pattern.encode("utf-8")).hexdigest()
 
 
+def check_intensity(terms: Mapping[str, Term]) -> None:
+    """Refuse an `intensity` scale that is not a total order over the terms.
+
+    Two terms on one rung are incomparable, and a ladder with an incomparable
+    pair cannot answer the question it exists for — whether a delegation climbs
+    towards the word before using it — because two of its steps are the same
+    step. A gap is refused for a different reason: it reads as a rung somebody
+    forgot rather than as a vocabulary with five of them, and the count of rungs
+    is part of the claim the file's gloss makes.
+    """
+    ranked = {name: term.intensity for name, term in terms.items() if term.intensity is not None}
+    if ranked and sorted(ranked.values()) != list(range(1, len(ranked) + 1)):
+        raise ValueError(
+            f"{rel(LEXICON)}: intensity is not a total order over the terms that carry "
+            f"one: {dict(sorted(ranked.items(), key=lambda item: item[1] or 0))}; the "
+            f"rungs must be the distinct integers 1..{len(ranked)}"
+        )
+
+
 def check_nesting(terms: Mapping[str, Term]) -> None:
     """Refuse a `nested_under` graph that cannot describe containment.
 
     A parent no term defines, a term nested under itself, a chain that loops:
-    none of them can mean "these matches lie inside those". `summable` would
-    read the first two as a term nobody covers and the third as a set covering
-    itself, dropping every member of the loop from the sum — a silent
-    undercount, which is exactly what refusing the file here prevents.
+    none of them can mean "these matches lie inside those". Nesting is what
+    makes a `derived` subtraction a narrowing of its minuend rather than an
+    arithmetic accident between two unrelated counts, so a graph that cannot
+    describe containment is refused where the file is read rather than believed
+    at the point something subtracts on it.
     """
     bad_parents = {
         term.name: term.nested_under
@@ -474,6 +463,13 @@ def load(*, check_lock: bool = True) -> Lexicon:
                 "not exist yet"
             )
 
+        rung = spec.get("intensity")
+        if rung is not None and (isinstance(rung, bool) or not isinstance(rung, int) or rung < 1):
+            raise ValueError(
+                f"{rel(LEXICON)}: term '{name}' declares intensity {rung!r}; a rung of "
+                "the legal ladder is a positive integer, or the term carries none"
+            )
+
         anchor = spec.get("anchor")
         if anchor is not None and anchor not in ANCHORS:
             raise ValueError(
@@ -494,6 +490,7 @@ def load(*, check_lock: bool = True) -> Lexicon:
             prefilters=tuple(str(literal) for literal in spec.get("prefilters", [])),
             nested_under=spec.get("nested_under"),
             anchor=anchor,
+            intensity=rung,
             regex=regex,
         )
 
@@ -535,13 +532,18 @@ def load(*, check_lock: bool = True) -> Lexicon:
                 "and must be one ASCII token"
             )
 
-    sets = raw.get("sets", {})
-    unknown = {
-        name: [t for t in members if t not in terms] for name, members in sets.items()
-    }
-    if bad := {k: v for k, v in unknown.items() if v}:
-        raise ValueError(f"{rel(LEXICON)}: sets reference undefined terms: {bad}")
+    # Refused rather than ignored. A `sets:` block reintroduced here would look
+    # like a working feature and count nothing, and the reason it went is not a
+    # detail of implementation: a named group of terms published as a measure is
+    # a grouping this file chose on the reader's behalf.
+    if "sets" in raw:
+        raise ValueError(
+            f"{rel(LEXICON)}: 'sets' was removed at v5 and nothing reads it. The site "
+            "publishes one measure per term and the reader composes the group; see the "
+            "v5 note in the file's header"
+        )
 
+    check_intensity(terms)
     check_nesting(terms)
 
     derived: dict[str, Derived] = {}
@@ -591,7 +593,6 @@ def load(*, check_lock: bool = True) -> Lexicon:
         version=version,
         updated=str(raw.get("updated", "")),
         terms=terms,
-        sets=sets,
         derived=derived,
     )
 
@@ -600,16 +601,20 @@ def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
     """Count every active term in every speech body.
 
     Returns a frame of ``n_<term>`` and ``has_<term>`` columns, one such pair
-    per :class:`Derived` measure, plus one ``has_<set>`` column per convenience
-    grouping and per register, all indexed like ``bodies``.
+    per term and one per :class:`Derived` measure, all indexed like ``bodies``.
 
-    The occurrence roll-ups — each ``n_register_<register>`` and
-    ``n_lexicon_total`` — are sums over :func:`summable`, so a term declared
-    nested under another is not added on top of the parent that already counts
-    its span. The ``has_`` flags and ``n_lexicon_terms`` stay over every member:
-    neither can double-count a span. A derived measure enters no roll-up at
-    all: it is a restatement of its minuend, which every roll-up already holds,
-    and adding it would count those spans a second time.
+    **Nothing here sums over more than one term.** Until v5 this also wrote a
+    count and a flag per register, one flag per named set and two totals over
+    the whole lexicon, and every one of them was a measure of a category this
+    project invented: a reader watching *the legal register* rise could not
+    tell which of six words had moved, and could not have found out from the
+    figure. The picker on the chronology has always taken several terms at
+    once, so the aggregate was never a capability — it was a default grouping,
+    chosen here and presented as a property of the corpus. Removing it moves
+    the choice of what to add together to the reader, which is the only place
+    it can be made honestly. A derived measure is the one exception that proves
+    the rule and is not one: it *subtracts* one term from another rather than
+    adding two, and it is declared, checked and published under its own name.
     """
     counts = pd.DataFrame(index=bodies.index)
     for term in lex.active:
@@ -635,26 +640,6 @@ def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
         counts[f"{COUNT}{measure.name}"] = net.astype("int64")
         counts[f"{HAS}{measure.name}"] = net > 0
 
-    for register, terms in lex.by_register().items():
-        summed = [f"{COUNT}{t.name}" for t in summable(terms, lex.terms)]
-        counts[f"{COUNT}register_{register}"] = counts[summed].sum(axis=1).astype("int32")
-        # The flag asks whether the register was used at all, which no amount of
-        # nesting can double-count, so it stays over every member — the booleans
-        # written a few lines above, rather than a second sum of the same counts.
-        members = [f"{HAS}{t.name}" for t in terms]
-        counts[f"{HAS}register_{register}"] = counts[members].any(axis=1)
-
-    for set_name, members in lex.sets.items():
-        columns = [f"{COUNT}{m}" for m in members if f"{COUNT}{m}" in counts]
-        if columns:
-            counts[f"{HAS}set_{set_name}"] = counts[columns].sum(axis=1) > 0
-
-    active = [f"{COUNT}{t.name}" for t in lex.active]
-    summed = [f"{COUNT}{t.name}" for t in summable(lex.active, lex.terms)]
-    counts["n_lexicon_total"] = counts[summed].sum(axis=1).astype("int32")
-    # Distinct terms present, not spans: a nested term and its parent are two
-    # terms, and a speech using both is described by both.
-    counts["n_lexicon_terms"] = (counts[active] > 0).sum(axis=1).astype("int32")
     return counts
 
 

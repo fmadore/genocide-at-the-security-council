@@ -32,13 +32,30 @@ export interface Measure {
 	 */
 	speech_rate_low: number[];
 	speech_rate_high: number[];
-	/** Absent for sets: a union has no occurrence count of its own. */
+	/**
+	 * Optional only for an archived payload: every measure written since
+	 * lexicon v5 is one term and carries both. The register and set roll-ups
+	 * that had no occurrence count of their own are gone — R7.
+	 */
 	occurrences?: number[];
 	token_rate?: number[];
 	tier?: string;
+	/** The shelf the term picker groups and colours by. Never a measure. */
 	register?: string;
-	terms?: string[];
-	members?: string[];
+	/**
+	 * The term a *derived* measure subtracts from, absent on a term itself.
+	 *
+	 * `config/lexicon.yml`'s `derived` block writes it, and it is the only thing
+	 * that tells a consumer apart a measure standing for a pattern from one
+	 * standing for a subtraction. That distinction is load-bearing wherever a
+	 * figure offers to open its own evidence: `08_kwic.py` writes a concordance
+	 * per active term, and a derived measure "has no pattern, enumerates no
+	 * occurrence and appears in no concordance". Its lines are its minuend's,
+	 * which is what `heatmap.termsOf` and `actors.occurrences` resolve through.
+	 */
+	derived_from?: string;
+	/** What is taken out of `derived_from`. Those spans are in the minuend's lines. */
+	derived_minus?: string[];
 }
 
 /** A named population of speeches, not a summed vocabulary measure. */
@@ -60,9 +77,8 @@ export interface AnnualSeries {
 	corpus: { speeches: number[]; words: number[]; meetings: number[] };
 	/** Present on artifacts written after R8; optional so archived payloads remain readable. */
 	corpora?: Record<string, CorpusSlice>;
+	/** One entry per lexicon term and per derived measure, and nothing else. */
 	terms: Record<string, Measure>;
-	registers: Record<string, Measure>;
-	sets: Record<string, Measure>;
 }
 
 /**
@@ -85,6 +101,9 @@ export interface MonthlyMeasure {
 	token_rate?: (number | null)[];
 	tier?: string;
 	register?: string;
+	/** See `Measure.derived_from`. The chronology's grid resolves its links through it. */
+	derived_from?: string;
+	derived_minus?: string[];
 	terms?: string[];
 	members?: string[];
 }
@@ -108,11 +127,12 @@ interface CalendarReading {
 }
 
 export interface CalendarMeasure extends CalendarReading {
-	kind: 'terms' | 'registers' | 'sets';
+	kind: 'terms';
 	tier?: string;
 	register?: string;
-	terms?: string[];
-	members?: string[];
+	/** See `Measure.derived_from`. */
+	derived_from?: string;
+	derived_minus?: string[];
 	/** The same twelve figures with the artefact's control years dropped. */
 	excluding: CalendarReading;
 	/** Twelve entries, largest item first. The confound, per month. */
@@ -147,8 +167,6 @@ export interface MonthlySeries {
 	/** Per period, whether its denominator clears `minimum_speeches`. */
 	sufficient: boolean[];
 	terms: Record<string, MonthlyMeasure>;
-	registers: Record<string, MonthlyMeasure>;
-	sets: Record<string, MonthlyMeasure>;
 	years: number[];
 	months: number[];
 	minimum_speeches: number;
@@ -486,7 +504,28 @@ export interface MeetingIndex {
 	meetings: MeetingSummary[];
 }
 
-export type ScopeIndex = Pick<MeetingIndex, 'meta' | 'corpus' | 'scopes'>;
+/**
+ * One cut of the three reading sets, carrying the population it came out of.
+ * `held` is the corpus's own count and never a scope's, which is what keeps a
+ * rate drawn under a scope a share of the corpus.
+ */
+export interface ScopeCut {
+	held: number;
+	scopes: Record<'word' | 'vocabulary' | 'debate', number>;
+}
+
+export interface ScopeYear extends ScopeCut {
+	year: number;
+}
+
+export interface ScopeDelegation extends ScopeCut {
+	country_org: string;
+}
+
+export interface ScopeIndex extends Pick<MeetingIndex, 'meta' | 'corpus' | 'scopes'> {
+	years: ScopeYear[];
+	delegations: ScopeDelegation[];
+}
 
 /* --- 11_countries.py ------------------------------------------------------ */
 
@@ -540,11 +579,12 @@ export interface CountryMeasureRow {
 	speech_rate_high: number | null;
 	sufficient: boolean;
 	/**
-	 * Absent on a set measure, and deliberately so: `atrocity_core` is a union of
-	 * overlapping terms, so a speech saying both `genocide` and `war crimes`
-	 * would be counted twice. `lib/series.py` withholds the count rather than
-	 * summing the members, and these two fields are optional here so that a
-	 * consumer has to decide what to show instead of reading a fabricated zero.
+	 * Optional because a row can legitimately withhold them. Until lexicon v5
+	 * `atrocity_core` withheld both by construction — a union of overlapping
+	 * terms cannot be counted without counting a speech twice — and reading the
+	 * absence through `?? 0` published the withholding as `0.00 per 100,000
+	 * words`. The union is gone; the optionality stays, so a consumer still has
+	 * to decide what to show rather than read a fabricated zero.
 	 */
 	occurrences?: number;
 	token_rate?: number | null;
@@ -552,17 +592,17 @@ export interface CountryMeasureRow {
 
 export interface CountryMeasure {
 	/**
-	 * `terms` for a single lexicon pattern, `sets` for a named group of them.
-	 * The two carry different metadata, which is why the rest is optional: a
-	 * term measure declares the `tier` and `register` its pattern sits in, and a
-	 * set measure declares its `members` instead. Typing both as required would
-	 * promise `atrocity_core.tier` a string it has never had.
+	 * One kind since lexicon v5: a single lexicon pattern, or a derived measure
+	 * published beside the terms. `sets` was the other, and a named group of
+	 * terms offered as a measure is a grouping the analyst chose and the reader
+	 * could not see inside.
 	 */
-	kind: 'terms' | 'sets';
+	kind: 'terms';
 	tier?: string;
 	register?: string;
-	/** The lexicon terms a set measure sums. Absent on a term measure. */
-	members?: string[];
+	/** See `Measure.derived_from`. The actor table resolves its links through it. */
+	derived_from?: string;
+	derived_minus?: string[];
 	rows: CountryMeasureRow[];
 }
 

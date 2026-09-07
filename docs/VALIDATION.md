@@ -754,6 +754,63 @@ re-executed, so `data/derived/` and the published site still carry v3 counts ove
 codebook denominator. Nothing else is owed by this change — no new human check, and no
 figure whose value could not be read off the corpus in advance.
 
+### Lexicon v5: the roll-ups go, and a legal ladder arrives
+
+Lexicon v5 (7 September 2026) is item R7 of the roadmap. **No pattern and no anchor
+changes**, so no occurrence identity moves, the gold sample and the four committed model
+runs stand, and `15_usage.py` keeps aggregating them; `pattern_since` is untouched on every
+one of the 29 terms and `config/lexicon.lock.json` differs from v4 by its version line
+alone. What changes is what the pipeline is willing to add together.
+
+**What was withdrawn.** `lib/lexicon.apply` no longer writes `n_register_*`,
+`has_register_*`, `has_set_*`, `n_lexicon_total` or `n_lexicon_terms`, and the `sets:` block
+has left `config/lexicon.yml` — `core`, `atrocity_core`, `rome_triad`, `r2p_quartet` and
+`qualification` with it. That is 21 columns: seven registers with a count and a flag each,
+five set flags, and the two lexicon totals. `03_lexicon.py` now writes 58 lexicon columns
+into a `speeches_flagged.parquet` of 167,642 × 115, and `04_series.py` publishes 29 measures
+a year rather than 41.
+
+**Nothing a term measured moved.** The rebuilt annual artefact was compared term by term
+against the payload published on 3 September: all 29 term series are identical in speeches
+and in occurrences, and the `corpora` block R8 added is byte-identical. `03` reports 14 of
+14 terms reproducing `docs/CORPUS.md` §8 exactly, `genocide` at 4,133 speeches and 7,747
+occurrences as at v4.
+
+**What the withdrawn series held, at the last version that published them.** Recorded so
+that a reader of an archived payload can see what was taken away rather than infer it.
+Speeches / occurrences over 1946–2024:
+
+| Withdrawn series | Speeches | Occurrences |
+|---|---:|---:|
+| `register_accountability` | 16,014 | 42,305 |
+| `register_legal` | 10,861 | 21,536 |
+| `register_core` | 4,133 | 7,747 |
+| `register_descriptive` | 3,019 | 4,807 |
+| `register_preventive` | 2,945 | 4,006 |
+| `register_commemorative` | 937 | 1,294 |
+| `register_contentious` | 264 | 486 |
+| `set_atrocity_core` | 9,146 | — (a union has none) |
+
+**One published number moved, and it is a threshold rather than a count.** The change-point
+pass ran three rate models — `genocide_qualification` and `atrocity_core` on the speech rate,
+`genocide_qualification` on the token rate — and corrected its alpha for three. It now runs
+two, so the per-test threshold is 0.025 where it was 0.0166. Both surviving results are
+unchanged and neither is near the threshold: the speech rate splits at **1978** and the token
+rate at **1992**, each at p = 0.0005 under the meeting-block null. `atrocity_core`'s own
+split is no longer computed or published.
+
+**The intensity ordinal.** Five terms gain a rung on a ladder built on legal standing:
+`genocide` 5, `war_crimes` 4, `crimes_against_humanity` 3, `ethnic_cleansing` 2, `atrocity`
+1. The loader refuses a scale that is not a total order over the terms carrying one — a
+repeated rung or a gap — because a ladder with two terms on a step cannot answer the question
+it exists for. It is hand-assigned from the instruments and reviewed by both coders, so any
+figure drawn from it is **mixed** under R3 and never computed. **No view draws on it yet**;
+that is an open item, not a silent one.
+
+**What is owed.** Nothing to a human check. `03`, `04`, `05`, `08`, `09`, `11`, `12` and
+`export_web.py` were re-executed on the pinned corpus for this change, and the export seam
+now refuses a payload carrying a measure summed over more than one term.
+
 ### The rate tests under a meeting-block null
 
 Registered 2 September 2026 (roadmap S1, first slice; review §3.1, §3.3, §5.2). Two

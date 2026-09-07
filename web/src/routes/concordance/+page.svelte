@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
@@ -45,12 +46,33 @@
 		termLabel,
 		unSearch
 	} from '$lib/format';
+	import { DEFAULT_SCOPE, reading, readScope, scopeOf, withScope } from '$lib/scope';
 	import { segments } from '$lib/highlight';
 	import { PAGE_METADATA } from '$lib/seo';
 	import type { KwicFile, KwicLine } from '$lib/types';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	/* --- The reading set the masthead selected -----------------------------
+	   A count here is of a delegation's own speeches inside the set; the rates
+	   this page publishes elsewhere keep their own bases.
+
+	   `url.searchParams` is unreadable while a page is prerendered, by design: a
+	   static file cannot depend on a query string. The answer there is the
+	   default, which is the guarantee R9 makes anyway — a URL carrying no scope
+	   renders what the site rendered before R9 — and hydration applies the rest. */
+	const scope = $derived(browser ? readScope(page.url.searchParams) : DEFAULT_SCOPE);
+	const chosenScope = $derived(scopeOf(data.scopeIndex, scope));
+	/* Ranked by count rather than by rate: a rate needs the actor view's declared
+	   minimum, and these are shortcuts into the lines, not a measurement. */
+	const inScope = $derived(
+		data.scopeIndex.delegations
+			.map((cut) => ({ country_org: cut.country_org, ...reading(cut, scope) }))
+			.filter((row) => row.speeches > 0)
+			.sort((a, b) => b.speeches - a.speeches)
+			.slice(0, 12)
+	);
 
 	/* A segmented control rather than a select: five short words, all visible at
 	   once, because which sort is in force changes what the column of nodes
@@ -208,7 +230,11 @@
 	/** Keep the URL in step, so any view of the concordance is citable. */
 	$effect(() => {
 		if (!urlReady) return;
-		const next = concordanceParams(currentState());
+		/* The scope is layout state and this page owns everything else in the
+		   query, so it is merged back in here: a page that rebuilt its own URL
+		   from its own controls would silently drop the reader's reading set on
+		   the next keystroke. */
+		const next = withScope(concordanceParams(currentState()), scope);
 		const search = next.toString();
 		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
 	});
@@ -404,6 +430,37 @@
 			the full sentence, and from there to the speech it came from.
 		</p>
 	</header>
+
+	<!-- The reading set, and the way into it. R9's scope names a population of
+	     speeches; here it names the delegations that population covers, and each
+	     one is a filter on the lines below. The line list itself is not narrowed
+	     by the scope: every published concordance URL would return fewer lines
+	     than it did, and no existing link may change what it means. -->
+	<section class="reading-set">
+		<h2>The reading set: {chosenScope.label.toLowerCase()}</h2>
+		<!-- The set's definition and its size are on the control in the masthead;
+		     repeating them here would be the same sentence twice on one screen.
+		     What this section adds is who is in it. -->
+		<p class="hint">
+			The delegations that hold most of it, each a filter on the lines below. The count is that
+			delegation's speeches inside the set.
+		</p>
+		<div class="delegates">
+			{#each inScope as row (row.country_org)}
+				<button
+					type="button"
+					class="chip"
+					aria-pressed={country === row.country_org}
+					disabled={loading}
+					onclick={() => (country = country === row.country_org ? '' : row.country_org)}
+				>
+					{shortCountry(row.country_org)}
+					<span class="symbol">{count(row.speeches)}</span>
+				</button>
+			{/each}
+		</div>
+		<p class="source symbol">09_export_speeches.py &rarr; scopes.json</p>
+	</section>
 
 	<Figure
 		title="Keyword in context"
@@ -1122,8 +1179,47 @@
 		margin-top: var(--sp-7);
 	}
 
-	.terms h2 {
+	.terms h2,
+	.reading-set h2 {
 		font-size: var(--step-2);
+	}
+
+	/* A band of shortcuts, not a figure: the numbers are counts the reader can
+	   act on, and the source line is here because everything with numbers on
+	   this site says where they came from. */
+	.reading-set {
+		margin-bottom: var(--sp-6);
+		padding-bottom: var(--sp-4);
+		border-bottom: var(--hair) solid var(--rule);
+	}
+
+	.reading-set h2 {
+		margin-bottom: var(--sp-2);
+	}
+
+	.delegates {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+	}
+
+	/* Disabled while the term's lines are still arriving: the speaker filter is
+	   built from the lines, so a click landing before them would be a filter the
+	   select could not hold. */
+	.delegates .chip[disabled] {
+		opacity: 0.5;
+		cursor: progress;
+	}
+
+	.delegates .chip[aria-pressed='true'] {
+		border-color: var(--blue);
+		box-shadow: inset 0 -2px 0 var(--blue-flag);
+	}
+
+	.reading-set .source {
+		margin-top: var(--sp-3);
+		font-size: var(--step--2);
+		color: var(--ink-3);
 	}
 
 	.hint {

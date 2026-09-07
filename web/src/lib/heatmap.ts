@@ -41,10 +41,13 @@
  * otherwise. `$lib/concordance` now owns a month parameter, and `evidence()`
  * below is where a cell uses it. The link is still one term at a time, because
  * the concordance shows one — a set measure is drawn here and read there term
- * by term, the same rule `$lib/actors` states for a speaker's quotations.
+ * by term, the same rule `$lib/actors` states for a speaker's quotations. The
+ * measure this figure opens on is a subtraction and has no concordance of its
+ * own; it opens the term it subtracts from, and `widening()` is how the figure
+ * says whose lines those are.
  */
 
-import { pooledQuery, cellQuery, type EvidenceQuery } from './concordance';
+import { pooledQuery, cellQuery, evidenceTerm, type EvidenceQuery } from './concordance';
 import { MONTH_NAMES } from './format';
 // The ramp and the transform that positions a value on it are one pair, and the
 // speaker map draws from the same pair. They live in `theme.ts` so that neither
@@ -111,19 +114,20 @@ export interface HeatmapRequest {
 	unit?: Unit;
 }
 
-/** Every measure the artefact holds, whatever kind it is. */
+/** Every measure the artefact holds. One kind since lexicon v5: a term. */
 export function measures(data: MonthlySeries): Record<string, MonthlyMeasure> {
-	return { ...data.terms, ...data.registers, ...data.sets };
+	return { ...data.terms };
 }
 
 /**
  * The units a measure can honestly be drawn in.
  *
- * A set is a union of overlapping terms, so it has no occurrence count and no
- * rate per token — `04_series.py` withholds both rather than double-counting a
- * speech that used two members. Read through `?? 0` that silence becomes
- * `0.00 per 100,000 words`, so the absence is detected once, here, and the
- * control never offers a unit the grid is not in.
+ * Every measure carries both units since lexicon v5 removed the unions, and the
+ * check stays because the failure it prevents is the one this view actually
+ * shipped: `atrocity_core` withheld its occurrence count rather than
+ * double-counting a speech that used two members, and read through `?? 0` that
+ * silence became `0.00 per 100,000 words`. The absence is detected once, here,
+ * and the control never offers a unit the grid is not in.
  */
 export function units(measure: MonthlyMeasure | undefined): Unit[] {
 	return measure?.token_rate ? ['speech_rate', 'token_rate'] : ['speech_rate'];
@@ -217,23 +221,73 @@ export interface EvidenceLink extends EvidenceQuery {
 /**
  * The lexicon terms a measure is counted from.
  *
- * A term is itself; a register and a set are the terms underneath them. The
- * concordance is a file per term, so a link has to name one — which is why a
- * measure drawn as a single square becomes several links, and why the interface
- * has to say that it did rather than offering the first as though it were all.
+ * One or none, now: a measure named in `terms` stands for itself, and anything
+ * else stands for no term the concordance can open. Ten of the then thirty-two
+ * measures were in that second case until lexicon v5 — six registers and four
+ * sets — and the link this function exists to make honest used to send a reader
+ * from `atrocity_core` to a file that does not exist and a retry button.
  *
- * Exported because the figure has to know the count before it draws: 384
- * squares cannot each carry five links, so a multi-term measure declines to
- * link and says so. That refusal is also a repair. The link this replaces was
- * `?term=<measure>` for whatever was selected, and ten of the thirty-two
- * measures here — six registers and four sets — are not concordance terms at
- * all, so the old link sent a reader from `atrocity_core` to a file that does
- * not exist and a retry button.
+ * **A derived measure stands for its minuend.** It reads as the first case and
+ * is the second: `genocide_qualification` is published in `terms` and this
+ * figure opens on it, but a subtraction has no pattern and matches no span, so
+ * `08_kwic.py` — which writes a file per active *term* — never wrote one for
+ * it, and `config/lexicon.yml` says as much in the `derived` block: such a
+ * measure "enumerates no occurrence and appears in no concordance". Resolving
+ * through `derived_from` is what stops the link from asking for that file. It
+ * is not a silent redirect: the term it lands on holds *more* lines than the
+ * measure counts, and `widening()` is what the interface says so with.
+ *
+ * Kept rather than inlined, because it is what the caller asks before it draws:
+ * 384 squares cannot each carry several links, so a measure that resolves to
+ * anything but one term declines to link at all and the figure says so.
  */
 export function termsOf(data: MonthlySeries, measure: string): string[] {
-	if (measure in data.terms) return [measure];
-	const found = measures(data)[measure];
-	return found?.members ?? found?.terms ?? [];
+	const found = data.terms[measure];
+	if (!found) return [];
+	const term = evidenceTerm(measure, found);
+	return term in data.terms ? [term] : [];
+}
+
+/**
+ * By how much the lines a measure opens are wider than the measure itself.
+ *
+ * Null for a measure that is its own term, which is every measure but one. For
+ * a derived measure it is the difference the subtraction removes, and the
+ * interface is obliged to state it: `genocide`'s concordance holds the
+ * `genocidaires` spans `genocide_qualification` takes out, so a reader who
+ * clicked a figure of the one and read the lines of the other would be counting
+ * evidence the figure excluded.
+ *
+ * The size is read off the subtracted terms' own published rows rather than
+ * written into a component, so a later corpus moves it. It is withheld — null,
+ * never a sum — where more than one term is subtracted or one of them withholds
+ * its occurrence count: two subtrahends' speech counts cannot be added, because
+ * a speech bearing both would be counted twice, which is the double count that
+ * kept `atrocity_core` from publishing an occurrence figure at all.
+ */
+export interface Widening {
+	/** The term whose concordance actually opens. */
+	term: string;
+	/** What the measure subtracts from it, and what those lines therefore still hold. */
+	subtracted: string[];
+	/** Corpus-wide, or null where it cannot be stated without inventing it. */
+	speeches: number | null;
+	occurrences: number | null;
+}
+
+export function widening(data: MonthlySeries, measure: string): Widening | null {
+	const found = data.terms[measure];
+	if (!found?.derived_from) return null;
+	const subtracted = found.derived_minus ?? [];
+	const only = subtracted.length === 1 ? data.terms[subtracted[0]] : undefined;
+	const total = (values: number[] | undefined) =>
+		values ? values.reduce((sum, value) => sum + value, 0) : null;
+	return {
+		term: found.derived_from,
+		subtracted,
+		speeches: total(only?.speeches),
+		occurrences: total(only?.occurrences)
+	};
 }
 
 /**
@@ -395,30 +449,26 @@ export const GRID_COLUMNS = [
  */
 export function gridRows(data: MonthlySeries): (string | number | boolean | null)[][] {
 	const rows: (string | number | boolean | null)[][] = [];
-	const kinds: [string, Record<string, MonthlyMeasure>][] = [
-		['terms', data.terms],
-		['registers', data.registers],
-		['sets', data.sets]
-	];
-	for (const [kind, block] of kinds) {
-		for (const [name, measure] of Object.entries(block)) {
-			data.periods.forEach((period, index) => {
-				rows.push([
-					period,
-					Number(period.slice(0, 4)),
-					Number(period.slice(5)),
-					name,
-					kind,
-					data.corpus.speeches[index] ?? 0,
-					data.corpus.words[index] ?? 0,
-					measure.speeches[index] ?? 0,
-					measure.speech_rate[index] ?? null,
-					measure.occurrences?.[index] ?? null,
-					measure.token_rate?.[index] ?? null,
-					data.sufficient[index] ?? false
-				]);
-			});
-		}
+	for (const [name, measure] of Object.entries(data.terms)) {
+		data.periods.forEach((period, index) => {
+			rows.push([
+				period,
+				Number(period.slice(0, 4)),
+				Number(period.slice(5)),
+				name,
+				// Kept in the file although it now reads `terms` on every row: a
+				// download is an archive, and a column that vanished between two
+				// vintages costs a reader more than a constant one does.
+				'terms',
+				data.corpus.speeches[index] ?? 0,
+				data.corpus.words[index] ?? 0,
+				measure.speeches[index] ?? 0,
+				measure.speech_rate[index] ?? null,
+				measure.occurrences?.[index] ?? null,
+				measure.token_rate?.[index] ?? null,
+				data.sufficient[index] ?? false
+			]);
+		});
 	}
 	return rows;
 }

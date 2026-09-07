@@ -12,6 +12,21 @@
 	"topic": "Protection of civilians",
 	"region": "Global",
 	"agenda": "Protection of civilians",
+	"scope_counts": {
+		"word": 1,
+		"vocabulary": 1,
+		"debate": 1
+	},
+	"delegations": [
+		{
+			"country": "Rwanda",
+			"iso3": "RWA",
+			"group": "E10",
+			"type": "state",
+			"speeches": 1,
+			"terms": ["genocide"]
+		}
+	],
 	"speeches": [
 		{
 			"id": "SC07000-01-001",

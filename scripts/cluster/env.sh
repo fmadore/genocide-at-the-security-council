@@ -161,6 +161,18 @@ configure_annotation_model() {
   VLLM_TEMPERATURE="${VLLM_TEMPERATURE:-0.0}"
   VLLM_TOP_P="${VLLM_TOP_P:-1.0}"
   VLLM_BASE_URL="${VLLM_BASE_URL:-http://127.0.0.1:$VLLM_PORT/v1}"
+
+  # FlashInfer builds its sampling kernel with nvcc the first time it is asked
+  # for one. The compute nodes carry a driver and no CUDA toolkit, so that build
+  # fails at engine start and takes the server with it. Loading a cuda module
+  # would fix the symptom and introduce a worse problem: the kernel a run used
+  # would then be compiled on the node, by a toolkit named in no manifest, and a
+  # run has to be reproducible from its own record. vLLM's own sampler is pure
+  # PyTorch, comes from the pinned wheels, and cannot change the annotations
+  # here in any case — the profiles all serve at temperature 0.0 and top_p 1.0,
+  # where the decision is an argmax rather than a sample.
+  export VLLM_USE_FLASHINFER_SAMPLER="${VLLM_USE_FLASHINFER_SAMPLER:-0}"
+
   export VLLM_MODEL_ID VLLM_MODEL_REVISION VLLM_REASONING_PARSER
   export VLLM_REASONING_EFFORT VLLM_REASONING_LOCATION VLLM_PORT
   export VLLM_REASONING_LEVELS

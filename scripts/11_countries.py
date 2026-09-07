@@ -53,12 +53,15 @@ from lib.paths import (
 )
 
 #: The measures this table carries, mirroring `04_series.py`'s TRACKED so the
-#: actor view and the temporal series argue about the same two objects.
-#: `atrocity_core` is a union and therefore has no occurrence count of its own;
-#: `lib.series.measure` withholds one rather than summing overlapping members.
+#: actor view and the temporal series argue about the same object. It held
+#: `atrocity_core` beside it until lexicon v5, and that union is the reason
+#: several of this step's careful absences exist: a set has no occurrence count,
+#: so the interface had to detect the withholding and drop a column, an ordering
+#: and a tooltip rather than read it through `?? 0`. The withholding machinery
+#: stays — R8's genocide-free corpus is a population with the same property —
+#: but no measure in this artefact is a roll-up over terms any more.
 TRACKED: list[tuple[str, str]] = [
     ("terms", "genocide_qualification"),
-    ("sets", "atrocity_core"),
 ]
 
 #: The measure the table opens on, reconciles against and derives its
@@ -101,7 +104,7 @@ def measure_attributes(lex: lexicon.Lexicon, kind: str, name: str) -> dict[str, 
     is owed the arithmetic behind the name in the artefact rather than only in
     the configuration.
     """
-    if kind == "terms" and name in lex.derived:
+    if name in lex.derived:
         measure = lex.derived[name]
         return {
             "kind": kind,
@@ -110,10 +113,8 @@ def measure_attributes(lex: lexicon.Lexicon, kind: str, name: str) -> dict[str, 
             "derived_from": measure.minuend,
             "derived_minus": list(measure.subtrahends),
         }
-    if kind == "terms":
-        term = lex.terms[name]
-        return {"kind": kind, "tier": term.tier, "register": term.register}
-    return {"kind": kind, "members": lex.sets[name]}
+    term = lex.terms[name]
+    return {"kind": kind, "tier": term.tier, "register": term.register}
 
 
 def load_corpus(minimum: int) -> tuple[pd.DataFrame, pd.DataFrame]:

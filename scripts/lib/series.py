@@ -59,17 +59,20 @@ EVENT_KINDS = frozenset(
 )
 
 
-#: How a measure of each kind maps onto the columns 03_lexicon.py wrote.
-#: `sets` deliberately has no count column — see :func:`measure`.
-COLUMN_PREFIX = {"terms": "", "registers": "register_", "sets": "set_"}
+#: The kinds of measure a series can be cut for. One, since R7: a term, or a
+#: derived measure published beside the terms. `registers` and `sets` were the
+#: other two, and they were roll-ups over several terms at once — a line whose
+#: movement no reader could attribute to a word. The function below is kept as
+#: the single place a measure's columns are named, rather than folded away into
+#: an f-string at each call site.
+MEASURE_KINDS = frozenset({"terms"})
 
 
 def columns_for(kind: str, name: str) -> tuple[str, str | None]:
     """``(has_column, count_column)`` for a measure of the given kind."""
-    if kind not in COLUMN_PREFIX:
-        raise ValueError(f"unknown measure kind {kind!r}; use one of {sorted(COLUMN_PREFIX)}")
-    stem = f"{COLUMN_PREFIX[kind]}{name}"
-    return f"has_{stem}", None if kind == "sets" else f"n_{stem}"
+    if kind not in MEASURE_KINDS:
+        raise ValueError(f"unknown measure kind {kind!r}; use one of {sorted(MEASURE_KINDS)}")
+    return f"has_{name}", f"n_{name}"
 
 
 # --- Periods and denominators ---------------------------------------------
@@ -206,11 +209,14 @@ def measure(
     annual chart, the monthly grid, a speaker's row — gets the same interval
     by the same arithmetic rather than its own.
 
-    ``count_column=None`` is for a *union* of terms — a set has no occurrence
-    count of its own, because summing its members would count a speech saying
-    both "genocide" and "war crimes" twice. Such a series reports speeches and
-    the speech rate; occurrences and the token rate come back empty rather than
-    plausible-looking.
+    ``count_column=None`` is for a *corpus predicate* — a named population such
+    as R8's genocide-free atrocity speeches, which a speech either belongs to or
+    does not. It has no occurrence count, because counting the member phrases
+    would count a speech saying both "war crimes" and "ethnic cleansing" twice.
+    Such a series reports speeches and the speech rate; occurrences and the
+    token rate come back empty rather than plausible-looking. It is the only
+    thing on this site that reads over several terms at once, and it is
+    deliberately a population and not a measure — see `comparison_corpora`.
     """
     aggregated = {"speeches": (has_column, "sum")}
     if count_column is not None:

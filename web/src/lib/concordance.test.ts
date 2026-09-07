@@ -18,6 +18,7 @@ import {
 	concordanceParams,
 	describeMonth,
 	describeSort,
+	evidenceTerm,
 	facetClick,
 	filterConcordance,
 	inMonth,
@@ -492,5 +493,49 @@ describe('the referent facet', () => {
 		expect(params.get('referent')).toBe('rwanda_1994');
 		expect(readConcordanceState(params).referent).toBe('rwanda_1994');
 		expect(concordanceParams(CONCORDANCE_DEFAULTS).has('referent')).toBe(false);
+	});
+});
+
+/**
+ * What `term=` is allowed to hold, which is not every published measure.
+ *
+ * `08_kwic.py` writes a concordance for each active lexicon term. The site's
+ * headline is not one: `genocide_qualification` is `genocide` minus its actor
+ * label, a subtraction that matches no span, and no file for it exists or ever
+ * will. Three figures build these URLs — the calendar grid, the annual chart
+ * and the actor table — and every one of them opened on that measure, so the
+ * rule is asserted here, against the term list the index publishes, rather than
+ * three times over in the modules that ask for it.
+ */
+describe('the term a measure opens', () => {
+	/** What `kwic/index.json` lists, in miniature: a file per term, nothing derived. */
+	const HELD = new Set(['genocide', 'genocidaires', 'war_crimes']);
+
+	/** As `04_series.py` and `11_countries.py` publish them, derived measure included. */
+	const PUBLISHED: Record<string, { derived_from?: string }> = {
+		genocide: {},
+		genocidaires: {},
+		war_crimes: {},
+		genocide_qualification: { derived_from: 'genocide' }
+	};
+
+	it.each(Object.keys(PUBLISHED))('%s opens a term the concordance holds', (measure) => {
+		expect(HELD).toContain(evidenceTerm(measure, PUBLISHED[measure]));
+	});
+
+	it('leaves a measure that is its own term alone', () => {
+		expect(evidenceTerm('war_crimes', PUBLISHED.war_crimes)).toBe('war_crimes');
+	});
+
+	it('resolves a subtraction to what it subtracts from', () => {
+		expect(evidenceTerm('genocide_qualification', PUBLISHED.genocide_qualification)).toBe(
+			'genocide'
+		);
+	});
+
+	// An archived payload predates `derived_from` and carries only raw terms; a
+	// name with nothing published under it is not a measure to invent a term for.
+	it('names the measure itself when the artefact says nothing about it', () => {
+		expect(evidenceTerm('genocide', undefined)).toBe('genocide');
 	});
 });

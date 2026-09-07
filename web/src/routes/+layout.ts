@@ -7,5 +7,9 @@ import type { LayoutLoad } from './$types';
 export const prerender = true;
 export const trailingSlash = 'always';
 
-/** The global scope control needs 1 kB of counts, not the 3 MB meeting index. */
+/**
+ * The scope control and the three views that obey it need 54 kB — the counts,
+ * the corpus by year and the corpus by speaker — not the 3 MB meeting index.
+ * One artefact rather than three fetches: every consumer already has it here.
+ */
 export const load: LayoutLoad = async ({ fetch }) => ({ scopeIndex: await scopeIndex(fetch) });

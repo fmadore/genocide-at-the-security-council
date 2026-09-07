@@ -5,11 +5,13 @@
 	import { page } from '$app/state';
 	import BackToTop from '$lib/BackToTop.svelte';
 	import BasketDrawer from '$lib/BasketDrawer.svelte';
+	import ScopeControl from '$lib/ScopeControl.svelte';
 	import ThemeToggle from '$lib/ThemeToggle.svelte';
 	import { basket } from '$lib/basket.svelte';
 	import type { Snippet } from 'svelte';
+	import type { LayoutData } from './$types';
 
-	let { children }: { children: Snippet } = $props();
+	let { children, data }: { children: Snippet; data: LayoutData } = $props();
 
 	/* The basket lives in the masthead rather than on a route of its own: it is
 	   filled from the concordance and the reader and read from anywhere, and a
@@ -55,6 +57,31 @@
 		here === resolve(href).replace(/\/$/, '');
 	// The reader is reached from the concordance and has no nav entry of its own.
 	const isReader = $derived(here.includes('/reader/'));
+
+	/* The views that read the scope, and therefore the only ones that offer it.
+	   R9 puts the control in the layout; a page that ignores it does not get to
+	   show it, because a control that changes nothing teaches a reader that the
+	   scope changes nothing. */
+	const SCOPED = ['/chronology', '/actors', '/concordance'] as const;
+	const isScoped = $derived(isReader || SCOPED.some((href) => isCurrent(href)));
+
+	/* The masthead's height, published for whatever else has to stick under it.
+	   It is measured rather than declared because the row wraps: seven sections,
+	   a basket and a theme toggle are one line at 82rem and four at 375px, and a
+	   contents band told the wrong number covers the page or floats over it. */
+	let masthead = $state.raw<HTMLElement>();
+
+	$effect(() => {
+		if (!masthead) return;
+		const observer = new ResizeObserver(([entry]) => {
+			document.documentElement.style.setProperty(
+				'--masthead-h',
+				`${entry.target.getBoundingClientRect().height}px`
+			);
+		});
+		observer.observe(masthead);
+		return () => observer.disconnect();
+	});
 </script>
 
 <svelte:head>
@@ -73,7 +100,7 @@
 
 <a class="skip" href="#main">Skip to content</a>
 
-<header class="masthead">
+<header class="masthead" bind:this={masthead}>
 	<div class="inner">
 		<a class="wordmark" href={resolve('/')}>
 			<strong><mark>Genocide</mark> at the Security Council</strong>
@@ -102,6 +129,10 @@
 		</nav>
 	</div>
 </header>
+
+{#if isScoped}
+	<ScopeControl index={data.scopeIndex} />
+{/if}
 
 <BasketDrawer bind:open={basketOpen} onclose={() => (basketOpen = false)} />
 

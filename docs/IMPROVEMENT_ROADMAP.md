@@ -1358,6 +1358,17 @@ reader of an older run can see what a column used to be called.
 
 ### R7. The lexicon stops aggregating
 
+**Status: complete on 7 September 2026, as lexicon v5.** `apply` writes one count and one
+flag per term and per derived measure and nothing else; the 21 roll-up columns and the whole
+`sets:` block are gone, `r2p_quartet` with them. `export_web.py` refuses a payload carrying a
+measure over more than one term, so the rule is asserted at the seam rather than trusted. No
+pattern or anchor moved, so no occurrence identity did: all 29 term series are identical to
+the payload published on 3 September. One published number changed and it is a threshold —
+the change-point pass now corrects for two rate models instead of three, at 0.025 rather than
+0.0166, and both surviving splits are unchanged at p = 0.0005. The home page's second figure
+is **re-cut, not removed**: it draws six terms one row each, and removing it instead remains
+open. `intensity` is in the file, validated as a total order, and **no view draws on it yet**.
+
 **Decision, 3 September 2026.** The register and set roll-ups go. A count of *the legal
 register* is a count of a category the analyst invented, published as though it were a property
 of the corpus, and the reader cannot tell which of six words moved when the line moves. The
@@ -1506,16 +1517,18 @@ to the existing matrix.
 
 ### R9. The meeting becomes a unit, and the corpus gets a scope
 
-**Status, 4 September 2026: data foundation complete.** The existing step 09 meeting export
-now carries the delegations present, the terms each used and the three within-meeting scope
-counts. Its index defines the three reading sets once, beside the fixed 167,642-speech corpus
-denominator: 4,133 speeches for *the word*, 8,849 for *the vocabulary*, and 50,735 speeches
-across 1,556 meetings for *the debate*. The shared predicate is also used by R8. The
-URL-carried layout control and its propagation into chronology, concordance and actors remain
-the next slice; no existing URL changes meaning in this foundation. On 5 September, step 09
-also gained a 1.3 kB `scopes.json` projection and the shared layout began loading it, avoiding
-the 3.1 MB meeting index on every page. The selector remains deliberately unexposed until the
-three consuming views apply its population rather than merely displaying a control.
+**Status, 7 September 2026: the control is exposed and the four views obey it.** Step 09's
+meeting export carries the delegations present, the terms each used and the three
+within-meeting scope counts; `scopes.json` now carries, beside the three counts, the corpus cut
+by year and by speaker, so each cut states the population it came out of and no view has to
+fetch the 3.1 MB index to obey the control. The masthead offers the reading set with its size
+beside it, on the four views that read it and nowhere else. The chronology draws the set as a
+share of each year's speeches, the actors view ranks delegations by the share of their *own*
+record it covers, the concordance names the delegations it holds and turns each into a filter,
+and the reader marks which speeches of a whole debate belong to it and lists every delegation
+present with what it used. What remains open is deliberate and recorded in the log below: the
+concordance's line list itself is not narrowed, because a speech-level reading set applied to
+it would change what every published concordance URL returns.
 
 **Decision, 3 September 2026.** Everything on this site is a speech or a delegation. The
 meeting exists as a filename and as a destination for the reader, and never as a unit of
@@ -1709,6 +1722,21 @@ the epistemology; `README.md`'s acknowledgement becomes an authorship note for t
 
 ### R14. Navigation and legibility of long pages
 
+**Status: complete on 7 September 2026, as the persistent contents.** Sub-pages were not
+taken: they would have cost the comparison a single scroll allows, and every figure anchor
+would have had to move. `Contents.svelte` is now a band that sticks under the masthead and
+marks the figure being read with `aria-current="location"`, in weight and in a rule as well as
+in colour; the mark is decided by `contents.ts`, on the reading line `scroll-padding-top`
+defines, which is by construction where a jump to an anchor parks a figure. It is on all five
+multi-figure views — `/` had none before — and one row on every viewport, scrolling sideways
+where it does not fit: a sidebar has no room at 375px, where the masthead alone already takes
+209px, and a disclosure would hide the position the control exists to show. No anchor changed.
+The home page's rate figure names its base on the right axis, *share of all speeches held that
+year*, and in the chart's own accessible description, which carries 4,130 of 167,642 speeches;
+the reading note that restated the same denominator in prose is four words shorter for it.
+`/concordance` has one figure and `/methods` none, so neither takes a contents; giving them one
+would mean inventing anchors, which this item says it is not doing.
+
 **Decision, 3 September 2026.** The views descend a long way. `/usage` is 2,207 lines of
 component for four figures, `/language` 1,706 for six, `/chronology` 1,576 for five,
 `/concordance` 1,147 for one, and a reader who wants the third figure scrolls past two figures,
@@ -1746,6 +1774,25 @@ denominator is not visible from the mark.
 - If sub-pages are chosen, every existing deep link keeps working.
 
 ### R15. Governments, not States
+
+**Status, 7 September 2026: the dataset evaluation is complete; the epistemological statement
+still waits on R13's page.** `docs/CORPUS.md` now carries the evaluation, and its finding is
+that none of the five candidates is adopted. Two of them do not key on `source_cow_ccode` as
+this item assumed: Archigos states in its own codebook that its universe of cases is the
+Gleditsch–Ward independent-state list, and `peacesciencer` names the field `gwcode` and warns
+that the codes are not Correlates of War codes, so a merge would succeed on almost every row
+and misalign on exactly the contested successions; WhoGov keys on ISO alpha-3 and needs a
+crosswalk. Three stop short of 2024 — Archigos 4.1 on 31 December 2015, blanking 49,633
+speeches (29.61%); CHISOLS 5.0 in 2018, blanking 32,940 (19.65%); REIGN in August 2021,
+archived, blanking 24,164 (14.41%). WhoGov 4 and V-Dem 16 both run past the corpus but blank
+its early years or answer a different question. The note names CHISOLS as the most promising —
+it measures the change in the *source* of support rather than a change of occupant, which is
+the mechanism this item states — and V-Dem as a covariate layer, and adopts neither. It also
+records the join's second fault: the 9,079 rows without a code are the Secretary-General, the
+briefers and civil society, 13.50% of the genocide-bearing speeches against 5.42% of the
+corpus, so an inner join drops the actors whose share grows across the period. The individual
+level stays out on the same evidence as before, now measured: case-folding alone collapses the
+10,813 `speaker` strings to 10,251.
 
 **Decision, 3 September 2026 — the statement now, the analysis later.** The site treats a
 speech as a State speaking. It is a government speaking, and often the distinction is the
@@ -1913,12 +1960,26 @@ Two transport details the hosted path did not need:
 
 ### C2. The serving harness, and where it runs
 
-**Status, 4 September 2026: installed on the cluster; GPU smoke queued.** The filtered dirty
-working tree was transferred, the client overlay and isolated vLLM 0.28.0 environment were
-installed without moving the locked environment, and the exact Qwen revision was downloaded
-and checksum-verified. Development-partition allocations 748011 and 748012 were both killed
-by Slurm at zero elapsed time before the script opened either log. The equivalent bounded
-one-H100 smoke is queued as 748013; this is scheduler evidence, not yet serving evidence.
+**Status, 7 September 2026: the harness serves; two blocking faults found and fixed.** The
+filtered dirty working tree was transferred, the client overlay and isolated vLLM 0.28.0
+environment were installed without moving the locked environment, and the exact Qwen revision
+was downloaded and checksum-verified.
+
+Four jobs then failed without producing evidence, and both causes were environmental rather
+than in the instrument. First, `/home` was full at 15 G of 15 G, so Slurm could not open
+`logs/annotate-%j.out` and cancelled `748010`–`748013` at zero elapsed time; the September entry
+in `docs/CLUSTER.md` that read this as a partition fault was wrong and has been corrected.
+Clearing `~/.cache/pip` recovered 5.1 G. Second, with the disk repaired, `760172` reached the
+compute node, saw the H100 and started vLLM 0.28.0, which then refused the pinned revision
+offline: `download_annotation_model.sh` passed `--cache-dir "$HF_HOME"`, writing the checkpoint
+to `$HF_HOME/models--Qwen--Qwen3.8-27B` while every reader resolves the hub cache as
+`$HF_HOME/hub/`. The flag is removed — `download_models.sh` never passed it, and its weights
+have always landed where vLLM looks — and the 70 GB already on disk was moved rather than
+fetched again.
+
+That is the first serving evidence: the environment loads, the GPU is visible and vLLM starts.
+`760189` carries the bounded one-H100 smoke on the repaired cache. No probe or annotation
+artefact exists yet.
 
 **Change.** `scripts/cluster/` gains the serving pattern already proven in
 `iwac-ai-pipelines/serving/` and, through it, in festus-transcribe: one sourced `env.sh`
@@ -1958,10 +2019,12 @@ between the environments; an environment does not.
 
 ### C3. Maximum reasoning, declared and demonstrated
 
-**Status, 4 September 2026: gate implemented; demonstration job 748013 queued.** Each profile declares
+**Status, 7 September 2026: gate implemented; demonstration job 760189 queued.** Each profile declares
 its full ladder and parameter placement. The unattended job now runs a paired corpus-speech
 probe, records latency and reasoning-token medians under `data/interim`, reuses an identical
-passed probe on resume, and refuses a flat ladder. No probe artefact exists until the GPU smoke.
+passed probe on resume, and refuses a flat ladder. No probe artefact exists until the GPU
+smoke, whose first four attempts were lost to a full `/home` and a misplaced weights cache
+rather than to anything the ladder does; see C2.
 
 **Change.** Both instruments run at their own top level, which is not the same string in each:
 
@@ -2326,3 +2389,9 @@ Append one row for every completed or materially revised task. Record commands, 
 | 2026-09-04 | R8 stage one: genocide-free atrocity corpus | complete | pending | `python -m pytest` (1,085 passed); `ruff check .`; `python scripts/04_series.py`; `python scripts/15_usage.py`; `python scripts/export_web.py` (19 artefacts, 9,510 files); `npm test` (494); `npm run check` (0 errors, 0 warnings); `npm run lint`; `npm run build` (13 entry points, 4 icons); desktop and mobile visual review | Step 04 now publishes one named, non-overlapping corpus slice: speeches containing ethnic cleansing, crimes against humanity or war crimes while containing no `genocid*`. The union counts each speech once even when it contains several terms and yields 4,716 speeches on the pinned 167,642-speech corpus. Chronology opens with the four explicit terms separately, preserving the reader's ability to compose comparisons; the named corpus and its exact predicate live in the extended method note for R9 to consume without silently moving any denominator. |
 | 2026-09-04 | R9 data foundation: meetings and scopes | in progress | pending | `python scripts/09_export_speeches.py` (167,642 speeches and 83,011 offsets reconciled; 9,464 files); `python scripts/export_web.py` (19 artefacts, 9,510 files); `python -m pytest` (1,088 passed); `ruff check .`; `npm test` (495); `npm run check` (0 errors, 0 warnings); `npm run lint`; `npm run build` (13 entry points, 4 icons) | The three reading sets now have one shared predicate used by steps 04 and 09. The meeting index keeps its 167,642-speech corpus denominator separate and records 4,133 speeches / 1,556 meetings for *the word*, 8,849 / 2,629 for *the vocabulary*, and 50,735 / 1,556 for *the debate*. Every meeting file gains the delegations present, each delegation's speech count and terms, and speech-level scope counts. The web boundary refuses an incomplete scope list, a moving base, or a word population larger than its vocabulary. Remaining R9 work is the URL-carried layout control and its application to chronology, concordance, actors and the reader. |
 | 2026-09-05 | R9 compact scope projection | complete | pending | `python scripts/09_export_speeches.py` (167,642 speeches and 83,011 offsets reconciled); `python scripts/export_web.py` (20 artefacts, 9,511 files); `python -m pytest` (1,089 passed); `ruff check .`; `npm test` (502); `npm run check` (0 errors, 0 warnings); `npm run lint`; `npm run build` (13 entry points, 4 icons) | Step 09 writes `scopes.json` from the same in-memory scope object as `meetings.json`. The 1.3 kB projection is contracted, validated and loaded by the root layout, replacing the otherwise necessary 3.1 MB global fetch. The first build caught and repaired the root layout's displaced prerender declarations; the closing build verifies every public entry point. No selector is exposed yet: displaying one before chronology, concordance and actors apply it would claim a filter that does not exist. |
+| 2026-09-07 | R15 dataset evaluation for the government overlay | complete | pending | `python -m pytest` (1,092 passed, x64 Python 3.12 with pyarrow); `ruff check .` (all checks passed). Documentation only; no code changed, so neither gate could move. Corpus claims recomputed with pandas over `data/derived/speeches_flagged.parquet`: `source_cow_ccode` present on 158,563 of 167,642 rows (94.58%) over 200 distinct codes and stored as a string of a float (`'517.0'`); the 9,079 uncoded rows distributed 6,502 `other` / 1,716 `un` / 445 `igo` / 376 `ngo` / 40 `state`, and by decade from 1.60% in the 1960s to 7.53% in the 2020s; 558 of the 4,133 `genocid*` speeches (13.50%) uncoded; blanked shares taken from parsed `date` against each candidate's end (49,633 = 29.61% after 2015-12-31; 32,940 = 19.65% after 2018; 24,164 = 14.41% after 2021-08-31; 24,792 = 14.79% before 1966; 11,461 = 6.84% before 1950); `speaker` 10,813 distinct strings collapsing to 10,251 under case-folding, 1,080 of them `n.a.`. Upstream facts read from the projects' own pages on 7 September 2026 rather than recalled: Archigos 4.1 codebook, chisols.org, the Nuffield WhoGov page and FAQ, the REIGN site and its `democracyData` reference, and the V-Dem v16 release and dataset pages. | The evaluation R15 commissioned is now a section of `docs/CORPUS.md`, and it adopts nothing. Two corrections to the item's own premise: Archigos does not key on Correlates of War codes — its codebook names its universe as the Gleditsch–Ward independent-state list and `peacesciencer` renames the field `gwcode` with an explicit warning, so a merge on `source_cow_ccode` would match almost every row and misalign on the German and Yugoslav successions, which is a silent failure rather than a loud one; and WhoGov keys on ISO alpha-3, which this corpus holds only as an incomplete enrichment that is never an aggregation key. Three candidates stop short of 2024 and the note states each blank as a share of the 167,642-speech denominator. CHISOLS is named the most promising because it measures the change in the *source* of leader support rather than a change of occupant, which is the mechanism the item states, and V-Dem the natural covariate layer because it alone spans 1946–2024 and is the only candidate with a licence (CC BY-SA 4.0) and a versioned DOI this project could pin as hard as it pins its corpus. Neither is adopted and no join is written. The note also records the fault the item did not anticipate: the uncoded rows are the Secretary-General, the briefers and civil society, and they are over-represented in exactly the genocide-bearing speeches, so an inner join would drop them at more than twice the corpus rate. The individual level stays deferred on measured evidence. R15's second acceptance criterion is untouched: the epistemological statement still waits on R13's page. |
+| 2026-09-07 | R9: the scope control and the views that obey it | complete | pending | `python scripts/09_export_speeches.py` (167,642 speeches and 83,011 offsets reconciled; 9,464 files; `scopes.json` 54.1 kB); `python scripts/export_web.py --update-contract` then `python scripts/export_web.py` (20 artefacts, 9,511 files, 687 MB); `python -m pytest` (1,092 passed); `ruff check .`; `npm test` (510); `npm run check` (0 errors, 0 warnings); `npm run lint` (23 figures, 2,339 words); `npm run build` (13 entry points, 4 icons); `npm run test:e2e` (32 journeys, 5 of them new); cross-artefact reconciliation by hand: the word set's per-year counts equal `series/annual.json`'s `terms.genocide.speeches` in all 79 years, and the per-year `held` equals `corpus.speeches` in all 79 | The scope stops being a contract and becomes a control. `lib.scopes` gained two cuts of the same three predicates — by year and by speaker — and each row carries its own `held`, so the artefact cannot be shaped into a rate whose base is a reading set; the web boundary refuses a cut whose set exceeds its own denominator, and both test suites assert the fixed denominator under all three scopes rather than leaving it to review. The control is radios and not a select, because three populations that differ by a factor of twelve are a comparison and a closed select shows one of them at a time; it renders only where a view reads it, since a control that changes nothing on `/usage` would teach a reader that it changes nothing anywhere. Two defects were found by building it: every consuming page rebuilds its own query from its own controls and would have dropped the reader's scope on the next keystroke, so each writer now merges it back; and a prerendered page may not read `url.searchParams` at all, which turns out to be the same guarantee the item already makes — a static file renders the default, and hydration applies the rest. Deliberately not done: the concordance's line list is not narrowed by the scope. Applying a speech-level reading set to it would make every published `?term=` URL return fewer lines than it did, which the item forbids in the same breath as it asks for propagation; the set therefore names the delegations it holds and hands each one to the existing speaker filter, which changes with the scope and leaves old links alone. The reader needed no new artefact: it recomputes membership from the offsets it already loads, and the recomputation is asserted against the count 09 published for the same record — S/PV.3987 reads 2 / 3 / 30 in the browser against `scope_counts` of 2 / 3 / 30. |
+| 2026-09-07 | C2 unblocked: the annotation harness reaches the GPU | in progress | pending | `ssh festus 'df -h ~'` (15 G of 15 G, 0 available — the cause); `sacct -X -j 748010..748013` (four jobs, batch step CANCELLED at 00:00:00, no log written); `rm -rf ~/.cache/pip` (5.1 G recovered, `/home` to 71%); `sbatch --partition=GPU --gres=gpu:h100:1` 760172 (RUNNING, then FAILED with a log: vLLM 0.28.0 started, H100 visible, `LocalEntryNotFoundError` on the pinned revision); cache inspected (`snapshots/1d4bf0f2…` present under `$HF_HOME` rather than `$HF_HOME/hub`, 32 blobs, 70 GB, 0 incomplete); `mv` into `hub/` (0 broken symlinks, 18 safetensors shards); `bash -n scripts/cluster/download_annotation_model.sh`; resubmitted as 760189 | Two environmental faults, neither in the instrument, both of which produced evidence that pointed away from themselves. A full `/home` cannot open a job's own log, so Slurm cancels the batch step before the script runs; the absence of a log was the diagnosis rather than a symptom to explain around, and `docs/CLUSTER.md` now says so and states the rule — a job that fails at zero elapsed time with no log is a filesystem problem until proved otherwise. The second fault was ours: `download_annotation_model.sh` passed `--cache-dir "$HF_HOME"`, which writes the repository one level above the hub cache every reader resolves from `HF_HOME`, so an offline node reported a missing revision for weights that were present and verified. The flag is removed rather than redirected, matching `download_models.sh`, which never passed it. Nothing is yet demonstrated about the reasoning ladder or the model: 760172 is the first evidence that the environment loads and vLLM serves, and no probe artefact exists. |
+| 2026-09-07 | R7: the lexicon stops aggregating, as lexicon v5 | complete | pending | `python tools/lock_lexicon.py` (v5, 29 terms; the lock differs from v4 by its version line alone); `python scripts/03_lexicon.py` (58 lexicon columns, `speeches_flagged.parquet` 167,642 x 115, 14/14 documented terms reproducing `docs/CORPUS.md` exactly); `04` (79 years x 29 measures, from 41), `05`, `08`, `09` (167,642 speeches and 83,011 offsets reconciled), `11`, `12`; `python scripts/export_web.py --update-contract` then `python scripts/export_web.py` (20 artefacts, 9,511 files, 685 MB, and the new seam check reporting no measure over more than one term); `python -m pytest` (1,098 passed, from 1,092); `ruff check .`; `npm test` (510); `npm run check` (0 errors, 0 warnings); `npm run lint` (23 figures, 2,343 words); `npm run build` (13 entry points, 4 icons); `npm run test:e2e` (32); the rebuilt annual artefact compared term by term against the payload published on 3 September | `apply` writes one count and one flag per term and per derived measure and nothing else; the seven register pairs, the five set flags and the two lexicon totals are gone, and the `sets:` block has left `config/lexicon.yml` with `r2p_quartet` — a doctrine codified in the 2000s drawn as a line back to 1946. No pattern or anchor moved, so no occurrence identity did and all 29 term series are identical to the published ones; the one number that moved is a threshold, the change-point correction going from three rate models to two (alpha 0.0166 to 0.025), both surviving splits unchanged at p = 0.0005. **The home page's second figure is re-cut, not removed**: *Register share* becomes *The vocabulary, word by word*, six terms one row each, with the rows/lines toggle dropped because a shared axis existed to compare families. Removing the figure instead remains open and is the author's. The chronology's picker loses the `register:*` and `set:*` measures and gains a control in their place: each register heading now draws its whole shelf as separate lines, so composing the group is the reader's and the composition is visible. `intensity` is added on the five terms whose legal standing it ranks — genocide 5, war crimes 4, crimes against humanity 3, ethnic cleansing 2, atrocity 1 — validated as a total order at load; **no view draws on it yet**, so nothing needs R3's mixed mark today. The `tier` gloss is re-glossed on the 1948 Convention and the 1949 Geneva Conventions. `README.md`, `PLAN.md`, `scripts/README.md`, `/methods#word-list` and the chronology's own hint were grepped and corrected together. |
+| 2026-09-07 | R14: a contents that stays, and a rate figure that states its base | complete | pending | `python -m pytest` (1,098 passed); `ruff check .` (all checks passed); in `web/`: `npm test` (515, five of them new in `contents.test.ts`), `npm run check` (0 errors, 0 warnings), `npm run lint` (23 figures, 2,341 words — four fewer, the reading note that repeated the denominator now defers to the axis), `npm run build` (13 entry points, 4 icons), `npm run test:e2e` (35 passed, three new in `contents.spec.ts`); and in a browser at 1280px and 375px on `/`, `/language`, `/chronology`, `/usage` and `/actors`: the mark follows the scroll, tabbing from `#top` reaches the last entry and Enter puts the focus on the last figure with its title clear of both sticky bands, and no view scrolls sideways at 375px | The persistent contents, not sub-pages. The band sticks under the masthead — whose height is measured, because it wraps to 209px at 375px — and publishes its own, so `scroll-padding-top` and the mark agree on one line. `aria-current="location"` carries the position; weight and a rule carry it visually, never colour alone. Two faults the browser found and a unit test would not: an anchor jump parks a figure a hair below the reading line, so the mark answered with the figure just left (hence `LANDING_SLACK`), and the marked entry is set heavier and therefore wider, so a strip measured before that reflow scrolls short of the last entry (hence the follow in its own effect, after the DOM). The home page's rate figure states its base on the axis and in its accessible description; `/usage` keeps its contents below the experimental caveat, which is deliberate there. |
+| 2026-09-07 | Defect: the headline measure opened a concordance that does not exist | complete | pending | the new invariants run against the unfixed code first (7 failures, `expected [ 'genocide', 'war_crimes', 'genocidaires' ] to include 'genocide_qualification'`, from the grid, the pooled row and the actor table alike) and then against the fixed code; `python -m pytest` (1,097 passed; the single failure, `test_cluster.py::test_line_endings_are_unix[env.sh]`, is a CRLF working-tree checkout of a file this change does not touch and fails identically at HEAD); `ruff check .` (all checks passed); in `web/`: `npm test` (533, eighteen of them new across `concordance.test.ts`, `heatmap.test.ts` and `actors.test.ts`), `npm run check` (0 errors, 0 warnings), `npm run lint` (23 figures, 2,365 words), `npm run build` (13 entry points, 4 icons), `npm run test:e2e` (35 passed); and in a browser against the real payload: 514 evidence links on `/chronology`, every one of them `term=genocide` and none `term=genocide_qualification`, one of them followed to a concordance of 7,747 lines, and the actor aside offering `term=genocide&country=Rwanda` | `08_kwic.py` writes a concordance per active lexicon term, and the published headline is not one: `genocide_qualification` is `genocide` minus `genocidaires`, a subtraction that matches no span, so no file for it was ever written and the lexicon says as much where the measure is declared. Three figures open on that measure and all three asked for that file — the calendar grid and its pooled row through `heatmap.termsOf`, the actor table through `actors.occurrences`, and, found while fixing those two, the annual chart's click-to-drill, whose default series opens with the same measure. The resolution is one function, `concordance.evidenceTerm`, because what `term=` may hold belongs to that module's URL contract rather than to three figures that can drift apart; `derived_from` was already on the measure, written by `04` and `11`, and missing only from `types.ts`. **The redirect is not silent.** The minuend's lines are a superset — they hold the 18 `genocidaires` occurrences, across 13 speeches, that the measure subtracts — so each of the three names whose lines open, and the chronology states the size, read off the payload at runtime rather than written into a component. No concordance is written for a derived measure, which would contradict both `lib/lexicon.py::Derived` and the `derived` block itself. The budget moved by 24 words, all of them the annual chart's reading note, which now documents a click it had never mentioned; the calendar's two statements sit in `hint` paragraphs beside the links they qualify, outside the budgeted slots, where the grid table's existing note about what a number opens already was. `config/lexicon.yml`'s `derived` note still carried the 1992-2023 corpus's figures — 6,061 of 6,092, and 31 readable lines — and now carries the pinned corpus's 7,729 of 7,747 and 18, and says which corpus they are counted on; documentation only, so no lexicon version bump, and `tests/test_config.py` asserts the partition and the subtraction and never these counts. Left undone, both deliberately: the actor view names the term but not the size of the difference, because `countries.json` publishes the derived measure alone and holds no row for what it subtracts; and the same stale figures survive in the `genocide` and `genocidaires` term notes and in the v4 changelog entry, which this change did not widen to. |
