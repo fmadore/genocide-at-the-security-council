@@ -96,6 +96,15 @@ KWIC = DERIVED / "kwic"          # 08
 # series/ is cut by period, this is cut by speaker, and folding the two would
 # put a table nobody asked for inside an artefact everyone already reads.
 COUNTRIES = DERIVED / "countries"  # 11
+# 12's keyness table, in a directory of its own rather than beside 11's.
+# `artifacts.atomic_directory` stages a directory and swaps it in whole, which
+# is the property the rest of the pipeline relies on — a half-written artefact
+# never exists. The cost is that a directory has exactly one owner, and 12 used
+# to write into 11's. Re-running 11 then deleted 12's file, the export only
+# warned, and the payload shipped 19 artefacts with the actor view's fourth
+# figure unable to load. Two directories cost nothing; the export puts both
+# under `countries/` in the payload, where the dashboard still reads them.
+SPEAKER_KEYNESS = DERIVED / "speaker_keyness"  # 12
 # 15 joins the committed model run to the corpus and aggregates it for the
 # usage view. Everything in it is derived from model_annotations/ plus the
 # flagged parquet, so it rebuilds anywhere those two exist.

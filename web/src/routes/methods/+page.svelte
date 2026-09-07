@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { count, matchedOn, percent } from '$lib/format';
+	import { count, matchedOn, measureLabel, percent } from '$lib/format';
 	import PageMeta from '$lib/PageMeta.svelte';
 	import { PAGE_METADATA } from '$lib/seo';
 	import type { PageData } from './$types';
@@ -14,6 +14,31 @@
 		speeches: sum(data.series.corpus.speeches),
 		words: sum(data.series.corpus.words),
 		meetings: sum(data.series.corpus.meetings)
+	});
+
+	/**
+	 * The one published measure that is not a word, and the size of what it takes out.
+	 *
+	 * The explanation lived in `config/lexicon.yml`'s `derived` block, which is
+	 * the right place for the rule and no place at all for a reader: the site
+	 * showed a subtraction and never said what was subtracted. The arithmetic is
+	 * read off the annual series here rather than written down, so a re-cut
+	 * corpus moves the figures, and null where an artefact carries no such
+	 * measure — an archived payload keys the raw term and nothing derived.
+	 */
+	const subtraction = $derived.by(() => {
+		const [name, measure] =
+			Object.entries(data.series.terms).find(([, term]) => term.derived_from) ?? [];
+		const raw = measure?.derived_from ? data.series.terms[measure.derived_from] : undefined;
+		if (!name || !measure || !raw || !measure.occurrences || !raw.occurrences) return null;
+		return {
+			name,
+			from: measure.derived_from!,
+			minus: measure.derived_minus ?? [],
+			occurrences: sum(raw.occurrences),
+			removed: sum(raw.occurrences) - sum(measure.occurrences),
+			speeches: sum(raw.speeches) - sum(measure.speeches)
+		};
 	});
 
 	const lines = $derived(data.kwic.terms.reduce((a, t) => a + t.count, 0));
@@ -247,6 +272,25 @@
 		<code>config/lexicon.yml</code>, they are open to disagreement, and they are a starting point
 		for the analysis rather than something it discovered.
 	</p>
+
+	{#if subtraction}
+		<h3 id="derived-measure">One measure is not a word</h3>
+		<p>
+			The figure this site opens on is <em>{measureLabel(subtraction.name)}</em>, and it is the only
+			published measure that no pattern matches: it is <code>{subtraction.from}</code> less
+			{#each subtraction.minus as term, index (term)}{index ? ' and ' : ''}<code>{term}</code
+				>{/each}. A delegation calling the ex-FAR <em>génocidaires</em> names who carried out the
+			killing rather than asking the Council to call the event a genocide, and the two readings are
+			the thing this study is about, so the actor label is counted on its own and taken out. Across
+			the corpus that is {count(subtraction.removed)} of <code>genocid*</code>'s {count(
+				subtraction.occurrences
+			)} occurrences, and {count(subtraction.speeches)} speeches in which no other form of the word appears.
+			It is a subtraction and not a narrower pattern: narrowing <code>{subtraction.from}</code> would
+			move every occurrence identity in the corpus and invalidate the coded sample and every model run
+			recorded against it. The raw term is published beside it everywhere, and the concordance enumerates
+			that one, because a subtraction has no spans of its own to show.
+		</p>
+	{/if}
 
 	<h3 id="change-points">Change points</h3>
 	<p>

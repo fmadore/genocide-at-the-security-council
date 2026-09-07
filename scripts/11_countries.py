@@ -52,16 +52,28 @@ from lib.paths import (
     write_note,
 )
 
-#: The measures this table carries, mirroring `04_series.py`'s TRACKED so the
-#: actor view and the temporal series argue about the same object. It held
-#: `atrocity_core` beside it until lexicon v5, and that union is the reason
-#: several of this step's careful absences exist: a set has no occurrence count,
-#: so the interface had to detect the withholding and drop a column, an ordering
-#: and a tooltip rather than read it through `?? 0`. The withholding machinery
-#: stays — R8's genocide-free corpus is a population with the same property —
-#: but no measure in this artefact is a roll-up over terms any more.
+#: The measures this table carries. It held `atrocity_core` beside the derived
+#: measure until lexicon v5, and that union is the reason several of this step's
+#: careful absences exist: a set has no occurrence count, so the interface had
+#: to detect the withholding and drop a column, an ordering and a tooltip rather
+#: than read it through `?? 0`. The withholding machinery stays — R8's
+#: genocide-free corpus is a population with the same property — but no measure
+#: in this artefact is a roll-up over terms any more.
+#:
+#: R7 left the list one entry long, and a selector offering one option is a
+#: control that controls nothing: the actor view could choose the subtraction
+#: and could not choose the word it is a subtraction of, while the chronology
+#: published both. The raw term is here so the two views can be read against
+#: each other, and so that the difference between them — 18 occurrences — is a
+#: figure this artefact carries rather than a claim a component makes.
+#:
+#: **The derived measure stays first.** :data:`HEADLINE` is `TRACKED[0][1]`, and
+#: it decides what the table opens on, what it reconciles against and whose
+#: prevalence sets the minimum. Appending is safe; prepending would silently
+#: change what every published `/actors` URL without a `measure=` means.
 TRACKED: list[tuple[str, str]] = [
     ("terms", "genocide_qualification"),
+    ("terms", "genocide"),
 ]
 
 #: The measure the table opens on, reconciles against and derives its
@@ -208,9 +220,18 @@ def build_measures(
         payload[name] = {**measure_attributes(lex, kind, name), "rows": rows}
         cleared = int(computed[name][actors.WHOLE]["sufficient"].sum())
         console.info(
-            f"{name:14s} {len(rows):,} rows over {len(slices)} periods; "
+            f"{name:22s} {len(rows):,} rows over {len(slices)} periods; "
             f"{cleared} speakers clear the minimum over the whole corpus"
         )
+
+    # The minimum governs a denominator, and a speaker's denominator does not
+    # depend on which vocabulary is counted in it. So every measure must blank
+    # the same rows; a rate shown for one and withheld for the other would look
+    # like a finding about the words.
+    if problems := actors.reconcile_withholding(computed):
+        console.fail("the measures do not agree about a denominator or a withholding", problems)
+    if len(computed) > 1:
+        console.info(f"the {len(computed)} measures withhold from the same speakers in every period")
 
     return payload, computed
 
@@ -224,8 +245,8 @@ def build_standing(
 
     This is one block rather than a column on each measure: membership is a
     property of the speaker's speeches, not of the vocabulary in them, and
-    repeating it inside `genocide` and `atrocity_core` would give the same fact
-    two places to disagree with itself.
+    repeating it inside every tracked measure would give the same fact as many
+    places to disagree with itself.
 
     The denominator is checked against the measure rows as well as against the
     corpus. Both are cut from the same subset by different code — `series` does
@@ -378,6 +399,28 @@ def build_note(
         outside=lambda f: f[council.NON_MEMBER],
     ).sort_values("held", ascending=False)
 
+    # The subtraction, sized from the rows this artefact publishes rather than
+    # from the lexicon's prose. The minuend is tracked beside the derived
+    # measure, so the difference is a figure the artefact carries and every
+    # consumer can recompute — which is what lets the actor view state it
+    # without a component holding a literal.
+    def corpus_total(name: str, column: str) -> int:
+        return int(computed[name][actors.WHOLE][column].sum())
+
+    subtractions = [
+        (
+            name,
+            str(attributes["derived_from"]),
+            [str(one) for one in attributes.get("derived_minus", [])],
+            corpus_total(str(attributes["derived_from"]), "speeches")
+            - corpus_total(name, "speeches"),
+            corpus_total(str(attributes["derived_from"]), "occurrences")
+            - corpus_total(name, "occurrences"),
+        )
+        for name, attributes in payload["measures"].items()
+        if attributes.get("derived_from") in computed
+    ]
+
     silent = cleared[cleared["speeches"] == 0]
     states = [s for s in speakers if s["entity_type"] == "state"]
     mappable = [s for s in speakers if s["mappable"]]
@@ -392,10 +435,12 @@ def build_note(
             "# 11 — Per-country table",
             "",
             f"{len(speeches):,} speeches attributed to {len(speakers):,} canonical speakers, "
-            f"cut into {len(payload['periods'])} periods and two measures. This is the table "
-            "the actor view's map is drawn from, in either of its two encodings — and the "
-            "`iso3_collisions` block below is what lets the filled one refuse a shared "
-            "code instead of overdrawing it.",
+            f"cut into {len(payload['periods'])} periods and {len(computed)} measures: "
+            f"`{HEADLINE}` and the raw term it is a subtraction of, so that the actor view "
+            "can be read against the chronology rather than only against itself. This is the "
+            "table that view's ranking and locator map are drawn from, and the "
+            "`iso3_collisions` block below is what lets a consumer keyed on ISO3 refuse a "
+            "shared code instead of overdrawing it.",
             "",
             "## The minimum sample, and why it is this number",
             "",
@@ -404,7 +449,7 @@ def build_note(
             "country that spoke three times.",
             "",
             "The threshold is set by asking what a *blank* country claims. Observing no "
-            f"`genocide`-bearing speech in n tries puts a 95% ceiling of roughly 3/n on that "
+            f"`{HEADLINE}`-bearing speech in n tries puts a 95% ceiling of roughly 3/n on that "
             f"speaker's underlying rate. The corpus-wide prevalence is **{prevalence:.2%}**, so "
             f"a zero only means \"quieter than the Council\" once n reaches **{required}**; "
             f"below that it means the sample was too short to tell. {minimum} is the round "
@@ -415,6 +460,14 @@ def build_note(
             "`speeches` and `occurrences` are always written, because a count is a fact and a "
             "rate is an estimate. This follows `lib.series.measure`, which returns an empty "
             "occurrence count for a set rather than a plausible-looking one.",
+            "",
+            "**The withholding is the same in every measure.** The minimum governs a "
+            "denominator, and a speaker's denominator is the speeches it delivered, whatever "
+            "vocabulary is counted inside them, so every measure blanks the same speakers in "
+            "the same periods. `lib.actors.reconcile_withholding` checks "
+            "it rather than inferring it from the fact that both were cut from one corpus, "
+            "because a rate published under one measure and withheld under the other would "
+            "read as a finding about the words.",
             "",
             "## What clears it",
             "",
@@ -527,10 +580,25 @@ def build_note(
             "|---|---:|---:|",
             f"| Speeches | {int(whole['held'].sum()):,} | {len(speeches):,} |",
             f"| Words | {int(whole['words'].sum()):,} | {int(speeches['words'].sum()):,} |",
-            f"| `{HEADLINE}` speeches | {int(whole['speeches'].sum()):,} | "
-            f"{int(speeches[f'has_{HEADLINE}'].sum()):,} |",
-            f"| `{HEADLINE}` occurrences | {int(whole['occurrences'].sum()):,} | "
-            f"{int(speeches[f'n_{HEADLINE}'].sum()):,} |",
+            *[
+                line
+                for kind, name in TRACKED
+                for line in (
+                    f"| `{name}` speeches | {corpus_total(name, 'speeches'):,} | "
+                    f"{int(speeches[series.columns_for(kind, name)[0]].sum()):,} |",
+                    f"| `{name}` occurrences | {corpus_total(name, 'occurrences'):,} | "
+                    f"{int(speeches[series.columns_for(kind, name)[1]].sum()):,} |",
+                )
+            ],
+            "",
+            *[
+                f"`{name}` is `{minuend}` less {' and '.join(f'`{s}`' for s in subtrahends)}, "
+                f"and the two rows above size that subtraction: **{occurrences:,} "
+                f"occurrences**, and **{speeches_lost:,} speeches** that said nothing else the "
+                "minuend matches and so leave the count altogether. The actor view states "
+                "those from these rows rather than from numbers written into a component."
+                for name, minuend, subtrahends, speeches_lost, occurrences in subtractions
+            ],
             "",
             "A `country_org` absent from `config/entities.csv` stops the run, as it does in "
             "02. So does a crosswalk edited since 02 last ran, because this table would then "

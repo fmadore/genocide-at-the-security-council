@@ -52,9 +52,9 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import artifacts, console, council, frames, keyness, lexical
 from lib.paths import (
-    COUNTRIES,
     EXPECTED_SPEECHES,
     ROOT,
+    SPEAKER_KEYNESS,
     SPEECHES_FLAGGED,
     STOPWORDS,
     ensure_dirs,
@@ -80,7 +80,7 @@ COLUMNS = [
     "meeting_symbol",
 ]
 
-OUTPUT = COUNTRIES / "speaker_keyness.json"
+OUTPUT = SPEAKER_KEYNESS / "speaker_keyness.json"
 
 #: RIGHT SINGLE QUOTATION MARK, named by code point exactly as `lexical.TOKEN_RE`
 #: names it: the OCR carries both apostrophes, they are identical on screen, and
@@ -439,8 +439,9 @@ def run(
             "seed": seed,
         },
     )
-    # One file, written in place: `countries/` already holds 11's table, and
-    # `artifacts.atomic_directory` replaces a directory wholesale.
+    # This step's own directory, so that 11's wholesale swap of `countries/`
+    # cannot take this file with it. The export puts the two back together
+    # under `countries/` in the payload.
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     artifacts.atomic_write_json(OUTPUT, {"meta": meta, **payload})
     console.info(f"wrote {rel(OUTPUT)}  ({OUTPUT.stat().st_size / 1e3:,.0f} kB)")

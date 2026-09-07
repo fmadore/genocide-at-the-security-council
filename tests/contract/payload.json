@@ -17,8 +17,8 @@
   "iso3_collisions": {},
   "measures": {
    "*": {
-    "derived_from": "str",
-    "derived_minus": [
+    "derived_from?": "str",
+    "derived_minus?": [
      "str"
     ],
     "kind": "str",

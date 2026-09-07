@@ -487,6 +487,47 @@ def reconcile_periods(
     return problems
 
 
+def reconcile_withholding(computed: dict[str, dict[str, pd.DataFrame]]) -> list[str]:
+    """Every measure must withhold from the same speakers, in the same periods.
+
+    The minimum sample is a rule about a *denominator*, and a speaker's
+    denominator is the speeches it delivered, whatever vocabulary is being
+    counted inside them. A table carrying more than one measure must therefore
+    blank the same rows in all of them. The failure this refuses is quiet: a
+    rate published under one measure and withheld under another, for the same
+    speaker in the same period, reads as a fact about the two vocabularies
+    rather than as the accident of arithmetic it would be, and a reader
+    comparing the two selections has no way to see which it is.
+
+    :func:`withhold_below` cannot know it is being applied twice, so the
+    agreement is asserted here rather than assumed from the fact that both
+    calls were handed the same corpus.
+    """
+    names = list(computed)
+    if len(names) < 2:
+        return []
+    first, *rest = names
+    problems: list[str] = []
+    for name in rest:
+        for key, frame in computed[name].items():
+            reference = computed[first][key]
+            if missing := sorted(set(reference.index) ^ set(frame.index)):
+                problems.append(
+                    f"{key}: {len(missing)} speakers are in {first} and not in {name}, or the "
+                    f"other way round: {', '.join(str(one) for one in missing[:6])}"
+                )
+                continue
+            aligned = frame.reindex(reference.index)
+            for column in ("held", "words", "sufficient"):
+                differing = reference.index[aligned[column] != reference[column]].tolist()
+                if differing:
+                    problems.append(
+                        f"{key}: {len(differing)} speakers disagree about {column} between "
+                        f"{first} and {name}: {', '.join(str(one) for one in differing[:6])}"
+                    )
+    return problems
+
+
 def _count(value: object) -> int | None:
     return None if pd.isna(value) else int(value)
 

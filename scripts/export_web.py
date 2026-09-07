@@ -28,6 +28,7 @@ import argparse
 import json
 import shutil
 import sys
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -41,27 +42,30 @@ from lib.paths import (
     LEXICAL,
     ROOT,
     SERIES,
+    SPEAKER_KEYNESS,
     USAGE,
     WEB_DATA,
     ensure_dirs,
     rel,
 )
 
-#: (source directory, destination name, the step that produces it).
+#: (source directories, destination name, the step that produces them).
+#:
+#: Several sources may share one destination, and `countries/` does: 11 writes
+#: the rates and 12 the per-speaker keyness. They are separate directories under
+#: `data/derived/` because `atomic_directory` owns whatever it swaps, and they
+#: are one directory here because that is the shape the dashboard reads.
 PARTS = [
-    (SERIES, "series", "04_series.py"),
-    (LEXICAL, "lexical", "05_lexical.py"),
-    (KWIC, "kwic", "08_kwic.py"),
-    # Two producers write here: 11 the rates, 12 the per-speaker keyness. Named
-    # as both rather than as the first, so the manifest does not credit one
-    # step's provenance to the other's file.
-    (COUNTRIES, "countries", "11_countries.py + 12_speaker_keyness.py"),
+    ((SERIES,), "series", "04_series.py"),
+    ((LEXICAL,), "lexical", "05_lexical.py"),
+    ((KWIC,), "kwic", "08_kwic.py"),
+    ((COUNTRIES, SPEAKER_KEYNESS), "countries", "11_countries.py + 12_speaker_keyness.py"),
     # 15 aggregates a committed model run. Unlike every other part here, its
     # input is not the corpus alone: `model_annotations/` is a versioned input
     # the deploy reads and can never regenerate, which is why the workflow now
     # keys its cache on that directory too.
-    (USAGE, "usage", "15_usage.py"),
-    (FRAMES, "frames", "17_frames.py"),
+    ((USAGE,), "usage", "15_usage.py"),
+    ((FRAMES,), "frames", "17_frames.py"),
 ]
 
 #: Written by 09, not copied. Listed so the manifest describes the whole payload
@@ -73,13 +77,22 @@ IN_PLACE = [
 ]
 
 
-def copy_part(source: Path, name: str) -> dict[str, object]:
-    """Atomically mirror one directory into the payload and describe it."""
+def copy_part(sources: Sequence[Path], name: str) -> dict[str, object]:
+    """Atomically mirror one or more directories into one payload directory.
+
+    Every source is copied into the same staging directory and swapped in once.
+    Copying them one at a time would mean one `atomic_directory` per source, and
+    the second swap would delete what the first had just published — which is
+    the fault this grouping exists to make unrepresentable, one level up from
+    where it originally bit.
+    """
     destination = WEB_DATA / name
-    if not source.exists():
-        console.fail(f"{rel(source)} is missing — run the step that writes it first")
+    for source in sources:
+        if not source.exists():
+            console.fail(f"{rel(source)} is missing — run the step that writes it first")
     with artifacts.atomic_directory(destination) as staged:
-        shutil.copytree(source, staged, dirs_exist_ok=True)
+        for source in sources:
+            shutil.copytree(source, staged, dirs_exist_ok=True)
     return artifacts.describe_tree(destination)
 
 
@@ -111,8 +124,16 @@ def check_contract() -> None:
         )
     promised = json.loads(CONTRACT.read_text(encoding="utf-8"))
     problems, absent = contract.check(WEB_DATA, promised)
-    for name in absent:
-        console.warn(f"{name} is not in the payload, so its shape was not checked")
+    if absent:
+        # Not a warning. The contract is the list of artefacts the dashboard
+        # loads, so a payload missing one is a payload a view cannot render —
+        # and a warning is exactly what let 19 artefacts ship as though they
+        # were 20, with the actor view's keyness figure fetching a file that
+        # was not there.
+        console.fail(
+            "the payload is missing artefacts the contract declares",
+            [f"{name} — run the step that writes it, then export again" for name in sorted(absent)],
+        )
     if problems:
         console.fail(
             f"the payload no longer matches {rel(CONTRACT)}",
@@ -190,8 +211,8 @@ def run() -> None:
     total_files = total_bytes = 0
 
     console.step("Copying analysis artefacts into the payload")
-    for source, name, producer in PARTS:
-        measured = copy_part(source, name)
+    for sources, name, producer in PARTS:
+        measured = copy_part(sources, name)
         files, size = int(measured["files"]), int(measured["bytes"])
         parts[name] = {**measured, "produced_by": producer}
         total_files += files
