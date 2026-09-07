@@ -92,15 +92,16 @@ a count-based baseline against an embedding-based approach on a frozen sample, w
 coherence, stability under resampling, sensitivity to `k`, topic composition, and a
 blinded word-intrusion task for a human to complete. §4 still defers adoption: a topic
 model enters the release only once there is a research question collocates and agenda
-labels cannot answer. LLM extraction (§5) remains a proposal with no script.
+labels cannot answer. The model-assisted extraction scripts are described below;
+their output remains experimental until the human-validation gate is met.
 
 `score_intrusion.py` is unnumbered and deliberately a separate run: it turns a completed
 intrusion task into the interpretability number §4 wants, and keeping it out of 07 means no
 unattended job can ever produce one as a side effect of fitting a model. 07 writes the task
 and its key as two files so that the file a human opens does not contain the answer.
 
-**13, 14 and 15 are the model-assisted usage layer** (Phase L in
-[`../docs/IMPROVEMENT_ROADMAP.md`](../docs/IMPROVEMENT_ROADMAP.md)). 13 draws the human
+**13, 14 and 15 are the model-assisted usage layer** (section 5 in
+[`../docs/PLAN.md`](../docs/PLAN.md)). 13 draws the human
 gold sample and is deterministic. **14 is never run by CI or the deploy**: it reads a local
 OpenAI-compatible vLLM endpoint on a cluster compute node and needs no key. A full run sends
 all 7,747 `genocide` occurrences to the pinned open-weights model. Its output is committed
@@ -237,8 +238,11 @@ removing a term is therefore a recorded decision, not a configuration tweak.
    which terms changed what they count and which changed a regex. `lexicon.load()` reads the
    lock, so a forgotten bump fails at `03` and in CI instead of validating artefacts cut
    from a regex the file no longer holds. Commit the lock with the config.
-4. **Rerun, in order:** `03` (which recounts every speech), then `04`, `05`, `08`, `09`,
-   `11` and `12`, then `export_web.py`. Each step asserts its own output, so a broken
+4. **Run `make payload`, then `python scripts/export_web.py --check`.** The graph runs
+   `03`, `04`, `05`, `08`, `09`, `11`, `12`, `13`, `15`, `17` and the export as their
+   inputs require; `make -n payload` previews the recipes. Known multi-file outputs
+   are grouped, and referent files, model runs and archived prompts are inputs too.
+   Each step asserts its own output, so a broken
    pattern fails at 03 rather than surfacing as an empty column in the dashboard. A change
    to the `genocide` pattern additionally invalidates `13`'s gold sample and any committed
    model run: `15` refuses a run recorded against a version older than that term's
@@ -255,7 +259,7 @@ What follows from that, worth knowing before you start:
 - **Measure the change before you commit it.** `data/` is not in the repository, but the
   corpus is a parquet file and `lib.lexicon.apply` is one call: applying the edited
   lexicon to `speeches_norm.parquet` in a throwaway script says exactly what moved, per
-  term and per register, and costs a few minutes. Lexicon v4 was measured that way and its
+  term, and costs a few minutes. Lexicon v4 was measured that way and its
   table is in [`../docs/VALIDATION.md`](../docs/VALIDATION.md). A version bump recorded
   without its numbers leaves the reader of the register to take the change on trust.
 - **Narrowing a term is expensive; subtracting one is free.** Editing a `pattern` moves
@@ -275,7 +279,7 @@ What follows from that, worth knowing before you start:
   without an entry a register falls back to ink and collides with `core`. This is the one
   lexicon edit the dashboard does not absorb by itself.
 - **There is no `sets:` block, and the loader refuses one.** It was removed at v5 by item R7
-  of [`../docs/IMPROVEMENT_ROADMAP.md`](../docs/IMPROVEMENT_ROADMAP.md), with the register
+  of [`../docs/PLAN.md`](../docs/PLAN.md), with the register
   and total roll-ups. A named group of terms published as a measure is a grouping this file
   chose on the reader's behalf, and a line summed over six words moves without saying which
   word moved it. The chronology's picker takes any number of terms at once, so composing a
@@ -283,7 +287,7 @@ What follows from that, worth knowing before you start:
   so a revival fails at the seam as well as at the loader.
 - **Existing annotations do not carry over automatically across an incompatible pattern
   change.** That is the A2 rule in
-  [`../docs/IMPROVEMENT_ROADMAP.md`](../docs/IMPROVEMENT_ROADMAP.md): an occurrence ID is
+  [`../docs/PLAN.md`](../docs/PLAN.md): an occurrence ID is
   built from the span and matched text, and the lexicon version is stored beside it, so a
   changed pattern produces new occurrences rather than silently inheriting old verdicts.
   `pattern_since` is what makes "incompatible" decidable — a bump that left the term's
@@ -347,7 +351,6 @@ machine-specific paths live in `.env` (git-ignored; copy `.env.example`).
 |---|---|
 | [`../tools/bootstrap_entities.py`](../tools/bootstrap_entities.py) | Proposes rows for `config/entities.csv`. Downloads ISO 3166 codes and centroids once; never edits the checked-in file. Run with `--missing` when the corpus gains new speakers. |
 | [`../tools/lock_lexicon.py`](../tools/lock_lexicon.py) | Rewrites `config/lexicon.lock.json`, the digests that hold each term's `pattern_since` to its `pattern`. Run it after editing a pattern; `--check` verifies and exits non-zero. The output is committed beside the config it locks. |
-| [`../tools/build_boundaries.py`](../tools/build_boundaries.py) | Rebuilds `web/static/geo/countries.json`, the polygons the actor view's filled map draws. Keyed on the `iso3` column of `config/entities.csv`, from Natural Earth 1:110m at a pinned tag. The output is committed — it is derived from the crosswalk and not from the corpus, so it is not a pipeline artefact and does not belong to the Dataverse pin. Re-run it when `entities.csv` gains a state. |
 
 ## Tests
 

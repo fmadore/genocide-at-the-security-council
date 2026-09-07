@@ -123,8 +123,8 @@ changes when the government changes, and read as one State's position over time
 that reversal is a puzzle it need not be. Roadmap item R15 records the
 distinction and defers the overlay. This section is the evaluation R15 asks for.
 **No dataset is adopted here.** Any government-change overlay must be
-preregistered as a new analysis, under the rule the *Later analytical
-specifications* section of `docs/IMPROVEMENT_ROADMAP.md` already sets, and its
+preregistered as a new analysis, under the rule in
+[`PLAN.md`, section 6](PLAN.md#6-lexical-and-statistical-follow-up), and its
 coverage must be stated against the corpus's own span before anything is joined.
 
 ### The join key the corpus already carries

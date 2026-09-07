@@ -49,10 +49,11 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, console, frames, llm, node_frames, series
+from lib import artifacts, console, frames, model_runs, node_frames, series
 from lib import lexicon as lexicon_lib
 from lib import occurrences as occurrences_lib
 from lib.paths import (
+    ANNOTATIONS,
     FRAMES,
     LEXICON,
     MODEL_ANNOTATIONS,
@@ -239,7 +240,7 @@ def model_rows(run_id: str) -> list[dict[str, object]]:
     """
     if not run_id:
         return []
-    return [llm.resolve_row(row) for row in llm.read_rows(RUNS / run_id / "annotations.jsonl")]
+    return model_runs.resolved(RUNS / run_id)
 
 
 def triangulation(
@@ -608,8 +609,11 @@ def run(width: int, trials: int, seed: int, alpha: float, use_model: bool) -> No
     meta = artifacts.provenance(
         ROOT,
         "17_frames.py",
-        inputs=[SPEECHES_FLAGGED],
-        configs=[LEXICON],
+        inputs=[SPEECHES_FLAGGED, CURRENT_RUN, COMPARISON_RUN,
+                *(path for name, _ in loaded for path in model_runs.files(RUNS / name))],
+        configs=[LEXICON, ANNOTATIONS / "lexicon" / "referents.csv",
+                 MODEL_ANNOTATIONS / TERM / "PROMPT.md",
+                 *sorted((MODEL_ANNOTATIONS / TERM / "prompts").glob("*.md"))],
         extra={
             "lexicon_version": lex.version,
             "term": TERM,

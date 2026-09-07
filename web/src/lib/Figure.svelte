@@ -29,7 +29,8 @@
 	import type { Snippet } from 'svelte';
 	import DownloadControls from './Download.svelte';
 	import type { DownloadSpec } from './Download.svelte';
-	import { figureId } from './figures';
+	import { figureId, provenance, PROVENANCE_LABELS } from './figures';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		title: string;
@@ -75,6 +76,7 @@
 	}: Props = $props();
 
 	let element: HTMLElement;
+	const origin = $derived(provenance(source));
 	let trigger = $state.raw<HTMLButtonElement>();
 	let expanded = $state(false);
 	let native = false;
@@ -193,6 +195,9 @@
 			{/if}
 		</div>
 		<p class="question">{question}</p>
+		<a class="provenance" data-provenance={origin} href={`${resolve('/methods')}#provenance`}>
+			{PROVENANCE_LABELS[origin]}
+		</a>
 	</figcaption>
 
 	{#if controls}
@@ -243,6 +248,23 @@
 </figure>
 
 <style>
+	.provenance {
+		display: inline-block;
+		margin-block: var(--sp-2);
+		font-size: var(--step--1);
+		color: var(--ink);
+		text-underline-offset: 0.2em;
+	}
+
+	.provenance[data-provenance='computed'] {
+		color: var(--state-ok);
+	}
+	.provenance[data-provenance='mixed'] {
+		color: var(--state-warn);
+	}
+	.provenance[data-provenance='model'] {
+		color: var(--state-bad);
+	}
 	.figure {
 		margin: 0 0 var(--sp-8);
 		padding-top: var(--sp-5);

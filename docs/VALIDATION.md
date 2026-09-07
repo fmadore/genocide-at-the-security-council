@@ -1,5 +1,26 @@
 # Validation register
 
+## 7 September 2026 — lexicon v6 and integrity repairs
+
+The isolated corpus rebuild recorded in [the project plan](PLAN.md)
+enumerates `crime(s) of aggression`: **330 mentions in 249 speeches**, comprising
+256 singular and 74 plural spans. Attested examples include `SC00805-01-001#1`
+(S/PV.805, India, 21 November 1957) and `SC01325-01-003#1` (S/PV.1325, plural).
+Standalone *aggression* and *war(s) of aggression* do not match. This is a
+measurement of explicit vocabulary, not a determination that a crime occurred.
+
+Every pre-existing annual term series is identical to v5. All 7,747 genocide
+concordance rows, including identities and context, are identical. The full
+concordance and speech export both reconcile **83,341 offsets** over **167,642
+speeches**. The lexicon precision sample now has 196 term/period coverage strata;
+its 296 candidate rows are unscored. No precision claim follows from enumeration.
+
+The [project plan](PLAN.md) records test results,
+payload checks and the remaining human/GPU gates. Historical sections below
+retain their original corpus dates and measurements. Their references to dated
+reviews identify historical documents available in Git history, not additional
+current plans.
+
 > **Corpus migration, 3 September 2026.** The canonical input is now
 > Sakamoto–Matsuoka v5 (1946–2024). Schoenfeld-era checks and examples retained
 > below are historical records, not current population totals. Current

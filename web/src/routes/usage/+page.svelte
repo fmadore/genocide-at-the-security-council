@@ -902,7 +902,6 @@
 							>
 							{#if row.caseLabel}<span class="fn">{row.caseLabel}</span>{/if}
 							{#each row.functions as name (name)}<span class="fn">{termLabel(name)}</span>{/each}
-							<span class="fn">confidence {row.confidence}</span>
 							{#if !referent}<span class="fn">{referentLabel(row.referent)}</span>{/if}
 							{#if row.contested.length}
 								<span class="contested"

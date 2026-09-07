@@ -88,7 +88,6 @@ def labels(**changes: object) -> dict[str, object]:
         "salience": "substantive",
         "evidence_quote": "this is genocide",
         "rationale": "The speaker applies the word in their own voice.",
-        "confidence": "high",
     }
     entry.update(changes)
     return entry
@@ -124,7 +123,7 @@ CASCADE_FP: dict[str, object] = {
 
 def test_prompt_parses_into_the_two_templates_the_step_sends() -> None:
     pack = llm.load_prompt(PROMPT)
-    assert pack.version == 2
+    assert pack.version == 3
     assert "{referents_table}" in pack.system_template
     for placeholder in llm.USER_PLACEHOLDERS:
         assert "{" + placeholder + "}" in pack.user_template
@@ -139,7 +138,7 @@ def test_prompt_states_the_task_boundary_and_the_cascade() -> None:
     assert "You never decide whether an underlying event legally constitutes genocide" in flat
     assert 'If verdict is "false_positive"' in flat
     assert "reserved for false positives" in flat
-    for label in sorted(audit.POSITIONS | audit.QUOTATIONS | audit.FUNCTIONS | audit.CONFIDENCE):
+    for label in sorted(audit.POSITIONS | audit.QUOTATIONS | audit.FUNCTIONS):
         assert label in system, f"the prompt never names {label}"
 
 
@@ -493,7 +492,7 @@ def test_reasoning_can_be_sent_through_the_model_s_chat_template() -> None:
 
 def test_a_well_formed_response_is_accepted() -> None:
     accepted = llm.validate_response(
-        payload(entry(1), entry(2, verdict="uncertain", speaker_position="unclear", confidence="low")),
+        payload(entry(1), entry(2, verdict="uncertain", speaker_position="unclear")),
         ordinals=[1, 2],
         referents=REFERENTS,
     )
@@ -832,11 +831,25 @@ def test_a_row_carries_the_agreed_keys_in_the_agreed_order() -> None:
     assert row["line_id"] == "speech#1"
     assert row["term"] == "genocide"
     assert row["function"] == "accusation_or_qualification"
-    assert row["schema_version"] == audit.SCHEMA_VERSION
+    assert row["schema_version"] == llm.SCHEMA_VERSION
     assert row["evidence_valid"] is True
     assert body[row["evidence_start"] : row["evidence_end"]] == "this is genocide"
     assert row["start"] == body.index("genocide")
     llm.validate_row(row, REFERENTS)
+
+
+def test_historical_schema3_is_read_without_reintroducing_model_confidence():
+    [current] = rows_for("The Council was told that this is genocide.")
+    old = {field: ("high" if field == "confidence" else current[field]) for field in llm.SCHEMA3_ROW_FIELDS}
+    old["schema_version"] = "3"
+    llm.validate_row(old, REFERENTS, appending=False)
+    with pytest.raises(ValueError):
+        llm.validate_row(old, REFERENTS)
+    assert "confidence" not in llm.RESPONSE_FIELDS
+    assert "confidence" in audit.ANNOTATION_FIELDS
+    library = llm.load_prompt_library(PROMPT)
+    archived = llm.load_prompt(PROMPT.parent / "prompts" / "v2.md")
+    assert library.by_digest(archived.sha256) is not None
 
 
 def test_an_unlocatable_quotation_produces_a_row_with_null_offsets() -> None:
@@ -851,7 +864,7 @@ def test_validate_row_refuses_a_reordered_or_incomplete_row() -> None:
     with pytest.raises(ValueError, match="wrong order"):
         llm.validate_row(reordered, REFERENTS)
 
-    dropped = {key: value for key, value in row.items() if key != "confidence"}
+    dropped = {key: value for key, value in row.items() if key != "rationale"}
     with pytest.raises(ValueError, match="Row keys are wrong"):
         llm.validate_row(dropped, REFERENTS)
 

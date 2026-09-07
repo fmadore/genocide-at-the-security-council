@@ -123,6 +123,7 @@ test('the matrix opens full screen, remains readable, and restores keyboard focu
 	await trigger.click();
 
 	await expect(matrix).toHaveClass(/fullscreen-open/);
+	await expect(matrix.locator('[data-provenance="model"]')).toBeVisible();
 	await expect(
 		matrix.getByRole('button', { name: /^Rwanda × Rwanda \(1994\): 2 occurrences/ })
 	).toBeVisible();

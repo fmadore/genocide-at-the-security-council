@@ -36,7 +36,7 @@ from . import occurrences as occurrences_lib
 from .paths import ROOT, SPEECHES_NORM
 
 #: The one term the model-assisted layer covers; see Phase L in
-#: `docs/IMPROVEMENT_ROADMAP.md` for why the scope is a single word.
+#: `docs/PLAN.md` for why the scope is a single word.
 TERM: Final = "genocide"
 
 #: docs/CORPUS.md §8, reproduced exactly by 03 and by `lib.occurrences`. A run
@@ -221,6 +221,7 @@ def write_manifest(
     truncations: int = 0,
     pass_id: str = "",
     source_commit: str | None = None,
+    persist: bool = True,
 ) -> dict[str, object]:
     """One manifest per run, rewritten atomically after every pass.
 
@@ -311,7 +312,8 @@ def write_manifest(
     }
     if runtime is not None:
         manifest["runtime"] = dict(runtime)
-    artifacts.atomic_write_json(path, manifest, indent=1)
+    if persist:
+        artifacts.atomic_write_json(path, manifest, indent=1)
     return manifest
 
 

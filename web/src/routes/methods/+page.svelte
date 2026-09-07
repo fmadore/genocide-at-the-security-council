@@ -197,6 +197,18 @@
 		out how, where the source material comes from, and what still needs a person to check it.
 	</p>
 
+	<h2 id="provenance">Where a figure's numbers come from</h2>
+	<p>
+		<strong>Computed from the record</strong> means rules applied to speech text or metadata.
+		<strong>Model-derived · experimental</strong> means model annotations determine the result.
+		<strong>Computed and model-derived</strong> means both contribute, including a concordance filtered
+		by a model's referent. These labels describe provenance, not accuracy or neutrality. The pipeline
+		ledger below separately records what has been checked.
+	</p>
+	<p>
+		Navigation marks cover the sources a view can use. The concordance is mixed there because it
+		offers a model referent filter; its figure stays computed until that filter is applied.
+	</p>
 	<h2>The corpus</h2>
 	<p>
 		<a href="https://doi.org/10.7910/DVN/CKPTRB">The UNSC Meetings and Speeches</a> (Sakamoto &amp;

@@ -421,6 +421,14 @@ class TestLexicon:
             assert name in lex.terms, name
             assert lex.terms[name].spans(phrase), name
 
+    def test_aggression_is_an_explicit_crime_phrase(self, lex):
+        term = lex.terms["aggression"]
+        for phrase in ("the crime of aggression", "CRIMES OF AGGRESSION", "crime\nof aggression"):
+            assert term.spans(phrase)
+        for phrase in ("aggression", "a war of aggression", "aggressive acts", "crime of aggressive war"):
+            assert not term.spans(phrase)
+        assert term.pattern_since == 6
+
     def test_the_header_names_every_register_the_file_uses(self, lex):
         """A register is a shelf label rather than a measure, and a shelf whose
         name appears nowhere in the header is a grouping a reader cannot place.

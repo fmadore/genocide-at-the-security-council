@@ -5,6 +5,14 @@ test('a visited reader remains usable after the built site goes offline', async 
 	context,
 	page
 }) => {
+	await context.route('**/cache-seed', (route) =>
+		route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Cache fixture</title>' })
+	);
+	await page.goto(`${base}/cache-seed`);
+	await page.evaluate(async (base) => {
+		await caches.open('another-project-offline');
+		await caches.open(`unsc:${encodeURIComponent(base || '/')}:old-test`);
+	}, base);
 	await page.goto(`${base}/concordance/`);
 	await expect(page.locator('.status')).toContainText('4 of 4 lines');
 	await page.evaluate(async () => {
@@ -18,6 +26,9 @@ test('a visited reader remains usable after the built site goes offline', async 
 		}
 	});
 	await page.locator('.line').first().click();
+	const keys = await page.evaluate(() => caches.keys());
+	expect(keys).toContain('another-project-offline');
+	expect(keys).not.toContain(`unsc:${encodeURIComponent(base || '/')}:old-test`);
 	await page.getByRole('link', { name: 'Read the whole speech' }).click();
 	await expect(
 		page.getByRole('heading', { name: 'Protection of civilians', level: 1 })

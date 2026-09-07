@@ -16,11 +16,6 @@ const expected = [
 	'sitemap.xml',
 	'robots.txt',
 	'404.html',
-	// Not a route: the polygons the actor view's filled map fetches. It is a
-	// committed asset rather than a pipeline artefact, so nothing upstream would
-	// notice its absence — the map would simply say the boundaries did not load,
-	// in production, to a reader. Rebuild it with tools/build_boundaries.py.
-	'geo/countries.json',
 	// The PWA layer, and the same argument. Both fail silently: a missing worker
 	// means the site simply stops working offline, and a missing manifest means
 	// the install entry quietly disappears from the browser's menu. Neither shows

@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -37,7 +38,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import annotate, artifacts, audit, console, llm
+from lib import annotate, artifacts, audit, console, llm, run_store
 from lib.annotate import Builder, Outcome, Speech
 from lib.paths import INTERIM, MODEL_ANNOTATIONS, ROOT, ensure_dirs, rel
 
@@ -223,6 +224,8 @@ def harvest(
     referents: set[str],
     paths: dict[str, Path],
     already: frozenset[str] = frozenset(),
+    *,
+    staged: dict[str, list[dict]] | None = None,
 ) -> dict[str, int]:
     """Validate, locate the evidence, and append. One bad speech loses one speech.
 
@@ -279,15 +282,18 @@ def harvest(
         relocated += sum(1 for row in annotated if row["evidence_relocated"])
         rows.extend(annotated)
 
-    written = llm.append_rows(paths["annotations"], rows) if rows else 0
-    if failures:
-        llm.append_rows(
-            paths["failures"],
-            [
-                {**failure, "run_id": meta.run_id, "recorded_at": meta.annotated_at}
-                for failure in failures
-            ],
-        )
+    failure_rows = [
+        {**failure, "run_id": meta.run_id, "recorded_at": meta.annotated_at}
+        for failure in failures
+    ]
+    written = len(rows)
+    if staged is not None:
+        staged.update({"annotations.jsonl": rows, "failures.jsonl": failure_rows})
+    else:
+        if rows:
+            llm.append_rows(paths["annotations"], rows)
+        if failure_rows:
+            llm.append_rows(paths["failures"], failure_rows)
     return {
         "written": written,
         "failures": len(failures),
@@ -356,6 +362,14 @@ def runtime_record(args: argparse.Namespace) -> dict[str, object]:
 
 
 def run(args: argparse.Namespace) -> None:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", args.run_id):
+        console.fail("run-id must be a single safe directory name")
+    directory = (SMOKE_RUNS if args.smoke else RUNS) / args.run_id
+    with run_store.writer(directory):
+        _run(args)
+
+
+def _run(args: argparse.Namespace) -> None:
     ensure_dirs()
     if args.concurrency < 1:
         console.fail("--concurrency must be at least 1")
@@ -396,20 +410,60 @@ def run(args: argparse.Namespace) -> None:
         f"sha256 {referents_sha256[:12]}"
     )
 
-    previous = annotate.read_manifest(paths["manifest"])
-    annotate.refuse_mismatch(previous, args.run_id, args.model, pack.sha256)
     runtime = runtime_record(args)
-    if previous.get("runtime") not in (None, runtime):
-        console.fail(
-            f"Run {args.run_id} was started with a different vLLM runtime",
-            ["a changed weight revision or serving configuration requires a new --run-id"],
-        )
+    probe_path = INTERIM / "model_annotation_probes" / args.run_id / "probe.json"
+    probe = json.loads(probe_path.read_text(encoding="utf-8")) if probe_path.exists() else {}
+    if not (
+        probe.get("passed") and probe.get("identity_sha256")
+        and probe.get("prompt_sha256") == pack.sha256
+        and probe.get("referents_sha256") == referents_sha256
+        and probe.get("runtime") == runtime
+        and probe.get("schema_version") == llm.SCHEMA_VERSION
+    ):
+        console.fail("A matching passed reasoning probe is required; run submit_annotate.sh first")
 
     console.step("Enumerating the term")
     everything, speeches, lexicon_version = annotate.gather(args.limit)
     scope = {speech.custom_id: speech for speech in speeches}
     planned_occurrences = sum(len(speech.occurrences) for speech in speeches)
     enumerated = [item for speech in everything for item in speech.occurrences]
+    probe_requests = [
+        llm.request_body(
+            llm.build_request(speech.meta, speech.body, speech.occurrences, pack, table),
+            model=args.model, reasoning_effort=level,
+            reasoning_location=args.reasoning_location,
+            max_output_tokens=annotate.output_ceiling(speech, MAX_OUTPUT_TOKENS),
+            temperature=args.temperature, top_p=args.top_p,
+        )
+        for level in probe.get("levels_requested", [])
+        for speech in everything[:int(probe.get("speeches_per_level", 0))]
+    ]
+    if not probe_requests or run_store.digest(probe_requests) != probe.get("requests_sha256"):
+        console.fail("Probe speech inputs changed; run the reasoning probe again")
+    identity = {
+        "run_id": args.run_id,
+        "prompt_sha256": pack.sha256,
+        "referents_sha256": referents_sha256,
+        "schema_version": llm.SCHEMA_VERSION,
+        "lexicon_version": lexicon_version,
+        "population": sorted(item.occurrence_id for item in enumerated),
+        "selected_speeches": sorted(scope),
+        "requests_sha256": run_store.digest([
+            llm.request_body(
+                llm.build_request(speech.meta, speech.body, speech.occurrences, pack, table),
+                model=args.model, reasoning_effort=args.reasoning_effort,
+                reasoning_location=args.reasoning_location,
+                max_output_tokens=annotate.output_ceiling(speech, MAX_OUTPUT_TOKENS),
+                temperature=args.temperature, top_p=args.top_p,
+            ) for speech in speeches
+        ]),
+        "runtime": runtime,
+        "probe_sha256": artifacts.sha256(probe_path),
+    }
+    identity_digest = run_store.bind_identity(directory, identity)
+    run_store.recover(directory)
+    previous = annotate.read_manifest(paths["manifest"])
+    annotate.refuse_mismatch(previous, args.run_id, args.model, pack.sha256)
 
     meta = llm.RunMeta(
         run_id=args.run_id,
@@ -482,7 +536,8 @@ def run(args: argparse.Namespace) -> None:
     def checkpoint(result: Outcome) -> None:
         nonlocal manifest, written, evidence_invalid, evidence_relocated
         nonlocal total_appended, total_failures
-        tally = harvest(result, scope, meta, referents, paths, already=frozenset(already))
+        staged: dict[str, list[dict]] = {}
+        tally = harvest(result, scope, meta, referents, paths, already=frozenset(already), staged=staged)
         total_appended += tally["written"]
         total_failures += tally["failures"]
         written += tally["written"]
@@ -522,16 +577,19 @@ def run(args: argparse.Namespace) -> None:
             truncations=tally["truncations"],
             pass_id=pass_id,
             source_commit=source_commit,
+            persist=False,
         )
+        manifest["identity_sha256"] = identity_digest
+        manifest["probe_sha256"] = identity["probe_sha256"]
+        run_store.commit(directory, staged, manifest)
 
-    api = client()
     if not remaining:
         console.step("Nothing left to ask")
         checkpoint(Outcome())
     else:
         console.step(f"Asking {len(remaining):,} speeches directly ({args.concurrency} at a time)")
         live(
-            api,
+            client(),
             remaining,
             build,
             model=args.model,

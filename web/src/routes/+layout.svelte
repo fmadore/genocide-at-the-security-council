@@ -7,6 +7,8 @@
 	import BasketDrawer from '$lib/BasketDrawer.svelte';
 	import ScopeControl from '$lib/ScopeControl.svelte';
 	import ThemeToggle from '$lib/ThemeToggle.svelte';
+	import pageProvenance from '$lib/page-provenance.json';
+	import { PROVENANCE_LABELS, type ProvenanceKind } from '$lib/figures';
 	import { basket } from '$lib/basket.svelte';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
@@ -35,7 +37,7 @@
 			label: 'Chronology',
 			blurb: 'When the word was said, and when that changed'
 		},
-		{ href: '/language', label: 'Language', blurb: 'The words it sits next to' },
+		{ href: '/language', label: 'Words in context', blurb: 'The words it sits next to' },
 		{
 			href: '/actors',
 			label: 'Actors',
@@ -55,6 +57,7 @@
 	const here = $derived(page.url.pathname.replace(/\/$/, ''));
 	const isCurrent = (href: (typeof sections)[number]['href']) =>
 		here === resolve(href).replace(/\/$/, '');
+	const originOf = (href: string) => (pageProvenance as Record<string, ProvenanceKind>)[href];
 	// The reader is reached from the concordance and has no nav entry of its own.
 	const isReader = $derived(here.includes('/reader/'));
 
@@ -81,6 +84,40 @@
 		});
 		observer.observe(masthead);
 		return () => observer.disconnect();
+	});
+
+	/* Native fragment scrolling can precede the measured sticky bands and fonts.
+	   Align once after layout settles, unless the reader has already intervened. */
+	$effect(() => {
+		const fragment = page.url.hash;
+		void page.url.pathname;
+		if (!fragment) return;
+		let cancelled = false;
+		const cancel = () => {
+			cancelled = true;
+		};
+		const events = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
+		const clean = () => events.forEach((event) => window.removeEventListener(event, cancel));
+		events.forEach((event) => window.addEventListener(event, cancel, { passive: true }));
+		void document.fonts.ready.then(() =>
+			requestAnimationFrame(() =>
+				requestAnimationFrame(() => {
+					clean();
+					if (cancelled) return;
+					let id: string;
+					try {
+						id = decodeURIComponent(fragment.slice(1));
+					} catch {
+						return;
+					}
+					document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'instant' });
+				})
+			)
+		);
+		return () => {
+			cancelled = true;
+			clean();
+		};
 	});
 </script>
 
@@ -112,10 +149,20 @@
 					<li>
 						<a
 							href={resolve(section.href)}
-							title={section.blurb}
+							title={`${section.blurb}${originOf(section.href) ? ` · ${PROVENANCE_LABELS[originOf(section.href)]}` : ''}`}
 							aria-current={isCurrent(section.href) ? 'page' : undefined}
 							class:active={isCurrent(section.href) ||
-								(isReader && section.href === '/concordance')}>{section.label}</a
+								(isReader && section.href === '/concordance')}
+							>{section.label}{#if originOf(section.href)}<small
+									class="nav-origin"
+									data-provenance={originOf(section.href)}
+									aria-hidden="true"
+									>{originOf(section.href) === 'model'
+										? 'Model'
+										: originOf(section.href) === 'mixed'
+											? 'Mixed'
+											: 'Computed'}</small
+								>{/if}</a
 						>
 					</li>
 				{/each}
@@ -165,6 +212,21 @@
 </footer>
 
 <style>
+	.nav-origin {
+		display: block;
+		font-size: var(--step--2);
+		font-weight: 400;
+		line-height: 1.2;
+	}
+	.nav-origin[data-provenance='computed'] {
+		color: var(--state-ok);
+	}
+	.nav-origin[data-provenance='mixed'] {
+		color: var(--state-warn);
+	}
+	.nav-origin[data-provenance='model'] {
+		color: var(--state-bad);
+	}
 	#top {
 		display: block;
 		height: 0;

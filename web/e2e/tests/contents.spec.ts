@@ -12,6 +12,22 @@ import { base } from '../../playwright.config';
 const contents = (page: import('@playwright/test').Page) =>
 	page.getByRole('navigation', { name: 'Figures on this page' });
 
+for (const width of [390, 1440]) {
+	test(`a cold figure anchor clears the sticky navigation at ${width}px`, async ({ page }) => {
+		await page.setViewportSize({ width, height: 900 });
+		await page.goto(`${base}/actors/#speakers-by-rate`);
+		await page.evaluate(() => document.fonts.ready);
+		const heading = page.getByRole('heading', { name: 'Speakers by rate', exact: true });
+		await expect
+			.poll(async () => {
+				const title = await heading.boundingBox();
+				const band = await contents(page).boundingBox();
+				return title!.y - (band!.y + band!.height);
+			})
+			.toBeGreaterThanOrEqual(0);
+	});
+}
+
 test('the rate figure names its base on the axis and in its own description', async ({ page }) => {
 	await page.goto(`${base}/`);
 	const figure = page.locator('figure.figure').filter({

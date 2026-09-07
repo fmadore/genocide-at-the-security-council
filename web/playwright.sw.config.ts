@@ -1,7 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const origin = 'http://127.0.0.1:4174';
-const base = '/genocide-at-the-security-council';
+const port = Number(process.env.E2E_SW_PORT ?? 4174);
+const origin = `http://127.0.0.1:${port}`;
+const base = process.env.E2E_BASE_PATH ?? '/genocide-at-the-security-council';
 
 export default defineConfig({
 	testDir: './e2e/service-worker',
@@ -21,11 +22,11 @@ export default defineConfig({
 		}
 	],
 	webServer: {
-		command: 'npx vite build && npx vite preview --host 127.0.0.1 --port 4174 --strictPort',
+		command: `npx vite build && npx vite preview --host 127.0.0.1 --port ${port} --strictPort`,
 		url: `${origin}${base}/concordance/`,
 		timeout: 120_000,
-		reuseExistingServer: !process.env.CI,
-		env: { ...process.env, E2E_FIXTURES: '1' }
+		reuseExistingServer: false,
+		env: { ...process.env, E2E_FIXTURES: '1', BASE_PATH: base }
 	}
 });
 

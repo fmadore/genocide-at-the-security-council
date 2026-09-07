@@ -10,6 +10,12 @@ been fully removed from the pipeline inputs.
 
 Website: <https://fmadore.github.io/genocide-at-the-security-council/>
 
+## Start here
+
+[Project focus and release gates](docs/PLAN.md) is the single roadmap: current
+priorities, implementation status, research decisions and verification evidence.
+The reference guides linked there cover corpus facts, validation and operations.
+
 ## Corpus
 
 | | |
@@ -21,7 +27,7 @@ Website: <https://fmadore.github.io/genocide-at-the-security-council/>
 | Speeches | 167,642 |
 | Meetings with speeches | 9,464 |
 | Analytical words | 86,854,907 |
-| `genocid*` (lexicon v5) | 4,133 speeches · 7,747 occurrences |
+| `genocid*` (lexicon v6) | 4,133 speeches · 7,747 occurrences |
 
 Detailed documentation of the schema, source categories, and limitations is in
 [`docs/CORPUS.md`](docs/CORPUS.md).

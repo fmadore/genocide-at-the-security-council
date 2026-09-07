@@ -41,8 +41,9 @@ import { base, build, files, version } from '$service-worker';
 const worker = self as unknown as ServiceWorkerGlobalScope;
 
 // Keyed on the build, so a deployment starts clean and `activate` can drop every
-// cache that is not this one.
-const CACHE = `unsc-${version}`;
+// obsolete cache owned by this app, leaving other projects on the origin alone.
+const CACHE_PREFIX = `unsc:${encodeURIComponent(base || '/')}:`;
+const CACHE = `${CACHE_PREFIX}${version}`;
 
 // The SPA shell adapter-static writes for routes that are not prerendered — the
 // reader, which has 9,464 possible URLs and is a route rather than 9,464 pages.
@@ -90,7 +91,7 @@ worker.addEventListener('activate', (event) => {
 	event.waitUntil(
 		(async () => {
 			for (const key of await caches.keys()) {
-				if (key !== CACHE) await caches.delete(key);
+				if (key.startsWith(CACHE_PREFIX) && key !== CACHE) await caches.delete(key);
 			}
 			// Take over tabs that were loaded before any worker existed, so the
 			// first visit is also the one that starts filling the cache.

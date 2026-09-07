@@ -1,6 +1,11 @@
 {
-  "version": 5,
+  "version": 6,
   "terms": {
+    "aggression": {
+      "pattern_since": 6,
+      "pattern_sha256": "a804b1604e841b54e33184f4fe3286f74d2c7c1a24814a772c72ae1245ebd547",
+      "anchor": null
+    },
     "atrocity": {
       "pattern_since": 2,
       "pattern_sha256": "bd7dc0ce91043f489504858a21a8f45ceff98015ce5e03d459924184966a7d65",

@@ -17,7 +17,7 @@ data from the pinned corpus, and it never starts a GPU model. A model run theref
 to arrive the way the human annotations arrive: already present, committed, reviewable as a
 diff. A run kept under `data/` would be git-ignored, missing from the deploy, and unciteable.
 
-The rule this whole store exists to keep is the closing line of `docs/PLAN.md` §5:
+The rule this whole store exists to keep is stated in `docs/PLAN.md` §5:
 
 > No model output may overwrite corpus text, lexicon counts or human annotations.
 
