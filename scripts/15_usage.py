@@ -68,7 +68,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, audit, console, frames, lexicon, llm, usage
+from lib import artifacts, audit, console, frames, lexicon, llm, model_runs, usage
 from lib import occurrences as occurrences_lib
 from lib.paths import (
     INTERIM,
@@ -157,7 +157,6 @@ ROW_FIELDS = (
     "own_state_accused",
     "salience",
     "rationale",
-    "confidence",
     "evidence_quote",
     "evidence_valid",
 )
@@ -324,14 +323,7 @@ def read_run(directory: Path) -> tuple[dict[str, object], list[dict[str, object]
             f"{rel(rows_path)} is missing",
             ["the run directory holds no annotations to aggregate"],
         )
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    rows = llm.read_rows(rows_path)
-    if not rows:
-        console.fail(
-            f"{rel(rows_path)} has no rows",
-            ["an empty run is not a partial run; there is nothing to publish"],
-        )
-    return manifest, rows
+    return model_runs.read(directory)
 
 
 def check_population(found: list[occurrences_lib.Occurrence]) -> list[str]:
@@ -532,7 +524,7 @@ def resolve_schema(
       between `concrete_case` and `no_position` is what stops a third.
     """
     recorded = str(manifest.get("schema_version", "") or llm.SCHEMA_VERSION)
-    if recorded not in (llm.SCHEMA_VERSION, audit.LEGACY_SCHEMA_VERSION):
+    if recorded not in (llm.SCHEMA_VERSION, "3", audit.LEGACY_SCHEMA_VERSION):
         console.fail(
             f"{what} records an annotation schema this checkout cannot read",
             [

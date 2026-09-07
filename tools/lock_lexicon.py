@@ -18,7 +18,7 @@ at 03 and in CI rather than validating stale artefacts. The anchor is recorded
 literally rather than hashed with the pattern so that a lock diff says in words
 which terms started or stopped requiring `genocid*` in the sentence.
 
-The lock is **committed**, like `web/static/geo/countries.json` and unlike
+The lock is **committed**, unlike
 anything under `data/`: it is derived from a hand-edited config rather than from
 the corpus, so it belongs to the same diff as the config it locks. This tool
 touches neither the network nor the corpus.

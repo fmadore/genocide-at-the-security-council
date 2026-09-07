@@ -820,7 +820,6 @@ export interface EvidenceRow {
 	caseLabel: string;
 	/** The rhetorical functions, split out of the pipe-joined field. */
 	functions: string[];
-	confidence: string;
 	referent: string;
 	/**
 	 * Annotation schema 3's fields, in reading order, and only the ones this run
@@ -981,7 +980,6 @@ export function drillDown(
 			// Pipe-joined without spaces, per the codebook. An empty field is no
 			// functions rather than one called "".
 			functions: (occurrence.function ?? '').split('|').filter(Boolean),
-			confidence: occurrence.confidence,
 			referent: occurrence.referent,
 			schemaFields: schemaThreeFields(occurrence),
 			evidenceQuote: quote,

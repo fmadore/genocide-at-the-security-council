@@ -58,3 +58,9 @@ web/static/data/
 .idea/
 Thumbs.db
 *.swp
+
+# Advisory writer locks are local runtime state, never an annotation artifact.
+model_annotations/**/.writer.lock
+
+# Isolated full-corpus implementation rehearsals, with their own output roots.
+/data/review-*/

@@ -67,7 +67,7 @@ from typing import Final
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, audit, console, frames, lexicon, llm, occurrences, text
+from lib import artifacts, audit, console, frames, lexicon, llm, model_runs, occurrences, text
 from lib.paths import (
     INTERIM,
     LEXICON,
@@ -324,13 +324,8 @@ def read_run(run_id: str) -> dict[str, dict[str, object]]:
         return {}
     path = RUNS / run_id / "annotations.jsonl"
     if not path.is_file():
-        console.warn(f"{rel(path)} does not exist; the disagreement frame will be empty")
-        return {}
-    return {
-        str(row.get("occurrence_id", "")): llm.resolve_row(row)
-        for row in llm.read_rows(path)
-        if row.get("occurrence_id")
-    }
+        console.fail(f"Named run {rel(path)} does not exist; clear the pointer or restore the run")
+    return {str(row["occurrence_id"]): row for row in model_runs.resolved(path.parent)}
 
 
 def named_run(path: Path) -> str:
@@ -404,6 +399,14 @@ def stratify(
     """
     published_id, comparison_id = named_run(CURRENT_RUN), named_run(COMPARISON_RUN)
     published, comparison = read_run(published_id), read_run(comparison_id)
+    population = set(candidates["occurrence_id"].astype(str))
+    candidates.attrs["model_overlap"] = {
+        "published_rows": len(published), "comparison_rows": len(comparison),
+        "published_matched": len(population & published.keys()),
+        "comparison_matched": len(population & comparison.keys()),
+        "paired_matched": len(population & published.keys() & comparison.keys()),
+        "population": len(population),
+    }
     if not published or not comparison:
         return candidates.assign(stratum=""), published_id, comparison_id
     onsets = onset_years(referents)
@@ -662,9 +665,13 @@ def run(probability: int, coverage: int, seed: int) -> None:
     manifest = artifacts.provenance(
         ROOT,
         "13_gold_sample.py",
-        inputs=[SPEECHES_NORM],
-        configs=[LEXICON, GOLD_ANNOTATIONS, REFERENTS],
+        inputs=[SPEECHES_NORM, CURRENT_RUN, COMPARISON_RUN,
+                *(path for name in (published_run, comparison_run) if name
+                  for path in model_runs.files(RUNS / name))],
+        configs=[LEXICON, GOLD_ANNOTATIONS, REFERENTS, MODEL_ANNOTATIONS / TERM / "PROMPT.md",
+                 *sorted((MODEL_ANNOTATIONS / TERM / "prompts").glob("*.md"))],
         extra={
+            "model_overlap": candidates.attrs.get("model_overlap", {}),
             "outputs": [
                 artifacts.describe_file(GOLD_CANDIDATES, ROOT),
                 artifacts.describe_file(GOLD_REVIEW, ROOT),

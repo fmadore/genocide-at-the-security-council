@@ -737,7 +737,7 @@ def crosstab(
     revision a breaking change.
     """
     joined = occurrences.merge(
-        labelled[["occurrence_id", field]], on="occurrence_id", how="inner"
+        labelled[["occurrence_id", field]], on="occurrence_id", how="inner", validate="one_to_one"
     )
     cells: dict[str, Counter] = {name: Counter() for name in FRAME_NAMES}
     for frame_name, value in zip(joined["frame"], joined[field], strict=True):

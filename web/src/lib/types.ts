@@ -1450,7 +1450,6 @@ export interface UsageOccurrence {
 	salience: string;
 	/** One sentence on why the position and the case decision are what they are. */
 	rationale: string;
-	confidence: string;
 	/** The span the model says supports its labels, verbatim from the speech. */
 	evidence_quote: string;
 	/** False when that span could not be found in the speech it names. */

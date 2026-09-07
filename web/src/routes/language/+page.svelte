@@ -652,7 +652,7 @@
 
 <article>
 	<header class="lede">
-		<h1>Language</h1>
+		<h1>Words in context</h1>
 		<p class="standfirst">
 			The company the word keeps. This page asks what the vocabulary travels with, using four
 			standard instruments of corpus linguistics: the <strong>grammatical frames</strong> the word

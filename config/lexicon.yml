@@ -157,10 +157,25 @@
 #   - no `pattern` changed: every term keeps `pattern_since: 2`, so the gold
 #     sample and the committed model runs recorded against v2 remain valid.
 
-version: 5
+version: 6
 updated: 2026-09-07
 
 terms:
+  aggression:
+    pattern: '\bcrimes?\s+of\s+aggression\b'
+    prefilters: [aggression]
+    examples: [crime of aggression, crimes of aggression]
+    tier: adjacent
+    register: legal
+    pattern_since: 6
+    note: >
+      R11 adds the explicit legal phrase only. A scan of the pinned normalized
+      speech bodies found 256 singular and 74 plural mentions. Standalone
+      aggression and war(s) of aggression are excluded: this term measures
+      explicit crime vocabulary, not every characterization of a war.
+      It is not part of the validated intensity ladder and does not change
+      the genocide pattern or existing genocide occurrence identities.
+
   genocide:
     pattern: '\bgenocid\w*'
     prefilters: [genocid]

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import re
 import statistics
 import sys
 import time
@@ -18,7 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import annotate, artifacts, audit, console, llm
+from lib import annotate, artifacts, audit, console, llm, run_store
 from lib.paths import INTERIM, ROOT, rel
 
 STORE = ROOT / "model_annotations" / annotate.TERM
@@ -60,10 +61,19 @@ def assess_ladder(rows: list[dict[str, object]], levels: list[str]) -> dict[str,
                 "median_latency_seconds": round(statistics.median(latency), 3),
             }
         )
-    return {"levels": summary, "passed": len(set(medians)) > 1}
+    first = [int(row["reasoning_tokens"]) for row in rows if row["level"] == levels[0]]
+    last = [int(row["reasoning_tokens"]) for row in rows if row["level"] == levels[-1]]
+    paired = len(first) == len(last) and all(high > low for low, high in zip(first, last, strict=True))
+    return {
+        "levels": summary,
+        "passed": paired and medians[-1] > 0 and medians[-1] == max(medians),
+        "rule": "Every paired top-level response uses more reasoning tokens than its lowest-level response; the top median is positive and maximal. This is an operational screen, not statistical validation.",
+    }
 
 
 def run(args: argparse.Namespace) -> None:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", args.run_id):
+        console.fail("run-id must be a single safe directory name")
     if args.speeches < 1:
         console.fail("--speeches must be at least 1")
     levels = [level.strip() for level in args.levels.split(",") if level.strip()]
@@ -77,20 +87,37 @@ def run(args: argparse.Namespace) -> None:
         "levels_requested": levels,
         "speeches_per_level": args.speeches,
     }
-    if destination.is_file():
-        existing = json.loads(destination.read_text(encoding="utf-8"))
-        if all(existing.get(key) == value for key, value in identity.items()) and existing.get(
-            "passed"
-        ):
-            console.info(f"reusing passed reasoning probe {rel(destination)}")
-            return
-
     step = annotation_step()
     pack = llm.load_prompt(PROMPT)
     referent_list = audit.read_referent_list(REFERENTS)
     referents = referent_list.current
     table = llm.render_referents(llm.read_referent_table(REFERENTS))
     _, speeches, _ = annotate.gather(args.speeches)
+    runtime_args = argparse.Namespace(**vars(args), reasoning_effort=levels[-1])
+    identity.update({
+        "prompt_sha256": pack.sha256,
+        "referents_sha256": artifacts.sha256(REFERENTS),
+        "schema_version": llm.SCHEMA_VERSION,
+        "runtime": step.runtime_record(runtime_args),
+        "population": [item.occurrence_id for speech in speeches for item in speech.occurrences],
+        "requests": [
+            llm.request_body(
+                llm.build_request(speech.meta, speech.body, speech.occurrences, pack, table),
+                model=args.model, reasoning_effort=level,
+                reasoning_location=args.reasoning_location,
+                max_output_tokens=annotate.output_ceiling(speech, MAX_OUTPUT_TOKENS),
+                temperature=args.temperature, top_p=args.top_p,
+            )
+            for level in levels for speech in speeches
+        ],
+    })
+    identity["requests_sha256"] = run_store.digest(identity.pop("requests"))
+    identity_sha256 = run_store.digest(identity)
+    if destination.is_file():
+        existing = json.loads(destination.read_text(encoding="utf-8"))
+        if existing.get("identity_sha256") == identity_sha256 and existing.get("passed"):
+            console.info(f"reusing passed reasoning probe {rel(destination)}")
+            return
     api = step.client()
     observations: list[dict[str, object]] = []
 
@@ -129,6 +156,7 @@ def run(args: argparse.Namespace) -> None:
     assessment = assess_ladder(observations, levels)
     artefact = {
         **identity,
+        "identity_sha256": identity_sha256,
         "created": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "prompt_sha256": pack.sha256,
         "sampling": {"temperature": args.temperature, "top_p": args.top_p},
@@ -138,8 +166,8 @@ def run(args: argparse.Namespace) -> None:
     artifacts.atomic_write_json(destination, artefact, indent=1)
     if not assessment["passed"]:
         console.fail(
-            "Reasoning ladder is flat; refusing the annotation run",
-            [f"every level reported the same median reasoning length; see {rel(destination)}"],
+            "Reasoning ladder does not demonstrate the requested top setting; refusing the annotation run",
+            [f"paired depth did not increase consistently, or the top median was not maximal; see {rel(destination)}"],
         )
     console.info(f"reasoning ladder demonstrated in {rel(destination)}")
 

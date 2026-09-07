@@ -2,8 +2,7 @@
 
     python tools/build_icons.py
 
-The outputs are **committed**, like `web/static/geo/countries.json` and for the
-same reason: they are assets rather than pipeline artefacts, and generating them
+The outputs are **committed**: they are assets rather than pipeline artefacts, and generating them
 from a script makes their provenance a command somebody else can run instead of
 a memory of which image editor was open that afternoon.
 

@@ -54,14 +54,13 @@ from . import audit
 from .kwic import sentence_at, sentence_spans
 from .occurrences import Occurrence
 
-#: The annotation schema version these rows are coded against — the human
-#: codebook's own, because the fields and their vocabularies are the same ones.
-SCHEMA_VERSION: Final = audit.SCHEMA_VERSION
+#: Model schema; human schema 3 keeps its independent confidence field.
+SCHEMA_VERSION: Final = "3.1"  # model-only revision: human schema 3 retains confidence
 
 #: The exact key set of a row in `annotations.jsonl`, in the order it is written.
 #: Order is load-bearing for readability rather than for parsing: a JSONL diff is
 #: read by a human, and a run whose keys wander is one nobody can review.
-ROW_FIELDS: Final = (
+SCHEMA3_ROW_FIELDS: Final = (
     "occurrence_id",
     "line_id",
     "filename",
@@ -98,6 +97,8 @@ ROW_FIELDS: Final = (
     "confidence",
     "annotated_at",
 )
+
+ROW_FIELDS: Final = tuple(field for field in SCHEMA3_ROW_FIELDS if field != "confidence")
 
 #: The shape of the two runs of 30 and 31 August 2026 and their two pilots,
 #: which are the only files that will ever have it: 12,184 rows written against
@@ -160,7 +161,6 @@ RESPONSE_FIELDS: Final = (
     "salience",
     "evidence_quote",
     "rationale",
-    "confidence",
 )
 
 #: Single-valued fields and the vocabulary each is closed over.
@@ -172,7 +172,6 @@ ENUMS: Final[dict[str, frozenset[str]]] = {
     "referent_source": audit.REFERENT_SOURCES,
     "own_state_accused": audit.OWN_STATE_ACCUSED,
     "salience": audit.SALIENCE,
-    "confidence": audit.CONFIDENCE,
 }
 
 #: The same, for a row written against annotation schema 2.
@@ -576,7 +575,6 @@ def response_schema() -> dict[str, object]:
                         "salience": {"type": "string", "enum": sorted(audit.SALIENCE)},
                         "evidence_quote": {"type": "string"},
                         "rationale": {"type": "string"},
-                        "confidence": {"type": "string", "enum": sorted(audit.CONFIDENCE)},
                     },
                 },
             }
@@ -765,6 +763,8 @@ def check_labels(
     this field already carries.
     """
     legacy = str(schema) == audit.LEGACY_SCHEMA_VERSION
+    if str(schema) == "3" and str(entry.get("confidence", "")) not in audit.CONFIDENCE:
+        raise ValueError("Unknown historical confidence label")
     for field, allowed in (LEGACY_ENUMS if legacy else ENUMS).items():
         value = str(entry[field])
         if value not in allowed:
@@ -867,7 +867,6 @@ def validate_response(
             "salience": str(entry["salience"]),
             "evidence_quote": str(entry["evidence_quote"]),
             "rationale": str(entry["rationale"]).strip(),
-            "confidence": str(entry["confidence"]),
         }
 
     expected = set(ordinals)
@@ -1231,7 +1230,6 @@ def annotation_rows(
                 "evidence_valid": valid,
                 "evidence_relocated": relocated,
                 "rationale": entry["rationale"],
-                "confidence": entry["confidence"],
                 "annotated_at": meta.annotated_at,
             }
         )
@@ -1270,7 +1268,7 @@ def validate_row(
     `speaker_position` means.
     """
     legacy = tuple(row) == LEGACY_ROW_FIELDS
-    shapes = (ROW_FIELDS,) if appending else (ROW_FIELDS, LEGACY_ROW_FIELDS)
+    shapes = (ROW_FIELDS,) if appending else (ROW_FIELDS, SCHEMA3_ROW_FIELDS, LEGACY_ROW_FIELDS)
     if tuple(row) not in shapes:
         unexpected = sorted(set(row) - set(ROW_FIELDS))
         absent = sorted(set(shapes[-1]) - set(row))
@@ -1278,7 +1276,7 @@ def validate_row(
             raise ValueError(f"Row keys are wrong: unexpected={unexpected}, missing={absent}")
         raise ValueError("Row keys are in the wrong order; see llm.ROW_FIELDS.")
 
-    expected_schema = audit.LEGACY_SCHEMA_VERSION if legacy else SCHEMA_VERSION
+    expected_schema = audit.LEGACY_SCHEMA_VERSION if legacy else ("3" if tuple(row) == SCHEMA3_ROW_FIELDS else SCHEMA_VERSION)
     check_labels(row, referents, schema=expected_schema)
 
     for field in ("start", "end"):

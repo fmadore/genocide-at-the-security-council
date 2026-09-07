@@ -12,6 +12,7 @@ that fails rather than warns.
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 from pathlib import Path
 
@@ -71,3 +72,54 @@ def test_a_missing_declared_artefact_stops_the_export(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as raised:
         export_web.check_contract()
     assert raised.value.code == 1
+
+
+def test_late_export_failure_keeps_the_previous_release(tmp_path, monkeypatch):
+    web = tmp_path / "web"
+    web.mkdir()
+    (web / "manifest.json").write_text("old manifest")
+    (web / "meeting.json").write_text("old meeting")
+    monkeypatch.setattr(export_web, "WEB_DATA", web)
+    monkeypatch.setattr(export_web, "IN_PLACE", [("meeting.json", "09")])
+    monkeypatch.setattr(export_web, "ensure_dirs", lambda: None)
+
+    def fail(staged):
+        (staged / "new.json").write_text("new")
+        raise ValueError("late validation failure")
+
+    monkeypatch.setattr(export_web, "assemble", fail)
+    with pytest.raises(ValueError, match="late"):
+        export_web.run()
+    assert (web / "manifest.json").read_text() == "old manifest"
+    assert not (web / "new.json").exists()
+
+
+@pytest.mark.parametrize("damage", ["content", "missing_file", "missing_part", "wrong_total"])
+def test_restored_cache_is_checked_against_its_manifest(tmp_path, monkeypatch, damage):
+    part = tmp_path / "series"
+    part.mkdir()
+    payload = part / "annual.json"
+    payload.write_text('{"value":1}')
+    measured = export_web.measure(part)
+    manifest = {"parts": {"series": measured}, "files": measured["files"], "bytes": measured["bytes"]}
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest))
+    monkeypatch.setattr(export_web, "WEB_DATA", tmp_path)
+    monkeypatch.setattr(export_web, "PARTS", [((part,), "series", "04")])
+    monkeypatch.setattr(export_web, "IN_PLACE", [])
+    monkeypatch.setattr(export_web, "check_contract", lambda: None)
+    monkeypatch.setattr(export_web, "check_no_aggregates", lambda: None)
+    monkeypatch.setattr(sys, "argv", ["export_web.py", "--check"])
+    export_web.main()
+    if damage == "content":
+        payload.write_text('{"value":2}')  # same size, different content
+    elif damage == "missing_file":
+        payload.unlink()
+    elif damage == "missing_part":
+        manifest["parts"].clear()
+        path.write_text(json.dumps(manifest))
+    else:
+        manifest["bytes"] += 1
+        path.write_text(json.dumps(manifest))
+    with pytest.raises(SystemExit):
+        export_web.main()

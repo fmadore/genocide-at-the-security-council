@@ -465,7 +465,7 @@
 	<Figure
 		title="Keyword in context"
 		question="What was actually said, each of the {count(entry?.count ?? 0)} times?"
-		source="08_kwic.py → kwic/{term}.json"
+		source={`08_kwic.py → kwic/${term}.json${referentsOffered && referent && referentOf ? '; 15_usage.py → usage/occurrences.json' : ''}`}
 	>
 		{#snippet controls()}
 			<label>

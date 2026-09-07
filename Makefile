@@ -17,21 +17,23 @@
 
 PY ?= python
 LIB := $(wildcard scripts/lib/*.py)
+REFERENTS := annotations/lexicon/referents.csv
+MODEL_INPUTS := $(wildcard model_annotations/genocide/*.md model_annotations/genocide/*.txt model_annotations/genocide/runs/*/* model_annotations/genocide/prompts/*.md)
 
 RAW_FILES := data/raw/speeches.tsv data/raw/meetings.tsv
 SPEECHES  := data/derived/speeches.parquet
 NORM      := data/derived/speeches_norm.parquet
 FLAGGED   := data/derived/speeches_flagged.parquet
-SERIES    := data/derived/series/annual.json
-LEXICAL   := data/derived/lexical/collocates.json
+SERIES    := $(addprefix data/derived/series/,annual.json quarterly.json monthly.json breakdowns.json change_points.json events.json)
+LEXICAL   := $(addprefix data/derived/lexical/,collocates.json collocates_sliced.json keyness.json network.json)
 KWIC      := data/derived/kwic/index.json
 SPEECHES_WEB := web/static/data/meetings.json
 SCOPES_WEB := web/static/data/scopes.json
 COUNTRIES := data/derived/countries/countries.json
 SPEAKER_KEYNESS := data/derived/speaker_keyness/speaker_keyness.json
-GOLD      := data/interim/genocide_gold_candidates.csv
-USAGE     := data/derived/usage/usage.json
-NODE_FRAMES := data/derived/frames/frames.json
+GOLD      := $(addprefix data/interim/genocide_gold_,candidates.csv review.csv probability.csv coverage.csv disagreement.csv)
+USAGE     := data/derived/usage/usage.json data/derived/usage/occurrences.json
+NODE_FRAMES := data/derived/frames/frames.json data/derived/frames/occurrences.json
 PAYLOAD   := web/static/data/manifest.json
 
 EMBEDDINGS := data/derived/embeddings/manifest.json
@@ -62,14 +64,14 @@ $(SPEECHES) $(MEETINGS) &: $(RAW_FILES) scripts/01_build_parquet.py $(LIB) confi
 $(NORM): $(SPEECHES) scripts/02_normalise.py $(LIB)
 	$(PY) scripts/02_normalise.py
 
-$(FLAGGED): $(NORM) scripts/03_lexicon.py $(LIB) config/lexicon.yml config/lexicon.lock.json annotations/lexicon/annotations.csv
+$(FLAGGED): $(NORM) scripts/03_lexicon.py $(LIB) config/lexicon.yml config/lexicon.lock.json annotations/lexicon/annotations.csv $(REFERENTS)
 	$(PY) scripts/03_lexicon.py
 
 # --- Analysis artefacts -------------------------------------------------------
-$(SERIES): $(FLAGGED) scripts/04_series.py $(LIB) config/events.csv
+$(SERIES) &: $(FLAGGED) scripts/04_series.py $(LIB) config/events.csv
 	$(PY) scripts/04_series.py
 
-$(LEXICAL): $(FLAGGED) scripts/05_lexical.py $(LIB) config/stopwords.txt
+$(LEXICAL) &: $(FLAGGED) scripts/05_lexical.py $(LIB) config/stopwords.txt
 	$(PY) scripts/05_lexical.py
 
 $(KWIC): $(FLAGGED) scripts/08_kwic.py $(LIB)
@@ -81,17 +83,17 @@ $(SPEECHES_WEB) $(SCOPES_WEB) &: $(FLAGGED) $(MEETINGS) scripts/09_export_speech
 $(COUNTRIES): $(FLAGGED) scripts/11_countries.py $(LIB) config/entities.csv
 	$(PY) scripts/11_countries.py
 
-# 12 writes into derived/countries/ beside 11, which export_web copies wholesale.
+# 12 owns derived/speaker_keyness/; export merges it into countries/ for the web.
 $(SPEAKER_KEYNESS): $(FLAGGED) scripts/12_speaker_keyness.py $(LIB) config/stopwords.txt
 	$(PY) scripts/12_speaker_keyness.py
 
 # Deterministic — same corpus, same seed, byte-identical CSVs. 15 refuses to run
 # without the candidates file it draws, because the gold block reports on a
 # sample that exists; the coded rows live in annotations/, which is committed.
-$(GOLD): $(NORM) scripts/13_gold_sample.py $(LIB) config/lexicon.yml $(wildcard annotations/genocide/*)
+$(GOLD) &: $(NORM) scripts/13_gold_sample.py $(LIB) config/lexicon.yml $(wildcard annotations/genocide/*) $(REFERENTS) $(MODEL_INPUTS)
 	$(PY) scripts/13_gold_sample.py
 
-$(USAGE): $(NORM) $(GOLD) scripts/15_usage.py $(LIB) config/lexicon.yml $(wildcard model_annotations/genocide/*) $(wildcard model_annotations/genocide/runs/*/*) $(wildcard annotations/genocide/*)
+$(USAGE) &: $(NORM) $(GOLD) scripts/15_usage.py $(LIB) config/lexicon.yml $(MODEL_INPUTS) $(wildcard annotations/genocide/*) $(REFERENTS)
 	$(PY) scripts/15_usage.py
 
 # 17 classifies the same occurrences 08 writes lines for, from the same corpus,
@@ -99,7 +101,7 @@ $(USAGE): $(NORM) $(GOLD) scripts/15_usage.py $(LIB) config/lexicon.yml $(wildca
 # committed runs are prerequisites exactly as they are for 15. It does not read
 # 08's output: both read the flagged parquet, which is what keeps the two
 # counts equal without one depending on the other.
-$(NODE_FRAMES): $(FLAGGED) scripts/17_frames.py $(LIB) config/lexicon.yml $(wildcard model_annotations/genocide/*) $(wildcard model_annotations/genocide/runs/*/*)
+$(NODE_FRAMES) &: $(FLAGGED) scripts/17_frames.py $(LIB) config/lexicon.yml $(MODEL_INPUTS) $(REFERENTS)
 	$(PY) scripts/17_frames.py
 
 derived: $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(GOLD) $(USAGE) $(NODE_FRAMES)

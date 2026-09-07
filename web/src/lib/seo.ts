@@ -23,7 +23,7 @@ export const PAGE_METADATA = {
 	},
 	'/language/': {
 		path: '/language/',
-		title: `Language — ${SITE_NAME}`,
+		title: `Words in context — ${SITE_NAME}`,
 		description:
 			'Examine the words, collocates and contexts surrounding genocide-related vocabulary in UN Security Council speeches.'
 	},

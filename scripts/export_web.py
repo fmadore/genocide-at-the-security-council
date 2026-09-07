@@ -77,7 +77,7 @@ IN_PLACE = [
 ]
 
 
-def copy_part(sources: Sequence[Path], name: str) -> dict[str, object]:
+def copy_part(sources: Sequence[Path], name: str, *, root: Path | None = None) -> dict[str, object]:
     """Atomically mirror one or more directories into one payload directory.
 
     Every source is copied into the same staging directory and swapped in once.
@@ -86,7 +86,7 @@ def copy_part(sources: Sequence[Path], name: str) -> dict[str, object]:
     the fault this grouping exists to make unrepresentable, one level up from
     where it originally bit.
     """
-    destination = WEB_DATA / name
+    destination = (root or WEB_DATA) / name
     for source in sources:
         if not source.exists():
             console.fail(f"{rel(source)} is missing — run the step that writes it first")
@@ -102,7 +102,7 @@ def measure(path: Path) -> dict[str, object]:
     return artifacts.describe_tree(path)
 
 
-def check_contract() -> None:
+def check_contract(root: Path | None = None) -> None:
     """Refuse to publish a payload the dashboard was not written for.
 
     The seam is the honest place for this. Everything upstream asserts its own
@@ -123,7 +123,7 @@ def check_contract() -> None:
             f"against. Regenerate it with `python scripts/export_web.py --update-contract`."
         )
     promised = json.loads(CONTRACT.read_text(encoding="utf-8"))
-    problems, absent = contract.check(WEB_DATA, promised)
+    problems, absent = contract.check(root or WEB_DATA, promised)
     if absent:
         # Not a warning. The contract is the list of artefacts the dashboard
         # loads, so a payload missing one is a payload a view cannot render —
@@ -150,7 +150,7 @@ def check_contract() -> None:
     console.info(f"{len(promised) - len(absent)} artefacts match {rel(CONTRACT)}")
 
 
-def check_no_aggregates() -> None:
+def check_no_aggregates(root: Path | None = None) -> None:
     """Refuse a payload that publishes a measure summed over several terms.
 
     R7's rule, enforced where every other payload-wide rule is enforced rather
@@ -164,7 +164,7 @@ def check_no_aggregates() -> None:
     corpus and R9's reading sets select speeches with a predicate over several
     terms and count each speech once. See `contract.roll_ups`.
     """
-    found = contract.aggregates(WEB_DATA)
+    found = contract.aggregates(root or WEB_DATA)
     if found:
         console.fail(
             "the payload carries a measure summed over more than one term",
@@ -172,7 +172,7 @@ def check_no_aggregates() -> None:
                 *found[:20],
                 *([f"... and {len(found) - 20} more"] if len(found) > 20 else []),
                 "The site publishes one measure per term and the reader composes the "
-                "group — see item R7 in docs/IMPROVEMENT_ROADMAP.md.",
+                "group — see item R7 in docs/PLAN.md.",
             ],
         )
     console.info("no measure in the payload sums over more than one term")
@@ -201,6 +201,21 @@ def update_contract() -> None:
 
 def run() -> None:
     ensure_dirs()
+    with artifacts.atomic_directory(WEB_DATA) as staged:
+        # 09 owns these artifacts. Copy them into the candidate release before
+        # validation; no live directory is changed until the entire candidate passes.
+        for name, _ in IN_PLACE:
+            source = WEB_DATA / name
+            if not source.exists():
+                console.fail(f"{rel(source)} is missing; run 09_export_speeches.py")
+            if source.is_dir():
+                shutil.copytree(source, staged / name)
+            else:
+                shutil.copy2(source, staged / name)
+        assemble(staged)
+
+
+def assemble(destination: Path) -> None:
     # `parts` gets its own name and its own type. Built inside an untyped
     # `dict[str, object]`, every write to it needed a `type: ignore[index]`,
     # which silences the checker by asserting something the code did not know.
@@ -212,7 +227,7 @@ def run() -> None:
 
     console.step("Copying analysis artefacts into the payload")
     for sources, name, producer in PARTS:
-        measured = copy_part(sources, name)
+        measured = copy_part(sources, name, root=destination)
         files, size = int(measured["files"]), int(measured["bytes"])
         parts[name] = {**measured, "produced_by": producer}
         total_files += files
@@ -221,7 +236,7 @@ def run() -> None:
 
     console.step("Measuring what 09 wrote in place")
     for name, producer in IN_PLACE:
-        measured = measure(WEB_DATA / name)
+        measured = measure(destination / name)
         files, size = int(measured["files"]), int(measured["bytes"])
         if not files:
             console.warn(f"{name} is missing — run {producer}; the reader view will 404")
@@ -233,8 +248,8 @@ def run() -> None:
     # Before the manifest, not after: the manifest is what marks a payload
     # complete, and a payload the dashboard cannot read is not one.
     console.step("Checking the payload against the shape the dashboard reads")
-    check_contract()
-    check_no_aggregates()
+    check_contract(destination)
+    check_no_aggregates(destination)
 
     manifest = {
         "generated": generated,
@@ -243,7 +258,7 @@ def run() -> None:
         "files": total_files,
         "bytes": total_bytes,
     }
-    artifacts.atomic_write_json(WEB_DATA / "manifest.json", manifest, indent=1)
+    artifacts.atomic_write_json(destination / "manifest.json", manifest, indent=1)
     console.step("Done")
     console.info(f"{total_files:,} files, {total_bytes / 1e6:.0f} MB in {rel(WEB_DATA)}")
     console.info(f"wrote {rel(WEB_DATA / 'manifest.json')}")
@@ -251,7 +266,9 @@ def run() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true", help="verify existing payload shapes and manifest hashes without writing")
+    mode.add_argument(
         "--update-contract",
         action="store_true",
         help=(
@@ -260,6 +277,23 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
+    if args.check:
+        check_contract()
+        check_no_aggregates()
+        manifest = json.loads((WEB_DATA / "manifest.json").read_text(encoding="utf-8"))
+        for name, described in manifest["parts"].items():
+            if name not in {part for _, part, _ in PARTS} | {part for part, _ in IN_PLACE}:
+                console.fail(f"unknown payload part {name}")
+            actual = measure(WEB_DATA / name)
+            if any(actual[key] != described[key] for key in ("files", "bytes", "sha256")):
+                console.fail(f"payload manifest disagrees with {name}; rebuild before publishing")
+        expected = {part for _, part, _ in PARTS} | {part for part, _ in IN_PLACE}
+        if set(manifest["parts"]) != expected:
+            console.fail("payload manifest has an incomplete part inventory")
+        for key in ("files", "bytes"):
+            if manifest[key] != sum(part[key] for part in manifest["parts"].values()):
+                console.fail(f"payload manifest {key} total disagrees with its parts")
+        return
     if args.update_contract:
         update_contract()
         return
