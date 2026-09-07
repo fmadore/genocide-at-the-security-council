@@ -101,14 +101,14 @@ function payload(options: Partial<MonthlySeries> = {}): MonthlySeries {
 			meetings: speeches.map(() => 12)
 		},
 		sufficient,
-		terms: { genocide: measure(rates) },
-		registers: {},
-		sets: {
-			atrocity_core: measure(rates, {
-				occurrences: undefined,
-				token_rate: undefined,
-				members: ['genocide', 'war_crimes']
-			})
+		// Two terms, and the second withholds its occurrence count. Nothing in
+		// the artefact does that today — `atrocity_core` did until lexicon v5,
+		// being a union of overlapping phrases — but the interface has to keep
+		// detecting the absence, because reading it through `?? 0` publishes a
+		// withheld figure as `0.00 per 100,000 words`.
+		terms: {
+			genocide: measure(rates),
+			war_crimes: measure(rates, { occurrences: undefined, token_rate: undefined })
 		},
 		years: YEARS,
 		months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
@@ -131,7 +131,7 @@ function payload(options: Partial<MonthlySeries> = {}): MonthlySeries {
 			excluding_rule: 'The same twelve figures with 1994 and 1995 dropped.',
 			agenda_column: 'agenda_item_manual',
 			agenda_rule: 'The agenda items behind each month.',
-			measures: { genocide: calendarBlock(), atrocity_core: calendarBlock({ kind: 'sets' }) }
+			measures: { genocide: calendarBlock(), war_crimes: calendarBlock() }
 		},
 		...options
 	};
@@ -238,13 +238,13 @@ describe('the units a measure can carry', () => {
 	it('offers a per-token rate only where there is an occurrence count', () => {
 		const data = payload();
 		expect(units(data.terms.genocide)).toEqual(['speech_rate', 'token_rate']);
-		// A set is a union of overlapping terms and has no occurrence count at
-		// all; offering one would publish a withheld figure as 0.00 per 100,000.
-		expect(units(data.sets.atrocity_core)).toEqual(['speech_rate']);
+		// A measure that withholds its occurrence count is offered no per-token
+		// rate; offering one would publish the withholding as 0.00 per 100,000.
+		expect(units(data.terms.war_crimes)).toEqual(['speech_rate']);
 	});
 
 	it('falls back rather than drawing a unit the measure is not in', () => {
-		const plan = grid({ data: payload(), measure: 'atrocity_core', unit: 'token_rate' as Unit });
+		const plan = grid({ data: payload(), measure: 'war_crimes', unit: 'token_rate' as Unit });
 		expect(plan.unit).toBe('speech_rate');
 		expect(plan.drawn).toBeGreaterThan(0);
 	});
@@ -304,7 +304,7 @@ describe('what leaves in a file', () => {
 	it('exports every measure and every month, not the one on screen', () => {
 		const rows = gridRows(payload());
 		expect(rows).toHaveLength(2 * 24);
-		expect(rows.map((row) => row[3])).toContain('atrocity_core');
+		expect(rows.map((row) => row[3])).toContain('war_crimes');
 	});
 
 	it('keeps a withheld month in the file with its null and its flag', () => {
@@ -376,17 +376,15 @@ describe('the evidence behind a square', () => {
 	});
 
 	// The guard is the term-bearing speech count, never the occurrence count: a
-	// set has none, and `undefined < 1` is false, so a check on occurrences would
-	// let every set through while appearing to work.
-	it('becomes one link per member for a set that has no occurrence count', () => {
+	// measure may withhold one, and `undefined < 1` is false, so a check on
+	// occurrences would let every such cell through while appearing to work.
+	it('still links a cell whose measure withholds its occurrence count', () => {
 		const data = payload();
-		const cell = at(grid({ data, measure: 'atrocity_core' }), 1993, 6)!;
+		const cell = at(grid({ data, measure: 'war_crimes' }), 1993, 6)!;
 		expect(cell.occurrences).toBeNull();
-		const links = evidence(data, 'atrocity_core', cell);
-		expect(links.map((link) => link.term)).toEqual(['genocide', 'war_crimes']);
-		for (const link of links) {
-			expect(readMonth(new URLSearchParams(link.query).get('month'))).toBe(6);
-		}
+		const links = evidence(data, 'war_crimes', cell);
+		expect(links.map((link) => link.term)).toEqual(['war_crimes']);
+		expect(readMonth(new URLSearchParams(links[0].query).get('month'))).toBe(6);
 	});
 });
 
@@ -403,11 +401,10 @@ describe('the evidence behind a pooled row', () => {
 		expect(links[0].scope).toBe('every June');
 	});
 
-	it('splits a set into its members here too', () => {
+	it('names the term the row was read for, whatever the row withholds', () => {
 		const data = payload();
-		const june = calendar(data, 'atrocity_core').rows.find((row) => row.month === 6)!;
-		expect(pooledEvidence(data, 'atrocity_core', june).map((link) => link.term)).toEqual([
-			'genocide',
+		const june = calendar(data, 'war_crimes').rows.find((row) => row.month === 6)!;
+		expect(pooledEvidence(data, 'war_crimes', june).map((link) => link.term)).toEqual([
 			'war_crimes'
 		]);
 	});

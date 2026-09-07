@@ -170,17 +170,18 @@ class TestZeroCeiling:
 
 
 class TestColumns:
-    def test_terms_registers_and_sets_each_have_their_prefix(self):
+    def test_a_term_has_a_flag_and_a_count(self):
         assert series.columns_for("terms", "genocide") == ("has_genocide", "n_genocide")
-        assert series.columns_for("registers", "legal") == (
-            "has_register_legal",
-            "n_register_legal",
-        )
 
-    def test_a_set_has_no_count_column(self):
-        """A set is a union. Summing its members would count a speech saying
-        both 'genocide' and 'war crimes' twice."""
-        assert series.columns_for("sets", "rome_triad") == ("has_set_rome_triad", None)
+    def test_the_group_kinds_are_gone(self):
+        """R7: a register and a set were the two kinds of measure summed over
+        several terms at once, and a reader watching one of those lines move
+        could not tell which word moved it. Asked for by name, because the
+        artefact keys and the URLs that carried them are what a reader of an
+        older link will send."""
+        for kind in ("registers", "sets"):
+            with pytest.raises(ValueError, match="unknown measure kind"):
+                series.columns_for(kind, "legal")
 
     def test_an_unknown_kind_is_refused(self):
         with pytest.raises(ValueError, match="unknown measure kind"):

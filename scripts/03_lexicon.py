@@ -2,7 +2,7 @@
 
 Reads speeches_norm.parquet, counts each term from config/lexicon.yml, and
 writes speeches_flagged.parquet with a `n_<term>` and `has_<term>` column per
-term, plus per-register and per-set roll-ups.
+term and per derived measure, and nothing that sums over more than one term.
 
 Three things this step reports rather than hides:
 
@@ -222,14 +222,8 @@ def build_note(
         )
 
     registers = [
-        f"| {register} | {int(counts[f'{lexicon.HAS}register_{register}'].sum()):,} | "
-        f"{int(counts[f'{lexicon.COUNT}register_{register}'].sum()):,} |"
-        for register in sorted(lex.by_register())
-    ]
-    sets = [
-        f"| `{name}` | {int(counts[f'{lexicon.HAS}set_{name}'].sum()):,} |"
-        for name in lex.sets
-        if f"{lexicon.HAS}set_{name}" in counts
+        f"| {register} | " + ", ".join(f"`{term.name}`" for term in terms) + " |"
+        for register, terms in sorted(lex.by_register().items())
     ]
 
     ocr_lines = []
@@ -277,21 +271,16 @@ def build_note(
             "",
             "## Registers",
             "",
-            "Occurrences count spans, so a term declared nested inside another (for",
-            "example `mass_atrocity` inside `atrocity`) is not added on top of the parent",
-            "that already counts it. A register's occurrences can therefore fall below the",
-            "sum of its terms in the table above. The `n_lexicon_total` column of",
-            "`speeches_flagged.parquet` is summed under the same rule.",
+            "A register is a shelf label. It groups and colours the term picker so that a",
+            "reader can find a word, and since lexicon v5 nothing is counted by it: a",
+            "count of *the legal register* was a count of a category `config/lexicon.yml`",
+            "invented, and a reader watching that line move could not tell which of six",
+            "words moved it. The membership is recorded here so that the grouping is",
+            "documented; the counts are in the table above, one per term.",
             "",
-            "| Register | Speeches | Occurrences |",
-            "|---|---:|---:|",
+            "| Register | Terms |",
+            "|---|---|",
             *registers,
-            "",
-            "## Sets",
-            "",
-            "| Set | Speeches |",
-            "|---|---:|",
-            *sets,
             "",
             "## OCR-tolerant patterns (held back)",
             "",

@@ -170,7 +170,7 @@ def corpus() -> tuple[pd.DataFrame, pd.Series]:
 def built() -> pd.DataFrame:
     speeches, bodies = corpus()
     found = occurrences.enumerate_term(speeches, bodies, term())
-    lex = lexicon.Lexicon(version=2, updated="2026-08-09", terms={"genocide": term()}, sets={})
+    lex = lexicon.Lexicon(version=2, updated="2026-08-09", terms={"genocide": term()})
     return gold.candidate_rows(speeches, bodies, found, term(), lex)
 
 

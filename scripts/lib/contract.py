@@ -77,16 +77,15 @@ SPEECH_SAMPLE = "speeches/SC00001-01.json"
 
 #: Keys whose *contents* vary with the data rather than with the code, so only
 #: their presence and type are contracted. `iso3_collisions` is keyed on whichever
-#: codes happen to be shared; `terms`, `registers`, `sets`, `measures`, `series`
-#: and speech `hits` are keyed on the lexicon; `packages` on whatever the
-#: environment had installed. Recording today's key set would make an ordinary
-#: lexicon edit look like a breaking change, and the point of this file is to be
-#: believed when it fails.
+#: codes happen to be shared; `terms`, `measures`, `series` and speech `hits` are
+#: keyed on the lexicon; `packages` on whatever the environment had installed.
+#: Recording today's key set would make an ordinary lexicon edit look like a
+#: breaking change, and the point of this file is to be believed when it fails.
 #:
 #: Their members are folded into one shape by :func:`merge`. Fields shared by
 #: every member remain required; fields carried by only some are marked optional.
-#: This lets a set legitimately omit an occurrence count while still catching a
-#: required row field that disappeared from one member.
+#: This lets a measure legitimately omit an occurrence count while still catching
+#: a required row field that disappeared from one member.
 OPAQUE: frozenset[str] = frozenset(
     {
         "by_period",
@@ -94,12 +93,39 @@ OPAQUE: frozenset[str] = frozenset(
         "iso3_collisions",
         "measures",
         "packages",
-        "registers",
         "series",
-        "sets",
         "terms",
     }
 )
+
+#: Keys that would carry a measure summed or unioned over more than one lexicon
+#: term. R7 removed every one of them: a count of *the legal register* is a count
+#: of a category `config/lexicon.yml` invented, published as though it were a
+#: property of the corpus, and a reader watching the line move cannot tell which
+#: of six words moved it. The site publishes one measure per term and the reader
+#: composes the group.
+#:
+#: Checked by name rather than by arithmetic, because the arithmetic is gone: no
+#: step computes these any more, so what this catches is one being reintroduced
+#: — by a revived `sets:` block, a resurrected roll-up, or a hand-written block
+#: in a later step that reaches for the same convenience.
+ROLL_UP_PREFIXES: tuple[str, ...] = ("has_register_", "n_register_", "has_set_")
+ROLL_UP_KEYS: frozenset[str] = frozenset(
+    {"n_lexicon_total", "n_lexicon_terms", "registers", "sets"}
+)
+
+#: Values of a measure's `kind` that would name a group of terms rather than one
+#: term, and the attribute a grouped measure carried its membership in.
+ROLL_UP_KINDS: frozenset[str] = frozenset({"registers", "sets", "register", "set"})
+MEMBERS = "members"
+
+#: The one block where naming several terms is the point rather than the fault.
+#: R8's `corpora` holds *populations*: a speech belongs to one or it does not,
+#: it enters once however many of the named phrases it uses, and the names are
+#: published precisely so a reader can see what the predicate was. R9's reading
+#: sets are the same object under a different name. Everything else that lists
+#: the terms it stands for is a measure standing for several of them.
+POPULATIONS = "corpora"
 
 #: The single key an opaque block is reduced to. No artefact writes a field of
 #: this name, and `differences` treats it as an ordinary key: both sides of a
@@ -257,6 +283,61 @@ def payload_skeleton(root: Path) -> dict[str, Any]:
             continue
         shapes[relative] = skeleton(json.loads(path.read_text(encoding="utf-8")))
     return shapes
+
+
+def roll_ups(document: Any, path: str = "", *, population: bool = False) -> Iterator[str]:
+    """Every place in one parsed artefact that sums or unions several terms.
+
+    A pure walk over the parsed JSON, so the rule can be tested on a document
+    written by hand and enforced on the real payload by the same code.
+
+    Three shapes are refused, because a roll-up can come back in three ways: a
+    column carried through from `03` (`n_register_legal`, `has_set_rome_triad`,
+    the lexicon totals), a block of them keyed by group (`registers`, `sets`),
+    and a measure that describes itself as a group — `kind: "sets"`, or a
+    `members` list naming the terms it stands for.
+
+    What it deliberately does *not* refuse is a **population**: R8's
+    genocide-free atrocity corpus and R9's three reading sets each hold speeches
+    selected by a predicate over several terms, and a speech enters once however
+    many of those terms it uses. That is a statement about which speeches a view
+    may read, not a number added up across categories nobody can see, and the
+    difference is the whole of R7.
+    """
+    if isinstance(document, dict):
+        for key, value in document.items():
+            where = f"{path}.{key}" if path else key
+            inside = population or key == POPULATIONS
+            if key in ROLL_UP_KEYS or key.startswith(ROLL_UP_PREFIXES):
+                yield f"{where} is a measure over more than one term"
+            elif key == "kind" and isinstance(value, str) and value in ROLL_UP_KINDS:
+                yield f"{where} declares the measure a group of terms: {value!r}"
+            elif key == MEMBERS and isinstance(value, list) and len(value) > 1 and not inside:
+                yield f"{where} names {len(value)} terms one measure stands for"
+            else:
+                yield from roll_ups(value, where, population=inside)
+    elif isinstance(document, list):
+        for index, item in enumerate(document):
+            yield from roll_ups(item, f"{path}[{index}]", population=population)
+
+
+def aggregates(root: Path) -> list[str]:
+    """Every roll-up in a built payload, artefact by artefact.
+
+    Run at the export seam beside :func:`check`, and for the same reason: the
+    shape check would pass a `registers` block happily, because a reintroduced
+    aggregate is a well-formed object and not a malformed one. This is the check
+    that says the payload publishes no measure whose movement a reader cannot
+    attribute to a word.
+    """
+    found: list[str] = []
+    for relative in [*TRACKED, SPEECH_SAMPLE]:
+        path = root / relative
+        if not path.exists():
+            continue
+        document = json.loads(path.read_text(encoding="utf-8"))
+        found.extend(f"{relative} {line}" for line in roll_ups(document))
+    return found
 
 
 def check(root: Path, promised: dict[str, Any]) -> tuple[list[str], list[str]]:

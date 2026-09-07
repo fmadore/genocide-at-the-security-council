@@ -9,12 +9,15 @@ import {
 
 const choices: ChronologyChoices = {
 	series: {
-		year: ['genocide', 'war_crimes', 'register:core', 'set:atrocity_core'],
-		quarter: ['genocide', 'war_crimes', 'register:core', 'set:atrocity_core']
+		year: ['genocide', 'war_crimes', 'massacre', 'ethnic_cleansing'],
+		quarter: ['genocide', 'war_crimes', 'massacre', 'ethnic_cleansing']
 	},
 	calendar: {
 		genocide: ['speech_rate', 'token_rate'],
-		atrocity_core: ['speech_rate']
+		// A measure the calendar can only draw as a share. Nothing in the
+		// artefact withholds an occurrence count today; the reader may still ask
+		// for a unit a measure is not in, and the state has to normalise it.
+		war_crimes: ['speech_rate']
 	},
 	splits: ['none', 'speaker_group', 'delivery_language']
 };
@@ -83,7 +86,7 @@ describe('chronology URL state', () => {
 			unit: 'token_rate',
 			grain: 'quarter',
 			series: ['war_crimes', 'genocide'],
-			calendarMeasure: 'atrocity_core',
+			calendarMeasure: 'war_crimes',
 			calendarUnit: 'speech_rate',
 			split: 'delivery_language'
 		};
@@ -109,7 +112,7 @@ describe('chronology URL state', () => {
 	it('normalizes unknown and unsupported controls to visible defaults', () => {
 		const state = readChronologyState(
 			new URLSearchParams(
-				'unit=ratio&grain=month&series=unknown&calendar=atrocity_core&calendarUnit=token_rate&split=region'
+				'unit=ratio&grain=month&series=unknown&calendar=war_crimes&calendarUnit=token_rate&split=region'
 			),
 			choices
 		);
@@ -117,7 +120,7 @@ describe('chronology URL state', () => {
 			unit: 'speech_rate',
 			grain: 'year',
 			series: ['genocide'],
-			calendarMeasure: 'atrocity_core',
+			calendarMeasure: 'war_crimes',
 			calendarUnit: 'speech_rate',
 			split: 'none'
 		});

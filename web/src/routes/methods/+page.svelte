@@ -236,10 +236,16 @@
 		<code>genocid*</code> matches
 		{percent(sum(data.series.terms.genocide.speeches) / totals.speeches)} of speeches. What counts as
 		<em>discussing genocide</em>
-		is a harder question. The six registers the word list is sorted into — the core word, legal, preventive,
-		commemorative, contentious and accountability language — are one way of grouping this vocabulary,
-		written down in <code>config/lexicon.yml</code> and open to disagreement. They are a starting point
-		for the analysis, not something it discovered.
+		is a harder question, and the answer this site gives is a list of {Object.keys(
+			data.series.terms
+		).length} terms, each counted on its own. The list sorts them into families &mdash; the core word,
+		legal, preventive, commemorative, contentious, accountability and descriptive language &mdash; and
+		those families are a shelf and nothing more: they group and colour the term picker, and no figure
+		counts one. A count of <em>the legal register</em> would be a count of a category this project
+		invented, published as though it were a property of the record, and a reader watching that line
+		move could not tell which of six words moved it. The terms are written down in
+		<code>config/lexicon.yml</code>, they are open to disagreement, and they are a starting point
+		for the analysis rather than something it discovered.
 	</p>
 
 	<h3 id="change-points">Change points</h3>

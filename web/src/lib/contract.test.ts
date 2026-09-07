@@ -145,15 +145,16 @@ describe('the shape of the blocks a figure would silently mis-draw', () => {
 		expect(row.speech_rate).toContain('null');
 	});
 
-	it('keeps a set free of the occurrence count it must not have', () => {
-		// `atrocity_core` is a union of overlapping terms, so summing occurrences
-		// would double-count a speech that used two of them. `04_series.py`
-		// withholds the figure; `$lib/heatmap` and `$lib/actors` both detect the
-		// absence rather than reading it through `?? 0`. A set that grew an
-		// `occurrences` array would make both of them start publishing a wrong
-		// number, and neither would raise anything.
-		const sets = contract['series/annual.json'].sets as Record<string, Record<string, unknown>>;
-		expect(Object.keys(sets['*'])).not.toContain('occurrences');
-		expect(Object.keys(sets['*'])).not.toContain('token_rate');
+	it('publishes no measure summed over more than one term', () => {
+		// R7. `registers` and `sets` were blocks of measures over families of
+		// words: a reader watching the legal line move could not tell which of
+		// six words moved it, and `atrocity_core` had to withhold its occurrence
+		// count entirely, because summing five overlapping phrases double-counts
+		// a speech that uses two. The contract is where their return would show.
+		const annual = contract['series/annual.json'];
+		expect(annual).not.toHaveProperty('registers');
+		expect(annual).not.toHaveProperty('sets');
+		expect(contract['series/monthly.json']).not.toHaveProperty('registers');
+		expect(contract['series/monthly.json']).not.toHaveProperty('sets');
 	});
 });

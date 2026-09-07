@@ -129,6 +129,34 @@ def check_contract() -> None:
     console.info(f"{len(promised) - len(absent)} artefacts match {rel(CONTRACT)}")
 
 
+def check_no_aggregates() -> None:
+    """Refuse a payload that publishes a measure summed over several terms.
+
+    R7's rule, enforced where every other payload-wide rule is enforced rather
+    than left to a reviewer noticing a familiar-looking key. The shape check
+    above would pass a revived `registers` block without complaint — it is a
+    well-formed object, and the contract deliberately treats a lexicon-keyed
+    collection as opaque so that adding a term is not a breaking change. This is
+    the check that reads what is in it.
+
+    A population is not an aggregate and is not caught: R8's genocide-free
+    corpus and R9's reading sets select speeches with a predicate over several
+    terms and count each speech once. See `contract.roll_ups`.
+    """
+    found = contract.aggregates(WEB_DATA)
+    if found:
+        console.fail(
+            "the payload carries a measure summed over more than one term",
+            [
+                *found[:20],
+                *([f"... and {len(found) - 20} more"] if len(found) > 20 else []),
+                "The site publishes one measure per term and the reader composes the "
+                "group — see item R7 in docs/IMPROVEMENT_ROADMAP.md.",
+            ],
+        )
+    console.info("no measure in the payload sums over more than one term")
+
+
 def update_contract() -> None:
     """Rewrite the declared shape from the payload that is actually there.
 
@@ -185,6 +213,7 @@ def run() -> None:
     # complete, and a payload the dashboard cannot read is not one.
     console.step("Checking the payload against the shape the dashboard reads")
     check_contract()
+    check_no_aggregates()
 
     manifest = {
         "generated": generated,

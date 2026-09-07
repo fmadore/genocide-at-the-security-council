@@ -49,7 +49,6 @@ def _speech(row: int, country: str, year: int, words: int, *, term: bool, count:
         "lon": 2.0,
         "has_genocide_qualification": term,
         "n_genocide_qualification": count,
-        "has_set_atrocity_core": term,
     }
 
 

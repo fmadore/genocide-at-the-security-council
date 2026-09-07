@@ -120,14 +120,11 @@ const validateAnnual: Validator = (record, path) => {
 	}
 	// A band drawn from bounds one period short would slide every later year's
 	// interval onto the wrong year without failing anywhere.
-	for (const kind of ['terms', 'registers', 'sets']) {
-		if (!(kind in record)) continue;
-		for (const [name, measure] of Object.entries(recordAt(record, kind))) {
-			if (!isRecord(measure)) throw new Error(`${path}.${kind}.${name} must be an object.`);
-			for (const field of ['speech_rate_low', 'speech_rate_high']) {
-				if (requireArray(measure, field, `${path}.${kind}.${name}`).length !== periods.length) {
-					throw new Error(`${path}.${kind}.${name}.${field} must align with periods.`);
-				}
+	for (const [name, measure] of Object.entries(recordAt(record, 'terms'))) {
+		if (!isRecord(measure)) throw new Error(`${path}.terms.${name} must be an object.`);
+		for (const field of ['speech_rate_low', 'speech_rate_high']) {
+			if (requireArray(measure, field, `${path}.terms.${name}`).length !== periods.length) {
+				throw new Error(`${path}.terms.${name}.${field} must align with periods.`);
 			}
 		}
 	}
@@ -155,19 +152,17 @@ const validateMonthly: Validator = (record, path) => {
 	// makes: the figure draws exactly the cells that claim to be sufficient, so a
 	// sufficient cell with no rate would reach the grid as a null — and on a
 	// heatmap a null is drawn in the colour a measured zero has.
-	for (const kind of ['terms', 'registers', 'sets']) {
-		for (const [name, measure] of Object.entries(recordAt(record, kind))) {
-			if (!isRecord(measure)) throw new Error(`${path}.${kind}.${name} must be an object.`);
-			const rates = requireArray(measure, 'speech_rate', `${path}.${kind}.${name}`);
-			if (rates.length !== periods.length) {
-				throw new Error(`${path}.${kind}.${name}.speech_rate must align with periods.`);
-			}
-			const wrong = rates.findIndex((rate, index) => sufficient[index] && !Number.isFinite(rate));
-			if (wrong >= 0) {
-				throw new Error(
-					`${path}.${kind}.${name} claims ${periods[wrong]} is sufficient without a rate.`
-				);
-			}
+	for (const [name, measure] of Object.entries(recordAt(record, 'terms'))) {
+		if (!isRecord(measure)) throw new Error(`${path}.terms.${name} must be an object.`);
+		const rates = requireArray(measure, 'speech_rate', `${path}.terms.${name}`);
+		if (rates.length !== periods.length) {
+			throw new Error(`${path}.terms.${name}.speech_rate must align with periods.`);
+		}
+		const wrong = rates.findIndex((rate, index) => sufficient[index] && !Number.isFinite(rate));
+		if (wrong >= 0) {
+			throw new Error(
+				`${path}.terms.${name} claims ${periods[wrong]} is sufficient without a rate.`
+			);
 		}
 	}
 };
@@ -799,8 +794,6 @@ export const REQUIRED = {
 		periods: 'array',
 		corpus: 'object',
 		terms: 'object',
-		registers: 'object',
-		sets: 'object',
 		sufficient: 'array',
 		years: 'array',
 		minimum_speeches: 'number',

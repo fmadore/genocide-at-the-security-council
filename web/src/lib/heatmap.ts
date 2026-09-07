@@ -111,19 +111,20 @@ export interface HeatmapRequest {
 	unit?: Unit;
 }
 
-/** Every measure the artefact holds, whatever kind it is. */
+/** Every measure the artefact holds. One kind since lexicon v5: a term. */
 export function measures(data: MonthlySeries): Record<string, MonthlyMeasure> {
-	return { ...data.terms, ...data.registers, ...data.sets };
+	return { ...data.terms };
 }
 
 /**
  * The units a measure can honestly be drawn in.
  *
- * A set is a union of overlapping terms, so it has no occurrence count and no
- * rate per token — `04_series.py` withholds both rather than double-counting a
- * speech that used two members. Read through `?? 0` that silence becomes
- * `0.00 per 100,000 words`, so the absence is detected once, here, and the
- * control never offers a unit the grid is not in.
+ * Every measure carries both units since lexicon v5 removed the unions, and the
+ * check stays because the failure it prevents is the one this view actually
+ * shipped: `atrocity_core` withheld its occurrence count rather than
+ * double-counting a speech that used two members, and read through `?? 0` that
+ * silence became `0.00 per 100,000 words`. The absence is detected once, here,
+ * and the control never offers a unit the grid is not in.
  */
 export function units(measure: MonthlyMeasure | undefined): Unit[] {
 	return measure?.token_rate ? ['speech_rate', 'token_rate'] : ['speech_rate'];
@@ -217,23 +218,19 @@ export interface EvidenceLink extends EvidenceQuery {
 /**
  * The lexicon terms a measure is counted from.
  *
- * A term is itself; a register and a set are the terms underneath them. The
- * concordance is a file per term, so a link has to name one — which is why a
- * measure drawn as a single square becomes several links, and why the interface
- * has to say that it did rather than offering the first as though it were all.
+ * One or none, now: a measure named in `terms` stands for itself, and anything
+ * else stands for no term the concordance can open. Ten of the then thirty-two
+ * measures were in that second case until lexicon v5 — six registers and four
+ * sets — and the link this function exists to make honest used to send a reader
+ * from `atrocity_core` to a file that does not exist and a retry button.
  *
- * Exported because the figure has to know the count before it draws: 384
- * squares cannot each carry five links, so a multi-term measure declines to
- * link and says so. That refusal is also a repair. The link this replaces was
- * `?term=<measure>` for whatever was selected, and ten of the thirty-two
- * measures here — six registers and four sets — are not concordance terms at
- * all, so the old link sent a reader from `atrocity_core` to a file that does
- * not exist and a retry button.
+ * Kept rather than inlined, because it is what the caller asks before it draws:
+ * 384 squares cannot each carry several links, so a measure that resolves to
+ * anything but one term declines to link at all and the figure says so.
  */
 export function termsOf(data: MonthlySeries, measure: string): string[] {
 	if (measure in data.terms) return [measure];
-	const found = measures(data)[measure];
-	return found?.members ?? found?.terms ?? [];
+	return [];
 }
 
 /**
@@ -395,30 +392,26 @@ export const GRID_COLUMNS = [
  */
 export function gridRows(data: MonthlySeries): (string | number | boolean | null)[][] {
 	const rows: (string | number | boolean | null)[][] = [];
-	const kinds: [string, Record<string, MonthlyMeasure>][] = [
-		['terms', data.terms],
-		['registers', data.registers],
-		['sets', data.sets]
-	];
-	for (const [kind, block] of kinds) {
-		for (const [name, measure] of Object.entries(block)) {
-			data.periods.forEach((period, index) => {
-				rows.push([
-					period,
-					Number(period.slice(0, 4)),
-					Number(period.slice(5)),
-					name,
-					kind,
-					data.corpus.speeches[index] ?? 0,
-					data.corpus.words[index] ?? 0,
-					measure.speeches[index] ?? 0,
-					measure.speech_rate[index] ?? null,
-					measure.occurrences?.[index] ?? null,
-					measure.token_rate?.[index] ?? null,
-					data.sufficient[index] ?? false
-				]);
-			});
-		}
+	for (const [name, measure] of Object.entries(data.terms)) {
+		data.periods.forEach((period, index) => {
+			rows.push([
+				period,
+				Number(period.slice(0, 4)),
+				Number(period.slice(5)),
+				name,
+				// Kept in the file although it now reads `terms` on every row: a
+				// download is an archive, and a column that vanished between two
+				// vintages costs a reader more than a constant one does.
+				'terms',
+				data.corpus.speeches[index] ?? 0,
+				data.corpus.words[index] ?? 0,
+				measure.speeches[index] ?? 0,
+				measure.speech_rate[index] ?? null,
+				measure.occurrences?.[index] ?? null,
+				measure.token_rate?.[index] ?? null,
+				data.sufficient[index] ?? false
+			]);
+		});
 	}
 	return rows;
 }

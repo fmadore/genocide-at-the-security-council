@@ -194,16 +194,16 @@ class TestLexiconCounting:
         counts = lexicon.apply(pd.Series(["mass atrocity and mass atrocities"]), lex)
         assert counts["n_mass_atrocity"].iloc[0] == 2
 
-    def test_register_rollups_sum_their_terms(self, lex):
+    def test_a_register_is_a_shelf_label_and_not_a_column(self, lex):
+        """Three legal-register terms in one sentence, and three numbers. The
+        register they share names a shelf the picker groups by; it is not a
+        fourth number, because a reader watching one could not tell which of
+        the three had moved."""
         bodies = pd.Series(["genocide and war crimes and crimes against humanity"])
         counts = lexicon.apply(bodies, lex)
-        # A term declared nested inside another is left out of the sum instead
-        # of being added on top of the parent that already counts its span, so
-        # the roll-up sums the summable members. test_lexicon.py pins the cases
-        # where that changes the number.
-        legal = lexicon.summable([t for t in lex.active if t.register == "legal"], lex.terms)
-        expected = sum(counts[f"n_{t.name}"].iloc[0] for t in legal)
-        assert counts["n_register_legal"].iloc[0] == expected
+        assert counts["n_war_crimes"].iloc[0] == 1
+        assert counts["n_crimes_against_humanity"].iloc[0] == 1
+        assert "n_register_legal" not in counts.columns
 
     def test_disabled_terms_stay_out_of_the_counts(self, lex):
         counts = lexicon.apply(pd.Series(["genecide"]), lex)

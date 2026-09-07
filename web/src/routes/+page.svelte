@@ -10,67 +10,48 @@
 	import SmallMultiples from '$lib/SmallMultiples.svelte';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
-	import { count, decimal, escapeHtml, isoDate, percent } from '$lib/format';
+	import { count, decimal, isoDate, percent, termLabel } from '$lib/format';
 	import { headlineMeasure } from '$lib/headline';
 	import { PAGE_METADATA, STRUCTURED_DATA_JSON } from '$lib/seo';
-	import {
-		axisX,
-		axisY,
-		colours,
-		endLabel,
-		grid,
-		markLine,
-		registerColour,
-		textStyle,
-		tooltip
-	} from '$lib/theme';
+	import { axisX, axisY, colours, grid, textStyle, tooltip } from '$lib/theme';
 	import type { Measure } from '$lib/types';
 	import type { EChartsOption } from 'echarts';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
-	/* Live chart handles, for the image half of the export. */
+	/* Live chart handle, for the image half of the export. */
 	let contrastFigure = $state<Chart | null>(null);
-	let registerFigure = $state<Chart | null>(null);
 
 	/**
 	 * Both overview figures read the same annual artefact, so both export it
-	 * whole: every term, every register, every set, in all four units. The two
-	 * figures are two readings of one table, and handing over two different
-	 * subsets would hide exactly the relationship they are here to show.
+	 * whole: every term, in all four units. The two figures are two readings of
+	 * one table, and handing over two different subsets would hide exactly the
+	 * relationship they are here to show. The second figure draws six of those
+	 * terms, and a reader who wants the other twenty-three has them here.
 	 */
 	function annualTable(title: string, filters: string[]): ExportRequest {
 		const rows: (string | number | null)[][] = [];
-		const groups: [string, Record<string, Measure>][] = [
-			['term', data.series.terms],
-			['register', data.series.registers],
-			['set', data.series.sets]
-		];
-		for (const [kind, block] of groups) {
-			for (const [name, measure] of Object.entries(block)) {
-				data.series.periods.forEach((period, index) => {
-					rows.push([
-						String(period),
-						name,
-						kind,
-						measure.register ?? null,
-						data.series.corpus.speeches[index],
-						data.series.corpus.words[index],
-						measure.speeches[index] ?? null,
-						measure.speech_rate[index] ?? null,
-						measure.occurrences?.[index] ?? null,
-						measure.token_rate?.[index] ?? null
-					]);
-				});
-			}
+		for (const [name, measure] of Object.entries(data.series.terms) as [string, Measure][]) {
+			data.series.periods.forEach((period, index) => {
+				rows.push([
+					String(period),
+					name,
+					measure.register ?? null,
+					data.series.corpus.speeches[index],
+					data.series.corpus.words[index],
+					measure.speeches[index] ?? null,
+					measure.speech_rate[index] ?? null,
+					measure.occurrences?.[index] ?? null,
+					measure.token_rate?.[index] ?? null
+				]);
+			});
 		}
 		return {
 			title,
 			columns: [
 				'year',
 				'measure',
-				'kind',
 				'register',
 				'corpus_speeches',
 				'corpus_tokens',
@@ -82,7 +63,7 @@
 			rows,
 			provenance: provenanceOf(data.series.meta, 'series/annual.json'),
 			filters,
-			scope: 'every term, register and set in the annual artefact, in all four units'
+			scope: 'every term in the annual artefact, in all four units'
 		};
 	}
 
@@ -116,9 +97,6 @@
 	const index1994 = $derived(years.indexOf(1994));
 
 	const rateInference = $derived(data.breaks.inference.series[headline]?.speech_rate ?? null);
-	const atrocityInference = $derived(
-		data.breaks.inference.series.atrocity_core?.speech_rate ?? null
-	);
 
 	/* The central figure: the same phenomenon counted two ways, on one pair of
 	   axes, so the disagreement between them is the thing you see first.
@@ -185,41 +163,55 @@
 		};
 	});
 
-	/* Registers overlap, so they are never a stack — and six lines crossing each
-	   other is a picture of the crossing rather than of any one of them. They
-	   are drawn as six small multiples on a shared axis instead, each named in
-	   place and ending in the period share its own scaling throws away.
+	/* The six words this study is a contrast between, one row each.
 
-	   The colours are CSS custom properties rather than resolved literals: this
-	   figure is markup, not a canvas, so it follows the theme without redrawing. */
-	const REGISTER_ORDER = [
-		'accountability',
-		'legal',
-		'preventive',
-		'commemorative',
-		'core',
-		'contentious',
-		'descriptive'
+	   This figure was *Register share* until R7: six lines, one per family of
+	   vocabulary, each counting a speech that used any word of the family. A
+	   reader watching the legal line move could not tell which of six words had
+	   moved it, and the families were a grouping this project invented and then
+	   published as though it were a property of the record. What is drawn now is
+	   words — a single term to a row, and nothing added together anywhere.
+
+	   Six of twenty-eight is still a choice, and it is this one: the word, the
+	   three treaty phrases the Council reaches for beside it, and the two that
+	   name mass violence without qualifying it at all. Whether *genocide*
+	   displaces *massacre* is the study's question rather than a side issue. The
+	   chronology holds every term and composes any set of them, and the caveat
+	   under this figure says so.
+
+	   Colour is the register the word sits on, which is what a register is for
+	   since R7 — a shelf, not a sum. The three legal phrases therefore share a
+	   hue, and that is the shelf saying so. The colours are CSS custom properties
+	   rather than resolved literals: this figure is markup, not a canvas, so it
+	   follows the theme without redrawing. */
+	const SHOWN_TERMS = [
+		'ethnic_cleansing',
+		'crimes_against_humanity',
+		'war_crimes',
+		'massacre',
+		'mass_killing'
 	];
 
-	const registerRows = $derived.by(() => {
-		const present = Object.keys(data.series.registers);
-		const ordered = [
-			...REGISTER_ORDER.filter((r) => present.includes(r)),
-			...present.filter((r) => !REGISTER_ORDER.includes(r)).sort()
-		];
-		return ordered.map((name) => {
-			const series = data.series.registers[name];
-			const bearing = series.speeches.reduce((a, b) => a + b, 0);
-			const held = corpus.speeches.reduce((a, b) => a + b, 0);
-			return {
-				name,
-				values: series.speech_rate,
-				colour: `var(--reg-${name})`,
-				summary: percent(held ? bearing / held : 0)
-			};
-		});
+	const termRows = $derived.by(() => {
+		const held = corpus.speeches.reduce((a, b) => a + b, 0);
+		// The headline first, then the rest in the declared order. A term absent
+		// from an archived artefact is skipped rather than drawn as a flat zero.
+		return [headline, ...SHOWN_TERMS]
+			.filter((name) => name in data.series.terms)
+			.map((name) => {
+				const series = data.series.terms[name];
+				const bearing = series.speeches.reduce((a, b) => a + b, 0);
+				return {
+					name: termLabel(name),
+					values: series.speech_rate,
+					colour: `var(--reg-${series.register ?? 'core'})`,
+					summary: percent(held ? bearing / held : 0)
+				};
+			});
 	});
+
+	/** The names actually drawn, for the download's filter line. */
+	const drawn = $derived(termRows.map((row) => row.name));
 
 	/**
 	 * Which year columns carry a reference date, and what those dates were.
@@ -238,86 +230,6 @@
 		return Object.entries(byIndex)
 			.map(([index, labels]) => ({ index: Number(index), title: labels.join('\n') }))
 			.sort((a, b) => a.index - b.index);
-	});
-
-	/**
-	 * Two readings of the same six series, because they answer different
-	 * questions. Rows show each register's shape without the others crossing it;
-	 * lines put them on one scale, which is the only way to see that
-	 * accountability runs an order of magnitude above the core word — and is
-	 * where the reference dates can carry a tooltip worth reading.
-	 */
-	let registerView = $state<'rows' | 'lines'>('rows');
-
-	const registerLines: EChartsOption = $derived.by(() => {
-		const p = $colours;
-		const names = registerRows.map((r) => r.name);
-		const byYear: Record<string, string[]> = {};
-		for (const event of data.overlay.events) {
-			(byYear[String(event.year)] ??= []).push(`${isoDate(event.date)} ${event.label}`);
-		}
-		return {
-			textStyle,
-			grid: grid(true),
-			tooltip: {
-				...tooltip(p),
-				trigger: 'axis',
-				// The reference rules are silent marks, so the axis tooltip carries
-				// what they stand for: every year is hoverable, rather than a
-				// one-pixel line being the only way to read a date.
-				formatter: (params) => {
-					const rows = (Array.isArray(params) ? params : [params]) as {
-						axisValue?: string;
-						marker?: string;
-						seriesName?: string;
-						value?: unknown;
-					}[];
-					const year = rows[0]?.axisValue ?? '';
-					const series = rows
-						.map(
-							(r) =>
-								`${r.marker ?? ''}${escapeHtml(r.seriesName ?? '')} <b>${percent(Number(r.value ?? 0))}</b>`
-						)
-						.join('<br>');
-					const dates = byYear[year] ?? [];
-					const note = dates.length
-						? '<hr style="opacity:.2">' +
-							`<span style="opacity:.7">Reference ${dates.length === 1 ? 'date' : 'dates'}</span><br>` +
-							dates.map((d) => escapeHtml(d)).join('<br>')
-						: '';
-					return `<b>${escapeHtml(year)}</b><br>${series}${note}`;
-				}
-			},
-			xAxis: { ...axisX(p), type: 'category', data: years },
-			yAxis: {
-				...axisY(p),
-				type: 'value',
-				axisLabel: {
-					color: p.inkFaint,
-					fontSize: 12,
-					formatter: (v: number) => `${(v * 100).toFixed(0)}%`
-				}
-			},
-			series: names.map((name, i) => ({
-				name,
-				type: 'line',
-				data: data.series.registers[name].speech_rate,
-				symbol: 'none',
-				lineStyle: { width: 2, color: registerColour(name, p) },
-				itemStyle: { color: registerColour(name, p) },
-				endLabel: endLabel(registerColour(name, p), name),
-				emphasis: { focus: 'series' },
-				markLine:
-					i === 0 && eventTicks.length
-						? {
-								...markLine(p),
-								label: { show: false },
-								lineStyle: { color: p.inkFaint, width: 1, type: 'solid' as const, opacity: 0.35 },
-								data: eventTicks.map((t) => ({ xAxis: String(years[t.index]) }))
-							}
-						: undefined
-			}))
-		};
 	});
 
 	const kinds = $derived(
@@ -463,107 +375,66 @@
 	<section class="finding">
 		<h2>Where the rate does change</h2>
 		<p>
-			{#if rateInference?.accepted}For <em>genocide</em> on its own, the best-supported split falls
-				at
+			{#if rateInference?.accepted}For <em>genocide</em>, the best-supported split falls at
 				<strong>{rateInference.label}</strong>, and the rate after it is {decimal(
 					rateInference.ratio ?? 0
-				)}&times; the rate before.{:else}For <em>genocide</em> on its own, a single steady rate survives
-				the test.{/if}
-			The wider <em>atrocity core</em> gathers five phrases at once: genocide, ethnic cleansing,
-			crimes against humanity, war crimes and mass atrocity.
-			{#if atrocityInference?.accepted}Its split falls at <strong>{atrocityInference.label}</strong
-				>, with a ratio of {decimal(atrocityInference.ratio ?? 0)}&times;.{:else}It too is best
-				described by one steady rate.{/if}
-			Both results compare one stretch of years with another. Neither shows that Council language turned
-			a corner in the year named.
+				)}&times; the rate before.{:else}For <em>genocide</em>, a single steady rate survives the
+				test.{/if}
+			The test is run on the word, and on the word alone. It used to be run on a wider
+			<em>atrocity core</em> as well &mdash; five phrases counted as one &mdash; and a split in that line
+			said nothing about which of the five had moved, which is why the figures above are words rather
+			than families. The result compares one stretch of years with another. It does not show that Council
+			language turned a corner in the year named.
 		</p>
 	</section>
 
 	<Figure
 		fullscreen
-		onfullscreenchange={() => registerFigure?.resize()}
-		title="Register share, {years[0]}&ndash;{years[years.length - 1]}"
-		question="Which family of words does genocide sit in, and does that mix change over time?"
-		source="05_lexical.py registers via 03_lexicon.py → series/annual.json"
-		note={registerView === 'rows'
-			? 'Each row is scaled to its own maximum · the number at the right is the share across the whole period'
-			: 'One shared scale · hover a year for its values and any reference date it carries'}
+		title="The vocabulary, word by word, {years[0]}&ndash;{years[years.length - 1]}"
+		question="Does the word displace the other things the Council could call it?"
+		source="04_series.py → series/annual.json"
+		note="Each row is scaled to its own maximum · the number at the right is the share across the whole period"
 		download={{
-			name: ['unsc', 'register-share', registerView],
-			table: () =>
-				annualTable('Register share', [
-					`view: ${registerView === 'rows' ? 'each row to its own maximum' : 'one shared scale'}`,
-					'drawn: the six registers'
-				]),
-			chart: () => registerFigure?.svg() ?? null
+			name: ['unsc', 'vocabulary-word-by-word'],
+			table: () => annualTable('The vocabulary, word by word', [`drawn: ${drawn.join(', ')}`])
 		}}
 	>
-		{#snippet controls()}
-			<div class="view">
-				<span class="label" id="register-view">View</span>
-				<div class="segmented" role="group" aria-labelledby="register-view">
-					<button
-						type="button"
-						aria-pressed={registerView === 'rows'}
-						title="Each register on its own axis, scaled to its own maximum"
-						onclick={() => (registerView = 'rows')}>Rows</button
-					>
-					<button
-						type="button"
-						aria-pressed={registerView === 'lines'}
-						title="All six on one shared axis, with the reference dates"
-						onclick={() => (registerView = 'lines')}>Lines</button
-					>
-				</div>
-			</div>
-		{/snippet}
-
 		{#snippet reading()}
 			<p>
-				The word list is sorted into six <em>registers</em>, families of vocabulary that do similar
-				work: the <em>core</em> word; <em>legal</em>; <em>preventive</em>; <em>commemorative</em>;
-				<em>contentious</em> (denial, glorification); <em>accountability</em> (courts, tribunals, impunity).
-				Each row is the share of a year's speeches using at least one word of that family. Accountability
-				and legal language dominate; the core word runs about ten times lower.
+				Each row is one word or one fixed phrase: the share of a year's speeches using it. The word
+				itself, the three treaty phrases the Council reaches for beside it, and the two that name
+				mass violence without qualifying it. Colour is the family a term belongs to, so the three
+				legal phrases share one.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>These rows do not add up to a whole:</strong> one speech can use four registers and
-				is counted in all four. <strong>Each row is scaled to its own maximum</strong>, so shapes
-				compare and levels do not; read the level off the share at the right.
-				<a href="{resolve('/methods')}#word-list">The registers are a proposal &rarr;</a>
+				<strong>Nothing here is added together</strong>, and these {termRows.length} rows are a selection
+				from {Object.keys(data.series.terms).length} terms: pick your own on the
+				<a href={resolve('/chronology')}>chronology</a>.
+				<strong>Each row is scaled to its own maximum</strong>, so shapes compare and levels do not;
+				read the level off the share at the right.
 			</p>
 		{/snippet}
-		{#if registerView === 'rows'}
-			<SmallMultiples
-				rows={registerRows}
-				periods={years}
-				events={eventTicks}
-				eventsLabel="{data.overlay.events.length} reference dates"
-				description="Six rows, one per register of vocabulary, each showing the share of speeches per year that use it, scaled to its own maximum."
-			/>
-		{:else}
-			<Chart
-				bind:this={registerFigure}
-				option={registerLines}
-				height="380px"
-				description="Six lines on one shared axis showing the share of speeches per year using each register of vocabulary, with faint rules on the years carrying a reference date."
-			/>
-		{/if}
+		<SmallMultiples
+			rows={termRows}
+			periods={years}
+			events={eventTicks}
+			eventsLabel="{data.overlay.events.length} reference dates"
+			description="One row per word, each showing the share of speeches per year that use it, scaled to its own maximum."
+		/>
 		<details class="data-table">
-			<summary><Icon icon={ChevronRight} />View register shares as a table</summary>
+			<summary><Icon icon={ChevronRight} />View the drawn shares as a table</summary>
 			<table>
 				<thead
 					><tr
-						><th>Year</th>{#each Object.keys(data.series.registers).sort() as name (name)}<th
-								class="num">{name}</th
+						><th>Year</th>{#each termRows as row (row.name)}<th class="num">{row.name}</th
 							>{/each}</tr
 					></thead
 				><tbody
 					>{#each years as year, index (year)}<tr
-							><td>{year}</td>{#each Object.keys(data.series.registers).sort() as name (name)}<td
-									class="num">{percent(data.series.registers[name].speech_rate[index])}</td
+							><td>{year}</td>{#each termRows as row (row.name)}<td class="num"
+									>{percent(row.values[index])}</td
 								>{/each}</tr
 						>{/each}</tbody
 				>
@@ -578,8 +449,8 @@
 				<a href={resolve('/chronology')}>
 					<strong>Chronology</strong>
 					<span
-						>Every word and word family over time, set against {data.overlay.events.length} reference
-						dates: {kinds.map(([k, n]) => `${n} ${k}`).join(', ')}.</span
+						>Every word on the list over time, set against {data.overlay.events.length} reference dates:
+						{kinds.map(([k, n]) => `${n} ${k}`).join(', ')}.</span
 					>
 					<Icon icon={ArrowRight} />
 				</a>
@@ -667,16 +538,6 @@
 		margin: 0;
 		font-size: var(--step--1);
 		color: var(--ink-3);
-	}
-
-	.view {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--sp-2);
-	}
-
-	.view .label {
-		display: inline;
 	}
 
 	.finding {

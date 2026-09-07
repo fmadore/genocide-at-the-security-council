@@ -272,11 +272,12 @@ export interface Figures {
 /**
  * Which figures a measure actually carries.
  *
- * `atrocity_core` is a union of five overlapping terms, so a speech that says
- * both `genocide` and `war crimes` would be counted twice in any sum of their
- * occurrences. `11_countries.py` says so in as many words and withholds the
- * count rather than computing a wrong one: a set row has `held`, `speeches` and
- * `speech_rate` and no `occurrences` or `token_rate` at all.
+ * Every measure in this artefact carries an occurrence count since lexicon v5,
+ * and the check stays because of what it caught. `atrocity_core` was a union of
+ * five overlapping terms, so a speech saying both `genocide` and `war crimes`
+ * would have been counted twice in any sum of their occurrences;
+ * `11_countries.py` withheld the count rather than computing a wrong one, and a
+ * set row had `held`, `speeches` and `speech_rate` and nothing else.
  *
  * Read through `?? 0` — which is how every consumer reads a nullable number here
  * — a withheld figure becomes `0.00 per 100,000 words`, and a deliberate silence
@@ -285,8 +286,9 @@ export interface Figures {
  * absence is detected once, here, and the interface drops the column, the
  * ordering and the tooltip line rather than filling them with a zero.
  *
- * Presence is read off the rows rather than inferred from `kind`, so a future
- * set measure that does carry counts is shown them without editing this.
+ * Presence is read off the rows rather than inferred from `kind`, which is why
+ * R7 could remove the only measure that withheld a count without this needing
+ * an edit — and why a later measure that withholds one is handled already.
  */
 export function carries(measure: CountryMeasure | undefined): Figures {
 	return { occurrences: measure?.rows.some((row) => row.occurrences !== undefined) ?? false };
@@ -315,44 +317,42 @@ export interface ConcordanceLink {
  * `term`, `country`, `from` and `to` from the URL, so the filter is expressible;
  * what was missing is a caller that expresses it.
  *
- * Three rules, all of which can be got wrong in ways that look right:
+ * Two rules, both of which can be got wrong in ways that look right:
  *
  * **No link when there is nothing to read.** A speaker can clear the minimum and
  * still never use the term. Offering "read the occurrences" for none of them
  * sends a reader to an empty table to discover what the row already said. The
- * test is the term-bearing speech count rather than the occurrence count,
- * because a set measure has no occurrence count at all — see `carries()` — and
- * `undefined < 1` is false, so the obvious guard would have let every set row
- * through while appearing to check.
- *
- * **A set becomes one link per member.** `atrocity_core` sums five terms and the
- * concordance shows one, so a single link would quietly present a fifth of the
- * evidence as all of it. The members are returned in the artefact's order and
- * the interface says the reading is term by term. Their individual counts are
- * not in this artefact, so a member link can land on nothing — which the
- * concordance states plainly, and which is a smaller cost than a link that
- * misrepresents its scope.
+ * test is the term-bearing speech count rather than the occurrence count: a
+ * measure may withhold its occurrences, and `undefined < 1` is false, so the
+ * obvious guard would let such a row through while appearing to check.
  *
  * **The period travels with the link.** The rate a reader is reading is for one
  * period, so the years bound the concordance too. Sending a period-specific rate
  * to the full corpus range would show lines the figure never counted.
+ *
+ * One link or none. It returned a list until R7, because `atrocity_core` summed
+ * five terms while the concordance shows one, and a single link would have
+ * presented a fifth of the evidence as all of it. Every measure is one term now,
+ * so the list would have exactly one member on every row that has any, and a
+ * shape that can only be one thing should say so.
  */
-export function occurrences(data: Countries, measure: string, entry: ActorRow): ConcordanceLink[] {
+export function occurrences(
+	data: Countries,
+	measure: string,
+	entry: ActorRow
+): ConcordanceLink | null {
 	const measured = data.measures[measure];
-	if (!measured || entry.row.speeches < 1) return [];
+	if (!measured || entry.row.speeches < 1) return null;
 	const period = data.periods.find((candidate) => candidate.key === entry.row.period);
-	if (!period) return [];
+	if (!period) return null;
 
-	const terms = measured.kind === 'sets' ? (measured.members ?? []) : [measure];
-	return terms.map((term) => {
-		const params = new URLSearchParams({
-			term,
-			country: entry.speaker.country_org,
-			from: String(period.first_year),
-			to: String(period.last_year)
-		});
-		return { term, query: params.toString() };
+	const params = new URLSearchParams({
+		term: measure,
+		country: entry.speaker.country_org,
+		from: String(period.first_year),
+		to: String(period.last_year)
 	});
+	return { term: measure, query: params.toString() };
 }
 
 /**

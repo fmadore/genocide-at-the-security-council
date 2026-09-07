@@ -52,8 +52,12 @@ from lib.paths import (
 )
 
 #: Measures the change-point pass and the breakdowns run on, as (kind, name).
-#: `genocide_qualification` is the object of study; `atrocity_core` is the set
-#: that may be the real one, so both are dated rather than one being assumed.
+#: One, since lexicon v5 retired the sets: `atrocity_core` used to be dated
+#: beside it as "the set that may be the real object of study", and a category
+#: this project invented is not a candidate for that — a reader watching its
+#: line could not tell which of its five phrases had moved. The three atrocity
+#: phrases are dated one at a time in the artefact like every other term, and
+#: R8's genocide-free corpus is published beside them as a population.
 #:
 #: The headline is the *derived* measure, `genocide` minus `genocidaires`,
 #: since lexicon v4: a delegation calling the ex-FAR génocidaires is naming who
@@ -61,7 +65,7 @@ from lib.paths import (
 #: that. The raw term keeps its own series in the artefact beside this one, and
 #: the concordance enumerates it, so nothing is hidden by the choice — see
 #: `config/lexicon.yml`'s `derived` block.
-TRACKED = [("terms", "genocide_qualification"), ("sets", "atrocity_core")]
+TRACKED = [("terms", "genocide_qualification")]
 
 #: R8's comparison corpus. These are phrases with determinate legal meanings,
 #: not the broader convenience set in the lexicon. A speech enters once when it
@@ -113,18 +117,18 @@ def prepare(speeches: pd.DataFrame) -> pd.DataFrame:
 
 
 def measures(lex: lexicon.Lexicon) -> dict[str, dict[str, dict]]:
-    """Every series to compute, grouped into terms / registers / sets.
+    """Every series to compute, all of them over a single term.
 
     Maps each name to the attributes that describe it in the artefact; the
     columns behind it come from `series.columns_for`.
 
-    A register lists both its `terms` and the `summed` subset of them its
-    occurrence count is actually a sum of: a term nested inside another member
-    is already counted by that parent, so it is left out rather than added on
-    top. Without the second list a reader adding the term series up would get a
-    larger number than the register's own and have nothing to explain it with.
+    Until v5 this also returned a series per register and per named set. They
+    were roll-ups over several terms, published as though the grouping were a
+    property of the corpus rather than a choice made in `config/lexicon.yml`,
+    and a reader could not tell which word moved when one of those lines moved.
+    A term's `register` survives here as an attribute, because the picker groups
+    and colours by it; nothing is counted by it.
     """
-    by_register = lex.by_register()
     return {
         "terms": {
             **{
@@ -133,8 +137,7 @@ def measures(lex: lexicon.Lexicon) -> dict[str, dict[str, dict]]:
             },
             # A derived measure travels with the terms because it is a term's
             # series minus another's and a reader picks it from the same list.
-            # It carries `derived_from` so that list can say so, and it is not a
-            # member of its register's roll-up — see `lexicon.apply`.
+            # It carries `derived_from` so that list can say so.
             **{
                 measure.name: {
                     "tier": measure.tier,
@@ -145,14 +148,6 @@ def measures(lex: lexicon.Lexicon) -> dict[str, dict[str, dict]]:
                 for measure in lex.derived.values()
             },
         },
-        "registers": {
-            register: {
-                "terms": [t.name for t in by_register[register]],
-                "summed": [t.name for t in lexicon.summable(by_register[register], lex.terms)],
-            }
-            for register in sorted(by_register)
-        },
-        "sets": {name: {"members": members} for name, members in lex.sets.items()},
     }
 
 
@@ -609,7 +604,7 @@ def build_change_points(
         for column in ("speeches", "occurrences", "speech_rate", "token_rate"):
             values = frame[column]
             if values.isna().any() or not values.any():
-                continue  # a set carries no occurrence count; see series.measure
+                continue  # a withheld or all-zero column has nothing to split
             breaks = series.change_points(
                 values.to_numpy(dtype=float),
                 periods,
@@ -874,14 +869,10 @@ def inference_lines(inference: dict) -> list[str]:
             "measure, and any break in the raw counts is the Council's growth.",
             "",
         ]
-    elif all(name != "genocide" for name, _ in accepted):
-        lines += [
-            "Only the wider set rejects a single rate. The normalised structure is in the "
-            "atrocity vocabulary as a whole rather than in `genocide` alone; whether that "
-            "wider set is the real object of study is an open question, and this is "
-            "evidence that it may be.",
-            "",
-        ]
+    # The paragraph that used to stand here said "only the wider set rejects a
+    # single rate" whenever `atrocity_core` was accepted and `genocide` was not.
+    # The wider set is gone with lexicon v5, and there is nothing to say in its
+    # place: the tested measure is named on every line above.
     return lines
 
 
@@ -957,12 +948,12 @@ def build_note(
             f"Lexicon version **{lex.version}**, {len(lex.active)} active terms, over "
             f"{len(speeches):,} speeches, {years[0]}-{years[-1]}.",
             "",
-            "A register's occurrences and token rate sum only the members listed as",
-            "`summed` in the artefact: a term declared nested inside another (for example",
-            "`mass_atrocity` inside `atrocity`) is not added on top of the parent that",
-            "already counts its span. `n_lexicon_total` is not the sum of the register",
-            "counts either — a child whose parent sits in another register has nothing to",
-            "double-count there and is counted in full.",
+            "Every series here is one term. Since lexicon v5 there are no register or",
+            "set roll-ups: a line summed over a family of words could not be attributed",
+            "to any of them by the reader watching it move, and the picker has always",
+            "taken several terms at once. R8's genocide-free atrocity corpus is the one",
+            "thing below that spans several terms, and it is a population rather than a",
+            "measure — a speech enters it once however many of the three phrases it uses.",
             "",
             "## `genocide`, per year",
             "",
@@ -1053,7 +1044,7 @@ def run(
     annual, computed = build_series(speeches, lex, "year")
     console.info(
         f"{len(annual['periods'])} years x "
-        f"{sum(len(annual[k]) for k in ('terms', 'registers', 'sets'))} measures"
+        f"{len(annual['terms'])} measures"
     )
 
     console.step("Building quarterly series")

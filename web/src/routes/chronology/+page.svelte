@@ -330,7 +330,7 @@
 				grain === 'year' ? 'series/annual.json' : 'series/quarterly.json'
 			),
 			filters: [
-				`drawn: ${selected.map(label).join(', ')}`,
+				`drawn: ${selected.map(termLabel).join(', ')}`,
 				`unit: ${UNITS.find((u) => u.id === unit)?.label ?? unit}`,
 				`grain: ${grain}`,
 				`events overlay: ${showEvents ? 'on' : 'off'}`
@@ -431,39 +431,38 @@
 		};
 	}
 
-	const allMeasures = $derived<Record<string, Measure & { kind: string }>>({
-		...Object.fromEntries(
-			Object.entries(source.terms).map(([k, v]) => [k, { ...v, kind: 'term' }])
-		),
-		...Object.fromEntries(
-			Object.entries(source.registers).map(([k, v]) => [
-				`register:${k}`,
-				{ ...v, kind: 'register' }
-			])
-		),
-		...Object.fromEntries(
-			Object.entries(source.sets).map(([k, v]) => [`set:${k}`, { ...v, kind: 'set' }])
-		)
-	});
+	const allMeasures = $derived<Record<string, Measure & { kind: string }>>(
+		Object.fromEntries(Object.entries(source.terms).map(([k, v]) => [k, { ...v, kind: 'term' }]))
+	);
 
-	/* The picker, grouped: one group per register holding its terms and the
-	   register itself, then the sets. A coloured edge on a flat list of 32 chips
-	   was "grouped by register" in name only. */
+	/* The picker, grouped: one group per register, holding that register's terms.
+	   The register itself used to be selectable here, and so did four named sets;
+	   R7 removed both, because a line summed over a family of words moves without
+	   telling the reader which word moved it. The grouping survives as the shelf
+	   it always was — a way to find a term, and the colour the term is drawn in.
+	   Each heading now selects its whole shelf as separate lines, which is the
+	   honest version of what clicking `legal` used to do. */
 	const chipGroups = $derived.by(() => {
 		const groups: { heading: string; colour: string; names: string[] }[] = [];
 		for (const register of REGISTER_ORDER) {
 			const names = Object.keys(allMeasures).filter(
-				(name) =>
-					name === `register:${register}` ||
-					(!name.includes(':') && allMeasures[name].register === register)
+				(name) => allMeasures[name].register === register
 			);
 			if (names.length)
 				groups.push({ heading: register, colour: registerColour(register, $colours), names });
 		}
-		const sets = Object.keys(allMeasures).filter((name) => name.startsWith('set:'));
-		if (sets.length) groups.push({ heading: 'sets', colour: $colours.ink, names: sets });
 		return groups;
 	});
+
+	/* Whether a whole shelf is on the chart, and the control that puts it there.
+	   Selecting a register draws its terms as one line each: the reader can see
+	   which of them is moving, and can drop the ones they did not mean. */
+	const allSelected = (names: string[]) => names.every((name) => selected.includes(name));
+	function toggleGroup(names: string[]) {
+		selected = allSelected(names)
+			? selected.filter((name) => !names.includes(name))
+			: [...selected, ...names.filter((name) => !selected.includes(name))];
+	}
 
 	const isRate = $derived(unit === 'speech_rate' || unit === 'token_rate');
 	const unavailable = $derived(
@@ -472,21 +471,10 @@
 		)
 	);
 
-	const label = (name: string) =>
-		name.startsWith('register:')
-			? `${termLabel(name.slice(9))} (register)`
-			: name.startsWith('set:')
-				? `${termLabel(name.slice(4))} (set)`
-				: termLabel(name);
-
 	// A term with no register of its own is drawn in ink, not in the accent: the
 	// accent belongs to what the reader can act on, never to a series.
 	const colourOf = (name: string, p = $colours) =>
-		name.startsWith('register:')
-			? registerColour(name.slice(9), p)
-			: allMeasures[name]?.register
-				? registerColour(allMeasures[name].register!, p)
-				: p.ink;
+		allMeasures[name]?.register ? registerColour(allMeasures[name].register!, p) : p.ink;
 
 	function toggle(name: string) {
 		selected = selected.includes(name) ? selected.filter((n) => n !== name) : [...selected, name];
@@ -529,7 +517,7 @@
 		return {
 			textStyle,
 			// When a legend is needed it lists the lines and not their bands.
-			legend: named ? undefined : { ...legend(p), data: usable.map(label) },
+			legend: named ? undefined : { ...legend(p), data: usable.map(termLabel) },
 			// Two grids: the plot, and under its axis a rail for the reference dates.
 			// A tick on a rail is an annotation; the full-height rules this replaced
 			// were a fence (review of 1 September 2026, §5.2), 35 of them over 32
@@ -571,7 +559,7 @@
 					// interval as a range beside the line's value, not as two rows.
 					const interval = (seriesName: string | undefined, index: number | undefined) => {
 						if (!banded || index == null) return '';
-						const internal = usable.find((n) => label(n) === bandOwner(seriesName ?? ''));
+						const internal = usable.find((n) => termLabel(n) === bandOwner(seriesName ?? ''));
 						const low = internal ? allMeasures[internal].speech_rate_low[index] : null;
 						const high = internal ? allMeasures[internal].speech_rate_high[index] : null;
 						return low == null || high == null
@@ -629,7 +617,7 @@
 				...(banded
 					? usable.flatMap((name) =>
 							intervalBand(
-								label(name),
+								termLabel(name),
 								colourOf(name, p),
 								allMeasures[name].speech_rate_low,
 								allMeasures[name].speech_rate_high
@@ -637,14 +625,14 @@
 						)
 					: []),
 				...usable.map((name): LineSeriesOption => ({
-					name: label(name),
+					name: termLabel(name),
 					type: 'line',
 					data: allMeasures[name][unit] ?? [],
 					symbol: 'circle',
 					symbolSize: grain === 'year' ? 5 : 0,
 					lineStyle: { width: 2.2, color: colourOf(name, p) },
 					itemStyle: { color: colourOf(name, p) },
-					endLabel: named ? endLabel(colourOf(name, p), label(name)) : undefined,
+					endLabel: named ? endLabel(colourOf(name, p), termLabel(name)) : undefined,
 					emphasis: { focus: 'series' }
 				})),
 				// The rail: one scatter series per kind, so a kind can be switched off
@@ -681,11 +669,7 @@
 		{ id: 'delivery_language', label: 'Delivery language' }
 	];
 
-	const seriesNames = (source: typeof data.year) => [
-		...Object.keys(source.terms),
-		...Object.keys(source.registers).map((name) => `register:${name}`),
-		...Object.keys(source.sets).map((name) => `set:${name}`)
-	];
+	const seriesNames = (source: typeof data.year) => Object.keys(source.terms);
 	const urlChoices: ChronologyChoices = $derived.by(() => ({
 		series: { year: seriesNames(data.year), quarter: seriesNames(data.quarter) },
 		calendar: Object.fromEntries(
@@ -850,8 +834,8 @@
 
 	function drillChronology(params: { name?: string; seriesName?: string }) {
 		if (!params.name || !params.seriesName) return;
-		const internal = Object.keys(allMeasures).find((name) => label(name) === params.seriesName);
-		if (!internal || internal.startsWith('set:') || internal.startsWith('register:')) return;
+		const internal = Object.keys(allMeasures).find((name) => termLabel(name) === params.seriesName);
+		if (!internal) return;
 		const year = params.name.slice(0, 4);
 		void goto(`${resolve('/concordance')}?term=${internal}&from=${year}&to=${year}`);
 	}
@@ -1014,15 +998,26 @@
 		     ("pick terms from the list below the chart") a small lie about where
 		     the list was. -->
 		<section class="picker">
-			<h3>Terms</h3>
+			<h3>Terms &mdash; select as many as you like</h3>
 			<p class="hint">
-				Select any number of individual terms; the opening four make the atrocity comparison
-				explicit. Grouped by register. A <strong>set</strong> counts several terms together; a
-				<strong>register</strong> counts every term in one family of vocabulary at once.
+				Every line is one word or one fixed phrase, and the chart adds nothing together: four are
+				drawn to open with, so that the atrocity comparison is explicit rather than implied. Tick
+				more and they are drawn beside each other. Selecting a <strong>register</strong> draws its whole
+				family as separate lines, which is what a family of words can honestly be shown as &mdash; a single
+				line summed over six of them moves without telling you which one moved.
 			</p>
 			{#each chipGroups as group (group.heading)}
 				<div class="chip-group">
-					<span class="group-label" style:--chip={group.colour}>{group.heading}</span>
+					<button
+						class="group-label"
+						class:on={allSelected(group.names)}
+						style:--chip={group.colour}
+						onclick={() => toggleGroup(group.names)}
+						aria-pressed={allSelected(group.names)}
+						title="Draw all {group.names.length} {group.heading} terms as separate lines"
+					>
+						{group.heading}
+					</button>
 					<div class="chips">
 						{#each group.names as name (name)}
 							<button
@@ -1032,7 +1027,7 @@
 								onclick={() => toggle(name)}
 								aria-pressed={selected.includes(name)}
 							>
-								{label(name)}
+								{termLabel(name)}
 							</button>
 						{/each}
 					</div>
@@ -1040,8 +1035,8 @@
 			{/each}
 			{#if unavailable.length}
 				<p class="warn">
-					{unavailable.map(label).join(', ')} cannot be shown in this unit, because a set of terms has
-					no occurrence count of its own. Switch to a share-based unit to see it.
+					{unavailable.map(termLabel).join(', ')} cannot be shown in this unit, because it carries no
+					occurrence count of its own. Switch to a share-based unit to see it.
 				</p>
 			{/if}
 		</section>
@@ -1053,7 +1048,7 @@
 					><tr
 						><th>Period</th
 						>{#each selected.filter((name) => !unavailable.includes(name)) as name (name)}<th
-								class="num">{label(name)}</th
+								class="num">{termLabel(name)}</th
 							>{/each}</tr
 					></thead
 				>
@@ -1171,10 +1166,9 @@
 						the year around it. Months with no rate link too: the minimum applies to the rate, and
 						the lines beneath it are the record itself rather than an estimate drawn from it.
 					{:else}
-						The numbers do not link here. The concordance shows one term at a time, and
+						The numbers do not link here. The concordance holds a file for each term, and
 						<em>{termLabel(gridMeasure)}</em>
-						gathers {gridTerms.length} of them ({gridTerms.map(termLabel).join(', ')}). Select one
-						of those above to open a month's lines.
+						is not one of them. Select a term above to open a month's lines.
 					{/if}
 				</p>
 				<table>
@@ -1229,8 +1223,8 @@
 				<strong>Without</strong> drops {column.excludedYears.join(' and ')}, the two largest years:
 				a seasonal pattern that is one spike seen monthly would not survive.
 				{#if linkable}Each month opens all {byMonth.years.length} instances of it in the concordance.{:else}Months
-					do not link here: <em>{termLabel(gridMeasure)}</em> gathers
-					{gridTerms.length} terms and the concordance shows one at a time.{/if}
+					do not link here: the concordance holds a file per term, and
+					<em>{termLabel(gridMeasure)}</em> is not one.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -1714,14 +1708,32 @@
 		margin-bottom: var(--sp-2);
 	}
 
+	/* A control now, not a caption: it draws the whole shelf as separate lines.
+	   It keeps the caption's typography, because it is still the thing that says
+	   which shelf the chips below it sit on. */
 	.group-label {
 		display: block;
 		margin-bottom: var(--sp-1);
+		padding: 0;
+		border: 0;
+		background: none;
 		font-family: var(--sans);
 		font-size: var(--step--2);
 		font-weight: 700;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
 		color: var(--chip);
+		cursor: pointer;
+	}
+
+	.group-label:hover,
+	.group-label:focus-visible {
+		text-decoration: underline;
+		text-underline-offset: 0.3em;
+	}
+
+	.group-label.on {
+		text-decoration: underline;
+		text-underline-offset: 0.3em;
 	}
 </style>

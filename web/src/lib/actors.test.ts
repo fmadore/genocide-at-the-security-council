@@ -294,16 +294,19 @@ describe('what may be drawn on a map', () => {
 });
 
 describe('figures a measure does not carry', () => {
-	/* `atrocity_core` is a union of overlapping terms. 11_countries.py writes it
-	   with `held`, `speeches` and `speech_rate` and no occurrence count, because
-	   summing the members would count a speech saying two of them twice. Read
-	   through `?? 0`, that withholding is published as 0.00 per 100,000 words. */
-	const union = (rows: CountryMeasureRow[]): Countries => {
+	/* `atrocity_core` was a union of overlapping terms until lexicon v5.
+	   11_countries.py wrote it with `held`, `speeches` and `speech_rate` and no
+	   occurrence count, because summing the members would count a speech saying
+	   two of them twice; read through `?? 0`, that withholding was published as
+	   0.00 per 100,000 words. R7 removed the union and left the detection, which
+	   reads the rows rather than the kind — so a measure that withholds a count
+	   is still handled, and that is what this fixture stands for now. */
+	const withheld = (rows: CountryMeasureRow[]): Countries => {
 		const data = corpus([speaker('Rwanda'), speaker('Kenya')], rows);
-		data.measures.atrocity_core = {
-			kind: 'sets',
-			members: ['genocide', 'war_crimes'],
-			// Written the way 11 writes a set row: the two keys are absent, not null.
+		data.measures.war_crimes = {
+			kind: 'terms',
+			// Written the way a withholding step writes a row: the two keys are
+			// absent, not null.
 			rows: rows.map((source) => {
 				const copy = { ...source };
 				delete copy.occurrences;
@@ -315,25 +318,28 @@ describe('figures a measure does not carry', () => {
 	};
 
 	it('reports what the rows have rather than what the kind implies', () => {
-		const data = union([row('Rwanda'), row('Kenya')]);
+		const data = withheld([row('Rwanda'), row('Kenya')]);
 		expect(carries(data.measures.genocide).occurrences).toBe(true);
-		expect(carries(data.measures.atrocity_core).occurrences).toBe(false);
+		expect(carries(data.measures.war_crimes).occurrences).toBe(false);
 		expect(carries(undefined).occurrences).toBe(false);
 	});
 
 	it('offers a per-token ranking only where there is a per-token figure', () => {
-		const data = union([row('Rwanda'), row('Kenya')]);
+		const data = withheld([row('Rwanda'), row('Kenya')]);
 		expect(orderings(data.measures.genocide)).toContain('token_rate');
-		expect(orderings(data.measures.atrocity_core)).not.toContain('token_rate');
+		expect(orderings(data.measures.war_crimes)).not.toContain('token_rate');
 	});
 
 	it('refuses to rank on the missing figure, and says what it ranked on', () => {
 		// Ranking 133 speakers by a figure none of them has orders them all by
 		// zero and calls the result a ranking.
-		const data = union([row('Rwanda', { speech_rate: 0.28 }), row('Kenya', { speech_rate: 0.11 })]);
+		const data = withheld([
+			row('Rwanda', { speech_rate: 0.28 }),
+			row('Kenya', { speech_rate: 0.11 })
+		]);
 		const result = plan({
 			data,
-			measure: 'atrocity_core',
+			measure: 'war_crimes',
 			period: 'all',
 			order: 'token_rate'
 		});
@@ -342,7 +348,7 @@ describe('figures a measure does not carry', () => {
 	});
 
 	it('keeps the ordering it was asked for when the measure supports it', () => {
-		const data = union([
+		const data = withheld([
 			row('Rwanda', { token_rate: 4 }),
 			row('Kenya', { token_rate: 90, speech_rate: 0.01 })
 		]);
@@ -363,9 +369,9 @@ describe('the link into the concordance', () => {
 
 	it('carries the speaker, the term and the period', () => {
 		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
-		const [link] = occurrences(data, 'genocide', find(data, 'Rwanda'));
-		const params = new URLSearchParams(link.query);
-		expect(link.term).toBe('genocide');
+		const link = occurrences(data, 'genocide', find(data, 'Rwanda'));
+		const params = new URLSearchParams(link!.query);
+		expect(link!.term).toBe('genocide');
 		expect(params.get('country')).toBe('Rwanda');
 		expect(params.get('term')).toBe('genocide');
 		expect(params.get('from')).toBe('1992');
@@ -388,7 +394,7 @@ describe('the link into the concordance', () => {
 			speeches_at_minimum: 20_223
 		});
 		const entry = plan({ data, measure: 'genocide', period: 'recent' }).rows[0];
-		const params = new URLSearchParams(occurrences(data, 'genocide', entry)[0].query);
+		const params = new URLSearchParams(occurrences(data, 'genocide', entry)!.query);
 		expect(params.get('from')).toBe('2020');
 		expect(params.get('to')).toBe('2023');
 	});
@@ -397,53 +403,44 @@ describe('the link into the concordance', () => {
 		// Clearing the minimum and never saying it is a real row: the link would
 		// send a reader to an empty table to learn what the row already said.
 		const data = corpus([speaker('Quiet')], [row('Quiet', { speeches: 0, occurrences: 0 })]);
-		expect(occurrences(data, 'genocide', find(data, 'Quiet'))).toEqual([]);
+		expect(occurrences(data, 'genocide', find(data, 'Quiet'))).toBeNull();
 	});
 
-	it('withholds the link on a set measure too, where there is no occurrence count', () => {
-		// The guard has to be the term-bearing speech count: a set row has no
-		// `occurrences` at all, and `undefined < 1` is false, so a check on the
-		// count would pass every set row through while appearing to check.
+	it('withholds the link on a measure with no occurrence count either', () => {
+		// The guard has to be the term-bearing speech count: a withholding row
+		// has no `occurrences` at all, and `undefined < 1` is false, so a check on
+		// the count would pass every such row through while appearing to check.
 		const data = corpus([speaker('Quiet')], [row('Quiet', { speeches: 0 })]);
-		data.measures.atrocity_core = {
-			kind: 'sets',
-			members: ['genocide', 'war_crimes'],
+		data.measures.war_crimes = {
+			kind: 'terms',
 			rows: [{ ...row('Quiet', { speeches: 0 }), occurrences: undefined, token_rate: undefined }]
 		};
-		expect(occurrences(data, 'atrocity_core', find(data, 'Quiet', 'atrocity_core'))).toEqual([]);
+		expect(occurrences(data, 'war_crimes', find(data, 'Quiet', 'war_crimes'))).toBeNull();
 	});
 
-	it('gives a set one link per member, in the artefact order', () => {
-		// The concordance shows one term. A single link for a five-term set would
-		// present a fifth of the evidence as all of it.
+	it('names the measure it was asked for, not the headline', () => {
 		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
-		data.measures.atrocity_core = {
-			kind: 'sets',
-			members: ['genocide', 'ethnic_cleansing', 'war_crimes'],
-			rows: [row('Rwanda')]
-		};
-		const links = occurrences(data, 'atrocity_core', find(data, 'Rwanda', 'atrocity_core'));
-		expect(links.map((link) => link.term)).toEqual(['genocide', 'ethnic_cleansing', 'war_crimes']);
-		for (const link of links) {
-			expect(new URLSearchParams(link.query).get('country')).toBe('Rwanda');
-		}
+		data.measures.war_crimes = { kind: 'terms', rows: [row('Rwanda')] };
+		const link = occurrences(data, 'war_crimes', find(data, 'Rwanda', 'war_crimes'));
+		expect(link!.term).toBe('war_crimes');
+		expect(new URLSearchParams(link!.query).get('country')).toBe('Rwanda');
 	});
 
 	it('escapes a speaker name the URL would otherwise break on', () => {
 		const name = 'Venezuela (Bolivarian Republic Of)';
 		const data = corpus([speaker(name)], [row(name)]);
-		const [link] = occurrences(data, 'genocide', find(data, name));
-		expect(link.query).toContain('country=Venezuela+%28Bolivarian+Republic+Of%29');
-		expect(new URLSearchParams(link.query).get('country')).toBe(name);
+		const link = occurrences(data, 'genocide', find(data, name));
+		expect(link!.query).toContain('country=Venezuela+%28Bolivarian+Republic+Of%29');
+		expect(new URLSearchParams(link!.query).get('country')).toBe(name);
 	});
 
 	it('offers nothing for a measure or a period the artefact does not have', () => {
 		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
 		const entry = find(data, 'Rwanda');
-		expect(occurrences(data, 'not_a_measure', entry)).toEqual([]);
+		expect(occurrences(data, 'not_a_measure', entry)).toBeNull();
 		expect(
 			occurrences(data, 'genocide', { ...entry, row: { ...entry.row, period: 'ghost' } })
-		).toEqual([]);
+		).toBeNull();
 	});
 });
 

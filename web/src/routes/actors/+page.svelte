@@ -78,11 +78,11 @@
 		selected = null;
 	});
 
-	/* What this measure has a number for. `atrocity_core` is a union of five
-	   overlapping terms, so 11 withholds its occurrence count rather than
-	   double-counting a speech that uses two of them — and a withheld figure read
-	   through `?? 0` is published as `0.00 per 100,000 words`. Everything below
-	   that would print one is gated on this instead. */
+	/* What this measure has a number for. Every measure carries an occurrence
+	   count since lexicon v5 removed the unions, but the gate stays: `11` may
+	   withhold a figure rather than compute a wrong one, and a withheld figure
+	   read through `?? 0` is published as `0.00 per 100,000 words`. Everything
+	   below that would print one is gated on this instead. */
 	const has = $derived(carries(artefact.measures[measure]));
 	const rankings = $derived(orderings(artefact.measures[measure]));
 
@@ -136,9 +136,9 @@
 					row.speech_rate,
 					row.speech_rate_low,
 					row.speech_rate_high,
-					// Two columns a set measure has no figure for. Dropped rather
-					// than written empty: a blank column reads as data that went
-					// missing, and this one was never computed.
+					// Two columns a withholding measure has no figure for. Dropped
+					// rather than written empty: a blank column reads as data that
+					// went missing, and this one was never computed.
 					...(has.occurrences ? [row.occurrences, row.token_rate] : []),
 					row.sufficient,
 					speaker?.mappable ?? null
@@ -171,8 +171,8 @@
 				...(has.occurrences
 					? []
 					: [
-							`occurrences and token rate: withheld — ${termLabel(measure)} is a union of ` +
-								`overlapping terms and a sum would double-count`
+							`occurrences and token rate: withheld — ${termLabel(measure)} is published ` +
+								`without an occurrence count`
 						])
 			],
 			scope:
@@ -198,7 +198,7 @@
 				...(row.speech_rate_low != null && row.speech_rate_high != null
 					? [`95% interval ${percent(row.speech_rate_low)}–${percent(row.speech_rate_high)}`]
 					: []),
-				// Both of these are figures a set measure does not have.
+				// Both of these are figures a withholding measure does not have.
 				...(has.occurrences
 					? [
 							`${decimal(row.token_rate ?? 0)} per ${count(artefact.rate_per_tokens)} words`,
@@ -402,8 +402,8 @@
 				{count(result.under.length)} speakers delivered fewer than
 				{count(result.minimum)} speeches this period and carry no rate: they are not ranked low, they
 				are not ranked.
-				{#if !has.occurrences}<em>{termLabel(measure)}</em> gathers overlapping phrases, so it counts
-					speeches using any of them and has no occurrence total.{/if}
+				{#if !has.occurrences}<em>{termLabel(measure)}</em> is published without an occurrence total,
+					so the rate here is a share of speeches and nothing else.{/if}
 			</p>
 		{/snippet}
 		{#snippet more()}
@@ -534,7 +534,7 @@
 			{/if}
 			<dl>
 				{#each chosen.speakers as entry (entry.speaker.country_org)}
-					{@const links = occurrences(artefact, measure, entry)}
+					{@const link = occurrences(artefact, measure, entry)}
 					<div>
 						<dt>{shortCountry(entry.speaker.country_org)}</dt>
 						<dd>
@@ -558,23 +558,11 @@
 							</a>
 							<span class="interval">model-derived, experimental</span>
 						</dd>
-						{#if links.length === 1}
+						{#if link}
 							<dd class="read">
-								<a class="more" href="{resolve('/concordance')}?{links[0].query}">
+								<a class="more" href="{resolve('/concordance')}?{link.query}">
 									Read the occurrences <Icon icon={ChevronRight} />
 								</a>
-							</dd>
-						{:else if links.length > 1}
-							<!-- The concordance shows one term. A single link for a set would
-							     offer a fifth of the evidence as all of it, so the members are
-							     listed and the reading is term by term. -->
-							<dd class="read">
-								<span>Read them one word at a time:</span>
-								{#each links as link, index (link.term)}<a
-										href="{resolve('/concordance')}?{link.query}">{termLabel(link.term)}</a
-									>{#if index < links.length - 1}<span aria-hidden="true">
-											&middot;
-										</span>{/if}{/each}
 							</dd>
 						{/if}
 					</div>

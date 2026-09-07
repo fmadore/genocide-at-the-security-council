@@ -5,16 +5,42 @@
 # been stripped).
 #
 # `register` groups terms into the discursive families that emerged from the
-# collocate analysis (see docs/CORPUS.md §8.5). There are seven, and the header
-# said "four" until v4 while the file held six: core, legal, preventive,
-# commemorative, contentious, accountability, and — new in v4 — descriptive,
-# the vocabulary of mass violence that names it without qualifying it, which is
-# the vocabulary whose replacement by *genocide* this study is about.
+# collocate analysis (see docs/CORPUS.md §8.5). There are seven: core, legal,
+# preventive, commemorative, contentious, accountability, and — new in v4 —
+# descriptive, the vocabulary of mass violence that names it without qualifying
+# it, which is the vocabulary whose replacement by *genocide* this study is
+# about. Since v5 a register is a **shelf label and nothing else**: it groups
+# and colours the term picker so that a reader can find a word, and nothing is
+# counted per register. A count of *the legal register* was a count of a
+# category this file invented, published as though it were a property of the
+# corpus, and a reader watching that line move could not tell which of six
+# words moved it.
 #
-# `tier` marks how central a term is to the object of study:
+# `tier` marks how central a term is to the object of study, and it is
+# documentation rather than a measure:
 #   core     — the word itself and the phrases built on it
-#   atrocity — the Rome Statute / R2P cluster it travels inside
+#   atrocity — the treaty crimes it travels beside: the offence the 1948
+#              Convention defines, the grave breaches of the 1949 Geneva
+#              Conventions, and crimes against humanity
 #   adjacent — the accountability and memory vocabulary that surrounds both
+#
+# `intensity` is the legal ladder, and it is the one ordering of this
+# vocabulary that can be argued in public and cited to an instrument. It ranks
+# a term by the standing its object has in international law, never by how
+# forceful the word feels: *genocide* is a crime defined by a convention of its
+# own (1948); *war crimes* are the grave breaches the 1949 Geneva Conventions
+# define; *crimes against humanity* are a crime in international law with no
+# dedicated convention behind them; *ethnic cleansing* appears in legal texts
+# as an aggravating qualification of a crime and not as a crime itself; and
+# *atrocity* has no legal existence at all. Higher is further up the ladder,
+# and the ranks are distinct and contiguous, so the ordering is total and every
+# pair of rungs is comparable. Only the five terms whose legal standing the
+# ladder is built on carry one — `mass_atrocity` is nested under `atrocity` and
+# shares its want of standing, so a rung of its own would invent a distinction
+# the instruments do not make, and *impunity*, *the ICC* or *never again* are
+# not qualifications of an event and have no place on a ladder of them. The
+# scale is hand-assigned and reviewed by both coders, so any figure drawn from
+# it is **mixed** under R3 and never computed.
 #
 # `anchor` is new in v4 and is the other half of a term's matching rule. A term
 # with `anchor: sentence` is counted only where the sentence holding the match
@@ -58,6 +84,34 @@
 #
 # Changing this file changes every downstream count. Bump `version` and record
 # what moved.
+#
+# v5 — 2026-09-07
+#   Item R7 of the roadmap. The file stops offering groups of terms as things
+#   to count, and starts saying how the terms it holds stand in law.
+#   - The `sets:` block is gone, and with it every `has_set_*` column. A set
+#     was a *default grouping* chosen here and presented as a measure; the
+#     chronology's picker has always taken several terms at once, so composing
+#     the group is a capability the reader keeps and the file loses. That moves
+#     the choice of what to add together from this file to the person reading
+#     the figure, which is the only place it can be made honestly.
+#   - `r2p_quartet` goes with them, and it is the clearest case. The
+#     responsibility to protect was codified in the early 2000s: it does not
+#     exist in 1992, let alone in 1946, and a line drawn across the whole
+#     corpus under that name projects a category backwards over most of the
+#     record it describes.
+#   - The register and total roll-ups go too — `n_register_*`,
+#     `has_register_*`, `n_lexicon_total`, `n_lexicon_terms`. The review of
+#     1 September 2026 (§3.4) found them double-counting nested terms and v4
+#     repaired the arithmetic; removing the sums retires the fault rather than
+#     maintaining its repair. No term's pattern or anchor changes, so every
+#     occurrence identity, the gold sample and the committed model runs stand,
+#     and `pattern_since` is untouched throughout.
+#   - `intensity` is new, on the five terms whose legal standing it ranks. See
+#     the gloss above.
+#   - The `tier` gloss no longer describes the atrocity terms as "the Rome
+#     Statute / R2P cluster". The corpus opens in 1946; the Rome Statute is
+#     1998. The 1948 and 1949 instruments are the ones a 1946 record could be
+#     read against, and they are what the gloss now names.
 #
 # v4 — 2026-09-02
 #   Item 9 of the review of 1 September 2026 (§3.3, §3.4). Every figure it
@@ -103,8 +157,8 @@
 #   - no `pattern` changed: every term keeps `pattern_since: 2`, so the gold
 #     sample and the committed model runs recorded against v2 remain valid.
 
-version: 4
-updated: 2026-09-02
+version: 5
+updated: 2026-09-07
 
 terms:
   genocide:
@@ -114,6 +168,7 @@ terms:
     tier: core
     register: core
     pattern_since: 2
+    intensity: 5
     note: >
       The node word in every form, and the enumeration everything keyed to an
       occurrence stands on: 6,092 occurrences across 3,273 speeches, the same
@@ -166,6 +221,16 @@ terms:
     tier: atrocity
     register: legal
     pattern_since: 2
+    intensity: 2
+    note: >
+      The second rung of the legal ladder, and the rung that is not a crime.
+      The phrase is all over the instruments — the Commission of Experts on
+      the former Yugoslavia named it, the ICTY judgments discuss it, the
+      Council condemns it by name — but always as a description of what was
+      done and as an aggravating qualification of a crime charged under
+      another head, never as an offence a court can convict of. It stands
+      above `atrocity` because the legal texts use it, and below the three
+      crimes because none of them defines it.
 
   crimes_against_humanity:
     pattern: '\bcrimes?\s+against\s+humanity'
@@ -174,6 +239,14 @@ terms:
     tier: atrocity
     register: legal
     pattern_since: 2
+    intensity: 3
+    note: >
+      A crime in international law, and the lowest of the three because it is
+      the one with no convention of its own: it is constituted by the
+      Nuremberg Charter, by the two ad hoc tribunals' statutes and by article
+      7 of the Rome Statute, and a dedicated treaty has been in draft since
+      2019. The ladder ranks the instrument behind the word, so a crime
+      standing on statutes ranks below two standing on conventions.
 
   war_crimes:
     pattern: '\bwar\s+crimes?\b'
@@ -182,6 +255,14 @@ terms:
     tier: atrocity
     register: legal
     pattern_since: 2
+    intensity: 4
+    note: >
+      The grave breaches of the four Geneva Conventions of 1949 and of their
+      1977 protocols: a body of treaty law rather than the single instrument
+      `genocide` stands on, which is why it takes the rung below it and above
+      crimes against humanity. R8's caveat belongs here too — the phrase is
+      specific where *war* and *crimes* separately are not, and that is why
+      the pattern matches the phrase and never its parts.
 
   mass_atrocity:
     pattern: '\bmass\s+atrocit(?:y|ies)\b'
@@ -199,6 +280,14 @@ terms:
     tier: adjacent
     register: legal
     pattern_since: 2
+    intensity: 1
+    note: >
+      The bottom of the ladder, and the reason the ladder is built on legal
+      standing rather than on force. *Atrocity* is as strong a word as the
+      Council owns and it has no legal existence whatever: no instrument
+      defines it, no court convicts of it, and a delegation reaching for it
+      commits itself to nothing. `mass_atrocity` is nested inside it and takes
+      no rung of its own — the qualifier adds emphasis, not standing.
 
   extermination:
     pattern: '\bexterminat\w*'
@@ -520,13 +609,3 @@ derived:
       is what the concordance enumerates, so the difference is always one
       subtraction away and the evidence for it is 31 readable lines under
       `genocidaires`.
-
-# Convenience groupings used by the dashboard's filter chips.
-sets:
-  core: [genocide, genocide_convention, prevention_of_genocide, genocidal_ideology]
-  atrocity_core: [genocide, ethnic_cleansing, crimes_against_humanity, war_crimes, mass_atrocity]
-  rome_triad: [genocide, war_crimes, crimes_against_humanity]
-  r2p_quartet: [genocide, war_crimes, crimes_against_humanity, ethnic_cleansing]
-  # The vocabulary that names mass violence without qualifying it, beside the
-  # word that qualifies it. The contrast the study is built on.
-  qualification: [genocide, massacre, mass_killing]

@@ -268,12 +268,11 @@ def run(scope: str, indent: int | None) -> None:
 
     lex = lexicon.load()
     flags = [f"{lexicon.HAS}{t.name}" for t in lex.active]
-    # The per-term counts, not `n_lexicon_total`. Neither is exported; both are
-    # read so the run can check its own offsets against what 03 recorded, rather
-    # than trusting that two passes of the same regexes agree. The offsets are
-    # per term — a "mass atrocity" is highlighted as `mass_atrocity` and as
-    # `atrocity`, two entries over one span — where the total counts a term
-    # nested inside another only once, so only the per-term counts compare.
+    # The per-term counts. Not exported: they are read so the run can check its
+    # own offsets against what 03 recorded, rather than trusting that two passes
+    # of the same regexes agree. The offsets are per term — a "mass atrocity" is
+    # highlighted as `mass_atrocity` and as `atrocity`, two entries over one
+    # span — and since lexicon v5 there is no total to compare against anyway.
     term_counts = [f"{lexicon.COUNT}{t.name}" for t in lex.active]
 
     console.step("Reading")

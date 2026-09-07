@@ -146,6 +146,73 @@ class TestDifferences:
         ]
 
 
+class TestNoMeasureSumsOverTerms:
+    """R7's rule, at the seam the payload leaves by.
+
+    The shape check cannot make this one: a revived `registers` block is a
+    well-formed object, and the contract treats a lexicon-keyed collection as
+    opaque on purpose, so that adding a term is not a breaking change. What is
+    refused here is what is *in* it.
+    """
+
+    def test_the_committed_contract_declares_no_grouped_block(self):
+        """The contract is the payload's shape, so a roll-up that came back
+        would be visible here on a fresh checkout, with no data present."""
+        promised = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        found = [line for shape in promised.values() for line in contract.roll_ups(shape)]
+        assert found == []
+
+    def test_a_register_column_is_refused_wherever_it_sits(self):
+        document = {"rows": [{"has_register_legal": True, "n_register_legal": 3}]}
+        assert [line.split(" is ")[0] for line in contract.roll_ups(document)] == [
+            "rows[0].has_register_legal",
+            "rows[0].n_register_legal",
+        ]
+
+    def test_a_block_of_measures_keyed_by_group_is_refused(self):
+        assert list(contract.roll_ups({"registers": {}, "sets": {}})) == [
+            "registers is a measure over more than one term",
+            "sets is a measure over more than one term",
+        ]
+
+    def test_a_measure_that_calls_itself_a_group_is_refused(self):
+        document = {"measures": {"atrocity_core": {"kind": "sets", "rows": []}}}
+        assert list(contract.roll_ups(document)) == [
+            "measures.atrocity_core.kind declares the measure a group of terms: 'sets'"
+        ]
+
+    def test_a_measure_naming_the_terms_it_stands_for_is_refused(self):
+        document = {"measures": {"x": {"members": ["genocide", "war_crimes"]}}}
+        assert list(contract.roll_ups(document)) == [
+            "measures.x.members names 2 terms one measure stands for"
+        ]
+
+    def test_a_population_may_name_its_members(self):
+        """The distinction the whole rule turns on. R8's genocide-free corpus is
+        a set of speeches selected by a predicate over three phrases, and each
+        speech enters it once however many of them it uses; naming them is the
+        disclosure, not the fault. A measure that added the three together would
+        be the fault, and has no `corpora` above it."""
+        document = {
+            "corpora": {
+                "genocide_free_atrocity": {
+                    "members": ["ethnic_cleansing", "crimes_against_humanity", "war_crimes"],
+                    "excludes": ["genocide"],
+                    "speeches": [4, 5],
+                }
+            }
+        }
+        assert list(contract.roll_ups(document)) == []
+
+    def test_a_roll_up_hidden_inside_a_population_is_still_refused(self):
+        """The exemption is for naming a predicate's terms, not for anything
+        that happens to sit under `corpora`."""
+        document = {"corpora": {"x": {"n_register_legal": 3}}}
+        assert list(contract.roll_ups(document)) == [
+            "corpora.x.n_register_legal is a measure over more than one term"
+        ]
+
+
 class TestCommittedContract:
     """The file itself, checked without any data present.
 

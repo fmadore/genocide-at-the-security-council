@@ -247,9 +247,11 @@ removing a term is therefore a recorded decision, not a configuration tweak.
 
 What follows from that, worth knowing before you start:
 
-- **Every downstream number changes**, including ones that do not mention the new term: a
-  register or set that the term joins is recounted, and so is anything measured against the
-  corpus as a whole.
+- **Every downstream number the term enters changes**, and no others. Since lexicon v5
+  nothing sums over more than one term, so adding a word moves that word's series and the
+  figures measured against the corpus as a whole, and leaves every other term's series
+  exactly where it was. A `register` is a shelf label for grouping and colouring the term
+  picker; it is not a column, and joining one recounts nothing.
 - **Measure the change before you commit it.** `data/` is not in the repository, but the
   corpus is a parquet file and `lib.lexicon.apply` is one call: applying the edited
   lexicon to `speeches_norm.parquet` in a throwaway script says exactly what moved, per
@@ -263,14 +265,22 @@ What follows from that, worth knowing before you start:
   in the `derived` block instead: `from` a term, `minus` one or more terms declared
   `nested_under` it, and `lib/lexicon.py::apply` writes `n_<name>` and `has_<name>` as the
   subtraction. That is how v4 took the actor label out of the headline without touching
-  `genocide`'s pattern. A derived measure has no pattern, enumerates no occurrence, gets
-  no concordance file and enters no register or total roll-up; it is a statement about a
-  figure, and the subtraction is only sound where the subtrahends partition the minuend,
-  which the tests assert and `apply` re-checks at runtime.
+  `genocide`'s pattern. A derived measure has no pattern, enumerates no occurrence and gets
+  no concordance file; it is a statement about a figure, and the subtraction is only sound
+  where the subtrahends partition the minuend, which the tests assert and `apply` re-checks
+  at runtime. It is also the only arithmetic in the pipeline that reads two terms at once,
+  and it subtracts rather than adds — see the note on `sets` below.
 - **A new `register` needs a hue.** `web/src/lib/theme.ts::REGISTER_ORDER` and the
   `--reg-*` custom properties in `web/src/app.css` are the two places that decide it;
   without an entry a register falls back to ink and collides with `core`. This is the one
   lexicon edit the dashboard does not absorb by itself.
+- **There is no `sets:` block, and the loader refuses one.** It was removed at v5 by item R7
+  of [`../docs/IMPROVEMENT_ROADMAP.md`](../docs/IMPROVEMENT_ROADMAP.md), with the register
+  and total roll-ups. A named group of terms published as a measure is a grouping this file
+  chose on the reader's behalf, and a line summed over six words moves without saying which
+  word moved it. The chronology's picker takes any number of terms at once, so composing a
+  group is the reader's to do; `export_web.py` refuses a payload that carries such a measure,
+  so a revival fails at the seam as well as at the loader.
 - **Existing annotations do not carry over automatically across an incompatible pattern
   change.** That is the A2 rule in
   [`../docs/IMPROVEMENT_ROADMAP.md`](../docs/IMPROVEMENT_ROADMAP.md): an occurrence ID is
@@ -282,8 +292,8 @@ What follows from that, worth knowing before you start:
   `kwic/index.json`, and no view hardcodes a term. A new term appears in the selects, the
   chronology measures and the co-occurrence network on its own.
 - **The contract should not need editing either.** It tracks one representative term file
-  rather than all twenty-two, and the lexicon-keyed collections — `terms`, `registers`,
-  `sets`, `measures`, `series`, speech `hits` — are contracted on presence and type only,
+  rather than all twenty-two, and the lexicon-keyed collections — `terms`, `measures`,
+  `series`, speech `hits` — are contracted on presence and type only,
   precisely so an ordinary lexicon edit does not read as a breaking change. Run
   `python -m pytest tests/test_contract.py` to prove it rather than assuming it; if it does
   fail, that is a real shape change and `python scripts/export_web.py --update-contract` is

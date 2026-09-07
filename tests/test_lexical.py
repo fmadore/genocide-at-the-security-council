@@ -288,8 +288,7 @@ class TestPmiNetwork:
             version=1,
             updated="2026-08-07",
             terms={n: term(n, n) for n in names},
-            sets={},
-        )
+            )
 
     def test_two_terms_that_always_travel_together(self):
         frame = pd.DataFrame(
@@ -338,7 +337,7 @@ class TestPmiNetwork:
             nested_under="parent",
             regex=re.compile("child"),
         )
-        lex = Lexicon(version=1, updated="2026-08-09", terms={"parent": parent, "child": child}, sets={})
+        lex = Lexicon(version=1, updated="2026-08-09", terms={"parent": parent, "child": child})
         frame = pd.DataFrame({"has_parent": [True] * 4, "has_child": [True] * 4})
         assert lexical.pmi_network(frame, lex, min_speeches=1) == []
 
@@ -472,7 +471,7 @@ class TestDefinitionalPairs:
             examples=("war crimes",), regex=re.compile(r"\bwar\s+crimes?\b", re.IGNORECASE),
         )
         lex = Lexicon(
-            version=1, updated="x", terms={"genocide": genocide, "denial": denial, "war_crimes": war}, sets={}
+            version=1, updated="x", terms={"genocide": genocide, "denial": denial, "war_crimes": war}
         )
         pairs = lexical.definitional_pairs(lex)
         assert [(p["source"], p["target"]) for p in pairs] == [("genocide", "denial")]

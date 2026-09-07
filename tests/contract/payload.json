@@ -17,31 +17,28 @@
   "iso3_collisions": {},
   "measures": {
    "*": {
-    "derived_from?": "str",
-    "derived_minus?": [
+    "derived_from": "str",
+    "derived_minus": [
      "str"
     ],
     "kind": "str",
-    "members?": [
-     "str"
-    ],
-    "register?": "str",
+    "register": "str",
     "rows": [
      {
       "country_org": "str",
       "held": "int",
-      "occurrences?": "int",
+      "occurrences": "int",
       "period": "str",
       "speech_rate": "float|null",
       "speech_rate_high": "float|null",
       "speech_rate_low": "float|null",
       "speeches": "int",
       "sufficient": "bool",
-      "token_rate?": "float|null",
+      "token_rate": "float|null",
       "words": "int"
      }
     ],
-    "tier?": "str"
+    "tier": "str"
    }
   },
   "meta": {
@@ -1634,53 +1631,6 @@
   "periods": [
    "int"
   ],
-  "registers": {
-   "*": {
-    "occurrences": [
-     "int"
-    ],
-    "speech_rate": [
-     "float"
-    ],
-    "speech_rate_high": [
-     "float"
-    ],
-    "speech_rate_low": [
-     "float"
-    ],
-    "speeches": [
-     "int"
-    ],
-    "summed": [
-     "str"
-    ],
-    "terms": [
-     "str"
-    ],
-    "token_rate": [
-     "float"
-    ]
-   }
-  },
-  "sets": {
-   "*": {
-    "members": [
-     "str"
-    ],
-    "speech_rate": [
-     "float"
-    ],
-    "speech_rate_high": [
-     "float"
-    ],
-    "speech_rate_low": [
-     "float"
-    ],
-    "speeches": [
-     "int"
-    ]
-   }
-  },
   "terms": {
    "*": {
     "derived_from?": "str",
@@ -1722,13 +1672,13 @@
       {
        "category": "str",
        "held": "int",
-       "occurrences?": "int",
+       "occurrences": "int",
        "period": "int",
        "speech_rate": "float",
        "speech_rate_high": "float",
        "speech_rate_low": "float",
        "speeches": "int",
-       "token_rate?": "float"
+       "token_rate": "float"
       }
      ]
     },
@@ -1740,13 +1690,13 @@
       {
        "category": "str",
        "held": "int",
-       "occurrences?": "int",
+       "occurrences": "int",
        "period": "int",
        "speech_rate": "float",
        "speech_rate_high": "float",
        "speech_rate_low": "float",
        "speeches": "int",
-       "token_rate?": "float"
+       "token_rate": "float"
       }
      ]
     },
@@ -1758,13 +1708,13 @@
       {
        "category": "str",
        "held": "int",
-       "occurrences?": "int",
+       "occurrences": "int",
        "period": "int",
        "speech_rate": "float",
        "speech_rate_high": "float",
        "speech_rate_low": "float",
        "speeches": "int",
-       "token_rate?": "float"
+       "token_rate": "float"
       }
      ]
     },
@@ -1776,13 +1726,13 @@
       {
        "category": "str",
        "held": "int",
-       "occurrences?": "int",
+       "occurrences": "int",
        "period": "int",
        "speech_rate": "float",
        "speech_rate_high": "float",
        "speech_rate_low": "float",
        "speeches": "int",
-       "token_rate?": "float"
+       "token_rate": "float"
       }
      ]
     },
@@ -1794,13 +1744,13 @@
       {
        "category": "str",
        "held": "int",
-       "occurrences?": "int",
+       "occurrences": "int",
        "period": "int",
        "speech_rate": "float",
        "speech_rate_high": "float",
        "speech_rate_low": "float",
        "speeches": "int",
-       "token_rate?": "float"
+       "token_rate": "float"
       }
      ]
     },
@@ -1812,13 +1762,13 @@
       {
        "category": "str",
        "held": "int",
-       "occurrences?": "int",
+       "occurrences": "int",
        "period": "int",
        "speech_rate": "float",
        "speech_rate_high": "float",
        "speech_rate_low": "float",
        "speeches": "int",
-       "token_rate?": "float"
+       "token_rate": "float"
       }
      ]
     }
@@ -1894,7 +1844,7 @@
       "p_value_independent": "float",
       "ratio": "float"
      },
-     "token_rate?": {
+     "token_rate": {
       "accepted": "bool",
       "after": "float",
       "after_ci95": [
@@ -1966,7 +1916,7 @@
   },
   "series": {
    "*": {
-    "occurrences?": [
+    "occurrences": [
      {
       "after": "float",
       "before": "float",
@@ -2005,7 +1955,7 @@
       "ratio": "float"
      }
     ],
-    "token_rate?": [
+    "token_rate": [
      {
       "after": "float",
       "before": "float",
@@ -2171,7 +2121,7 @@
       "held": [
        "int"
       ],
-      "occurrences?": [
+      "occurrences": [
        "int"
       ],
       "speech_rate": [
@@ -2189,7 +2139,7 @@
       "sufficient": [
        "bool"
       ],
-      "token_rate?": [
+      "token_rate": [
        "float"
       ],
       "words": [
@@ -2200,13 +2150,10 @@
       "int"
      ],
      "kind": "str",
-     "members?": [
-      "str"
-     ],
-     "occurrences?": [
+     "occurrences": [
       "int"
      ],
-     "register?": "str",
+     "register": "str",
      "speech_rate": [
       "float"
      ],
@@ -2222,14 +2169,8 @@
      "sufficient": [
       "bool"
      ],
-     "summed?": [
-      "str"
-     ],
-     "terms?": [
-      "str"
-     ],
-     "tier?": "str",
-     "token_rate?": [
+     "tier": "str",
+     "token_rate": [
       "float"
      ],
      "words": [
@@ -2248,53 +2189,6 @@
   "periods": [
    "str"
   ],
-  "registers": {
-   "*": {
-    "occurrences": [
-     "int"
-    ],
-    "speech_rate": [
-     "float|null"
-    ],
-    "speech_rate_high": [
-     "float|null"
-    ],
-    "speech_rate_low": [
-     "float|null"
-    ],
-    "speeches": [
-     "int"
-    ],
-    "summed": [
-     "str"
-    ],
-    "terms": [
-     "str"
-    ],
-    "token_rate": [
-     "float|null"
-    ]
-   }
-  },
-  "sets": {
-   "*": {
-    "members": [
-     "str"
-    ],
-    "speech_rate": [
-     "float|null"
-    ],
-    "speech_rate_high": [
-     "float|null"
-    ],
-    "speech_rate_low": [
-     "float|null"
-    ],
-    "speeches": [
-     "int"
-    ]
-   }
-  },
   "sufficient": [
    "bool"
   ],
@@ -2401,53 +2295,6 @@
   "periods": [
    "str"
   ],
-  "registers": {
-   "*": {
-    "occurrences": [
-     "int"
-    ],
-    "speech_rate": [
-     "float"
-    ],
-    "speech_rate_high": [
-     "float"
-    ],
-    "speech_rate_low": [
-     "float"
-    ],
-    "speeches": [
-     "int"
-    ],
-    "summed": [
-     "str"
-    ],
-    "terms": [
-     "str"
-    ],
-    "token_rate": [
-     "float"
-    ]
-   }
-  },
-  "sets": {
-   "*": {
-    "members": [
-     "str"
-    ],
-    "speech_rate": [
-     "float"
-    ],
-    "speech_rate_high": [
-     "float"
-    ],
-    "speech_rate_low": [
-     "float"
-    ],
-    "speeches": [
-     "int"
-    ]
-   }
-  },
   "terms": {
    "*": {
     "derived_from?": "str",
