@@ -158,11 +158,16 @@
 	});
 </script>
 
+<!-- `tabindex="-1"` for the same reason `#top` in the layout carries it: a
+     fragment link moves the viewport, but only a focusable target moves the
+     focus with it, and a reader who reaches the last figure from the contents
+     must carry on tabbing from that figure rather than from the first one. -->
 <figure
 	bind:this={element}
 	class="figure"
 	class:fullscreen-open={expanded}
 	id={figureId({ title, id })}
+	tabindex="-1"
 >
 	<figcaption class="head">
 		<div class="title-row">

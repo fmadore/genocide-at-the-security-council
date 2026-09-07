@@ -64,6 +64,24 @@
 	   scope changes nothing. */
 	const SCOPED = ['/chronology', '/actors', '/concordance'] as const;
 	const isScoped = $derived(isReader || SCOPED.some((href) => isCurrent(href)));
+
+	/* The masthead's height, published for whatever else has to stick under it.
+	   It is measured rather than declared because the row wraps: seven sections,
+	   a basket and a theme toggle are one line at 82rem and four at 375px, and a
+	   contents band told the wrong number covers the page or floats over it. */
+	let masthead = $state.raw<HTMLElement>();
+
+	$effect(() => {
+		if (!masthead) return;
+		const observer = new ResizeObserver(([entry]) => {
+			document.documentElement.style.setProperty(
+				'--masthead-h',
+				`${entry.target.getBoundingClientRect().height}px`
+			);
+		});
+		observer.observe(masthead);
+		return () => observer.disconnect();
+	});
 </script>
 
 <svelte:head>
@@ -82,7 +100,7 @@
 
 <a class="skip" href="#main">Skip to content</a>
 
-<header class="masthead">
+<header class="masthead" bind:this={masthead}>
 	<div class="inner">
 		<a class="wordmark" href={resolve('/')}>
 			<strong><mark>Genocide</mark> at the Security Council</strong>

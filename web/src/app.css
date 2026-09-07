@@ -84,7 +84,15 @@
 	--dur: 160ms;
 	--ease: cubic-bezier(0.2, 0, 0, 1);
 	--z-masthead: 100;
+	--z-contents: 90;
 	--z-popover: 200;
+
+	/* What is stuck to the top of the window. The masthead wraps, so its height
+	   is measured in `+layout.svelte`; these are the values a reader without
+	   scripts, or the first paint, gets. `--contents-h` is zero on the views
+	   that carry no contents band, which is what `Contents.svelte` restores. */
+	--masthead-h: 3.4rem;
+	--contents-h: 0px;
 
 	color-scheme: light;
 }
@@ -214,6 +222,9 @@ html {
 	font-size: 106.25%;
 	-webkit-text-size-adjust: 100%;
 	scrollbar-color: var(--rule-strong) var(--paper);
+	/* Where a jump to an anchor stops. Without it every deep link on the site
+	   parks its figure's title behind the masthead. */
+	scroll-padding-top: calc(var(--masthead-h) + var(--contents-h) + var(--sp-3));
 }
 
 body {

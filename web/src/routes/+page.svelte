@@ -4,6 +4,7 @@
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
+	import Contents from '$lib/Contents.svelte';
 	import Figure from '$lib/Figure.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import PageMeta from '$lib/PageMeta.svelte';
@@ -90,6 +91,16 @@
 		speakers: (data.series.meta.speakers as number) ?? 0
 	});
 
+	/* The two titles, written once: the figures carry them and so does the
+	   contents, and a slug derived from two copies of a string is a deep link
+	   waiting to break. An en dash rather than `&ndash;`, because these are
+	   values now and not markup. */
+	const period = $derived(`${years[0]}–${years[years.length - 1]}`);
+	const FIGURES = $derived([
+		{ title: `Occurrences and share of speeches, ${period}` },
+		{ title: `The vocabulary, word by word, ${period}` }
+	]);
+
 	const densest = $derived(years[genocide.speech_rate.indexOf(Math.max(...genocide.speech_rate))]);
 	const loudest = $derived(
 		years[(genocide.occurrences ?? []).indexOf(Math.max(...(genocide.occurrences ?? [])))]
@@ -125,7 +136,11 @@
 				{
 					...axisY(p),
 					type: 'value',
-					name: 'share of speeches',
+					// The base, on the axis. A second reader of this page took this
+					// line for a share of the speeches that used the word rather than
+					// of the speeches held, having been told otherwise at length in the
+					// prose beside it — so the correction belongs where the eye is.
+					name: 'share of all speeches held that year',
 					nameTextStyle: { color: p.inkFaint, fontSize: 11, align: 'right' },
 					splitLine: { show: false },
 					axisLabel: {
@@ -241,6 +256,17 @@
 		).sort((a, b) => b[1] - a[1])
 	);
 
+	/* Read in place of the drawing, and it names the base too: an accessible
+	   description that stops at "the share of speeches" leaves the reader who
+	   cannot see the axis with exactly the ambiguity the axis was rewritten to
+	   remove. */
+	const contrastDescription = $derived(
+		`Bar and line chart, ${period}. Bars count occurrences of the word by year; the line is ` +
+			`the share of all speeches held that year that used it, highest in ${densest}. ` +
+			`Across the corpus that is ${count(totals.bearing)} of ${count(totals.speeches)} speeches, ` +
+			`${percent(totals.bearing / totals.speeches)}.`
+	);
+
 	function drillYear(params: { name?: string }) {
 		if (!params.name) return;
 		void goto(`${resolve('/concordance')}?term=genocide&from=${params.name}&to=${params.name}`);
@@ -273,8 +299,8 @@
 			<dt class="label">Speeches using <code>genocid*</code></dt>
 			<dd>{count(totals.bearing)}</dd>
 			<p>
-				{percent(totals.bearing / totals.speeches)} of the corpus; the asterisk catches
-				<em>genocide</em>, <em>genocidal</em> and <em>genocides</em> alike
+				{percent(totals.bearing / totals.speeches)} of all {count(totals.speeches)} speeches; the asterisk
+				catches <em>genocide</em>, <em>genocidal</em> and <em>genocides</em> alike
 			</p>
 		</div>
 		<div>
@@ -288,6 +314,8 @@
 			<p>the largest proportion of speeches; {loudest} had the most occurrences</p>
 		</div>
 	</dl>
+
+	<Contents figures={FIGURES} />
 
 	<section class="finding">
 		<h2>Why {loudest} tops the raw count</h2>
@@ -308,7 +336,7 @@
 	<Figure
 		fullscreen
 		onfullscreenchange={() => contrastFigure?.resize()}
-		title="Occurrences and share of speeches, {years[0]}&ndash;{years[years.length - 1]}"
+		title={FIGURES[0].title}
 		question="Did the Council come to talk about genocide more, or simply to talk more?"
 		source="04_series.py → series/annual.json, series/change_points.json"
 		download={{
@@ -323,8 +351,7 @@
 		{#snippet reading()}
 			<p>
 				<strong>Bars</strong> count qualifying uses of <code>genocid*</code> in a year (left axis);
-				the <strong>line</strong> is the share of that year's speeches using it (right axis). Select a
-				year for its lines.
+				the <strong>line</strong> is the share the right axis names. Select a year for its lines.
 			</p>
 			<p>
 				{#if rateInference?.accepted}A test allowing for the Council's growth splits the share at
@@ -347,7 +374,7 @@
 			bind:this={contrastFigure}
 			option={contrast}
 			height="400px"
-			description="Bar and line chart. Occurrences of genocide peak in 2014 while the share of speeches peaks in 1994."
+			description={contrastDescription}
 			onclick={drillYear}
 		/>
 		<details class="data-table">
@@ -390,10 +417,12 @@
 
 	<Figure
 		fullscreen
-		title="The vocabulary, word by word, {years[0]}&ndash;{years[years.length - 1]}"
+		title={FIGURES[1].title}
 		question="Does the word displace the other things the Council could call it?"
 		source="04_series.py → series/annual.json"
-		note="Each row is scaled to its own maximum · the number at the right is the share across the whole period"
+		note="Each row is scaled to its own maximum · the number at the right is the share of all {count(
+			totals.speeches
+		)} speeches in the period"
 		download={{
 			name: ['unsc', 'vocabulary-word-by-word'],
 			table: () => annualTable('The vocabulary, word by word', [`drawn: ${drawn.join(', ')}`])
@@ -421,7 +450,7 @@
 			periods={years}
 			events={eventTicks}
 			eventsLabel="{data.overlay.events.length} reference dates"
-			description="One row per word, each showing the share of speeches per year that use it, scaled to its own maximum."
+			description="One row per word, each the share of all speeches held that year that use it, scaled to its own maximum."
 		/>
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View the drawn shares as a table</summary>
