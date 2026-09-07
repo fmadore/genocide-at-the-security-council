@@ -448,19 +448,20 @@ describe('the link into the concordance', () => {
 /**
  * The file the "Read the occurrences" link asks for, against the files that exist.
  *
- * `countries.json` publishes one measure, and it is the derived
- * `genocide_qualification`. `08_kwic.py` writes a concordance per active
- * lexicon term and a derived measure is not one — `config/lexicon.yml` says it
- * "appears in no concordance" — so a link that named the measure named a file
- * that was never written, on every row of this table. The URL was well formed
- * and the failure waited for a reader's click, which is why the check here is
- * the concordance index rather than the artefact.
+ * `countries.json` opens on the derived `genocide_qualification`. `08_kwic.py`
+ * writes a concordance per active lexicon term and a derived measure is not one
+ * — `config/lexicon.yml` says it "appears in no concordance" — so a link that
+ * named the measure named a file that was never written, on every row of this
+ * table. The URL was well formed and the failure waited for a reader's click,
+ * which is why the check here is the concordance index rather than the
+ * artefact. The raw term is published beside the derived measure and resolves
+ * to itself, which is the case that must keep working unchanged.
  */
 describe('every link the actor table offers names a concordance that exists', () => {
 	/** What `kwic/index.json` lists, in miniature: a file per term, nothing derived. */
 	const HELD = new Set(['genocide', 'genocidaires', 'war_crimes']);
 
-	/** The published shape: the derived headline, beside the raw term it subtracts from. */
+	/** The published shape: the derived headline first, then the raw term it subtracts from. */
 	const published = () => {
 		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
 		data.measures = {
@@ -468,8 +469,9 @@ describe('every link the actor table offers names a concordance that exists', ()
 				kind: 'terms',
 				derived_from: 'genocide',
 				derived_minus: ['genocidaires'],
-				rows: [row('Rwanda')]
-			}
+				rows: [row('Rwanda', { speeches: 25, occurrences: 60 })]
+			},
+			genocide: { kind: 'terms', rows: [row('Rwanda', { speeches: 27, occurrences: 66 })] }
 		};
 		return data;
 	};
@@ -477,7 +479,7 @@ describe('every link the actor table offers names a concordance that exists', ()
 	it.each(['genocide', 'genocide_qualification'])(
 		'%s opens lines the concordance has a file for',
 		(name) => {
-			const data = name === 'genocide' ? corpus([speaker('Rwanda')], [row('Rwanda')]) : published();
+			const data = published();
 			const entry = plan({ data, measure: name, period: 'all' }).rows[0];
 			const link = occurrences(data, name, entry)!;
 			expect(HELD).toContain(link.term);
@@ -494,14 +496,42 @@ describe('every link the actor table offers names a concordance that exists', ()
 	});
 
 	// The link opens a superset, and this is what the interface names it by.
-	// `countries.json` carries no row for the subtrahend, so the size of the
-	// difference is not stateable here and is not stated: the chronology reads
-	// it off `series/monthly.json`, which does carry one.
 	it('names the term whose lines open and what they hold beyond the measure', () => {
 		const wider = widening(published(), 'genocide_qualification')!;
 		expect(wider.term).toBe('genocide');
 		expect(wider.subtracted).toEqual(['genocidaires']);
 		expect(widening(published(), 'genocide')).toBeNull();
+	});
+
+	/* The two figures are different quantities and the difference matters: an
+	   occurrence removed is removed, while a speech leaves the count only if the
+	   subtracted term was its sole match. Both are read off the published rows,
+	   so a re-cut corpus moves them and no component holds a literal. */
+	it('sizes the subtraction from the rows the artefact publishes', () => {
+		const wider = widening(published(), 'genocide_qualification')!;
+		expect(wider.occurrences).toBe(6);
+		expect(wider.speeches).toBe(2);
+	});
+
+	it('states no size where the artefact does not carry the term subtracted from', () => {
+		const data = published();
+		delete data.measures.genocide;
+		const wider = widening(data, 'genocide_qualification')!;
+		expect(wider.term).toBe('genocide');
+		expect(wider.occurrences).toBeNull();
+		expect(wider.speeches).toBeNull();
+	});
+
+	/* A withheld occurrence count is a deliberate silence, and subtracting
+	   through `?? 0` would publish it as a difference of exactly the minuend. */
+	it('withholds the occurrence difference when either measure withholds a count', () => {
+		const data = published();
+		const bare = row('Rwanda', { speeches: 27 });
+		delete bare.occurrences;
+		data.measures.genocide = { kind: 'terms', rows: [bare] };
+		const wider = widening(data, 'genocide_qualification')!;
+		expect(wider.occurrences).toBeNull();
+		expect(wider.speeches).toBe(2);
 	});
 });
 

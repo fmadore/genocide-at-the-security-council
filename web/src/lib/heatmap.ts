@@ -258,12 +258,18 @@ export function termsOf(data: MonthlySeries, measure: string): string[] {
  * clicked a figure of the one and read the lines of the other would be counting
  * evidence the figure excluded.
  *
- * The size is read off the subtracted terms' own published rows rather than
- * written into a component, so a later corpus moves it. It is withheld — null,
- * never a sum — where more than one term is subtracted or one of them withholds
- * its occurrence count: two subtrahends' speech counts cannot be added, because
- * a speech bearing both would be counted twice, which is the double count that
- * kept `atrocity_core` from publishing an occurrence figure at all.
+ * The size is the difference between the two published measures, not the
+ * subtracted term's own totals, and the distinction is not pedantic: on this
+ * corpus `genocidaires` appears in 13 speeches, but only 3 of them leave the
+ * derived measure, because the other 10 also say the word in some other form
+ * and are still counted. Reading the subtrahend's rows would have overstated
+ * what the figure removes by a factor of four. Occurrences happen to agree —
+ * every `genocidaires` span is removed — which is exactly why the speech
+ * figure looked right when it was not.
+ *
+ * Both are read off published rows rather than written into a component, so a
+ * later corpus moves them, and either is withheld — null, never a guess —
+ * where the measures it needs do not both publish the count.
  */
 export interface Widening {
 	/** The term whose concordance actually opens. */
@@ -278,15 +284,19 @@ export interface Widening {
 export function widening(data: MonthlySeries, measure: string): Widening | null {
 	const found = data.terms[measure];
 	if (!found?.derived_from) return null;
-	const subtracted = found.derived_minus ?? [];
-	const only = subtracted.length === 1 ? data.terms[subtracted[0]] : undefined;
+	const from = data.terms[found.derived_from];
 	const total = (values: number[] | undefined) =>
 		values ? values.reduce((sum, value) => sum + value, 0) : null;
+	const removed = (whole: number[] | undefined, kept: number[] | undefined) => {
+		const before = total(whole);
+		const after = total(kept);
+		return before !== null && after !== null ? before - after : null;
+	};
 	return {
 		term: found.derived_from,
-		subtracted,
-		speeches: total(only?.speeches),
-		occurrences: total(only?.occurrences)
+		subtracted: found.derived_minus ?? [],
+		speeches: removed(from?.speeches, found.speeches),
+		occurrences: removed(from?.occurrences, found.occurrences)
 	};
 }
 

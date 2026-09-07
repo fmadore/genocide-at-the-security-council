@@ -44,6 +44,35 @@ export function bytes(n: number): string {
 export const termLabel = (name: string) => name.replace(/_/g, ' ');
 
 /**
+ * What a measure is called, where stripping its underscores is not a name.
+ *
+ * A lexicon term is a word, so `termLabel` is enough for one: `war_crimes` is
+ * *war crimes* and nothing has been hidden. A **derived** measure is not a
+ * word. `genocide_qualification` is an arithmetic instruction — `genocide`
+ * minus `genocidaires` — and printing it as "genocide qualification" put the
+ * configuration key on screen with the underscore taken out, naming a
+ * subtraction no reader could see and no dictionary holds. The label says what
+ * the measure counts: the word used to qualify an event, rather than to name
+ * the people who carried it out.
+ *
+ * Here and not on the actor view, because the same measure is the chronology's
+ * calendar default, one of the four lines its chart opens with, and the home
+ * page's headline row. A name that held in one of those and not the others
+ * would be worse than the key.
+ *
+ * Everything unrecognised falls back to `termLabel`, so a new term reads as
+ * words rather than waiting for an entry here — the pattern `ENTITY_TYPE` and
+ * `MATCHED_ON` already follow. The *arithmetic* behind the name is a separate
+ * obligation and is met separately: the artefacts carry `derived_from` and
+ * `derived_minus`, and each view states them beside the figure.
+ */
+const MEASURE: Record<string, string> = {
+	genocide_qualification: 'genocide as event qualification'
+};
+
+export const measureLabel = (name: string) => MEASURE[name] ?? termLabel(name);
+
+/**
  * The columns the pairing holds constant, named the way a reader would name them.
  *
  * The artefacts carry the corpus's own column names in `matched_on`, and printing

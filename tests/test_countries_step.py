@@ -34,6 +34,11 @@ def _step():
 
 
 def _speech(row: int, country: str, year: int, words: int, *, term: bool, count: int) -> dict:
+    # The actor label is rare and always sits inside `genocide`, so the raw term
+    # is the derived one plus one extra occurrence on the first speech of each
+    # speaker: enough for the difference to be non-zero without disturbing the
+    # denominators the two measures must agree about.
+    extra = 1 if row in (0, 1000) else 0
     return {
         "row_id": f"r{row}",
         "year": year,
@@ -49,6 +54,8 @@ def _speech(row: int, country: str, year: int, words: int, *, term: bool, count:
         "lon": 2.0,
         "has_genocide_qualification": term,
         "n_genocide_qualification": count,
+        "has_genocide": bool(term or extra),
+        "n_genocide": count + extra,
     }
 
 
@@ -84,7 +91,9 @@ def loaded_corpus(step) -> pd.DataFrame:
 def test_the_builders_run_on_the_columns_the_step_loads() -> None:
     step = _step()
     speeches = loaded_corpus(step)
-    assert "has_genocide" not in speeches.columns  # the raw term is not loaded
+    # Nothing beyond the declared columns: the frame is cut to `wanted` above,
+    # so a builder reaching for a column the step never asked for fails here.
+    assert "has_ethnic_cleansing" not in speeches.columns
 
     lex = lexicon.load()
     prevalence = float(speeches[f"has_{step.HEADLINE}"].mean())
@@ -101,6 +110,47 @@ def test_the_builders_run_on_the_columns_the_step_loads() -> None:
     assert [p["key"] for p in periods] == [window.key for window in slices]
     whole = computed[step.HEADLINE][actors.WHOLE]
     assert int(whole["speeches"].sum()) == int(speeches[f"has_{step.HEADLINE}"].sum())
+
+
+def test_the_derived_measure_is_first_and_the_raw_term_is_beside_it() -> None:
+    """The order is the URL contract, and the pair is what makes the view legible.
+
+    `HEADLINE` is `TRACKED[0][1]`, and it decides the measure a bare `/actors`
+    opens on. Appending the raw term widens the selector; prepending it would
+    change what every published URL without a `measure=` means, silently.
+    """
+    step = _step()
+    assert step.TRACKED[0] == ("terms", "genocide_qualification")
+    assert ("terms", "genocide") in step.TRACKED[1:]
+
+
+def test_every_measure_withholds_from_the_same_speakers() -> None:
+    """One denominator, one withholding, whatever is counted inside it.
+
+    A rate shown for one measure and withheld for the other, on the same
+    speaker in the same period, would read as a finding about the two
+    vocabularies. The step refuses such a payload; this is the check it makes.
+    """
+    step = _step()
+    speeches = loaded_corpus(step)
+    _, computed = step.build_measures(speeches, lexicon.load(), actors.periods(1995, 2003), 100)
+
+    assert len(computed) > 1
+    assert actors.reconcile_withholding(computed) == []
+    # The difference the actor view states, read off the same rows the note is
+    # built from rather than off the corpus columns.
+    whole = {name: frames[actors.WHOLE] for name, frames in computed.items()}
+    difference = int(whole["genocide"]["occurrences"].sum()) - int(
+        whole[step.HEADLINE]["occurrences"].sum()
+    )
+    assert difference == 2
+
+    # A measure that withheld from a different set of speakers is caught.
+    broken = {name: dict(frames) for name, frames in computed.items()}
+    damaged = broken["genocide"][actors.WHOLE].copy()
+    damaged.loc[damaged.index[0], "sufficient"] = not damaged.loc[damaged.index[0], "sufficient"]
+    broken["genocide"][actors.WHOLE] = damaged
+    assert any("sufficient" in problem for problem in actors.reconcile_withholding(broken))
 
 
 def test_the_headline_is_named_once_in_the_source() -> None:

@@ -26,7 +26,7 @@
 	import type { CountryMeasureRow } from '$lib/types';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
-	import { count, decimal, entityType, percent, shortCountry, termLabel } from '$lib/format';
+	import { count, decimal, entityType, measureLabel, percent, shortCountry } from '$lib/format';
 	import {
 		DEFAULT_SCOPE,
 		SCOPE_IDS,
@@ -150,7 +150,7 @@
 				];
 			});
 		return {
-			title: `Speakers by rate — ${termLabel(measure)}, ${result.period?.label ?? period}`,
+			title: `Speakers by rate — ${measureLabel(measure)}, ${result.period?.label ?? period}`,
 			columns: [
 				'country_org',
 				'entity_type',
@@ -169,14 +169,14 @@
 			rows,
 			provenance: provenanceOf(artefact.meta, 'countries/countries.json'),
 			filters: [
-				`measure: ${termLabel(measure)}`,
+				`measure: ${measureLabel(measure)}`,
 				`period: ${result.period?.label ?? period}`,
 				`ranked by: ${label(result.order)}`,
 				`minimum: ${artefact.minimum_speeches} speeches`,
 				...(has.occurrences
 					? []
 					: [
-							`occurrences and token rate: withheld — ${termLabel(measure)} is published ` +
+							`occurrences and token rate: withheld — ${measureLabel(measure)} is published ` +
 								`without an occurrence count`
 						])
 			],
@@ -373,7 +373,7 @@
 			<label>
 				Measure
 				<select bind:value={measure}>
-					{#each measures as name (name)}<option value={name}>{termLabel(name)}</option>{/each}
+					{#each measures as name (name)}<option value={name}>{measureLabel(name)}</option>{/each}
 				</select>
 			</label>
 			<label>
@@ -395,10 +395,21 @@
 		{#snippet reading()}
 			<p>
 				Ranked by the figure you chose; each row's <strong>whisker</strong> is the 95% Wilson interval
-				of its share. Click a row to pick a delegation out on the map, or a dot to pick its row. Dots
-				are all one size: the map locates, the table measures. An asterisk marks a country code held by
-				two speakers.
+				of its share. Click a row to pick a delegation out on the map, or a dot to pick its row. An asterisk
+				marks a country code held by two speakers.
 			</p>
+			<!-- The measure is a subtraction, and its name is now a name rather than
+			     the key: the arithmetic has to be somewhere a reader meets it. The
+			     size is read off the artefact's own rows, never written here, and is
+			     stated only where the payload carries both measures. -->
+			{#if wider}
+				<p>
+					<em>{measureLabel(measure)}</em> is <em>{measureLabel(wider.term)}</em> less
+					<em>{wider.subtracted.map(measureLabel).join(' and ')}</em
+					>{#if wider.occurrences !== null}, which removes {count(wider.occurrences)} occurrences{/if}.
+					<a href="{resolve('/methods')}#derived-measure">Method: the subtraction &rarr;</a>
+				</p>
+			{/if}
 		{/snippet}
 
 		{#snippet caveat()}
@@ -407,12 +418,28 @@
 				{count(result.under.length)} speakers delivered fewer than
 				{count(result.minimum)} speeches this period and carry no rate: they are not ranked low, they
 				are not ranked.
-				{#if !has.occurrences}<em>{termLabel(measure)}</em> is published without an occurrence total,
+				{#if !has.occurrences}<em>{measureLabel(measure)}</em> is published without an occurrence total,
 					so the rate here is a share of speeches and nothing else.{/if}
 			</p>
 		{/snippet}
 		{#snippet more()}
-			<p>{artefact.minimum_speeches_rule}</p>
+			<!-- The rule governs a denominator, so it cannot differ between measures;
+			     `11_countries.py` refuses a payload where it does. Said here because a
+			     reader who changes the measure and sees the same speakers withheld is
+			     owed the reason, and because the alternative would look like a finding. -->
+			<p>
+				{artefact.minimum_speeches_rule} It is about how much a delegation spoke, not what it said, so
+				the same speakers are withheld whichever measure is selected.
+			</p>
+			{#if wider}
+				<p>
+					A delegation calling the ex-FAR <em>génocidaires</em> names who did it rather than asking
+					the Council to call the event a genocide, so the actor label is counted on its own and
+					taken out{#if wider.speeches !== null}, along with the {count(wider.speeches)} speeches whose
+						only match it was{/if}. Select <em>{measureLabel(wider.term)}</em> above to read the word
+					in every form.
+				</p>
+			{/if}
 			{#if unmapped.length}
 				<p>
 					{count(unmapped.length)} of the ranked speakers appear on no map: {unmapped
@@ -436,7 +463,7 @@
 			<div class="scroll">
 				<table>
 					<caption class="sr-only">
-						Speakers ranked by {label(result.order)} for {termLabel(measure)}, {result.period
+						Speakers ranked by {label(result.order)} for {measureLabel(measure)}, {result.period
 							?.label}
 					</caption>
 					<thead>
@@ -577,9 +604,9 @@
 				Each link carries this speaker and {result.period?.label ?? period} through to the concordance,
 				so what opens is the evidence behind the rate above rather than the whole corpus.
 				{#if wider}
-					The lines are <em>{termLabel(wider.term)}</em>'s: this measure subtracts
-					<em>{wider.subtracted.map(termLabel).join(' and ')}</em> from it, and only a lexicon term has
-					a concordance, so they hold the occurrences the rate leaves out as well as those it counts.
+					The lines are <em>{measureLabel(wider.term)}</em>'s: this measure subtracts
+					<em>{wider.subtracted.map(measureLabel).join(' and ')}</em> from it, and only a lexicon term
+					has a concordance, so they hold the occurrences the rate leaves out as well as those it counts.
 				{/if}
 			</p>
 		</aside>

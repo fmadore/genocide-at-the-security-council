@@ -11,7 +11,7 @@
 	import SmallMultiples from '$lib/SmallMultiples.svelte';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
-	import { count, decimal, isoDate, percent, termLabel } from '$lib/format';
+	import { count, decimal, isoDate, measureLabel, percent } from '$lib/format';
 	import { headlineMeasure } from '$lib/headline';
 	import { PAGE_METADATA, STRUCTURED_DATA_JSON } from '$lib/seo';
 	import { axisX, axisY, colours, grid, textStyle, tooltip } from '$lib/theme';
@@ -217,7 +217,7 @@
 				const series = data.series.terms[name];
 				const bearing = series.speeches.reduce((a, b) => a + b, 0);
 				return {
-					name: termLabel(name),
+					name: measureLabel(name),
 					values: series.speech_rate,
 					colour: `var(--reg-${series.register ?? 'core'})`,
 					summary: percent(held ? bearing / held : 0)

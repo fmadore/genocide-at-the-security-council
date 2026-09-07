@@ -11,6 +11,7 @@
 	import Icon from '$lib/Icon.svelte';
 	import PageMeta from '$lib/PageMeta.svelte';
 	import {
+		ATROCITY_COMPARISON,
 		chronologyParams,
 		readChronologyState,
 		splitEvidenceQuery,
@@ -39,7 +40,15 @@
 		widening
 	} from '$lib/heatmap';
 	import type { CalendarRow, Cell, Unit as GridUnit } from '$lib/heatmap';
-	import { count, decimal, escapeHtml, isoDate, monthLabel, percent, termLabel } from '$lib/format';
+	import {
+		count,
+		decimal,
+		escapeHtml,
+		isoDate,
+		measureLabel,
+		monthLabel,
+		percent
+	} from '$lib/format';
 	import { PAGE_METADATA } from '$lib/seo';
 	import {
 		REGISTER_ORDER,
@@ -258,7 +267,7 @@
 			rows: gridRows(byMonth),
 			provenance: provenanceOf(byMonth.meta, 'series/monthly.json'),
 			filters: [
-				`drawn: ${termLabel(gridMeasure)}`,
+				`drawn: ${measureLabel(gridMeasure)}`,
 				`unit: ${unitName}`,
 				`minimum: ${byMonth.minimum_speeches} speeches per month`
 			],
@@ -277,7 +286,7 @@
 			rows: calendarRows(byMonth),
 			provenance: provenanceOf(byMonth.meta, 'series/monthly.json'),
 			filters: [
-				`drawn: ${termLabel(gridMeasure)}`,
+				`drawn: ${measureLabel(gridMeasure)}`,
 				`unit: ${unitName}`,
 				`control reading excludes: ${column.excludedYears.join(', ')}`
 			],
@@ -338,7 +347,7 @@
 				grain === 'year' ? 'series/annual.json' : 'series/quarterly.json'
 			),
 			filters: [
-				`drawn: ${selected.map(termLabel).join(', ')}`,
+				`drawn: ${selected.map(measureLabel).join(', ')}`,
 				`unit: ${UNITS.find((u) => u.id === unit)?.label ?? unit}`,
 				`grain: ${grain}`,
 				`events overlay: ${showEvents ? 'on' : 'off'}`
@@ -534,7 +543,7 @@
 		return {
 			textStyle,
 			// When a legend is needed it lists the lines and not their bands.
-			legend: named ? undefined : { ...legend(p), data: usable.map(termLabel) },
+			legend: named ? undefined : { ...legend(p), data: usable.map(measureLabel) },
 			// Two grids: the plot, and under its axis a rail for the reference dates.
 			// A tick on a rail is an annotation; the full-height rules this replaced
 			// were a fence (review of 1 September 2026, §5.2), 35 of them over 32
@@ -576,7 +585,7 @@
 					// interval as a range beside the line's value, not as two rows.
 					const interval = (seriesName: string | undefined, index: number | undefined) => {
 						if (!banded || index == null) return '';
-						const internal = usable.find((n) => termLabel(n) === bandOwner(seriesName ?? ''));
+						const internal = usable.find((n) => measureLabel(n) === bandOwner(seriesName ?? ''));
 						const low = internal ? allMeasures[internal].speech_rate_low[index] : null;
 						const high = internal ? allMeasures[internal].speech_rate_high[index] : null;
 						return low == null || high == null
@@ -634,7 +643,7 @@
 				...(banded
 					? usable.flatMap((name) =>
 							intervalBand(
-								termLabel(name),
+								measureLabel(name),
 								colourOf(name, p),
 								allMeasures[name].speech_rate_low,
 								allMeasures[name].speech_rate_high
@@ -642,14 +651,14 @@
 						)
 					: []),
 				...usable.map((name): LineSeriesOption => ({
-					name: termLabel(name),
+					name: measureLabel(name),
 					type: 'line',
 					data: allMeasures[name][unit] ?? [],
 					symbol: 'circle',
 					symbolSize: grain === 'year' ? 5 : 0,
 					lineStyle: { width: 2.2, color: colourOf(name, p) },
 					itemStyle: { color: colourOf(name, p) },
-					endLabel: named ? endLabel(colourOf(name, p), termLabel(name)) : undefined,
+					endLabel: named ? endLabel(colourOf(name, p), measureLabel(name)) : undefined,
 					emphasis: { focus: 'series' }
 				})),
 				// The rail: one scatter series per kind, so a kind can be switched off
@@ -851,7 +860,9 @@
 
 	function drillChronology(params: { name?: string; seriesName?: string }) {
 		if (!params.name || !params.seriesName) return;
-		const internal = Object.keys(allMeasures).find((name) => termLabel(name) === params.seriesName);
+		const internal = Object.keys(allMeasures).find(
+			(name) => measureLabel(name) === params.seriesName
+		);
 		if (!internal) return;
 		const year = params.name.slice(0, 4);
 		/* The term, not always the measure. A drawn line may be a subtraction,
@@ -961,15 +972,22 @@
 		{/snippet}
 
 		{#snippet reading()}
+			<!-- Named from the list the defaults are actually drawn from: the first
+			     of the four is a subtraction, and spelling it out here left the
+			     sentence naming one line and the legend another. -->
 			<p>
-				The chart opens with four explicit terms: <em>genocide</em>, <em>ethnic cleansing</em>,
-				<em>crimes against humanity</em> and <em>war crimes</em>. Add or remove terms under the
-				chart; drag the bar under the axis to zoom.
+				The chart opens with {ATROCITY_COMPARISON.length} lines: {#each ATROCITY_COMPARISON as name, index (name)}{index ===
+					0
+						? ''
+						: index === ATROCITY_COMPARISON.length - 1
+							? ' and '
+							: ', '}<em>{measureLabel(name)}</em>{/each}. Add or remove terms under the chart; drag
+				the bar under the axis to zoom.
 			</p>
 			{#if drawnTerms.length}
 				<p>
 					Clicking a point opens that year's lines, and a measure that is a subtraction opens
-					<em>{drawnTerms.map(termLabel).join(' and ')}</em>'s: only a lexicon term has a
+					<em>{drawnTerms.map(measureLabel).join(' and ')}</em>'s: only a lexicon term has a
 					concordance.
 				</p>
 			{/if}
@@ -1056,7 +1074,7 @@
 								onclick={() => toggle(name)}
 								aria-pressed={selected.includes(name)}
 							>
-								{termLabel(name)}
+								{measureLabel(name)}
 							</button>
 						{/each}
 					</div>
@@ -1064,8 +1082,8 @@
 			{/each}
 			{#if unavailable.length}
 				<p class="warn">
-					{unavailable.map(termLabel).join(', ')} cannot be shown in this unit, because it carries no
-					occurrence count of its own. Switch to a share-based unit to see it.
+					{unavailable.map(measureLabel).join(', ')} cannot be shown in this unit, because it carries
+					no occurrence count of its own. Switch to a share-based unit to see it.
 				</p>
 			{/if}
 		</section>
@@ -1077,7 +1095,7 @@
 					><tr
 						><th>Period</th
 						>{#each selected.filter((name) => !unavailable.includes(name)) as name (name)}<th
-								class="num">{termLabel(name)}</th
+								class="num">{measureLabel(name)}</th
 							>{/each}</tr
 					></thead
 				>
@@ -1113,7 +1131,8 @@
 			<label>
 				Measure
 				<select bind:value={gridMeasure}>
-					{#each gridMeasures as name (name)}<option value={name}>{termLabel(name)}</option>{/each}
+					{#each gridMeasures as name (name)}<option value={name}>{measureLabel(name)}</option
+						>{/each}
 				</select>
 			</label>
 			<label>
@@ -1183,7 +1202,7 @@
 				label={cellLabel}
 				unit={unitName}
 				format={showRate}
-				description="Year by month grid of {termLabel(gridMeasure)}, {byMonth.years[0]}–{byMonth
+				description="Year by month grid of {measureLabel(gridMeasure)}, {byMonth.years[0]}–{byMonth
 					.years[byMonth.years.length - 1]}, as a {unitName}."
 			/>
 			<details class="data-table">
@@ -1195,9 +1214,9 @@
 						the year around it. Months with no rate link too: the minimum applies to the rate, and
 						the lines beneath it are the record itself rather than an estimate drawn from it.
 						{#if wider}
-							Those lines are <em>{termLabel(wider.term)}</em>'s. This measure subtracts
-							<em>{wider.subtracted.map(termLabel).join(' and ')}</em> from it and the concordance
-							enumerates the raw term, so what opens also holds
+							Those lines are <em>{measureLabel(wider.term)}</em>'s. This measure subtracts
+							<em>{wider.subtracted.map(measureLabel).join(' and ')}</em> from it and the
+							concordance enumerates the raw term, so what opens also holds
 							{#if wider.occurrences !== null && wider.speeches !== null}the {count(
 									wider.occurrences
 								)} occurrences, across {count(wider.speeches)} speeches corpus-wide,{:else}the
@@ -1206,7 +1225,7 @@
 						{/if}
 					{:else}
 						The numbers do not link here. The concordance holds a file for each term, and
-						<em>{termLabel(gridMeasure)}</em>
+						<em>{measureLabel(gridMeasure)}</em>
 						is not one of them. Select a term above to open a month's lines.
 					{/if}
 				</p>
@@ -1263,7 +1282,7 @@
 				a seasonal pattern that is one spike seen monthly would not survive.
 				{#if linkable}Each month opens all {byMonth.years.length} instances of it in the concordance.{:else}Months
 					do not link here: the concordance holds a file per term, and
-					<em>{termLabel(gridMeasure)}</em> is not one.{/if}
+					<em>{measureLabel(gridMeasure)}</em> is not one.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -1276,9 +1295,9 @@
 		{:else}
 			{#if linkable && wider}
 				<p class="hint">
-					A month's name opens <em>{termLabel(wider.term)}</em>'s lines rather than this measure's.
-					The concordance holds a file for each lexicon term, and the subtraction that makes this
-					measure is not one of them.
+					A month's name opens <em>{measureLabel(wider.term)}</em>'s lines rather than this
+					measure's. The concordance holds a file for each lexicon term, and the subtraction that
+					makes this measure is not one of them.
 				</p>
 			{/if}
 			<table class="calendar">

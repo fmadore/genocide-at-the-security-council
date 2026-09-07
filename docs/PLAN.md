@@ -248,12 +248,16 @@ on the methods page, and the view reads `countries.json` and nothing else — so
 §1.1 can move every rate in it without touching a line of the view.
 
 `scripts/11_countries.py` writes `data/derived/countries/countries.json`: per canonical
-`country_org` and per period, the speaker's own denominator, its `genocide`-bearing
-speeches and occurrences, both rates computed by the same `lib/series.py` helpers 04 uses,
-its ISO3, UN group and centroid where `config/entities.csv` has them, and a `sufficient`
-flag. This is what §7 requires to exist before anything is drawn, and it is deliberately
-all that was built — a table is not a profile, and publishing one does not license the
-other.
+`country_org`, per period and per measure, the speaker's own denominator, its
+term-bearing speeches and occurrences, both rates computed by the same `lib/series.py`
+helpers 04 uses, its ISO3, UN group and centroid where `config/entities.csv` has them,
+and a `sufficient` flag. Two measures are tracked — the derived
+`genocide_qualification` the view opens on, and the raw `genocide` it is a subtraction of
+— so the size of that subtraction is a figure the artefact carries rather than a claim
+the interface makes. The minimum governs a denominator, so both withhold from the same
+speakers, and the step refuses a payload where they do not. This is what §7 requires to
+exist before anything is drawn, and it is deliberately all that was built — a table is
+not a profile, and publishing one does not license the other.
 
 Three decisions in it are the gate's, not the author's. **The minimum is derived rather
 than declared**: 100 speeches, because at the corpus prevalence of 3.1% a country needs
@@ -280,9 +284,11 @@ resolution the table was built at — `all` and the four periods `countries.json
 declares — which answers *when* coarsely and is not a series. **Quotations** are linked
 as of 10 August 2026: every figure in the picked-speaker panel carries that speaker, that
 term and that period into the concordance, so a reader sent from Rwanda's 26.83% arrives
-at its 960 lines and not at all 79,569. A set measure becomes one link per member, because
-the concordance shows one term and a single link would offer a fifth of the evidence as
-all of it. The decision is in `web/src/lib/actors.ts` with tests, not in the component.
+at its 960 lines and not at all 79,569. A derived measure links through the term it
+subtracts from, because the concordance holds a file per lexicon term and a subtraction
+is not one; the widening is stated beside the link, and sized from the two measures the
+artefact publishes. The decision is in `web/src/lib/actors.ts` with tests, not in the
+component.
 
 **Membership status** had its table before its view — deliberately, in that order, because
 §7 refuses to let a visual precede the table it depicts — and the view was drawn on

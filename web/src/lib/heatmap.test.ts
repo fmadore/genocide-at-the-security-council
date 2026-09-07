@@ -429,19 +429,36 @@ describe('every link the grid offers names a concordance that exists', () => {
 	/** What `kwic/index.json` lists, in miniature: a file per term, nothing derived. */
 	const HELD = new Set(['genocide', 'war_crimes', 'genocidaires']);
 
-	/** The published shape since lexicon v4: the raw term, its subtrahend, and the difference. */
+	/** The published shape since lexicon v4: the raw term, its subtrahend, and the difference.
+	 *
+	 * The three carry deliberately different totals, because the corpus does and
+	 * because a fixture where they agree cannot tell a correct widening from the
+	 * mistake below it. `genocidaires` here holds more speeches than the
+	 * subtraction removes — most speeches using the actor label use the word in
+	 * some other form too, and stay counted.
+	 */
 	function withDerived(): MonthlySeries {
 		const data = payload();
 		const rates = data.terms.genocide.speech_rate;
+		const whole = measure(rates);
 		return {
 			...data,
 			terms: {
 				...data.terms,
-				genocidaires: measure(rates),
-				genocide_qualification: measure(rates, {
-					derived_from: 'genocide',
-					derived_minus: ['genocidaires']
-				})
+				genocide: whole,
+				genocidaires: {
+					...measure(rates),
+					speeches: rates.map(() => 5),
+					occurrences: rates.map(() => 2)
+				},
+				genocide_qualification: {
+					...measure(rates, {
+						derived_from: 'genocide',
+						derived_minus: ['genocidaires']
+					}),
+					speeches: whole.speeches.map((count) => count - 1),
+					occurrences: whole.occurrences!.map((count) => count - 2)
+				}
 			},
 			month_of_year: {
 				...data.month_of_year,
@@ -480,17 +497,24 @@ describe('every link the grid offers names a concordance that exists', () => {
 	});
 
 	// The resolution widens the evidence, so the figure has to be able to say by
-	// how much. Read off the subtrahend's own rows rather than written into the
-	// component: a later corpus moves the number, and a sentence carrying a
-	// figure the payload no longer holds is worse than no sentence.
+	// how much — and by how much is the difference between the two measures, not
+	// the subtrahend's own totals. On the real corpus `genocidaires` appears in
+	// 13 speeches while only 3 leave the derived measure, so reading its rows
+	// overstated the widening fourfold. Occurrences agree either way, every span
+	// being removed, which is what made the speech figure look right.
 	it('measures how much wider the lines it opens are', () => {
 		const data = withDerived();
 		const wider = widening(data, 'genocide_qualification')!;
 		expect(wider.term).toBe('genocide');
 		expect(wider.subtracted).toEqual(['genocidaires']);
-		const subtrahend = data.terms.genocidaires;
-		expect(wider.speeches).toBe(subtrahend.speeches.reduce((a, b) => a + b, 0));
-		expect(wider.occurrences).toBe(subtrahend.occurrences!.reduce((a, b) => a + b, 0));
+		const sum = (values: (number | null)[]) => values.reduce((a, b) => a! + b!, 0)!;
+		const removed =
+			sum(data.terms.genocide.speeches) - sum(data.terms.genocide_qualification.speeches);
+		expect(wider.speeches).toBe(removed);
+		expect(wider.speeches).not.toBe(sum(data.terms.genocidaires.speeches));
+		expect(wider.occurrences).toBe(
+			sum(data.terms.genocide.occurrences!) - sum(data.terms.genocide_qualification.occurrences!)
+		);
 	});
 
 	it('says nothing about widening for a measure that is its own term', () => {

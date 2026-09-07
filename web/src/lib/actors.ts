@@ -47,12 +47,23 @@ export interface ActorState {
 	order: Ordering;
 }
 
+/**
+ * The key of the slice covering the whole corpus, as `lib/actors.py` writes it.
+ *
+ * Named because two things now depend on it — the default period, and the
+ * corpus-wide totals `widening()` sizes a subtraction from — and a second
+ * `'all'` typed into the second of them is how the two start disagreeing about
+ * which rows they are reading. Every use is still guarded: an artefact that
+ * declares no such period falls back rather than assuming one.
+ */
+export const WHOLE = 'all';
+
 /** Defaults follow the artefact, so a later corpus extension does not create a stale URL contract. */
 export function actorDefaults(data: Countries): ActorState {
 	return {
 		measure: headlineMeasure(Object.keys(data.measures)) ?? Object.keys(data.measures)[0] ?? '',
-		period: data.periods.some((period) => period.key === 'all')
-			? 'all'
+		period: data.periods.some((period) => period.key === WHOLE)
+			? WHOLE
 			: (data.periods[0]?.key ?? ''),
 		order: 'speech_rate'
 	};
@@ -337,12 +348,13 @@ export interface ConcordanceLink {
  * so the list would have exactly one member on every row that has any, and a
  * shape that can only be one thing should say so.
  *
- * **The measure is not always the term.** This table publishes one measure and
- * it is the derived `genocide_qualification`, which no concordance enumerates —
+ * **The measure is not always the term.** The measure this table opens on is
+ * the derived `genocide_qualification`, which no concordance enumerates —
  * `08_kwic.py` writes a file per active lexicon term and a subtraction is not
  * one. Naming the measure in the URL named a file that was never written, on
  * every row. The link resolves through `derived_from` instead, which widens what
- * opens; `widening()` is what the interface names that widening by.
+ * opens; `widening()` is what the interface names that widening by. The raw term
+ * is a selectable measure here too, and for it the resolution is the identity.
  */
 export function occurrences(
 	data: Countries,
@@ -365,29 +377,81 @@ export function occurrences(
 }
 
 /**
- * Whose lines a measure's link opens, when they are not the measure's own.
+ * What a derived measure subtracts, and how much of it.
  *
- * Null for a measure that is its own term. For a derived one it names the term
- * the concordance holds and what the measure takes out of it, so the interface
- * can say that the lines are a superset rather than letting a reader assume the
- * figure and the evidence are the same set of spans.
+ * Null for a measure that is its own term, so the raw term selected beside the
+ * derived one carries no such statement — there is no subtraction to describe.
+ * For a derived measure it names the term the concordance holds, what is taken
+ * out of it, and the size of that removal, so the interface can say both that
+ * the evidence is a superset of the figure and how much wider it is.
  *
- * It carries no size, unlike the chronology's: `countries.json` publishes the
- * derived measure alone and holds no row for the term it subtracts, so the size
- * of the difference is not in this artefact and this view does not state one.
- * The chronology reads it off `series/monthly.json`, which does carry both.
+ * **The size comes out of the payload.** `countries.json` published the derived
+ * measure alone until the raw term joined it, and this returned no size at all:
+ * the difference was simply not in the artefact, and a component that stated
+ * one would have been quoting itself. Both are now published, so the difference
+ * is the minuend's whole-corpus rows less the derived measure's — recomputed on
+ * every render, and moved by a re-cut corpus rather than by an edit here.
+ *
+ * The two figures are different quantities and the interface must not merge
+ * them. `occurrences` is what the subtraction removes outright. `speeches` is
+ * smaller: a speech that says both words keeps its place in the derived
+ * measure, so only the speeches whose *sole* match was the subtracted term
+ * leave the count. Either is null where the artefact cannot support it — the
+ * minuend absent, as in an archived payload, or an occurrence count withheld.
  */
 export interface Widening {
 	/** The term whose concordance actually opens. */
 	term: string;
 	/** What the measure subtracts from it, and what those lines therefore still hold. */
 	subtracted: string[];
+	/** Speeches that fall out of the count entirely, corpus-wide. */
+	speeches: number | null;
+	/** Occurrences the subtraction removes, corpus-wide. */
+	occurrences: number | null;
+}
+
+/**
+ * A measure's whole-corpus totals, summed from the rows it publishes.
+ *
+ * `11_countries.py` reconciles every measure's whole-corpus rows against the
+ * corpus itself before writing them, so this sum is the corpus figure and not
+ * an approximation of it. `occurrences` is null rather than zero when any row
+ * withholds one: a measure without an occurrence count has no total, and `?? 0`
+ * would publish that silence as a number.
+ */
+function corpusTotals(measure: CountryMeasure | undefined): {
+	speeches: number;
+	occurrences: number | null;
+} | null {
+	if (!measure) return null;
+	let speeches = 0;
+	let occurrences: number | null = 0;
+	let seen = false;
+	for (const row of measure.rows) {
+		if (row.period !== WHOLE) continue;
+		seen = true;
+		speeches += row.speeches;
+		if (row.occurrences == null) occurrences = null;
+		else if (occurrences !== null) occurrences += row.occurrences;
+	}
+	return seen ? { speeches, occurrences } : null;
 }
 
 export function widening(data: Countries, measure: string): Widening | null {
 	const measured = data.measures[measure];
 	if (!measured?.derived_from) return null;
-	return { term: measured.derived_from, subtracted: measured.derived_minus ?? [] };
+	const from = corpusTotals(data.measures[measured.derived_from]);
+	const derived = corpusTotals(measured);
+	const both = from !== null && derived !== null;
+	return {
+		term: measured.derived_from,
+		subtracted: measured.derived_minus ?? [],
+		speeches: both ? from.speeches - derived.speeches : null,
+		occurrences:
+			both && from.occurrences !== null && derived.occurrences !== null
+				? from.occurrences - derived.occurrences
+				: null
+	};
 }
 
 /**

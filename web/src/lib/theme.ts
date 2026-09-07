@@ -264,6 +264,9 @@ export const tone = (weight: number): number => Math.sqrt(Math.min(Math.max(weig
 export const FONT = 'Archivo, system-ui, -apple-system, sans-serif';
 export const MONO = 'IBM Plex Mono, ui-monospace, SFMono-Regular, monospace';
 
+/** What an end label has to fit in: the reservation below, less its offset. */
+export const END_LABEL_ROOM = 90;
+
 /**
  * Room for labels, and nothing wasted on chrome. `right` is generous because
  * series are labelled at their right-hand end rather than in a legend.
@@ -273,7 +276,8 @@ export const MONO = 'IBM Plex Mono, ui-monospace, SFMono-Regular, monospace';
  * equivalent, and it keeps the axis labels inside the rect these numbers
  * describe rather than letting them hang off the edge of the figure. The
  * right-hand reservation stays outside that containment, because it is there
- * for the end labels rather than for the axis.
+ * for the end labels rather than for the axis — which is why a long name wraps
+ * inside it rather than widening it; see `endLabel`.
  */
 export const grid = (labelled = true) => ({
 	left: 2,
@@ -308,7 +312,16 @@ export const legend = (p: Palette) => ({
 	textStyle: { color: p.inkSoft, fontSize: 12, fontFamily: FONT }
 });
 
-/** Label a line at its right-hand end instead of in a legend. */
+/**
+ * Label a line at its right-hand end instead of in a legend.
+ *
+ * The label wraps inside the reservation `grid` makes for it. That reservation
+ * is finite and a measure's name is not: at 12px semibold, *crimes against
+ * humanity* ran 40px past the figure's right edge and was cut there, with no
+ * ellipsis to say so, before any name on this site was lengthened. Wrapping
+ * costs two lines of vertical space next to the line it names; widening the
+ * reservation instead would have cost a fifth of the plot.
+ */
 export const endLabel = (colour: string, name: string) => ({
 	show: true,
 	formatter: name,
@@ -316,7 +329,9 @@ export const endLabel = (colour: string, name: string) => ({
 	fontFamily: FONT,
 	fontSize: 12,
 	fontWeight: 600 as const,
-	distance: 6
+	distance: 6,
+	width: END_LABEL_ROOM,
+	overflow: 'break' as const
 });
 
 /** Axis lines light enough not to compete with the data they frame. */
