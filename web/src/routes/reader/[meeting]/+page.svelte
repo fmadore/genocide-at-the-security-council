@@ -14,6 +14,7 @@
 		speechOf
 	} from '$lib/data';
 	import { filterConcordance, readConcordanceState } from '$lib/concordance';
+	import { readScope, speechInScope } from '$lib/scope';
 	import { occurrenceItem, speechItem } from '$lib/basket';
 	import { basket } from '$lib/basket.svelte';
 	import { citationOf, occurrenceQuotation, toBibtex, toCslJson, toRis } from '$lib/citation';
@@ -342,6 +343,31 @@
 		return ORDER.filter((r) => tally[r]).map((r) => ({ register: r, n: tally[r] }));
 	});
 
+	/* --- The whole debate, under the reading set the masthead selected -------
+	   R9 promotes this route from an escape hatch to a destination: the record
+	   is already every speech in the meeting with each one's vocabulary marked,
+	   and what it lacked was the debate's own shape — who sat in it, what each
+	   delegation used, and which speeches the selected reading set holds.
+	   Recomputed from the offsets already loaded rather than fetched: a second
+	   artefact would be a second answer to a question this file can answer. */
+	const scope = $derived(readScope(page.url.searchParams));
+	const saysTheWord = $derived((record?.speeches ?? []).some((s) => 'genocide' in s.hits));
+	const inScope = $derived(
+		new Set(
+			(record?.speeches ?? [])
+				.filter((s) => speechInScope(s.hits, scope, saysTheWord))
+				.map((s) => s.id)
+		)
+	);
+
+	/* Ordered by how much of the record a delegation holds, so the debate reads
+	   as a debate rather than as an alphabet. The silent ones stay in it. */
+	const roll = $derived(
+		[...(record?.delegations ?? [])].sort(
+			(a, b) => b.speeches - a.speeches || a.country.localeCompare(b.country)
+		)
+	);
+
 	const interpreted = $derived(
 		(record?.speeches ?? []).filter((s) => s.language && s.language.toLowerCase() !== 'english')
 			.length
@@ -473,6 +499,9 @@
 								</span>
 							</span>
 							<span class="tags">
+								{#if inScope.has(speech.id)}
+									<span class="set" title="In the selected reading set">in set</span>
+								{/if}
 								{#if marked}
 									<span class="count">{marked}</span>
 								{/if}
@@ -534,6 +563,31 @@
 					{:else}
 						<p class="prose">No term from the word list is highlighted under the current filter.</p>
 					{/if}
+				</div>
+
+				<div class="note">
+					<span class="label">The reading set here</span>
+					<p class="prose">
+						{count(inScope.size)} of {count(record.speeches.length)} speeches in this record belong to
+						the set chosen in the masthead. Corpus-wide counts are unchanged by that choice.
+					</p>
+				</div>
+
+				<div class="note">
+					<span class="label">Who spoke, and what they used</span>
+					<ul class="roll">
+						{#each roll as delegation (delegation.country)}
+							<li>
+								<span class="name">{shortCountry(delegation.country)}</span>
+								<span class="symbol">{count(delegation.speeches)}</span>
+								<span class="said"
+									>{delegation.terms.length
+										? delegation.terms.map(termLabel).join(', ')
+										: 'no term on the list'}</span
+								>
+							</li>
+						{/each}
+					</ul>
 				</div>
 
 				<div class="note">
@@ -813,6 +867,16 @@
 		gap: var(--sp-2);
 	}
 
+	/* Set as the occurrence count is, but hollow: it says which population a
+	   speech is in, not how many times anything was said. */
+	.set {
+		border: var(--hair) solid var(--rule-strong);
+		color: var(--ink-3);
+		padding: 0.05rem 0.4rem;
+		font-family: var(--mono);
+		font-size: var(--step--2);
+	}
+
 	.count {
 		background: var(--mark);
 		color: var(--ink);
@@ -926,6 +990,40 @@
 
 	.tally-list .symbol {
 		color: var(--ink-3);
+	}
+
+	/* Every delegation in the record, the silent ones included: a delegation's
+	   silence is only legible against the debate it sat in. */
+	.roll {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: var(--sp-2);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		max-height: 22rem;
+		overflow-y: auto;
+	}
+
+	.roll li {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		column-gap: var(--sp-2);
+	}
+
+	.roll .name {
+		color: var(--ink-2);
+	}
+
+	.roll .symbol {
+		color: var(--ink-3);
+	}
+
+	.roll .said {
+		grid-column: 1 / -1;
+		color: var(--ink-3);
+		font-size: var(--step--2);
 	}
 
 	/* The same six data colours the marks in the text carry. */

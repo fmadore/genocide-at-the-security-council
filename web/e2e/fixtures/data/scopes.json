@@ -5,28 +5,80 @@
 		"git_commit": "fixture",
 		"lexicon_version": 4
 	},
-	"corpus": { "speeches": 60, "meetings": 9 },
+	"corpus": {
+		"speeches": 900,
+		"meetings": 9
+	},
 	"scopes": [
 		{
 			"id": "word",
 			"label": "The word",
 			"definition": "Speeches containing a genocid* match.",
-			"speeches": 8,
+			"speeches": 120,
 			"meetings": 4
 		},
 		{
 			"id": "vocabulary",
 			"label": "The vocabulary",
 			"definition": "Speeches containing the four explicit atrocity terms.",
-			"speeches": 12,
+			"speeches": 210,
 			"meetings": 6
 		},
 		{
 			"id": "debate",
 			"label": "The debate",
 			"definition": "Every speech in a meeting containing a genocid* match.",
-			"speeches": 30,
+			"speeches": 400,
 			"meetings": 4
+		}
+	],
+	"years": [
+		{
+			"year": 2014,
+			"held": 500,
+			"scopes": {
+				"word": 80,
+				"vocabulary": 140,
+				"debate": 250
+			}
+		},
+		{
+			"year": 2015,
+			"held": 400,
+			"scopes": {
+				"word": 40,
+				"vocabulary": 70,
+				"debate": 150
+			}
+		}
+	],
+	"delegations": [
+		{
+			"country_org": "France",
+			"held": 120,
+			"scopes": {
+				"word": 10,
+				"vocabulary": 30,
+				"debate": 50
+			}
+		},
+		{
+			"country_org": "Rwanda",
+			"held": 300,
+			"scopes": {
+				"word": 90,
+				"vocabulary": 120,
+				"debate": 200
+			}
+		},
+		{
+			"country_org": "United Nations Secretariat",
+			"held": 400,
+			"scopes": {
+				"word": 20,
+				"vocabulary": 60,
+				"debate": 150
+			}
 		}
 	]
 }

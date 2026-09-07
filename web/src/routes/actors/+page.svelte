@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Contents from '$lib/Contents.svelte';
@@ -25,6 +26,14 @@
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, entityType, percent, shortCountry, termLabel } from '$lib/format';
+	import {
+		DEFAULT_SCOPE,
+		SCOPE_IDS,
+		rankedDelegations,
+		readScope,
+		scopeOf,
+		withScope
+	} from '$lib/scope';
 	import { PAGE_METADATA } from '$lib/seo';
 	import type { PageData } from './$types';
 	import { onMount, tick } from 'svelte';
@@ -55,7 +64,11 @@
 
 	$effect(() => {
 		if (!urlReady) return;
-		const params = actorParams({ measure, period, order }, artefact);
+		/* The scope is layout state and the page owns everything else in the
+		   query, so it is merged back in here: a page that rebuilt its own URL
+		   from its own controls would silently drop the reader's reading set on
+		   the next keystroke. */
+		const params = withScope(actorParams({ measure, period, order }, artefact), scope);
 		const search = params.toString();
 		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
 	});
@@ -200,6 +213,39 @@
 		};
 	}
 
+	/* --- The reading set the masthead selected -----------------------------
+	   Who is in it, measured against their own record. The rate below is the
+	   share of a delegation's *own* speeches, so the reading set changes the
+	   numerator and never the base — which is what lets the debate scope ask
+	   who sat in those meetings without inflating anybody's rate. */
+	/* `url.searchParams` is unreadable while a page is prerendered, by design:
+	   a static file cannot depend on a query string. The answer there is the
+	   default, which is the guarantee R9 makes anyway — a URL carrying no scope
+	   renders what the site rendered before R9 — and hydration applies the rest. */
+	const scope = $derived(browser ? readScope(page.url.searchParams) : DEFAULT_SCOPE);
+	const chosenScope = $derived(scopeOf(data.scopeIndex, scope));
+	const RANKED = 20;
+	const inScope = $derived(
+		rankedDelegations(data.scopeIndex, scope, artefact.minimum_speeches, RANKED)
+	);
+
+	function scopeTable(): ExportRequest {
+		return {
+			title: 'The reading set, by delegation',
+			columns: ['country_org', 'speeches_held', ...SCOPE_IDS.map((id) => `speeches_${id}`)],
+			rows: data.scopeIndex.delegations.map((row) => [
+				row.country_org,
+				row.held,
+				...SCOPE_IDS.map((id) => row.scopes[id])
+			]),
+			provenance: provenanceOf(data.scopeIndex.meta, 'scopes.json'),
+			filters: [`drawn: ${chosenScope.label}`, `ranked: top ${RANKED}`],
+			scope:
+				`every speaker the three reading sets hold, including the ` +
+				`${count(artefact.minimum_speeches)}-speech minimum's withheld rows, which the figure does not rank`
+		};
+	}
+
 	/* The whisker column is scaled to the widest upper bound on the page, so
 	   every row's interval is drawn on one axis and the rows can be compared. */
 	const whiskerScale = $derived(
@@ -246,11 +292,68 @@
 
 	<Contents
 		figures={[
+			{ title: 'The reading set, by delegation' },
 			{ title: 'Speakers by rate' },
 			{ title: 'Who held a seat when they spoke' },
 			{ title: 'What a delegation says that the room does not' }
 		]}
 	/>
+
+	<Figure
+		title="The reading set, by delegation"
+		question="Inside the selected reading set, who spoke, and how much of their own record is it?"
+		source="09_export_speeches.py → scopes.json"
+		note="Share is of a delegation's own speeches in the whole corpus, never of the reading set."
+		download={{ name: ['unsc', 'reading-set', 'delegations', scope], table: scopeTable }}
+	>
+		{#snippet reading()}
+			<p>
+				<strong>{chosenScope.label}</strong>: {count(chosenScope.speeches)} speeches in
+				{count(chosenScope.meetings)} meetings. The {RANKED} delegations whose own record it covers most.
+				Change the set in the masthead.
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>
+				Under <em>the debate</em> a delegation is counted for every speech it made in a meeting where
+				someone said the word, whether or not it said anything. That is the point of the set, and it is
+				not a measure of what the delegation said.
+			</p>
+		{/snippet}
+		{#snippet more()}
+			<p>{artefact.minimum_speeches_rule}</p>
+		{/snippet}
+
+		<section class="table-wrap">
+			<h3 class="sr-only">The reading set, by delegation</h3>
+			<div class="scroll">
+				<table>
+					<caption class="sr-only"
+						>Delegations ranked by the share of their own speeches that {chosenScope.label.toLowerCase()}
+						holds</caption
+					>
+					<thead>
+						<tr>
+							<th scope="col">Speaker</th>
+							<th scope="col" class="num">Speeches</th>
+							<th scope="col" class="num">In the set</th>
+							<th scope="col" class="num">Share</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each inScope as row (row.country_org)}
+							<tr>
+								<th scope="row">{shortCountry(row.country_org)}</th>
+								<td class="num">{count(row.held)}</td>
+								<td class="num">{count(row.speeches)}</td>
+								<td class="num">{row.share === null ? '—' : percent(row.share)}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</section>
+	</Figure>
 
 	<Figure
 		fullscreen

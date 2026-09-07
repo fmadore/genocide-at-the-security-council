@@ -486,7 +486,28 @@ export interface MeetingIndex {
 	meetings: MeetingSummary[];
 }
 
-export type ScopeIndex = Pick<MeetingIndex, 'meta' | 'corpus' | 'scopes'>;
+/**
+ * One cut of the three reading sets, carrying the population it came out of.
+ * `held` is the corpus's own count and never a scope's, which is what keeps a
+ * rate drawn under a scope a share of the corpus.
+ */
+export interface ScopeCut {
+	held: number;
+	scopes: Record<'word' | 'vocabulary' | 'debate', number>;
+}
+
+export interface ScopeYear extends ScopeCut {
+	year: number;
+}
+
+export interface ScopeDelegation extends ScopeCut {
+	country_org: string;
+}
+
+export interface ScopeIndex extends Pick<MeetingIndex, 'meta' | 'corpus' | 'scopes'> {
+	years: ScopeYear[];
+	delegations: ScopeDelegation[];
+}
 
 /* --- 11_countries.py ------------------------------------------------------ */
 

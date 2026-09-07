@@ -180,7 +180,13 @@ def summarise(meeting: dict) -> dict[str, object]:
 
 
 def scope_payload(speeches: pd.DataFrame, meta: dict[str, object]) -> dict[str, object]:
-    """The small shared-layout artefact, kept out of the 3 MB meeting index."""
+    """The small shared-layout artefact, kept out of the 3 MB meeting index.
+
+    It carries the two cuts the consuming views need — by year and by speaker —
+    because a scope that changes only a number beside a control is a control
+    nothing obeys, and fetching the meeting index to obey it would cost 3 MB on
+    every page.
+    """
     return {
         "meta": meta,
         "corpus": {
@@ -188,6 +194,8 @@ def scope_payload(speeches: pd.DataFrame, meta: dict[str, object]) -> dict[str, 
             "meetings": int(speeches["meeting_symbol"].nunique()),
         },
         "scopes": scopes.summary(speeches),
+        "years": scopes.by_year(speeches),
+        "delegations": scopes.by_delegation(speeches),
     }
 
 

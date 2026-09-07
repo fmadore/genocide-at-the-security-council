@@ -219,6 +219,31 @@ const validateMeetingIndex: Validator = (record, path) => {
 	}
 };
 
+/**
+ * The meeting index's refusals, plus the two cuts the scope control drives.
+ *
+ * Each cut is checked against its own `held` rather than against the corpus
+ * total, because that is the number the site divides by: a reading set larger
+ * than the population it was selected from would draw a share above one and
+ * look like a finding.
+ */
+const validateScopeIndex: Validator = (record, path) => {
+	validateMeetingIndex(record, path);
+	for (const key of ['years', 'delegations']) {
+		for (const [index, cut] of arrayAt(record, key).entries()) {
+			if (!isRecord(cut) || !Number.isInteger(cut.held)) {
+				throw new Error(`${path}.${key}[${index}] must carry its own integer denominator.`);
+			}
+			const sets = recordAt(cut, 'scopes');
+			for (const id of ['word', 'vocabulary', 'debate']) {
+				if (!Number.isInteger(sets[id]) || Number(sets[id]) > Number(cut.held)) {
+					throw new Error(`${path}.${key}[${index}].scopes.${id} must fit inside its own held.`);
+				}
+			}
+		}
+	}
+};
+
 const validateCountries: Validator = (record, path) => {
 	// The membership block is drawn as a composition: five bands that fill a
 	// speaker's own denominator. If they do not sum to it, the bar comes up short
@@ -840,7 +865,13 @@ export const REQUIRED = {
 	'kwic/index.json': { meta: 'object', terms: 'array' },
 	'kwic/*.json': { meta: 'object', term: 'string', lines: 'array' },
 	'meetings.json': { meta: 'object', corpus: 'object', scopes: 'array', meetings: 'array' },
-	'scopes.json': { meta: 'object', corpus: 'object', scopes: 'array' },
+	'scopes.json': {
+		meta: 'object',
+		corpus: 'object',
+		scopes: 'array',
+		years: 'array',
+		delegations: 'array'
+	},
 	'speeches/*.json': { meta: 'object', speeches: 'array' }
 } as const satisfies Record<string, Shape>;
 
@@ -888,7 +919,7 @@ export const nodeFrames = at<NodeFrames>('frames/frames.json', validateNodeFrame
 
 export const kwicIndex = at<KwicIndex>('kwic/index.json');
 export const meetingIndex = at<MeetingIndex>('meetings.json', validateMeetingIndex);
-export const scopeIndex = at<ScopeIndex>('scopes.json', validateMeetingIndex);
+export const scopeIndex = at<ScopeIndex>('scopes.json', validateScopeIndex);
 
 /* Fetched by name rather than fixed, so the path is built per call. */
 export const kwic = (term: string, f?: typeof fetch) =>

@@ -3,6 +3,12 @@
 A scope selects speeches to read; it never supplies a denominator.  Keeping
 the predicates here prevents the series and meeting exports from quietly
 building different versions of "the vocabulary" or "the debate".
+
+The aggregations below cut the same three sets by year and by speaker, which
+is what the chronology, the actors view and the concordance draw when a reader
+changes scope.  Each cut carries the population it came out of, so every rate
+the site publishes under a scope divides by the whole corpus and not by the
+reading set.
 """
 
 from __future__ import annotations
@@ -54,6 +60,58 @@ def speech_masks(speeches: pd.DataFrame) -> dict[str, pd.Series]:
         "vocabulary": word | atrocity,
         "debate": speeches["meeting_symbol"].isin(word_meetings),
     }
+
+
+def _require(speeches: pd.DataFrame, columns: list[str]) -> None:
+    missing = [column for column in columns if column not in speeches]
+    if missing:
+        raise ValueError(f"scope aggregation is missing column(s): {', '.join(missing)}")
+
+
+def by_year(speeches: pd.DataFrame) -> list[dict[str, object]]:
+    """Each year's own corpus denominator, with the three reading sets beside it.
+
+    The denominator is written next to the sets rather than left to be derived
+    from them, so a consumer cannot divide one reading set by another and call
+    the result a rate.  That is the trap R9 names, and the artefact refuses to
+    hold the shape that invites it.
+    """
+    _require(speeches, ["year"])
+    masks = speech_masks(speeches)
+    held = speeches.groupby("year").size().sort_index()
+    counted = {key: speeches.loc[mask].groupby("year").size() for key, mask in masks.items()}
+    return [
+        {
+            "year": int(year),
+            "held": int(total),
+            "scopes": {key: int(counted[key].get(year, 0)) for key in masks},
+        }
+        for year, total in held.items()
+    ]
+
+
+def by_delegation(speeches: pd.DataFrame) -> list[dict[str, object]]:
+    """Reading-set membership per speaker, against that speaker's own total.
+
+    A speaker with nothing in any of the three sets is left out rather than
+    written as three zeroes: 708 speakers sat in this corpus, this artefact is
+    fetched on every page, and an absent speaker contributes nothing anywhere.
+    """
+    _require(speeches, ["country_org"])
+    masks = speech_masks(speeches)
+    held = speeches.groupby("country_org").size()
+    counted = {
+        key: speeches.loc[mask].groupby("country_org").size() for key, mask in masks.items()
+    }
+    rows = []
+    for country in sorted(held.index, key=lambda name: str(name).casefold()):
+        sets = {key: int(counted[key].get(country, 0)) for key in masks}
+        if not any(sets.values()):
+            continue
+        rows.append(
+            {"country_org": str(country), "held": int(held[country]), "scopes": sets}
+        )
+    return rows
 
 
 def summary(speeches: pd.DataFrame) -> list[dict[str, object]]:

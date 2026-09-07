@@ -1505,6 +1505,17 @@
    "meetings": "int",
    "speeches": "int"
   },
+  "delegations": [
+   {
+    "country_org": "str",
+    "held": "int",
+    "scopes": {
+     "debate": "int",
+     "vocabulary": "int",
+     "word": "int"
+    }
+   }
+  ],
   "meta": {
    "analysis_hash": "str",
    "configs": [
@@ -1538,6 +1549,17 @@
     "label": "str",
     "meetings": "int",
     "speeches": "int"
+   }
+  ],
+  "years": [
+   {
+    "held": "int",
+    "scopes": {
+     "debate": "int",
+     "vocabulary": "int",
+     "word": "int"
+    },
+    "year": "int"
    }
   ]
  },

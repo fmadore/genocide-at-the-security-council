@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
@@ -20,6 +21,7 @@
 		isIntervalBand
 	} from '$lib/chronology';
 	import { provenanceOf } from '$lib/export';
+	import { DEFAULT_SCOPE, SCOPE_IDS, reading, readScope, scopeOf, withScope } from '$lib/scope';
 	import type { ExportRequest } from '$lib/export';
 	import {
 		CALENDAR_COLUMNS,
@@ -46,6 +48,7 @@
 		endLabel,
 		grid,
 		legend,
+		neutral,
 		registerColour,
 		textStyle,
 		tooltip
@@ -106,6 +109,74 @@
 	const genocideFreeAtrocitySpeeches = $derived(
 		(genocideFreeAtrocity?.speeches ?? []).reduce((total, value) => total + value, 0)
 	);
+
+	/* --- The reading set the masthead selected -----------------------------
+	   R9's scope, cut by year. It draws its own population rather than
+	   re-basing the term series below it: those keep the corpus denominator,
+	   and so does this — a share here is a share of the year's speeches, not of
+	   the reading set the control chose. */
+	/* `url.searchParams` is unreadable while a page is prerendered, by design:
+	   a static file cannot depend on a query string. The answer there is the
+	   default, which is the guarantee R9 makes anyway — a URL carrying no scope
+	   renders what the site rendered before R9 — and hydration applies the rest. */
+	const scope = $derived(browser ? readScope(page.url.searchParams) : DEFAULT_SCOPE);
+	const chosenScope = $derived(scopeOf(data.scopeIndex, scope));
+	const scopeYears = $derived(
+		data.scopeIndex.years.map((year) => ({ year: year.year, ...reading(year, scope) }))
+	);
+	let scopeChart = $state<Chart | null>(null);
+
+	const scopeOption: EChartsOption = $derived.by(() => {
+		const p = $colours;
+		return {
+			textStyle,
+			grid: grid(),
+			tooltip: {
+				trigger: 'axis',
+				...tooltip(p),
+				formatter: (params: unknown) => {
+					const [first] = params as { dataIndex: number }[];
+					const row = scopeYears[first.dataIndex];
+					return (
+						`<strong>${row.year}</strong><br>${count(row.speeches)} of ` +
+						`${count(row.held)} speeches — ${row.share === null ? '—' : percent(row.share)}`
+					);
+				}
+			},
+			xAxis: { type: 'category', data: scopeYears.map((row) => String(row.year)), ...axisX(p) },
+			yAxis: {
+				type: 'value',
+				...axisY(p),
+				axisLabel: { ...axisY(p).axisLabel, formatter: percent }
+			},
+			series: [
+				{
+					type: 'line',
+					name: chosenScope.label,
+					showSymbol: false,
+					lineStyle: { width: 2, color: neutral(p) },
+					itemStyle: { color: neutral(p) },
+					endLabel: endLabel(neutral(p), chosenScope.label),
+					data: scopeYears.map((row) => row.share)
+				} satisfies LineSeriesOption
+			]
+		};
+	});
+
+	function scopeTable(): ExportRequest {
+		return {
+			title: 'The reading set, year by year',
+			columns: ['year', 'speeches_held', ...SCOPE_IDS.map((id) => `speeches_${id}`)],
+			rows: data.scopeIndex.years.map((year) => [
+				year.year,
+				year.held,
+				...SCOPE_IDS.map((id) => year.scopes[id])
+			]),
+			provenance: provenanceOf(data.scopeIndex.meta, 'scopes.json'),
+			filters: [`drawn: ${chosenScope.label}`],
+			scope: 'all three reading sets for every year, whichever one the figure was drawing'
+		};
+	}
 
 	/* Live chart handles, for the image half of the export. */
 	let seriesFigure = $state<Chart | null>(null);
@@ -641,16 +712,23 @@
 
 	$effect(() => {
 		if (!urlReady) return;
-		const params = chronologyParams(
-			{
-				unit,
-				grain,
-				series: selected,
-				calendarMeasure: gridMeasure,
-				calendarUnit: gridUnit,
-				split
-			},
-			urlChoices
+		/* The scope is layout state and the page owns everything else in the
+		   query, so it is merged back in here: a page that rebuilt its own URL
+		   from its own controls would silently drop the reader's reading set on
+		   the next keystroke. */
+		const params = withScope(
+			chronologyParams(
+				{
+					unit,
+					grain,
+					series: selected,
+					calendarMeasure: gridMeasure,
+					calendarUnit: gridUnit,
+					split
+				},
+				urlChoices
+			),
+			scope
 		);
 		const search = params.toString();
 		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
@@ -759,6 +837,7 @@
 
 	/* The figures on this page, for the contents list; the ids follow the titles. */
 	const FIGURES = [
+		{ title: 'The reading set, year by year' },
 		{ title: 'The word list over time' },
 		{ title: "The vocabulary's calendar" },
 		{ title: 'The same twelve months, pooled' },
@@ -792,6 +871,41 @@
 	</header>
 
 	<Contents figures={FIGURES} />
+
+	<Figure
+		fullscreen
+		onfullscreenchange={() => scopeChart?.resize()}
+		title="The reading set, year by year"
+		question="How much of each year's record does the selected reading set hold?"
+		source="09_export_speeches.py → scopes.json"
+		note="The line is the reading set as a share of the speeches the Council held that year."
+		download={{
+			name: ['unsc', 'reading-set', scope],
+			table: scopeTable,
+			chart: () => scopeChart?.svg() ?? null
+		}}
+	>
+		{#snippet reading()}
+			<p>
+				<strong>{chosenScope.label}</strong> holds {count(chosenScope.speeches)} speeches across
+				{count(chosenScope.meetings)} meetings. Change it in the masthead; the line follows.
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>
+				A reading set is not a denominator. Every year divides by the speeches the Council held that
+				year — {count(data.scopeIndex.corpus.speeches)} in all — so the term series below keep their base
+				whichever set is selected.
+			</p>
+		{/snippet}
+
+		<Chart
+			bind:this={scopeChart}
+			option={scopeOption}
+			height="260px"
+			description="Line chart of the selected reading set as a share of each year's speeches."
+		/>
+	</Figure>
 
 	<Figure
 		fullscreen

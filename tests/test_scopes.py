@@ -21,6 +21,8 @@ def corpus() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "meeting_symbol": ["A", "A", "B", "C"],
+            "year": [1994, 1994, 1995, 1995],
+            "country_org": ["Rwanda", "France", "France", "Chad"],
             "has_genocide": [True, False, False, False],
             "has_ethnic_cleansing": [False, True, True, False],
             "has_crimes_against_humanity": [False, False, True, False],
@@ -109,3 +111,36 @@ def test_small_scope_payload_keeps_the_denominator_outside_the_reading_sets() ->
     assert payload["corpus"] == {"speeches": 4, "meetings": 3}
     assert [row["id"] for row in payload["scopes"]] == ["word", "vocabulary", "debate"]
     assert "meetings" not in payload
+
+
+def test_each_cut_carries_the_population_it_came_out_of() -> None:
+    years = scopes.by_year(corpus())
+
+    assert years == [
+        {"year": 1994, "held": 2, "scopes": {"word": 1, "vocabulary": 2, "debate": 2}},
+        {"year": 1995, "held": 2, "scopes": {"word": 0, "vocabulary": 1, "debate": 0}},
+    ]
+    # The denominator is the corpus, not the reading set: the two years hold
+    # every speech in the frame whatever the scope selects out of them.
+    assert sum(row["held"] for row in years) == len(corpus())
+
+
+def test_a_speaker_cut_ranks_only_speakers_a_reading_set_holds() -> None:
+    rows = scopes.by_delegation(corpus())
+
+    assert rows == [
+        {"country_org": "France", "held": 2, "scopes": {"word": 0, "vocabulary": 2, "debate": 1}},
+        {"country_org": "Rwanda", "held": 1, "scopes": {"word": 1, "vocabulary": 1, "debate": 1}},
+    ]
+    # Chad said nothing and sat in no meeting where the word was said, so it is
+    # absent rather than written as three zeroes on every page fetch.
+    assert [row["country_org"] for row in rows] == ["France", "Rwanda"]
+
+
+def test_a_cut_refuses_a_frame_that_cannot_name_its_population() -> None:
+    try:
+        scopes.by_delegation(corpus().drop(columns="country_org"))
+    except ValueError as error:
+        assert "country_org" in str(error)
+    else:
+        raise AssertionError("a speaker cut without speakers was accepted")
