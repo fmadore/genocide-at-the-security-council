@@ -7,36 +7,33 @@ this document records the current position rather than a chronological work log.
 
 ## Current focus
 
-GPU status, 8 September: job 760377 failed during server startup because its
-1,024-sequence default exceeded available Mamba cache capacity. The serving
-limit is now explicitly four, recorded in runtime provenance. Replacement smoke
-job **760796** started at 06:48 CEST; CUDA graph capture completed and the health
-endpoint returned 200 at 06:51. It then failed before inference because the SDK
-refused a top-level `chat_template_kwargs` argument. The local adapter now sends
-that extension through `extra_body`, with a real-SDK/mock-HTTP regression proving
-that the recorded wire body is preserved. The remote normalized corpus was also
-still the retired 106,302-speech dataset. Following explicit upload approval,
-the corrected code and 167,642-speech corpus were staged in an isolated workdir;
-the normalized parquet SHA256 matches locally and remotely. Job 760797 then
-exposed a context-budget mismatch: prompt plus output exceeded 65,536 tokens.
-A pinned-tokenizer audit of all 4,133 requests found a maximum of 79,392 tokens;
-the serving default is now 131,072, preserving full text and output allowances.
-Smoke job **760798** is running under that configuration. Full-corpus job
-**760799** is queued with an `afterok` dependency and a second guard requiring
-the smoke manifest's status to be complete. Probe and smoke outcomes remain
-pending. A code-hash inventory records the staged implementation.
-The model is Qwen3.8-27B on Festus;
-the OpenAI-compatible SDK is only the client for the loopback vLLM endpoint.
+GPU status, 8 September: smoke job **760798 passed at 08:16 CEST**: all 12
+speeches and 40 occurrences annotated, zero refusals, all 40 evidence spans
+located without relocation. Its nine-response reasoning probe also passed:
+median reasoning tokens were 1,389 / 1,914 / 11,603 for low / medium / xhigh.
+Full-corpus job **760799 started at 08:16 CEST**, after both scheduler success
+and the smoke manifest's completion guard. Its target is 4,133 speeches and
+7,747 occurrences; full coverage and results remain pending.
+
+The model is Qwen3.8-27B at xhigh on one Festus H100. The OpenAI-compatible SDK
+only connects to loopback vLLM. Corrected code and the current 167,642-speech
+corpus are in an isolated workdir, with matching local/remote parquet SHA256.
+Startup fixes bound serving concurrency to four, route SDK extensions through
+`extra_body`, and set context to 131,072. A pinned-tokenizer audit of every
+request found a maximum prompt-plus-output budget of 79,392 tokens. Full text
+and output allowances are preserved. The full-run client timeout is one hour,
+covering legitimate long responses; staged code hashes and the original smoke
+client are retained alongside the logs.
 
 Festus's operating guidance has been checked against the live environment. The
 batch script now checks corpus metadata, SDK call compatibility and cached model
 shards before server startup; package/compilation caches use `/workdir`, and the
-server is isolated from the client overlay. These changes are staged; successful
-current-corpus probe and smoke results remain the gate.
+server is isolated from the client overlay. The current-corpus probe and smoke
+gates have passed; full-run completeness and research review remain open.
 
 The local integrity repairs and corpus rebuild are complete. The next research
 milestone is a reviewed annotation instrument and validated evidence. The Bayreuth
-GPU run is still pending; no result or publication run is selected by this work.
+GPU run is in progress; no result or publication run is selected by this work.
 The application remains experimental and the human-validation release gate is open.
 
 | Priority | Work | Status and completion gate |

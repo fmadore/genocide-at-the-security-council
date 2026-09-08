@@ -82,12 +82,14 @@ class ResponseTruncated(ValueError):
 # --- The API, kept behind functions so the import stays lazy -----------------
 
 
-def client(timeout: float = 900.0):
+def client(timeout: float = 3600.0):
     """A protocol client for the vLLM Responses endpoint.
 
     Imported lazily so the deterministic pipeline and CI do not install the
     optional SDK.  vLLM requires an API-key-shaped value in the OpenAI client,
     but the loopback server does not authenticate it.
+    Allow an hour for the largest 65,536-token output: at the measured H100
+    rate, maximum reasoning can legitimately exceed the old 15-minute timeout.
     """
     from openai import OpenAI
 

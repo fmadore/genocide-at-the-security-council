@@ -116,6 +116,10 @@ the job runs the selected profile's reasoning ladder over the same three speeche
 `data/interim/model_annotation_probes/<run-id>/probe.json`. Identical resumed jobs reuse a
 passed probe; a flat ladder stops in words before a corpus row is written.
 
+The client allows one hour per response. At the observed H100 decode rate,
+the largest 65,536-token output allowance can take more than 15 minutes;
+the transport timeout must not prematurely cut off maximum reasoning.
+
 The server explicitly sets `--max-num-seqs` from `VLLM_MAX_NUM_SEQS` (default 4),
 matching the annotation client's usual concurrency. On 8 September, job 760377
 failed during startup because vLLM chose 1,024 sequences while the hybrid Qwen
