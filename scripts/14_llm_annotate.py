@@ -179,7 +179,7 @@ def live(
         )
 
         try:
-            response = api.responses.create(**body)
+            response = api.responses.create(**llm.sdk_request_kwargs(body))
         except Exception as error:  # recorded as a failure, not retried further
             return speech.custom_id, None, f"{type(error).__name__}: {error}"[:300]
         return speech.custom_id, response.model_dump(mode="json"), ""
@@ -312,6 +312,7 @@ def runtime_record(args: argparse.Namespace) -> dict[str, object]:
         "gpu_model": "VLLM_GPU_MODEL",
         "gpu_count": "VLLM_GPU_COUNT",
         "max_model_len": "VLLM_MAX_MODEL_LEN",
+        "max_num_seqs": "VLLM_MAX_NUM_SEQS",
         "reasoning_parser": "VLLM_REASONING_PARSER",
         "quantization": "VLLM_QUANTIZATION",
         "tensor_parallel_size": "VLLM_TENSOR_PARALLEL_SIZE",
@@ -342,6 +343,7 @@ def runtime_record(args: argparse.Namespace) -> dict[str, object]:
         },
         "serving": {
             "max_model_len": int(values["max_model_len"]),
+            "max_num_seqs": int(values["max_num_seqs"]),
             "reasoning_parser": values["reasoning_parser"],
             "tensor_parallel_size": int(values["tensor_parallel_size"]),
             "prefix_caching": True,

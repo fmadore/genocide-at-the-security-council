@@ -135,7 +135,7 @@ def run(args: argparse.Namespace) -> None:
                 top_p=args.top_p,
             )
             started = time.perf_counter()
-            response = api.responses.create(**body).model_dump(mode="json")
+            response = api.responses.create(**llm.sdk_request_kwargs(body)).model_dump(mode="json")
             elapsed = time.perf_counter() - started
             llm.validate_response(
                 step.output_text(response),

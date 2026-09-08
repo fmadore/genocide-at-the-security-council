@@ -85,6 +85,7 @@ def test_runtime_record_requires_and_preserves_reproducible_server_facts(
         "VLLM_GPU_MODEL": "NVIDIA H100 80GB HBM3",
         "VLLM_GPU_COUNT": "1",
         "VLLM_MAX_MODEL_LEN": "65536",
+        "VLLM_MAX_NUM_SEQS": "4",
         "VLLM_REASONING_PARSER": "qwen3",
         "VLLM_QUANTIZATION": "none",
         "VLLM_TENSOR_PARALLEL_SIZE": "1",
@@ -108,10 +109,31 @@ def test_runtime_record_requires_and_preserves_reproducible_server_facts(
     }
     assert record["sampling"] == {"temperature": 0.0, "top_p": 1.0}
     assert record["serving"]["max_model_len"] == 65536
+    assert record["serving"]["max_num_seqs"] == 4
 
     monkeypatch.delenv("VLLM_MODEL_REVISION")
     with pytest.raises(SystemExit):
         step.runtime_record(args)
+
+
+def test_sdk_extension_reaches_wire_without_changing_recorded_body() -> None:
+    httpx = pytest.importorskip("httpx")
+    OpenAI = pytest.importorskip("openai").OpenAI
+
+    received = []
+
+    def capture(request: httpx.Request) -> httpx.Response:
+        received.append(json.loads(request.content))
+        return httpx.Response(200, json={"id": "probe", "object": "response", "output": []})
+
+    body = {"model": "fixture", "input": "hello", "chat_template_kwargs": {"reasoning_effort": "high"}}
+    with OpenAI(api_key="local-test", base_url="http://fixture/v1", http_client=httpx.Client(
+        transport=httpx.MockTransport(capture),
+    )) as api:
+        api.responses.create(**llm.sdk_request_kwargs(body))
+    assert received == [body]
+    assert "chat_template_kwargs" in body
+    assert "extra_body" not in body
 
 
 def test_both_instruments_use_one_responses_api_code_path(tmp_path: Path) -> None:
@@ -172,13 +194,13 @@ def test_both_instruments_use_one_responses_api_code_path(tmp_path: Path) -> Non
 
     assert set(qwen.responses) == set(deepseek.responses) == {"speech"}
     assert calls[0]["model"] == "Qwen/Qwen3.8-27B"
-    assert calls[0]["chat_template_kwargs"] == {"reasoning_effort": "xhigh"}
+    assert calls[0]["extra_body"] == {"chat_template_kwargs": {"reasoning_effort": "xhigh"}}
     assert calls[1]["model"] == "deepseek-ai/DeepSeek-V4-Flash-0731"
     assert calls[1]["reasoning"] == {"effort": "max"}
-    assert set(calls[0]) - {"model", "reasoning", "chat_template_kwargs"} == set(calls[1]) - {
+    assert set(calls[0]) - {"model", "reasoning", "extra_body"} == set(calls[1]) - {
         "model",
         "reasoning",
-        "chat_template_kwargs",
+        "extra_body",
     }
     assert json.loads(next((tmp_path / "qwen").glob("live-*.jsonl")).read_text())["custom_id"] == (
         "speech"

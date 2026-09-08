@@ -116,6 +116,41 @@ the job runs the selected profile's reasoning ladder over the same three speeche
 `data/interim/model_annotation_probes/<run-id>/probe.json`. Identical resumed jobs reuse a
 passed probe; a flat ladder stops in words before a corpus row is written.
 
+The server explicitly sets `--max-num-seqs` from `VLLM_MAX_NUM_SEQS` (default 4),
+matching the annotation client's usual concurrency. On 8 September, job 760377
+failed during startup because vLLM chose 1,024 sequences while the hybrid Qwen
+model had only 311 available Mamba cache blocks. The bounded setting preserves
+the 65,536-token context and 0.90 GPU-memory fraction. Both serving entrypoints
+use it, and new runtime records include it. Increase it only after checking
+cache capacity on the target hardware; existing run identities must not silently
+absorb a changed serving configuration.
+
+### Festus operating guidance checked on 8 September 2026
+
+The [Festus system guide](https://www.hpc.uni-bayreuth.de/clusters/festus/)
+and [GPU example](https://www.hpc.uni-bayreuth.de/material/example_jobs/pytorch_gpu/)
+confirm `--partition=GPU --gres=gpu:h100:1` and the `python/3.12.4` module.
+Use `python3` after loading the module, or the explicit activated venv interpreter;
+the system `python` command alone is not a reliable module selector. The annotation
+preflight uses `$VENV/bin/python3`. The live GPU partition reports a 24-hour limit.
+
+Before submission, run the offline preflight with the annotation environment:
+
+```bash
+source scripts/cluster/env.sh
+load_python
+activate_annotator
+configure_annotation_model
+"$VENV/bin/python3" scripts/preflight_annotation.py
+```
+
+It rejects the retired corpus by row count and schema, verifies SDK call compatibility
+and adapter body preservation without network access, and checks cached model shards. It does not certify model
+accuracy or weight hashes. The batch script repeats it before starting vLLM.
+Package and vLLM compilation caches default to `/workdir` beside the serving venv,
+with `PIP_CACHE_DIR` and `VLLM_CACHE_ROOT` overrides. The server subprocess removes
+the client overlay from `PYTHONPATH` before activating its own environment.
+
 ### The four jobs that failed at zero elapsed time, and what it was
 
 On 4 and 5 September 2026 four annotation jobs failed the same way: `748010` never started,
@@ -184,11 +219,12 @@ A job submitted to a down partition sits in `PENDING (PartitionDown)` forever
 rather than failing, so it is worth reading the reason in `squeue` after
 submitting rather than assuming a queued job is a waiting one.
 
-**Storage.** Only `/home` is backed up.
+**Storage.** Festus documents `/workdir` and `/scratch` as purgeable and unbacked.
+Keep a separate durable copy of results and verify the account's home backup policy.
 
 | Path | Size | Lifetime | Backed up | Used for |
 |---|---|---|---|---|
-| `/home/<n>/<account>` | 15 GB | permanent | yes | the repository, archived results |
+| `/home/<n>/<account>` | 10 GB documented; 15 GB observed for this account | permanent | verify account policy | the repository, archived results |
 | `/workdir/<account>` | 3 TB | 60 days | no | venv, HF cache, `data/` |
 | `/scratch/<account>` | shared, very large | 10 days | no | scratch I/O |
 

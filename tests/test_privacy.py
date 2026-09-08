@@ -32,6 +32,12 @@ EXEMPT = {
 }
 EXEMPT_PREFIXES = ("docs/reference/",)
 
+# Public documentation citations are not SSH endpoints or account details.
+PUBLIC_DOCUMENTATION_LINKS = (
+    "(https://www.hpc.uni-bayreuth.de/clusters/festus/)",
+    "(https://www.hpc.uni-bayreuth.de/material/example_jobs/pytorch_gpu/)",
+)
+
 SUSPECT = [
     (
         "university account id",
@@ -102,6 +108,8 @@ def test_no_identifying_strings(tracked, label: str, pattern: re.Pattern[str]) -
     hits = []
     for name, text in tracked:
         for line_number, line in enumerate(text.splitlines(), start=1):
+            for citation in PUBLIC_DOCUMENTATION_LINKS:
+                line = line.replace(citation, "(public documentation)")
             match = pattern.search(line)
             if match:
                 hits.append(f"{name}:{line_number}: {match.group(0)}")

@@ -21,6 +21,11 @@ configure_annotation_model
 set_threads
 cd "$REPO"
 
+# Refuse stale corpus or client configuration before loading 52 GB of weights.
+load_python
+activate_annotator
+"$VENV/bin/python3" scripts/preflight_annotation.py
+
 SERVER_PID=""
 stop_server() {
   if [[ -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then
@@ -34,6 +39,7 @@ echo "==> $(date '+%F %T') | node=$(hostname) | $VLLM_MODEL_ID@$VLLM_MODEL_REVIS
 report_gpu
 
 (
+  unset PYTHONPATH
   load_python
   activate_vllm
   SERVE=(
@@ -43,6 +49,7 @@ report_gpu
     --host 127.0.0.1
     --port "$VLLM_PORT"
     --max-model-len "$VLLM_MAX_MODEL_LEN"
+    --max-num-seqs "$VLLM_MAX_NUM_SEQS"
     --tensor-parallel-size "$VLLM_TENSOR_PARALLEL_SIZE"
     --gpu-memory-utilization "$VLLM_GPU_MEMORY_UTILIZATION"
     --reasoning-parser "$VLLM_REASONING_PARSER"

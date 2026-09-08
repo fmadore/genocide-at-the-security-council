@@ -57,6 +57,9 @@ LLM_CLIENT_PACKAGES="${UNSC_LLM_CLIENT_PACKAGES:-/workdir/$USER/unsc/llm-client}
 
 # Hugging Face cache — /workdir (3 TB), never /home (15 GB).
 export HF_HOME="${HF_HOME:-/workdir/$USER/unsc/hf_cache}"
+# Compilation and package caches can also fill the small home filesystem.
+export PIP_CACHE_DIR="${PIP_CACHE_DIR:-$(dirname "$VLLM_VENV")/pip_cache}"
+export VLLM_CACHE_ROOT="${VLLM_CACHE_ROOT:-$(dirname "$VLLM_VENV")/vllm_cache}"
 
 # Where the corpus lives on the cluster. `data/` inside the repo is a symlink to
 # this, created by setup_env.sh: 900 MB of parquet does not belong on /home, but
@@ -155,6 +158,13 @@ configure_annotation_model() {
   esac
   VLLM_PORT="${VLLM_PORT:-8000}"
   VLLM_MAX_MODEL_LEN="${VLLM_MAX_MODEL_LEN:-65536}"
+  # Match the four-request annotation workload, rather than vLLM's 1024-slot
+  # GPU default, which exceeds this hybrid model's available Mamba cache.
+  VLLM_MAX_NUM_SEQS="${VLLM_MAX_NUM_SEQS:-4}"
+  if [[ ! "$VLLM_MAX_NUM_SEQS" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: VLLM_MAX_NUM_SEQS must be a positive integer." >&2
+    return 2
+  fi
   VLLM_TENSOR_PARALLEL_SIZE="${VLLM_TENSOR_PARALLEL_SIZE:-1}"
   VLLM_QUANTIZATION="${VLLM_QUANTIZATION:-none}"
   VLLM_GPU_MEMORY_UTILIZATION="${VLLM_GPU_MEMORY_UTILIZATION:-0.90}"
@@ -177,6 +187,7 @@ configure_annotation_model() {
   export VLLM_REASONING_EFFORT VLLM_REASONING_LOCATION VLLM_PORT
   export VLLM_REASONING_LEVELS
   export VLLM_MAX_MODEL_LEN VLLM_TENSOR_PARALLEL_SIZE VLLM_QUANTIZATION
+  export VLLM_MAX_NUM_SEQS
   export VLLM_GPU_MEMORY_UTILIZATION VLLM_BASE_URL
   export VLLM_TEMPERATURE VLLM_TOP_P
 }

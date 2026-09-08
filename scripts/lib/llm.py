@@ -718,6 +718,14 @@ def request_body(
 
 # --- Reading one speech's response -----------------------------------------
 
+def sdk_request_kwargs(body: dict[str, object]) -> dict[str, object]:
+    """Adapt the recorded wire body to the SDK without changing its JSON."""
+    kwargs = dict(body)
+    if "chat_template_kwargs" in kwargs:
+        kwargs["extra_body"] = {"chat_template_kwargs": kwargs.pop("chat_template_kwargs")}
+    return kwargs
+
+
 
 def _functions(value: object) -> tuple[str, ...]:
     if isinstance(value, str):

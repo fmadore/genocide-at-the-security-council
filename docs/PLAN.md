@@ -1,11 +1,35 @@
 # Project focus and release gates
 
-Updated 7 September 2026. This is the single planning and status document.
+Updated 8 September 2026. This is the single planning and status document.
 It replaces the separate improvement roadmap, dated reviews, implementation
 report and research-decision packet. Historical discussion remains in Git history;
 this document records the current position rather than a chronological work log.
 
 ## Current focus
+
+GPU status, 8 September: job 760377 failed during server startup because its
+1,024-sequence default exceeded available Mamba cache capacity. The serving
+limit is now explicitly four, recorded in runtime provenance. Replacement smoke
+job **760796** started at 06:48 CEST; CUDA graph capture completed and the health
+endpoint returned 200 at 06:51. It then failed before inference because the SDK
+refused a top-level `chat_template_kwargs` argument. The local adapter now sends
+that extension through `extra_body`, with a real-SDK/mock-HTTP regression proving
+that the recorded wire body is preserved. The remote normalized corpus was also
+still the retired 106,302-speech dataset. Following explicit upload approval,
+the corrected code and 167,642-speech corpus were staged in an isolated workdir;
+the normalized parquet SHA256 matches locally and remotely. Job **760797** started
+at 07:05 CEST after offline preflight passed. It is bounded to 12 speeches and
+two hours; probe and smoke outcomes remain pending, and it is not the full
+corpus run. A code-hash inventory records the staged implementation.
+At 07:08 CEST the local server returned health 200 and began generating its first
+probe response at about 50 tokens/second. The model is Qwen3.8-27B on Festus;
+the OpenAI-compatible SDK is only the client for the loopback vLLM endpoint.
+
+Festus's operating guidance has been checked against the live environment. The
+batch script now checks corpus metadata, SDK call compatibility and cached model
+shards before server startup; package/compilation caches use `/workdir`, and the
+server is isolated from the client overlay. These changes are staged; successful
+current-corpus probe and smoke results remain the gate.
 
 The local integrity repairs and corpus rebuild are complete. The next research
 milestone is a reviewed annotation instrument and validated evidence. The Bayreuth

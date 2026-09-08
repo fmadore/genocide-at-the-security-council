@@ -34,6 +34,7 @@ SERVE=(
   --host 127.0.0.1
   --port "$VLLM_PORT"
   --max-model-len "$VLLM_MAX_MODEL_LEN"
+  --max-num-seqs "$VLLM_MAX_NUM_SEQS"
   --tensor-parallel-size "$VLLM_TENSOR_PARALLEL_SIZE"
   --gpu-memory-utilization "$VLLM_GPU_MEMORY_UTILIZATION"
   --reasoning-parser "$VLLM_REASONING_PARSER"
