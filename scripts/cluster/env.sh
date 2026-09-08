@@ -157,7 +157,7 @@ configure_annotation_model() {
     *) echo "ERROR: unknown UNSC_ANNOTATION_MODEL '$profile' (qwen, deepseek, gemma)." >&2; exit 2 ;;
   esac
   VLLM_PORT="${VLLM_PORT:-8000}"
-  VLLM_MAX_MODEL_LEN="${VLLM_MAX_MODEL_LEN:-65536}"
+  VLLM_MAX_MODEL_LEN="${VLLM_MAX_MODEL_LEN:-131072}"
   # Match the four-request annotation workload, rather than vLLM's 1024-slot
   # GPU default, which exceeds this hybrid model's available Mamba cache.
   VLLM_MAX_NUM_SEQS="${VLLM_MAX_NUM_SEQS:-4}"

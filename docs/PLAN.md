@@ -17,12 +17,15 @@ that extension through `extra_body`, with a real-SDK/mock-HTTP regression provin
 that the recorded wire body is preserved. The remote normalized corpus was also
 still the retired 106,302-speech dataset. Following explicit upload approval,
 the corrected code and 167,642-speech corpus were staged in an isolated workdir;
-the normalized parquet SHA256 matches locally and remotely. Job **760797** started
-at 07:05 CEST after offline preflight passed. It is bounded to 12 speeches and
-two hours; probe and smoke outcomes remain pending, and it is not the full
-corpus run. A code-hash inventory records the staged implementation.
-At 07:08 CEST the local server returned health 200 and began generating its first
-probe response at about 50 tokens/second. The model is Qwen3.8-27B on Festus;
+the normalized parquet SHA256 matches locally and remotely. Job 760797 then
+exposed a context-budget mismatch: prompt plus output exceeded 65,536 tokens.
+A pinned-tokenizer audit of all 4,133 requests found a maximum of 79,392 tokens;
+the serving default is now 131,072, preserving full text and output allowances.
+Smoke job **760798** is running under that configuration. Full-corpus job
+**760799** is queued with an `afterok` dependency and a second guard requiring
+the smoke manifest's status to be complete. Probe and smoke outcomes remain
+pending. A code-hash inventory records the staged implementation.
+The model is Qwen3.8-27B on Festus;
 the OpenAI-compatible SDK is only the client for the loopback vLLM endpoint.
 
 Festus's operating guidance has been checked against the live environment. The

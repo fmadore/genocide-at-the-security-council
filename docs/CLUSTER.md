@@ -120,10 +120,16 @@ The server explicitly sets `--max-num-seqs` from `VLLM_MAX_NUM_SEQS` (default 4)
 matching the annotation client's usual concurrency. On 8 September, job 760377
 failed during startup because vLLM chose 1,024 sequences while the hybrid Qwen
 model had only 311 available Mamba cache blocks. The bounded setting preserves
-the 65,536-token context and 0.90 GPU-memory fraction. Both serving entrypoints
+the configured context and 0.90 GPU-memory fraction. Both serving entrypoints
 use it, and new runtime records include it. Increase it only after checking
 cache capacity on the target hardware; existing run identities must not silently
 absorb a changed serving configuration.
+
+The default context is now 131,072 tokens. A pinned-tokenizer audit of all 4,133
+current genocide-bearing speeches on 8 September found a maximum of 79,392
+tokens for prompt plus the full requested output allowance. The former 65,536
+window rejected the second probe speech before generation. The H100 reported
+271,610 cache-token capacity. No speech or output allowance was shortened.
 
 ### Festus operating guidance checked on 8 September 2026
 
