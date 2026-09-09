@@ -22,4 +22,4 @@
 # endpoint served by vLLM, not as a client for a hosted vendor. The major stays
 # capped because 3.0 already moved the HTTP client once; the run manifest pins
 # the server and weights that determine the analytical output.
-openai>=3.6.0,<4
+openai>=3.8.0,<4
