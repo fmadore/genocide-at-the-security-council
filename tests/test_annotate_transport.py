@@ -27,6 +27,19 @@ def _step():
 step = _step()
 
 
+@pytest.mark.parametrize("effort,enabled", [("low", False), ("high", True)])
+def test_gemma_boolean_thinking_wire_body(effort, enabled):
+    request = llm.SpeechRequest(filename="test", custom_id="test", system="s", user="u", ordinals=())
+    body = llm.request_body(request, model="google/gemma-4-31B-it", reasoning_effort=effort,
+                            reasoning_location="enable_thinking", max_output_tokens=100)
+    assert body["chat_template_kwargs"] == {"enable_thinking": enabled}
+    assert "reasoning" not in body
+    assert llm.sdk_request_kwargs(body)["extra_body"] == {"chat_template_kwargs": {"enable_thinking": enabled}}
+    with pytest.raises(ValueError, match="Boolean"):
+        llm.request_body(request, model="google/gemma-4-31B-it", reasoning_effort="medium",
+                         reasoning_location="enable_thinking", max_output_tokens=100)
+
+
 def response(text: str, *, status: str = "completed", reason: str = "") -> dict[str, object]:
     body: dict[str, object] = {
         "status": status,

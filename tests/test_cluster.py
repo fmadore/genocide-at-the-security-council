@@ -164,8 +164,9 @@ def test_annotation_server_is_loopback_pinned_and_always_stopped() -> None:
 
 def test_each_annotation_profile_declares_a_reasoning_ladder() -> None:
     text = read(CLUSTER / "env.sh")
-    for ladder in ("low,medium,xhigh", "low,high,max", "low,medium,high"):
+    for ladder in ("low,medium,xhigh", "low,high,max", "low,high"):
         assert ladder in text
+    assert 'VLLM_REASONING_LOCATION:-enable_thinking' in text
 
 
 def test_annotation_profiles_pin_every_selected_checkpoint() -> None:

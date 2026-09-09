@@ -353,9 +353,9 @@ def runtime_record(args: argparse.Namespace) -> dict[str, object]:
             "moe_backend": os.environ.get("VLLM_MOE_BACKEND") or None,
         },
         "reasoning": {
-            "parameter": "reasoning_effort",
-            "value": args.reasoning_effort,
-            "location": args.reasoning_location,
+            "parameter": "enable_thinking" if args.reasoning_location == "enable_thinking" else "reasoning_effort",
+            "value": args.reasoning_effort == "high" if args.reasoning_location == "enable_thinking" else args.reasoning_effort,
+            "location": "chat_template_kwargs" if args.reasoning_location == "enable_thinking" else args.reasoning_location,
         },
         "sampling": {"temperature": args.temperature, "top_p": args.top_p},
         "max_output_tokens": MAX_OUTPUT_TOKENS,
@@ -667,7 +667,7 @@ def main() -> None:
     parser.add_argument(
         "--reasoning-location",
         required=True,
-        choices=("request", "chat_template_kwargs"),
+        choices=("request", "chat_template_kwargs", "enable_thinking"),
         help="where this model's template reads reasoning_effort",
     )
     parser.add_argument("--limit", type=int, help="pilot: the first N genocide-bearing speeches")

@@ -144,10 +144,10 @@ The comparison run (Phase L8) is the same procedure through the same transport. 
 model profile changes, so the enumeration, prompt, validator and row shape cannot drift:
 
 ```bash
-UNSC_ANNOTATION_MODEL=deepseek bash scripts/cluster/download_annotation_model.sh
-UNSC_ANNOTATION_MODEL=deepseek UNSC_RUN_ID=<date>-deepseek-v3 \
-  sbatch --gres=gpu:h100:4 scripts/cluster/submit_annotate.sh
-# If the recorded DeepSeek serving gate fails, use the pre-declared gemma profile.
+UNSC_ANNOTATION_MODEL=gemma bash scripts/cluster/download_annotation_model.sh
+UNSC_ANNOTATION_MODEL=gemma VLLM_TENSOR_PARALLEL_SIZE=2 UNSC_RUN_ID=<date>-gemma-smoke \
+  UNSC_LIMIT=12 UNSC_SMOKE=1 sbatch --gres=gpu:h100:2 scripts/cluster/submit_annotate.sh
+# After smoke validation, use the fixed batch plan and array in docs/CLUSTER.md.
 # Commit the run, then name it in comparison_run.txt as a reviewed diff.
 python scripts/15_usage.py && python scripts/export_web.py
 ```

@@ -177,7 +177,7 @@ def main() -> None:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--model", required=True)
     parser.add_argument("--model-revision", required=True)
-    parser.add_argument("--reasoning-location", required=True, choices=("request", "chat_template_kwargs"))
+    parser.add_argument("--reasoning-location", required=True, choices=("request", "chat_template_kwargs", "enable_thinking"))
     parser.add_argument("--levels", required=True, help="comma-separated ladder, from lowest to highest")
     parser.add_argument("--speeches", type=int, default=3)
     parser.add_argument("--temperature", type=float, required=True)

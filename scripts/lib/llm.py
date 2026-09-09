@@ -685,7 +685,7 @@ def request_body(
     string, so a run made without it is byte-identical to a run made before the
     field existed and the two remain comparable.
     """
-    if reasoning_location not in {"request", "chat_template_kwargs"}:
+    if reasoning_location not in {"request", "chat_template_kwargs", "enable_thinking"}:
         raise ValueError(f"Unknown reasoning parameter location: {reasoning_location}")
     body: dict[str, object] = {
         "model": model,
@@ -705,6 +705,10 @@ def request_body(
     }
     if reasoning_location == "request":
         body["reasoning"] = {"effort": reasoning_effort}
+    elif reasoning_location == "enable_thinking":
+        if reasoning_effort not in {"low", "high"}:
+            raise ValueError("Boolean thinking supports only low (off) and high (on)")
+        body["chat_template_kwargs"] = {"enable_thinking": reasoning_effort == "high"}
     else:
         body["chat_template_kwargs"] = {"reasoning_effort": reasoning_effort}
     if prompt_cache_key:

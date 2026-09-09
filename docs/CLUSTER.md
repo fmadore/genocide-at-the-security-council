@@ -157,9 +157,18 @@ UNSC_ANNOTATION_MODEL=qwen UNSC_RUN_ID=2026-09-04-qwen-smoke \
 UNSC_ANNOTATION_MODEL=qwen sbatch scripts/cluster/serve_annotation.sh
 ```
 
-`qwen` is the published profile; `deepseek` is the counter-instrument and
-requests four H100s; `gemma` is the pre-declared substitute if the DeepSeek
-serving smoke fails. Their revisions and reasoning placements live in
+`qwen` is the primary profile; `gemma` (Google Gemma 4 31B IT) is the selected
+second model. `deepseek` is retained as an unused optional profile.
+Gemma uses `enable_thinking=true`, not a graded reasoning-effort ladder:
+the probe aliases `low` to off and `high` to on, and the runtime records the
+actual boolean parameter. This follows the pinned template and the
+[official Gemma model card](https://huggingface.co/google/gemma-4-31B-it#2-thinking-mode-configuration).
+The Gemma run uses two H100s per task for context/cache headroom, with at most
+two simultaneous batch tasks. Its smoke must pass before the array starts.
+The common temperature/top-p settings remain fixed for comparison with Qwen;
+they differ from Google's general sampling recommendation, which is recorded
+as a comparison-design choice rather than silently changing the instrument.
+Their revisions and reasoning placements live in
 `scripts/cluster/env.sh`. `submit_annotate.sh` traps every exit path and stops
 the server, so cancellation cannot leave a process holding the GPU. Before it asks the corpus,
 the job runs the selected profile's reasoning ladder over the same three speeches and writes

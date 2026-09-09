@@ -151,8 +151,9 @@ configure_annotation_model() {
       VLLM_MODEL_REVISION="${VLLM_MODEL_REVISION:-842da3794eaa0b77d5f08bae87a17459d91ff475}"
       VLLM_REASONING_PARSER="${VLLM_REASONING_PARSER:-gemma4}"
       VLLM_REASONING_EFFORT="${VLLM_REASONING_EFFORT:-high}"
-      VLLM_REASONING_LEVELS="${VLLM_REASONING_LEVELS:-low,medium,high}"
-      VLLM_REASONING_LOCATION="${VLLM_REASONING_LOCATION:-chat_template_kwargs}"
+      # Gemma has a boolean switch, not graded reasoning effort.
+      VLLM_REASONING_LEVELS="${VLLM_REASONING_LEVELS:-low,high}"
+      VLLM_REASONING_LOCATION="${VLLM_REASONING_LOCATION:-enable_thinking}"
       ;;
     *) echo "ERROR: unknown UNSC_ANNOTATION_MODEL '$profile' (qwen, deepseek, gemma)." >&2; exit 2 ;;
   esac

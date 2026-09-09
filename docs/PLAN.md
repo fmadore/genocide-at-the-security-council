@@ -1,11 +1,26 @@
 # Project focus and release gates
 
-Updated 8 September 2026. This is the single planning and status document.
+Updated 9 September 2026. This is the single planning and status document.
 It replaces the separate improvement roadmap, dated reviews, implementation
 report and research-decision packet. Historical discussion remains in Git history;
 this document records the current position rather than a chronological work log.
 
 ## Current focus
+
+Gemma 4 31B IT is now the selected second model, replacing the planned DeepSeek
+run. The pinned checkpoint `842da3794eaa0b77d5f08bae87a17459d91ff475`
+has been downloaded and verified on Festus. An isolated Gemma workspace passes
+preflight, parser import and the full 4,133-request tokenizer budget audit
+(maximum 79,303 tokens against a 131,072-token context). Gemma uses its actual
+boolean `enable_thinking` control; low/high in the probe mean off/on, not a
+graded effort ladder. No successful GPU inference is claimed yet.
+
+Gemma smoke **768786** is queued after Qwen continuation **768736** ends.
+Array **768787** then runs 17 fixed batches of at most 250 speeches, at most
+two tasks simultaneously, with two H100s per task. It requires scheduler
+success and a complete smoke manifest. Qwen completion is not implied by the
+dependency: if its continuation stops incomplete, its checkpoint remains for
+another resume. Recurring monitoring remains paused at the user's request.
 
 Future model runs now support fixed speech batches through
 `scripts/annotation_batches.py` and Slurm arrays. A plan assigns each speech
