@@ -9,7 +9,9 @@
 
 Files below this directory are durable, version-controlled research inputs, exactly as the
 ones under `annotations/` are. The difference is who wrote them: `scripts/14_llm_annotate.py`
-writes a run through a pinned open-weights model on university hardware. Every later step
+writes a run through a pinned open-weights model on university hardware.
+`scripts/annotation_batches.py merge` can assemble complete independent batches
+into a new run, retaining their hashes and leaving the originals untouched. Every later step
 reads it. Nothing rebuilds it — not a pipeline re-run, not CI, not the deploy.
 
 That is a constraint, not a filing preference. The GitHub Pages deploy rebuilds all derived
@@ -22,7 +24,7 @@ The rule this whole store exists to keep is stated in `docs/PLAN.md` §5:
 > No model output may overwrite corpus text, lexicon counts or human annotations.
 
 So: `annotations/` is human-owned and no script writes there. `model_annotations/` is written
-by 14 and by nothing else. `scripts/15_usage.py` joins a run to `speeches_flagged.parquet` and
+by 14 and the validated batch assembler. `scripts/15_usage.py` joins a run to `speeches_flagged.parquet` and
 aggregates into `data/derived/usage/`, where the model's labels stay their own fields beside
 the corpus rather than becoming part of it. Steps 03, 04, 05, 08, 09, 11 and 12 do not read
 this directory at all, so no published lexicon count depends on a model having been run.

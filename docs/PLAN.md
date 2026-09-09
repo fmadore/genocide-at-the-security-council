@@ -7,6 +7,16 @@ this document records the current position rather than a chronological work log.
 
 ## Current focus
 
+Future model runs now support fixed speech batches through
+`scripts/annotation_batches.py` and Slurm arrays. A plan assigns each speech
+once; separate run directories preserve resumability. The merge requires every
+batch to be complete, disjoint and instrument-compatible, retaining source
+hashes and validation counters. See [CLUSTER.md](CLUSTER.md#independent-batches-for-future-models)
+for submission and selective retry commands. The current Qwen run keeps its
+existing identity; continuation job **768736** is queued after **760799**.
+The downloaded 9 September snapshot has 2,104 completed speeches and 3,608
+annotations; partial aggregation passed locally, with publication unselected.
+
 GPU status, 8 September: smoke job **760798 passed at 08:16 CEST**: all 12
 speeches and 40 occurrences annotated, zero refusals, all 40 evidence spans
 located without relocation. Its nine-response reasoning probe also passed:

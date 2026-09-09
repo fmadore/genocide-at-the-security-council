@@ -88,6 +88,56 @@ that process and vLLM. New run manifests record both sides.
 
 ## Model annotation
 
+### Independent batches for future models
+
+Keep the running unbatched Qwen run unchanged. For the second model, create a
+fixed plan, then use a Slurm array. Each task owns a distinct run directory;
+the array concurrency cap controls simultaneous jobs, not requests per GPU.
+Each task still runs its model-specific reasoning probe before annotation.
+
+```bash
+python scripts/annotation_batches.py plan --size 250 --output data/interim/second-model-plan.json
+# For the current 4,133-speech corpus the command prints indices 0-16.
+# Qwen example: at most two single-H100 tasks concurrently.
+UNSC_ANNOTATION_MODEL=qwen UNSC_RUN_ID=second-model-v3 \
+  UNSC_BATCH_PLAN=data/interim/second-model-plan.json \
+  sbatch --array=0-16%2 --partition=GPU --gres=gpu:h100:1 \
+  scripts/cluster/submit_annotate.sh
+```
+
+Choose the actual model profile and GPU resources together. The configured
+DeepSeek profile needs four H100s per task and tensor parallelism four:
+use `UNSC_ANNOTATION_MODEL=deepseek VLLM_TENSOR_PARALLEL_SIZE=4`,
+`--gres=gpu:h100:4`, and initially `%1`. Two or three concurrent tasks require
+enough GPUs for two or three full model replicas; sharding does not reduce
+the memory needed for model weights. Complete its serving smoke first.
+
+The plan distributes corpus-ordered speeches across batches, contains every
+speech exactly once, and is bound into each run's identity. Do not regenerate
+it during a run. A timeout preserves completed responses. Resubmit only the
+unfinished array indices with the same base run ID, plan and model settings
+(for example `--array=3,7%2`); never submit a second writer for a live index.
+An incomplete batch retries unfinished speeches on resume, including rejected
+responses. A completed batch is immutable and must not be resubmitted.
+
+Check each batch manifest's `status`, not just Slurm's exit code: a pass can
+end normally while recording rejected speeches. After every batch completes,
+assemble a new run:
+
+```bash
+python scripts/annotation_batches.py merge \
+  --plan data/interim/second-model-plan.json \
+  --output model_annotations/genocide/runs/second-model-v3 \
+  model_annotations/genocide/runs/second-model-v3-batch-*
+```
+
+Assembly checks identities, settings, exact population coverage and duplicate
+occurrences. It rejects incomplete, missing or overlapping batches. Original
+shards remain untouched; the merged manifest retains their hashes, usage,
+validation counters and probe hashes. The assembled run is for downstream
+review, not for resuming inference. Publication still requires explicit run
+selection and research review.
+
 The server binds `127.0.0.1`, uses weights prefetched at an immutable Hugging
 Face revision, and runs offline on the compute node. No API key is involved.
 

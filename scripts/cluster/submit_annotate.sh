@@ -21,6 +21,16 @@ configure_annotation_model
 set_threads
 cd "$REPO"
 
+# Every array element owns one run directory and resumes only its assigned speeches.
+if [[ -n "${UNSC_BATCH_PLAN:-}" ]]; then
+  if [[ -n "${UNSC_LIMIT:-}" || "${UNSC_SMOKE:-0}" == 1 ]]; then
+    echo "ERROR: batch plans cannot be combined with smoke or limit settings." >&2
+    exit 2
+  fi
+  : "${SLURM_ARRAY_TASK_ID:?batch plans require a Slurm array task}"
+  export UNSC_RUN_ID="${UNSC_RUN_ID:?set the base run id}-batch-${SLURM_ARRAY_TASK_ID}"
+fi
+
 # Refuse stale corpus or client configuration before loading 52 GB of weights.
 load_python
 activate_annotator
@@ -109,6 +119,9 @@ ARGS=(
 if [[ -n "${UNSC_LIMIT:-}" ]]; then ARGS+=(--limit "$UNSC_LIMIT"); fi
 if [[ "${UNSC_SMOKE:-0}" == 1 ]]; then ARGS+=(--smoke); fi
 if [[ "${UNSC_RETRY_FAILURES:-0}" == 1 ]]; then ARGS+=(--retry-failures); fi
+if [[ -n "${UNSC_BATCH_PLAN:-}" ]]; then
+  ARGS+=(--batch-plan "$UNSC_BATCH_PLAN" --batch-index "$SLURM_ARRAY_TASK_ID")
+fi
 
 python scripts/14_llm_annotate.py "${ARGS[@]}"
 echo "==> $(date '+%F %T') | annotation pass ended; stopping server."

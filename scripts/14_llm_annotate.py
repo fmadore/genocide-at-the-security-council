@@ -428,6 +428,16 @@ def _run(args: argparse.Namespace) -> None:
 
     console.step("Enumerating the term")
     everything, speeches, lexicon_version = annotate.gather(args.limit)
+    batch_plan = getattr(args, "batch_plan", None)
+    batch_index = getattr(args, "batch_index", None)
+    batch_identity = None
+    if batch_plan is not None or batch_index is not None:
+        from lib import annotation_batches
+        if batch_plan is None or batch_index is None or args.limit is not None or args.smoke:
+            console.fail("Use --batch-plan and --batch-index together, without --limit or --smoke")
+        document = json.loads(Path(batch_plan).read_text(encoding="utf-8"))
+        speeches = annotation_batches.select(document, everything, batch_index)
+        batch_identity = {"plan_sha256": run_store.digest(document), "index": batch_index}
     scope = {speech.custom_id: speech for speech in speeches}
     planned_occurrences = sum(len(speech.occurrences) for speech in speeches)
     enumerated = [item for speech in everything for item in speech.occurrences]
@@ -464,6 +474,8 @@ def _run(args: argparse.Namespace) -> None:
         "runtime": runtime,
         "probe_sha256": artifacts.sha256(probe_path),
     }
+    if batch_identity is not None:
+        identity["batch"] = batch_identity
     identity_digest = run_store.bind_identity(directory, identity)
     run_store.recover(directory)
     previous = annotate.read_manifest(paths["manifest"])
@@ -659,6 +671,8 @@ def main() -> None:
         help="where this model's template reads reasoning_effort",
     )
     parser.add_argument("--limit", type=int, help="pilot: the first N genocide-bearing speeches")
+    parser.add_argument("--batch-plan", type=Path, help="immutable speech assignment plan")
+    parser.add_argument("--batch-index", type=int, help="zero-based batch index")
     parser.add_argument(
         "--smoke",
         action="store_true",
