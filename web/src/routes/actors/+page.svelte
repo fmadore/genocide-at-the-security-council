@@ -56,13 +56,41 @@
 	   the measure removes as well as the ones it counts. The aside says so. */
 	const wider = $derived(widening(artefact, measure));
 	const result = $derived(plan({ data: artefact, measure, period, order }));
+	const pageSize = 20;
+	let rankingPage = $state(1);
+	let speakerSearch = $state('');
+	const matchingRows = $derived(
+		result.rows.filter((entry) =>
+			shortCountry(entry.speaker.country_org)
+				.toLocaleLowerCase()
+				.includes(speakerSearch.trim().toLocaleLowerCase())
+		)
+	);
+	const pageCount = $derived(Math.max(1, Math.ceil(matchingRows.length / pageSize)));
+	const visibleRows = $derived(
+		matchingRows.slice((rankingPage - 1) * pageSize, rankingPage * pageSize)
+	);
+	$effect(() => {
+		void [measure, period, order, speakerSearch];
+		rankingPage = 1;
+	});
+	$effect(() => {
+		if (!selected) return;
+		const index = matchingRows.findIndex((entry) => entry.speaker.country_org === selected);
+		if (index >= 0) rankingPage = Math.floor(index / pageSize) + 1;
+	});
 
 	onMount(() => {
 		const state = readActorState(page.url.searchParams, artefact);
 		measure = state.measure;
 		period = state.period;
 		order = state.order;
+		speakerSearch = page.url.searchParams.get('q') ?? '';
+		const requestedPage = Number(page.url.searchParams.get('page') ?? 1);
 		void tick().then(() => {
+			rankingPage = Number.isSafeInteger(requestedPage)
+				? Math.max(1, Math.min(pageCount, requestedPage))
+				: 1;
 			urlReady = true;
 		});
 	});
@@ -74,6 +102,8 @@
 		   from its own controls would silently drop the reader's reading set on
 		   the next keystroke. */
 		const params = withScope(actorParams({ measure, period, order }, artefact), scope);
+		if (speakerSearch) params.set('q', speakerSearch);
+		if (rankingPage > 1) params.set('page', String(rankingPage));
 		const search = params.toString();
 		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
 	});
@@ -103,7 +133,7 @@
 	const drawn = $derived(points(result.rows, shared));
 
 	const chosen = $derived(
-		drawn.find((p) => p.speakers[0].speaker.country_org === selected) ?? null
+		drawn.find((p) => p.speakers.some((entry) => entry.speaker.country_org === selected)) ?? null
 	);
 
 	/* Speakers the map cannot show at all: the UN Secretariat is among the
@@ -445,21 +475,55 @@
 					{count(unmapped.length)} of the ranked speakers appear on no map: {unmapped
 						.slice(0, 4)
 						.map((entry) => shortCountry(entry.speaker.country_org))
-						.join(', ')}{unmapped.length > 4 ? ' and others' : ''} are not states and have no place on
-					a globe. They are in the table on purpose.
+						.join(', ')}{unmapped.length > 4 ? ' and others' : ''} have no map position under the source
+					classification and geography lookup. They remain in the table.
 				</p>
 			{/if}
 			{#each collisions as [code, holders] (code)}
 				<p>
-					{code} is shared by {holders.join(' and ')}: a successor state's code is the only way to
-					place a historical state on a map. They are never merged; a combined total would belong to
-					no state that ever spoke.
+					{code} is shared by {holders.join(' and ')}. Different source labels can share a geography
+					lookup, including a successor location for a historical state. Their speech counts and
+					denominators remain separate.
 				</p>
 			{/each}
 		{/snippet}
 
 		<section class="table-wrap">
 			<h3 class="sr-only">Speakers, ranked</h3>
+			{#if unmapped.length}
+				<details class="map-coverage">
+					<summary>Why {unmapped.length} ranked speakers are not mapped</summary>
+					<p>
+						The map uses source state flags and reviewed locations. Missing locations do not remove
+						a speaker from the ranking.
+					</p>
+					<ul>
+						{#each unmapped as entry (entry.speaker.country_org)}
+							<li>
+								{shortCountry(entry.speaker.country_org)} — {entry.speaker.entity_type === 'state'
+									? 'no reviewed geographic match'
+									: 'not classified as a state in the source flags'}.
+							</li>
+						{/each}
+					</ul>
+				</details>
+			{/if}
+			<label>Find a ranked speaker <input type="search" bind:value={speakerSearch} /></label>
+			<nav class="ranking-pages" aria-label="Speaker ranking pages">
+				<button type="button" disabled={rankingPage === 1} onclick={() => rankingPage--}
+					>Previous</button
+				>
+				<span role="status"
+					>{matchingRows.length ? (rankingPage - 1) * pageSize + 1 : 0}–{Math.min(
+						rankingPage * pageSize,
+						matchingRows.length
+					)} of {matchingRows.length} speakers · Page {rankingPage} of {pageCount}</span
+				>
+				<button type="button" disabled={rankingPage >= pageCount} onclick={() => rankingPage++}
+					>Next</button
+				>
+			</nav>
+			{#if !matchingRows.length}<p>No ranked speakers match this search.</p>{/if}
 			<div class="scroll">
 				<table>
 					<caption class="sr-only">
@@ -480,7 +544,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						{#each result.rows as entry (entry.speaker.country_org)}
+						{#each visibleRows as entry (entry.speaker.country_org)}
 							{@const w = whisker(entry.row)}
 							<tr
 								class:picked={entry.speaker.country_org === selected}
@@ -547,8 +611,11 @@
 			<CountryMap
 				bind:this={countryMap}
 				points={drawn}
-				{selected}
-				onselect={(point) => (selected = point?.speakers[0].speaker.country_org ?? null)}
+				selected={chosen?.speakers[0].speaker.country_org ?? null}
+				onselect={(point) => {
+					speakerSearch = '';
+					selected = point?.speakers[0].speaker.country_org ?? null;
+				}}
 				describe={describeSpeaker}
 			/>
 		{/if}
@@ -556,7 +623,7 @@
 
 	{#if chosen}
 		<aside class="picked">
-			<h2>{shortCountry(chosen.speakers[0].speaker.country_org)}</h2>
+			<h2>{shortCountry(selected ?? chosen.speakers[0].speaker.country_org)}</h2>
 			{#if chosen.speakers.length > 1}
 				<p class="stacked">
 					This point carries {chosen.speakers.length} speakers, which share both a map position and a
@@ -632,6 +699,23 @@
 </article>
 
 <style>
+	.table-wrap > label,
+	.map-coverage {
+		font-family: var(--sans);
+		font-size: var(--step--1);
+	}
+	.map-coverage {
+		margin-bottom: var(--sp-3);
+	}
+	.ranking-pages {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 1rem;
+		margin-block: 1rem;
+		font-family: var(--sans);
+		font-size: var(--step--1);
+	}
 	/* No page box here: `main` in `+layout.svelte` already sets the measure, the
 	   gutter and the top padding for every route. Repeating them on this
 	   article inset it by a second gutter and pushed its title 51px below every

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SearchSelect from '$lib/SearchSelect.svelte';
 	import { resolve } from '$app/paths';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
@@ -530,13 +531,11 @@
 					{#each groups as g (g)}<option value={g}>{g}</option>{/each}
 				</select>
 			</label>
-			<label>
-				Speaker
-				<select bind:value={country}>
-					<option value="">All</option>
-					{#each countries as c (c)}<option value={c}>{shortCountry(c)}</option>{/each}
-				</select>
-			</label>
+			<SearchSelect
+				label="Speaker"
+				options={countries.map((c) => ({ value: c, label: shortCountry(c) }))}
+				bind:value={country}
+			/>
 			<label>
 				Participant type
 				<select bind:value={participantType}>
@@ -795,6 +794,8 @@
 	label,
 	.sort {
 		display: inline-flex;
+		flex-wrap: wrap;
+		max-width: 100%;
 		align-items: center;
 		gap: var(--sp-2);
 		font-family: var(--sans);
@@ -804,6 +805,11 @@
 
 	.sort .label {
 		display: inline;
+	}
+
+	.sort .segmented {
+		max-width: 100%;
+		flex-wrap: wrap;
 	}
 
 	select,
@@ -825,6 +831,15 @@
 		gap: var(--sp-3) var(--sp-5);
 		align-items: center;
 		padding: var(--sp-3) 0;
+	}
+
+	.filters > label {
+		max-width: 100%;
+		flex-wrap: wrap;
+	}
+
+	.filters select {
+		max-width: min(16rem, 100%);
 	}
 
 	/* The tally is a citation of the view itself: how much of the file the

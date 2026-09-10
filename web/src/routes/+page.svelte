@@ -486,13 +486,21 @@
 			</li>
 			<li>
 				<a href={resolve('/language')}>
-					<strong>Language</strong>
+					<strong>Words in context</strong>
 					<span
 						>The words that sit next to <em>genocide</em>, how they differ from one speaker or
 						decade to the next, and which terms turn up in the same speech.</span
 					>
 					<Icon icon={ArrowRight} />
 				</a>
+			</li>
+			<li>
+				<a href={resolve('/actors')}
+					><strong>Actors</strong><span
+						>Who uses the vocabulary, measured against each speaker’s own record, with Council
+						membership and distinctive words.</span
+					><Icon icon={ArrowRight} /></a
+				>
 			</li>
 			<li>
 				<a href={resolve('/concordance')}>
@@ -503,6 +511,14 @@
 					>
 					<Icon icon={ArrowRight} />
 				</a>
+			</li>
+			<li>
+				<a href={resolve('/usage')}
+					><strong>Usage</strong><span
+						>Experimental model readings of which genocide speakers mean and how they frame it, with
+						coverage and validation status.</span
+					><Icon icon={ArrowRight} /></a
+				>
 			</li>
 			<li>
 				<a href={resolve('/methods')}>

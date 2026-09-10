@@ -50,6 +50,8 @@ web/.netlify/
 
 # Generated dashboard payloads (built by scripts/1x_export_*.py)
 web/static/data/
+# Atomic payload staging and rollback directories are generated too.
+web/static/.data.*/
 
 # ---------------------------------------------------------------------------
 # Editors / OS

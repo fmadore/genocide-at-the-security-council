@@ -74,9 +74,18 @@ manually maintained membership file.
 
 The historical `config/entities.csv` file no longer participates in either
 classification. Step 11 may still use it to obtain an ISO3 code and centroid for
-map display, using an exact case-insensitive match only. A missing match leaves
-the actor unmapped; it does not rename the actor, change its type, or remove it
-from any total.
+map display, using Unicode-normalized case-insensitive names and the reviewed
+geography-only aliases in `scripts/lib/entities.py`. A missing match leaves the
+actor unmapped; enrichment never renames an actor, changes its source type, or
+merges its totals with another source label. A non-state source classification
+also remains unmapped even when a geographic lookup exists. The current
+unresolved labels and coverage are recorded in [PLAN.md](PLAN.md#7-interface-and-evidence-contracts).
+
+Regional-group labels are lookup metadata, not dated Council membership. Ten
+legacy entries (Belarus, Bulgaria, Czechia, Hungary, Moldova, Poland, Romania,
+Russia, Slovakia and Ukraine) were corrected to Eastern European Group against
+the [UN DGACM list](https://www.un.org/dgacm/en/content/regional-groups), checked
+10 September 2026. Source-derived P5/E10 participation remains unchanged.
 
 ## Validation totals
 

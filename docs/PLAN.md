@@ -1,6 +1,6 @@
 # Project focus and release gates
 
-Updated 9 September 2026. This is the single planning and status document.
+Updated 10 September 2026. This is the single planning and status document.
 It replaces the separate improvement roadmap, dated reviews, implementation
 report and research-decision packet. Historical discussion remains in Git history;
 this document records the current position rather than a chronological work log.
@@ -71,6 +71,73 @@ The application remains experimental and the human-validation release gate is op
 | 6 | M1–M3: measured maintenance | Keep small pure modules and MapLibre. Local deep-link measurements are recorded below; measure constrained networks and physical mobile before choosing further sharding. |
 
 ## Research contract
+
+### Preliminary Qwen prompt review — 10 September 2026
+
+Reviewed the downloaded 9 September checkpoint, not the later live checkpoint:
+2,104 completed speeches, 3,608 annotation rows, 40 rejected responses out of
+2,144 returned requests. Inspected a purposive 59-occurrence sample: the first
+12 in corpus order, examples across position/quotation/case/function values,
+and every invalid or relocated evidence quote. This is an assistant spot review,
+not an independent human gold set or an estimate of annotation accuracy. The
+reproducible sample is in `data/interim/qwen-review-sample.json`; the downloaded
+run and partial aggregation remain under `data/interim/festus-2026-09-09/`.
+
+**Keep what works.** SC00228-01-002#1 codes the explicit East Punjab accusation
+as an assertion; SC00232-01-005#1–3 recognizes India's explicit rejection;
+SC00211-01-007#1–2 distinguishes general/legal references from a case assertion.
+These examples support retaining the occurrence-level approach and separate
+quotation and position fields. They do not establish corpus-wide reliability.
+
+**First priority: IDs, not labels.** All 38 non-truncation rejections in this
+snapshot are unknown referents expressed as display names (Rwanda, Bosnia and
+Srebrenica, etc.). The two remaining failures are output truncations. The prompt
+requests identifiers but its prose also uses display labels, while the output
+schema accepts any string. One invalid referent causes the whole speech response
+to be rejected. For a future instrument, constrain the field with an enum built
+from the pinned current referent list, and show explicit examples such as
+`rwanda`, never `Rwanda`. The list is already hashed in run provenance; it need
+not be hard-coded in Python. Changing the schema still changes the recorded
+request identity and must not be slipped into the current run. Do not silently
+relabel existing responses or relax the referent validator.
+
+**Second priority: contiguous evidence.** Eleven of 3,608 rows (0.30%) have
+unlocated evidence. Inspection found omitted middle sentences, reordered text
+and spelling changes. SC01253-01-003#2 omits an intervening rhetorical question;
+SC03454-02-003#1 removes UNPROFOR's objection between the draft quotation and the
+speaker's reply; SC04127-01-006#1 reverses the order of the famine description
+and “For Ukraine, genocide is not just a term.” SC01745-01-023#1 changes
+“Kassem” to “Kasem”. The current instruction already prohibits this, but asking
+for the shortest quote supporting every field encourages compression. Proposed
+clarification: one contiguous source span, retaining all intervening text; never
+assemble a quotation from separate passages. If support is distributed, retain
+the continuous span needed to show the attribution/position, rather than editing
+it into a cleaner sentence. Do not repair these quotes by fuzzy acceptance.
+
+**Substantive rules need coder review before revision.** The distancing rule
+automatically maps “allegations of genocide” to rejection, and “accused of
+genocide” to assertion. Neither mapping alone establishes the speaker's view
+of the characterization. SC00235-01-001#3 is coded rejection when Pakistan
+denies accusing India's government, immediately before asserting that genocide
+occurred (#4): actor responsibility and acceptance of the characterization can
+come apart. SC03247-01-039#1 is coded reported speech for “what it termed
+‘genocide’”, despite the prompt's overly broad distancing rule. These are
+instrument-boundary questions, not proof that every affected model label is
+wrong. Explicit endorsement/rejection, neutral attribution and uncertainty
+should be tested on paired boundary examples with the human coders.
+
+Also flag SC03656-01-005#7: a future threat to Zaire is assigned to Rwanda,
+apparently borrowing the speech's background case; review local versus wider
+context. SC06880-01-031#10 gives `own_state_accused=no` while naming no accused
+actor in its anniversary/justice passage; review the applicability boundary.
+
+**Decision:** no live prompt, queued job or annotation has been changed by this
+review. Prepare a small paired pilot for a proposed v4, including the failures
+and these boundary cases. Measure valid-ID output, contiguous evidence and
+human-reviewed field decisions separately. Keep Qwen/Gemma on the same v3 for
+the current comparison unless both are deliberately rerun under a reviewed v4;
+a new prompt/schema needs a new run identity and fresh probe. Human validation
+remains open, and partial aggregates remain unsuitable for unqualified trends.
 
 The object is vocabulary in the English UN verbatim record, not private
 deliberation, untranslated speech, legal adjudication or inferred intent.
@@ -205,6 +272,38 @@ completed 1946–2024 corpus migration; independent cross-corpus replication rem
 deferred and must pin sources and report overlap discrepancies.
 
 ## 7. Interface and evidence contracts
+
+Implemented while the GPU runs are pending: the home page's onward navigation
+now includes all six main subpages; Actors has 20-row ranking pages and a
+speaker search; concordance has a keyboard-searchable speaker picker and full
+searchable facet lists with line counts. CSV exports retain the complete data.
+Selecting a shared map point keeps the source affiliations separate.
+
+Geography enrichment now accepts reviewed name variants and Unicode-equivalent
+spellings without changing source labels or source classifications. Together
+with the missing Madagascar centroid from the cached reference, this restores
+30 state-labelled affiliations (172 to 202 mappable). Nine source-state labels
+still lack reviewed locations: Czechoslovakia, German Democratic Republic,
+German Federal Republic, India or Netherland, Republic of Vietnam, Turkish
+Federated State of Cyprus, Turkish Federated State of Kibris, Yemen Arab Republic
+and Yemen People's Republic. The interface lists exclusions explicitly. Palestine
+remains unmapped because the source flags classify that affiliation as `other`;
+this is a dataset limitation, not a geopolitical classification by this project.
+Ten legacy regional-group labels were also corrected against the UN DGACM list;
+the source and interpretation are documented in [CORPUS.md](CORPUS.md#affiliation-and-institutional-status).
+
+Validation of these changes: 66 geography/configuration/country-step tests,
+539 frontend unit tests, and 18 targeted browser tests, including open-combobox
+accessibility, URL restoration, full exports, shared map points and mobile width.
+The regenerated measures, period aggregates and Council standing counts match
+the previous numerical payload exactly.
+Frontend lint, Svelte type checking, the production build and desktop/mobile
+visual checks pass; the build verifies all 12 static entry points.
+
+The next independent research work remains S1/S5 robustness and the human
+instrument pilot. A meeting-block uncertainty design and a compatible lemma
+layer can be prepared without GPU results; neither replaces the human audit or
+licenses publishing the partial model run.
 
 Computed, mixed and model-derived marks describe the actual selected data;
 navigation marks describe page capability. Provenance is not a quality score.

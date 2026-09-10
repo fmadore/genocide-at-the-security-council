@@ -26,6 +26,8 @@ output, which is the worst kind.
 
 from __future__ import annotations
 
+import unicodedata
+
 import pandas as pd
 
 from .paths import COUNTRY_ALIASES, ENTITIES, rel
@@ -106,11 +108,7 @@ def source_affiliation_crosswalk(speeches: pd.DataFrame) -> pd.DataFrame:
     missing = [column for column in required if column not in speeches]
     if missing:
         raise KeyError(f"source affiliation columns missing: {', '.join(missing)}")
-    flags = (
-        speeches[required]
-        .groupby("country_org", sort=True, as_index=False)
-        .max()
-    )
+    flags = speeches[required].groupby("country_org", sort=True, as_index=False).max()
     flags["entity_type"] = source_entity_type(flags)
     flags["iso3"] = pd.Series(pd.NA, index=flags.index, dtype="string")
     flags["un_regional_group"] = pd.Series(pd.NA, index=flags.index, dtype="string")
@@ -119,19 +117,60 @@ def source_affiliation_crosswalk(speeches: pd.DataFrame) -> pd.DataFrame:
     return flags[["country_org", *ENTITY_COLUMNS]]
 
 
-def enrich_geography(
-    source: pd.DataFrame, geography: pd.DataFrame | None = None
-) -> pd.DataFrame:
-    """Add optional map fields on exact, case-insensitive name matches only.
+# Geographic aliases only: source labels, source types and aggregation keys stay
+# untouched. Historical states without a reviewed location are not guessed.
+GEOGRAPHY_ALIASES = {
+    "Antigua & Barbuda": "Antigua And Barbuda",
+    "Bolivia": "Bolivia (Plurinational State Of)",
+    "Brunei": "Brunei Darussalam",
+    "Cabo Verde": "Cape Verde",
+    "Côte d'Ivoire": "Cote D'ivoire",
+    "Czechia": "Czech Republic",
+    "East Timor": "Timor-Leste",
+    "Federated States of Micronesia": "Micronesia (Federated States of)",
+    "Iran": "Iran (Islamic Republic of)",
+    "Ivory Coast": "Cote D'ivoire",
+    "Laos": "Lao People's Democratic Republic",
+    "Macedonia": "Former Yugoslav Republic Of Macedonia",
+    "Moldova": "Republic Of Moldova",
+    "North Korea": "Democratic People's Republic Of Korea",
+    "Russia": "Russian Federation",
+    "Slovakia": "Slovak Republic",
+    "South Korea": "Republic Of Korea",
+    "St. Kitts and Nevis": "Saint Kitts And Nevis",
+    "St. Lucia": "Saint Lucia",
+    "St. Vincent and the Grenadines": "Saint Vincent And The Grenadines",
+    "Syria": "Syrian Arab Republic",
+    "Tanzania": "United Republic Of Tanzania",
+    "The former Yugoslav Republic of Macedonia": "Former Yugoslav Republic Of Macedonia",
+    "Türkiye": "Turkey",
+    "USA": "United States Of America",
+    "United Kingdom": "United Kingdom Of Great Britain And Northern Ireland",
+    "Venezuela": "Venezuela (Bolivarian Republic Of)",
+    "Vietnam": "Viet Nam",
+}
+
+
+def geography_key(name: str) -> str:
+    """Match Unicode-equivalent spelling and case, never approximate names."""
+    return unicodedata.normalize("NFC", name).strip().casefold()
+
+
+def enrich_geography(source: pd.DataFrame, geography: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Add map fields using exact names and reviewed geographic aliases.
 
     This never changes ``country_org`` or ``entity_type``.  The legacy table is
-    used solely as a geographic lookup, and unmatched source labels remain
-    explicitly unmappable rather than being manually reconciled.
+    used solely as a geographic lookup. Unmatched source labels and non-state
+    source classifications remain explicitly unmappable.
     """
     geography = load_entities() if geography is None else geography
     columns = ["iso3", "un_regional_group", "lat", "lon"]
-    lookup = geography.assign(_key=geography["country_org"].str.casefold()).set_index("_key")
-    keys = source["country_org"].str.casefold()
+    lookup = geography.assign(_key=geography["country_org"].map(geography_key)).set_index("_key")
+    if not lookup.index.is_unique:
+        raise ValueError("ambiguous geography lookup names")
+    aliases = {geography_key(k): geography_key(v) for k, v in GEOGRAPHY_ALIASES.items()}
+    keys = source["country_org"].map(geography_key)
+    keys = keys.map(lambda key: key if key in lookup.index else aliases.get(key, key))
     out = source.copy()
     is_state = out["entity_type"] == "state"
     for column in columns:

@@ -1,6 +1,8 @@
 build/
 .svelte-kit/
 static/data/
+# Atomic payload staging and rollback directories.
+static/.data.*/
 package-lock.json
 test-results/
 playwright-report/

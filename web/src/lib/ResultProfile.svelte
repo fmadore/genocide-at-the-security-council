@@ -26,6 +26,7 @@
 	import type { ConcordanceState, FacetDimension, FacetRow, ResultProfile } from './concordance';
 	import { count, shortCountry, termLabel } from './format';
 	import Icon from './Icon.svelte';
+	import SearchSelect from './SearchSelect.svelte';
 
 	interface Props {
 		profile: ResultProfile;
@@ -165,12 +166,19 @@
 						{/each}
 					</ol>
 					{#if column.facet.remainder}
-						<p class="rest">
-							and {count(column.facet.remainder.values)} more, holding {count(
-								column.facet.remainder.count
-							)}
-							{column.facet.remainder.count === 1 ? 'line' : 'lines'}
-						</p>
+						<SearchSelect
+							label={`Browse all ${count(profile[column.dimension].size)} ${column.label.toLowerCase()} options`}
+							options={[...profile[column.dimension]]
+								.sort(([a], [b]) => a.localeCompare(b))
+								.map(([value, n]) => ({
+									value,
+									label: `${label(column.dimension, value)} (${lines(n)})`
+								}))}
+							value={state[column.dimension]}
+							onchange={(value) => {
+								if (value !== state[column.dimension]) onfacet(column.dimension, value);
+							}}
+						/>
 					{/if}
 				</section>
 			{/each}
@@ -213,7 +221,6 @@
 
 	.hint,
 	.empty,
-	.rest,
 	.axis,
 	.scope {
 		font-family: var(--sans);
@@ -364,11 +371,6 @@
 		position: relative;
 		font-family: var(--mono);
 		font-size: var(--step--2);
-	}
-
-	.rest {
-		margin-block: var(--sp-2) 0;
-		padding-inline: var(--sp-1);
 	}
 
 	.empty {

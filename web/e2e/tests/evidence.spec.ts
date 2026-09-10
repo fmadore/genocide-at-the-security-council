@@ -219,6 +219,9 @@ test('essential concordance controls remain visible at narrow and wide widths', 
 		await expect(page.getByRole('combobox', { name: 'Term', exact: true })).toBeVisible();
 		await expect(page.getByRole('searchbox', { name: 'Search', exact: true })).toBeVisible();
 		await expect(page.locator('.line').first()).toBeVisible();
+		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+			viewport.width
+		);
 	}
 });
 
@@ -231,10 +234,9 @@ test('keyboard users retain the actor table and evidence link when the map fails
 	await expect(page.getByRole('heading', { name: 'Who said it', level: 1 })).toBeVisible();
 	await expect(page.getByRole('combobox', { name: 'Ranked by' })).toHaveValue('token_rate');
 	await expect(page).toHaveURL(/\/actors\/?\?order=token_rate$/);
-	await expect(page.getByRole('status')).toContainText(
-		'Every speaker it would show is in the table',
-		{ timeout: 8_000 }
-	);
+	await expect(
+		page.getByRole('status').filter({ hasText: 'Every speaker it would show' })
+	).toContainText('Every speaker it would show is in the table', { timeout: 8_000 });
 	const table = page.locator('section.table-wrap');
 	const rwanda = table.getByRole('button', { name: 'Rwanda' });
 	await rwanda.focus();
