@@ -250,10 +250,43 @@ ranking with a significance floor, dispersion, matched controls and suppression
 of definitional network edges. These do not complete S1/S5: Wilson bounds are not
 meeting-clustered, and variation across control seeds is not sampling uncertainty.
 
-Remaining S1/S5 work: re-read ranked outputs against published interpretation;
-measure tokenizer sensitivity against the earlier version; regenerate the lemma
-layer; test leave-one-meeting-out and surface/lemma sensitivity; add meeting-block
-intervals on effect sizes where justified. Declare seed, resampling unit,
+The first S1/S5 diagnostic slice is implemented in
+`scripts/18_lexical_robustness.py` (`make robustness`). It asks whether the
+matched genocide keyness table depends on one meeting or the tokenizer repair.
+The 10 September run uses seed **20260807**, **3,950 matched pairs** (95.57% of
+eligible targets), and deletes each of **2,281 meetings** from both selected
+arms. Controls are held fixed; there is no rematching, and the remaining arms
+can become unbalanced. Primary top-100 words stay fixed, with count and G²
+eligibility recalculated after deletion. These are descriptive influence ranges,
+**not confidence intervals** or estimates of sampling uncertainty.
+
+The baseline exactly reproduces all 100 published keyword rows and both token
+denominators. **61 words** lose eligibility under at least one deletion; no
+defined effect reverses direction. Six word/deletion combinations have no
+remaining occurrences in either arm and therefore a null effect. No deletion
+empties an arm; future runs exclude such deletions explicitly, while missing
+meeting symbols abort the run. Examples of concentrated vocabulary include
+`bor` (S/PV.7168), `cong` (S/PV.2118), and `sandinistas` (S/PV.2701). Their
+large pooled effects should not be read as evidence of corpus-wide dispersion.
+The definitional `genocide`/`genocidal` effects remain properties of target
+selection, not substantive discoveries.
+
+The historical tokenizer from commit `abdc08a` is applied to those same speech
+bodies and pairs, with denominators recomputed. **97 of 100** ranked types
+overlap. The current list adds `r2p`, `rebus`, and `rostow`; the earlier list
+instead contains `kh-`, `revolutionaries`, and `habr`. This compares exact
+surface types, not semantic equivalence. Both tokenizers, code/input hashes,
+selection rules, short strata and exclusions are recorded in the manifest.
+`data/derived/lexical_robustness/` retains the selected pair IDs, complete
+deletion effects in parquet, and CSV tables for meeting influence, deletion
+denominators, and tokenizer rank comparison. Published payloads are unchanged.
+
+Remaining S1/S5 work: extend sensitivity checks to collocates and speaker
+keyness; re-read ranked outputs against published interpretation; regenerate
+the lemma layer and test surface/lemma sensitivity; add meeting-block intervals
+on effect sizes where justified. The stored lemma layer covers only 106,302
+speeches from the older corpus, and this workstation lacks spaCy and its English
+model, so it was not used for this comparison. Declare seed, resampling unit,
 repetitions, exclusions and failure rules. Any new plot must answer an explicit
 question and retain the underlying table.
 
