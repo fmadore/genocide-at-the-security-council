@@ -9,10 +9,32 @@ if (!base)
 	throw new Error(
 		'Usage: node scripts/profile-payload.mjs http://127.0.0.1:4275/genocide-at-the-security-council'
 	);
-const output = 'test-results/review';
+const constrained = process.argv.includes('--slow4g');
+const output = constrained ? 'test-results/review-slow4g' : 'test-results/review';
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
-const result = { base, generated: new Date().toISOString(), measurements: [] };
+const network = {
+	offline: false,
+	latency: 150,
+	downloadThroughput: 1_600_000 / 8,
+	uploadThroughput: 750_000 / 8
+};
+async function throttle(session) {
+	await session.send('Network.enable');
+	await session.send('Network.setCacheDisabled', { cacheDisabled: true });
+	if (constrained) {
+		await session.send('Network.emulateNetworkConditions', network);
+		await session.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+	}
+}
+const result = {
+	base,
+	generated: new Date().toISOString(),
+	profile: constrained
+		? { simulated: true, network, cpuSlowdown: 4, cache: 'disabled', serviceWorkers: 'blocked' }
+		: 'unthrottled',
+	measurements: []
+};
 try {
 	for (const term of ['genocide', 'impunity']) {
 		const bytes = await readFile(`static/data/kwic/${term}.json`);
@@ -24,6 +46,9 @@ try {
 		});
 		const page = await context.newPage();
 		const session = await context.newCDPSession(page);
+		await throttle(session);
+		page.setDefaultTimeout(constrained ? 180000 : 30000);
+		page.setDefaultNavigationTimeout(constrained ? 180000 : 30000);
 		await session.send('Performance.enable');
 		await session.send('Network.enable');
 		await session.send('Network.setCacheDisabled', { cacheDisabled: true });
@@ -91,6 +116,9 @@ try {
 		viewport: { width: 1440, height: 1000 }
 	});
 	const page = await context.newPage();
+	await throttle(await context.newCDPSession(page));
+	page.setDefaultTimeout(constrained ? 180000 : 30000);
+	page.setDefaultNavigationTimeout(constrained ? 180000 : 30000);
 	const start = performance.now();
 	await page.goto(`${base}/actors/#speakers-by-rate`, { waitUntil: 'domcontentloaded' });
 	await page.locator('#speakers-by-rate table tbody tr').first().waitFor();

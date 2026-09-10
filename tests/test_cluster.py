@@ -195,6 +195,12 @@ def test_the_topic_job_does_not_request_a_gpu() -> None:
     assert "--gres=gpu" not in read(CLUSTER / "submit_topics.sh")
 
 
+def test_lemma_workers_do_not_multiply_blas_threads() -> None:
+    text = code(CLUSTER / "submit_lemmas.sh")
+    for name in ("OMP", "MKL", "OPENBLAS", "BLIS", "NUMEXPR"):
+        assert f"{name}_NUM_THREADS=1" in text.split("set_threads", 1)[1]
+
+
 def test_the_topic_job_refuses_to_run_without_embeddings() -> None:
     text = read(CLUSTER / "submit_topics.sh")
     assert "vectors.npy" in text and "exit 1" in text

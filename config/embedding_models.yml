@@ -28,7 +28,7 @@
 #
 # Bump `version` whenever a model entry changes. It is recorded in every manifest.
 
-version: 1
+version: 2
 
 # Used when 06_embed.py is called without --model.
 default: qwen3-0.6b
@@ -36,7 +36,7 @@ default: qwen3-0.6b
 models:
   qwen3-0.6b:
     repo: Qwen/Qwen3-Embedding-0.6B
-    revision: main
+    revision: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
     dimensions: 1024
     # The model handles 32k. An 8k window keeps activation memory predictable
     # and chunks unusually long speeches rather than sizing every batch for the
@@ -56,7 +56,7 @@ models:
 
   qwen3-4b:
     repo: Qwen/Qwen3-Embedding-4B
-    revision: main
+    revision: 5cf2132abc99cad020ac570b19d031efec650f2b
     dimensions: 2560
     max_tokens: 8192
     batch_size: 8
@@ -71,7 +71,7 @@ models:
 
   granite-small-en:
     repo: ibm-granite/granite-embedding-small-english-r2
-    revision: main
+    revision: 2ab6fa8ea2d674564defd37171ae19079b864b33
     dimensions: 384
     max_tokens: 8192
     batch_size: 64

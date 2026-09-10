@@ -50,12 +50,6 @@ REGISTRY = CONFIG / "embedding_models.yml"
 #: carry a sentence across the seam so neither window begins mid-clause.
 CHUNK_OVERLAP = 128
 
-#: Word-to-token inflation used to decide which speeches are even *candidates*
-#: for chunking. Deliberately generous: guessing high costs one tokenizer pass
-#: over a few extra documents, guessing low silently truncates a speech.
-TOKEN_INFLATION = 2.0
-
-
 @dataclass(frozen=True)
 class ModelSpec:
     """One entry in the registry."""
@@ -139,10 +133,9 @@ class Plan:
 def plan_chunks(texts: list[str], tokenizer, max_tokens: int, overlap: int = CHUNK_OVERLAP) -> Plan:
     """Split only the documents that exceed the context window.
 
-    The tokenizer is consulted for the candidates alone. Tokenising 167,642
-    speeches to discover that 106,000 of them are short is a waste of a GPU
-    reservation; a word count with a generous inflation factor picks the
-    candidates, and the exact test is applied only to those.
+    Every speech receives an exact token count in bounded batches. Space counts
+    cannot bound subword token counts, especially in OCR-damaged text. Special
+    tokens are reserved before splitting.
     """
     if overlap >= max_tokens:
         raise ValueError(f"overlap {overlap} must be smaller than the window {max_tokens}")
@@ -152,37 +145,44 @@ def plan_chunks(texts: list[str], tokenizer, max_tokens: int, overlap: int = CHU
     weight: list[float] = []
     chunked = 0
 
-    candidates = [
-        i for i, text in enumerate(texts) if text.count(" ") * TOKEN_INFLATION > max_tokens
-    ]
-    exact: dict[int, list[int]] = {}
-    if candidates:
-        encoded = tokenizer(
-            [texts[i] for i in candidates], add_special_tokens=False, verbose=False
-        )["input_ids"]
-        exact = dict(zip(candidates, encoded, strict=True))
+    # OCR can glue thousands of subword tokens into a string with few spaces.
+    # A word-count heuristic cannot guarantee that the encoder will not truncate.
+    reserved = tokenizer.num_special_tokens_to_add(pair=False) if hasattr(tokenizer, "num_special_tokens_to_add") else 0
+    max_tokens -= reserved
+    if max_tokens <= overlap or overlap < 0:
+        raise ValueError("token budget must exceed overlap after reserving special tokens")
+    def counted():
+        for start in range(0, len(texts), 512):
+            encoded = tokenizer(texts[start:start + 512], add_special_tokens=False, verbose=False)["input_ids"]
+            yield from zip(range(start, start + len(encoded)), encoded, strict=True)
 
-    for i, text in enumerate(texts):
-        ids = exact.get(i)
-        if ids is None or len(ids) <= max_tokens:
+    for i, ids in counted():
+        text = texts[i]
+        if len(ids) <= max_tokens:
             pieces.append(text)
             owner.append(i)
-            # An unchunked document weighs its own length, so that pooling is
-            # the same operation whether or not a document was split.
-            weight.append(float(len(ids)) if ids is not None else float(max(text.count(" "), 1)))
+            weight.append(float(max(len(ids), 1)))
             continue
-
         chunked += 1
-        step = max_tokens - overlap
-        for start in range(0, len(ids), step):
-            window = ids[start : start + max_tokens]
-            if not window:
-                break
-            pieces.append(tokenizer.decode(window, skip_special_tokens=True))
+        start = 0
+        while start < len(ids):
+            end = min(start + max_tokens, len(ids))
+            # Decoding a token slice can change subword boundaries. Check the
+            # actual string the encoder will see, shrinking until it fits.
+            while True:
+                piece = tokenizer.decode(ids[start:end], skip_special_tokens=True)
+                size = len(tokenizer([piece], add_special_tokens=False, verbose=False)["input_ids"][0])
+                if size <= max_tokens:
+                    break
+                end -= max(1, size - max_tokens)
+                if end <= start:
+                    raise ValueError("a decoded token cannot fit the encoder window")
+            pieces.append(piece)
             owner.append(i)
-            weight.append(float(len(window)))
-            if start + max_tokens >= len(ids):
+            weight.append(float(max(size, 1)))
+            if end == len(ids):
                 break
+            start = max(start + 1, end - overlap)
 
     return Plan(
         pieces=pieces,
@@ -246,6 +246,7 @@ def load_model(spec: ModelSpec, device: str | None = None):
         device=device,
         model_kwargs={"dtype": dtype},
         processor_kwargs=dict(spec.tokenizer_kwargs) or None,
+        trust_remote_code=False,
     )
     model.max_seq_length = spec.max_tokens
 

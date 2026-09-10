@@ -696,7 +696,7 @@ def run(
     meta = artifacts.provenance(
         ROOT,
         "05_lexical.py",
-        inputs=[SPEECHES_FLAGGED],
+        inputs=[SPEECHES_FLAGGED, *([LEMMAS / "manifest.json", LEMMAS / "lemmas.parquet"] if vocabulary == "lemma" else [])],
         configs=[LEXICON_CONFIG, STOPWORDS],
         extra={
             "lexicon_version": lex.version,

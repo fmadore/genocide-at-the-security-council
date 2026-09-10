@@ -67,8 +67,8 @@ The application remains experimental and the human-validation release gate is op
 | 2 | R1 / A4 / H1–H2: review and validate the instrument | Candidate packet prepared; both coders review vocabulary, pilot independently, revise, then code and adjudicate. No automated replacement for human verdicts. |
 | 3 | R2 / R8 / R10: interpretive extensions | Wait for usable, reviewed role/referent evidence. R10's paired design is prepared below. |
 | 4 | R12 / R13 / R15: editorial decisions | Decide disputed figures' purpose; obtain Joël's signed epistemological text and approved attribution. Government overlay remains unadopted. |
-| 5 | S1 / S5: finish robustness work | Read re-ranked lexical tables; distinguish existing Wilson intervals and control-draw variance from meeting-clustered uncertainty. Regenerate compatible lemmas before sensitivity analysis. |
-| 6 | M1–M3: measured maintenance | Keep small pure modules and MapLibre. Local deep-link measurements are recorded below; measure constrained networks and physical mobile before choosing further sharding. |
+| 5 | S1 / S5: interpret robustness results | Full lemma layer and meeting-deletion/bootstrap tables now exist; inspect fragile speaker keywords and retain conditional interval caveats. |
+| 6 | M1–M3: measured maintenance | Constrained-network results are recorded below: transfer/startup dominate parsing. Prioritize concordance loading; physical-device and real semantic-payload measurements remain open. |
 
 ## Research contract
 
@@ -218,8 +218,29 @@ the composition of permanent, elected and non-member participation over time.
 
 ## 4. Optional topics and embeddings
 
-Topics and semantic projection are deferred until a specific research question
-and evaluation justify them. UMAP distance is not diplomatic position or shared
+The user has selected speech similarity and evidence retrieval as the question
+for an experimental semantic map (10 September). Step 21 projects complete,
+content-validated Qwen3-Embedding-0.6B vectors with a fixed-seed cosine graph and
+UMAP. It reports original-space ANN recall against 128 exact queries (minimum
+0.8), plus projection trustworthiness and neighbour loss on a deterministic
+1,000-speech subsample. The diagnostic is not a human interpretability score.
+The interface colours by source affiliation, source agenda category or decade;
+filters preserve the projection, and related speeches come from original-vector
+similarity, not the drawing. It includes search controls, a paginated table,
+evidence links, URL restoration and a waiting state without invented points.
+
+Embedding job **775570** is queued on Festus normal/L40. CPU projection
+**775578** depends on its successful completion. Both use isolated workspace
+`/workdir/$USER/unsc/analysis-2026-09-10`; annotation runs are separate.
+Model revision is immutable; every speech is token-counted, decoded chunks are
+rechecked against the token budget, and document prompts are empty. Schema-2
+vectors carry checksums, row identity and exact body hashes. The local exporter
+requires a complete, checksummed semantic artifact from the same corpus.
+Until that artifact is retrieved and deliberately included in a release,
+clean CI builds publish the waiting state. A durable release source for these
+GPU-produced artifacts remains to be selected when the real result passes.
+
+Topic labels remain deferred. UMAP distance is not diplomatic position or shared
 meaning. Compare clustering in the source embedding space and reduced space;
 inspect nearest neighbours, stability across seeds and baselines; require blinded
 human interpretability/intrusion alongside numerical coherence. A machine score
@@ -314,16 +335,46 @@ explain such splits; they need inspection before substantive interpretation.
 The observed stopword leaks are `further → far` and `further → furth`.
 Results remain diagnostic; the published surface vocabulary is unchanged.
 
-Remaining S1/S5 work: extend sensitivity checks to collocates and speaker
-keyness; re-read ranked outputs against published interpretation; regenerate
-the full lemma layer; add meeting-block intervals on effect sizes where
-justified. The stored full lemma layer covers only 106,302 speeches from the
-older corpus and is now rejected by the loader. Declare seed, resampling unit,
-repetitions, exclusions and failure rules. Any new plot must answer an explicit
-question and retain the underlying table.
+Full-corpus follow-through, 10 September: step 19 evaluated the matched genocide
+comparison, nine collocate profiles (three nodes × windows 5/8/15), and **144 of
+148** candidate speaker profiles meeting the existing matching gates. Its 6,160
+ranked-word rows include whole-meeting deletion effects and conditional 95%
+percentile intervals from 999 meeting-block resamples, seed 20260807. A meeting
+receives the same resampling weight in both arms; selected speeches and ranked
+words remain fixed. These intervals assume hypothetical exchangeable meetings;
+they do not measure uncertainty in exhaustive historical counts or rerun matching.
+The minimum is 20 nonempty meetings per arm and five word-supporting meetings
+per arm; more than 5% undefined draws also withholds an interval. **778 intervals
+are reported; 5,382 are withheld for sparse word support.** LogDice receives
+deletion ranges, not bootstrap intervals. **25 speaker-word rows reverse sign**
+after at least one deletion: examples include Poland/`foe` at S/PV.2111 and
+Spain/`sids` at S/PV.7499. These require close reading before strong interpretation.
+Outputs and their code/input hashes are in `data/derived/extended_robustness/`.
 
-Deferred S2–S4: actor-by-year prevalence with denominators/withholding, funnel
-plots with meeting-clustered limits, and exact vocabulary-intersection tables
+Festus job **775572** completed the full lemma layer: **167,642 speeches**,
+86,854,907 tokens, 13,074,246 changed (15.1%), 197,902 surface types reduced to
+186,159 lemma types. All returned body hashes/token alignments were validated
+locally before promotion. The 38 failed speech alignments retain surface forms.
+The model is spaCy 3.8.16 / en_core_web_sm 3.8.0; tagging took 935 seconds.
+Observed stopword leaks are `does → doe`, `further → far/furth`, and
+`yourselves → yourselve`; these remain explicit sensitivity findings. Worker
+processes now keep BLAS/OpenMP threads at one to prevent oversubscription.
+Step 05's full lemma collocates, slices, matched keyness and network were also
+regenerated in `data/derived/lexical_lemma/`. The comparison retains 3,950 pairs
+and the original 4,958,491 / 3,026,652 token denominators. Surface tables remain
+the primary published vocabulary.
+
+Step 20 implements S2 annual speaker tables for genocide qualification and raw
+genocide: **111,864 rows**, reconciled annually to corpus speeches, word counts
+and term occurrences. **808 rows** meet the 125-speech floor. Missing years have
+zero counts and withheld rates; historical affiliations remain distinct. The
+Actors download retains counts, reasons for withholding and explicitly labelled
+Wilson speech-level bounds (not meeting-clustered). Full CSV and manifest live
+in `data/derived/actor_year/` and are included in ordinary builds.
+
+Remaining S1/S5: read ranked outputs against published interpretation; scrutinize
+the 25 fragile speaker-word findings and the full-layer stopword leaks.
+Deferred S3–S4: funnel plots with meeting-clustered limits and exact vocabulary-intersection tables
 (never reconstructed from pairwise edges). S6: sequential recurrence by meeting
 order with exact evidence links; do not call recurrence interpersonal influence.
 
@@ -366,8 +417,8 @@ Frontend lint, Svelte type checking, the production build and desktop/mobile
 visual checks pass; the build verifies all 12 static entry points.
 
 The next independent research work remains S1/S5 robustness and the human
-instrument pilot. A meeting-block uncertainty design and a compatible lemma
-layer can be prepared without GPU results; neither replaces the human audit or
+instrument pilot. Meeting-block intervals and a compatible full lemma
+layer have been implemented; neither replaces the human audit or
 licenses publishing the partial model run.
 
 Computed, mixed and model-derived marks describe the actual selected data;
@@ -608,6 +659,40 @@ node scripts/profile-payload.mjs http://127.0.0.1:4275/genocide-at-the-security-
 The script writes resource timings, measurements and desktop/mobile screenshots
 under the ignored `web/test-results/review/` directory. Human annotations,
 archived run outputs and publication pointers remain unchanged.
+
+### Constrained-network follow-through — 10 September 2026
+
+Production preview in Chromium with fresh contexts, HTTP cache disabled and
+service workers blocked. `--slow4g` applies 1.6 Mbps down / 750 kbps up,
+150 ms latency and 4× CPU slowdown through CDP. This is one simulated run, not
+a physical-phone benchmark. Resource timings and screenshots are retained in
+`web/test-results/review-slow4g/`.
+
+| Concordance | First line | Detail ready | JSON parse | Peak sampled heap | Exact reader occurrence |
+|---|---:|---:|---:|---:|---:|
+| genocide | 11.33 s | 11.90 s | 52 ms | 33.7 MB | 3.50 s |
+| impunity | 15.87 s | 16.59 s | 98 ms | 42.7 MB | 3.41 s |
+
+Actors: table ready 5.98 s, selection 354 ms; map loading cleared in 5.98 s
+after scrolling into view in the same context after a mobile reload. Loading
+and startup dominate the isolated JSON parse in this test. The next performance
+work should target initial concordance transfer while preserving full exports,
+filters and exact evidence links. Do not infer that a parsing worker would fix
+the observed wait. The real semantic payload still requires measurement after
+the GPU/CPU chain completes; its page currently loads an explicit waiting state.
+
+Verification for this implementation: 1,206 Python tests pass, with four GNU
+make cases skipped on Windows and then executed successfully in Ubuntu using
+their existing test bodies. Ruff, frontend lint/type checks, 543 frontend unit
+tests and production static verification (13 entrypoints, four icons) pass.
+The existing 43 browser journeys passed; both new semantic journeys pass after
+fixing reactive pagination. The map was checked at 390 and 1,440 pixels using
+explicit test data; this does not constitute validation of the pending embeddings.
+Both semantic journeys also pass against the final production build, including
+an all-pages CSV download with model identity. Two later development-server
+startup timeouts were infrastructure failures before tests ran; production
+verification completed normally.
+The payload contract and complete checksum inventory pass with 9,515 files.
 
 ## Maintaining this document
 

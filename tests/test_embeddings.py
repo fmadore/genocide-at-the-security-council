@@ -102,12 +102,10 @@ def test_short_documents_are_left_whole() -> None:
     assert list(plan.owner) == [0, 1]
 
 
-def test_the_tokenizer_is_not_consulted_for_short_documents() -> None:
-    """106,302 tokenizer passes to discover 106,000 short speeches is a waste of
-    a GPU reservation."""
+def test_short_documents_also_receive_an_exact_token_check() -> None:
     tokenizer = FakeTokenizer()
     embeddings.plan_chunks(["a b", "c d"], tokenizer, max_tokens=1024)
-    assert tokenizer.calls == 0
+    assert tokenizer.calls == 1
 
 
 def test_a_long_document_is_split_with_overlap() -> None:
@@ -136,6 +134,20 @@ def test_chunking_does_not_emit_an_empty_tail() -> None:
 def test_an_overlap_wider_than_the_window_is_rejected() -> None:
     with pytest.raises(ValueError, match="smaller than the window"):
         embeddings.plan_chunks(["a"], FakeTokenizer(), max_tokens=10, overlap=10)
+
+
+def test_decoded_chunks_are_rechecked_before_encoding() -> None:
+    class ExpandingTokenizer(FakeTokenizer):
+        def decode(self, ids, skip_special_tokens=True):
+            return super().decode(ids) + " extra"
+
+        def num_special_tokens_to_add(self, pair=False):
+            return 2
+
+    tokenizer = ExpandingTokenizer()
+    plan = embeddings.plan_chunks([" ".join(f"w{i}" for i in range(60))], tokenizer, max_tokens=20, overlap=3)
+    assert all(len(ids) <= 18 for ids in tokenizer(plan.pieces)["input_ids"])
+    assert {f"w{i}" for i in range(60)} <= set(" ".join(plan.pieces).split())
 
 
 # --- Pooling ---------------------------------------------------------------

@@ -475,6 +475,14 @@
 		<h2>Where to go from here</h2>
 		<ul class="onward-list">
 			<li>
+				<a href={resolve('/semantic')}
+					><strong>Semantic map</strong><span
+						>Explore speech similarity, coloured by affiliation or meeting agenda, with links to the
+						source speeches.</span
+					><Icon icon={ArrowRight} /></a
+				>
+			</li>
+			<li>
 				<a href={resolve('/chronology')}>
 					<strong>Chronology</strong>
 					<span

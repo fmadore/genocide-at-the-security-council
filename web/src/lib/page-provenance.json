@@ -4,5 +4,6 @@
 	"/chronology": "computed",
 	"/concordance": "mixed",
 	"/language": "computed",
+	"/semantic": "model",
 	"/usage": "model"
 }

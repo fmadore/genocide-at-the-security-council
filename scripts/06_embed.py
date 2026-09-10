@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, console, embeddings, frames
+from lib import artifacts, console, embeddings, frames, lemmas
 from lib.paths import (
     DERIVED,
     EMBEDDINGS,
@@ -92,6 +92,7 @@ def encode(model, pieces: list[str], batch_size: int) -> np.ndarray:
                 convert_to_numpy=True,
                 normalize_embeddings=False,
                 show_progress_bar=False,
+                prompt="",
             )
         )
         done += len(block)
@@ -280,8 +281,9 @@ def run(model_key: str | None, limit: int, device: str | None, storage: str, k: 
         ROOT,
         "06_embed.py",
         inputs=[SPEECHES_FLAGGED],
-        configs=[embeddings.REGISTRY],
+        configs=[embeddings.REGISTRY, Path(__file__), ROOT / "scripts/lib/embeddings.py"],
         extra={
+            "embedding_schema": 2,
             "registry_version": registry.version,
             "speeches": len(speeches),
             "pieces": len(plan),
@@ -303,12 +305,15 @@ def run(model_key: str | None, limit: int, device: str | None, storage: str, k: 
             "encoded_tokens": np.bincount(
                 plan.owner, weights=plan.weight, minlength=len(speeches)
             ).astype(np.int64),
+            "body_sha256": [lemmas.body_hash(body) for body in bodies],
         }
     )
 
     with artifacts.atomic_directory(target) as staged:
         np.save(staged / "vectors.npy", stored)
         index.to_parquet(staged / "index.parquet", index=False, compression="zstd")
+        meta["vectors_sha256"] = artifacts.sha256(staged / "vectors.npy")
+        meta["index_sha256"] = artifacts.sha256(staged / "index.parquet")
         artifacts.atomic_write_json(
             staged / "neighbours.json", {"meta": meta, **neighbour_summary}
         )

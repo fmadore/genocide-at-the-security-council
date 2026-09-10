@@ -37,12 +37,14 @@ from lib import artifacts, console, contract
 from lib.paths import (
     CONTRACT,
     COUNTRIES,
+    DERIVED,
     FRAMES,
     KWIC,
     LEXICAL,
     ROOT,
     SERIES,
     SPEAKER_KEYNESS,
+    SPEECHES_FLAGGED,
     USAGE,
     WEB_DATA,
     ensure_dirs,
@@ -66,6 +68,8 @@ PARTS = [
     # keys its cache on that directory too.
     ((USAGE,), "usage", "15_usage.py"),
     ((FRAMES,), "frames", "17_frames.py"),
+    ((DERIVED / "actor_year",), "actor_year", "20_actor_year.py"),
+    ((DERIVED / "semantic",), "semantic", "21_semantic_map.py"),
 ]
 
 #: Written by 09, not copied. Listed so the manifest describes the whole payload
@@ -87,6 +91,19 @@ def copy_part(sources: Sequence[Path], name: str, *, root: Path | None = None) -
     where it originally bit.
     """
     destination = (root or WEB_DATA) / name
+    if name == "semantic":
+        source = sources[0]
+        if not source.exists():
+            with artifacts.atomic_directory(destination) as staged:
+                artifacts.atomic_write_json(staged / "map.json", {"status": "pending", "schema": 1})
+            return artifacts.describe_tree(destination)
+        meta = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
+        files = meta.get("files", {})
+        expected = {"map.json", *[f"neighbours/{i}.json" for i in range(256)]}
+        if set(files) != expected or any(artifacts.sha256(source / path) != digest for path, digest in files.items()):
+            raise ValueError("semantic payload is incomplete or has failed checksum validation")
+        if not any(item.get("sha256") == artifacts.sha256(SPEECHES_FLAGGED) for item in meta.get("inputs", [])):
+            raise ValueError("semantic map was built from a different corpus")
     for source in sources:
         if not source.exists():
             console.fail(f"{rel(source)} is missing — run the step that writes it first")

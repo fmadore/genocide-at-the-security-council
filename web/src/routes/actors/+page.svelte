@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { replaceState } from '$app/navigation';
-	import { resolve } from '$app/paths';
+	import { base, resolve } from '$app/paths';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
@@ -356,6 +356,12 @@
 			</p>
 		{/snippet}
 		{#snippet more()}
+			<p>
+				<a href={`${base}/data/actor_year/actor_year.csv`} download
+					>Download annual speaker counts and rates</a
+				>. Each affiliation keeps its own annual denominator. Rates below 125 speeches are withheld;
+				the CSV retains counts and labels its Wilson intervals.
+			</p>
 			<p>{artefact.minimum_speeches_rule}</p>
 		{/snippet}
 

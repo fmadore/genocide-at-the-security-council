@@ -6,7 +6,15 @@ import { base } from '../../playwright.config';
 test('home onward navigation includes every main subpage', async ({ page }) => {
 	await page.goto(`${base}/`);
 	const onward = page.locator('.onward');
-	for (const route of ['chronology', 'language', 'actors', 'concordance', 'usage', 'methods']) {
+	for (const route of [
+		'chronology',
+		'language',
+		'actors',
+		'concordance',
+		'usage',
+		'semantic',
+		'methods'
+	]) {
 		const link = onward.locator(`a[href$="/${route}"]`);
 		await expect(link).toBeVisible();
 		expect(

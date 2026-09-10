@@ -50,6 +50,12 @@ export const PAGE_METADATA = {
 		title: `Methods — ${SITE_NAME}`,
 		description:
 			'Read how the corpus, lexicon, denominators, statistical comparisons, provenance and validation boundaries are defined.'
+	},
+	'/semantic/': {
+		path: '/semantic/',
+		title: `Semantic map — ${SITE_NAME}`,
+		description:
+			'Explore speech similarity with a model-derived map, affiliation and agenda filters, and links to related speeches.'
 	}
 } as const satisfies Record<string, PageMetadata>;
 

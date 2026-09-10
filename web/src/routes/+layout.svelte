@@ -49,6 +49,11 @@
 			label: 'Usage',
 			blurb: 'Which genocide each speaker meant, read by a model — experimental'
 		},
+		{
+			href: '/semantic',
+			label: 'Semantic map',
+			blurb: 'Speech similarity in an experimental embedding map'
+		},
 		{ href: '/methods', label: 'Methods', blurb: 'How every number was made' }
 	] as const;
 

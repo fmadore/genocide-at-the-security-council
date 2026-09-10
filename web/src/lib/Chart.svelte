@@ -24,7 +24,7 @@
 	import { onMount } from 'svelte';
 	import type { EChartsOption } from 'echarts';
 	import type { EChartsType } from 'echarts/core';
-	import { SVGRenderer } from 'echarts/renderers';
+	import { CanvasRenderer, SVGRenderer } from 'echarts/renderers';
 
 	use([
 		BarChart,
@@ -37,7 +37,8 @@
 		DataZoomComponent,
 		MarkLineComponent,
 		AriaComponent,
-		SVGRenderer
+		SVGRenderer,
+		CanvasRenderer
 	]);
 
 	interface Props {
@@ -45,6 +46,7 @@
 		height?: string;
 		/** Announced to screen readers in place of the drawing. */
 		description: string;
+		renderer?: 'svg' | 'canvas';
 		onclick?: (params: {
 			name?: string;
 			seriesName?: string;
@@ -54,7 +56,7 @@
 		}) => void;
 	}
 
-	let { option, height = '340px', description, onclick }: Props = $props();
+	let { option, height = '340px', description, onclick, renderer = 'svg' }: Props = $props();
 
 	let element: HTMLDivElement;
 	/**
@@ -105,7 +107,7 @@
 	// Creates the instance and wires it up. It deliberately draws nothing: the
 	// effect below owns every `setOption`, including the first.
 	onMount(() => {
-		const instance = init(element, undefined, { renderer: 'svg' });
+		const instance = init(element, undefined, { renderer });
 		if (onclick) instance.on('click', (params) => onclick(params as never));
 		/**
 		 * Resize on the next frame, not inside the callback.

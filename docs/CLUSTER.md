@@ -505,6 +505,30 @@ distributions and the unassigned share across a range of thresholds. A run whose
 `binds` is false found a baseline that concentrates no better on the Council than
 on shuffled words, and its topics should be read as labels rather than findings.
 
+## Speech-similarity map
+
+Step 21 uses the full schema-2 vectors from step 06. Submit it in the same
+isolated analysis workspace with a successful-job dependency:
+
+```sh
+sbatch --dependency=afterok:EMBED_JOB --kill-on-invalid-dep=yes scripts/cluster/submit_semantic.sh
+```
+
+Replace `EMBED_JOB` with the embedding job ID. This is CPU work and requests
+one CPU for deterministic ANN/UMAP, 64 GB RAM and four hours. `UNSC_MODEL`
+selects the embedding directory (default `qwen3-0.6b`). It refuses incomplete,
+stale or non-unit vectors and ANN recall below 0.8. Outputs are archived and
+include a compact map, 256 on-demand neighbour shards and file checksums.
+Retrieve the complete directory into `data/derived/semantic/`, then run
+`python scripts/export_web.py`; a partial directory fails rather than becoming
+an apparently valid waiting state. A missing directory yields a waiting state.
+The pipeline does not automatically publish GPU outputs to GitHub Pages.
+
+The lemma launcher allocates spaCy worker processes to CPUs while explicitly
+pinning each worker's numerical libraries to one thread. A private runtime
+overlay may be supplied through `PYTHONPATH`; record its actual package versions
+in the generated manifest rather than changing shared environments mid-run.
+
 ## Acknowledgement
 
 Work using the cluster carries a DFG funding acknowledgement for the hardware —

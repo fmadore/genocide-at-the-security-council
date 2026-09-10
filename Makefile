@@ -41,7 +41,7 @@ TOPICS     := data/derived/topics/manifest.json
 LEMMAS     := data/derived/lemmas/lemmas.parquet
 LEXICAL_LEMMA := data/derived/lexical_lemma/collocates.json
 
-.PHONY: all payload derived raw cluster clean robustness robustness-lemma
+.PHONY: all payload derived raw cluster clean robustness robustness-lemma robustness-extended semantic
 
 all: payload
 
@@ -104,10 +104,13 @@ $(USAGE) &: $(NORM) $(GOLD) scripts/15_usage.py $(LIB) config/lexicon.yml $(MODE
 $(NODE_FRAMES) &: $(FLAGGED) scripts/17_frames.py $(LIB) config/lexicon.yml $(MODEL_INPUTS) $(REFERENTS)
 	$(PY) scripts/17_frames.py
 
-derived: $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(GOLD) $(USAGE) $(NODE_FRAMES)
+data/derived/actor_year/actor_year.csv: $(FLAGGED) scripts/20_actor_year.py $(LIB)
+	$(PY) scripts/20_actor_year.py
+
+derived: $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(GOLD) $(USAGE) $(NODE_FRAMES) data/derived/actor_year/actor_year.csv
 
 # --- The site's payload -------------------------------------------------------
-$(PAYLOAD): $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(USAGE) $(NODE_FRAMES) scripts/export_web.py $(LIB) tests/contract/payload.json
+$(PAYLOAD): $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(USAGE) $(NODE_FRAMES) scripts/export_web.py $(LIB) tests/contract/payload.json data/derived/actor_year/actor_year.csv $(wildcard data/derived/semantic/manifest.json)
 	$(PY) scripts/export_web.py
 
 payload: $(PAYLOAD)
@@ -136,6 +139,12 @@ robustness: $(FLAGGED)
 
 robustness-lemma: $(FLAGGED) $(LEMMAS)
 	$(PY) scripts/18_lexical_robustness.py --lemma-layer data/derived/lemmas
+
+robustness-extended: $(FLAGGED)
+	$(PY) scripts/19_extended_robustness.py
+
+semantic: $(FLAGGED) $(EMBEDDINGS)
+	$(PY) scripts/21_semantic_map.py
 
 clean:
 	rm -rf data/derived data/interim web/static/data

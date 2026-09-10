@@ -26,12 +26,15 @@ source "$REPO/scripts/cluster/env.sh"
 load_python
 activate_extras
 set_threads
+# Each spaCy worker has its own numerical runtime. Allocate CPUs to processes,
+# keeping numerical libraries single-threaded within every worker.
+export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+export BLIS_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 
 cd "$REPO"
 echo "==> $(date '+%F %T') | node=$(hostname)"
 
-# spaCy worker processes, not BLAS threads: set_threads pinned the latter to 1
-# per allocated core, and oversubscribing both would leave the workers fighting.
+# spaCy worker processes share the allocation; BLAS threads are pinned above.
 PROCESSES="${UNSC_SPACY_PROCESSES:-${SLURM_CPUS_PER_TASK:-4}}"
 
 SELECT=(--processes "$PROCESSES")
