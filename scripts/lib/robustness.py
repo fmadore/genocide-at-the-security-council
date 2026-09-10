@@ -8,7 +8,7 @@ This isolates the meeting's contribution; remaining arms need not be balanced.
 from __future__ import annotations
 
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Sequence
 
 from . import lexical
@@ -85,3 +85,30 @@ def tokenizer_comparison(current: list[dict], legacy: list[dict]) -> list[dict]:
         }
         for word in dict.fromkeys([*left, *right])
     ]
+
+
+def influence_summary(primary: list[dict], effects: list[dict], totals: Sequence[int]) -> list[dict]:
+    """Summarise deletions in one pass, retaining undefined effects as failures.
+
+    Group once rather than scanning the full deletion table for every keyword.
+    Tied largest changes retain the first (meeting-sorted) deletion.
+    """
+    grouped = defaultdict(list)
+    for effect in effects:
+        grouped[effect["word"]].append(effect)
+    rows = []
+    for row in primary:
+        values = grouped[row["word"]]
+        defined = [value for value in values if value["log_ratio"] is not None]
+        baseline = lexical.log_ratio(row["target"], row["reference"], *totals)
+        rows.append({
+            **row, "valid_deletions": len(values), "defined_effects": len(defined),
+            "eligible_deletions": sum(value["eligible"] for value in values),
+            "loo_min": min((value["log_ratio"] for value in defined), default=None),
+            "loo_max": max((value["log_ratio"] for value in defined), default=None),
+            "largest_change_meeting": max(
+                defined, key=lambda value: abs(value["log_ratio"] - baseline),
+            )["meeting"] if defined else None,
+            "sign_reversals": sum(value["log_ratio"] * baseline < 0 for value in defined),
+        })
+    return rows

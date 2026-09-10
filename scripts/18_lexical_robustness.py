@@ -3,6 +3,8 @@
 Run: python scripts/18_lexical_robustness.py [--seed 20260807] [--limit 100]
 Outputs data/derived/lexical_robustness/: full deletion effects in parquet,
 summary and tokenizer CSVs, selected speech IDs and a provenance manifest.
+With --lemma-layer DIRECTORY, also compare validated lemmas, recording all
+changed forms and stopword leaks in a separate lexical_robustness_lemma/ output.
 """
 
 from __future__ import annotations
@@ -15,13 +17,14 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, frames, lexical, robustness
+from lib import artifacts, frames, lemmas, lexical, robustness
 from lib.paths import DERIVED, ROOT, SPEECHES_FLAGGED, STOPWORDS
 
 MATCH_ON = ["year", "agenda_item_manual", "speaker_group"]
+EFFECT_COLUMNS = ["word", "meeting", "target", "control", "log_ratio", "eligible"]
 
 
-def run(seed: int, limit: int) -> None:
+def run(seed: int, limit: int, lemma_layer: Path | None = None) -> None:
     if limit < 1:
         raise ValueError("limit must be positive")
     speeches = frames.read(SPEECHES_FLAGGED, columns=[
@@ -48,35 +51,69 @@ def run(seed: int, limit: int) -> None:
     comparison = robustness.tokenizer_comparison(
         primary, robustness.ranked(*legacy, stopwords, limit)
     )
+    lemma_comparison = None
+    lemma_forms = None
+    lemma_meta = None
+    lemma_effects = None
+    lemma_summary = None
+    if lemma_layer is not None:
+        selected = pd.concat(arms)
+        layer = lemmas.load_layer(lemma_layer, selected)
+        lemma_documents = [[Counter(lemmas.decode(row)) for row in layer.loc[arm.index]] for arm in arms]
+        lemma_counts = [lemmas.vocabulary(layer.loc[arm.index]) for arm in arms]
+        if [sum(counts.values()) for counts in lemma_counts] != [sum(counts.values()) for counts in totals]:
+            raise ValueError("surface/lemma token denominators differ")
+        lemma_primary = robustness.ranked(*lemma_counts, stopwords, limit)
+        lemma_comparison = [
+            {key.replace("current_", "surface_").replace("legacy_", "lemma_"): value
+             for key, value in row.items()}
+            for row in robustness.tokenizer_comparison(
+                primary, lemma_primary
+            )
+        ]
+        lemma_forms = lemmas.mapping(frames.body(selected), layer)
+        changed_forms = Counter()
+        for form in lemma_forms:
+            changed_forms[form["surface"]] += form["occurrences"]
+        for row in lemma_comparison:
+            word = row["word"]
+            unchanged = totals[0][word] + totals[1][word] - changed_forms[word]
+            row.update({
+                "surface_target": totals[0][word], "surface_control": totals[1][word],
+                "lemma_target": lemma_counts[0][word], "lemma_control": lemma_counts[1][word],
+                "unchanged_surface_tokens": unchanged,
+                "partly_lemmatized": changed_forms[word] > 0 and unchanged > 0,
+            })
+        lemma_effects, _ = robustness.meeting_influence(
+            *lemma_documents, *(arm["meeting_symbol"].tolist() for arm in arms),
+            [row["word"] for row in lemma_primary],
+        )
+        lemma_summary = robustness.influence_summary(
+            lemma_primary, lemma_effects, [sum(counts.values()) for counts in lemma_counts],
+        )
+        lemma_meta = {
+            "selected_speeches": len(selected),
+            "ranked_words": len(lemma_primary),
+            "exact_type_overlap": len({row["word"] for row in primary} & {row["word"] for row in lemma_primary}),
+            "layer": artifacts.describe_file(lemma_layer / "manifest.json", ROOT),
+            "table": artifacts.describe_file(lemma_layer / "lemmas.parquet", ROOT),
+            "stopword_policy": "Same surface stoplist in both representations; all observed stopword-to-nonstopword merges reported, not silently filtered.",
+            "stopword_leaks": lemmas.stopword_check(stopwords, lemma_forms),
+            "comparison": "Exact type overlap of independently ranked top lists, not semantic equivalence or a rank correlation across unlike vocabularies.",
+            "partial_collapse": "partly_lemmatized flags surface types with both changed and unchanged occurrences; context-sensitive tagging can leave a high-ranking residue. It does not by itself establish an error.",
+            "tokens": [sum(counts.values()) for counts in lemma_counts],
+        }
     effects, deletions = robustness.meeting_influence(
         *documents, *(arm["meeting_symbol"].tolist() for arm in arms),
         [row["word"] for row in primary],
     )
-    effect_table = pd.DataFrame(effects)
-    summary = []
-    for row in primary:
-        values = effect_table[effect_table["word"] == row["word"]] if effects else pd.DataFrame()
-        defined = values.dropna(subset=["log_ratio"]) if effects else values
-        baseline = lexical.log_ratio(
-            totals[0][row["word"]], totals[1][row["word"]],
-            *(sum(total.values()) for total in totals),
-        )
-        summary.append({
-            **row, "valid_deletions": len(values), "defined_effects": len(defined),
-            "eligible_deletions": int(values["eligible"].sum()) if len(values) else 0,
-            "loo_min": float(defined["log_ratio"].min()) if len(defined) else None,
-            "loo_max": float(defined["log_ratio"].max()) if len(defined) else None,
-            "largest_change_meeting": (
-                defined.loc[(defined["log_ratio"] - baseline).abs().idxmax(), "meeting"]
-                if len(defined) else None
-            ),
-            "sign_reversals": int((defined["log_ratio"] * baseline < 0).sum())
-            if len(defined) else 0,
-        })
+    effect_table = pd.DataFrame(effects, columns=EFFECT_COLUMNS)
+    summary = robustness.influence_summary(primary, effects, [sum(counts.values()) for counts in totals])
     meta = artifacts.provenance(
         ROOT, "18_lexical_robustness.py", inputs=[SPEECHES_FLAGGED],
         configs=[STOPWORDS, Path(__file__), ROOT / "scripts/lib/robustness.py",
-                 ROOT / "scripts/lib/lexical.py", ROOT / "scripts/lib/frames.py"],
+                 ROOT / "scripts/lib/lexical.py", ROOT / "scripts/lib/frames.py",
+                 ROOT / "scripts/lib/lemmas.py"],
         extra={
             "seed": seed, "limit": limit, "matched_on": MATCH_ON,
             "matched_pairs": pairs.matched, "eligible_targets": pairs.wanted,
@@ -99,14 +136,22 @@ def run(seed: int, limit: int) -> None:
             "current_tokens": [sum(total.values()) for total in totals],
             "legacy_tokens": [sum(total.values()) for total in legacy],
             "scope": "Matched genocide speech-body keyness only; not collocates, speaker keyness, or prevalence.",
+            "lemma_sensitivity": lemma_meta,
         },
     )
-    target = DERIVED / "lexical_robustness"
+    target = DERIVED / ("lexical_robustness_lemma" if lemma_layer else "lexical_robustness")
     with artifacts.atomic_directory(target) as staged:
         pd.DataFrame(summary).to_csv(staged / "meeting_influence.csv", index=False)
         pd.DataFrame(deletions).to_csv(staged / "deletions.csv", index=False)
         effect_table.to_parquet(staged / "deletion_effects.parquet", index=False)
         pd.DataFrame(comparison).to_csv(staged / "tokenizer_comparison.csv", index=False)
+        if lemma_comparison is not None:
+            pd.DataFrame(lemma_comparison).to_csv(staged / "lemma_comparison.csv", index=False)
+            pd.DataFrame(lemma_summary, columns=list(summary[0])).to_csv(staged / "lemma_meeting_influence.csv", index=False)
+            pd.DataFrame(lemma_effects, columns=EFFECT_COLUMNS).to_parquet(staged / "lemma_deletion_effects.parquet", index=False)
+            pd.DataFrame(lemma_forms, columns=[
+                "surface", "lemma", "occurrences", "forms_merged_into_lemma",
+            ]).to_csv(staged / "lemma_forms.csv", index=False)
         pd.DataFrame({
             "target_row_id": arms[0]["row_id"].to_numpy(),
             "control_row_id": arms[1]["row_id"].to_numpy(),
@@ -119,5 +164,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=20260807)
     parser.add_argument("--limit", type=int, default=100)
+    parser.add_argument("--lemma-layer", type=Path, help="validated step-10 output directory")
     args = parser.parse_args()
-    run(args.seed, args.limit)
+    run(args.seed, args.limit, args.lemma_layer)

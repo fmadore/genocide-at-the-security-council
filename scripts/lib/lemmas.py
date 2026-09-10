@@ -40,10 +40,15 @@ plain Python and is tested without it.
 from __future__ import annotations
 
 import bisect
+import hashlib
+import json
 from collections import Counter
 from dataclasses import dataclass
+from pathlib import Path
 
-from . import lexical
+import pandas as pd
+
+from . import artifacts, frames, lexical
 
 #: Separator for the stored lemma sequence. A TOKEN_RE token can never contain a
 #: space and an empty lemma is rejected below, so join/split round-trips exactly.
@@ -54,6 +59,67 @@ SEPARATOR = " "
 #: large number means the tokenisations have diverged and the table would be a
 #: mixture of two things being presented as one.
 MAX_FAILURE_RATE = 0.01
+
+LAYER_SCHEMA = 2
+
+
+def body_hash(source: str) -> str:
+    """Bind a lemma sequence to the exact body, even if token counts stay equal."""
+    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+
+
+def select_pairs(speeches: pd.DataFrame, pairs: pd.DataFrame) -> pd.DataFrame:
+    """Restrict expensive tagging to the complete, disjoint saved comparison."""
+    columns = ["target_row_id", "control_row_id"]
+    if pairs.empty or not set(columns).issubset(pairs.columns):
+        raise ValueError("pairs need nonempty target_row_id and control_row_id columns")
+    ids = pd.concat([pairs[column] for column in columns], ignore_index=True)
+    if ids.isna().any() or ids.duplicated().any():
+        raise ValueError("matched speech IDs must be non-null and disjoint")
+    if speeches["row_id"].isna().any() or speeches["row_id"].duplicated().any():
+        raise ValueError("speech row IDs must be non-null and unique")
+    if not ids.isin(speeches["row_id"]).all():
+        raise ValueError("matched speech IDs missing from corpus")
+    return speeches[speeches["row_id"].isin(ids)].copy()
+
+
+def load_layer(directory: Path, speeches: pd.DataFrame) -> pd.Series:
+    """Validate content and tokenization before aligning a layer by row_id.
+
+    Accepting a subset is useful for matched comparisons; every requested row
+    must exist exactly once. Old layers without content identity are refused.
+    """
+    manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+    if (manifest.get("layer_schema") != LAYER_SCHEMA
+            or manifest.get("tokenizer") != lexical.TOKEN_RE.pattern):
+        raise ValueError("lemma layer schema/tokenizer is stale; re-run 10_lemmatise.py")
+    path = directory / "lemmas.parquet"
+    if manifest.get("table_sha256") != artifacts.sha256(path):
+        raise ValueError("lemma table checksum mismatch; re-run 10_lemmatise.py")
+    table = pd.read_parquet(path)
+    required = {"row_id", "lemmas", "body_sha256"}
+    if not required.issubset(table.columns):
+        raise ValueError("lemma table lacks content identity; re-run 10_lemmatise.py")
+    if table["row_id"].isna().any() or table["row_id"].duplicated().any():
+        raise ValueError("lemma row IDs must be non-null and unique")
+    if speeches["row_id"].isna().any() or speeches["row_id"].duplicated().any():
+        raise ValueError("speech row IDs must be non-null and unique")
+    table = table.set_index("row_id")
+    if not speeches["row_id"].isin(table.index).all():
+        raise ValueError("speeches missing from lemma layer; re-run 10_lemmatise.py")
+    selected = table.loc[speeches["row_id"]]
+    for source, digest, row in zip(
+        frames.body(speeches), selected["body_sha256"], selected["lemmas"], strict=True
+    ):
+        if body_hash(source) != digest:
+            raise ValueError("speech body differs from lemma layer; re-run 10_lemmatise.py")
+        if not isinstance(row, str):
+            raise ValueError("lemma sequence must be text")
+        words = decode(row)
+        if (len(words) != len(lexical.TOKEN_RE.findall(source.lower()))
+                or any(not lexical.TOKEN_RE.fullmatch(word) for word in words)):
+            raise ValueError("lemma token alignment is invalid; re-run 10_lemmatise.py")
+    return pd.Series(selected["lemmas"].to_numpy(), index=speeches.index)
 
 
 @dataclass(frozen=True)

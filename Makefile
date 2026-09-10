@@ -41,7 +41,7 @@ TOPICS     := data/derived/topics/manifest.json
 LEMMAS     := data/derived/lemmas/lemmas.parquet
 LEXICAL_LEMMA := data/derived/lexical_lemma/collocates.json
 
-.PHONY: all payload derived raw cluster clean robustness
+.PHONY: all payload derived raw cluster clean robustness robustness-lemma
 
 all: payload
 
@@ -133,6 +133,9 @@ cluster: $(EMBEDDINGS) $(TOPICS) $(LEXICAL_LEMMA)
 # Optional local diagnostics, kept outside the published payload.
 robustness: $(FLAGGED)
 	$(PY) scripts/18_lexical_robustness.py
+
+robustness-lemma: $(FLAGGED) $(LEMMAS)
+	$(PY) scripts/18_lexical_robustness.py --lemma-layer data/derived/lemmas
 
 clean:
 	rm -rf data/derived data/interim web/static/data

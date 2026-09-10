@@ -107,16 +107,9 @@ def load_lemmas(speeches: pd.DataFrame) -> pd.Series:
             f"{rel(path)} is missing — run 10_lemmatise.py first",
             ["it needs spaCy; see docs/CLUSTER.md"],
         )
-    table = pd.read_parquet(path)
-    console.info(f"read {rel(path)}  {len(table):,} rows")
-    series = pd.Series(table["lemmas"].to_numpy(), index=table["row_id"].to_numpy())
-    missing = int((~speeches["row_id"].isin(series.index)).sum())
-    if missing:
-        console.fail(
-            f"{missing:,} speeches have no lemma row",
-            ["the lemma layer is stale — re-run 10_lemmatise.py without --limit"],
-        )
-    return pd.Series(series.loc[speeches["row_id"]].to_numpy(), index=speeches.index)
+    series = lemmas.load_layer(LEMMAS, speeches)
+    console.info(f"validated {rel(path)}  {len(series):,} rows")
+    return series
 
 
 #: Nodes to profile. `genocide` is the object; the two neighbours are there to

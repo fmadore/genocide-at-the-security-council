@@ -387,6 +387,35 @@ alone — the surface tables are what the dashboard reads and what the
 lemmatised: it matches surface forms, and folding `genocides` into `genocide`
 before step 03 would move every published count and restart that audit.
 
+Step 10 now writes a content-validated layer: each row includes a SHA-256 of
+the speech body, and the manifest records the tokenizer, schema and parquet
+checksum. Steps 05 and 18 reject old, incomplete, altered or misaligned layers.
+The older 106,302-speech layer must be regenerated before use on the current
+corpus. `--limit` writes a smoke layer and a separate smoke note.
+
+For matched keyness sensitivity, tag only the complete saved comparison:
+
+```bash
+python scripts/18_lexical_robustness.py
+python scripts/10_lemmatise.py --pairs data/derived/lexical_robustness/pairs.csv --processes 4
+python scripts/18_lexical_robustness.py --lemma-layer data/derived/lemmas_matched
+```
+
+This CPU workflow needs the spaCy/model dependencies for step 10 only. It writes
+`lemmas_matched/` and `lexical_robustness_lemma/`, with the same 3,950 pairs and
+token denominators as the surface comparison. A matched layer cannot stand in
+for a full-corpus layer. The CSV comparison reports exact type membership and
+ranks; `lemma_forms.csv` records every changed surface/lemma pair in the selected
+speeches. `lemma_meeting_influence.csv` and `lemma_deletion_effects.parquet`
+retain the corresponding meeting-deletion checks for the lemma ranking.
+The comparison CSV includes target/control counts before and after lemmatization
+and a `partly_lemmatized` flag for forms with changed and unchanged occurrences.
+This exposes potentially misleading residual forms without treating every
+context-dependent split as a tagging error.
+Both analyses use the same stoplist, and the manifest reports all
+observed stopword leaks. For a regenerated full layer, `make robustness-lemma`
+runs the comparison using `data/derived/lemmas/`.
+
 Watch with `squeue --me`, and read `logs/embed-<jobid>.out`.
 
 `sinfo` marks some nodes `idle~`, meaning powered down. A job that lands on one

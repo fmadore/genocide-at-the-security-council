@@ -281,12 +281,44 @@ selection rules, short strata and exclusions are recorded in the manifest.
 deletion effects in parquet, and CSV tables for meeting influence, deletion
 denominators, and tokenizer rank comparison. Published payloads are unchanged.
 
+The surface/lemma sensitivity implementation now supports a separate,
+complete **7,900-speech matched layer**, generated from the saved pair IDs by
+step 10's `--pairs` mode. The local CPU runtime uses spaCy 3.8.16 and
+`en_core_web_sm` 3.8.0. A schema-2 layer binds every lemma sequence to its exact
+speech body and tokenizer, and records the parquet checksum. Steps 05 and 18
+reject stale content, duplicate/missing IDs, malformed tokens, or unequal token
+counts. Full-corpus, matched, and smoke outputs and notes have separate paths.
+
+Step 18's `--lemma-layer` mode compares independently ranked surface/lemma
+lists using the same pairs, denominators, and stoplist. It retains every changed
+form, reports all observed stopword leaks, and writes meeting-deletion summaries
+and complete underlying effects for both representations. Exact type overlap
+does not measure semantic equivalence; these remain descriptive diagnostics.
+See [the CPU workflow](CLUSTER.md#running) for reproduction commands.
+
+The completed 10 September matched run changed **1,268,220 of 7,985,143 tokens**
+(15.9%), reducing 58,221 surface types to 50,472 lemma types. Two speeches
+(0.025%) retained surface forms under the alignment failure rule. The top-100
+lists share **81 exact types**, with unchanged target/control denominators of
+4,958,491 / 3,026,652 tokens. The lemma ranking also has **61 words** that lose
+eligibility under at least one meeting deletion, no defined sign reversals,
+and six word/deletion combinations with no remaining occurrences.
+
+Lemmatisation does not by itself resolve the interpretive problems. For example,
+2,041 instances of `atrocities` become `atrocity`, but 13 target instances and
+zero controls remain as `atrocities`; that residual type enters the lemma
+top-100. `citizens` similarly leaves 48 target and two control instances.
+The comparison CSV now reports counts in both representations and flags types
+with both changed and unchanged occurrences. Context-sensitive tagging may
+explain such splits; they need inspection before substantive interpretation.
+The observed stopword leaks are `further → far` and `further → furth`.
+Results remain diagnostic; the published surface vocabulary is unchanged.
+
 Remaining S1/S5 work: extend sensitivity checks to collocates and speaker
 keyness; re-read ranked outputs against published interpretation; regenerate
-the lemma layer and test surface/lemma sensitivity; add meeting-block intervals
-on effect sizes where justified. The stored lemma layer covers only 106,302
-speeches from the older corpus, and this workstation lacks spaCy and its English
-model, so it was not used for this comparison. Declare seed, resampling unit,
+the full lemma layer; add meeting-block intervals on effect sizes where
+justified. The stored full lemma layer covers only 106,302 speeches from the
+older corpus and is now rejected by the loader. Declare seed, resampling unit,
 repetitions, exclusions and failure rules. Any new plot must answer an explicit
 question and retain the underlying table.
 

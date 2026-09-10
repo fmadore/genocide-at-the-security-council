@@ -23,6 +23,11 @@ as `lib.frames.body` reconstructs it — because that is the text 05 counts.
 
 Usage:
     python scripts/10_lemmatise.py [--model en_core_web_sm] [--limit N] [--processes 8]
+    python scripts/10_lemmatise.py --pairs data/derived/lexical_robustness/pairs.csv
+
+The --pairs mode writes a separate lemmas_matched/ layer covering every saved
+target and control speech. It cannot be combined with --limit, and does not
+replace the full-corpus layer.
 """
 
 from __future__ import annotations
@@ -59,7 +64,7 @@ SMOKE = DERIVED / "lemmas_smoke"
 #: collapse moves nothing; the head is where a wrong lemma does damage.
 MAPPING_LIMIT = 5_000
 
-REPORT_EVERY = 10_000
+REPORT_EVERY = 500
 
 
 def write_csv(path: Path, rows: list[dict]) -> None:
@@ -182,12 +187,21 @@ def build_note(
     ) + "\n"
 
 
-def run(model: str, limit: int, processes: int, batch_size: int) -> None:
+def run(model: str, limit: int, processes: int, batch_size: int, pairs_path: Path | None = None) -> None:
+    if limit < 0 or processes < 1 or batch_size < 1:
+        raise ValueError("limit must be nonnegative; processes and batch size must be positive")
     ensure_dirs()
 
     console.step("Reading the flagged corpus")
     speeches = frames.read(SPEECHES_FLAGGED, columns=COLUMNS)
     target = LEMMAS
+    if pairs_path is not None:
+        if limit:
+            raise ValueError("--pairs and --limit cannot be combined")
+        pairs = pd.read_csv(pairs_path)
+        speeches = lemmas.select_pairs(speeches, pairs)
+        target = DERIVED / "lemmas_matched"
+        console.info(f"{len(speeches):,} speeches selected by {rel(pairs_path)}")
     if limit:
         speeches = speeches.head(limit)
         target = SMOKE
@@ -245,11 +259,13 @@ def run(model: str, limit: int, processes: int, batch_size: int) -> None:
         f"— boundary disagreements and malformed lemmas"
     )
 
-    pairs = lemmas.mapping(bodies, rows, limit=MAPPING_LIMIT)
+    # Check every merge for stopword leakage, not just the truncated audit head.
+    all_pairs = lemmas.mapping(bodies, rows)
+    pairs = all_pairs[:MAPPING_LIMIT]
     console.info(f"{len(pairs):,} surface forms changed")
 
     stopwords = lexical.load_stopwords()
-    leaks = lemmas.stopword_check(stopwords, pairs)
+    leaks = lemmas.stopword_check(stopwords, all_pairs)
     # Capped: a systematic fault produces hundreds of these, and a log that
     # scrolls for a screen is a log nobody reads to the end. The full list goes
     # to the manifest and the note.
@@ -274,9 +290,13 @@ def run(model: str, limit: int, processes: int, batch_size: int) -> None:
     meta = artifacts.provenance(
         ROOT,
         "10_lemmatise.py",
-        inputs=[SPEECHES_FLAGGED],
-        configs=[STOPWORDS],
+        inputs=[SPEECHES_FLAGGED, *([pairs_path] if pairs_path else [])],
+        configs=[STOPWORDS, Path(__file__), ROOT / "scripts/lib/lemmas.py",
+                 ROOT / "scripts/lib/lexical.py", ROOT / "scripts/lib/frames.py"],
         extra={
+            "layer_schema": lemmas.LAYER_SCHEMA,
+            "tokenizer": lexical.TOKEN_RE.pattern,
+            "scope": "matched pairs" if pairs_path else "smoke" if limit else "full corpus",
             "model": model,
             "model_version": model_version,
             "packages": packages,
@@ -292,17 +312,21 @@ def run(model: str, limit: int, processes: int, batch_size: int) -> None:
             "seconds": round(elapsed, 1),
         },
     )
-    table = pd.DataFrame({"row_id": speeches["row_id"].to_numpy(), "lemmas": rows})
+    table = pd.DataFrame({
+        "row_id": speeches["row_id"].to_numpy(), "lemmas": rows,
+        "body_sha256": [lemmas.body_hash(source) for source in bodies],
+    })
 
     with artifacts.atomic_directory(target) as staged:
         table.to_parquet(staged / "lemmas.parquet", index=False, compression="zstd")
+        meta["table_sha256"] = artifacts.sha256(staged / "lemmas.parquet")
         write_csv(staged / "mapping.csv", pairs)
         artifacts.atomic_write_json(staged / "manifest.json", meta, indent=2)
     size = (target / "lemmas.parquet").stat().st_size / 1e6
     console.info(f"wrote {rel(target)}  {len(table):,} rows ({size:.0f} MB)")
 
     note = write_note(
-        "10_lemmatise.md",
+        "10_lemmatise_matched.md" if pairs_path else "10_lemmatise_smoke.md" if limit else "10_lemmatise.md",
         build_note(
             speeches,
             len(surface_counts),
@@ -327,8 +351,9 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=0, help="lemmatise only the first N speeches")
     parser.add_argument("--processes", type=int, default=1, help="spaCy worker processes")
     parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--pairs", type=Path, help="step-18 pairs.csv; write a separate matched-only layer")
     args = parser.parse_args()
-    run(args.model, args.limit, args.processes, args.batch_size)
+    run(args.model, args.limit, args.processes, args.batch_size, args.pairs)
 
 
 if __name__ == "__main__":

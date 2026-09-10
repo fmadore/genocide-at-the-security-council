@@ -64,3 +64,21 @@ def test_tokenizer_outer_join_does_not_invent_missing_ranks():
     assert rows[0]["legacy_rank"] is None
     assert rows[1]["current_rank"] is None
     assert rows[1]["legacy_rank"] == 1
+
+
+def test_summary_counts_undefined_effects_and_sign_reversals():
+    primary = [{"word": "war", "target": 20, "reference": 10}]
+    effects = [
+        {"word": "war", "meeting": "A", "log_ratio": None, "eligible": False},
+        {"word": "war", "meeting": "B", "log_ratio": -1, "eligible": True},
+        {"word": "war", "meeting": "C", "log_ratio": 2, "eligible": True},
+    ]
+    row = robustness.influence_summary(primary, effects, [100, 100])[0]
+    assert row["valid_deletions"] == 3
+    assert row["defined_effects"] == row["eligible_deletions"] == 2
+    assert row["sign_reversals"] == 1
+    assert row["largest_change_meeting"] == "B"
+    assert (row["loo_min"], row["loo_max"]) == (-1, 2)
+    empty = robustness.influence_summary(primary, [], [100, 100])[0]
+    assert empty["loo_min"] is None
+    assert empty["largest_change_meeting"] is None
