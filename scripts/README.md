@@ -52,13 +52,18 @@ and compares their analytical values with `tests/golden/`. Leave them unset othe
 | 14 | `14_llm_annotate.py` | `speeches_norm.parquet`, prompt, a local vLLM Responses endpoint | `model_annotations/genocide/runs/<id>/` | ✋ scheduled, experimental |
 | 15 | `15_usage.py` | `model_annotations/genocide/`, `annotations/genocide/`, `speeches_norm.parquet` | `derived/usage/*.json` | 🧪 experimental |
 | 17 | `17_frames.py` | `speeches_flagged.parquet`, `config/lexicon.yml`, `model_annotations/genocide/` | `derived/frames/*.json` | ✅ |
-| — | `export_web.py` | `derived/{series,lexical,kwic,countries,usage,frames}/` | `web/static/data/` | ✅ |
+| 21 | `21_semantic_map.py` | `speeches_flagged.parquet`, complete schema-2 embeddings | `derived/semantic/` | 🖥️ CPU projection |
+| — | `fetch_semantic.py` | `config/semantic-release.json`, GitHub release asset | `derived/semantic/` | ✅ verified restore |
+| — | `export_web.py` | `derived/{series,lexical,kwic,countries,usage,frames,actor_year,semantic}/` | `web/static/data/` | ✅ |
 | — | `score_intrusion.py` | `derived/topics/intrusion_{task,key}.csv` | `derived/topics/intrusion_score.json` | 🔬 after a human |
 
 **06, 07 and 10 are not part of the release pipeline.** They need the extra dependencies in
 [`../requirements-cluster.txt`](../requirements-cluster.txt) — and, for 06, a GPU — and they
 run on the Bayreuth cluster; see [`../docs/CLUSTER.md`](../docs/CLUSTER.md). None is read by
-`export_web.py`, and the dashboard does not know they exist.
+`export_web.py` directly. Step 21 turns complete embeddings into a validated
+speech-similarity map; the release workflow restores its reviewed output with
+`python scripts/fetch_semantic.py` before `make payload`. Run the same restore
+command locally to include the published map without another GPU run.
 
 **11 builds the table [`../docs/PLAN.md`](../docs/PLAN.md) §7 requires before anything is
 drawn on a map.** Per speaker and per period: the speaker's own denominator, its

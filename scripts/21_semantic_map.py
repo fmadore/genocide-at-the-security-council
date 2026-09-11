@@ -88,7 +88,7 @@ def run(directory: Path, seed: int) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--embeddings", type=Path, default=EMBEDDINGS / "qwen3-0.6b")
+    parser.add_argument("--embeddings", type=Path, default=EMBEDDINGS)
     parser.add_argument("--seed", type=int, default=20260910)
     args = parser.parse_args()
     run(args.embeddings, args.seed)

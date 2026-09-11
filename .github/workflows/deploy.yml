@@ -143,6 +143,10 @@ jobs:
           path: data/raw
           key: ${{ steps.keys.outputs.raw }}
 
+      - name: Restore the pinned semantic release
+        if: steps.derived.outputs.cache-hit != 'true'
+        run: python scripts/fetch_semantic.py
+
       - name: Rebuild data payload from Dataverse v${{ steps.pin.outputs.version }}
         if: steps.derived.outputs.cache-hit != 'true'
         run: |

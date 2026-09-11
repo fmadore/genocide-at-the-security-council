@@ -229,16 +229,36 @@ filters preserve the projection, and related speeches come from original-vector
 similarity, not the drawing. It includes search controls, a paginated table,
 evidence links, URL restoration and a waiting state without invented points.
 
-Embedding job **775570** is queued on Festus normal/L40. CPU projection
-**775578** depends on its successful completion. Both use isolated workspace
+Embedding job **775570** completed all **167,642 speeches** (167,878 chunks,
+1,024 dimensions) in 53m34s. The first projection launcher used an incorrect
+model subdirectory; corrected CPU job **775870** completed in 11m04s on
+11 September. Both use isolated workspace
 `/workdir/$USER/unsc/analysis-2026-09-10`; annotation runs are separate.
 Model revision is immutable; every speech is token-counted, decoded chunks are
 rechecked against the token budget, and document prompts are empty. Schema-2
 vectors carry checksums, row identity and exact body hashes. The local exporter
 requires a complete, checksummed semantic artifact from the same corpus.
-Until that artifact is retrieved and deliberately included in a release,
-clean CI builds publish the waiting state. A durable release source for these
-GPU-produced artifacts remains to be selected when the real result passes.
+The retrieved artifact passes all 258 file checks and matches every speech's
+ID, affiliation, year, agenda and lexical flag. All **1,676,420** neighbour links
+have valid identities, descending cosine scores, no self-links and no duplicates.
+ANN recall@10 is **0.9742** over 128 exact queries. On the 1,000-speech diagnostic
+subsample (k=25), trustworthiness is **0.8000** and neighbour loss **0.6981**.
+UMAP's spectral eigensolver fell back to seeded random initialization; this is
+recorded in the release pin and notes. These diagnostics support exploratory
+use with the visible projection caveat, not claims about diplomatic alignment.
+Five retrieval spot checks (Indonesia 1947, Rwanda 2000, ICC 2012, Iraq 2018,
+Red Sea 2024) returned related agenda/speech material; this is an inspection,
+not a blinded human relevance evaluation.
+
+`config/semantic-release.json` pins the GitHub release archive, its manifest and
+the corpus by SHA-256. A canonical content fingerprint also binds exact embedded
+bodies and displayed metadata, allowing equivalent Parquet serialization across
+Arrow versions; only a pin matching the artifact's manifest may authorize it.
+Clean deployments restore and verify the release before exporting,
+so the full map survives cache eviction without another GPU run. The browser
+loads the 8.93 MB map and fetches neighbour shards only on selection. Filters
+retain category colours, projection bounds and zoom; the selected speech has a
+diamond marker, and selections outside the filters are explicitly identified.
 
 Topic labels remain deferred. UMAP distance is not diplomatic position or shared
 meaning. Compare clustering in the source embedding space and reduced space;
@@ -678,8 +698,8 @@ after scrolling into view in the same context after a mobile reload. Loading
 and startup dominate the isolated JSON parse in this test. The next performance
 work should target initial concordance transfer while preserving full exports,
 filters and exact evidence links. Do not infer that a parsing worker would fix
-the observed wait. The real semantic payload still requires measurement after
-the GPU/CPU chain completes; its page currently loads an explicit waiting state.
+the observed wait. The semantic GPU/CPU chain subsequently completed on
+11 September; its real-data release and diagnostic results are recorded in §4.
 
 Verification for this implementation: 1,206 Python tests pass, with four GNU
 make cases skipped on Windows and then executed successfully in Ubuntu using
@@ -687,12 +707,23 @@ their existing test bodies. Ruff, frontend lint/type checks, 543 frontend unit
 tests and production static verification (13 entrypoints, four icons) pass.
 The existing 43 browser journeys passed; both new semantic journeys pass after
 fixing reactive pagination. The map was checked at 390 and 1,440 pixels using
-explicit test data; this does not constitute validation of the pending embeddings.
+explicit test data; those fixture checks did not validate the embeddings themselves.
 Both semantic journeys also pass against the final production build, including
 an all-pages CSV download with model identity. Two later development-server
 startup timeouts were infrastructure failures before tests ran; production
 verification completed normally.
 The payload contract and complete checksum inventory pass with 9,515 files.
+
+**11 September semantic release verification.** The real 167,642-point artifact
+was checked in the production build at 390 and 1,440 pixels, including full-corpus
+display, colour changes, searchable filters, URL restoration and ten neighbours
+per selection. No browser exceptions or axe violations were found. The default
+view became usable in 1.21 s in an unthrottled local preview; this is not a mobile
+network benchmark. Long agenda columns scroll horizontally on narrow screens.
+The payload now contains 9,772 files (753 MB); its contract and checksum inventory
+pass. Python checks cover 1,225 passing tests and four Windows-only GNU make
+skips; frontend checks include 543 unit tests, lint, types, production build and
+both semantic browser journeys. The pinned release restores successfully locally.
 
 ## Maintaining this document
 

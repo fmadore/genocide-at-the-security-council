@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "url": "https://github.com/fmadore/genocide-at-the-security-council/releases/download/semantic-2026-09-11/semantic-775870.zip",
+  "sha256": "82c01515ab75e57913331e514fe910c26aeca6b4cb876510ab98eab742277d0c",
+  "manifest_sha256": "7a9f3786732b03c190389e37a1784ccf2e2dd6a269567159b7c9f0db52f014b3",
+  "corpus_sha256": "5b28839e8df28eb995baf044e7d6d5c2e0c229b9adf2571c46a454510af165b7",
+  "projection_note": "UMAP spectral initialization fell back to seeded random initialization; see release notes.",
+  "corpus_content_sha256": "956bc011e72a2b6b791bf2c63dc161b7f4d9445df116a4e23ecc0cda03d56813"
+}

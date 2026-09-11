@@ -55,6 +55,9 @@ test('semantic filters, pagination and original-vector neighbours work on mobile
 	await picker.fill('B');
 	await page.getByRole('option', { name: 'B', exact: true }).click();
 	await expect(page.locator('tbody tr')).toHaveCount(12);
+	await expect(selected).toContainText('outside the current filters');
+	await expect(page.locator('.legend')).toContainText('Peacekeeping (12)');
+	await expect(page.locator('.legend')).not.toContainText('Other');
 	await expect(page).toHaveURL(/country=B/);
 	await page.reload();
 	await expect(page.locator('tbody tr')).toHaveCount(12);

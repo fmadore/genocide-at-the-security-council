@@ -515,14 +515,25 @@ sbatch --dependency=afterok:EMBED_JOB --kill-on-invalid-dep=yes scripts/cluster/
 ```
 
 Replace `EMBED_JOB` with the embedding job ID. This is CPU work and requests
-one CPU for deterministic ANN/UMAP, 64 GB RAM and four hours. `UNSC_MODEL`
-selects the embedding directory (default `qwen3-0.6b`). It refuses incomplete,
+one CPU for deterministic ANN/UMAP, 64 GB RAM and four hours. `UNSC_EMBEDDINGS`
+selects the embedding directory (default `data/derived/embeddings`, matching
+step 06). It refuses incomplete,
 stale or non-unit vectors and ANN recall below 0.8. Outputs are archived and
 include a compact map, 256 on-demand neighbour shards and file checksums.
 Retrieve the complete directory into `data/derived/semantic/`, then run
 `python scripts/export_web.py`; a partial directory fails rather than becoming
 an apparently valid waiting state. A missing directory yields a waiting state.
-The pipeline does not automatically publish GPU outputs to GitHub Pages.
+GPU output is reviewed before publication. Package the contents of the validated
+directory as a ZIP containing `manifest.json`, `map.json` and 256 neighbour files;
+upload it as a GitHub release asset and update `config/semantic-release.json`
+with the asset URL and archive, manifest and corpus SHA-256 hashes, plus
+`corpus_content_sha256` from `lib.semantic_release.corpus_fingerprint`. This binds
+exact speech bodies and map attributes independently of the Parquet writer.
+The deployment
+restores that pin with `python scripts/fetch_semantic.py` before rebuilding the
+payload. Local builds can run the same command. Downloads and individual files
+are verified before atomic installation; the exporter also checks the actual
+corpus. Cache eviction therefore does not remove the published map.
 
 The lemma launcher allocates spaCy worker processes to CPUs while explicitly
 pinning each worker's numerical libraries to one thread. A private runtime

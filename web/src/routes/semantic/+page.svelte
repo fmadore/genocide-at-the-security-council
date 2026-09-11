@@ -53,6 +53,7 @@
 	);
 	const visible = $derived(rows.slice(offset * 20, offset * 20 + 20));
 	const selectedPoint = $derived(map?.points[positions.get(selected) ?? -1]);
+	const selectionVisible = $derived(rows.some((p) => p[0] === selected));
 	const bounds = $derived.by(() => {
 		const box = [Infinity, -Infinity, Infinity, -Infinity];
 		for (const p of map?.points ?? []) {
@@ -83,7 +84,9 @@
 	}
 	const categories = $derived.by(() => {
 		const counts = new SvelteMap<string, number>();
-		for (const point of rows) {
+		// Keep colour meanings fixed when affiliation, agenda and year filters change.
+		for (const point of map?.points ?? []) {
+			if (!all && !point[6]) continue;
 			const key = category(point);
 			counts.set(key, (counts.get(key) ?? 0) + 1);
 		}
@@ -92,6 +95,30 @@
 			.slice(0, 8)
 			.map(([key]) => key);
 	});
+	const groups = $derived.by(() => {
+		const grouped: Point[][] = Array.from({ length: categories.length + 1 }, () => []);
+		for (const p of rows) {
+			const index = categories.indexOf(category(p));
+			grouped[index < 0 ? categories.length : index].push(p);
+		}
+		return [...categories, 'Other']
+			.map((name, index) => ({
+				name,
+				rows: grouped[index],
+				color: index === categories.length ? palette[8] : palette[index]
+			}))
+			.filter((group) => group.rows.length);
+	});
+	const scatter = $derived(
+		groups.map((group) => ({
+			type: 'scatter' as const,
+			name: group.name,
+			symbolSize: 5,
+			progressive: 5000,
+			itemStyle: { color: group.color, opacity: 0.65 },
+			data: group.rows.map((p) => [p[1], p[2], p[0]])
+		}))
+	);
 	const option: EChartsOption = $derived({
 		animation: false,
 		color: palette,
@@ -104,21 +131,21 @@
 			{ type: 'inside', yAxisIndex: 0 },
 			{ type: 'slider', xAxisIndex: 0, height: 14 }
 		],
-		series: [...categories, 'Other'].map((name, index) => ({
-			type: 'scatter',
-			name,
-			symbolSize: 5,
-			progressive: 5000,
-			itemStyle: {
-				color: index === categories.length ? palette[8] : palette[index],
-				opacity: 0.65
-			},
-			data: rows
-				.filter((p) =>
-					index === categories.length ? !categories.includes(category(p)) : category(p) === name
-				)
-				.map((p) => [p[1], p[2], p[0]])
-		}))
+		series: [
+			...scatter,
+			{
+				type: 'scatter',
+				name: 'Selected speech',
+				symbol: 'diamond',
+				symbolSize: 15,
+				z: 10,
+				itemStyle: { color: '#14171a', borderColor: '#fbfbf8', borderWidth: 2 },
+				data:
+					selectedPoint && selectionVisible
+						? [[selectedPoint[1], selectedPoint[2], selectedPoint[0]]]
+						: []
+			}
+		]
 	});
 	function update(key: string, value: string) {
 		const url = new URL(window.location.href);
@@ -177,9 +204,7 @@
 		fetch(`${base}/data/semantic/neighbours/${position % 256}.json`, { signal: controller.signal })
 			.then(async (response) => {
 				if (!response.ok)
-					throw new Error(
-						'Related speeches could not be loaded. Select the speech again to retry.'
-					);
+					throw new Error('Related speeches could not be loaded. Reload the page to retry.');
 				const result = await response.json();
 				if (controller.signal.aborted) return;
 				related = validateNeighbours(result, speech, known);
@@ -264,18 +289,18 @@
 				>
 			</div>
 			<p aria-live="polite">
-				{rows.length.toLocaleString()} speeches shown. The eight largest groups have separate colours;
-				remaining groups share grey.
+				{rows.length.toLocaleString()} speeches shown. Colours stay fixed while filtering; groups outside
+				the eight largest share grey. The selected speech is a black diamond.
 			</p>
 			<ul class="legend">
-				{#each [...categories, 'Other'] as label, i (i)}<li>
-						<span style:background={i === categories.length ? palette[8] : palette[i]}
-						></span>{label}
+				{#each groups as group (group.name)}<li>
+						<span style:background={group.color}></span>{group.name} ({group.rows.length.toLocaleString()})
 					</li>{/each}
 			</ul>
 			{#if rows.length}<Chart
 					{option}
 					renderer="canvas"
+					preserveZoom
 					height="min(65vh, 640px)"
 					description="Interactive semantic speech map; the following table provides keyboard access to every plotted speech."
 					onclick={(event) => {
@@ -286,13 +311,14 @@
 			<p class="diagnostic">
 				On a {map.meta.evaluation.points.toLocaleString()}-speech diagnostic sample, {(
 					100 * map.meta.evaluation.neighbours_lost_share
-				).toFixed(1)}% of original neighbours were lost in the projection. Approximate retrieval
-				recall: {(100 * map.meta.evaluation.ann_recall_at_10).toFixed(1)}%. Model: {map.meta
-					.model_repo}.
+				).toFixed(1)}% of neighbours within that sample were lost in the projection. Approximate
+				retrieval recall at 10: {(100 * map.meta.evaluation.ann_recall_at_10).toFixed(1)}%. Model: {map
+					.meta.model_repo}.
 			</p>
 			{#if selectedPoint}
 				<aside aria-label="Selected speech">
 					<h3>{map.countries[selectedPoint[4]]} · {selectedPoint[3]}</h3>
+					{#if !selectionVisible}<p>This selection is outside the current filters.</p>{/if}
 					<p>
 						{map.agendas[selectedPoint[5]]} · <a href={href(selected)}>Read speech {selected}</a>
 					</p>
@@ -387,6 +413,7 @@
 	}
 	table {
 		width: 100%;
+		min-width: 38rem;
 		text-align: left;
 	}
 	th,

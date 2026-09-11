@@ -47,6 +47,8 @@
 		/** Announced to screen readers in place of the drawing. */
 		description: string;
 		renderer?: 'svg' | 'canvas';
+		/** Retain the reader's zoom when filters or a selection redraw the figure. */
+		preserveZoom?: boolean;
 		onclick?: (params: {
 			name?: string;
 			seriesName?: string;
@@ -56,7 +58,14 @@
 		}) => void;
 	}
 
-	let { option, height = '340px', description, onclick, renderer = 'svg' }: Props = $props();
+	let {
+		option,
+		height = '340px',
+		description,
+		onclick,
+		renderer = 'svg',
+		preserveZoom = false
+	}: Props = $props();
 
 	let element: HTMLDivElement;
 	/**
@@ -152,7 +161,17 @@
 	 */
 	$effect(() => {
 		if (!chart) return;
-		chart.setOption(framed(option), { notMerge: true });
+		const next = framed(option);
+		if (preserveZoom && Array.isArray(next.dataZoom)) {
+			const previous = chart.getOption()?.dataZoom as
+				{ start?: number; end?: number }[] | undefined;
+			next.dataZoom = next.dataZoom.map((zoom, i) => ({
+				...zoom,
+				start: previous?.[i]?.start ?? zoom.start,
+				end: previous?.[i]?.end ?? zoom.end
+			}));
+		}
+		chart.setOption(next, { notMerge: true });
 		ready = true;
 	});
 </script>

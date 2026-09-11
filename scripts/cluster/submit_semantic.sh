@@ -17,5 +17,5 @@ load_python
 activate_extras
 set_threads
 cd "$REPO"
-srun python -u scripts/21_semantic_map.py --embeddings "data/derived/embeddings/${UNSC_MODEL:-qwen3-0.6b}"
+srun python -u scripts/21_semantic_map.py --embeddings "${UNSC_EMBEDDINGS:-data/derived/embeddings}"
 archive_outputs "$REPO/data/derived/semantic"

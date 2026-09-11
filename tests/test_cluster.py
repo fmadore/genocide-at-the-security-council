@@ -84,7 +84,21 @@ def test_batch_jobs_set_up_their_environment(path: Path) -> None:
 #: the lock pins. Getting this backwards would let an optional step rebuild the
 #: corpus under an environment that does not match the reproducibility record.
 LOCKED_JOBS = {"submit_corpus.sh", "submit_lexical.sh"}
-EXTRAS_JOBS = {"submit_embed.sh", "submit_topics.sh", "submit_lemmas.sh", "smoke.sh"}
+EXTRAS_JOBS = {"submit_embed.sh", "submit_topics.sh", "submit_lemmas.sh", "submit_semantic.sh", "smoke.sh"}
+
+
+def test_semantic_projection_reads_the_embedding_output_directory():
+    import ast
+
+    from lib.paths import EMBEDDINGS
+
+    launcher = read(CLUSTER / "submit_semantic.sh")
+    assert f'${{UNSC_EMBEDDINGS:-{EMBEDDINGS.relative_to(ROOT).as_posix()}}}' in launcher
+    tree = ast.parse(read(ROOT / "scripts/21_semantic_map.py"))
+    argument = next(node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                    and any(isinstance(arg, ast.Constant) and arg.value == "--embeddings" for arg in node.args))
+    default = next(keyword.value for keyword in argument.keywords if keyword.arg == "default")
+    assert isinstance(default, ast.Name) and default.id == "EMBEDDINGS"
 
 
 @pytest.mark.parametrize("name", sorted(LOCKED_JOBS))
