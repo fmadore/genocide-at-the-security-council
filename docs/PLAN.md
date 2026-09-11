@@ -68,7 +68,7 @@ The application remains experimental and the human-validation release gate is op
 | 3 | R2 / R8 / R10: interpretive extensions | Wait for usable, reviewed role/referent evidence. R10's paired design is prepared below. |
 | 4 | R12 / R13 / R15: editorial decisions | Decide disputed figures' purpose; obtain Joël's signed epistemological text and approved attribution. Government overlay remains unadopted. |
 | 5 | S1 / S5: interpret robustness results | Full lemma layer and meeting-deletion/bootstrap tables now exist; inspect fragile speaker keywords and retain conditional interval caveats. |
-| 6 | M1–M3: measured maintenance | Constrained-network results are recorded below: transfer/startup dominate parsing. Prioritize concordance loading; physical-device and real semantic-payload measurements remain open. |
+| 6 | M1–M3: measured maintenance | Constrained-network results for concordance and the real semantic map are recorded below. Prioritize initial transfer/startup; physical-device measurements remain open. |
 
 ## Research contract
 
@@ -254,6 +254,9 @@ not a blinded human relevance evaluation.
 the corpus by SHA-256. A canonical content fingerprint also binds exact embedded
 bodies and displayed metadata, allowing equivalent Parquet serialization across
 Arrow versions; only a pin matching the artifact's manifest may authorize it.
+The local/CI byte-hash difference was verified to consist exclusively of Arrow
+25.0.0 versus 25.0.1 writer metadata: replacing its three metadata occurrences
+in memory reproduced the deployed corpus SHA-256 exactly, without changing data.
 Clean deployments restore and verify the release before exporting,
 so the full map survives cache eviction without another GPU run. The browser
 loads the 8.93 MB map and fetches neighbour shards only on selection. Filters
@@ -718,8 +721,12 @@ The payload contract and complete checksum inventory pass with 9,515 files.
 was checked in the production build at 390 and 1,440 pixels, including full-corpus
 display, colour changes, searchable filters, URL restoration and ten neighbours
 per selection. No browser exceptions or axe violations were found. The default
-view became usable in 1.21 s in an unthrottled local preview; this is not a mobile
-network benchmark. Long agenda columns scroll horizontally on narrow screens.
+view became usable in 1.21 s in an unthrottled local preview. With a 390-pixel
+viewport, 4× CPU slowdown, 1.6 Mbps download and 150 ms latency, a fresh preview
+loaded in **17.14 s** and selected neighbours in **1.95 s**. The map transferred
+1.92 MB compressed (8.93 MB decoded); the selected shard transferred 47.6 KB.
+These are browser simulations, not physical-device measurements. Long agenda
+columns scroll horizontally on narrow screens.
 The payload now contains 9,772 files (753 MB); its contract and checksum inventory
 pass. Python checks cover 1,225 passing tests and four Windows-only GNU make
 skips; frontend checks include 543 unit tests, lint, types, production build and
