@@ -67,7 +67,7 @@ export const termLabel = (name: string) => name.replace(/_/g, ' ');
  * `derived_minus`, and each view states them beside the figure.
  */
 const MEASURE: Record<string, string> = {
-	genocide_qualification: 'genocide as event qualification'
+	genocide_qualification: 'genocide (excluding génocidaires)'
 };
 
 export const measureLabel = (name: string) => MEASURE[name] ?? termLabel(name);

@@ -19,19 +19,19 @@ export const PAGE_METADATA = {
 		path: '/chronology/',
 		title: `Chronology — ${SITE_NAME}`,
 		description:
-			'Compare the prevalence of genocide-related terms over time, with explicit denominators, reference events and links to the underlying speeches.'
+			'Compare the prevalence of genocide-related terms over time, with counts, rates, historical reference dates and links to the speeches.'
 	},
 	'/language/': {
 		path: '/language/',
 		title: `Words in context — ${SITE_NAME}`,
 		description:
-			'Examine the words, collocates and contexts surrounding genocide-related vocabulary in UN Security Council speeches.'
+			'Examine the words and phrases surrounding genocide-related vocabulary in UN Security Council speeches.'
 	},
 	'/actors/': {
 		path: '/actors/',
 		title: `Actors — ${SITE_NAME}`,
 		description:
-			'Compare which delegations used genocide-related vocabulary, at what rate, and with which denominator and evidence.'
+			'Compare which delegations used genocide-related vocabulary, relative to their own speech totals, with links to the evidence.'
 	},
 	'/concordance/': {
 		path: '/concordance/',
@@ -43,13 +43,13 @@ export const PAGE_METADATA = {
 		path: '/usage/',
 		title: `Usage — ${SITE_NAME}`,
 		description:
-			'Experimental, model-derived layer: which genocide each delegation invoked, and whether it asserted or rejected the word, with the quotation behind every label.'
+			'Explore experimental language-model classifications of the cases mentioned and positions expressed when delegations use genocide.'
 	},
 	'/methods/': {
 		path: '/methods/',
 		title: `Methods — ${SITE_NAME}`,
 		description:
-			'Read how the corpus, lexicon, denominators, statistical comparisons, provenance and validation boundaries are defined.'
+			'Understand the speech collection, search terms, statistical comparisons and language models, and what has been checked.'
 	},
 	'/semantic/': {
 		path: '/semantic/',

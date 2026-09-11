@@ -76,6 +76,6 @@ test('semantic waiting state displays no invented points', async ({ page }) => {
 		route.fulfill({ json: { status: 'pending', schema: 1 } })
 	);
 	await page.goto(`${base}/semantic/`);
-	await expect(page.getByRole('status')).toContainText('has not been published');
+	await expect(page.getByRole('status')).toContainText('not available in this release');
 	await expect(page.locator('canvas')).toHaveCount(0);
 });

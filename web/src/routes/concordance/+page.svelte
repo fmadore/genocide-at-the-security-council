@@ -426,9 +426,9 @@
 	<header class="lede">
 		<h1>Concordance</h1>
 		<p class="standfirst">
-			Every occurrence of every term on the list, with 150 characters of searchable text either
-			side. This is where the counts elsewhere on the site turn back into speech: each line opens to
-			the full sentence, and from there to the speech it came from.
+			Read each match for a search term with {data.index.meta.width as number} characters of context on
+			either side. This <em>concordance</em> connects the dashboard's counts to passages. Select a line
+			to see the full sentence, citation details and a link to the complete speech.
 		</p>
 	</header>
 
@@ -443,8 +443,9 @@
 		     repeating them here would be the same sentence twice on one screen.
 		     What this section adds is who is in it. -->
 		<p class="hint">
-			The delegations that hold most of it, each a filter on the lines below. The count is that
-			delegation's speeches inside the set.
+			These affiliations have the most speeches in the selected reading set. Select one to filter
+			the passages below by affiliation. The reading set itself does not restrict those results; its
+			counts describe speeches, while the results count individual matches.
 		</p>
 		<div class="delegates">
 			{#each inScope as row (row.country_org)}
@@ -482,14 +483,14 @@
 				<input
 					type="search"
 					bind:value={query}
-					placeholder="within the line…"
+					placeholder="Words in the displayed passage…"
 					class:bad={badRegex}
 					aria-invalid={badRegex}
 					aria-describedby={badRegex ? 'regex-error' : undefined}
 				/>
 			</label>
 			<label class="check">
-				<input type="checkbox" bind:checked={regex} /> regex
+				<input type="checkbox" bind:checked={regex} /> Pattern search (regex)
 			</label>
 			<div class="sort">
 				<span class="label" id="sort-label">Sort</span>
@@ -508,11 +509,9 @@
 
 		{#snippet reading()}
 			<p>
-				The <strong>bold centre</strong> is what the pattern matched, the <em>node</em>; either side
-				holds the {data.index.meta.width as number} characters around it, line breaks removed. Click a
-				line for the full sentence and the details to cite it.
-				<strong>Sorting by left or right context</strong> puts the surrounding words in alphabetical order,
-				so repeated phrasings stack down the column.
+				The bold centre is the matched text; either side shows {data.index.meta.width as number} characters
+				of context. Search looks within this displayed passage. Select a line to read the full sentence
+				and citation details. Sort by left or right context to group similar phrases alphabetically.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -572,7 +571,7 @@
 			</label>
 			{#if referentsOffered}
 				<label>
-					Referent
+					Case or concept (referent)
 					<select bind:value={referent} disabled={!referentOf}>
 						<option value="">All</option>
 						{#each referentOptions as option (option.id)}
@@ -593,7 +592,7 @@
 					<span class="sr">Clear the meeting filter</span>
 				</button>
 			{/if}
-			<button class="ghost" onclick={reset}>Reset</button>
+			<button class="ghost" onclick={reset}>Reset filters</button>
 		</div>
 
 		{#if !loading && !failure && lines.length}
@@ -623,7 +622,10 @@
 					Export {count(filtered.length)} to CSV
 				</button>
 			{/if}
-			{#if badRegex}<span id="regex-error" class="error">Not a valid regular expression.</span>{/if}
+			{#if badRegex}<span id="regex-error" class="error"
+					>This search pattern is invalid. Correct it or turn off Pattern search to search for
+					ordinary text.</span
+				>{/if}
 		</div>
 
 		<div class="columns" aria-hidden="true">
@@ -689,7 +691,7 @@
 									</dd>
 								</div>
 								<div>
-									<dt>Position</dt>
+									<dt>Speaker group and role</dt>
 									<dd>{line.group} · {line.type}</dd>
 								</div>
 								<div>
@@ -735,7 +737,7 @@
 				Show {count(Math.min(PAGE * 4, filtered.length - shown))} more
 			</button>
 		{:else if filtered.length === 0 && !loading}
-			<p class="empty">No line matches these filters.</p>
+			<p class="empty">No passages match. Clear the search or reset the filters.</p>
 		{/if}
 	</Figure>
 
@@ -752,7 +754,7 @@
 				<thead>
 					<tr>
 						<th>Term</th>
-						<th>Register</th>
+						<th>Word family</th>
 						<th class="num">Lines</th>
 						<th class="num">Speeches</th>
 						<th class="num">File size</th>

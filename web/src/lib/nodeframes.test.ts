@@ -193,7 +193,7 @@ describe('the profile', () => {
 	it('carries the codebook gloss, and its own sentence for the residue', () => {
 		const rows = profile(artefact(), null);
 		expect(rows.find((row) => row.frame === 'prevention')?.gloss).toContain('duty');
-		expect(rows.find((row) => row.frame === UNFRAMED)?.gloss).toContain('No pattern');
+		expect(rows.find((row) => row.frame === UNFRAMED)?.gloss).toContain('No phrase pattern');
 	});
 
 	it('reports the shift in points between the slice and the corpus', () => {

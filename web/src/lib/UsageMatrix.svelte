@@ -112,7 +112,7 @@
 			<i class="hatched"></i>share withheld ({plan.disclosure.withheldRows})
 		</span>
 	{/if}
-	<span class="swatch"><i class="none"></i>never on this referent</span>
+	<span class="swatch"><i class="none"></i>no assigned mentions</span>
 </div>
 
 <div class="scroll">
@@ -188,8 +188,8 @@
 </div>
 
 <p class="hint">
-	One tab stop for the whole table: the arrow keys move between cells and out into the headings,
-	Home and End run to the ends of a row.
+	Press Tab to enter the table, then use the arrow keys to move between cells and headings. Home and
+	End move to the first and last cells in a row.
 </p>
 
 <style>

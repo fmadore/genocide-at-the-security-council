@@ -23,6 +23,87 @@ import type { FrameEntry, FrameShare, FrameSlice, NodeFrames } from './types';
 /** The residue's name in the artefact. It is a row like any other, and drawn. */
 export const UNFRAMED = 'unframed';
 
+/** Reader-facing explanations of the patterns; identifiers and exported codebook stay stable. */
+const FRAME_COPY: Record<string, [string, string]> = {
+	legal_instrument: [
+		'Legal text',
+		'Mentions genocide near a treaty, statute or article. This may be a legal citation; it does not by itself allege an event.'
+	],
+	mandate_or_office: [
+		'Office or mandate',
+		'Names an office or mandate concerned with genocide, such as the Special Adviser on its prevention.'
+	],
+	distancing: [
+		'Qualified wording',
+		'Uses wording such as alleged or so-called, or quotation marks. Read the sentence to distinguish attribution, caution and rejection.'
+	],
+	qualification: [
+		'Applying the label',
+		'Uses wording such as constitutes genocide or is genocide. The pattern can also capture negation, so it does not establish endorsement.'
+	],
+	crime_of: [
+		'Crime of genocide',
+		'Names genocide as a crime. The phrase alone does not establish a court ruling.'
+	],
+	acts_of: [
+		'Acts or cases',
+		'Uses phrases such as acts of genocide or cases of genocide. Whether this qualifies the claim depends on the surrounding argument.'
+	],
+	intent_or_definition: [
+		'Intent or definition',
+		'Mentions genocidal intent or the definition of genocide. Read the passage to determine whether it discusses a specific case or an abstract criterion.'
+	],
+	denial_or_ideology: [
+		'Denial or ideology',
+		'Mentions denial, ideology, revisionism or glorification near genocide. It can capture discussion of denial as well as a denial itself.'
+	],
+	occurrence: [
+		'Event occurring',
+		'Uses phrases such as genocide occurred or there is genocide. Negation and attribution still require reading the sentence.'
+	],
+	atrocity_triad: [
+		'Listed with atrocities',
+		'Places genocide near terms such as war crimes or crimes against humanity. This may be a list of categories or a statement about a case.'
+	],
+	risk_or_threat: [
+		'Risk or threat',
+		'Uses wording about a risk, threat or warning sign of genocide, including possible recurrence.'
+	],
+	prevention: [
+		'Prevention',
+		'Mentions preventing genocide or protecting people from it. This can concern a general duty or a specific situation.'
+	],
+	commemoration: [
+		'Memory and victims',
+		'Refers to anniversaries, remembrance, victims or survivors. The category follows wording and does not establish the purpose of the whole speech.'
+	],
+	accountability: [
+		'Accountability',
+		'Mentions prosecution, conviction, fugitives or impunity near genocide. Check the passage for the stage and outcome of any legal process.'
+	],
+	perpetration: [
+		'Perpetration',
+		'Uses wording about committing genocide, responsibility or a policy of genocide. The passage may make, report or dispute an accusation.'
+	],
+	directed_against: [
+		'Targeted group',
+		'Uses wording such as genocide against a group. The pattern identifies phrasing, not the truth or endorsement of the claim.'
+	],
+	named_case: [
+		'Named event',
+		'Links genocide to a place, year or event. Naming a case does not establish agreement among participants.'
+	],
+	unframed: [
+		'No pattern matched',
+		'No phrase pattern matched this occurrence. It remains in the total used to calculate shares.'
+	]
+};
+
+export const frameLabel = (name: string): string =>
+	FRAME_COPY[name]?.[0] ?? name.replaceAll('_', ' ');
+export const frameDescription = (name: string, fallback: string): string =>
+	FRAME_COPY[name]?.[1] ?? fallback;
+
 export interface FrameRow {
 	frame: string;
 	/** The gloss from the codebook, or the residue's own sentence. */
@@ -41,8 +122,7 @@ export interface FrameRow {
 
 /** What the residue's row says where a codebook gloss would be. */
 export const RESIDUE_GLOSS =
-	'No pattern in the codebook reached this occurrence. Its share is not constant over ' +
-	'time, so a frame that gained share may have gained it from here.';
+	'No phrase pattern matched this occurrence. This category remains in the total used to calculate shares.';
 
 const glossOf = (codebook: FrameEntry[], frame: string): string =>
 	codebook.find((entry) => entry.frame === frame)?.gloss ?? RESIDUE_GLOSS;

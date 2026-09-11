@@ -111,21 +111,13 @@ describe('the cache in front of the artefacts', () => {
 });
 
 describe('what a bad response is turned into', () => {
-	it('names the status and says the pipeline has probably not been run', async () => {
+	it('names the unavailable file and status and offers a recovery action', async () => {
 		const { collocates } = await fresh();
 		const { fetcher } = responder(null, { ok: false, status: 404 });
-		// This message is read by two people and has to serve both. A visitor who
-		// followed a stale link needs to know the record is not in this build;
-		// someone who has just cloned the repository needs the build command.
-		// Tidying either half away removes the only thing that makes the failure
-		// actionable for one of them.
 		await expect(collocates(fetcher)).rejects.toThrow(
-			/No data file at lexical\/collocates\.json \(404\)/
+			/Could not load lexical\/collocates\.json \(HTTP 404\)/
 		);
-		await expect(collocates(fetcher)).rejects.toThrow(/not part of this build/);
-		await expect(collocates(fetcher)).rejects.toThrow(
-			/run the pipeline and scripts\/export_web\.py/
-		);
+		await expect(collocates(fetcher)).rejects.toThrow(/Try again or reload/);
 	});
 
 	it('names every missing field at once rather than one per attempt', async () => {

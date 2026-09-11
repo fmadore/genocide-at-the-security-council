@@ -24,7 +24,7 @@ describe('meeting symbols', () => {
  */
 describe('measure names', () => {
 	it('names the derived measure rather than printing its key', () => {
-		expect(measureLabel('genocide_qualification')).toBe('genocide as event qualification');
+		expect(measureLabel('genocide_qualification')).toBe('genocide (excluding génocidaires)');
 	});
 
 	it('falls back to the underscores stripped out, as the term label always did', () => {

@@ -64,7 +64,9 @@ test('the page says whose reading this is before it draws anything', async ({ pa
 	// The standing apparatus block, above the first figure in the document.
 	const experiment = page.locator('section.experiment');
 	await expect(experiment).toContainText('Experimental — model-derived');
-	await expect(experiment).toContainText('The human labels are the authority');
+	await expect(experiment).toContainText(
+		'Human coding provides a separate reference for evaluation'
+	);
 	await expect(experiment).toContainText('chatgpt-5.6-luna-2026-08-01');
 	await expect(experiment).toContainText('sha256:0f1e2d3c4b5a…');
 	await expect(experiment).toContainText('12 of 12 occurrences');
@@ -221,7 +223,9 @@ test('a copied URL restores the same reading of the matrix', async ({ page }) =>
 		'The Council must call this genocide by its name.'
 	);
 	// The model's own span is narrower than the sentence, so it is shown as well.
-	await expect(evidence.locator('ol.quotations li').first()).toContainText("Model's evidence span");
+	await expect(evidence.locator('ol.quotations li').first()).toContainText(
+		'Quotation used by the model'
+	);
 	await expect(evidence.locator('ol.quotations li').first()).toContainText(
 		'“must call this genocide by its name”'
 	);
@@ -236,7 +240,9 @@ test('the diffusion figure draws one referent and lists the firsts behind it', a
 
 	// With nothing selected the figure falls back to the first named case the
 	// chronology carries, and the curve's own key names what was drawn.
-	await expect(figure.getByRole('combobox', { name: 'Referent' })).toHaveValue('rwanda_1994');
+	await expect(figure.getByRole('combobox', { name: 'Case or concept' })).toHaveValue(
+		'rwanda_1994'
+	);
 	await expect(figure.locator('.key')).toContainText('Placed the word on it');
 	await expect(figure.locator('.key')).toContainText('Refused the word for it');
 	await expect(figure.getByRole('img')).toHaveAttribute(
@@ -268,7 +274,7 @@ test('the referent picker moves both figures, and the URL carries it', async ({ 
 	await openUsage(page);
 	const figure = diffusionOf(page);
 
-	await figure.getByRole('combobox', { name: 'Referent' }).selectOption('bosnia_srebrenica');
+	await figure.getByRole('combobox', { name: 'Case or concept' }).selectOption('bosnia_srebrenica');
 	await expect(page).toHaveURL(/\?referent=bosnia_srebrenica$/);
 
 	// One state, two figures: the matrix column is now the selected one.
@@ -317,7 +323,7 @@ test('the whole matrix is one tab stop, and the arrow keys move inside it', asyn
 });
 
 /* ---- the second opinion --------------------------------------------------- *
- * A comparison run is a second model given the byte-identical prompt and the
+ * A comparison run is a second model given the the same instructions and the
  * same occurrences. What these journeys hold is that the page never lets it be
  * read as a correction: both models are named, the sentence about what agreement
  * measures is on screen beside every number, and a contested passage carries
@@ -335,10 +341,8 @@ test('the apparatus names the second opinion and what agreement between two mode
 	await expect(second).toContainText('2026-09-06-gemini-v1');
 	// The same question, asked the same way: 15 refuses to publish a comparison
 	// made from other instructions, and the page states that rather than assuming it.
-	await expect(second).toContainText('byte-identical prompt');
-	await expect(second).toContainText(
-		'agreement between two models measures stability across instruments, never accuracy'
-	);
+	await expect(second).toContainText('the same instructions');
+	await expect(second).toContainText('Agreement measures consistency between the models');
 	await expect(second).toContainText('4 carry a label from both runs');
 
 	const rows = second.locator('table tbody tr');
@@ -379,7 +383,7 @@ test('the contested filter narrows the quotations and the URL carries it', async
 	const evidence = page.locator('section.evidence');
 	await expect(evidence.locator('ol.quotations li')).toHaveCount(2);
 
-	const filter = page.getByRole('checkbox', { name: /Contested only/ });
+	const filter = page.getByRole('checkbox', { name: /Model disagreements only/ });
 	await expect(filter).toBeVisible();
 	await filter.check();
 
@@ -395,7 +399,7 @@ test('the contested filter narrows the quotations and the URL carries it', async
 
 test('a copied URL restores the contested filter', async ({ page }) => {
 	await page.goto(`${usage}?actor=Rwanda&referent=rwanda_1994&contested=1`);
-	await expect(page.getByRole('checkbox', { name: /Contested only/ })).toBeChecked();
+	await expect(page.getByRole('checkbox', { name: /Model disagreements only/ })).toBeChecked();
 	await expect(page.locator('section.evidence ol.quotations li')).toHaveCount(1);
 	await expect(page).toHaveURL(/\/usage\/\?actor=Rwanda&referent=rwanda_1994&contested=1$/);
 });
@@ -440,9 +444,7 @@ test('the reading list ranks the contested passages hardest first', async ({ pag
 	await expect(figure.locator('p.disclosure')).toContainText(
 		'2 of 2 contested occurrences are drawn here, out of 4'
 	);
-	await expect(figure).toContainText(
-		'Agreement between two models measures stability across instruments, never accuracy.'
-	);
+	await expect(figure).toContainText('Agreement can also conceal a shared mistake.');
 
 	await expectNoAxeViolations(page);
 });
@@ -499,7 +501,7 @@ test('a build with no second opinion shows none of it', async ({ page }) => {
 		.getByRole('button', { name: /^Rwanda × Rwanda \(1994\): 2 occurrences/ })
 		.click();
 	await expect(page.locator('section.evidence ol.quotations li')).toHaveCount(2);
-	await expect(page.getByRole('checkbox', { name: /Contested only/ })).toHaveCount(0);
+	await expect(page.getByRole('checkbox', { name: /Model disagreements only/ })).toHaveCount(0);
 	await expect(page.locator('section.evidence .contested')).toHaveCount(0);
 
 	await expectNoAxeViolations(page);

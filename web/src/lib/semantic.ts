@@ -103,7 +103,7 @@ export function semanticExport(data: SemanticMap, rows: Point[], filters: string
 		filters: [
 			...filters,
 			`model: ${data.meta.model_repo}@${data.meta.model_revision}`,
-			'UMAP axes have no substantive units; distance is not diplomatic agreement'
+			'Map axes have no substantive units; distance does not measure diplomatic agreement'
 		],
 		scope:
 			'all speeches matching the filters, across every table page; coordinates retain published precision'

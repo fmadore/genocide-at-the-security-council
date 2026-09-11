@@ -387,7 +387,7 @@
 
 {#if failure}
 	<div class="notice">
-		<h1>That meeting is not here</h1>
+		<h1>The meeting record could not be loaded</h1>
 		<p>{failure}</p>
 		<p><a href={resolve('/concordance')}>Back to the concordance</a></p>
 	</div>
@@ -429,7 +429,7 @@
 				</select>
 			</label>
 			<label class="check">
-				<input type="checkbox" bind:checked={showAddress} /> Show the opening form of address
+				<input type="checkbox" bind:checked={showAddress} /> Show opening greetings
 			</label>
 			<span class="tally">{count(totalHits)} highlighted occurrences in this meeting</span>
 			{#if wantedOccurrence}
@@ -454,7 +454,7 @@
 					{basket.has(selectedLine.id) ? 'In the basket' : 'Add to basket'}
 				</button>
 				<span class="cites">
-					<span class="label">Cite as</span>
+					<span class="label">Export citation</span>
 					<button class="ghost" onclick={() => downloadCitation('json')}>CSL-JSON</button>
 					<button class="ghost" onclick={() => downloadCitation('ris')}>RIS</button>
 					<button class="ghost" onclick={() => downloadCitation('bib')}>BibTeX</button>
@@ -568,13 +568,14 @@
 				<div class="note">
 					<span class="label">The reading set here</span>
 					<p class="prose">
-						{count(inScope.size)} of {count(record.speeches.length)} speeches in this record belong to
-						the set chosen in the masthead. Corpus-wide counts are unchanged by that choice.
+						{count(inScope.size)} of {count(record.speeches.length)} speeches belong to the reading set
+						selected at the top of the page. The full meeting remains available, including speeches outside
+						that set.
 					</p>
 				</div>
 
 				<div class="note">
-					<span class="label">Who spoke, and what they used</span>
+					<span class="label">Affiliations, speech counts and terms</span>
 					<ul class="roll">
 						{#each roll as delegation (delegation.country)}
 							<li>
@@ -593,26 +594,19 @@
 				<div class="note">
 					<span class="label">Delivery language</span>
 					<p class="prose">
-						{#if interpreted === 0}
-							No speech in this record is marked as having been delivered in a language other than
-							English.
-						{:else if interpreted === record.speeches.length}
-							Every speech in this record was delivered in a language other than English.
-						{:else}
-							{count(interpreted)} of {count(record.speeches.length)} speeches were delivered in a language
-							other than English.
-						{/if}
-						The record itself is in English throughout.
+						The record is in English. {#if interpreted > 0}{count(interpreted)}
+							{interpreted === 1 ? 'speech carries' : 'speeches carry'} a non-English language label.{/if}
+						The source does not reliably identify delivery language, so an absent label cannot establish
+						that a speech was delivered in English.
 					</p>
 				</div>
 
 				<div class="note">
 					<span class="label">The text</span>
 					<p class="prose">
-						As it appears in the verbatim record, scanned and read by character-recognition
-						software. The occasional wrong letter comes from that process rather than from any
-						re-typing here. The highlights use the positions the pipeline recorded, so what is
-						marked is exactly what was counted.
+						The text comes from the published dataset of verbatim records. Scanning and text
+						processing can introduce errors. Highlights identify the search matches used in the
+						counts. Consult the UN Digital Library record when checking a quotation.
 					</p>
 				</div>
 

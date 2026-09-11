@@ -34,7 +34,7 @@ test('an occurrence survives a reload, with the note written on it', async ({ pa
 	await expect(drawer).toContainText('We warned that genocide could occur.');
 	await expect(drawer).toContainText('S/PV.7000');
 	// It must say what it is: one browser, no account, no sync.
-	await expect(drawer).toContainText('Kept in this browser only');
+	await expect(drawer).toContainText('Saved in this browser on this device');
 
 	await drawer.getByRole('textbox').fill('Denial, not warning.');
 	await drawer.getByRole('textbox').blur();

@@ -17,7 +17,7 @@
 	 */
 	import { colours } from './theme';
 	import { count, percent } from './format';
-	import { outside, position, track } from './nodeframes';
+	import { frameLabel, outside, position, track } from './nodeframes';
 	import type { FrameRow } from './nodeframes';
 
 	interface Props {
@@ -45,7 +45,7 @@
 	const height = $derived(TOP + rows.length * ROW + 10);
 	const x = (share: number) => LABEL + position(share, scale) * trackWidth;
 
-	const label = (frame: string) => frame.replaceAll('_', ' ');
+	const label = frameLabel;
 
 	/* Whole points on the axis. `percent` gives two decimals, which is right
 	   beside a number a reader may quote and wrong on a tick they only read

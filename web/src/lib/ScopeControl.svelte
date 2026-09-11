@@ -63,8 +63,8 @@
 		</fieldset>
 		<p class="says">
 			{chosen.definition}
-			{count(chosen.meetings)} meetings. Rates stay shares of all {count(index.corpus.speeches)} speeches
-			under every reading set.
+			{count(chosen.meetings)} meetings. The set identifies speeches to explore. It does not filter every
+			chart; each figure states which speeches its calculations use.
 		</p>
 	</div>
 </section>

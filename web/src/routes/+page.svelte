@@ -277,13 +277,14 @@
 
 <article>
 	<header class="lede">
-		<h1>The word, and what it was doing there</h1>
+		<h1>Genocide in Security Council debates</h1>
 		<p class="standfirst">
-			Between {years[0]} and {years[years.length - 1]} the UN Security Council produced {count(
-				totals.meetings
-			)} meeting records holding {count(totals.speeches)} speeches. In {count(totals.bearing)} of them
-			&mdash; {percent(totals.bearing / totals.speeches)} &mdash; someone said <em>genocide</em>.
-			This site asks which speeches those were, and what the word was doing in them.
+			Between {years[0]} and {years[years.length - 1]}, the UN Security Council records contain {count(
+				totals.speeches
+			)} speeches from {count(totals.meetings)} meetings. Of these, {count(totals.bearing)} ({percent(
+				totals.bearing / totals.speeches
+			)}) contain a form of <em>genocide</em>{#if qualified}, excluding <em>génocidaires</em>{/if}.
+			Explore when the word appears, who uses it and what the surrounding passages say.
 		</p>
 	</header>
 
@@ -296,11 +297,11 @@
 			</p>
 		</div>
 		<div>
-			<dt class="label">Speeches using <code>genocid*</code></dt>
+			<dt class="label">Speeches using {measureLabel(headline)}</dt>
 			<dd>{count(totals.bearing)}</dd>
 			<p>
-				{percent(totals.bearing / totals.speeches)} of all {count(totals.speeches)} speeches; the asterisk
-				catches <em>genocide</em>, <em>genocidal</em> and <em>genocides</em> alike
+				{percent(totals.bearing / totals.speeches)} of all speeches. Forms such as <em>genocide</em>
+				and <em>genocidal</em> count together{#if qualified}; <em>génocidaires</em> is excluded{/if}.
 			</p>
 		</div>
 		<div>
@@ -318,18 +319,14 @@
 	<Contents figures={FIGURES} />
 
 	<section class="finding">
-		<h2>Why {loudest} tops the raw count</h2>
+		<h2>Counts and speech volume</h2>
 		<p>
-			{loudest} carries more occurrences of the word than 1994 does: {count(
-				Math.max(...(genocide.occurrences ?? []))
-			)} against {count(genocide.occurrences?.[index1994] ?? 0)}. That is true, and it is mostly a
-			side effect of a Council that talks more about everything. The number of speeches held each
-			year grew roughly
-			<strong
-				>{decimal(corpus.speeches[corpus.speeches.length - 1] / corpus.speeches[0])}&times;</strong
-			>
-			across the period, so a raw count can rise while the habit behind it stays flat. Dividing by the
-			speeches actually held is what every figure below does.
+			The records contain {count(Math.max(...(genocide.occurrences ?? [])))} occurrences in {loudest},
+			compared with {count(genocide.occurrences?.[index1994] ?? 0)} in 1994. Annual speech numbers also
+			changed: the final year has {decimal(
+				corpus.speeches[corpus.speeches.length - 1] / corpus.speeches[0]
+			)} times the first year's total. Compare counts with the share of speeches using the term to distinguish
+			repeated mentions from wider use across speeches.
 		</p>
 	</section>
 
@@ -350,24 +347,21 @@
 	>
 		{#snippet reading()}
 			<p>
-				<strong>Bars</strong> count qualifying uses of <code>genocid*</code> in a year (left axis);
-				the <strong>line</strong> is the share the right axis names. Select a year for its lines.
+				Bars count occurrences (left axis); the line shows the percentage of speeches using the term
+				(right axis). Select a year to read matching passages.
 			</p>
 			<p>
-				{#if rateInference?.accepted}A test allowing for the Council's growth splits the share at
-					<strong>{rateInference.label}</strong>, the later rate {decimal(
-						rateInference.ratio ?? 0
-					)}&times; the earlier.{:else}The same test finds <strong>one steady rate</strong>: no
-					split survives it.{/if}
+				{#if rateInference?.accepted}The test identifies a split at {rateInference.label}; the later
+					share is {decimal(rateInference.ratio ?? 0)} times the earlier share.{:else}The test finds
+					insufficient evidence for a split into two rates.{/if}
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				A share says nothing about intensity: a speech saying the word once counts the same as one
-				repeating it twenty times. The split describes the series; it is not a date on which
-				something happened.{#if qualified}
-					<em>Genocidaires</em>, an actor label, is counted separately and excluded here.{/if}
-				<a href="{resolve('/methods')}#change-points">Method: change points &rarr;</a>
+				A speech counts once in the share, however often it repeats the word. A statistical split
+				does not identify a historical cause.{#if qualified}
+					This chart excludes <em>génocidaires</em>; passage links include that form as well.{/if}
+				<a href="{resolve('/methods')}#change-points">How the test works</a>.
 			</p>
 		{/snippet}
 		<Chart
@@ -400,25 +394,20 @@
 	</Figure>
 
 	<section class="finding">
-		<h2>Where the rate does change</h2>
+		<h2>Testing for a change</h2>
 		<p>
-			{#if rateInference?.accepted}For <em>genocide</em>, the best-supported split falls at
-				<strong>{rateInference.label}</strong>, and the rate after it is {decimal(
-					rateInference.ratio ?? 0
-				)}&times; the rate before.{:else}For <em>genocide</em>, a single steady rate survives the
-				test.{/if}
-			The test is run on the word, and on the word alone. It used to be run on a wider
-			<em>atrocity core</em> as well &mdash; five phrases counted as one &mdash; and a split in that line
-			said nothing about which of the five had moved, which is why the figures above are words rather
-			than families. The result compares one stretch of years with another. It does not show that Council
-			language turned a corner in the year named.
+			{#if rateInference?.accepted}The test for <em>{measureLabel(headline)}</em> identifies {rateInference.label}
+				as the best-supported split; the later share is {decimal(rateInference.ratio ?? 0)} times the
+				earlier share.{:else}The test for <em>{measureLabel(headline)}</em> does not support a split into
+				two rates.{/if} This comparison summarises two periods. It neither dates a historical turning
+			point nor explains why usage changed.
 		</p>
 	</section>
 
 	<Figure
 		fullscreen
 		title={FIGURES[1].title}
-		question="Does the word displace the other things the Council could call it?"
+		question="How does use of genocide compare with related terms over time?"
 		source="04_series.py → series/annual.json"
 		note="Each row is scaled to its own maximum · the number at the right is the share of all {count(
 			totals.speeches
@@ -430,10 +419,9 @@
 	>
 		{#snippet reading()}
 			<p>
-				Each row is one word or one fixed phrase: the share of a year's speeches using it. The word
-				itself, the three treaty phrases the Council reaches for beside it, and the two that name
-				mass violence without qualifying it. Colour is the family a term belongs to, so the three
-				legal phrases share one.
+				Each row shows the share of that year's speeches containing one term. Colour groups related
+				terms. The percentage on the right summarises the whole period. Follow the shape within a
+				row to locate rises and falls, then explore the corresponding years in Chronology.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -514,8 +502,8 @@
 				<a href={resolve('/concordance')}>
 					<strong>Concordance</strong>
 					<span
-						>All {count(totals.occurrences)} occurrences with the text around them, sortable, and openable
-						to the full speech.</span
+						>All {count(sum(data.series.terms.genocide.occurrences ?? []))} matches for
+						<code>genocid*</code> with the text around them, sortable, and openable to the full speech.</span
 					>
 					<Icon icon={ArrowRight} />
 				</a>

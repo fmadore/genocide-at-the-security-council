@@ -13,6 +13,8 @@
 	import TermMatrix from '$lib/TermMatrix.svelte';
 	import {
 		facetLabel,
+		frameLabel,
+		frameDescription,
 		facets,
 		member as frameMemberOf,
 		members as frameMembers,
@@ -452,7 +454,7 @@
 			xAxis: {
 				...axisX(p),
 				type: 'log',
-				name: 'G² (confidence)',
+				name: 'G² (frequency difference)',
 				nameLocation: 'middle',
 				nameGap: 28,
 				nameTextStyle: { color: p.inkFaint, fontSize: 11 },
@@ -461,7 +463,7 @@
 			yAxis: {
 				...axisY(p),
 				type: 'value',
-				name: 'log ratio (size of the effect)',
+				name: 'log ratio (relative frequency)',
 				nameLocation: 'middle',
 				nameGap: 34,
 				nameTextStyle: { color: p.inkFaint, fontSize: 11 }
@@ -654,25 +656,15 @@
 	<header class="lede">
 		<h1>Words in context</h1>
 		<p class="standfirst">
-			The company the word keeps. This page asks what the vocabulary travels with, using four
-			standard instruments of corpus linguistics: the <strong>grammatical frames</strong> the word
-			itself appears in, from <em>acts of genocide</em> to <em>so-called genocide</em>;
-			<strong>collocation</strong>, the words that turn up within a few words of a term more often
-			than chance would place them; <strong>keyness</strong>, the words that set the speeches
-			bearing a term apart from comparable speeches without it; and a
-			<strong>co-occurrence network</strong>, which terms of the list are said in the same speech.
+			Examine the phrases around <em>genocide</em>, the words commonly used nearby and the terms
+			found in the same speech. Compare periods and speakers, then follow a word to its passages to
+			assess how it was used.
 		</p>
 		<p class="standfirst">
-			Every table here reports two kinds of measure. <strong>Log-likelihood</strong> (written G²)
-			says how confident we can be that a word turns up at a rate chance alone would not produce;
-			<strong>log ratio</strong> and, for collocates, <strong>logDice</strong> say how large that
-			difference is. Across {count(data.collocates.meta.corpus_tokens as number)} words almost anything
-			reaches statistical significance, so confidence is a floor and never an order: a row must clear
-			G² {decimal(data.collocates.meta.g2_floor as number)} to appear at all, and the rows that clear
-			it are ranked by effect. Each also carries its <strong>spread</strong> &mdash; the speeches and
-			distinct meetings it appears in, and DP, which runs from 0 for a word spread like the text to 1
-			for one confined to a corner of it &mdash; so a word that belongs to one debate is not mistaken
-			for one that belongs to the register.
+			A <strong>collocate</strong> is a word found near a selected term. <strong>Keyness</strong>
+			measures how much more frequent a word is in one set of speeches than in a comparison set. These
+			measures identify passages to investigate; they do not determine a speaker's position.
+			<a href="{resolve('/methods')}#lexical-measures">Guide to the table measures</a>.
 		</p>
 	</header>
 
@@ -707,7 +699,7 @@
 				</select>
 			</label>
 			<label>
-				Slice
+				Group or period
 				<select bind:value={frameMember}>
 					{#each frameMembers(data.frames, frameFacet) as slice (slice.member)}
 						<option value={slice.member}>{slice.member} ({count(slice.occurrences)})</option>
@@ -722,38 +714,32 @@
 
 		{#snippet reading()}
 			<p>
-				One row per construction, ranked by its share of all {count(data.frames.occurrences)} occurrences
-				of the word. The <strong>open dot</strong> is that corpus share; the
-				<strong>filled dot</strong> and its whisker are the share in the slice you pick, with a 95%
-				interval. A <strong>blue rule</strong> marks a row whose interval does not reach the corpus share.
+				Each row is a phrase pattern, such as <em>acts of genocide</em>, ranked by its share of all {count(
+					data.frames.occurrences
+				)} matches. The open dot shows the whole corpus; the filled dot shows your selected group or period.
+				Whiskers show 95% intervals. A blue mark flags intervals that exclude the whole-corpus share.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				Shares divide by occurrences of the word, not by speeches: a frame can grow in a year the
-				word is said less often. Every row is on screen at once and no interval is corrected for
-				that, so a marked row is worth looking at rather than a result.
+				The denominator is occurrences of the word. Patterns follow written rules and can miss
+				context. Blue marks are exploratory: intervals are not adjusted for comparing many rows or
+				for repeated mentions within meetings. They do not establish differences in political
+				positions.
 			</p>
 		{/snippet}
 		{#snippet more()}
 			<p>
-				Frames are tried in a fixed order and the first match wins, so a treaty title is counted
-				before the duty it names and a hedge before the catalogue it sits in. <em>Matched</em> in the
-				table below is what each pattern reached before that order was applied.
+				Rules are tested in a fixed order; the first matching pattern receives the occurrence. <em
+					>Matched</em
+				>
+				counts matches before that priority rule. <em>No pattern matched</em> contains occurrences that
+				no pattern captures, so changes in that category can affect the others' shares.
 			</p>
 			<p>
-				<em>Unframed</em> is a row like the others and not a remainder. Its share is not constant — about
-				a third of the occurrences in the early 1990s, a sixth in the late 2010s — so a frame that gained
-				share may have gained it from there.
-			</p>
-			<p>
-				A slice under {count(data.frames.minimum_occurrences)} occurrences is drawn with counts and no
-				shares, on the rule the actor rankings use.
-			</p>
-			<p>
-				<em>Génocidaire</em> and <em>génocidaires</em> are {count(perpetratorNoun)} of the
-				{count(data.frames.occurrences)}. They name an actor, not an event, and are counted apart
-				from the {count(data.frames.occurrences - perpetratorNoun)} that remain.
+				Groups below {count(data.frames.minimum_occurrences)} occurrences show counts only. The spelling
+				breakdown separately identifies {count(perpetratorNoun)} uses of <em>génocidaire</em> or
+				<em>génocidaires</em>, words for perpetrators, out of {count(data.frames.occurrences)} matches.
 			</p>
 		{/snippet}
 
@@ -766,33 +752,32 @@
 		{#if frameMovers.length}
 			<p class="note-line mover">
 				Furthest from the corpus profile here:
-				{#each frameMovers as row, index (row.frame)}{index > 0 ? ', ' : ''}{termLabel(row.frame)}
+				{#each frameMovers as row, index (row.frame)}{index > 0 ? ', ' : ''}{frameLabel(row.frame)}
 					{percent(row.share ?? 0)} against {percent(row.overall)}{/each}.
 			</p>
 		{/if}
 
 		<details class="data-table">
-			<summary><Icon icon={ChevronRight} />View the codebook, with an attested example each</summary
-			>
+			<summary><Icon icon={ChevronRight} />Phrase patterns, explanations and examples</summary>
 			<table>
 				<thead
 					><tr
-						><th>Frame</th><th class="num">Occurrences</th><th class="num">Matched</th><th
-							>What it evidences</th
-						><th>Example</th></tr
+						><th>Phrase pattern</th><th class="num">Assigned occurrences</th><th class="num"
+							>Pattern matches</th
+						><th>How to interpret it</th><th>Example</th></tr
 					></thead
 				>
 				<tbody>
 					{#each frameRows as row (row.frame)}
 						<tr>
-							<td>{termLabel(row.frame)}</td>
+							<td>{frameLabel(row.frame)}</td>
 							<td class="num">{count(row.overallOccurrences)}</td>
 							<td class="num"
 								>{count(
 									data.frames.totals.frames.find((f) => f.frame === row.frame)?.matched ?? 0
 								)}</td
 							>
-							<td>{row.gloss}</td>
+							<td>{frameDescription(row.frame, row.gloss)}</td>
 							<td class="quote"
 								>{data.frames.codebook.find((entry) => entry.frame === row.frame)?.example ??
 									'—'}</td
@@ -862,18 +847,17 @@
 
 		{#snippet reading()}
 			<p>
-				Each point is a word within the chosen window of the term, a <em>collocate</em>.
-				<strong>Further right</strong> is more confidence that its rate near the term differs from
-				the corpus; <strong>further up</strong> is a larger difference, log ratio +3 being eight
-				times the corpus rate. The words worth attention are high <em>and</em> right. Scroll to zoom;
-				nothing is removed.
+				Each point is a nearby word. Higher points have a larger relative frequency (log ratio): +3
+				means eight times the comparison rate. Further right means a larger G² statistic, which
+				tests a difference in frequency. The horizontal axis is logarithmic. Hover for values;
+				select a word to read passages.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				A word far right but low is merely common enough for a small difference to be measured. A
-				wider window asks a different question, not a better one: &plusmn;5 catches the phrase,
-				&plusmn;15 the argument around it. Compare the two; do not average them.
+				G² is sensitive to the number of words counted: a large value can accompany a small
+				difference. A ±5-word window focuses on nearby phrasing; ±15 includes more surrounding text.
+				Neither window captures the meaning of a whole speech.
 			</p>
 		{/snippet}
 
@@ -881,7 +865,7 @@
 			bind:this={scatterFigure}
 			option={scatter}
 			height="440px"
-			description="Scatter plot of the words near the term, confidence along the horizontal axis and size of effect up the vertical one."
+			description="Scatter plot of the words near the term, G² along the horizontal axis and log ratio on the vertical axis."
 			onclick={openCollocate}
 		/>
 		<details class="data-table">
@@ -889,10 +873,22 @@
 			<table>
 				<thead
 					><tr
-						><th>Word</th><th class="num">Near</th><th class="num">G²</th><th class="num"
+						><th>Word</th><th class="num">Near</th><th
+							class="num"
+							title="Tests a difference in word frequency; a larger value can also reflect more text."
+							>G²</th
+						><th
+							class="num"
+							title="+1 means twice as frequent; +2 means four times. Negative values mean less frequent."
 							>Log ratio</th
-						><th class="num">logDice</th><th class="num">Speeches / meetings</th><th class="num"
-							>DP</th
+						><th
+							class="num"
+							title="Association score adjusted for term and word frequencies. Higher means a stronger association."
+							>logDice</th
+						><th class="num">Speeches / meetings</th><th
+							class="num"
+							title="Dispersion: near 0 is broadly distributed relative to speech length; near 1 is concentrated."
+							>Spread (DP)</th
 						></tr
 					></thead
 				>
@@ -984,37 +980,39 @@
 
 		{#snippet reading()}
 			<p>
-				One row per word in the artefact's own order, strongest logDice first. The dot's
-				<strong>position</strong> is the log ratio, its <strong>area</strong> the frequency beside
-				the term, and the <strong>spread</strong> mark fills as the word is spread more evenly over the
-				speeches. Every word links to its lines in the concordance; hover for its numbers.
+				Words are ranked by logDice, an association score that accounts for how often each word
+				occurs. Dot position shows relative frequency (log ratio); dot size shows the count near the
+				term. The spread marker fills as usage becomes more evenly distributed across speeches.
+				Select a word to read its passages.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				Words are counted exactly as they appear: <em>crime</em> and <em>crimes</em> are two rows, each
-				carrying part of the evidence for one idea. A profile drawn from fifty speeches is a sketch, not
-				a portrait; the speech count is printed under the heading.
+				Word forms are separate: <em>crime</em> and <em>crimes</em> occupy different rows. Profiles based
+				on few speeches may be dominated by particular meetings or topics. Check the speech and meeting
+				counts before generalising about a period or delegation.
 			</p>
 		{/snippet}
 		{#snippet more()}
 			<p>
-				{count(data.collocates.meta.stopwords as number)} function words are removed using
-				<code>config/stopwords.txt</code>; words of the setting (<em>council</em>,
-				<em>resolution</em>) are kept on purpose. A word occurring fewer than
-				{count(data.collocates.meta.min_count as number)} times beside the term, or below the G² floor,
-				never enters the table. A lemma layer that merges inflected forms exists and is not switched on,
-				because it would move published figures before the hand-check of the word list.
+				The analysis removes {count(data.collocates.meta.stopwords as number)} common function words listed
+				in <code>config/stopwords.txt</code>. Words such as <em>council</em> and <em>resolution</em>
+				remain. A word needs at least {count(data.collocates.meta.min_count as number)} occurrences near
+				the term and G² above {decimal(data.collocates.meta.g2_floor as number)} to enter the published
+				list.
+				<a href="{resolve('/methods')}#lexical-measures"
+					>Definitions of G², log ratio, logDice and spread (DP)</a
+				>.
 			</p>
 		{/snippet}
 
 		{#if profileSelection.refusal?.kind === 'below-minimum'}
 			<p class="withheld">
-				<strong>{memberLabel(profileFacet, profileMember)}</strong> has
-				{count(profileSelection.refusal.speeches ?? 0)} speeches using the term, fewer than the
-				{count(profileSelection.refusal.minimum ?? 0)} needed before a profile is drawn at all. Nothing
-				is drawn and nothing is listed. The whole corpus is a different set of speeches, so it is not
-				shown here instead.
+				<strong>{memberLabel(profileFacet, profileMember)}</strong> has {count(
+					profileSelection.refusal.speeches ?? 0
+				)} speeches using the term, below the minimum of {count(
+					profileSelection.refusal.minimum ?? 0
+				)}. Choose another group or the whole corpus to view a profile.
 			</p>
 		{:else if profileSelection.refusal}
 			<p class="withheld">
@@ -1042,10 +1040,22 @@
 				<table>
 					<thead
 						><tr
-							><th>Word</th><th class="num">Near</th><th class="num">G²</th><th class="num"
+							><th>Word</th><th class="num">Near</th><th
+								class="num"
+								title="Tests a difference in word frequency; a larger value can also reflect more text."
+								>G²</th
+							><th
+								class="num"
+								title="+1 means twice as frequent; +2 means four times. Negative values mean less frequent."
 								>Log ratio</th
-							><th class="num">logDice</th><th class="num">Speeches / meetings</th><th class="num"
-								>DP</th
+							><th
+								class="num"
+								title="Association score adjusted for term and word frequencies. Higher means a stronger association."
+								>logDice</th
+							><th class="num">Speeches / meetings</th><th
+								class="num"
+								title="Dispersion: near 0 is broadly distributed relative to speech length; near 1 is concentrated."
+								>Spread (DP)</th
 							></tr
 						></thead
 					>
@@ -1118,11 +1128,10 @@
 
 		{#snippet reading()}
 			<p>
-				Two profiles at &plusmn;{data.sliced.width} words, each from its own speeches, both against the
-				same corpus background, on <strong>one scale</strong>. <strong>By rank</strong> lists each
-				side's strongest words in its own order, so the sets differ; <strong>by word</strong>
-				gives one row per word with both figures, so the distance on a word shows, a dash where a side
-				lacks it.
+				Both profiles count words within ±{data.sliced.width} words of <em>genocide</em>. Bar length
+				shows log ratio against the corpus on a shared scale. <strong>By rank</strong> shows each
+				side's top words; <strong>by word</strong> aligns the same word across both sides. A dash means
+				it is absent from that side's published list.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -1134,9 +1143,10 @@
 		{/snippet}
 		{#snippet more()}
 			<p>
-				Try <strong>Rwanda</strong> against any other speaker. Most delegations return the three crimes
-				of the Rome Statute &mdash; genocide, crimes against humanity, war crimes. Rwanda returns a vocabulary
-				of denial and prosecution.
+				Compare the same word on both sides, then open its passages. Differences may reflect
+				recurring topics, unequal speech totals or choices of expression. A word missing from a
+				published list may fall below its frequency or G² threshold; it need not be absent from the
+				speeches.
 			</p>
 		{/snippet}
 
@@ -1227,10 +1237,22 @@
 			<table>
 				<thead>
 					<tr
-						><th>Profile</th><th>Word</th><th class="num">Near</th><th class="num">G²</th><th
-							class="num">Log ratio</th
-						><th class="num">logDice</th><th class="num">Speeches / meetings</th><th class="num"
-							>DP</th
+						><th>Profile</th><th>Word</th><th class="num">Near</th><th
+							class="num"
+							title="Tests a difference in word frequency; a larger value can also reflect more text."
+							>G²</th
+						><th
+							class="num"
+							title="+1 means twice as frequent; +2 means four times. Negative values mean less frequent."
+							>Log ratio</th
+						><th
+							class="num"
+							title="Association score adjusted for term and word frequencies. Higher means a stronger association."
+							>logDice</th
+						><th class="num">Speeches / meetings</th><th
+							class="num"
+							title="Dispersion: near 0 is broadly distributed relative to speech length; near 1 is concentrated."
+							>Spread (DP)</th
 						></tr
 					>
 				</thead>
@@ -1256,7 +1278,7 @@
 
 	<Figure
 		title="Compared with a like-for-like speech"
-		question="Setting aside what the debate was about, what marks out a speech that says genocide?"
+		question="Which words are more frequent in speeches mentioning genocide than in the selected comparison set?"
 		source="05_lexical.py → lexical/keyness.json"
 		download={{ name: ['unsc', 'keyness', keynessView], table: keynessTable }}
 	>
@@ -1276,29 +1298,28 @@
 
 		{#snippet reading()}
 			<p>
-				{count(data.keyness.target_speeches)} speeches that use the word, each paired with one that does
-				not but shares its <strong>{matchedOn(data.keyness.matched_on)}</strong>; what survives is
-				closer to the idea than to the occasion. Rows are ranked by log ratio above the G² floor,
-				and the <strong>spread</strong> columns tell a register's word from one debate's.
-				<a href="{resolve('/methods')}#keyness">Method: the pairing &rarr;</a>
+				{#if keynessView === 'matched'}Each speech mentioning genocide is paired with one without
+					it, sharing its {matchedOn(data.keyness.matched_on)}.{:else}Speeches mentioning genocide
+					are compared with the rest of the corpus, without matching.{/if} Rows rank relative word frequency
+				(log ratio), after a G² threshold. Speech and meeting counts show how widely each word occurs.
+				<a href="{resolve('/methods')}#keyness">Matching details</a>.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>The whole-corpus column is not a result:</strong> it is what the pairing improves
-				on, shown so the improvement can be checked. {data.keyness.short_strata.length} groups could not
-				be filled and are left short rather than tilted towards the crisis years.
+				Matching reduces differences in the recorded context but cannot isolate the meaning of
+				genocide or remove all topic differences. {data.keyness.short_strata.length} groups have fewer
+				available partners than target speeches. The whole-corpus comparison is more exposed to differences
+				in agenda and period.
 			</p>
 		{/snippet}
 		{#snippet more()}
 			<p>
-				Switch to <strong>the whole corpus</strong> to see what the pairing removed:
-				<em>bosnia</em>,
-				<em>herzegovina</em> and <em>tribunals</em> sit near the top of the unpaired table and are
-				gone once year and agenda item are held constant. Because the partner is drawn at random,
-				the pairing was repeated across {data.keyness.stability.repetitions} draws; the range each word's
-				log ratio covered is in the download. The same comparison, one delegation at a time, is
-				<a href="{resolve('/actors')}#speaker-keyness">on the Actors page</a>.
+				Switch comparisons to see which words remain distinctive after matching. The partner
+				selection was repeated {data.keyness.stability.repetitions} times to assess sensitivity to the
+				draw; the source data record the resulting ranges. The
+				<a href="{resolve('/actors')}#speaker-keyness">Actors page</a> makes a separate comparison for
+				each delegation's vocabulary.
 			</p>
 		{/snippet}
 
@@ -1308,10 +1329,22 @@
 					<th>#</th>
 					<th>Word</th>
 					<th class="num">In these speeches</th>
-					<th class="num">G²</th>
-					<th class="num">Log ratio</th>
+					<th
+						class="num"
+						title="Tests a difference in word frequency; a larger value can also reflect more text."
+						>G²</th
+					>
+					<th
+						class="num"
+						title="+1 means twice as frequent; +2 means four times. Negative values mean less frequent."
+						>Log ratio</th
+					>
 					<th class="num">Speeches / meetings</th>
-					<th class="num">DP</th>
+					<th
+						class="num"
+						title="Dispersion: near 0 is broadly distributed relative to speech length; near 1 is concentrated."
+						>Spread (DP)</th
+					>
 					{#if keynessView === 'unmatched'}<th class="num">Like-for-like</th>{/if}
 				</tr>
 			</thead>
@@ -1356,24 +1389,23 @@
 				</select>
 			</label>
 			<span class="unit-note">
-				a line is drawn where at least {data.network.min_speeches} speeches use both terms
+				a pair is shaded where at least {data.network.min_speeches} speeches use both terms
 			</span>
 		{/snippet}
 
 		{#snippet reading()}
 			<p>
-				One row and one column per term, in register order. A cell is <strong>shaded</strong> by how
-				much more often the two terms share a speech than chance would put them together;
-				<strong>hatched</strong> where fewer than {data.network.min_speeches} speeches share them;
-				<strong>crossed</strong> where the pair is written into the word list itself. Hover a cell for
-				its numbers.
+				Each cell compares two terms. Darker shading means a stronger association within speeches,
+				measured by nPMI relative to their individual frequencies. Hatched cells have fewer than {data
+					.network.min_speeches} shared speeches. Crossed cells mark overlapping search patterns, such
+				as a word within a longer phrase. Hover for counts and scores.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				Two terms count as together if they appear anywhere in the same speech, even four hundred
-				words apart: this is a map of vocabularies used on one occasion, not of phrases. The measure
-				is adjusted for frequency, so a rare term cannot buy a dark cell with rarity.
+				Terms can occur anywhere in the same speech; they need not form a phrase or express the same
+				position. The score adjusts for individual frequencies, but rare pairs can still be
+				unstable. Read the shared-speech count alongside the shading.
 			</p>
 		{/snippet}
 
@@ -1387,7 +1419,7 @@
 			description="Matrix of the word list's terms, ordered by register, with each cell shaded by how much more often two terms share a speech than chance would put them together."
 		/>
 		<details class="data-table">
-			<summary><Icon icon={ChevronRight} />View the strongest network edges as a table</summary>
+			<summary><Icon icon={ChevronRight} />View the strongest term associations as a table</summary>
 			<table>
 				<thead
 					><tr
@@ -1411,8 +1443,9 @@
 	</Figure>
 
 	<p class="onward">
-		Every word above is a way in: the <a href={resolve('/concordance')}>concordance</a> holds all
-		{count(data.keyness.eligible_target_speeches)} speeches these tables were built from.
+		The <a href={resolve('/concordance')}>Concordance</a> lets you inspect matching passages and open
+		their full speeches. Its search covers the displayed context around each match, so a linked word elsewhere
+		in a long speech may not appear in the results.
 	</p>
 </article>
 

@@ -5,7 +5,7 @@ test('provenance follows the model filter and survives print', async ({ page }) 
 	await page.goto(`${base}/concordance/`);
 	const mark = page.locator('figure .provenance');
 	await expect(mark).toHaveAttribute('data-provenance', 'computed');
-	const referent = page.getByRole('combobox', { name: /^Referent/ });
+	const referent = page.getByRole('combobox', { name: /^Case or concept/ });
 	await expect(referent).toBeEnabled();
 	const value = await referent.locator('option').nth(1).getAttribute('value');
 	await referent.selectOption(value!);

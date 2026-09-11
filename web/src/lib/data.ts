@@ -724,10 +724,8 @@ export function json<T>(
 					// caused it; whoever is building the site locally needs the
 					// second half, which is why the missing path is named first.
 					throw new Error(
-						`No data file at ${path} (${response.status}). If you followed a link here, ` +
-							`the record it points to is not part of this build. If you are running the ` +
-							`site locally, run the pipeline and scripts/export_web.py to build ` +
-							`web/static/data/.`
+						`Could not load ${path} (HTTP ${response.status}). ` +
+							`Try again or reload the page. If the problem persists, this data file may be unavailable in the current release.`
 					);
 				}
 				return response.json() as Promise<unknown>;

@@ -414,10 +414,11 @@
 	<header class="lede">
 		<h1>What the word was doing</h1>
 		<p class="standfirst">
-			The corpus can say how often a delegation said <em>genocide</em>. It cannot say which genocide
-			was meant, or whether the speaker was making the claim or refusing it. This page holds a
-			model's answer to both questions, kept apart from everything else on this site and marked as
-			what it is.
+			Examine which events or concepts speakers associate with <em>genocide</em> and whether they
+			assert, reject or report a claim. {#if artefact.model.occurrences_annotated > 0}The tables
+				summarise language-model classifications. Open the quotations to assess them in context.{:else}No
+				model classifications are available in this release. The figures below will remain empty
+				until a run is published; word counts and source speeches remain available elsewhere.{/if}
 		</p>
 	</header>
 
@@ -426,11 +427,11 @@
 	<section class="experiment" aria-labelledby="experiment-heading">
 		<span class="label" id="experiment-heading">Experimental — model-derived</span>
 		<p class="governing">
-			Every label below was produced by a language model reading one occurrence at a time. It is an
-			experiment, not a measurement. <strong>The human labels are the authority</strong>: where a
-			coder and the model disagree, the coder is right and the disagreement is reported as a
-			disagreement. Nothing here alters the corpus text, the counts on the rest of this site, or the
-			human annotations.
+			These are <strong>experimental model classifications</strong>. A <em>referent</em> is the case
+			or concept a mention concerns; <em>speaker position</em> describes how the passage presents the
+			claim. Human coding provides a separate reference for evaluation, with disagreements recorded. The
+			progress figures below show how much has been reviewed. Word counts elsewhere do not depend on these
+			labels.
 		</p>
 		<dl>
 			<div>
@@ -444,7 +445,7 @@
 			</div>
 			{#if artefact.model.runtime}
 				<div>
-					<dt>Serving</dt>
+					<dt>Computing setup</dt>
 					<dd>
 						vLLM {artefact.model.runtime.vllm_version} on {artefact.model.runtime.hardware
 							.gpu_count}
@@ -464,7 +465,7 @@
 				</dd>
 			</div>
 			<div>
-				<dt>Reasoning</dt>
+				<dt>Reasoning setting</dt>
 				<dd>{artefact.model.reasoning_effort}</dd>
 			</div>
 			<div>
@@ -475,25 +476,25 @@
 				</dd>
 			</div>
 			<div>
-				<dt>Abstained</dt>
+				<dt>Uncertain labels</dt>
 				<dd>
-					{count(artefact.model.abstention.verdict_uncertain)} verdict &middot;
-					{count(artefact.model.abstention.referent_unclear)} referent &middot;
-					{count(artefact.model.abstention.position_unclear)} speaker_position
+					{count(artefact.model.abstention.verdict_uncertain)} validity decisions &middot;
+					{count(artefact.model.abstention.referent_unclear)} cases or concepts &middot;
+					{count(artefact.model.abstention.position_unclear)} speaker position
 				</dd>
 			</div>
 			<div>
-				<dt>Refused</dt>
+				<dt>Excluded responses</dt>
 				<dd>
-					{count(artefact.model.parse_failures)} unparseable &middot;
+					{count(artefact.model.parse_failures)} invalid response format &middot;
 					{#if artefact.model.truncation_count !== undefined}
-						{count(artefact.model.truncation_count)} truncated &middot;
+						{count(artefact.model.truncation_count)} incomplete responses &middot;
 					{/if}
-					{count(artefact.model.evidence_invalid)} evidence spans not found in the speech
+					{count(artefact.model.evidence_invalid)} quotations not found in the speech
 				</dd>
 			</div>
 			<div>
-				<dt>Gold sample</dt>
+				<dt>Human reference sample</dt>
 				<dd>
 					{GOLD_STATE[gold.state] ?? gold.state} &mdash; {count(gold.coded)} of {count(
 						gold.sampleSize
@@ -509,14 +510,11 @@
 			<div class="second-opinion">
 				<h2>Second opinion</h2>
 				<p class="governing">
-					A second model was given the same occurrences and the
-					{comparison.samePrompt ? 'byte-identical prompt' : 'prompt below'}. It is a
-					counter-instrument, not a check:
-					<strong
-						>agreement between two models measures stability across instruments, never accuracy</strong
-					> &mdash; both can be wrong about a passage in the same way &mdash; and the human gold sample
-					remains the only calibration. None of its labels replaces one of the published run's, and no
-					figure on this page is redrawn by it.
+					A second model classified the same occurrences using {comparison.samePrompt
+						? 'the same instructions'
+						: 'the instructions shown below'}. Agreement measures consistency between the models;
+					both can misread the same passage. The main figures use the published run. Human coding is
+					needed to evaluate accuracy.
 				</p>
 				<dl>
 					<div>
@@ -531,7 +529,7 @@
 						</dd>
 					</div>
 					<div>
-						<dt>Reasoning</dt>
+						<dt>Reasoning setting</dt>
 						<dd>{comparison.reasoningEffort || '—'}</dd>
 					</div>
 					<div>
@@ -546,11 +544,11 @@
 						<dd>{count(comparison.overlap)} carry a label from both runs</dd>
 					</div>
 					<div>
-						<dt>Refused</dt>
+						<dt>Excluded responses</dt>
 						<dd>
 							{count(comparison.abstained)}
 							{comparison.abstained === 1 ? 'abstention' : 'abstentions'} &middot;
-							{count(comparison.evidenceInvalid)} evidence spans not found in the speech
+							{count(comparison.evidenceInvalid)} quotations not found in the speech
 						</dd>
 					</div>
 				</dl>
@@ -572,7 +570,7 @@
 								<tr>
 									<th scope="col">Field</th>
 									<th scope="col" class="num">Compared</th>
-									<th scope="col" class="num">Observed</th>
+									<th scope="col" class="num">Agreement</th>
 									<th scope="col" class="num">Kappa</th>
 									<th scope="col" class="num">PABAK</th>
 									<th scope="col" class="num">Contested</th>
@@ -599,33 +597,30 @@
 						</table>
 					</div>
 					<p class="quiet">
-						<code>function</code> carries several labels at once and no kappa is defined on it. The
-						mean overlap between the two runs is <strong>{comparison.functionJaccardText}</strong>;
-						Krippendorff's &alpha; under the MASI distance, which corrects for the chance the
-						overlap does not,
-						<strong>{comparison.functionAlphaText}</strong>. {count(comparison.functionContested)}
-						{comparison.functionContested === 1 ? 'occurrence' : 'occurrences'} carry a different set
-						of functions, and almost all of it is in one label — the table below says which.
+						A passage can receive several rhetorical-function labels. Their mean overlap between
+						runs is {comparison.functionJaccardText} (Jaccard similarity: 1 means identical sets). Krippendorff's
+						α is {comparison.functionAlphaText}; it adjusts for chance agreement using a distance
+						measure for partially overlapping sets (MASI). The runs assign different sets to {count(
+							comparison.functionContested
+						)} occurrences. The table below compares individual labels.
 					</p>
 					<p class="quiet">
-						A dash in the kappa column means the statistic was not computed, or was
-						<strong>withheld</strong>: below one per cent outside a run's commonest label — which is
-						<code>verdict</code> in both of these — chance agreement is almost total and kappa divides
-						what little is left, returning a figure near zero about the most stable field in the run.
-						PABAK is that correction against a uniform chance over the codebook's categories, and is what
-						to read in its place.
+						Observed agreement is the share of identical labels. Kappa adjusts for agreement
+						expected from each run's label frequencies. It is withheld when fewer than 1% of labels
+						fall outside a run's most common category. PABAK uses an alternative, equal-category
+						chance baseline. Read both with the category counts; neither validates the
+						interpretation.
 					</p>
 					{#if retest.length}
 						<p class="quiet">
-							<strong>Same model, twice</strong> is each instrument against another run of itself
-							with the byte-identical prompt, over the {count(retest[0].overlap)} pilot occurrences both
-							reached. It is the floor the column beside it has to be read against:
-							{#each retest as run, index (run.which)}<code>{run.model}</code> writes all five
-								fields identically on {count(run.identical)} of {count(run.overlap)}{index <
-								retest.length - 1
-									? ', and '
-									: '. '}{/each}A quarter of one model's own labels moving between two calls is not
-							a smaller finding than two models differing on a fifth.
+							<strong>Same model, twice</strong> compares repeated runs using identical
+							instructions. This shows whether classifications change even without changing models. {#each retest as run (run.which)}<code
+									>{run.model}</code
+								>
+								returned identical labels across all compared fields for {count(run.identical)} of {count(
+									run.overlap
+								)} occurrences.
+							{/each}Compare this variation with the differences between models.
 						</p>
 					{/if}
 					{#if comparison.functionLabels.length}
@@ -645,7 +640,7 @@
 										<th scope="col">Function</th>
 										<th scope="col" class="num">{artefact.model.id}</th>
 										<th scope="col" class="num">{comparison.model}</th>
-										<th scope="col" class="num">Observed</th>
+										<th scope="col" class="num">Agreement</th>
 										<th scope="col" class="num">Kappa</th>
 									</tr>
 								</thead>
@@ -664,12 +659,9 @@
 						</div>
 					{/if}
 					<p class="quiet">
-						<strong>Two labels are instrument-dependent</strong> and are marked wherever they
-						appear: <em>attributes or reports</em> and <em>attributed or reported</em>. The two
-						models place the first on 789 occurrences between them and share 215 of those; 445 are
-						<em>attributes</em>
-						to one and <em>asserts</em> to the other. A count of either is a count of how one model read
-						a boundary the prompt does not draw.
+						Reporting another person's claim can resemble asserting it. Compare the reporting and
+						assertion labels in the table, then read the disputed passages. Differences may reflect
+						how each model interprets that boundary.
 					</p>
 				{:else}
 					<p class="quiet">
@@ -683,7 +675,7 @@
 						>{count(comparison.contestedAny)} of {count(comparison.overlap)} compared occurrences</strong
 					>
 					{#if comparison.contestedShare !== null}({percent(comparison.contestedShare)}){/if}
-					are read differently on at least one of the five fields. They are listed under
+					are read differently on at least one compared field. They are listed under
 					<em>The contested passages</em> below, and marked wherever they appear in the quotations.
 				</p>
 			</div>
@@ -703,7 +695,7 @@
 		title="Which genocide each delegation means"
 		question="Which genocide is each delegation talking about when it says the word?"
 		source="15_usage.py → usage/usage.json"
-		note="A cell is a count of occurrences, not of speeches: one speech saying the word four times fills four of them."
+		note="Cells count individual mentions or their share, according to the selected unit. Repeated mentions within one speech count separately."
 		download={{ name: ['unsc', 'usage', 'matrix', unit], table: matrixTable }}
 	>
 		{#snippet controls()}
@@ -712,7 +704,7 @@
 				<div class="segmented" role="group" aria-labelledby="usage-unit">
 					<button
 						type="button"
-						title="Occurrences placed on this referent. Published for every delegation, because a count is a fact about the record."
+						title="Mentions assigned to this case or concept by the model. Counts are shown even below the threshold for shares."
 						aria-pressed={unit === 'count'}
 						onclick={() => (unit = 'count')}>Occurrences</button
 					>
@@ -746,32 +738,36 @@
 
 		{#snippet reading()}
 			<p>
-				Rows are delegations, columns referents; a shaded cell is the word placed on that genocide,
-				deeper amber for more. <strong>Click a cell</strong> for the occurrences behind it, a row or
-				column heading for the whole line. The last columns, ruled off in italic, are ways of
-				talking about the category, not genocides. A share is withheld below
-				{count(artefact.minimum_occurrences)} occurrences.
+				Rows are affiliations; columns are cases or concepts. Darker amber means more assigned
+				mentions or a larger share, depending on the unit. Select a cell or heading to read
+				passages. The final columns cover general or legal discussion. Shares are withheld below {count(
+					artefact.minimum_occurrences
+				)} eligible occurrences.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>These columns are a model's reading, not a coding:</strong>
-				<code>{artefact.model.id}</code> assigned every referent and no human has checked one; a wrong
-				referent looks like a right one. A referent is not an endorsement: it says what a speaker was
-				talking about, never whether they were right.
+				The model assigns the cases and concepts. A case label identifies what the passage concerns,
+				not whether genocide occurred or the speaker endorsed the claim. Review status: {count(
+					gold.coded
+				)} of {count(gold.sampleSize)} sampled entries have human coding. Check the quotations before
+				interpreting a pattern.
 			</p>
 		{/snippet}
 		{#snippet more()}
 			<p>
-				The rows do not add up to the corpus, and the disclosure under the figure says by how much:
-				{count(plan.disclosure.ineligible)} occurrences never became eligible &mdash; the model judged
-				them not a real use of the word, or could not find its own evidence span &mdash; and
-				{count(plan.disclosure.unassigned)} more were eligible and could not be placed on any referent.
-				<em>Other known referent</em> is a real referent the controlled list has not named yet. The list
-				carries the situations argued before the Council, including ones whose characterisation is contested
-				and one, the embargo against Cuba, that is a claim about a sanctions regime. A count is published
-				at every denominator, because two of two is a fact about the record and &ldquo;100%&rdquo; is
-				not.
+				<strong>Eligible</strong> mentions pass the model's validity decision and quotation check.
+				<strong>Assigned</strong>
+				mentions also receive a case or concept label. Here, {count(plan.disclosure.ineligible)} mentions
+				are ineligible and {count(plan.disclosure.unassigned)} eligible mentions remain unassigned. Shares
+				divide by an affiliation's assigned mentions; eligibility determines whether its total meets the
+				display threshold.
+			</p>
+			<p>
+				The list includes contested characterisations raised in Council debates. <em
+					>Other known referent</em
+				> covers a case outside the named list. Counts below the minimum remain visible, but may rest
+				on very few passages.
 			</p>
 		{/snippet}
 
@@ -791,35 +787,16 @@
 			/>
 
 			<p class="disclosure">
-				{count(plan.rows.length)} of {count(plan.disclosure.speakers)} delegations with anything placed
-				are drawn here.
-				{#if plan.disclosure.hiddenRows}
-					The {count(plan.disclosure.hiddenRows)} below them hold {count(
-						plan.disclosure.hiddenOccurrences
-					)} further occurrences and are in the CSV, not in the table.
-					{#if plan.disclosure.hiddenSufficient}
-						{count(plan.disclosure.hiddenSufficient)} of those
-						{plan.disclosure.hiddenSufficient === 1 ? 'is a delegation' : 'are delegations'} the artefact
-						does publish a share for: the cut is a fixed number of rows and the minimum is counted on
-						a different denominator, so the two have come apart here.
-					{/if}
-				{/if}
-				{#if plan.disclosure.silent}
-					{count(plan.disclosure.silent)}
-					{plan.disclosure.silent === 1 ? 'further delegation' : 'further delegations'} used the word
-					and had nothing placed, so
-					{plan.disclosure.silent === 1 ? 'it has' : 'they have'} no row at all.
-				{/if}
-				{#if plan.disclosure.emptyColumns}
-					{count(plan.disclosure.emptyColumns)}
-					{plan.disclosure.emptyColumns === 1
-						? 'referent on the list is'
-						: 'referents on the list are'}
-					used by no delegation drawn here; the {plan.disclosure.emptyColumns === 1
-						? 'column is'
-						: 'columns are'} kept, because a case the vocabulary offered and nobody invoked is a finding
-					rather than a gap.
-				{/if}
+				Showing {count(plan.rows.length)} of {count(plan.disclosure.speakers)} affiliations with assigned
+				mentions. {#if plan.disclosure.hiddenRows}The download includes {count(
+						plan.disclosure.hiddenRows
+					)} additional affiliations with {count(plan.disclosure.hiddenOccurrences)} mentions.{/if}
+				{#if plan.disclosure.hiddenSufficient}{count(plan.disclosure.hiddenSufficient)} omitted affiliations
+					meet the share threshold; the display also has a row limit.{/if}
+				{#if plan.disclosure.silent}{count(plan.disclosure.silent)} further affiliations have no assigned
+					mentions.{/if}
+				{#if plan.disclosure.emptyColumns}{count(plan.disclosure.emptyColumns)} columns have no assigned
+					mentions among the displayed rows.{/if}
 			</p>
 		{/if}
 	</Figure>
@@ -845,12 +822,14 @@
 			<p class="filter">
 				<label>
 					<input type="checkbox" bind:checked={contested} />
-					Contested only ({count(contestedEvidence.length)} of {count(allEvidence.length)})
+					Model disagreements only ({count(contestedEvidence.length)} of {count(
+						allEvidence.length
+					)})
 				</label>
 				<span class="quiet">
 					The occurrences <code>{comparison.model}</code> read differently from
-					<code>{artefact.model.id}</code>. A disagreement is a passage worth reading, not an error
-					found: neither run has been checked against anything.
+					<code>{artefact.model.id}</code>. A disagreement identifies a passage to review; it does
+					not establish which interpretation is correct.
 				</span>
 			</p>
 		{/if}
@@ -931,7 +910,7 @@
 						{/if}
 						{#if row.quoteDiffers}
 							<p class="span">
-								<span class="label">Model's evidence span</span>
+								<span class="label">Quotation used by the model</span>
 								&ldquo;{row.evidenceQuote}&rdquo;{#if !row.evidenceValid}
 									<em> — not found in the speech it names</em>{/if}
 							</p>
@@ -963,7 +942,7 @@
 	     bar with two rules and nothing between them. -->
 	{#snippet referentPicker()}
 		<label>
-			Referent
+			Case or concept
 			<select
 				value={diffusion.referent}
 				onchange={(event) => (referent = event.currentTarget.value)}
@@ -989,39 +968,38 @@
 	>
 		{#snippet reading()}
 			<p>
-				The <strong>solid amber curve</strong> counts delegations that have asserted this genocide;
-				the <strong>dashed ink curve</strong> those that used the word to refuse it. Both only rise.
-				A faint hairline above them, drawn only where it differs, counts every delegation that
-				placed the word here at all.
-				<strong>The chronology below is the same events as text.</strong>
+				The solid amber curve counts affiliations with an assertion recorded by that date; the
+				dashed curve counts those with a rejection. The faint line, where different, counts any
+				mention of the case. Each affiliation enters each curve once, at its first recorded
+				occurrence. The table lists those first mentions.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>A curve of delegations speaking in this corpus</strong>, not of states holding a
-				view: an absence is silence, not refusal. The milestones are
-				<code>{artefact.model.id}</code>'s readings; a mislabelled speaker_position moves a
-				delegation between the curves, and a referent the second model reads differently is
-				withheld.
+				These are first occurrences within this corpus, as classified by the model. An absent
+				affiliation may not have spoken about the case. The curves do not track subsequent changes
+				of position or establish when a state adopted a policy. Model disagreement can make a case
+				unavailable.
 			</p>
 		{/snippet}
 		{#snippet more()}
 			<p>
-				The vertical scale is this referent's own and the time axis is every referent's, so
-				switching referents moves the curve along a fixed span rather than redrawing it. An absence
-				can be a seat not held or a debate never opened, and Council membership turns over yearly:
-				the open debates that let a non-member speak are called unevenly, so a rise can be a change
-				in who was in the room rather than in what was being said. A referent is withheld here when
-				the two models place it on the same occurrences at a cross-instrument F1 below 0.8, because
-				a first assertion is then a property of which model was asked.
+				The time axis stays fixed across cases; the vertical scale adjusts to each case's counts.
+				Changing membership and speaking opportunities can affect the curves. An affiliation can
+				appear in both assertion and rejection curves, and stays counted after its first mention.
+			</p>
+			<p>
+				Where model comparison is available, a case needs F1 of at least 0.8 between runs to be
+				shown. This score measures overlap in the occurrences assigned to that case. A lower score
+				makes the first recorded date too dependent on the model choice; it is not a direct estimate
+				of accuracy.
 			</p>
 		{/snippet}
 
 		{#if diffusion.refusal === 'no-diffusion'}
 			<p class="refusal">
-				The run recorded no first for any referent, so there is nothing here that could be drawn.
-				The chronology is built from the same annotations as the matrix above, and it is empty
-				exactly when nothing was placed on any referent at all.
+				No first mentions are available in this data release. Use the matrix and quotations above to
+				inspect any available classifications.
 			</p>
 		{:else if diffusion.refusal === 'no-events'}
 			<p class="refusal">
@@ -1030,26 +1008,21 @@
 			</p>
 		{:else if diffusion.refusal === 'unstable-referent'}
 			<p class="refusal">
-				<strong>Withheld for {diffusion.label}.</strong>
-				A curve of firsts is a claim about dates, and a date here is the first occurrence a label fell
-				on. The two models place this referent on the same occurrences
-				{diffusion.reliability === null || diffusion.reliability === undefined
-					? 'too rarely to measure'
-					: `at F1 ${decimal(diffusion.reliability)}`}, under the 0.8 this figure requires, so its
-				first assertion and its first refusal would be properties of which model was asked. The
-				matrix above still counts it, because a count is not a date. Pick another referent.
+				<strong>First-mention dates are withheld for {diffusion.label}.</strong> Agreement on this
+				case {diffusion.reliability === null || diffusion.reliability === undefined
+					? 'could not be measured'
+					: `has F1 ${decimal(diffusion.reliability)}`}, below the required 0.8. Different
+				assignments can change the earliest date. Counts remain available in the matrix. Select
+				another case to view its chronology.
 			</p>
 		{:else}
 			<DiffusionChart plan={diffusion} label={stepLabel} description={diffusionDescription} />
 
 			<p class="disclosure">
-				{count(diffusion.totals.mention)}
-				{diffusion.totals.mention === 1 ? 'delegation has' : 'delegations have'} placed the word on
-				{diffusion.label}
-				at all; {count(diffusion.totals.asserts)} of them asserted it, and
-				{count(diffusion.totals.rejects)} used the word in order to refuse it for this case. A delegation
-				can be on two of those curves and often is — the first use that refuses the word is also that
-				delegation's first use of it.
+				The model assigns mentions of {diffusion.label} to {count(diffusion.totals.mention)} affiliations.
+				Of these, {count(diffusion.totals.asserts)} have an assertion and {count(
+					diffusion.totals.rejects
+				)} a rejection. An affiliation can appear in both curves if different passages receive those labels.
 			</p>
 
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
@@ -1064,7 +1037,7 @@
 							<th scope="col">Delegation</th>
 							<th scope="col">Milestone</th>
 							<th scope="col">Position</th>
-							<th scope="col" class="num">Nth</th>
+							<th scope="col" class="num">Cumulative count</th>
 							<th scope="col">Occurrence</th>
 						</tr>
 					</thead>
@@ -1114,20 +1087,17 @@
 		>
 			{#snippet reading()}
 				<p>
-					Every occurrence <code>{comparison.model}</code> labelled differently from
-					<code>{artefact.model.id}</code>, hardest first: the top rows disagree on the most fields.
-					The two reading columns are one occurrence read twice;
-					<strong>neither corrects the other</strong>, and no human has checked either. Follow the
-					identifier to read the passage whole.
+					Rows show passages labelled differently by <code>{comparison.model}</code> and
+					<code>{artefact.model.id}</code>. Passages with more differing fields appear first.
+					Compare the two sets of labels, then follow the identifier to read the full speech.
+					Neither model's labels replace the other's.
 				</p>
 			{/snippet}
 			{#snippet caveat()}
 				<p>
-					<strong
-						>Agreement between two models measures stability across instruments, never accuracy.</strong
-					> Two models can be wrong in the same way; the human gold sample is the only calibration here.
-					A disagreement is not an error found. Nothing here is merged into the matrix, speaker_position
-					profile or diffusion curve.
+					Model disagreement flags different interpretations, not proven errors. Agreement can also
+					conceal a shared mistake. The main figures retain the published model's classifications.
+					Use the human-reference results to assess available evidence of accuracy.
 				</p>
 			{/snippet}
 
@@ -1203,8 +1173,7 @@
 					{count(listing.rows.length)} of {count(listing.contested)} contested occurrences are drawn here,
 					out of {count(listing.overlap)} the two runs both reached.
 					{#if listing.hidden}
-						The {count(listing.hidden)} below them are in the CSV, not in the table: fifty passages is
-						already an afternoon's reading.
+						The download includes {count(listing.hidden)} additional passages beyond the table limit.
 					{/if}
 					{#if listing.unquotable}
 						{count(listing.unquotable)}
@@ -1227,27 +1196,34 @@
 	>
 		{#snippet reading()}
 			<p>
-				Each row divides one delegation's eligible occurrences by what it was doing with the word.
-				<strong>Only the marked rows are ordered</strong>: those whose interval clears the corpus's
-				own 1.7%. The rest follow by count and are not a ranking, because at these denominators one
-				rejection and two cannot be told apart.
+				Band widths show an affiliation's model-assigned positions. The share and interval columns
+				concern rejections. Marked rows have a lower interval bound above the published reference
+				rate and are ordered by rejection share; remaining rows follow by rejection count. Hover
+				over an affiliation for all position counts.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				<strong>A speaker_position is the label a model most easily inverts:</strong> &ldquo;we
-				reject the claim that this is genocide&rdquo; and &ldquo;this is genocide&rdquo; differ by
-				three words, and nothing here is checked until the gold sample is coded. {count(
+				Position labels can misread negation, reported speech or qualifications. {count(
 					ranking.withheld.length
-				)}
-				delegations with fewer than {count(ranking.minimum)} occurrences carry no share at all.
+				)} affiliations have fewer than {count(ranking.minimum)} eligible mentions and no displayed share.
+				Intervals do not account for model errors or repeated mentions within meetings. These are classifications
+				of passages, not fixed delegation positions.
 			</p>
 		{/snippet}
 		{#snippet more()}
 			<p>
-				This ranking is unavailable until a model run has annotated the migrated corpus. Once a run
-				exists, counts and shares will be shown with their intervals, and only rows whose interval
-				separates from the corpus baseline will be ordered.
+				<em>Asserts</em> applies genocide to a case; <em>rejects</em> disputes that
+				characterisation. <em>Reports without a position</em> attributes a claim without adopting
+				it. <em>Conditional</em> makes its application conditional. Other categories cover abstract uses,
+				uncertainty or inapplicable cases. Each eligible mention receives one position label.
+			</p>
+			<p>
+				The dot marks the source data's separation flag. The 95% Wilson interval indicates precision
+				assuming independent mentions; it does not establish pairwise differences between
+				delegations. See <a href="{resolve('/methods')}#model-labels"
+					>classification and validation methods</a
+				>.
 			</p>
 		{/snippet}
 
@@ -1257,23 +1233,22 @@
 					><i style:--band="var(--speaker_position-{slug(speaker_position)})"></i>{positionLabel(
 						speaker_position
 					)}{#if isInstrumentDependent(speaker_position)}<abbr
-							title="Instrument-dependent: the two models split this label from `asserts` differently, and a count of it is partly a count of which model was asked."
+							title="Model-sensitive category: reporting a claim can be classified differently from asserting it."
 							>&nbsp;&dagger;</abbr
 						>{/if}</span
 				>
 			{/each}
 		</div>
 		<p class="quiet">
-			&dagger; <strong>Instrument-dependent.</strong> The two models place
-			<em>attributes or reports</em> on 789 occurrences between them and agree on 215 of those; 445
-			are <em>attributes</em> to one and <em>asserts</em> to the other. The prompt does not draw the boundary,
-			so this band's width is partly a property of which model was asked.
+			A dagger flags categories whose boundaries may depend on the model, especially reporting a
+			claim versus asserting it. Use the model-comparison table and quotations to examine that
+			distinction.
 		</p>
 
 		{#if ranking.rows.length === 0}
 			<p class="refusal">
-				No delegation reached {count(ranking.minimum)} eligible occurrences, so no share here could be
-				drawn honestly.
+				No affiliation reached {count(ranking.minimum)} eligible mentions. Counts remain available below;
+				there are too few mentions to display shares.
 			</p>
 		{:else}
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
@@ -1301,7 +1276,7 @@
 							>
 								<th scope="row" title={describePositions(row.positions, row.total)}>
 									{shortCountry(row.actor)}{#if row.separated}<abbr
-											title="The lower bound of this share clears the corpus rate of 1.7%."
+											title="The lower bound exceeds the reference rate used in the published analysis."
 											>&nbsp;&#9679;</abbr
 										>{/if}
 								</th>
@@ -1318,10 +1293,10 @@
 
 		<details class="data-table">
 			<summary
-				><Icon icon={ChevronRight} />Every speaker_position count, withheld delegations included</summary
+				><Icon icon={ChevronRight} />All position counts, withheld delegations included</summary
 			>
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-			<div class="scroll" role="region" aria-label="Every speaker_position count" tabindex="0">
+			<div class="scroll" role="region" aria-label="All position counts" tabindex="0">
 				<table>
 					<thead>
 						<tr>
@@ -1330,7 +1305,7 @@
 							{#each POSITIONS as speaker_position (speaker_position)}
 								<th scope="col" class="num">{positionLabel(speaker_position)}</th>
 							{/each}
-							<th scope="col" class="num">Rejects</th>
+							<th scope="col" class="num">Rejection share</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -1361,11 +1336,11 @@
 	</Figure>
 
 	<section class="prompt-block">
-		<h2>The instrument</h2>
+		<h2>Instructions and categories</h2>
 		<p class="quiet">
-			The instruction and controlled referent list the model was given, verbatim. A change to the
-			prompt or to what an identifier means makes a different instrument; the versions below belong
-			to this run, not necessarily to today's files.
+			These are the instructions (the <em>prompt</em>) and category definitions used for this model
+			run. They document how the model was asked to classify passages. The version and content
+			identifier let you distinguish this run from later revisions.
 		</p>
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />Show the prompt (<code>sha256:{shortSha}</code>)</summary
@@ -1410,17 +1385,14 @@
 	</section>
 
 	<section class="agreement">
-		<h2>Agreement</h2>
+		<h2>Comparison with human coding</h2>
 		{#if !gold.hasAgreement && !gold.hasModelScores && !gold.hasComparisonScores}
 			<p class="quiet">
-				<strong
-					>No gold rows coded yet &mdash; agreement will appear here when there is something to
-					compute.</strong
-				>
-				A sample of {count(gold.sampleSize)} occurrences ({count(gold.uniqueOccurrences)} of them distinct)
-				is drawn and waiting; two coders will code every one of them independently, and the tables below
-				will then carry how far the two agreed with each other and how far the model agreed with them.
-				Until then, every number on this page has no measured error rate, and none can be guessed at.
+				No human-reference comparisons are available yet. The sample contains {count(
+					gold.sampleSize
+				)} entries covering {count(gold.uniqueOccurrences)} distinct occurrences. Two readers are to code
+				each independently. Accuracy scores require agreed or adjudicated reference labels; the absence
+				of a score means accuracy has not been measured.
 			</p>
 		{:else}
 			<p class="quiet">
@@ -1436,7 +1408,7 @@
 							<tr>
 								<th scope="col">Field</th>
 								<th scope="col" class="num">Double-coded</th>
-								<th scope="col" class="num">Observed</th>
+								<th scope="col" class="num">Agreement</th>
 								<th scope="col" class="num">Kappa</th>
 								<th scope="col" class="num">PABAK</th>
 							</tr>
@@ -1455,23 +1427,20 @@
 					</table>
 				</div>
 				<p class="quiet">
-					A dash in the kappa column means the statistic was not computed or was withheld. It is
-					withheld where one coder's labels fall outside their commonest by under one per cent:
-					chance agreement is then almost total, and dividing what is left produces a number near
-					zero about a field the two agreed on throughout. <strong>PABAK</strong> is the same correction
-					against a uniform chance over the codebook's own categories, and is what to read there.
+					A dash means kappa is unavailable or withheld because one category accounts for more than
+					99% of a coder's labels. Observed agreement gives the share of identical decisions; PABAK
+					uses an equal-category chance baseline. These statistics make different assumptions, so
+					read them together with the counts.
 				</p>
 			{/if}
 			{#if gold.hasModelScores}
 				<h3>The published run against the human labels</h3>
 				<p class="quiet">
-					<code>{artefact.model.id}</code>, whose labels every count on this page is made of.
-					<strong>Left out</strong> is the share of double-coded occurrences this field's score was
-					not computed over, because the two coders differed and nobody has adjudicated: the
-					reference is what they agreed on, which is right and is also the easy subset, and it is a
-					different subset for each field. Read <strong>weighted F1</strong> for the referent, whose distribution
-					is long-tailed; macro F1 is over the classes with twenty reference occurrences or more, and
-					is a dash where none has.
+					These scores compare <code>{artefact.model.id}</code> with the human reference.
+					<strong>Left out</strong> reports unresolved coder disagreements excluded for that field, so
+					the evaluated subset may favour easier passages. Weighted F1 gives common categories more weight;
+					macro F1 weights equally the categories with at least twenty reference examples. A dash means
+					no score is available.
 				</p>
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
 				<div
@@ -1510,7 +1479,7 @@
 					</table>
 				</div>
 				<details class="data-table">
-					<summary><Icon icon={ChevronRight} />Per class</summary>
+					<summary><Icon icon={ChevronRight} />Scores for each category</summary>
 					<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
 					<div class="scroll" role="region" aria-label="Per class scores" tabindex="0">
 						<table>
@@ -1518,9 +1487,9 @@
 								<tr>
 									<th scope="col">Field</th>
 									<th scope="col">Class</th>
-									<th scope="col" class="num">Support</th>
-									<th scope="col" class="num">Placed</th>
-									<th scope="col" class="num">Both</th>
+									<th scope="col" class="num">Human examples</th>
+									<th scope="col" class="num">Model assignments</th>
+									<th scope="col" class="num">Correct assignments</th>
 									<th scope="col" class="num">Precision</th>
 									<th scope="col" class="num">Recall</th>
 									<th scope="col" class="num">F1</th>
@@ -1549,9 +1518,9 @@
 			{#if gold.hasComparisonScores}
 				<h3>The second model against the same human labels</h3>
 				<p class="quiet">
-					<code>{comparison.model}</code>, scored against the same coded sample so the two runs can
-					be read against one reference. Its labels are not merged into anything on this page; this
-					table is the only place they are measured rather than merely compared.
+					The second model is evaluated against the same human-reference sample. Compare sample
+					sizes and exclusions alongside the scores. Its classifications remain separate from the
+					main figures.
 				</p>
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
 				<div

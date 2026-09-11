@@ -169,14 +169,14 @@
 			.then(async (response) => {
 				if (response.status === 404) {
 					status =
-						'The full-corpus embedding run has not been published yet. The map will appear after its checks pass.';
+						'The speech similarity data are not available in this release. You can still search passages in the Concordance.';
 					return;
 				}
 				if (!response.ok) throw new Error('Could not load the semantic map. Reload to retry.');
 				const data = await response.json();
 				if (data.status === 'pending') {
 					status =
-						'The full-corpus embedding run has not been published yet. The map will appear after its checks pass.';
+						'The speech similarity data are not available in this release. You can still search passages in the Concordance.';
 					return;
 				}
 				map = validateMap(data);
@@ -219,13 +219,15 @@
 
 <PageMeta meta={PAGE_METADATA['/semantic/']} />
 <article>
-	<h1>Speeches in semantic space</h1>
+	<h1>Similar speeches</h1>
 	<p class="standfirst">
-		Explore which speeches resemble one another in wording and meaning, then read the evidence.
+		Find speeches with similar wording or subject matter. A language model represents each speech as
+		a list of numbers, called a <strong>semantic embedding</strong>, so speeches can be compared
+		even when they use different words. Select a speech to read it alongside related speeches.
 	</p>
 	<Figure
 		title="Semantic map"
-		question="Which speeches does the embedding model place near one another?"
+		question="Which speeches does the model identify as similar?"
 		source="06_embed.py + 21_semantic_map.py → semantic/map.json"
 		download={map
 			? {
@@ -241,12 +243,22 @@
 				}
 			: undefined}
 	>
-		{#snippet reading()}Each point is one speech. Colour shows its source affiliation, dataset
-			agenda category or decade. Filter the fixed map, select a point, or use the table to open a
-			speech.{/snippet}
-		{#snippet caveat()}This projection compresses many dimensions into two. Nearby points can be
-			misleading; related speeches use original-vector similarity. Neither distance nor colour
-			measures diplomatic agreement or influence.{/snippet}
+		{#snippet reading()}
+			<p>
+				Each point is a speech. Nearby points suggest similar wording or subject matter. Colour
+				shows affiliation, agenda category or decade. Filters hide points without moving the others.
+				Select a point or a speech identifier in the table to see related speeches.
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>
+				Fitting the comparisons onto a flat map distorts distances. The related-speech list uses the
+				original embeddings. Similarity can reflect shared topics or diplomatic formulas; it does
+				not establish agreement or influence. <a href="{resolve('/methods')}#embeddings"
+					>How the map is made</a
+				>.
+			</p>
+		{/snippet}
 		{#if status}<p role="status">{status}</p>{/if}
 		{#if map}
 			<div class="filters">
@@ -289,8 +301,9 @@
 				>
 			</div>
 			<p aria-live="polite">
-				{rows.length.toLocaleString()} speeches shown. Colours stay fixed while filtering; groups outside
-				the eight largest share grey. The selected speech is a black diamond.
+				{rows.length.toLocaleString()} speeches shown. Colours stay fixed when affiliation, agenda or
+				year filters change; groups outside the eight largest share grey. A selected speech appears as
+				a black diamond.
 			</p>
 			<ul class="legend">
 				{#each groups as group (group.name)}<li>
@@ -307,13 +320,14 @@
 						const value = event.value;
 						if (Array.isArray(value) && typeof value[2] === 'string') update('speech', value[2]);
 					}}
-				/>{:else}<p>No speeches match these filters.</p>{/if}
+				/>{:else}<p>No speeches match these filters. Clear a filter or choose All years.</p>{/if}
 			<p class="diagnostic">
-				On a {map.meta.evaluation.points.toLocaleString()}-speech diagnostic sample, {(
+				In a test using {map.meta.evaluation.points.toLocaleString()} speeches, the flat map lost {(
 					100 * map.meta.evaluation.neighbours_lost_share
-				).toFixed(1)}% of neighbours within that sample were lost in the projection. Approximate
-				retrieval recall at 10: {(100 * map.meta.evaluation.ann_recall_at_10).toFixed(1)}%. Model: {map
-					.meta.model_repo}.
+				).toFixed(1)}% of the close neighbours identified within that sample. Separately, the fast
+				similarity search recovered {(100 * map.meta.evaluation.ann_recall_at_10).toFixed(1)}% of
+				the ten closest speeches found by an exact search. These checks assess the calculations, not
+				the quality of the model's interpretation. Model: {map.meta.model_repo}.
 			</p>
 			{#if selectedPoint}
 				<aside aria-label="Selected speech">
@@ -323,11 +337,16 @@
 						{map.agendas[selectedPoint[5]]} · <a href={href(selected)}>Read speech {selected}</a>
 					</p>
 					<h4>Related speeches in the full corpus</h4>
+					<p>
+						These results search all speeches, including those outside your filters. The similarity
+						score (cosine) ranges from −1 to 1; higher values mean more similar embeddings. It is
+						not a percentage of shared meaning.
+					</p>
 					{#if neighbourStatus}<p role="status">{neighbourStatus}</p>{/if}
 					<ol>
 						{#each related as [id, score] (id)}{@const p = map.points[positions.get(id)!]}
 							<li>
-								<a href={href(id)}>{map.countries[p[4]]} · {p[3]} · {id}</a> — cosine {score.toFixed(
+								<a href={href(id)}>{map.countries[p[4]]} · {p[3]} · {id}</a> · similarity {score.toFixed(
 									3
 								)}
 							</li>{/each}

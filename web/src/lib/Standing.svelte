@@ -90,7 +90,7 @@
 	title="Who held a seat when they spoke"
 	question="Was a delegation speaking as a member of the Council, or from outside it?"
 	source="11_countries.py → countries/countries.json"
-	note="A row is a mixture, not a single label. Width is the share of that speaker's own speeches."
+	note="Band width shows the share of an affiliation's speeches delivered in each membership category."
 	download={{ name: ['unsc', 'standing', period, String(category)], table }}
 >
 	{#snippet controls()}
@@ -119,21 +119,20 @@
 
 	{#snippet reading()}
 		<p>
-			Each row is one speaker's speeches, divided by the position it held when giving them: the two
-			<strong>seated</strong> bands are the Charter's permanent and elected membership. Of {count(
-				result.counts.changed + result.counts.always + result.counts.never
-			)} speakers, <strong>{count(result.counts.changed)}</strong> spoke both from a seat and
-			outside one, {count(result.counts.always)} only from a seat, {count(result.counts.never)} never.
-			{#if named}{shortCountry(named.row.country_org)} is the clearest case: {count(named.row.held)}
-				speeches, {percent(named.row.seated_share ?? 0)} from a seat.{/if}
+			Each row divides an affiliation's speeches by its status when speaking. Band width shows the
+			share in each category; numbers give speech counts. P5 means permanent members; E10 means
+			elected members. {count(result.counts.changed)} affiliations spoke both as members and as non-members.
+			{#if named}{shortCountry(named.row.country_org)} delivered {percent(
+					named.row.seated_share ?? 0
+				)} of its {count(named.row.held)} speeches as a Council member.{/if}
 		</p>
 	{/snippet}
 	{#snippet caveat()}
-		<p>{data.standing.membership_rule}</p>
 		<p>
-			<strong>There is no minimum sample here</strong>, unlike every rate on this page. {data
-				.standing.seated_rule} A whole-corpus row is not the sum of the period rows: a speaker can hold
-			a seat for a decade and still count as a non-member across the corpus.
+			Status is attached to each speech, so an affiliation can appear in several categories over
+			time. These descriptive shares are displayed even for small speech totals. Membership does not
+			measure influence, and non-member states, UN speakers and non-state participants have
+			different roles.
 		</p>
 	{/snippet}
 
@@ -191,7 +190,12 @@
 
 	<details class="data-table">
 		<summary><Icon icon={ChevronRight} />What the five positions mean</summary>
-		<p class="prose">{data.standing.seated_rule}</p>
+		<p class="prose">
+			Permanent and elected members held Council seats when speaking. Non-member states addressed
+			the Council without holding a seat. UN speakers and non-state participants form separate
+			categories. The source labels elected members E10; the Council had six elected seats before
+			its expansion in 1965.
+		</p>
 	</details>
 </Figure>
 

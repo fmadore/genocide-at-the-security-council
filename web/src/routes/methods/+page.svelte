@@ -69,120 +69,153 @@
 	}[] = [
 		{
 			id: '01_build_parquet.py',
-			does: 'Adapts the two published TSV files into one speech table and one meeting table.',
-			checks:
-				'Row counts, source word totals, unique identifiers, join completeness and date parsing are checked against the pinned v5 files.',
+			does: 'Combines the published speech and meeting tables.',
+			checks: 'Checks identifiers, dates, row totals and links between the two tables.',
 			artefact: 'speeches.parquet',
 			state: 'verified',
-			says: 'Verified'
+			says: 'Automatic checks'
 		},
 		{
 			id: '02_normalise.py',
-			does: 'Counts the analytical words and attaches the source dataset’s affiliation and Council-membership categories.',
-			checks:
-				'Uses the source state, UN, IGO, NGO, permanent-member and elected-member flags without manual speaker reclassification.',
+			does: 'Prepares speech text and records speaker affiliations and Council membership.',
+			checks: 'Retains the source categories; unknown delivery language remains unknown.',
 			artefact: 'speeches_normalised',
 			state: 'verified',
-			says: 'Verified'
+			says: 'Automatic checks'
 		},
 		{
 			id: '03_lexicon.py',
-			does: 'Counts every word on the list in the body of every speech.',
+			does: 'Finds the words and phrases on the search list in speech bodies.',
 			checks:
-				'Each search pattern has to match the examples declared alongside it. A sample of 200 rows is drawn for hand-checking across occurrences, speeches, words and periods.',
+				'Tests patterns against examples. The separate sample for checking matches by hand is still awaiting review.',
 			artefact: 'speeches_flagged',
 			state: 'open',
-			says: '0 / 200 audited'
+			says: 'Human review pending'
 		},
 		{
 			id: '04_series.py',
-			does: 'Works out rates by year and by quarter, breaks them down by speaker and by debate, tests for changes in the rate, and attaches the reference dates.',
+			does: 'Calculates counts and rates over time, monthly patterns and possible changes in rates.',
 			checks:
-				'The share of speeches is modelled as a series of coin flips; the count of occurrences is modelled against the number of words spoken. The test for a change in rate is repeated in full on data where no change exists, made by moving whole meetings between years so that one debate is one draw, and the threshold is tightened to account for three tests being run. Every share of speeches is published with its Wilson 95% interval. A second, exploratory change-point method is kept visible but is never a result.',
+				'Checks totals and denominators; compares constant-rate and split-rate models. Historical reference dates are supplied separately.',
 			artefact: 'series/*.json',
 			state: 'verified',
-			says: 'Verified'
+			says: 'Automatic checks'
 		},
 		{
 			id: '05_lexical.py',
-			does: 'Finds the words that sit near each term, the words that mark out a speech using the term against a comparable speech that does not, and a map of which terms share a speech.',
+			does: 'Compares nearby words, vocabulary in matched speeches and terms found in the same speech.',
 			checks:
-				'Each speech using the term is paired with one from the same year, debate and speaker group. Twenty consecutive random draws show how much the pairing itself moves the answer, and the unpaired comparison is kept only for contrast. Overlapping context windows are merged, and a phrase is never counted as evidence of association with a word already inside it. Significance is a floor: a row must clear G² 10.83 and is then ranked by effect — logDice for collocates, log ratio for keywords — and every row carries the speeches and meetings it appears in and its dispersion (DP).',
+				'Merges overlapping word windows. Applies frequency and G² thresholds, records spread across speeches and repeats random matching.',
 			artefact: 'lexical/*.json',
 			state: 'verified',
-			says: 'Verified'
+			says: 'Automatic checks'
 		},
 		{
 			id: '06_embed.py',
-			does: 'Turns every speech into a list of numbers a machine can compare.',
+			does: 'Uses a language model to represent each speech numerically for similarity comparisons.',
 			checks:
-				'Runs on a university cluster rather than in the fixed environment the rest of the pipeline uses, and nothing on this site reads its output.',
+				'Records the model revision and checks that embeddings correspond to the speech texts. Step 21 uses these embeddings for the semantic map.',
 			artefact: 'embeddings',
-			state: 'unadopted',
-			says: 'Built, not adopted'
+			state: 'experimental',
+			says: 'Model-based'
 		},
 		{
 			id: '07_topics.py',
-			does: 'Compares two ways of grouping speeches by theme — evidence towards a decision rather than a result.',
+			does: 'Compares methods for grouping speeches by theme.',
 			checks:
-				'Waits on a research question that the neighbouring-word and agenda evidence cannot already answer, and on a person judging whether the groups mean anything.',
+				'Topic groups are not presented in this dashboard. Their interpretation requires separate assessment.',
 			artefact: 'topics/*.json',
 			state: 'unadopted',
-			says: 'Built, not adopted'
+			says: 'Not displayed'
 		},
 		{
 			id: '08_kwic.py',
-			does: 'Builds the concordance: each occurrence with 150 characters either side, plus the sentence around it.',
-			checks:
-				"Writes nothing at all if a word's line count disagrees with the count of occurrences from step 03. All 22 words reproduce exactly.",
+			does: 'Builds passages with the matched term, surrounding text and full sentence.',
+			checks: 'Checks that passage totals reproduce the occurrence counts.',
 			artefact: 'kwic/*.json',
 			state: 'verified',
-			says: 'Verified'
+			says: 'Automatic checks'
 		},
 		{
 			id: '09_export_speeches.py',
-			does: 'One file per meeting record, holding the speech text and the position of every match in it.',
+			does: 'Prepares full meeting records and the three reading sets.',
 			checks:
-				'Both the number of speeches and the number of match positions are checked against the source table before anything is written.',
-			artefact: 'speeches/*.json',
+				'Checks speech totals and the positions of highlighted matches against the source tables.',
+			artefact: 'speeches/*.json; scopes.json',
 			state: 'verified',
-			says: 'Verified'
+			says: 'Automatic checks'
 		},
 		{
 			id: '10_lemmatise.py',
-			does: 'Groups inflected forms together, so that crime and crimes stop occupying two rows of one table.',
+			does: 'Groups word forms, such as crime and crimes, under a common form.',
 			checks:
-				'Would move figures already published on this site, so it waits on the hand-check of the word list described below.',
+				'The displayed lexical tables use separate word forms; this optional analysis is not used in those tables.',
 			artefact: 'lemmas.parquet',
 			state: 'unadopted',
-			says: 'Built, not adopted'
+			says: 'Not displayed'
+		},
+		{
+			id: '11_countries.py',
+			does: 'Calculates speaker counts, rates and membership breakdowns.',
+			checks:
+				'Rates use each affiliation’s own speech totals; rates below the declared minimum are withheld. Map positions identify affiliations.',
+			artefact: 'countries/countries.json',
+			state: 'verified',
+			says: 'Automatic checks'
+		},
+		{
+			id: '12_speaker_keyness.py',
+			does: 'Compares a delegation’s vocabulary with that of other speakers.',
+			checks:
+				'Matches on year, agenda and speaker group; reports coverage and variation across repeated draws of comparison speeches.',
+			artefact: 'countries/speaker_keyness.json',
+			state: 'verified',
+			says: 'Automatic checks'
 		},
 		{
 			id: '13_gold_sample.py',
-			does: 'Draws a fixed sample of occurrences of the core word for two people to code by hand, independently of each other.',
+			does: 'Selects passages for independent coding by two human readers.',
 			checks:
-				'The draw is reproducible from a seed and spread across speakers, periods and agenda items. Both coders code every sampled occurrence, so a difference between them can be told from an error; neither may edit the other’s row, and a resolved disagreement is a third row rather than a correction. Nothing else on this site reads the sample until it carries verdicts.',
+				'Stores the sample, each coder’s decisions and any later resolution of disagreements separately. The Usage page reports coding progress.',
 			artefact: 'annotations/genocide/annotations.csv',
 			state: 'open',
-			says: '0 / 200 coded'
+			says: 'Human review pending'
 		},
 		{
 			id: '14_llm_annotate.py',
-			does: 'Asks a language model, one occurrence at a time, which genocide is being referred to and what the speaker is doing with the word.',
+			does: 'Asks a language model which case a mention refers to and what position the speaker expresses.',
 			checks:
-				'Every answer has to name a referent on a controlled list and quote a span the script can then find in the speech itself; an answer that cannot be parsed, or whose quotation is not in the text, is counted and discarded rather than repaired. The run records its model, prompt and prompt hash. It is run by hand, needs a paid API, and its output is kept apart from the human annotations and never merged into them.',
+				'Requires valid categories and a quotation present in the speech. Records the model and instructions. These checks cannot establish that a label is correct.',
 			artefact: 'model_annotations/*.csv',
 			state: 'experimental',
-			says: 'Model-derived; manual step'
+			says: 'Model-based'
 		},
 		{
 			id: '15_usage.py',
-			does: 'Turns those model labels into the actor-by-referent table and the speaker_position profiles behind the Usage view.',
+			does: 'Summarises model labels by delegation, case and position.',
 			checks:
-				'Its inputs are step 14’s output, so everything it publishes is a model’s reading rather than a measurement, and the view says so above every figure. Shares are withheld below a minimum of eligible occurrences, as elsewhere on this site, and the gold sample’s state travels in the artefact so the page can report honestly that nothing has been checked yet.',
+				'Reports excluded occurrences, withheld shares and available comparisons with other model runs or human coding.',
 			artefact: 'usage/*.json',
 			state: 'experimental',
-			says: 'Model-derived; unchecked'
+			says: 'Model-based'
+		},
+		{
+			id: '17_frames.py',
+			does: 'Identifies recurring phrase patterns around genocide using written rules.',
+			checks:
+				'Assigns the first matching pattern in a fixed order and retains unmatched occurrences as a separate category.',
+			artefact: 'frames/frames.json',
+			state: 'verified',
+			says: 'Automatic checks'
+		},
+		{
+			id: '21_semantic_map.py',
+			does: 'Places speech embeddings on a two-dimensional map and lists related speeches.',
+			checks:
+				'Checks the data against the corpus; measures map distortion and compares approximate similarity search with exact search.',
+			artefact: 'semantic/*.json',
+			state: 'experimental',
+			says: 'Model-based'
 		}
 	];
 </script>
@@ -192,253 +225,289 @@
 <article class="prose">
 	<h1>Methods</h1>
 	<p class="standfirst">
-		Every number on this site comes out of a numbered script run against one data file, and each
-		script leaves behind a note recording what it found rather than only what it did. This page sets
-		out how, where the source material comes from, and what still needs a person to check it.
+		This dashboard studies how the vocabulary of genocide appears in English Security Council
+		records. It combines word counts, statistical comparisons and language-model analyses. Use the
+		figures to identify patterns, then read the speeches to interpret them.
 	</p>
 
-	<h2 id="provenance">Where a figure's numbers come from</h2>
+	<h2>The speech collection</h2>
 	<p>
-		<strong>Computed from the record</strong> means rules applied to speech text or metadata.
-		<strong>Model-derived · experimental</strong> means model annotations determine the result.
-		<strong>Computed and model-derived</strong> means both contribute, including a concordance filtered
-		by a model's referent. These labels describe provenance, not accuracy or neutrality. The pipeline
-		ledger below separately records what has been checked.
+		The source is <a href="https://doi.org/10.7910/DVN/CKPTRB">The UNSC Meetings and Speeches</a> by
+		Sakamoto and Matsuoka, Harvard Dataverse v5.0. The working collection contains {count(
+			totals.speeches
+		)} speeches from {count(totals.meetings)} meeting records and {count(totals.words)} words. The source
+		covers 17 January 1946 to 30 December 2024. Here, <em>corpus</em> means this collection of texts.
 	</p>
 	<p>
-		Navigation marks cover the sources a view can use. The concordance is mixed there because it
-		offers a model referent filter; its figure stays computed until that filter is applied.
-	</p>
-	<h2>The corpus</h2>
-	<p>
-		<a href="https://doi.org/10.7910/DVN/CKPTRB">The UNSC Meetings and Speeches</a> (Sakamoto &amp;
-		Matsuoka), Harvard Dataverse v5.0, released CC0 into the public domain. {count(totals.speeches)} speeches
-		from {count(totals.meetings)} meeting records,
-		{count(totals.words)} words, 17 January 1946 to 30 December 2024. A fresh copy of the
-		<a href={REPO}>repository</a> and two scripts rebuild the working table from that DOI; none of the
-		files derived from it are stored in the repository.
+		The transcripts are in English, including translations. The dataset does not reliably identify
+		the language actually spoken. Results therefore concern the English records. Scanning errors,
+		missing metadata and the source's division of records into speeches can affect the analysis.
 	</p>
 
-	<h2>How every number was made</h2>
+	<h2 id="provenance">Where the results come from</h2>
 	<p>
-		The scripts are numbered, each reads the output of the one before it, and each can be re-run
-		from scratch without changing the result. A step that cannot prove its own output is correct
-		stops with an error rather than leaving a plausible-looking file behind.
-		<strong>Verified</strong> below means the step's own checks pass automatically every time the
-		code changes. It does not mean a person has read the result.
-		<strong>Experimental</strong> is a weaker claim than any of the others and marks the two steps
-		whose output is a language model's reading rather than a measurement: they are published,
-		separately and under that marking, on the
-		<a href={resolve('/usage')}>Usage</a> page alone, where the human labels are the authority and none
-		of them has been coded yet.
+		<strong>Computed from the record</strong> identifies counts or calculations based on text and
+		metadata. <strong>Model-derived · experimental</strong> identifies results based on a language
+		model, including similarity embeddings and classifications of passages.
+		<strong>Computed and model-derived</strong> combines the two, for example a concordance filtered by
+		a model-assigned case.
 	</p>
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-	<div class="table-scroll" role="region" aria-label="Pipeline ledger" tabindex="0">
-		<table class="ledger">
-			<thead>
-				<tr>
-					<th>Step</th>
-					<th>What it establishes</th>
-					<th>File it leaves</th>
-					<th>State</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each steps as step (step.id)}
-					<tr>
-						<td class="step"><code>{step.id}</code></td>
-						<td>
-							{step.does}
-							<span class="checks">{step.checks}</span>
-						</td>
-						<td><code class="artefact">{step.artefact}</code></td>
-						<td class="state" data-state={step.state}>{step.says}</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
-
-	<h2>Choices that shape what you see</h2>
-
-	<h3 id="rates">Rates, not counts</h3>
 	<p>
-		The Council held more than seven times as many speeches in 2023 as in 1992. A raw count plotted
-		over those years is therefore mostly a picture of that growth, which is why every series on this
-		site opens on a rate and offers the raw count as an alternative rather than the other way round.
+		These labels identify the method, not its accuracy. Each figure names its source files and
+		offers available downloads. Navigation labels cover the methods a page can use; a figure's label
+		reflects its own sources.
 	</p>
 
-	<h3 id="word-list">The word list is a proposal, not a result</h3>
+	<h2>Reading counts and rates</h2>
+	<h3 id="rates">What is being counted?</h3>
 	<p>
-		<code>genocid*</code> matches
-		{percent(sum(data.series.terms.genocide.speeches) / totals.speeches)} of speeches. What counts as
-		<em>discussing genocide</em>
-		is a harder question, and the answer this site gives is a list of {Object.keys(
-			data.series.terms
-		).length} terms, each counted on its own. The list sorts them into families &mdash; the core word,
-		legal, preventive, commemorative, contentious, accountability and descriptive language &mdash; and
-		those families are a shelf and nothing more: they group and colour the term picker, and no figure
-		counts one. A count of <em>the legal register</em> would be a count of a category this project
-		invented, published as though it were a property of the record, and a reader watching that line
-		move could not tell which of six words moved it. The terms are written down in
-		<code>config/lexicon.yml</code>, they are open to disagreement, and they are a starting point
-		for the analysis rather than something it discovered.
+		An <strong>occurrence</strong> is one match for a search term. A speech repeating the term ten
+		times contributes ten occurrences but only one <strong>speech using the term</strong>. The
+		<strong>share of speeches</strong>
+		divides speeches with a match by all speeches in the relevant year, period or speaker's record.
+		<strong>Occurrences per 100,000 words</strong> divides matches by the number of words, then multiplies
+		by 100,000.
+	</p>
+	<p>
+		Rates help compare periods or delegations that produced different amounts of speech. They do not
+		adjust for differences in agenda, speaking opportunities or the political meaning of a passage.
+		Figures state their denominators and any minimum speech or occurrence count required to display
+		a rate. A withheld rate is not zero.
+	</p>
+	<p>
+		The reading-set selector identifies speeches containing <em>genocid*</em>, speeches containing
+		that term or related atrocity vocabulary, or all speeches in meetings where <em>genocid*</em> appears.
+		It affects the figures labelled as reading-set summaries and the reader's membership markers. Other
+		charts and concordance results use their own filters.
+	</p>
+
+	<h3 id="word-list">Search terms and word families</h3>
+	<p>
+		The search list is defined in <code>config/lexicon.yml</code>. Its patterns include spelling
+		variants: <code>genocid*</code>, for example, captures forms such as <em>genocide</em>,
+		<em>genocidal</em>
+		and <em>génocidaires</em>. The raw pattern appears in {percent(
+			sum(data.series.terms.genocide.speeches) / totals.speeches
+		)} of speeches.
+	</p>
+	<p>
+		Terms are grouped into families, called <em>registers</em>, such as legal, preventive or
+		commemorative language. These are research choices used to organise and colour the interface.
+		They do not classify a speech's purpose, and the term charts show individual terms separately. A
+		match alone cannot establish that a speaker alleged, endorsed or denied genocide.
 	</p>
 
 	{#if subtraction}
-		<h3 id="derived-measure">One measure is not a word</h3>
+		<h3 id="derived-measure">Why génocidaires is counted separately</h3>
 		<p>
-			The figure this site opens on is <em>{measureLabel(subtraction.name)}</em>, and it is the only
-			published measure that no pattern matches: it is <code>{subtraction.from}</code> less
-			{#each subtraction.minus as term, index (term)}{index ? ' and ' : ''}<code>{term}</code
-				>{/each}. A delegation calling the ex-FAR <em>génocidaires</em> names who carried out the
-			killing rather than asking the Council to call the event a genocide, and the two readings are
-			the thing this study is about, so the actor label is counted on its own and taken out. Across
-			the corpus that is {count(subtraction.removed)} of <code>genocid*</code>'s {count(
-				subtraction.occurrences
-			)} occurrences, and {count(subtraction.speeches)} speeches in which no other form of the word appears.
-			It is a subtraction and not a narrower pattern: narrowing <code>{subtraction.from}</code> would
-			move every occurrence identity in the corpus and invalidate the coded sample and every model run
-			recorded against it. The raw term is published beside it everywhere, and the concordance enumerates
-			that one, because a subtraction has no spans of its own to show.
+			<em>{measureLabel(subtraction.name)}</em> removes <em>génocidaire</em> and
+			<em>génocidaires</em>, labels for perpetrators, from the broader
+			<code>{subtraction.from}</code>
+			pattern. This removes {count(subtraction.removed)} of {count(subtraction.occurrences)} occurrences,
+			including {count(subtraction.speeches)} speeches whose only matches were those forms.
+		</p>
+		<p>
+			This subtraction distinguishes word forms. The remaining matches can still include denials,
+			quotations and abstract legal discussion; they are not all allegations about an event.
+			Concordance links open the raw pattern, including the excluded forms. The original match
+			identifiers remain stable for annotations and citations.
 		</p>
 	{/if}
 
-	<h3 id="change-points">Change points</h3>
+	<h3 id="change-points">Testing for a change over time</h3>
 	<p>
-		One test is run per series, and it asks a single question: is this line better described by one
-		steady rate or by two? The share of speeches is modelled as a series of coin flips; the count of
-		occurrences is modelled against the number of words spoken, so a year in which the Council said
-		more is expected to contain more of everything. The whole search is then repeated on
-		{count(data.breaks.inference.trials)} series in which the rate never changes, which is what turns
-		a split into a p-value.
-		{#if data.breaks.inference.null === 'meeting_block_permutation'}
-			Those series are made by moving whole <strong>meetings</strong> between years rather than flipping
-			each speech on its own: speeches are not independent of one another, because whether the word can
-			be said at all is fixed by the agenda of the debate they belong to, and one debate can hold two
-			hundred occurrences. The p-value under the older independent-speech assumption is published beside
-			the block one, so the size of that clustering is on the page.
-		{/if}
-		A result counts only below
-		{percent(data.breaks.inference.per_test_alpha)}, a threshold already tightened to allow for
-		several tests being run at once ({data.breaks.inference.correction}).
+		The change-point test compares one constant rate with two rates separated at a candidate date.
+		It searches the allowed dates and reports the best split. Speech shares use a binomial model;
+		occurrence counts use a Poisson model with word totals to account for speech volume.
 	</p>
 	<p>
-		Every <strong>share of speeches</strong> on the site &mdash; a year's, a month's, a speaker's, a category's
-		&mdash; is a proportion with a known denominator, and is published with its 95% Wilson interval: the
-		band on a line, the whisker beside a row. The interval says how much the share could move with the
-		number of speeches it rests on; it does not correct for meetings clustering, which only the change-point
-		null does.
+		The search is repeated {count(data.breaks.inference.trials)} times under a no-change model. {#if data.breaks.inference.null === 'meeting_block_permutation'}Whole
+			meetings are reassigned between years, keeping speeches within a meeting together. This
+			accounts for shared debate context. The independent-speech result is also shown for
+			comparison.{/if} The p-value measures how often the no-change procedure produces a contrast at least
+		as strong as the observed one. It is not the probability that a historical explanation is true.
 	</p>
-	<p class="caveat">
-		{data.breaks.inference.caveat}
+	<p>
+		A split is accepted below {percent(data.breaks.inference.per_test_alpha)}. This threshold
+		accounts for multiple tests ({data.breaks.inference.correction}). Each side must span at least {data
+			.breaks.parameters.min_size} periods. An accepted split summarises a statistical difference; an
+		unaccepted one means insufficient evidence under this test. Historical reference dates provide context,
+		not causal evidence. The second change-point method is exploratory.
 	</p>
-	<p class="caveat">
-		A second change-point method is also run and kept visible as a diagnostic.
-		{data.breaks.caveat}
+	<p>
+		<strong>95% Wilson intervals</strong> accompany speech shares. They indicate precision under a model
+		treating speeches as independent observations; wider intervals usually accompany smaller totals. The
+		observed corpus share itself is a count of available records. These intervals do not account for clustered
+		meetings, classification errors or missing records, and comparing overlapping intervals is not a formal
+		significance test.
 	</p>
 
-	<h3 id="keyness">What distinguishes a speech, and what it is compared against</h3>
+	<h2 id="lexical-measures">Understanding the vocabulary tables</h2>
 	<p>
-		Set a speech that uses <em>genocide</em> against the rest of the corpus and the words that come
-		back describe the occasion — the debate, the year, the region — rather than the concept. Each
-		such speech is therefore paired with one that does not use the word but shares its
-		{matchedOn(data.keyness.matched_on)}.
-		{count(data.keyness.target_speeches)} of {count(data.keyness.eligible_target_speeches)} speeches found
-		a partner ({percent(data.keyness.coverage)}). Where no partner existed, the
-		{data.keyness.short_strata.length} groups concerned are left short rather than filled from elsewhere,
-		which would have pulled the comparison towards whichever debates happened to have spare speeches.
-		Both sides of the comparison therefore rest on the same {count(data.keyness.control_speeches)} pairs.
-		Because the partner is drawn at random, the whole pairing is repeated across {data.keyness
-			.stability.repetitions} consecutive draws, and the range those draws produced is reported beside
-		each word.
+		A <strong>word window</strong> contains a specified number of words before and after a term. A
+		<strong>collocate</strong>
+		is a word counted in those windows. Overlapping windows are merged to avoid counting the same surrounding
+		text twice. Common function words are removed; word forms such as <em>crime</em> and
+		<em>crimes</em> remain separate.
+	</p>
+	<dl>
+		<dt>Log ratio</dt>
+		<dd>
+			Compares a word's frequency per word of text in two sets. +1 means twice the comparison
+			frequency, +2 four times and +3 eight times. Zero means equal rates; negative values mean a
+			lower rate. A small adjustment permits calculation when a count is zero.
+		</dd>
+		<dt>G² (log-likelihood)</dt>
+		<dd>
+			Tests departure from equal word frequencies in the two sets. Larger values can reflect a
+			larger difference, more text or both. The published tables apply a minimum G² before ranking
+			words. G² is neither a confidence percentage nor a measure of historical importance.
+		</dd>
+		<dt>logDice</dt>
+		<dd>
+			Ranks the association between a term and a nearby word using their joint count relative to
+			their individual counts. Higher scores mean a stronger association. It is a different measure
+			from log ratio; row order and dot position can therefore differ.
+		</dd>
+		<dt>Spread (DP)</dt>
+		<dd>
+			Measures how unevenly a word is distributed across speeches, allowing for speech length.
+			Values near zero mean relatively even distribution; values near one mean concentration in a
+			small part of the text. Speech and meeting counts help identify results dominated by a few
+			debates.
+		</dd>
+		<dt>nPMI</dt>
+		<dd>
+			Measures whether two terms occur in the same speech more often than expected from their
+			individual frequencies. Zero corresponds to independence; positive values indicate
+			association, up to 1. A high score does not require the terms to occur next to each other.
+			Rare pairs still need careful interpretation.
+		</dd>
+	</dl>
+
+	<h3 id="keyness">Choosing comparison speeches</h3>
+	<p>
+		For the genocide vocabulary comparison, speeches using the term are paired with speeches without
+		it that share their {matchedOn(data.keyness.matched_on)}. {count(data.keyness.target_speeches)} of
+		{count(data.keyness.eligible_target_speeches)} eligible speeches found a partner ({percent(
+			data.keyness.coverage
+		)}), giving {count(data.keyness.control_speeches)} comparison speeches. The {data.keyness
+			.short_strata.length} groups with insufficient partners remain short.
+	</p>
+	<p>
+		Matching reduces differences in the recorded context but cannot hold every aspect of a debate
+		constant. The whole-corpus comparison shows how results change without matching. Random matching
+		is repeated {data.keyness.stability.repetitions} times to assess sensitivity to the choice of partners.
+		The Actors page applies a separate matched comparison to each delegation's vocabulary across its speeches.
 	</p>
 
-	<h3 id="sentences">Where one sentence ends and the next begins</h3>
+	<h3 id="sentences">Passages and sentence boundaries</h3>
 	<p>
-		The sentence is the unit this site offers for quotation, so sentence boundaries are found by
-		explicit rules written for this kind of document — <code>Mr.</code>, <code>para.</code>,
-		<code>No.</code>, <code>U.S.</code>, <code>S/PV.3453</code>,
-		<code>resolution 955 (1994).</code> and the initials in a name &mdash; rather than by a
-		general-purpose tool. Across {count(lines)} concordance lines,
-		{count(longSentences)} ({percent(longSentences / lines)}) run past 500 characters, which usually
-		means either that the scan of the original page ran two sentences together or that the rules
-		missed a boundary. They are kept whole rather than trimmed, and counted here.
+		The concordance gives each match with surrounding text and a full sentence. Rules account for
+		abbreviations such as <code>Mr.</code> and document symbols such as <code>S/PV.3453</code>.
+		Across {count(lines)} concordance entries, {count(longSentences)} ({percent(
+			longSentences / lines
+		)}) have sentences longer than 500 characters. These may be long sentences or missed boundaries
+		caused by scanning or sentence-splitting errors. Check the full speech before quoting.
 	</p>
 
-	<h2>Limits and open validation</h2>
-	<ul class="open">
-		<li>
-			<strong>The reference dates are context, not causes.</strong> Each one links to the official record
-			used to verify it. A date falling near a change in the chart is not evidence that it produced the
-			change.
-		</li>
-		<li>
-			<strong>Nobody has yet checked the word list by hand.</strong> A fixed sample of 200 matches
-			&mdash; drawn so that it covers individual occurrences and whole speeches, and spread across
-			words and periods &mdash; has been generated and is waiting, and
-			<strong>0 of the 200 currently carry a human verdict</strong>. Until they do, no count on this
-			site has a measured error rate, and none can be guessed at: recording an automatic review as a
-			human one is exactly the mistake the check exists to prevent. Changing any search pattern
-			cancels the verdicts for that word and restarts its sample.
-		</li>
-		<li>
-			<strong>Delivery language is unavailable.</strong> The distributed transcripts are in English, but
-			this dataset does not retain a reliable marker of the language actually spoken. The pipeline therefore
-			records it as unknown rather than treating translated text as original English speech.
-		</li>
-		<li>
-			<strong>Affiliation categories are source metadata.</strong> A row with none of the source’s
-			state, UN, IGO or NGO flags remains <code>other</code>; the project does not infer a category
-			from the organisation’s name.
-		</li>
-	</ul>
-
-	<h2>What is not on this site</h2>
+	<h2 id="embeddings">Semantic embeddings and the speech map</h2>
 	<p>
-		Three further steps exist in the repository and feed nothing here. Step 06 turns every speech
-		into a list of numbers a machine can compare, step 07 tries two ways of grouping speeches by
-		theme, and step 10 groups inflected forms together so that <code>crime</code> and
-		<code>crimes</code> stop occupying two rows of one table. Each needs either a graphics card or software
-		the fixed environment cannot carry, so they run separately on a university cluster, and the data this
-		site loads is built without them.
+		A language model converts each speech into a list of numbers, its <strong>embedding</strong>.
+		The numbers represent patterns of wording and meaning learned by the model. Comparing these
+		lists can retrieve speeches about similar subjects even when their wording differs. Long
+		speeches are divided into overlapping sections; their embeddings are combined using weights
+		based on section length.
 	</p>
 	<p>
-		They are held back on purpose rather than left unfinished. Grouping speeches by theme waits on a
-		research question that the neighbouring-word evidence and the agenda labels cannot already
-		answer, and on a person judging whether the groups mean anything. Grouping inflected forms would
-		move figures already published here, so it waits on the hand-check described above. Both are
-		documented in <a href="{REPO}/blob/main/docs/PLAN.md">the roadmap</a>, along with the conditions
-		they have to meet first. Nothing on this page or in any chart comes from them.
+		<strong>Cosine similarity</strong> compares the direction of two embeddings. Scores closer to 1 indicate
+		more similar representations; the score is not a percentage of agreement or shared meaning. The related-speech
+		list uses approximate search over the original embeddings and can miss some of the closest speeches.
+	</p>
+	<p>
+		<strong>UMAP</strong> places the embeddings on a flat map while trying to preserve local neighbours.
+		Compressing many numerical dimensions into two changes distances. The axes have no substantive units,
+		and large gaps or apparent clusters do not establish political blocs. Map filters hide speeches without
+		recalculating their positions.
+	</p>
+	<p>
+		The map reports how many neighbours are lost in a diagnostic sample and how often approximate
+		search recovers the ten closest speeches found by exact search. Publication requires at least
+		80% recovery in the search check. These checks evaluate computation and distortion; interpreting
+		similarity still requires reading the texts. The <a href={resolve('/semantic')}>Semantic map</a> reports
+		whether the data are available.
 	</p>
 
-	<h2>Reproducing this</h2>
+	<h2 id="model-labels">Model classifications and human review</h2>
 	<p>
-		The <a href={REPO}>repository</a> holds the data pipeline, the analysis scripts and this
-		website. A code linter, a fixed set of Python dependencies and focused pipeline and website test
-		suites run on every change. Those tests cover the hand-edited files in
-		<code>config/</code> too, so a wrong country name or a mistyped Council term fails automatically rather
-		than halfway through somebody's run. The site is rebuilt from the Dataverse DOI by an automated workflow
-		rather than uploaded from a desktop, so what you are reading was produced by the pipeline in this
-		repository and not by a copy of it that once existed on somebody's laptop.
+		The <a href={resolve('/usage')}>Usage page</a> asks a language model to classify individual
+		mentions. A <strong>referent</strong> is the event, situation or general concept a mention
+		concerns. <strong>Speaker position</strong> records whether the passage asserts, rejects, conditionally
+		applies or reports a genocide claim, among other categories. These labels describe the model's interpretation
+		of a passage; they do not establish whether an event was genocide.
 	</p>
 	<p>
-		Every newly generated analytical file has an <code>analysis_hash</code> computed from its canonical
-		content and declared inputs and configuration. The hash stays the same when only the generation time
-		or Git working-tree state changes; those readable provenance fields remain alongside it.
+		A valid model response must use the permitted categories and quote text found in the speech.
+		Those checks cannot show that the interpretation is correct. The human reference sample is coded
+		independently by two readers; unresolved disagreements and later adjudications are kept
+		explicit. The Usage page reports coverage and review progress for the published run.
 	</p>
 	<p>
-		<strong>Licences.</strong> The corpus is CC0, released by its depositors. The code is
-		<a href="{REPO}/blob/main/LICENSE">MIT</a>. The tables, figures and generated notes this project
-		produces &mdash; including everything drawn on this site &mdash; are
-		<a href="{REPO}/blob/main/LICENSE-DATA.md">CC BY 4.0</a>, because the selection, arrangement and
-		calculation are this project's contribution rather than the United Nations'. Speech text quoted
-		from the record stays CC0 in whatever form it reaches you. Cite this site using
-		<a href="{REPO}/blob/main/CITATION.cff">CITATION.cff</a>, and cite the corpus as well.
+		<strong>Observed agreement</strong> is the proportion of identical labels.
+		<strong>Kappa</strong>
+		adjusts for agreement expected from each reader's label frequencies; <strong>PABAK</strong> here uses
+		an alternative equal-category chance baseline. They can differ sharply when one label dominates. Agreement
+		between models measures consistency, not accuracy.
+	</p>
+	<p>
+		<strong>Precision</strong> asks how many model assignments to a category match the human
+		reference; <strong>recall</strong> asks how many reference examples the model finds.
+		<strong>F1</strong> combines the two, with 1 indicating a perfect match. Weighted F1 gives frequent
+		categories more weight; macro F1 averages the eligible categories equally. Read these scores with
+		sample sizes, exclusions and abstentions.
+	</p>
+
+	<h2>Analysis steps and checks</h2>
+	<p>
+		The following scripts produce the displayed analyses or related optional outputs. <strong
+			>Automatic checks</strong
+		> cover data consistency and implementation; they do not mean a researcher has verified every passage.
+		Model-based results require separate interpretation and validation.
+	</p>
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
+	<div class="table-scroll" role="region" aria-label="Analysis steps" tabindex="0">
+		<table class="ledger">
+			<thead><tr><th>Step</th><th>Purpose and checks</th><th>Output</th><th>Status</th></tr></thead
+			><tbody
+				>{#each steps as step (step.id)}<tr
+						><td class="step"><code>{step.id}</code></td><td
+							>{step.does}<span class="checks">{step.checks}</span></td
+						><td><code class="artefact">{step.artefact}</code></td><td
+							class="state"
+							data-state={step.state}>{step.says}</td
+						></tr
+					>{/each}</tbody
+			>
+		</table>
+	</div>
+
+	<h2>Reproducing and citing the analysis</h2>
+	<p>
+		The <a href={REPO}>repository</a> contains scripts, configuration, tests and instructions.
+		Analytical files record their inputs and settings. An <code>analysis_hash</code> is a content identifier:
+		it changes with the analytical data or declared settings, but not solely with the generation time.
+		Retain that identifier and the filters when saving or citing a result.
+	</p>
+	<p>
+		The source corpus is released under CC0. The code uses the <a href="{REPO}/blob/main/LICENSE"
+			>MIT licence</a
+		>; project-generated tables and figures use
+		<a href="{REPO}/blob/main/LICENSE-DATA.md">CC BY 4.0</a>. Cite the project using
+		<a href="{REPO}/blob/main/CITATION.cff">CITATION.cff</a> and cite the source corpus as well.
 	</p>
 	<p class="quiet">
-		The files behind this page were generated by word-list version
-		{data.series.meta.lexicon_version}, {data.series.meta.generated}.
+		Word-list version {data.series.meta.lexicon_version}. Data generated {data.series.meta
+			.generated}.
 	</p>
 </article>
 
@@ -531,26 +600,5 @@
 		color: var(--ink-3);
 	}
 
-	.caveat {
-		border-left: var(--hair) solid var(--rule-strong);
-		padding-left: var(--sp-3);
-		font-size: var(--step--1);
-		color: var(--ink-2);
-	}
-
 	/* The one thing on this page that is genuinely open, marked as such. */
-	.open {
-		list-style: none;
-		margin: 0;
-		padding: 0 0 0 var(--sp-4);
-		border-left: 2px solid var(--reg-contentious);
-	}
-
-	.open li {
-		margin-bottom: var(--sp-3);
-	}
-
-	.open li:last-child {
-		margin-bottom: 0;
-	}
 </style>

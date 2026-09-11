@@ -143,7 +143,7 @@ test('the result profile narrows and releases the set it counts', async ({ page 
 	await page.goto(concordance);
 	const profile = page.locator('details.profile');
 	await expect(profile).toBeVisible();
-	await expect(profile).toContainText('not evidence of emphasis');
+	await expect(profile).toContainText('not adjusted for speech volume');
 
 	// A row name is clipped to its column and the bar behind the count carries a
 	// share with no figure beside it, so the hover has to give back both.
@@ -151,7 +151,10 @@ test('the result profile narrows and releases the set it counts', async ({ page 
 		profile.getByRole('button', {
 			name: 'Filter to The situation in Bosnia and Herzegovina, 2 lines'
 		})
-	).toHaveAttribute('title', 'The situation in Bosnia and Herzegovina — 2 of 4 lines on screen');
+	).toHaveAttribute(
+		'title',
+		'The situation in Bosnia and Herzegovina — 2 of 4 lines in the results'
+	);
 
 	// A year column says which year it is even when it is empty. The title sits
 	// on the column rather than the button, because a disabled button swallows
@@ -169,7 +172,7 @@ test('the result profile narrows and releases the set it counts', async ({ page 
 	await expect(page.getByRole('combobox', { name: 'Speaker', exact: true })).toHaveValue('France');
 
 	// The same row releases it, and the parameter leaves the URL entirely.
-	await profile.getByRole('button', { name: 'Release France, 2 lines' }).click();
+	await profile.getByRole('button', { name: 'Clear filter for France, 2 lines' }).click();
 	await expect(page).not.toHaveURL(/country=/);
 	await expect(page.locator('.status')).toContainText('4 of 4 lines');
 
@@ -178,7 +181,7 @@ test('the result profile narrows and releases the set it counts', async ({ page 
 	await profile.getByRole('button', { name: 'Narrow to 2015, 2 lines' }).click();
 	await expect(page).toHaveURL(/from=2015&to=2015/);
 	await expect(page.locator('.status')).toContainText('2 of 4 lines');
-	await profile.getByRole('button', { name: 'Release 2015, 2 lines' }).click();
+	await profile.getByRole('button', { name: 'Clear filter for 2015, 2 lines' }).click();
 	await expect(page).not.toHaveURL(/from=/);
 	await expect(page.locator('.status')).toContainText('4 of 4 lines');
 
@@ -193,7 +196,7 @@ test('the result profile narrows and releases the set it counts', async ({ page 
 test('data failure has an intelligible retry path', async ({ page }) => {
 	await page.goto(`${concordance}?term=temporarily-unavailable`);
 	await expect(page.locator('.status .error')).toContainText(
-		'No data file at kwic/temporarily-unavailable.json (404)'
+		'Could not load kwic/temporarily-unavailable.json (HTTP 404)'
 	);
 
 	const body = await readFile(

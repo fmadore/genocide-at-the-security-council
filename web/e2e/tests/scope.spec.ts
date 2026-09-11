@@ -71,7 +71,7 @@ test('the reader marks which speeches of a whole debate the reading set holds', 
 
 	await expect(page.getByRole('heading', { name: 'Protection of civilians' })).toBeVisible();
 	const apparatus = page.locator('aside.apparatus');
-	await expect(apparatus).toContainText('1 of 1 speeches in this record');
+	await expect(apparatus).toContainText('1 of 1 speeches belong to the reading set');
 	// The delegation roll, including what each one used: R9's reason for making
 	// the meeting a unit at all.
 	await expect(apparatus.locator('.roll')).toContainText('Rwanda');

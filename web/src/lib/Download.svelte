@@ -43,7 +43,10 @@
 		} catch (error) {
 			// A failed download is silent otherwise: the file simply never appears,
 			// and the reader is left unsure whether they missed the save dialog.
-			problem = error instanceof Error ? error.message : 'The download failed.';
+			problem =
+				error instanceof Error
+					? error.message
+					: 'The download failed. Try again once the figure has loaded.';
 		} finally {
 			busy = null;
 		}
@@ -66,7 +69,10 @@
 	 */
 	function picture() {
 		const element = spec.chart?.();
-		if (!element) throw new Error('The figure has not finished drawing yet.');
+		if (!element)
+			throw new Error(
+				'The figure is still loading. Wait for it to appear, then try the download again.'
+			);
 		const box = element.getBoundingClientRect();
 		const width = Math.round(box.width) || Number(element.getAttribute('width')) || 900;
 		const height = Math.round(box.height) || Number(element.getAttribute('height')) || 400;
@@ -116,17 +122,27 @@
 				type="button"
 				onclick={csv}
 				disabled={busy !== null}
-				title="Every row behind this figure, not only what is drawn; the file names the script and word-list version that produced it."
+				title="Download the data as a spreadsheet-compatible CSV. The file states its coverage, filters and source."
 			>
 				<Icon icon={Download} />
 				{busy === 'csv' ? 'Building…' : 'CSV'}
 			</button>
 		{/if}
 		{#if spec.chart}
-			<button type="button" onclick={svg} disabled={busy !== null}>
+			<button
+				type="button"
+				onclick={svg}
+				disabled={busy !== null}
+				title="Download a scalable SVG image for editing or publication"
+			>
 				{busy === 'svg' ? 'Building…' : 'SVG'}
 			</button>
-			<button type="button" onclick={png} disabled={busy !== null}>
+			<button
+				type="button"
+				onclick={png}
+				disabled={busy !== null}
+				title="Download a PNG image for documents or slides"
+			>
 				{busy === 'png' ? 'Building…' : 'PNG'}
 			</button>
 		{/if}

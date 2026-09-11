@@ -318,10 +318,11 @@
 	<header class="lede">
 		<h1>Who said it</h1>
 		<p class="standfirst">
-			Each delegation measured against its own record: what share of its own speeches used this
-			vocabulary, rather than how often it turns up in the corpus overall. Of
-			{count(artefact.countries.length)} speakers, {count(result.rows.length)} spoke often enough for
-			that share to mean anything.
+			Compare how often delegations and organisations use the vocabulary relative to their own
+			speech totals. Of {count(artefact.countries.length)} speaker affiliations in the data, {count(
+				result.rows.length
+			)} meet the minimum for displaying a rate in the selected period. Here, a speaker means an affiliation,
+			not an individual person.
 		</p>
 	</header>
 
@@ -343,16 +344,17 @@
 	>
 		{#snippet reading()}
 			<p>
-				<strong>{chosenScope.label}</strong>: {count(chosenScope.speeches)} speeches in
-				{count(chosenScope.meetings)} meetings. The {RANKED} delegations whose own record it covers most.
-				Change the set in the masthead.
+				<strong>{chosenScope.label}</strong> contains {count(chosenScope.speeches)} speeches from {count(
+					chosenScope.meetings
+				)} meetings. Rows show up to {RANKED} affiliations ranked by the share of their own speeches included
+				in that set. Change the reading set at the top of the page.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				Under <em>the debate</em> a delegation is counted for every speech it made in a meeting where
-				someone said the word, whether or not it said anything. That is the point of the set, and it is
-				not a measure of what the delegation said.
+				The debate set includes every speech in a meeting where someone used <em>genocid*</em>. An
+				affiliation's inclusion therefore does not mean it used the term itself. This table uses
+				each affiliation's total speeches as its denominator.
 			</p>
 		{/snippet}
 		{#snippet more()}
@@ -362,7 +364,10 @@
 				>. Each affiliation keeps its own annual denominator. Rates below 125 speeches are withheld;
 				the CSV retains counts and labels its Wilson intervals.
 			</p>
-			<p>{artefact.minimum_speeches_rule}</p>
+			<p>
+				The period ranking requires at least {count(artefact.minimum_speeches)} speeches per affiliation.
+				Counts remain available when a rate is withheld.
+			</p>
 		{/snippet}
 
 		<section class="table-wrap">
@@ -430,68 +435,40 @@
 
 		{#snippet reading()}
 			<p>
-				Ranked by the figure you chose; each row's <strong>whisker</strong> is the 95% Wilson interval
-				of its share. Click a row to pick a delegation out on the map, or a dot to pick its row. An asterisk
-				marks a country code held by two speakers.
+				Rows follow the selected ranking. Each 95% interval indicates precision assuming independent
+				speeches; wider intervals mean less precise estimates. Select a row to locate the
+				affiliation on the map, or a dot to find its row. An asterisk marks a shared country code.
 			</p>
-			<!-- The measure is a subtraction, and its name is now a name rather than
-			     the key: the arithmetic has to be somewhere a reader meets it. The
-			     size is read off the artefact's own rows, never written here, and is
-			     stated only where the payload carries both measures. -->
-			{#if wider}
-				<p>
-					<em>{measureLabel(measure)}</em> is <em>{measureLabel(wider.term)}</em> less
-					<em>{wider.subtracted.map(measureLabel).join(' and ')}</em
-					>{#if wider.occurrences !== null}, which removes {count(wider.occurrences)} occurrences{/if}.
-					<a href="{resolve('/methods')}#derived-measure">Method: the subtraction &rarr;</a>
-				</p>
-			{/if}
+			{#if wider}<p>
+					This measure excludes <em>{wider.subtracted.map(measureLabel).join(' and ')}</em>.
+					<a href="{resolve('/methods')}#derived-measure">Counting rule</a>.
+				</p>{/if}
 		{/snippet}
 
 		{#snippet caveat()}
 			<p>
-				{artefact.centroid_rule}
-				{count(result.under.length)} speakers delivered fewer than
-				{count(result.minimum)} speeches this period and carry no rate: they are not ranked low, they
-				are not ranked.
-				{#if !has.occurrences}<em>{measureLabel(measure)}</em> is published without an occurrence total,
-					so the rate here is a share of speeches and nothing else.{/if}
+				The map locates affiliations; dot size does not encode frequency. Rates are withheld for {count(
+					result.under.length
+				)} affiliations with fewer than {count(result.minimum)} speeches this period. {#if !has.occurrences}This
+					measure has no occurrence total; only speech shares are available.{/if} Rates do not identify
+				a speaker's position.
 			</p>
 		{/snippet}
 		{#snippet more()}
-			<!-- The rule governs a denominator, so it cannot differ between measures;
-			     `11_countries.py` refuses a payload where it does. Said here because a
-			     reader who changes the measure and sees the same speakers withheld is
-			     owed the reason, and because the alternative would look like a finding. -->
 			<p>
-				{artefact.minimum_speeches_rule} It is about how much a delegation spoke, not what it said, so
-				the same speakers are withheld whichever measure is selected.
+				The minimum applies to total speeches in the selected period, regardless of the term. This
+				prevents a few speeches from dominating the rate ranking.
 			</p>
-			{#if wider}
-				<p>
-					A delegation calling the ex-FAR <em>génocidaires</em> names who did it rather than asking
-					the Council to call the event a genocide, so the actor label is counted on its own and
-					taken out{#if wider.speeches !== null}, along with the {count(wider.speeches)} speeches whose
-						only match it was{/if}. Select <em>{measureLabel(wider.term)}</em> above to read the word
-					in every form.
-				</p>
-			{/if}
-			{#if unmapped.length}
-				<p>
-					{count(unmapped.length)} of the ranked speakers appear on no map: {unmapped
-						.slice(0, 4)
-						.map((entry) => shortCountry(entry.speaker.country_org))
-						.join(', ')}{unmapped.length > 4 ? ' and others' : ''} have no map position under the source
-					classification and geography lookup. They remain in the table.
-				</p>
-			{/if}
-			{#each collisions as [code, holders] (code)}
-				<p>
-					{code} is shared by {holders.join(' and ')}. Different source labels can share a geography
-					lookup, including a successor location for a historical state. Their speech counts and
-					denominators remain separate.
-				</p>
-			{/each}
+			{#if wider}<p>
+					<em>Génocidaires</em> names perpetrators. Excluding that word separates forms; the
+					remaining matches still include quotations, denials and legal discussion. {#if wider.speeches !== null}The
+						exclusion removes {count(wider.speeches)} speeches whose only matches were the excluded forms.{/if}
+				</p>{/if}{#if unmapped.length}<p>
+					{count(unmapped.length)} ranked affiliations have no map position and remain in the table. Historical
+					states may share a location with a successor, while retaining separate counts.
+				</p>{/if}{#each collisions as [code, holders] (code)}<p>
+					{code} is shared by {holders.join(' and ')}; their speech totals remain separate.
+				</p>{/each}
 		{/snippet}
 
 		<section class="table-wrap">
@@ -529,7 +506,9 @@
 					>Next</button
 				>
 			</nav>
-			{#if !matchingRows.length}<p>No ranked speakers match this search.</p>{/if}
+			{#if !matchingRows.length}<p>
+					No ranked speakers match this search. Clear or shorten the name.
+				</p>{/if}
 			<div class="scroll">
 				<table>
 					<caption class="sr-only">
@@ -607,8 +586,8 @@
 		{#if result.refusal}
 			<p class="refusal">
 				{#if result.refusal === 'none-sufficient'}
-					No speaker in this period reached {count(result.minimum)} speeches, so there is nothing here
-					that could be drawn honestly.
+					No affiliation reached {count(result.minimum)} speeches in this period. Select a longer period
+					to compare rates.
 				{:else}
 					This combination is not in the data.
 				{/if}
@@ -659,7 +638,7 @@
 								class="more"
 								href="{resolve('/usage')}?actor={encodeURIComponent(entry.speaker.country_org)}"
 							>
-								Which genocide it means by the word <Icon icon={ChevronRight} />
+								Cases mentioned, as classified by the model <Icon icon={ChevronRight} />
 							</a>
 							<span class="interval">model-derived, experimental</span>
 						</dd>
@@ -674,13 +653,10 @@
 				{/each}
 			</dl>
 			<p class="scoped">
-				Each link carries this speaker and {result.period?.label ?? period} through to the concordance,
-				so what opens is the evidence behind the rate above rather than the whole corpus.
-				{#if wider}
-					The lines are <em>{measureLabel(wider.term)}</em>'s: this measure subtracts
-					<em>{wider.subtracted.map(measureLabel).join(' and ')}</em> from it, and only a lexicon term
-					has a concordance, so they hold the occurrences the rate leaves out as well as those it counts.
-				{/if}
+				The occurrence link keeps this affiliation and {result.period?.label ?? period}. {#if wider}It
+					opens all matches for <em>{measureLabel(wider.term)}</em>, including
+					<em>{wider.subtracted.map(measureLabel).join(' and ')}</em>, which the displayed rate
+					excludes.{/if} The Usage link opens model classifications for this affiliation.
 			</p>
 		</aside>
 	{/if}

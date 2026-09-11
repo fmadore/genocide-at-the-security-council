@@ -145,8 +145,8 @@
 	</div>
 
 	<p class="hint">
-		Kept in this browser only — not an account, not synced, and not visible to anyone else. Export
-		it to take it anywhere, including to another machine of your own.
+		Saved in this browser on this device. Export your basket to keep a separate copy or use it
+		elsewhere. Anyone with access to this browser profile may be able to view it.
 	</p>
 
 	{#if basket.problem}
@@ -261,8 +261,8 @@
 		</div>
 
 		<p class="provenance">
-			Every export carries the lexicon version and analytical hash each item was taken under, so a
-			row stays traceable after the corpus is rebuilt.
+			Exports include each item's word-list version and analysis identifier so you can trace it to
+			the data used when it was saved.
 		</p>
 	{/if}
 </dialog>

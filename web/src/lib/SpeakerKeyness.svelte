@@ -89,7 +89,7 @@
 
 <Figure
 	title="What a delegation says that the room does not"
-	question="With the debate held constant, which words set one speaker's language apart from everybody else's?"
+	question="Which words are more frequent in this affiliation's speeches than in the comparison speeches?"
 	source="12_speaker_keyness.py → countries/speaker_keyness.json"
 	note="Bar length shows the size of the difference, not the confidence in it. Colour shows which way the difference runs."
 	download={{ name: ['unsc', 'keyness', speaker?.country_org ?? 'none', control], table }}
@@ -118,7 +118,7 @@
 		<label>
 			Compared against
 			<select bind:value={control}>
-				<option value="matched">Speeches from the same debates</option>
+				<option value="matched">Speeches matched by context</option>
 				<option value="unmatched">The whole corpus</option>
 			</select>
 		</label>
@@ -132,31 +132,34 @@
 
 	{#snippet reading()}
 		<p>
-			One row per word, ranked by log ratio; <strong>bar length carries it</strong>, one unit per
-			doubling. Words below the G² floor are not shown. An asterisk marks a word from the speaker's
-			name.
-			{#if control === 'matched'}The bracket is the range the log ratio covered across {data.repetitions}
-				draws of the comparison set; a wide one says more about the draw than the speaker.{/if}
+			Rows rank words by relative frequency (log ratio), after a G² threshold. Bar length shows log
+			ratio: +1 means twice as frequent. An asterisk identifies words in the affiliation's name. {#if control === 'matched'}Brackets
+				show the range across {data.repetitions} random selections of comparison speeches, indicating
+				sensitivity to that choice.{/if}
 		</p>
 	{/snippet}
 
 	{#snippet caveat()}
-		<p>{data.reading_rule}</p>
 		<p>
-			{#if control === 'unmatched'}
-				<strong>This is the whole-corpus comparison.</strong> {data.unmatched_rule}
-			{:else}
-				{data.control_rule}
-			{/if}
+			{#if control === 'matched'}Comparison speeches share the year, agenda category and speaker
+				group, but may differ in other ways.{:else}The comparison uses the rest of the corpus, so
+				topic and period differences can affect the ranking.{/if} Distinctive vocabulary does not establish
+			policy or belief. The name-word marker misses indirect self-references.
 		</p>
-		<p>{data.self_reference_rule}</p>
 	{/snippet}
 	{#snippet more()}
 		<p>
-			The same comparison for the speeches that use <em>genocide</em>, against the whole corpus of
-			like-for-like speeches, is
-			<a href="{resolve('/language')}#compared-with-a-like-for-like-speech">on the Language page</a
-			>.
+			This table covers the affiliation's paired speeches, whether or not they mention genocide. <strong
+				>Coverage</strong
+			>
+			is the share of its speech record with a suitable partner. The speech and meeting columns count
+			where a word occurs; <strong>DP</strong> measures concentration, from broadly distributed near
+			0 to concentrated near 1.
+			<a href="{resolve('/methods')}#lexical-measures">Measure definitions</a>.
+		</p>
+		<p>
+			The <a href="{resolve('/language')}#compared-with-a-like-for-like-speech">Language page</a> separately
+			compares speeches mentioning genocide with those without it.
 		</p>
 	{/snippet}
 
@@ -165,18 +168,16 @@
 	{:else if plan.refusal}
 		<div class="refusal">
 			<p>
-				<strong>{shortCountry(speaker?.country_org ?? '')} has no table here</strong>, and the
-				reason is not that it said nothing distinctive.
+				<strong>{shortCountry(speaker?.country_org ?? '')} has no published comparison.</strong> The available
+				matches do not meet the thresholds below. Choose another affiliation.
 			</p>
 			{#if plan.refusal.because.includes('coverage')}
 				<p>
-					A comparable speech could be found for only {count(plan.refusal.pairs)} of its {count(
+					Comparable speeches were found for {count(plan.refusal.pairs)} of {count(
 						plan.refusal.held
-					)}
-					&mdash; {percent(plan.refusal.coverage)}, against a declared minimum of
-					{percent(data.minimum_coverage)}. A table built on that would describe a small and
-					lopsided part of what this speaker said: the debates where somebody comparable happened to
-					speak too.
+					)} speeches ({percent(plan.refusal.coverage)}), below the required {percent(
+						data.minimum_coverage
+					)} coverage. Results would describe only the part of the record with suitable comparison speeches.
 				</p>
 			{/if}
 			{#if plan.refusal.because.includes('pairs')}
@@ -214,12 +215,27 @@
 			<thead>
 				<tr>
 					<th scope="col">Word</th>
-					<th scope="col" class="num">Log ratio</th>
+					<th
+						scope="col"
+						class="num"
+						title="+1 means twice as frequent; +2 means four times. Negative values mean less frequent."
+						>Log ratio</th
+					>
 					<th scope="col" class="num">This speaker</th>
 					<th scope="col" class="num">Compared with</th>
-					<th scope="col" class="num">G²</th>
+					<th
+						scope="col"
+						class="num"
+						title="Tests a difference in word frequency; a larger value can also reflect more text."
+						>G²</th
+					>
 					<th scope="col" class="num">Speeches / meetings</th>
-					<th scope="col" class="num">DP</th>
+					<th
+						scope="col"
+						class="num"
+						title="Dispersion: near 0 is broadly distributed relative to speech length; near 1 is concentrated."
+						>Spread (DP)</th
+					>
 				</tr>
 			</thead>
 			<tbody>
@@ -265,11 +281,11 @@
 		{/if}
 
 		<section class="agenda">
-			<h4>What it was heard on</h4>
+			<h4>Most frequent agenda categories</h4>
 			<p>
-				The pairing holds the agenda item constant, so this is what was held constant.
-				{shortCountry(speaker.country_org)} spoke on {count(speaker.agenda.items)} items, and
-				{percent(speaker.agenda.concentration)} of its speeches fell on its three commonest.
+				The comparison matches on these agenda categories. {shortCountry(speaker.country_org)} spoke on
+				{count(speaker.agenda.items)} categories; {percent(speaker.agenda.concentration)} of its speeches
+				concerned the three most frequent.
 			</p>
 			<ul>
 				{#each speaker.agenda.top.slice(0, 5) as item (item.item)}
@@ -295,14 +311,13 @@
 		<li>
 			<strong>{count(unpaired)} speakers were never paired at all.</strong> They delivered fewer
 			than
-			{count(data.minimum_pairs)} speeches, so no comparison could be built. They appear here as a number
-			rather than a list, because there is nothing to show.
+			{count(data.minimum_pairs)} speeches, so no comparison could be built. Their absence from this comparison
+			does not imply an absence of distinctive language.
 		</li>
 		{#if refused.length}
 			<li>
-				<strong>{count(refused.length)} were paired and then held back.</strong> Unlike the group
-				above, each of these has a figure a reader can weigh, so they stay in the picker and give
-				their reason when selected:
+				<strong>{count(refused.length)} were paired and then held back.</strong> Select one to see
+				its matching coverage and the reason its table is withheld:
 				{#each refused as row, index (row.country_org)}{shortCountry(row.country_org)} ({percent(
 						row.coverage
 					)}){#if index < refused.length - 1},
@@ -311,10 +326,10 @@
 		{/if}
 		<li>
 			<strong>A distinctive word is not a position.</strong>
-			{data.reading_rule} A delegation that names a conflict often may be prosecuting it, deploring it,
-			or chairing the debate about it.
+			A delegation that frequently names a conflict may be condemning it, reporting on it, or chairing
+			the debate about it.
 			<a class="more" href={resolve('/concordance')}>
-				Read the record instead <Icon icon={ChevronRight} />
+				Read the speeches <Icon icon={ChevronRight} />
 			</a>
 		</li>
 	</ul>

@@ -202,9 +202,9 @@
 			<a href={resolve('/methods')}>Methods</a>.
 		</p>
 		<p class="quiet">
-			The distributed transcripts are in English. The source does not retain a reliable marker of
-			the language actually spoken, so delivery language remains unknown rather than inferred.
-			Everything here measures the English verbatim record rather than the room it was written from.
+			The transcripts are in English, including translations. The source does not reliably identify
+			the language spoken. Results describe the English records and should be checked against the
+			passages when interpreting a speaker's position.
 		</p>
 		<p class="quiet">
 			By <a href="https://www.frederickmadore.com/">Frédérick Madore</a> (University of Bayreuth).

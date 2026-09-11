@@ -88,7 +88,7 @@
 	 * register as the rest of the panel, which counts lines and says so.
 	 */
 	const facetTip = (dimension: FacetDimension, row: FacetRow) =>
-		`${label(dimension, row.value)} — ${count(row.count)} of ${lines(profile.total)} on screen`;
+		`${label(dimension, row.value)} — ${count(row.count)} of ${lines(profile.total)} in the results`;
 
 	/* An empty year has no button to hover: it is disabled, and a disabled
 	   control suppresses the tooltip with the pointer events. The title sits on
@@ -98,18 +98,21 @@
 	/* An empty year is not a control, and offering to narrow to it is a promise
 	   the disabled button cannot keep. It names itself and its emptiness instead. */
 	const yearLabel = (year: number, n: number, selected: boolean) =>
-		n === 0 ? `${year}, no lines` : `${selected ? 'Release' : 'Narrow to'} ${year}, ${lines(n)}`;
+		n === 0
+			? `${year}, no lines`
+			: `${selected ? 'Clear filter for' : 'Narrow to'} ${year}, ${lines(n)}`;
 </script>
 
 <details class="profile" open>
 	<summary><Icon icon={ChevronRight} />Profile of this result set</summary>
 
 	<p class="hint">
-		Counts of the <strong>{count(profile.total)}</strong> lines currently on screen — apparatus for
-		narrowing them, not evidence of emphasis. A busy year is partly a year the Council met more, and
-		nothing here is corrected for that; the rates are on
-		<a href={resolve('/chronology')}>Chronology</a> and <a href={resolve('/actors')}>Actors</a>.
-		Select a row to apply it, select it again to release it.
+		These counts describe all <strong>{count(profile.total)}</strong> matching lines, including
+		those not yet expanded below. Bars show how results are distributed across years and categories.
+		They are not adjusted for speech volume; compare rates on
+		<a href={resolve('/chronology')}>Chronology</a>
+		or <a href={resolve('/actors')}>Actors</a>. Select a category to apply its filter; select it
+		again to clear it.
 	</p>
 
 	{#if profile.total === 0}
@@ -135,7 +138,7 @@
 			</ol>
 			<div class="axis">
 				<span>{firstYear}</span>
-				<span class="peak">busiest year: {count(busiest)}</span>
+				<span class="peak">largest yearly count: {count(busiest)} lines</span>
 				<span>{lastYear}</span>
 			</div>
 		</section>
@@ -151,7 +154,7 @@
 									type="button"
 									aria-pressed={row.active}
 									title={facetTip(column.dimension, row)}
-									aria-label="{row.active ? 'Release' : 'Filter to'} {label(
+									aria-label="{row.active ? 'Clear filter for' : 'Filter to'} {label(
 										column.dimension,
 										row.value
 									)}, {lines(row.count)}"
