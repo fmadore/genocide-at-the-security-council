@@ -97,10 +97,10 @@ test('the page says whose reading this is before it draws anything', async ({ pa
 
 	// The cut and the empty column are stated rather than left to be noticed.
 	await expect(matrix.locator('p.disclosure')).toContainText(
-		'3 of 3 delegations with anything placed are drawn here'
+		'Showing 3 of 3 affiliations with assigned mentions.'
 	);
 	await expect(matrix.locator('p.disclosure')).toContainText(
-		'1 referent on the list is used by no delegation drawn here'
+		'1 column has no assigned mentions among the displayed rows.'
 	);
 
 	await expectNoAxeViolations(page);

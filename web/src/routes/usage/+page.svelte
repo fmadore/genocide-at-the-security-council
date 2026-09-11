@@ -795,8 +795,9 @@
 					meet the share threshold; the display also has a row limit.{/if}
 				{#if plan.disclosure.silent}{count(plan.disclosure.silent)} further affiliations have no assigned
 					mentions.{/if}
-				{#if plan.disclosure.emptyColumns}{count(plan.disclosure.emptyColumns)} columns have no assigned
-					mentions among the displayed rows.{/if}
+				{#if plan.disclosure.emptyColumns}{count(plan.disclosure.emptyColumns)}
+					{plan.disclosure.emptyColumns === 1 ? 'column has' : 'columns have'} no assigned mentions among
+					the displayed rows.{/if}
 			</p>
 		{/if}
 	</Figure>

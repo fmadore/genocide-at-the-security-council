@@ -33,6 +33,7 @@ Existing unit and browser test expectations were updated where they assert the r
 - Unit tests: 543 passed across 26 files.
 - Production build: passed; 13 static entry points and four manifest icons verified. Vite retains its bundle-size warning.
 - Browser inspection with current data: all nine views checked at three widths, with no browser exceptions or broken in-page links.
-- Browser regression suite: the first run returned 36 passes and nine failures against old wording. Those assertions were updated. Final reruns could not start the suite because Vite exceeded its server-start deadline; the last attempt also reported an internal SSR module-transport timeout. The updated suite is therefore not recorded as passing.
+- Browser regression suite: all 45 tests passed locally after the CI follow-up. The initial review was limited by Vite server-start timeouts; CI subsequently exposed two remaining stale disclosure assertions in one Usage-page test. Both assertions now match the revised wording, and the disclosure handles “1 column” correctly. Formatting, lint and Svelte checks were rerun successfully before the follow-up commit.
+- Service-worker browser test: passed locally on port 5184 after the default-port attempt timed out. The test verifies that a visited reader remains usable offline.
 
 This is an editorial and implementation-consistency review, not a new validation study of the models or corpus.
