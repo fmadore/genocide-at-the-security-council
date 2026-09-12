@@ -48,7 +48,7 @@ export function splitEvidenceQuery(
 const UNITS: readonly ChronologyUnit[] = ['speech_rate', 'token_rate', 'occurrences', 'speeches'];
 
 export const ATROCITY_COMPARISON = [
-	'genocide_qualification',
+	'genocide',
 	'ethnic_cleansing',
 	'crimes_against_humanity',
 	'war_crimes'

@@ -92,13 +92,11 @@ const corpus = (speakers: Speaker[], rows: CountryMeasureRow[], collisions = {})
 });
 
 describe('the headline the actor table opens on', () => {
-	/* The same rule as the chronology: the published measure is the derived
-	   `genocide_qualification`, the raw term minus its actor label, and an
-	   artefact written before v4 must still open on something. */
-	it('opens on the derived measure when the artefact carries one', () => {
+	/* Default counts use the full word family, including when both measures exist. */
+	it('opens on the full word family when the optional exclusion is also available', () => {
 		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
-		data.measures.genocide_qualification = data.measures.genocide;
-		expect(actorDefaults(data).measure).toBe('genocide_qualification');
+		data.measures.term_subset = data.measures.genocide;
+		expect(actorDefaults(data).measure).toBe('genocide');
 	});
 
 	it('falls back to the raw term when it does not', () => {
@@ -445,30 +443,19 @@ describe('the link into the concordance', () => {
 	});
 });
 
-/**
- * The file the "Read the occurrences" link asks for, against the files that exist.
- *
- * `countries.json` opens on the derived `genocide_qualification`. `08_kwic.py`
- * writes a concordance per active lexicon term and a derived measure is not one
- * — `config/lexicon.yml` says it "appears in no concordance" — so a link that
- * named the measure named a file that was never written, on every row of this
- * table. The URL was well formed and the failure waited for a reader's click,
- * which is why the check here is the concordance index rather than the
- * artefact. The raw term is published beside the derived measure and resolves
- * to itself, which is the case that must keep working unchanged.
- */
+/** Synthetic derived inputs exercise generic evidence-link compatibility. */
 describe('every link the actor table offers names a concordance that exists', () => {
 	/** What `kwic/index.json` lists, in miniature: a file per term, nothing derived. */
-	const HELD = new Set(['genocide', 'genocidaires', 'war_crimes']);
+	const HELD = new Set(['genocide', 'excluded_form', 'war_crimes']);
 
 	/** The published shape: the derived headline first, then the raw term it subtracts from. */
 	const published = () => {
 		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
 		data.measures = {
-			genocide_qualification: {
+			term_subset: {
 				kind: 'terms',
 				derived_from: 'genocide',
-				derived_minus: ['genocidaires'],
+				derived_minus: ['excluded_form'],
 				rows: [row('Rwanda', { speeches: 25, occurrences: 60 })]
 			},
 			genocide: { kind: 'terms', rows: [row('Rwanda', { speeches: 27, occurrences: 66 })] }
@@ -476,30 +463,27 @@ describe('every link the actor table offers names a concordance that exists', ()
 		return data;
 	};
 
-	it.each(['genocide', 'genocide_qualification'])(
-		'%s opens lines the concordance has a file for',
-		(name) => {
-			const data = published();
-			const entry = plan({ data, measure: name, period: 'all' }).rows[0];
-			const link = occurrences(data, name, entry)!;
-			expect(HELD).toContain(link.term);
-			expect(HELD).toContain(new URLSearchParams(link.query).get('term'));
-		}
-	);
+	it.each(['genocide', 'term_subset'])('%s opens lines the concordance has a file for', (name) => {
+		const data = published();
+		const entry = plan({ data, measure: name, period: 'all' }).rows[0];
+		const link = occurrences(data, name, entry)!;
+		expect(HELD).toContain(link.term);
+		expect(HELD).toContain(new URLSearchParams(link.query).get('term'));
+	});
 
 	it('resolves the derived measure to the term it subtracts from', () => {
 		const data = published();
-		const entry = plan({ data, measure: 'genocide_qualification', period: 'all' }).rows[0];
-		const link = occurrences(data, 'genocide_qualification', entry)!;
+		const entry = plan({ data, measure: 'term_subset', period: 'all' }).rows[0];
+		const link = occurrences(data, 'term_subset', entry)!;
 		expect(link.term).toBe('genocide');
 		expect(new URLSearchParams(link.query).get('country')).toBe('Rwanda');
 	});
 
 	// The link opens a superset, and this is what the interface names it by.
 	it('names the term whose lines open and what they hold beyond the measure', () => {
-		const wider = widening(published(), 'genocide_qualification')!;
+		const wider = widening(published(), 'term_subset')!;
 		expect(wider.term).toBe('genocide');
-		expect(wider.subtracted).toEqual(['genocidaires']);
+		expect(wider.subtracted).toEqual(['excluded_form']);
 		expect(widening(published(), 'genocide')).toBeNull();
 	});
 
@@ -508,7 +492,7 @@ describe('every link the actor table offers names a concordance that exists', ()
 	   subtracted term was its sole match. Both are read off the published rows,
 	   so a re-cut corpus moves them and no component holds a literal. */
 	it('sizes the subtraction from the rows the artefact publishes', () => {
-		const wider = widening(published(), 'genocide_qualification')!;
+		const wider = widening(published(), 'term_subset')!;
 		expect(wider.occurrences).toBe(6);
 		expect(wider.speeches).toBe(2);
 	});
@@ -516,7 +500,7 @@ describe('every link the actor table offers names a concordance that exists', ()
 	it('states no size where the artefact does not carry the term subtracted from', () => {
 		const data = published();
 		delete data.measures.genocide;
-		const wider = widening(data, 'genocide_qualification')!;
+		const wider = widening(data, 'term_subset')!;
 		expect(wider.term).toBe('genocide');
 		expect(wider.occurrences).toBeNull();
 		expect(wider.speeches).toBeNull();
@@ -529,7 +513,7 @@ describe('every link the actor table offers names a concordance that exists', ()
 		const bare = row('Rwanda', { speeches: 27 });
 		delete bare.occurrences;
 		data.measures.genocide = { kind: 'terms', rows: [bare] };
-		const wider = widening(data, 'genocide_qualification')!;
+		const wider = widening(data, 'term_subset')!;
 		expect(wider.occurrences).toBeNull();
 		expect(wider.speeches).toBe(2);
 	});

@@ -302,25 +302,7 @@ export interface EvidenceQuery {
 	scope: string;
 }
 
-/**
- * Which lexicon term a measure's `term=` may name.
- *
- * Almost always the measure itself: every published measure is one term since
- * lexicon v5, and `08_kwic.py` writes a concordance for each. The exception is
- * a *derived* measure — `genocide_qualification`, which is the site's headline
- * and the figure three views open on — and it is an exception no amount of
- * rebuilding will remove: a subtraction has no pattern and matches no span, so
- * no file was ever written for it, and `config/lexicon.yml` says as much where
- * the measure is declared, that it "enumerates no occurrence and appears in no
- * concordance". Its evidence is the term it subtracts from.
- *
- * Here rather than in each figure because three of them build these URLs — the
- * calendar grid, the annual chart and the actor table — and what `term=` is
- * allowed to hold is part of this module's contract rather than three separate
- * decisions that can drift apart. Resolving *widens* what opens: the minuend's
- * lines include the spans the measure takes out. Each of the three says so, off
- * `heatmap.widening` and `actors.widening`.
- */
+/** Resolve evidence links to a source term, including archived derived inputs. */
 export function evidenceTerm(
 	measure: string,
 	published: { derived_from?: string } | undefined

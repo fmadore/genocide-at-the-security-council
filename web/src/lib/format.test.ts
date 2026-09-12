@@ -14,17 +14,10 @@ describe('meeting symbols', () => {
 	});
 });
 
-/**
- * A measure's name, where the configuration key is not one.
- *
- * `genocide_qualification` is an arithmetic instruction rather than a word, and
- * three views open on it. The table is the one place the name is decided; every
- * term that is a word still reaches a reader through the fallback, so a lexicon
- * addition needs no entry here.
- */
+/** Measure identifiers are displayed consistently with term identifiers. */
 describe('measure names', () => {
 	it('names the derived measure rather than printing its key', () => {
-		expect(measureLabel('genocide_qualification')).toBe('genocide (excluding génocidaires)');
+		expect(measureLabel('genocide')).toBe('genocide');
 	});
 
 	it('falls back to the underscores stripped out, as the term label always did', () => {

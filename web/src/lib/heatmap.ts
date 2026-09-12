@@ -218,29 +218,7 @@ export interface EvidenceLink extends EvidenceQuery {
 	term: string;
 }
 
-/**
- * The lexicon terms a measure is counted from.
- *
- * One or none, now: a measure named in `terms` stands for itself, and anything
- * else stands for no term the concordance can open. Ten of the then thirty-two
- * measures were in that second case until lexicon v5 — six registers and four
- * sets — and the link this function exists to make honest used to send a reader
- * from `atrocity_core` to a file that does not exist and a retry button.
- *
- * **A derived measure stands for its minuend.** It reads as the first case and
- * is the second: `genocide_qualification` is published in `terms` and this
- * figure opens on it, but a subtraction has no pattern and matches no span, so
- * `08_kwic.py` — which writes a file per active *term* — never wrote one for
- * it, and `config/lexicon.yml` says as much in the `derived` block: such a
- * measure "enumerates no occurrence and appears in no concordance". Resolving
- * through `derived_from` is what stops the link from asking for that file. It
- * is not a silent redirect: the term it lands on holds *more* lines than the
- * measure counts, and `widening()` is what the interface says so with.
- *
- * Kept rather than inlined, because it is what the caller asks before it draws:
- * 384 squares cannot each carry several links, so a measure that resolves to
- * anything but one term declines to link at all and the figure says so.
- */
+/** Resolve evidence links to a source term, including archived derived inputs. */
 export function termsOf(data: MonthlySeries, measure: string): string[] {
 	const found = data.terms[measure];
 	if (!found) return [];
@@ -248,29 +226,7 @@ export function termsOf(data: MonthlySeries, measure: string): string[] {
 	return term in data.terms ? [term] : [];
 }
 
-/**
- * By how much the lines a measure opens are wider than the measure itself.
- *
- * Null for a measure that is its own term, which is every measure but one. For
- * a derived measure it is the difference the subtraction removes, and the
- * interface is obliged to state it: `genocide`'s concordance holds the
- * `genocidaires` spans `genocide_qualification` takes out, so a reader who
- * clicked a figure of the one and read the lines of the other would be counting
- * evidence the figure excluded.
- *
- * The size is the difference between the two published measures, not the
- * subtracted term's own totals, and the distinction is not pedantic: on this
- * corpus `genocidaires` appears in 13 speeches, but only 3 of them leave the
- * derived measure, because the other 10 also say the word in some other form
- * and are still counted. Reading the subtrahend's rows would have overstated
- * what the figure removes by a factor of four. Occurrences happen to agree —
- * every `genocidaires` span is removed — which is exactly why the speech
- * figure looked right when it was not.
- *
- * Both are read off published rows rather than written into a component, so a
- * later corpus moves them, and either is withheld — null, never a guess —
- * where the measures it needs do not both publish the count.
- */
+/** For archived derived inputs, report the difference from the source term. */
 export interface Widening {
 	/** The term whose concordance actually opens. */
 	term: string;

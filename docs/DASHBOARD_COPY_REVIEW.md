@@ -37,3 +37,9 @@ Existing unit and browser test expectations were updated where they assert the r
 - Service-worker browser test: passed locally on port 5184 after the default-port attempt timed out. The test verifies that a visited reader remains usable offline.
 
 This is an editorial and implementation-consistency review, not a new validation study of the models or corpus.
+
+## Headline follow-up — 12 September 2026
+
+The default measure now includes the full `genocid*` word family, matching the concordance. The current data contain 7,747 occurrences in 4,133 speeches (2.47%). The earlier exclusion removed 18 occurrences and three speeches, a distinction too minor to foreground in the introduction.
+
+The English records do contain the borrowed words `genocidaire` and `genocidaires`. The earlier display incorrectly used the accented French spelling, which the exclusion pattern does not match. Following review, lexicon v7 removes the separate term, subtraction and dashboard explanations entirely. All headline views and statistical summaries use the full word family. Word-form tables classify the borrowed words as nouns without a separate category. Original speech text, annotation records and the full-family matching pattern are unchanged.

@@ -179,22 +179,10 @@ class Term:
 
 @dataclass(frozen=True)
 class Derived:
-    """A measure obtained by subtracting terms from a term, not by matching.
+    """Generic subtraction of nested terms, retained for archived configurations.
 
-    It has no pattern, enumerates no occurrence and appears in no concordance.
-    It exists because *what a figure should report* and *what an occurrence is*
-    are different questions, and v4 needed to answer the first without touching
-    the second: `genocide` folds the actor label `genocidaires` into the count
-    of the word as event qualification, and narrowing its pattern to say so
-    would have moved every occurrence identity in the corpus — invalidating the
-    gold sample and four committed model runs — to move a published figure by
-    half a per cent. Subtracting reports the same number and costs nothing.
-
-    The subtraction is only sound where each subtrahend is `nested_under` the
-    minuend *and* the two patterns partition it. `load` checks the nesting;
-    nothing in a regex can check the partition, so `tests/test_config.py`
-    asserts it on the forms the corpus holds and :func:`apply` refuses a
-    negative result, which is what a broken partition looks like in the data.
+    The current lexicon contains no derived measures. Nesting is checked on
+    load, and application refuses a negative result.
     """
 
     name: str

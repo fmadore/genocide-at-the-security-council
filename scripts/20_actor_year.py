@@ -34,7 +34,7 @@ def annual_table(speeches: pd.DataFrame, measure: str, minimum: int = actors.MIN
 
 
 def run() -> None:
-    measures = ("genocide_qualification", "genocide")
+    measures = ("genocide",)
     columns = ["row_id", "year", "country_org", "meeting_symbol", "words", "tokens", *[c for m in measures for c in series.columns_for("terms", m)]]
     speeches = frames.read(SPEECHES_FLAGGED, columns=columns)
     table = pd.concat([annual_table(speeches, m) for m in measures], ignore_index=True)

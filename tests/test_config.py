@@ -308,76 +308,29 @@ class TestLexicon:
             assert regex.search(word), word
 
     def test_the_core_pattern_did_not_move_at_v4(self, lex):
-        """The decision behind the derived measure. Narrowing `genocide` to
-        exclude the actor label would move every occurrence identity in the
-        corpus and invalidate the gold sample and the four committed model
-        runs, for 31 occurrences in 6,092. It is not narrowed; the published
-        figure is a subtraction instead."""
+        """The unchanged full-family pattern preserves annotation compatibility."""
         term = lex.terms["genocide"]
         assert term.pattern == r"\bgenocid\w*"
         assert term.anchor is None
         assert term.pattern_since == 2, "editing this is what 15_usage.py refuses over"
         assert lex.compatible("genocide", 2), "the committed model runs record version 2"
 
-    def test_the_actor_label_lies_inside_the_core_term(self, lex):
-        """§3.4 of the review. `genocidaires` is measured on its own, but its
-        matches are a subset of `genocide`'s at the same spans, which is what
-        makes the subtraction a narrowing rather than two unrelated counts."""
-        actors = lex.terms["genocidaires"]
-        assert actors.nested_under == "genocide"
-        for word in ("genocidaire", "genocidaires", "Genocidaires"):
-            assert actors.regex.search(word), word
-            assert lex.terms["genocide"].regex.search(word), word
-
-    def test_the_actor_label_partitions_the_core_term_exactly(self, lex):
-        """The property the derived measure rests on, asserted rather than
-        asserted-in-a-comment: over the forms the corpus holds, `genocidaires`
-        matches once wherever the form is the actor label and never otherwise,
-        so `n_genocide - n_genocidaires` counts the qualifying uses and nothing
-        else."""
-        genocide, actors = lex.terms["genocide"], lex.terms["genocidaires"]
-        qualifying = ("genocide", "genocidal", "genocides", "genocida")
-        labelling = ("genocidaire", "genocidaires")
-        for word in qualifying + labelling:
-            for text in as_the_record_might_hold_it(f"the {word} of 1994"):
-                node = len(genocide.spans(text))
-                label = len(actors.spans(text))
-                assert node == 1, f"{word}: {text!r}"
-                assert label == (1 if word in labelling else 0), f"{word}: {text!r}"
-                assert node - label == (0 if word in labelling else 1), text
-
-    def test_the_derived_measure_is_the_subtraction_it_declares(self, lex):
-        """And it is computed, not copied: `apply` subtracts the columns."""
-        measure = lex.derived["genocide_qualification"]
-        assert measure.minuend == "genocide"
-        assert measure.subtrahends == ("genocidaires",)
-
-        bodies = pd.Series(
-            [
-                "The genocide in Rwanda.",
-                "They pursued the genocidaires across the border.",
-                "A genocide, and the genocidaires who committed it.",
-                "Nothing here at all.",
-            ]
-        )
+    def test_full_family_has_no_separate_perpetrator_measure(self, lex):
+        assert "genocidaires" not in lex.terms
+        assert not lex.derived
+        bodies = pd.Series([
+            "The genocide in Rwanda.",
+            "They pursued the genocidaires across the border.",
+            "A genocide, and the genocidaires who committed it.",
+            "Nothing here at all.",
+        ])
         counts = lexicon.apply(bodies, lex)
         assert counts["n_genocide"].tolist() == [1, 1, 2, 0]
-        assert counts["n_genocidaires"].tolist() == [0, 1, 1, 0]
-        assert counts["n_genocide_qualification"].tolist() == [1, 0, 1, 0]
-        assert counts["has_genocide_qualification"].tolist() == [True, False, True, False]
-
-    def test_the_derived_measure_is_the_only_arithmetic_over_two_terms(self, lex):
-        """And it subtracts rather than adds. R7 took every sum out of `apply`;
-        what is left is one column per term, one per derived measure, and no
-        column whose movement a reader cannot attribute to a word."""
-        bodies = pd.Series(["A genocide, and the genocidaires who committed it."])
-        counts = lexicon.apply(bodies, lex)
-        assert int(counts["n_genocide"].iloc[0]) == 2
-        assert int(counts["n_genocidaires"].iloc[0]) == 1
-        assert int(counts["n_genocide_qualification"].iloc[0]) == 1
-        summed = [c for c in counts.columns if c.startswith(("n_register_", "has_register_",
-                                                             "has_set_", "n_lexicon_"))]
-        assert summed == []
+        assert counts["has_genocide"].tolist() == [True, True, True, False]
+        assert "n_genocidaires" not in counts
+        assert "n_genocide_qualification" not in counts
+        assert not any(c.startswith(("n_register_", "has_register_", "has_set_", "n_lexicon_"))
+                       for c in counts.columns)
 
     def test_the_repaired_terms_no_longer_match_what_the_review_found(self, lex):
         """The five noisy terms of §3.4, each against the phrase that was

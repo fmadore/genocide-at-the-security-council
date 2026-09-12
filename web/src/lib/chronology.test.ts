@@ -23,45 +23,36 @@ const choices: ChronologyChoices = {
 };
 
 describe('the headline the chronology opens on', () => {
-	/* Since lexicon v4 the published headline is the derived
-	   `genocide_qualification` — the `genocide` term minus its `genocidaires`
-	   actor label. A reader who opens the page with no query string must land
-	   on it, and a reader of an artefact that predates it must still land on
-	   something drawable. */
+	/* Prefer the full word family while preserving explicit archived selections. */
 	const withDerived: ChronologyChoices = {
 		series: {
-			year: ['genocide', 'genocide_qualification', 'war_crimes'],
-			quarter: ['genocide', 'genocide_qualification', 'war_crimes']
+			year: ['genocide', 'term_subset', 'war_crimes'],
+			quarter: ['genocide', 'term_subset', 'war_crimes']
 		},
 		calendar: {
 			genocide: ['speech_rate'],
-			genocide_qualification: ['speech_rate', 'token_rate']
+			term_subset: ['speech_rate', 'token_rate']
 		},
 		splits: ['none']
 	};
 	const withAtrocityComparison: ChronologyChoices = {
 		...withDerived,
 		series: {
-			year: ['genocide_qualification', 'ethnic_cleansing', 'crimes_against_humanity', 'war_crimes'],
-			quarter: [
-				'genocide_qualification',
-				'ethnic_cleansing',
-				'crimes_against_humanity',
-				'war_crimes'
-			]
+			year: ['genocide', 'ethnic_cleansing', 'crimes_against_humanity', 'war_crimes'],
+			quarter: ['genocide', 'ethnic_cleansing', 'crimes_against_humanity', 'war_crimes']
 		}
 	};
 
-	it('opens on the derived measure, not the raw term', () => {
+	it('opens on the full word family when both measures are available', () => {
 		const state = readChronologyState(new URLSearchParams(''), withDerived);
-		expect(state.series).toEqual(['genocide_qualification']);
-		expect(state.calendarMeasure).toBe('genocide_qualification');
+		expect(state.series).toEqual(['genocide']);
+		expect(state.calendarMeasure).toBe('genocide');
 	});
 
 	it('opens the R8 comparison as four explicit terms when all are available', () => {
 		const state = readChronologyState(new URLSearchParams(''), withAtrocityComparison);
 		expect(state.series).toEqual([
-			'genocide_qualification',
+			'genocide',
 			'ethnic_cleansing',
 			'crimes_against_humanity',
 			'war_crimes'
@@ -74,9 +65,9 @@ describe('the headline the chronology opens on', () => {
 		expect(state.calendarMeasure).toBe('genocide');
 	});
 
-	it('still lets a reader ask for the raw term', () => {
-		const state = readChronologyState(new URLSearchParams('series=genocide'), withDerived);
-		expect(state.series).toEqual(['genocide']);
+	it('still lets a reader select the explicit alternative measure', () => {
+		const state = readChronologyState(new URLSearchParams('series=term_subset'), withDerived);
+		expect(state.series).toEqual(['term_subset']);
 	});
 });
 

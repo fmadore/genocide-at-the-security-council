@@ -494,28 +494,19 @@ def classify(text: str) -> str:
 
 # --- The second axis: the wordform itself ---------------------------------
 #
-# `\bgenocid\w*` folds four things into one count. §3.4 of the review makes the
-# point about `genocidaire(s)`, which is an actor label for the ex-FAR and
-# Interahamwe in the DRC debates and not the word as event qualification at all;
-# the two model runs disagree on exactly those rows. The categories below were
-# fixed after counting what the corpus actually holds — 5,685 `genocide`, 313
-# `genocidal`, 62 `genocides`, 29 `genocidaires`, 2 `genocidaire`, 1 `genocida`
-# — and `other` exists because the last of those is a real OCR spelling that a
-# closed vocabulary would have had to either swallow or crash on.
+# Surface forms are grouped grammatically; every form remains in the word-family total.
 
 #: The morphological categories, in the order a table lists them.
-FORMS: Final[tuple[str, ...]] = ("noun", "adjective", "perpetrator_noun", "other")
+FORMS: Final[tuple[str, ...]] = ("noun", "adjective", "other")
 
 _MORPHOLOGY: Final[tuple[tuple[re.Pattern[str], str], ...]] = (
-    # Before the adjective: `genocidaire` would otherwise be read as one.
-    (re.compile(r"^genocidaires?$", re.IGNORECASE), "perpetrator_noun"),
     (re.compile(r"^genocidal(ly)?$", re.IGNORECASE), "adjective"),
-    (re.compile(r"^genocides?$", re.IGNORECASE), "noun"),
+    (re.compile(r"^genocid(?:es?|aires?)$", re.IGNORECASE), "noun"),
 )
 
 
 def morphology(keyword: str) -> str:
-    """The wordform's category: noun, adjective, perpetrator noun, or other.
+    """The wordform's category: noun, adjective, or other.
 
     `other` is not a failure. It is where a form the categories were not built
     for arrives, and the step publishes every surface form with its count beside

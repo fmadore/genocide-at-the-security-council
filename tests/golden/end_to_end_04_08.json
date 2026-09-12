@@ -458,110 +458,6 @@
     0
    ]
   },
-  "genocide_qualification": {
-   "occurrences": [
-    3,
-    3,
-    4,
-    1,
-    1,
-    1,
-    2,
-    1,
-    0,
-    2,
-    0,
-    1,
-    1,
-    1,
-    1,
-    3,
-    2,
-    1,
-    2,
-    2,
-    0,
-    2,
-    2,
-    0,
-    1,
-    0,
-    1,
-    1,
-    0,
-    0,
-    0,
-    2
-   ],
-   "speeches": [
-    3,
-    3,
-    4,
-    1,
-    1,
-    1,
-    2,
-    1,
-    0,
-    2,
-    0,
-    1,
-    1,
-    1,
-    1,
-    3,
-    2,
-    1,
-    2,
-    2,
-    0,
-    2,
-    2,
-    0,
-    1,
-    0,
-    1,
-    1,
-    0,
-    0,
-    0,
-    2
-   ],
-   "token_rate": [
-    288.4615,
-    234.375,
-    416.6667,
-    80.6452,
-    83.3333,
-    80.6452,
-    161.2903,
-    96.1538,
-    0.0,
-    192.3077,
-    0.0,
-    83.3333,
-    89.2857,
-    80.6452,
-    78.125,
-    267.8571,
-    147.0588,
-    92.5926,
-    147.0588,
-    178.5714,
-    0.0,
-    178.5714,
-    156.25,
-    0.0,
-    86.2069,
-    0.0,
-    73.5294,
-    78.125,
-    0.0,
-    0.0,
-    0.0,
-    178.5714
-   ]
-  },
   "periods": [
    1992,
    1993,
@@ -2648,10 +2544,6 @@
      "occurrences": 0
     },
     {
-     "category": "perpetrator_noun",
-     "occurrences": 0
-    },
-    {
      "category": "other",
      "occurrences": 0
     }
@@ -2663,7 +2555,7 @@
      "occurrences": 41
     }
    ],
-   "rule": "The node's pattern enumerates every `genocid\u2026` form, and the four categories below partition those occurrences exactly: they sum to the same total the concordance and 03's count report. The perpetrator noun is the one that does not belong with the rest \u2014 `genocidaire(s)` is an actor label for the ex-FAR and Interahamwe in the Great Lakes debates, not the word applied to an event \u2014 so the count of the word as event qualification is the total less those. Both numbers are published here rather than one of them, because the enumeration this artefact is cut from is the whole pattern and the headline the study quotes is not."
+   "rule": "Every matched word form remains in the total. Noun, adjective and other categories partition the same occurrences counted by the concordance."
   },
   "occurrences": 41,
   "slices": {
@@ -3767,7 +3659,7 @@
   }
  },
  "inference": {
-  "genocide_qualification": {
+  "genocide": {
    "speech_rate": {
     "accepted": false,
     "after": 0.03597122302158273,

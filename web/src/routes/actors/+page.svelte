@@ -19,8 +19,7 @@
 		orderings,
 		plan,
 		points,
-		readActorState,
-		widening
+		readActorState
 	} from '$lib/actors';
 	import type { MapPoint, Ordering } from '$lib/actors';
 	import type { CountryMeasureRow } from '$lib/types';
@@ -42,7 +41,7 @@
 	let { data }: { data: PageData } = $props();
 	const artefact = $derived(data.countries);
 
-	let measure = $state('genocide_qualification');
+	let measure = $state('genocide');
 	let period = $state('all');
 	let order = $state<Ordering>('speech_rate');
 	let selected = $state<string | null>(null);
@@ -51,10 +50,6 @@
 
 	const measures = $derived(Object.keys(artefact.measures));
 	const shared = $derived(ambiguous(artefact));
-	/* The published measure is a subtraction and no concordance enumerates one,
-	   so a link resolves to the term it subtracts from — which holds the spans
-	   the measure removes as well as the ones it counts. The aside says so. */
-	const wider = $derived(widening(artefact, measure));
 	const result = $derived(plan({ data: artefact, measure, period, order }));
 	const pageSize = 20;
 	let rankingPage = $state(1);
@@ -411,12 +406,12 @@
 		download={{ name: ['unsc', measure, period, 'speakers'], table }}
 	>
 		{#snippet controls()}
-			<label>
-				Measure
-				<select bind:value={measure}>
-					{#each measures as name (name)}<option value={name}>{measureLabel(name)}</option>{/each}
-				</select>
-			</label>
+			{#if measures.length > 1}<label>
+					Measure
+					<select bind:value={measure}>
+						{#each measures as name (name)}<option value={name}>{measureLabel(name)}</option>{/each}
+					</select>
+				</label>{/if}
 			<label>
 				Period
 				<select bind:value={period}>
@@ -439,10 +434,6 @@
 				speeches; wider intervals mean less precise estimates. Select a row to locate the
 				affiliation on the map, or a dot to find its row. An asterisk marks a shared country code.
 			</p>
-			{#if wider}<p>
-					This measure excludes <em>{wider.subtracted.map(measureLabel).join(' and ')}</em>.
-					<a href="{resolve('/methods')}#derived-measure">Counting rule</a>.
-				</p>{/if}
 		{/snippet}
 
 		{#snippet caveat()}
@@ -459,11 +450,7 @@
 				The minimum applies to total speeches in the selected period, regardless of the term. This
 				prevents a few speeches from dominating the rate ranking.
 			</p>
-			{#if wider}<p>
-					<em>Génocidaires</em> names perpetrators. Excluding that word separates forms; the
-					remaining matches still include quotations, denials and legal discussion. {#if wider.speeches !== null}The
-						exclusion removes {count(wider.speeches)} speeches whose only matches were the excluded forms.{/if}
-				</p>{/if}{#if unmapped.length}<p>
+			{#if unmapped.length}<p>
 					{count(unmapped.length)} ranked affiliations have no map position and remain in the table. Historical
 					states may share a location with a successor, while retaining separate counts.
 				</p>{/if}{#each collisions as [code, holders] (code)}<p>
@@ -653,10 +640,8 @@
 				{/each}
 			</dl>
 			<p class="scoped">
-				The occurrence link keeps this affiliation and {result.period?.label ?? period}. {#if wider}It
-					opens all matches for <em>{measureLabel(wider.term)}</em>, including
-					<em>{wider.subtracted.map(measureLabel).join(' and ')}</em>, which the displayed rate
-					excludes.{/if} The Usage link opens model classifications for this affiliation.
+				The occurrence link keeps this affiliation and {result.period?.label ?? period}. The Usage
+				link opens model classifications for this affiliation.
 			</p>
 		</aside>
 	{/if}

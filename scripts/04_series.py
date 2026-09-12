@@ -59,13 +59,8 @@ from lib.paths import (
 #: phrases are dated one at a time in the artefact like every other term, and
 #: R8's genocide-free corpus is published beside them as a population.
 #:
-#: The headline is the *derived* measure, `genocide` minus `genocidaires`,
-#: since lexicon v4: a delegation calling the ex-FAR génocidaires is naming who
-#: did it, not qualifying the event, and 31 occurrences of the raw term are
-#: that. The raw term keeps its own series in the artefact beside this one, and
-#: the concordance enumerates it, so nothing is hidden by the choice — see
-#: `config/lexicon.yml`'s `derived` block.
-TRACKED = [("terms", "genocide_qualification")]
+#: All headline tests use the full word-family count, matching the concordance.
+TRACKED = [("terms", "genocide")]
 
 #: R8's comparison corpus. These are phrases with determinate legal meanings,
 #: not the broader convenience set in the lexicon. A speech enters once when it
@@ -622,7 +617,7 @@ def build_change_points(
         for kind, name in TRACKED
     ]
     model_specs.append(
-        ("terms", "genocide_qualification", "token_rate", "occurrences", "words", "poisson")
+        ("terms", "genocide", "token_rate", "occurrences", "words", "poisson")
     )
     adjusted_alpha = alpha / len(model_specs)
     position = {label: index for index, label in enumerate(periods)}

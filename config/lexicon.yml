@@ -85,6 +85,12 @@
 # Changing this file changes every downstream count. Bump `version` and record
 # what moved.
 #
+# v7 — 2026-09-12
+#   Retire the separate perpetrator term and its derived subtraction. All
+#   genocide counts use the unchanged full word-family pattern. Occurrence
+#   identifiers and annotation compatibility remain unchanged.
+#   The v4 notes below describe the retired approach, not current outputs.
+#
 # v5 — 2026-09-07
 #   Item R7 of the roadmap. The file stops offering groups of terms as things
 #   to count, and starts saying how the terms it holds stand in law.
@@ -157,8 +163,8 @@
 #   - no `pattern` changed: every term keeps `pattern_since: 2`, so the gold
 #     sample and the committed model runs recorded against v2 remain valid.
 
-version: 6
-updated: 2026-09-07
+version: 7
+updated: 2026-09-12
 
 terms:
   aggression:
@@ -185,36 +191,10 @@ terms:
     pattern_since: 2
     intensity: 5
     note: >
-      The node word in every form, and the enumeration everything keyed to an
-      occurrence stands on: 6,092 occurrences across 3,273 speeches, the same
-      spans and the same occurrence identities as v2 and v3. Its pattern is
-      deliberately unchanged at v4. The actor label `genocidaires` sits inside
-      it and is measured separately, and the figure the site publishes as the
-      word *qualifying an event* is the derived `genocide_qualification`, which
-      is this term minus that one. Editing this pattern would invalidate the
-      gold sample and every committed model run — see `Lexicon.compatible` —
-      and a 0.5% construct improvement does not buy that.
-
-  genocidaires:
-    pattern: '\bgenocidaires?\b'
-    prefilters: [genocidaire]
-    examples: [genocidaire, genocidaires]
-    tier: core
-    register: core
-    pattern_since: 4
-    nested_under: genocide
-    note: >
-      The actor label, almost always for the ex-FAR and Interahamwe in the
-      Great Lakes debates: 31 occurrences across 21 speeches, 5 of which say
-      nothing else `genocid*` matches. Calling a militia leader a génocidaire
-      says something about who did it, not about whether the Council is calling
-      the event a genocide, and the two model runs disagree on exactly these
-      occurrences. Given its own term at v4 so that it can be counted, read and
-      subtracted; declared `nested_under: genocide` so that no roll-up counts
-      its spans twice. Deliberately ASCII: the French spelling *génocidaires*
-      occurs 8 further times and is left out for the same reason the
-      OCR-tolerant net is held back — absorbing a spelling no earlier count
-      held would confound the split with a widening.
+      Counts the full genocide word family, including genocide, genocidal,
+      genocides and borrowed forms present in the English records. The pattern
+      remains unchanged since version 2, preserving occurrence identifiers and
+      compatibility with existing annotations.
 
   genocide_ocr_variants:
     pattern: '\b(?:gen[eo]cid|senocid|qenocid)\w*'
@@ -591,41 +571,3 @@ terms:
       literature reaches for when it wants to avoid the legal term. 158
       occurrences across 149 speeches. Not anchored, for the same reason
       `massacre` is not.
-
-# Measures obtained by subtracting one term from another rather than by matching
-# anything. A derived measure has no pattern, enumerates no occurrence and
-# appears in no concordance: it is a statement about what a published *figure*
-# should be, kept apart from what an *occurrence* is. That separation is the
-# point. Editing `genocide` so that it stopped matching the actor label would
-# have moved every occurrence identity in the corpus and invalidated the gold
-# sample and all four committed model runs, for a construct improvement of half
-# a per cent; subtracting instead costs nothing and says the same thing.
-#
-# `minus` must be `nested_under` `from`, and the two patterns must partition
-# `from`'s matches — every string one matches, the other does not, and between
-# them they match what the parent does. Nothing in a regex can prove that, so
-# `tests/test_config.py` asserts it directly on the forms the corpus holds, and
-# `lib/lexicon.py::apply` refuses at runtime if the subtraction ever goes
-# negative, which is what a broken partition would look like in the data.
-derived:
-  genocide_qualification:
-    from: genocide
-    minus: [genocidaires]
-    tier: core
-    register: core
-    note: >
-      The word as qualification of an event: `genocide` minus the actor label.
-      7,729 occurrences across 4,130 speeches, against the 7,747 across 4,133
-      of the raw term. This is the figure the chronology, the change-point
-      tests and the actor table publish, because a delegation calling the
-      ex-FAR *génocidaires* is naming who did it rather than saying the Council
-      should call the event a genocide. The two committed model runs disagreed
-      on exactly this set of occurrences, which is the observation the measure
-      was built on; they annotated the 1992-2023 corpus and have not been
-      remade, so that is a statement about the runs and not about the 18 spans
-      counted here. The raw term stays published beside it and
-      is what the concordance enumerates, so the difference is always one
-      subtraction away and the evidence for it is 18 readable lines under
-      `genocidaires` — which is also what a figure of this measure opens when a
-      reader asks to read it, since a subtraction has no concordance of its own.
-      Every count here is on the pinned 1946-2024 corpus, and moves with it.

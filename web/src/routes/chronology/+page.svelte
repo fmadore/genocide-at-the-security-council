@@ -35,8 +35,7 @@
 		measures as monthlyMeasures,
 		pooledEvidence,
 		termsOf,
-		units as monthlyUnits,
-		widening
+		units as monthlyUnits
 	} from '$lib/heatmap';
 	import type { CalendarRow, Cell, Unit as GridUnit } from '$lib/heatmap';
 	import {
@@ -93,7 +92,7 @@
 	let unit = $state<Unit>('speech_rate');
 	let grain = $state<'year' | 'quarter'>('year');
 	let selected = $state<string[]>([
-		'genocide_qualification',
+		'genocide',
 		'ethnic_cleansing',
 		'crimes_against_humanity',
 		'war_crimes'
@@ -198,7 +197,7 @@
 	   thousands of speeches and a month need not, so this artefact is the one
 	   that can withhold a figure — and the figure it feeds is the one where a
 	   blank square would be read as a measurement. */
-	let gridMeasure = $state('genocide_qualification');
+	let gridMeasure = $state('genocide');
 	let gridUnit = $state<GridUnit>('speech_rate');
 
 	const byMonth = $derived(data.month);
@@ -243,12 +242,6 @@
 	   note under the table says which case a reader is in. */
 	const gridTerms = $derived(termsOf(byMonth, gridMeasure));
 	const linkable = $derived(gridTerms.length === 1);
-	/* The measure this figure opens on is a subtraction, and a subtraction has no
-	   concordance: the link resolves to the term it subtracts from, which holds
-	   the spans the measure removes as well as the ones it counts. What follows
-	   is how much wider that is, read off the artefact so the sentence cannot
-	   drift from the corpus the way a number written here would. */
-	const wider = $derived(widening(byMonth, gridMeasure));
 	const cellLink = (cell: Cell) =>
 		linkable ? (evidence(byMonth, gridMeasure, cell)[0] ?? null) : null;
 	const rowLink = (row: CalendarRow) =>
@@ -446,15 +439,6 @@
 	const allMeasures = $derived<Record<string, Measure & { kind: string }>>(
 		Object.fromEntries(Object.entries(source.terms).map(([k, v]) => [k, { ...v, kind: 'term' }]))
 	);
-
-	/* The terms behind the drawn lines, where a line is a subtraction rather
-	   than a term. Named in the reading note so that a reader who clicks a point
-	   knows whose lines opened; see `drillChronology`. */
-	const drawnTerms = $derived([
-		...new Set(
-			selected.map((name) => allMeasures[name]?.derived_from).filter((name) => name !== undefined)
-		)
-	]);
 
 	/* The picker, grouped: one group per register, holding that register's terms.
 	   The register itself used to be selectable here, and so did four named sets;
@@ -740,7 +724,7 @@
 	});
 
 	const splitBlock = $derived(
-		split === 'none' ? null : (data.splits.measures.genocide_qualification?.[split] ?? null)
+		split === 'none' ? null : (data.splits.measures.genocide?.[split] ?? null)
 	);
 
 	const splitChart: EChartsOption | null = $derived.by(() => {
@@ -827,9 +811,7 @@
 	});
 
 	function splitHref(row: BreakdownRow): string | null {
-		/* The raw term, not the derived measure: a derived measure enumerates
-		   no occurrence, and the lines behind this rate are `genocide`'s. The
-		   18 that are the actor label read under `genocidaires`. */
+		/* Passage links use the same full word-family count. */
 		const link = splitEvidenceQuery('genocide', split, row.category, row.period);
 		return link ? `${resolve('/concordance')}?${link.query}` : null;
 	}
@@ -850,8 +832,8 @@
 		{ title: 'Who says it, and in what debate' }
 	];
 
-	const genocideBreaks = $derived(data.breaks.series.genocide_qualification ?? {});
-	const genocideInference = $derived(data.breaks.inference.series.genocide_qualification ?? {});
+	const genocideBreaks = $derived(data.breaks.series.genocide ?? {});
+	const genocideInference = $derived(data.breaks.inference.series.genocide ?? {});
 
 	function drillChronology(params: { name?: string; seriesName?: string }) {
 		if (!params.name || !params.seriesName) return;
@@ -860,10 +842,7 @@
 		);
 		if (!internal) return;
 		const year = params.name.slice(0, 4);
-		/* The term, not always the measure. A drawn line may be a subtraction,
-		   and a subtraction has no concordance to open; it opens the lines of
-		   the term it subtracts from, which the reading note names. The same
-		   resolution the calendar grid makes, for the same reason. */
+		/* Resolve each plotted term to its concordance. */
 		const term = evidenceTerm(internal, allMeasures[internal]);
 		void goto(`${resolve('/concordance')}?term=${term}&from=${year}&to=${year}`);
 	}
@@ -971,10 +950,6 @@
 				the chart; drag the bar below the axis to zoom. Select a point to read that period's
 				passages.
 			</p>
-			{#if drawnTerms.length}<p>
-					For measures excluding <em>génocidaires</em>, passage links include all forms of the
-					original term.
-				</p>{/if}
 		{/snippet}
 		{#snippet caveat()}
 			<p>
@@ -1181,9 +1156,8 @@
 				<summary><Icon icon={ChevronRight} />View the grid as a table</summary>
 				<p class="hint">
 					A dash marks a month with no published rate. {#if linkable}Links open that month's
-						matching passages, including months below the rate threshold. {#if wider}They include
-							all forms of <em>{measureLabel(wider.term)}</em>, including the forms this measure
-							excludes.{/if}{:else}Select an individual term above to open matching passages.{/if}
+						matching passages, including months below the rate threshold.
+					{:else}Select an individual term above to open matching passages.{/if}
 				</p>
 				<table>
 					<thead>
@@ -1252,12 +1226,6 @@
 		{#if column.refusal}
 			<p class="empty">This measure has no pooled-month figures.</p>
 		{:else}
-			{#if linkable && wider}
-				<p class="hint">
-					Month links open all forms of <em>{measureLabel(wider.term)}</em>, including those
-					excluded from the displayed measure.
-				</p>
-			{/if}
 			<table class="calendar">
 				<thead>
 					<tr>

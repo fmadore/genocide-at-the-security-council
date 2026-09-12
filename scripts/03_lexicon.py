@@ -13,11 +13,7 @@ Three things this step reports rather than hides:
   4,133 speeches / 7,747 occurrences (docs/CORPUS.md). Counting on the body
   instead of the raw text does not move that; a difference is either the form
   of address eating real words or a deliberate change of pattern, and the note
-  says which. Since lexicon v4 three terms differ on purpose — `genocide`
-  leaves the actor label to `genocidaires`, `holocaust` drops *nuclear
-  holocaust*, and `ethnic_violence` is anchored to the sentence — and the sum
-  of `genocide` and `genocidaires` still reproduces the documented union
-  exactly.
+  says which. The full genocide word-family pattern is unchanged.
 - **A precision sample.** Generated candidates and human annotations are kept
   separate, then joined by stable occurrence identity for review. A pipeline
   rerun never writes the versioned annotation file.
@@ -55,8 +51,7 @@ from lib.paths import (
 #:
 #: The figures are the reconnaissance baseline and are deliberately not moved
 #: when the lexicon is: they are what makes a version's effect legible. Since
-#: v4 the ones that differ are `genocide` (the actor label left to
-#: `genocidaires`), `holocaust` (*nuclear holocaust* dropped) and
+#: v4 the ones that differ include `holocaust` (*nuclear holocaust* dropped) and
 #: `ethnic_violence` — the term v3 called `ethnic_hatred`, listed here under
 #: its new name so the comparison survives the rename.
 DOCUMENTED: dict[str, tuple[int, int]] = {

@@ -89,7 +89,6 @@ function artefact(): NodeFrames {
 			categories: [
 				{ category: 'noun', occurrences: 90 },
 				{ category: 'adjective', occurrences: 10 },
-				{ category: 'perpetrator_noun', occurrences: 0 },
 				{ category: 'other', occurrences: 0 }
 			],
 			forms: [
@@ -283,6 +282,6 @@ describe('the morphological split', () => {
 	});
 
 	it('leaves out a category the corpus never used', () => {
-		expect(morphology(artefact()).map((row) => row.category)).not.toContain('perpetrator_noun');
+		expect(morphology(artefact()).map((row) => row.category)).not.toContain('other');
 	});
 });

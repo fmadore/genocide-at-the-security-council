@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { count, matchedOn, measureLabel, percent } from '$lib/format';
+	import { count, matchedOn, percent } from '$lib/format';
 	import PageMeta from '$lib/PageMeta.svelte';
 	import { PAGE_METADATA } from '$lib/seo';
 	import type { PageData } from './$types';
@@ -14,31 +14,6 @@
 		speeches: sum(data.series.corpus.speeches),
 		words: sum(data.series.corpus.words),
 		meetings: sum(data.series.corpus.meetings)
-	});
-
-	/**
-	 * The one published measure that is not a word, and the size of what it takes out.
-	 *
-	 * The explanation lived in `config/lexicon.yml`'s `derived` block, which is
-	 * the right place for the rule and no place at all for a reader: the site
-	 * showed a subtraction and never said what was subtracted. The arithmetic is
-	 * read off the annual series here rather than written down, so a re-cut
-	 * corpus moves the figures, and null where an artefact carries no such
-	 * measure — an archived payload keys the raw term and nothing derived.
-	 */
-	const subtraction = $derived.by(() => {
-		const [name, measure] =
-			Object.entries(data.series.terms).find(([, term]) => term.derived_from) ?? [];
-		const raw = measure?.derived_from ? data.series.terms[measure.derived_from] : undefined;
-		if (!name || !measure || !raw || !measure.occurrences || !raw.occurrences) return null;
-		return {
-			name,
-			from: measure.derived_from!,
-			minus: measure.derived_minus ?? [],
-			occurrences: sum(raw.occurrences),
-			removed: sum(raw.occurrences) - sum(measure.occurrences),
-			speeches: sum(raw.speeches) - sum(measure.speeches)
-		};
 	});
 
 	const lines = $derived(data.kwic.terms.reduce((a, t) => a + t.count, 0));
@@ -285,8 +260,8 @@
 	<p>
 		The search list is defined in <code>config/lexicon.yml</code>. Its patterns include spelling
 		variants: <code>genocid*</code>, for example, captures forms such as <em>genocide</em>,
-		<em>genocidal</em>
-		and <em>génocidaires</em>. The raw pattern appears in {percent(
+		<em>genocidal</em> and <em>genocides</em>. This word-family count is the default across the
+		overview, chronology and actors pages. It appears in {percent(
 			sum(data.series.terms.genocide.speeches) / totals.speeches
 		)} of speeches.
 	</p>
@@ -296,23 +271,6 @@
 		They do not classify a speech's purpose, and the term charts show individual terms separately. A
 		match alone cannot establish that a speaker alleged, endorsed or denied genocide.
 	</p>
-
-	{#if subtraction}
-		<h3 id="derived-measure">Why génocidaires is counted separately</h3>
-		<p>
-			<em>{measureLabel(subtraction.name)}</em> removes <em>génocidaire</em> and
-			<em>génocidaires</em>, labels for perpetrators, from the broader
-			<code>{subtraction.from}</code>
-			pattern. This removes {count(subtraction.removed)} of {count(subtraction.occurrences)} occurrences,
-			including {count(subtraction.speeches)} speeches whose only matches were those forms.
-		</p>
-		<p>
-			This subtraction distinguishes word forms. The remaining matches can still include denials,
-			quotations and abstract legal discussion; they are not all allegations about an event.
-			Concordance links open the raw pattern, including the excluded forms. The original match
-			identifiers remain stable for annotations and citations.
-		</p>
-	{/if}
 
 	<h3 id="change-points">Testing for a change over time</h3>
 	<p>

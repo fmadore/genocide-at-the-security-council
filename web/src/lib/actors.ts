@@ -319,43 +319,7 @@ export interface ConcordanceLink {
 	query: string;
 }
 
-/**
- * Where to read the occurrences a row counts.
- *
- * `docs/PLAN.md` §3 asks for "quotations linked to the concordance and source
- * reader", and a link that reaches the concordance without carrying the speaker
- * does not answer it: a reader sent from a rate arrives at every line of the
- * corpus and has to rebuild the filter by hand. The concordance already reads
- * `term`, `country`, `from` and `to` from the URL, so the filter is expressible;
- * what was missing is a caller that expresses it.
- *
- * Two rules, both of which can be got wrong in ways that look right:
- *
- * **No link when there is nothing to read.** A speaker can clear the minimum and
- * still never use the term. Offering "read the occurrences" for none of them
- * sends a reader to an empty table to discover what the row already said. The
- * test is the term-bearing speech count rather than the occurrence count: a
- * measure may withhold its occurrences, and `undefined < 1` is false, so the
- * obvious guard would let such a row through while appearing to check.
- *
- * **The period travels with the link.** The rate a reader is reading is for one
- * period, so the years bound the concordance too. Sending a period-specific rate
- * to the full corpus range would show lines the figure never counted.
- *
- * One link or none. It returned a list until R7, because `atrocity_core` summed
- * five terms while the concordance shows one, and a single link would have
- * presented a fifth of the evidence as all of it. Every measure is one term now,
- * so the list would have exactly one member on every row that has any, and a
- * shape that can only be one thing should say so.
- *
- * **The measure is not always the term.** The measure this table opens on is
- * the derived `genocide_qualification`, which no concordance enumerates —
- * `08_kwic.py` writes a file per active lexicon term and a subtraction is not
- * one. Naming the measure in the URL named a file that was never written, on
- * every row. The link resolves through `derived_from` instead, which widens what
- * opens; `widening()` is what the interface names that widening by. The raw term
- * is a selectable measure here too, and for it the resolution is the identity.
- */
+/** Resolve evidence links to a source term, including archived derived inputs. */
 export function occurrences(
 	data: Countries,
 	measure: string,

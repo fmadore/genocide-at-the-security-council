@@ -60,27 +60,12 @@ from lib.paths import (
 #: genocide-free corpus is a population with the same property — but no measure
 #: in this artefact is a roll-up over terms any more.
 #:
-#: R7 left the list one entry long, and a selector offering one option is a
-#: control that controls nothing: the actor view could choose the subtraction
-#: and could not choose the word it is a subtraction of, while the chronology
-#: published both. The raw term is here so the two views can be read against
-#: each other, and so that the difference between them — 18 occurrences — is a
-#: figure this artefact carries rather than a claim a component makes.
-#:
-#: **The derived measure stays first.** :data:`HEADLINE` is `TRACKED[0][1]`, and
-#: it decides what the table opens on, what it reconciles against and whose
-#: prevalence sets the minimum. Appending is safe; prepending would silently
-#: change what every published `/actors` URL without a `measure=` means.
+#: One word-family count, also used by the chronology and concordance.
 TRACKED: list[tuple[str, str]] = [
-    ("terms", "genocide_qualification"),
     ("terms", "genocide"),
 ]
 
-#: The measure the table opens on, reconciles against and derives its
-#: withholding rule from: the first tracked one. Named once, because the
-#: rehearsal of 2 September 2026 found `TRACKED` renamed to the derived measure
-#: while five reads of `computed[HEADLINE]` and the prevalence line still
-#: named the raw term, and the step died on the first of them.
+#: The measure used for prevalence, withholding and reconciliation.
 HEADLINE = TRACKED[0][1]
 
 #: Columns read from the corpus. The whole table is 100 columns wide and 419 MB
@@ -109,13 +94,7 @@ COLUMNS = [
 
 
 def measure_attributes(lex: lexicon.Lexicon, kind: str, name: str) -> dict[str, object]:
-    """How the artefact describes a measure, matching 04's vocabulary.
-
-    A derived measure is described like a term and carries what it is derived
-    from, because a reader looking at a rate labelled `genocide_qualification`
-    is owed the arithmetic behind the name in the artefact rather than only in
-    the configuration.
-    """
+    """Describe each measure and retain provenance for generic derived inputs."""
     if name in lex.derived:
         measure = lex.derived[name]
         return {

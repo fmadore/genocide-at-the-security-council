@@ -513,7 +513,7 @@ def definitional_pairs(lex: Lexicon) -> list[dict[str, str]]:
     `nested_under` another matches inside its parent's span, so the two always
     co-occur. A term declared `anchor: sentence` is counted only where the
     sentence also says `genocid*`, so it cannot appear in a speech that no
-    `genocid*` term appears in: its edge to `genocide` and to `genocidaires` is
+    `genocid*` term appears in: its edge to `genocide` is
     an artefact of the anchor, and it is the strongest of the three, because the
     anchor guarantees the co-occurrence in the same *sentence*. And a term whose
     pattern *contains* another term — before v4, `denial`'s pattern held
@@ -528,8 +528,8 @@ def definitional_pairs(lex: Lexicon) -> list[dict[str, str]]:
     pairs: list[dict[str, str]] = []
     active = list(lex.active)
     # The terms the anchor is made of: those every one of whose examples is
-    # itself a whole `ANCHOR_RE` match, which is `genocide` and `genocidaires`
-    # and not `genocide_convention`, whose examples merely contain the word.
+    # itself a whole `ANCHOR_RE` match, such as `genocide`, rather than
+    # `genocide_convention`, whose examples merely contain the word.
     # Derived from the config rather than named here, so splitting the node
     # word again does not leave a hard-coded pair behind.
     anchoring = {

@@ -411,29 +411,16 @@ describe('the evidence behind a pooled row', () => {
 	});
 });
 
-/**
- * The file a link asks for, against the files `08_kwic.py` actually wrote.
- *
- * `kwic/index.json` lists one concordance per active lexicon term. A derived
- * measure is not a term — `config/lexicon.yml` says it "has no pattern,
- * enumerates no occurrence and appears in no concordance" — so no file was ever
- * written for `genocide_qualification`, and that is the measure this figure
- * opens on. Nothing upstream of a reader's click can notice: the link is well
- * formed, the name is a real published measure, and the fetch behind it 404s.
- *
- * So the check is the index rather than the payload. Every measure the grid and
- * the pooled calendar can be switched to is asked for its evidence here, and
- * the term that comes back has to be one the concordance holds.
- */
+/** Synthetic derived inputs exercise generic evidence-link compatibility. */
 describe('every link the grid offers names a concordance that exists', () => {
 	/** What `kwic/index.json` lists, in miniature: a file per term, nothing derived. */
-	const HELD = new Set(['genocide', 'war_crimes', 'genocidaires']);
+	const HELD = new Set(['genocide', 'war_crimes', 'excluded_form']);
 
 	/** The published shape since lexicon v4: the raw term, its subtrahend, and the difference.
 	 *
 	 * The three carry deliberately different totals, because the corpus does and
 	 * because a fixture where they agree cannot tell a correct widening from the
-	 * mistake below it. `genocidaires` here holds more speeches than the
+	 * mistake below it. `excluded_form` here holds more speeches than the
 	 * subtraction removes — most speeches using the actor label use the word in
 	 * some other form too, and stay counted.
 	 */
@@ -446,15 +433,15 @@ describe('every link the grid offers names a concordance that exists', () => {
 			terms: {
 				...data.terms,
 				genocide: whole,
-				genocidaires: {
+				excluded_form: {
 					...measure(rates),
 					speeches: rates.map(() => 5),
 					occurrences: rates.map(() => 2)
 				},
-				genocide_qualification: {
+				term_subset: {
 					...measure(rates, {
 						derived_from: 'genocide',
-						derived_minus: ['genocidaires']
+						derived_minus: ['excluded_form']
 					}),
 					speeches: whole.speeches.map((count) => count - 1),
 					occurrences: whole.occurrences!.map((count) => count - 2)
@@ -464,17 +451,17 @@ describe('every link the grid offers names a concordance that exists', () => {
 				...data.month_of_year,
 				measures: {
 					...data.month_of_year.measures,
-					genocidaires: calendarBlock(),
-					genocide_qualification: calendarBlock({
+					excluded_form: calendarBlock(),
+					term_subset: calendarBlock({
 						derived_from: 'genocide',
-						derived_minus: ['genocidaires']
+						derived_minus: ['excluded_form']
 					})
 				}
 			}
 		};
 	}
 
-	it.each(['genocide', 'war_crimes', 'genocidaires', 'genocide_qualification'])(
+	it.each(['genocide', 'war_crimes', 'excluded_form', 'term_subset'])(
 		'%s opens lines the concordance has a file for',
 		(name) => {
 			const data = withDerived();
@@ -490,30 +477,29 @@ describe('every link the grid offers names a concordance that exists', () => {
 
 	it('resolves the derived measure to the term it subtracts from', () => {
 		const data = withDerived();
-		const cell = at(grid({ data, measure: 'genocide_qualification' }), 1993, 6)!;
-		const [link] = evidence(data, 'genocide_qualification', cell);
+		const cell = at(grid({ data, measure: 'term_subset' }), 1993, 6)!;
+		const [link] = evidence(data, 'term_subset', cell);
 		expect(link.term).toBe('genocide');
 		expect(new URLSearchParams(link.query).get('term')).toBe('genocide');
 	});
 
 	// The resolution widens the evidence, so the figure has to be able to say by
 	// how much — and by how much is the difference between the two measures, not
-	// the subtrahend's own totals. On the real corpus `genocidaires` appears in
+	// the subtrahend's own totals. On the real corpus `excluded_form` appears in
 	// 13 speeches while only 3 leave the derived measure, so reading its rows
 	// overstated the widening fourfold. Occurrences agree either way, every span
 	// being removed, which is what made the speech figure look right.
 	it('measures how much wider the lines it opens are', () => {
 		const data = withDerived();
-		const wider = widening(data, 'genocide_qualification')!;
+		const wider = widening(data, 'term_subset')!;
 		expect(wider.term).toBe('genocide');
-		expect(wider.subtracted).toEqual(['genocidaires']);
+		expect(wider.subtracted).toEqual(['excluded_form']);
 		const sum = (values: (number | null)[]) => values.reduce((a, b) => a! + b!, 0)!;
-		const removed =
-			sum(data.terms.genocide.speeches) - sum(data.terms.genocide_qualification.speeches);
+		const removed = sum(data.terms.genocide.speeches) - sum(data.terms.term_subset.speeches);
 		expect(wider.speeches).toBe(removed);
-		expect(wider.speeches).not.toBe(sum(data.terms.genocidaires.speeches));
+		expect(wider.speeches).not.toBe(sum(data.terms.excluded_form.speeches));
 		expect(wider.occurrences).toBe(
-			sum(data.terms.genocide.occurrences!) - sum(data.terms.genocide_qualification.occurrences!)
+			sum(data.terms.genocide.occurrences!) - sum(data.terms.term_subset.occurrences!)
 		);
 	});
 

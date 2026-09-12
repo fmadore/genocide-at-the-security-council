@@ -1,5 +1,13 @@
 # Validation register
 
+## 12 September 2026 — lexicon v7: one genocide word-family measure
+
+The separate `genocidaires` term and `genocide_qualification` subtraction are retired. Counts, change-point tests and actor summaries now use the unchanged full `genocid*` pattern: 7,747 occurrences in 4,133 speeches. The removed subtraction had excluded 18 occurrences and three speeches. Word-form tables retain the original strings and group the borrowed forms with other nouns. Occurrence identifiers and existing annotations remain valid.
+
+The full corpus rebuild preserved all 28 retained annual term series and all 7,747 genocide concordance rows exactly. All 9,464 meeting files were checked for retired highlighting keys. The rebuilt payload passed all 20 dashboard contracts; the pinned semantic map remained compatible. Python tests passed (1,220 passed, six skipped), as did 544 web unit tests and 45 browser tests.
+
+Earlier sections record the previous approach and are retained as historical validation records; they do not describe the current measure.
+
 ## 7 September 2026 — lexicon v6 and integrity repairs
 
 The isolated corpus rebuild recorded in [the project plan](PLAN.md)

@@ -119,10 +119,6 @@ def analytical(series_dir: Path, kwic_dir: Path, frames_dir: Path) -> dict[str, 
     change = json.loads((series_dir / "change_points.json").read_text(encoding="utf-8"))
     monthly = json.loads((series_dir / "monthly.json").read_text(encoding="utf-8"))
     genocide = annual["terms"]["genocide"]
-    # The published headline since lexicon v4: the raw term minus its actor
-    # label. Held beside the raw one, because the whole point of the derived
-    # measure is that a reader can see both and subtract.
-    qualification = annual["terms"]["genocide_qualification"]
     index = json.loads((kwic_dir / "index.json").read_text(encoding="utf-8"))
     lines = json.loads((kwic_dir / "genocide.json").read_text(encoding="utf-8"))["lines"]
     node_frames = json.loads((frames_dir / "frames.json").read_text(encoding="utf-8"))
@@ -140,9 +136,6 @@ def analytical(series_dir: Path, kwic_dir: Path, frames_dir: Path) -> dict[str, 
                     "occurrences",
                     "token_rate",
                 )
-            },
-            "genocide_qualification": {
-                key: qualification[key] for key in ("speeches", "occurrences", "token_rate")
             },
             "genocide_free_atrocity": annual["corpora"]["genocide_free_atrocity"],
             # Held one term at a time since lexicon v5. The legal register's

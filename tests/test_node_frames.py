@@ -195,8 +195,8 @@ class TestMorphology:
             ("genocides", "noun"),
             ("genocidal", "adjective"),
             ("genocidally", "adjective"),
-            ("genocidaire", "perpetrator_noun"),
-            ("genocidaires", "perpetrator_noun"),
+            ("genocidaire", "noun"),
+            ("genocidaires", "noun"),
             # An OCR spelling the corpus actually carries once, in a 1992
             # Venezuelan intervention. It is reported, not reassigned.
             ("genocida", "other"),
@@ -205,11 +205,11 @@ class TestMorphology:
     def test_a_form_falls_into_its_category(self, form, expected):
         assert node_frames.morphology(form) == expected
 
-    def test_the_perpetrator_noun_is_tested_before_the_adjective(self):
+    def test_borrowed_nouns_are_not_adjectives(self):
         assert node_frames.morphology("genocidaire") != "adjective"
 
     def test_surrounding_space_and_case_do_not_matter(self):
-        assert node_frames.morphology("  Genocidaires ") == "perpetrator_noun"
+        assert node_frames.morphology("  Genocidaires ") == "noun"
 
     def test_every_category_is_declared(self):
         for form in ("genocide", "genocidal", "genocidaires", "genocida"):

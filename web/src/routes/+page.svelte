@@ -70,14 +70,8 @@
 
 	const years = $derived(data.series.periods as number[]);
 	const corpus = $derived(data.series.corpus);
-	/* The published headline since lexicon v4: `genocide` minus its
-	   `genocidaires` actor label. Calling the ex-FAR génocidaires names who did
-	   it rather than qualifying the event. The raw term is still in the artefact and still what
-	   the concordance enumerates; the figure below says so in one line — and only
-	   when the derived measure is what it draws, since an artefact cut before v4
-	   carries the raw term alone and this page must still open on it. */
+	/* Keep the overview consistent with the chronology, actors and concordance. */
 	const headline = $derived(headlineMeasure(Object.keys(data.series.terms)) ?? 'genocide');
-	const qualified = $derived(headline === 'genocide_qualification');
 	const genocide = $derived(data.series.terms[headline]);
 
 	const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
@@ -283,8 +277,8 @@
 				totals.speeches
 			)} speeches from {count(totals.meetings)} meetings. Of these, {count(totals.bearing)} ({percent(
 				totals.bearing / totals.speeches
-			)}) contain a form of <em>genocide</em>{#if qualified}, excluding <em>génocidaires</em>{/if}.
-			Explore when the word appears, who uses it and what the surrounding passages say.
+			)}) mention <em>genocide</em> or related forms, such as <em>genocidal</em>. Explore when the
+			word appears, who uses it and what the surrounding passages say.
 		</p>
 	</header>
 
@@ -301,7 +295,7 @@
 			<dd>{count(totals.bearing)}</dd>
 			<p>
 				{percent(totals.bearing / totals.speeches)} of all speeches. Forms such as <em>genocide</em>
-				and <em>genocidal</em> count together{#if qualified}; <em>génocidaires</em> is excluded{/if}.
+				and <em>genocidal</em> count together.
 			</p>
 		</div>
 		<div>
@@ -359,8 +353,7 @@
 		{#snippet caveat()}
 			<p>
 				A speech counts once in the share, however often it repeats the word. A statistical split
-				does not identify a historical cause.{#if qualified}
-					This chart excludes <em>génocidaires</em>; passage links include that form as well.{/if}
+				does not identify a historical cause.
 				<a href="{resolve('/methods')}#change-points">How the test works</a>.
 			</p>
 		{/snippet}

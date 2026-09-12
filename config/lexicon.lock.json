@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "terms": {
     "aggression": {
       "pattern_since": 6,
@@ -44,11 +44,6 @@
     "extermination": {
       "pattern_since": 2,
       "pattern_sha256": "8bdea758510e8441920544524ee9a4696ab859ab0c9d6088277f078ba32fd391",
-      "anchor": null
-    },
-    "genocidaires": {
-      "pattern_since": 4,
-      "pattern_sha256": "9fb0434bb669ccd404c94f1c967207839550701c66038785a05637fa1e2eae1d",
       "anchor": null
     },
     "genocidal_ideology": {

@@ -350,14 +350,6 @@
 	const frameMovers = $derived(movers(frameRows));
 	const frameForms = $derived(morphology(data.frames));
 
-	/* The one category that is not the word applied to an event. Named here so
-	   the two numbers the study quotes — the whole enumeration and the headline
-	   count — are visibly one subtraction apart rather than two facts. */
-	const perpetratorNoun = $derived(
-		data.frames.morphology.categories.find((row) => row.category === 'perpetrator_noun')
-			?.occurrences ?? 0
-	);
-
 	/* --- The same table, drawn as a cloud --------------------------------- */
 
 	let profileFacet = $state<ProfileFacet>('whole');
@@ -737,9 +729,7 @@
 				no pattern captures, so changes in that category can affect the others' shares.
 			</p>
 			<p>
-				Groups below {count(data.frames.minimum_occurrences)} occurrences show counts only. The spelling
-				breakdown separately identifies {count(perpetratorNoun)} uses of <em>génocidaire</em> or
-				<em>génocidaires</em>, words for perpetrators, out of {count(data.frames.occurrences)} matches.
+				Groups below {count(data.frames.minimum_occurrences)} occurrences show counts only.
 			</p>
 		{/snippet}
 
@@ -789,9 +779,7 @@
 		</details>
 
 		<details class="data-table">
-			<summary
-				><Icon icon={ChevronRight} />View the word itself: noun, adjective, perpetrator noun</summary
-			>
+			<summary><Icon icon={ChevronRight} />View word forms: nouns and adjectives</summary>
 			<table>
 				<thead
 					><tr
