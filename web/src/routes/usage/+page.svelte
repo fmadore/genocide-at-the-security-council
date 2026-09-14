@@ -433,6 +433,22 @@
 			progress figures below show how much has been reviewed. Word counts elsewhere do not depend on these
 			labels.
 		</p>
+		{#if artefact.model.occurrences_annotated > 0 && artefact.model.occurrences_annotated < artefact.model.occurrences_total}
+			<p class="governing">
+				<strong>Partial preview.</strong>
+				{count(artefact.model.occurrences_annotated)} of
+				{count(artefact.model.occurrences_total)} occurrences are annotated;
+				{count(artefact.model.occurrences_total - artefact.model.occurrences_annotated)} are missing.
+				Counts may change when the remaining responses are recovered.
+			</p>
+		{/if}
+		{#if artefact.model.occurrences_annotated > 0 && gold.state === 'not_started'}
+			<p class="governing">
+				<strong>Human validation has not started.</strong> Use these classifications to explore passages,
+				not as validated research findings. Quotations with invalid evidence are excluded from the discourse
+				figures.
+			</p>
+		{/if}
 		<dl>
 			<div>
 				<dt>Model</dt>
@@ -486,11 +502,11 @@
 			<div>
 				<dt>Excluded responses</dt>
 				<dd>
-					{count(artefact.model.parse_failures)} invalid response format &middot;
+					{count(artefact.model.parse_failures)} responses without valid annotations &middot;
 					{#if artefact.model.truncation_count !== undefined}
 						{count(artefact.model.truncation_count)} incomplete responses &middot;
 					{/if}
-					{count(artefact.model.evidence_invalid)} quotations not found in the speech
+					{count(artefact.model.evidence_invalid)} invalid evidence quotations
 				</dd>
 			</div>
 			<div>
@@ -548,7 +564,7 @@
 						<dd>
 							{count(comparison.abstained)}
 							{comparison.abstained === 1 ? 'abstention' : 'abstentions'} &middot;
-							{count(comparison.evidenceInvalid)} quotations not found in the speech
+							{count(comparison.evidenceInvalid)} invalid evidence quotations
 						</dd>
 					</div>
 				</dl>

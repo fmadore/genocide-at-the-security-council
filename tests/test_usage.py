@@ -1468,7 +1468,7 @@ def test_the_paid_runs_and_a_v2_run_are_read_through_one_library(
 ) -> None:
     """The constraint the archive exists for, stated as an assertion.
 
-    Every committed run records the same prompt digest and `prompt_version: 1`.
+    The four August runs record the same prompt digest and `prompt_version: 1`.
     Before the archive, editing `PROMPT.md` made all four un-aggregatable at
     once and took `/usage` down with them. Here the file has been edited — it
     is v2 — and the four still resolve, to the v1 text they were made with,
@@ -1486,7 +1486,7 @@ def test_the_paid_runs_and_a_v2_run_are_read_through_one_library(
 
     manifests = [
         json.loads(path.read_text(encoding="utf-8"))
-        for path in sorted(RUNS.glob("*/manifest.json"))
+        for path in sorted(RUNS.glob("2026-08-*/manifest.json"))
     ]
     assert len(manifests) == 4, "the four committed runs of 30 and 31 August 2026"
     for manifest in manifests:

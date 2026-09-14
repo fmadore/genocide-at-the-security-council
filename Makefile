@@ -16,6 +16,15 @@
 # 15 aggregates the run named in model_annotations/genocide/current_run.txt.
 
 PY ?= python
+# Only the explicitly selected preview may bypass the coverage gate.
+SELECTED_RUN := $(strip $(file <model_annotations/genocide/current_run.txt))
+PARTIAL_RUN := $(strip $(file <model_annotations/genocide/allow_partial_run.txt))
+USAGE_FLAGS :=
+ifneq ($(SELECTED_RUN),)
+ifeq ($(SELECTED_RUN),$(PARTIAL_RUN))
+USAGE_FLAGS := --allow-partial
+endif
+endif
 LIB := $(wildcard scripts/lib/*.py)
 REFERENTS := annotations/lexicon/referents.csv
 MODEL_INPUTS := $(wildcard model_annotations/genocide/*.md model_annotations/genocide/*.txt model_annotations/genocide/runs/*/* model_annotations/genocide/prompts/*.md)
@@ -94,7 +103,7 @@ $(GOLD) &: $(NORM) scripts/13_gold_sample.py $(LIB) config/lexicon.yml $(wildcar
 	$(PY) scripts/13_gold_sample.py
 
 $(USAGE) &: $(NORM) $(GOLD) scripts/15_usage.py $(LIB) config/lexicon.yml $(MODEL_INPUTS) $(wildcard annotations/genocide/*) $(REFERENTS)
-	$(PY) scripts/15_usage.py
+	$(PY) scripts/15_usage.py $(USAGE_FLAGS)
 
 # 17 classifies the same occurrences 08 writes lines for, from the same corpus,
 # and crosses them with whichever runs the two pointer files name — so the

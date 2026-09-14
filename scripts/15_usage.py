@@ -1780,6 +1780,9 @@ def run(args: argparse.Namespace) -> None:
             "occurrences_total": len(found),
             "occurrences_annotated": len(rows),
             "allow_partial": bool(args.allow_partial),
+            "state": "partial_model_run" if len(rows) < len(found) else "annotated_model_run",
+            # Output file hashes live in the stage manifest; payloads cannot hash themselves.
+            "outputs": [],
         },
     )
     # Written in reading order rather than in the order the blocks were computed:

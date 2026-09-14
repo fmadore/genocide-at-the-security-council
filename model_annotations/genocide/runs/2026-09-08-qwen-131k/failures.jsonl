@@ -1,0 +1,77 @@
+{"custom_id": "SC01041-01-005", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Colonial-era mass violence", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC01358-01-005", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Israel and Palestine", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC01611-01-016", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC02164-01-008", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Israel and Palestine", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC02324-01-006", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Israel and Palestine", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC02725-01-011", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Israel and Palestine", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC02888-01-012", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Israel and Palestine", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC03136-01-052", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Bosnia and Srebrenica", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC03205-01-010", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC03247-01-005", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Bosnia and Srebrenica", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC03336-01-012", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Bosnia and Srebrenica", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC03336-04-007", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC03344-01-003", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Bosnia and Srebrenica", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC03370-03-023", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Bosnia and Srebrenica", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC03428-01-011", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Bosnia and Srebrenica", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC03483-01-035", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC03563-01-005", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Bosnia and Srebrenica", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC03870-01-020", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Rwanda", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC03932-01-012", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Genocide Convention and legal definition", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC04312-01-058", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC04429-01-019", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Rwanda", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC04775-01-005", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Rwanda", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC05016-01-001", "kind": "validation_failure", "reason": "ValueError: Unknown referent: institutional title or mandate", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC05052-01-020", "kind": "validation_failure", "reason": "ValueError: Unknown referent: institutional title or mandate", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC05100-02-015", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Genocide Convention and legal definition", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC05225-02-021", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC05493-02-056", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Israel and Palestine", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC05697-01-003", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC05766-02-007", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC05916-03-011", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Genocide Convention and legal definition", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC05940-01-011", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Israel and Palestine", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC06041-01-015", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Rwanda", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC06319-01-026", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Bosnia and Srebrenica", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC06603-02-008", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC06790-01-050", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC06849-02-040", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC06917-02-090", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC06946-01-012", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC06948-01-016", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Genocide Convention and legal definition", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC07019-01-017", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC07073-01-031", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-08"}
+{"custom_id": "SC03136-01-052", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Bosnia and Srebrenica", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC03247-01-005", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Bosnia and Srebrenica", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC05100-02-015", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Genocide Convention and legal definition", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC05225-02-021", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC05016-01-001", "kind": "validation_failure", "reason": "ValueError: Unknown referent: institutional title or mandate", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC07180-01-010", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC07199-01-006", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Darfur", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC07271-01-002", "kind": "validation_failure", "reason": "ValueError: Unknown referent: ISIL and the Yazidis", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC07281-01-063", "kind": "validation_failure", "reason": "ValueError: Unknown referent: ISIL and other populations of Iraq and Syria", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC07481-01-014", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Bosnia and Srebrenica", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC07516-01-003", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Bosnia and Srebrenica", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC07926-01-002", "kind": "validation_failure", "reason": "ValueError: Unknown referent: institutional title or mandate", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC08381-01-029", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Myanmar and the Rohingya", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC08906-01-019", "kind": "validation_failure", "reason": "ValueError: Unknown referent: institutional title or mandate", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09019-01-025", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09016-01-004", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09069-01-001", "kind": "validation_failure", "reason": "ValueError: Unknown referent: institutional title or mandate", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09079-01-038", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09143-01-020", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Ukraine", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09158-02-088", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09206-01-016", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09344-01-010", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Genocide Convention and legal definition", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09450-01-007", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09470-01-015", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09498-01-004", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Gaza", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09498-01-023", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Gaza", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09526-01-021", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Ukraine", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09596-01-025", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Gaza", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09609-01-020", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09632-03-022", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09638-01-005", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Genocide Convention and legal definition", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09669-02-006", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Genocide Convention and legal definition", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09669-02-034", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Gaza", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09682-01-025", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Genocide Convention and legal definition", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09687-02-031", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Genocide Convention and legal definition", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}
+{"custom_id": "SC09687-03-014", "kind": "validation_failure", "reason": "ValueError: Unknown referent: Gaza", "run_id": "2026-09-08-qwen-131k", "recorded_at": "2026-09-13"}

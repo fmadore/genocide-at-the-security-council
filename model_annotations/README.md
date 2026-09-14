@@ -1,11 +1,12 @@
 # Model annotations
 
-> **Corpus migration (2026-09-03).** Every run currently under `genocide/runs/`
-> was produced against the retired Schoenfeld 1992–2023 corpus. Its identifiers
-> and text hashes do not address Sakamoto–Matsuoka v5, so these runs are retained
-> only as provenance and must not be joined to the canonical 1946–2024 corpus.
-> Both pointer files are intentionally empty. A new run must enumerate the
-> 7,747 `genocid*` occurrences in 4,133 speeches from the rebuilt parquet.
+> **Partial preview (2026-09-14).** `2026-09-08-qwen-131k` is selected for the
+> canonical Sakamoto–Matsuoka v5 corpus: 7,694 of 7,747 occurrences in 4,097 of
+> 4,133 speeches. Human validation has not started. The older runs remain
+> historical provenance for the retired corpus and must not be joined to v5.
+> `allow_partial_run.txt` explicitly authorizes this selected run's coverage gap
+> in the Makefile; a different selected run retains strict coverage by default.
+> The comparison pointer remains empty.
 
 Files below this directory are durable, version-controlled research inputs, exactly as the
 ones under `annotations/` are. The difference is who wrote them: `scripts/14_llm_annotate.py`

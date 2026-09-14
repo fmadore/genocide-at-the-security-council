@@ -1,0 +1,150 @@
+{
+ "model": "Qwen/Qwen3.8-27B",
+ "model_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+ "reasoning_location": "chat_template_kwargs",
+ "levels_requested": [
+  "low",
+  "medium",
+  "xhigh"
+ ],
+ "speeches_per_level": 3,
+ "prompt_sha256": "3772c44d400f637bbbde621249748ab4717d032c962af29d41a4495d5c6bf9b0",
+ "referents_sha256": "346e7add31a34e7cfe57de1f469acbe32303bb5c20e688e25e7d371c4cb74e5f",
+ "schema_version": "3.1",
+ "runtime": {
+  "route": "openai-compatible-responses",
+  "served_model": "Qwen/Qwen3.8-27B",
+  "model_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "quantization": "none",
+  "vllm_version": "0.28.0",
+  "environments": {
+   "annotator": "locked+llm-client-overlay",
+   "server": "vllm"
+  },
+  "hardware": {
+   "gpu_model": "NVIDIA H100 80GB HBM3",
+   "gpu_count": 1
+  },
+  "serving": {
+   "max_model_len": 131072,
+   "max_num_seqs": 4,
+   "reasoning_parser": "qwen3",
+   "tensor_parallel_size": 1,
+   "prefix_caching": true,
+   "speculative_decoding": null,
+   "moe_backend": null
+  },
+  "reasoning": {
+   "parameter": "reasoning_effort",
+   "value": "xhigh",
+   "location": "chat_template_kwargs"
+  },
+  "sampling": {
+   "temperature": 0.0,
+   "top_p": 1.0
+  },
+  "max_output_tokens": 65536
+ },
+ "population": [
+  "7553cb427ced16a07a8198f40801c93739d53b7e63877c0aa7f58bdde1dcc7ea",
+  "ce1435c1bb1b15dfa288b9da98f61a9b64ca385eb46be0714b0f1aecfadefa75",
+  "9e75c465012b18f04febebc1b77e42b3f61cc4273056cc3882e1e061b93e0ff5",
+  "487110bbe393cff493d0ec44b4df0cf6916c8786dd470b4e9dd888188bca7668",
+  "960604046c2afa0ef615e056d36bff120d683a260e8fc232321e991089e175bc",
+  "27ea0396f93d5442e7fcf502ecbbbad60094a4495e995391eaa40ec737724c6f"
+ ],
+ "requests_sha256": "6ed154a0753c66a108134e2cd2eab3fdda9f27b48a8e4acda3f37968a52c8508",
+ "identity_sha256": "7cfa445aa11ac4aeca86b73ca20039c6d7956eb815d276dd41b2210fe5d9aeee",
+ "created": "2026-09-08T05:55:50Z",
+ "sampling": {
+  "temperature": 0.0,
+  "top_p": 1.0
+ },
+ "observations": [
+  {
+   "level": "low",
+   "custom_id": "SC00211-01-007",
+   "latency_seconds": 40.153,
+   "reasoning_tokens": 1389,
+   "output_tokens": 1846
+  },
+  {
+   "level": "low",
+   "custom_id": "SC00228-01-002",
+   "latency_seconds": 23.399,
+   "reasoning_tokens": 758,
+   "output_tokens": 963
+  },
+  {
+   "level": "low",
+   "custom_id": "SC00232-01-005",
+   "latency_seconds": 56.955,
+   "reasoning_tokens": 1896,
+   "output_tokens": 2684
+  },
+  {
+   "level": "medium",
+   "custom_id": "SC00211-01-007",
+   "latency_seconds": 50.151,
+   "reasoning_tokens": 1914,
+   "output_tokens": 2455
+  },
+  {
+   "level": "medium",
+   "custom_id": "SC00228-01-002",
+   "latency_seconds": 36.191,
+   "reasoning_tokens": 1275,
+   "output_tokens": 1582
+  },
+  {
+   "level": "medium",
+   "custom_id": "SC00232-01-005",
+   "latency_seconds": 106.098,
+   "reasoning_tokens": 4297,
+   "output_tokens": 5075
+  },
+  {
+   "level": "xhigh",
+   "custom_id": "SC00211-01-007",
+   "latency_seconds": 244.779,
+   "reasoning_tokens": 11603,
+   "output_tokens": 12069
+  },
+  {
+   "level": "xhigh",
+   "custom_id": "SC00228-01-002",
+   "latency_seconds": 53.132,
+   "reasoning_tokens": 2129,
+   "output_tokens": 2399
+  },
+  {
+   "level": "xhigh",
+   "custom_id": "SC00232-01-005",
+   "latency_seconds": 268.466,
+   "reasoning_tokens": 12146,
+   "output_tokens": 12932
+  }
+ ],
+ "levels": [
+  {
+   "level": "low",
+   "requests": 3,
+   "median_reasoning_tokens": 1389,
+   "median_latency_seconds": 40.153
+  },
+  {
+   "level": "medium",
+   "requests": 3,
+   "median_reasoning_tokens": 1914,
+   "median_latency_seconds": 50.151
+  },
+  {
+   "level": "xhigh",
+   "requests": 3,
+   "median_reasoning_tokens": 11603,
+   "median_latency_seconds": 244.779
+  }
+ ],
+ "passed": true,
+ "rule": "Every paired top-level response uses more reasoning tokens than its lowest-level response; the top median is positive and maximal. This is an operational screen, not statistical validation."
+}

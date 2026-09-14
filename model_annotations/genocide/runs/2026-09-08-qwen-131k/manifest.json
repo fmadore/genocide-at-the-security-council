@@ -1,0 +1,92 @@
+{
+ "run_id": "2026-09-08-qwen-131k",
+ "term": "genocide",
+ "model": "Qwen/Qwen3.8-27B",
+ "reasoning_effort": "xhigh",
+ "prompt_version": 3,
+ "prompt_sha256": "3772c44d400f637bbbde621249748ab4717d032c962af29d41a4495d5c6bf9b0",
+ "referents_sha256": "346e7add31a34e7cfe57de1f469acbe32303bb5c20e688e25e7d371c4cb74e5f",
+ "referents_version": "2",
+ "lexicon_version": "6",
+ "schema_version": "3.1",
+ "mode": "vllm",
+ "limit": null,
+ "created": "2026-09-08T06:20:08Z",
+ "completed": null,
+ "git_commit": "98c473f2a1ae4245049ddebb308c7e8595920317-dirty",
+ "batch_ids": [],
+ "requests": {
+  "planned": 4133,
+  "sent": 4174,
+  "returned": 4133,
+  "complete": 4097
+ },
+ "passes": [
+  {
+   "at": "2026-09-09T06:16:14Z",
+   "mode": "vllm",
+   "requests": 2243,
+   "returned": 2243,
+   "pass_id": "760799-20260908T061914Z-312"
+  },
+  {
+   "at": "2026-09-14T07:32:35Z",
+   "mode": "vllm",
+   "requests": 1931,
+   "returned": 1890,
+   "pass_id": "768736-20260913T084211Z-312"
+  }
+ ],
+ "occurrences": {
+  "planned": 7747,
+  "written": 7694
+ },
+ "parse_failures": 36,
+ "truncation_count": 4,
+ "evidence_invalid": 24,
+ "evidence_relocated": 3,
+ "usage": {
+  "input_tokens": 37888590,
+  "output_tokens": 31128046,
+  "reasoning_tokens": 29232222,
+  "cached_tokens": 29423520
+ },
+ "cost_usd": null,
+ "status": "in_progress",
+ "runtime": {
+  "route": "openai-compatible-responses",
+  "served_model": "Qwen/Qwen3.8-27B",
+  "model_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "quantization": "none",
+  "vllm_version": "0.28.0",
+  "environments": {
+   "annotator": "locked+llm-client-overlay",
+   "server": "vllm"
+  },
+  "hardware": {
+   "gpu_model": "NVIDIA H100 80GB HBM3",
+   "gpu_count": 1
+  },
+  "serving": {
+   "max_model_len": 131072,
+   "max_num_seqs": 4,
+   "reasoning_parser": "qwen3",
+   "tensor_parallel_size": 1,
+   "prefix_caching": true,
+   "speculative_decoding": null,
+   "moe_backend": null
+  },
+  "reasoning": {
+   "parameter": "reasoning_effort",
+   "value": "xhigh",
+   "location": "chat_template_kwargs"
+  },
+  "sampling": {
+   "temperature": 0.0,
+   "top_p": 1.0
+  },
+  "max_output_tokens": 65536
+ },
+ "identity_sha256": "9bcbe9569e3563869a8239cbf5f7ee3b0d3b28111c89f6ae3ed937d9f37faa2e",
+ "probe_sha256": "25a7b8af1c7d4634cc0a14820f98fc4db13b73e4ebd11e06fd2bea184d562e03"
+}

@@ -5,6 +5,20 @@ It replaces the separate improvement roadmap, dated reviews, implementation
 report and research-decision packet. Historical discussion remains in Git history;
 this document records the current position rather than a chronological work log.
 
+## Published partial preview — 14 September 2026
+
+The user authorized publishing the fetched Qwen checkpoint as a partial,
+unvalidated preview. Run `2026-09-08-qwen-131k` covers 4,097/4,133 speeches and
+7,694/7,747 occurrences. All 21 retrieved file hashes matched; corpus, prompt,
+row identity and evidence-locator checks passed. Partial aggregation passed;
+strict aggregation rejected the 53 missing occurrences. The 36 unresolved
+speeches comprise 34 invalid referent identifiers and two truncated responses.
+Twenty-four invalid evidence quotes are excluded from discourse aggregates.
+Human gold review remains not started (0/199); this publication does not close
+the research validation gate. Gemma smoke awaits priority and its array awaits
+the smoke dependency. Monitoring is paused. Earlier status notes below describe
+preceding checkpoints and are superseded by this entry.
+
 ## Current focus
 
 Gemma 4 31B IT is now the selected second model, replacing the planned DeepSeek
