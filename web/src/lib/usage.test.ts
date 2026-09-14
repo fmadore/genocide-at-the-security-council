@@ -1746,3 +1746,29 @@ describe('who rejects the word, ordered by what can be ordered', () => {
 		expect(result.rows[0].intervalText).toBe('—');
 	});
 });
+
+describe('column occurrence sorting', () => {
+	it('ranks the entire population before the row cap, keeps zeros and breaks ties by name', () => {
+		const data = corpus({
+			actors: [
+				...Array.from({ length: ROW_CAP }, (_, i) => actor(`Other ${i}`, { assigned: 100 })),
+				actor('Zulu', { assigned: 2 }),
+				actor('Alpha', { assigned: 2 })
+			],
+			matrix: [cell('Zulu', 'rwanda_1994', 2), cell('Alpha', 'rwanda_1994', 2)]
+		});
+		for (const unit of ['count', 'share'] as const) {
+			const plan = matrixPlan(data, state({ sort: 'referent:rwanda_1994', unit }));
+			expect(plan.rows.slice(0, 2).map((row) => row.actor.country_org)).toEqual(['Alpha', 'Zulu']);
+			expect(plan.rows).toHaveLength(ROW_CAP);
+		}
+	});
+	it('restores a valid column sort from the URL and rejects an unknown column', () => {
+		const data = corpus();
+		const selected = state({ sort: 'referent:rwanda_1994' });
+		expect(readUsageState(usageParams(selected), data).sort).toBe(selected.sort);
+		expect(readUsageState(new URLSearchParams('sort=referent:unknown'), data).sort).toBe(
+			'assigned'
+		);
+	});
+});

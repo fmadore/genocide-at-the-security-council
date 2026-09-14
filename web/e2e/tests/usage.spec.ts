@@ -506,3 +506,26 @@ test('a build with no second opinion shows none of it', async ({ page }) => {
 
 	await expectNoAxeViolations(page);
 });
+
+test('column labels sort highest occurrence counts first and retain the order after reload', async ({
+	page
+}) => {
+	await openUsage(page);
+	const matrix = matrixOf(page);
+	const header = matrix
+		.locator('thead')
+		.getByRole('button', { name: 'Bosnia and Srebrenica', exact: true });
+	await header.click();
+	await expect(matrix.locator('th[aria-sort="descending"]')).toContainText('Bosnia and Srebrenica');
+	await expect(matrix.getByLabel('Ordered by')).toHaveValue('referent:bosnia_srebrenica');
+	const counts = await matrix
+		.locator('tbody tr')
+		.evaluateAll((rows) =>
+			rows.map((row) => Number(row.querySelectorAll('td')[1]?.textContent?.trim() || 0))
+		);
+	expect(counts).toEqual([...counts].sort((a, b) => b - a));
+	await expect(page).toHaveURL(/sort=referent%3Abosnia_srebrenica/);
+	await page.reload();
+	await expect(matrix.locator('th[aria-sort="descending"]')).toContainText('Bosnia and Srebrenica');
+	await expect(matrix.getByLabel('Ordered by')).toHaveValue('referent:bosnia_srebrenica');
+});

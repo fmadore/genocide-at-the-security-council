@@ -167,7 +167,7 @@ export const ROW_CAP = 70;
 export type UsageUnit = 'count' | 'share';
 
 /** How the rows of the matrix are ordered. All three come from the artefact. */
-export type UsageSort = 'assigned' | 'occurrences' | 'name';
+export type UsageSort = 'assigned' | 'occurrences' | 'name' | `referent:${string}`;
 
 export interface UsageState {
 	/**
@@ -224,7 +224,13 @@ export function readUsageState(params: URLSearchParams, data: Usage): UsageState
 				? askedReferent
 				: USAGE_DEFAULTS.referent,
 		unit: params.get('unit') === 'share' ? 'share' : USAGE_DEFAULTS.unit,
-		sort: askedSort && SORTS.has(askedSort) ? askedSort : USAGE_DEFAULTS.sort,
+		sort:
+			askedSort &&
+			(SORTS.has(askedSort) ||
+				(askedSort.startsWith('referent:') &&
+					orderReferents(data.referents).some((r) => r.id === askedSort.slice(9))))
+				? askedSort
+				: USAGE_DEFAULTS.sort,
 		// Dropped on a build with no second opinion, for the reason a referent this
 		// artefact does not carry is dropped: the control it belongs to is not on
 		// the page, so the filter would narrow a list to nothing with nothing on
@@ -436,7 +442,15 @@ export function matrixPlan(data: Usage, state: UsageState): MatrixPlan {
 	const cells = index(data.matrix);
 
 	const placed = data.actors.filter((actor) => actor.assigned > 0);
-	const ordered = [...placed].sort(compareActors(sort));
+	const sortedReferent = sort.startsWith('referent:') ? sort.slice(9) : '';
+	const ordered = [...placed].sort(
+		sortedReferent
+			? (a, b) =>
+					(cells.get(b.country_org)?.get(sortedReferent)?.count ?? 0) -
+						(cells.get(a.country_org)?.get(sortedReferent)?.count ?? 0) ||
+					a.country_org.localeCompare(b.country_org)
+			: compareActors(sort)
+	);
 	const shown = ordered.slice(0, ROW_CAP);
 	const hidden = ordered.slice(ROW_CAP);
 

@@ -123,7 +123,12 @@
 			<tr>
 				<th class="corner" scope="col"><span class="sr-only">Delegation</span></th>
 				{#each plan.columns as column, c (column.referent.id)}
-					<th scope="col" class:grouped={column.grouped} class:rule={c === plan.groupedFrom}>
+					<th
+						scope="col"
+						class:grouped={column.grouped}
+						class:rule={c === plan.groupedFrom}
+						aria-sort={plan.sort === `referent:${column.referent.id}` ? 'descending' : undefined}
+					>
 						<button
 							type="button"
 							class="head"
@@ -133,7 +138,7 @@
 							aria-pressed={column.selected}
 							title="{column.referent.label}{column.referent.years
 								? ` (${column.referent.years})`
-								: ''} — {column.drawn} occurrences in this table"
+								: ''} — {column.drawn} occurrences in this table; sort delegations by highest occurrence count"
 							onclick={() => pick(-1, c, '', column.referent.id)}
 						>
 							{column.referent.label}

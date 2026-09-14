@@ -262,7 +262,7 @@
 	const cellFigure = (value: number) =>
 		unit === 'share' ? `${Math.round(value * 100)}%` : count(value);
 
-	const SORT_LABELS: Record<UsageSort, string> = {
+	const SORT_LABELS: Partial<Record<UsageSort, string>> = {
 		assigned: 'occurrences placed on a referent',
 		occurrences: 'occurrences of the word',
 		name: 'name'
@@ -328,7 +328,7 @@
 
 	const onScreen = () => [
 		`unit: ${unit === 'share' ? "share of the delegation's placed occurrences" : 'occurrences'}`,
-		`rows: ${plan.rows.length} of ${plan.disclosure.speakers} speakers with anything placed, ordered by ${SORT_LABELS[sort]}`,
+		`rows: ${plan.rows.length} of ${plan.disclosure.speakers} speakers with anything placed, ordered by ${SORT_LABELS[sort] ?? `${referentLabel(sort.slice(9))} occurrences, highest first`}`,
 		`minimum for a share: ${artefact.minimum_occurrences} eligible occurrences`,
 		`labels: ${artefact.model.id}, run ${artefact.model.run_id}, prompt v${artefact.model.prompt_version} sha256:${sha}`
 	];
@@ -740,6 +740,9 @@
 			<label>
 				Ordered by
 				<select bind:value={sort}>
+					{#if sort.startsWith('referent:')}
+						<option value={sort}>{referentLabel(sort.slice(9))}: highest count first</option>
+					{/if}
 					<option value="assigned">Occurrences placed</option>
 					<option value="occurrences">Occurrences of the word</option>
 					<option value="name">Name</option>
@@ -755,10 +758,9 @@
 		{#snippet reading()}
 			<p>
 				Rows are affiliations; columns are cases or concepts. Darker amber means more assigned
-				mentions or a larger share, depending on the unit. Select a cell or heading to read
-				passages. The final columns cover general or legal discussion. Shares are withheld below {count(
-					artefact.minimum_occurrences
-				)} eligible occurrences.
+				mentions or a larger share, depending on the unit. Column labels sort highest counts first;
+				cells open passages. The final columns cover general or legal discussion. Shares are
+				withheld below {count(artefact.minimum_occurrences)} eligible occurrences.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -799,7 +801,10 @@
 				name={(speaker) => shortCountry(speaker.country_org)}
 				unit={unit === 'share' ? "share of the delegation's own" : 'occurrences'}
 				description="Delegations down the side, referents across the top; each cell holds the occurrences that delegation placed on that referent."
-				onselect={pick}
+				onselect={(nextActor, nextReferent) => {
+					if (!nextActor && nextReferent) sort = `referent:${nextReferent}`;
+					pick(nextActor, nextReferent);
+				}}
 			/>
 
 			<p class="disclosure">
