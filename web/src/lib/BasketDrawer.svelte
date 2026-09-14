@@ -268,18 +268,26 @@
 </dialog>
 
 <style>
+	/* A plate, not a floating card: square, hairline ink all round, the 3px rule
+	   along its top edge that opens every plate on the site, and no shadow —
+	   an ink border on paper is separation enough. */
 	dialog {
 		width: min(48rem, calc(100vw - 2 * var(--sp-4)));
 		max-height: min(80vh, 52rem);
 		padding: var(--sp-5);
-		border: var(--hair) solid var(--rule-strong);
+		border: var(--hair) solid var(--ink);
+		border-top-width: var(--heavy);
+		border-radius: 0;
+		box-shadow: none;
 		background: var(--paper);
 		color: var(--ink);
 		overflow-y: auto;
 	}
 
+	/* A fixed ground rather than a tint of the ink token: the ink reverses with
+	   the theme, and a 45% white veil over a dark page is not a backdrop. */
 	dialog::backdrop {
-		background: color-mix(in oklab, var(--ink) 45%, transparent);
+		background: rgb(0 0 0 / 0.35);
 	}
 
 	.head {
@@ -290,14 +298,15 @@
 	}
 
 	h2 {
-		font-family: var(--serif);
+		font-family: var(--sans);
 		font-size: var(--step-2);
 		margin: 0;
 	}
 
 	.n {
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums;
 		color: var(--ink-3);
 	}
 
@@ -316,10 +325,12 @@
 		margin-block: var(--sp-2) var(--sp-4);
 	}
 
+	/* The sunk stripe carries it; the 3px coloured bar that used to is gone, and
+	   what is left is the hairline every other division on the site uses. */
 	.problem {
 		color: var(--ink-2);
 		background: var(--paper-sunk);
-		border-inline-start: 3px solid var(--rule-strong);
+		border-inline-start: var(--hair) solid var(--rule);
 		padding: var(--sp-2) var(--sp-3);
 		margin-block: var(--sp-3);
 	}
@@ -350,7 +361,7 @@
 	}
 
 	.dot {
-		color: var(--rule-strong);
+		color: var(--ink-3);
 	}
 
 	/* Not an error colour: an item recorded under an older lexicon is a fact
@@ -358,20 +369,20 @@
 	.badge {
 		font-family: var(--sans);
 		font-size: var(--step--2);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
 		color: var(--ink-3);
-		border: var(--hair) solid var(--rule-strong);
+		border: var(--hair) solid var(--rule);
 		padding: 0 var(--sp-1);
 	}
 
+	/* The quotation is set in the one family like everything else, and the rule
+	   beside it is a hairline: a 2px bar reads as a box edge. */
 	blockquote {
-		font-family: var(--serif);
+		font-family: var(--sans);
 		font-size: var(--step-0);
 		line-height: 1.5;
 		margin: var(--sp-2) 0 var(--sp-3);
 		padding-inline-start: var(--sp-3);
-		border-inline-start: 2px solid var(--rule-strong);
+		border-inline-start: var(--hair) solid var(--rule);
 	}
 
 	.whole {
@@ -386,8 +397,8 @@
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		padding: var(--sp-2);
-		border: var(--hair) solid var(--rule);
-		background: var(--paper-raised);
+		border: var(--hair) solid var(--ink);
+		background: var(--paper);
 		color: var(--ink);
 		resize: vertical;
 	}
@@ -415,17 +426,21 @@
 
 	.foot {
 		justify-content: space-between;
-		border-top: var(--hair) solid var(--rule-strong);
+		border-top: var(--hair) solid var(--ink);
 		padding-top: var(--sp-4);
 		margin-top: var(--sp-2);
 	}
 
-	.label {
-		font-family: var(--sans);
-		font-size: var(--step--2);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--ink-3);
+	/* `.label` is the global apparatus voice now — sentence case, 600, ink — so
+	   the local rule that set it in tracked capitals is gone. */
+
+	/* Every control here carries an icon before its word, and an inline `<svg>`
+	   sits hard against the text it labels. The same row the download strip
+	   uses: a flex line with the space scale between the two. */
+	.ghost {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
 	}
 
 	.confirm {
@@ -439,9 +454,16 @@
 		margin: 0;
 	}
 
+	/* Ink, not a register hue. The register palette is a claim about the record
+	   and may not be spent on a control; what makes this one destructive is the
+	   words on it and the confirmation it already sits behind. */
 	.danger {
-		color: var(--reg-contentious, var(--ink));
+		color: var(--ink);
 		font-weight: 600;
+	}
+
+	.danger:hover {
+		background: var(--paper-sunk);
 	}
 
 	.provenance {

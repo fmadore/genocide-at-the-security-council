@@ -148,6 +148,8 @@
 <style>
 	/* The band spans the gutter as well as the column, so the page passes under
 	   it rather than beside it. */
+	/* The running head: it names the plate the reader is inside, which is what
+	   a programme prints at the top of every page. */
 	.contents {
 		position: sticky;
 		top: var(--masthead-h);
@@ -155,10 +157,10 @@
 		display: flex;
 		align-items: baseline;
 		gap: var(--sp-2) var(--sp-4);
-		margin: 0 calc(-1 * var(--gutter)) var(--sp-6);
+		margin: 0 calc(-1 * var(--gutter)) var(--sp-4);
 		padding: var(--sp-2) var(--gutter);
 		background: var(--paper);
-		border-top: var(--hair) solid var(--rule);
+		border-top: var(--hair) solid var(--ink);
 		border-bottom: var(--hair) solid var(--rule);
 		font-family: var(--sans);
 		font-size: var(--step--1);
@@ -166,11 +168,9 @@
 
 	.label {
 		flex: none;
-		font-size: var(--step--2);
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--ink-3);
+		font-size: var(--step--1);
+		font-weight: 600;
+		color: var(--ink);
 	}
 
 	/* On a narrow screen the label took two fifths of the line and said what the
@@ -200,16 +200,19 @@
 		white-space: nowrap;
 	}
 
+	/* The plate number, as the plate prints it. */
 	li::before {
-		content: counter(figure) ' ';
-		font-family: var(--mono);
+		content: counter(figure) '\2002';
+		font-variant-numeric: tabular-nums;
+		font-weight: 600;
 		color: var(--ink-3);
 	}
 
 	a {
+		display: inline-block;
 		color: var(--ink-2);
 		text-decoration: none;
-		padding-bottom: 0.15rem;
+		padding: var(--sp-1) 0;
 	}
 
 	a:hover {
@@ -223,7 +226,7 @@
 	a[aria-current='location'] {
 		color: var(--ink);
 		font-weight: 600;
-		box-shadow: inset 0 -2px 0 var(--blue-flag);
+		box-shadow: inset 0 -3px 0 var(--ink);
 	}
 
 	@media print {

@@ -11,7 +11,29 @@
         ],
         "createdAt": "2026-08-27T15:39:26.138Z",
         "reason": "Pre-existing, not touched by this work: .chip is an inline series-picker control, not a card. The 3px left border carries the series' own colour so the chip matches its line on the chart -- a data encoding, not a decorative accent. Intent is documented in the comment above the rule at +page.svelte:1262-1264."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgb(0 0 0 / 0.35)",
+        "createdAt": "2026-09-14T17:33:13.681Z",
+        "reason": "Direction brief for the Programme Grid migration names this exact value as the sanctioned <dialog> ::backdrop veil; it must not reverse with the theme, so it cannot be a token."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#000",
+        "files": [
+          "web/src/app.css"
+        ],
+        "createdAt": "2026-09-14T18:37:38.985Z",
+        "reason": "print stylesheet: ink collapses to pure black on paper by design (build thread, 14 Sep 2026)"
       }
     ]
+  },
+  "hook": {
+    "enabled": true,
+    "limits": {
+      "maxFindings": 5,
+      "maxChars": 8000
+    }
   }
 }

@@ -244,10 +244,11 @@
 		display: inline-block;
 	}
 
+	/* Sentence case at the key's own size: the tracked capitals this carried are
+	   gone, and what separates it from the position's name is weight and the
+	   quieter ink, not a second typographic register. */
 	.swatch abbr {
 		font-size: var(--step--2);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
 		color: var(--ink-3);
 		text-decoration: none;
 		margin-inline-start: var(--sp-1);
@@ -289,12 +290,10 @@
 	}
 
 	tbody th {
+		/* The global `th` is a bold column heading, which is right at the head of
+		   a column and wrong on a speaker's name. */
 		font-weight: 400;
 		white-space: nowrap;
-		/* The global `th` is an uppercased faint label, which is right for a column
-		   heading and wrong for a speaker's name. */
-		text-transform: none;
-		letter-spacing: 0;
 		font-size: var(--step--1);
 		color: var(--ink);
 	}
@@ -312,9 +311,11 @@
 		max-width: var(--measure);
 	}
 
+	/* The one family: the typewriter face is the citation's, and this is a gloss
+	   on the control beside it. */
 	.hint-inline {
-		font-family: var(--mono);
-		font-size: var(--step--2);
+		font-family: var(--sans);
+		font-size: var(--step--1);
 		color: var(--ink-3);
 	}
 

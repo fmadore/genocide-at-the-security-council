@@ -422,12 +422,14 @@
 	.frame :global(.maplibregl-ctrl-group) {
 		border-radius: 0;
 		box-shadow: none;
-		border: var(--hair) solid var(--rule);
-		background: var(--paper-raised);
+		border: var(--hair) solid var(--ink);
+		background: var(--paper);
 	}
 
+	/* The basemap's own buttons are 29px square; a hairline between them is the
+	   segmented-group idiom, and the size already clears the 24px floor. */
 	.frame :global(.maplibregl-ctrl-group button + button) {
-		border-top: var(--hair) solid var(--rule);
+		border-top: var(--hair) solid var(--ink);
 	}
 
 	.frame :global(.maplibregl-ctrl-attrib) {
@@ -443,8 +445,8 @@
 	/* The hover box, in the page's palette. Square, hairline, no shadow — the
 	   same treatment the ECharts tooltips get in `theme.ts`. */
 	:global(.speaker-hover .maplibregl-popup-content) {
-		background: var(--paper-raised);
-		border: var(--hair) solid var(--rule-strong);
+		background: var(--paper);
+		border: var(--hair) solid var(--ink);
 		border-radius: 0;
 		box-shadow: none;
 		padding: var(--sp-2) var(--sp-3);
@@ -467,7 +469,8 @@
 	   popup's own `max-width`, and the longest line here ran off a phone. */
 	:global(.speaker-hover .hover-line) {
 		margin: 0;
-		font-family: var(--mono);
+		font-family: var(--sans);
+		font-variant-numeric: tabular-nums lining-nums;
 		font-size: var(--step--2);
 		color: var(--ink-2);
 		overflow-wrap: break-word;

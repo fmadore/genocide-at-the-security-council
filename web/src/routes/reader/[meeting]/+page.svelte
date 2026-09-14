@@ -420,6 +420,79 @@
 			</div>
 		</header>
 
+		<!-- The apparatus, under the header, as a full-width band on the twelve
+		     column grid: the register legend is the key to every mark below it and
+		     has to be readable before the record is, not folded into a margin the
+		     plate width was taken from. -->
+		<aside class="apparatus grid">
+			<div class="note">
+				<span class="label">Highlights in this record</span>
+				{#if marksHere.length}
+					<ul class="tally-list">
+						{#each marksHere as entry (entry.register)}
+							<li>
+								<span class="swatch" data-register={entry.register}></span>
+								<span class="name">{entry.register}</span>
+								<span class="n">{count(entry.n)}</span>
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					<p class="prose">No term from the word list is highlighted under the current filter.</p>
+				{/if}
+			</div>
+
+			<div class="note">
+				<span class="label">The reading set here</span>
+				<p class="prose">
+					{count(inScope.size)} of {count(record.speeches.length)} speeches belong to the reading set
+					selected at the top of the page. The full meeting remains available, including speeches outside
+					that set.
+				</p>
+			</div>
+
+			<div class="note">
+				<span class="label">Affiliations, speech counts and terms</span>
+				<ul class="roll">
+					{#each roll as delegation (delegation.country)}
+						<li>
+							<span class="name">{shortCountry(delegation.country)}</span>
+							<span class="n">{count(delegation.speeches)}</span>
+							<span class="said"
+								>{delegation.terms.length
+									? delegation.terms.map(termLabel).join(', ')
+									: 'no term on the list'}</span
+							>
+						</li>
+					{/each}
+				</ul>
+			</div>
+
+			<div class="note">
+				<span class="label">Delivery language</span>
+				<p class="prose">
+					The record is in English. {#if interpreted > 0}{count(interpreted)}
+						{interpreted === 1 ? 'speech carries' : 'speeches carry'} a non-English language label.{/if}
+					The source does not reliably identify delivery language, so an absent label cannot establish
+					that a speech was delivered in English.
+				</p>
+			</div>
+
+			<div class="note">
+				<span class="label">The text</span>
+				<p class="prose">
+					The text comes from the published dataset of verbatim records. Scanning and text
+					processing can introduce errors. Highlights identify the search matches used in the
+					counts. Consult the UN Digital Library record when checking a quotation.
+				</p>
+			</div>
+
+			<div class="note src">
+				<span class="label">Source</span>
+				<p class="symbol">09_export_speeches.py<br />→ speeches/{record.basename}.json</p>
+			</div>
+		</aside>
+
 		<div class="toolbar">
 			<label>
 				Highlight
@@ -433,7 +506,7 @@
 			</label>
 			<span class="tally">{count(totalHits)} highlighted occurrences in this meeting</span>
 			{#if wantedOccurrence}
-				<span class="selected symbol">Selected {wantedOccurrence}</span>
+				<span class="selected">Selected <span class="symbol">{wantedOccurrence}</span></span>
 				<button class="ghost" onclick={copyOccurrenceLink}>
 					{copyState === 'copied'
 						? 'Occurrence link copied'
@@ -465,7 +538,7 @@
 					{#if resultNavigation.previous}
 						<a href={occurrenceHref(resultNavigation.previous)}>Previous occurrence</a>
 					{/if}
-					<span class="symbol">{resultNavigation.position} of {resultNavigation.total}</span>
+					<span class="position">{resultNavigation.position} of {resultNavigation.total}</span>
 					{#if resultNavigation.next}
 						<a href={occurrenceHref(resultNavigation.next)}>Next occurrence</a>
 					{/if}
@@ -474,148 +547,74 @@
 			<button class="ghost" onclick={openAll}>Open every speech</button>
 		</div>
 
-		<!-- The document, and its apparatus in the margin beside it. -->
-		<div class="split">
-			<ol class="speeches">
-				{#each record.speeches as speech (speech.id)}
-					{@const hits = Object.entries(speech.hits).filter(
-						([t]) => !filterTerm || t === filterTerm
-					)}
-					{@const marked = hits.reduce((n, [, spans]) => n + spans.length, 0)}
-					<li id={speech.id} class:target={speech.id === wantedSpeech}>
-						<button
-							class="head"
-							onclick={() => toggle(speech.id)}
-							aria-expanded={open.has(speech.id)}
-						>
-							<span class="n symbol">{speech.n}</span>
-							<span class="who">
-								<strong>{speech.speaker ?? shortCountry(speech.country)}</strong>
-								<span class="sub">
-									{shortCountry(speech.country)}
-									· {speech.group}
-									{#if speech.role}· {speech.role}{/if}
-									{#if speech.language}· spoke in {speech.language}{/if}
-								</span>
+		<!-- The record itself, at the prose measure, under the apparatus band. -->
+		<ol class="speeches">
+			{#each record.speeches as speech (speech.id)}
+				{@const hits = Object.entries(speech.hits).filter(([t]) => !filterTerm || t === filterTerm)}
+				{@const marked = hits.reduce((n, [, spans]) => n + spans.length, 0)}
+				<li id={speech.id} class:target={speech.id === wantedSpeech}>
+					<button
+						class="head"
+						onclick={() => toggle(speech.id)}
+						aria-expanded={open.has(speech.id)}
+					>
+						<span class="n">{speech.n}</span>
+						<span class="who">
+							<strong>{speech.speaker ?? shortCountry(speech.country)}</strong>
+							<span class="sub">
+								{shortCountry(speech.country)}
+								· {speech.group}
+								{#if speech.role}· {speech.role}{/if}
+								{#if speech.language}· spoke in {speech.language}{/if}
 							</span>
-							<span class="tags">
-								{#if inScope.has(speech.id)}
-									<span class="set" title="In the selected reading set">in set</span>
-								{/if}
-								{#if marked}
-									<span class="count">{marked}</span>
-								{/if}
-								<span class="chev" class:down={open.has(speech.id)}
-									><Icon icon={ChevronRight} /></span
-								>
-							</span>
-						</button>
+						</span>
+						<span class="tags">
+							{#if inScope.has(speech.id)}
+								<span class="set" title="In the selected reading set">in set</span>
+							{/if}
+							{#if marked}
+								<span class="count">{marked}</span>
+							{/if}
+							<span class="chev" class:down={open.has(speech.id)}><Icon icon={ChevronRight} /></span
+							>
+						</span>
+					</button>
 
-						{#if open.has(speech.id)}
-							<div class="text">
-								{#each visible(speech) as segment, i (i)}
-									{#if segment.terms.length}
-										<mark
-											class:occurrence={segment.exact}
-											data-occurrence={segment.exact ? wantedOccurrence : undefined}
-											data-register={registerFor(segment.terms)}
-											title={segment.exact
-												? `Selected occurrence ${wantedOccurrence}`
-												: segment.terms.map(termLabel).join(', ')}>{segment.text}</mark
-										>
-									{:else}{segment.text}{/if}
-								{/each}
-							</div>
-							<p class="speech-meta symbol">
-								{speech.id} · {count(speech.words)} words
-								{#if Object.keys(speech.hits).length}
-									· {Object.keys(speech.hits).map(termLabel).join(', ')}
-								{/if}
-								<button
-									type="button"
-									class="ghost keep"
-									disabled={basket.has(speech.id)}
-									onclick={() => keepSpeech(speech)}
-								>
-									{basket.has(speech.id) ? 'In the basket' : 'Add this speech to the basket'}
-								</button>
-							</p>
-						{:else}
-							<p class="preview">{preview(speech)}</p>
-						{/if}
-					</li>
-				{/each}
-			</ol>
-
-			<aside class="apparatus">
-				<div class="note">
-					<span class="label">Highlights in this record</span>
-					{#if marksHere.length}
-						<ul class="tally-list">
-							{#each marksHere as entry (entry.register)}
-								<li>
-									<span class="swatch" data-register={entry.register}></span>
-									<span class="name">{entry.register}</span>
-									<span class="symbol">{count(entry.n)}</span>
-								</li>
+					{#if open.has(speech.id)}
+						<div class="text">
+							{#each visible(speech) as segment, i (i)}
+								{#if segment.terms.length}
+									<mark
+										class:occurrence={segment.exact}
+										data-occurrence={segment.exact ? wantedOccurrence : undefined}
+										data-register={registerFor(segment.terms)}
+										title={segment.exact
+											? `Selected occurrence ${wantedOccurrence}`
+											: segment.terms.map(termLabel).join(', ')}>{segment.text}</mark
+									>
+								{:else}{segment.text}{/if}
 							{/each}
-						</ul>
+						</div>
+						<p class="speech-meta">
+							<span class="symbol">{speech.id}</span> · {count(speech.words)} words
+							{#if Object.keys(speech.hits).length}
+								· {Object.keys(speech.hits).map(termLabel).join(', ')}
+							{/if}
+							<button
+								type="button"
+								class="ghost keep"
+								disabled={basket.has(speech.id)}
+								onclick={() => keepSpeech(speech)}
+							>
+								{basket.has(speech.id) ? 'In the basket' : 'Add this speech to the basket'}
+							</button>
+						</p>
 					{:else}
-						<p class="prose">No term from the word list is highlighted under the current filter.</p>
+						<p class="preview">{preview(speech)}</p>
 					{/if}
-				</div>
-
-				<div class="note">
-					<span class="label">The reading set here</span>
-					<p class="prose">
-						{count(inScope.size)} of {count(record.speeches.length)} speeches belong to the reading set
-						selected at the top of the page. The full meeting remains available, including speeches outside
-						that set.
-					</p>
-				</div>
-
-				<div class="note">
-					<span class="label">Affiliations, speech counts and terms</span>
-					<ul class="roll">
-						{#each roll as delegation (delegation.country)}
-							<li>
-								<span class="name">{shortCountry(delegation.country)}</span>
-								<span class="symbol">{count(delegation.speeches)}</span>
-								<span class="said"
-									>{delegation.terms.length
-										? delegation.terms.map(termLabel).join(', ')
-										: 'no term on the list'}</span
-								>
-							</li>
-						{/each}
-					</ul>
-				</div>
-
-				<div class="note">
-					<span class="label">Delivery language</span>
-					<p class="prose">
-						The record is in English. {#if interpreted > 0}{count(interpreted)}
-							{interpreted === 1 ? 'speech carries' : 'speeches carry'} a non-English language label.{/if}
-						The source does not reliably identify delivery language, so an absent label cannot establish
-						that a speech was delivered in English.
-					</p>
-				</div>
-
-				<div class="note">
-					<span class="label">The text</span>
-					<p class="prose">
-						The text comes from the published dataset of verbatim records. Scanning and text
-						processing can introduce errors. Highlights identify the search matches used in the
-						counts. Consult the UN Digital Library record when checking a quotation.
-					</p>
-				</div>
-
-				<div class="note src">
-					<span class="label">Source</span>
-					<p class="symbol">09_export_speeches.py<br />→ speeches/{record.basename}.json</p>
-				</div>
-			</aside>
-		</div>
+				</li>
+			{/each}
+		</ol>
 	</article>
 {/if}
 
@@ -710,7 +709,10 @@
 		margin-bottom: var(--sp-5);
 		border-bottom: var(--hair) solid var(--rule-strong);
 		position: sticky;
-		top: 3.4rem;
+		/* The measured masthead height, not a number that was true of one
+		   viewport: the masthead wraps, and a hard-coded 3.4rem left the bar
+		   sliding under it at every width where it wrapped to two lines. */
+		top: var(--masthead-h);
 		background: var(--paper);
 		z-index: 2;
 	}
@@ -729,14 +731,16 @@
 	}
 
 	.tally {
-		font-family: var(--mono);
-		font-size: var(--step--2);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-3);
 		margin-left: auto;
 	}
 
 	.selected {
-		font-size: var(--step--2);
+		font-family: var(--sans);
+		font-size: var(--step--1);
 		color: var(--ink-2);
 	}
 
@@ -745,7 +749,12 @@
 		align-items: center;
 		gap: var(--sp-2);
 		font-family: var(--sans);
-		font-size: var(--step--2);
+		font-size: var(--step--1);
+	}
+
+	.result-nav .position {
+		font-variant-numeric: tabular-nums lining-nums;
+		color: var(--ink-3);
 	}
 
 	/* Three formats of one thing, so they are grouped under one label rather
@@ -756,62 +765,65 @@
 		gap: var(--sp-2);
 	}
 
+	/* The apparatus voice, inline in the bar: `.label` in `app.css` now carries
+	   the whole of it, so nothing is set here but the line it sits on. */
 	.cites .label {
-		font-family: var(--sans);
-		font-size: var(--step--2);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--ink-3);
+		display: inline;
 	}
 
+	/* Every chip on the site: one ink hairline, 2rem, no fill until it is
+	   pressed. The register hues and the state colours never reach a control. */
 	.ghost {
-		background: none;
-		border: var(--hair) solid var(--rule-strong);
-		padding: var(--sp-1) var(--sp-3);
+		display: inline-flex;
+		align-items: center;
+		background: var(--paper);
+		border: var(--hair) solid var(--ink);
+		padding: 0 var(--sp-3);
 		min-height: 2rem;
 		font-family: var(--sans);
-		font-size: var(--step--2);
-		color: var(--ink-2);
+		font-size: var(--step--1);
+		color: var(--ink);
 		cursor: pointer;
 	}
 
 	.ghost:hover {
-		border-color: var(--blue);
-		color: var(--blue);
+		background: var(--paper-sunk);
 	}
 
-	/* The document, and beside it the apparatus. Below 62rem the margin folds
-	   under the record and keeps its rule, exactly as it does in a figure. */
-	.split {
-		display: grid;
-		gap: var(--sp-6);
+	.ghost:disabled {
+		color: var(--ink-3);
+		border-color: var(--rule);
+		cursor: default;
 	}
 
-	@media (min-width: 62rem) {
-		.split {
-			grid-template-columns: minmax(0, 1fr) var(--measure-note);
-			align-items: start;
-		}
-	}
-
+	/* The record is a column of prose, not a plate: with the apparatus lifted
+	   out of the margin the list would otherwise run the full twelve columns and
+	   fling every speaker's tags to the far edge. The 2.9rem is the number
+	   column the speech text is already indented past. */
 	.speeches {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 		min-width: 0;
+		max-width: calc(var(--measure) + 2.9rem);
 	}
 
+	/* Where a deep link parks a speech: under everything stuck to the top of the
+	   window, and the same value as the occurrence anchor below, which used to
+	   disagree with it by a whole rem. */
 	.speeches li {
 		border-bottom: var(--hair) solid var(--rule);
 		padding-bottom: var(--sp-3);
 		margin-bottom: var(--sp-3);
-		scroll-margin-top: 8rem;
+		scroll-margin-top: calc(var(--masthead-h) + var(--contents-h) + var(--sp-4));
 	}
 
+	/* The speech a link asked for, set on the sunk stripe rather than behind a
+	   coloured bar: the record carries no rules on its leading edge. */
 	.speeches li.target {
-		box-shadow: inset 2px 0 0 var(--blue-flag);
-		padding-left: var(--sp-3);
-		margin-left: calc(-1 * var(--sp-4));
+		background: var(--paper-sunk);
+		padding-inline: var(--sp-3);
+		margin-inline: calc(-1 * var(--sp-3));
 	}
 
 	.head {
@@ -837,16 +849,16 @@
 	.n {
 		color: var(--ink-3);
 		font-size: var(--step--2);
+		font-variant-numeric: tabular-nums lining-nums;
 	}
 
 	/* The speaker line is apparatus, not text: it names who is talking, in the
-	   voice the sidenotes use, so the record itself stays the only serif. */
+	   apparatus voice, and the record below it carries the reading. */
 	.who strong {
 		display: block;
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		font-weight: 700;
-		letter-spacing: 0.02em;
 	}
 
 	.sub {
@@ -864,10 +876,10 @@
 	/* Set as the occurrence count is, but hollow: it says which population a
 	   speech is in, not how many times anything was said. */
 	.set {
-		border: var(--hair) solid var(--rule-strong);
-		color: var(--ink-3);
+		border: var(--hair) solid var(--ink);
+		color: var(--ink-2);
 		padding: 0.05rem 0.4rem;
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--2);
 	}
 
@@ -875,9 +887,9 @@
 		background: var(--mark);
 		color: var(--ink);
 		padding: 0.05rem 0.4rem;
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--2);
-		font-variant-numeric: tabular-nums;
+		font-variant-numeric: tabular-nums lining-nums;
 	}
 
 	.chev {
@@ -905,84 +917,92 @@
 
 	.text {
 		margin: var(--sp-2) 0 var(--sp-3) 2.9rem;
-		font-family: var(--serif);
+		font-family: var(--sans);
 		font-size: var(--step-0);
 		line-height: 1.68;
 		white-space: pre-wrap;
 		max-width: var(--measure);
 	}
 
+	/* The one occurrence a link asked for. Blue is the interaction layer and
+	   this outline is the only thing on the page that answers a query. */
 	.text mark.occurrence {
 		outline: 2px solid var(--blue);
 		outline-offset: 2px;
-		scroll-margin-top: 9rem;
+		scroll-margin-top: calc(var(--masthead-h) + var(--contents-h) + var(--sp-4));
 	}
 
 	.speech-meta {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--sp-2) var(--sp-3);
 		margin: 0 0 0 2.9rem;
-		font-size: var(--step--2);
+		font-size: var(--step--1);
 		color: var(--ink-3);
 	}
 
 	/* ---- the apparatus ---------------------------------------------------- */
 
+	/* A band under the header on the twelve-column grid, opened by a rule: the
+	   same shape a plate's notes take in `Figure.svelte`, and for the same
+	   reason — the notes belong under the thing they are about, at its width,
+	   not in a margin cut out of it. */
 	.apparatus {
-		display: grid;
-		gap: var(--sp-4);
-		border-left: var(--hair) solid var(--rule-strong);
-		padding-left: var(--sp-4);
+		row-gap: var(--sp-5);
+		margin-bottom: var(--sp-6);
+		padding-top: var(--sp-3);
+		border-top: var(--hair) solid var(--ink);
 	}
 
-	@media (min-width: 62rem) {
-		.apparatus {
-			position: sticky;
-			top: 7rem;
+	.note {
+		grid-column: span 12;
+	}
+
+	@media (min-width: 48rem) {
+		.note {
+			grid-column: span 6;
 		}
 	}
 
-	@media (max-width: 61.999rem) {
-		.apparatus {
-			grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-		}
-	}
-
-	.label {
-		display: block;
-		font-family: var(--sans);
-		font-size: var(--step--2);
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--ink-3);
+	/* `.label` in `app.css` sets the apparatus voice; only the space under it
+	   belongs to this page. */
+	.note .label {
 		margin-bottom: var(--sp-2);
 	}
 
 	.prose {
 		margin: 0;
+		max-width: var(--measure);
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		line-height: 1.5;
 		color: var(--ink-2);
 	}
 
+	/* Capped rather than run to the full six columns: a count set against the far
+	   edge of a 41rem cell has left its name behind. */
 	.tally-list {
 		list-style: none;
 		margin: 0;
 		padding: 0;
 		display: grid;
 		gap: var(--sp-1);
+		max-width: 22rem;
 		font-family: var(--sans);
 		font-size: var(--step--1);
 	}
 
 	.tally-list li {
 		display: grid;
-		grid-template-columns: 0.7rem minmax(0, 1fr) auto;
+		grid-template-columns: 0.625rem minmax(0, 1fr) auto;
 		gap: var(--sp-2);
 		align-items: center;
 	}
 
-	.tally-list .symbol {
+	.tally-list .n {
+		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-3);
 	}
 
@@ -996,6 +1016,7 @@
 		gap: var(--sp-2);
 		font-family: var(--sans);
 		font-size: var(--step--1);
+		max-width: 22rem;
 		max-height: 22rem;
 		overflow-y: auto;
 	}
@@ -1010,7 +1031,9 @@
 		color: var(--ink-2);
 	}
 
-	.roll .symbol {
+	.roll .n {
+		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-3);
 	}
 
@@ -1022,8 +1045,8 @@
 
 	/* The same six data colours the marks in the text carry. */
 	.swatch {
-		width: 0.7rem;
-		height: 0.7rem;
+		width: 0.625rem;
+		height: 0.625rem;
 		background: var(--ink);
 	}
 
@@ -1043,11 +1066,8 @@
 		background: var(--reg-accountability);
 	}
 
-	.src {
-		border-top: var(--hair) solid var(--rule);
-		padding-top: var(--sp-3);
-	}
-
+	/* One note among the others in the band: the band's own rule opens all six,
+	   and a second rule over this one alone read as a footer inside a column. */
 	.src .symbol {
 		margin: 0;
 		line-height: 1.5;

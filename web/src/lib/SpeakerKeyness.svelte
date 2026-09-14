@@ -343,14 +343,24 @@
 		color: var(--ink-2);
 	}
 
+	/* The 2px coloured bar is gone. What a refusal is, is carried the way every
+	   other kind is carried on this site: a square of its colour beside the
+	   words, with the words themselves in ink. */
 	.refusal {
 		max-width: var(--measure);
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		line-height: 1.55;
 		color: var(--ink-2);
-		border-left: 2px solid var(--state-warn);
-		padding-left: var(--sp-3);
+	}
+
+	.refusal::before {
+		content: '';
+		float: inline-start;
+		width: 0.625rem;
+		height: 0.625rem;
+		margin: 0.45em var(--sp-2) 0 0;
+		background: var(--state-warn);
 	}
 
 	.refusal :global(p) {
@@ -396,7 +406,8 @@
 	}
 
 	.interval {
-		font-family: var(--mono);
+		font-family: var(--sans);
+		font-variant-numeric: tabular-nums lining-nums;
 		font-size: var(--step--2);
 		color: var(--ink-3);
 		white-space: nowrap;
@@ -458,7 +469,7 @@
 	.apparatus {
 		margin: var(--sp-7) 0 var(--sp-8);
 		padding-top: var(--sp-4);
-		border-top: var(--hair) solid var(--rule-strong);
+		border-top: var(--hair) solid var(--ink);
 		max-width: var(--measure);
 	}
 

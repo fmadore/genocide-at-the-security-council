@@ -247,7 +247,7 @@ export function nest(svg: string, width: number, height: number): string {
 
 export function captionSvg(request: CaptionRequest): string {
 	const { svg, width, height, title, provenance, colours } = request;
-	const font = request.fontFamily ?? 'Archivo, system-ui, sans-serif';
+	const font = request.fontFamily ?? 'Hanken Grotesk, Helvetica Neue, Helvetica, Arial, sans-serif';
 	const lines = [
 		...(request.filters?.length ? [request.filters.join('  ·  ')] : []),
 		...provenanceLines(provenance)

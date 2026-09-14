@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * The frame every visualisation on this site sits in.
+	 * The plate every visualisation on this site sits in.
 	 *
 	 * A chart without an account of itself is a decoration. Each figure states
 	 * four things, and none of them is hidden behind a toggle:
@@ -15,15 +15,18 @@
 	 * over twenty figures and found most of it was method repeated, marks
 	 * restated or engineering narrated. What a reader might still want — a
 	 * withholding rule in full, a second-order caveat — goes in `more`, a
-	 * disclosure in the margin capped at 150 words; method goes to Methods
-	 * behind an anchor.
+	 * disclosure capped at 150 words; method goes to Methods behind an anchor.
 	 *
-	 * The apparatus is set in the MARGIN, beside the evidence, the way a critical
-	 * edition sets its notes — not queued underneath where it reads as boilerplate.
-	 * Below 62rem the margin folds under the figure and keeps its rule.
+	 * The plate runs the full width of the page: the evidence gets every column.
+	 * The notes sit UNDER it, side by side, the way a programme's plate carries
+	 * its caption beneath the picture — not in a margin that took a third of the
+	 * width and left blank paper under a short note (the review of 14 September
+	 * 2026 measured the figure body at 67% of the page and the heatmap at 59%).
+	 * Everything the reader must hold *while looking* is still one glance away:
+	 * the reading note is the first thing under the marks.
 	 *
-	 * No panel, no border, no radius: a figure is separated from the page by a
-	 * rule and by space, like everything else here.
+	 * No panel, no border, no radius: a plate is opened by a heavy rule and
+	 * numbered in document order, and separated from the next by space.
 	 */
 	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
@@ -44,7 +47,7 @@
 		/** Overflow the budget refused: opened on demand, never in the way. */
 		more?: Snippet;
 		controls?: Snippet;
-		/** Shown under the figure in mono: says the geometry is not the claim. */
+		/** Shown under the figure in the quiet ink: says the geometry is not the claim. */
 		note?: string;
 		/**
 		 * CSV and image export, offered beside the source rather than over the
@@ -172,6 +175,11 @@
 	tabindex="-1"
 >
 	<figcaption class="head">
+		<!-- The plate number is printed from a CSS counter so it always agrees
+		     with document order and with the contents band, which counts the
+		     same figures. Hidden from assistive technology: the heading is the
+		     name, and "Plate 3" read before every title is noise. -->
+		<span class="plate-no" aria-hidden="true"></span>
 		<div class="title-row">
 			<h2><a class="anchor" href="#{figureId({ title, id })}">{title}</a></h2>
 			{#if fullscreen}
@@ -204,40 +212,38 @@
 		<div class="controls">{@render controls()}</div>
 	{/if}
 
-	<div class="split">
-		<div class="body">
-			{@render children()}
-			{#if note}
-				<p class="note-line">{note}</p>
-			{/if}
-		</div>
-
-		<aside class="apparatus">
-			<div class="note">
-				<span class="label lead">How to read this</span>
-				<div class="prose">{@render reading()}</div>
-			</div>
-			{#if caveat}
-				<div class="note">
-					<span class="label">What it does not show</span>
-					<div class="prose">{@render caveat()}</div>
-				</div>
-			{/if}
-			{#if more}
-				<details class="more">
-					<summary><span class="label">More on this figure</span></summary>
-					<div class="prose">{@render more()}</div>
-				</details>
-			{/if}
-		</aside>
+	<div class="body">
+		{@render children()}
+		{#if note}
+			<p class="note-line">{note}</p>
+		{/if}
 	</div>
 
-	<!-- Provenance and the downloads run the full width under the figure rather
-	     than at the foot of the margin. Two reasons, and neither is taste. It is
-	     not a reading note — it is where the numbers came from and how to take
-	     them away — and in a 15rem margin the download row stacked one button per
-	     line while adding 220px to the column that was already the taller of the
-	     two. Everything the reader must hold *while looking* stays in the margin. -->
+	<!-- The notes, under the plate, on the grid: the reading note and the
+	     caveat take six columns each, and the overflow disclosure runs under
+	     both. The class name `apparatus` is the contract the tests and the
+	     reader page share. -->
+	<aside class="apparatus grid">
+		<div class="note">
+			<span class="label lead">How to read this</span>
+			<div class="prose">{@render reading()}</div>
+		</div>
+		{#if caveat}
+			<div class="note">
+				<span class="label">What it does not show</span>
+				<div class="prose">{@render caveat()}</div>
+			</div>
+		{/if}
+		{#if more}
+			<details class="more">
+				<summary><span class="label">More on this figure</span></summary>
+				<div class="prose">{@render more()}</div>
+			</details>
+		{/if}
+	</aside>
+
+	<!-- Provenance and the downloads run the full width under the notes: not a
+	     reading note but where the numbers came from and how to take them away. -->
 	<footer class="src">
 		<span class="label">Source</span>
 		<p class="symbol">{source}</p>
@@ -248,61 +254,59 @@
 </figure>
 
 <style>
-	.provenance {
-		display: inline-block;
-		margin-block: var(--sp-2);
-		font-size: var(--step--1);
-		color: var(--ink);
-		text-underline-offset: 0.2em;
-	}
-
-	.provenance[data-provenance='computed'] {
-		color: var(--state-ok);
-	}
-	.provenance[data-provenance='mixed'] {
-		color: var(--state-warn);
-	}
-	.provenance[data-provenance='model'] {
-		color: var(--state-bad);
-	}
 	.figure {
-		margin: 0 0 var(--sp-8);
-		padding-top: var(--sp-5);
-		border-top: var(--hair) solid var(--rule-strong);
+		counter-increment: plate;
+		margin: 0 0 var(--sp-9);
+		padding-top: var(--sp-3);
+		border-top: var(--heavy) solid var(--ink);
 	}
 
 	.head {
 		margin-bottom: var(--sp-4);
 	}
 
+	/* "Plate 3", in the apparatus voice, on its own line above the title: the
+	   address a reader keys or cites. */
+	.plate-no::before {
+		content: 'Plate ' counter(plate);
+		display: block;
+		font-size: var(--step--1);
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		color: var(--ink-3);
+		margin-bottom: var(--sp-2);
+	}
+
 	.head h2 {
-		margin: 0 0 0.1em;
-		font-size: var(--step-2);
+		margin: 0 0 0.15em;
+		font-size: var(--step-3);
+		max-width: 40rem;
 	}
 
 	.title-row {
 		display: flex;
-		align-items: baseline;
+		align-items: flex-start;
 		justify-content: space-between;
-		gap: var(--sp-3);
+		gap: var(--sp-4);
 	}
 
 	.fullscreen-toggle {
 		display: inline-flex;
 		flex: none;
 		align-items: center;
-		gap: var(--sp-1);
-		padding: 0.35rem 0.55rem;
-		font-size: var(--step--2);
+		gap: var(--sp-2);
+		min-height: 2rem;
+		padding: 0 var(--sp-3);
+		font-size: var(--step--1);
+		font-weight: 500;
 		line-height: 1;
-		color: var(--ink-2);
-		background: transparent;
-		border: var(--hair) solid var(--rule-strong);
+		color: var(--ink);
+		background: var(--paper);
+		border: var(--hair) solid var(--ink);
 	}
 
 	.fullscreen-toggle:hover {
-		color: var(--ink);
-		background: var(--paper-2);
+		background: var(--paper-sunk);
 	}
 
 	.fullscreen-toggle svg {
@@ -324,6 +328,7 @@
 		overflow: auto;
 		overscroll-behavior: contain;
 		background: var(--paper);
+		border-top: 0;
 	}
 
 	/* Fixed fallback for browsers without element.requestFullscreen, notably
@@ -334,14 +339,9 @@
 		z-index: 1000;
 	}
 
-	.figure:fullscreen .split,
-	.figure.fullscreen-open .split {
-		min-height: 0;
-	}
-
 	@media (prefers-reduced-motion: no-preference) {
 		.figure.fullscreen-open {
-			animation: fullscreen-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+			animation: fullscreen-in var(--dur) var(--ease);
 		}
 	}
 
@@ -362,7 +362,8 @@
 	.anchor:hover,
 	.anchor:focus-visible {
 		text-decoration: underline;
-		text-decoration-color: var(--rule-strong);
+		text-decoration-thickness: 2px;
+		text-underline-offset: 0.12em;
 	}
 
 	.question {
@@ -373,12 +374,44 @@
 		line-height: 1.5;
 	}
 
-	/* Centred, not bottom-aligned. The bar mixes three control idioms — a label
-	   beside a select, a segmented button group, and a mono readout — and they
-	   are not the same height. Aligning their *bottoms* lined up the boxes'
-	   lower edges and left every box centred on a different line, which is what
-	   read as crooked. One centre line is the only alignment that survives
-	   controls of different heights. */
+	.provenance {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+		margin-block: var(--sp-2) 0;
+		font-size: var(--step--1);
+		font-weight: 500;
+		color: var(--ink);
+		text-decoration: none;
+	}
+
+	.provenance:hover {
+		text-decoration: underline;
+	}
+
+	/* The provenance kind is a square of its colour before the words, so the
+	   words stay ink and the colour stays a key rather than a warning. */
+	.provenance::before {
+		content: '';
+		width: 0.625rem;
+		height: 0.625rem;
+		flex: none;
+		background: var(--ink);
+	}
+
+	.provenance[data-provenance='computed']::before {
+		background: var(--state-ok);
+	}
+	.provenance[data-provenance='mixed']::before {
+		background: var(--state-warn);
+	}
+	.provenance[data-provenance='model']::before {
+		background: var(--state-bad);
+	}
+
+	/* Centred, not bottom-aligned. The bar mixes a label beside a select, a
+	   segmented button group and a mono readout, and they are not the same
+	   height; one centre line is the only alignment that survives that. */
 	.controls {
 		display: flex;
 		flex-wrap: wrap;
@@ -386,21 +419,8 @@
 		align-items: center;
 		padding: var(--sp-3) 0;
 		margin-bottom: var(--sp-4);
-		border-top: var(--hair) solid var(--rule);
+		border-top: var(--hair) solid var(--ink);
 		border-bottom: var(--hair) solid var(--rule);
-	}
-
-	.split {
-		display: grid;
-		gap: var(--sp-5);
-	}
-
-	@media (min-width: 62rem) {
-		.split {
-			grid-template-columns: minmax(0, 1fr) var(--measure-note);
-			gap: var(--sp-6);
-			align-items: start;
-		}
 	}
 
 	.body {
@@ -408,29 +428,49 @@
 		overflow-x: auto;
 	}
 
+	/* Running text, so the text face: the typewriter is for citations only. */
 	.note-line {
 		margin: var(--sp-2) 0 0;
-		font-family: var(--mono);
-		font-size: var(--step--2);
+		font-family: var(--sans);
+		font-size: var(--step--1);
 		color: var(--ink-3);
 	}
 
 	.apparatus {
-		display: grid;
-		gap: var(--sp-4);
-		border-left: var(--hair) solid var(--rule-strong);
-		padding-left: var(--sp-4);
+		row-gap: var(--sp-4);
+		margin-top: var(--sp-5);
+		padding-top: var(--sp-3);
+		border-top: var(--hair) solid var(--ink);
 	}
 
-	@media (max-width: 61.999rem) {
-		.apparatus {
-			grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+	.note {
+		grid-column: span 12;
+	}
+
+	.more {
+		grid-column: span 12;
+	}
+
+	@media (min-width: 48rem) {
+		.note {
+			grid-column: span 6;
+		}
+	}
+
+	@media (min-width: 64rem) {
+		.note {
+			grid-column: span 5;
+		}
+
+		.note + .note {
+			grid-column: 7 / span 5;
 		}
 	}
 
 	.more summary {
 		cursor: pointer;
 		list-style: none;
+		width: fit-content;
 	}
 
 	.more summary::-webkit-details-marker {
@@ -439,6 +479,11 @@
 
 	.more summary .label {
 		display: inline;
+		color: var(--blue);
+	}
+
+	.more summary:hover .label {
+		color: var(--ink);
 	}
 
 	.more summary .label::before {
@@ -451,22 +496,16 @@
 
 	.more .prose {
 		margin-top: var(--sp-2);
+		max-width: var(--measure);
 	}
 
 	.label {
-		display: block;
-		font-family: var(--sans);
-		font-size: var(--step--2);
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--ink-3);
 		margin-bottom: var(--sp-1);
 	}
 
 	/* The reading note is the one the reader needs first. */
 	.lead {
-		color: var(--blue);
+		color: var(--ink);
 	}
 
 	.prose {
@@ -491,15 +530,15 @@
 
 	.prose :global(code) {
 		font-family: var(--mono);
-		font-size: 0.9em;
+		font-size: 0.92em;
 	}
 
-	/* A strip under the whole figure: label, artefact path, then the downloads,
+	/* A strip under the whole plate: label, artefact path, then the downloads,
 	   on one line where there is room for one. */
 	.src {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: baseline;
+		align-items: center;
 		gap: var(--sp-2) var(--sp-4);
 		margin-top: var(--sp-4);
 		padding-top: var(--sp-3);
@@ -513,9 +552,15 @@
 	.src .symbol {
 		margin: 0;
 		font-family: var(--mono);
-		font-size: var(--step--2);
+		font-size: var(--step--1);
 		line-height: 1.5;
 		color: var(--ink-2);
 		overflow-wrap: anywhere;
+	}
+
+	@media print {
+		.figure {
+			border-top-width: 2px;
+		}
 	}
 </style>

@@ -1148,7 +1148,7 @@
 					<div class="side">
 						<h4>
 							<span class="who">{sliceLabel(side.key)}</span>
-							<span class="symbol"
+							<span class="num"
 								>{count(side.b?.speeches ?? 0)} speeches · {count(side.b?.occurrences ?? 0)} occurrences</span
 							>
 						</h4>
@@ -1167,7 +1167,7 @@
 											style:width={barWidth(w.log_ratio)}
 											title="{count(w.target)} beside the term · G² {count(Math.round(w.g2))}"
 										></span>
-										<span class="symbol">{signed(w.log_ratio)}</span>
+										<span class="num">{signed(w.log_ratio)}</span>
 									</li>
 								{/each}
 							</ol>
@@ -1186,15 +1186,15 @@
 			     which the two bars on a row mean the same thing. -->
 			<div class="pyramid">
 				<div class="prow head">
-					<span class="symbol">{count(blockA?.speeches ?? 0)} sp.</span>
+					<span class="num">{count(blockA?.speeches ?? 0)} sp.</span>
 					<span class="who left">{sliceLabel(sliceA)}</span>
 					<span></span>
 					<span class="who">{sliceLabel(sliceB)}</span>
-					<span class="symbol">{count(blockB?.speeches ?? 0)} sp.</span>
+					<span class="num">{count(blockB?.speeches ?? 0)} sp.</span>
 				</div>
 				{#each alignedRows as row (row.word)}
 					<div class="prow">
-						<span class="symbol">{row.a ? signed(row.a.log_ratio) : '—'}</span>
+						<span class="num">{row.a ? signed(row.a.log_ratio) : '—'}</span>
 						<span class="track left">
 							{#if row.a}
 								<span
@@ -1214,7 +1214,7 @@
 								></span>
 							{/if}
 						</span>
-						<span class="symbol">{row.b ? signed(row.b.log_ratio) : '—'}</span>
+						<span class="num">{row.b ? signed(row.b.log_ratio) : '—'}</span>
 					</div>
 				{/each}
 			</div>
@@ -1465,8 +1465,8 @@
 	/* Reads on after the controls rather than being flung to the right edge —
 	   see the same note in the chronology page. */
 	.unit-note {
-		font-family: var(--mono);
-		font-size: var(--step--2);
+		font-family: var(--sans);
+		font-size: var(--step--1);
 		color: var(--ink-3);
 	}
 
@@ -1489,10 +1489,14 @@
 		max-width: 22rem;
 	}
 
+	/* A refusal, set aside by one hairline of ink. The bar down its edge used to
+	   be a register hue, which is a claim about the record and not about a
+	   figure that could not be drawn. */
 	.withheld {
+		max-width: var(--measure);
 		margin: var(--sp-2) 0;
-		padding: var(--sp-3) var(--sp-4);
-		border-left: 2px solid var(--reg-contentious);
+		padding: 0 0 0 var(--sp-3);
+		border-left: var(--hair) solid var(--ink);
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		color: var(--ink-2);
@@ -1509,19 +1513,18 @@
 	   These sit in the same bar as the selects, so a shorter box put them on a
 	   different centre line and read as crooked next to them. */
 	.ghost {
-		background: none;
-		border: var(--hair) solid var(--rule-strong);
-		padding: var(--sp-1) var(--sp-3);
+		background: var(--paper);
+		border: var(--hair) solid var(--ink);
+		padding: 0 var(--sp-3);
 		min-height: 2.5rem;
 		font-family: var(--sans);
-		font-size: var(--step--2);
-		color: var(--ink-2);
+		font-size: var(--step--1);
+		color: var(--ink);
 		cursor: pointer;
 	}
 
 	.ghost:hover {
-		border-color: var(--blue);
-		color: var(--blue);
+		background: var(--paper-sunk);
 	}
 
 	/* ---- parallel text ----------------------------------------------------
@@ -1575,11 +1578,12 @@
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		font-weight: 700;
-		letter-spacing: 0.02em;
 	}
 
-	.compare h4 .symbol {
+	.compare h4 .num {
 		font-weight: 400;
+		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-3);
 	}
 
@@ -1599,7 +1603,7 @@
 	}
 
 	.profile a {
-		font-family: var(--serif);
+		font-family: var(--sans);
 		font-size: var(--step-0);
 		text-decoration: none;
 		color: var(--ink);
@@ -1618,8 +1622,10 @@
 		opacity: 0.55;
 	}
 
-	.profile .symbol {
+	.profile .num {
 		text-align: right;
+		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-3);
 	}
 
@@ -1654,23 +1660,24 @@
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		font-weight: 700;
-		letter-spacing: 0.02em;
 	}
 
 	.prow.head .who.left {
 		text-align: right;
 	}
 
-	.prow.head .symbol {
+	.prow.head .num {
 		color: var(--ink-3);
 	}
 
-	.prow .symbol {
+	.prow .num {
 		text-align: right;
+		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-3);
 	}
 
-	.prow .symbol:last-child {
+	.prow .num:last-child {
 		text-align: left;
 	}
 
@@ -1684,7 +1691,7 @@
 	}
 
 	.word {
-		font-family: var(--serif);
+		font-family: var(--sans);
 		font-size: var(--step-0);
 		text-align: center;
 		text-decoration: none;

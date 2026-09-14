@@ -30,7 +30,7 @@
 	 * leave. What is navigable is the table under the figure, which carries the
 	 * same numbers and the links.
 	 */
-	import { colours, sequential, tone, FONT, MONO } from '$lib/theme';
+	import { colours, sequential, tone, FONT } from '$lib/theme';
 	import type { Cell, HeatmapPlan } from '$lib/heatmap';
 
 	interface Props {
@@ -52,12 +52,15 @@
 	const captionId = $props.id();
 	const hatchId = `hatch-${captionId}`;
 
-	/* Geometry in user units; the SVG scales to its column through the viewBox. */
+	/* Geometry in user units; the SVG scales to its column through the viewBox.
+	   The cell is wide and shallow on purpose: the plate now takes the whole
+	   page, and a square cell scaled to that width made 79 rows a 4,700px wall.
+	   At 96 by 16 the calendar is a table of months, about 20px a row at 1440. */
 	const GUTTER = 44;
 	const HEADER = 18;
-	const CELL_W = 42;
-	const CELL_H = 15;
-	const GAP = 1.5;
+	const CELL_W = 96;
+	const CELL_H = 16;
+	const GAP = 2;
 	const LEGEND = 40;
 
 	const width = $derived(GUTTER + plan.months.length * (CELL_W + GAP));
@@ -121,7 +124,7 @@
 			x={GUTTER - 8}
 			y={y(year) + CELL_H - 4}
 			text-anchor="end"
-			font-family={MONO}
+			font-family={FONT}
 			font-size="9"
 			fill={$colours.inkFaint}>{year}</text
 		>
@@ -206,9 +209,10 @@
 </svg>
 
 <style>
+	/* The calendar takes every column the plate has: the review of 14 September
+	   2026 found a 46rem cap here leaving it 59% of its own width. */
 	.grid {
 		width: 100%;
-		max-width: 46rem;
 		height: auto;
 		display: block;
 	}

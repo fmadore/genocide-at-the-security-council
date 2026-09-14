@@ -143,7 +143,17 @@ test('the result profile narrows and releases the set it counts', async ({ page 
 	await page.goto(concordance);
 	const profile = page.locator('details.profile');
 	await expect(profile).toBeVisible();
+	// Closed on arrival: open, it stands thirty-two tab stops in front of the
+	// evidence it describes. Everything below is what a reader who asked for it
+	// gets, so the test asks for it the way they do.
+	await expect(profile).not.toHaveAttribute('open', /.*/);
+	await profile.locator('summary').click();
 	await expect(profile).toContainText('not adjusted for speech volume');
+
+	// The year strip is one tab stop for the group, not one per year, and the
+	// arrows move inside it.
+	const strip = profile.getByRole('group', { name: 'By year' });
+	await expect(strip.locator('button[tabindex="0"]')).toHaveCount(1);
 
 	// A row name is clipped to its column and the bar behind the count carries a
 	// share with no figure beside it, so the hover has to give back both.

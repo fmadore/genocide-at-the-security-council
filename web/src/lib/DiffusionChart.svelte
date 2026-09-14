@@ -51,8 +51,8 @@
 </div>
 
 <div class="plot" role="img" aria-label={description}>
-	<span class="high symbol">{plan.high}</span>
-	<span class="zero symbol">0</span>
+	<span class="high">{plan.high}</span>
+	<span class="zero">0</span>
 
 	<!-- Hidden from assistive technology, as `SmallMultiples.svelte` hides its
 	     own: the label on the box around it is the one description of the
@@ -108,7 +108,7 @@
 		{/each}
 	</svg>
 
-	<div class="ticks symbol">
+	<div class="ticks">
 		{#each plan.ticks as tick (tick.label)}
 			<span style:left="{tick.percent}%" data-anchor={tick.anchor}>{tick.label}</span>
 		{/each}
@@ -143,8 +143,8 @@
 	}
 
 	.swatch .n {
-		font-family: var(--mono);
-		font-variant-numeric: tabular-nums;
+		font-family: var(--sans);
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-3);
 	}
 
@@ -215,16 +215,18 @@
 	}
 
 	/* The two ends of the vertical scale, printed rather than drawn as an axis:
-	   the count is what the reader needs, and a second ruled edge is chrome. */
+	   the count is what the reader needs, and a second ruled edge is chrome.
+	   Set in the one family: the typewriter face is the citation's, and an axis
+	   is not one. */
 	.high,
 	.zero {
 		position: absolute;
 		left: 0;
 		width: 2.1rem;
 		text-align: right;
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--2);
-		font-variant-numeric: tabular-nums;
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-3);
 	}
 
@@ -239,8 +241,9 @@
 	.ticks {
 		position: relative;
 		height: 1.4rem;
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--2);
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-3);
 	}
 

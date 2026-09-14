@@ -3,9 +3,11 @@ import {
 	chronologyParams,
 	readChronologyState,
 	splitEvidenceQuery,
+	termStrokes,
 	type ChronologyChoices,
 	type ChronologyState
 } from './chronology';
+import type { Palette } from './theme';
 
 const choices: ChronologyChoices = {
 	series: {
@@ -170,5 +172,104 @@ describe('interval bands', () => {
 		expect(isIntervalBand(undefined)).toBe(false);
 		expect(bandOwner(`Genocide${BAND_SUFFIX}`)).toBe('Genocide');
 		expect(bandOwner('Genocide')).toBe('Genocide');
+	});
+});
+
+/* The nine legal terms were the bug: one register hue, nine identical teal
+   lines, told apart only by their end labels. The stroke ladder has to keep the
+   hue (a register is a shelf, and the hue says which shelf) while making the
+   lines on one shelf tellable apart, with the dash carrying as much of that as
+   the colour does. */
+describe('term strokes', () => {
+	const p: Palette = {
+		ink: '#111111',
+		inkSoft: '#3d444c',
+		inkFaint: '#626a74',
+		paper: '#ffffff',
+		panel: '#fbfbf8',
+		rule: '#b7bcaf',
+		ruleSoft: '#d6d9cf',
+		accent: '#1b5fa8',
+		positive: '#4a6b2e',
+		negative: '#98333a',
+		registers: {
+			core: '#111111',
+			legal: '#2c7069',
+			preventive: '#5c7a3a'
+		}
+	};
+
+	const LEGAL = [
+		'genocidal_acts',
+		'ethnic_cleansing',
+		'crimes_against_humanity',
+		'war_crimes',
+		'grave_breaches',
+		'atrocity_crimes',
+		'mass_atrocities',
+		'extermination',
+		'persecution'
+	];
+	const registers: Record<string, string> = {
+		genocide: 'core',
+		genocidaires: 'core',
+		prevention: 'preventive',
+		...Object.fromEntries(LEGAL.map((name) => [name, 'legal']))
+	};
+	const registerOf = (name: string) => registers[name];
+
+	it('keeps the headline term in full ink, solid, and the heavier weight', () => {
+		const strokes = termStrokes(['genocide', ...LEGAL], registerOf, p);
+		expect(strokes.get('genocide')).toEqual({ color: p.ink, dash: 'solid', width: 2 });
+	});
+
+	it('gives every term of a register a stroke of its own', () => {
+		const strokes = termStrokes(LEGAL, registerOf, p);
+		const drawn = LEGAL.map((name) => strokes.get(name)!);
+		expect(drawn).toHaveLength(9);
+		expect(new Set(drawn.map((s) => `${s.color} ${s.dash}`)).size).toBe(9);
+	});
+
+	it('never leaves colour as the only thing separating two lines', () => {
+		const strokes = termStrokes(LEGAL, registerOf, p);
+		const drawn = LEGAL.map((name) => strokes.get(name)!);
+		// Three lightness steps of the one hue, each crossed with the three
+		// dashes: any two lines sharing a colour are drawn in different dashes.
+		expect(new Set(drawn.map((s) => s.color)).size).toBe(3);
+		for (const [i, a] of drawn.entries()) {
+			for (const b of drawn.slice(i + 1)) {
+				if (a.color === b.color) expect(a.dash).not.toBe(b.dash);
+			}
+		}
+		expect(new Set(drawn.map((s) => s.dash))).toEqual(new Set(['solid', 'dashed', 'dotted']));
+	});
+
+	it('keeps the register hue as the family: the first step is the hue itself', () => {
+		const strokes = termStrokes(LEGAL, registerOf, p);
+		expect(strokes.get(LEGAL[0])!.color).toBe(p.registers.legal);
+		expect(termStrokes(['prevention'], registerOf, p).get('prevention')!.color).toBe(
+			p.registers.preventive
+		);
+	});
+
+	it('steps by position in the register, not by position in the list', () => {
+		// A preventive term sitting between two legal ones must not push the
+		// second legal term onto a different rung.
+		const woven = termStrokes([LEGAL[0], 'prevention', LEGAL[1]], registerOf, p);
+		const plain = termStrokes([LEGAL[0], LEGAL[1]], registerOf, p);
+		expect(woven.get(LEGAL[1])).toEqual(plain.get(LEGAL[1]));
+	});
+
+	it('draws a term the same way on every call, so an export matches the screen', () => {
+		const names = ['genocide', 'genocidaires', ...LEGAL, 'prevention'];
+		const once = termStrokes(names, registerOf, p);
+		const twice = termStrokes(names, registerOf, p);
+		for (const name of names) expect(twice.get(name)).toEqual(once.get(name));
+	});
+
+	it('draws a term with no register of its own in ink, never in the accent', () => {
+		const stroke = termStrokes(['unfiled'], () => undefined, p).get('unfiled')!;
+		expect(stroke.color).toBe(p.ink);
+		expect(stroke.color).not.toBe(p.accent);
 	});
 });

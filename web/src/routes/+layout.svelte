@@ -1,6 +1,6 @@
 <script lang="ts">
 	import '../app.css';
-	import serifRoman from '../fonts/SourceSerif4Variable-Roman.woff2?url';
+	import textFace from '../fonts/HankenGrotesk-Variable.woff2?url';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import BackToTop from '$lib/BackToTop.svelte';
@@ -129,8 +129,12 @@
 <svelte:head>
 	<!-- The text face, preloaded here rather than in `app.html` because Vite
 	     fingerprints it and only the module graph knows the emitted name. -->
-	<link rel="preload" href={serifRoman} as="font" type="font/woff2" crossorigin="anonymous" />
+	<link rel="preload" href={textFace} as="font" type="font/woff2" crossorigin="anonymous" />
 </svelte:head>
+
+<!-- The design's direction contract lives in `app.html`, as the first child of
+     the body: Svelte strips template comments at compile time, and the
+     contract has to survive the production build to be auditable. -->
 
 <!-- The first point in the document, and what `BackToTop` links to. It is a
      marker of its own rather than the masthead, because the masthead is sticky:
@@ -217,20 +221,33 @@
 </footer>
 
 <style>
+	/* The provenance of a page, under its name: a square of the kind's colour
+	   and the word in the quiet ink, so the row reads as a key and not as a
+	   row of warnings. */
 	.nav-origin {
-		display: block;
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
 		font-size: var(--step--2);
 		font-weight: 400;
 		line-height: 1.2;
+		color: var(--ink-3);
 	}
-	.nav-origin[data-provenance='computed'] {
-		color: var(--state-ok);
+	.nav-origin::before {
+		content: '';
+		width: 0.5rem;
+		height: 0.5rem;
+		flex: none;
+		background: var(--ink-3);
 	}
-	.nav-origin[data-provenance='mixed'] {
-		color: var(--state-warn);
+	.nav-origin[data-provenance='computed']::before {
+		background: var(--state-ok);
 	}
-	.nav-origin[data-provenance='model'] {
-		color: var(--state-bad);
+	.nav-origin[data-provenance='mixed']::before {
+		background: var(--state-warn);
+	}
+	.nav-origin[data-provenance='model']::before {
+		background: var(--state-bad);
 	}
 	#top {
 		display: block;
@@ -252,9 +269,9 @@
 	}
 
 	/* A rule and the ground colour, not a panel. The masthead is the top edge of
-	   the page, not an object sitting on it. */
+	   the page, under the heavy rule the body draws, not an object sitting on it. */
 	.masthead {
-		border-bottom: var(--hair) solid var(--rule-strong);
+		border-bottom: var(--hair) solid var(--ink);
 		background: var(--paper);
 		position: sticky;
 		top: 0;
@@ -270,11 +287,14 @@
 	.masthead .inner {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: baseline;
+		align-items: center;
 		justify-content: space-between;
 		gap: var(--sp-2) var(--sp-6);
-		padding-top: var(--sp-3);
-		padding-bottom: var(--sp-3);
+		/* Never `min-height: var(--masthead-h)` here: that variable is written
+		   FROM this element's measured height, and reading it back made the
+		   masthead grow 69px every observer tick. */
+		padding-top: var(--sp-2);
+		padding-bottom: var(--sp-2);
 	}
 
 	/* The wordmark is the site's one gesture at its own scale: a marked word in
@@ -285,36 +305,49 @@
 		display: flex;
 		align-items: baseline;
 		gap: var(--sp-3);
+		padding: var(--sp-1) 0;
 	}
 
 	.wordmark strong {
-		font-family: var(--serif);
+		font-family: var(--sans);
 		font-size: var(--step-0);
-		font-weight: 600;
+		font-weight: 700;
 		letter-spacing: -0.01em;
 	}
 
 	.wordmark span {
 		color: var(--ink-3);
-		font-size: var(--step--2);
+		font-size: var(--step--1);
 	}
 
 	nav ul {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: baseline;
-		gap: var(--sp-2) var(--sp-5);
+		align-items: stretch;
+		gap: 0 var(--sp-5);
 		list-style: none;
 		margin: 0;
 		padding: 0;
 	}
 
+	nav li {
+		display: flex;
+		align-items: center;
+	}
+
+	/* Every entry stands on the same 2rem box, badge or no badge: the review of
+	   14 September 2026 measured the one unbadged link at 18.6px beside its
+	   35px neighbours. */
 	nav a {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		min-height: 2.5rem;
 		text-decoration: none;
 		font-family: var(--sans);
 		font-size: var(--step--1);
-		color: var(--ink-3);
-		padding-bottom: 0.15rem;
+		font-weight: 500;
+		color: var(--ink-2);
 	}
 
 	nav a:hover {
@@ -326,53 +359,58 @@
 	.basket {
 		font-family: var(--sans);
 		font-size: var(--step--1);
-		color: var(--ink-3);
+		font-weight: 500;
+		color: var(--ink-2);
 		background: none;
 		border: 0;
-		padding: 0 0 0.15rem;
+		min-height: 2.5rem;
+		padding: 0;
 		cursor: pointer;
 		display: inline-flex;
-		align-items: baseline;
-		gap: var(--sp-1);
+		align-items: center;
+		gap: var(--sp-2);
 	}
 
 	.basket:hover {
 		color: var(--ink);
+		background: none;
 	}
 
 	.basket .n {
-		font-family: var(--mono);
+		font-variant-numeric: tabular-nums;
 		font-size: var(--step--2);
-		color: var(--ink);
-		border: var(--hair) solid var(--rule-strong);
-		padding: 0 0.3em;
+		line-height: 1;
+		color: var(--paper);
+		background: var(--ink);
+		padding: 0.2em 0.4em;
 	}
 
-	/* An inset shadow rather than a border: it sits inside the box without
-	   adding to the line's height, so nothing moves when it appears. */
+	/* The current section carries the heavy rule, in ink: the same rule that
+	   opens the page and each plate. An inset shadow rather than a border, so
+	   nothing moves when it appears. */
 	nav a.active {
 		color: var(--ink);
-		font-weight: 600;
-		box-shadow: inset 0 -2px 0 var(--blue-flag);
+		font-weight: 700;
+		box-shadow: inset 0 calc(-1 * var(--heavy)) 0 var(--ink);
 	}
 
 	main {
 		max-width: var(--page);
 		margin: 0 auto;
-		padding: var(--sp-7) var(--gutter) var(--sp-9);
+		padding: var(--sp-5) var(--gutter) var(--sp-9);
 	}
 
 	footer {
-		border-top: var(--hair) solid var(--rule-strong);
-		padding: var(--sp-6) 0 var(--sp-7);
+		border-top: var(--heavy) solid var(--ink);
+		padding: var(--sp-6) 0 var(--sp-8);
 		font-family: var(--sans);
 		font-size: var(--step--1);
-		line-height: 1.55;
+		line-height: 1.5;
 		color: var(--ink-2);
 	}
 
 	footer p {
-		max-width: 46rem;
+		max-width: var(--measure);
 	}
 
 	footer .quiet {

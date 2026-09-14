@@ -132,7 +132,7 @@
 
 <style>
 	.multiples {
-		border-top: var(--hair) solid var(--rule-strong);
+		border-top: var(--hair) solid var(--ink);
 	}
 
 	.row {
@@ -145,7 +145,7 @@
 	}
 
 	.row:last-of-type {
-		border-bottom-color: var(--rule-strong);
+		border-bottom-color: var(--ink);
 	}
 
 	.name {
@@ -182,10 +182,8 @@
 
 	.events .label {
 		font-family: var(--sans);
-		font-size: var(--step--2);
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
+		font-size: var(--step--1);
+		font-weight: 600;
 		color: var(--ink-3);
 	}
 

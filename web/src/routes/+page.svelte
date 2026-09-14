@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
 	import Contents from '$lib/Contents.svelte';
@@ -9,6 +8,7 @@
 	import Icon from '$lib/Icon.svelte';
 	import PageMeta from '$lib/PageMeta.svelte';
 	import SmallMultiples from '$lib/SmallMultiples.svelte';
+	import UnitField from '$lib/UnitField.svelte';
 	import { provenanceOf } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, isoDate, measureLabel, percent } from '$lib/format';
@@ -149,9 +149,12 @@
 					name: 'Occurrences',
 					type: 'bar',
 					data: genocide.occurrences,
-					// Muted, but still a series rather than a background: --rule is
-					// all but invisible against the dark panel.
-					itemStyle: { color: p.inkFaint, opacity: 0.32 },
+					// The headline number, drawn in a solid weight of ink. It used to
+					// sit at a third of its opacity under a full-ink line, so the eye
+					// took the derived share for the count (review of 14 September
+					// 2026). Two weights of one ink now: the count solid, the share
+					// as the line over it.
+					itemStyle: { color: p.inkSoft },
 					barMaxWidth: 22,
 					tooltip: { valueFormatter: (v) => count(v as number) },
 					markLine: undefined
@@ -261,6 +264,18 @@
 			`${percent(totals.bearing / totals.speeches)}.`
 	);
 
+	/* The corpus counted in units of a thousand speeches: 168 squares, of
+	   which the speeches that mention the word fill four. A share a reader can
+	   count is the programme's way of setting a headline number. */
+	const UNIT = 1000;
+	const fieldDescription = $derived(
+		`${count(totals.speeches)} speeches drawn as ${Math.round(totals.speeches / UNIT)} squares of ` +
+			`${count(UNIT)} each; the ${Math.round(totals.bearing / UNIT)} filled squares are the ` +
+			`${count(totals.bearing)} speeches that mention genocide, ${percent(
+				totals.bearing / totals.speeches
+			)} of all speeches.`
+	);
+
 	function drillYear(params: { name?: string }) {
 		if (!params.name) return;
 		void goto(`${resolve('/concordance')}?term=genocide&from=${params.name}&to=${params.name}`);
@@ -270,45 +285,61 @@
 <PageMeta meta={PAGE_METADATA['/']} structuredData={STRUCTURED_DATA_JSON} />
 
 <article>
-	<header class="lede">
-		<h1>Genocide in Security Council debates</h1>
+	<header class="lede grid">
+		<h1><mark>Genocide</mark> in Security Council debates</h1>
 		<p class="standfirst">
 			Between {years[0]} and {years[years.length - 1]}, the UN Security Council records contain {count(
 				totals.speeches
 			)} speeches from {count(totals.meetings)} meetings. Of these, {count(totals.bearing)} ({percent(
 				totals.bearing / totals.speeches
-			)}) mention <em>genocide</em> or related forms, such as <em>genocidal</em>. Explore when the
-			word appears, who uses it and what the surrounding passages say.
+			)}) mention <mark>genocide</mark> or related forms, such as <em>genocidal</em>. Explore when
+			the word appears, who uses it and what the surrounding passages say.
 		</p>
 	</header>
 
-	<dl class="figures">
-		<div>
-			<dt class="label">Speeches in the corpus</dt>
-			<dd>{count(totals.speeches)}</dd>
-			<p>
-				across {count(totals.meetings)} meeting records, {decimal(totals.words / 1e6)} million words
-			</p>
-		</div>
-		<div>
-			<dt class="label">Speeches using {measureLabel(headline)}</dt>
-			<dd>{count(totals.bearing)}</dd>
-			<p>
-				{percent(totals.bearing / totals.speeches)} of all speeches. Forms such as <em>genocide</em>
-				and <em>genocidal</em> count together.
-			</p>
-		</div>
-		<div>
-			<dt class="label">Occurrences of the word</dt>
-			<dd>{count(totals.occurrences)}</dd>
-			<p>{decimal(totals.occurrences / totals.bearing)} per speech that uses it</p>
-		</div>
-		<div>
-			<dt class="label">Peak year by share</dt>
-			<dd>{densest}</dd>
-			<p>the largest proportion of speeches; {loudest} had the most occurrences</p>
-		</div>
-	</dl>
+	<!-- The headline numbers, counted. The field draws the whole corpus in
+	     units and fills the speeches that carry the word; the four numbers are
+	     set beneath it in one weight of type, each with its base. -->
+	<section class="tally" aria-label="The corpus in numbers">
+		<UnitField
+			total={totals.speeches}
+			part={totals.bearing}
+			unit={UNIT}
+			description={fieldDescription}
+		/>
+		<p class="key">
+			<span class="swatch ink" aria-hidden="true"></span>
+			One square is {count(UNIT)} speeches; a filled square, speeches that mention the word.
+		</p>
+		<dl class="figures grid">
+			<div>
+				<dt class="label">Speeches in the corpus</dt>
+				<dd>{count(totals.speeches)}</dd>
+				<p>
+					across {count(totals.meetings)} meeting records, {decimal(totals.words / 1e6)} million words
+				</p>
+			</div>
+			<div>
+				<dt class="label">Speeches using {measureLabel(headline)}</dt>
+				<dd>{count(totals.bearing)}</dd>
+				<p>
+					{percent(totals.bearing / totals.speeches)} of all speeches. Forms such as
+					<em>genocide</em>
+					and <em>genocidal</em> count together.
+				</p>
+			</div>
+			<div>
+				<dt class="label">Occurrences of the word</dt>
+				<dd>{count(totals.occurrences)}</dd>
+				<p>{decimal(totals.occurrences / totals.bearing)} per speech that uses it</p>
+			</div>
+			<div>
+				<dt class="label">Peak year by share</dt>
+				<dd>{densest}</dd>
+				<p>the largest proportion of speeches; {loudest} had the most occurrences</p>
+			</div>
+		</dl>
+	</section>
 
 	<Contents figures={FIGURES} />
 
@@ -452,6 +483,7 @@
 		</details>
 	</Figure>
 
+	<!-- The programme's index: numbered, ruled, no arrows. -->
 	<section class="onward">
 		<h2>Where to go from here</h2>
 		<ul class="onward-list">
@@ -460,7 +492,7 @@
 					><strong>Semantic map</strong><span
 						>Explore speech similarity, coloured by affiliation or meeting agenda, with links to the
 						source speeches.</span
-					><Icon icon={ArrowRight} /></a
+					></a
 				>
 			</li>
 			<li>
@@ -470,7 +502,6 @@
 						>Every word on the list over time, set against {data.overlay.events.length} reference dates:
 						{kinds.map(([k, n]) => `${n} ${k}`).join(', ')}.</span
 					>
-					<Icon icon={ArrowRight} />
 				</a>
 			</li>
 			<li>
@@ -480,7 +511,6 @@
 						>The words that sit next to <em>genocide</em>, how they differ from one speaker or
 						decade to the next, and which terms turn up in the same speech.</span
 					>
-					<Icon icon={ArrowRight} />
 				</a>
 			</li>
 			<li>
@@ -488,7 +518,7 @@
 					><strong>Actors</strong><span
 						>Who uses the vocabulary, measured against each speaker’s own record, with Council
 						membership and distinctive words.</span
-					><Icon icon={ArrowRight} /></a
+					></a
 				>
 			</li>
 			<li>
@@ -498,7 +528,6 @@
 						>All {count(sum(data.series.terms.genocide.occurrences ?? []))} matches for
 						<code>genocid*</code> with the text around them, sortable, and openable to the full speech.</span
 					>
-					<Icon icon={ArrowRight} />
 				</a>
 			</li>
 			<li>
@@ -506,7 +535,7 @@
 					><strong>Usage</strong><span
 						>Experimental model readings of which genocide speakers mean and how they frame it, with
 						coverage and validation status.</span
-					><Icon icon={ArrowRight} /></a
+					></a
 				>
 			</li>
 			<li>
@@ -515,7 +544,6 @@
 					<span
 						>How each figure was made, where its numbers come from, and what they cannot show.</span
 					>
-					<Icon icon={ArrowRight} />
 				</a>
 			</li>
 		</ul>
@@ -523,12 +551,30 @@
 </article>
 
 <style>
+	/* The title on the grid: eight columns of twelve, the standfirst under it
+	   at the prose measure. */
 	.lede {
-		max-width: var(--measure);
-		margin-bottom: var(--sp-6);
+		margin-bottom: var(--sp-4);
+	}
+
+	.lede h1 {
+		grid-column: 1 / span 12;
+		margin-bottom: var(--sp-2);
+	}
+
+	@media (min-width: 64rem) {
+		.lede h1 {
+			grid-column: 1 / span 9;
+		}
+	}
+
+	.lede h1 mark {
+		padding: 0 0.1em;
 	}
 
 	.standfirst {
+		grid-column: 1 / span 12;
+		max-width: var(--measure);
 		font-size: var(--step-1);
 		line-height: 1.5;
 		color: var(--ink-2);
@@ -539,33 +585,72 @@
 		font-style: italic;
 	}
 
-	/* Rule 05: numbers are set, not styled. A band of type between two rules,
-	   with hairlines between the columns — no tile, no panel, no radius. */
+	/* The counted corpus: the field, its key, then the four numbers set in one
+	   weight between two rules. No tile, no panel, no radius. */
+	/* The stack from the field to Plate 1 is kept tight so the plate's rule
+	   crosses a 900px fold: the first viewport promises the plate. */
+	.tally {
+		margin: 0 0 var(--sp-5);
+		padding-top: var(--sp-3);
+		border-top: var(--heavy) solid var(--ink);
+	}
+
+	.key {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+		margin: var(--sp-2) 0 0;
+		font-size: var(--step--1);
+		color: var(--ink-3);
+	}
+
+	.swatch {
+		width: 0.625rem;
+		height: 0.625rem;
+		flex: none;
+		border: var(--hair) solid var(--ink);
+	}
+
+	.swatch.ink {
+		background: var(--ink);
+	}
+
 	.figures {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-		margin: 0 0 var(--sp-7);
-		border-top: var(--hair) solid var(--rule-strong);
-		border-bottom: var(--hair) solid var(--rule-strong);
+		row-gap: var(--sp-4);
+		margin: var(--sp-4) 0 0;
+		padding-top: var(--sp-3);
+		border-top: var(--hair) solid var(--ink);
 	}
 
 	.figures > div {
-		padding: var(--sp-4) var(--sp-5) var(--sp-4) 0;
-		border-left: var(--hair) solid var(--rule);
-		padding-left: var(--sp-5);
+		grid-column: span 12;
 	}
 
-	.figures > div:first-child {
-		border-left: 0;
-		padding-left: 0;
+	@media (min-width: 40rem) {
+		.figures > div {
+			grid-column: span 6;
+		}
+	}
+
+	@media (min-width: 64rem) {
+		.figures > div {
+			grid-column: span 3;
+		}
+	}
+
+	.figures dt {
+		color: var(--ink-3);
+		font-weight: 500;
 	}
 
 	.figures dd {
-		margin: var(--sp-1) 0 0;
-		font-family: var(--serif);
-		font-size: var(--step-4);
+		margin: var(--sp-1) 0 var(--sp-1);
+		font-family: var(--sans);
+		font-size: var(--step-5);
+		font-weight: 700;
+		letter-spacing: -0.02em;
 		font-variant-numeric: tabular-nums lining-nums;
-		line-height: 1.05;
+		line-height: 1;
 	}
 
 	.figures p {
@@ -576,7 +661,7 @@
 
 	.finding {
 		max-width: var(--measure);
-		margin: 0 0 var(--sp-5);
+		margin: 0 0 var(--sp-4);
 	}
 
 	.finding h2 {
@@ -584,19 +669,20 @@
 	}
 
 	.onward {
-		margin-top: var(--sp-6);
+		margin-top: var(--sp-8);
 	}
 
 	.onward h2 {
-		font-size: var(--step-2);
+		font-size: var(--step-3);
 	}
 
-	/* Rule 01: separated by rules and space, never by boxes. */
+	/* The index: separated by rules and space, never by boxes. Unnumbered,
+	   because the order of the sections carries nothing a reader needs. */
 	.onward-list {
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		border-top: var(--hair) solid var(--rule-strong);
+		border-top: var(--hair) solid var(--ink);
 	}
 
 	.onward-list li {
@@ -605,7 +691,7 @@
 
 	.onward-list a {
 		display: grid;
-		grid-template-columns: 9rem minmax(0, 1fr) auto;
+		grid-template-columns: 11rem minmax(0, 1fr);
 		gap: var(--sp-4);
 		align-items: baseline;
 		padding: var(--sp-3) 0;
@@ -614,10 +700,10 @@
 	}
 
 	.onward-list strong {
-		font-family: var(--serif);
+		font-family: var(--sans);
 		font-size: var(--step-1);
-		font-weight: 600;
-		color: var(--blue);
+		font-weight: 700;
+		color: var(--ink);
 	}
 
 	.onward-list span {
@@ -628,27 +714,15 @@
 	}
 
 	.onward-list a:hover strong {
-		color: var(--ink);
-	}
-
-	/* The arrow leads the eye out of the row; it is the only thing that moves. */
-	.onward-list a :global(.icon) {
-		color: var(--ink-3);
-		transition: transform var(--dur) var(--ease);
-	}
-
-	.onward-list a:hover :global(.icon) {
 		color: var(--blue);
-		transform: translateX(0.25rem);
+		text-decoration: underline;
+		text-decoration-thickness: 2px;
+		text-underline-offset: 0.15em;
 	}
 
 	@media (max-width: 44rem) {
 		.onward-list a {
-			grid-template-columns: minmax(0, 1fr) auto;
-		}
-
-		.onward-list strong {
-			grid-column: 1 / -1;
+			grid-template-columns: minmax(0, 1fr);
 		}
 	}
 

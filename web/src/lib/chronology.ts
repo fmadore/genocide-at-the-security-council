@@ -1,5 +1,6 @@
 import type { LineSeriesOption } from 'echarts';
 import { headlineMeasure } from './headline';
+import { registerStroke, type NeutralStroke, type Palette } from './theme';
 
 export type ChronologyUnit = 'speech_rate' | 'token_rate' | 'occurrences' | 'speeches';
 export type ChronologyGrain = 'year' | 'quarter';
@@ -142,6 +143,60 @@ export function chronologyParams(
 	if (state.calendarUnit !== defaults.calendarUnit) params.set('calendarUnit', state.calendarUnit);
 	if (state.split !== defaults.split) params.set('split', state.split);
 	return params;
+}
+
+/* --- One stroke per term ----------------------------------------------------
+   The word-list figure used to draw every term of a register in the register's
+   one hue, so selecting the legal shelf put nine identical teal lines on the
+   chart and the only thing separating them was the end label. The hue is an
+   analytical claim and stays: a term drawn in teal is a term on the legal
+   shelf. What changes is that the hue is now a family rather than a single
+   value — `registerStroke` steps its lightness and turns a dash inside it. */
+
+/** A term's line: a stroke inside its register's hue, at a weight. */
+export interface TermStroke extends NeutralStroke {
+	width: number;
+}
+
+/** The headline term's line, in full ink: the figure's one reference line. */
+export const HEADLINE_STROKE_WIDTH = 2;
+
+/** Every other term, a shade under it so the headline still reads as first. */
+export const TERM_STROKE_WIDTH = 1.8;
+
+/**
+ * A stroke for each of `names`, keyed by name.
+ *
+ * The step handed to `registerStroke` is the term's position among the terms of
+ * its own register in `names`, which is the lexicon's order. Pass the whole
+ * measure list rather than the reader's selection: the position has to be a
+ * property of the term, or dropping one chip would restyle every line after it
+ * and the same figure would export differently on two visits.
+ *
+ * The headline term takes full ink, solid, and the heavier weight, and still
+ * consumes its slot in the core register so nothing downstream of it shifts.
+ */
+export function termStrokes(
+	names: readonly string[],
+	registerOf: (name: string) => string | undefined,
+	p: Palette
+): Map<string, TermStroke> {
+	const headline = headlineMeasure(names);
+	const taken = new Map<string, number>();
+	const strokes = new Map<string, TermStroke>();
+	for (const name of names) {
+		if (strokes.has(name)) continue;
+		const register = registerOf(name) ?? '';
+		const index = taken.get(register) ?? 0;
+		taken.set(register, index + 1);
+		strokes.set(
+			name,
+			name === headline
+				? { color: p.ink, dash: 'solid', width: HEADLINE_STROKE_WIDTH }
+				: { ...registerStroke(register, index, p), width: TERM_STROKE_WIDTH }
+		);
+	}
+	return strokes;
 }
 
 /* --- Uncertainty bands ------------------------------------------------------

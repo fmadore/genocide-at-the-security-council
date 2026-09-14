@@ -144,9 +144,23 @@
 	let expanded = $state<string | null>(null);
 
 	let file = $state<KwicFile | null>(null);
-	let loading = $state(false);
+	/* True from the first paint, not from the first fetch.
+
+	   The effect below cannot start the fetch until `urlReady`, and a page that
+	   reported `loading = false` in the meantime painted "0 of 0 lines", an
+	   export of nothing and "No passages match" over a 6.2 MB file that was
+	   still on its way — a false zero that blamed the reader's filters for it.
+	   The state starts where the page actually is: nothing has arrived yet. */
+	let loading = $state(true);
 	let failure = $state<string | null>(null);
 	let retry = $state(0);
+
+	/* Not-yet-loaded and nothing-matched are different facts about the same
+	   empty list, and only one of them may be stated. `loaded` is the second:
+	   the term's file is here, it is the file for the term on screen, and
+	   nothing failed on the way. Everything that asserts a count — the profile,
+	   the tally, the empty state — waits for it. */
+	const loaded = $derived(!loading && !failure && file !== null);
 
 	onMount(() => {
 		const state = readConcordanceState(page.url.searchParams);
@@ -432,6 +446,14 @@
 		</p>
 	</header>
 
+	<!-- The apparatus of this page — the reading set, the term, the filters and
+	     the profile — is a long run of controls in front of the evidence they
+	     govern, and on a keyboard it was 152 stops deep. This is the way past it,
+	     in the same visually-hidden-until-focused form as the masthead's own skip
+	     link, and it is the first thing in the article so that the masthead's
+	     "Skip to content" lands one Tab in front of it. -->
+	<a class="skip" href="#results">Skip to results</a>
+
 	<!-- The reading set, and the way into it. R9's scope names a population of
 	     speeches; here it names the delegations that population covers, and each
 	     one is a filter on the lines below. The line list itself is not narrowed
@@ -457,7 +479,7 @@
 					onclick={() => (country = country === row.country_org ? '' : row.country_org)}
 				>
 					{shortCountry(row.country_org)}
-					<span class="symbol">{count(row.speeches)}</span>
+					<span class="n">{count(row.speeches)}</span>
 				</button>
 			{/each}
 		</div>
@@ -595,7 +617,7 @@
 			<button class="ghost" onclick={reset}>Reset filters</button>
 		</div>
 
-		{#if !loading && !failure && lines.length}
+		{#if loaded && lines.length}
 			<ResultProfile
 				{profile}
 				state={currentState()}
@@ -628,115 +650,123 @@
 				>{/if}
 		</div>
 
-		<div class="columns" aria-hidden="true">
-			<span>Record &middot; speaker</span>
-			<span class="c-left">Left context</span>
-			<span class="c-node">Match</span>
-			<span>Right context</span>
-		</div>
+		<!-- The header and the lines read one template, declared on this wrapper,
+		     so the columns stand in the same places whether the list under them
+		     holds seven thousand rows or none. -->
+		<div class="kwic-axis">
+			<div class="columns" aria-hidden="true">
+				<span>Record &middot; speaker</span>
+				<span class="c-left">Left context</span>
+				<span class="c-node">Match</span>
+				<span>Right context</span>
+			</div>
 
-		<div class="kwic" role="list">
-			{#each filtered.slice(0, shown) as line (line.id)}
-				<div class="row" role="listitem">
-					<button
-						class="line"
-						onclick={() => (expanded = expanded === line.id ? null : line.id)}
-						aria-expanded={expanded === line.id}
-					>
-						<span class="meta">
-							<span class="spv">{meetingLabel(line.spv)}</span>
-							<span class="who">{shortCountry(line.country)}</span>
-						</span>
-						<span class="left"
-							><span class="ltr"
-								>{#each segments(line.left, searched, regex) as part, i (i)}{#if part.hit}<mark
+			<!-- The target of the skip link above: focusable only programmatically, so
+			     the jump puts the reader at the head of the evidence without adding a
+			     stop of its own to the order it exists to shorten. -->
+			<div class="kwic" role="list" id="results" tabindex="-1">
+				{#each filtered.slice(0, shown) as line (line.id)}
+					<div class="row" role="listitem">
+						<button
+							class="line"
+							onclick={() => (expanded = expanded === line.id ? null : line.id)}
+							aria-expanded={expanded === line.id}
+						>
+							<span class="meta">
+								<span class="spv">{meetingLabel(line.spv)}</span>
+								<span class="who">{shortCountry(line.country)}</span>
+							</span>
+							<span class="left"
+								><span class="ltr"
+									>{#each segments(line.left, searched, regex) as part, i (i)}{#if part.hit}<mark
+												class="hit">{part.text}</mark
+											>{:else}{part.text}{/if}{/each}</span
+								></span
+							>
+							<span class="kw"
+								><mark
+									>{#each segments(line.kw, searched, regex) as part, i (i)}{#if part.hit}<mark
+												class="hit">{part.text}</mark
+											>{:else}{part.text}{/if}{/each}</mark
+								></span
+							>
+							<span class="right"
+								>{#each segments(line.right, searched, regex) as part, i (i)}{#if part.hit}<mark
 											class="hit">{part.text}</mark
 										>{:else}{part.text}{/if}{/each}</span
-							></span
-						>
-						<span class="kw"
-							><mark
-								>{#each segments(line.kw, searched, regex) as part, i (i)}{#if part.hit}<mark
-											class="hit">{part.text}</mark
-										>{:else}{part.text}{/if}{/each}</mark
-							></span
-						>
-						<span class="right"
-							>{#each segments(line.right, searched, regex) as part, i (i)}{#if part.hit}<mark
-										class="hit">{part.text}</mark
-									>{:else}{part.text}{/if}{/each}</span
-						>
-					</button>
+							>
+						</button>
 
-					{#if expanded === line.id}
-						<div class="detail">
-							<!-- Two layers, the same two as the line above: the node carries
+						{#if expanded === line.id}
+							<div class="detail">
+								<!-- Two layers, the same two as the line above: the node carries
 							     the wash, the reader's query carries the rule under the word.
 							     Segmented in that order so a query that matches the node is
 							     drawn as both rather than losing one to the other. -->
-							<blockquote>
-								{#each segments(line.sent, line.kw) as part, i (i)}{#if part.hit}<mark
-											>{#each segments(part.text, searched, regex) as bit, j (j)}{#if bit.hit}<mark
+								<blockquote>
+									{#each segments(line.sent, line.kw) as part, i (i)}{#if part.hit}<mark
+												>{#each segments(part.text, searched, regex) as bit, j (j)}{#if bit.hit}<mark
+															class="hit">{bit.text}</mark
+														>{:else}{bit.text}{/if}{/each}</mark
+											>{:else}{#each segments(part.text, searched, regex) as bit, j (j)}{#if bit.hit}<mark
 														class="hit">{bit.text}</mark
-													>{:else}{bit.text}{/if}{/each}</mark
-										>{:else}{#each segments(part.text, searched, regex) as bit, j (j)}{#if bit.hit}<mark
-													class="hit">{bit.text}</mark
-												>{:else}{bit.text}{/if}{/each}{/if}{/each}
-							</blockquote>
-							<dl>
-								<div>
-									<dt>Speaker</dt>
-									<dd>
-										{line.country}{#if line.iso3}<span class="iso"> {line.iso3}</span>{/if}
-									</dd>
-								</div>
-								<div>
-									<dt>Speaker group and role</dt>
-									<dd>{line.group} · {line.type}</dd>
-								</div>
-								<div>
-									<dt>Date</dt>
-									<dd>{isoDate(line.date)}</dd>
-								</div>
-								<div>
-									<dt>Agenda item</dt>
-									<dd>{line.agenda}</dd>
-								</div>
-								<div>
-									<dt>Record</dt>
-									<dd>
-										<a class="symbol" href={unSearch(line.spv)}
-											>{meetingLabel(line.spv)}<Icon icon={ExternalLink} /></a
-										>
-									</dd>
-								</div>
-							</dl>
-							<p class="actions">
-								<a class="button" href={readerHref(line)}>
-									Read the whole speech<Icon icon={ArrowRight} />
-								</a>
-								<button
-									type="button"
-									class="ghost"
-									disabled={basket.has(line.id)}
-									onclick={() => keep(line)}
-								>
-									<Icon icon={basket.has(line.id) ? Check : Bookmark} />
-									{basket.has(line.id) ? 'In the basket' : 'Add to basket'}
-								</button>
-								<code class="id">{line.id}</code>
-							</p>
-						</div>
-					{/if}
-				</div>
-			{/each}
+													>{:else}{bit.text}{/if}{/each}{/if}{/each}
+								</blockquote>
+								<dl>
+									<div>
+										<dt>Speaker</dt>
+										<dd>
+											{line.country}{#if line.iso3}<span class="iso"> {line.iso3}</span>{/if}
+										</dd>
+									</div>
+									<div>
+										<dt>Speaker group and role</dt>
+										<dd>{line.group} · {line.type}</dd>
+									</div>
+									<div>
+										<dt>Date</dt>
+										<dd>{isoDate(line.date)}</dd>
+									</div>
+									<div>
+										<dt>Agenda item</dt>
+										<dd>{line.agenda}</dd>
+									</div>
+									<div>
+										<dt>Record</dt>
+										<dd>
+											<a class="symbol" href={unSearch(line.spv)}
+												>{meetingLabel(line.spv)}<Icon icon={ExternalLink} /></a
+											>
+										</dd>
+									</div>
+								</dl>
+								<p class="actions">
+									<a class="button" href={readerHref(line)}>
+										Read the whole speech<Icon icon={ArrowRight} />
+									</a>
+									<button
+										type="button"
+										class="ghost"
+										disabled={basket.has(line.id)}
+										onclick={() => keep(line)}
+									>
+										<Icon icon={basket.has(line.id) ? Check : Bookmark} />
+										{basket.has(line.id) ? 'In the basket' : 'Add to basket'}
+									</button>
+									<code class="id">{line.id}</code>
+								</p>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
 		</div>
 
 		{#if shown < filtered.length}
 			<button class="more" onclick={() => (shown += PAGE * 4)}>
 				Show {count(Math.min(PAGE * 4, filtered.length - shown))} more
 			</button>
-		{:else if filtered.length === 0 && !loading}
+		{:else if loaded && filtered.length === 0}
 			<p class="empty">No passages match. Clear the search or reset the filters.</p>
 		{/if}
 	</Figure>
@@ -802,11 +832,29 @@
 		gap: var(--sp-2);
 		font-family: var(--sans);
 		font-size: var(--step--1);
-		color: var(--ink-3);
+		font-weight: 600;
+		color: var(--ink);
 	}
 
+	/* The global `.label` is the apparatus voice; only its box changes here, so
+	   the sort's name sits on the same line as the group it names. */
 	.sort .label {
 		display: inline;
+	}
+
+	/* The one control the global rule cannot size: a checkbox is a glyph, not a
+	   field, so it keeps its own square and the label carries the target. */
+	.check {
+		min-height: 2.5rem;
+	}
+
+	input[type='checkbox'] {
+		width: 1rem;
+		height: 1rem;
+		min-height: 0;
+		margin: 0;
+		padding: 0;
+		accent-color: var(--ink);
 	}
 
 	.sort .segmented {
@@ -814,9 +862,13 @@
 		flex-wrap: wrap;
 	}
 
+	/* The label is the apparatus voice and the field is not: `font: inherit` in
+	   `app.css` would otherwise carry the label's weight into the value a reader
+	   chose. */
 	select,
 	input {
 		max-width: 16rem;
+		font-weight: 400;
 	}
 
 	input[type='number'] {
@@ -854,9 +906,10 @@
 		gap: var(--sp-4);
 		padding: var(--sp-2) 0 var(--sp-3);
 		border-bottom: var(--hair) solid var(--rule-strong);
-		font-family: var(--mono);
-		font-size: var(--step--2);
-		color: var(--ink-3);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums lining-nums;
+		color: var(--ink-2);
 	}
 
 	.status strong {
@@ -867,58 +920,69 @@
 		color: var(--state-bad);
 	}
 
+	/* The buttons on this page are the global button: an ink hairline, the
+	   standard height, a sunk ground under the pointer. Only the box each one
+	   sits in is set here. */
 	.ghost,
-	.more,
-	.link {
+	.more {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4em;
-		background: none;
-		border: var(--hair) solid var(--rule-strong);
-		padding: var(--sp-1) var(--sp-3);
-		min-height: 2rem;
-		font-family: var(--sans);
-		font-size: var(--step--2);
-		color: var(--ink-2);
-		cursor: pointer;
 	}
 
-	.ghost:hover,
-	.more:hover {
-		border-color: var(--blue);
-		color: var(--blue);
-	}
-
-	.ghost:disabled {
-		color: var(--ink-3);
-		border-color: var(--rule);
-		cursor: default;
-	}
-
+	/* A term in the table is a control that must not push the row taller than
+	   the numbers beside it, so it is set as the link it reads as — with the
+	   24px target the pointer needs. */
 	.link {
-		border: none;
+		display: inline-flex;
+		align-items: center;
+		min-height: 1.5rem;
 		padding: 0;
-		min-height: 0;
+		border: 0;
+		background: none;
+		font-size: var(--step--1);
 		color: var(--blue);
 		text-decoration: underline;
 		text-underline-offset: 0.18em;
 	}
 
-	/* An active filter that came in through the URL, and the way back out of it. */
+	.link:hover {
+		background: none;
+		color: var(--ink);
+	}
+
+	/* An active filter that came in through the URL, and the way back out of it;
+	   the same face as the delegation chips below. */
 	.chip {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4em;
-		background: var(--mark);
-		border: var(--hair) solid var(--rule-strong);
-		padding: var(--sp-1) var(--sp-3);
 		min-height: 2rem;
+		padding: 0 var(--sp-3);
+		background: var(--paper);
+		border: var(--hair) solid var(--ink);
 		color: var(--ink);
-		cursor: pointer;
 	}
 
 	.chip:hover {
-		border-color: var(--blue);
+		background: var(--paper-sunk);
+	}
+
+	/* The masthead's skip link, in its own words. Fixed rather than absolute
+	   because this one can be reached with the page already scrolled, and a
+	   panel that appears above the fold is the whole point of it. */
+	.skip {
+		position: fixed;
+		left: -9999px;
+	}
+
+	.skip:focus {
+		left: var(--sp-4);
+		top: var(--sp-4);
+		z-index: var(--z-popover);
+		background: var(--paper);
+		border: var(--hair) solid var(--ink);
+		padding: var(--sp-2) var(--sp-3);
 	}
 
 	.sr {
@@ -933,19 +997,27 @@
 	.more {
 		display: flex;
 		margin: var(--sp-4) auto 0;
-		padding: var(--sp-2) var(--sp-5);
+		padding: 0 var(--sp-5);
 	}
 
 	/* ---- the concordance proper -------------------------------------------
 	   A true KWIC: one fixed axis down the middle of the page with the node on
 	   it, the left context right-aligned against it and the right context
 	   running away from it. Sorting on either context then makes recurring
-	   grammatical frames stack up as shapes in the column. */
+	   grammatical frames stack up as shapes in the column.
+
+	   One template, declared once and read by the header and every row, so the
+	   header keeps its columns over an empty list: the record column is as wide
+	   as a meeting symbol set in the typewriter face needs and no wider, and the
+	   two contexts divide everything that is left. */
+	.kwic-axis {
+		--kwic: 9rem minmax(0, 1fr) minmax(4rem, auto) minmax(0, 1fr);
+	}
 
 	.columns,
 	.line {
 		display: grid;
-		grid-template-columns: 7.5rem minmax(0, 1fr) auto minmax(0, 1fr);
+		grid-template-columns: var(--kwic);
 		gap: 0 var(--sp-3);
 		align-items: baseline;
 	}
@@ -954,11 +1026,10 @@
 		padding: 0 var(--sp-2) var(--sp-2);
 		border-bottom: var(--hair) solid var(--rule-strong);
 		font-family: var(--sans);
-		font-size: var(--step--2);
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--ink-3);
+		font-size: var(--step--1);
+		font-weight: 600;
+		letter-spacing: 0;
+		color: var(--ink);
 	}
 
 	.c-left {
@@ -970,9 +1041,9 @@
 	}
 
 	.kwic {
-		font-family: var(--serif);
+		font-family: var(--sans);
 		font-size: var(--step--1);
-		line-height: 1.9;
+		line-height: 1.6;
 	}
 
 	.row {
@@ -990,31 +1061,39 @@
 		border: none;
 		border-radius: 0;
 		min-height: 0;
-		padding: 0.12rem var(--sp-2);
+		padding: var(--sp-2);
 		cursor: pointer;
 		font-family: inherit;
 		font-size: inherit;
 		color: inherit;
 	}
 
-	/* Interaction is the accent's job, and a bar on the leading edge does not
-	   compete with the striping that tells one line from the next. */
+	/* No bar and no colour: the line a reader is holding open is the one sunk
+	   into the ground, and the rule under it is closed in ink. */
 	.line:hover,
 	.line[aria-expanded='true'] {
-		box-shadow: inset 2px 0 0 var(--blue-flag);
+		background: var(--paper-sunk);
+	}
+
+	.row:has(.line[aria-expanded='true']) {
+		background: var(--paper-sunk);
+		border-bottom-color: var(--ink);
 	}
 
 	.meta {
 		display: flex;
 		flex-direction: column;
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--2);
 		line-height: 1.4;
-		color: var(--ink-3);
+		color: var(--ink-2);
 		overflow: hidden;
 	}
 
+	/* The meeting symbol is the primary key a reader carries away: the one
+	   thing on the line set in the typewriter face. */
 	.spv {
+		font-family: var(--mono);
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 	}
@@ -1068,36 +1147,52 @@
 		color: var(--ink-2);
 	}
 
-	@media (max-width: 60rem) {
+	/* The axis narrows; it does not break up. A context that wraps loses the
+	   ellipsis with it, and the line then starts and ends mid-word with nothing
+	   to say so — which is what a phone reader met. So the three columns of the
+	   concordance survive to the smallest width, and it is the record that
+	   moves: onto its own line above, where it has room for the symbol and the
+	   speaker side by side. */
+	@media (max-width: 40rem) {
 		.columns {
 			display: none;
 		}
 
 		.line {
-			grid-template-columns: minmax(0, 1fr);
-			gap: var(--sp-1);
-			padding: var(--sp-2);
-			line-height: 1.5;
+			grid-template-columns: minmax(0, 1fr) minmax(2.5rem, auto) minmax(0, 1fr);
+			grid-template-areas:
+				'record record record'
+				'left node right';
+			gap: var(--sp-1) var(--sp-2);
 		}
 
-		.left,
-		.right {
-			white-space: normal;
-			text-align: left;
-			direction: ltr;
-			overflow: visible;
+		.meta {
+			grid-area: record;
+			flex-direction: row;
+			gap: var(--sp-2);
+			align-items: baseline;
+		}
+
+		.left {
+			grid-area: left;
 		}
 
 		.kw {
-			text-align: left;
+			grid-area: node;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.right {
+			grid-area: right;
 		}
 	}
 
 	.detail {
-		padding: var(--sp-3) var(--sp-2) var(--sp-4) 8.25rem;
+		padding: var(--sp-3) var(--sp-2) var(--sp-4) 9.75rem;
 	}
 
-	@media (max-width: 60rem) {
+	@media (max-width: 40rem) {
 		.detail {
 			padding-left: var(--sp-2);
 		}
@@ -1106,8 +1201,8 @@
 	blockquote {
 		margin: 0 0 var(--sp-3);
 		padding-left: var(--sp-3);
-		border-left: var(--hair) solid var(--rule-strong);
-		font-family: var(--serif);
+		border-left: var(--hair) solid var(--ink);
+		font-family: var(--sans);
 		font-size: var(--step-0);
 		line-height: 1.55;
 		max-width: var(--measure);
@@ -1122,11 +1217,10 @@
 
 	.detail dt {
 		font-family: var(--sans);
-		font-size: var(--step--2);
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--ink-3);
+		font-size: var(--step--1);
+		font-weight: 600;
+		letter-spacing: 0;
+		color: var(--ink);
 	}
 
 	.detail dd {
@@ -1143,7 +1237,7 @@
 
 	.iso {
 		color: var(--ink-3);
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--2);
 	}
 
@@ -1155,21 +1249,24 @@
 		margin: 0;
 	}
 
+	/* A link that acts: the same ink hairline and the same height as the button
+	   beside it, so the two actions under a passage read as one pair. */
 	.button {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4em;
-		padding: var(--sp-2) var(--sp-3);
-		border: var(--hair) solid var(--blue);
-		color: var(--blue);
+		min-height: 2.5rem;
+		padding: 0 var(--sp-3);
+		border: var(--hair) solid var(--ink);
+		color: var(--ink);
 		text-decoration: none;
 		font-family: var(--sans);
 		font-size: var(--step--1);
 	}
 
 	.button:hover {
-		background: var(--blue);
-		color: var(--paper);
+		background: var(--paper-sunk);
+		color: var(--ink);
 	}
 
 	.button:hover :global(.icon) {
@@ -1187,9 +1284,8 @@
 	}
 
 	.empty {
-		text-align: center;
-		color: var(--ink-3);
-		padding: var(--sp-7) 0;
+		color: var(--ink-2);
+		padding: var(--sp-6) 0;
 	}
 
 	.terms {
@@ -1220,6 +1316,13 @@
 		gap: var(--sp-2);
 	}
 
+	/* A count, not a citation: the typewriter face is kept for the symbols. */
+	.delegates .n {
+		font-size: var(--step--2);
+		font-weight: 400;
+		font-variant-numeric: tabular-nums lining-nums;
+	}
+
 	/* Disabled while the term's lines are still arriving: the speaker filter is
 	   built from the lines, so a click landing before them would be a filter the
 	   select could not hold. */
@@ -1228,9 +1331,11 @@
 		cursor: progress;
 	}
 
-	.delegates .chip[aria-pressed='true'] {
-		border-color: var(--blue);
-		box-shadow: inset 0 -2px 0 var(--blue-flag);
+	/* Chosen is filled, the way every pressed control on the site is filled. */
+	.delegates .chip[aria-pressed='true'],
+	.delegates .chip[aria-pressed='true']:hover {
+		background: var(--ink);
+		color: var(--paper);
 	}
 
 	.reading-set .source {
@@ -1251,11 +1356,16 @@
 		overflow-x: auto;
 	}
 
+	/* The term on screen, marked in the table by weight and by an ink rule
+	   rather than by a panel of its own. */
 	tr.current td {
-		background: var(--mark);
+		background: var(--paper-sunk);
+		border-bottom-color: var(--ink);
+		font-weight: 600;
 	}
+
 	.model-derived {
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--2);
 		color: var(--ink-3);
 	}

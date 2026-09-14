@@ -18,7 +18,10 @@
 		type ChronologyUnit as Unit,
 		bandOwner,
 		intervalBand,
-		isIntervalBand
+		isIntervalBand,
+		termStrokes,
+		TERM_STROKE_WIDTH,
+		type TermStroke
 	} from '$lib/chronology';
 	import { evidenceTerm } from '$lib/concordance';
 	import { provenanceOf } from '$lib/export';
@@ -60,7 +63,8 @@
 		neutral,
 		registerColour,
 		textStyle,
-		tooltip
+		tooltip,
+		type Palette
 	} from '$lib/theme';
 	import type { BreakdownRow, CouncilEvent, Measure } from '$lib/types';
 	import type { EChartsOption, LineSeriesOption } from 'echarts';
@@ -476,10 +480,16 @@
 		)
 	);
 
-	// A term with no register of its own is drawn in ink, not in the accent: the
-	// accent belongs to what the reader can act on, never to a series.
-	const colourOf = (name: string, p = $colours) =>
-		allMeasures[name]?.register ? registerColour(allMeasures[name].register!, p) : p.ink;
+	/* One stroke per term, assigned over the whole measure list rather than over
+	   the selection so a term is drawn the same way whatever else is on the
+	   chart. A term with no register of its own is drawn in ink, not in the
+	   accent: the accent belongs to what the reader can act on, never to a
+	   series. */
+	const strokes = $derived(
+		termStrokes(Object.keys(allMeasures), (name) => allMeasures[name]?.register, $colours)
+	);
+	const strokeOf = (name: string, p = $colours): TermStroke =>
+		strokes.get(name) ?? { color: p.ink, dash: 'solid', width: TERM_STROKE_WIDTH };
 
 	function toggle(name: string) {
 		selected = selected.includes(name) ? selected.filter((n) => n !== name) : [...selected, name];
@@ -511,6 +521,27 @@
 	const isEventTick = (name: string | undefined) => (name ?? '').startsWith(EVENT_TICK);
 	const railShown = $derived(showEvents && grain === 'year' && eventKinds.length > 0);
 
+	/* The legend `theme.ts` builds marks every series with a filled rectangle.
+	   That was honest while a line's only code was its colour; it is not any
+	   more. Three of the nine legal terms share each lightness step of the teal,
+	   and a rectangle cannot show the dash that separates them — the reader gets
+	   three identical swatches and has to fall back on reading the labels in
+	   order. Dropping the forced icon lets a line series draw its own legend
+	   mark, which is the line's own stroke, dash included. */
+	const lineLegend = (p: Palette, names: string[]): EChartsOption['legend'] => {
+		const base: Record<string, unknown> = {
+			...legend(p),
+			// The swatch is wider here than the 10px `theme.ts` reserves for a
+			// rectangle. Ten pixels of a dashed line is one dash, which is a solid
+			// swatch that happens to be short; twenty-four fits the pattern twice
+			// and the three dashes are three different marks.
+			itemWidth: 24,
+			data: names
+		};
+		delete base.icon;
+		return base as EChartsOption['legend'];
+	};
+
 	const main: EChartsOption = $derived.by(() => {
 		const p = $colours;
 		const usable = selected.filter((n) => allMeasures[n] && !unavailable.includes(n));
@@ -522,7 +553,7 @@
 		return {
 			textStyle,
 			// When a legend is needed it lists the lines and not their bands.
-			legend: named ? undefined : { ...legend(p), data: usable.map(measureLabel) },
+			legend: named ? undefined : lineLegend(p, usable.map(measureLabel)),
 			// Two grids: the plot, and under its axis a rail for the reference dates.
 			// A tick on a rail is an annotation; the full-height rules this replaced
 			// were a fence (review of 1 September 2026, §5.2), 35 of them over 32
@@ -623,23 +654,29 @@
 					? usable.flatMap((name) =>
 							intervalBand(
 								measureLabel(name),
-								colourOf(name, p),
+								strokeOf(name, p).color,
 								allMeasures[name].speech_rate_low,
 								allMeasures[name].speech_rate_high
 							)
 						)
 					: []),
-				...usable.map((name): LineSeriesOption => ({
-					name: measureLabel(name),
-					type: 'line',
-					data: allMeasures[name][unit] ?? [],
-					symbol: 'circle',
-					symbolSize: grain === 'year' ? 5 : 0,
-					lineStyle: { width: 2.2, color: colourOf(name, p) },
-					itemStyle: { color: colourOf(name, p) },
-					endLabel: named ? endLabel(colourOf(name, p), measureLabel(name)) : undefined,
-					emphasis: { focus: 'series' }
-				})),
+				...usable.map((name): LineSeriesOption => {
+					// Hue for the shelf, lightness step and dash for the term: within a
+					// register no two lines share a stroke, and none of them is told
+					// apart by colour alone.
+					const stroke = strokeOf(name, p);
+					return {
+						name: measureLabel(name),
+						type: 'line',
+						data: allMeasures[name][unit] ?? [],
+						symbol: 'circle',
+						symbolSize: grain === 'year' ? 5 : 0,
+						lineStyle: { width: stroke.width, color: stroke.color, type: stroke.dash },
+						itemStyle: { color: stroke.color },
+						endLabel: named ? endLabel(stroke.color, measureLabel(name)) : undefined,
+						emphasis: { focus: 'series' }
+					};
+				}),
 				// The rail: one scatter series per kind, so a kind can be switched off
 				// and told apart by weight of ink. Silent, like the rules were: what a
 				// tick means is read off the axis tooltip, which lists the year's dates.
@@ -1010,6 +1047,7 @@
 			{#each chipGroups as group (group.heading)}
 				<div class="chip-group">
 					<button
+						type="button"
 						class="group-label"
 						class:on={allSelected(group.names)}
 						style:--chip={group.colour}
@@ -1024,7 +1062,8 @@
 							<button
 								class="chip"
 								class:on={selected.includes(name)}
-								style:--chip={colourOf(name)}
+								style:--chip={strokeOf(name).color}
+								style:--chip-dash={strokeOf(name).dash}
 								onclick={() => toggle(name)}
 								aria-pressed={selected.includes(name)}
 							>
@@ -1071,6 +1110,7 @@
 	</Figure>
 
 	<Figure
+		fullscreen
 		title="The vocabulary's calendar"
 		question="Month by month, are there times of year when the Council reaches for this vocabulary more than others?"
 		source="04_series.py → series/monthly.json"
@@ -1199,6 +1239,7 @@
 	</Figure>
 
 	<Figure
+		fullscreen
 		title="The same twelve months, pooled"
 		question="Which calendar months have the highest rates when all years are combined?"
 		source="04_series.py → series/monthly.json"
@@ -1328,12 +1369,11 @@
 									? percent(result.after)
 									: decimal(result.after * 100000)}</td
 							>
-							<td
-								class="num"
-								class:up={(result.ratio ?? 0) > 1}
-								class:down={(result.ratio ?? 1) < 1}
-								>{result.ratio == null ? '—' : `${decimal(result.ratio)}×`}</td
-							>
+							<!-- The ratio is set in ink whichever way it points. A rise in
+							     genocide vocabulary is not a good or a bad thing, and painting it
+							     red-up / green-down asked the reader to hear a verdict the study
+							     does not make; the sign is carried by the number itself. -->
+							<td class="num">{result.ratio == null ? '—' : `${decimal(result.ratio)}×`}</td>
 							<td class="num"><strong>{result.p_value.toFixed(4)}</strong></td>
 							<td class="num">{result.p_value_independent.toFixed(4)}</td>
 						</tr>
@@ -1461,7 +1501,7 @@
 							<td
 								>{e.label}{#if e.note}<span class="note"> — {e.note}</span>{/if}</td
 							>
-							<td><span class="kind">{e.kind}</span></td>
+							<td><span class="kind" style:--chip={kindStroke(e.kind)}>{e.kind}</span></td>
 							<td><a href={e.source_url}>{e.source}</a></td>
 						</tr>
 					{/each}
@@ -1483,10 +1523,14 @@
 		color: var(--ink-2);
 	}
 
+	/* A control's name is apparatus voice, the same as `.label` in `app.css`:
+	   sentence case, medium weight, ink. It was grey and light, which read as
+	   the caption of the select rather than as the name of the thing. */
 	label {
 		font-family: var(--sans);
 		font-size: var(--step--1);
-		color: var(--ink-3);
+		font-weight: 600;
+		color: var(--ink);
 		display: inline-flex;
 		align-items: center;
 		gap: var(--sp-2);
@@ -1494,6 +1538,18 @@
 
 	label.check {
 		gap: var(--sp-2);
+	}
+
+	/* The global rule in `app.css` sets every control to a 2.5rem box with an
+	   ink hairline and a drawn chevron; a checkbox is the one input that must
+	   not inherit that height, or it stands 40px tall beside its own words. */
+	label.check input {
+		width: 1rem;
+		height: 1rem;
+		min-height: 0;
+		padding: 0;
+		margin: 0;
+		accent-color: var(--ink);
 	}
 
 	select {
@@ -1505,9 +1561,10 @@
 	   state it reports, and when the bar wrapped it stranded the note alone on a
 	   second line, still hard right — furthest from everything it describes. */
 	.unit-note {
-		font-family: var(--mono);
-		font-size: var(--step--2);
-		color: var(--ink-3);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums lining-nums;
+		color: var(--ink-2);
 	}
 
 	/* A part of the figure now rather than a section after it, so it is set
@@ -1517,13 +1574,16 @@
 		margin: var(--sp-4) 0 var(--sp-5);
 	}
 
+	/* The apparatus voice of `app.css`: sentence case at 600, in ink. The
+	   tracked small capitals it replaces carried the hierarchy in the letterfit
+	   instead of in the weight, which is the one thing this programme does not
+	   do. */
 	.picker h3 {
 		font-family: var(--sans);
-		font-size: var(--step--2);
+		font-size: var(--step--1);
 		font-weight: 600;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--ink-3);
+		letter-spacing: 0;
+		color: var(--ink);
 		margin: 0 0 var(--sp-2);
 	}
 
@@ -1541,45 +1601,81 @@
 	.chips {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--sp-1);
+		gap: var(--sp-2);
 	}
 
-	/* A term chip is a control that names a series, so it carries the series'
-	   colour on one edge and takes the ink of a control everywhere else. No
-	   radius, and no filling a button with a data colour. */
+	/* A term chip is a control that names a series. It is drawn as a control —
+	   an ink hairline, sentence case, the height of every other target — and it
+	   carries the series' colour the way the provenance strip and the overview's
+	   key carry theirs: as a small square swatch before the words, never as an
+	   edge of the control itself.
+
+	   The swatch is drawn with the series' own stroke, dash included, because on
+	   the chart the colour and the dash together are what name the line: a
+	   legend showing solid teal for a line drawn dotted disagrees with its
+	   figure. Chips that set no dash — the reference-date kinds — fall back to
+	   solid. */
 	.chip {
-		border: var(--hair) solid var(--rule-strong);
-		border-left: 3px solid var(--chip);
-		background: none;
-		color: var(--ink-2);
-		padding: var(--sp-1) var(--sp-3);
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+		border: var(--hair) solid var(--ink);
+		background: var(--paper);
+		color: var(--ink);
+		padding: 0 var(--sp-3);
 		min-height: 2rem;
 		font-family: var(--sans);
-		font-size: var(--step--2);
+		font-size: var(--step--1);
+		font-weight: 500;
+		text-transform: none;
+		letter-spacing: 0;
 		cursor: pointer;
-		line-height: 1.5;
+		line-height: 1.4;
+	}
+
+	/* Filled, with the dash carried by a border of the same colour: a solid term
+	   reads as a full square, a dashed or dotted one as the same square with its
+	   edge broken. Filled rather than hollow so the stroke's weight of ink still
+	   reads once the chip is pressed and the ground goes black — a ring alone
+	   left the six reference-date kinds as six identical outlines. */
+	.chip::before {
+		content: '';
+		width: 0.625rem;
+		height: 0.625rem;
+		flex: none;
+		background: var(--chip, var(--ink));
+		background-clip: content-box;
+		border: 2px var(--chip-dash, solid) var(--chip, var(--ink));
 	}
 
 	.chip:hover {
-		border-color: var(--ink-2);
-		border-left-color: var(--chip);
-		color: var(--ink);
+		background: var(--paper-sunk);
 	}
 
 	.chip.on {
 		background: var(--ink);
 		border-color: var(--ink);
-		border-left-color: var(--chip);
 		color: var(--paper);
 	}
 
+	/* The fill would otherwise swallow a swatch drawn in ink — the stroke every
+	   term without a register of its own is given. A hairline of paper around
+	   the square keeps the key readable in both states. */
+	.chip.on::before {
+		outline: var(--hair) solid var(--paper);
+	}
+
+	/* A refusal, not an alarm: the rail is an ink hairline, and the register
+	   ramp stays where it belongs, inside the figures. The negative margin it
+	   used to carry pulled it up over the chip rows above it. */
 	.warn {
-		margin: calc(-1 * var(--sp-6)) 0 var(--sp-6);
-		padding: var(--sp-2) var(--sp-3);
-		border-left: 2px solid var(--reg-contentious);
+		margin: var(--sp-4) 0 0;
+		padding: 0 0 0 var(--sp-3);
+		border-left: var(--hair) solid var(--ink);
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		color: var(--ink-2);
+		max-width: var(--measure);
 	}
 
 	.empty {
@@ -1592,7 +1688,13 @@
 	/* The bar *is* the table. Length is drawn in the row's own background, so the
 	   figure and the numbers are one element and there is no second rendering to
 	   drift from the first — the same decision the per-speaker keyness view made.
-	   A tint rather than the full colour, because text sits on top of it. */
+
+	   The sunk ground closed by a one-pixel ink edge, not a register hue: the bar
+	   is a quantity, and `--reg-accountability` is an analytical claim about what
+	   a speech was doing. Lending it to a length said the pooled months were an
+	   accountability measure, which is not what the row counts. The ink edge is
+	   also the only version of this bar whose end can be read exactly; a tint
+	   across half the row read as a selected row rather than as a length. */
 	.calendar tbody tr {
 		/* The zebra stripe `app.css` puts on every other row is switched off: the
 		   bar is translucent, so a stripe behind it would draw the same length in
@@ -1600,7 +1702,8 @@
 		background-color: transparent;
 		background-image: linear-gradient(
 			to right,
-			color-mix(in oklab, var(--reg-accountability) 24%, transparent) 0 var(--w, 0%),
+			var(--paper-sunk) 0 calc(var(--w, 0%) - 1px),
+			var(--ink) calc(var(--w, 0%) - 1px) var(--w, 0%),
 			transparent var(--w, 0%)
 		);
 	}
@@ -1623,23 +1726,14 @@
 	}
 
 	.calendar .item .soft {
-		font-family: var(--mono);
+		font-family: var(--sans);
+		font-variant-numeric: tabular-nums lining-nums;
 		margin-inline-start: var(--sp-2);
-	}
-
-	/* Direction, not judgement: a ratio above one is not a bad thing, so these
-	   are the semantic states rather than the register ramp. */
-	.num.up {
-		color: var(--state-bad);
-	}
-
-	.num.down {
-		color: var(--state-ok);
 	}
 
 	.verdict {
 		display: block;
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--2);
 		color: var(--ink-3);
 	}
@@ -1649,12 +1743,18 @@
 		font-style: italic;
 	}
 
+	/* The last section of the page is opened the way a plate is: a heavy rule
+	   and a title at the plates' size. It is the table the review called the
+	   most convincing object here, and it was arriving as an afterthought under
+	   a thin margin. */
 	.events {
-		margin-top: var(--sp-6);
+		margin-top: var(--sp-8);
+		padding-top: var(--sp-3);
+		border-top: var(--heavy) solid var(--ink);
 	}
 
 	.events h2 {
-		font-size: var(--step-2);
+		font-size: var(--step-3);
 	}
 
 	.table-scroll {
@@ -1662,65 +1762,99 @@
 		overflow-x: auto;
 	}
 
+	/* Set in the grotesk's tabular figures rather than the typewriter face: the
+	   mono on this site is the citation's — a meeting symbol, a script, a file
+	   path — and a calendar date is none of those. The column still aligns. */
 	.date {
 		white-space: nowrap;
-		font-family: var(--mono);
-		font-variant-numeric: tabular-nums;
+		font-variant-numeric: tabular-nums lining-nums;
 	}
 
 	.note {
 		color: var(--ink-3);
 	}
 
+	/* The kind, keyed by the same square the chips carry, so the rail's filter
+	   and this column read as one legend. */
 	.kind {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
 		font-family: var(--sans);
-		font-size: var(--step--2);
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--ink-3);
+		font-size: var(--step--1);
+		font-weight: 500;
+		letter-spacing: 0;
+		text-transform: none;
+		color: var(--ink);
 	}
+
+	.kind::before {
+		content: '';
+		width: 0.625rem;
+		height: 0.625rem;
+		flex: none;
+		background: var(--chip, var(--ink));
+	}
+
 	.kinds {
 		display: inline-flex;
 		flex-wrap: wrap;
-		gap: var(--sp-1);
+		gap: var(--sp-2);
 	}
 
+	/* Smaller words, the same target: the six kind chips were 22px tall and
+	   below the floor for a hit area. Only the type shrinks. */
 	.chip.small {
 		font-size: var(--step--2);
-		padding: 0.1em 0.5em;
+		padding: 0 var(--sp-2);
 	}
 
 	.chip-group {
-		margin-bottom: var(--sp-2);
+		margin-bottom: var(--sp-3);
 	}
 
-	/* A control now, not a caption: it draws the whole shelf as separate lines.
-	   It keeps the caption's typography, because it is still the thing that says
-	   which shelf the chips below it sit on. */
+	/* A control, not a caption: it draws the whole shelf as separate lines, so
+	   it is built like every other control on the site — the segmented idiom of
+	   `app.css`, an ink hairline filled with ink when it is on. The register hue
+	   is its swatch, never its text colour: a shelf's name in teal on white is a
+	   data colour doing an interaction's job, and it failed contrast besides. */
 	.group-label {
-		display: block;
-		margin-bottom: var(--sp-1);
-		padding: 0;
-		border: 0;
-		background: none;
+		display: inline-flex;
+		align-items: center;
+		gap: var(--sp-2);
+		margin-bottom: var(--sp-2);
+		padding: 0 var(--sp-3);
+		min-height: 2rem;
+		border: var(--hair) solid var(--ink);
+		background: var(--paper);
 		font-family: var(--sans);
-		font-size: var(--step--2);
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--chip);
+		font-size: var(--step--1);
+		font-weight: 600;
+		letter-spacing: 0;
+		text-transform: none;
+		color: var(--ink);
 		cursor: pointer;
 	}
 
-	.group-label:hover,
-	.group-label:focus-visible {
-		text-decoration: underline;
-		text-underline-offset: 0.3em;
+	.group-label::before {
+		content: '';
+		width: 0.625rem;
+		height: 0.625rem;
+		flex: none;
+		background: var(--chip, var(--ink));
+	}
+
+	.group-label:hover {
+		background: var(--paper-sunk);
 	}
 
 	.group-label.on {
-		text-decoration: underline;
-		text-underline-offset: 0.3em;
+		background: var(--ink);
+		border-color: var(--ink);
+		color: var(--paper);
+	}
+
+	.group-label.on::before {
+		outline: var(--hair) solid var(--paper);
 	}
 </style>

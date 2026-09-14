@@ -38,7 +38,12 @@
 		onyear: (year: number) => void;
 	}
 
-	let { profile, state, firstYear, lastYear, onfacet, onyear }: Props = $props();
+	/* The prop is renamed on the way in, and must stay renamed. A local binding
+	   called `state` turns every `$state` in this file into an auto-subscription
+	   to it — `store_invalid_shape` at run time, from a rune that looks correct
+	   on the page. The prop keeps its name for the caller; the rune keeps its
+	   meaning in here. */
+	let { profile, state: applied, firstYear, lastYear, onfacet, onyear }: Props = $props();
 
 	/* Eight rows before the remainder: enough that the P5 and the busiest
 	   delegations are all present at once, few enough that four columns of them
@@ -55,7 +60,7 @@
 	const columns = $derived(
 		COLUMNS.map((column) => ({
 			...column,
-			facet: topFacet(profile[column.dimension], TOP, state[column.dimension])
+			facet: topFacet(profile[column.dimension], TOP, applied[column.dimension])
 		}))
 	);
 
@@ -70,8 +75,58 @@
 	);
 
 	const busiest = $derived(Math.max(1, ...years.map((entry) => entry.lines)));
-	const oneYear = $derived(state.from === state.to ? state.from : null);
-	const escape = $derived(chronologyEscape(state.term));
+	const oneYear = $derived(applied.from === applied.to ? applied.from : null);
+	const escape = $derived(chronologyEscape(applied.term));
+
+	/*
+	 * The strip is one tab stop, not seventy-eight.
+	 *
+	 * Drawn plainly, a column per year of the corpus puts most of a keyboard
+	 * user's journey to the first concordance line inside a navigation aid: the
+	 * years alone were 72 of the 152 stops in front of the results. So the strip
+	 * takes the roving tabindex a composite widget is supposed to have — one
+	 * stop for the group, arrow keys between the years, Home and End to its
+	 * ends. Empty years are disabled and are skipped by the arrows as well as by
+	 * Tab, which is the same rule twice rather than a new one.
+	 *
+	 * The stop lands on the year the reader last moved to, else the year the
+	 * filter is on, so returning to the strip returns to where it was left.
+	 */
+	const reachable = $derived(years.filter((entry) => entry.lines > 0).map((entry) => entry.year));
+	let roving = $state<number | null>(null);
+	const stop = $derived(
+		roving !== null && reachable.includes(roving)
+			? roving
+			: oneYear !== null && reachable.includes(oneYear)
+				? oneYear
+				: (reachable[0] ?? null)
+	);
+
+	let strip = $state<HTMLOListElement | null>(null);
+
+	function moveYear(event: KeyboardEvent) {
+		const step =
+			event.key === 'ArrowRight' || event.key === 'ArrowDown'
+				? 1
+				: event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+					? -1
+					: 0;
+		let next: number | undefined;
+		if (step !== 0) {
+			const at = stop === null ? -1 : reachable.indexOf(stop);
+			next = reachable[Math.min(reachable.length - 1, Math.max(0, at + step))];
+		} else if (event.key === 'Home') {
+			next = reachable[0];
+		} else if (event.key === 'End') {
+			next = reachable[reachable.length - 1];
+		} else {
+			return;
+		}
+		event.preventDefault();
+		if (next === undefined) return;
+		roving = next;
+		strip?.querySelector<HTMLButtonElement>(`[data-year="${next}"]`)?.focus();
+	}
 
 	const label = (dimension: FacetDimension, value: string) =>
 		dimension === 'country' ? shortCountry(value) : value;
@@ -103,7 +158,12 @@
 			: `${selected ? 'Clear filter for' : 'Narrow to'} ${year}, ${lines(n)}`;
 </script>
 
-<details class="profile" open>
+<!-- Closed until asked for. Open, the panel is thirty-two tab stops of
+     apparatus standing in front of the evidence it describes, and it describes a
+     set the reader has already chosen; the roving strip above cut the worst of
+     that, and this cuts the rest. The summary is the same sentence the panel
+     always carried, so nothing is renamed by being folded. -->
+<details class="profile">
 	<summary><Icon icon={ChevronRight} />Profile of this result set</summary>
 
 	<p class="hint">
@@ -119,23 +179,33 @@
 		<p class="empty">No lines match, so there is nothing to profile.</p>
 	{:else}
 		<section class="years">
-			<h3>By year</h3>
-			<ol class="strip" style:--columns={years.length}>
-				{#each years as entry (entry.year)}
-					<li title={yearTip(entry.year, entry.lines)}>
-						<button
-							type="button"
-							class:nil={entry.lines === 0}
-							aria-pressed={oneYear === entry.year}
-							disabled={entry.lines === 0}
-							aria-label={yearLabel(entry.year, entry.lines, oneYear === entry.year)}
-							onclick={() => onyear(entry.year)}
-						>
-							<span class="bar" style:--height="{(entry.lines / busiest) * 100}%"></span>
-						</button>
-					</li>
-				{/each}
-			</ol>
+			<h3 id="profile-years">By year</h3>
+			<!-- The group role sits on a wrapper: a list element with a non-list
+			     role makes its own items invalid to assistive technology. -->
+			<div role="group" aria-labelledby="profile-years">
+				<ol class="strip" bind:this={strip} style:--columns={years.length}>
+					{#each years as entry (entry.year)}
+						<li title={yearTip(entry.year, entry.lines)}>
+							<button
+								type="button"
+								data-year={entry.year}
+								class:nil={entry.lines === 0}
+								aria-pressed={oneYear === entry.year}
+								disabled={entry.lines === 0}
+								tabindex={entry.year === stop ? 0 : -1}
+								aria-label={yearLabel(entry.year, entry.lines, oneYear === entry.year)}
+								onkeydown={moveYear}
+								onclick={() => {
+									roving = entry.year;
+									onyear(entry.year);
+								}}
+							>
+								<span class="bar" style:--height="{(entry.lines / busiest) * 100}%"></span>
+							</button>
+						</li>
+					{/each}
+				</ol>
+			</div>
 			<div class="axis">
 				<span>{firstYear}</span>
 				<span class="peak">largest yearly count: {count(busiest)} lines</span>
@@ -177,9 +247,9 @@
 									value,
 									label: `${label(column.dimension, value)} (${lines(n)})`
 								}))}
-							value={state[column.dimension]}
+							value={applied[column.dimension]}
 							onchange={(value) => {
-								if (value !== state[column.dimension]) onfacet(column.dimension, value);
+								if (value !== applied[column.dimension]) onfacet(column.dimension, value);
 							}}
 						/>
 					{/if}
@@ -190,7 +260,7 @@
 
 	<p class="escape">
 		<a href="{resolve('/chronology')}?{escape.query}">
-			Open the chronology of {termLabel(state.term)}<Icon icon={ArrowRight} />
+			Open the chronology of {termLabel(applied.term)}<Icon icon={ArrowRight} />
 		</a>
 		<span class="scope">{escape.scope}</span>
 	</p>
@@ -198,20 +268,28 @@
 
 <style>
 	.profile {
-		border-top: 1px solid var(--rule);
+		border-top: var(--hair) solid var(--ink);
 		margin-block: var(--sp-4);
 		padding-top: var(--sp-3);
 	}
 
+	/* The site's one disclosure gesture: the chevron is the only thing that
+	   turns, and the words are a link until they are hovered. */
 	summary {
-		font-family: var(--sans);
-		font-size: var(--step--1);
-		font-weight: 600;
-		color: var(--ink-2);
-		cursor: pointer;
 		display: flex;
 		align-items: center;
 		gap: var(--sp-1);
+		width: fit-content;
+		min-height: 1.5rem;
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		font-weight: 600;
+		color: var(--blue);
+		cursor: pointer;
+	}
+
+	summary:hover {
+		color: var(--ink);
 	}
 
 	summary :global(svg) {
@@ -233,18 +311,22 @@
 
 	.hint {
 		margin-block: var(--sp-3);
-		max-width: 68ch;
+		max-width: var(--measure);
 		line-height: 1.5;
 	}
 
+	/* A column heading, in the apparatus voice, over the hairline that makes the
+	   list below it read as a column. Sentence case: nothing on this page is
+	   tracked out into capitals. */
 	h3 {
 		font-family: var(--sans);
-		font-size: var(--step--2);
+		font-size: var(--step--1);
 		font-weight: 600;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--ink-3);
+		letter-spacing: 0;
+		color: var(--ink);
 		margin-block: 0 var(--sp-2);
+		padding-bottom: var(--sp-1);
+		border-bottom: var(--hair) solid var(--ink);
 	}
 
 	ol {
@@ -261,6 +343,9 @@
 		gap: 1px;
 		align-items: end;
 		height: 3.5rem;
+		/* The baseline the years stand on: one rule under the whole strip rather
+		   than a border around each of seventy-nine cells. */
+		border-bottom: var(--hair) solid var(--ink);
 	}
 
 	.strip button {
@@ -268,6 +353,7 @@
 		align-items: flex-end;
 		width: 100%;
 		height: 3.5rem;
+		min-height: 1.5rem;
 		padding: 0;
 		border: 0;
 		background: none;
@@ -293,9 +379,19 @@
 		height: 1px;
 	}
 
-	.strip button:hover:not(:disabled) .bar,
+	.strip button:hover:not(:disabled) .bar {
+		background: var(--ink-2);
+	}
+
+	/* The year in force is filled in ink, over the sunk ground every pressed
+	   control on the site carries, so a year with one line is still legible as
+	   the chosen one. */
+	.strip button[aria-pressed='true'] {
+		background: var(--paper-sunk);
+	}
+
 	.strip button[aria-pressed='true'] .bar {
-		background: var(--blue);
+		background: var(--ink);
 	}
 
 	.axis {
@@ -305,7 +401,7 @@
 	}
 
 	.peak {
-		font-family: var(--mono);
+		font-variant-numeric: tabular-nums lining-nums;
 	}
 
 	.facets {
@@ -321,7 +417,8 @@
 		gap: var(--sp-2);
 		align-items: center;
 		width: 100%;
-		padding: 2px var(--sp-1);
+		min-height: 1.5rem;
+		padding: var(--sp-1);
 		border: 0;
 		background: none;
 		text-align: left;
@@ -337,7 +434,8 @@
 	}
 
 	.facets button[aria-pressed='true'] {
-		color: var(--blue);
+		background: var(--paper-sunk);
+		color: var(--ink);
 		font-weight: 600;
 	}
 
@@ -367,13 +465,13 @@
 	}
 
 	.facets button[aria-pressed='true'] .fill {
-		background: color-mix(in oklab, var(--blue) 28%, transparent);
+		background: color-mix(in oklab, var(--ink) 22%, transparent);
 	}
 
 	.n {
 		position: relative;
-		font-family: var(--mono);
 		font-size: var(--step--2);
+		font-variant-numeric: tabular-nums lining-nums;
 	}
 
 	.empty {
@@ -383,7 +481,7 @@
 	.escape {
 		margin-block: var(--sp-4) 0;
 		padding-top: var(--sp-3);
-		border-top: 1px solid var(--rule);
+		border-top: var(--hair) solid var(--rule);
 		display: flex;
 		flex-wrap: wrap;
 		align-items: baseline;

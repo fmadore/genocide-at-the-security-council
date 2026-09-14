@@ -195,14 +195,25 @@
 		height: 100%;
 	}
 
+	/* A quiet skeleton rather than a word floating in a void: the baseline the
+	   plot will draw on is already there as a hairline, and the word sits where
+	   an axis title would, top left. Nothing moves, so there is nothing for
+	   `prefers-reduced-motion` to switch off. */
 	.loading {
 		position: absolute;
 		inset: 0;
-		display: grid;
-		place-items: center;
 		margin: 0;
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		color: var(--ink-3);
+		pointer-events: none;
+	}
+
+	.loading::after {
+		content: '';
+		position: absolute;
+		inset-inline: 0;
+		bottom: 0;
+		border-bottom: var(--hair) solid var(--rule);
 	}
 </style>

@@ -1,0 +1,322 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-14T00:00:00.000Z",
+  "title": "Design System: Genocide at the Security Council",
+  "extensions": {
+    "origin": {
+      "northStar": "The Programme Grid",
+      "seed": "426cd46f",
+      "form": "The Programme Grid, candidate 6 of 7 on the grounded list",
+      "source": "Direction contract in web/src/app.html; tokens scanned from web/src/app.css and the shipped components."
+    },
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Coated White",
+        "canonical": "#ffffff",
+        "dark": "#121212",
+        "tonalRamp": ["#242424", "#3a3a3a", "#525252", "#6b6b6b", "#8f8f8f", "#bdbdbd", "#e2e2e2", "#ffffff"]
+      },
+      "paper-sunk": {
+        "role": "neutral",
+        "displayName": "Sunk Stock",
+        "canonical": "#f2f2f2",
+        "dark": "#1c1c1c",
+        "tonalRamp": ["#1c1c1c", "#333333", "#4d4d4d", "#666666", "#8c8c8c", "#b3b3b3", "#d9d9d9", "#f2f2f2"]
+      },
+      "paper-raised": {
+        "role": "neutral",
+        "displayName": "Raised Stock",
+        "canonical": "#ffffff",
+        "dark": "#121212",
+        "tonalRamp": ["#242424", "#3a3a3a", "#525252", "#6b6b6b", "#8f8f8f", "#bdbdbd", "#e2e2e2", "#ffffff"]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Hairline Grey",
+        "canonical": "#cfcfcf",
+        "dark": "#3a3a3a",
+        "tonalRamp": ["#262626", "#3d3d3d", "#575757", "#737373", "#969696", "#b4b4b4", "#cfcfcf", "#ececec"]
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Structural Rule",
+        "canonical": "#111111",
+        "dark": "#f2f2f2",
+        "tonalRamp": ["#111111", "#2b2b2b", "#444444", "#6b6b6b", "#8f8f8f", "#bdbdbd", "#dedede", "#f2f2f2"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#111111",
+        "dark": "#f2f2f2",
+        "tonalRamp": ["#111111", "#242424", "#3a3a3a", "#444444", "#6b6b6b", "#9a9a9a", "#c4c4c4", "#f2f2f2"]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Quiet Ink",
+        "canonical": "#444444",
+        "dark": "#c4c4c4",
+        "tonalRamp": ["#171717", "#2b2b2b", "#444444", "#5d5d5d", "#818181", "#a5a5a5", "#c4c4c4", "#e6e6e6"]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Faint Ink",
+        "canonical": "#6b6b6b",
+        "dark": "#9a9a9a",
+        "tonalRamp": ["#1f1f1f", "#353535", "#4f4f4f", "#6b6b6b", "#878787", "#9a9a9a", "#c0c0c0", "#e4e4e4"]
+      },
+      "blue": {
+        "role": "primary",
+        "displayName": "Flag Blue",
+        "canonical": "#1a56b0",
+        "dark": "#8ab6f0",
+        "tonalRamp": ["#08193a", "#0d2a63", "#123c8a", "#1a56b0", "#2f6fd0", "#5b92e5", "#8ab6f0", "#cfe0fa"]
+      },
+      "blue-mid": {
+        "role": "primary",
+        "displayName": "Flag Blue Lifted",
+        "canonical": "#2f6fd0",
+        "dark": "#a3c6f4",
+        "tonalRamp": ["#0b1d3f", "#12316b", "#1a4795", "#245ebb", "#2f6fd0", "#6a9ce6", "#a3c6f4", "#dbe9fc"]
+      },
+      "blue-flag": {
+        "role": "primary",
+        "displayName": "UN Flag Blue (focus ring)",
+        "canonical": "#5b92e5",
+        "dark": "#5b92e5",
+        "tonalRamp": ["#0d1f3c", "#153466", "#1e4b93", "#2c64bd", "#4079d8", "#5b92e5", "#8fb6ee", "#cddff8"]
+      },
+      "mark": {
+        "role": "secondary",
+        "displayName": "Mark Ochre",
+        "canonical": "#f5d98a",
+        "dark": "#6b5418",
+        "tonalRamp": ["#3a2c08", "#553f0f", "#6b5418", "#8a6f24", "#b08f33", "#d4b45c", "#f5d98a", "#fbeec6"]
+      },
+      "reg-legal": {
+        "role": "tertiary",
+        "displayName": "Legal Teal",
+        "canonical": "#2c7069",
+        "dark": "#5fb0a5",
+        "tonalRamp": ["#0b2320", "#143d38", "#1f5751", "#2c7069", "#3f8c83", "#5fb0a5", "#93cbc3", "#cfe8e4"]
+      },
+      "reg-preventive": {
+        "role": "tertiary",
+        "displayName": "Preventive Olive",
+        "canonical": "#5c7a3a",
+        "dark": "#9dbf6e",
+        "tonalRamp": ["#1b2411", "#2d3d1c", "#42582a", "#5c7a3a", "#78994f", "#9dbf6e", "#c0d79e", "#e2ecd0"]
+      },
+      "reg-commemorative": {
+        "role": "tertiary",
+        "displayName": "Commemorative Iris",
+        "canonical": "#6b5b95",
+        "dark": "#a99ad0",
+        "tonalRamp": ["#221c31", "#362c4e", "#4d406d", "#6b5b95", "#8878b4", "#a99ad0", "#c8bde4", "#e6e0f3"]
+      },
+      "reg-contentious": {
+        "role": "tertiary",
+        "displayName": "Contentious Brick",
+        "canonical": "#a63d40",
+        "dark": "#e08688",
+        "tonalRamp": ["#2c1011", "#49191b", "#6c2628", "#a63d40", "#c25c5f", "#e08688", "#eeb2b4", "#f8dcdd"]
+      },
+      "reg-accountability": {
+        "role": "tertiary",
+        "displayName": "Accountability Amber",
+        "canonical": "#b07817",
+        "dark": "#e0b152",
+        "tonalRamp": ["#2d1e05", "#4b330a", "#6f4c0f", "#b07817", "#cb9330", "#e0b152", "#eecf92", "#f8e9cb"]
+      },
+      "reg-descriptive": {
+        "role": "tertiary",
+        "displayName": "Descriptive Mulberry",
+        "canonical": "#8e3f77",
+        "dark": "#cf95c4",
+        "tonalRamp": ["#261020", "#3d1b34", "#5c284e", "#8e3f77", "#ad5f95", "#cf95c4", "#e3bcda", "#f3e0ef"]
+      },
+      "state-ok": {
+        "role": "tertiary",
+        "displayName": "Computed Green",
+        "canonical": "#4a6b2e",
+        "dark": "#8fbf62",
+        "tonalRamp": ["#15200d", "#243617", "#364f21", "#4a6b2e", "#638d3e", "#8fbf62", "#b8d795", "#dcebc9"]
+      },
+      "state-warn": {
+        "role": "tertiary",
+        "displayName": "Mixed Amber",
+        "canonical": "#8a6410",
+        "dark": "#d9a93e",
+        "tonalRamp": ["#241a04", "#3d2c08", "#5c420b", "#8a6410", "#b08222", "#d9a93e", "#e9cb84", "#f6e8c3"]
+      },
+      "state-bad": {
+        "role": "tertiary",
+        "displayName": "Model Red",
+        "canonical": "#98333a",
+        "dark": "#e08688",
+        "tonalRamp": ["#280d10", "#441619", "#661f24", "#98333a", "#bd535a", "#e08688", "#eeb2b4", "#f8dcdd"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The page title only, 3.25rem; drops to 2.75rem below 40rem. Carries the wordmark's marked word." },
+      "numeral": { "displayName": "Numeral", "purpose": "A headline number in the tally, set as type between two rules — never tiled." },
+      "headline": { "displayName": "Headline", "purpose": "A plate's title, capped at 40rem and acting as its own anchor." },
+      "title": { "displayName": "Title", "purpose": "Section headings and the basket dialog's name." },
+      "body": { "displayName": "Body", "purpose": "Running prose at the single 38rem measure (~68 characters)." },
+      "label": { "displayName": "Label", "purpose": "The apparatus voice: note headings, control names, table headers. Sentence case at 600, never tracked capitals." },
+      "symbol": { "displayName": "Symbol", "purpose": "The citation: meeting symbols, script-and-artefact paths, inline code. The only use of Courier Prime." }
+    },
+    "shadows": [
+      { "name": "current-underline", "value": "inset 0 -3px 0 var(--ink)", "purpose": "The heavy rule marking the active masthead section and the current entry in the running head. Inset so nothing moves when it appears." },
+      { "name": "register-underline", "value": "inset 0 -2px 0 var(--reg-legal)", "purpose": "A marked word's register, drawn under the ochre tint so colour is never the only code." },
+      { "name": "query-hit-underline", "value": "inset 0 -2px 0 var(--blue-flag)", "purpose": "The reader's own search term inside a concordance line, distinct from the node's ochre wash." }
+    ],
+    "motion": [
+      { "name": "dur", "value": "160ms", "purpose": "The only duration. Border, background and colour transitions on controls." },
+      { "name": "ease", "value": "cubic-bezier(0.2, 0, 0, 1)", "purpose": "The only easing curve in the system." },
+      { "name": "chevron-turn", "value": "transform: rotate(90deg) 160ms cubic-bezier(0.2, 0, 0, 1)", "purpose": "The disclosure chevron — the only thing on the site that turns. Disabled under prefers-reduced-motion." },
+      { "name": "fullscreen-in", "value": "@keyframes fullscreen-in { from { opacity: 0.7; clip-path: inset(2rem); } } 160ms", "purpose": "A plate entering full screen; authored only under prefers-reduced-motion: no-preference." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "40rem" },
+      { "name": "md", "value": "44rem" },
+      { "name": "lg", "value": "48rem" },
+      { "name": "xl", "value": "64rem" },
+      { "name": "page", "value": "90rem" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Control Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "The standard control: a square rectangle drawn by a 1px ink hairline on paper, 2.5rem tall.",
+      "html": "<button class=\"ds-btn\" type=\"button\">Download CSV</button>",
+      "css": ".ds-btn { font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 0.875rem; font-weight: 500; color: var(--ink, #111111); background: var(--paper, #ffffff); border: 1px solid var(--ink, #111111); border-radius: 0; min-height: 2.5rem; padding: 0 0.75rem; cursor: pointer; transition: background 160ms cubic-bezier(0.2,0,0,1), color 160ms cubic-bezier(0.2,0,0,1), border-color 160ms cubic-bezier(0.2,0,0,1); } .ds-btn:hover { background: var(--paper-sunk, #f2f2f2); } .ds-btn:focus-visible { outline: 2px solid var(--blue-flag, #5b92e5); outline-offset: 2px; border-radius: 0; } .ds-btn:disabled { color: var(--ink-3, #6b6b6b); border-color: var(--rule, #cfcfcf); cursor: default; }"
+    },
+    {
+      "name": "Segmented Group",
+      "kind": "button",
+      "refersTo": "segmented-cell",
+      "description": "The only button-group pattern on the site: one ink border round the group, cells divided by hairlines, the pressed cell inverted to ink.",
+      "html": "<div class=\"ds-segmented\"><button type=\"button\" aria-pressed=\"true\">The word</button><button type=\"button\" aria-pressed=\"false\">The vocabulary</button><button type=\"button\" aria-pressed=\"false\">The debate</button></div>",
+      "css": ".ds-segmented { display: flex; border: 1px solid var(--ink, #111111); } .ds-segmented > button { font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 0.875rem; font-weight: 500; border: 0; border-left: 1px solid var(--ink, #111111); border-radius: 0; min-height: 2.5rem; padding: 0 0.75rem; background: var(--paper, #ffffff); color: var(--ink-2, #444444); cursor: pointer; transition: background 160ms cubic-bezier(0.2,0,0,1), color 160ms cubic-bezier(0.2,0,0,1); } .ds-segmented > button:first-child { border-left: 0; } .ds-segmented > button:hover { background: var(--paper-sunk, #f2f2f2); color: var(--ink, #111111); } .ds-segmented > button[aria-pressed=\"true\"] { background: var(--ink, #111111); color: var(--paper, #ffffff); } .ds-segmented > button:focus-visible { outline: 2px solid var(--blue-flag, #5b92e5); outline-offset: 2px; }"
+    },
+    {
+      "name": "Term Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "A control that names a series: a 2rem hairline rectangle carrying the series' colour as a square swatch before the words, never as an edge.",
+      "html": "<button class=\"ds-chip ds-chip-on\" type=\"button\" style=\"--ds-chip-colour:#2c7069\">Legal</button><button class=\"ds-chip\" type=\"button\" style=\"--ds-chip-colour:#a63d40;--ds-chip-dash:dashed\">Contentious</button>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 0.5rem; border: 1px solid var(--ink, #111111); background: var(--paper, #ffffff); color: var(--ink, #111111); padding: 0 0.75rem; min-height: 2rem; margin-right: 0.5rem; font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 0.875rem; font-weight: 500; line-height: 1.4; letter-spacing: 0; text-transform: none; border-radius: 0; cursor: pointer; transition: background 160ms cubic-bezier(0.2,0,0,1), color 160ms cubic-bezier(0.2,0,0,1); } .ds-chip::before { content: ''; width: 0.625rem; height: 0.625rem; flex: none; background: var(--ds-chip-colour, var(--ink, #111111)); background-clip: content-box; border: 2px var(--ds-chip-dash, solid) var(--ds-chip-colour, var(--ink, #111111)); } .ds-chip:hover { background: var(--paper-sunk, #f2f2f2); } .ds-chip-on { background: var(--ink, #111111); border-color: var(--ink, #111111); color: var(--paper, #ffffff); } .ds-chip-on::before { outline: 1px solid var(--paper, #ffffff); } .ds-chip:focus-visible { outline: 2px solid var(--blue-flag, #5b92e5); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Paper ground, 1px ink border, radius 0, 2.5rem tall, flag-blue caret.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-label\">Search term</span><input class=\"ds-input\" type=\"search\" placeholder=\"genocide\" /></label>",
+      "css": ".ds-field { display: inline-flex; flex-direction: column; gap: 0.25rem; } .ds-label { display: block; font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 0.875rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink, #111111); } .ds-input { font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 0.875rem; color: var(--ink, #111111); background: var(--paper, #ffffff); border: 1px solid var(--ink, #111111); border-radius: 0; min-height: 2.5rem; padding: 0 0.75rem; caret-color: var(--blue, #1a56b0); transition: border-color 160ms cubic-bezier(0.2,0,0,1); } .ds-input::placeholder { color: var(--ink-3, #6b6b6b); opacity: 1; } .ds-input:focus-visible { outline: 2px solid var(--blue-flag, #5b92e5); outline-offset: 2px; }"
+    },
+    {
+      "name": "Select",
+      "kind": "input",
+      "refersTo": "select",
+      "description": "The native menu kept, the native chevron replaced by a drawn ink chevron in the same stroke as every other icon.",
+      "html": "<select class=\"ds-select\"><option>Annual</option><option>Five-year</option><option>Decade</option></select>",
+      "css": ".ds-select { appearance: none; -webkit-appearance: none; font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 0.875rem; color: var(--ink, #111111); background-color: var(--paper, #ffffff); border: 1px solid var(--ink, #111111); border-radius: 0; min-height: 2.5rem; padding: 0 2rem 0 0.75rem; cursor: pointer; background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23111111' stroke-width='1.5'/%3E%3C/svg%3E\"); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 0.75rem; } .ds-select:hover { background-color: var(--paper-sunk, #f2f2f2); } .ds-select:focus-visible { outline: 2px solid var(--blue-flag, #5b92e5); outline-offset: 2px; }"
+    },
+    {
+      "name": "Masthead Navigation",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "A rule and the ground colour, never a panel: the wordmark as a marked word, sections on one 2.5rem line, the current one carrying the 3px inset rule.",
+      "html": "<header class=\"ds-masthead\"><a class=\"ds-wordmark\" href=\"#\"><strong><mark class=\"ds-mark\">Genocide</mark> at the Security Council</strong><span>1946–2024</span></a><nav class=\"ds-nav\"><a class=\"ds-nav-a ds-nav-active\" href=\"#\">Overview</a><a class=\"ds-nav-a\" href=\"#\">Chronology</a><a class=\"ds-nav-a\" href=\"#\">Concordance</a></nav></header>",
+      "css": ".ds-masthead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 2rem; padding: 0.5rem 1.5rem; background: var(--paper, #ffffff); border-top: 3px solid var(--ink, #111111); border-bottom: 1px solid var(--ink, #111111); } .ds-wordmark { display: flex; align-items: baseline; gap: 0.75rem; text-decoration: none; color: var(--ink, #111111); } .ds-wordmark strong { font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; } .ds-wordmark span { font-size: 0.875rem; color: var(--ink-3, #6b6b6b); } .ds-mark { background: var(--mark, #f5d98a); color: inherit; padding: 0.05em 0.14em; } .ds-nav { display: flex; gap: 0 1.5rem; } .ds-nav-a { display: flex; align-items: center; min-height: 2.5rem; font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 0.875rem; font-weight: 500; color: var(--ink-2, #444444); text-decoration: none; transition: color 160ms cubic-bezier(0.2,0,0,1); } .ds-nav-a:hover { color: var(--ink, #111111); } .ds-nav-active { color: var(--ink, #111111); font-weight: 700; box-shadow: inset 0 -3px 0 var(--ink, #111111); } .ds-nav-a:focus-visible { outline: 2px solid var(--blue-flag, #5b92e5); outline-offset: 2px; }"
+    },
+    {
+      "name": "The Plate",
+      "kind": "custom",
+      "refersTo": "plate",
+      "description": "The signature component: a numbered full-width figure opened by the 3px ink rule, with its question, provenance key, apparatus in two sixes and a mono source strip beneath.",
+      "html": "<figure class=\"ds-plate\"><figcaption class=\"ds-plate-head\"><span class=\"ds-plate-no\">Plate 1</span><h2 class=\"ds-plate-title\"><a href=\"#\">Occurrences of the word, and its share of speeches</a></h2><p class=\"ds-plate-q\">How often was the word said, and how much of the record did it occupy?</p><a class=\"ds-prov\" href=\"#\">Computed</a></figcaption><div class=\"ds-plate-body\"></div><aside class=\"ds-apparatus\"><div class=\"ds-note\"><span class=\"ds-label ds-lead\">How to read this</span><div class=\"ds-prose\">Each bar counts occurrences in a calendar year; the line behind it is the share of speeches that carry the word at least once.</div></div><div class=\"ds-note\"><span class=\"ds-label\">What it does not show</span><div class=\"ds-prose\">A rise can come from more meetings rather than more talk of the word; the share line is the control.</div></div></aside><footer class=\"ds-src\"><span class=\"ds-label\">Source</span><p class=\"ds-symbol\">04_series.py → series/annual.json</p></footer></figure>",
+      "css": ".ds-plate { margin: 0; padding-top: 0.75rem; border-top: 3px solid var(--ink, #111111); background: var(--paper, #ffffff); color: var(--ink, #111111); font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; } .ds-plate-head { margin-bottom: 1rem; } .ds-plate-no { display: block; font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink-3, #6b6b6b); margin-bottom: 0.5rem; } .ds-plate-title { margin: 0 0 0.15em; font-size: 1.5rem; font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; max-width: 40rem; } .ds-plate-title a { color: inherit; text-decoration: none; } .ds-plate-title a:hover, .ds-plate-title a:focus-visible { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.12em; } .ds-plate-q { margin: 0; max-width: 38rem; color: var(--ink-2, #444444); font-size: 1rem; line-height: 1.5; } .ds-prov { display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.875rem; font-weight: 500; color: var(--ink, #111111); text-decoration: none; } .ds-prov::before { content: ''; width: 0.625rem; height: 0.625rem; flex: none; background: var(--state-ok, #4a6b2e); } .ds-prov:hover { text-decoration: underline; } .ds-plate-body { min-height: 6rem; border-bottom: 1px solid var(--rule, #cfcfcf); } .ds-apparatus { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 1.5rem; row-gap: 1rem; margin-top: 1.5rem; padding-top: 0.75rem; border-top: 1px solid var(--ink, #111111); } .ds-note { grid-column: span 6; } .ds-label { display: block; font-size: 0.875rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink-2, #444444); margin-bottom: 0.25rem; } .ds-lead { color: var(--ink, #111111); } .ds-prose { font-size: 0.875rem; line-height: 1.5; color: var(--ink-2, #444444); } .ds-src { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--rule, #cfcfcf); } .ds-src .ds-label { margin-bottom: 0; } .ds-symbol { margin: 0; font-family: 'Courier Prime', 'Courier New', Courier, monospace; font-size: 0.875rem; line-height: 1.5; color: var(--ink-2, #444444); overflow-wrap: anywhere; }"
+    },
+    {
+      "name": "Unit Field",
+      "kind": "custom",
+      "refersTo": "plate",
+      "description": "A quantity counted in squares: one outlined square per unit, the counted part filled with ink, so a share can be counted rather than trusted.",
+      "html": "<div class=\"ds-field\" role=\"img\" aria-label=\"One square per 1,000 speeches; 17 of 170 mention the word\"><i class=\"ds-ink\"></i><i class=\"ds-ink\"></i><i class=\"ds-ink\"></i><i class=\"ds-ink\"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p class=\"ds-key\"><span class=\"ds-swatch ds-swatch-ink\"></span>Speeches that mention the word<span class=\"ds-swatch\"></span>All other speeches</p>",
+      "css": ".ds-field { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 0.25rem; color: var(--ink, #111111); } .ds-field i { display: block; aspect-ratio: 1; border: 1px solid currentColor; background: var(--paper, #ffffff); } .ds-field i.ds-ink { background: currentColor; } .ds-key { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0 0; font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 0.875rem; color: var(--ink-3, #6b6b6b); } .ds-swatch { width: 0.625rem; height: 0.625rem; flex: none; border: 1px solid var(--ink, #111111); } .ds-swatch-ink { background: var(--ink, #111111); }"
+    },
+    {
+      "name": "Data Table with Disclosure",
+      "kind": "custom",
+      "refersTo": "plate",
+      "description": "The numbers behind a plate, opened by the one gesture that turns: label headers over an ink rule, rows over hairlines, even rows sunk.",
+      "html": "<details class=\"ds-data-table\" open><summary><svg class=\"ds-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M9 6l6 6-6 6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"square\"/></svg>Show the numbers</summary><table><thead><tr><th>Year</th><th class=\"ds-num\">Occurrences</th><th class=\"ds-num\">Share</th></tr></thead><tbody><tr><td>1994</td><td class=\"ds-num\">412</td><td class=\"ds-num\">6.1%</td></tr><tr><td>1995</td><td class=\"ds-num\">287</td><td class=\"ds-num\">4.4%</td></tr><tr><td>1996</td><td class=\"ds-num\">193</td><td class=\"ds-num\">3.0%</td></tr></tbody></table></details>",
+      "css": ".ds-data-table { margin-top: 1rem; font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; } .ds-data-table summary { display: flex; align-items: center; gap: 0.4em; width: fit-content; min-height: 1.5rem; cursor: pointer; font-size: 0.875rem; font-weight: 500; color: var(--blue, #1a56b0); list-style: none; } .ds-data-table summary::-webkit-details-marker { display: none; } .ds-data-table summary:hover { color: var(--ink, #111111); } .ds-icon { width: 1rem; height: 1rem; transition: transform 160ms cubic-bezier(0.2,0,0,1); } .ds-data-table[open] > summary .ds-icon { transform: rotate(90deg); } .ds-data-table table { border-collapse: collapse; width: 100%; font-size: 0.875rem; font-variant-numeric: tabular-nums lining-nums; margin-top: 0.5rem; } .ds-data-table th, .ds-data-table td { text-align: left; padding: 0.5rem 0.75rem 0.5rem 0; border-bottom: 1px solid var(--rule, #cfcfcf); } .ds-data-table th { font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink, #111111); border-bottom: 1px solid var(--ink, #111111); white-space: nowrap; } .ds-data-table .ds-num { text-align: right; } .ds-data-table tbody tr:nth-child(even) { background: var(--paper-sunk, #f2f2f2); }"
+    },
+    {
+      "name": "Basket Dialog",
+      "kind": "card",
+      "refersTo": "dialog-plate",
+      "description": "A plate, not a floating card: square, hairline ink all round, the 3px rule along its top edge, no shadow.",
+      "html": "<div class=\"ds-dialog\"><div class=\"ds-dialog-head\"><h2>Basket</h2><span class=\"ds-n\">3 passages</span></div><p class=\"ds-hint\">Passages you have collected, kept in this browser only. Export them as CSV to cite them.</p><ul class=\"ds-list\"><li><p class=\"ds-symbol\">S/PV.3137</p><p class=\"ds-meta\">Rwanda — 16 May 1994</p></li><li><p class=\"ds-symbol\">S/PV.4011</p><p class=\"ds-meta\">Srebrenica — 10 November 1999</p></li></ul></div>",
+      "css": ".ds-dialog { width: min(48rem, calc(100vw - 2rem)); padding: 1.5rem; border: 1px solid var(--ink, #111111); border-top-width: 3px; border-radius: 0; box-shadow: none; background: var(--paper, #ffffff); color: var(--ink, #111111); font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; } .ds-dialog-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; } .ds-dialog h2 { font-size: 1.25rem; font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; margin: 0; } .ds-n { font-size: 0.875rem; font-variant-numeric: tabular-nums; color: var(--ink-3, #6b6b6b); } .ds-hint { font-size: 0.75rem; color: var(--ink-3, #6b6b6b); line-height: 1.5; max-width: 62ch; margin: 0.5rem 0 1rem; } .ds-list { list-style: none; margin: 0; padding: 0; } .ds-list li { border-top: 1px solid var(--rule, #cfcfcf); padding-block: 1rem; } .ds-list .ds-symbol { margin: 0; font-family: 'Courier Prime', 'Courier New', Courier, monospace; font-size: 0.875rem; font-variant-numeric: tabular-nums; } .ds-list .ds-meta { margin: 0.25rem 0 0; font-size: 0.75rem; color: var(--ink-3, #6b6b6b); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Programme Grid",
+    "overview": "A programme, not a dashboard. The site is set the way a 1960s–70s international organisation set its printed programme of work: flat ink on white stock, one Akzidenz-class grotesk doing every job, a strict twelve-column grid, 3px rules opening the page and each plate, hairlines everywhere else. Every figure is a numbered plate that takes the whole width with its notes beneath it. Nothing is boxed, tiled or eyebrowed; the metric-tile-and-card overview is refused outright, and so is the card, the coloured side rail and the drop shadow.\n\nThree colour layers are kept apart and cannot leak into each other: ground/ink, interaction, data. UN flag blue carries links, focus and controls and is never a datum. The six register hues are an analytical classification and stay quarantined inside the plates. The one warm thing on the page is the ochre tint on the marked word — the site's single gesture at its own scale, deliberately outside the blue family so it never reads as a link or a selection. Dark is the same programme reversed: white ink on a black plate, still flat, still unboxed.\n\nThe reading story the build serves: a researcher arrives with a claim, reads the counted numbers, opens a plate, reads how to read it and what it does not show, and leaves with a citable figure or a meeting symbol. The first viewport is the heavy rule, the wordmark and the sections on one line, the title at 3.25rem, the corpus counted as a field of unit squares with the marked share filled, then Plate 1 full width. Origin: form candidate \"The Programme Grid\", seed 426cd46f.",
+    "keyCharacteristics": [
+      "Pure white ground (#ffffff), flat ink, zero radius, zero drop shadows",
+      "One grotesk (Hanken Grotesk) for headings, body, labels, numbers and axes",
+      "Courier Prime reserved for the citation: meeting symbols, script names, paths",
+      "Twelve columns at 90rem; plates full width, notes beneath in two sixes",
+      "3px heavy rule opens the page, each plate, the footer, the current section",
+      "Blue only for interaction; ochre only for the mark; register hues only inside figures",
+      "Hierarchy carried in weight and position, never in tracked capitals",
+      "Both themes first-class; chart colour read from the CSS tokens at runtime"
+    ],
+    "rules": [
+      { "name": "The Three Layers Rule", "body": "Ground/ink, interaction and data are three sealed layers: the accent is never used for a datum, a register hue is never used for a control, and nothing borrows across.", "section": "colors" },
+      { "name": "The One Warm Thing Rule", "body": "The ochre mark is the only warm colour on the page; a magnitude ramp is paper-to-ink (mix(paper, ink, t)), never a hue.", "section": "colors" },
+      { "name": "The Blue Is Interaction Rule", "body": "UN flag blue carries links, focus rings and controls. A chart series is ink, a weight of ink, or a register hue — never blue.", "section": "colors" },
+      { "name": "The Quarantine Rule", "body": "Register hues live inside plates. They may not colour a control's edge, a chip's ground, a heading or a page rail; a chip carries its series colour as a 0.625rem square swatch before the words.", "section": "colors" },
+      { "name": "The Citation Is Typewritten Rule", "body": "Courier Prime is permitted on meeting symbols, script names, file paths and inline code, and nowhere else; everything else — including a figure's note line and every number — is Hanken Grotesk.", "section": "typography" },
+      { "name": "The Sentence Case Rule", "body": "No tracked capitals anywhere. The label voice is sentence case at 600 weight in ink; hierarchy is carried by weight and position, never by letterfit or an uppercase eyebrow.", "section": "typography" },
+      { "name": "The Numbers Are Counted Rule", "body": "A headline number is set as type in a row of four on the grid between two rules, after a field of unit squares that lets the share be counted; it is never tiled, never boxed, never given a card of its own.", "section": "typography" },
+      { "name": "The Nothing Is Boxed Rule", "body": "Separation is a rule or space. Radius is 0 everywhere, drop shadows are banned outright, and the only permitted shadow is an inset underline standing in for a rule.", "section": "elevation" },
+      { "name": "The Heavy Rule", "body": "3px of ink opens the page (the body's top border), each plate, the footer, and marks the current section; 1px of ink is a structural division; 1px of rule grey separates rows. There is no fourth weight.", "section": "elevation" },
+      { "name": "The Notes Beneath Rule", "body": "A figure's apparatus sits under the plate on the grid in two columns of six (five from 64rem), never in a margin and never behind a toggle; the reading note is the first thing under the marks.", "section": "components" },
+      { "name": "The Targets 24px Rule", "body": "Every control is at least 2rem tall and standard controls are 2.5rem; a shorter box in a control bar sits on its own centre line and reads as crooked.", "section": "components" }
+    ],
+    "dos": [
+      "Do keep the wordmark's <mark> on the word Genocide: the marked word is the site's one gesture at its own scale and must survive any redesign.",
+      "Do open every figure with the plate apparatus — question, \"How to read this\", \"What it does not show\", source — behind the 3px ink rule, full width, notes beneath.",
+      "Do count a share in the unit field's squares before stating it as a number.",
+      "Do keep one grotesk (Hanken Grotesk) for headings, body, labels, numbers and chart axes.",
+      "Do keep the ground pure white and reverse it whole in dark; both themes are first-class and chart colour is read from the tokens at runtime.",
+      "Do hold prose to the single 38rem measure and let plates take all twelve columns.",
+      "Do make every figure print and export cleanly: print restores black on white, prints the URL after an external link in mono, and forbids a break inside a figure or table.",
+      "Do meet WCAG 2.2 AA as the floor, and code a register or a provenance kind in shape, weight or dash as well as in colour.",
+      "Do put a colour key in a 0.625rem square before the words, so the words stay ink.",
+      "Do keep hierarchy in weight and position: sentence case at 600 for every label."
+    ],
+    "donts": [
+      "Don't put a figure, a number or a section in a card, a panel or a tile; separation is a rule or space, radius stays 0.",
+      "Don't build a metric-tile overview — headline numbers are set as type in a row on the grid between two rules.",
+      "Don't set an eyebrow, a kicker or a tracked-capital label above anything.",
+      "Don't set an arrow-prefixed list or lead a link with a directional glyph in place of a title.",
+      "Don't use Courier Prime as costume: it belongs to meeting symbols, script names, file paths and inline code only.",
+      "Don't put a coloured side border or a 3px coloured bar on a note, a warning or a row; the rail is an ink hairline.",
+      "Don't colour a control, a chip's ground or an edge with a register hue; the register ramp stays inside the plates.",
+      "Don't use blue for a datum — no blue series, no blue bar, no blue fill on a chart.",
+      "Don't add a drop shadow; the only permitted shadow is an inset underline standing in for a rule.",
+      "Don't introduce a spacing, type or rule value that is not on the named scale."
+    ]
+  }
+}

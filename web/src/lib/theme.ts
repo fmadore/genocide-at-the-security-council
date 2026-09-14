@@ -99,21 +99,21 @@ export function palette(): Palette {
 	const read = (name: string, fallback: string) => style?.getPropertyValue(name).trim() || fallback;
 
 	return {
-		ink: read('--ink', '#14171a'),
-		inkSoft: read('--ink-2', '#3d444c'),
-		inkFaint: read('--ink-3', '#626a74'),
-		paper: read('--paper', '#f1f2ee'),
-		panel: read('--paper-raised', '#fbfbf8'),
-		rule: read('--rule-strong', '#b7bcaf'),
-		ruleSoft: read('--rule', '#d6d9cf'),
-		accent: read('--blue', '#1b5fa8'),
+		ink: read('--ink', '#111111'),
+		inkSoft: read('--ink-2', '#444444'),
+		inkFaint: read('--ink-3', '#6b6b6b'),
+		paper: read('--paper', '#ffffff'),
+		panel: read('--paper-raised', '#ffffff'),
+		rule: read('--rule-strong', '#111111'),
+		ruleSoft: read('--rule', '#cfcfcf'),
+		accent: read('--blue', '#1a56b0'),
 		positive: read('--state-ok', '#4a6b2e'),
 		negative: read('--state-bad', '#98333a'),
 		registers: Object.fromEntries(
 			REGISTERS.map((r) => [
 				r,
 				// core resolves to var(--ink); read the computed value, not the var().
-				r === 'core' ? read('--ink', '#14171a') : read(`--reg-${r}`, '#626a74')
+				r === 'core' ? read('--ink', '#111111') : read(`--reg-${r}`, '#6b6b6b')
 			])
 		)
 	};
@@ -150,6 +150,44 @@ export function categorical(p = palette()): string[] {
 	return REGISTERS.map((r) => p.registers[r]);
 }
 
+/**
+ * Eight fills for a categorical series that is not a register and cannot carry
+ * a dash — a scatter, where the only codes available are hue and lightness.
+ *
+ * `categoricalNeutral` is the first answer for anything that is not a register,
+ * and it stays the first answer for lines. It cannot serve a point cloud: its
+ * discrimination comes from the dash crossed with the weight, and a 5px symbol
+ * has no dash, which leaves six weights of grey at 65% opacity over a cloud
+ * dense enough to overplot. Tested against this ramp on the semantic map, the
+ * eight largest groups were not tellable apart.
+ *
+ * So hue, but not the register hues as such: those are an analytical claim
+ * about the lexicon, and a country or an agenda category is not a register.
+ * Each fill is one documented step off a register hue — the same two steps
+ * `REGISTER_TONES` uses, one towards the ink and one towards the page — so the
+ * family is visibly adjacent to the site's palette without borrowing a meaning
+ * from it, and it follows the theme rather than being written down twice.
+ *
+ * Light and dark alternate down the list so that neighbouring ranks are told
+ * apart by lightness even where two hues are close, and `commemorative` is left
+ * out: in dark mode its periwinkle sits in the same family as `--blue`, which
+ * never carries a datum.
+ */
+export function categoricalData(p = palette()): string[] {
+	const towardsInk = (register: string) => mix(registerColour(register, p), p.ink, 0.34);
+	const towardsPaper = (register: string) => mix(registerColour(register, p), p.paper, 0.26);
+	return [
+		p.ink,
+		towardsPaper('accountability'),
+		towardsInk('legal'),
+		towardsPaper('contentious'),
+		towardsInk('preventive'),
+		towardsPaper('descriptive'),
+		towardsInk('accountability'),
+		towardsPaper('preventive')
+	];
+}
+
 /** A stroke for a series that is not a register: a weight of ink and a dash. */
 export interface NeutralStroke {
 	color: string;
@@ -173,6 +211,63 @@ export function categoricalNeutral(p = palette()): NeutralStroke[] {
 		for (const weight of weights) out.push({ color: mix(p.paper, p.ink, weight), dash });
 	}
 	return out;
+}
+
+/** The dashes a register's strokes cycle through, in order. */
+const REGISTER_DASHES: readonly NeutralStroke['dash'][] = ['solid', 'dashed', 'dotted'];
+
+/**
+ * Lightness steps inside one register's hue: the hue itself, the hue deepened
+ * towards ink, the hue lifted towards the page. Written as mixes rather than as
+ * three hand-picked hex values so the ladder follows the theme — in dark mode
+ * `ink` is the light end and `paper` the dark one, and the same two mixes step
+ * the other way without a second table to keep in sync.
+ *
+ * Both steps are bounded by something. The lift stops at 0.26 because a third
+ * of the way to the page puts a teal line under 3:1 against white, which is the
+ * floor for a graphical object. The deepening stops at 0.34 because past that a
+ * dark register hue reads as ink, and ink on this figure is the headline term:
+ * at 0.45 the deepened teal sat within 1.8:1 of the `genocide` line and the
+ * figure had two lines claiming to be the reference one.
+ */
+const REGISTER_TONES: readonly ((hue: string, p: Palette) => string)[] = [
+	(hue) => hue,
+	(hue, p) => mix(hue, p.ink, 0.34),
+	(hue, p) => mix(hue, p.paper, 0.26)
+];
+
+/** How many distinct strokes one register's hue yields before they repeat. */
+export const REGISTER_STROKES = REGISTER_DASHES.length * REGISTER_TONES.length;
+
+/**
+ * The `index`-th stroke inside a register's hue.
+ *
+ * A register is a shelf and not a sum, so the hue has to stay the register's:
+ * it is the analytical claim the colour layer makes, and nine terms on the
+ * legal shelf are nine terms on the legal shelf. But nine lines in one teal are
+ * nine lines a reader tells apart only by chasing their end labels. So the hue
+ * family stays and the stroke varies inside it: three lightness steps of the
+ * same hue, crossed with the three dashes `categoricalNeutral` already uses, so
+ * that colour is never the only code and the pair survives greyscale and print.
+ *
+ * The dash turns fastest, because it is the stronger signal of the two and the
+ * first few terms of a shelf are the ones most often drawn together. Nine
+ * strokes covers the largest register in the lexicon exactly; past that the
+ * ladder repeats rather than inventing a tenth hue, and a figure asking for
+ * more than one shelf's worth of one hue should be asking for a different
+ * figure.
+ *
+ * `index` is the term's position in its register, not in the reader's
+ * selection, so a term keeps its stroke whatever else is on the chart and an
+ * exported SVG matches what was on screen.
+ */
+export function registerStroke(register: string, index: number, p = palette()): NeutralStroke {
+	const step = Math.max(0, Math.trunc(index));
+	const tone = REGISTER_TONES[Math.floor(step / REGISTER_DASHES.length) % REGISTER_TONES.length];
+	return {
+		color: tone(registerColour(register, p), p),
+		dash: REGISTER_DASHES[step % REGISTER_DASHES.length]
+	};
 }
 
 /** Series that carry no category at all: one weight of ink, never the accent. */
@@ -230,8 +325,13 @@ export function mix(from: string, to: string, t: number): string {
  * this site's stylesheet, is still the colour it was on screen.
  */
 export function sequential(p = palette()): (t: number) => string {
-	const top = p.registers.accountability ?? p.ink;
-	return (t: number) => mix(p.paper, top, t);
+	// Ink, since the Programme Grid: a magnitude is a weight of the page's own
+	// ink, which is what a printed statistical plate did, and it leaves the
+	// ochre of the marked word as the one warm thing on the page. The ramp
+	// used to top out in the accountability amber, which was a register hue
+	// carrying a quantity and, once the mark went ochre, the larger warm object
+	// on the Chronology (finish review, 14 September 2026).
+	return (t: number) => mix(p.paper, p.ink, t);
 }
 
 /**
@@ -261,8 +361,10 @@ export function sequential(p = palette()): (t: number) => string {
  */
 export const tone = (weight: number): number => Math.sqrt(Math.min(Math.max(weight, 0), 1));
 
-export const FONT = 'Archivo, system-ui, -apple-system, sans-serif';
-export const MONO = 'IBM Plex Mono, ui-monospace, SFMono-Regular, monospace';
+/* One family for the drawing as for the page. The mono is the citation's face
+   and appears in a figure only where a meeting symbol does. */
+export const FONT = 'Hanken Grotesk, Helvetica Neue, Helvetica, Arial, sans-serif';
+export const MONO = 'Courier Prime, Courier New, Courier, monospace';
 
 /** What an end label has to fit in: the reservation below, less its offset. */
 export const END_LABEL_ROOM = 90;
@@ -334,19 +436,61 @@ export const endLabel = (colour: string, name: string) => ({
 	overflow: 'break' as const
 });
 
-/** Axis lines light enough not to compete with the data they frame. */
+/* The baseline is a hairline of ink, the way a programme's chart is ruled;
+   the gridlines behind the data stay the soft rule. Axis numbers are set in
+   the text face with tabular figures, not in the citation's mono. */
 export const axisX = (p: Palette) => ({
 	axisLine: { lineStyle: { color: p.rule, width: 1 } },
 	axisTick: { show: false },
-	axisLabel: { color: p.inkFaint, fontSize: 12, fontFamily: MONO },
+	axisLabel: { color: p.inkSoft, fontSize: 12, fontFamily: FONT },
 	splitLine: { show: false }
 });
 
 export const axisY = (p: Palette) => ({
 	axisLine: { show: false },
 	axisTick: { show: false },
-	axisLabel: { color: p.inkFaint, fontSize: 12, fontFamily: MONO },
+	axisLabel: { color: p.inkSoft, fontSize: 12, fontFamily: FONT },
 	splitLine: { lineStyle: { color: p.ruleSoft, width: 1 } }
+});
+
+/**
+ * A zoom slider ruled like the rest of the page rather than in ECharts' stock
+ * blue.
+ *
+ * The control is chrome, not a datum, but it is also not an accent: the accent
+ * marks what a reader can act on *inside* a figure, and a scrollbar under the
+ * plate is furniture. So it is drawn the way a rule is — a hairline box on the
+ * page's own ground, the window a thin wash of ink, the handles solid ink and
+ * square, because nothing on this site has a corner radius.
+ *
+ * `color-mix()` is a CSS function and ECharts takes literals, so the wash is
+ * computed here with `mix` and follows the theme with everything else.
+ */
+export const dataZoom = (p: Palette) => ({
+	type: 'slider' as const,
+	// A hairline rail, not a bar: the frame is the soft rule and only the two
+	// handles are ink, so a full-width slider is not mistaken for a plate rule.
+	height: 12,
+	bottom: 2,
+	backgroundColor: p.paper,
+	borderColor: p.ruleSoft,
+	borderRadius: 0,
+	fillerColor: mix(p.paper, p.ink, 0.08),
+	dataBackground: {
+		lineStyle: { color: p.ruleSoft, width: 1 },
+		areaStyle: { color: 'transparent' }
+	},
+	selectedDataBackground: {
+		lineStyle: { color: p.inkFaint, width: 1 },
+		areaStyle: { color: 'transparent' }
+	},
+	// A rectangle, drawn edge to edge: ECharts' default handle is a rounded pin.
+	handleIcon: 'path://M0,0 L1,0 L1,1 L0,1 Z',
+	handleSize: '100%',
+	handleStyle: { color: p.ink, borderColor: p.ink },
+	moveHandleSize: 0,
+	brushSelect: false,
+	textStyle: { color: p.inkSoft, fontSize: 11, fontFamily: FONT }
 });
 
 /** Reference dates and change points: ink, dashed, never the accent. */

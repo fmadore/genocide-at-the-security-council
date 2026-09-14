@@ -1592,31 +1592,41 @@
 	}
 
 	h1 {
-		font-family: var(--serif);
-		font-size: var(--display);
-		line-height: 1.05;
 		margin: 0 0 var(--sp-4);
 	}
 
 	.standfirst {
-		font-family: var(--serif);
 		font-size: var(--step-1);
+		line-height: 1.5;
 		color: var(--ink-2);
 		margin: 0;
 	}
 
-	/* The standing marking. A rule on the leading edge and the warning token, not
-	   a panel: nothing on this site is a box, and a banner would make the claim
-	   look like a dismissible notice rather than a property of the page. */
+	/* The standing marking. A section of the programme, opened by the heavy rule
+	   every section is opened by, and marked by the provenance square rather than
+	   a coloured bar down its edge: the colour is a key, the same square
+	   `Figure.svelte` prints beside a plate's provenance, and the words stay ink
+	   so they read as a property of the page and not as a warning to dismiss. */
 	.experiment {
 		margin: 0 0 var(--sp-7);
-		padding-left: var(--sp-4);
-		border-left: 2px solid var(--state-warn);
+		padding-top: var(--sp-3);
+		border-top: var(--heavy) solid var(--ink);
 	}
 
 	.experiment .label {
-		color: var(--state-warn);
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+		color: var(--ink);
 		margin-bottom: var(--sp-2);
+	}
+
+	.experiment .label::before {
+		content: '';
+		width: 0.625rem;
+		height: 0.625rem;
+		flex: none;
+		background: var(--state-warn);
 	}
 
 	.governing {
@@ -1639,13 +1649,13 @@
 		margin: 0;
 	}
 
+	/* The apparatus voice `app.css` sets for `.label`: sentence case at 600, in
+	   ink. Hierarchy is carried by weight and position, never by tracking. */
 	.experiment dt {
 		font-family: var(--sans);
-		font-size: var(--step--2);
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--ink-3);
+		font-size: var(--step--1);
+		font-weight: 600;
+		color: var(--ink);
 	}
 
 	.experiment dd {
@@ -1733,7 +1743,6 @@
 	}
 
 	h2 {
-		font-family: var(--serif);
 		font-size: var(--step-2);
 		margin: 0 0 var(--sp-3);
 	}
@@ -1760,8 +1769,8 @@
 		flex-wrap: wrap;
 		gap: var(--sp-1) var(--sp-3);
 		margin: 0 0 var(--sp-2);
-		font-family: var(--mono);
-		font-size: var(--step--2);
+		font-family: var(--sans);
+		font-size: var(--step--1);
 		color: var(--ink-3);
 	}
 
@@ -1769,11 +1778,13 @@
 		color: var(--ink-2);
 	}
 
+	/* One hairline of ink on the leading edge: the quotation is the record
+	   speaking, and the rule is the only thing that says so. */
 	blockquote {
 		margin: 0 0 var(--sp-3);
 		padding-left: var(--sp-3);
-		border-left: var(--hair) solid var(--rule-strong);
-		font-family: var(--serif);
+		border-left: var(--hair) solid var(--ink);
+		font-family: var(--sans);
 		font-size: var(--step-0);
 		line-height: 1.55;
 		max-width: var(--measure);
@@ -1799,9 +1810,7 @@
 	   the category. A filled chip is not used either: it would read as
 	   something to press. */
 	.speaker_position {
-		font-weight: 700;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
+		font-weight: 600;
 		color: var(--ink);
 		padding-bottom: 0.15em;
 		box-shadow: inset 0 -2px 0 var(--rule-strong);
@@ -1836,10 +1845,8 @@
 	   filled chip — a chip would read as something to press, and the line already
 	   holds three labels that are not. */
 	.contested {
-		font-weight: 700;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		color: var(--state-warn);
+		font-weight: 600;
+		color: var(--ink);
 		padding-bottom: 0.15em;
 		box-shadow: inset 0 -2px 0 var(--state-warn);
 	}
@@ -1849,17 +1856,29 @@
 	.second-reading {
 		max-width: var(--measure);
 		margin: 0 0 var(--sp-3);
-		padding-left: var(--sp-3);
-		border-left: 2px solid var(--state-warn);
+		padding-top: var(--sp-2);
+		border-top: var(--hair) solid var(--rule);
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		color: var(--ink-2);
 	}
 
+	/* The warning token as the provenance square the page is marked with, not as
+	   a bar down the edge and not as coloured words. */
 	.second-reading .label {
-		display: block;
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
 		margin-bottom: var(--sp-1);
-		color: var(--state-warn);
+		color: var(--ink);
+	}
+
+	.second-reading .label::before {
+		content: '';
+		width: 0.625rem;
+		height: 0.625rem;
+		flex: none;
+		background: var(--state-warn);
 	}
 
 	.second-reading .pair {
@@ -1954,19 +1973,22 @@
 		font-size: var(--step--1);
 	}
 
+	/* A link that acts as a control, so it is built as one: an ink hairline at
+	   the chip height, and never an accent border. */
 	.button {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4em;
-		padding: var(--sp-2) var(--sp-3);
-		border: var(--hair) solid var(--blue);
-		color: var(--blue);
+		min-height: 2rem;
+		padding: 0 var(--sp-3);
+		border: var(--hair) solid var(--ink);
+		color: var(--ink);
 		text-decoration: none;
 	}
 
 	.button:hover {
-		background: var(--blue);
-		color: var(--paper);
+		background: var(--paper-sunk);
+		color: var(--ink);
 	}
 
 	.id {
@@ -1980,26 +2002,25 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4em;
-		background: none;
-		border: var(--hair) solid var(--rule-strong);
-		padding: var(--sp-1) var(--sp-3);
+		background: var(--paper);
+		border: var(--hair) solid var(--ink);
+		padding: 0 var(--sp-3);
 		min-height: 2rem;
 		font-family: var(--sans);
-		font-size: var(--step--2);
-		color: var(--ink-2);
+		font-size: var(--step--1);
+		color: var(--ink);
 		cursor: pointer;
 	}
 
 	.ghost:hover,
 	.more:hover {
-		border-color: var(--blue);
-		color: var(--blue);
+		background: var(--paper-sunk);
 	}
 
 	.more {
 		display: flex;
 		margin: var(--sp-4) auto 0;
-		padding: var(--sp-2) var(--sp-5);
+		padding: 0 var(--sp-5);
 	}
 
 	/* ---- the chronology of firsts ------------------------------------------ */
@@ -2026,15 +2047,14 @@
 		font-family: var(--sans);
 		font-size: var(--step--2);
 		font-weight: 400;
-		letter-spacing: 0;
-		text-transform: none;
 		color: var(--ink-2);
 		white-space: nowrap;
 	}
 
 	.when {
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--2);
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-2);
 		white-space: nowrap;
 	}
@@ -2212,8 +2232,6 @@
 	tbody th {
 		font-weight: 400;
 		white-space: nowrap;
-		text-transform: none;
-		letter-spacing: 0;
 		font-size: var(--step--1);
 		color: var(--ink);
 	}
@@ -2243,13 +2261,14 @@
 		color: var(--ink-3);
 	}
 
+	/* The prompt as it was sent, behind a hairline rather than on a panel: a
+	   sunk ground here would read as a card, and the page has none. */
 	pre {
 		margin: var(--sp-3) 0 0;
-		padding: var(--sp-3);
+		padding: 0 0 0 var(--sp-3);
 		max-height: 28rem;
 		overflow: auto;
-		border-left: var(--hair) solid var(--rule-strong);
-		background: var(--paper-sunk);
+		border-left: var(--hair) solid var(--ink);
 		font-family: var(--mono);
 		font-size: var(--step--2);
 		line-height: 1.6;

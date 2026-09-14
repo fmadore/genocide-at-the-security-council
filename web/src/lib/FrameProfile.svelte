@@ -12,8 +12,9 @@
 	 *
 	 * Inline SVG rather than ECharts, as `DotPlot.svelte` is and for the same
 	 * reasons: every row is reachable by keyboard, and the export is the drawing.
-	 * Greys and the accent only — the register hues mean "register" on this site
-	 * and a frame is not one.
+	 * Ink and greys only — the register hues mean "register" on this site and a
+	 * frame is not one, and the accent belongs to what a reader can act on and
+	 * may never stand for a datum.
 	 */
 	import { colours } from './theme';
 	import { count, percent } from './format';
@@ -132,7 +133,7 @@
 					x2={x(row.overall)}
 					y1={cy - 8}
 					y2={cy + 8}
-					stroke={$colours.accent}
+					stroke={$colours.ink}
 					stroke-width="1"
 				/>
 			{/if}

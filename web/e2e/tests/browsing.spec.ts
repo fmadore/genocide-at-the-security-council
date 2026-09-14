@@ -62,6 +62,9 @@ test('all profile speakers remain selectable beyond the first eight', async ({ p
 	fixture.count = fixture.lines.length;
 	await page.route('**/data/kwic/genocide.json', (route) => route.fulfill({ json: fixture }));
 	await page.goto(`${base}/concordance/`);
+	// The profile is closed on arrival, so the browse-all picker inside it is
+	// opened the way a reader opens it.
+	await page.locator('details.profile summary').click();
 	const picker = page.getByRole('combobox', { name: 'Browse all 30 speaker options' });
 	await picker.fill('Speaker 29');
 	await page.getByRole('option', { name: 'Speaker 29 (1 line)' }).click();

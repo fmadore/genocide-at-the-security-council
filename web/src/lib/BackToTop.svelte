@@ -73,20 +73,21 @@
 
 		display: inline-flex;
 		align-items: center;
-		gap: 0.35em;
-		padding: 0.25rem 0.6rem;
+		gap: var(--sp-2);
+		min-height: 2rem;
+		padding: 0 var(--sp-3);
 
-		/* The ground colour and a hairline, like the masthead: the control is an
-		   edge of the page, not a panel floating over it. No radius, no shadow. */
+		/* The ground colour and a hairline in ink, like every other chip on the
+		   site: the control is an edge of the page, not a panel floating over it.
+		   No radius, no shadow. */
 		background: var(--paper);
-		border: var(--hair) solid var(--rule-strong);
+		border: var(--hair) solid var(--ink);
 		text-decoration: none;
 
-		font-family: var(--mono);
-		font-size: var(--step--2);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--blue);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		font-weight: 500;
+		color: var(--ink);
 
 		/* The fade is the only thing CSS is trusted with here; `inert` on the
 		   element carries whether the control exists as far as clicks, focus and
@@ -100,7 +101,12 @@
 	}
 
 	.to-top:hover {
-		border-color: var(--blue-mid);
-		color: var(--blue-mid);
+		background: var(--paper-sunk);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.to-top {
+			transition: none;
+		}
 	}
 </style>

@@ -17,6 +17,7 @@
 		type SemanticMap,
 		type Point
 	} from '$lib/semantic';
+	import { categoricalData, colours, dataZoom, neutral } from '$lib/theme';
 	let map = $state.raw<SemanticMap>();
 	let status = $state('Loading the semantic map…');
 	let related = $state<[string, number][]>([]);
@@ -54,27 +55,40 @@
 	const visible = $derived(rows.slice(offset * 20, offset * 20 + 20));
 	const selectedPoint = $derived(map?.points[positions.get(selected) ?? -1]);
 	const selectionVisible = $derived(rows.some((p) => p[0] === selected));
+	/**
+	 * The window the map is drawn in: the bounding box of the speeches the corpus
+	 * control selects, with a 3% margin.
+	 *
+	 * Measured over the corpus set rather than over every embedded speech, which
+	 * is what it used to be. The default view draws the 4,133 speeches that
+	 * mention genocide while the axes spanned all 167,642, so the cloud sat in
+	 * the middle 58% of the plate with empty paper either side. Measured over the
+	 * corpus set instead, it fills the plate — and the box stays fixed under the
+	 * affiliation, agenda and year filters, exactly as the colour meanings do, so
+	 * hiding points still moves nothing.
+	 */
 	const bounds = $derived.by(() => {
 		const box = [Infinity, -Infinity, Infinity, -Infinity];
 		for (const p of map?.points ?? []) {
+			if (!all && !p[6]) continue;
 			box[0] = Math.min(box[0], p[1]);
 			box[1] = Math.max(box[1], p[1]);
 			box[2] = Math.min(box[2], p[2]);
 			box[3] = Math.max(box[3], p[2]);
 		}
-		return box.every(Number.isFinite) ? box : [0, 1, 0, 1];
+		if (!box.every(Number.isFinite)) return [0, 1, 0, 1];
+		const margin = (span: number) => span * 0.03 || 1;
+		const x = margin(box[1] - box[0]);
+		const y = margin(box[3] - box[2]);
+		return [box[0] - x, box[1] + x, box[2] - y, box[3] + y];
 	});
-	const palette = [
-		'#2c7069',
-		'#6b5b95',
-		'#a63d40',
-		'#b07817',
-		'#8e3f77',
-		'#5c7a3a',
-		'#347c97',
-		'#97613b',
-		'#73797e'
-	];
+	/**
+	 * Affiliations, agenda categories and decades are not registers, so they do
+	 * not take the register hues; `categoricalData` builds their fills a step off
+	 * those hues and reads them from the theme, so the map follows the toggle.
+	 */
+	const fills = $derived(categoricalData($colours));
+	const other = $derived(neutral($colours));
 	function category(p: Point) {
 		return colour === 'year'
 			? String(Math.floor(p[3] / 10) * 10) + 's'
@@ -105,7 +119,7 @@
 			.map((name, index) => ({
 				name,
 				rows: grouped[index],
-				color: index === categories.length ? palette[8] : palette[index]
+				color: index === categories.length ? other : fills[index]
 			}))
 			.filter((group) => group.rows.length);
 	});
@@ -121,15 +135,15 @@
 	);
 	const option: EChartsOption = $derived({
 		animation: false,
-		color: palette,
+		color: fills,
 		tooltip: { show: false },
-		grid: { left: 12, right: 12, top: 12, bottom: 25 },
+		grid: { left: 6, right: 6, top: 6, bottom: 26 },
 		xAxis: { type: 'value', show: false, min: bounds[0], max: bounds[1] },
 		yAxis: { type: 'value', show: false, min: bounds[2], max: bounds[3] },
 		dataZoom: [
 			{ type: 'inside', xAxisIndex: 0 },
 			{ type: 'inside', yAxisIndex: 0 },
-			{ type: 'slider', xAxisIndex: 0, height: 14 }
+			{ ...dataZoom($colours), xAxisIndex: 0 }
 		],
 		series: [
 			...scatter,
@@ -139,7 +153,7 @@
 				symbol: 'diamond',
 				symbolSize: 15,
 				z: 10,
-				itemStyle: { color: '#14171a', borderColor: '#fbfbf8', borderWidth: 2 },
+				itemStyle: { color: $colours.ink, borderColor: $colours.paper, borderWidth: 2 },
 				data:
 					selectedPoint && selectionVisible
 						? [[selectedPoint[1], selectedPoint[2], selectedPoint[0]]]
@@ -303,18 +317,26 @@
 			<p aria-live="polite">
 				{rows.length.toLocaleString()} speeches shown. Colours stay fixed when affiliation, agenda or
 				year filters change; groups outside the eight largest share grey. A selected speech appears as
-				a black diamond.
+				a diamond.
 			</p>
 			<ul class="legend">
 				{#each groups as group (group.name)}<li>
 						<span style:background={group.color}></span>{group.name} ({group.rows.length.toLocaleString()})
 					</li>{/each}
 			</ul>
+			<!-- The plate is proportioned from the viewport rather than pinned to a
+			     fixed 640px box. The projection is nearly square — the drawn cloud
+			     measures 27.5 by 28.7 units — and a short wide box stretched it
+			     two and a half times across, which flatters horizontal distance on a
+			     figure whose whole claim is that near means similar. It cannot be
+			     made square and fill the width and stay inside a screen at once, so
+			     the box tracks the width and the caveat keeps saying that the flat
+			     map distorts distances. -->
 			{#if rows.length}<Chart
 					{option}
 					renderer="canvas"
 					preserveZoom
-					height="min(65vh, 640px)"
+					height="clamp(320px, 62vw, 74vh)"
 					description="Interactive semantic speech map; the following table provides keyboard access to every plotted speech."
 					onclick={(event) => {
 						const value = event.value;

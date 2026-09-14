@@ -1,29 +1,43 @@
-/* Design tokens — "The Verbatim Record".
-   Three colour layers that cannot leak into each other: ground/ink, interaction,
-   data. The accent is never used for a datum; a register colour is never used
-   for a control. Everything else — space, type, rules — is a named scale, and a
-   value not on a scale is a bug. */
+/* Design tokens — "The Programme Grid".
+   The site set as a 1960s-70s international-organisation programme: one
+   grotesk, flat ink on white, a strict twelve-column grid, every figure a
+   full-width plate with its notes beneath it, nothing boxed.
+
+   Three colour layers that cannot leak into each other: ground/ink,
+   interaction, data. The accent is never used for a datum; a register colour
+   is never used for a control. Everything else — space, type, rules — is a
+   named scale, and a value not on a scale is a bug.
+
+   The register hues (--reg-*) and the state colours are carried over from the
+   previous system unchanged: they are analytical claims about the record, not
+   a style, and every figure that reads them was checked for contrast on both
+   grounds. */
 
 :root {
-	/* ---- ground -------------------------------------------------- */
-	--paper: #f1f2ee;
-	--paper-sunk: #e7e9e2;
-	--paper-raised: #fbfbf8;
-	--rule: #d6d9cf;
-	--rule-strong: #b7bcaf;
+	/* ---- ground: coated white stock ---------------------------------- */
+	--paper: #ffffff;
+	--paper-sunk: #f2f2f2; /* the zebra row, the pressed control */
+	--paper-raised: #ffffff;
+	/* Two rules only. The hairline separates rows; the structural rule is ink
+	   at hairline weight; the heavy rule (3px) opens a plate or the page. */
+	--rule: #cfcfcf;
+	--rule-strong: #111111;
 
-	/* ---- ink ------------------------------------------------------ */
-	--ink: #14171a;
-	--ink-2: #3d444c; /* 7.9:1 on paper */
-	--ink-3: #606872; /* 5.0:1 on paper; 4.6:1 on the sunk row stripe */
+	/* ---- ink -------------------------------------------------------- */
+	--ink: #111111;
+	--ink-2: #444444; /* 9.7:1 on paper */
+	--ink-3: #6b6b6b; /* 5.3:1 on paper; 4.7:1 on the sunk row stripe */
 
-	/* ---- interaction. Never used for data. ------------------------ */
-	--blue: #1b5fa8; /* links, controls — 5.8:1 */
-	--blue-mid: #2e7bc4; /* hover, active rule */
-	--blue-flag: #418fde; /* UN flag blue: marks, focus ring */
-	--mark: #dce8f6; /* the marked word */
+	/* ---- interaction: the flag blue, and never a datum ---------------- */
+	--blue: #1a56b0; /* links, controls — 7.0:1 */
+	--blue-mid: #2f6fd0; /* hover */
+	--blue-flag: #5b92e5; /* UN flag blue: focus ring only */
+	/* The marked word: a flat ochre tint, the one warm thing on the page, and
+	   deliberately not in the blue family so the site's gesture never reads as
+	   a link or a text selection. Ink on it is 13:1. */
+	--mark: #f5d98a;
 
-	/* ---- data. Never used for interaction. ------------------------
+	/* ---- data. Never used for interaction. ------------------------------
 	   core is ink on purpose: the core word is the text itself. */
 	--reg-core: var(--ink);
 	--reg-legal: #2c7069;
@@ -33,28 +47,33 @@
 	--reg-accountability: #b07817;
 	--reg-descriptive: #8e3f77;
 
-	/* ---- semantic, resolved independently of the register ramp ---- */
+	/* ---- semantic, resolved independently of the register ramp ---------- */
 	--state-ok: #4a6b2e;
 	--state-warn: #8a6410;
 	--state-bad: #98333a;
 
-	/* ---- type ----------------------------------------------------- */
-	--serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
-	--sans: 'Archivo', system-ui, -apple-system, sans-serif;
-	--mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+	/* ---- type: one family. ------------------------------------------------
+	   Hanken Grotesk is an Akzidenz-class grotesk; it sets the headings, the
+	   body, the labels, the numbers and the axes. The mono is a typewriter face
+	   and is reserved for the citation: the meeting symbol and the script name,
+	   which is what the verbatim records themselves were typed in. There is no
+	   serif token: a route that wants one is drifting. */
+	--sans: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	--mono: 'Courier Prime', 'Courier New', Courier, monospace;
 
-	/* 1.200 minor third off a 17px root expressed as a % of the user default */
-	--step--2: 0.694rem;
-	--step--1: 0.833rem;
+	/* A fixed rem scale off a 16px root: an Operate surface is read at one
+	   distance and its type should not breathe with the window. */
+	--step--2: 0.75rem;
+	--step--1: 0.875rem;
 	--step-0: 1rem;
-	--step-1: 1.2rem;
-	--step-2: 1.44rem;
-	--step-3: 1.728rem;
-	--step-4: 2.074rem;
-	--step-5: 2.488rem;
-	--display: clamp(2.074rem, 1.4rem + 3vw, 3.583rem);
+	--step-1: 1.125rem;
+	--step-2: 1.25rem;
+	--step-3: 1.5rem;
+	--step-4: 2rem;
+	--step-5: 2.75rem;
+	--display: 3.25rem;
 
-	/* ---- space: 4px grid, named. No other spacing values. --------- */
+	/* ---- space: 4px grid, named. No other spacing values. ---------------- */
 	--sp-1: 0.25rem;
 	--sp-2: 0.5rem;
 	--sp-3: 0.75rem;
@@ -66,20 +85,19 @@
 	--sp-9: 6rem;
 	--sp-10: 8rem;
 
-	/* ---- measure & page ------------------------------------------- */
-	--measure: 34rem; /* ~66 characters. The only prose width on the site. */
-	/* The marginal apparatus. 21rem is ~44 characters — narrow, as a margin note
-	   should be, but a column rather than the ribbon 15rem produced: at that
-	   width a 450-character caveat ran 700px down the page beside a 500px
-	   figure, and the figure column was left holding the difference as blank
-	   paper. Widening it shortens the taller column and narrows the shorter
-	   one, which closes the gap from both ends at once. */
-	--measure-note: 21rem;
-	--page: 82rem;
-	--gutter: var(--sp-6);
+	/* ---- measure & page ------------------------------------------------ */
+	/* The only prose width on the site: ~68 characters of the grotesk at 1rem.
+	   There is no second measure: the apparatus lost its margin column on
+	   14 September 2026 and sits under the plate on the grid. */
+	--measure: 38rem;
+	/* The page is wide because the plates are: twelve columns at 90rem. */
+	--page: 90rem;
+	--gutter: var(--sp-5);
+	--col-gap: var(--sp-5);
 
-	/* ---- everything else ------------------------------------------ */
+	/* ---- everything else ---------------------------------------------- */
 	--hair: 1px;
+	--heavy: 3px;
 	--radius: 0;
 	--dur: 160ms;
 	--ease: cubic-bezier(0.2, 0, 0, 1);
@@ -91,34 +109,40 @@
 	   is measured in `+layout.svelte`; these are the values a reader without
 	   scripts, or the first paint, gets. `--contents-h` is zero on the views
 	   that carry no contents band, which is what `Contents.svelte` restores. */
-	--masthead-h: 3.4rem;
+	--masthead-h: 3.5rem;
 	--contents-h: 0px;
 
 	color-scheme: light;
 }
 
+@media (min-width: 64rem) {
+	:root {
+		--gutter: var(--sp-6);
+	}
+}
+
 /* The dark values are declared twice on purpose. `app.html` resolves the theme
    before first paint and writes `data-theme`, which covers every reader who has
-   JavaScript; the media query covers the one who does not, and is what the
-   comment in that boot script's catch block refers to. `light-dark()` would
-   remove the duplication but return an unresolved function string to
-   `getComputedStyle`, and `theme.ts` has to hand ECharts a literal colour. */
+   JavaScript; the media query covers the one who does not. `light-dark()`
+   would remove the duplication but return an unresolved function string to
+   `getComputedStyle`, and `theme.ts` has to hand ECharts a literal colour.
+   Dark is the same programme reversed: white ink on a black plate, still flat. */
 
 [data-theme='dark'] {
-	--paper: #15181a;
-	--paper-sunk: #101214;
-	--paper-raised: #1c2023;
-	--rule: #2c3134;
-	--rule-strong: #434a4d;
+	--paper: #121212;
+	--paper-sunk: #1c1c1c;
+	--paper-raised: #121212;
+	--rule: #3a3a3a;
+	--rule-strong: #f2f2f2;
 
-	--ink: #e7e9e2;
-	--ink-2: #b3b9bc;
-	--ink-3: #8a9196; /* 5.6:1 */
+	--ink: #f2f2f2;
+	--ink-2: #c4c4c4;
+	--ink-3: #9a9a9a; /* 5.6:1 */
 
-	--blue: #7fb2ea;
-	--blue-mid: #6ba8e8;
-	--blue-flag: #418fde;
-	--mark: #1d3350;
+	--blue: #8ab6f0;
+	--blue-mid: #a3c6f4;
+	--blue-flag: #5b92e5;
+	--mark: #6b5418; /* the same ochre, deepened: 7.4:1 under the light ink */
 
 	--reg-legal: #5fb0a5;
 	--reg-preventive: #9dbf6e;
@@ -136,20 +160,20 @@
 
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme='light']) {
-		--paper: #15181a;
-		--paper-sunk: #101214;
-		--paper-raised: #1c2023;
-		--rule: #2c3134;
-		--rule-strong: #434a4d;
+		--paper: #121212;
+		--paper-sunk: #1c1c1c;
+		--paper-raised: #121212;
+		--rule: #3a3a3a;
+		--rule-strong: #f2f2f2;
 
-		--ink: #e7e9e2;
-		--ink-2: #b3b9bc;
-		--ink-3: #8a9196;
+		--ink: #f2f2f2;
+		--ink-2: #c4c4c4;
+		--ink-3: #9a9a9a;
 
-		--blue: #7fb2ea;
-		--blue-mid: #6ba8e8;
-		--blue-flag: #418fde;
-		--mark: #1d3350;
+		--blue: #8ab6f0;
+		--blue-mid: #a3c6f4;
+		--blue-flag: #5b92e5;
+		--mark: #6b5418;
 
 		--reg-legal: #5fb0a5;
 		--reg-preventive: #9dbf6e;
@@ -166,44 +190,34 @@
 	}
 }
 
-/* ---- fonts. Self-hosted; three variable files and one static face.
+/* ---- fonts. Self-hosted; two variable files and one static face.
    The URLs are relative so Vite fingerprints them and writes a path that
    already carries the project's base — root-relative `/fonts/…` would 404 on
    project Pages, which are served from a subpath.
 
-   `format('woff2')`, not `format('woff2-variations')`. The latter was dropped
+   `format('woff2')`, not `format('woff2-variations')`: the latter was dropped
    from CSS Fonts 4 in favour of `tech(variations)`, and an unrecognised format
-   string makes a browser skip the whole source: every engine that supports
-   woff2 at all reads the axes from a plain `woff2` declaration. Source Serif
-   carries an `opsz` axis, so it is optically sized without further asking. */
+   string makes a browser skip the whole source. */
 
 @font-face {
-	font-family: 'Source Serif 4';
-	src: url('./fonts/SourceSerif4Variable-Roman.woff2') format('woff2');
-	font-weight: 300 700;
+	font-family: 'Hanken Grotesk';
+	src: url('./fonts/HankenGrotesk-Variable.woff2') format('woff2');
+	font-weight: 100 900;
 	font-style: normal;
 	font-display: swap;
 }
 
 @font-face {
-	font-family: 'Source Serif 4';
-	src: url('./fonts/SourceSerif4Variable-Italic.woff2') format('woff2');
-	font-weight: 300 700;
+	font-family: 'Hanken Grotesk';
+	src: url('./fonts/HankenGrotesk-Italic-Variable.woff2') format('woff2');
+	font-weight: 100 900;
 	font-style: italic;
 	font-display: swap;
 }
 
 @font-face {
-	font-family: 'Archivo';
-	src: url('./fonts/Archivo-Variable.woff2') format('woff2');
-	font-weight: 400 700;
-	font-style: normal;
-	font-display: swap;
-}
-
-@font-face {
-	font-family: 'IBM Plex Mono';
-	src: url('./fonts/IBMPlexMono-Regular.woff2') format('woff2');
+	font-family: 'Courier Prime';
+	src: url('./fonts/CourierPrime-Regular.woff2') format('woff2');
 	font-weight: 400;
 	font-style: normal;
 	font-display: swap;
@@ -218,10 +232,9 @@
 }
 
 html {
-	/* 17px, and still scales with the reader's own browser setting. */
-	font-size: 106.25%;
+	font-size: 100%;
 	-webkit-text-size-adjust: 100%;
-	scrollbar-color: var(--rule-strong) var(--paper);
+	scrollbar-color: var(--ink-3) var(--paper);
 	/* Where a jump to an anchor stops. Without it every deep link on the site
 	   parks its figure's title behind the masthead. */
 	scroll-padding-top: calc(var(--masthead-h) + var(--contents-h) + var(--sp-3));
@@ -231,38 +244,52 @@ body {
 	margin: 0;
 	background: var(--paper);
 	color: var(--ink);
-	font-family: var(--serif);
+	font-family: var(--sans);
 	font-size: var(--step-0);
-	line-height: 1.62;
+	line-height: 1.5;
 	-webkit-font-smoothing: antialiased;
 	font-variant-numeric: lining-nums;
+	/* The heavy rule that opens every programme page. */
+	border-top: var(--heavy) solid var(--ink);
+}
+
+/* Plates are numbered in document order; `Figure.svelte` prints the counter. */
+main {
+	counter-reset: plate;
 }
 
 h1,
 h2,
 h3,
 h4 {
-	font-family: var(--serif);
-	font-weight: 600;
-	line-height: 1.12;
-	letter-spacing: -0.015em;
+	font-family: var(--sans);
+	font-weight: 700;
+	line-height: 1.1;
+	letter-spacing: -0.01em;
 	margin: 0 0 0.35em;
 	text-wrap: balance;
 }
 
 h1 {
 	font-size: var(--display);
-	line-height: 1.06;
-	letter-spacing: -0.02em;
+	line-height: 1;
+	letter-spacing: -0.025em;
 }
 h2 {
-	font-size: var(--step-3);
+	font-size: var(--step-2);
 }
 h3 {
-	font-size: var(--step-1);
+	font-size: var(--step-0);
 }
 h4 {
 	font-size: var(--step-0);
+	font-weight: 500;
+}
+
+@media (max-width: 40rem) {
+	h1 {
+		font-size: var(--step-5);
+	}
 }
 
 p {
@@ -273,6 +300,14 @@ p {
 /* One prose width. Apply to any element that sets a paragraph. */
 .measure {
 	max-width: var(--measure);
+}
+
+/* The twelve-column grid the plates and the notes sit on. Children place
+   themselves with `grid-column`; nothing else about the grid is negotiable. */
+.grid {
+	display: grid;
+	grid-template-columns: repeat(12, minmax(0, 1fr));
+	column-gap: var(--col-gap);
 }
 
 a {
@@ -286,7 +321,8 @@ a:hover {
 	text-decoration-thickness: 2px;
 }
 
-/* The mark is the interface: one gesture, used everywhere a term is found. */
+/* The mark is the interface: one gesture, used everywhere a term is found.
+   A flat tint, square, the one warm thing on the page. */
 mark {
 	background: var(--mark);
 	color: inherit;
@@ -314,37 +350,42 @@ mark[data-register='descriptive'] {
 	box-shadow: inset 0 -2px 0 var(--reg-descriptive);
 }
 
+/* A selection is reversed out, ink for paper: the mark keeps its tint for
+   the found word alone. */
 ::selection {
-	background: var(--mark);
-	color: var(--ink);
+	background: var(--ink);
+	color: var(--paper);
 }
 
 code,
 kbd,
 samp {
 	font-family: var(--mono);
-	font-size: 0.86em;
+	font-size: 0.92em;
 	background: none;
 	padding: 0;
 }
 
-/* Meeting symbols, script names, file paths: the citation is the primary key. */
+/* Meeting symbols, script names, file paths: the citation is the primary key,
+   and it is set in the typewriter face the records were typed in. */
 .symbol {
 	font-family: var(--mono);
 	font-size: var(--step--1);
-	letter-spacing: 0.01em;
+	letter-spacing: 0;
 	font-variant-numeric: tabular-nums;
 }
 
-/* Apparatus voice: sidenote labels, control labels, table headers. */
+/* Apparatus voice: the heading of a note, a control's name, a table header.
+   Sentence case at a medium weight. The old system set this in tracked
+   capitals; the programme carries hierarchy in weight and position instead. */
 .label {
 	display: block;
 	font-family: var(--sans);
-	font-size: var(--step--2);
-	font-weight: 700;
-	letter-spacing: 0.1em;
-	text-transform: uppercase;
-	color: var(--ink-3);
+	font-size: var(--step--1);
+	font-weight: 600;
+	letter-spacing: 0;
+	text-transform: none;
+	color: var(--ink);
 }
 
 button,
@@ -356,13 +397,14 @@ textarea {
 	font-size: var(--step--1);
 	color: inherit;
 	background: var(--paper);
-	border: var(--hair) solid var(--rule-strong);
+	border: var(--hair) solid var(--ink);
 	border-radius: var(--radius);
 	min-height: 2.5rem;
 	padding: 0 var(--sp-3);
 	transition:
 		border-color var(--dur) var(--ease),
-		background var(--dur) var(--ease);
+		background var(--dur) var(--ease),
+		color var(--dur) var(--ease);
 }
 
 button {
@@ -371,7 +413,29 @@ button {
 
 button:hover,
 select:hover {
-	border-color: var(--ink-2);
+	background: var(--paper-sunk);
+}
+
+button:disabled {
+	color: var(--ink-3);
+	border-color: var(--rule);
+	cursor: default;
+}
+
+/* The select keeps its native menu and loses its native chevron: a drawn
+   one, in ink, in the same stroke as every other icon on the site. */
+select {
+	appearance: none;
+	-webkit-appearance: none;
+	padding-right: 2rem;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23111111' stroke-width='1.5'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right var(--sp-2) center;
+	background-size: 0.75rem;
+}
+
+[data-theme='dark'] select {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23f2f2f2' stroke-width='1.5'/%3E%3C/svg%3E");
 }
 
 input,
@@ -379,10 +443,16 @@ textarea {
 	caret-color: var(--blue);
 }
 
+input::placeholder,
+textarea::placeholder {
+	color: var(--ink-3);
+	opacity: 1;
+}
+
 /* Segmented control: the only "button group" pattern on the site. */
 .segmented {
 	display: flex;
-	border: var(--hair) solid var(--rule-strong);
+	border: var(--hair) solid var(--ink);
 }
 
 /* 2.5rem, the height of every other control. A segmented group stands in a
@@ -390,7 +460,7 @@ textarea {
    own centre line and reads as crooked. */
 .segmented > * {
 	border: 0;
-	border-left: var(--hair) solid var(--rule-strong);
+	border-left: var(--hair) solid var(--ink);
 	min-height: 2.5rem;
 	padding: 0 var(--sp-3);
 	/* Explicit rather than transparent: automated contrast calculation and
@@ -420,9 +490,11 @@ textarea {
 	align-items: center;
 	gap: 0.4em;
 	width: fit-content;
+	min-height: 1.5rem;
 	cursor: pointer;
 	font-family: var(--sans);
 	font-size: var(--step--1);
+	font-weight: 500;
 	color: var(--blue);
 	list-style: none;
 }
@@ -443,6 +515,12 @@ textarea {
 	transform: rotate(90deg);
 }
 
+@media (prefers-reduced-motion: reduce) {
+	.data-table summary .icon {
+		transition: none;
+	}
+}
+
 table {
 	border-collapse: collapse;
 	width: 100%;
@@ -459,12 +537,12 @@ td {
 
 th {
 	font-family: var(--sans);
-	font-weight: 700;
-	font-size: var(--step--2);
-	letter-spacing: 0.1em;
-	text-transform: uppercase;
-	color: var(--ink-3);
-	border-bottom: var(--hair) solid var(--rule-strong);
+	font-weight: 600;
+	font-size: var(--step--1);
+	letter-spacing: 0;
+	text-transform: none;
+	color: var(--ink);
+	border-bottom: var(--hair) solid var(--ink);
 	white-space: nowrap;
 }
 
@@ -486,18 +564,13 @@ tbody tr:nth-child(even) {
 
 hr {
 	border: 0;
-	border-top: var(--hair) solid var(--rule-strong);
+	border-top: var(--hair) solid var(--ink);
 	margin: var(--sp-6) 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-	*,
-	*::before,
-	*::after {
-		animation-duration: 0.01ms !important;
-		transition-duration: 0.01ms !important;
-	}
-}
+/* Reduced motion is honoured where motion is authored — the chart, the
+   disclosure chevron, the full-screen entrance, the contents strip — not by
+   a blanket kill that also removes the feedback a state change needs. */
 
 /* ---- print. The figures are the thing most likely to leave the site. ---- */
 
@@ -510,15 +583,12 @@ hr {
 		--ink-2: #222;
 		--ink-3: #444;
 		--rule: #bbb;
-		--rule-strong: #666;
-	}
-
-	html {
-		font-size: 100%;
+		--rule-strong: #000;
 	}
 
 	body {
 		background: #fff;
+		border-top: 0;
 	}
 
 	.masthead,

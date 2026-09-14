@@ -61,7 +61,7 @@
 </script>
 
 <div class="search-select">
-	<label for={id}>{label}</label>
+	<label class="label" for={id}>{label}</label>
 	<input
 		bind:this={input}
 		{id}
@@ -122,13 +122,17 @@
 		font-family: var(--sans);
 		font-size: var(--step--1);
 	}
-	label {
-		display: block;
+	/* The apparatus voice, from `app.css`: sentence case, 600, ink. The local
+	   rule that set this in tracked capitals is gone. */
+	label.label {
+		margin-bottom: var(--sp-1);
 	}
 	input {
 		width: 100%;
 		min-width: 0;
 	}
+	/* A plate dropped over the page, not a card: hairline ink, square, no
+	   shadow. The ink border is enough separation on paper. */
 	.choices {
 		position: absolute;
 		z-index: 30;
@@ -136,7 +140,7 @@
 		min-width: 12rem;
 		max-width: calc(100vw - 2rem);
 		background: var(--paper);
-		border: 1px solid var(--rule-strong);
+		border: var(--hair) solid var(--ink);
 	}
 	ul {
 		list-style: none;
@@ -147,21 +151,33 @@
 	}
 	button {
 		width: 100%;
+		min-height: 2rem;
 		text-align: left;
-		padding: 0.5rem;
+		padding: var(--sp-2) var(--sp-3);
 		border: 0;
-		background: transparent;
+		/* Explicit rather than transparent, so a forced-colour mode and any
+		   automated contrast check read the ground the text actually sits on. */
+		background: var(--paper);
 		white-space: normal;
 		overflow-wrap: anywhere;
 	}
-	.active,
-	li:hover {
-		background: var(--mark);
+	li:hover button {
+		background: var(--paper-sunk);
+	}
+	/* The option the arrow keys are on: ink fill, paper text — the one active
+	   state every control on the site uses. */
+	button.active,
+	li:hover button.active {
+		background: var(--ink);
+		color: var(--paper);
 	}
 	[aria-selected='true'] {
 		font-weight: 700;
 	}
 	p {
-		margin: 0.5rem;
+		margin: 0;
+		padding: var(--sp-2) var(--sp-3);
+		font-size: var(--step--1);
+		color: var(--ink-3);
 	}
 </style>

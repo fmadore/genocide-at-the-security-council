@@ -166,39 +166,46 @@
 
 	.label {
 		font-family: var(--sans);
-		font-size: var(--step--2);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--ink-3);
+		font-size: var(--step--1);
+		font-weight: 600;
+		color: var(--ink);
 	}
 
+	/* The three formats as one segmented group: one control, three faces. */
 	.row {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--sp-2);
+		border: var(--hair) solid var(--ink);
 	}
 
 	button {
 		display: inline-flex;
 		align-items: center;
-		gap: var(--sp-1);
+		gap: var(--sp-2);
+		min-height: 2rem;
 		font-family: var(--sans);
 		font-size: var(--step--1);
-		padding: var(--sp-1) var(--sp-3);
-		background: none;
-		border: var(--hair) solid var(--rule-strong);
+		font-weight: 500;
+		padding: 0 var(--sp-3);
+		background: var(--paper);
+		border: 0;
+		border-left: var(--hair) solid var(--ink);
 		border-radius: 0;
-		color: var(--blue);
+		color: var(--ink);
 		cursor: pointer;
 	}
 
+	button:first-child {
+		border-left: 0;
+	}
+
 	button:hover:not(:disabled) {
-		border-color: var(--blue-mid);
-		color: var(--blue-mid);
+		background: var(--paper-sunk);
 	}
 
 	button:disabled {
 		color: var(--ink-3);
+		border-color: var(--ink);
 		cursor: default;
 	}
 

@@ -37,19 +37,24 @@
 </button>
 
 <style>
+	/* The same face as the Basket button it stands beside — one grotesk, sentence
+	   case, no ground of its own — inside the hairline every chip on the site
+	   carries. `capitalize` rather than an edited string: the visible word is the
+	   theme's own name and belongs to the component's contract, not to its
+	   styling. */
 	.toggle {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.35em;
-		min-height: 0;
-		padding: 0.15rem 0.45rem;
-		border: var(--hair) solid var(--rule-strong);
+		gap: var(--sp-2);
+		min-height: 2rem;
+		padding: 0 var(--sp-3);
+		border: var(--hair) solid var(--ink);
 		background: none;
-		color: var(--ink-3);
-		font-family: var(--mono);
-		font-size: var(--step--2);
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
+		color: var(--ink-2);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		font-weight: 500;
+		text-transform: capitalize;
 		/* Both words are four or five characters; reserving the wider one stops
 		   the nav shifting under the pointer as the label changes. */
 		min-width: 5.4rem;
@@ -57,7 +62,7 @@
 	}
 
 	.toggle:hover {
-		border-color: var(--ink-2);
+		background: var(--paper-sunk);
 		color: var(--ink);
 	}
 </style>

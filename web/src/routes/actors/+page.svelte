@@ -678,8 +678,8 @@
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;
-		gap: 1rem;
-		margin-block: 1rem;
+		gap: var(--sp-4);
+		margin-block: var(--sp-4);
 		font-family: var(--sans);
 		font-size: var(--step--1);
 	}
@@ -694,15 +694,12 @@
 	}
 
 	h1 {
-		font-family: var(--serif);
-		font-size: var(--display);
-		line-height: 1.05;
 		margin: 0 0 var(--sp-4);
 	}
 
 	.standfirst {
-		font-family: var(--serif);
 		font-size: var(--step-1);
+		line-height: 1.5;
 		color: var(--ink-2);
 		margin: 0;
 	}
@@ -748,8 +745,9 @@
 
 	.picked dd {
 		margin: 0 0 var(--sp-2);
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-2);
 	}
 
@@ -779,7 +777,10 @@
 		margin: 0;
 	}
 
-	.table-wrap,
+	.table-wrap {
+		margin: 0 0 var(--sp-3);
+	}
+
 	h2 {
 		font-family: var(--sans);
 		font-size: var(--step-1);
@@ -806,22 +807,27 @@
 	}
 
 	thead th {
-		color: var(--ink-3);
+		color: var(--ink);
 		font-weight: 600;
 		border-bottom: var(--hair) solid var(--rule-strong);
 	}
 
 	.num {
 		text-align: end;
-		font-family: var(--mono);
-		font-variant-numeric: tabular-nums;
+		font-family: var(--sans);
+		font-variant-numeric: tabular-nums lining-nums;
 	}
 
 	tbody th {
 		font-weight: 400;
 	}
 
+	/* A name that selects its row. Set as a link, not as a box, and kept to the
+	   24px target every interactive thing on the site clears. */
 	tbody button {
+		display: inline-flex;
+		align-items: center;
+		min-height: 1.5rem;
 		background: none;
 		border: 0;
 		padding: 0;
@@ -835,8 +841,21 @@
 		color: var(--blue-mid);
 	}
 
+	/* The selected row carries the page's one tint — the mark, the same gesture
+	   the site uses wherever a term is found — rather than the sunk stripe the
+	   zebra already owns, which would make a selected even row invisible. */
 	tr.picked {
 		background: var(--mark);
+	}
+
+	/* On the tint every value is set in ink: the set-back greys the whisker and
+	   the code use are 4.0:1 over it, under the AA floor the suite enforces. */
+	tr.picked th,
+	tr.picked td,
+	tr.picked .range,
+	tr.picked abbr,
+	tr.picked th::after {
+		color: var(--ink);
 	}
 
 	tr.unmapped th::after {
@@ -846,7 +865,7 @@
 	}
 
 	abbr {
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--2);
 		color: var(--ink-3);
 		text-decoration: none;
@@ -888,7 +907,6 @@
 			var(--rule) var(--high),
 			transparent var(--high)
 		);
-		border-radius: 1px;
 	}
 
 	.rail::after {
@@ -904,8 +922,9 @@
 
 	.range,
 	.interval {
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--2);
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-3);
 	}
 </style>

@@ -236,7 +236,8 @@
 
 	.zero,
 	.top {
-		font-family: var(--mono);
+		font-family: var(--sans);
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-3);
 	}
 
@@ -294,16 +295,15 @@
 	}
 
 	.head {
-		background: none;
+		background: var(--paper);
 		border: 0;
 		border-radius: 0;
-		min-height: 0;
+		/* 24px, the floor for anything a pointer has to hit. */
+		min-height: 1.5rem;
 		padding: var(--sp-1);
 		font-family: var(--sans);
 		font-size: var(--step--2);
 		font-weight: 400;
-		letter-spacing: 0;
-		text-transform: none;
 		color: var(--ink-2);
 		cursor: pointer;
 		text-align: start;
@@ -323,10 +323,25 @@
 		font-style: italic;
 	}
 
-	.head:hover,
-	.head[aria-pressed='true'] {
+	/* The ink fill takes the whole cell with it: the count beside a pressed
+	   speaker's name, and a grouped column's quieter ink, both invert. */
+	th.grouped .head[aria-pressed='true'],
+	.head[aria-pressed='true'] .n {
+		color: var(--paper);
+	}
+
+	.head:hover {
 		color: var(--ink);
-		background: var(--mark);
+		background: var(--paper-sunk);
+	}
+
+	/* Pressed is ink filled with paper text, the one active state every control
+	   on the site uses. `--mark` belongs to the marked word and is not spent on
+	   a control. */
+	.head[aria-pressed='true'],
+	.head[aria-pressed='true']:hover {
+		color: var(--paper);
+		background: var(--ink);
 	}
 
 	tbody th.who {
@@ -334,9 +349,7 @@
 		left: 0;
 		z-index: 1;
 		background: var(--paper);
-		border-right: var(--hair) solid var(--rule-strong);
-		text-transform: none;
-		letter-spacing: 0;
+		border-right: var(--hair) solid var(--ink);
 		font-weight: 400;
 		font-size: var(--step--2);
 	}
@@ -351,19 +364,19 @@
 	}
 
 	.n {
-		font-family: var(--mono);
-		font-variant-numeric: tabular-nums;
+		font-family: var(--sans);
+		font-variant-numeric: tabular-nums lining-nums;
 		color: var(--ink-3);
 	}
 
 	tr.selected th.who {
-		background: var(--mark);
+		background: var(--paper-sunk);
 	}
 
 	/* The rule that separates the cases from the ways of talking about the
-	   category. A hairline, like every other division on this site. */
+	   category. A hairline in ink, like every other division on this site. */
 	.rule {
-		border-left: var(--hair) solid var(--rule-strong);
+		border-left: var(--hair) solid var(--ink);
 	}
 
 	.cell {
@@ -374,10 +387,10 @@
 		border: var(--hair) solid var(--rule);
 		border-radius: 0;
 		min-height: 0;
-		background: none;
-		font-family: var(--mono);
+		background: var(--paper);
+		font-family: var(--sans);
 		font-size: var(--step--2);
-		font-variant-numeric: tabular-nums;
+		font-variant-numeric: tabular-nums lining-nums;
 		line-height: 1.4;
 		text-align: center;
 		color: var(--ink);
@@ -398,15 +411,23 @@
 		border-color: var(--blue);
 	}
 
-	/* Interaction is the accent's job, and an inset ring does not move the cell
-	   or the ones beside it. */
+	/* Interaction is the accent's job, and an inset outline does not move the
+	   cell or the ones beside it. An outline rather than a shadow: nothing on
+	   this site is lit from anywhere. */
 	.cell.selected {
-		box-shadow: inset 0 0 0 2px var(--blue-flag);
+		outline: 2px solid var(--blue-flag);
+		outline-offset: -2px;
+	}
+
+	/* A selected cell that also has focus must still show the focus ring, which
+	   the rule above would otherwise have replaced. */
+	.cell.selected:focus-visible {
+		outline-offset: 2px;
 	}
 
 	.hint {
 		margin: var(--sp-2) 0 0;
-		font-family: var(--mono);
+		font-family: var(--sans);
 		font-size: var(--step--2);
 		color: var(--ink-3);
 	}

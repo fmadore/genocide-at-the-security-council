@@ -1106,3 +1106,27 @@ run must finish at zero truncations or document every affected speech.
 is published, step 15 must report per-referent abstention, transport refusal and validation
 failure for each instrument with their denominators and withholding floor. Agreement remains
 stability across instruments, never validation.
+
+## Design replacement, 14 September 2026
+
+The site's visual world was replaced ("The Programme Grid", see
+`DESIGN.md` and `docs/DESIGN_ROADMAP.md`). Nothing analytical changed: no
+number, no copy, no data contract. What was checked, and how:
+
+| Check | Result |
+|---|---|
+| `npm run lint` (prettier, eslint, word budgets, figure provenance) | pass, 24 figures within budget |
+| `npm run check` | 0 errors, 0 warnings |
+| `npm run test` | 553 passed |
+| `npm run test:e2e` (Playwright, axe on every journey) | 46 passed |
+| Impeccable detector over `web/src` | no findings |
+| Finish review (Opus, two passes) | ship |
+
+Two visual encodings changed and are recorded here so a reader of an older
+figure export is not surprised: the sequential ramp on the calendar and the
+term matrix runs from the page colour to ink instead of to amber; lines within
+one register on the Chronology are now told apart by three lightness steps
+crossed with solid, dashed and dotted strokes, keyed to the term's position in
+its register, so the same term always draws the same stroke. One sentence of
+copy changed on the semantic map, "a black diamond" to "a diamond", because
+the diamond is drawn in the page's ink and is white in the dark theme.
