@@ -515,6 +515,29 @@
 	   lesser evil, which is the one case `theme.ts` keeps it for. */
 	const LABELLABLE = 8;
 
+	/* How many measures the axis tooltip lists before it stops.
+	
+	   The tooltip is confined to its own figure (see `tooltip` in `theme.ts`),
+	   and confinement can only move a box, not shrink one: all 28 terms at once
+	   made a box 703px tall against a 420px figure, pinned to the top and
+	   running 283px past the bottom. So the list is cut where the figure ends.
+	
+	   Eight is the count that survives the tallest tooltip the figure can be
+	   asked for — 1994 with every term selected, which is a year heading, the
+	   rows, the line that counts what was cut, then a rule, a heading and the
+	   five reference dates that year carries, more than any other. Measured, that
+	   box is 347px wide-screen and 367px with the figure at phone width, where a
+	   long row wraps; eleven rows ran past the bottom of the figure in both. The
+	   count also happens to be `LABELLABLE`, so a tooltip is cut only once the
+	   chart has given up naming its lines in place.
+	
+	   What is cut is the smallest values at that year, and the tooltip says how
+	   many and below what. Cutting by value rather than by position means the
+	   rows kept are the ones a reader is looking at the top of the plot for; the
+	   order is only re-sorted when the cut applies, so the ordinary tooltip of
+	   five or eight terms still reads down the legend's order. */
+	const TOOLTIP_ROWS = 8;
+
 	/* Reference-date ticks are series on the rail grid; the tooltip and the
 	   legend must not list them as lines. */
 	const EVENT_TICK = 'event:';
@@ -602,21 +625,38 @@
 							? ''
 							: ` <span style="opacity:.65">${percent(low)}–${percent(high)}</span>`;
 					};
-					const series = rows
-						.filter((r) => !isIntervalBand(r.seriesName) && !isEventTick(r.seriesName))
+					const listed = rows.filter(
+						(r) => !isIntervalBand(r.seriesName) && !isEventTick(r.seriesName)
+					);
+					// A missing value sorts last: a term with no rate at this year is
+					// the least worth the space when the list has to be cut.
+					const size = (r: (typeof listed)[number]) =>
+						typeof r.value === 'number' ? r.value : -Infinity;
+					const ranked =
+						listed.length > TOOLTIP_ROWS ? [...listed].sort((a, b) => size(b) - size(a)) : listed;
+					const kept = ranked.slice(0, TOOLTIP_ROWS);
+					const cut = ranked.slice(TOOLTIP_ROWS);
+					const series = kept
 						.map(
 							(r) =>
 								`${r.marker ?? ''}${escapeHtml(r.seriesName ?? '')} <b>${show(r.value)}</b>` +
 								interval(r.seriesName, r.dataIndex)
 						)
 						.join('<br>');
+					// Naming the threshold keeps the cut honest: the reader is told the
+					// size of what is missing, not just that something is.
+					const floor = kept.length ? size(kept[kept.length - 1]) : -Infinity;
+					const more = cut.length
+						? `<br><span style="opacity:.7">${count(cut.length)} more` +
+							`${Number.isFinite(floor) ? ` at or below ${show(floor)}` : ''}</span>`
+						: '';
 					const events = byYearLookup.get(year) ?? [];
 					const dates = events.length
-						? '<hr style="opacity:.2">' +
+						? '<hr style="opacity:.2;margin:4px 0">' +
 							`<span style="opacity:.7">Reference ${events.length === 1 ? 'date' : 'dates'}</span><br>` +
 							events.map((e) => `<b>${isoDate(e.date)}</b> ${escapeHtml(e.label)}`).join('<br>')
 						: '';
-					return `<b>${escapeHtml(year)}</b><br>${series}${dates}`;
+					return `<b>${escapeHtml(year)}</b><br>${series}${more}${dates}`;
 				}
 			},
 			xAxis: [

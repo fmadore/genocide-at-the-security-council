@@ -390,13 +390,35 @@ export const grid = (labelled = true) => ({
 	outerBoundsContain: 'axisLabel' as const
 });
 
+/**
+ * Every tooltip on the site, and the two settings that keep one on the figure.
+ *
+ * A tooltip is an absolutely positioned box inside the chart's own container,
+ * and by default ECharts will place it wherever the pointer is even when that
+ * puts it past the container's edge. Both ways that happens were measured here
+ * rather than guessed at, on *The word list over time*:
+ *
+ *   - Vertically, at 1440x900, the box ran up to 94px above the plot and 71px
+ *     below it, over the legend on one side and the year axis on the other.
+ *     `confine` is the option ECharts documents for this: it clamps the box
+ *     into the instance's view rect after the position is computed.
+ *   - Horizontally, `confine` is not enough on its own. ECharts writes
+ *     `white-space: nowrap` onto the box, so a row as long as *1 July 2002
+ *     Rome Statute enters into force* measured 403-513px wide — wider than the
+ *     327px chart at 375px viewport, where clamping the left edge to 0 still
+ *     left up to 164px hanging off the right. The box's containing block is
+ *     the chart container, so `max-width: 100%` is the chart's own width, and
+ *     `white-space: normal` lets a row that would exceed it wrap instead.
+ *     Neither has any effect on a tooltip that already fits.
+ */
 export const tooltip = (p: Palette) => ({
 	backgroundColor: p.panel,
 	borderColor: p.rule,
 	borderWidth: 1,
 	padding: [8, 11] as [number, number],
+	confine: true,
 	textStyle: { color: p.ink, fontSize: 13, fontFamily: FONT },
-	extraCssText: 'box-shadow: none; border-radius: 0;'
+	extraCssText: 'box-shadow: none; border-radius: 0; max-width: 100%; white-space: normal;'
 });
 
 /**
