@@ -36,6 +36,10 @@ EXEMPT_PREFIXES = ("docs/reference/",)
 PUBLIC_DOCUMENTATION_LINKS = (
     "(https://www.hpc.uni-bayreuth.de/clusters/festus/)",
     "(https://www.hpc.uni-bayreuth.de/material/example_jobs/pytorch_gpu/)",
+    # The DFG funding acknowledgement the centre requires quotes its own public
+    # address, and it is reproduced verbatim in prose, in a markdown link and in
+    # an href on the site. It names an institution, not a host anyone logs in to.
+    "https://www.bzhpc.uni-bayreuth.de",
 )
 
 SUSPECT = [

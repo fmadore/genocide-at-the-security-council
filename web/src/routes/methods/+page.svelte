@@ -463,6 +463,13 @@
 		<a href="{REPO}/blob/main/LICENSE-DATA.md">CC BY 4.0</a>. Cite the project using
 		<a href="{REPO}/blob/main/CITATION.cff">CITATION.cff</a> and cite the source corpus as well.
 	</p>
+	<p>
+		The steps that need GPUs — embeddings, the topic comparison, lemmatisation and the model
+		classifications — ran on <em>festus</em>, the university cluster. Calculations were performed
+		using the festus-cluster of the Bayreuth Centre for High Performance Computing (<a
+			href="https://www.bzhpc.uni-bayreuth.de">https://www.bzhpc.uni-bayreuth.de</a
+		>), funded by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) - 523317330.
+	</p>
 	<p class="quiet">
 		Word-list version {data.series.meta.lexicon_version}. Data generated {data.series.meta
 			.generated}.

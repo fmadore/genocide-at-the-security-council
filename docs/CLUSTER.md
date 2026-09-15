@@ -1,9 +1,10 @@
 # Running the GPU steps on the Bayreuth cluster
 
 Steps 00–05, 08, 09, 11 and 12 run on a laptop. Steps **06 (embeddings)**,
-**07 (the topic comparison)** and **14 (model annotation)** use the University of
-Bayreuth HPC cluster, whose GPU nodes are reachable with an ordinary university
-account — no separate HPC registration, and no data leaves the university.
+**07 (the topic comparison)** and **14 (model annotation)** use **festus**, the
+cluster of the Bayreuth Centre for High Performance Computing (BZHPC), whose GPU
+nodes are reachable with an ordinary university account — no separate HPC
+registration, and no data leaves the university.
 
 The harness here is a trimmed adaptation of the one in the private
 `AM-Digital-Research-Environment/festus-transcribe` repository: same `env.sh`
@@ -542,9 +543,22 @@ in the generated manifest rather than changing shared environments mid-run.
 
 ## Acknowledgement
 
-Work using the cluster carries a DFG funding acknowledgement for the hardware —
-project **523317330** ("funded by the Deutsche Forschungsgemeinschaft (DFG) –
-523317330"), as recorded in the festus-transcribe documentation. Confirm the
-current wording with the HPC team before a publication rather than copying it
-from here, and add it to `CITATION.cff` and the paper if the GPU steps
-contribute to a result.
+festus is operated by the **Bayreuth Centre for High Performance Computing
+(BZHPC)**, a central scientific institution of the University of Bayreuth, and
+its hardware is DFG-funded. The centre calls the funding acknowledgement
+mandatory, not a courtesy, and asks for this wording — quoted from the
+[Festus system guide](https://www.hpc.uni-bayreuth.de/clusters/festus/) as it
+read on 15 September 2026:
+
+> Calculations were performed using the festus-cluster of the Bayreuth Centre
+> for High Performance Computing (https://www.bzhpc.uni-bayreuth.de), funded by
+> the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) -
+> 523317330.
+
+It applies whenever a published result depends on steps 06, 07, 10 or 14, which
+is currently every result on the Usage page, the semantic map and the lemma
+layer. It is carried in `README.md` and on the dashboard's Methods page, and it
+belongs in the paper as well. `CITATION.cff` has no field for a funding
+acknowledgement under CFF 1.2.0, so it is not recorded there. Re-check the
+wording against the system guide before a publication rather than copying it
+from here.
