@@ -294,6 +294,31 @@ sat entirely idle. Those are 48 GB cards without NVLink, so they are not a
 drop-in substitute for an H100 pair, but they are worth pricing before assuming
 a model must wait for `GPU`.
 
+**That price has now been measured, and the answer is no.** A reconnaissance
+run of Gemma 4 31B IT on two L40s (job 778579, `dev`, 16 September 2026) served
+the full 131,072-token context and passed its reasoning ladder, so the route
+works. The cost is what makes it unattractive:
+
+| | Two L40 | Two H100 |
+|---|---|---|
+| Weights, per card | 30.5 GiB | 30.5 GiB |
+| KV cache left, per card | 9.0 GiB | ~41 GiB |
+| KV cache, in tokens | 161,380 | roughly nine times more |
+| Requests held at full context | 1.23 | comfortably the configured four |
+| Measured rate | 2.9 min/speech | not measured |
+
+At that rate a 250-speech batch takes about 12 hours, which does fit the
+24-hour wall, and the whole corpus about four days at two tasks at a time. The
+cards are slower per token *and* cannot keep four speeches in flight, so the
+loss compounds. Weighed against a `GPU` queue measured in days rather than
+weeks, the annotation profiles stay on H100s. Do not re-run this experiment;
+re-run it only if the H100 node is lost for a longer period than a corpus pass
+would take.
+
+A caution on the estimates that led here: `--test-only` predicted a four-day
+wait for a CPU job on `normal` that in fact started within the minute. Treat
+its start times as a lower bound on pessimism, not a forecast.
+
 There is no lowercase `gpu` partition. The default model needs one card of any
 of these; `GPU` is requested in `submit_embed.sh` for speed, but an L40 on
 `normal` works and usually starts sooner.

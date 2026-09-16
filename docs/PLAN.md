@@ -27,7 +27,28 @@ has been downloaded and verified on Festus. An isolated Gemma workspace passes
 preflight, parser import and the full 4,133-request tokenizer budget audit
 (maximum 79,303 tokens against a 131,072-token context). Gemma uses its actual
 boolean `enable_thinking` control; low/high in the probe mean off/on, not a
-graded effort ladder. No successful GPU inference is claimed yet.
+graded effort ladder.
+
+**First successful Gemma inference, 16 September 2026.** A reconnaissance run
+on two L40s (`2026-09-16-gemma4-l40-recon`, job 778579) passed the reasoning
+ladder and annotated 10 of 12 speeches, locating all 36 evidence quotes with
+none relocated. The instrument works. The hardware question it was asked to
+settle is settled against the L40s and recorded in `docs/CLUSTER.md`; the run
+stays on H100s.
+
+**It also raised an open question that is not about hardware.** Two of the 12
+speeches were refused as truncated, having exhausted an output allowance that
+`lib.annotate.output_ceiling` computes from the speech alone — 32,000 tokens
+plus 1,200 per occurrence — with no dependence on the card, the context length
+or the serving configuration. The same two speeches would therefore truncate on
+H100s. Gemma spent 99,982 of 108,208 output tokens on reasoning. Qwen truncated
+4 speeches in 4,097; this sample truncated 2 in 12. Twelve is far too small a
+sample to publish a rate from, and the correct next step is to measure one over
+about 100 speeches before the array runs, because each available remedy changes
+the instrument: raising the allowance stops Qwen and Gemma answering under
+identical limits, and disabling thinking compares a reasoning model against a
+non-reasoning one. Until that is measured, starting the 17-batch array risks
+spending days on a run with a coverage gap far larger than Qwen's.
 
 Gemma smoke **768786** is queued after Qwen continuation **768736** ends.
 Array **768787** then runs 17 fixed batches of at most 250 speeches, at most
