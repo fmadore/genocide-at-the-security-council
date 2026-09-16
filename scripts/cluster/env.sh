@@ -138,6 +138,32 @@ configure_annotation_model() {
       VLLM_REASONING_LEVELS="${VLLM_REASONING_LEVELS:-low,medium,xhigh}"
       VLLM_REASONING_LOCATION="${VLLM_REASONING_LOCATION:-chat_template_kwargs}"
       ;;
+    # `DeepSeek-V4.1-Flash` is deliberately NOT a fourth profile here, and the
+    # reason is recorded so the question is not reopened from the model card
+    # alone. Assessed 16 September 2026:
+    #
+    #   checkpoint                510 GB on disk at revision dba1be0a — 307 GB
+    #                             backbone plus 203 GB of Engram lookup tables
+    #   this cluster              4x H100 80 GB on one node = 320 GB
+    #   architecture              DeepseekV41ForCausalLM / deepseek_v41, absent
+    #                             from the pinned vLLM 0.28.0 registry (checked
+    #                             on Festus) and from released 0.29.0; merged to
+    #                             vLLM main 10-15 September 2026, after that
+    #                             release
+    #   Engram CPU/disk offload   still an open pull request upstream
+    #
+    # Experts are already FP4 and the dense weights FP8, so no further
+    # quantisation recovers the gap, and DeepSeek's own reference inference
+    # converts the weights for eight-way model parallelism. "Flash" names the
+    # cost per token, not the size. Note the failure mode, the same one the
+    # sibling `festus-transcribe` repository hit with Voxtral: the download step
+    # would succeed, because it never consults the architecture registry, and
+    # the error would appear only once vLLM built an engine inside a job.
+    #
+    # To reconsider: the cluster needs eight or more H100-class cards, or vLLM
+    # needs a release carrying both the architecture and Engram offload. Neither
+    # is true today. A hosted endpoint would serve it, at the cost of the pinned
+    # revision and the offline compute node this whole store depends on.
     deepseek)
       VLLM_MODEL_ID="${VLLM_MODEL_ID:-deepseek-ai/DeepSeek-V4-Flash-0731}"
       VLLM_MODEL_REVISION="${VLLM_MODEL_REVISION:-7872f01b1d1fe23eabc4c98b48bffcef5a386062}"
@@ -183,6 +209,19 @@ configure_annotation_model() {
   # here in any case — the profiles all serve at temperature 0.0 and top_p 1.0,
   # where the decision is an argmax rather than a sample.
   export VLLM_USE_FLASHINFER_SAMPLER="${VLLM_USE_FLASHINFER_SAMPLER:-0}"
+
+  # Same failure, a different library. For an FP8 mixture-of-experts checkpoint
+  # vLLM reaches for DeepSeek's `deep_gemm`, which also builds its kernels with
+  # nvcc on first use and so also dies on a node that has a driver and no CUDA
+  # toolkit. Forcing 0 selects vLLM's built-in FP8 path from the pinned wheels.
+  #
+  # Neither served profile is affected today: Qwen and Gemma are both bf16 and
+  # never ask for it. The profile this protects is `deepseek`, whose checkpoint
+  # is FP8 with FP4 experts — exactly the case that triggers the build. The
+  # failure was found on this cluster by the sibling `festus-transcribe`
+  # repository rather than here, because no FP8 model has been served yet, and
+  # it is set now so that the first one does not rediscover it inside a job.
+  export VLLM_USE_DEEP_GEMM="${VLLM_USE_DEEP_GEMM:-0}"
 
   export VLLM_MODEL_ID VLLM_MODEL_REVISION VLLM_REASONING_PARSER
   export VLLM_REASONING_EFFORT VLLM_REASONING_LOCATION VLLM_PORT

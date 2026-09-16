@@ -113,15 +113,18 @@ npm --prefix web run build
 
 ## LLM annotations
 
-The four historical runs under
+The four hosted 2026-08 runs under
 [`model_annotations/genocide/runs/`](model_annotations/genocide/runs/) remain
-versioned for provenance. The `current_run.txt` and `comparison_run.txt`
-pointers are empty after migration. A new run must cover all 7,747 current
-occurrences; see [`model_annotations/README.md`](model_annotations/README.md)
+versioned for provenance of the retired corpus. `current_run.txt` selects the
+`2026-09-08-qwen-131k` run as an explicitly partial preview;
+`comparison_run.txt` is empty. A run must cover all 7,747 current
+occurrences unless its coverage gap is authorised in `allow_partial_run.txt`;
+see [`model_annotations/README.md`](model_annotations/README.md)
 and [`scripts/README.md`](scripts/README.md).
-The next published and comparison instruments are `Qwen/Qwen3.8-27B` and
-`deepseek-ai/DeepSeek-V4-Flash-0731` (with `google/gemma-4-31B-it` as the recorded
-fallback), served locally through vLLM at pinned Hugging Face revisions.
+The published instrument is `Qwen/Qwen3.8-27B` and the comparison instrument
+is `google/gemma-4-31B-it`, both served locally through vLLM at pinned Hugging
+Face revisions. `deepseek-ai/DeepSeek-V4-Flash-0731` remains a declared but
+unused profile.
 
 ## Licence and citation
 

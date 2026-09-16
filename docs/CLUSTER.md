@@ -166,6 +166,19 @@ actual boolean parameter. This follows the pinned template and the
 [official Gemma model card](https://huggingface.co/google/gemma-4-31B-it#2-thinking-mode-configuration).
 The Gemma run uses two H100s per task for context/cache headroom, with at most
 two simultaneous batch tasks. Its smoke must pass before the array starts.
+
+**A smoke gate reads the manifest's `status`, and nothing about the hardware.**
+So a smoke run on different cards, at a different context length or with a
+different tensor-parallel size, satisfies the gate exactly as a matching one
+does, and the array then starts having validated a configuration it will not
+use. That is a plausible mistake rather than a hypothetical: the L40 partitions
+are usually idle while `GPU` is contended, which makes moving a stuck smoke
+there tempting. If a smoke is run on other hardware to learn whether a model
+fits at all, give it its own run id and treat it as reconnaissance; the gating
+smoke is the one that ran the profile the corpus run will use. The manifest
+records `gpu_model`, `gpu_count`, `max_model_len` and `tensor_parallel_size`,
+so the two are always distinguishable after the fact — compare them before
+reading an array as gated.
 The common temperature/top-p settings remain fixed for comparison with Qwen;
 they differ from Google's general sampling recommendation, which is recorded
 as a comparison-design choice rather than silently changing the instrument.
@@ -246,9 +259,9 @@ submitted with the H100 command above and queued normally.
 
 ## The cluster, as it actually is
 
-Verified with `sinfo` and `module avail` on **9 August 2026**, and the partition
-availability re-checked on **10 August 2026**. These change; re-check before
-assuming.
+Verified with `sinfo` and `module avail` on **9 August 2026**, the partition
+availability re-checked on **10 August 2026**, and the table below re-checked
+on **16 September 2026**. These change; re-check before assuming.
 
 ```bash
 sinfo -o "%20P %10G %12N %10l %6D %t"
@@ -256,11 +269,30 @@ sinfo -o "%20P %10G %12N %10l %6D %t"
 
 | Partition | GPUs | `--gres=` | Time limit | Usable by this account |
 |---|---|---|---|---|
-| `GPU` | 4× H100 on one node | `gpu:h100:N` | 24 h | yes |
+| `GPU` | 4× H100 on one node, plus a second node of 4× MI210 | `gpu:h100:N` | 24 h | yes |
 | `normal` (default) | L40, L40S, MI210 — plus many CPU-only nodes | `gpu:l40:N`, `gpu:l40s:N` | 24 h | yes |
 | `dev` | up to 2× L40, one CPU node | `gpu:l40:N` | 90 min | yes |
-| `edu` | L40S | `gpu:l40s:N` | 24 h | **no** — rejected as an invalid account/partition combination |
-| `znver5` | none, 128 CPU cores | — | — | **no** — `AVAIL: down` |
+| `edu` | L40S | `gpu:l40s:N` | 4 h | **no** — rejected as an invalid account/partition combination |
+| `znver5` | none, 128 CPU cores | — | — | **no** — `AVAIL: drain` |
+
+Two corrections from the September re-check: `edu` advertises four hours rather
+than the 24 recorded in August, and `GPU` is not an H100-only partition — it
+also holds a node of four MI210s. Asking for `gpu:h100:N` keeps a job off the
+AMD node, so every command in this document is unaffected, but `--gres=gpu:N`
+without a type would not be.
+
+**Idle is still not available, and the reverse also holds.** On 16 September
+2026 the single H100 node was running one job on one card, with three cards,
+107 cores and most of 2 TB of memory free, while a two-card annotation job had
+been queued behind it for a week. The queue is hidden by `PrivateData`, so the
+scheduler's `Priority` and the node's `PLANNED` flag are the only visible signs
+that it is being held for someone else's pending job. Fair share carries twenty
+times the weight of queue age here (`PriorityWeightFairShare = 20000` against
+`PriorityWeightAge = 1000`), so waiting does not by itself win the node back.
+At the same moment eight L40 and L40S cards across `normal`, `dev` and `edu`
+sat entirely idle. Those are 48 GB cards without NVLink, so they are not a
+drop-in substitute for an H100 pair, but they are worth pricing before assuming
+a model must wait for `GPU`.
 
 There is no lowercase `gpu` partition. The default model needs one card of any
 of these; `GPU` is requested in `submit_embed.sh` for speed, but an L40 on
