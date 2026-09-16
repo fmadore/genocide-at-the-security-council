@@ -21,23 +21,23 @@
 # sentence-transformers is the one held back on purpose; see the note below it.
 
 # --- Embedding (step 06) ---------------------------------------------------
-torch>=2.13,<3
-transformers>=5.16.1,<6
+torch>=2.14.0,<3
+transformers>=5.17.0,<6
 # Held below 6 until a run has confirmed the vectors are unchanged. 6.0 fixes, in
 # its own words, a class of silent scoring bugs caused by half precision, and 06
 # encodes in bfloat16 — so the major can move the embeddings themselves, which is
 # a change to the artefact rather than to the build. The surface 06 uses
 # (`processor_kwargs`, `get_embedding_dimension`) is unchanged in 6.x, so lifting
 # the cap is a one-line edit once a comparison run has been read.
-sentence-transformers>=5.7,<6
-accelerate>=1.14,<2
+sentence-transformers>=6.0.1,<7
+accelerate>=1.15.0,<2
 # Used directly by scripts/lib/download_models.py, not only via transformers.
-huggingface_hub>=1.29.0,<2
+huggingface_hub>=1.31.0,<2
 
 # --- Topics (step 07) ------------------------------------------------------
 # scikit-learn provides NMF, TF-IDF and — since 1.3 — HDBSCAN, so the separate
 # `hdbscan` package with its compiled extension is not needed.
-scikit-learn>=1.9,<2
+scikit-learn>=1.9.1,<2
 umap-learn>=0.5.12,<0.6
 # Only for 07's 2D projection diagnostic — the PNGs that show what a thematic
 # map would look like, so that the purity numbers beside them can refuse it. It
@@ -48,7 +48,7 @@ umap-learn>=0.5.12,<0.6
 # has no display and a backend that reaches for one fails after the expensive
 # work is already done. Latest release when this line was written, 3.11.1
 # (checked against PyPI on 10 August 2026).
-matplotlib>=3.11.1,<4
+matplotlib>=3.11.2,<4
 
 # --- Lemmatisation (step 10) -----------------------------------------------
 # CPU work, but it lives here because it is the same category: outside the
