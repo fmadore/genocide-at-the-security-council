@@ -36,19 +36,61 @@ none relocated. The instrument works. The hardware question it was asked to
 settle is settled against the L40s and recorded in `docs/CLUSTER.md`; the run
 stays on H100s.
 
-**It also raised an open question that is not about hardware.** Two of the 12
-speeches were refused as truncated, having exhausted an output allowance that
-`lib.annotate.output_ceiling` computes from the speech alone — 32,000 tokens
-plus 1,200 per occurrence — with no dependence on the card, the context length
-or the serving configuration. The same two speeches would therefore truncate on
-H100s. Gemma spent 99,982 of 108,208 output tokens on reasoning. Qwen truncated
-4 speeches in 4,097; this sample truncated 2 in 12. Twelve is far too small a
-sample to publish a rate from, and the correct next step is to measure one over
-about 100 speeches before the array runs, because each available remedy changes
-the instrument: raising the allowance stops Qwen and Gemma answering under
-identical limits, and disabling thinking compares a reasoning model against a
-non-reasoning one. Until that is measured, starting the 17-batch array risks
-spending days on a run with a coverage gap far larger than Qwen's.
+**The truncation question is answered: 5 of 100, and a resume pass recovers it.**
+The open question of 16 September assumed the wrong mechanism. Because
+`lib.annotate.output_ceiling` computes an allowance from the speech alone —
+32,000 tokens plus 1,200 per occurrence, with no dependence on the card, the
+context length or the serving configuration — it looked as though particular
+speeches were structurally too long and no hardware choice could help. Two runs
+over the *same twelve speeches* show otherwise:
+
+| Run | Cards | Truncated |
+|---|---|---|
+| `2026-09-16-gemma4-l40-recon` | 2x L40 | SC00239-01-003, SC00257-01-004 |
+| `2026-09-09-gemma4-smoke`, pass 1 | 2x H100 | SC00232-01-005 |
+
+The two sets are disjoint, and every one of the twelve was annotated
+successfully in at least one run. Pass 2 of the smoke (job 780176) confirms the
+mechanism directly: re-asking the refused speech under identical settings —
+same model, revision, prompt v3, ceiling and `enable_thinking` — returned it
+complete. The smoke now reads 12 of 12 speeches, 40 of 40 occurrences, zero
+refused, 40 of 40 evidence quotes located and none relocated, in 13 requests
+over 2 passes. That matches Qwen smoke 760798 on coverage, at one extra request.
+
+**The rate, measured over 100 speeches** (`2026-09-18-gemma4-trunc100`, job
+780177, 42 minutes on two H100s): 95 of 100 speeches complete, 182 of 198
+occurrences, **5 refused, every one a truncation**. Gemma spent 378,962 of
+421,597 output tokens on reasoning. Against Qwen's 4 truncations in 4,097
+speeches, Gemma truncates about fifty times as often — 5.0% against 0.1% — which
+on a corpus pass is roughly 200 speeches held back rather than Qwen's 4.
+
+This removes the dilemma the open question was built around. Raising the
+allowance would stop Qwen and Gemma answering under identical limits, and
+disabling thinking would compare a reasoning model against a non-reasoning one;
+both change the instrument. A resume pass changes nothing about it. Gemma's
+reasoning therefore costs a pass budget, not a coverage gap.
+
+Two cautions on that number. `--limit` takes the *first* 100 genocide-bearing
+speeches, so this is a chronological head, not a random sample; if speech length
+drifts across 1946-2025 the rate will not transfer cleanly, and it is reliable
+as an order of magnitude rather than as a published rate. And the recovery is
+not guaranteed per speech: SC00257-01-004 truncated in the recon, succeeded in
+the smoke, and truncated again here, so speeches near the boundary can need more
+than one retry. A corpus run should budget three passes and check what is still
+outstanding after them, rather than assuming one resume clears the field.
+
+**One new quality signal.** At this scale, 3 of 182 evidence quotes could not be
+located, with none relocated. The smoke's 40 of 40 did not show this because it
+was too small. Qwen's published run excludes 24 invalid evidence quotes from
+discourse aggregates on the same basis, so the behaviour is not new to Gemma,
+but the 1.6% here is worth carrying into the array's validation rather than
+meeting it for the first time across 4,133 speeches.
+
+**Throughput, measured.** 24 seconds per speech at four requests in flight on
+two H100s, against 2.9 minutes on two L40s. A 250-speech batch is about 100
+minutes of annotation plus roughly 10 minutes of startup, well inside the
+24-hour wall; the 17 batches at two tasks at a time come to something near 15
+hours for a corpus pass, before resume passes.
 
 **The smoke was resubmitted on 18 September 2026 and started immediately.**
 Qwen continuation **768736** finished COMPLETED at 09:32 on 14 September, which
@@ -59,14 +101,20 @@ four H100s were free. The cause was not queue depth: the `GPU` partition's
 on the submit line was disregarded. Resubmitted with `--mem-per-gpu=128G`, the
 same script started within seconds. `docs/CLUSTER.md` records the measurement.
 
-Current jobs: smoke **780174** (running since 07:02 on 18 September), array
-**780175** with 17 fixed batches of at most 250 speeches, at most two tasks
-simultaneously, two H100s per task, `afterok` on the smoke. The array is
-additionally **held** (`scontrol hold`): the smoke passing is deliberately not
-enough to start it, because the truncation question below has to be measured
-first. Release it with `scontrol release 780175` once that measurement exists.
-The batch dispatcher still refuses to run without a complete smoke manifest, so
-both guards are in place.
+Current jobs: the smoke is complete (780174 then 780176), the truncation
+measurement is complete (780177), and array **780175** — 17 fixed batches of at
+most 250 speeches, at most two tasks simultaneously, two H100s per task — is
+**held** (`scontrol hold`). Its `afterok` dependency is satisfied and the
+dispatcher's smoke-manifest guard is satisfied, so the hold is now the only
+thing stopping it. Release with `scontrol release 780175` when the pass budget
+above is accepted.
+
+The cluster workspace was re-pushed from a clean tree on 18 September, so
+`.git-commit` there reads `c29f245` rather than a `-dirty` sha: a corpus run
+started from here will cite a commit that exists. It now carries lexicon 7,
+whose only change was to retire the `genocidaires` term that was already nested
+under `genocide`; `Lexicon.compatible` and the unchanged `referents.csv` keep it
+interchangeable with the lexicon 6 the published Qwen run recorded.
 
 Qwen's own coverage is unchanged by this and was not re-verified here; if its
 continuation stopped incomplete, its checkpoint remains for another resume.

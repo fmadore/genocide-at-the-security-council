@@ -299,13 +299,29 @@ run of Gemma 4 31B IT on two L40s (job 778579, `dev`, 16 September 2026) served
 the full 131,072-token context and passed its reasoning ladder, so the route
 works. The cost is what makes it unattractive:
 
-| | Two L40 | Two H100 |
+| | Two L40 (measured) | Two H100 (measured) |
 |---|---|---|
-| Weights, per card | 30.5 GiB | 30.5 GiB |
-| KV cache left, per card | 9.0 GiB | ~41 GiB |
-| KV cache, in tokens | 161,380 | roughly nine times more |
-| Requests held at full context | 1.23 | comfortably the configured four |
-| Measured rate | 2.9 min/speech | not measured |
+| Weights, per card | 30.5 GiB | 30.38 GiB |
+| KV cache left | 9.0 GiB | 39.63 GiB |
+| KV cache, in tokens | 161,380 | 445,969 |
+| Requests held at full context | 1.23x | 3.40x |
+| Measured rate | 2.9 min/speech | ~45 s/speech |
+
+The H100 column was estimated when this table was first written and has since
+been measured on job 780174. Two of those estimates were wrong and are corrected
+above: the pair holds 3.40 requests at full context, not "comfortably the
+configured four" the profile asks for, and its KV cache is 2.8 times the L40
+pair's in tokens, not the nine times estimated. The verdict is unchanged — 3.40x
+against 1.23x, and 45 seconds per speech against 2.9 minutes, is still decisive —
+but the margin is smaller than this table used to claim.
+
+One figure does not reconcile and is left standing as a question. The two token
+counts are each consistent with their own reported concurrency, so both are
+trustworthy; the memory figures are not consistent with them. The same model at
+the same tensor-parallel size works out to 58.5 KiB per token on the L40 pair and
+93.2 KiB per token on the H100 pair. The L40 memory figure was read from the
+recon log rather than measured, and is the more likely of the two to be wrong.
+It matters only if a future card is priced from GiB rather than from tokens.
 
 At that rate a 250-speech batch takes about 12 hours, which does fit the
 24-hour wall, and the whole corpus about four days at two tasks at a time. The
