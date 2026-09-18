@@ -33,9 +33,12 @@ done
 # DOI-addressable — 00_fetch_data.py rebuilds it on the login node faster than
 # this connection would move it — and because on the cluster `data` is a symlink
 # to /workdir that must not be overwritten by a directory.
+# `.impeccable` is design-review tooling: 7 tracked markdown files and ~12 MB of
+# git-ignored screenshots. Being git-ignored does not keep a file out of the tar,
+# which copies the working tree, so it has to be named here like the rest.
 EXCLUDES=(
   .git .env data logs notes node_modules __pycache__
-  .venv .pytest_cache .ruff_cache web/.svelte-kit web/build
+  .venv .pytest_cache .ruff_cache web/.svelte-kit web/build .impeccable
 )
 
 echo ">> $REPO  ->  $SSH_TARGET:$REMOTE_REPO"
