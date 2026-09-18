@@ -6,6 +6,11 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
+# On the GPU partition this --mem is silently overridden by the partition's
+# DefMemPerGPU, which charges the node's whole memory divided by its GPU count
+# per card requested. One card is a quarter of the node and schedules readily;
+# two cards are half of it and can wait days. Pass --mem-per-gpu explicitly on
+# the sbatch line for any multi-card job. See docs/CLUSTER.md.
 #SBATCH --mem=96G
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/annotate-%j.out

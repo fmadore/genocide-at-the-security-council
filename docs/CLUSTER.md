@@ -319,6 +319,41 @@ A caution on the estimates that led here: `--test-only` predicted a four-day
 wait for a CPU job on `normal` that in fact started within the minute. Treat
 its start times as a lower bound on pessimism, not a forecast.
 
+**The two-card wait had a cause, and it was memory, not fair share.** The
+paragraph above reads those idle cards as a node being held for someone else's
+pending job. That reading was at best incomplete. The `GPU` partition sets
+`JobDefaults=DefCpuPerGPU=28,DefMemPerGPU=515929` — 515,929 MB per card, which
+is the node's entire memory divided across its four GPUs. A job asking for
+`--gres=gpu:h100:2` is therefore charged **half the node's RAM**, about
+1,008 GiB, and `--mem=128G` on the submit line does not reduce it: Slurm
+recorded `MemPerTres=gpu:515929` for smoke job 768786 and disregarded the
+smaller request. Two free H100s are not enough to place such a job. Half the
+node's memory has to be free at the same moment.
+
+That is what held Gemma. Smoke job 768786 became eligible when the Qwen
+continuation finished on 14 September at 09:32, and had still not started on
+18 September at 07:00 — three days and twenty-one hours, with `StartTime=Unknown`
+throughout. At that moment the node had two of its four H100s free and 99 of its
+112 cores idle, but only about 487 GiB unallocated against the 1,008 GiB the job
+was charged.
+
+Resubmitted as job 780174 with `--mem-per-gpu=128G` — 256 GiB in total, roughly
+four times the 61 GiB checkpoint — the same script, on the same partition,
+asking for the same two cards, started **within seconds**.
+
+| | As submitted (768786) | Corrected (780174) |
+|---|---|---|
+| Memory on the submit line | `--mem=128G` | `--mem-per-gpu=128G` |
+| Memory Slurm charged | ~1,008 GiB | 256 GiB |
+| Share of the node's RAM | one half | one eighth |
+| Wait before starting | 3 d 21 h, no estimate | seconds |
+
+So: **always pass `--mem-per-gpu` explicitly on `GPU`.** A plain `--mem` is
+overridden there without warning, and the difference decides whether a job waits
+for days or starts at once. This also explains why the Qwen runs were scheduled
+without trouble — they asked for one card, so the default charged them a quarter
+of the node rather than a half.
+
 There is no lowercase `gpu` partition. The default model needs one card of any
 of these; `GPU` is requested in `submit_embed.sh` for speed, but an L40 on
 `normal` works and usually starts sooner.

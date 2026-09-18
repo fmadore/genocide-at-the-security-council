@@ -50,12 +50,26 @@ identical limits, and disabling thinking compares a reasoning model against a
 non-reasoning one. Until that is measured, starting the 17-batch array risks
 spending days on a run with a coverage gap far larger than Qwen's.
 
-Gemma smoke **768786** is queued after Qwen continuation **768736** ends.
-Array **768787** then runs 17 fixed batches of at most 250 speeches, at most
-two tasks simultaneously, with two H100s per task. It requires scheduler
-success and a complete smoke manifest. Qwen completion is not implied by the
-dependency: if its continuation stops incomplete, its checkpoint remains for
-another resume. Recurring monitoring remains paused at the user's request.
+**The smoke was resubmitted on 18 September 2026 and started immediately.**
+Qwen continuation **768736** finished COMPLETED at 09:32 on 14 September, which
+made Gemma smoke **768786** eligible the same second. It then sat `PENDING` for
+three days and twenty-one hours with no start estimate, while two of the node's
+four H100s were free. The cause was not queue depth: the `GPU` partition's
+`DefMemPerGPU` charges a two-card job half the node's memory, and the `--mem=128G`
+on the submit line was disregarded. Resubmitted with `--mem-per-gpu=128G`, the
+same script started within seconds. `docs/CLUSTER.md` records the measurement.
+
+Current jobs: smoke **780174** (running since 07:02 on 18 September), array
+**780175** with 17 fixed batches of at most 250 speeches, at most two tasks
+simultaneously, two H100s per task, `afterok` on the smoke. The array is
+additionally **held** (`scontrol hold`): the smoke passing is deliberately not
+enough to start it, because the truncation question below has to be measured
+first. Release it with `scontrol release 780175` once that measurement exists.
+The batch dispatcher still refuses to run without a complete smoke manifest, so
+both guards are in place.
+
+Qwen's own coverage is unchanged by this and was not re-verified here; if its
+continuation stopped incomplete, its checkpoint remains for another resume.
 
 Future model runs now support fixed speech batches through
 `scripts/annotation_batches.py` and Slurm arrays. A plan assigns each speech
