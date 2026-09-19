@@ -912,6 +912,26 @@
 	const genocideBreaks = $derived(data.breaks.series.genocide ?? {});
 	const genocideInference = $derived(data.breaks.inference.series.genocide ?? {});
 
+	/**
+	 * The concordance behind one plotted value: one term, one year.
+	 *
+	 * The same destination `drillChronology` reaches from a click on the chart,
+	 * built from the same two facts. It exists because the click was the only
+	 * way to it: this plate's own table rendered its numbers as plain text while
+	 * the grid, the pooled months and the split all carry links, so the page's
+	 * flagship figure was the one whose evidence a keyboard could not reach.
+	 *
+	 * The year rather than the period, and `from` and `to` both set to it, for
+	 * the reason `cellQuery` states: the concordance defaults to the whole
+	 * corpus, and a quarter drills to the year it sits in exactly as a click
+	 * does.
+	 */
+	function plottedHref(measure: string, period: string): string {
+		const year = String(period).slice(0, 4);
+		const term = evidenceTerm(measure, allMeasures[measure]);
+		return `${resolve('/concordance')}?term=${term}&from=${year}&to=${year}`;
+	}
+
 	function drillChronology(params: { name?: string; seriesName?: string }) {
 		if (!params.name || !params.seriesName) return;
 		const internal = Object.keys(allMeasures).find(
@@ -1136,11 +1156,11 @@
 					{#each periods as period, index (period)}
 						<tr
 							><td>{period}</td
-							>{#each selected.filter((name) => !unavailable.includes(name)) as name (name)}<td
-									class="num"
-									>{unit === 'speech_rate'
+							>{#each selected.filter((name) => !unavailable.includes(name)) as name (name)}{@const value =
+									unit === 'speech_rate'
 										? percent(Number(allMeasures[name][unit]?.[index] ?? 0))
-										: decimal(Number(allMeasures[name][unit]?.[index] ?? 0))}</td
+										: decimal(Number(allMeasures[name][unit]?.[index] ?? 0))}<td class="num"
+									><a href={plottedHref(name, period)}>{value}</a></td
 								>{/each}</tr
 						>
 					{/each}

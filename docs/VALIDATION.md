@@ -1355,6 +1355,30 @@ reads "A hatched square has no rate; it is not a zero." That is still true and n
 longer complete, because there is a second refusal on the figure. It is the
 author's to extend.
 
+## Evidence from the flagship plate, 19 September 2026
+
+The Chronology's word-list chart offers a passage on a click: select a point and
+the concordance opens on that term in that year. Its own data table rendered
+those numbers as plain text, so the click was the only way to them — on a page
+where the grid, the pooled months and the split all carry links in their tables.
+The plate a reader arrives at was the one whose evidence a keyboard could not
+reach.
+
+Every plotted value is now a link to the same destination the click reaches,
+built from the same two facts. Measured: 316 links at the default four terms,
+each of the form `concordance?term=<term>&from=<year>&to=<year>`, identical to
+what `drillChronology` produces; inert while the disclosure is closed, so the
+page's tab-stop count is unchanged; and reached by focus and Enter the link
+lands on the filtered concordance with its lines drawn.
+
+**A gap this turned up.** No Playwright journey covers the Chronology, because
+the route returns 500 under the fixture set: `series/quarterly.json`,
+`series/monthly.json` and `series/breakdowns.json` are not in
+`web/e2e/fixtures/`. The densest page on the site — six plates, the calendar,
+the change-point test — has no browser coverage at all, and that is a plausible
+reason several of its defects survived to this pass. Building those three
+fixtures is the prerequisite for testing any of it.
+
 ### What was left open, and why
 
 - A marked word's *register* is still told only by the hue of its underline.

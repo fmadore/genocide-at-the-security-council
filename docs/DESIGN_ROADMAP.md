@@ -393,6 +393,21 @@ the Chronology's month-by-year grid, on branch `design/phase-5-hardening`.
 - Gates green, 46/46 e2e. One spec failed once in a full run and passed both in
   isolation and on re-run, in a file this change does not touch.
 
+### 19 September 2026, later still: the flagship plate's evidence
+
+- Every plotted value in the word-list chart's table is now a link to the
+  passages behind it — 316 of them at the default terms, the same destination
+  the chart's own click reaches, inert while the disclosure is closed. The grid,
+  the pooled months and the split already did this; the plate a reader arrives
+  at did not.
+- Attempting to guard it with a browser test turned up a larger gap: **the
+  Chronology 500s under the e2e fixture set**, because `series/quarterly.json`,
+  `series/monthly.json` and `series/breakdowns.json` are absent from
+  `web/e2e/fixtures/`. None of the 46 journeys touches this route. The fix was
+  therefore verified by direct measurement instead, and the fixture gap is the
+  first thing a next round should close — it is the likeliest reason this page
+  accumulated a P0 and four P1s while better-covered routes did not.
+
 ### Where this leaves the roadmap
 
 Phases 0 to 6 are done. What the last pass makes clear is that the roadmap's own
