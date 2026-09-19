@@ -1374,7 +1374,8 @@
 				><Icon icon={ChevronRight} />Show the controlled referent list (version {instrumentVersion},
 				{count(instrumentReferents.length)} identifiers)</summary
 			>
-			<div class="table-scroll">
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
+			<div class="table-scroll" role="region" aria-label="Controlled referent list" tabindex="0">
 				<table>
 					<thead>
 						<tr>
@@ -1840,6 +1841,16 @@
 		color: var(--ink-3);
 	}
 
+	/* The referent list is three columns wide and one of them is a definition:
+	   it is the one table on this page that cannot be made to fit a narrow
+	   window. It scrolls inside its own box, and it is focusable so the scroll is
+	   reachable from the keyboard — the same arrangement the reference-dates and
+	   available-terms tables already use. */
+	.table-scroll {
+		max-width: 100%;
+		overflow-x: auto;
+	}
+
 	/* The experimental marking at the scale of one row: the warning token the
 	   whole apparatus block carries, as a rule under the word rather than a
 	   filled chip — a chip would read as something to press, and the line already
@@ -1849,6 +1860,16 @@
 		color: var(--ink);
 		padding-bottom: 0.15em;
 		box-shadow: inset 0 -2px 0 var(--state-warn);
+	}
+
+	/* The amber rule is the whole of the warning, and a forced-colour mode paints
+	   no shadow: without this a contested reading reads as a settled one. The
+	   line is redrawn as a border, which the reader's palette does colour. */
+	@media (forced-colors: active) {
+		.contested,
+		.contested-table .reading.other {
+			border-bottom: 2px solid CanvasText;
+		}
 	}
 
 	/* Set like the model's evidence span below it, which is the other place a row

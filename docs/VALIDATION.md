@@ -1130,3 +1130,204 @@ crossed with solid, dashed and dotted strokes, keyed to the term's position in
 its register, so the same term always draws the same stroke. One sentence of
 copy changed on the semantic map, "a black diamond" to "a diamond", because
 the diamond is drawn in the page's ink and is white in the dark theme.
+
+## Design hardening and payload, 19 September 2026
+
+Phases 5 and 6 of `docs/DESIGN_ROADMAP.md`. Nothing analytical changed: no
+number, no copy, no data contract, no figure's geometry. What changed is what
+the site does when the reader is not the reader it was built for — a 320px
+window, a forced-colour display, a dead connection — and what it downloads
+before it is asked to.
+
+### What was measured
+
+| Check | Result |
+|---|---|
+| `npm run lint` (prettier, eslint, word budgets, figure provenance) | pass, 24 figures within budget |
+| `npm run check` | 0 errors, 0 warnings |
+| `npm run test` | 556 passed (one added: the offline sentence) |
+| `npm run test:e2e` (Playwright, axe on every journey) | 46 passed |
+| `npm run test:e2e:sw` (offline service worker) | 1 passed |
+| Impeccable detector over `web/src` | no findings |
+| Impeccable audit, five dimensions | 19/20, up from 15/20 on 14 September |
+
+### Reflow: three routes scrolled sideways at 320px
+
+320 CSS pixels is the width WCAG 2.2 SC 1.4.10 measures reflow at, and what
+400% zoom leaves of a 1280px window. It had never been tested. Every route
+walked at 320, 390, 720 and 1440px, counting elements whose right edge passes
+the document's client width and that sit inside no scroll container:
+
+| Route | before | after |
+|---|---|---|
+| Overview, Chronology, Words in context, Actors, Concordance, Reader | document 367px wide in a 320px window | none |
+| Usage | document 454px wide | none |
+| Semantic map, Methods | none | none |
+
+Three causes. The reading set's three cells could not fit one line and now turn
+into a column below 30rem, each name opposite its count. A `<select>` in a
+figure's control bar was as wide as its longest option and the bar could not
+shrink it. The controlled referent list on Usage carried a `table-scroll` class
+that no rule in that file defined, so the table pushed the page instead of
+scrolling inside its own box; it now scrolls, and is focusable from the
+keyboard like the three tables that already did.
+
+### Forced colours: the state marks were invisible
+
+A forced-colour display (Windows High Contrast and its kin) replaces every
+authored colour and paints no `box-shadow` at all. The Programme Grid draws
+seven state marks as inset shadows, so in that mode the current section, the
+current contents entry, the pressed cell of a segmented group, the chosen
+reading set, the chosen delegation, a marked word's register, the reader's own
+query hit and a contested reading all simply disappeared. Each now has a twin
+declared under `@media (forced-colors: active)`: an underline, a border, or the
+system's own `Highlight`/`HighlightText` pair. The unit field's counted squares
+and their key, which were a background and would have flattened to an empty
+grid, fill with `CanvasText`.
+
+Nothing opts out with `forced-color-adjust`, the figures included. A reader who
+asked the system for two colours is not answered with six; the registers
+survive as the word, its title and the table under each figure, and a chart
+series survives as its dash, which is geometry rather than colour. `DESIGN.md`
+records this as the Two Colours Rule and the Shadow Has A Twin Rule.
+
+### A dead connection now says so
+
+`data.ts` turned an HTTP status into a sentence a reader could act on, but a
+rejected fetch — offline, a dropped connection, a file the service worker never
+cached — went to the page as the browser's own "Failed to fetch", which names
+neither the problem nor the recovery. Three views print that string to the
+reader. There is now one exported sentence for it, distinct from the status
+sentence because the recoveries differ: a 404 says the file is not in this
+release, this says the file is probably there and we could not reach it. The
+semantic map, which fetches its 8.7 MB artefact outside that cache, uses the
+same sentence rather than a second wording of the same failure.
+
+### The Actors route no longer pays for a map it may never reach
+
+MapLibre was imported when the page mounted, for a plate that is the third on
+the route and roughly 3,000px below the fold. It now arrives when its plate
+does, watched by an intersection observer with a passive scroll listener beside
+it — the observer for content that shifts, the listener for the reader who
+jumps straight past on a deep link, where the observer's ratio never leaves
+zero and no second callback is delivered.
+
+Measured on the same Playwright profile as `web/scripts/profile-payload.mjs`
+(Chromium, service workers blocked, cache disabled, 1440x1000, unthrottled),
+on two builds differing only in `CountryMap.svelte`:
+
+| /actors, at rest before the map plate is reached | before | after |
+|---|---|---|
+| Transfer, total | 600.5 kB | 201.2 kB |
+| Transfer, script | 480.0 kB | 90.9 kB |
+| Transfer, stylesheet | 20.3 kB | 10.1 kB |
+| Requests | 39 | 32 |
+
+On the 1.6 Mbps profile the same script uses, the 399 kB that no longer arrives
+is about two seconds of transfer. Reaching the map costs it back, and only
+then. Overview LCP (232ms to 184ms) and the concordance filter interaction
+(70/50/50ms to 81/49/50ms) are unchanged within run-to-run noise, as expected:
+nothing on those paths was touched.
+
+The e2e spec that asserts the actor table survives a failed basemap now scrolls
+to the map plate before asserting, because that is what a reader does and
+because without it the blocked basemap is never requested. No assertion was
+removed.
+
+### What the re-run critiques found, and what was repaired
+
+Phase 6.6 re-ran the three 14 September critiques as isolated dual-agent passes.
+The design-specificity verdict moved from "the scaffold is interchangeable" to
+**partly grounded** on all three. Scores: Overview 25/36 → 26/36, Chronology
+27/40 → 28/40, Concordance 25/40 → 22/40 (the Concordance fell: Phases 3 and 4
+delivered width and identity, and this route's losses are in control surface and
+browser history, which neither phase touched). Full records are under
+`.impeccable/critique/`.
+
+They found defects the five-dimension audit did not. Six were repaired here,
+each confirmed by measurement before and after:
+
+- **A false number on 9,464 pages.** Every speech in the corpus carries
+  `language: "Unknown"` — 9,634 sampled across 526 meetings, one distinct value.
+  The Reader read that as "a language, and not English", so the apparatus
+  published "N speeches carry a non-English language label" with N as the whole
+  meeting, and every speaker line printed "· spoke in Unknown". A sentinel is an
+  absent value wearing a name; it is now treated as absent, by a predicate in
+  `$lib/format.ts` shared by the two sentences that read the field, with seven
+  unit tests. No copy was rewritten — the conditional clause simply stops firing.
+  It survived because the e2e fixture carries one speech labelled `French`, so
+  the suite exercises the real-language path and never the sentinel.
+- **Two contrast failures.** The `<mark>` in the standfirst measured 4.14:1 in
+  the dark theme: the ochre's budget is written against `--ink` and the mark
+  inherited `--ink-2` from the prose around it. It now takes ink, as the budget
+  always assumed; all marks measure 6.45:1. And the concordance's query-hit rule
+  — the only code the reader's own search term carries — was `--blue-flag` at
+  3.14:1 on paper and 2.80:1 on the zebra row, under the 3:1 floor for a
+  non-text indicator, and doubled as the focus-ring colour. It is now `--blue`
+  at 7.0:1; the ring keeps the flag to itself.
+- **Off-palette colour inside every Chronology SVG download.** The Wilson
+  interval bands set `lineStyle: { opacity: 0 }` with no colour, so ECharts
+  assigned its stock palette: `#5070dd`, `#b6d634`, `#505372`, `#ff994d`,
+  invisible at zero opacity but present in the file, in figures governed by
+  "blue is never a datum". The bands now carry their own colour.
+- **Two axis overrides that dropped the design system.** Adding a percentage
+  formatter by replacing the whole `axisLabel` object also discarded the
+  system's quiet ink and its font family, so the numbers a reader takes off
+  those axes were set in faint ink in ECharts' default face. The formatter is
+  now added to the system's object rather than instead of it.
+- **A deep link landing behind its own toolbar.** At 390px the Reader's sticky
+  toolbar is 400px tall — 51% of the window — and a link to a specific
+  occurrence parked the marked word 7.4px behind it. The programme allows two
+  sticky bands, the masthead and the contents; this was a third. Below 48rem it
+  now scrolls away with the page, and the measurement that publishes its height
+  reports zero when it is not stuck. Re-measured: clear at 390 and at 1440.
+- **Download formats offered for a figure that does not exist.** The Chronology's
+  last plate arrives empty by default while CSV, SVG and PNG were all enabled;
+  the image formats failed into "The figure is still loading", blaming a load
+  for a state the reader chose. The buttons now ask whether there is a drawing,
+  not whether an accessor was supplied.
+
+One claim was **refuted** and no change was made: the Overview's year drill was
+reported to have no pointer affordance. A control run with the proposed fix
+removed measured `cursor: pointer` on hover regardless — ECharts' default was
+already right, and the original reading came from unhovered shapes. The rest of
+that finding stands (no hover emphasis, no focus target, no keyboard route).
+
+**A caveat on every "detector clean" line in this record.** The Impeccable
+detector routes any file outside `.html`/`.htm` to a text-only path that runs a
+subset of its rules. Probed with identical content: as `.svelte`, one finding;
+as `.html`, four. An empty scan of `web/src` therefore means no findings from
+the rules that survive the text path, not a clean markup audit. The contrast and
+target measurements it would have missed were taken in the browser instead.
+
+### What was left open, and why
+
+- A marked word's *register* is still told only by the hue of its underline.
+  The key above the record names each register beside its swatch, so the
+  information is on the page, but for one mark in a speech the hue is the only
+  code. Giving the underline a second code — a stroke pattern per register, the
+  way the Chronology's lines already cross hue with dash — is a decision about
+  the record's texture, and was not made under a hardening pass.
+- The Reader's "Back to the concordance" still discards the query.
+- The reading set is still shown on the Concordance, where the page states it
+  governs nothing.
+- The calendar heatmap is illegible at 390px: the SVG scales a 1220-unit
+  viewBox to 342px, so 9px labels render at 2.52 CSS px. The readable form, the
+  table beneath it, is closed and its summary does not say so.
+- Within a register shelf the Chronology's lines are told apart by lightness at
+  1.56–2.69:1, under the 3:1 floor, and above eight series the end labels give
+  way to a legend.
+- The calendar's hatch draws "withheld under the minimum" and "the Council held
+  no speeches" identically, and its key counts 387 of the 473 hatched cells.
+- The concordance promises 150 characters of context and draws 87–90 at 1440 and
+  20 at 390, and says the search is confined to what is displayed when it is
+  not. Copy, so the author's.
+- Back does not undo a filter on the concordance: nine narrowings use
+  `replaceState` while the reading set uses `goto`.
+- `.impeccable/config.json` carries a stale `ignoreValues` entry for rule
+  `side-tab` on the Chronology, whose stated reason — a 3px left border — no
+  longer exists in that file.
+- `.impeccable/config.json` records no `buildPath`. The roadmap's log settles
+  it in words (code-led, because this harness has no image generation); the key
+  is unset, so the drift report will keep raising it until someone writes
+  `"buildPath": "code"`.

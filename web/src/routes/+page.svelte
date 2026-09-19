@@ -137,11 +137,7 @@
 					name: 'share of all speeches held that year',
 					nameTextStyle: { color: p.inkFaint, fontSize: 11, align: 'right' },
 					splitLine: { show: false },
-					axisLabel: {
-						color: p.inkFaint,
-						fontSize: 12,
-						formatter: (v: number) => `${(v * 100).toFixed(0)}%`
-					}
+					axisLabel: { ...axisY(p).axisLabel, formatter: (v: number) => `${(v * 100).toFixed(0)}%` }
 				}
 			],
 			series: [
@@ -613,6 +609,14 @@
 
 	.swatch.ink {
 		background: var(--ink);
+	}
+
+	/* The key has to agree with the field it keys, and the field fills its
+	   counted squares in the reader's own text colour under forced colours. */
+	@media (forced-colors: active) {
+		.swatch.ink {
+			background: CanvasText;
+		}
 	}
 
 	.figures {

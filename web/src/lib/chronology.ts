@@ -240,7 +240,13 @@ export function intervalBand(
 		stack: `${name}${BAND_SUFFIX}`,
 		symbol: 'none' as const,
 		silent: true as const,
-		lineStyle: { opacity: 0 },
+		/* The colour matters even at zero opacity. Left unset, ECharts assigns
+		   the next entry of its stock palette, and the band's two invisible
+		   edges were serialised into every SVG download as `#5070dd`,
+		   `#b6d634`, `#505372`, `#ff994d` — off-token strokes, one of them
+		   blue, in a file governed by "blue is never a datum". Anything that
+		   drops opacity on the way to a slide brings them back. */
+		lineStyle: { color: colour, opacity: 0 },
 		emphasis: { disabled: true as const },
 		tooltip: { show: false as const },
 		z: 1

@@ -667,9 +667,13 @@
 				{
 					...axisY(p),
 					type: 'value',
+					/* Spread, not replaced: an override that rewrote the whole
+					   `axisLabel` to add a formatter also dropped the system's
+					   quiet ink and its font family, so the numbers a reader
+					   takes off this axis were set in faint ink in ECharts'
+					   default face. Only the formatter belongs here. */
 					axisLabel: {
-						color: p.inkFaint,
-						fontSize: 12,
+						...axisY(p).axisLabel,
 						formatter: (v: number) =>
 							unit === 'speech_rate' ? `${(v * 100).toFixed(1)}%` : count(v)
 					}
@@ -851,11 +855,7 @@
 			yAxis: {
 				...axisY(p),
 				type: 'value',
-				axisLabel: {
-					color: p.inkFaint,
-					fontSize: 12,
-					formatter: (v: number) => `${(v * 100).toFixed(0)}%`
-				}
+				axisLabel: { ...axisY(p).axisLabel, formatter: (v: number) => `${(v * 100).toFixed(0)}%` }
 			},
 			series: [
 				...block.categories.flatMap((category, i) =>
@@ -1703,6 +1703,21 @@
 	   the square keeps the key readable in both states. */
 	.chip.on::before {
 		outline: var(--hair) solid var(--paper);
+	}
+
+	/* The swatch is deliberately left to flatten with everything else. A reader
+	   in a forced-colour mode asked the system for two colours, and a key that
+	   kept six by opting out would be answering a question they did not ask —
+	   and would then disagree with a figure that had flattened anyway. Nothing
+	   is lost that the design did not already carry twice: the swatch's border
+	   keeps its dash, which is the same dash the line is drawn in, and the
+	   figure's own table carries every number the colours encode. Only the
+	   chosen chip needs restating, because its fill is the state. */
+	@media (forced-colors: active) {
+		.chip.on {
+			background: Highlight;
+			color: HighlightText;
+		}
 	}
 
 	/* A refusal, not an alarm: the rail is an ink hairline, and the register

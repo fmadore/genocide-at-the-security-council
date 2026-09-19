@@ -707,6 +707,28 @@ function evict(path: string, url: string): void {
 }
 
 /** Fetch and cache a JSON payload, keyed on its path. */
+/**
+ * What a reader is told when the request got no answer at all.
+ *
+ * A rejected fetch is not an HTTP status: it is offline, a dropped connection,
+ * or a request the service worker could not satisfy from its cache. The
+ * browser's own words for it are "Failed to fetch", which name neither the
+ * problem nor the way out — and three views print this string straight to the
+ * reader.
+ *
+ * Deliberately not the status sentence below. A 404 says the file is not in
+ * this release and there is nothing to wait for; this says the file is probably
+ * there and we could not reach it, and the two recoveries are different.
+ *
+ * Exported because `/semantic` fetches its 8.7 MB map itself, outside this
+ * cache, and a second wording of the same failure is how two pages start
+ * disagreeing about what offline means.
+ */
+export const unreachable = (path: string) =>
+	`Could not reach ${path}. There is no connection to the site, and this file ` +
+	`is not in the offline cache. Reconnect and reload the page; pages and ` +
+	`figures already visited stay available offline.`;
+
 export function json<T>(
 	path: string,
 	fetcher: typeof fetch = fetch,
@@ -717,6 +739,9 @@ export function json<T>(
 	evict(path, url);
 	if (!cache.has(url)) {
 		const request = fetcher(url)
+			.catch(() => {
+				throw new Error(unreachable(path));
+			})
 			.then((response) => {
 				if (!response.ok) {
 					// Two readers, one sentence. A visitor who followed a stale link

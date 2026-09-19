@@ -247,6 +247,13 @@ test('keyboard users retain the actor table and evidence link when the map fails
 	await expect(page.getByRole('heading', { name: 'Who said it', level: 1 })).toBeVisible();
 	await expect(page.getByRole('combobox', { name: 'Ranked by' })).toHaveValue('token_rate');
 	await expect(page).toHaveURL(/\/actors\/?\?order=token_rate$/);
+	// The map library arrives when its plate does, not when the page does: it is
+	// 950 kB for the third figure on the page, so nothing is fetched until the
+	// reader reaches it. Scrolling there is what a reader does, and without it
+	// the basemap this test blocks is never requested at all.
+	await page
+		.getByRole('group', { name: /^Map locating the ranked speakers/ })
+		.scrollIntoViewIfNeeded();
 	await expect(
 		page.getByRole('status').filter({ hasText: 'Every speaker it would show' })
 	).toContainText('Every speaker it would show is in the table', { timeout: 8_000 });

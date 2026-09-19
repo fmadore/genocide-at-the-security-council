@@ -86,7 +86,7 @@
 					vector-effect="non-scaling-stroke"
 				/>
 			</svg>
-			<div class="summary symbol">{row.summary}</div>
+			<div class="summary">{row.summary}</div>
 		</div>
 	{/each}
 
@@ -121,7 +121,7 @@
 						</g>
 					{/each}
 				</svg>
-				<div class="scale symbol">
+				<div class="scale">
 					<span>{axis.first}</span><span>{axis.mid}</span><span>{axis.last}</span>
 				</div>
 			</div>
@@ -160,9 +160,17 @@
 		display: block;
 	}
 
+	/* The grotesk, not the typewriter. These are a percentage and three years;
+	   the mono on this site belongs to a meeting symbol, a script name or a
+	   path, and the same percentages in this plate's own table were already set
+	   in the text face — one plate, one number, two faces. The tabular figures
+	   the `symbol` class used to bring are restored here, where they are what
+	   was actually wanted. */
 	.summary {
 		text-align: right;
 		color: var(--ink-3);
+		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums lining-nums;
 	}
 
 	/* The reference dates are an annotation on the shared axis, not a series. */
@@ -192,6 +200,8 @@
 		justify-content: space-between;
 		color: var(--ink-3);
 		margin-top: var(--sp-1);
+		font-size: var(--step--1);
+		font-variant-numeric: tabular-nums lining-nums;
 	}
 
 	@media (max-width: 40rem) {

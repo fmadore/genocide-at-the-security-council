@@ -325,7 +325,12 @@ a:hover {
    A flat tint, square, the one warm thing on the page. */
 mark {
 	background: var(--mark);
-	color: inherit;
+	/* Ink, not inherited. The ochre's contrast budget is written against `--ink`
+	   (13:1 on paper, 7.4:1 in dark), and a mark set inside quiet-ink prose —
+	   the standfirst is the one that bit — inherited `--ink-2` instead and
+	   measured 4.14:1 in the dark theme. The found word is also the strongest
+	   thing on its line by design, so full ink is what it should have been. */
+	color: var(--ink);
 	padding: 0.05em 0.14em;
 	box-decoration-break: clone;
 	-webkit-box-decoration-break: clone;
@@ -401,6 +406,10 @@ textarea {
 	border-radius: var(--radius);
 	min-height: 2.5rem;
 	padding: 0 var(--sp-3);
+	/* A select is as wide as its widest option, and "Rwanda - 120 delegations"
+	   is wider than a 320px window. Without this the control bar pushes the
+	   whole page sideways rather than clipping one label. */
+	max-width: 100%;
 	transition:
 		border-color var(--dur) var(--ease),
 		background var(--dur) var(--ease),
@@ -571,6 +580,51 @@ hr {
 /* Reduced motion is honoured where motion is authored — the chart, the
    disclosure chevron, the full-screen entrance, the contents strip — not by
    a blanket kill that also removes the feedback a state change needs. */
+
+/* ---- forced colours ---------------------------------------------------
+   Windows High Contrast and the other forced-colour modes replace every
+   authored colour with the reader's own pair and decline to paint `box-shadow`
+   at all. The site pays for that twice. The three colour layers collapse into
+   one, which is correct and not ours to fight: a reader who has asked for two
+   colours has asked for two colours. But the inset rule that marks a pressed
+   cell, the current section, a found word's register and a contested reading is
+   a shadow, and a shadow here is simply not drawn — so the state disappears
+   rather than changing colour.
+
+   What follows restores the distinctions, in system keywords so the reader's
+   palette still decides what they look like. Nothing opts out with
+   `forced-color-adjust`, including the figures: a reader who asked the system
+   for two colours is not to be answered with six. The hues are not restored
+   either, and the design does not need them to be — a register is carried by
+   the word, its title and the table under the figure, and a chart series is
+   told apart by its dash as well as its hue, which is geometry and survives. */
+
+@media (forced-colors: active) {
+	/* The pressed cell of a segmented group, and every chip filled the same
+	   way: the system's own selected pair, which is what a reader in this mode
+	   reads "chosen" as everywhere else. */
+	.segmented > [aria-pressed='true'],
+	.segmented > [aria-current='true'] {
+		background: Highlight;
+		color: HighlightText;
+	}
+
+	/* A marked word keeps the UA's own Mark pair; what it loses is the register
+	   rule under it. A border in the text colour keeps the fact that the word
+	   carries one — which register stays in its title and in the figure's key. */
+	mark[data-register] {
+		border-bottom: 2px solid CanvasText;
+	}
+
+	/* A disabled control must not read as an available one: `GrayText` is the
+	   only thing in this mode that says so. */
+	button:disabled,
+	select:disabled,
+	input:disabled {
+		color: GrayText;
+		border-color: GrayText;
+	}
+}
 
 /* ---- print. The figures are the thing most likely to leave the site. ---- */
 

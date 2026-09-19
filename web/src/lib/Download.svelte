@@ -128,7 +128,13 @@
 				{busy === 'csv' ? 'Building…' : 'CSV'}
 			</button>
 		{/if}
-		{#if spec.chart}
+		<!-- `spec.chart?.()`, not `spec.chart`. A figure whose body is empty still
+		     supplies the accessor — it is bound to a component reference that is
+		     simply null — so testing for the accessor offered SVG and PNG on a
+		     plate with nothing drawn, and the click failed into "The figure is
+		     still loading", which blames a load for a state the reader chose.
+		     Calling it asks the question the buttons are actually about. -->
+		{#if spec.chart?.()}
 			<button
 				type="button"
 				onclick={svg}

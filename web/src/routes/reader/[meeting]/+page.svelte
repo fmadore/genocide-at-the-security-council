@@ -19,7 +19,16 @@
 	import { basket } from '$lib/basket.svelte';
 	import { citationOf, occurrenceQuotation, toBibtex, toCslJson, toRis } from '$lib/citation';
 	import { filename, save } from '$lib/export';
-	import { count, isoDate, meetingLabel, shortCountry, termLabel, unSearch } from '$lib/format';
+	import {
+		count,
+		interpretedFrom,
+		isoDate,
+		meetingLabel,
+		namedLanguage,
+		shortCountry,
+		termLabel,
+		unSearch
+	} from '$lib/format';
 	import { SITE_NAME, type PageMetadata } from '$lib/seo';
 	import type { KwicLine, Meeting, Speech } from '$lib/types';
 	import { tick } from 'svelte';
@@ -368,9 +377,41 @@
 		)
 	);
 
+	/* The reader's toolbar sticks under the masthead, and on a phone it is
+	   400px tall — select, checkbox, six buttons and a prev/next pair, wrapped
+	   over five rows. Everything on this page that a link can aim at budgeted
+	   `--masthead-h + --contents-h + 1rem` = 72px of sticky chrome for the
+	   landing, so a deep link to an occurrence at 390px parked the marked word
+	   7px behind the bar it was supposed to be under. The bar wraps, so its
+	   height is measured rather than declared, exactly as the masthead's is. */
+	let toolbar = $state.raw<HTMLElement>();
+
+	$effect(() => {
+		const element = toolbar;
+		if (!element) {
+			document.documentElement.style.setProperty('--toolbar-h', '0px');
+			return;
+		}
+		const observer = new ResizeObserver(([entry]) => {
+			// Only a bar that is actually stuck to the top costs a link any room.
+			// Below 48rem it scrolls away with the page, and a landing that still
+			// budgeted 400px for it would park the marked word at the foot of the
+			// window with nothing under it to read.
+			const stuck = getComputedStyle(entry.target).position === 'sticky';
+			document.documentElement.style.setProperty(
+				'--toolbar-h',
+				stuck ? `${entry.target.getBoundingClientRect().height}px` : '0px'
+			);
+		});
+		observer.observe(element);
+		return () => {
+			observer.disconnect();
+			document.documentElement.style.setProperty('--toolbar-h', '0px');
+		};
+	});
+
 	const interpreted = $derived(
-		(record?.speeches ?? []).filter((s) => s.language && s.language.toLowerCase() !== 'english')
-			.length
+		(record?.speeches ?? []).filter((s) => interpretedFrom(s.language)).length
 	);
 	const readerMetadata = $derived<PageMetadata>({
 		path: `/reader/${encodeURIComponent(basename)}/`,
@@ -493,7 +534,7 @@
 			</div>
 		</aside>
 
-		<div class="toolbar">
+		<div class="toolbar" bind:this={toolbar}>
 			<label>
 				Highlight
 				<select bind:value={filterTerm}>
@@ -565,7 +606,7 @@
 								{shortCountry(speech.country)}
 								· {speech.group}
 								{#if speech.role}· {speech.role}{/if}
-								{#if speech.language}· spoke in {speech.language}{/if}
+								{#if namedLanguage(speech.language)}· spoke in {speech.language}{/if}
 							</span>
 						</span>
 						<span class="tags">
@@ -717,6 +758,20 @@
 		z-index: 2;
 	}
 
+	/* Below 48rem the bar wraps to five rows and stands 400px tall on a 780px
+	   window: stuck, it is 51% of the viewport, it follows the record down all
+	   24,000px of it, and a deep link to an occurrence lands behind it. The
+	   programme allows two sticky bands, the masthead and the contents; this is
+	   a third, and it is the one that can afford to scroll away. The citation
+	   cluster is not what a reader came for, and it is a screen away, not a
+	   page. The measurement above publishes zero for a bar that is not stuck, so
+	   nothing aiming at a speech budgets room the bar no longer occupies. */
+	@media (max-width: 48rem) {
+		.toolbar {
+			position: static;
+		}
+	}
+
 	label {
 		font-family: var(--sans);
 		font-size: var(--step--1);
@@ -815,7 +870,9 @@
 		border-bottom: var(--hair) solid var(--rule);
 		padding-bottom: var(--sp-3);
 		margin-bottom: var(--sp-3);
-		scroll-margin-top: calc(var(--masthead-h) + var(--contents-h) + var(--sp-4));
+		scroll-margin-top: calc(
+			var(--masthead-h) + var(--contents-h) + var(--toolbar-h, 0px) + var(--sp-4)
+		);
 	}
 
 	/* The speech a link asked for, set on the sunk stripe rather than behind a
@@ -929,7 +986,9 @@
 	.text mark.occurrence {
 		outline: 2px solid var(--blue);
 		outline-offset: 2px;
-		scroll-margin-top: calc(var(--masthead-h) + var(--contents-h) + var(--sp-4));
+		scroll-margin-top: calc(
+			var(--masthead-h) + var(--contents-h) + var(--toolbar-h, 0px) + var(--sp-4)
+		);
 	}
 
 	.speech-meta {

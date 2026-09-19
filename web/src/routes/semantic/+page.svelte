@@ -10,6 +10,7 @@
 	import SearchSelect from '$lib/SearchSelect.svelte';
 	import PageMeta from '$lib/PageMeta.svelte';
 	import { PAGE_METADATA } from '$lib/seo';
+	import { unreachable } from '$lib/data';
 	import {
 		validateMap,
 		validateNeighbours,
@@ -196,8 +197,12 @@
 				map = validateMap(data);
 				status = '';
 			})
-			.catch((error) => {
-				if (!controller.signal.aborted) status = error.message;
+			.catch((error: unknown) => {
+				if (controller.signal.aborted) return;
+				// A rejected fetch carries the browser's "Failed to fetch"; the
+				// statuses above carry sentences of their own and are kept.
+				status =
+					error instanceof TypeError ? unreachable('semantic/map.json') : (error as Error).message;
 			});
 		return () => {
 			controller.abort();
@@ -224,8 +229,12 @@
 				related = validateNeighbours(result, speech, known);
 				neighbourStatus = '';
 			})
-			.catch((error) => {
-				if (!controller.signal.aborted) neighbourStatus = error.message;
+			.catch((error: unknown) => {
+				if (controller.signal.aborted) return;
+				neighbourStatus =
+					error instanceof TypeError
+						? unreachable(`semantic/neighbours/${position % 256}.json`)
+						: (error as Error).message;
 			});
 		return () => controller.abort();
 	});

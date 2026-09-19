@@ -42,7 +42,6 @@
 	import { escapeHtml } from './format';
 	import type { MapPoint } from './actors';
 	import type { FeatureCollection } from 'geojson';
-	import 'maplibre-gl/dist/maplibre-gl.css';
 	/**
 	 * MapLibre's worker, bundled by us and handed over explicitly.
 	 *
@@ -224,87 +223,162 @@
 
 	onMount(() => {
 		let dead = false;
-		/**
-		 * A basemap that never arrives must stop claiming to be arriving.
-		 *
-		 * MapLibre drives `load` from its render loop, and a render loop is
-		 * `requestAnimationFrame`, which browsers do not run for a page that is
-		 * not visible. A reader who opens this view in a background tab, or whose
-		 * network drops the tiles, would otherwise sit on "Loading the basemap…"
-		 * for as long as the tab is open, with no hint that the same 133 rows are
-		 * already complete a screen further up. After this long, say so.
-		 */
-		const patience = window.setTimeout(() => {
-			if (!dead && !ready) slow = true;
-		}, 6000);
+		let started = false;
+		let patience = 0;
 
-		// Dynamic: maplibre-gl touches `window` at module scope, and every route
-		// on this site is prerendered to static HTML by adapter-static.
-		import('maplibre-gl')
-			.then(({ Map, NavigationControl, Popup, setWorkerUrl }) => {
-				if (dead) return;
-				setWorkerUrl(workerUrl);
-				// No close button and no close-on-click: it follows the pointer and
-				// leaves with it, so a control to dismiss it would never be used.
-				hover = new Popup({
-					closeButton: false,
-					closeOnClick: false,
-					offset: 14,
-					// MapLibre's default is a bare `240px`. In rem it follows the
-					// type scale the lines inside it are set in, and it is stated
-					// here rather than left implicit because the stylesheet below
-					// has cancelled it once already.
-					maxWidth: '17rem',
-					className: 'speaker-hover'
-				});
-				const instance = new Map({
-					container,
-					style: STYLES[untrack(() => $colourScheme)],
-					center: [10, 20],
-					zoom: 1.1,
-					attributionControl: { compact: true },
-					// Nothing here rewards tilting or rotating a locator.
-					pitchWithRotate: false,
-					dragRotate: false,
-					touchZoomRotate: true
-				});
-				instance.addControl(new NavigationControl({ showCompass: false }), 'top-right');
-				instance.on('load', () => {
+		/** How far ahead of the window the plate counts as reached. */
+		const MARGIN = 600;
+
+		/**
+		 * The library arrives when the plate does, not when the page does.
+		 *
+		 * This is the third plate on Actors: the two above it are the ranking and
+		 * the standing table, which is what most readers came for. MapLibre, its
+		 * worker and its stylesheet are 399 kB over the wire, and fetching them
+		 * at mount spent a slow connection's first two seconds on a map still
+		 * two screens below the fold — 600 kB before the table was readable,
+		 * against 201 kB now. The margin is generous on purpose: the fetch
+		 * should be finishing as the plate arrives, not starting.
+		 */
+		function boot() {
+			if (started || dead) return;
+			started = true;
+
+			/**
+			 * A basemap that never arrives must stop claiming to be arriving.
+			 *
+			 * MapLibre drives `load` from its render loop, and a render loop is
+			 * `requestAnimationFrame`, which browsers do not run for a page that is
+			 * not visible. A reader who opens this view in a background tab, or whose
+			 * network drops the tiles, would otherwise sit on "Loading the basemap…"
+			 * for as long as the tab is open, with no hint that the same 133 rows are
+			 * already complete a screen further up. After this long, say so.
+			 */
+			patience = window.setTimeout(() => {
+				if (!dead && !ready) slow = true;
+			}, 6000);
+
+			// Dynamic: maplibre-gl touches `window` at module scope, and every route
+			// on this site is prerendered to static HTML by adapter-static. The
+			// stylesheet rides along rather than being imported at the top of this
+			// file, so it is fetched with the library it dresses.
+			Promise.all([import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl.css')])
+				.then(([{ Map, NavigationControl, Popup, setWorkerUrl }]) => {
 					if (dead) return;
-					paint(instance);
-					ready = true;
-					slow = false;
+					setWorkerUrl(workerUrl);
+					// No close button and no close-on-click: it follows the pointer and
+					// leaves with it, so a control to dismiss it would never be used.
+					hover = new Popup({
+						closeButton: false,
+						closeOnClick: false,
+						offset: 14,
+						// MapLibre's default is a bare `240px`. In rem it follows the
+						// type scale the lines inside it are set in, and it is stated
+						// here rather than left implicit because the stylesheet below
+						// has cancelled it once already.
+						maxWidth: '17rem',
+						className: 'speaker-hover'
+					});
+					const instance = new Map({
+						container,
+						style: STYLES[untrack(() => $colourScheme)],
+						center: [10, 20],
+						zoom: 1.1,
+						attributionControl: { compact: true },
+						// Nothing here rewards tilting or rotating a locator.
+						pitchWithRotate: false,
+						dragRotate: false,
+						touchZoomRotate: true
+					});
+					instance.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+					instance.on('load', () => {
+						if (dead) return;
+						paint(instance);
+						ready = true;
+						slow = false;
+					});
+					// Tiles, glyphs and the style document all report here. Left
+					// unhandled, a basemap that 404s or a CORS refusal is a silent
+					// blank rectangle — MapLibre logs to the console and carries on.
+					instance.on('error', (event) => {
+						if (!dead && !ready) failed = event.error?.message ?? 'The basemap did not load.';
+					});
+					// `ready` is lowered as well as `lostContext` raised, because every
+					// effect below is already gated on it and none of them can run while
+					// the context is gone: MapLibre nulls `style` for the duration, and
+					// `getLayer`, `getSource` and `setPaintProperty` all read through it.
+					// Reusing the gate also means they re-run on restoration and re-apply
+					// the current theme and selection to the rebuilt layer.
+					instance.on('webglcontextlost', () => {
+						if (dead) return;
+						lostContext = true;
+						ready = false;
+					});
+					instance.on('webglcontextrestored', () => {
+						if (dead) return;
+						lostContext = false;
+						ready = true;
+					});
+					map = instance;
+				})
+				.catch((error: unknown) => {
+					failed = error instanceof Error ? error.message : 'The map library failed to load.';
 				});
-				// Tiles, glyphs and the style document all report here. Left
-				// unhandled, a basemap that 404s or a CORS refusal is a silent
-				// blank rectangle — MapLibre logs to the console and carries on.
-				instance.on('error', (event) => {
-					if (!dead && !ready) failed = event.error?.message ?? 'The basemap did not load.';
-				});
-				// `ready` is lowered as well as `lostContext` raised, because every
-				// effect below is already gated on it and none of them can run while
-				// the context is gone: MapLibre nulls `style` for the duration, and
-				// `getLayer`, `getSource` and `setPaintProperty` all read through it.
-				// Reusing the gate also means they re-run on restoration and re-apply
-				// the current theme and selection to the rebuilt layer.
-				instance.on('webglcontextlost', () => {
-					if (dead) return;
-					lostContext = true;
-					ready = false;
-				});
-				instance.on('webglcontextrestored', () => {
-					if (dead) return;
-					lostContext = false;
-					ready = true;
-				});
-				map = instance;
-			})
-			.catch((error: unknown) => {
-				failed = error instanceof Error ? error.message : 'The map library failed to load.';
-			});
+		}
+
+		/**
+		 * Two mechanisms, because neither is enough on its own.
+		 *
+		 * The observer is the right primitive for "the plate came into view": it
+		 * fires when the content above the map grows or shrinks, which no scroll
+		 * event reports. Its one hole is the instant jump — a deep link to an
+		 * anchor below the map, or `scrollTo(0, scrollHeight)` — where the
+		 * element goes from below the window to above it between two frames and
+		 * the ratio never leaves zero, so no second callback is delivered. The
+		 * passive listener closes that hole by asking where the plate is rather
+		 * than waiting to be told. Whichever wins, `boot()` runs once, and a
+		 * browser with no observer at all is left with the listener and the
+		 * first-frame check below.
+		 *
+		 * Reached, not visible: a reader who jumped past the plate has reached it
+		 * just as surely as one who scrolled onto it, and a map that refused to
+		 * load because the reader arrived too fast would be the worse bug.
+		 */
+		function reached() {
+			return container.getBoundingClientRect().top < window.innerHeight + MARGIN;
+		}
+		function check() {
+			if (started || !reached()) return;
+			stopWatching();
+			boot();
+		}
+		const watcher =
+			typeof IntersectionObserver === 'function'
+				? new IntersectionObserver(
+						(entries) => {
+							if (!entries.some((entry) => entry.isIntersecting)) return;
+							stopWatching();
+							boot();
+						},
+						{ rootMargin: `${MARGIN}px` }
+					)
+				: null;
+		function stopWatching() {
+			watcher?.disconnect();
+			window.removeEventListener('scroll', check);
+			window.removeEventListener('resize', check);
+		}
+
+		watcher?.observe(container);
+		window.addEventListener('scroll', check, { passive: true });
+		window.addEventListener('resize', check);
+		// A window tall enough, or a link deep enough, and the plate is already
+		// here on the first frame.
+		check();
 
 		return () => {
 			dead = true;
+			stopWatching();
 			window.clearTimeout(patience);
 			hover?.remove();
 			map?.remove();

@@ -1137,7 +1137,23 @@
 	   styling the same characters twice. */
 	mark.hit {
 		background: none;
-		box-shadow: inset 0 -2px 0 var(--blue-flag);
+		/* `--blue`, not `--blue-flag`. The flag blue measured 3.14:1 on paper and
+		   2.80:1 on the zebra row — under the 3:1 floor a non-text indicator has
+		   to clear, and this rule is the only code the reader's own search term
+		   carries. It was also the focus-ring token, so one colour was saying
+		   two things on the same row. `--blue` is 7.0:1 and is the interaction
+		   layer's own value; the ring keeps the flag to itself. */
+		box-shadow: inset 0 -2px 0 var(--blue);
+	}
+
+	/* The rule under a query hit is a shadow and is not painted in a
+	   forced-colour mode, which would leave the reader's own search looking like
+	   ordinary context beside a node that keeps the UA's mark colours. A border
+	   draws the same line in the reader's palette. */
+	@media (forced-colors: active) {
+		mark.hit {
+			border-bottom: 2px solid CanvasText;
+		}
 	}
 
 	.right {
@@ -1336,6 +1352,16 @@
 	.delegates .chip[aria-pressed='true']:hover {
 		background: var(--ink);
 		color: var(--paper);
+	}
+
+	/* The fill is what says "filtering by this delegation", and a forced-colour
+	   mode takes fills away. The system's selected pair says it instead. */
+	@media (forced-colors: active) {
+		.delegates .chip[aria-pressed='true'],
+		.delegates .chip[aria-pressed='true']:hover {
+			background: Highlight;
+			color: HighlightText;
+		}
 	}
 
 	.reading-set .source {

@@ -72,6 +72,20 @@
 		}
 	}
 
+	/* The counted part is a background, and a background is the first thing a
+	   forced-colour mode replaces: the field would read as one empty grid. The
+	   reader's own text colour fills the squares instead, so the share stays
+	   countable in whatever two colours they chose. */
+	@media (forced-colors: active) {
+		.field i {
+			border-color: CanvasText;
+		}
+
+		.field i.ink {
+			background: CanvasText;
+		}
+	}
+
 	@media print {
 		.field i.ink {
 			background: #000;

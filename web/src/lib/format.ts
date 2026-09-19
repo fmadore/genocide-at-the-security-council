@@ -138,6 +138,27 @@ const SHORT: Record<string, string> = {
 
 export const shortCountry = (name: string) => SHORT[name] ?? name;
 
+/**
+ * Whether a speech's language field names a language at all.
+ *
+ * The corpus writes `Unknown` where the source recorded none, and that is every
+ * speech in it: the field is present on all 167,642 and names a language on
+ * none. Read as "some language, and not English", `Unknown` made the reader's
+ * apparatus publish "179 speeches carry a non-English language label" on a
+ * meeting held in English, and printed "spoke in Unknown" under every speaker.
+ * A sentinel is an absent value wearing a name; it is treated as absent.
+ *
+ * Here rather than in the reader because two places read the same field for two
+ * different sentences, and a second copy of this test is how they would come to
+ * disagree about what the record says.
+ */
+export const namedLanguage = (language: string | null | undefined): boolean =>
+	!!language && language.toLowerCase() !== 'unknown';
+
+/** A language the record names, and which is not the language the record is in. */
+export const interpretedFrom = (language: string | null | undefined): boolean =>
+	namedLanguage(language) && language!.toLowerCase() !== 'english';
+
 export function isoDate(value: string): string {
 	const date = new Date(value);
 	return Number.isNaN(date.valueOf())

@@ -241,6 +241,8 @@ quarantined six-hue data ramp — twenty-two tokens, each declared in both theme
 
 **The Blue Is Interaction Rule.** UN flag blue carries links, focus rings and controls. A chart series is ink, a weight of ink, or a register hue — never blue.
 
+**The Two Colours Rule.** A forced-colour mode is a third theme, not a failure of the first two. The hues are given up there and not fought for: nothing opts out with `forced-color-adjust`, the figures included, because a reader who asked the system for two colours is not to be answered with six. What is restored, in system keywords, is only what would otherwise vanish without a replacement — a pressed cell (`Highlight`/`HighlightText`), the counted squares of the unit field and its key (`CanvasText`), and every rule that was drawn as an inset shadow. A register survives as the word, its title and the table beneath the figure; a chart series survives as its dash, which is geometry.
+
 **The Quarantine Rule.** Register hues live inside plates. They may not colour a control's edge, a chip's ground, a heading or a page rail; a chip carries its series colour as a 0.625rem square swatch before the words.
 
 ## Typography
@@ -286,9 +288,13 @@ disclosure running full width beneath both. The tally's four numbers run twelve
 columns stacked, six at 40rem, three at 64rem. The overview title takes nine of
 twelve from 64rem.
 
-Breakpoints observed: 40rem (type and unit-field row length), 44rem (the exit
-index collapses to one column), 48rem (apparatus pairs; the running head drops
-its label), 64rem (gutter, apparatus fives, 48 squares to a row).
+Breakpoints observed: 30rem (the reading set turns on its side), 40rem (type
+and unit-field row length), 44rem (the exit index collapses to one column),
+48rem (apparatus pairs; the running head drops its label), 64rem (gutter,
+apparatus fives, 48 squares to a row). The floor the page is held to is 320px:
+nothing on any route may put a horizontal scrollbar on the document there,
+which is the reflow width WCAG 2.2 measures and what 400% zoom leaves of a
+1280px window.
 
 Two sticky bands: the masthead at `z-index: 100`, the figure contents band
 directly under it at `90`, with `scroll-padding-top` computed from both plus
@@ -315,6 +321,8 @@ as light:
 ### Named Rules
 
 **The Nothing Is Boxed Rule.** Separation is a rule or space. Radius is 0 everywhere, drop shadows are banned outright, and the only permitted shadow is an inset underline standing in for a rule.
+
+**The Shadow Has A Twin Rule.** A forced-colour mode paints no `box-shadow` at all, so every inset underline that carries a state — the current section, the current contents entry, a register, a query hit, a contested reading — is declared a second time there as a border or a thick underline. An inset rule that marks a state and has no twin is a state that disappears.
 
 **The Heavy Rule.** 3px of ink opens the page (the body's top border), each plate, the footer, and marks the current section; 1px of ink is a structural division; 1px of `rule` grey separates rows. There is no fourth weight.
 
@@ -345,6 +353,8 @@ replaces the native one in ink and reverses to `#f2f2f2` in dark.
 - **Style:** the only button-group pattern on the site. One 1px ink border around the whole group, each cell divided by a 1px ink border-left, cells at the full 2.5rem control height so the group sits on the same centre line as the selects beside it.
 - **State:** unselected cells are explicit paper with quiet-ink text (never transparent, so forced-colour modes cannot borrow the neighbour's ground); the selected cell (`aria-pressed`/`aria-current="true"`, or the reading-set radio's checked label) is ink ground with paper text.
 - **Uses:** the reading set (real radios drawn by their labels, the input covering the cell at `opacity: 0`), and the CSV/SVG/PNG download group.
+- **Narrow:** below 30rem the group turns on its side — the dividing rule moves from the inline start of each cell to its top, the cells take the full width, and each name sits opposite its count. It is still one rectangle divided by hairlines, and the three counts read down a column rather than across a row, which is the comparison the control exists to make.
+- **Shrinking:** a control inside a plate's bar may not carry the page sideways. The bar's children shrink (`min-width: 0`), and a `select` is capped at the width of its bar rather than the width of its longest option.
 
 ### Chips
 - **Style:** a 2rem compact control — 1px ink hairline, paper ground, sentence case at 500 — carrying its series colour as a 0.625rem filled square before the words, its border drawn in the series' own dash so the key agrees with the line on the chart.
@@ -429,6 +439,7 @@ would sit, over the hairline baseline the plot will draw on — nothing moves.
 - **Do** hold prose to the single 38rem measure and let plates take all twelve columns.
 - **Do** make every figure print and export cleanly: print restores black on white, prints the URL after an external link in mono, and forbids a break inside a figure or table.
 - **Do** meet WCAG 2.2 AA as the floor, and code a register or a provenance kind in shape, weight or dash as well as in colour.
+- **Do** give every state drawn as an inset shadow a twin under `forced-colors: active`, and hold every route to 320px without a horizontal scrollbar.
 - **Do** put a colour key in a 0.625rem square before the words, so the words stay ink.
 - **Do** keep hierarchy in weight and position: sentence case at 600 for every label.
 
@@ -442,4 +453,5 @@ would sit, over the hairline baseline the plot will draw on — nothing moves.
 - **Don't** colour a control, a chip's ground or an edge with a register hue; the register ramp stays inside the plates.
 - **Don't** use blue for a datum — no blue series, no blue bar, no blue fill on a chart.
 - **Don't** add a drop shadow; the only permitted shadow is an inset underline standing in for a rule.
+- **Don't** opt anything out of a forced-colour mode with `forced-color-adjust`, the figures included.
 - **Don't** introduce a spacing, type or rule value that is not on the named scale.

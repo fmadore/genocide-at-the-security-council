@@ -169,6 +169,40 @@
 		font-weight: 400;
 	}
 
+	/* Below 30rem the three cells no longer fit on one line, and a row that does
+	   not fit is a page that scrolls sideways — the reading set was pushing every
+	   view it appears on 46px past a 320px window. The group turns on its side
+	   rather than wrapping: it is still one rectangle divided by 1px rules, and
+	   the three counts now stack into a column a reader can compare down rather
+	   than across, which is the whole reason these are radios and not a select. */
+	@media (max-width: 30rem) {
+		.options {
+			flex-direction: column;
+			width: 100%;
+		}
+
+		label {
+			justify-content: space-between;
+			border-left: 0;
+			border-top: var(--hair) solid var(--ink);
+		}
+
+		label:first-child {
+			border-top: 0;
+		}
+	}
+
+	/* The filled cell is a background, and a background is the first thing a
+	   forced-colour mode takes away. The system's selected pair says the same
+	   thing in the reader's own two colours. */
+	@media (forced-colors: active) {
+		label.on,
+		label.on:hover {
+			background: Highlight;
+			color: HighlightText;
+		}
+	}
+
 	.says {
 		margin: 0;
 		font-family: var(--sans);

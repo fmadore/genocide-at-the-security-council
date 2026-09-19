@@ -120,6 +120,23 @@ describe('what a bad response is turned into', () => {
 		await expect(collocates(fetcher)).rejects.toThrow(/Try again or reload/);
 	});
 
+	it('tells a dead connection from a file this release does not carry', async () => {
+		const { collocates } = await fresh();
+		// What a browser hands back when it cannot reach the origin at all, and
+		// what the service worker rethrows when the file is in no cache either.
+		const offline = (() =>
+			Promise.reject(new TypeError('Failed to fetch'))) as unknown as typeof fetch;
+
+		// The browser's own words name neither the problem nor the way out, and
+		// the concordance and the reader print this sentence to the reader.
+		await expect(collocates(offline)).rejects.toThrow(/Could not reach lexical\/collocates\.json/);
+		await expect(collocates(offline)).rejects.toThrow(/no connection to the site/);
+		await expect(collocates(offline)).rejects.toThrow(/Reconnect and reload/);
+		// Not the status sentence: a 404 says the file is not in this release,
+		// and the two recoveries are different.
+		await expect(collocates(offline)).rejects.not.toThrow(/HTTP/);
+	});
+
 	it('names every missing field at once rather than one per attempt', async () => {
 		const { annual } = await fresh();
 		const { fetcher } = responder({ meta, periods: [1992] });

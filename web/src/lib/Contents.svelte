@@ -229,6 +229,16 @@
 		box-shadow: inset 0 -3px 0 var(--ink);
 	}
 
+	/* As in the masthead: the shadow is not painted in a forced-colour mode, so
+	   the entry a reader is on says so with an underline that costs no height. */
+	@media (forced-colors: active) {
+		a[aria-current='location'] {
+			text-decoration: underline;
+			text-decoration-thickness: 3px;
+			text-underline-offset: 0.4em;
+		}
+	}
+
 	@media print {
 		.contents {
 			position: static;

@@ -313,3 +313,74 @@ Work on a branch per phase (`design/phase-3-full-width`, then
   (P2); MapLibre loads at mount on Actors (P2); the Concordance scope band
   governs nothing on that page (a product decision); the exit index keeps
   its seven destinations because copy is frozen.
+
+### 19 September 2026: Phase 5 done, Phase 6 closed out
+
+- **Phase 5.1, harden.** The roadmap's seven cases were run against real data
+  rather than invented data. The corpus's longest delegation name is 242
+  characters and its longest speaker role 239, well past the 60 the roadmap
+  assumed; both wrap without overflow, so nothing needed doing there. The
+  largest real meeting is 179 speeches, not 400, and the Reader draws it clean
+  at 320px and at 1440px. Zero-match scopes and a missing meeting already had
+  empty and error states with a recovery.
+  Three cases did need work, and got it: **320px reflow** (three routes put a
+  horizontal scrollbar on the document; all nine are clean now), **forced
+  colours** (every state drawn as an inset shadow was invisible; each now has a
+  twin, and `DESIGN.md` carries the Two Colours Rule and the Shadow Has A Twin
+  Rule), and **a dead connection** (the browser's "Failed to fetch" reached the
+  reader on three views; there is now one sentence for it, shared with the
+  semantic map's own fetch).
+- **Phase 5.2, optimize.** MapLibre now arrives with its plate instead of at
+  mount: /actors falls from 600.5 kB to 201.2 kB before the map is reached, and
+  from 39 requests to 32. ECharts was already tree-shaken and split per route;
+  it is confirmed, not changed. Overview LCP and the concordance filter are
+  unchanged, which is the expected answer — nothing on those paths was touched.
+  One e2e spec now scrolls to the map before asserting on a blocked basemap;
+  no assertion was removed.
+- **Phase 5.3, audit.** 19/20, up from 15/20 on 14 September, at
+  `.impeccable/audit/2026-09-19-web-src.md`. Accessibility holds at 3, but for
+  a different reason: the 24px target violations are gone and what holds it
+  there now is that a mark's register is told only by the hue of its underline.
+  The other four dimensions each gain a point. Detector empty.
+- **Phase 6.7, document and doctor.** `DESIGN.md` and the sidecar were
+  refreshed rather than regenerated: two named rules, one breakpoint (30rem),
+  the segmented group's narrow and shrinking behaviour, and one do and one
+  don't. Doctor reports one `mention`: `.impeccable/config.json` records no
+  `buildPath`. This project settled that in words on 14 September (code-led, no
+  image generation in this harness) and the key is simply unwritten; writing
+  `"buildPath": "code"` would silence it.
+- **Phase 6.6, the re-run critiques.** Three isolated dual-agent passes
+  (Overview, Chronology, Concordance + Reader) under `.impeccable/critique/`.
+  The design-specificity verdict moved from "the scaffold is interchangeable" to
+  **partly grounded** on all three, which is the movement this phase existed to
+  test. Scores: Overview 25/36 → 26/36, Chronology 27/40 → 28/40, Concordance
+  25/40 → **22/40**. The Concordance fell, and the reason is worth keeping: the
+  redesign delivered width and identity, and that route's losses are in control
+  surface and browser history, which no phase of this roadmap touched.
+  The critiques found defects the Phase 5.3 audit did not, and six were repaired
+  in the same session: a false published number on every meeting page (the
+  corpus's `Unknown` language sentinel read as a foreign language), two contrast
+  failures under their floors, ECharts' stock palette serialised invisibly into
+  every Chronology SVG download, two axis overrides that dropped the design
+  system's colour and font, a deep link landing behind a 400px sticky toolbar at
+  phone width, and image downloads offered for a figure that does not exist. One
+  claim was refuted by a control run and nothing was changed for it.
+  Five findings are left open and ranked in the snapshots; the heaviest is the
+  calendar heatmap rendering its labels at 2.52 CSS px at 390px.
+- **A caveat that applies backwards.** The detector routes any file outside
+  `.html`/`.htm` to a text-only path running a subset of its rules: identical
+  content scanned as `.svelte` gives one finding and as `.html` gives four. Every
+  "detector clean" line in this log — Phase 1's, 14 September's and Phase 5.3's —
+  should be read as "no findings from the rules that survive the text path",
+  not as a clean markup audit.
+- **Phase 6.8.** Recorded in `docs/VALIDATION.md` under "Design hardening and
+  payload, 19 September 2026".
+
+### Where this leaves the roadmap
+
+Phases 0 to 6 are done. What the last pass makes clear is that the roadmap's own
+frame — width, then identity, then hardening — never had a phase for the control
+surfaces, and that is where the one route that lost points lost them. A next
+round would start from the three critique snapshots rather than from this
+document, and its first three items are the heatmap at phone width, the register
+ladder's 1.56:1 lines, and the concordance's nine invisible filters.

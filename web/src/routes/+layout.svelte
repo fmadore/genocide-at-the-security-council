@@ -394,6 +394,18 @@
 		box-shadow: inset 0 calc(-1 * var(--heavy)) 0 var(--ink);
 	}
 
+	/* The rule is a shadow, and a forced-colour mode does not paint shadows: the
+	   section a reader is on would lose its only mark. An underline says it
+	   instead, thick and set low, and moves nothing — which is why the rule was
+	   a shadow in the first place. */
+	@media (forced-colors: active) {
+		nav a.active {
+			text-decoration: underline;
+			text-decoration-thickness: var(--heavy);
+			text-underline-offset: 0.5em;
+		}
+	}
+
 	main {
 		max-width: var(--page);
 		margin: 0 auto;

@@ -423,6 +423,20 @@
 		border-bottom: var(--hair) solid var(--rule);
 	}
 
+	/* A flex item refuses to shrink below the width of its content, and a
+	   control here is usually a label wrapped around a select as wide as its
+	   longest option. Wrapping to the next line does not help when one item is
+	   already wider than the line; without this the bar carries the page
+	   sideways.
+
+	   `:global` because the bar's contents are a snippet the calling page
+	   declares: they carry that page's scope, not this one's, so a scoped child
+	   selector here would match nothing at all. */
+	.controls > :global(*) {
+		min-width: 0;
+		max-width: 100%;
+	}
+
 	.body {
 		min-width: 0;
 		overflow-x: auto;
