@@ -480,6 +480,22 @@
 		)
 	);
 
+	/**
+	 * Selected, carried by the artefact, and drawable in the chosen unit.
+	 *
+	 * All three conditions, in one place, because the chart and the table used to
+	 * apply different ones. The chart asked for all three; the table asked only
+	 * whether the unit could show the term, and `unavailable` does not answer the
+	 * prior question of whether the term is in the payload at all. This page opens
+	 * on four named terms, so an artefact whose lexicon does not carry one of them
+	 * reached `allMeasures[name][unit]` on an undefined measure and took the whole
+	 * route down with a 500 — no figure, no apparatus, no table, nothing to say
+	 * what had happened.
+	 */
+	const usable = $derived(
+		selected.filter((name) => allMeasures[name] && !unavailable.includes(name))
+	);
+
 	/* One stroke per term, assigned over the whole measure list rather than over
 	   the selection so a term is drawn the same way whatever else is on the
 	   chart. A term with no register of its own is drawn in ink, not in the
@@ -567,7 +583,6 @@
 
 	const main: EChartsOption = $derived.by(() => {
 		const p = $colours;
-		const usable = selected.filter((n) => allMeasures[n] && !unavailable.includes(n));
 		const named = usable.length <= LABELLABLE;
 		// The band is drawn only for the share of speeches: it is the one unit
 		// that is a proportion with a known denominator, so it is the one unit
@@ -1146,17 +1161,14 @@
 			<table>
 				<thead
 					><tr
-						><th>Period</th
-						>{#each selected.filter((name) => !unavailable.includes(name)) as name (name)}<th
-								class="num">{measureLabel(name)}</th
+						><th>Period</th>{#each usable as name (name)}<th class="num">{measureLabel(name)}</th
 							>{/each}</tr
 					></thead
 				>
 				<tbody>
 					{#each periods as period, index (period)}
 						<tr
-							><td>{period}</td
-							>{#each selected.filter((name) => !unavailable.includes(name)) as name (name)}{@const value =
+							><td>{period}</td>{#each usable as name (name)}{@const value =
 									unit === 'speech_rate'
 										? percent(Number(allMeasures[name][unit]?.[index] ?? 0))
 										: decimal(Number(allMeasures[name][unit]?.[index] ?? 0))}<td class="num"

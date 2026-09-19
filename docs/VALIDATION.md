@@ -1371,13 +1371,33 @@ what `drillChronology` produces; inert while the disclosure is closed, so the
 page's tab-stop count is unchanged; and reached by focus and Enter the link
 lands on the filtered concordance with its lines drawn.
 
-**A gap this turned up.** No Playwright journey covers the Chronology, because
-the route returns 500 under the fixture set: `series/quarterly.json`,
-`series/monthly.json` and `series/breakdowns.json` are not in
-`web/e2e/fixtures/`. The densest page on the site — six plates, the calendar,
-the change-point test — has no browser coverage at all, and that is a plausible
-reason several of its defects survived to this pass. Building those three
-fixtures is the prerequisite for testing any of it.
+**A gap this turned up, and what closing it found.** No Playwright journey
+covered the Chronology, because the route answered 500 under the fixture set:
+`series/quarterly.json`, `series/monthly.json` and `series/breakdowns.json` were
+absent from `web/e2e/fixtures/`. The densest page on the site — six plates, the
+calendar, the change-point test — had no browser coverage at all.
+
+The three fixtures are now committed, and building them turned up the reason the
+route was failing, which was not the missing files alone. The page opens on four
+named terms, and the fixture lexicon carries one. The **chart** had always
+filtered its selection on three conditions — selected, present in the artefact,
+drawable in the chosen unit — but the **table** filtered on two, because
+`unavailable` answers "can this unit show the term" and never the prior question
+of whether the payload carries it at all. An absent term therefore reached
+`allMeasures[name][unit]` on an undefined measure and took the whole route down:
+no figures, no apparatus, no table, and nothing on the page to say what had
+happened. The guard is now derived once and both readers use it, so a release
+whose lexicon drops one of the four opening terms loses a line rather than a
+page.
+
+The fixtures carry all three states the calendar can draw — 25 months divided
+by, 8 too thin to divide by, 3 the Council did not sit in — because a fixture
+holding only one cannot catch the day two of them merge. Five journeys now cover
+the route: that it draws its six plates and passes axe, that a term the artefact
+does not carry is dropped rather than fatal, that every plotted value opens its
+passages and can be reached by keyboard, that the hatch marks exactly what the
+key counts, and that no label on the calendar falls below 10 CSS pixels at
+390px. The suite goes from 46 journeys to 51.
 
 ### What was left open, and why
 

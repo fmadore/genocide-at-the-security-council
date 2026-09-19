@@ -1,0 +1,452 @@
+{
+	"meta": {
+		"script": "04_series.py",
+		"generated": "2026-08-24T00:00:00Z",
+		"git_commit": "fixture",
+		"lexicon_version": 2,
+		"speakers": 2,
+		"inputs": [
+			{
+				"path": "speeches_flagged.parquet",
+				"sha256": "fixture-input"
+			}
+		],
+		"configs": [
+			{
+				"path": "config/lexicon.yml",
+				"sha256": "fixture-config"
+			}
+		]
+	},
+	"freq": "year",
+	"measures": {
+		"genocide": {
+			"speaker_group": {
+				"categories": ["P5", "E10"],
+				"rows": [
+					{
+						"period": 1992,
+						"category": "P5",
+						"held": 20,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.1,
+						"speech_rate_low": 0.07,
+						"speech_rate_high": 0.15,
+						"token_rate": 166.67
+					},
+					{
+						"period": 1992,
+						"category": "E10",
+						"held": 25,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.08,
+						"speech_rate_low": 0.05,
+						"speech_rate_high": 0.13,
+						"token_rate": 133.33
+					},
+					{
+						"period": 1994,
+						"category": "P5",
+						"held": 20,
+						"speeches": 5,
+						"occurrences": 10,
+						"speech_rate": 0.25,
+						"speech_rate_low": 0.22,
+						"speech_rate_high": 0.3,
+						"token_rate": 416.67
+					},
+					{
+						"period": 1994,
+						"category": "E10",
+						"held": 25,
+						"speeches": 4,
+						"occurrences": 8,
+						"speech_rate": 0.16,
+						"speech_rate_low": 0.13,
+						"speech_rate_high": 0.21,
+						"token_rate": 266.67
+					},
+					{
+						"period": 2023,
+						"category": "P5",
+						"held": 20,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.1,
+						"speech_rate_low": 0.07,
+						"speech_rate_high": 0.15,
+						"token_rate": 166.67
+					},
+					{
+						"period": 2023,
+						"category": "E10",
+						"held": 25,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.08,
+						"speech_rate_low": 0.05,
+						"speech_rate_high": 0.13,
+						"token_rate": 133.33
+					}
+				]
+			},
+			"entity_type": {
+				"categories": ["state", "un"],
+				"rows": [
+					{
+						"period": 1992,
+						"category": "state",
+						"held": 20,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.1,
+						"speech_rate_low": 0.07,
+						"speech_rate_high": 0.15,
+						"token_rate": 166.67
+					},
+					{
+						"period": 1992,
+						"category": "un",
+						"held": 25,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.08,
+						"speech_rate_low": 0.05,
+						"speech_rate_high": 0.13,
+						"token_rate": 133.33
+					},
+					{
+						"period": 1994,
+						"category": "state",
+						"held": 20,
+						"speeches": 5,
+						"occurrences": 10,
+						"speech_rate": 0.25,
+						"speech_rate_low": 0.22,
+						"speech_rate_high": 0.3,
+						"token_rate": 416.67
+					},
+					{
+						"period": 1994,
+						"category": "un",
+						"held": 25,
+						"speeches": 4,
+						"occurrences": 8,
+						"speech_rate": 0.16,
+						"speech_rate_low": 0.13,
+						"speech_rate_high": 0.21,
+						"token_rate": 266.67
+					},
+					{
+						"period": 2023,
+						"category": "state",
+						"held": 20,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.1,
+						"speech_rate_low": 0.07,
+						"speech_rate_high": 0.15,
+						"token_rate": 166.67
+					},
+					{
+						"period": 2023,
+						"category": "un",
+						"held": 25,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.08,
+						"speech_rate_low": 0.05,
+						"speech_rate_high": 0.13,
+						"token_rate": 133.33
+					}
+				]
+			},
+			"participanttype": {
+				"categories": ["Member", "Invited"],
+				"rows": [
+					{
+						"period": 1992,
+						"category": "Member",
+						"held": 20,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.1,
+						"speech_rate_low": 0.07,
+						"speech_rate_high": 0.15,
+						"token_rate": 166.67
+					},
+					{
+						"period": 1992,
+						"category": "Invited",
+						"held": 25,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.08,
+						"speech_rate_low": 0.05,
+						"speech_rate_high": 0.13,
+						"token_rate": 133.33
+					},
+					{
+						"period": 1994,
+						"category": "Member",
+						"held": 20,
+						"speeches": 5,
+						"occurrences": 10,
+						"speech_rate": 0.25,
+						"speech_rate_low": 0.22,
+						"speech_rate_high": 0.3,
+						"token_rate": 416.67
+					},
+					{
+						"period": 1994,
+						"category": "Invited",
+						"held": 25,
+						"speeches": 4,
+						"occurrences": 8,
+						"speech_rate": 0.16,
+						"speech_rate_low": 0.13,
+						"speech_rate_high": 0.21,
+						"token_rate": 266.67
+					},
+					{
+						"period": 2023,
+						"category": "Member",
+						"held": 20,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.1,
+						"speech_rate_low": 0.07,
+						"speech_rate_high": 0.15,
+						"token_rate": 166.67
+					},
+					{
+						"period": 2023,
+						"category": "Invited",
+						"held": 25,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.08,
+						"speech_rate_low": 0.05,
+						"speech_rate_high": 0.13,
+						"token_rate": 133.33
+					}
+				]
+			},
+			"agenda_item1": {
+				"categories": ["Africa", "Europe"],
+				"rows": [
+					{
+						"period": 1992,
+						"category": "Africa",
+						"held": 20,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.1,
+						"speech_rate_low": 0.07,
+						"speech_rate_high": 0.15,
+						"token_rate": 166.67
+					},
+					{
+						"period": 1992,
+						"category": "Europe",
+						"held": 25,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.08,
+						"speech_rate_low": 0.05,
+						"speech_rate_high": 0.13,
+						"token_rate": 133.33
+					},
+					{
+						"period": 1994,
+						"category": "Africa",
+						"held": 20,
+						"speeches": 5,
+						"occurrences": 10,
+						"speech_rate": 0.25,
+						"speech_rate_low": 0.22,
+						"speech_rate_high": 0.3,
+						"token_rate": 416.67
+					},
+					{
+						"period": 1994,
+						"category": "Europe",
+						"held": 25,
+						"speeches": 4,
+						"occurrences": 8,
+						"speech_rate": 0.16,
+						"speech_rate_low": 0.13,
+						"speech_rate_high": 0.21,
+						"token_rate": 266.67
+					},
+					{
+						"period": 2023,
+						"category": "Africa",
+						"held": 20,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.1,
+						"speech_rate_low": 0.07,
+						"speech_rate_high": 0.15,
+						"token_rate": 166.67
+					},
+					{
+						"period": 2023,
+						"category": "Europe",
+						"held": 25,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.08,
+						"speech_rate_low": 0.05,
+						"speech_rate_high": 0.13,
+						"token_rate": 133.33
+					}
+				]
+			},
+			"agenda_item_manual": {
+				"categories": ["Protection of civilians", "Rwanda"],
+				"rows": [
+					{
+						"period": 1992,
+						"category": "Protection of civilians",
+						"held": 20,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.1,
+						"speech_rate_low": 0.07,
+						"speech_rate_high": 0.15,
+						"token_rate": 166.67
+					},
+					{
+						"period": 1992,
+						"category": "Rwanda",
+						"held": 25,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.08,
+						"speech_rate_low": 0.05,
+						"speech_rate_high": 0.13,
+						"token_rate": 133.33
+					},
+					{
+						"period": 1994,
+						"category": "Protection of civilians",
+						"held": 20,
+						"speeches": 5,
+						"occurrences": 10,
+						"speech_rate": 0.25,
+						"speech_rate_low": 0.22,
+						"speech_rate_high": 0.3,
+						"token_rate": 416.67
+					},
+					{
+						"period": 1994,
+						"category": "Rwanda",
+						"held": 25,
+						"speeches": 4,
+						"occurrences": 8,
+						"speech_rate": 0.16,
+						"speech_rate_low": 0.13,
+						"speech_rate_high": 0.21,
+						"token_rate": 266.67
+					},
+					{
+						"period": 2023,
+						"category": "Protection of civilians",
+						"held": 20,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.1,
+						"speech_rate_low": 0.07,
+						"speech_rate_high": 0.15,
+						"token_rate": 166.67
+					},
+					{
+						"period": 2023,
+						"category": "Rwanda",
+						"held": 25,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.08,
+						"speech_rate_low": 0.05,
+						"speech_rate_high": 0.13,
+						"token_rate": 133.33
+					}
+				]
+			},
+			"delivery_language": {
+				"categories": ["English", "French"],
+				"rows": [
+					{
+						"period": 1992,
+						"category": "English",
+						"held": 20,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.1,
+						"speech_rate_low": 0.07,
+						"speech_rate_high": 0.15,
+						"token_rate": 166.67
+					},
+					{
+						"period": 1992,
+						"category": "French",
+						"held": 25,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.08,
+						"speech_rate_low": 0.05,
+						"speech_rate_high": 0.13,
+						"token_rate": 133.33
+					},
+					{
+						"period": 1994,
+						"category": "English",
+						"held": 20,
+						"speeches": 5,
+						"occurrences": 10,
+						"speech_rate": 0.25,
+						"speech_rate_low": 0.22,
+						"speech_rate_high": 0.3,
+						"token_rate": 416.67
+					},
+					{
+						"period": 1994,
+						"category": "French",
+						"held": 25,
+						"speeches": 4,
+						"occurrences": 8,
+						"speech_rate": 0.16,
+						"speech_rate_low": 0.13,
+						"speech_rate_high": 0.21,
+						"token_rate": 266.67
+					},
+					{
+						"period": 2023,
+						"category": "English",
+						"held": 20,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.1,
+						"speech_rate_low": 0.07,
+						"speech_rate_high": 0.15,
+						"token_rate": 166.67
+					},
+					{
+						"period": 2023,
+						"category": "French",
+						"held": 25,
+						"speeches": 2,
+						"occurrences": 4,
+						"speech_rate": 0.08,
+						"speech_rate_low": 0.05,
+						"speech_rate_high": 0.13,
+						"token_rate": 133.33
+					}
+				]
+			}
+		}
+	}
+}

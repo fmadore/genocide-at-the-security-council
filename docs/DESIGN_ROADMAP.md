@@ -400,13 +400,28 @@ the Chronology's month-by-year grid, on branch `design/phase-5-hardening`.
   the chart's own click reaches, inert while the disclosure is closed. The grid,
   the pooled months and the split already did this; the plate a reader arrives
   at did not.
-- Attempting to guard it with a browser test turned up a larger gap: **the
-  Chronology 500s under the e2e fixture set**, because `series/quarterly.json`,
-  `series/monthly.json` and `series/breakdowns.json` are absent from
-  `web/e2e/fixtures/`. None of the 46 journeys touches this route. The fix was
-  therefore verified by direct measurement instead, and the fixture gap is the
-  first thing a next round should close — it is the likeliest reason this page
-  accumulated a P0 and four P1s while better-covered routes did not.
+- Attempting to guard it turned up a larger gap: the Chronology answered 500
+  under the e2e fixture set, so none of the 46 journeys touched the route.
+
+### 19 September 2026: the untested route, and why it was failing
+
+- The three absent fixtures (`series/quarterly.json`, `series/monthly.json`,
+  `series/breakdowns.json`) are committed. They carry all three states the
+  calendar draws — 25 months divided by, 8 withheld, 3 with no sitting — so the
+  encoding repaired earlier today is now held in place by a test.
+- Writing them found that the missing files were not the whole reason for the
+  500. The page opens on four named terms and the fixture lexicon carries one;
+  the chart filtered its selection on whether the artefact carries a measure and
+  the table did not, so an absent term reached `allMeasures[name][unit]` on
+  undefined and took the route down entirely. The guard is derived once now and
+  both readers share it. A release whose lexicon drops one of the four opening
+  terms loses a line rather than a page.
+- Five journeys cover the route: six plates and axe, a missing term dropped
+  rather than fatal, the plotted-value links reached by keyboard, the hatch
+  matching what the key counts, and no calendar label under 10 CSS px at 390px.
+  46 journeys to 51.
+- This is the finding to carry forward: the page with no coverage is the page
+  that accumulated a P0 and four P1s. Coverage was the cause, not the symptom.
 
 ### Where this leaves the roadmap
 
