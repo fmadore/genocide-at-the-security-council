@@ -63,10 +63,13 @@ export type Unit = 'speech_rate' | 'token_rate';
  *
  * `unobserved` is separated from `withheld` although both refuse to be drawn:
  * "the Council did not meet" and "the Council met too little to divide by" are
- * different facts, and a reader who hovers deserves the one that is true. Every
- * month in the present corpus is observed, so the state is unreachable today —
- * it exists because a grid is written complete, and the day one is empty the
- * figure should not have to be changed to say so.
+ * different facts, and a reader who hovers deserves the one that is true.
+ *
+ * This docblock used to say the state was unreachable in the present corpus.
+ * It is not: **86 of the 948 months hold no speeches at all**, against 387
+ * withheld and 475 drawn. The claim was never checked against the artefact, and
+ * for as long as it stood the figure drew both refusals with one hatch and
+ * counted only one of them in its key.
  */
 export type CellState = 'drawn' | 'withheld' | 'unobserved';
 

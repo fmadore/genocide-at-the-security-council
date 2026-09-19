@@ -376,6 +376,23 @@ Work on a branch per phase (`design/phase-3-full-width`, then
 - **Phase 6.8.** Recorded in `docs/VALIDATION.md` under "Design hardening and
   payload, 19 September 2026".
 
+### 19 September 2026, later: the calendar
+
+Working the critique backlog rather than the roadmap. The P0 and one P1, both in
+the Chronology's month-by-year grid, on branch `design/phase-5-hardening`.
+
+- The grid is built to the width it is given rather than scaled into it, so the
+  drawn scale stays at 1 and the labels are stated at the 12px the system sets.
+  At 390px they render at 12.1px against 2.5px before, and the cell goes from
+  26.9 × 4.5 to 23.3 × 16.2. Measured at 320, 390, 768 and 1440.
+- The hatch stood for two different refusals and the key counted one of them:
+  475 months drawn, 387 withheld, **86 with no sitting at all**. A month with no
+  sitting now carries a mark at its centre and the key names both. The docblock
+  in `$lib/heatmap.ts` claiming the state was unreachable is corrected — that
+  claim is why the figure had one hatch for two facts.
+- Gates green, 46/46 e2e. One spec failed once in a full run and passed both in
+  isolation and on re-run, in a file this change does not touch.
+
 ### Where this leaves the roadmap
 
 Phases 0 to 6 are done. What the last pass makes clear is that the roadmap's own

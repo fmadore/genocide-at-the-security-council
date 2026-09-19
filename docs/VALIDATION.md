@@ -1300,6 +1300,61 @@ as `.html`, four. An empty scan of `web/src` therefore means no findings from
 the rules that survive the text path, not a clean markup audit. The contrast and
 target measurements it would have missed were taken in the browser instead.
 
+## The calendar, 19 September 2026
+
+The P0 and one P1 from the re-run critiques, both in the month-by-year grid on
+the Chronology.
+
+**The drawing is now built to the width it is given.** The grid was drawn at a
+fixed 1,220 user units and left to a `viewBox` to fit whatever column it landed
+in. On a desk that scaled up. On a phone it scaled to 342px — a factor of 0.28 —
+and took every label with it: the year, the month initial and the key rendered
+at **2.52 CSS pixels**, and a cell at 26.9 by 4.5. The figure was not small
+there, it was unreadable, and the only legible form of it was a table inside a
+closed disclosure that does not say so.
+
+The cell width now follows the column instead of the column following the cell,
+so the scale stays at 1 and the type can be stated in the size it is read at.
+Measured after the change, with the label size raised from 9 to the 12px the
+rest of the site's chart labels use:
+
+| Viewport | Drawn scale | Label, as rendered | Cell |
+|---|---|---|---|
+| 320px | 1.02 | 12.3px (was 2.1) | 17.4 × 16.4 |
+| 390px | 1.01 | 12.1px (was 2.5) | 23.3 × 16.2 |
+| 768px | 1.01 | 12.1px (was 5.0) | 54.3 × 16.1 |
+| 1440px | 1.13 | 13.5px (was 10.0) | 108.3 × 18.0 |
+
+No two labels overlap at any of those widths, and no route gains a horizontal
+scrollbar.
+
+**A second encoding changed, and a reader of an older export should know.** The
+grid drew two different refusals with one hatch: a month whose rate is withheld
+under the 125-speech minimum, and a month in which the Council held no speeches
+at all. Its key counted only the first. Checked against
+`series/monthly.json`: of 948 months, **475 are drawn, 387 withheld and 86 held
+no speeches** — so 86 hatched squares were never counted by the key that
+explains the hatch, and the two facts were indistinguishable in the figure even
+though the corpus, the tooltip and the table had always told them apart.
+
+A month with no sitting is now an empty cell carrying a small mark at its
+centre, and the key names both refusals: "no rate (387)" and "no sitting (86)".
+The mark rather than a tint because the two things it must not be confused with
+are a hatched cell and a pale drawn cell, and because a mark survives greyscale
+and print. Re-measured: 387 hatched cells against a key reading 387, and 86
+marked cells against a key reading 86. The visible consequence is that the
+months in 2020 and 2021 when the Council did not sit now read as such instead of
+as months whose rate was withheld.
+
+`$lib/heatmap.ts` carried a docblock asserting that the no-sitting state was
+"unreachable today" in this corpus. It was wrong, and it is corrected: that
+claim is why one hatch stood for two facts.
+
+**One sentence of copy is now incomplete and was not touched.** The plate's note
+reads "A hatched square has no rate; it is not a zero." That is still true and no
+longer complete, because there is a second refusal on the figure. It is the
+author's to extend.
+
 ### What was left open, and why
 
 - A marked word's *register* is still told only by the hue of its underline.
