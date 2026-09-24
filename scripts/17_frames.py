@@ -64,7 +64,7 @@ from lib.paths import (
     write_note,
 )
 
-TERM = "genocide"
+TERM = model_runs.TERM
 
 #: Columns this step reads. The frame is 130 MB and most of it is text, which is
 #: needed — the window is cut from it — while the ninety lexicon columns are not.
@@ -100,10 +100,10 @@ MINIMUM_FOR_TEST = 250
 #: speeches: at annual grain a seventeen-way split has cells of four.
 BLOCK_YEARS = 8
 
-STORE = MODEL_ANNOTATIONS / TERM
-RUNS = STORE / "runs"
-CURRENT_RUN = STORE / "current_run.txt"
-COMPARISON_RUN = STORE / "comparison_run.txt"
+STORE = model_runs.STORE
+RUNS = model_runs.RUNS
+CURRENT_RUN = model_runs.CURRENT_RUN
+COMPARISON_RUN = model_runs.COMPARISON_RUN
 
 #: The model fields a frame is crossed against. `speaker_position` is
 #: single-label and `function` is pipe-joined, as `lib.usage` documents; they are
@@ -223,11 +223,7 @@ def change_block(
 # --- Triangulation against the committed model runs ---------------------------
 
 
-def named_run(pointer: Path) -> str:
-    """The run id a committed pointer file names, or the empty string."""
-    if not pointer.is_file():
-        return ""
-    return pointer.read_text(encoding="utf-8").strip()
+named_run = model_runs.pointer
 
 
 def model_rows(run_id: str) -> list[dict[str, object]]:

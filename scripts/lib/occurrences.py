@@ -16,7 +16,7 @@ Two identifiers per occurrence, because the project already uses both:
   08, with the ordinal counted per speech, one-based, in match order.
 
 Agreement with 03/08 is asserted by the callers against the documented totals
-(docs/CORPUS.md §8) at run time, not assumed here.
+(`config/lexicon.counts.json`) at run time, not assumed here.
 """
 
 from __future__ import annotations
@@ -35,8 +35,8 @@ class Occurrence:
     """One match of one term in one speech body."""
 
     index: object  #: the speech's index label in the source frame
-    filename: str  #: ``UNSC_1992_SPV.3137_spch0009.txt`` — joins speaker.tsv
-    line_id: str  #: ``UNSC_1992_SPV.3137_spch0009#1`` — joins the KWIC files
+    filename: str  #: ``SC03137-01-009.txt`` — joins the corpus
+    line_id: str  #: ``SC03137-01-009#1`` — joins the KWIC files
     ordinal: int  #: one-based position of this match within its speech
     start: int  #: body-relative offset, the coordinate audit IDs use
     end: int

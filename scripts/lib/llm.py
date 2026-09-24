@@ -212,6 +212,26 @@ USER_PLACEHOLDERS: Final = (
     "occurrences",
 )
 
+#: Constraints a prompt may declare on a `constraints:` line in its header,
+#: each of which changes what the model is asked for and so is part of the
+#: prompt's own versioned text. A prompt that declares none — v1 to v3 — builds
+#: byte-identical requests to the ones its runs were made with.
+#:
+#: `referent-enum` puts the controlled identifiers, the request's own ordinals
+#: and the exact number of occurrences into the structured-output schema, so a
+#: guided decoder cannot return "Rwanda" for `rwanda` (73 of the Qwen run's 77
+#: refusals) or answer an occurrence twice. `sentence-evidence` numbers the
+#: speech's sentences and asks for evidence as a first and last sentence number
+#: instead of a copied quotation, so evidence is contiguous and always located
+#: (docs/ROADMAP.md, RV7 and RV8).
+REFERENT_ENUM: Final = "referent-enum"
+SENTENCE_EVIDENCE: Final = "sentence-evidence"
+CONSTRAINTS: Final = frozenset({REFERENT_ENUM, SENTENCE_EVIDENCE})
+_CONSTRAINTS_RE = re.compile(r"^constraints:[ \t]*(?P<names>[^\n]*)$", re.MULTILINE)
+
+#: The placeholder a `sentence-evidence` prompt must carry: the numbered list.
+SENTENCES_PLACEHOLDER: Final = "sentences"
+
 #: Kinds in `referents.csv`, in the order the rendered table presents them. A
 #: kind the file introduces later is appended after these rather than dropped.
 KIND_ORDER: Final = ("case", "historical", "meta", "reserved")
@@ -235,7 +255,7 @@ _WHITESPACE_RE = re.compile(r"\s+")
 #: one file per version, named `v<n>.md`.
 #:
 #: Every run records the SHA-256 of the prompt file's raw bytes, on the manifest
-#: and on all 7,747 of its rows, and 15 publishes that prompt verbatim beside
+#: and on every one of its rows, and 15 publishes that prompt verbatim beside
 #: the labels it produced. So the digest is the run's only handle on the wording
 #: it was made with, and until this directory existed there was exactly one file
 #: that digest could be compared against: editing `PROMPT.md` made both
@@ -278,6 +298,8 @@ class PromptPack:
     user_template: str
     #: What to call this file when a message has to name it.
     name: str = "PROMPT.md"
+    #: The instrument constraints the header declares; see :data:`CONSTRAINTS`.
+    constraints: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -337,6 +359,14 @@ def load_prompt(path: Path) -> PromptPack:
     version = _VERSION_RE.search(source)
     if not version:
         raise ValueError(f"{path.name}: no 'version: <n>' line in the header.")
+    declared_line = _CONSTRAINTS_RE.search(source.split("## System", 1)[0])
+    constraints = frozenset(
+        name.strip()
+        for name in (declared_line.group("names").split(",") if declared_line else [])
+        if name.strip()
+    )
+    if unknown := sorted(constraints - CONSTRAINTS):
+        raise ValueError(f"{path.name}: unknown constraints {unknown}; known: {sorted(CONSTRAINTS)}")
     pack = PromptPack(
         version=int(version.group("version")),
         sha256=prompt_sha256(path),
@@ -344,10 +374,16 @@ def load_prompt(path: Path) -> PromptPack:
         system_template=_section(source, "System", path),
         user_template=_section(source, "User template", path),
         name=path.name,
+        constraints=constraints,
+    )
+    user_placeholders = (
+        (*USER_PLACEHOLDERS, SENTENCES_PLACEHOLDER)
+        if SENTENCE_EVIDENCE in constraints
+        else USER_PLACEHOLDERS
     )
     for template, declared, name in (
         (pack.system_template, SYSTEM_PLACEHOLDERS, "System"),
-        (pack.user_template, USER_PLACEHOLDERS, "User template"),
+        (pack.user_template, user_placeholders, "User template"),
     ):
         missing = [key for key in declared if "{" + key + "}" not in template]
         if missing:
@@ -522,17 +558,57 @@ class SpeechRequest:
     system: str
     user: str
     ordinals: tuple[int, ...]
+    #: The structured-output schema for this request, when the prompt declares
+    #: constraints that depend on it; ``None`` means :func:`response_schema`.
+    schema: dict[str, object] | None = None
+    #: How many sentences the request numbered; zero without sentence evidence.
+    sentence_count: int = 0
 
 
-def response_schema() -> dict[str, object]:
+def response_schema(
+    *,
+    referents: Sequence[str] | None = None,
+    ordinals: Sequence[int] | None = None,
+    sentences: int = 0,
+) -> dict[str, object]:
     """The strict JSON schema the structured output is constrained to.
 
-    `referent` is a plain string rather than an enum: the controlled list is a
-    reviewed CSV that grows during the pilot, and baking thirty identifiers into
-    the schema would make every addition a prompt change. It is validated against
-    the run's referent set on the way back in, where a violation can be reported
-    per occurrence instead of failing a whole speech at the decoder.
+    Called bare it is the schema of prompts v1 to v3, byte for byte: `referent`
+    a plain string, validated on the way back in. With `referents` and
+    `ordinals` — a `referent-enum` prompt — the identifiers, the request's own
+    ordinals and the number of occurrences are part of the schema, so a guided
+    decoder cannot produce what the validator would refuse. The referent list
+    is already hashed into every run's identity, which is why building it into
+    the schema at run time is not a hidden prompt change. With `sentences` — a
+    `sentence-evidence` prompt — `evidence_quote` is replaced by a first and
+    last sentence number within the request's own numbering.
     """
+    schema = _base_schema()
+    item = schema["properties"]["occurrences"]["items"]  # type: ignore[index]
+    if referents is not None:
+        item["properties"]["referent"] = {"type": "string", "enum": sorted(referents)}
+    if ordinals is not None:
+        item["properties"]["ordinal"] = {"type": "integer", "enum": sorted(ordinals)}
+        schema["properties"]["occurrences"]["minItems"] = len(ordinals)  # type: ignore[index]
+        schema["properties"]["occurrences"]["maxItems"] = len(ordinals)  # type: ignore[index]
+    if sentences:
+        bound = {"type": "integer", "minimum": 1, "maximum": sentences}
+        del item["properties"]["evidence_quote"]
+        item["properties"]["evidence_sentences"] = {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["first", "last"],
+            "properties": {"first": dict(bound), "last": dict(bound)},
+        }
+        item["required"] = [
+            "evidence_sentences" if field == "evidence_quote" else field
+            for field in item["required"]
+        ]
+    return schema
+
+
+def _base_schema() -> dict[str, object]:
+    """The v1-v3 schema, unconstrained; see :func:`response_schema`."""
     return {
         "type": "object",
         "additionalProperties": False,
@@ -606,40 +682,73 @@ def render_occurrences(body: str, occurrences: Sequence[Occurrence]) -> str:
     return "\n".join(lines)
 
 
+def render_sentences(body: str) -> tuple[str, int]:
+    """The speech as numbered sentences, and how many there are.
+
+    For a `sentence-evidence` prompt only. The numbering is the same
+    segmentation the anchor and the concordance use, so sentence *n* of the
+    request is `sentence_spans(body)[n - 1]` when the answer comes back.
+    """
+    spans = sentence_spans(body)
+    lines = [
+        f"[{number}] {_WHITESPACE_RE.sub(' ', body[start:end]).strip()}"
+        for number, (start, end) in enumerate(spans, start=1)
+    ]
+    return "\n".join(lines), len(spans)
+
+
 def build_request(
     speech: Mapping[str, object],
     body: str,
     occurrences: Sequence[Occurrence],
     pack: PromptPack,
     referents_table: str,
+    *,
+    referent_ids: Sequence[str] | None = None,
 ) -> SpeechRequest:
-    """One speech, its occurrences, and the two messages that ask about them."""
+    """One speech, its occurrences, and the two messages that ask about them.
+
+    `referent_ids` is read only by a `referent-enum` prompt, which needs the
+    identifiers to build its schema; any other prompt ignores it, so a caller
+    may always pass the run's current list.
+    """
     if not occurrences:
         raise ValueError("A request needs at least one occurrence.")
     filename = str(speech["filename"])
     ordinals = tuple(occurrence.ordinal for occurrence in occurrences)
     if len(set(ordinals)) != len(ordinals):
         raise ValueError(f"{filename}: occurrence ordinals must be unique.")
-    user = _fill(
-        pack.user_template,
-        {
-            "filename": filename,
-            "date": _as_date(speech.get("date", "")),
-            "country_org": speech.get("country_org", ""),
-            "participant_type": speech.get("participanttype", ""),
-            "meeting_symbol": speech.get("meeting_symbol", ""),
-            "agenda_item": speech.get("agenda_item_manual", ""),
-            "speech": body,
-            "occurrence_count": len(occurrences),
-            "occurrences": render_occurrences(body, occurrences),
-        },
-    )
+    values: dict[str, object] = {
+        "filename": filename,
+        "date": _as_date(speech.get("date", "")),
+        "country_org": speech.get("country_org", ""),
+        "participant_type": speech.get("participanttype", ""),
+        "meeting_symbol": speech.get("meeting_symbol", ""),
+        "agenda_item": speech.get("agenda_item_manual", ""),
+        "speech": body,
+        "occurrence_count": len(occurrences),
+        "occurrences": render_occurrences(body, occurrences),
+    }
+    sentence_count = 0
+    if SENTENCE_EVIDENCE in pack.constraints:
+        values[SENTENCES_PLACEHOLDER], sentence_count = render_sentences(body)
+    schema = None
+    if pack.constraints:
+        if REFERENT_ENUM in pack.constraints and referent_ids is None:
+            raise ValueError(f"{pack.name} declares {REFERENT_ENUM} but no referent ids were given.")
+        schema = response_schema(
+            referents=referent_ids if REFERENT_ENUM in pack.constraints else None,
+            ordinals=ordinals if REFERENT_ENUM in pack.constraints else None,
+            sentences=sentence_count,
+        )
     return SpeechRequest(
         filename=filename,
         custom_id=filename.removesuffix(".txt"),
         system=_fill(pack.system_template, {"referents_table": referents_table}),
-        user=user,
+        user=_fill(pack.user_template, values),
         ordinals=ordinals,
+        schema=schema,
+        sentence_count=sentence_count,
     )
 
 
@@ -674,6 +783,7 @@ def request_body(
     reasoning_location: str = "request",
     temperature: float | None = None,
     top_p: float | None = None,
+    top_k: int | None = None,
 ) -> dict[str, object]:
     """The `/v1/responses` body, identical in a batch line and in a live call.
 
@@ -698,7 +808,7 @@ def request_body(
                 "type": "json_schema",
                 "name": SCHEMA_NAME,
                 "strict": True,
-                "schema": response_schema(),
+                "schema": request.schema or response_schema(),
             }
         },
         "max_output_tokens": max_output_tokens,
@@ -717,6 +827,10 @@ def request_body(
         body["temperature"] = temperature
     if top_p is not None:
         body["top_p"] = top_p
+    # Omitted when unset, like the two above, so a run made without it keeps
+    # its request bytes. vLLM reads it as an extension of the Responses body.
+    if top_k is not None:
+        body["top_k"] = top_k
     return body
 
 
@@ -725,8 +839,9 @@ def request_body(
 def sdk_request_kwargs(body: dict[str, object]) -> dict[str, object]:
     """Adapt the recorded wire body to the SDK without changing its JSON."""
     kwargs = dict(body)
-    if "chat_template_kwargs" in kwargs:
-        kwargs["extra_body"] = {"chat_template_kwargs": kwargs.pop("chat_template_kwargs")}
+    extra = {key: kwargs.pop(key) for key in ("chat_template_kwargs", "top_k") if key in kwargs}
+    if extra:
+        kwargs["extra_body"] = extra
     return kwargs
 
 
@@ -830,6 +945,7 @@ def validate_response(
     *,
     ordinals: Sequence[int],
     referents: set[str],
+    sentences: int = 0,
 ) -> dict[int, dict[str, object]]:
     """One speech's response, checked against the schema and the codebook.
 
@@ -847,13 +963,18 @@ def validate_response(
     if not isinstance(entries, list):
         raise ValueError("Response must carry an 'occurrences' array.")
 
+    fields = (
+        {*RESPONSE_FIELDS, "evidence_sentences"} - {"evidence_quote"}
+        if sentences
+        else set(RESPONSE_FIELDS)
+    )
     labels: dict[int, dict[str, object]] = {}
     for entry in entries:
         if not isinstance(entry, Mapping):
             raise ValueError("Every occurrence must be a JSON object.")
-        if set(entry) != set(RESPONSE_FIELDS):
-            unexpected = sorted(set(entry) - set(RESPONSE_FIELDS))
-            absent = sorted(set(RESPONSE_FIELDS) - set(entry))
+        if set(entry) != fields:
+            unexpected = sorted(set(entry) - fields)
+            absent = sorted(fields - set(entry))
             raise ValueError(
                 "Occurrence fields do not match the schema: "
                 f"unexpected={unexpected}, missing={absent}"
@@ -877,9 +998,13 @@ def validate_response(
             "victim_group": str(entry["victim_group"]).strip(),
             "own_state_accused": str(entry["own_state_accused"]),
             "salience": str(entry["salience"]),
-            "evidence_quote": str(entry["evidence_quote"]),
+            "evidence_quote": "" if sentences else str(entry["evidence_quote"]),
             "rationale": str(entry["rationale"]).strip(),
         }
+        if sentences:
+            labels[ordinal]["evidence_sentences"] = _sentence_range(
+                entry["evidence_sentences"], sentences
+            )
 
     expected = set(ordinals)
     if set(labels) != expected:
@@ -887,6 +1012,18 @@ def validate_response(
         absent = sorted(expected - set(labels))
         raise ValueError(f"Ordinals do not match the request: unexpected={extra}, missing={absent}")
     return labels
+
+
+def _sentence_range(value: object, sentences: int) -> tuple[int, int]:
+    """A first and last sentence number, inside the request's own numbering."""
+    if not isinstance(value, Mapping) or set(value) != {"first", "last"}:
+        raise ValueError(f"evidence_sentences must be {{first, last}}, not {value!r}.")
+    first, last = value["first"], value["last"]
+    if any(isinstance(item, bool) or not isinstance(item, int) for item in (first, last)):
+        raise ValueError(f"Sentence numbers must be integers: {value!r}.")
+    if not 1 <= first <= last <= sentences:
+        raise ValueError(f"Sentences {first}-{last} are outside 1-{sentences} or reversed.")
+    return first, last
 
 
 def response_document(payload: str | bytes) -> object:
@@ -1201,12 +1338,21 @@ def annotation_rows(
 ) -> list[dict[str, object]]:
     """One row per occurrence, in the run's fixed key order."""
     rows = []
+    spans = sentence_spans(body) if any("evidence_sentences" in e for e in labels.values()) else []
     for occurrence in occurrences:
         entry = labels[occurrence.ordinal]
-        quote = str(entry["evidence_quote"])
-        start, end, valid, relocated = locate_evidence(
-            body, quote, occurrence.start, occurrence.end
-        )
+        if "evidence_sentences" in entry:
+            # Sentence evidence cannot be misquoted: the span is the sentences'
+            # own, and valid exactly when it holds the occurrence.
+            first, last = entry["evidence_sentences"]  # type: ignore[misc]
+            start, end = spans[first - 1][0], spans[last - 1][1]
+            quote = body[start:end]
+            valid, relocated = start <= occurrence.start and occurrence.end <= end, False
+        else:
+            quote = str(entry["evidence_quote"])
+            start, end, valid, relocated = locate_evidence(
+                body, quote, occurrence.start, occurrence.end
+            )
         rows.append(
             {
                 "occurrence_id": occurrence.occurrence_id,

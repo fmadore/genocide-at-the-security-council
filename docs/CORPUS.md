@@ -15,7 +15,7 @@ pipeline input.
 | Meetings with speeches | 9,464 |
 | Meeting records | 10,294 |
 | Source-reported words | 87,678,254 |
-| Project analytical words | 86,854,907 |
+| Project analytical words | 86,812,574 |
 
 The complete pin—Dataverse file identifiers, sizes, and MD5 checksums—is in
 [`config/dataset-pin.json`](../config/dataset-pin.json).
@@ -107,22 +107,25 @@ After normalisation:
 | Non-state | 7,323 |
 | UN | 1,716 |
 
-Lexicon v4 finds `genocid*` in **4,133 speeches**, with **7,747 occurrences**.
-These figures replace the former 1992–2023 totals in every annotation-stage
-population check.
+Lexicon v8 finds `g[eé]nocid*` in **4,136 speeches**, with **7,787 occurrences**
+(v4 to v7 found 4,133 and 7,747 with `genocid*`; v8 adds the accented
+*génocidaires*). Every annotation-stage population check reads these from
+`config/lexicon.counts.json`.
 
 ## Limitations that must remain visible
 
 - The transcripts are in English. The language actually spoken cannot be
-  recovered from this distribution and remains `Unknown`.
+  recovered from this distribution, so no delivery language is derived or
+  published, and a speech may reach the record through interpretation.
 - `source_word_count` differs slightly from the project's tokenisation. Project
   rates use only `words`, computed once by `lib.lexical`.
 - `other` means “no source indicator,” not “civil society.”
 - Geographic fields are optional and incomplete enrichments, never an
   aggregation key.
 - The LLM runs dated August 2026 were produced against the former corpus. They
-  are archived, their pointers are empty, and they must be recomputed against
-  the new `occurrence_id` values.
+  are archived and cannot be joined to the new `occurrence_id` values. The
+  published pointer names the partial `2026-09-08-qwen-131k` preview, which has
+  no human validation yet.
 
 ## Government-change datasets: an evaluation, not an adoption
 

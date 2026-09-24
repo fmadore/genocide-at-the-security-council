@@ -19,12 +19,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import annotate, artifacts, audit, console, llm, run_store
-from lib.paths import INTERIM, ROOT, rel
+from lib import annotate, artifacts, audit, console, llm, model_runs, run_store
+from lib.paths import INTERIM, rel
+from lib.text import sentence_spans
 
-STORE = ROOT / "model_annotations" / annotate.TERM
-PROMPT = STORE / "PROMPT.md"
-REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
+STORE = model_runs.STORE
+PROMPT = model_runs.PROMPT
+REFERENTS = model_runs.REFERENTS
 PROBES = INTERIM / "model_annotation_probes"
 MAX_OUTPUT_TOKENS = 65_536
 
@@ -102,7 +103,10 @@ def run(args: argparse.Namespace) -> None:
         "population": [item.occurrence_id for speech in speeches for item in speech.occurrences],
         "requests": [
             llm.request_body(
-                llm.build_request(speech.meta, speech.body, speech.occurrences, pack, table),
+                llm.build_request(
+                    speech.meta, speech.body, speech.occurrences, pack, table,
+                    referent_ids=sorted(referents),
+                ),
                 model=args.model, reasoning_effort=level,
                 reasoning_location=args.reasoning_location,
                 max_output_tokens=annotate.output_ceiling(speech, MAX_OUTPUT_TOKENS),
@@ -124,7 +128,10 @@ def run(args: argparse.Namespace) -> None:
     for level in levels:
         console.step(f"Probing reasoning level {level}")
         for speech in speeches:
-            request = llm.build_request(speech.meta, speech.body, speech.occurrences, pack, table)
+            request = llm.build_request(
+                speech.meta, speech.body, speech.occurrences, pack, table,
+                referent_ids=sorted(referents),
+            )
             body = llm.request_body(
                 request,
                 model=args.model,
@@ -141,6 +148,11 @@ def run(args: argparse.Namespace) -> None:
                 step.output_text(response),
                 ordinals=[item.ordinal for item in speech.occurrences],
                 referents=referents,
+                sentences=(
+                    len(sentence_spans(speech.body))
+                    if llm.SENTENCE_EVIDENCE in pack.constraints
+                    else 0
+                ),
             )
             usage = step.usage_of(response)
             observations.append(

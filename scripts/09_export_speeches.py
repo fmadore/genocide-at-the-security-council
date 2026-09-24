@@ -3,11 +3,12 @@
 Reads speeches_flagged.parquet and meetings.parquet, writes 9,464 files to
 web/static/data/speeches/ plus an index at web/static/data/meetings.json.
 
-One file per meeting, not per speech and not one blob. The full export is about
-599 MB—too much to hand a browser at once, and 167,642 individual files is more
-than a static host should be asked to hold. Bundling by meeting gives files averaging
-about 63 kB: one fetch opens a whole session with every speech in it, which is exactly
-the unit a reader wants when they click a concordance line.
+One file per meeting, not per speech and not one blob, and each one gzipped:
+`speeches/<basename>.json.gz`. Uncompressed the export is about 609 MB, most of
+the payload and most of GitHub Pages' 1 GB site limit; the browser decompresses a
+meeting when it opens it (docs/ROADMAP.md, RV28). Bundling by meeting means one
+fetch opens a whole session with every speech in it, which is exactly the unit a
+reader wants when they click a concordance line.
 
 Each speech carries its lexicon hits as character offsets, so the reader
 highlights matches without re-running the lexicon in JavaScript. The regexes are
@@ -60,8 +61,6 @@ COLUMNS = [
     "entity_type",
     "speaker_group",
     "participanttype",
-    "spoken_language",
-    "delivery_language",
     "agenda_item1",
     "agenda_item_manual",
     "words",
@@ -87,7 +86,9 @@ def build_speech(row, terms: list[lexicon.Term]) -> dict[str, object]:
         "entity_type": row.entity_type,
         "group": row.speaker_group,
         "type": row.participanttype,
-        "language": clean(row.delivery_language),
+        # The source records no delivery language; null says so rather than
+        # labelling every speech `Unknown`, which the reader showed as a value.
+        "language": None,
         "words": int(row.words),
         "body_start": int(row.body_start),
         "text": row.text,
@@ -245,10 +246,10 @@ def build_note(
             "## Shape",
             "",
             "```json",
-            "{ \"basename\": \"UNSC_2015_SPV.7481\", \"spv\": \"S/PV.7481\",",
+            "{ \"basename\": \"SC07481-01\", \"spv\": \"S/PV.7481\",",
             "  \"date\": \"2015-07-08\", \"topic\": \"…\", \"region\": \"Europe\",",
             "  \"speeches\": [",
-            "    { \"id\": \"UNSC_2015_SPV.7481_spch0007\", \"n\": 7,",
+            "    { \"id\": \"SC07481-01-007\", \"n\": 7,",
             "      \"speaker\": \"Mr. Rycroft\", \"country\": \"United Kingdom…\",",
             "      \"iso3\": \"GBR\", \"group\": \"P5\", \"language\": null,",
             "      \"body_start\": 28, \"text\": \"…\",",
@@ -307,8 +308,8 @@ def run(scope: str, indent: int | None) -> None:
                 skipped_empty += 1
                 continue
             built = build_meeting(meeting, group, lex)
-            path = staged / f"{meeting.basename}.json"
-            artifacts.atomic_write_json(path, {"meta": meta, **built}, indent=indent)
+            path = staged / f"{meeting.basename}.json.gz"
+            artifacts.atomic_write_json_gzip(path, {"meta": meta, **built}, indent=indent)
             total_bytes += path.stat().st_size
             written += len(built["speeches"])
             rows.append(summarise(built))

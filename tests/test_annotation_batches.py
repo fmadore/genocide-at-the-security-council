@@ -82,10 +82,10 @@ def test_merge_refuses_bad_shards_without_writing_output(tmp_path, fault):
         paths[1] = paths[0]
     elif fault == "rows":
         with (paths[0] / "annotations.jsonl").open("a") as stream:
-            stream.write((paths[0] / "annotations.jsonl").read_text().splitlines()[0] + "\n")
+            stream.write((paths[0] / "annotations.jsonl").read_text(encoding="utf-8").splitlines()[0] + "\n")
     else:
         path = paths[0] / "manifest.json"
-        manifest = json.loads(path.read_text())
+        manifest = json.loads(path.read_text(encoding="utf-8"))
         if fault == "incomplete":
             manifest["status"] = "in_progress"
         else:

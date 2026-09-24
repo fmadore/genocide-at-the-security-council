@@ -1,7 +1,7 @@
 """The grammatical frames the node appears in, as a codebook over the concordance.
 
-The review of 1 September 2026 (§3.6, item 2) asks for a regex pass over the
-7,747 occurrences of *genocide*: *acts of genocide*, *crime of genocide*, *risk
+The review of 1 September 2026 (§3.6, item 2) asks for a regex pass over every
+occurrence of *genocide*: *acts of genocide*, *crime of genocide*, *risk
 of genocide*, *amounts to genocide*, *so-called genocide*, *genocide against X*,
 *genocidal intent*, and the noun / adjective / perpetrator-noun split. The
 question behind it is not lexical but pragmatic: the same word does nomination,
@@ -25,7 +25,7 @@ published numbers mean.
 
 **A window, not a parse.** Each occurrence is classified from a ±90-character
 window with the node marked, and nothing else. There is no parser in this
-repository, spaCy is not a dependency, and a dependency parse of 7,747 windows
+repository, spaCy is not a dependency, and a dependency parse of every window
 would be a second instrument to validate for a distinction most of these frames
 do not need: *acts of*, *crime of*, *so-called* and *against* are adjacency, and
 adjacency is what a window measures. What the window cannot do is resolve a
@@ -150,7 +150,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"|{NODE_CLOSE}\s*conventions?\b"
         ),
         example="the Convention on the Prevention and Punishment of the Crime of Genocide",
-        example_id="UNSC_1998_SPV.3953_spch0001#1",
+        example_id="SC03953-01-001#1",
     ),
     Frame(
         name="mandate_or_office",
@@ -167,7 +167,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"|{NODE_CLOSE}\s*prevention\s+(office|and\s+the\s+responsibility)"
         ),
         example="his Special Adviser on the Prevention of Genocide",
-        example_id="UNSC_2007_SPV.5703_spch0028#1",
+        example_id="SC05703-01-029#1",
     ),
     # --- 2. Footing: what the speaker does with the label --------------------
     Frame(
@@ -187,8 +187,8 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             # possessive: `the genocide's 1 million victims` is not scare-quoted.
             rf"|[{_OPEN_QUOTES}]\s*{NODE_OPEN}{GAP}*{NODE_CLOSE}{GAP}{{0,25}}[{_CLOSE_QUOTES}]"
         ),
-        example='he asked himself whether the term "genocide" might be applicable',
-        example_id="UNSC_2000_SPV.4127_spch0004#2",
+        example="he asked himself whether the term \u201cgenocide\u201d might be applicable",
+        example_id="SC04127-01-005#2",
     ),
     Frame(
         name="qualification",
@@ -206,8 +206,8 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"|simply\s+|plain\s+){{0,2}}{NODE_OPEN}"
             rf"|\bcall(s|ed|ing)?\s+(it|this|that|them|these)\s+(a\s+|an\s+|the\s+)?{NODE_OPEN}"
         ),
-        example="ISIS crimes against Yazidis constitute genocide",
-        example_id="UNSC_2021_S_2021_460_spch0003#1",
+        example="What Hitler did to the Jews in Germany, for example, was genocide",
+        example_id="SC00290-01-002#6",
     ),
     Frame(
         name="crime_of",
@@ -218,7 +218,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
         ),
         pattern=rf"\bcrimes?\s+of\s+(the\s+)?{NODE_OPEN}|{NODE_CLOSE}\s+is\s+a\s+crime",
         example="the indictment now includes the crime of genocide",
-        example_id="UNSC_2001_SPV.4429_spch0023#1",
+        example_id="SC04429-01-024#1",
     ),
     Frame(
         name="acts_of",
@@ -231,7 +231,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"\b(acts?|cases?|instances?|episodes?|forms?)\s+of\s+(the\s+)?{NODE_OPEN}"
         ),
         example="is an act of genocide",
-        example_id="UNSC_1992_SPV.3135_spch0010#3",
+        example_id="SC03135-01-010#3",
     ),
     Frame(
         name="intent_or_definition",
@@ -247,7 +247,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"|{NODE_CLOSE}\s+(means|is\s+defined|as\s+defined)\b"
         ),
         example="the factors allowing the inference of genocidal intent",
-        example_id="UNSC_2018_SPV.8381_spch0012#1",
+        example_id="SC08381-01-013#2",
     ),
     Frame(
         name="denial_or_ideology",
@@ -261,8 +261,8 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"|\b(denial|denying|deny|denies|denied|denier\w*|revisionis\w+|glorif\w+|negation"
             rf"|minimiz\w+|minimis\w+|trivializ\w+)\b{GAP}{{0,25}}{NODE_OPEN}"
         ),
-        example="the denial of genocide in the situations under the jurisdiction of the Mechanism",
-        example_id="UNSC_2020_S_2020_1236_spch0009#1",
+        example="condemns without reservation any denial of the genocide in Rwanda",
+        example_id="SC07155-01-007#18",
     ),
     Frame(
         name="occurrence",
@@ -279,7 +279,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"(a\s+|an\s+|the\s+|no\s+)?{NODE_OPEN}"
         ),
         example="unfortunately that genocide occurred in Rwanda",
-        example_id="UNSC_2002_SPV.4538Resumption1_spch0043#3",
+        example_id="SC04538-02-044#3",
     ),
     # --- 3. Catalogue --------------------------------------------------------
     Frame(
@@ -297,7 +297,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"|ethnic\s+cleansing|crimes?\s+of\s+aggression|mass\s+atrocit\w+)\b"
         ),
         example="war crimes, crimes against humanity and genocide",
-        example_id="UNSC_2016_SPV.7829_spch0006#1",
+        example_id="SC07829-01-006#1",
     ),
     # --- 4. Modality and role ------------------------------------------------
     Frame(
@@ -313,7 +313,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"|lead\s+to|slide|precursors?)\b{GAP}{{0,25}}{NODE_OPEN}"
         ),
         example="the danger of renewed genocide in the region",
-        example_id="UNSC_1999_SPV.3987_spch0015#1",
+        example_id="SC03987-02-017#1",
     ),
     Frame(
         name="prevention",
@@ -329,7 +329,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"|{NODE_CLOSE}\s+prevention\b"
         ),
         example="our obligation to prevent genocide",
-        example_id="UNSC_2004_SPV.5100Resumption1_spch0021#3",
+        example_id="SC05100-01-021#3",
     ),
     Frame(
         name="commemoration",
@@ -348,7 +348,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"|\b(victims?|survivors?)\s+of\s+(the|this|that)\s+{NODE_OPEN}"
         ),
         example="the twentieth anniversary of the Rwandan genocide",
-        example_id="UNSC_2014_SPV.7196_spch0014#1",
+        example_id="SC07196-01-014#1",
     ),
     Frame(
         name="accountability",
@@ -365,7 +365,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"|indictments?|prosecutions?|charges?)\b"
         ),
         example="Sending genocide convicts to serve out the remainder of their sentences",
-        example_id="UNSC_2018_SPV.8416_spch0027#18",
+        example_id="SC08416-01-027#18",
     ),
     Frame(
         name="perpetration",
@@ -383,7 +383,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"\s+of\s+(the\s+)?{NODE_OPEN}"
         ),
         example="bring those responsible for the genocide to justice",
-        example_id="UNSC_1998_SPV.3875Resumption1_spch0018#2",
+        example_id="SC03875-02-018#2",
     ),
     # --- 5. Bare nominal -----------------------------------------------------
     Frame(
@@ -398,7 +398,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"|perpetrated\s+against|committed\s+against|inflicted\s+on|visited\s+upon)\b"
         ),
         example="Given the nature of the genocide against the Tutsi in Rwanda",
-        example_id="UNSC_2019_SPV.8668Resumption1_spch0002#2",
+        example_id="SC08668-01-002#2",
     ),
     Frame(
         name="named_case",
@@ -416,7 +416,7 @@ CODEBOOK: Final[tuple[Frame, ...]] = (
             rf"|\b([Tt]he|[Tt]his|[Tt]hat)\s+([A-Z][\w'{chr(0x2019)}-]+\s+){{1,3}}{NODE_OPEN}"
         ),
         example="the actions of the United Nations during the 1994 genocide in Rwanda",
-        example_id="UNSC_2000_SPV.4127_spch0001#1",
+        example_id="SC04127-01-002#1",
     ),
 )
 

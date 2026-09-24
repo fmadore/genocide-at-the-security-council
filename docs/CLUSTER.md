@@ -98,7 +98,7 @@ Each task still runs its model-specific reasoning probe before annotation.
 
 ```bash
 python scripts/annotation_batches.py plan --size 250 --output data/interim/second-model-plan.json
-# For the current 4,133-speech corpus the command prints indices 0-16.
+# For the current 4,136-speech population the command prints indices 0-16.
 # Qwen example: at most two single-H100 tasks concurrently.
 UNSC_ANNOTATION_MODEL=qwen UNSC_RUN_ID=second-model-v3 \
   UNSC_BATCH_PLAN=data/interim/second-model-plan.json \

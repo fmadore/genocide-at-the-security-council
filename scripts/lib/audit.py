@@ -386,6 +386,40 @@ def stratified_sample(
     return sample.sort_values([stratum_column, "filename", "start"]).reset_index(drop=True)
 
 
+def coverage_inclusion(
+    frame: pd.DataFrame, size: int, *, strata: tuple[str, ...] = ("term", "period")
+) -> pd.Series:
+    """Every occurrence's probability of entering :func:`coverage_sample`.
+
+    One anchor per stratum at `1 / stratum size`, then a simple random fill of
+    what is left: a unit is included as its stratum's anchor or, failing that,
+    by the fill. The same arithmetic `coverage_sample` records for the rows it
+    draws, computed for every row of the frame, which is what a design-weighted
+    estimate over several frames needs.
+    """
+    if frame.empty:
+        return pd.Series(dtype=float, index=frame.index)
+    stratum_sizes = frame.groupby(list(strata))["occurrence_id"].transform("size")
+    strata_total = frame.groupby(list(strata)).ngroups
+    remaining_total = len(frame) - strata_total
+    fill_draws = min(max(size - strata_total, 0), remaining_total)
+    fill_probability = fill_draws / remaining_total if remaining_total else 0.0
+    anchor = 1 / stratum_sizes
+    return anchor + (1 - anchor) * fill_probability
+
+
+def union_inclusion(*probabilities: pd.Series) -> pd.Series:
+    """The probability of entering at least one of several independent draws.
+
+    `1 - prod(1 - p_f)`. The frames are drawn with different seeds of the same
+    hash ranking, which is what licenses treating them as independent.
+    """
+    missed = pd.Series(1.0, index=probabilities[0].index)
+    for probability in probabilities:
+        missed = missed * (1 - probability.fillna(0.0))
+    return 1 - missed
+
+
 def coverage_sample(
     frame: pd.DataFrame,
     size: int,

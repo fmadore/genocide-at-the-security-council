@@ -1011,6 +1011,24 @@ describe('how a referent spread through the Council', () => {
 		expect(plan.refusal).toBeNull();
 	});
 
+	it('carries the risk set the curves are read against, and zero without one', () => {
+		expect(diffusionPlan(corpus(), state()).exposed).toBe(0);
+		const exposed = corpus({
+			diffusion: {
+				...diffusion,
+				referents: diffusion.referents.map((entry) => ({
+					...entry,
+					exposed: [
+						{ actor: 'Rwanda', date: '1994-04-07' },
+						{ actor: 'France', date: '1994-04-07' },
+						{ actor: 'Chad', date: '1994-05-01' }
+					]
+				}))
+			}
+		});
+		expect(diffusionPlan(exposed, state()).exposed).toBe(3);
+	});
+
 	it('follows the selection the matrix sets, and says when it has nothing for it', () => {
 		expect(diffusionPlan(corpus(), state({ referent: 'convention' })).referent).toBe('convention');
 

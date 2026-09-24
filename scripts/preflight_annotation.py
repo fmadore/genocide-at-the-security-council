@@ -52,7 +52,7 @@ def check_weights() -> None:
         raise ValueError(f"Pinned model snapshot is missing: {snapshot}")
     index = snapshot / "model.safetensors.index.json"
     if index.is_file():
-        shards = set(json.loads(index.read_text())["weight_map"].values())
+        shards = set(json.loads(index.read_text(encoding="utf-8"))["weight_map"].values())
         missing = [name for name in shards if not (snapshot / name).is_file()]
         if missing:
             raise ValueError(f"Pinned model has missing shards: {missing}")

@@ -82,11 +82,6 @@ COLUMNS = [
 
 OUTPUT = SPEAKER_KEYNESS / "speaker_keyness.json"
 
-#: RIGHT SINGLE QUOTATION MARK, named by code point exactly as `lexical.TOKEN_RE`
-#: names it: the OCR carries both apostrophes, they are identical on screen, and
-#: the tokeniser keeps them apart on purpose.
-CURLY = chr(0x2019)
-
 
 def load_corpus() -> pd.DataFrame:
     """Read the corpus, refusing to continue on anything that would mislead."""
@@ -210,13 +205,6 @@ def build_note(payload: dict, speakers: list[dict[str, object]], withheld: int) 
         reason: sum(1 for s in speakers if reason in s["withheld_because"])
         for reason in ("pairs", "coverage")
     }
-    # The tokeniser keeps both apostrophes on purpose — the OCR carries both and
-    # they are identical on screen — so a possessive can hold two rows. Counted
-    # rather than corrected: the fix would be in `lexical.TOKEN_RE`, which every
-    # published table in 05 is already counted with.
-    curly = sum(
-        1 for block in drawn for row in (block["keywords"] or []) if CURLY in str(row["word"])
-    )
 
     return (
         "\n".join(
@@ -268,14 +256,8 @@ def build_note(payload: dict, speakers: list[dict[str, object]], withheld: int) 
                 "",
                 "\\* a word from the speaker's own name.",
                 "",
-                f"One tokenising artefact is visible in that table and is left as it is: "
-                f"{curly} published rows carry a curly apostrophe, so `brazil's` and "
-                f"`brazil{CURLY}s` are two rows holding a share of the evidence they "
-                "jointly support. The OCR carries both characters and they are identical "
-                "on screen. "
-                "Folding them would mean editing the tokeniser every published table in 05 "
-                "is already counted with, which is a larger change than this step is "
-                "entitled to make.",
+                "Both apostrophes are read as one since 24 September 2026, so a possessive",
+                "is one row whatever the record printed (docs/ROADMAP.md, RV3).",
                 "",
                 "## Where the matching struggled",
                 "",

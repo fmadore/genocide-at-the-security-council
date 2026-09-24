@@ -33,6 +33,13 @@ export interface Measure {
 	speech_rate_low: number[];
 	speech_rate_high: number[];
 	/**
+	 * 95% bounds from resampling whole meetings within each period, on the
+	 * annual and quarterly series. Wider than Wilson where a period's rate rests
+	 * on a few sessions; absent from the monthly grid and from older payloads.
+	 */
+	speech_rate_cluster_low?: (number | null)[];
+	speech_rate_cluster_high?: (number | null)[];
+	/**
 	 * Optional only for an archived payload: every measure written since
 	 * lexicon v5 is one term and carries both. The register and set roll-ups
 	 * that had no occurrence count of their own are gone — R7.
@@ -937,7 +944,7 @@ export interface UsageModel {
 	 * Not requests intended: the counter that produced the first Gemini
 	 * manifest added the size of each pass's intention, whether or not the batch
 	 * quota let it create a single job, and reported 7,966 over a corpus of
-	 * 3,273. `requests_recounted` is true where `tools/recount_run.py` has
+	 * 3,273. `requests_recounted` is true where the since-retired `tools/recount_run.py` had
 	 * re-derived the figure from the run's own raw receipts, and false where the
 	 * manifest predates that and the number is the old one.
 	 */
@@ -1059,13 +1066,18 @@ export interface UsagePositionRow {
 	/** The 95% Wilson bounds on that share. Null together with it. */
 	share_low: number | null;
 	share_high: number | null;
+	/** The share of every other speaker's eligible occurrences that reject. */
+	base_rejects?: number | null;
+	/** Exact one-sided binomial p-value against `base_rejects`. */
+	p_value?: number | null;
+	/** Benjamini–Hochberg adjustment of `p_value` over the ranked speakers. */
+	q_value?: number | null;
 	/**
-	 * Whether the lower bound clears the corpus's own rejection rate of 1.7%.
+	 * Whether the speaker rejects more often than the rest of the Council, at a
+	 * false discovery rate of 5% (`q_value <= 0.05`).
 	 *
-	 * **The flag a ranking has to be built on.** A share of 1 in 24 is 4.2% and
-	 * reads as two and a half times the corpus; its interval runs from 0.7% to
-	 * 20% and covers the corpus rate three times over. Ordering that against a
-	 * share of 2 in 25 orders two draws from one urn.
+	 * **The flag a ranking has to be built on.** A share of 1 in 24 reads as
+	 * more than the room, and it is a draw the room produces often.
 	 */
 	separated: boolean;
 }
@@ -1107,6 +1119,12 @@ export interface UsageDiffusionReferent {
 	id: string;
 	/** Sorted by date, then identifier, then milestone rank. */
 	events: UsageDiffusionEvent[];
+	/**
+	 * The risk set: each affiliation that spoke in a meeting where any assigned
+	 * occurrence named this referent, with the date of the first such meeting.
+	 * Absent from payloads built before 24 September 2026.
+	 */
+	exposed?: { actor: string; date: string }[];
 }
 
 /**
@@ -1471,4 +1489,29 @@ export interface UsageOccurrence {
 export interface UsageOccurrences {
 	meta: BaseMeta;
 	occurrences: UsageOccurrence[];
+}
+
+/* --- 04_series.py: series/decomposition.json ------------------------------ */
+
+export interface DecompositionRow {
+	from: number;
+	to: number;
+	rate_from: number;
+	rate_to: number;
+	change: number;
+	/** The part of `change` from the groups' shares of speeches moving. */
+	composition: number;
+	/** The part from the rate moving inside the same groups. */
+	within: number;
+	largest: { group: string; contribution: number }[];
+	group_column: string;
+}
+
+export interface Decomposition {
+	meta: BaseMeta;
+	term: string;
+	unit: string;
+	periods: string;
+	method: string;
+	splits: Record<string, DecompositionRow[]>;
 }

@@ -91,7 +91,7 @@ def load_layer(directory: Path, speeches: pd.DataFrame) -> pd.Series:
     """
     manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
     if (manifest.get("layer_schema") != LAYER_SCHEMA
-            or manifest.get("tokenizer") != lexical.TOKEN_RE.pattern):
+            or manifest.get("tokenizer") != lexical.TOKENIZER):
         raise ValueError("lemma layer schema/tokenizer is stale; re-run 10_lemmatise.py")
     path = directory / "lemmas.parquet"
     if manifest.get("table_sha256") != artifacts.sha256(path):
@@ -116,7 +116,7 @@ def load_layer(directory: Path, speeches: pd.DataFrame) -> pd.Series:
         if not isinstance(row, str):
             raise ValueError("lemma sequence must be text")
         words = decode(row)
-        if (len(words) != len(lexical.TOKEN_RE.findall(source.lower()))
+        if (len(words) != len(lexical.words(source))
                 or any(not lexical.TOKEN_RE.fullmatch(word) for word in words)):
             raise ValueError("lemma token alignment is invalid; re-run 10_lemmatise.py")
     return pd.Series(selected["lemmas"].to_numpy(), index=speeches.index)
@@ -195,7 +195,7 @@ def align(source: str, spans: list[tuple[int, int, str]]) -> Result:
             # token has to span the whole surface token, or its lemma describes
             # only a fragment of it.
             if start <= position and end >= position + len(word):
-                lemma = candidate.strip().lower()
+                lemma = lexical.fold(candidate.strip())
         # Only a well-formed word is accepted; anything else — a document symbol,
         # a currency sign, two words glued by OCR punctuation, or an empty string
         # — leaves the surface form in place. This also guarantees the stored

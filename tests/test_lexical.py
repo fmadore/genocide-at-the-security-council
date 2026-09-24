@@ -489,3 +489,31 @@ class TestDefinitionalPairs:
         suppressed = {frozenset((p["source"], p["target"])) for p in pairs}
         assert frozenset(("genocide", "denial")) in suppressed
         assert frozenset(("war_crimes", "crimes_against_humanity")) not in suppressed
+
+
+def test_every_counting_path_reads_both_apostrophes_as_one():
+    """The corpus totals and the per-document counts dispersion is read from
+    must tokenise identically, or a word counted in one is missing from the
+    other: `Jarring's` with a curly apostrophe, in the rebuild of 24 September 2026."""
+    texts = ["Ambassador Jarring\u2019s mission", "Jarring's report"]
+    assert lexical.vocabulary(texts)["jarring's"] == 2
+    assert sum(counts["jarring's"] for counts in lexical.document_vocabulary(texts)) == 2
+    assert lexical.tokenise(texts[0]).words == lexical.words(texts[0])
+
+
+def test_a_target_added_in_one_stratum_leaves_the_other_strata_alone():
+    """Controls are drawn per stratum, so widening the target set in one debate
+    cannot redraw the controls of every debate after it (ROADMAP RV32)."""
+    frame = pd.DataFrame(
+        {
+            "stratum": [s for s in "abcdef" for _ in range(20)],
+            "target": [i % 20 < 3 for i in range(120)],
+        }
+    )
+    before = lexical.matched_control(frame, "target", ["stratum"])
+    widened = frame.copy()
+    widened.loc[3, "target"] = True  # one more target, in stratum "a"
+    after = lexical.matched_control(widened, "target", ["stratum"])
+    outside = lambda pairs: {i for i in pairs.control_index if frame.at[i, "stratum"] != "a"}  # noqa: E731
+    assert outside(before) == outside(after)
+    assert after.matched == before.matched + 1

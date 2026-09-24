@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import os
@@ -101,17 +102,36 @@ def with_analysis_hash(payload: object) -> object:
     return prepared
 
 
-def atomic_write_json(path: Path, payload: object, *, indent: int | None = None) -> None:
+def json_text(payload: object, *, indent: int | None = None) -> str:
+    """The canonical serialisation every JSON artefact is written with."""
     separators = None if indent is not None else (",", ":")
-    atomic_write_text(
-        path,
-        json.dumps(
-            with_analysis_hash(payload),
-            ensure_ascii=False,
-            indent=indent,
-            separators=separators,
-        ),
+    return json.dumps(
+        with_analysis_hash(payload), ensure_ascii=False, indent=indent, separators=separators
     )
+
+
+def atomic_write_json(path: Path, payload: object, *, indent: int | None = None) -> None:
+    atomic_write_text(path, json_text(payload, indent=indent))
+
+
+def atomic_write_json_gzip(path: Path, payload: object, *, indent: int | None = None) -> None:
+    """Write JSON as a gzip member, byte-identical for identical content.
+
+    `mtime=0` and a fixed level keep the bytes a function of the payload alone,
+    so the export's checksums do not change on a rebuild that changed nothing.
+    """
+    atomic_write_bytes(
+        path,
+        gzip.compress(json_text(payload, indent=indent).encode("utf-8"), compresslevel=9, mtime=0),
+    )
+
+
+def read_json(path: Path) -> object:
+    """A JSON artefact, whether it was written plain or gzipped."""
+    raw = path.read_bytes()
+    if path.suffix == ".gz" or raw[:2] == b"\x1f\x8b":
+        raw = gzip.decompress(raw)
+    return json.loads(raw.decode("utf-8"))
 
 
 @contextmanager
@@ -152,6 +172,20 @@ def sha256(path: Path, chunk: int = 1 << 20) -> str:
     return digest.hexdigest()
 
 
+#: Digests already computed in this process, keyed on what would change them.
+#: A step describes the 180 MB corpus in its payload's metadata and again in its
+#: stage manifest; the second description should not read it a second time.
+_DIGESTS: dict[tuple[str, int, int], str] = {}
+
+
+def _cached_sha256(path: Path) -> str:
+    status = path.stat()
+    key = (str(path.resolve()), status.st_size, status.st_mtime_ns)
+    if key not in _DIGESTS:
+        _DIGESTS[key] = sha256(path)
+    return _DIGESTS[key]
+
+
 def describe_file(path: Path, root: Path) -> dict[str, object]:
     return {
         # Relative to the repository where it can be; an input outside it — the
@@ -159,7 +193,7 @@ def describe_file(path: Path, root: Path) -> dict[str, object]:
         # refused, because the hash beside it is what the manifest is for.
         "path": path.relative_to(root).as_posix() if path.is_relative_to(root) else path.as_posix(),
         "bytes": path.stat().st_size,
-        "sha256": sha256(path),
+        "sha256": _cached_sha256(path),
     }
 
 
@@ -230,8 +264,24 @@ def provenance(
     *,
     inputs: list[Path] | None = None,
     configs: list[Path] | None = None,
+    optional: list[Path] | None = None,
     extra: dict[str, object] | None = None,
 ) -> dict[str, object]:
+    """What produced an artefact: script, time, commit, environment and inputs.
+
+    Every path in `inputs` and `configs` must exist. A manifest that silently
+    leaves out an input it was told about describes a run that did not happen,
+    which is worse than no manifest; a caller with a genuinely optional input
+    names it in `optional`, where its absence is recorded rather than hidden.
+    """
+    declared = [*(inputs or []), *(configs or [])]
+    if missing := [path for path in declared if not path.exists()]:
+        raise FileNotFoundError(
+            "provenance names inputs that do not exist: "
+            + ", ".join(path.as_posix() for path in missing)
+        )
+    present = [path for path in optional or [] if path.exists()]
+    absent = [path for path in optional or [] if not path.exists()]
     packages = {}
     for package in ("numpy", "pandas", "pyarrow", "PyYAML"):
         with suppress(PackageNotFoundError):
@@ -242,9 +292,14 @@ def provenance(
         "git_commit": git_commit(root),
         "python": platform.python_version(),
         "packages": packages,
-        "inputs": [describe_file(path, root) for path in inputs or [] if path.exists()],
-        "configs": [describe_file(path, root) for path in configs or [] if path.exists()],
+        "inputs": [describe_file(path, root) for path in [*(inputs or []), *present]],
+        "configs": [describe_file(path, root) for path in configs or []],
     }
+    if absent:
+        payload["absent_optional"] = [
+            path.relative_to(root).as_posix() if path.is_relative_to(root) else path.as_posix()
+            for path in absent
+        ]
     if extra:
         payload.update(extra)
     return payload

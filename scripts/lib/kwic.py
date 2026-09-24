@@ -52,7 +52,7 @@ __all__ = [
 class Line:
     """One occurrence of one term, with everything needed to cite it."""
 
-    id: str  #: ``UNSC_2014_SPV.7155_spch0007#3`` — speech file, one-based ordinal
+    id: str  #: ``SC07155-01-007#3`` — speech file, one-based ordinal
     spv: str
     date: str
     country: str

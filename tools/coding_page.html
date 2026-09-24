@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gold sample coding</title>
+<!-- Built by tools/coding_page.py from the blinded packet. Offline; nothing leaves this browser
+     except the CSV you export. See annotations/lexicon/CODEBOOK.md for every label. -->
+<style>
+  :root { --ink: #1d1d1b; --ink-2: #55534e; --paper: #fbfaf7; --rule: #d9d5cc; --mark: #ffe08a;
+          --evidence: #cfe3ff; --bad: #a3261b; --ok: #2f6b3a; font-family: system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); display: grid;
+         grid-template-columns: 14rem 1fr 26rem; height: 100vh; }
+  nav, main, form { overflow: auto; padding: 1rem; }
+  nav { border-right: 1px solid var(--rule); }
+  form { border-left: 1px solid var(--rule); }
+  nav ol { list-style: none; margin: 0; padding: 0; }
+  nav button { width: 100%; text-align: left; border: 0; background: none; padding: .25rem .4rem;
+               font: inherit; cursor: pointer; border-radius: 4px; }
+  nav button[aria-current="true"] { background: var(--rule); }
+  nav .done::after { content: " ✓"; color: var(--ok); }
+  nav .partial::after { content: " …"; color: var(--ink-2); }
+  h1 { font-size: 1rem; margin: 0 0 .5rem; }
+  .meta { color: var(--ink-2); font-size: .85rem; margin-bottom: 1rem; }
+  #body { white-space: pre-wrap; line-height: 1.6; max-width: 48rem; font-family: Georgia, serif; }
+  mark { background: var(--mark); outline: 2px solid #c99a00; }
+  .evidence { background: var(--evidence); }
+  label { display: block; font-size: .8rem; color: var(--ink-2); margin: .6rem 0 .15rem; }
+  select, input[type=text], textarea { width: 100%; font: inherit; padding: .25rem; }
+  textarea { min-height: 3.5rem; }
+  fieldset { border: 1px solid var(--rule); margin: .6rem 0; padding: .4rem .6rem; }
+  fieldset label { display: inline-flex; gap: .25rem; margin: .1rem .6rem .1rem 0; color: var(--ink); }
+  .row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+  .problems { color: var(--bad); font-size: .85rem; padding-left: 1.1rem; }
+  .status { font-size: .85rem; color: var(--ok); }
+  button.primary { font: inherit; padding: .35rem .7rem; }
+  @media (max-width: 70rem) { body { grid-template-columns: 1fr; height: auto; } nav { max-height: 12rem; } }
+</style>
+</head>
+<body>
+<nav aria-label="Occurrences">
+  <label for="coder">Coder</label>
+  <select id="coder"></select>
+  <p class="meta" id="progress"></p>
+  <ol id="list"></ol>
+</nav>
+<main>
+  <h1 id="title"></h1>
+  <p class="meta" id="context"></p>
+  <div id="body" aria-label="Speech text"></div>
+</main>
+<form id="form" autocomplete="off">
+  <div class="row">
+    <button type="button" id="prev">← Previous</button>
+    <button type="button" id="next">Next →</button>
+  </div>
+  <label for="verdict">Verdict</label><select id="verdict"></select>
+  <label for="source_checked">Source checked (original UN record)</label><select id="source_checked"></select>
+  <label for="quotation">Quotation</label><select id="quotation"></select>
+  <label for="concrete_case">Concrete case</label><select id="concrete_case"></select>
+  <label for="speaker_position">Speaker position</label><select id="speaker_position"></select>
+  <fieldset id="function"><legend>Function (one or more)</legend></fieldset>
+  <label for="referent">Referent</label><select id="referent"></select>
+  <label for="referent_source">Referent source</label><select id="referent_source"></select>
+  <label for="accused_actor">Accused actor</label><input type="text" id="accused_actor">
+  <label for="victim_group">Victim group</label><input type="text" id="victim_group">
+  <label for="own_state_accused">Own state accused</label><select id="own_state_accused"></select>
+  <label for="salience">Salience</label><select id="salience"></select>
+  <label>Evidence span (select text in the speech)</label>
+  <div class="row">
+    <button type="button" id="use-selection">Use selection</button>
+    <button type="button" id="use-sentence">Use the sentence</button>
+    <span class="meta" id="evidence-range"></span>
+  </div>
+  <label for="rationale">Rationale (required, one sentence)</label><textarea id="rationale"></textarea>
+  <label for="confidence">Confidence</label><select id="confidence"></select>
+  <label for="comment">Comment</label><textarea id="comment"></textarea>
+  <ul class="problems" id="problems"></ul>
+  <p class="status" id="status" aria-live="polite"></p>
+  <div class="row">
+    <button type="button" class="primary" id="export">Export completed rows (CSV)</button>
+    <label class="row" style="margin:0"><span>Import CSV</span><input type="file" id="import" accept=".csv"></label>
+  </div>
+</form>
+<script>
+"use strict";
+const DATA = /*DATA*/null;
+const SELECTS = ["verdict", "source_checked", "quotation", "concrete_case", "speaker_position",
+  "referent_source", "own_state_accused", "salience", "confidence"];
+const TEXTS = ["accused_actor", "victim_group", "rationale", "comment"];
+const NA_WHEN_FALSE = ["quotation", "concrete_case", "speaker_position", "referent", "referent_source",
+  "own_state_accused", "salience"];
+const NEVER_NA = ["quotation", "concrete_case", "speaker_position", "referent"];
+const $ = (id) => document.getElementById(id);
+let index = 0;
+
+const store = {
+  key: () => `genocide-coding:${$("coder").value}`,
+  load() { try { return JSON.parse(localStorage.getItem(this.key()) || "{}"); } catch { return {}; } },
+  save(all) { try { localStorage.setItem(this.key(), JSON.stringify(all)); } catch { /* private mode */ } },
+};
+
+function option(select, value, text) {
+  const node = document.createElement("option");
+  node.value = value; node.textContent = text ?? value; select.append(node);
+}
+
+function setup() {
+  for (const coder of DATA.coders) option($("coder"), coder);
+  for (const field of SELECTS) { option($(field), "", "—"); for (const v of DATA.vocabularies[field]) option($(field), v); }
+  option($("referent"), "", "—");
+  const kinds = [...new Set(DATA.referents.map((r) => r.kind))];
+  for (const kind of kinds) {
+    const group = document.createElement("optgroup"); group.label = kind;
+    for (const r of DATA.referents.filter((x) => x.kind === kind)) {
+      const node = document.createElement("option");
+      node.value = r.id; node.textContent = `${r.id} — ${r.label}${r.years ? ` (${r.years})` : ""}`;
+      node.title = r.description || ""; group.append(node);
+    }
+    $("referent").append(group);
+  }
+  for (const f of DATA.functions) {
+    const label = document.createElement("label");
+    label.innerHTML = `<input type="checkbox" value="${f}"> ${f}`;
+    $("function").append(label);
+  }
+  $("form").addEventListener("change", (event) => { cascade(event.target.id); persist(); });
+  $("form").addEventListener("input", persist);
+  $("coder").addEventListener("change", () => render());
+  $("prev").addEventListener("click", () => go(index - 1));
+  $("next").addEventListener("click", () => go(index + 1));
+  $("use-selection").addEventListener("click", useSelection);
+  $("use-sentence").addEventListener("click", useSentence);
+  $("export").addEventListener("click", exportCsv);
+  $("import").addEventListener("change", importCsv);
+  render();
+}
+
+function current() { return DATA.items[index]; }
+
+function answer(all = store.load()) { return all[current().occurrence_id] || {}; }
+
+function render() {
+  const item = current();
+  const saved = answer();
+  $("title").textContent = `${item.position} of ${DATA.items.length} · ${item.line_id}`;
+  $("context").textContent = `${item.meeting_symbol} · ${item.date} · ${item.country_org} · ${item.agenda}`;
+  for (const field of SELECTS) $(field).value = saved[field] ?? "";
+  $("referent").value = saved.referent ?? "";
+  for (const field of TEXTS) $(field).value = saved[field] ?? "";
+  const chosen = new Set((saved.function || "").split("|").filter(Boolean));
+  for (const box of $("function").querySelectorAll("input")) box.checked = chosen.has(box.value);
+  drawBody(saved.evidence_start, saved.evidence_end);
+  cascade(); report(saved); list();
+}
+
+function drawBody(evidenceStart, evidenceEnd) {
+  const item = current(); const text = DATA.bodies[item.filename];
+  const start = Number(item.start), end = Number(item.end);
+  const cuts = [...new Set([0, start, end, text.length,
+    ...(evidenceStart !== undefined && evidenceStart !== "" ? [Number(evidenceStart), Number(evidenceEnd)] : [])])]
+    .sort((a, b) => a - b);
+  const body = $("body"); body.textContent = "";
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const [a, b] = [cuts[i], cuts[i + 1]];
+    let node = document.createTextNode(text.slice(a, b));
+    const inEvidence = evidenceStart !== undefined && evidenceStart !== "" && a >= Number(evidenceStart) && b <= Number(evidenceEnd);
+    if (a >= start && b <= end) { const mark = document.createElement("mark"); mark.append(node); node = mark; }
+    if (inEvidence) { const span = document.createElement("span"); span.className = "evidence"; span.append(node); node = span; }
+    body.append(node);
+  }
+  body.querySelector("mark")?.scrollIntoView({ block: "center" });
+  $("evidence-range").textContent = evidenceStart !== undefined && evidenceStart !== ""
+    ? `characters ${evidenceStart}–${evidenceEnd}` : "none yet";
+}
+
+function offsetWithin(container, node, offset) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let total = 0;
+  while (walker.nextNode()) {
+    if (walker.currentNode === node) return total + offset;
+    total += walker.currentNode.textContent.length;
+  }
+  return null;
+}
+
+function setEvidence(start, end) {
+  const all = store.load(); const id = current().occurrence_id;
+  const saved = { ...answer(all), ...values(), evidence_start: String(start), evidence_end: String(end),
+    coded_at: new Date().toISOString().slice(0, 10) };
+  saved.complete = problems(saved).length === 0;
+  all[id] = saved; store.save(all); drawBody(start, end); report(saved); list();
+}
+
+function useSelection() {
+  const selection = window.getSelection();
+  if (!selection.rangeCount) return;
+  const range = selection.getRangeAt(0); const body = $("body");
+  if (!body.contains(range.startContainer) || !body.contains(range.endContainer)) return;
+  const start = offsetWithin(body, range.startContainer, range.startOffset);
+  const end = offsetWithin(body, range.endContainer, range.endOffset);
+  if (start !== null && end !== null && end > start) setEvidence(start, end);
+}
+
+function useSentence() {
+  const item = current(); const text = DATA.bodies[item.filename];
+  let start = Number(item.start), end = Number(item.end);
+  while (start > 0 && !/[.!?]\s/.test(text.slice(start - 2, start))) start--;
+  while (end < text.length && !/[.!?]/.test(text[end - 1] || "")) end++;
+  setEvidence(start, end);
+}
+
+function values() {
+  const out = {};
+  for (const field of SELECTS) out[field] = $(field).value;
+  out.referent = $("referent").value;
+  for (const field of TEXTS) out[field] = $(field).value.trim();
+  out.function = [...$("function").querySelectorAll("input:checked")].map((b) => b.value).join("|");
+  return out;
+}
+
+/* `changed` is the field the coder just set. The case/position link follows
+   it: setting one side fills the other, and leaving `no` / `no_position`
+   clears the other side rather than snapping back to it. */
+function cascade(changed) {
+  const falsePositive = $("verdict").value === "false_positive";
+  for (const field of NA_WHEN_FALSE) {
+    const node = $(field);
+    if (falsePositive) node.value = "not_applicable";
+    node.disabled = falsePositive;
+  }
+  for (const box of $("function").querySelectorAll("input")) {
+    if (falsePositive) box.checked = box.value === "not_applicable";
+    box.disabled = falsePositive;
+  }
+  for (const field of ["accused_actor", "victim_group"]) {
+    if (falsePositive) $(field).value = "";
+    $(field).disabled = falsePositive;
+  }
+  if (falsePositive) return;
+  const caseNode = $("concrete_case"), position = $("speaker_position");
+  if (changed === "concrete_case") {
+    if (caseNode.value === "no") position.value = "no_position";
+    else if (position.value === "no_position") position.value = "";
+  } else if (changed === "speaker_position") {
+    if (position.value === "no_position") caseNode.value = "no";
+    else if (caseNode.value === "no") caseNode.value = "";
+  }
+}
+
+function problems(saved) {
+  const v = { ...saved };
+  const out = [];
+  for (const field of [...SELECTS, "referent"]) if (!v[field]) out.push(`${field} is not set`);
+  if (!v.function) out.push("choose at least one function");
+  if (!v.rationale) out.push("the rationale is required");
+  const fns = (v.function || "").split("|").filter(Boolean);
+  if (fns.length > 1 && fns.some((f) => f === "unclear" || f === "not_applicable")) out.push("unclear and not_applicable stand alone in function");
+  if (v.verdict && v.verdict !== "false_positive") {
+    for (const field of NEVER_NA) if (v[field] === "not_applicable") out.push(`${field} cannot be not_applicable unless the match is a false positive`);
+    if (fns.includes("not_applicable")) out.push("function cannot be not_applicable unless the match is a false positive");
+  }
+  if ((v.concrete_case === "no") !== (v.speaker_position === "no_position") && v.verdict !== "false_positive") out.push("concrete_case no and speaker_position no_position go together");
+  const item = current();
+  if (v.evidence_start === undefined || v.evidence_start === "") out.push("record an evidence span");
+  else if (Number(v.evidence_start) > Number(item.start) || Number(v.evidence_end) < Number(item.end)) out.push("the evidence span must contain the highlighted match");
+  return out;
+}
+
+function persist() {
+  const all = store.load(); const id = current().occurrence_id;
+  const saved = { ...answer(all), ...values(), coded_at: new Date().toISOString().slice(0, 10) };
+  saved.complete = problems(saved).length === 0;
+  all[id] = saved; store.save(all); report(saved); list();
+}
+
+function report(saved) {
+  const found = problems(saved);
+  $("problems").innerHTML = "";
+  for (const text of found) { const li = document.createElement("li"); li.textContent = text; $("problems").append(li); }
+  $("status").textContent = found.length ? "" : "Complete — saved in this browser.";
+}
+
+function list() {
+  const all = store.load(); const node = $("list"); node.textContent = "";
+  let done = 0;
+  DATA.items.forEach((item, i) => {
+    const saved = all[item.occurrence_id];
+    const li = document.createElement("li"); const button = document.createElement("button");
+    button.type = "button"; button.textContent = `${item.position}. ${item.line_id}`;
+    if (saved?.complete) { button.className = "done"; done++; } else if (saved) button.className = "partial";
+    button.setAttribute("aria-current", String(i === index));
+    button.addEventListener("click", () => go(i));
+    li.append(button); node.append(li);
+  });
+  $("progress").textContent = `${done} of ${DATA.items.length} complete`;
+}
+
+function go(i) { if (i >= 0 && i < DATA.items.length) { index = i; render(); } }
+
+function quote(value) {
+  const text = String(value ?? "");
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function exportCsv() {
+  const all = store.load(); const coder = $("coder").value;
+  const rows = [DATA.columns.join(",")];
+  for (const item of DATA.items) {
+    const saved = all[item.occurrence_id];
+    if (!saved?.complete) continue;
+    const row = { ...saved, occurrence_id: item.occurrence_id, schema_version: item.schema_version,
+      lexicon_version: item.lexicon_version, coder };
+    rows.push(DATA.columns.map((c) => quote(row[c])).join(","));
+  }
+  const blob = new Blob([rows.join("\n") + "\n"], { type: "text/csv" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `genocide-gold-${coder}-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click(); URL.revokeObjectURL(link.href);
+}
+
+function parseCsv(text) {
+  const rows = []; let row = [], field = "", quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) { if (c === '"' && text[i + 1] === '"') { field += '"'; i++; } else if (c === '"') quoted = false; else field += c; }
+    else if (c === '"') quoted = true;
+    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+    else if (c !== "\r") field += c;
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+async function importCsv(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const [header, ...rows] = parseCsv(await file.text());
+  const all = store.load(); let restored = 0;
+  for (const cells of rows) {
+    const record = Object.fromEntries(header.map((h, i) => [h, cells[i] ?? ""]));
+    if (record.coder && record.coder !== $("coder").value) continue;
+    if (!DATA.items.some((item) => item.occurrence_id === record.occurrence_id)) continue;
+    all[record.occurrence_id] = { ...record, complete: true }; restored++;
+  }
+  store.save(all); render();
+  $("status").textContent = `${restored} rows restored for ${$("coder").value}.`;
+}
+
+setup();
+</script>
+</body>
+</html>

@@ -74,7 +74,6 @@ from lib.paths import (
     INTERIM,
     LEXICON,
     MANIFESTS,
-    MODEL_ANNOTATIONS,
     ROOT,
     SPEECHES_NORM,
     USAGE,
@@ -83,28 +82,22 @@ from lib.paths import (
     write_note,
 )
 
-TERM = "genocide"
+TERM = model_runs.TERM
 
-#: docs/CORPUS.md §8, asserted by 13 and by 14 before a single API call. A run
-#: whose rows were drawn from a different enumeration cannot be joined to the
-#: published counts, so this is checked here too rather than assumed from the
-#: fact that 14 checked it once.
-DOCUMENTED_SPEECHES = 4_133
-DOCUMENTED_OCCURRENCES = 7_747
+STORE = model_runs.STORE
+PROMPT = model_runs.PROMPT
+RUNS = model_runs.RUNS
+CURRENT_RUN = model_runs.CURRENT_RUN
 
-STORE = MODEL_ANNOTATIONS / TERM
-PROMPT = STORE / "PROMPT.md"
-RUNS = STORE / "runs"
-CURRENT_RUN = STORE / "current_run.txt"
+#: The counter-instrument, named the same way and read the same way. Empty is
+#: an ordinary state: a comparison run costs a second cluster run and buys no
+#: authority, so nothing here selects one for you.
+COMPARISON_RUN = model_runs.COMPARISON_RUN
 
-#: The counter-instrument, named the same way and read the same way. Committed
-#: empty, and empty is the ordinary state: a comparison run costs a second bill
-#: and buys no authority, so nothing here selects one for you.
-COMPARISON_RUN = STORE / "comparison_run.txt"
-
-REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
-GOLD_ANNOTATIONS = ROOT / "annotations" / TERM / "annotations.csv"
+REFERENTS = model_runs.REFERENTS
+GOLD_ANNOTATIONS = model_runs.GOLD_ANNOTATIONS
 GOLD_CANDIDATES = INTERIM / "genocide_gold_candidates.csv"
+GOLD_DESIGN = INTERIM / "genocide_gold_design.csv"
 
 #: Columns this step needs. The normalised frame is 99 columns and 389 MB of
 #: text; the eleven below are the enumeration's inputs plus the speaker
@@ -326,21 +319,17 @@ def read_run(directory: Path) -> tuple[dict[str, object], list[dict[str, object]
     return model_runs.read(directory)
 
 
-def check_population(found: list[occurrences_lib.Occurrence]) -> list[str]:
-    """Reasons the enumeration cannot be the documented one, if any."""
-    problems = []
-    if len(found) != DOCUMENTED_OCCURRENCES:
-        problems.append(
-            f"{len(found):,} occurrences against the {DOCUMENTED_OCCURRENCES:,} "
-            "documented in docs/CORPUS.md §8"
-        )
-    speeches = len({occurrence.filename for occurrence in found})
-    if speeches != DOCUMENTED_SPEECHES:
-        problems.append(
-            f"{speeches:,} speeches against the {DOCUMENTED_SPEECHES:,} "
-            "documented in docs/CORPUS.md §8"
-        )
-    return problems
+def check_population(
+    found: list[occurrences_lib.Occurrence], expected: tuple[int, int] | None = None
+) -> list[str]:
+    """Reasons the enumeration cannot be the committed one, if any.
+
+    Asserted here as 13 and 14 assert it: a run whose rows were drawn from a
+    different enumeration cannot be joined to the published counts.
+    """
+    return model_runs.population_problems(
+        (occurrence.filename for occurrence in found), len(found), expected
+    )
 
 
 def enumerated_frame(
@@ -715,6 +704,37 @@ def refuse_bad_rows(
         )
 
 
+def validated(
+    manifest: dict[str, object],
+    rows: list[dict[str, object]],
+    *,
+    lex: lexicon.Lexicon,
+    enumerated: pd.DataFrame,
+    referent_list: audit.ReferentList,
+    what: str = "the run",
+) -> tuple[list[dict[str, object]], dict[str, int], int]:
+    """Every identity check a run must pass, then its rows in today's vocabulary.
+
+    One function for the published run and the comparison run, which used to
+    repeat the same five calls. The lexicon it was enumerated against, the
+    occurrence identities and body digests, the codebook, and the referent list
+    version, in that order; then superseded referents resolved onto their
+    successors and schema-2 rows onto schema 3. Returns the rows, the schema
+    counts and how many rows carried a superseded referent.
+
+    Existence is checked against every identifier the referent file holds,
+    retired ones included: a run that used a referent the list has since
+    withdrawn is not a broken run, it is an older one, and the version check is
+    what says whether it was entitled to use it.
+    """
+    refuse_stale_lexicon(manifest, rows, lex, what=what)
+    refuse_bad_rows(rows, enumerated, referent_list.all, what=what)
+    superseded = refuse_stale_referents(manifest, rows, referent_list, what=what)
+    rows = resolve_referents(rows, referent_list)
+    rows, schema_counts = resolve_schema(manifest, rows, what=what)
+    return rows, schema_counts, superseded
+
+
 def refuse_partial(annotated: int, total: int, allow: bool) -> None:
     """A gap is reported honestly or refused, never averaged over."""
     if annotated >= total:
@@ -913,7 +933,9 @@ def occurrence_rows(
     return out
 
 
-def diffusion_block(rows: pd.DataFrame, referent_order: list[str]) -> dict[str, object]:
+def diffusion_block(
+    rows: pd.DataFrame, referent_order: list[str], speeches: pd.DataFrame | None = None
+) -> dict[str, object]:
     """The dated first-events, under the referent block's own order.
 
     That order is read back off the block `usage.aggregate` has already built
@@ -926,10 +948,7 @@ def diffusion_block(rows: pd.DataFrame, referent_order: list[str]) -> dict[str, 
     every other refusal here produces.
     """
     try:
-        return {
-            "milestones": list(usage.MILESTONES),
-            "referents": usage.diffusion_rows(rows, referent_order),
-        }
+        referents = usage.diffusion_rows(rows, referent_order)
     except ValueError as error:
         console.fail(
             "the run cannot be laid on a timeline",
@@ -941,6 +960,46 @@ def diffusion_block(rows: pd.DataFrame, referent_order: list[str]) -> dict[str, 
             ],
         )
         raise  # unreachable; console.fail exits, and a reader cannot know that
+    # The risk set beside each curve: who sat in a debate that named the case.
+    exposure = {} if speeches is None else usage.exposure_rows(rows, speeches)
+    for entry in referents:
+        entry["exposed"] = exposure.get(str(entry["id"]), [])
+    return {"milestones": list(usage.MILESTONES), "referents": referents}
+
+
+#: Every dated first the diffusion figure draws, for a coder to check against
+#: the record. A first is a minimum over dates, so a single mislabelled early
+#: occurrence moves it, and there are few enough of them to read them all.
+FIRST_EVENTS = INTERIM / "genocide_first_events.csv"
+
+
+def write_first_events(diffusion: dict[str, object], rows: pd.DataFrame) -> None:
+    """The review list of first events, with each one's evidence quotation."""
+    quotes = {
+        str(line): (str(identifier), str(quote))
+        for line, identifier, quote in zip(
+            rows["line_id"], rows["occurrence_id"], rows["evidence_quote"], strict=True
+        )
+    }
+    records = [
+        {
+            "referent": entry["id"],
+            "actor": event["actor"],
+            "milestone": event["milestone"],
+            "date": event["date"],
+            "line_id": event["id"],
+            "occurrence_id": quotes.get(str(event["id"]), ("", ""))[0],
+            "evidence_quote": quotes.get(str(event["id"]), ("", ""))[1],
+            "verified": "",
+            "note": "",
+        }
+        for entry in diffusion["referents"]  # type: ignore[union-attr]
+        for event in entry["events"]
+    ]
+    artifacts.atomic_write_text(
+        FIRST_EVENTS, pd.DataFrame(records).to_csv(index=False, lineterminator="\n")
+    )
+    console.info(f"wrote {rel(FIRST_EVENTS)}: {len(records):,} first events to verify")
 
 
 def build_note(
@@ -1522,7 +1581,7 @@ def run(args: argparse.Namespace) -> None:
     console.step("Enumerating the term")
     found = occurrences_lib.enumerate_term(speeches, bodies, lex.terms[TERM])
     if problems := check_population(found):
-        console.fail("the enumeration disagrees with docs/CORPUS.md §8", problems)
+        console.fail("the enumeration disagrees with config/lexicon.counts.json", problems)
     console.info(
         f"{len(found):,} occurrences in "
         f"{len({occurrence.filename for occurrence in found}):,} speeches"
@@ -1530,19 +1589,15 @@ def run(args: argparse.Namespace) -> None:
     enumerated = enumerated_frame(speeches, found)
 
     console.step("Checking the run against this corpus")
-    refuse_stale_lexicon(manifest, raw_rows, lex)
     prompt = resolve_prompt(manifest)
     console.info(
         f"prompt v{prompt.version}, sha256 {prompt.sha256[:12]}, published from "
         f"{prompt.name}"
     )
     referent_list = audit.read_referent_list(REFERENTS)
-    # Existence is checked against every identifier the file holds, including the
-    # retired ones: a run that used a referent this list has since withdrawn is
-    # not a broken run, it is an older one, and the version check below is what
-    # says whether it was entitled to use it.
-    refuse_bad_rows(raw_rows, enumerated, referent_list.all)
-    superseded = refuse_stale_referents(manifest, raw_rows, referent_list)
+    raw_rows, schema_counts, superseded = validated(
+        manifest, raw_rows, lex=lex, enumerated=enumerated, referent_list=referent_list
+    )
     refuse_partial(len(raw_rows), len(found), args.allow_partial)
     console.info(
         f"referent list v{referent_list.version}: {len(referent_list.current)} current, "
@@ -1553,8 +1608,6 @@ def run(args: argparse.Namespace) -> None:
             f"{superseded:,} rows carry a superseded referent and are read under its "
             "successor; the run's own version is in the artefact's provenance"
         )
-    raw_rows = resolve_referents(raw_rows, referent_list)
-    raw_rows, schema_counts = resolve_schema(manifest, raw_rows)
     if schema_counts["unanswered"]:
         console.info(
             f"{schema_counts['unanswered']:,} rows were coded against annotation schema "
@@ -1574,22 +1627,17 @@ def run(args: argparse.Namespace) -> None:
         # comparison run is read over the occurrences both runs reached, so a
         # short one narrows the comparison rather than invalidating the counts.
         refuse_other_prompt(comparison_manifest, prompt.sha256)
-        refuse_stale_lexicon(
-            comparison_manifest, comparison_raw, lex, what="the comparison run"
-        )
-        refuse_bad_rows(
-            comparison_raw, enumerated, referent_list.all, what="the comparison run"
-        )
         # The comparison may be a run made against a different version of the
-        # list — that is the point of reading two runs side by side — so it is
-        # checked against its own recorded version and resolved onto the same
-        # current identifiers before either is counted.
-        refuse_stale_referents(
-            comparison_manifest, comparison_raw, referent_list, what="the comparison run"
-        )
-        comparison_raw = resolve_referents(comparison_raw, referent_list)
-        comparison_raw, comparison_schema = resolve_schema(
-            comparison_manifest, comparison_raw, what="the comparison run"
+        # referent list — that is the point of reading two runs side by side —
+        # so it is checked against its own recorded version and resolved onto
+        # the same current identifiers before either is counted.
+        comparison_raw, comparison_schema, _ = validated(
+            comparison_manifest,
+            comparison_raw,
+            lex=lex,
+            enumerated=enumerated,
+            referent_list=referent_list,
+            what="the comparison run",
         )
         comparison_schema_version = str(
             comparison_manifest.get("schema_version", "") or audit.LEGACY_SCHEMA_VERSION
@@ -1676,7 +1724,12 @@ def run(args: argparse.Namespace) -> None:
         ),
     )
     counts = usage.funnel(rows)
-    diffusion = diffusion_block(rows, [str(row["id"]) for row in blocks["referents"]])
+    diffusion = diffusion_block(
+        rows,
+        [str(row["id"]) for row in blocks["referents"]],
+        speeches[["filename", "meeting_symbol", "country_org", "date"]],
+    )
+    write_first_events(diffusion, rows)
     events = sum(len(entry["events"]) for entry in diffusion["referents"])
     console.table(
         [
@@ -1710,6 +1763,12 @@ def run(args: argparse.Namespace) -> None:
             ["run 13_gold_sample.py first; the gold block reports on a sample that exists"],
         )
     candidates = pd.read_csv(GOLD_CANDIDATES, dtype="string", keep_default_na=False)
+    if not GOLD_DESIGN.is_file():
+        console.fail(
+            f"{rel(GOLD_DESIGN)} is missing",
+            ["run 13_gold_sample.py first; it writes the design beside the candidates"],
+        )
+    design = pd.read_csv(GOLD_DESIGN, dtype={"occurrence_id": "string"}, keep_default_na=False)
     annotations = audit.read_annotations(GOLD_ANNOTATIONS)
     gold = usage.gold_block(
         annotations,
@@ -1727,6 +1786,9 @@ def run(args: argparse.Namespace) -> None:
         # accurate about anything; the `comparison` block scores them against each
         # other, which measures neither.
         comparison=pd.DataFrame(comparison_raw),
+        # Every population unit's probability under the union of the frames,
+        # which is what the weighted accuracy and the corrected shares divide by.
+        design=design,
     )
     jaccard = usage.function_jaccard(annotations, rows)
     console.info(

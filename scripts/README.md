@@ -44,18 +44,19 @@ and compares their analytical values with `tests/golden/`. Leave them unset othe
 | 06 | `06_embed.py` | `speeches_flagged.parquet`, `config/embedding_models.yml` | `derived/embeddings/` | 🖥️ GPU |
 | 07 | `07_topics.py` | `speeches_flagged.parquet`, `derived/embeddings/` | `derived/topics/` | 🔬 evaluation only |
 | 08 | `08_kwic.py` | `speeches_flagged.parquet` | `derived/kwic/*.json` | ✅ |
-| 09 | `09_export_speeches.py` | `speeches_flagged.parquet`, `meetings.parquet` | `web/static/data/{scopes.json,meetings.json,speeches/*.json}` | ✅ |
+| 09 | `09_export_speeches.py` | `speeches_flagged.parquet`, `meetings.parquet` | `web/static/data/{scopes.json,meetings.json,speeches/*.json.gz}` | ✅ |
 | 10 | `10_lemmatise.py` | `speeches_flagged.parquet` | `derived/lemmas/` | 🔬 optional |
 | 11 | `11_countries.py` | `speeches_flagged.parquet`; `config/entities.csv` for optional geography only | `derived/countries/countries.json` | ✅ |
 | 12 | `12_speaker_keyness.py` | `speeches_flagged.parquet`, `config/stopwords.txt` | `derived/countries/speaker_keyness.json` | ✅ |
-| 13 | `13_gold_sample.py` | `speeches_norm.parquet`, `config/lexicon.yml`, `annotations/genocide/`, `model_annotations/genocide/` | `data/interim/genocide_gold_*.csv` | ✅ |
+| 13 | `13_gold_sample.py` | `speeches_norm.parquet`, `config/lexicon.yml`, `config/lexicon.counts.json`, `annotations/genocide/`, `model_annotations/genocide/` | `data/interim/genocide_gold_*.csv`, including the blinded `packet` and the `design` | ✅ |
 | 14 | `14_llm_annotate.py` | `speeches_norm.parquet`, prompt, a local vLLM Responses endpoint | `model_annotations/genocide/runs/<id>/` | ✋ scheduled, experimental |
-| 15 | `15_usage.py` | `model_annotations/genocide/`, `annotations/genocide/`, `speeches_norm.parquet` | `derived/usage/*.json` | 🧪 experimental |
+| 15 | `15_usage.py` | `model_annotations/genocide/`, `annotations/genocide/`, `speeches_norm.parquet`, the gold design | `derived/usage/*.json`, `data/interim/genocide_first_events.csv` | 🧪 experimental |
 | 17 | `17_frames.py` | `speeches_flagged.parquet`, `config/lexicon.yml`, `model_annotations/genocide/` | `derived/frames/*.json` | ✅ |
 | 21 | `21_semantic_map.py` | `speeches_flagged.parquet`, complete schema-2 embeddings | `derived/semantic/` | 🖥️ CPU projection |
 | — | `fetch_semantic.py` | `config/semantic-release.json`, GitHub release asset | `derived/semantic/` | ✅ verified restore |
 | — | `export_web.py` | `derived/{series,lexical,kwic,countries,usage,frames,actor_year,semantic}/` | `web/static/data/` | ✅ |
 | — | `score_intrusion.py` | `derived/topics/intrusion_{task,key}.csv` | `derived/topics/intrusion_score.json` | 🔬 after a human |
+| — | `probe_sampling.py` | the prompt, the population, a local vLLM endpoint | `data/interim/model_annotation_sampling/<id>/sampling.json` | 🖥️ before a run |
 
 **06, 07 and 10 are not part of the release pipeline.** They need the extra dependencies in
 [`../requirements-cluster.txt`](../requirements-cluster.txt) — and, for 06, a GPU — and they
@@ -109,7 +110,7 @@ and its key as two files so that the file a human opens does not contain the ans
 [`../docs/PLAN.md`](../docs/PLAN.md)). 13 draws the human
 gold sample and is deterministic. **14 is never run by CI or the deploy**: it reads a local
 OpenAI-compatible vLLM endpoint on a cluster compute node and needs no key. A full run sends
-all 7,747 `genocide` occurrences to the pinned open-weights model. Its output is committed
+every `genocide` occurrence to the pinned open-weights model. Its output is committed
 under `model_annotations/`, which is why the deploy can rebuild the payload without a GPU.
 15 is deterministic again: it joins the committed run, the human gold rows and the
 corpus into `derived/usage/`, refusing a run whose term pattern, occurrence identities or
@@ -181,17 +182,9 @@ reasoning-token counts under `data/interim/model_annotation_probes/<run-id>/prob
 refuses to start annotation when every level is flat. A successful probe is reused when an
 identical run resumes after walltime.
 
-A manifest
-written before that — the Gemini run of 31 August — can be
-repaired from the raw job outputs the run left under `data/interim/llm_raw/`:
-
-```bash
-python tools/recount_run.py 2026-08-31-gemini-v1          # what it would change
-python tools/recount_run.py 2026-08-31-gemini-v1 --write  # rewrite; review the diff
-```
-
-It refuses a run whose raw directory has been deleted rather than guessing, and records in
-the manifest's own `recount` block what could not be recovered. `cost_usd` stays null until
+The Gemini manifest of 31 August was repaired from its raw job outputs by
+`tools/recount_run.py`, which was removed on 24 September 2026 once its hosted-provider
+module had gone; its `recount` block records what it did. `cost_usd` stays null until
 a price table is recorded beside the run: both APIs report tokens and neither reports a
 price, and `docs/VALIDATION.md` §7 carries the check that owes it.
 
@@ -235,7 +228,14 @@ removing a term is therefore a recorded decision, not a configuration tweak.
    term: `15` reads a committed run's recorded version against that term's `pattern_since`,
    so a release that edited other terms leaves the gold sample and the model runs standing.
    Editing a `pattern` — and so bumping its `pattern_since` — does invalidate them.
-3. **Run `python tools/lock_lexicon.py`** if you edited a `pattern` or an `anchor`. It
+3. **Run `python tools/lock_lexicon.py`** if you edited a `pattern`, an `anchor` or the
+   `anchor:` block. A change that only *adds* matches may be declared with `widened_since`
+   and `widened_from` instead of a new `pattern_since`: 03 re-runs the old rule over the
+   corpus and refuses the declaration unless every old span is still counted, and committed
+   runs and coding then stay compatible, reporting the added occurrences as a coverage gap.
+   Then run `python scripts/03_lexicon.py --update-counts` and commit
+   `config/lexicon.counts.json` with the change: 03 fails on any count that differs from it,
+   and 13, 14 and 15 take their population from it. It
    rewrites [`../config/lexicon.lock.json`](../config/lexicon.lock.json), which records each
    pattern's digest and each term's anchor beside the `pattern_since` they are declared to
    date from, and it refuses to write while an edited rule still carries an old one. The
@@ -317,8 +317,7 @@ What follows from that, worth knowing before you start:
 | [`lib/artifacts.py`](lib/artifacts.py) | Atomic files/directories, hashes and provenance manifests. |
 | [`lib/contract.py`](lib/contract.py) | The payload's shape, and whether it still has it. Enforced at the export seam. |
 | [`lib/frames.py`](lib/frames.py) | Parquet read/write; `body()` reconstructs a speech minus its form of address. |
-| [`lib/text.py`](lib/text.py) | Line endings, the opening form of address, delivery language, sentence segmentation, case collisions. |
-| [`lib/language.py`](lib/language.py) | Explicit, inferred and unknown delivery-language policy. |
+| [`lib/text.py`](lib/text.py) | Line endings, the opening form of address, sentence segmentation, case collisions. |
 | [`lib/entities.py`](lib/entities.py) | Source-derived affiliation types; optional legacy ISO3/centroid enrichment without renaming. |
 | [`lib/council.py`](lib/council.py) | Council membership by year; the P5 / E10 / non-member / UN / non-state split. |
 | [`lib/lexicon.py`](lib/lexicon.py) | Loads, compiles and counts `config/lexicon.yml`; `Term.spans` applies a term's whole rule, pattern and sentence anchor together. |
@@ -328,6 +327,7 @@ What follows from that, worth knowing before you start:
 | [`lib/occurrences.py`](lib/occurrences.py) | One enumeration of a term's occurrences, carrying both the audit `occurrence_id` and the KWIC line id; 13, 14 and 15 share it. |
 | [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: prompt parsing, request building, response validation against the codebook's vocabularies, evidence-quote location in three passes (exact, whitespace-collapsed, then folded and flagged `evidence_relocated`), resume rules. No network, no SDK import at module level. |
 | [`lib/annotate.py`](lib/annotate.py) | Step 14's provider-independent population, output ceiling, manifest and refusal rules. No SDK is imported here. |
+| [`lib/model_runs.py`](lib/model_runs.py) | The model-annotation store's files and pointers, the population check against the committed counts, and the read-only validation every run reader shares. |
 | [`lib/usage.py`](lib/usage.py) | Aggregation for the usage layer: eligible/assigned funnel, the actor × referent matrix, withholding, and the agreement arithmetic — kappa with its withholding rule, PABAK, Krippendorff's α under MASI, per-label kappa, the per-class support floor. |
 | [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood as a floor with log ratio and logDice as the rank, dispersion (documents, meetings, DP), matched controls, PMI with definitional pairs suppressed. |
 | [`lib/keyness.py`](lib/keyness.py) | One speaker against the room: the corpus as a count matrix, the strata, the two gates, agenda composition. |
@@ -355,7 +355,10 @@ machine-specific paths live in `.env` (git-ignored; copy `.env.example`).
 | Tool | Purpose |
 |---|---|
 | [`../tools/bootstrap_entities.py`](../tools/bootstrap_entities.py) | Proposes rows for `config/entities.csv`. Downloads ISO 3166 codes and centroids once; never edits the checked-in file. Run with `--missing` when the corpus gains new speakers. |
-| [`../tools/lock_lexicon.py`](../tools/lock_lexicon.py) | Rewrites `config/lexicon.lock.json`, the digests that hold each term's `pattern_since` to its `pattern`. Run it after editing a pattern; `--check` verifies and exits non-zero. The output is committed beside the config it locks. |
+| [`../tools/lock_lexicon.py`](../tools/lock_lexicon.py) | Rewrites `config/lexicon.lock.json`, the digests that hold each term's `pattern_since` (or `widened_since`) to its `pattern`, and the anchor's. Run it after editing a pattern; `--check` verifies and exits non-zero. The output is committed beside the config it locks. |
+| [`../tools/lib_deps.py`](../tools/lib_deps.py) | Rewrites `scripts/deps.mk`, each step's `lib` prerequisites for the Makefile, from the imports. `--check` verifies; a test runs it. |
+| [`../tools/map_prompt_examples.py`](../tools/map_prompt_examples.py) | Finds the v5.0 occurrences behind the prompt's worked examples, which 13 keeps out of the gold frames. `--write` rewrites the committed mapping. |
+| [`../tools/coding_page.py`](../tools/coding_page.py) | Builds `data/interim/genocide_coding.html`, the offline page the coders use on the blinded packet. Serve it with the `coding-page` launch configuration. |
 
 ## Tests
 

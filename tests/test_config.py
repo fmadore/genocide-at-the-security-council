@@ -307,10 +307,12 @@ class TestLexicon:
         for word in ("genocide", "Genocide", "genocidal", "genocides", "genocidaires"):
             assert regex.search(word), word
 
-    def test_the_core_pattern_did_not_move_at_v4(self, lex):
-        """The unchanged full-family pattern preserves annotation compatibility."""
+    def test_the_core_pattern_only_widened_since_v2(self, lex):
+        """The full-family pattern's identity dates from v2, and v8 only widened
+        it to the accented form, so annotations keep their compatibility."""
         term = lex.terms["genocide"]
-        assert term.pattern == r"\bgenocid\w*"
+        assert term.pattern == r"\bg[eé]nocid\w*"
+        assert term.widened_from == r"\bgenocid\w*"
         assert term.anchor is None
         assert term.pattern_since == 2, "editing this is what 15_usage.py refuses over"
         assert lex.compatible("genocide", 2), "the committed model runs record version 2"

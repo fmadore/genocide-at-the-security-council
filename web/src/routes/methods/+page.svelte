@@ -116,7 +116,7 @@
 			does: 'Prepares full meeting records and the three reading sets.',
 			checks:
 				'Checks speech totals and the positions of highlighted matches against the source tables.',
-			artefact: 'speeches/*.json; scopes.json',
+			artefact: 'speeches/*.json.gz; scopes.json',
 			state: 'verified',
 			says: 'Automatic checks'
 		},

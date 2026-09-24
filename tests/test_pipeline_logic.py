@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-from lib import council, entities, frames, language, lexicon
+from lib import council, entities, frames, lexicon
 
 
 @pytest.fixture(scope="module")
@@ -215,21 +215,3 @@ class TestLexiconCounting:
         variants = report["genocide_ocr_variants"]
         assert variants["speeches"] == 2
         assert variants["extra"] == 1  # only the misspelled one is new
-
-
-class TestDeliveryLanguage:
-    def test_explicit_marker_is_preserved(self):
-        frame = pd.DataFrame(
-            {"spoken_language": ["French"], "speech_format": ["In-Person"]}
-        )
-        assert language.delivery_language(frame).iloc[0] == "French"
-
-    def test_in_person_missing_marker_is_inferred_english(self):
-        frame = pd.DataFrame(
-            {"spoken_language": [pd.NA], "speech_format": ["In-Person"]}
-        )
-        assert language.delivery_language(frame).iloc[0] == language.ENGLISH_INFERRED
-
-    def test_vtc_missing_marker_remains_unknown(self):
-        frame = pd.DataFrame({"spoken_language": [pd.NA], "speech_format": ["VTC"]})
-        assert language.delivery_language(frame).iloc[0] == language.UNKNOWN_VTC

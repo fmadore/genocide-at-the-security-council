@@ -22,19 +22,27 @@ what an identifier covers cannot pass unnoticed.
 ## `genocide/`
 
 `genocide/annotations.csv` is the gold sample that evaluates the model-assisted usage layer.
-`scripts/13_gold_sample.py` currently draws 200 candidate rows (199 distinct occurrences)
-from the 7,747 occurrences in the canonical corpus, in two pre-model frames, and writes them to
-`data/interim/genocide_gold_*.csv`. Two coders code every one of them independently; the
-agreement between them is what the model's scores are read against, so a case coded once is
-not yet gold.
+`scripts/13_gold_sample.py` draws the candidates from every `genocide` occurrence in the
+canonical corpus except the ten the prompt's worked examples are cut from, and writes them to
+`data/interim/genocide_gold_*.csv`: on 24 September 2026, 469 rows over 453 distinct
+occurrences. Two coders code every one of them independently; the agreement between them is
+what the model's scores are read against, so a case coded once is not yet gold.
 
-**The frames are never pooled.** There are 120 occurrences drawn with equal probability, which is
-the only part of the sample that estimates anything about the corpus and is weighted by its
-its own inclusion probabilities; 80 more cover every period and usage-cue stratum, so that
-nothing is missing entirely. Once two replacement model runs exist, the script can add a
-third frame drawn from the strata those runs read differently. That disagreement frame is
-read unweighted; a rate computed over the union of the frames would estimate nothing. Every
-candidate row records the inclusion probability that put it there.
+**Three frames, and one design over them.** There are 120 occurrences drawn with equal
+probability, 80 more that cover every period and usage-cue stratum, and a third frame cut
+from the published model run's labels — or, once two runs exist, from where they disagree —
+so that the rare positions are measurable at all. The frames are reported one by one, and
+`genocide_gold_design.csv` gives every occurrence its probability under each frame and under
+their union, which is what lets 15 weight *all* the coding back to the corpus. An unweighted
+rate over the union would estimate nothing; a weighted one is design-unbiased.
+
+**Coders work from the blinded packet.** `genocide_gold_packet.csv` holds each sampled
+occurrence once, in a seeded shuffle, with no frame, cue, stratum or probability — a stratum
+named `rejects` is the model's answer printed beside the question. `python
+tools/coding_page.py` turns it into `data/interim/genocide_coding.html`, an offline page that
+shows each passage in its speech, takes the evidence span as a text selection, applies the
+codebook's cascade and exports rows in this file's column order. The frames stay in the
+candidate and review files, which are the key.
 
 **A model label can be a sampling stratum, exactly as the cue is.** The optional third frame
 is cut from `model_annotations/`, and what it says about an occurrence is that it is worth a

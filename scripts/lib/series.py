@@ -1,7 +1,8 @@
 """Temporal series, and where they change.
 
-The corpus grows 7.4x between 1992 and 2023, so a raw count is a measure of the
-Council's growing verbosity before it is a measure of anything else. Every
+The Council speaks many times more in the 2020s than in the 1940s, so a raw
+count is a measure of its growing verbosity before it is a measure of anything
+else. Every
 series here therefore ships with two denominators:
 
     speech_rate  speeches containing the term / speeches held
@@ -17,7 +18,7 @@ Those caveats travel with the output. Denominator-aware modelling is provided
 separately by denominator-aware binomial and Poisson likelihood scans; the
 exploratory detector must not be presented as confirmatory evidence.
 
-No `ruptures` dependency: on 32 annual points the whole search is a few
+No `ruptures` dependency: on 79 annual points the whole search is a few
 milliseconds of numpy, and a method this consequential is better read than
 imported.
 
@@ -41,6 +42,7 @@ so a reader can see which was divided by.
 
 from __future__ import annotations
 
+import itertools
 import math
 from dataclasses import dataclass
 
@@ -240,6 +242,139 @@ def measure(
     return out
 
 
+# --- Meeting-clustered intervals ------------------------------------------
+
+#: Resamples behind a meeting-clustered interval, and the seed they are drawn with.
+CLUSTER_RESAMPLES = 999
+CLUSTER_SEED = 20260924
+
+
+def meeting_bootstrap(
+    frame: pd.DataFrame,
+    periods: pd.Series,
+    index: pd.Index,
+    flags: dict[str, str],
+    *,
+    resamples: int = CLUSTER_RESAMPLES,
+    seed: int = CLUSTER_SEED,
+) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """95% percentile intervals on each flag's speech rate, resampling meetings.
+
+    The Wilson bounds treat every speech as an independent trial. The Council
+    does not speak that way: one debate on Srebrenica puts forty speeches
+    saying *genocide* into a year at once, and a year with two such debates is
+    not twice as certain as a year with one. Here each period's meetings are
+    drawn with replacement, every speech of a drawn meeting coming with it, and
+    the rate is recomputed on each draw (docs/ROADMAP.md, RV19). Under this
+    scheme the band is wide exactly where a year's word depends on a few
+    sessions.
+
+    `flags` maps a measure name to its boolean `has_` column. All measures of a
+    period share one draw of meetings, so their intervals are comparable; the
+    draw is a multinomial count per meeting, which makes each resample a
+    weighted sum rather than a copy of the corpus. A period with no meetings
+    gets NaN on both sides, as a Wilson bound on nothing does.
+
+    These intervals treat the meetings of a period as exchangeable draws, which
+    they are not: they describe how much a year's rate rests on a few sessions,
+    not uncertainty about a count that is exhaustive.
+    """
+    rng = np.random.default_rng(seed)
+    names = list(flags)
+    keyed = frame.assign(_period=periods.to_numpy())
+    grouped = keyed.groupby(["_period", "meeting_symbol"], sort=True)
+    per_meeting = grouped.agg(
+        speeches=("row_id", "size"), **{name: (flags[name], "sum") for name in names}
+    )
+    out = {name: (np.full(len(index), np.nan), np.full(len(index), np.nan)) for name in names}
+    positions = {period: at for at, period in enumerate(index)}
+    for period, block in per_meeting.groupby(level=0, sort=True):
+        at = positions.get(period)
+        if at is None:
+            continue
+        meetings = len(block)
+        weights = rng.multinomial(meetings, np.full(meetings, 1 / meetings), size=resamples)
+        denominators = weights @ block["speeches"].to_numpy(dtype=float)
+        numerators = weights @ block[names].to_numpy(dtype=float)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            rates = numerators / denominators[:, None]
+        low, high = np.nanpercentile(rates, [2.5, 97.5], axis=0)
+        for column, name in enumerate(names):
+            out[name][0][at] = low[column]
+            out[name][1][at] = high[column]
+    return out
+
+
+def rate_decomposition(
+    frame: pd.DataFrame,
+    periods: pd.Series,
+    has_column: str,
+    group_column: str,
+) -> list[dict[str, object]]:
+    """How much of each change in a speech rate is composition, and how much use.
+
+    Between consecutive periods, the change in the share of speeches carrying
+    the term is split (Kitagawa, 1955) into a **composition** part — the
+    Council spending more of its speeches on the groups where the word was
+    already common — and a **within** part, the word becoming more or less
+    common inside the same groups:
+
+        change = sum_g (w2 - w1)(r1 + r2)/2  +  sum_g (r2 - r1)(w1 + w2)/2
+
+    with `w` a group's share of the period's speeches and `r` the rate inside
+    it. The two parts add to the change exactly. A group present in one period
+    only has no rate in the other; its rate is carried across, so its whole
+    contribution is composition — a new agenda item arriving is a change in
+    what the Council talks about, not in how (docs/ROADMAP.md, RV18).
+    """
+    keyed = pd.DataFrame(
+        {
+            "period": periods.to_numpy(),
+            "group": frame[group_column].astype("string").fillna("Unknown").to_numpy(),
+            "has": frame[has_column].astype(bool).to_numpy(),
+        }
+    )
+    cells = keyed.groupby(["period", "group"], sort=True)["has"].agg(["size", "sum"])
+    ordered = sorted(keyed["period"].unique())
+    out: list[dict[str, object]] = []
+    for first, second in itertools.pairwise(ordered):
+        a = cells.loc[first]
+        b = cells.loc[second]
+        groups = a.index.union(b.index)
+        n1 = a["size"].reindex(groups, fill_value=0).to_numpy(dtype=float)
+        n2 = b["size"].reindex(groups, fill_value=0).to_numpy(dtype=float)
+        h1 = a["sum"].reindex(groups, fill_value=0).to_numpy(dtype=float)
+        h2 = b["sum"].reindex(groups, fill_value=0).to_numpy(dtype=float)
+        w1, w2 = n1 / n1.sum(), n2 / n2.sum()
+        with np.errstate(divide="ignore", invalid="ignore"):
+            r1 = np.where(n1 > 0, h1 / np.where(n1 > 0, n1, 1), np.nan)
+            r2 = np.where(n2 > 0, h2 / np.where(n2 > 0, n2, 1), np.nan)
+        r1 = np.where(np.isnan(r1), r2, r1)
+        r2 = np.where(np.isnan(r2), r1, r2)
+        composition = float(((w2 - w1) * (r1 + r2) / 2).sum())
+        within = float(((r2 - r1) * (w1 + w2) / 2).sum())
+        before, after = float(h1.sum() / n1.sum()), float(h2.sum() / n2.sum())
+        contributions = (w2 - w1) * (r1 + r2) / 2 + (r2 - r1) * (w1 + w2) / 2
+        top = np.argsort(-np.abs(contributions))[:5]
+        out.append(
+            {
+                "from": first.item() if hasattr(first, "item") else first,
+                "to": second.item() if hasattr(second, "item") else second,
+                "rate_from": round(before, 6),
+                "rate_to": round(after, 6),
+                "change": round(after - before, 6),
+                "composition": round(composition, 6),
+                "within": round(within, 6),
+                "largest": [
+                    {"group": str(groups[i]), "contribution": round(float(contributions[i]), 6)}
+                    for i in top
+                    if contributions[i] != 0
+                ],
+            }
+        )
+    return out
+
+
 # --- Withholding a rate the denominator cannot carry -----------------------
 #
 # An annual series never needed this: the thinnest year in the corpus holds a
@@ -417,7 +552,7 @@ def plan_splits(n: int, min_size: int, max_intervals: int = 500) -> SplitPlan:
     carries the length normalisation. Nothing further is needed to stop a long
     interval winning on size alone.
 
-    Exhaustive while that stays under `max_intervals` — true at the 32 annual
+    Exhaustive while that stays under `max_intervals` — true at the 79 annual
     points this pipeline runs on — and a doubling ladder of interval lengths
     beyond it. Both are deterministic, so a series always yields the same plan
     and the permutation null is calibrated on exactly the search that produced

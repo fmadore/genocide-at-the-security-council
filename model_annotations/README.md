@@ -2,7 +2,9 @@
 
 > **Partial preview (2026-09-14).** `2026-09-08-qwen-131k` is selected for the
 > canonical Sakamoto–Matsuoka v5 corpus: 7,694 of 7,747 occurrences in 4,097 of
-> 4,133 speeches. Human validation has not started. The older runs remain
+> 4,133 speeches when it was made; lexicon v8 added the 40 accented
+> *génocidaires* the run predates, so it now covers 7,694 of 7,787. Human
+> validation has not started. The older runs remain
 > historical provenance for the retired corpus and must not be joined to v5.
 > `allow_partial_run.txt` explicitly authorizes this selected run's coverage gap
 > in the Makefile; a different selected run retains strict coverage by default.

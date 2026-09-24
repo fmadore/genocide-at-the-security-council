@@ -4,7 +4,7 @@
 	 *
 	 * It sits beside its own counts because a control that silently changes a
 	 * population is a control that produces mistakes: a reader who moves from
-	 * 4,133 speeches to 50,735 should read that in the control rather than infer
+	 * a few thousand speeches to tens of thousands should read that in the control rather than infer
 	 * it from a chart that grew.
 	 *
 	 * Radios rather than a select, for the same reason. Three options whose sizes

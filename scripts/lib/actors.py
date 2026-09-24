@@ -49,15 +49,15 @@ zero_ceiling = series.zero_ceiling
 informative_zero_minimum = series.informative_zero_minimum
 
 #: Speeches a speaker must have delivered in a period before its rates are
-#: published. Not a round number chosen for looking careful: 100 is roughly where
+#: published. Not a round number chosen for looking careful: 125 is roughly where
 #: a *zero* starts to mean something. Seeing no term-bearing speech in n tries
 #: puts a 95% ceiling of about 3/n on the underlying rate
-#: (:func:`zero_ceiling`), and the corpus-wide prevalence of `genocide` is 3.1%,
-#: so below about 96 speeches a blank country means "not looked at for long
+#: (:func:`zero_ceiling`), and the corpus-wide prevalence of `genocide` is 2.5%,
+#: so below about 121 speeches a blank country means "not looked at for long
 #: enough" rather than "quieter than the Council". Readers treat white space on a
 #: map as a finding; this is the denominator at which it is entitled to be one.
 #: `11_countries.py` recomputes the requirement against the corpus it loads and
-#: says so if 100 stops meeting it.
+#: says so if 125 stops meeting it.
 MIN_SPEECHES = 125
 
 #: Multi-year slices, matching `05_lexical.py`'s so that a speaker's collocate

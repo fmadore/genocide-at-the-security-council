@@ -9,22 +9,26 @@ Three things this step reports rather than hides:
 - **The OCR delta.** How many extra speeches the OCR-tolerant pattern finds,
   measured against the plain one and listed in the note, never folded into the
   headline count.
-- **The check against the migration baseline.** `genocid*` is documented at
-  4,133 speeches / 7,747 occurrences (docs/CORPUS.md). Counting on the body
-  instead of the raw text does not move that; a difference is either the form
-  of address eating real words or a deliberate change of pattern, and the note
-  says which. The full genocide word-family pattern is unchanged.
+- **The check against the committed counts.** Every enabled term's speeches
+  and occurrences are held to `config/lexicon.counts.json`, and a difference
+  fails the step: a lexicon edit arrives with `--update-counts` and a reviewed
+  diff of what it moved, and nothing else can move a published count. The
+  same file gives 13, 14 and 15 the `genocide` population they assert.
+- **Declared widenings, verified.** A term that declares `widened_since` at
+  this version has its old rule re-run over the corpus, and the step fails if
+  any span the old rule counted is lost.
 - **A precision sample.** Generated candidates and human annotations are kept
   separate, then joined by stable occurrence identity for review. A pipeline
   rerun never writes the versioned annotation file.
 
 Usage:
-    python scripts/03_lexicon.py [--sample 100] [--seed 12]
+    python scripts/03_lexicon.py [--sample 100] [--seed 12] [--update-counts]
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -35,6 +39,7 @@ from lib import artifacts, audit, console, frames, lexicon, text
 from lib.paths import (
     INTERIM,
     LEXICON,
+    LEXICON_COUNTS,
     MANIFESTS,
     ROOT,
     SPEECHES_FLAGGED,
@@ -44,33 +49,6 @@ from lib.paths import (
     write_note,
 )
 
-#: docs/CORPUS.md §8, measured over the raw texts during reconnaissance with
-#: ad-hoc patterns. The formalised lexicon should reproduce these; where it does
-#: not, the difference is a change in what the pattern *means* and has to be
-#: stated rather than left for a reader to trip over. Speeches, occurrences.
-#:
-#: The figures are the reconnaissance baseline and are deliberately not moved
-#: when the lexicon is: they are what makes a version's effect legible. Since
-#: v4 the ones that differ include `holocaust` (*nuclear holocaust* dropped) and
-#: `ethnic_violence` — the term v3 called `ethnic_hatred`, listed here under
-#: its new name so the comparison survives the rename.
-DOCUMENTED: dict[str, tuple[int, int]] = {
-    "impunity": (10_260, 14_285),
-    "icc": (4_794, 11_000),
-    "war_crimes": (4_820, 6_761),
-    "atrocity": (5_156, 7_476),
-    "crimes_against_humanity": (3_725, 4_434),
-    "genocide": (4_133, 7_747),
-    "responsibility_to_protect": (1_365, 1_800),
-    "ethnic_cleansing": (1_280, 1_780),
-    "mass_atrocity": (651, 812),
-    "ethnic_violence": (16, 16),
-    "never_again": (371, 408),
-    "extermination": (582, 790),
-    "holocaust": (358, 465),
-    "genocide_convention": (228, 269),
-}
-
 AUDIT_CANDIDATES = INTERIM / "lexicon_audit_candidates.csv"
 AUDIT_REVIEW = INTERIM / "lexicon_audit_review.csv"
 AUDIT_PROBABILITY = INTERIM / "lexicon_audit_probability.csv"
@@ -78,31 +56,6 @@ AUDIT_COVERAGE = INTERIM / "lexicon_audit_coverage.csv"
 AUDIT_NEGATIVE = INTERIM / "lexicon_audit_negative.csv"
 AUDIT_ANNOTATIONS = ROOT / "annotations" / "lexicon" / "annotations.csv"
 AUDIT_REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
-
-
-def check_documented(counts: pd.DataFrame) -> list[tuple[str, int, int, int, int, bool]]:
-    """Compare each term against the figure published in docs/CORPUS.md.
-
-    Returns ``(term, speeches, expected_speeches, occurrences,
-    expected_occurrences, agrees)`` per documented term.
-    """
-    rows = []
-    for term, (want_speeches, want_occurrences) in DOCUMENTED.items():
-        if f"{lexicon.HAS}{term}" not in counts:
-            continue
-        speeches = int(counts[f"{lexicon.HAS}{term}"].sum())
-        occurrences = int(counts[f"{lexicon.COUNT}{term}"].sum())
-        rows.append(
-            (
-                term,
-                speeches,
-                want_speeches,
-                occurrences,
-                want_occurrences,
-                speeches == want_speeches and occurrences == want_occurrences,
-            )
-        )
-    return rows
 
 
 def _period(year: int) -> str:
@@ -201,7 +154,6 @@ def build_note(
     speeches: pd.DataFrame,
     counts: pd.DataFrame,
     lex: lexicon.Lexicon,
-    documented: list[tuple[str, int, int, int, int, bool]],
     ocr: list[dict],
     sample_size: int,
 ) -> str:
@@ -237,22 +189,11 @@ def build_note(
             f"{len(lex.active)} active terms, {len(lex.disabled)} held back.",
             f"Counted over {total:,} speech bodies, with the opening form of address removed.",
             "",
-            "## Check against the documented figures",
+            "## Check against the committed counts",
             "",
-            "docs/CORPUS.md §8 was measured over the raw texts with ad-hoc patterns. The",
-            "formalised lexicon is counted over speech bodies. Terms marked *differs* are",
-            "where the pattern's meaning changed, not where the corpus did.",
-            "",
-            "| Term | Speeches | Documented | Occurrences | Documented | |",
-            "|---|---:|---:|---:|---:|---|",
-            *[
-                f"| `{term}` | {speeches:,} | {want_s:,} | {occurrences:,} | {want_o:,} | "
-                f"{'✅' if agrees else '⚠️ differs'} |"
-                for term, speeches, want_s, occurrences, want_o, agrees in documented
-            ],
-            "",
-            f"{sum(1 for row in documented if row[5])} of {len(documented)} reproduce "
-            "exactly. See `docs/VALIDATION.md` for what accounts for the rest.",
+            f"Every count below equals `{rel(LEXICON_COUNTS)}`; the step fails otherwise.",
+            "A lexicon edit rewrites that file with `--update-counts`, and its diff is the",
+            "record of what the edit moved.",
             "",
             "## Terms",
             "",
@@ -298,7 +239,7 @@ def build_note(
     ) + "\n"
 
 
-def run(sample_size: int, seed: int) -> None:
+def run(sample_size: int, seed: int, update_counts: bool = False) -> None:
     ensure_dirs()
 
     console.step("Reading the normalised corpus")
@@ -316,15 +257,34 @@ def run(sample_size: int, seed: int) -> None:
     counts = lexicon.apply(bodies, lex)
     console.info(f"{counts.shape[1]} lexicon columns")
 
-    documented = check_documented(counts)
-    agreed = sum(1 for row in documented if row[5])
-    console.info(f"{agreed}/{len(documented)} terms reproduce docs/CORPUS.md §8 exactly")
-    for term, n_speeches, want_s, n_occurrences, want_o, agrees in documented:
-        if not agrees:
-            console.warn(
-                f"{term}: {n_speeches:,}/{n_occurrences:,} vs documented "
-                f"{want_s:,}/{want_o:,} — the pattern's meaning changed"
-            )
+    console.step("Verifying declared widenings")
+    widened = [term.name for term in lex.terms.values() if term.widened_since == lex.version]
+    if problems := lexicon.check_widenings(bodies, lex):
+        console.fail("a declared widening loses occurrences the old rule counted", problems)
+    console.info(
+        f"{len(widened)} term(s) widened at v{lex.version}, every old span still counted"
+        if widened
+        else f"no term declares a widening at v{lex.version}"
+    )
+
+    console.step("Checking the committed counts")
+    record = lexicon.counts_record(counts, lex, len(speeches))
+    if update_counts:
+        artifacts.atomic_write_text(
+            LEXICON_COUNTS, json.dumps(record, ensure_ascii=False, indent=2) + "\n"
+        )
+        console.info(f"wrote {rel(LEXICON_COUNTS)}; review its diff and commit it")
+    elif problems := lexicon.count_problems(record, lexicon.load_counts()):
+        console.fail(
+            f"the counts differ from {rel(LEXICON_COUNTS)}",
+            [
+                *problems,
+                "if the lexicon or the corpus changed on purpose, re-run with "
+                "--update-counts and commit the diff with the change",
+            ],
+        )
+    else:
+        console.info(f"{len(record['terms'])} terms match {rel(LEXICON_COUNTS)}")
 
     console.step("Measuring the OCR-tolerant patterns")
     ocr = lexicon.ocr_delta(bodies, lex)
@@ -369,14 +329,14 @@ def run(sample_size: int, seed: int) -> None:
     frames.write(flagged, SPEECHES_FLAGGED)
     note = write_note(
         "03_lexicon.md",
-        build_note(speeches, counts, lex, documented, ocr, len(sample)),
+        build_note(speeches, counts, lex, ocr, len(sample)),
     )
     console.info(f"wrote {note.name}")
     manifest = artifacts.provenance(
         ROOT,
         "03_lexicon.py",
         inputs=[SPEECHES_NORM],
-        configs=[LEXICON, AUDIT_ANNOTATIONS, AUDIT_REFERENTS],
+        configs=[LEXICON, LEXICON_COUNTS, AUDIT_ANNOTATIONS, AUDIT_REFERENTS],
         extra={
             "outputs": [
                 artifacts.describe_file(SPEECHES_FLAGGED, ROOT),
@@ -403,8 +363,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sample", type=int, default=100, help="precision audit size")
     parser.add_argument("--seed", type=int, default=12, help="sampling seed")
+    parser.add_argument(
+        "--update-counts",
+        action="store_true",
+        help="rewrite config/lexicon.counts.json from this run instead of checking it",
+    )
     args = parser.parse_args()
-    run(args.sample, args.seed)
+    run(args.sample, args.seed, args.update_counts)
 
 
 if __name__ == "__main__":

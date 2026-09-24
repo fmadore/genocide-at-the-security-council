@@ -59,7 +59,7 @@ def test_passed_probe_is_reused_only_for_identical_inputs(tmp_path, monkeypatch,
                            levels="low,high", speeches=1, temperature=0.1, top_p=0.9)
     referents = tmp_path / "referents.csv"
     referents.write_text("original")
-    pack = SimpleNamespace(sha256="prompt-one")
+    pack = SimpleNamespace(sha256="prompt-one", constraints=frozenset())
     speech = SimpleNamespace(meta={}, body="original speech", custom_id="s",
                              occurrences=[SimpleNamespace(occurrence_id="one", ordinal=1)])
     runtime = {"hardware": "first"}
@@ -76,7 +76,7 @@ def test_passed_probe_is_reused_only_for_identical_inputs(tmp_path, monkeypatch,
     monkeypatch.setattr(probe.llm, "read_referent_table", lambda _: [])
     monkeypatch.setattr(probe.llm, "render_referents", lambda _: "table")
     monkeypatch.setattr(probe.llm, "load_prompt", lambda _: pack)
-    monkeypatch.setattr(probe.llm, "build_request", lambda meta, body, *rest: body)
+    monkeypatch.setattr(probe.llm, "build_request", lambda meta, body, *rest, **kw: body)
     monkeypatch.setattr(probe.llm, "request_body", lambda body, **kw: {
         "body": body, "level": kw["reasoning_effort"], "temperature": kw["temperature"], "top_p": kw["top_p"]})
     monkeypatch.setattr(probe.llm, "validate_response", lambda *a, **kw: None)

@@ -25,7 +25,11 @@ ifeq ($(SELECTED_RUN),$(PARTIAL_RUN))
 USAGE_FLAGS := --allow-partial
 endif
 endif
-LIB := $(wildcard scripts/lib/*.py)
+# Each step's `lib` prerequisites, generated from its imports by
+# tools/lib_deps.py and held to them by tests/test_build_graph.py. A step used
+# to depend on every module, so an edit to the usage aggregation rebuilt the
+# corpus from 01.
+include scripts/deps.mk
 REFERENTS := annotations/lexicon/referents.csv
 MODEL_INPUTS := $(wildcard model_annotations/genocide/*.md model_annotations/genocide/*.txt model_annotations/genocide/runs/*/* model_annotations/genocide/prompts/*.md)
 
@@ -33,14 +37,14 @@ RAW_FILES := data/raw/speeches.tsv data/raw/meetings.tsv
 SPEECHES  := data/derived/speeches.parquet
 NORM      := data/derived/speeches_norm.parquet
 FLAGGED   := data/derived/speeches_flagged.parquet
-SERIES    := $(addprefix data/derived/series/,annual.json quarterly.json monthly.json breakdowns.json change_points.json events.json)
+SERIES    := $(addprefix data/derived/series/,annual.json quarterly.json monthly.json breakdowns.json change_points.json events.json decomposition.json)
 LEXICAL   := $(addprefix data/derived/lexical/,collocates.json collocates_sliced.json keyness.json network.json)
 KWIC      := data/derived/kwic/index.json
 SPEECHES_WEB := web/static/data/meetings.json
 SCOPES_WEB := web/static/data/scopes.json
 COUNTRIES := data/derived/countries/countries.json
 SPEAKER_KEYNESS := data/derived/speaker_keyness/speaker_keyness.json
-GOLD      := $(addprefix data/interim/genocide_gold_,candidates.csv review.csv probability.csv coverage.csv disagreement.csv)
+GOLD      := $(addprefix data/interim/genocide_gold_,candidates.csv review.csv probability.csv coverage.csv disagreement.csv model_strata.csv packet.csv design.csv)
 USAGE     := data/derived/usage/usage.json data/derived/usage/occurrences.json
 NODE_FRAMES := data/derived/frames/frames.json data/derived/frames/occurrences.json
 PAYLOAD   := web/static/data/manifest.json
@@ -67,42 +71,42 @@ $(RAW_FILES): | raw
 MEETINGS  := data/derived/meetings.parquet
 
 # One run writes both; `&:` (GNU make 4.3) says so, where two rules would run 01 twice.
-$(SPEECHES) $(MEETINGS) &: $(RAW_FILES) scripts/01_build_parquet.py $(LIB) config/dataset-pin.json
+$(SPEECHES) $(MEETINGS) &: $(RAW_FILES) scripts/01_build_parquet.py $(LIB_01_BUILD_PARQUET) config/dataset-pin.json
 	$(PY) scripts/01_build_parquet.py
 
-$(NORM): $(SPEECHES) scripts/02_normalise.py $(LIB)
+$(NORM): $(SPEECHES) scripts/02_normalise.py $(LIB_02_NORMALISE)
 	$(PY) scripts/02_normalise.py
 
-$(FLAGGED): $(NORM) scripts/03_lexicon.py $(LIB) config/lexicon.yml config/lexicon.lock.json annotations/lexicon/annotations.csv $(REFERENTS)
+$(FLAGGED): $(NORM) scripts/03_lexicon.py $(LIB_03_LEXICON) config/lexicon.yml config/lexicon.lock.json config/lexicon.counts.json annotations/lexicon/annotations.csv $(REFERENTS)
 	$(PY) scripts/03_lexicon.py
 
 # --- Analysis artefacts -------------------------------------------------------
-$(SERIES) &: $(FLAGGED) scripts/04_series.py $(LIB) config/events.csv
+$(SERIES) &: $(FLAGGED) scripts/04_series.py $(LIB_04_SERIES) config/events.csv
 	$(PY) scripts/04_series.py
 
-$(LEXICAL) &: $(FLAGGED) scripts/05_lexical.py $(LIB) config/stopwords.txt
+$(LEXICAL) &: $(FLAGGED) scripts/05_lexical.py $(LIB_05_LEXICAL) config/stopwords.txt
 	$(PY) scripts/05_lexical.py
 
-$(KWIC): $(FLAGGED) scripts/08_kwic.py $(LIB)
+$(KWIC): $(FLAGGED) scripts/08_kwic.py $(LIB_08_KWIC)
 	$(PY) scripts/08_kwic.py
 
-$(SPEECHES_WEB) $(SCOPES_WEB) &: $(FLAGGED) $(MEETINGS) scripts/09_export_speeches.py $(LIB)
+$(SPEECHES_WEB) $(SCOPES_WEB) &: $(FLAGGED) $(MEETINGS) scripts/09_export_speeches.py $(LIB_09_EXPORT_SPEECHES)
 	$(PY) scripts/09_export_speeches.py
 
-$(COUNTRIES): $(FLAGGED) scripts/11_countries.py $(LIB) config/entities.csv
+$(COUNTRIES): $(FLAGGED) scripts/11_countries.py $(LIB_11_COUNTRIES) config/entities.csv
 	$(PY) scripts/11_countries.py
 
 # 12 owns derived/speaker_keyness/; export merges it into countries/ for the web.
-$(SPEAKER_KEYNESS): $(FLAGGED) scripts/12_speaker_keyness.py $(LIB) config/stopwords.txt
+$(SPEAKER_KEYNESS): $(FLAGGED) scripts/12_speaker_keyness.py $(LIB_12_SPEAKER_KEYNESS) config/stopwords.txt
 	$(PY) scripts/12_speaker_keyness.py
 
 # Deterministic — same corpus, same seed, byte-identical CSVs. 15 refuses to run
 # without the candidates file it draws, because the gold block reports on a
 # sample that exists; the coded rows live in annotations/, which is committed.
-$(GOLD) &: $(NORM) scripts/13_gold_sample.py $(LIB) config/lexicon.yml $(wildcard annotations/genocide/*) $(REFERENTS) $(MODEL_INPUTS)
+$(GOLD) &: $(NORM) scripts/13_gold_sample.py $(LIB_13_GOLD_SAMPLE) config/lexicon.yml config/lexicon.counts.json $(wildcard annotations/genocide/*) $(REFERENTS) $(MODEL_INPUTS)
 	$(PY) scripts/13_gold_sample.py
 
-$(USAGE) &: $(NORM) $(GOLD) scripts/15_usage.py $(LIB) config/lexicon.yml $(MODEL_INPUTS) $(wildcard annotations/genocide/*) $(REFERENTS)
+$(USAGE) &: $(NORM) $(GOLD) scripts/15_usage.py $(LIB_15_USAGE) config/lexicon.yml config/lexicon.counts.json $(MODEL_INPUTS) $(wildcard annotations/genocide/*) $(REFERENTS)
 	$(PY) scripts/15_usage.py $(USAGE_FLAGS)
 
 # 17 classifies the same occurrences 08 writes lines for, from the same corpus,
@@ -110,16 +114,16 @@ $(USAGE) &: $(NORM) $(GOLD) scripts/15_usage.py $(LIB) config/lexicon.yml $(MODE
 # committed runs are prerequisites exactly as they are for 15. It does not read
 # 08's output: both read the flagged parquet, which is what keeps the two
 # counts equal without one depending on the other.
-$(NODE_FRAMES) &: $(FLAGGED) scripts/17_frames.py $(LIB) config/lexicon.yml $(MODEL_INPUTS) $(REFERENTS)
+$(NODE_FRAMES) &: $(FLAGGED) scripts/17_frames.py $(LIB_17_FRAMES) config/lexicon.yml $(MODEL_INPUTS) $(REFERENTS)
 	$(PY) scripts/17_frames.py
 
-data/derived/actor_year/actor_year.csv: $(FLAGGED) scripts/20_actor_year.py $(LIB)
+data/derived/actor_year/actor_year.csv: $(FLAGGED) scripts/20_actor_year.py $(LIB_20_ACTOR_YEAR)
 	$(PY) scripts/20_actor_year.py
 
 derived: $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(GOLD) $(USAGE) $(NODE_FRAMES) data/derived/actor_year/actor_year.csv
 
 # --- The site's payload -------------------------------------------------------
-$(PAYLOAD): $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(USAGE) $(NODE_FRAMES) scripts/export_web.py $(LIB) tests/contract/payload.json data/derived/actor_year/actor_year.csv $(wildcard data/derived/semantic/manifest.json)
+$(PAYLOAD): $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(USAGE) $(NODE_FRAMES) scripts/export_web.py $(LIB_EXPORT_WEB) tests/contract/payload.json config/semantic-release.json data/derived/actor_year/actor_year.csv $(wildcard data/derived/semantic/manifest.json)
 	$(PY) scripts/export_web.py
 
 payload: $(PAYLOAD)
@@ -128,16 +132,16 @@ payload: $(PAYLOAD)
 # Not part of the release pipeline: they need requirements-cluster.txt and a
 # GPU or spaCy model. 10 feeds an optional second run of 05 over lemmas, into
 # its own directory; the surface tables the site reads are never overwritten.
-$(EMBEDDINGS): $(FLAGGED) scripts/06_embed.py $(LIB) config/embedding_models.yml
+$(EMBEDDINGS): $(FLAGGED) scripts/06_embed.py $(LIB_06_EMBED) config/embedding_models.yml
 	$(PY) scripts/06_embed.py
 
-$(TOPICS): $(FLAGGED) $(EMBEDDINGS) scripts/07_topics.py $(LIB)
+$(TOPICS): $(FLAGGED) $(EMBEDDINGS) scripts/07_topics.py $(LIB_07_TOPICS)
 	$(PY) scripts/07_topics.py
 
-$(LEMMAS): $(FLAGGED) scripts/10_lemmatise.py $(LIB)
+$(LEMMAS): $(FLAGGED) scripts/10_lemmatise.py $(LIB_10_LEMMATISE)
 	$(PY) scripts/10_lemmatise.py
 
-$(LEXICAL_LEMMA): $(FLAGGED) $(LEMMAS) scripts/05_lexical.py $(LIB) config/stopwords.txt
+$(LEXICAL_LEMMA): $(FLAGGED) $(LEMMAS) scripts/05_lexical.py $(LIB_05_LEXICAL) config/stopwords.txt
 	$(PY) scripts/05_lexical.py --vocabulary lemma
 
 cluster: $(EMBEDDINGS) $(TOPICS) $(LEXICAL_LEMMA)

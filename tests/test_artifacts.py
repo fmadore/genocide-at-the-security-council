@@ -200,3 +200,28 @@ def test_tree_digest_changes_with_content(tmp_path):
     second = artifacts.describe_tree(target)
     assert first["sha256"] != second["sha256"]
     assert second["files"] == 1
+
+
+def test_provenance_refuses_a_declared_input_that_is_missing(tmp_path):
+    present = tmp_path / "present.txt"
+    present.write_text("x", encoding="utf-8")
+    with pytest.raises(FileNotFoundError, match=r"absent\.txt"):
+        artifacts.provenance(tmp_path, "step.py", inputs=[present, tmp_path / "absent.txt"])
+
+
+def test_provenance_records_an_optional_input_as_absent_rather_than_dropping_it(tmp_path):
+    present = tmp_path / "present.txt"
+    present.write_text("x", encoding="utf-8")
+    meta = artifacts.provenance(
+        tmp_path, "step.py", inputs=[present], optional=[tmp_path / "second.txt"]
+    )
+    assert [item["path"] for item in meta["inputs"]] == ["present.txt"]
+    assert meta["absent_optional"] == ["second.txt"]
+
+
+def test_a_gzipped_artefact_is_byte_identical_and_readable(tmp_path):
+    first, second = tmp_path / "a.json.gz", tmp_path / "b.json.gz"
+    artifacts.atomic_write_json_gzip(first, {"meta": {}, "speeches": [1, 2]})
+    artifacts.atomic_write_json_gzip(second, {"meta": {}, "speeches": [1, 2]})
+    assert first.read_bytes() == second.read_bytes()
+    assert artifacts.read_json(first)["speeches"] == [1, 2]

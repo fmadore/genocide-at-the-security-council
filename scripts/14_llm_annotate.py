@@ -38,23 +38,23 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import annotate, artifacts, audit, console, llm, run_store
+from lib import annotate, artifacts, audit, console, llm, model_runs, run_store
 from lib.annotate import Builder, Outcome, Speech
-from lib.paths import INTERIM, MODEL_ANNOTATIONS, ROOT, ensure_dirs, rel
+from lib.paths import INTERIM, ROOT, ensure_dirs, rel
+from lib.text import sentence_spans
 
 #: The population, columns, ceiling and manifest live in `lib.annotate`, where
-#: transport-independent run rules cannot drift from this entry point.
+#: transport-independent run rules cannot drift from this entry point; the
+#: store's files are named in `lib.model_runs`.
 TERM = annotate.TERM
-DOCUMENTED_SPEECHES = annotate.DOCUMENTED_SPEECHES
-DOCUMENTED_OCCURRENCES = annotate.DOCUMENTED_OCCURRENCES
 COLUMNS = annotate.COLUMNS
 
-STORE = MODEL_ANNOTATIONS / TERM
-PROMPT = STORE / "PROMPT.md"
-RUNS = STORE / "runs"
-SMOKE_RUNS = INTERIM / "model_annotation_smoke"
-CURRENT_RUN = STORE / "current_run.txt"
-REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
+STORE = model_runs.STORE
+PROMPT = model_runs.PROMPT
+RUNS = model_runs.RUNS
+SMOKE_RUNS = model_runs.SMOKE_RUNS
+CURRENT_RUN = model_runs.CURRENT_RUN
+REFERENTS = model_runs.REFERENTS
 
 #: Raw API bodies, for debugging one run rather than for citing it. Under
 #: `data/interim/`, which `.gitignore` excludes: they are large, and they carry
@@ -228,6 +228,7 @@ def harvest(
     already: frozenset[str] = frozenset(),
     *,
     staged: dict[str, list[dict]] | None = None,
+    constraints: frozenset[str] = frozenset(),
 ) -> dict[str, int]:
     """Validate, locate the evidence, and append. One bad speech loses one speech.
 
@@ -261,6 +262,11 @@ def harvest(
                 output_text(body),
                 ordinals=[item.ordinal for item in speech.occurrences],
                 referents=referents,
+                sentences=(
+                    len(sentence_spans(speech.body))
+                    if llm.SENTENCE_EVIDENCE in constraints
+                    else 0
+                ),
             )
             annotated = llm.annotation_rows(speech.occurrences, speech.body, labels, meta)
             for row in annotated:
@@ -443,7 +449,7 @@ def _run(args: argparse.Namespace) -> None:
     enumerated = [item for speech in everything for item in speech.occurrences]
     probe_requests = [
         llm.request_body(
-            llm.build_request(speech.meta, speech.body, speech.occurrences, pack, table),
+            llm.build_request(speech.meta, speech.body, speech.occurrences, pack, table, referent_ids=sorted(referents)),
             model=args.model, reasoning_effort=level,
             reasoning_location=args.reasoning_location,
             max_output_tokens=annotate.output_ceiling(speech, MAX_OUTPUT_TOKENS),
@@ -464,7 +470,7 @@ def _run(args: argparse.Namespace) -> None:
         "selected_speeches": sorted(scope),
         "requests_sha256": run_store.digest([
             llm.request_body(
-                llm.build_request(speech.meta, speech.body, speech.occurrences, pack, table),
+                llm.build_request(speech.meta, speech.body, speech.occurrences, pack, table, referent_ids=sorted(referents)),
                 model=args.model, reasoning_effort=args.reasoning_effort,
                 reasoning_location=args.reasoning_location,
                 max_output_tokens=annotate.output_ceiling(speech, MAX_OUTPUT_TOKENS),
@@ -516,7 +522,9 @@ def _run(args: argparse.Namespace) -> None:
     raw.mkdir(parents=True, exist_ok=True)
 
     def build(speech: Speech) -> llm.SpeechRequest:
-        return llm.build_request(speech.meta, speech.body, speech.occurrences, pack, table)
+        return llm.build_request(
+            speech.meta, speech.body, speech.occurrences, pack, table, referent_ids=sorted(referents)
+        )
 
     # Establish the artefact counts once, then update them from each response.
     # Re-reading the full JSONL after every speech would turn a linear run into
@@ -553,7 +561,10 @@ def _run(args: argparse.Namespace) -> None:
         nonlocal manifest, written, evidence_invalid, evidence_relocated
         nonlocal total_appended, total_failures
         staged: dict[str, list[dict]] = {}
-        tally = harvest(result, scope, meta, referents, paths, already=frozenset(already), staged=staged)
+        tally = harvest(
+            result, scope, meta, referents, paths, already=frozenset(already), staged=staged,
+            constraints=pack.constraints,
+        )
         total_appended += tally["written"]
         total_failures += tally["failures"]
         written += tally["written"]

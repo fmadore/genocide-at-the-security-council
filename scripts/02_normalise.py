@@ -7,9 +7,12 @@ columns every later step depends on:
     entity_type      state / igo / un / ngo / other, from source flags
     speaker_group    P5 / E10 / Non-member state / UN / Non-state, from source flags
     text             line endings normalised to LF
-    body_start       where the speech begins, past the form of address
-    words            words in the body, by lib.lexical.TOKEN_RE
-    spoken_language  read off "(spoke in French)", where recorded
+    body_start       where the speech begins, past a form of address
+    words            words in the body, by lib.lexical.words
+
+The source records no delivery language, and none is derived: the retired
+corpus's `(spoke in French)` markers are absent from these transcripts, and an
+`Unknown` on every speech was published as though it were a reading.
 
 `words` is the denominator of every "per 100,000 words" figure the site
 publishes, and it is counted here, once, so that nothing downstream counts it
@@ -36,7 +39,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, console, council, entities, frames, language, lexical, text
+from lib import artifacts, console, council, entities, frames, lexical, text
 from lib.paths import (
     EXPECTED_WORDS,
     MANIFESTS,
@@ -60,8 +63,7 @@ CASE_NORMALISED = [
 
 
 def normalise_text(speeches: pd.DataFrame) -> dict[str, int]:
-    """Normalise line endings, locate the form of address, count words, read
-    the language.
+    """Normalise line endings, locate the form of address, count words.
 
     Mutates `speeches` in place and returns counts for the findings note.
     """
@@ -78,14 +80,8 @@ def normalise_text(speeches: pd.DataFrame) -> dict[str, int]:
         lexical.word_count(frames.body(speeches)), index=speeches.index
     ).astype("int32")
 
-    resolved = addresses.map(lambda a: text.spoken_language(a.address))
-    speeches["spoken_language"] = resolved.map(lambda r: r[0]).astype("string")
-    speeches["delivery_language"] = language.delivery_language(speeches)
-
     return {
         "addressed": int(addresses.map(lambda a: a.matched).sum()),
-        "languages": int(speeches["spoken_language"].notna().sum()),
-        "fuzzy": int(resolved.map(lambda r: r[1]).sum()),
         "words": int(speeches["words"].sum()),
         "tokens": int(speeches["tokens"].sum()),
     }
@@ -120,7 +116,6 @@ def build_note(speeches: pd.DataFrame, counts: dict[str, int], case_changes) -> 
     total = len(speeches)
     groups = speeches["speaker_group"].value_counts()
     types = speeches["entity_type"].value_counts()
-    languages = speeches["delivery_language"].value_counts()
 
     lines = [
         "# 02 — Normalise",
@@ -130,7 +125,7 @@ def build_note(speeches: pd.DataFrame, counts: dict[str, int], case_changes) -> 
         "## Words",
         "",
         f"- **{counts['words']:,}** words in the speech bodies, counted with",
-        "  `lib.lexical.TOKEN_RE` — the same rule the keyness tables and the collocate",
+        "  `lib.lexical.words` — the same rule the keyness tables and the collocate",
         "  windows are built on. This is the denominator of every *per 100,000 words*",
         "  figure the site publishes.",
         f"- The source's `count` field totals {counts['tokens']:,}; it is retained as",
@@ -142,20 +137,13 @@ def build_note(speeches: pd.DataFrame, counts: dict[str, int], case_changes) -> 
         f"- Matched in **{counts['addressed']:,}** speeches "
         f"({counts['addressed'] / total:.2%}).",
         f"- The remaining {total - counts['addressed']:,} open straight into prose and are "
-        "left untruncated. The source distributes speech bodies without the printed address.",
+        "left untruncated. The source distributes speech bodies without the printed address,",
+        "  so the matches are opening salutations rather than speaker labels; correcting them",
+        "  changes embedded bodies and waits on the next embedding run (docs/ROADMAP.md, RV2).",
         "",
         "## Delivery language",
         "",
-        f"- Recovered for **{counts['languages']:,}** speeches "
-        f"({counts['languages'] / total:.1%}) from `(spoke in …)` markers.",
-        f"- {counts['fuzzy']:,} needed approximate matching against OCR damage; every case "
-        "is listed in `docs/VALIDATION.md`.",
-        "- The source does not preserve delivery-language markers; these transcripts remain",
-        "  `Unknown` rather than being inferred to be English.",
-        "",
-        "| Language | Speeches |",
-        "|---|---:|",
-        *[f"| {lang} | {n:,} |" for lang, n in languages.head(10).items()],
+        "The source records none, and none is derived or published.",
         "",
         "## Speaker groups",
         "",
@@ -202,10 +190,6 @@ def normalise() -> None:
     console.info(
         f"form of address matched in {counts['addressed']:,} speeches "
         f"({counts['addressed'] / len(speeches):.2%})"
-    )
-    console.info(
-        f"delivery language recovered for {counts['languages']:,} "
-        f"({counts['fuzzy']:,} by approximate match)"
     )
     console.info(
         f"{counts['words']:,} words in the bodies against {counts['tokens']:,} "
@@ -260,10 +244,7 @@ def normalise() -> None:
             # codebook figure it is not.
             "words": int(speeches["words"].sum()),
             "codebook_tokens": int(speeches["tokens"].sum()),
-            "delivery_languages": {
-                str(name): int(value)
-                for name, value in speeches["delivery_language"].value_counts().items()
-            },
+            "addressed": counts["addressed"],
         },
     )
     artifacts.atomic_write_json(MANIFESTS / "02_normalise.json", manifest, indent=1)

@@ -130,7 +130,7 @@ def run(seed: int, limit: int, lemma_layer: Path | None = None) -> None:
             "selection": "Primary top words fixed; count/G2 eligibility recomputed, ranks not recomputed on deletion.",
             "minimum_count": lexical.MIN_COUNT, "g2_floor": lexical.G2_FLOOR,
             "zero_count_rule": "Half-occurrence floor for a word present in only one arm.",
-            "current_tokenizer": lexical.TOKEN_RE.pattern,
+            "current_tokenizer": lexical.TOKENIZER,
             "legacy_tokenizer": robustness.LEGACY_TOKEN_RE.pattern,
             "legacy_source": "abdc08a:scripts/lib/lexical.py (before 54df825)",
             "current_tokens": [sum(total.values()) for total in totals],

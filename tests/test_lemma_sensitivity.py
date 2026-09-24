@@ -31,7 +31,7 @@ def analysis(tmp_path, monkeypatch):
         "body_sha256": [lemmas.body_hash(body) for body in bodies],
     }).to_parquet(layer / "lemmas.parquet", index=False)
     (layer / "manifest.json").write_text(json.dumps({
-        "layer_schema": lemmas.LAYER_SCHEMA, "tokenizer": lexical.TOKEN_RE.pattern,
+        "layer_schema": lemmas.LAYER_SCHEMA, "tokenizer": lexical.TOKENIZER,
         "table_sha256": artifacts.sha256(layer / "lemmas.parquet"),
     }), encoding="utf-8")
     monkeypatch.setattr(step, "SPEECHES_FLAGGED", corpus)
@@ -53,7 +53,7 @@ def test_complete_comparison_and_merge_audit(analysis):
     influence = pd.read_csv(target / "lemma_meeting_influence.csv").set_index("word")
     assert influence.loc["kill", "valid_deletions"] == 3
     assert influence.loc["kill", "sign_reversals"] == 0
-    manifest = json.loads((target / "manifest.json").read_text())
+    manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["lemma_sensitivity"]["tokens"] == manifest["current_tokens"] == [40, 40]
     assert not (root / "lexical_robustness").exists()
 
@@ -67,7 +67,7 @@ def test_invalid_layer_does_not_replace_previous_output(analysis):
     (layer / "manifest.json").write_text("{}", encoding="utf-8")
     with pytest.raises(ValueError, match="stale"):
         step.run(20260807, 100, layer)
-    assert previous.read_text() == "retain"
+    assert previous.read_text(encoding="utf-8") == "retain"
 
 
 def test_empty_lemma_ranking_is_a_reported_result(analysis):
@@ -75,14 +75,14 @@ def test_empty_lemma_ranking_is_a_reported_result(analysis):
     table = pd.read_parquet(layer / "lemmas.parquet")
     table["lemmas"] = lemmas.encode(["peace"] * 20)
     table.to_parquet(layer / "lemmas.parquet", index=False)
-    manifest = json.loads((layer / "manifest.json").read_text())
+    manifest = json.loads((layer / "manifest.json").read_text(encoding="utf-8"))
     manifest["table_sha256"] = artifacts.sha256(layer / "lemmas.parquet")
     (layer / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     step.run(20260807, 100, layer)
     target = root / "lexical_robustness_lemma"
     assert pd.read_csv(target / "lemma_meeting_influence.csv").empty
     assert list(pd.read_parquet(target / "lemma_deletion_effects.parquet")) == step.EFFECT_COLUMNS
-    meta = json.loads((target / "manifest.json").read_text())
+    meta = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
     assert meta["lemma_sensitivity"]["ranked_words"] == 0
 
 
@@ -91,7 +91,7 @@ def test_partial_collapse_exposes_residual_counts(analysis):
     table = pd.read_parquet(layer / "lemmas.parquet")
     table.loc[0, "lemmas"] = lemmas.encode(["kill"] * 10 + ["killings"] * 10)
     table.to_parquet(layer / "lemmas.parquet", index=False)
-    manifest = json.loads((layer / "manifest.json").read_text())
+    manifest = json.loads((layer / "manifest.json").read_text(encoding="utf-8"))
     manifest["table_sha256"] = artifacts.sha256(layer / "lemmas.parquet")
     (layer / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     step.run(20260807, 100, layer)

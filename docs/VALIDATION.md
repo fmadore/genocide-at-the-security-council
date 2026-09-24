@@ -1,5 +1,48 @@
 # Validation register
 
+## 24 September 2026 — review fixes: lexicon v8, tokenizer, gold design
+
+Item by item in [ROADMAP.md](ROADMAP.md). Measured on the pinned v5.0 corpus rebuilt in a
+scratch data root; the baseline is the same pipeline at commit `c981f8b`.
+
+- **Lexicon v8.** `genocide` is widened to `\bg[eé]nocid\w*`: 4,136 speeches and 7,787
+  occurrences, from 4,133 and 7,747. The 40 added occurrences are the accented
+  *génocidaires*; three speeches say the word no other way. Step 03 re-ran the v7 rule and
+  every one of its spans is still counted, so no occurrence identity moved. The anchor is
+  widened the same way and the seven anchored terms declare it; the `intensity` ladder is
+  removed. All counts are committed in `config/lexicon.counts.json`.
+- **Tokenizer.** Accented Latin, Greek and Cyrillic letters are word characters and both
+  apostrophes are one. 5,383 accented word types had been cut at the accent (*régime* was
+  `r` + `gime`, 1,892 times). The analytical word total is 86,812,574, 42,333 (0.05%) fewer.
+- **Rejection flag.** The published run's own rejection rate is 2.74%, not the retired
+  corpus's 1.74%. Of 98 speakers with a published share, 15 were flagged against the old
+  constant and 11 against the run's rate; Albania, Azerbaijan, Congo and Slovakia were
+  flagged by the constant alone. The flag is now an exact test against the rest of the
+  Council under a 5% false discovery rate.
+- **Delivery language.** v5.0 carries no `(spoke in …)` markers: every speech was
+  `Unknown`, and the reader printed "spoke in Unknown" beside each one. No language is
+  published now.
+- **Rate bands.** Annual and quarterly speech rates carry 95% intervals from resampling
+  whole meetings. For `genocide` in 1994 the band is 4.0–9.3% against Wilson's 5.4–7.8%.
+- **Composition and use.** By agenda item, the 1980s-to-1990s rise in the genocide speech
+  rate (+1.53 points) is more than all composition (+2.12, the Rwanda and Bosnia items)
+  while use within items fell (−0.59); from the 2010s to the 2020s the +0.60 splits +0.25
+  composition and +0.34 within. By speaker group the 1990s rise is within-group (+2.26).
+- **Semantic map.** The release is now bound to its embedded bodies
+  (`corpus_geometry_sha256`, computed from the corpus that matches its content fingerprint);
+  display attributes are re-derived at export, so v8's three flipped flags reach the map.
+- **Gold sample.** The prompt's ten worked examples are mapped to v5.0 occurrences and kept
+  out of every frame; the third frame is drawn from the published run's labels
+  (`model_strata`); the sample is 469 rows over 453 occurrences; coders get a blinded packet.
+- **Matched controls.** Rebuilding with v8's three extra target speeches replaced 33 of
+  the published top-100 matched keywords, because one seeded generator drew the controls of
+  every stratum in turn: 52.9% of the 3,950 controls changed. Controls are now drawn per
+  stratum (0.1% change under the same widening). The matched tables of 05 and 12 are
+  redrawn once by this; their 20-draw stability block still carries the draw-to-draw range.
+- **Frame examples.** The seventeen example lines of `lib/node_frames.py` cited retired
+  corpus identifiers; fifteen are mapped to v5.0, and two taken from 2020–2021 VTC letters
+  the corpus does not carry are replaced by attested examples each frame classifies.
+
 ## 12 September 2026 — lexicon v7: one genocide word-family measure
 
 The separate `genocidaires` term and `genocide_qualification` subtraction are retired. Counts, change-point tests and actor summaries now use the unchanged full `genocid*` pattern: 7,747 occurrences in 4,133 speeches. The removed subtraction had excluded 18 occurrences and three speeches. Word-form tables retain the original strings and group the borrowed forms with other nouns. Occurrence identifiers and existing annotations remain valid.
@@ -76,17 +119,12 @@ speech record in that document).
 
 ## Open human checks
 
-### 1. OCR variant of `genocid*` — one case
+### 1. OCR variant of `genocid*` — none in v5.0
 
-The disabled tolerant pattern (`gen[eo]cid|senocid|qenocid`) finds one speech not covered
-by the headline `genocid*` pattern:
-
-| Record | Date | Speaker | Corpus reading |
-|---|---|---|---|
-| `S/PV.3137` | 1992-11-16 | Bosnia and Herzegovina | `…ethnic cleansing and genecide in Bosnia…` |
-
-Check whether the printed record reads “genocide.” The headline count remains 3,273
-speeches either way because the tolerant pattern is reported separately.
+The disabled tolerant pattern (`gen[eo]cid|senocid|qenocid`) finds no speech the headline
+pattern misses in the v5.0 corpus. The retired corpus's one case (`S/PV.3137`, *genecide*)
+is spelled correctly here. The check is closed; the tolerant pattern still runs in 03 and
+reports any future delta.
 
 ### 2. Human lexicon audit — three sampling frames
 
@@ -121,31 +159,23 @@ Report precision separately for the core term and extended lexicon, with denomin
 uncertain cases. Any regex change invalidates the verdicts for that term and requires a new
 lexicon version.
 
-### 3. Approximate delivery-language readings — 27 forms
+### 3. Delivery language — not recoverable from v5.0
 
-Explicit `(spoke in French)` / `(interpretation from Arabic)` markers recover a
-non-English language for 42,765 speeches (40.2%). Twenty-seven damaged forms require the
-closed-vocabulary corrections below:
+The retired corpus carried `(spoke in French)` markers for about 40% of its speeches. The
+Sakamoto–Matsuoka transcripts carry none, so no delivery language is derived or published
+(24 September 2026). Language-based claims would need the PV records themselves.
 
-| Printed | Read as | Speeches |
-|---|---|---:|
-| `inArabic`, `fromArabic` | Arabic | 8 |
-| `inFrench`, `Prench`, `Frenci.`, `Frerch`, `Fcench`, `F reach` | French | 8 |
-| `inRussian`, `Russiar`, `Rassian` | Russian | 4 |
-| `inSpanish`, `..anish`, `Spam'sh` | Spanish | 3 |
-| `Chiness`, `Cht'nese`, `Ch[nese` | Chinese | 3 |
-| `Acabic` | Arabic | 1 |
+### 4. Trimmed openings — 24 speeches
 
-Missing in-person markers are labelled `English (inferred, in-person)`. Missing markers
-for 5,072 VTC speeches are `Unknown (VTC)`, because the VTC format does not carry the same
-evidence. Priority: low; inspect the 27 explicit repairs if language-based claims become a
-publication focus.
-
-### 4. No opening form of address — 5,172 speeches
-
-These records open directly into prose and are treated as continuations without trimming.
-Sample about twenty against the source PDF. If some are segmentation failures, their
-speaker attribution is weaker even though lexical counts remain intact. Priority: medium.
+v5.0 bodies open straight into the speech. The form-of-address rule written for the retired
+corpus still matches 24 opening salutations (1,136 characters, none containing `genocid*`)
+and trims them from the body: SC00024-01-006, SC00104-01-007, SC00104-01-046,
+SC00104-01-060, SC00527-01-004, SC00641-01-009, SC01027-01-008, SC01051-01-006,
+SC01601-01-022, SC01909-01-010, SC01932-01-039, SC01940-01-006, SC02656-01-007,
+SC02740-01-007, SC02755-01-007, SC02759-01-024, SC02796-01-015, SC03011-01-003,
+SC03046-01-002, SC04772-01-031, SC06642-01-006, SC08291-01-023, SC09276-02-077 and
+SC09702-01-004. Correcting it changes 24 embedded bodies, so it is done together with the
+next embedding run and a new semantic release (ROADMAP RV2).
 
 ### 5. Repaired rows in `S/PV.5225` — 36 speeches
 
@@ -154,45 +184,44 @@ the exact column count; row count and total tokens then match the codebook. Conf
 source that the agenda is *The Role of the Security Council in Humanitarian Crises* and the
 document contains 36 corpus speech records. Priority: low.
 
-### 6. Genocide gold sample — 0 of 735 rows coded
+### 6. Genocide gold sample — 0 of 469 rows coded
 
-`scripts/13_gold_sample.py` draws 735 candidates over 688 distinct `genocide` occurrences,
-in three frames that are reported separately or not at all:
+`scripts/13_gold_sample.py` draws 469 candidates over 453 distinct `genocide` occurrences
+(24 September 2026), from every occurrence except the ten behind the prompt's worked
+examples, in three frames:
 
 | Frame | Rows | Read as |
 |---|---:|---|
-| probability | 120 | weighted by its own inclusion probabilities: the unbiased estimate of accuracy over the corpus, and the only thing here that estimates one |
-| coverage | 80 | one occurrence per decade × usage-cue stratum, then a random fill: presence, not measurability |
-| disagreement | 535 | unweighted: a purposive over-sample of what the two committed runs read differently, for per-class recall |
+| probability | 120 | equal probability: an estimate of accuracy over the corpus on its own |
+| coverage | 80 | one occurrence per decade × usage-cue stratum, then a random fill |
+| model_strata | 269 | the published run's rare labels: 100 `rejects`, all 9 pre-onset referents, 40 `other`, 60 `reports_without_position`, 60 `conditional` |
 
-The cue is a sampling stratum and never a label — `rejection`, `quotation`,
-`commemorative`, `dense_meeting`, `plain`, read off the ±150-character window — and so is a
-model label in the third frame: it says this occurrence is worth a coder's time, never what
-the coder should write. That frame's six strata, disjoint and assigned rarest first, hold
-134 occurrences either run called `rejects` (all taken), 41 whose referent
-predates the case it names (all taken), 369 either called `other` (60 drawn), 716
-`reports_without_position` (100), 519 `conditional` (100) and 636 contested on
-the position or the referent (100). The stratum names are schema 3's; across the schema
-boundary each is a rename and the six sizes are unchanged. **The two frames must never be pooled**: their inclusion
-probabilities differ by a factor of seven, and a rate over the union estimates nothing.
-Every row records the probability that put it there.
+Once a comparison run exists the third frame becomes the disagreement frame over the two
+runs. Every frame is reported alone, and `genocide_gold_design.csv` records each
+occurrence's probability under each frame and under their union, so every coded unit can
+also be weighted back to the corpus (15's `weighted_accuracy` and `corrected_shares`, from
+30 units with a reference label).
 
-Candidates and the review join are generated files under `data/interim/`; human
-work lives only in the versioned
+The cue and the model stratum are sampling devices and never labels, and the coders do not
+see them: they work from the blinded `genocide_gold_packet.csv`, or from the offline page
+`tools/coding_page.py` builds from it. Human work lives only in the versioned
 [`annotations/genocide/annotations.csv`](../annotations/genocide/annotations.csv), coded by
-`FM` and `JG` under the codebook's two-coder protocol — the full sample double-coded, a
-shared pilot outside the scored sample first, adjudication preserving both original rows.
-`scripts/15_usage.py` computes and publishes the agreement; nothing is hand-typed into an
-artefact. Priority: high — the `/usage` view reports its model layer as unvalidated until
-this is done. The sample grew from 195 occurrences to 688 on 2 September 2026 and the
-coding burden with it, from 390 coder-occurrence rows to 1,376; the coders may work the
-probability and coverage frames first, since those are what the overall estimate needs, and
-the disagreement frame is what makes anything per class sayable.
+`FM` and `JG` under the codebook's two-coder protocol. Priority: high — the `/usage` view
+reports its model layer as unvalidated until this is done. The probability frame comes first,
+since the weighted and corrected estimates need it; the model frame is what makes anything
+per class sayable.
+
+### 6a. First events on the diffusion curves
+
+Step 15 writes every dated first the diffusion figure draws to
+`data/interim/genocide_first_events.csv`, with its evidence quotation and empty `verified`
+and `note` columns. A first is a minimum over dates, so one mislabelled early occurrence
+moves it; the list is short enough to read whole. Priority: medium.
 
 ### 7. Model annotation runs
 
-Every run of `scripts/14_llm_annotate.py` and of its counter-instrument
-`scripts/16_llm_annotate_gemini.py` is committed under
+Every run of `scripts/14_llm_annotate.py` (and of the retired hosted-provider
+counter-instrument, removed with the corpus migration) is committed under
 [`model_annotations/genocide/runs/`](../model_annotations/genocide/) with its manifest —
 model id, prompt version and hash, coverage, parse failures, invalid evidence quotes and
 token usage — and the run the dashboard reads is named in `current_run.txt` as a reviewed

@@ -623,7 +623,7 @@ export interface PositionProfile {
 	low: number | null;
 	high: number | null;
 	intervalText: string;
-	/** Whether the lower bound clears the corpus's own 1.7%. */
+	/** Whether the speaker rejects more than the rest of the Council (FDR 5%). */
 	separated: boolean;
 }
 
@@ -658,14 +658,13 @@ function segmentsOf(positions: PositionCounts, total: number): PositionSegment[]
 /**
  * Who rejects the word — separated from the corpus first, and then not ranked.
  *
- * **The order is not the share.** The review of 1 September 2026 (§4.5, item 11)
- * found the old ordering to be a ranking of noise at its foot: the corpus rate
- * is 1.7%, so at the minimum of twenty occurrences a single rejection reads as
- * 5%, and a table sorted on that puts one draw above another draw from the same
- * urn. What can be ordered is the rows whose 95% interval clears the corpus
- * rate — Sudan's 19 in 43, Serbia's 15 in 45 — and those come first, ordered
- * among themselves by share. Everything else follows by count, with its
- * interval printed, and is not a ranking of anything.
+ * **The order is not the share.** At the minimum of twenty occurrences a
+ * single rejection reads as 5%, and a table sorted on that puts one draw above
+ * another draw from the same urn. What can be ordered is the rows the pipeline
+ * flags `separated` — an exact test against the rest of the Council, read under
+ * a 5% false discovery rate — and those come first, ordered among themselves by
+ * share. Everything else follows by count, with its interval printed, and is
+ * not a ranking of anything.
  *
  * A speaker under the minimum is not sorted to the bottom; it is not sorted. A
  * null read through `?? 0` would put every rarely-heard delegation at the foot
@@ -1198,6 +1197,12 @@ export interface DiffusionPlan {
 	reliability?: number | null;
 	/** Events behind the drawn curves — the chronology's own length. */
 	events: number;
+	/**
+	 * Affiliations exposed to the referent: they spoke in a meeting where it was
+	 * named. The number the curves' heights are read against; zero when the
+	 * artefact predates the risk set.
+	 */
+	exposed: number;
 	refusal: DiffusionRefusal | null;
 }
 
@@ -1289,6 +1294,7 @@ const blank = (refusal: DiffusionRefusal, referent = '', label = ''): DiffusionP
 	span: { from: '', to: '' },
 	high: 0,
 	events: 0,
+	exposed: 0,
 	refusal
 });
 
@@ -1447,6 +1453,7 @@ export function diffusionPlan(data: Usage, state: UsageState): DiffusionPlan {
 		span: { from: fromDate, to: toDate },
 		high,
 		events: drawn.reduce((total, entry) => total + entry.points.length, 0),
+		exposed: chosen.exposed?.length ?? 0,
 		// A referent with events and no curve is possible: a run that declared a
 		// fourth milestone would put every event of it on a series this figure has
 		// no reading for. It refuses in the same words rather than drawing an empty

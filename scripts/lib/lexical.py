@@ -34,6 +34,7 @@ one debate.
 from __future__ import annotations
 
 import bisect
+import hashlib
 import math
 import re
 from collections import Counter
@@ -50,13 +51,39 @@ from .paths import STOPWORDS, rel
 #: ending on a letter or digit. A token cannot *start* with a digit —
 #: resolution numbers and dates are not vocabulary, and they would swamp any
 #: table they were let into — but may carry one, so `R2P` is one word rather
-#: than `r` and `p`. It cannot *end* on an apostrophe or hyphen either: the
-#: earlier pattern kept them, so a scare-quoted `'genocide'` tokenised as
-#: `genocide'`, a separate type, and the one usage this study most wants to
-#: see — the distanced, contested one — dropped out of every keyness table.
-#: The curly apostrophe is named by code point: the OCR carries both, and they
-#: are identical on screen.
-TOKEN_RE = re.compile("[a-z](?:[a-z0-9'" + chr(0x2019) + "-]*[a-z0-9])?")
+#: than `r` and `p`. It cannot *end* on an apostrophe or hyphen either, so a
+#: scare-quoted `'genocide'` is the word `genocide` and the distanced usage
+#: stays in the keyness tables.
+#:
+#: A letter is a lower-case Latin letter with or without diacritics, or a Greek
+#: or Cyrillic one, not `[a-z]` alone: the ASCII class cut 5,383 accented word
+#: types at the accent, so *régime* was counted as `r` and `gime` and *Côte
+#: d'Ivoire* as `c`, `te` and `d'ivoire` (review of 24 September 2026, RV3).
+#: The ranges are named rather than written as `[^\W\d_]`, which accepts the
+#: same words in this corpus at twice the cost; Greek and Cyrillic are there so
+#: an OCR homoglyph inside a Latin word does not cut it in two. Text is read
+#: through :func:`fold` first, which is what makes lower case and one
+#: apostrophe enough.
+LETTERS = "a-z\u00df-\u00f6\u00f8-\u024f\u0370-\u03ff\u0400-\u04ff\u1e00-\u1eff"
+TOKEN_RE = re.compile(f"[{LETTERS}](?:[{LETTERS}0-9'-]*[{LETTERS}0-9])?")
+
+#: The curly apostrophe, named by code point: the records carry both, they are
+#: identical on screen, and a possessive written with each used to be two types.
+CURLY_APOSTROPHE = chr(0x2019)
+
+#: The tokenizer's identity, recorded by every layer built on its tokens. The
+#: pattern alone is not the rule: :func:`fold` is part of it.
+TOKENIZER = f"{TOKEN_RE.pattern} after lower() and {CURLY_APOSTROPHE}->'"
+
+
+def fold(source: str) -> str:
+    """Lower-case, with one apostrophe. Length-preserving, so offsets hold."""
+    return source.lower().replace(CURLY_APOSTROPHE, "'")
+
+
+def words(source: str) -> list[str]:
+    """The word tokens of `source`, by the one rule every table is counted with."""
+    return TOKEN_RE.findall(fold(source))
 
 #: Below this many occurrences in the target, a word is noise however extreme
 #: its statistic. G² is unreliable on small expected counts.
@@ -122,11 +149,11 @@ class Tokens:
 
 def tokenise(source: str) -> Tokens:
     """Lower-case word tokens with their offsets into `source`."""
-    words, starts = [], []
-    for match in TOKEN_RE.finditer(source.lower()):
-        words.append(match.group())
+    found, starts = [], []
+    for match in TOKEN_RE.finditer(fold(source)):
+        found.append(match.group())
         starts.append(match.start())
-    return Tokens(words, starts)
+    return Tokens(found, starts)
 
 
 def word_count(texts) -> list[int]:
@@ -141,25 +168,24 @@ def word_count(texts) -> list[int]:
     §3.3).
 
     Counting here rather than in 02 keeps the tokeniser in one module: this is
-    the same `TOKEN_RE` the keyness tables, the collocate windows and the
-    language page's 59-million-word universe are built on, and a denominator
-    counted by a second rule would eventually disagree with the numerator it
-    divides.
+    the same :func:`words` the keyness tables, the collocate windows and the
+    language page's universe are built on, and a denominator counted by a
+    second rule would eventually disagree with the numerator it divides.
     """
-    return [len(TOKEN_RE.findall(source.lower())) for source in texts]
+    return [len(words(source)) for source in texts]
 
 
 def vocabulary(texts) -> Counter[str]:
     """Corpus-wide token frequencies. The reference every rate is read against."""
     counts: Counter[str] = Counter()
     for source in texts:
-        counts.update(TOKEN_RE.findall(source.lower()))
+        counts.update(words(source))
     return counts
 
 
 def document_vocabulary(texts) -> list[Counter[str]]:
     """The same counts, one `Counter` per document, for :func:`dispersion`."""
-    return [Counter(TOKEN_RE.findall(source.lower())) for source in texts]
+    return [Counter(words(source)) for source in texts]
 
 
 # --- Dispersion ------------------------------------------------------------
@@ -440,6 +466,19 @@ def _stratum(key: object) -> tuple:
     return key if isinstance(key, tuple) else (key,)
 
 
+def _stratum_rng(seed: int, key: tuple) -> np.random.Generator:
+    """A generator for one stratum, from the seed and the stratum's own key.
+
+    Until 24 September 2026 one generator served every stratum in turn, so a
+    single target added anywhere shifted every later draw: widening `genocide`
+    by three speeches replaced a third of the published top-100 keywords
+    without changing what any of them measured (docs/ROADMAP.md, RV32). Keyed
+    per stratum, a change in one debate redraws that debate's controls alone.
+    """
+    label = "".join(str(part) for part in key).encode("utf-8")
+    return np.random.default_rng([seed, int.from_bytes(hashlib.sha256(label).digest()[:8], "big")])
+
+
 def matched_control(
     frame: pd.DataFrame,
     flag: str | pd.Series,
@@ -461,7 +500,6 @@ def matched_control(
     thirty-three columns, but it is the same pairing either way — which is the
     point of it being this function rather than a second one.
     """
-    rng = np.random.default_rng(seed)
     mask = frame[flag] if isinstance(flag, str) else flag
     targets = frame[mask]
     pool = frame[~mask]
@@ -486,6 +524,7 @@ def matched_control(
         if take < wanted:
             short.append((_stratum(key), wanted, take))
         if take:
+            rng = _stratum_rng(seed, _stratum(key))
             target_indices = np.asarray(group.index)
             if take < wanted:
                 target_indices = rng.choice(target_indices, take, replace=False)

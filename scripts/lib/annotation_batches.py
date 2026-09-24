@@ -48,7 +48,7 @@ def merge(document: dict, speeches, sources: list[Path], output: Path) -> dict:
     common = None
     for directory in sources:
         manifest, rows = model_runs.read(directory)
-        identity = json.loads((directory / "identity.json").read_text())
+        identity = json.loads((directory / "identity.json").read_text(encoding="utf-8"))
         if run_store.digest(identity) != manifest.get("identity_sha256"):
             raise ValueError("Batch identity digest mismatch")
         for key in ("run_id", "runtime", "prompt_sha256", "referents_sha256", "schema_version", "probe_sha256"):

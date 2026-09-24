@@ -75,7 +75,7 @@ class TestDocumentTerms:
         matrix = keyness.build(CORPUS)
         assert matrix.documents == len(CORPUS)
         assert matrix.entries == sum(
-            len(Counter(lexical.TOKEN_RE.findall(text.lower()))) for text in CORPUS
+            len(Counter(lexical.words(text))) for text in CORPUS
         )
 
 

@@ -16,6 +16,9 @@ export const percent = (n: number) => percents.format(n);
 export const decimal = (n: number) => decimals.format(n);
 export const signed = (n: number) => (n >= 0 ? `+${decimals.format(n)}` : decimals.format(n));
 
+/** A change in a share, in signed percentage points: 0.0153 → `+1.53 pts`. */
+export const points = (n: number) => `${n >= 0 ? '+' : '−'}${Math.abs(n * 100).toFixed(2)} pts`;
+
 /**
  * Escape corpus-derived labels before interpolating them into ECharts HTML tooltips.
  *

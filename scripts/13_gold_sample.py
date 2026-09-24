@@ -1,11 +1,12 @@
 """Draw the human gold sample the model-assisted usage layer is measured against.
 
-`genocide` is the term that layer is built on: 7,747 occurrences in 4,133 of the
-167,642 speeches. Step 14 annotates all of them with a model, and a model run is
-worth exactly as much as the human sample it was scored against. This step draws
-that sample — 120 occurrences by equal probability, 80 more chosen to cover every
-period and cue stratum, and 535 more from the strata two committed model runs
-disagree about — and leaves it for two coders to work through against
+`genocide` is the term that layer is built on, with the population committed
+in `config/lexicon.counts.json`. Step 14 annotates all of it with a model, and a
+model run is worth exactly as much as the human sample it was scored against.
+This step draws that sample — 120 occurrences by equal probability, 80 more
+chosen to cover every period and cue stratum, and a third frame cut from the
+published run's labels (or from where two runs disagree, once there are two) —
+and leaves it for two coders to work through against
 `annotations/lexicon/CODEBOOK.md`.
 
 **Three frames, reported separately.** The probability frame is the unbiased
@@ -26,8 +27,8 @@ Three properties it is built for:
 
 - **One enumeration, checked against the published one.** The occurrences come
   from `lib.occurrences`, the module 13, 14 and 15 share, and the run refuses to
-  continue unless it reproduces the 4,133 speeches / 7,747 occurrences documented
-  in docs/CORPUS.md. A gold sample drawn from a different population than the
+  continue unless it reproduces the committed population in
+  `config/lexicon.counts.json`. A gold sample drawn from a different population than the
   one the model annotates would measure nothing.
 - **Hard cases on purpose.** Most occurrences are plain uses; an
   equal-probability sample of 200 would contain about four rejections and none of
@@ -48,8 +49,20 @@ The disagreement frame reads `model_annotations/genocide/` — the run named in
 `current_run.txt` and the counter-instrument named in `comparison_run.txt` — and
 reads nothing else from them. **A model label is a sampling stratum here in
 exactly the sense the cue is**: it says this occurrence is worth a coder's time,
-never what the coder should write. Where no pair of runs is published the frame
-is empty, the other two are unaffected, and the note says so.
+never what the coder should write. Where only the published run exists, the
+third frame is the *model-stratified* one instead: the same strata read off one
+run, so the rare classes are measurable before a second instrument exists
+(docs/ROADMAP.md, RV13).
+
+Two further guarantees (RV10, RV11). The coders work from a **blinded packet**,
+`genocide_gold_packet.csv`: one row per occurrence in a seeded shuffle, with the
+passage and blank coding columns and nothing else — no frame, no cue, no
+stratum, no inclusion probability, because a stratum named `rejects` is the
+model's answer printed beside the question. The frames stay in the candidate and
+review files, which are the key. And the ten occurrences the prompt's worked
+examples are cut from (`model_annotations/genocide/prompt_examples.csv`) are
+outside every frame: their labels are dictated to the model, so they cannot
+test it.
 
 Usage:
     python scripts/13_gold_sample.py [--probability 120] [--coverage 80] [--seed 21]
@@ -80,13 +93,7 @@ from lib.paths import (
     write_note,
 )
 
-TERM = "genocide"
-
-#: docs/CORPUS.md §8, and reproduced exactly by 03 and 08. The gold sample is
-#: only comparable to the model run if both enumerate this same population, so
-#: these are asserted rather than reported.
-DOCUMENTED_SPEECHES = 4_133
-DOCUMENTED_OCCURRENCES = 7_747
+TERM = model_runs.TERM
 
 #: Only the columns the sample needs. The frame is 131 MB, nearly all of it text.
 COLUMNS = [
@@ -160,9 +167,16 @@ CUES: tuple[str, ...] = ("rejection", "quotation", "commemorative", "dense_meeti
 
 GOLD_CANDIDATES = INTERIM / "genocide_gold_candidates.csv"
 GOLD_REVIEW = INTERIM / "genocide_gold_review.csv"
+#: What a coder opens. See the module docstring: blinded, deduplicated, shuffled.
+GOLD_PACKET = INTERIM / "genocide_gold_packet.csv"
+#: The occurrences behind the prompt's worked examples, excluded from every frame.
+PROMPT_EXAMPLES = model_runs.STORE / "prompt_examples.csv"
+#: Every population occurrence's probability under each frame and under their
+#: union, which is what lets 15 weight a coded unit however it was drawn.
+GOLD_DESIGN = INTERIM / "genocide_gold_design.csv"
 GOLD_PROBABILITY = INTERIM / "genocide_gold_probability.csv"
 GOLD_COVERAGE = INTERIM / "genocide_gold_coverage.csv"
-GOLD_ANNOTATIONS = ROOT / "annotations" / "genocide" / "annotations.csv"
+GOLD_ANNOTATIONS = model_runs.GOLD_ANNOTATIONS
 # The controlled referents are shared with 03's audit: one list of cases and
 # entities for the project, not one per sample.
 REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
@@ -182,21 +196,17 @@ def classify_cue(left: str, keyword: str, right: str, meeting_symbol: str) -> st
     return "plain"
 
 
-def check_population(found: list[occurrences.Occurrence]) -> list[str]:
-    """Reasons the enumeration cannot be the documented one, if any."""
-    problems = []
-    if len(found) != DOCUMENTED_OCCURRENCES:
-        problems.append(
-            f"{len(found):,} occurrences against the {DOCUMENTED_OCCURRENCES:,} "
-            "documented in docs/CORPUS.md §8"
-        )
-    speeches = len({occurrence.filename for occurrence in found})
-    if speeches != DOCUMENTED_SPEECHES:
-        problems.append(
-            f"{speeches:,} speeches against the {DOCUMENTED_SPEECHES:,} "
-            "documented in docs/CORPUS.md §8"
-        )
-    return problems
+def check_population(
+    found: list[occurrences.Occurrence], expected: tuple[int, int] | None = None
+) -> list[str]:
+    """Reasons the enumeration cannot be the committed one, if any.
+
+    The gold sample is only comparable to the model run if both enumerate this
+    same population, so it is asserted rather than reported.
+    """
+    return model_runs.population_problems(
+        (occurrence.filename for occurrence in found), len(found), expected
+    )
 
 
 def _period(year: int) -> str:
@@ -255,9 +265,9 @@ def candidate_rows(
 
 #: The committed model runs the second frame is cut from, named the way
 #: `15_usage.py` names them: one file holding one run id, or empty.
-CURRENT_RUN = MODEL_ANNOTATIONS / TERM / "current_run.txt"
-COMPARISON_RUN = MODEL_ANNOTATIONS / TERM / "comparison_run.txt"
-RUNS = MODEL_ANNOTATIONS / TERM / "runs"
+CURRENT_RUN = model_runs.CURRENT_RUN
+COMPARISON_RUN = model_runs.COMPARISON_RUN
+RUNS = model_runs.RUNS
 
 GOLD_DISAGREEMENT = INTERIM / "genocide_gold_disagreement.csv"
 
@@ -302,6 +312,22 @@ DISAGREEMENT_SIZES: dict[str, int | None] = {
 #: two model runs of one term.
 DISAGREEMENT: Final = "disagreement"
 
+#: The third frame when only the published run exists: the same strata, read
+#: off one run's labels, with nothing contested because nothing disagrees.
+#: Smaller than the disagreement frame's, because every row here is a row two
+#: coders must read: a hundred of the rarest class puts its precision within
+#: about ten points, sixty of the others within about thirteen, and the
+#: pre-onset stratum is small enough to take whole.
+MODEL_STRATA: Final = "model_strata"
+MODEL_STRATA_SIZES: dict[str, int | None] = {
+    "rejects": 100,
+    "pre_onset_referent": None,
+    "other_referent": 40,
+    "reports_without_position": 60,
+    "conditional": 60,
+}
+GOLD_MODEL_STRATA = INTERIM / "genocide_gold_model_strata.csv"
+
 
 def read_run(run_id: str) -> dict[str, dict[str, object]]:
     """One committed run's rows, keyed by occurrence, or nothing.
@@ -328,9 +354,7 @@ def read_run(run_id: str) -> dict[str, dict[str, object]]:
     return {str(row["occurrence_id"]): row for row in model_runs.resolved(path.parent)}
 
 
-def named_run(path: Path) -> str:
-    """The run id one of the two pointer files names, or an empty string."""
-    return path.read_text(encoding="utf-8").strip() if path.is_file() else ""
+named_run = model_runs.pointer
 
 
 def onset_years(referents: Sequence[llm.Referent]) -> dict[str, int]:
@@ -366,10 +390,12 @@ def classify_stratum(
     """
     identifier = str(row["occurrence_id"])
     first, second = published.get(identifier), comparison.get(identifier)
-    if first is None or second is None:
+    # One run is enough to stratify on; two are needed only to be contested.
+    if first is None or (comparison and second is None):
         return ""
-    positions = {str(first.get("speaker_position", "")), str(second.get("speaker_position", ""))}
-    referents = {str(first.get("referent", "")), str(second.get("referent", ""))}
+    labelled = [first] if second is None else [first, second]
+    positions = {str(item.get("speaker_position", "")) for item in labelled}
+    referents = {str(item.get("referent", "")) for item in labelled}
     year = int(str(row["date"])[:4] or 0)
 
     if "rejects" in positions:
@@ -407,7 +433,7 @@ def stratify(
         "paired_matched": len(population & published.keys() & comparison.keys()),
         "population": len(population),
     }
-    if not published or not comparison:
+    if not published:
         return candidates.assign(stratum=""), published_id, comparison_id
     onsets = onset_years(referents)
     strata = candidates.apply(
@@ -423,6 +449,7 @@ def draw(
     seed: int,
     *,
     sizes: dict[str, int | None] | None = None,
+    frame: str = DISAGREEMENT,
 ) -> pd.DataFrame:
     """The three sampling frames, concatenated as 03 concatenates its three.
 
@@ -445,16 +472,112 @@ def draw(
         audit.coverage_sample(candidates, coverage, seed + 1, strata=("period", "cue")),
     ]
     if "stratum" in candidates and candidates["stratum"].astype(str).str.len().gt(0).any():
+        two_runs = frame == DISAGREEMENT
         frames_drawn.append(
             audit.stratified_sample(
                 candidates,
-                sizes or DISAGREEMENT_SIZES,
+                sizes or (DISAGREEMENT_SIZES if two_runs else MODEL_STRATA_SIZES),
                 seed + 2,
-                DISAGREEMENT,
-                strategy="disagreement strata over two committed model runs",
+                frame,
+                strategy=(
+                    "disagreement strata over two committed model runs"
+                    if two_runs
+                    else "label strata over the published model run"
+                ),
             )
         )
     return pd.concat(frames_drawn, ignore_index=True)
+
+
+def prompt_example_ids(found: Sequence[occurrences.Occurrence]) -> set[str]:
+    """The prompt's worked examples, as occurrence ids of this enumeration.
+
+    Refuses a mapping naming an occurrence the corpus no longer has: the
+    exclusion would then silently exclude nothing.
+    """
+    if not PROMPT_EXAMPLES.is_file():
+        console.fail(
+            f"{rel(PROMPT_EXAMPLES)} is missing",
+            ["run `python tools/map_prompt_examples.py --write` and commit it"],
+        )
+    listed = set(
+        pd.read_csv(PROMPT_EXAMPLES, dtype="string", keep_default_na=False)["occurrence_id"]
+    )
+    present = {occurrence.occurrence_id for occurrence in found}
+    if missing := sorted(listed - present):
+        console.fail(
+            f"{rel(PROMPT_EXAMPLES)} names occurrences this corpus does not have",
+            [*missing[:5], "run `python tools/map_prompt_examples.py --write` and review it"],
+        )
+    return listed
+
+
+#: What the packet carries of each candidate: where the passage is and what it
+#: says. The coding columns of `annotations/genocide/annotations.csv` follow,
+#: blank, apart from the two administrative versions that describe the
+#: candidate rather than judge it.
+PACKET_PASSAGE = [
+    "occurrence_id", "line_id", "filename", "meeting_symbol", "date", "country_org",
+    "agenda", "start", "end", "source_sha256", "left", "keyword", "right",
+]
+
+
+def packet(sample: pd.DataFrame, seed: int) -> pd.DataFrame:
+    """What a coder opens: each sampled occurrence once, shuffled, and blind.
+
+    The order is a seeded hash of the occurrence id, so it mixes the frames and
+    is the same on every run. Nothing that says why an occurrence was drawn —
+    frame, stratum, cue, probability — is carried, and neither is any label.
+    """
+    unique = sample.drop_duplicates("occurrence_id")[PACKET_PASSAGE].copy()
+    order = unique["occurrence_id"].map(lambda value: audit._rank(str(value), seed))
+    unique = unique.assign(_order=order).sort_values("_order").drop(columns="_order")
+    unique.insert(0, "position", range(1, len(unique) + 1))
+    blank = [column for column in audit.ANNOTATION_FIELDS if column not in unique]
+    for column in blank:
+        unique[column] = ""
+    unique["schema_version"] = audit.SCHEMA_VERSION
+    unique["lexicon_version"] = str(sample["lexicon_version"].iloc[0]) if len(sample) else ""
+    return unique.reset_index(drop=True)
+
+
+def design(
+    candidates: pd.DataFrame, probability: int, coverage: int, frame: str
+) -> pd.DataFrame:
+    """Each occurrence's inclusion probability in each frame, and in any of them.
+
+    Until 24 September 2026 the frames were "never pooled": a rate over their
+    union, unweighted, estimates nothing. Weighted, it does. Every unit's chance
+    of being coded is `1 - prod(1 - p_f)` over the three independent draws, and
+    a Horvitz-Thompson or Hajek estimate over *every* coded unit, weighted by
+    its inverse, is design-unbiased for the corpus and uses all the coding the
+    purposive frames paid for (docs/ROADMAP.md, RV14). The frames are still
+    reported one by one beside it.
+    """
+    population = len(candidates)
+    first = pd.Series(min(probability, population) / population, index=candidates.index)
+    second = audit.coverage_inclusion(
+        candidates, max(coverage, candidates.groupby(["period", "cue"]).ngroups),
+        strata=("period", "cue"),
+    )
+    sizes = DISAGREEMENT_SIZES if frame == DISAGREEMENT else MODEL_STRATA_SIZES
+    third = pd.Series(0.0, index=candidates.index)
+    if "stratum" in candidates:
+        for name, size in sizes.items():
+            members = candidates["stratum"].astype(str) == name
+            count = int(members.sum())
+            if count:
+                third[members] = (count if size is None else min(size, count)) / count
+    union = audit.union_inclusion(first, second, third)
+    return pd.DataFrame(
+        {
+            "occurrence_id": candidates["occurrence_id"],
+            "pi_probability": first.round(10),
+            "pi_coverage": second.round(10),
+            f"pi_{frame}": third.round(10),
+            "pi_union": union.round(10),
+        }
+    )
 
 
 def stratum_rows(candidates: pd.DataFrame, sample: pd.DataFrame) -> list[str]:
@@ -522,9 +645,10 @@ def build_note(
             f"**{population:,} occurrences** of `{TERM}` in "
             f"{candidates['filename'].nunique():,} speeches, the population step 14 "
             "annotates in full.",
-            "Checked against the 4,133 speeches / 7,747 occurrences documented in",
-            "docs/CORPUS.md; the run fails rather than sampling a population that",
-            "disagrees with the published one.",
+            "Checked against the population committed in `config/lexicon.counts.json`;",
+            "the run fails rather than sampling a population that disagrees with it.",
+            "The ten occurrences behind the prompt's worked examples are outside every",
+            "frame, and coders work from the blinded `genocide_gold_packet.csv`.",
             "",
             "## The sample",
             "",
@@ -603,7 +727,7 @@ def run(probability: int, coverage: int, seed: int) -> None:
     console.step("Enumerating occurrences")
     found = occurrences.enumerate_term(speeches, bodies, term)
     if problems := check_population(found):
-        console.fail("the enumeration disagrees with docs/CORPUS.md §8", problems)
+        console.fail("the enumeration disagrees with config/lexicon.counts.json", problems)
     console.info(
         f"{len(found):,} occurrences in "
         f"{len({occurrence.filename for occurrence in found}):,} speeches"
@@ -611,25 +735,36 @@ def run(probability: int, coverage: int, seed: int) -> None:
 
     console.step("Classifying cues")
     candidates = candidate_rows(speeches, bodies, found, term, lex)
+    examples = prompt_example_ids(found)
+    candidates = candidates.loc[~candidates["occurrence_id"].isin(examples)].reset_index(
+        drop=True
+    )
+    console.info(
+        f"{len(examples)} occurrences behind the prompt's worked examples are outside "
+        f"every frame; {len(candidates):,} remain"
+    )
     console.table([(cue, f"{int((candidates['cue'] == cue).sum()):,}") for cue in CUES])
 
     console.step("Reading the committed runs the second frame is cut from")
     candidates, published_run, comparison_run = stratify(
         candidates, llm.read_referent_table(REFERENTS)
     )
-    if published_run and comparison_run:
-        console.info(f"published {published_run}, comparison {comparison_run}")
+    third = DISAGREEMENT if published_run and comparison_run else MODEL_STRATA
+    if published_run:
+        console.info(
+            f"published {published_run}"
+            + (f", comparison {comparison_run}" if comparison_run else ", no comparison")
+            + f": the third frame is `{third}`"
+        )
+        sizes = DISAGREEMENT_SIZES if third == DISAGREEMENT else MODEL_STRATA_SIZES
         console.table(
-            [
-                (name, f"{int((candidates['stratum'] == name).sum()):,}")
-                for name in DISAGREEMENT_SIZES
-            ]
+            [(name, f"{int((candidates['stratum'] == name).sum()):,}") for name in sizes]
         )
     else:
-        console.warn("no run pair is published; the disagreement frame will be empty")
+        console.warn("no run is published; the third frame will be empty")
 
     console.step("Drawing the gold sample")
-    sample = draw(candidates, probability, coverage, seed)
+    sample = draw(candidates, probability, coverage, seed, frame=third)
     unique = int(sample["occurrence_id"].nunique())
     console.info(
         f"{len(sample)} candidate rows over {unique} distinct occurrences "
@@ -644,6 +779,7 @@ def run(probability: int, coverage: int, seed: int) -> None:
             audit.PROBABILITY: GOLD_PROBABILITY,
             audit.COVERAGE: GOLD_COVERAGE,
             DISAGREEMENT: GOLD_DISAGREEMENT,
+            MODEL_STRATA: GOLD_MODEL_STRATA,
         },
         referent_path=REFERENTS,
         # A coded row survives a bump that did not touch `genocide`; see
@@ -655,6 +791,18 @@ def run(probability: int, coverage: int, seed: int) -> None:
     console.info(
         f"wrote {rel(GOLD_CANDIDATES)} and {rel(GOLD_REVIEW)} ({annotated} annotations)"
     )
+    weights = design(candidates, probability, coverage, third)
+    artifacts.atomic_write_text(GOLD_DESIGN, weights.to_csv(index=False, lineterminator="\n"))
+    drawn = weights.loc[weights["occurrence_id"].isin(sample["occurrence_id"])]
+    console.info(
+        f"wrote {rel(GOLD_DESIGN)}: union inclusion probabilities from "
+        f"{drawn['pi_union'].min():.4f} to {drawn['pi_union'].max():.4f} over the drawn units"
+    )
+    coder_packet = packet(sample, seed)
+    artifacts.atomic_write_text(
+        GOLD_PACKET, coder_packet.to_csv(index=False, lineterminator="\n")
+    )
+    console.info(f"wrote {rel(GOLD_PACKET)}: {len(coder_packet)} occurrences, blinded")
 
     console.step("Writing")
     note = write_note(
@@ -668,7 +816,7 @@ def run(probability: int, coverage: int, seed: int) -> None:
         inputs=[SPEECHES_NORM, CURRENT_RUN, COMPARISON_RUN,
                 *(path for name in (published_run, comparison_run) if name
                   for path in model_runs.files(RUNS / name))],
-        configs=[LEXICON, GOLD_ANNOTATIONS, REFERENTS, MODEL_ANNOTATIONS / TERM / "PROMPT.md",
+        configs=[LEXICON, GOLD_ANNOTATIONS, REFERENTS, PROMPT_EXAMPLES, MODEL_ANNOTATIONS / TERM / "PROMPT.md",
                  *sorted((MODEL_ANNOTATIONS / TERM / "prompts").glob("*.md"))],
         extra={
             "model_overlap": candidates.attrs.get("model_overlap", {}),
@@ -678,7 +826,12 @@ def run(probability: int, coverage: int, seed: int) -> None:
                 artifacts.describe_file(GOLD_PROBABILITY, ROOT),
                 artifacts.describe_file(GOLD_COVERAGE, ROOT),
                 artifacts.describe_file(GOLD_DISAGREEMENT, ROOT),
+                artifacts.describe_file(GOLD_MODEL_STRATA, ROOT),
+                artifacts.describe_file(GOLD_PACKET, ROOT),
+                artifacts.describe_file(GOLD_DESIGN, ROOT),
             ],
+            "excluded_prompt_examples": sorted(examples),
+            "third_frame": third,
             "lexicon_version": lex.version,
             "term": TERM,
             "population": {

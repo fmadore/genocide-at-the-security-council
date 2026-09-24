@@ -34,7 +34,7 @@ speaker matched at 40% is being described by a biased half of its own speeches.
 a sum over rows rather than a re-read of its text, which is what makes the
 stability battery affordable: without it, twenty seeds across every eligible
 speaker means tokenising fifty-eight million words forty times over. The counts
-are built with :data:`lib.lexical.TOKEN_RE`, so they are identical to what
+are built with :func:`lib.lexical.words`, so they are identical to what
 :func:`lib.lexical.vocabulary` would have returned — asserted in
 `tests/test_keyness.py` rather than assumed here.
 """
@@ -226,7 +226,7 @@ def build(texts) -> DocumentTerms:
     terms = array("i")
     counts = array("i")
     for source in texts:
-        for word, count in Counter(lexical.TOKEN_RE.findall(source.lower())).items():
+        for word, count in Counter(lexical.words(source)).items():
             identifier = vocabulary.get(word)
             if identifier is None:
                 identifier = vocabulary[word] = len(vocabulary)
@@ -299,7 +299,7 @@ def self_reference(name: str) -> frozenset[str]:
     half-complete one would make the flag look authoritative. The artefact says
     which rule was applied so a reader knows what the absence of a mark means.
     """
-    return frozenset(lexical.TOKEN_RE.findall(name.lower()))
+    return frozenset(lexical.words(name))
 
 
 def pair_speaker(

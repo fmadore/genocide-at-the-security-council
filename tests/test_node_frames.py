@@ -66,8 +66,9 @@ class TestCodebookIntegrity:
     def test_every_frame_carries_a_gloss_and_an_example_line(self):
         for frame in node_frames.CODEBOOK:
             assert frame.gloss.endswith(".")
-            assert re.match(r"^UNSC_\d{4}_", frame.example_id), frame.name
-            assert "#" in frame.example_id
+            # A current KWIC line id: the retired corpus's `UNSC_1998_SPV...`
+            # names resolve to nothing in Sakamoto-Matsuoka v5.0.
+            assert re.fullmatch(r"SC\d{5}-\d{2}-\d{3}#\d+", frame.example_id), frame.name
 
     def test_codebook_rows_number_the_precedence_from_one(self):
         rows = node_frames.codebook_rows()

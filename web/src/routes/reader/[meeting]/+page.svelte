@@ -514,8 +514,8 @@
 				<p class="prose">
 					The record is in English. {#if interpreted > 0}{count(interpreted)}
 						{interpreted === 1 ? 'speech carries' : 'speeches carry'} a non-English language label.{/if}
-					The source does not reliably identify delivery language, so an absent label cannot establish
-					that a speech was delivered in English.
+					The source does not identify the language each speech was delivered in, so a speech may reach
+					this record through interpretation.
 				</p>
 			</div>
 
@@ -530,7 +530,7 @@
 
 			<div class="note src">
 				<span class="label">Source</span>
-				<p class="symbol">09_export_speeches.py<br />→ speeches/{record.basename}.json</p>
+				<p class="symbol">09_export_speeches.py<br />→ speeches/{record.basename}.json.gz</p>
 			</div>
 		</aside>
 

@@ -308,7 +308,7 @@ class TestThePinIsEnoughOnItsOwn:
 
         fetch_module.main()
 
-        manifest = json.loads((raw / "dataset-manifest.json").read_text())
+        manifest = json.loads((raw / "dataset-manifest.json").read_text(encoding="utf-8"))
         assert manifest["checksums_from"] == "pin.json"
         assert manifest["files"][0]["md5"] == hashlib.md5(body).hexdigest()
 

@@ -61,7 +61,7 @@
 	 * control selects, with a 3% margin.
 	 *
 	 * Measured over the corpus set rather than over every embedded speech, which
-	 * is what it used to be. The default view draws the 4,133 speeches that
+	 * is what it used to be. The default view draws the speeches that
 	 * mention genocide while the axes spanned all 167,642, so the cloud sat in
 	 * the middle 58% of the plate with empty paper either side. Measured over the
 	 * corpus set instead, it fills the plate — and the box stays fixed under the

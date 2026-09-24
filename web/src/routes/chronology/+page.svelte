@@ -16,6 +16,7 @@
 		splitEvidenceQuery,
 		type ChronologyChoices,
 		type ChronologyUnit as Unit,
+		bandBounds,
 		bandOwner,
 		intervalBand,
 		isIntervalBand,
@@ -48,7 +49,8 @@
 		isoDate,
 		measureLabel,
 		monthLabel,
-		percent
+		percent,
+		points
 	} from '$lib/format';
 	import { PAGE_METADATA } from '$lib/seo';
 	import {
@@ -312,6 +314,8 @@
 					measure.speech_rate[index] ?? null,
 					measure.speech_rate_low[index] ?? null,
 					measure.speech_rate_high[index] ?? null,
+					measure.speech_rate_cluster_low?.[index] ?? null,
+					measure.speech_rate_cluster_high?.[index] ?? null,
 					measure.occurrences?.[index] ?? null,
 					measure.token_rate?.[index] ?? null
 				]);
@@ -330,6 +334,8 @@
 				'speech_rate',
 				'speech_rate_wilson95_low',
 				'speech_rate_wilson95_high',
+				'speech_rate_meeting95_low',
+				'speech_rate_meeting95_high',
 				'occurrences',
 				'token_rate_per_100k'
 			],
@@ -634,8 +640,9 @@
 					const interval = (seriesName: string | undefined, index: number | undefined) => {
 						if (!banded || index == null) return '';
 						const internal = usable.find((n) => measureLabel(n) === bandOwner(seriesName ?? ''));
-						const low = internal ? allMeasures[internal].speech_rate_low[index] : null;
-						const high = internal ? allMeasures[internal].speech_rate_high[index] : null;
+						const bounds = internal ? bandBounds(allMeasures[internal]) : null;
+						const low = bounds?.low[index] ?? null;
+						const high = bounds?.high[index] ?? null;
 						return low == null || high == null
 							? ''
 							: ` <span style="opacity:.65">${percent(low)}–${percent(high)}</span>`;
@@ -714,8 +721,8 @@
 							intervalBand(
 								measureLabel(name),
 								strokeOf(name, p).color,
-								allMeasures[name].speech_rate_low,
-								allMeasures[name].speech_rate_high
+								bandBounds(allMeasures[name]).low,
+								bandBounds(allMeasures[name]).high
 							)
 						)
 					: []),
@@ -766,8 +773,7 @@
 		{ id: 'entity_type', label: 'Kind of speaker' },
 		{ id: 'participanttype', label: 'Participant type' },
 		{ id: 'agenda_item1', label: 'Region of agenda item' },
-		{ id: 'agenda_item_manual', label: 'Agenda item' },
-		{ id: 'delivery_language', label: 'Delivery language' }
+		{ id: 'agenda_item_manual', label: 'Agenda item' }
 	];
 
 	const seriesNames = (source: typeof data.year) => Object.keys(source.terms);
@@ -1085,9 +1091,8 @@
 			</p>
 			{#if unit === 'speech_rate'}
 				<p>
-					The faint <strong>band</strong> around each line is its 95% Wilson interval: an indication of
-					precision assuming independent speeches. It omits clustering within meetings; overlapping bands
-					are not a formal test of differences.
+					The faint <strong>band</strong> is a 95% interval from resampling whole meetings, so it widens
+					where a year's rate rests on a few debates. Overlapping bands are not a formal test.
 				</p>
 			{/if}
 			{#if showEvents && grain === 'year'}
@@ -1155,6 +1160,40 @@
 				</p>
 			{/if}
 		</section>
+
+		{#if data.parts}
+			<details class="data-table">
+				<summary
+					><Icon icon={ChevronRight} />Agenda or usage? The genocide rate's change, decade by decade</summary
+				>
+				<p class="hint">
+					Each change in the share of speeches using the word, split into <em>composition</em> (more
+					speeches on agenda items where it was already common) and <em>within</em> (more use inside the
+					same items). The two parts add to the change.
+				</p>
+				<table>
+					<thead>
+						<tr
+							><th>Decades</th><th class="num">Share</th><th class="num">Change</th><th class="num"
+								>Composition</th
+							><th class="num">Within</th><th>Largest item</th></tr
+						>
+					</thead>
+					<tbody>
+						{#each data.parts.splits.agenda_item_manual ?? [] as row (row.from)}
+							<tr>
+								<td>{row.from}s → {row.to}s</td>
+								<td class="num">{percent(row.rate_from)} → {percent(row.rate_to)}</td>
+								<td class="num">{points(row.change)}</td>
+								<td class="num">{points(row.composition)}</td>
+								<td class="num">{points(row.within)}</td>
+								<td>{row.largest[0]?.group ?? '—'}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</details>
+		{/if}
 
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View the plotted values as a table</summary>
@@ -1504,7 +1543,7 @@
 			<p>
 				Small groups have less precise shares: one speech out of twenty is 5%. Bands assume
 				independent speeches and omit uncertainty from text errors. Lines break where a category has
-				no speeches. Delivery language is unknown where the source does not identify it.
+				no speeches.
 			</p>
 		{/snippet}
 		{#snippet more()}

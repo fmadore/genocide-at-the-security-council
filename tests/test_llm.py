@@ -984,3 +984,91 @@ def test_a_row_from_a_corpus_that_has_moved_is_refused(tmp_path: Path) -> None:
     moved = enumerate_bodies({**BODIES, "two.txt": "The word genocide appears once, here."})
     with pytest.raises(ValueError, match="corpus does not have"):
         llm.completed(path, moved, prompt_sha256="f" * 64, model="a-model")
+
+
+# --- Instrument constraints a prompt declares (RV7, RV8) -----------------------
+
+
+def constrained_prompt(tmp_path: Path, constraints: str, *, sentences: bool = True) -> Path:
+    """The committed prompt with a `constraints:` line and, if asked, `{sentences}`."""
+    source = PROMPT.read_text(encoding="utf-8")
+    source = source.replace("version: 3\n", f"version: 3\nconstraints: {constraints}\n", 1)
+    if sentences:
+        source = source.replace("{occurrences}", "{occurrences}\n\nSentences:\n{sentences}", 1)
+    path = tmp_path / "PROMPT.md"
+    path.write_text(source, encoding="utf-8")
+    return path
+
+
+def test_the_committed_prompt_declares_no_constraint_and_keeps_its_schema() -> None:
+    """v3 runs are identified by their request bytes; nothing here may move them."""
+    assert llm.load_prompt(PROMPT).constraints == frozenset()
+    assert build().schema is None
+    assert llm.response_schema() == llm._base_schema()
+
+
+def test_an_unknown_constraint_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unknown constraints"):
+        llm.load_prompt(constrained_prompt(tmp_path, "free-text-everything"))
+
+
+def test_sentence_evidence_needs_its_placeholder(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="sentences"):
+        llm.load_prompt(constrained_prompt(tmp_path, "sentence-evidence", sentences=False))
+
+
+def test_a_referent_enum_prompt_puts_the_ids_and_ordinals_in_the_schema(tmp_path: Path) -> None:
+    pack = llm.load_prompt(constrained_prompt(tmp_path, "referent-enum", sentences=False))
+    found = enumerate_bodies({str(META["filename"]): SPEECH})
+    request = llm.build_request(META, SPEECH, found, pack, "table", referent_ids=["rwanda_1994", "other"])
+    occurrences_schema = request.schema["properties"]["occurrences"]
+    item = occurrences_schema["items"]["properties"]
+    assert item["referent"]["enum"] == ["other", "rwanda_1994"]
+    assert item["ordinal"]["enum"] == [1, 2]
+    assert occurrences_schema["minItems"] == occurrences_schema["maxItems"] == 2
+    body = llm.request_body(request, model="m", reasoning_effort="high", max_output_tokens=9)
+    assert body["text"]["format"]["schema"] == request.schema
+
+
+def test_a_referent_enum_prompt_without_ids_is_refused(tmp_path: Path) -> None:
+    pack = llm.load_prompt(constrained_prompt(tmp_path, "referent-enum", sentences=False))
+    found = enumerate_bodies({str(META["filename"]): SPEECH})
+    with pytest.raises(ValueError, match="referent ids"):
+        llm.build_request(META, SPEECH, found, pack, "table")
+
+
+def test_sentence_evidence_is_numbered_answered_and_always_located(tmp_path: Path) -> None:
+    pack = llm.load_prompt(constrained_prompt(tmp_path, "referent-enum, sentence-evidence"))
+    found = enumerate_bodies({str(META["filename"]): SPEECH})
+    request = llm.build_request(META, SPEECH, found, pack, "table", referent_ids=sorted(REFERENTS))
+    assert request.sentence_count == 3
+    assert "[2] What happened there was genocide, and the word matters." in request.user
+    item = request.schema["properties"]["occurrences"]["items"]
+    assert "evidence_quote" not in item["properties"]
+    assert item["properties"]["evidence_sentences"]["properties"]["last"]["maximum"] == 3
+
+    answers = []
+    for occurrence, span in zip(found, [(2, 2), (2, 2)], strict=True):
+        answer = entry(occurrence.ordinal)
+        del answer["evidence_quote"]
+        answer["evidence_sentences"] = {"first": span[0], "last": span[1]}
+        answers.append(answer)
+    accepted = llm.validate_response(
+        payload(*answers), ordinals=[1, 2], referents=REFERENTS, sentences=3
+    )
+    first, second = llm.annotation_rows(found, SPEECH, accepted, meta())
+    assert first["evidence_quote"] == "What happened there was genocide, and the word matters."
+    assert first["evidence_valid"] is True and first["evidence_relocated"] is False
+    # The second occurrence is in sentence 3: a span that misses it is kept,
+    # located, and marked invalid, as a misplaced quotation always was.
+    assert second["evidence_valid"] is False
+    assert second["evidence_start"] == first["evidence_start"]
+
+
+@pytest.mark.parametrize("span", [{"first": 0, "last": 1}, {"first": 3, "last": 2}, {"first": 1, "last": 9}])
+def test_sentence_numbers_outside_the_request_are_refused(span: dict[str, int]) -> None:
+    answer = entry(1)
+    del answer["evidence_quote"]
+    answer["evidence_sentences"] = span
+    with pytest.raises(ValueError, match="outside"):
+        llm.validate_response(payload(answer), ordinals=[1], referents=REFERENTS, sentences=3)

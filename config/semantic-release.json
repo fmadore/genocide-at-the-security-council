@@ -5,5 +5,7 @@
   "manifest_sha256": "7a9f3786732b03c190389e37a1784ccf2e2dd6a269567159b7c9f0db52f014b3",
   "corpus_sha256": "5b28839e8df28eb995baf044e7d6d5c2e0c229b9adf2571c46a454510af165b7",
   "projection_note": "UMAP spectral initialization fell back to seeded random initialization; see release notes.",
-  "corpus_content_sha256": "956bc011e72a2b6b791bf2c63dc161b7f4d9445df116a4e23ecc0cda03d56813"
+  "corpus_content_sha256": "956bc011e72a2b6b791bf2c63dc161b7f4d9445df116a4e23ecc0cda03d56813",
+  "corpus_geometry_sha256": "8ad8e27c3fecb0dfc16d279d420af64cae187b7b9ce827bb1d94abd732eb3261",
+  "geometry_note": "Computed 2026-09-24 from the corpus whose content fingerprint matches corpus_content_sha256; binds row ids and embedded bodies only. Display attributes are re-derived at export (docs/ROADMAP.md, RV6)."
 }

@@ -44,6 +44,32 @@ jobs:
       - name: pytest
         run: python -m pytest
 
+  # The transport tests exercise step 14's real request path through the
+  # OpenAI-compatible client, and skip without it. The job above must not have
+  # it — its absence is what proves the lazy import — so they run here, in an
+  # environment that has the client and fails before pytest if it does not.
+  annotation:
+    name: Annotation transport
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.lock
+
+      - run: python -m pip install --require-hashes -r requirements.lock
+
+      - run: python -m pip install -r requirements-llm.txt
+
+      - name: The client is importable, so nothing below can skip
+        run: python -c "import httpx, openai"
+
+      - name: pytest (transport and preflight)
+        run: python -m pytest tests/test_annotate_transport.py tests/test_annotation_preflight.py -rs
+
   web:
     name: Dashboard
     runs-on: ubuntu-latest

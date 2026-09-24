@@ -158,6 +158,11 @@
 			<a href="{resolve('/methods')}#lexical-measures">Measure definitions</a>.
 		</p>
 		<p>
+			The record is in English. Speeches delivered in another official language reach it through UN
+			interpretation and translation, and the source does not say which speeches did, so some of a
+			delegation's distinctive words may be its translators' usage rather than its own.
+		</p>
+		<p>
 			The <a href="{resolve('/language')}#compared-with-a-like-for-like-speech">Language page</a> separately
 			compares speeches mentioning genocide with those without it.
 		</p>

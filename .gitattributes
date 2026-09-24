@@ -14,6 +14,7 @@
 *.png   binary
 *.jpg   binary
 *.woff2 binary
+*.gz    binary
 
 # Keep generated/vendored files out of language stats and diffs
 web/static/data/**   linguist-generated=true

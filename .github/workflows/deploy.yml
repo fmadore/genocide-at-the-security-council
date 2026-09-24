@@ -1,6 +1,6 @@
 # Rebuild the pinned corpus and static dashboard, then deploy it to GitHub Pages.
 #
-# The 685 MB web payload is intentionally not committed. A deployment that has
+# The web payload is intentionally not committed. A deployment that has
 # nothing to reuse starts from Harvard Dataverse, verifies its checksums, runs
 # the versioned pipeline, and publishes the resulting static site. That costs
 # build time, but makes a release reproducible from the DOI and the repository
@@ -158,10 +158,10 @@ jobs:
           # step reads declared beside it. It used to be copied here, in
           # scripts/README.md and in docs/CLUSTER.md, and the three drifted.
           # `raw` is phony and always runs 00, which MD5-checks the corpus on
-          # disk; on an empty tree `payload` builds everything. 14 and 16 never
-          # run here: they are the steps that spend money, and 15 aggregates the
-          # committed run named in model_annotations/genocide/current_run.txt —
-          # it fails while that file is empty, and the build with it.
+          # disk; on an empty tree `payload` builds everything. 14 never runs
+          # here: it needs a GPU, and 15 aggregates the committed run named in
+          # model_annotations/genocide/current_run.txt, or writes the usage
+          # artefacts in their waiting state when that file is empty.
           make payload
 
       # Saved explicitly rather than by letting `actions/cache` write in its own

@@ -6,9 +6,18 @@ import pandas as pd
 import pytest
 from lib import artifacts, semantic_release
 
+#: A published map over the two speeches of `speeches()`, as step 21 writes one.
+MAP = {
+    "meta": {"script": "21_semantic_map.py"},
+    "countries": ["A", "Unknown affiliation"],
+    "agendas": ["B", "Unknown agenda"],
+    "points": [["b", 0.5, -1.25, 2000, 0, 0, False], ["a", 2.0, 3.0, 2001, 1, 1, True]],
+}
+
 
 def release(tmp_path, *, extra=None, corpus="corpus", corrupt=False):
     files = dict.fromkeys(semantic_release.FILES, b"{}")
+    files["map.json"] = json.dumps(MAP).encode()
     meta = {"inputs": [{"sha256": corpus}], "files": {
         name: hashlib.sha256(value).hexdigest() for name, value in files.items()
     }}
@@ -124,3 +133,67 @@ def test_export_content_fallback_requires_the_pinned_manifest(tmp_path, monkeypa
     (config / "semantic-release.json").write_text(json.dumps(pin))
     with pytest.raises(ValueError, match="different corpus"):
         export_web.copy_part([source], "semantic", root=tmp_path / "web")
+
+
+@pytest.mark.parametrize("field,value,moves", [
+    ("text", "changed", True), ("body_start", 0, True), ("row_id", "changed", True),
+    ("year", 1999, False), ("country_org", "changed", False),
+    ("agenda_item_manual", "changed", False), ("has_genocide", True, False)])
+def test_the_geometry_fingerprint_binds_bodies_and_ids_only(tmp_path, field, value, moves):
+    """What the projection depends on moves it; what the export re-derives does not."""
+    path = tmp_path / "corpus.parquet"
+    frame = speeches()
+    frame.to_parquet(path)
+    before = semantic_release.geometry_fingerprint(path)
+    frame.loc[0, field] = value
+    frame.to_parquet(path)
+    assert (semantic_release.geometry_fingerprint(path) != before) is moves
+
+
+def export_with_geometry_pin(tmp_path, monkeypatch, corpus_frame):
+    import export_web
+
+    archive, pin = release(tmp_path)
+    source = tmp_path / "source"
+    semantic_release.install(archive, source, pin)
+    pinned = tmp_path / "pinned.parquet"
+    speeches().to_parquet(pinned)
+    pin["corpus_geometry_sha256"] = semantic_release.geometry_fingerprint(pinned)
+    corpus = tmp_path / "corpus.parquet"
+    corpus_frame.to_parquet(corpus)
+    config = tmp_path / "config"
+    config.mkdir(exist_ok=True)
+    (config / "semantic-release.json").write_text(json.dumps(pin))
+    monkeypatch.setattr(export_web, "ROOT", tmp_path)
+    monkeypatch.setattr(export_web, "SPEECHES_FLAGGED", corpus)
+    export_web.copy_part([source], "semantic", root=tmp_path / "web")
+    return tmp_path / "web" / "semantic"
+
+
+def test_a_relabelled_corpus_keeps_the_geometry_and_takes_the_new_colours(tmp_path, monkeypatch):
+    frame = speeches()
+    frame.loc[frame.row_id == "b", "has_genocide"] = True
+    frame.loc[frame.row_id == "b", "country_org"] = "Renamed"
+    target = export_with_geometry_pin(tmp_path, monkeypatch, frame)
+    published = json.loads((target / "map.json").read_text(encoding="utf-8"))
+    points = {point[0]: point for point in published["points"]}
+    assert points["b"][1:3] == [0.5, -1.25], "the coordinates are the release's"
+    assert points["b"][6] is True
+    assert published["countries"][points["b"][4]] == "Renamed"
+    assert published["meta"]["display"]["points_changed"] == 1
+    manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["files"]["map.json"] == artifacts.sha256(target / "map.json")
+
+
+def test_a_changed_body_is_still_a_different_corpus(tmp_path, monkeypatch):
+    frame = speeches()
+    frame.loc[frame.row_id == "a", "text"] = "Rewritten"
+    with pytest.raises(ValueError, match="different corpus"):
+        export_with_geometry_pin(tmp_path, monkeypatch, frame)
+
+
+def test_rebinding_refuses_a_map_of_other_speeches(tmp_path):
+    from lib import semantic
+
+    with pytest.raises(ValueError, match="row ids differ"):
+        semantic.display_points(speeches(), {"a": (0, 0), "z": (1, 1)})

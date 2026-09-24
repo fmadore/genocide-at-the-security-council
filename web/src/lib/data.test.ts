@@ -466,3 +466,27 @@ describe('reading an identifier back to the file it came from', () => {
 		expect(occurrenceOf('SC00232-01-005#third')).toBeNull();
 	});
 });
+
+describe('the speech files are stored gzipped', () => {
+	const record = { meta, basename: 'SC00001-01', speeches: [{ id: 'SC00001-01-001' }] };
+	const gzip = async (text: string) =>
+		new Response(
+			new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))
+		).arrayBuffer();
+
+	it('decompresses a gzip member the server passed through', async () => {
+		const bytes = await gzip(JSON.stringify(record));
+		const fetcher = (async (url: string) => {
+			expect(url).toMatch(/speeches\/SC00001-01\.json\.gz$/);
+			return new Response(bytes);
+		}) as unknown as typeof fetch;
+		const { meeting } = await fresh();
+		expect((await meeting('SC00001-01', fetcher)).speeches).toHaveLength(1);
+	});
+
+	it('reads the same file already decoded by the server', async () => {
+		const fetcher = (async () => new Response(JSON.stringify(record))) as unknown as typeof fetch;
+		const { meeting } = await fresh();
+		expect((await meeting('SC00001-01', fetcher)).basename).toBe('SC00001-01');
+	});
+});

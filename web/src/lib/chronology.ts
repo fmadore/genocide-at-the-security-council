@@ -199,8 +199,30 @@ export function termStrokes(
 	return strokes;
 }
 
+/**
+ * The bounds a band is drawn between: the meeting-clustered interval where the
+ * artefact carries one, the Wilson interval otherwise. Wilson treats every
+ * speech as independent and is too narrow in a year whose word sits in a few
+ * debates; the clustered bounds resample whole meetings (RV19).
+ */
+export function bandBounds(measure: {
+	speech_rate_low: readonly (number | null)[];
+	speech_rate_high: readonly (number | null)[];
+	speech_rate_cluster_low?: readonly (number | null)[];
+	speech_rate_cluster_high?: readonly (number | null)[];
+}): { low: readonly (number | null)[]; high: readonly (number | null)[]; clustered: boolean } {
+	if (measure.speech_rate_cluster_low && measure.speech_rate_cluster_high) {
+		return {
+			low: measure.speech_rate_cluster_low,
+			high: measure.speech_rate_cluster_high,
+			clustered: true
+		};
+	}
+	return { low: measure.speech_rate_low, high: measure.speech_rate_high, clustered: false };
+}
+
 /* --- Uncertainty bands ------------------------------------------------------
-   Every `speech_rate` comes with its Wilson bounds. A band is drawn as two
+   Every `speech_rate` comes with its bounds (see `bandBounds`). A band is drawn as two
    stacked line series: an invisible floor at the lower bound and a filled
    strip of height (high − low) on top of it. Both are named after the line
    they belong to with a suffix, so a tooltip or a legend can tell them apart

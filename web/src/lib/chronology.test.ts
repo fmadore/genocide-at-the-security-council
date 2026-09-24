@@ -21,7 +21,7 @@ const choices: ChronologyChoices = {
 		// for a unit a measure is not in, and the state has to normalise it.
 		war_crimes: ['speech_rate']
 	},
-	splits: ['none', 'speaker_group', 'delivery_language']
+	splits: ['none', 'speaker_group', 'entity_type']
 };
 
 describe('the headline the chronology opens on', () => {
@@ -81,7 +81,7 @@ describe('chronology URL state', () => {
 			series: ['war_crimes', 'genocide'],
 			calendarMeasure: 'war_crimes',
 			calendarUnit: 'speech_rate',
-			split: 'delivery_language'
+			split: 'entity_type'
 		};
 		expect(readChronologyState(chronologyParams(state, choices), choices)).toEqual(state);
 	});
@@ -132,7 +132,7 @@ describe('chronology breakdown evidence', () => {
 	});
 
 	it('refuses a split whose category is absent from KWIC', () => {
-		expect(splitEvidenceQuery('genocide', 'delivery_language', 'French', 2014)).toBeNull();
+		expect(splitEvidenceQuery('genocide', 'entity_type', 'ngo', 2014)).toBeNull();
 	});
 });
 

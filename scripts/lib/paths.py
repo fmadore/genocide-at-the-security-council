@@ -67,6 +67,10 @@ LEXICON = CONFIG / "lexicon.yml"
 # `lexicon.load()` rather than validating artefacts cut from the old regex.
 # Written by tools/lock_lexicon.py and committed beside the config it locks.
 LEXICON_LOCK = CONFIG / "lexicon.lock.json"
+# What each enabled term counts on the pinned corpus, committed beside the
+# lock. 03 refuses a count that differs, so a lexicon edit arrives with the
+# numbers it moved, and 13, 14 and 15 read their population from here.
+LEXICON_COUNTS = CONFIG / "lexicon.counts.json"
 ENTITIES = CONFIG / "entities.csv"
 COUNTRY_ALIASES = CONFIG / "country_aliases.csv"
 COUNCIL_MEMBERSHIP = CONFIG / "council_membership.csv"
@@ -132,21 +136,15 @@ EXPECTED_SPEECHES = 167_642
 # is provenance only and is never used as a lexical denominator.
 EXPECTED_TOKENS = 87_678_254
 
-# Words in the speech bodies, counted with `lib.lexical.TOKEN_RE` and asserted
-# by 02. This is the denominator every "per 100,000 words" figure divides by.
+# Words in the speech bodies, counted with `lib.lexical.words` and asserted by
+# 02. This is the denominator every "per 100,000 words" figure divides by, and
+# it is counted once: the codebook's `tokens` include punctuation and numbers,
+# which put every rate 11.3% below its label until 2 September 2026.
 #
-# Until 2 September 2026 those figures divided by `EXPECTED_TOKENS` instead
-# (review of 1 September 2026, §3.3). Two things were wrong with that. The
-# codebook's tokens include punctuation and numbers, so the denominator was
-# 12.7% larger than the number of words and every published rate was 11.3%
-# below what its own label claimed; and the label said "words", which was not
-# what had been counted. Of the two remedies the review named — count words
-# once, or relabel the unit "tokens (codebook)" — this is the first, because
-# the numerator is a count of words in speech bodies and the language page
-# already reports its universe in these same units. Relabelling would have left
-# a rate whose numerator and denominator came from different tokenisers and
-# different texts.
-EXPECTED_WORDS = 86_854_907
+# 86,854,907 until 24 September 2026, when the tokenizer stopped cutting
+# accented words at the accent and started reading both apostrophes as one
+# (docs/ROADMAP.md, RV3): 42,333 fewer words, 0.05% of the denominator.
+EXPECTED_WORDS = 86_812_574
 
 
 def ensure_dirs() -> None:

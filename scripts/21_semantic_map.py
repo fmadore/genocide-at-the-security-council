@@ -50,20 +50,16 @@ def project(vectors: np.ndarray, seed: int, neighbours: int = 30):
 
 def run(directory: Path, seed: int) -> None:
     speeches = frames.read(SPEECHES_FLAGGED, columns=["row_id", "text", "body_start", "year", "country_org", "agenda_item_manual", "has_genocide"])
-    speeches = speeches.rename(columns={"agenda_item_manual": "agenda"})
     vectors, source = semantic.load_vectors(directory, speeches)
     # float16 storage introduces slight norm error; cosine and exact dot-product
     # validation must refer to precisely the same normalized representation.
     vectors = embeddings.l2_normalise(vectors)
     coordinates, indices, distances, evaluation = project(vectors, seed)
     records = semantic.neighbour_records(speeches, indices, distances)
-    countries = sorted(speeches.country_org.fillna("Unknown affiliation").unique())
-    agendas = sorted(speeches.agenda.fillna("Unknown agenda").astype(str).unique())
-    country_ids, agenda_ids = {v: i for i, v in enumerate(countries)}, {v: i for i, v in enumerate(agendas)}
-    points = [[str(row.row_id), round(float(x), 4), round(float(y), 4), int(row.year),
-               country_ids[str(row.country_org)] if row.country_org in country_ids else country_ids["Unknown affiliation"],
-               agenda_ids[str(row.agenda)] if str(row.agenda) in agenda_ids else agenda_ids["Unknown agenda"], bool(row.has_genocide)]
-              for row, (x, y) in zip(speeches.itertuples(), coordinates, strict=True)]
+    countries, agendas, points = semantic.display_points(
+        speeches,
+        {str(row_id): (x, y) for row_id, (x, y) in zip(speeches["row_id"], coordinates, strict=True)},
+    )
     meta = artifacts.provenance(ROOT, "21_semantic_map.py", inputs=[SPEECHES_FLAGGED, directory / "manifest.json"],
                                 configs=[Path(__file__), ROOT / "scripts/lib/semantic.py", ROOT / "scripts/lib/topics.py"], extra={
         "schema": 1, "seed": seed, "model_repo": source["model_repo"], "model_revision": source["model_revision"],
@@ -71,7 +67,7 @@ def run(directory: Path, seed: int) -> None:
         "packages": {name: version(name) for name in ("numpy", "umap-learn", "pynndescent", "scikit-learn")},
         "evaluation": evaluation, "speeches": len(speeches), "neighbour_shards": 256,
         "neighbours": "Approximate cosine neighbours in the original embedding space; self excluded",
-        "point_columns": ["id", "x", "y", "year", "country", "agenda", "genocide"],
+        "point_columns": semantic.POINT_COLUMNS,
     })
     with artifacts.atomic_directory(DERIVED / "semantic") as staged:
         artifacts.atomic_write_json(staged / "map.json", {"meta": meta, "countries": countries, "agendas": agendas, "points": points})

@@ -15,6 +15,8 @@ Website: <https://fmadore.github.io/genocide-at-the-security-council/>
 [Project focus and release gates](docs/PLAN.md) is the single roadmap: current
 priorities, implementation status, research decisions and verification evidence.
 The reference guides linked there cover corpus facts, validation and operations.
+The fixes and improvements from the review of 24 September 2026 are tracked item
+by item in [the review roadmap](docs/ROADMAP.md).
 
 ## Corpus
 
@@ -26,8 +28,12 @@ The reference guides linked there cover corpus facts, validation and operations.
 | Coverage | 1946-01-17 to 2024-12-30 |
 | Speeches | 167,642 |
 | Meetings with speeches | 9,464 |
-| Analytical words | 86,854,907 |
-| `genocid*` (lexicon v6) | 4,133 speeches · 7,747 occurrences |
+| Analytical words | 86,812,574 |
+| `g[eé]nocid*` (lexicon v8) | 4,136 speeches · 7,787 occurrences |
+
+Every term's committed counts are in
+[`config/lexicon.counts.json`](config/lexicon.counts.json); step 03 fails if the
+corpus and the lexicon no longer produce them.
 
 Detailed documentation of the schema, source categories, and limitations is in
 [`docs/CORPUS.md`](docs/CORPUS.md).
@@ -117,8 +123,9 @@ The four hosted 2026-08 runs under
 [`model_annotations/genocide/runs/`](model_annotations/genocide/runs/) remain
 versioned for provenance of the retired corpus. `current_run.txt` selects the
 `2026-09-08-qwen-131k` run as an explicitly partial preview;
-`comparison_run.txt` is empty. A run must cover all 7,747 current
-occurrences unless its coverage gap is authorised in `allow_partial_run.txt`;
+`comparison_run.txt` is empty. A run must cover every current occurrence (the
+population in `config/lexicon.counts.json`) unless its coverage gap is
+authorised in `allow_partial_run.txt`;
 see [`model_annotations/README.md`](model_annotations/README.md)
 and [`scripts/README.md`](scripts/README.md).
 The published instrument is `Qwen/Qwen3.8-27B` and the comparison instrument

@@ -295,7 +295,7 @@ def run(model: str, limit: int, processes: int, batch_size: int, pairs_path: Pat
                  ROOT / "scripts/lib/lexical.py", ROOT / "scripts/lib/frames.py"],
         extra={
             "layer_schema": lemmas.LAYER_SCHEMA,
-            "tokenizer": lexical.TOKEN_RE.pattern,
+            "tokenizer": lexical.TOKENIZER,
             "scope": "matched pairs" if pairs_path else "smoke" if limit else "full corpus",
             "model": model,
             "model_version": model_version,

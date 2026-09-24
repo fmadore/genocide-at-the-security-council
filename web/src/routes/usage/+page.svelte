@@ -1045,6 +1045,10 @@
 				Of these, {count(diffusion.totals.asserts)} have an assertion and {count(
 					diffusion.totals.rejects
 				)} a rejection. An affiliation can appear in both curves if different passages receive those labels.
+				{#if diffusion.exposed}
+					{count(diffusion.exposed)} affiliations spoke in at least one meeting where {diffusion.label}
+					was named; read the curves against that number, not against every state.
+				{/if}
 			</p>
 
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
@@ -1278,7 +1282,7 @@
 				<table class="positions">
 					<caption class="sr-only">
 						Delegations by the share of their eligible occurrences that reject or deny the
-						characterisation, those separated from the corpus rate first
+						characterisation, those that reject more than the rest of the Council first
 					</caption>
 					<thead>
 						<tr>
@@ -1298,7 +1302,7 @@
 							>
 								<th scope="row" title={describePositions(row.positions, row.total)}>
 									{shortCountry(row.actor)}{#if row.separated}<abbr
-											title="The lower bound exceeds the reference rate used in the published analysis."
+											title="Rejects more often than the rest of the Council (exact test, 5% false discovery rate)."
 											>&nbsp;&#9679;</abbr
 										>{/if}
 								</th>
@@ -2273,7 +2277,7 @@
 	}
 
 	/* A row or a cell whose figure is present but must not be ordered or quoted:
-	   a share whose interval covers the corpus rate, a per-class rate under its
+	   a share not distinguishable from the rest of the Council, a per-class rate under its
 	   support floor, a kappa withheld for a flat margin. Set back rather than
 	   hidden — the counts behind them are facts, and only the rate is not. */
 	tbody tr.withheld th[scope='row'],

@@ -198,8 +198,13 @@ def test_annotation_profiles_pin_every_selected_checkpoint() -> None:
 def test_annotation_smoke_output_cannot_be_a_committed_run() -> None:
     job = read(CLUSTER / "submit_annotate.sh")
     step = (ROOT / "scripts" / "14_llm_annotate.py").read_text(encoding="utf-8")
+    from lib import model_runs
+    from lib.paths import INTERIM, MODEL_ANNOTATIONS
+
     assert "UNSC_SMOKE" in job and "--smoke" in job
-    assert 'SMOKE_RUNS = INTERIM / "model_annotation_smoke"' in step
+    assert model_runs.SMOKE_RUNS.is_relative_to(INTERIM)
+    assert not model_runs.SMOKE_RUNS.is_relative_to(MODEL_ANNOTATIONS)
+    assert "SMOKE_RUNS = model_runs.SMOKE_RUNS" in step
     assert 'if args.smoke and args.limit is None' in step
 
 

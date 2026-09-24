@@ -43,11 +43,18 @@ def lock_for(lex: lexicon.Lexicon) -> dict[str, object]:
     the OCR delta is measured with, and a lock that skipped it would let it
     change unrecorded. Keys sorted so the file diffs by term.
     """
+    anchor = lex.anchor
+    assert anchor is not None
     return {
         "version": lex.version,
+        "anchor": {
+            "pattern_sha256": lexicon.pattern_sha256(anchor.pattern),
+            "widened_since": anchor.widened_since,
+        },
         "terms": {
             name: {
                 "pattern_since": term.pattern_since,
+                "widened_since": term.widened_since,
                 "pattern_sha256": lexicon.pattern_sha256(term.pattern),
                 "anchor": term.anchor,
             }
@@ -80,13 +87,24 @@ def unbumped(lex: lexicon.Lexicon, old: dict[str, object]) -> list[str]:
     for name, term in lex.terms.items():
         entry = entries.get(name)
         digest = lexicon.pattern_sha256(term.pattern)
-        changed = (
-            not isinstance(entry, dict)
-            or entry.get("pattern_sha256") != digest
-            or entry.get("anchor") != term.anchor
-        )
-        if changed and term.pattern_since != lex.version:
+        anchored_changed = not isinstance(entry, dict) or entry.get("anchor") != term.anchor
+        pattern_changed = not isinstance(entry, dict) or entry.get("pattern_sha256") != digest
+        # A pattern edit may be dated either way — as a new rule, or as a
+        # declared widening that 03 then verifies on the corpus. Anchoring or
+        # unanchoring a term is always a new rule.
+        new_rule = anchored_changed and term.pattern_since != lex.version
+        undated = pattern_changed and lex.version not in (term.pattern_since, term.widened_since)
+        if new_rule or undated:
             stale.append(name)
+    anchor = lex.anchor
+    locked = old.get("anchor")
+    if anchor is not None and isinstance(locked, dict):
+        anchored = [term for term in lex.terms.values() if term.anchor is not None]
+        moved = locked.get("pattern_sha256") != lexicon.pattern_sha256(anchor.pattern)
+        if moved and anchor.widened_since != lex.version and any(
+            term.pattern_since != lex.version for term in anchored
+        ):
+            stale.append("anchor")
     return sorted(stale)
 
 
@@ -111,7 +129,7 @@ def main() -> None:
                 ["run `python tools/lock_lexicon.py` to write it"],
             )
         try:
-            lexicon.check_lock(lex.terms, lex.version, read_lock())
+            lexicon.check_lock(lex.terms, lex.version, read_lock(), lex.anchor)
         except ValueError as exc:
             console.fail(f"{rel(LEXICON_LOCK)} does not describe {rel(LEXICON)}", [str(exc)])
         console.step("The lock matches the lexicon")
@@ -121,9 +139,10 @@ def main() -> None:
     if old:
         if stale := unbumped(lex, old):
             console.fail(
-                "these patterns changed without their pattern_since",
+                "these matching rules changed without their pattern_since or widened_since",
                 [
-                    f"'{name}': set pattern_since to {lex.version} in {rel(LEXICON)}"
+                    f"'{name}': set pattern_since to {lex.version} in {rel(LEXICON)}, or "
+                    f"widened_since to {lex.version} with widened_from if it only adds matches"
                     for name in stale
                 ],
             )

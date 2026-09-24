@@ -16,6 +16,7 @@ import type {
 	ChangePoints,
 	Collocates,
 	Countries,
+	Decomposition,
 	Events,
 	Keyness,
 	KwicFile,
@@ -706,7 +707,6 @@ function evict(path: string, url: string): void {
 	}
 }
 
-/** Fetch and cache a JSON payload, keyed on its path. */
 /**
  * What a reader is told when the request got no answer at all.
  *
@@ -729,6 +729,26 @@ export const unreachable = (path: string) =>
 	`is not in the offline cache. Reconnect and reload the page; pages and ` +
 	`figures already visited stay available offline.`;
 
+/**
+ * A response body as JSON, decompressing a gzip member the server did not.
+ *
+ * The speech files are stored gzipped (`speeches/*.json.gz`) because they are
+ * most of the payload. A static host may serve them as opaque bytes, or a dev
+ * server may already have decoded them, so the magic number decides rather
+ * than the extension or a header.
+ */
+async function parse(response: Response): Promise<unknown> {
+	const bytes = new Uint8Array(await response.arrayBuffer());
+	const gzipped = bytes.length > 1 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+	const text = gzipped
+		? await new Response(
+				new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))
+			).text()
+		: new TextDecoder().decode(bytes);
+	return JSON.parse(text) as unknown;
+}
+
+/** Fetch and cache a JSON payload, keyed on its path. */
 export function json<T>(
 	path: string,
 	fetcher: typeof fetch = fetch,
@@ -753,7 +773,7 @@ export function json<T>(
 							`Try again or reload the page. If the problem persists, this data file may be unavailable in the current release.`
 					);
 				}
-				return response.json() as Promise<unknown>;
+				return path.endsWith('.gz') ? parse(response) : (response.json() as Promise<unknown>);
 			})
 			.then((payload) => {
 				if (!payload || typeof payload !== 'object') {
@@ -825,6 +845,7 @@ export const REQUIRED = {
 	'series/breakdowns.json': { meta: 'object', measures: 'object' },
 	'series/change_points.json': { meta: 'object', series: 'object', inference: 'object' },
 	'series/events.json': { meta: 'object', events: 'array' },
+	'series/decomposition.json': { meta: 'object', term: 'string', splits: 'object' },
 	'lexical/collocates.json': { meta: 'object' },
 	'lexical/collocates_sliced.json': { meta: 'object' },
 	'lexical/keyness.json': {
@@ -933,6 +954,9 @@ export const usageOccurrences = at<UsageOccurrences>(
    in the payload for a reader who wants to check the table by hand. */
 export const nodeFrames = at<NodeFrames>('frames/frames.json', validateNodeFrames);
 
+/* 04's decade-to-decade decomposition of the genocide rate (RV18). */
+export const decomposition = at<Decomposition>('series/decomposition.json');
+
 export const kwicIndex = at<KwicIndex>('kwic/index.json');
 export const meetingIndex = at<MeetingIndex>('meetings.json', validateMeetingIndex);
 export const scopeIndex = at<ScopeIndex>('scopes.json', validateScopeIndex);
@@ -942,7 +966,7 @@ export const kwic = (term: string, f?: typeof fetch) =>
 	json<KwicFile>(`kwic/${encodeURIComponent(term)}.json`, f, REQUIRED['kwic/*.json']);
 
 export const meeting = (basename: string, f?: typeof fetch) =>
-	json<Meeting>(`speeches/${encodeURIComponent(basename)}.json`, f, REQUIRED['speeches/*.json']);
+	json<Meeting>(`speeches/${encodeURIComponent(basename)}.json.gz`, f, REQUIRED['speeches/*.json']);
 
 /**
  * A speech identifier, split into the meeting it belongs to and its ordinal

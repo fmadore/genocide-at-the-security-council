@@ -72,23 +72,19 @@ from . import series
 #: noise. The counts are published at every denominator either way.
 MINIMUM_OCCURRENCES: Final = 20
 
-#: The corpus-wide share of eligible occurrences the speaker refuses,
-#: `rejects`, as both committed runs measure it: 106 of 6,092, 1.7%.
+#: The false discovery rate the rejection flag is held to.
 #:
-#: It is written here because :func:`position_rows` needs something to test a
-#: speaker's own share against. The review of 1 September 2026 (§4.5, item 11)
-#: is right that :data:`MINIMUM_OCCURRENCES` alone does not make `share_rejects`
-#: rankable — at n = 20 the expected count against this base rate is 0.35, so a
-#: single rejection reads as 5%, five times the corpus, and the bottom of the
-#: ranking is entirely that arithmetic. Raising the minimum instead would be the
-#: wrong repair: at the n it would take to separate 5% from 1.7% (about 220
-#: eligible occurrences) three speakers survive, and Sudan's 19 rejections in 43
-#: and Serbia's 15 in 45 — the finding the column exists for — would go with the
-#: noise. So the count and the share are still published at 20, and what is
-#: added is the interval and the test: a share is *separated* from this base rate
-#: only when the lower bound of its 95% Wilson interval clears it. Ranking is the
-#: consumer's business, and the flag is what tells it which rows can be ordered.
-BASE_REJECTION_SHARE: Final = 0.0174
+#: `separated` says a speaker rejects the characterisation more often than the
+#: rest of the Council does. Each speaker with enough eligible occurrences is
+#: tested once — one-sided and exact, against the share of every *other*
+#: speaker's eligible occurrences that reject — and the ninety-odd tests are
+#: read together under Benjamini-Hochberg at this level, so that among the
+#: flagged speakers about one in twenty is expected to be a draw from the same
+#: urn rather than one in twenty of all of them. Until 24 September 2026 the
+#: reference was a constant, 1.74%, measured on the retired corpus's runs; the
+#: published run's own rate is 2.7%, and four speakers were flagged only
+#: because the constant was stale (docs/ROADMAP.md, RV1).
+FDR_LEVEL: Final = 0.05
 
 #: The codebook's position vocabulary, in the codebook's order rather than
 #: sorted. Every position block writes all seven, zero-filled: an absent key
@@ -515,20 +511,22 @@ def position_rows(
     therefore eligible >= minimum, which is not the same flag as the one on the
     actor block: they guard different denominators and can disagree.
 
-    A published share carries its 95% Wilson interval and one more flag,
-    `separated`, which is true only when the lower bound of that interval clears
-    :data:`BASE_REJECTION_SHARE`. That is the flag a consumer must rank on. A
-    share of 1 in 24 is 4.2% and looks like two and a half times the corpus,
-    but its interval runs from 0.7% to 20% and covers the corpus rate three
-    times over; ordering it against a share of 2 in 25 orders two draws from the
-    same urn. Sudan's 19 in 43 and Serbia's 15 in 45 are separated by a wide
-    margin, and they stay in the table with the interval that says so.
+    A published share carries its 95% Wilson interval, for reading, and the
+    result of a test, for ranking: `base_rejects` is the share of every *other*
+    speaker's eligible occurrences that reject, `p_value` the exact one-sided
+    binomial probability of this many rejections or more at that rate, and
+    `q_value` its Benjamini-Hochberg adjustment over every speaker with a
+    published share. `separated` is `q_value <= FDR_LEVEL`, and it is the flag a
+    consumer must rank on: a share of 1 in 24 looks like more than the room, and
+    it is a draw the room would produce often.
     """
     if rows.empty:
         return []
     eligible = eligible_mask(rows)
     kept = rows.loc[eligible]
     grouped = {str(name): group for name, group in kept.groupby(kept["country_org"].map(_text))}
+    everything = position_counts(kept)
+    all_rejects, all_eligible = int(everything["rejects"]), int(sum(everything.values()))
     out: list[dict[str, object]] = []
     for actor in actor_order:
         group = grouped.get(actor)
@@ -537,6 +535,13 @@ def position_rows(
         enough = total >= minimum
         rejects = int(counts["rejects"])
         interval = share_interval(rejects, total) if enough and total else (None, None)
+        others = all_eligible - total
+        base = (all_rejects - rejects) / others if others else None
+        p_value = (
+            binomial_upper_tail(rejects, total, base)
+            if enough and total and base is not None
+            else None
+        )
         out.append(
             {
                 "actor": actor,
@@ -548,12 +553,67 @@ def position_rows(
                 ),
                 "share_low": interval[0],
                 "share_high": interval[1],
-                "separated": bool(
-                    interval[0] is not None and interval[0] > BASE_REJECTION_SHARE
-                ),
+                "base_rejects": _round(base) if enough and base is not None else None,
+                "p_value": _round(p_value, 8) if p_value is not None else None,
             }
         )
+    tested = [row for row in out if row["p_value"] is not None]
+    adjusted = benjamini_hochberg([float(row["p_value"]) for row in tested])
+    for row, q_value in zip(tested, adjusted, strict=True):
+        row["q_value"] = _round(q_value, 8)
+    for row in out:
+        row.setdefault("q_value", None)
+        row["separated"] = bool(row["q_value"] is not None and row["q_value"] <= FDR_LEVEL)
     return out
+
+
+def binomial_upper_tail(successes: int, trials: int, rate: float) -> float:
+    """P(X >= successes) for X ~ Binomial(trials, rate), exactly.
+
+    Summed in log space from the observed count upwards, so a speaker with a
+    few hundred eligible occurrences costs a few hundred terms and no
+    dependency. The degenerate rates are answered directly: at a rate of zero
+    any rejection is impossible, at one every trial rejects.
+    """
+    if successes <= 0:
+        return 1.0
+    if successes > trials:
+        return 0.0
+    if rate <= 0:
+        return 0.0
+    if rate >= 1:
+        return 1.0
+    log_rate, log_rest = math.log(rate), math.log1p(-rate)
+    terms = [
+        math.lgamma(trials + 1)
+        - math.lgamma(k + 1)
+        - math.lgamma(trials - k + 1)
+        + k * log_rate
+        + (trials - k) * log_rest
+        for k in range(successes, trials + 1)
+    ]
+    peak = max(terms)
+    return min(1.0, math.exp(peak) * sum(math.exp(term - peak) for term in terms))
+
+
+def benjamini_hochberg(p_values: Sequence[float]) -> list[float]:
+    """Benjamini-Hochberg adjusted p-values, in the order given.
+
+    The q-value of the i-th smallest of m p-values is the smallest
+    `p_(j) * m / j` over j >= i, capped at one: the false discovery rate at
+    which that test would first be called.
+    """
+    m = len(p_values)
+    if not m:
+        return []
+    order = sorted(range(m), key=lambda index: p_values[index])
+    adjusted = [0.0] * m
+    running = 1.0
+    for rank in range(m, 0, -1):
+        index = order[rank - 1]
+        running = min(running, p_values[index] * m / rank)
+        adjusted[index] = min(running, 1.0)
+    return adjusted
 
 
 def share_interval(successes: int, total: int) -> tuple[float | None, float | None]:
@@ -670,6 +730,43 @@ def diffusion_rows(
             )
         )
         out.append({"id": referent, "events": entries})
+    return out
+
+
+def exposure_rows(
+    rows: pd.DataFrame, speeches: pd.DataFrame
+) -> dict[str, list[dict[str, str]]]:
+    """Per referent, when each delegation first sat in a debate that named it.
+
+    A diffusion curve counts first mentions, and its height means nothing
+    without the number of delegations that could have mentioned the case: a
+    state never invited to a Council debate on Darfur did not decline to say
+    *genocide* about it. This is that risk set. A delegation is exposed to a
+    referent from the first meeting in which any assigned occurrence names it
+    and the delegation also spoke, whatever it said (docs/ROADMAP.md, RV20).
+
+    `speeches` is the whole corpus's `filename`, `meeting_symbol`,
+    `country_org` and `date`; `rows` the joined model rows.
+    """
+    kept = rows.loc[assigned_mask(rows)] if not rows.empty else rows
+    if kept.empty:
+        return {}
+    meeting_of = dict(zip(speeches["filename"], speeches["meeting_symbol"], strict=True))
+    named = (
+        kept.assign(_meeting=kept["filename"].map(meeting_of))
+        .groupby(kept["referent"].map(_text))["_meeting"]
+        .agg(lambda values: set(values.dropna()))
+    )
+    floor = speeches[["meeting_symbol", "country_org", "date"]]
+    out: dict[str, list[dict[str, str]]] = {}
+    for referent, meetings in named.items():
+        present = floor.loc[floor["meeting_symbol"].isin(meetings)]
+        first = present.groupby(present["country_org"].map(_text))["date"].min()
+        out[str(referent)] = [
+            {"actor": actor, "date": _date(date)}
+            for actor, date in sorted(first.items(), key=lambda item: (_date(item[1]), item[0]))
+            if actor
+        ]
     return out
 
 
@@ -1472,6 +1569,131 @@ def frame_rows(
     return out
 
 
+#: Coded units with a reference label a weighted or corrected figure needs
+#: before it is published; below it the block says `waiting` and why.
+MINIMUM_GOLD: Final = 30
+
+#: The fields whose shares the dashboard draws, and which are corrected.
+CORRECTED_FIELDS: Final[tuple[str, ...]] = ("concrete_case", "speaker_position")
+
+
+def _hajek(values: np.ndarray, probabilities: np.ndarray) -> tuple[float, float]:
+    """A Hajek mean and its standard error under Poisson sampling.
+
+    `sum(y / pi) / sum(1 / pi)`, with the linearised variance
+    `sum((1 - pi) / pi**2 * (y - mean)**2) / (sum(1 / pi))**2`. The frames are
+    fixed-size draws, not Poisson ones, so the error is slightly conservative.
+    """
+    weights = 1 / probabilities
+    total = float(weights.sum())
+    mean = float((weights * values).sum() / total)
+    variance = float(((1 - probabilities) / probabilities**2 * (values - mean) ** 2).sum()) / total**2
+    return mean, math.sqrt(max(variance, 0.0))
+
+
+def _gold_units(
+    annotations: pd.DataFrame, model: pd.DataFrame, design: pd.DataFrame, field: str
+) -> pd.DataFrame:
+    """Coded units with a reference label, a model label and a design weight."""
+    reference = reference_labels(annotations)
+    rows = [
+        {"occurrence_id": occurrence, "human": labels[field]}
+        for occurrence, labels in reference.items()
+        if field in labels
+    ]
+    if not rows or model.empty or design.empty or field not in model:
+        return pd.DataFrame(columns=["occurrence_id", "human", "model", "pi_union"])
+    units = pd.DataFrame(rows)
+    labels = model[["occurrence_id", field]].rename(columns={field: "model"})
+    labels["occurrence_id"] = labels["occurrence_id"].map(_text)
+    labels["model"] = labels["model"].map(_text)
+    units = units.merge(labels, on="occurrence_id", how="inner")
+    weights = design[["occurrence_id", "pi_union"]].copy()
+    weights["occurrence_id"] = weights["occurrence_id"].map(_text)
+    weights["pi_union"] = pd.to_numeric(weights["pi_union"], errors="coerce")
+    units = units.merge(weights, on="occurrence_id", how="inner")
+    return units.loc[units["pi_union"] > 0]
+
+
+def weighted_accuracy(
+    annotations: pd.DataFrame, model: pd.DataFrame, design: pd.DataFrame
+) -> list[dict[str, object]]:
+    """Model accuracy per field, over every coded unit, weighted to the corpus.
+
+    The per-frame tables say how the model does on each design's units; this
+    says what share of the corpus it labels as the coders would, using every
+    coded unit at the weight its union inclusion probability gives it. Withheld
+    below :data:`MINIMUM_GOLD` units.
+    """
+    out = []
+    for field in (*SINGLE_LABEL_FIELDS,):
+        units = _gold_units(annotations, model, design, field)
+        n = len(units)
+        entry: dict[str, object] = {"field": field, "units": n}
+        if n < MINIMUM_GOLD:
+            out.append({**entry, "state": "waiting", "estimate": None, "low": None, "high": None})
+            continue
+        correct = (units["human"] == units["model"]).to_numpy(dtype=float)
+        mean, error = _hajek(correct, units["pi_union"].to_numpy(dtype=float))
+        out.append(
+            {
+                **entry,
+                "state": "computed",
+                "estimate": _round(mean),
+                "low": _round(max(0.0, mean - 1.96 * error)),
+                "high": _round(min(1.0, mean + 1.96 * error)),
+            }
+        )
+    return out
+
+
+def corrected_shares(
+    annotations: pd.DataFrame, model: pd.DataFrame, design: pd.DataFrame
+) -> list[dict[str, object]]:
+    """Corpus shares of each label, the model's corrected by the gold sample.
+
+    Prediction-powered inference (Angelopoulos et al., 2023): the model's share
+    over every annotated occurrence, plus the design-weighted mean of
+    `human - model` over the coded units, which removes the model's bias as far
+    as the sample can measure it. The interval adds the two variances. Where
+    the model is right the correction is near zero and the interval narrow;
+    where it is wrong the correction says by how much. The published matrix
+    and profiles stay the model's own; this block is what may be *cited* about
+    the corpus once enough units are coded.
+    """
+    out = []
+    for field in CORRECTED_FIELDS:
+        units = _gold_units(annotations, model, design, field)
+        labels = model[field].map(_text) if field in model else pd.Series(dtype=object)
+        total = len(labels)
+        categories = sorted(set(labels) | set(units["human"]))
+        block: dict[str, object] = {"field": field, "units": len(units), "occurrences": total}
+        if len(units) < MINIMUM_GOLD or not total:
+            out.append({**block, "state": "waiting", "categories": []})
+            continue
+        probabilities = units["pi_union"].to_numpy(dtype=float)
+        rows = []
+        for category in categories:
+            share = float((labels == category).mean())
+            difference = (units["human"] == category).to_numpy(dtype=float) - (
+                units["model"] == category
+            ).to_numpy(dtype=float)
+            rectifier, error = _hajek(difference, probabilities)
+            corrected = share + rectifier
+            spread = 1.96 * math.sqrt(error**2 + share * (1 - share) / total)
+            rows.append(
+                {
+                    "category": category,
+                    "model_share": _round(share),
+                    "corrected_share": _round(min(1.0, max(0.0, corrected))),
+                    "low": _round(max(0.0, corrected - spread)),
+                    "high": _round(min(1.0, corrected + spread)),
+                }
+            )
+        out.append({**block, "state": "computed", "categories": rows})
+    return out
+
+
 def gold_block(
     annotations: pd.DataFrame,
     model: pd.DataFrame,
@@ -1480,6 +1702,7 @@ def gold_block(
     unique_occurrences: int,
     comparison: pd.DataFrame | None = None,
     candidates: pd.DataFrame | None = None,
+    design: pd.DataFrame | None = None,
 ) -> dict[str, object]:
     """The whole `gold` block, including its state.
 
@@ -1527,6 +1750,13 @@ def gold_block(
         "model_vs_human_comparison": (
             [] if comparison is None else model_vs_human(annotations, comparison)
         ),
+        "weighted_accuracy": (
+            [] if design is None else weighted_accuracy(annotations, model, design)
+        ),
+        "corrected_shares": (
+            [] if design is None else corrected_shares(annotations, model, design)
+        ),
+        "minimum_gold": MINIMUM_GOLD,
         "state": state,
     }
 

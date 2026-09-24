@@ -61,61 +61,6 @@ class TestSplitAddress:
         assert text.split_address(speech).address == "Mr. Smith (Canada):"
 
 
-class TestSpokenLanguage:
-    @pytest.mark.parametrize(
-        "address, language",
-        [
-            ("Mr. Baali (Algeria) (spoke in French):", "French"),
-            ("The PRESIDENT (interpretation from Spanish):", "Spanish"),
-            ("Mr. Osorio (Colombia) (Spoke in Spanish):", "Spanish"),
-            # The delivery language sits before the semicolon; what follows
-            # describes the Secretariat's arrangements and must not win.
-            ("Mr. X (Serbia) (spoke in Serbian; English text provided by the delegation):", "Serbian"),
-            ("Mr. X (Portugal) (spoke in Portuguese; English interpretation provided by the delegation):", "Portuguese"),
-        ],
-    )
-    def test_reads_clean_markers(self, address, language):
-        assert text.spoken_language(address) == (language, False)
-
-    @pytest.mark.parametrize(
-        "address, language",
-        [
-            # The space after the preposition is lost.
-            ("The President (spoke inArabic):", "Arabic"),
-            ("Mr. Menan (Togo) (spoke inFrench):", "French"),
-            # Stray punctuation where the space should be.
-            ("Mr. Ladsous (France) (interpretation from, French):", "French"),
-            ("The PRESIDENT (interpretation from. French):", "French"),
-            # The word itself is broken in two.
-            ("The President (spoke in Rus- sian):", "Russian"),
-            ("The President (spoke in Span- ish):", "Spanish"),
-            ("The PRESIDENT (interpretation from F rench):", "French"),
-            # The preposition is damaged.
-            ("Mr. AL-KIDWA (Palestine) (interpretation fron Arabic):", "Arabic"),
-            ("Mr. HUSLID (Norway) (interpretation trom French):", "French"),
-            ("The President (spoke [a French):", "French"),
-            # A country name stands in for the language.
-            ("Ms. Menendez (Spain) (spoke in Spain):", "Spanish"),
-            ("Mr. Liu Zhenmin (China) (spoke in China):", "Chinese"),
-        ],
-    )
-    def test_recovers_ocr_damaged_markers(self, address, language):
-        assert text.spoken_language(address)[0] == language
-
-    def test_no_marker_means_no_language(self):
-        """The Secretariat omits the marker for speeches given in English."""
-        assert text.spoken_language("Mr. Valle (Brazil):") == (None, False)
-
-    def test_cannot_invent_a_language_outside_the_vocabulary(self):
-        language, _ = text.spoken_language("Mr. X (Y) (spoke in Klingon):")
-        assert language is None or language in text.LANGUAGES
-
-    def test_split_word_resolves_exactly_not_fuzzily(self):
-        """'Rus- sian' rejoins to an exact vocabulary hit. Before adjacent-token
-        joins existed it fuzzy-matched to Bosnian."""
-        assert text.spoken_language("The President (spoke in Rus- sian):") == ("Russian", False)
-
-
 class TestModalCase:
     def test_collapses_onto_the_most_frequent_spelling(self):
         values = pd.Series(

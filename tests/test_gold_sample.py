@@ -407,16 +407,84 @@ def test_the_three_frames_keep_one_row_and_one_probability_each() -> None:
 # --- The refusal ----------------------------------------------------------
 
 
-def test_a_population_that_is_not_the_documented_one_is_refused() -> None:
+def test_a_population_that_is_not_the_committed_one_is_refused() -> None:
     speeches, bodies = corpus()
     problems = gold.check_population(occurrences.enumerate_term(speeches, bodies, term()))
     assert len(problems) == 2
-    assert "7,747" in problems[0] and "4,133" in problems[1]
-    assert all("docs/CORPUS.md §8" in problem for problem in problems)
+    assert all("config/lexicon.counts.json" in problem for problem in problems)
 
 
-def test_the_documented_population_passes_without_comment(monkeypatch) -> None:
+def test_the_committed_population_passes_without_comment() -> None:
     speeches, bodies = corpus()
-    monkeypatch.setattr(gold, "DOCUMENTED_OCCURRENCES", len(SPEECHES))
-    monkeypatch.setattr(gold, "DOCUMENTED_SPEECHES", len(SPEECHES))
-    assert gold.check_population(occurrences.enumerate_term(speeches, bodies, term())) == []
+    found = occurrences.enumerate_term(speeches, bodies, term())
+    expected = (len({item.filename for item in found}), len(found))
+    assert gold.check_population(found, expected) == []
+
+
+# --- One published run, a blinded packet, the prompt's examples -------------
+
+
+def test_one_run_is_enough_to_stratify_on() -> None:
+    """Without a comparison the rare classes are still reachable; only
+    `contested` needs two instruments."""
+
+    def single(occurrence: str) -> str:
+        row = strata_frame().set_index("occurrence_id").loc[occurrence]
+        row = row.rename(occurrence).to_frame().T.assign(occurrence_id=occurrence).iloc[0]
+        return gold.classify_stratum(row, PUBLISHED, {}, ONSETS)
+
+    assert single("occ-rejects") == "rejects"
+    assert single("occ-preonset") == "pre_onset_referent"
+    assert single("occ-hypothetical") == "conditional"
+    assert single("occ-contested") == "", "one run cannot be contested"
+    assert single("occ-unreached") == ""
+
+
+def test_the_single_run_frame_is_named_for_what_it_is() -> None:
+    candidates = strata_frame().assign(
+        stratum=["rejects", "pre_onset_referent", "", "", "", "", "", ""]
+    )
+    sample = gold.draw(candidates, 2, 2, 21, frame=gold.MODEL_STRATA)
+    third = sample.loc[sample["sampling_frame"] == gold.MODEL_STRATA]
+    assert set(third["occurrence_id"]) == {"occ-rejects", "occ-preonset"}
+    assert (third["strategy"] == "label strata over the published model run").all()
+
+
+def test_the_packet_carries_no_reason_an_occurrence_was_drawn() -> None:
+    sample = gold.draw(built(), 3, 5, 21)
+    packet = gold.packet(sample, 21)
+    leaks = {"sampling_frame", "stratum", "cue", "inclusion_probability", "sampling_weight",
+             "strategy", "frame_size", "stratum_size", "candidate_id"}
+    assert not leaks & set(packet.columns)
+    assert packet["occurrence_id"].is_unique
+    assert set(packet["occurrence_id"]) == set(sample["occurrence_id"])
+    assert (packet["verdict"] == "").all() and (packet["coder"] == "").all()
+    assert packet["position"].tolist() == list(range(1, len(packet) + 1))
+
+
+def test_the_packet_order_is_seeded_and_mixes_the_frames() -> None:
+    sample = gold.draw(built(), 3, 5, 21)
+    assert gold.packet(sample, 21)["occurrence_id"].tolist() == gold.packet(
+        sample.iloc[::-1], 21
+    )["occurrence_id"].tolist()
+
+
+def test_the_prompt_examples_are_the_committed_mapping() -> None:
+    mapping = pd.read_csv(gold.PROMPT_EXAMPLES, dtype="string", keep_default_na=False)
+    assert len(mapping) == 10 and mapping["occurrence_id"].is_unique
+    assert set(mapping["example"]) == {str(number) for number in range(1, 11)}
+
+
+def test_the_coding_page_offers_exactly_the_codebook_vocabularies() -> None:
+    spec = importlib.util.spec_from_file_location(
+        "coding_page", Path(__file__).resolve().parents[1] / "tools" / "coding_page.py"
+    )
+    page = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(page)
+    page.check_vocabularies()  # exits non-zero on any difference
+    template = (Path(__file__).resolve().parents[1] / "tools" / "coding_page.html").read_text(
+        encoding="utf-8"
+    )
+    assert template.count("/*DATA*/null") == 1
+    for leak in ("sampling_frame", "stratum", "cue", "inclusion_probability"):
+        assert leak not in template

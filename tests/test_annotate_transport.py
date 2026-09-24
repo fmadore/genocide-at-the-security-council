@@ -215,7 +215,7 @@ def test_both_instruments_use_one_responses_api_code_path(tmp_path: Path) -> Non
         "reasoning",
         "extra_body",
     }
-    assert json.loads(next((tmp_path / "qwen").glob("live-*.jsonl")).read_text())["custom_id"] == (
+    assert json.loads(next((tmp_path / "qwen").glob("live-*.jsonl")).read_text(encoding="utf-8"))["custom_id"] == (
         "speech"
     )
 

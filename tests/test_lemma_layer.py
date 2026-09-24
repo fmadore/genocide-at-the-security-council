@@ -20,7 +20,7 @@ def layer(tmp_path):
     def save(table=table, **updates):
         table.to_parquet(tmp_path / "lemmas.parquet", index=False)
         manifest = {
-            "layer_schema": lemmas.LAYER_SCHEMA, "tokenizer": lexical.TOKEN_RE.pattern,
+            "layer_schema": lemmas.LAYER_SCHEMA, "tokenizer": lexical.TOKENIZER,
             "table_sha256": artifacts.sha256(tmp_path / "lemmas.parquet"), **updates,
         }
         (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")

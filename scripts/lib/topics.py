@@ -76,7 +76,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from .lexical import TOKEN_RE
+from .lexical import words as word_tokens
 
 #: Same boundaries as the sliced tables in 05_lexical.py — round decades, chosen
 #: before any result was seen. Change both together or the two chapters of the
@@ -180,7 +180,7 @@ def tokenise(texts: list[str], stopwords: frozenset[str]) -> list[list[str]]:
     Uses the same TOKEN_RE as the lexicometry in 05, so "what counts as a word"
     has one definition across the project.
     """
-    return [[w for w in TOKEN_RE.findall(text.lower()) if w not in stopwords] for text in texts]
+    return [[w for w in word_tokens(text) if w not in stopwords] for text in texts]
 
 
 def ctfidf(

@@ -235,6 +235,60 @@ def test_the_two_sufficiency_flags_guard_different_denominators() -> None:
     assert (speaker_position["eligible"], speaker_position["sufficient"]) == (21, True)
 
 
+# --- Who rejects more than the room -----------------------------------------
+
+
+def test_the_binomial_tail_is_exact() -> None:
+    # P(X >= 2) for Binomial(3, 0.5) = (3 + 1) / 8.
+    assert usage.binomial_upper_tail(2, 3, 0.5) == pytest.approx(0.5)
+    assert usage.binomial_upper_tail(0, 10, 0.1) == 1.0
+    assert usage.binomial_upper_tail(3, 3, 0.0) == 0.0
+    assert usage.binomial_upper_tail(11, 10, 0.4) == 0.0
+
+
+def test_benjamini_hochberg_keeps_the_input_order() -> None:
+    assert usage.benjamini_hochberg([0.04, 0.01, 0.03]) == pytest.approx([0.04, 0.03, 0.04])
+    assert usage.benjamini_hochberg([]) == []
+    assert max(usage.benjamini_hochberg([0.9, 0.95])) <= 1.0
+
+
+def test_a_speaker_is_tested_against_everyone_else() -> None:
+    """The reference is the rest of the room, not a constant: a speaker whose
+    rejections make up most of the corpus's is not compared with itself."""
+    frame = rows(
+        *repeat(20, country_org="A", speaker_position="rejects"),
+        *repeat(20, country_org="A"),
+        *repeat(200, country_org="B"),
+        *repeat(2, country_org="B", speaker_position="rejects"),
+    )
+    written = {row["actor"]: row for row in usage.position_rows(frame, ["A", "B"])}
+    assert written["A"]["base_rejects"] == pytest.approx(2 / 202, abs=1e-6)
+    assert written["A"]["separated"] is True
+    assert written["B"]["separated"] is False
+    assert written["B"]["q_value"] >= written["B"]["p_value"]
+
+
+def test_a_small_excess_is_not_separated() -> None:
+    """One rejection in 24 against a room rejecting 3% of the time is a draw
+    the room produces often; the flag must not rank it."""
+    frame = rows(
+        *repeat(1, country_org="A", speaker_position="rejects"),
+        *repeat(23, country_org="A"),
+        *repeat(30, country_org="B", speaker_position="rejects"),
+        *repeat(970, country_org="B"),
+    )
+    written = {row["actor"]: row for row in usage.position_rows(frame, ["A", "B"])}
+    assert written["A"]["share_rejects"] > written["A"]["base_rejects"]
+    assert written["A"]["separated"] is False
+
+
+def test_an_insufficient_speaker_is_not_tested() -> None:
+    frame = rows(*repeat(5, country_org="A", speaker_position="rejects"), *repeat(40, country_org="B"))
+    written = {row["actor"]: row for row in usage.position_rows(frame, ["A", "B"])}
+    assert written["A"]["p_value"] is None and written["A"]["q_value"] is None
+    assert written["A"]["separated"] is False
+
+
 # --- The aggregation against a brute-force recount --------------------------
 
 
@@ -1614,3 +1668,110 @@ def test_two_runs_on_either_side_of_a_rename_are_counted_in_one_column(tmp_path)
     published = step.resolve_referents([{"referent": "rwanda_1994"}], referents)
     comparison = step.resolve_referents([{"referent": "rwanda"}], referents)
     assert published[0]["referent"] == comparison[0]["referent"] == "rwanda"
+
+
+# --- Weighted to the corpus, and corrected by the gold sample ------------------
+
+
+def coded(occurrence: str, **labels: str) -> list[dict[str, object]]:
+    """Two coders agreeing on every single-label field of one occurrence."""
+    base = dict.fromkeys(audit.ANNOTATION_FIELDS, "")
+    row = {**base, "occurrence_id": occurrence, "verdict": "true_positive",
+           "concrete_case": "yes", "speaker_position": "asserts", **labels}
+    return [{**row, "coder": coder} for coder in usage.CODERS]
+
+
+def test_the_hajek_mean_weights_by_inverse_probability() -> None:
+    import numpy as np
+
+    mean, error = usage._hajek(np.array([1.0, 0.0]), np.array([0.5, 0.25]))
+    # weights 2 and 4: (2 * 1 + 4 * 0) / 6
+    assert mean == pytest.approx(1 / 3)
+    assert error > 0
+
+
+def test_a_corrected_share_removes_a_bias_the_gold_sample_measures() -> None:
+    """The model calls 30 of 100 occurrences `rejects`; the coders, reading an
+    equal-probability sample of 40, find half of those are `asserts`. The
+    corrected share moves to where the coders put it."""
+    model = pd.DataFrame(
+        {
+            "occurrence_id": [f"o{i}" for i in range(100)],
+            "speaker_position": ["rejects"] * 30 + ["asserts"] * 70,
+            "concrete_case": ["yes"] * 100,
+        }
+    )
+    sample = [f"o{i}" for i in range(0, 100, 5)] + [f"o{i}" for i in range(1, 100, 5)]
+    annotations = pd.DataFrame(
+        [
+            row
+            for occurrence in sample
+            for row in coded(
+                occurrence,
+                speaker_position=(
+                    "rejects" if int(occurrence[1:]) < 30 and int(occurrence[1:]) % 2 == 0
+                    else "asserts"
+                ),
+            )
+        ]
+    )
+    design = pd.DataFrame({"occurrence_id": model["occurrence_id"], "pi_union": 0.4})
+    shares = {block["field"]: block for block in usage.corrected_shares(annotations, model, design)}
+    position = {row["category"]: row for row in shares["speaker_position"]["categories"]}
+    assert shares["speaker_position"]["state"] == "computed"
+    assert position["rejects"]["model_share"] == pytest.approx(0.30)
+    assert position["rejects"]["corrected_share"] == pytest.approx(0.15, abs=0.03)
+    assert position["rejects"]["low"] < position["rejects"]["corrected_share"] < position["rejects"]["high"]
+
+
+def test_too_few_coded_units_leave_the_blocks_waiting() -> None:
+    model = pd.DataFrame(
+        {"occurrence_id": ["o1"], "speaker_position": ["asserts"], "concrete_case": ["yes"]}
+    )
+    annotations = pd.DataFrame(coded("o1"))
+    design = pd.DataFrame({"occurrence_id": ["o1"], "pi_union": [0.1]})
+    assert all(block["state"] == "waiting" for block in usage.corrected_shares(annotations, model, design))
+    assert all(row["state"] == "waiting" for row in usage.weighted_accuracy(annotations, model, design))
+
+
+def test_coverage_inclusion_matches_what_the_sampler_records() -> None:
+    frame = pd.DataFrame(
+        {
+            "occurrence_id": [f"o{i}" for i in range(30)],
+            "term": "genocide",
+            "period": ["1990s"] * 20 + ["2000s"] * 10,
+            "filename": [f"f{i}" for i in range(30)],
+            "start": range(30),
+        }
+    )
+    drawn = audit.coverage_sample(frame, 8, 5)
+    everyone = audit.coverage_inclusion(frame, 8).set_axis(frame["occurrence_id"])
+    for row in drawn.itertuples():
+        assert everyone[row.occurrence_id] == pytest.approx(row.inclusion_probability)
+
+
+def test_the_union_of_independent_frames() -> None:
+    first, second = pd.Series([0.5, 0.0]), pd.Series([0.5, 0.2])
+    assert audit.union_inclusion(first, second).tolist() == pytest.approx([0.75, 0.2])
+
+
+def test_a_delegation_is_exposed_from_the_first_debate_that_named_the_case() -> None:
+    """The risk set counts who sat in a debate naming the case, whatever they said."""
+    frame = rows(
+        {"filename": "a.txt", "date": "1994-05-01", "country_org": "Rwanda", "referent": "rwanda_1994"},
+        {"filename": "c.txt", "date": "1995-01-01", "country_org": "Rwanda", "referent": "gaza"},
+    )
+    speeches = pd.DataFrame(
+        {
+            "filename": ["a.txt", "b.txt", "c.txt", "d.txt"],
+            "meeting_symbol": ["S/PV.1", "S/PV.1", "S/PV.2", "S/PV.3"],
+            "country_org": ["Rwanda", "Chad", "Rwanda", "Chad"],
+            "date": ["1994-05-01", "1994-05-01", "1995-01-01", "1996-01-01"],
+        }
+    )
+    exposed = usage.exposure_rows(frame, speeches)
+    assert exposed["rwanda_1994"] == [
+        {"actor": "Chad", "date": "1994-05-01"},
+        {"actor": "Rwanda", "date": "1994-05-01"},
+    ]
+    assert exposed["gaza"] == [{"actor": "Rwanda", "date": "1995-01-01"}]

@@ -38,7 +38,43 @@ def corpus_fingerprint(path: Path) -> str:
     return digest.hexdigest()
 
 
-def validate(directory: Path, corpus_sha256: str | Path, *, content_sha256: str | None = None) -> dict:
+def geometry_fingerprint(path: Path) -> str:
+    """What the map's geometry depends on: which speeches, and their exact bodies.
+
+    The projection and the neighbours are functions of the embedded texts and
+    of nothing else. Years, affiliations, agendas and the lexical flag are
+    display attributes the export re-derives from the current corpus, so a
+    lexicon release or a relabelled affiliation no longer invalidates a map
+    whose every vector is still the vector of the text it shows.
+    """
+    import pandas as pd
+
+    frame = pd.read_parquet(path, columns=["row_id", "text", "body_start"])
+    if frame.row_id.isna().any() or frame.row_id.duplicated().any():
+        raise ValueError("semantic corpus IDs must be unique and present")
+    digest = hashlib.sha256(b"semantic-geometry-v1\n")
+    for row_id, text, start in frame.sort_values("row_id").itertuples(index=False, name=None):
+        body = hashlib.sha256(text[int(start):].encode("utf-8")).hexdigest()
+        digest.update(f"{row_id}\t{body}\n".encode())
+    return digest.hexdigest()
+
+
+def validate(
+    directory: Path,
+    corpus_sha256: str | Path,
+    *,
+    content_sha256: str | None = None,
+    geometry_sha256: str | None = None,
+) -> dict:
+    """Check a semantic artifact's files, then that it describes this corpus.
+
+    Three ways to agree with the corpus, strictest first: the exact Parquet
+    bytes the map was built from; a pinned fingerprint of the same content,
+    which survives Arrow re-serialisation; or a pinned fingerprint of the
+    geometry's inputs alone, which survives any change to the display
+    attributes the export re-derives anyway. The two fingerprints are only
+    accepted from a pin bound to this exact manifest.
+    """
     meta = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
     files = meta.get("files", {})
     if set(files) != FILES or any(artifacts.sha256(directory / p) != h for p, h in files.items()):
@@ -46,10 +82,64 @@ def validate(directory: Path, corpus_sha256: str | Path, *, content_sha256: str 
     corpus_path = corpus_sha256 if isinstance(corpus_sha256, Path) else None
     if corpus_path:
         corpus_sha256 = artifacts.sha256(corpus_sha256)
-    if (not any(item.get("sha256") == corpus_sha256 for item in meta.get("inputs", []))
-            and not (corpus_path and content_sha256 and corpus_fingerprint(corpus_path) == content_sha256)):
-        raise ValueError("semantic map was built from a different corpus")
-    return meta
+    if any(item.get("sha256") == corpus_sha256 for item in meta.get("inputs", [])):
+        return meta
+    if corpus_path and content_sha256 and corpus_fingerprint(corpus_path) == content_sha256:
+        return meta
+    if corpus_path and geometry_sha256 and geometry_fingerprint(corpus_path) == geometry_sha256:
+        return meta
+    raise ValueError("semantic map was built from a different corpus")
+
+
+def rebind(staged: Path, corpus: Path) -> dict[str, object]:
+    """Re-derive the display attributes of a copied map from `corpus`.
+
+    Keeps every point's projected coordinates and replaces its year,
+    affiliation, agenda and lexical flag with what the corpus now says, then
+    rewrites the copied manifest's checksum for `map.json` and records what was
+    done, so the payload never carries a manifest its own files contradict.
+    Returns what changed, for the export's log.
+    """
+    import pandas as pd
+
+    from . import semantic
+
+    path = staged / "map.json"
+    published = json.loads(path.read_text(encoding="utf-8"))
+    released_sha256 = artifacts.sha256(path)
+    coordinates = {str(point[0]): (point[1], point[2]) for point in published["points"]}
+    speeches = pd.read_parquet(
+        corpus, columns=["row_id", "year", "country_org", "agenda_item_manual", "has_genocide"]
+    )
+    countries, agendas, points = semantic.display_points(speeches, coordinates)
+    before = {str(point[0]): point for point in published["points"]}
+    changed = sum(
+        1
+        for point in points
+        if (
+            point[3] != before[point[0]][3]
+            or countries[point[4]] != published["countries"][before[point[0]][4]]
+            or agendas[point[5]] != published["agendas"][before[point[0]][5]]
+            or point[6] != before[point[0]][6]
+        )
+    )
+    display = {
+        "rebound_at_export": True,
+        "corpus_sha256": artifacts.sha256(corpus),
+        "release_map_sha256": released_sha256,
+        "points_changed": changed,
+        "columns": semantic.POINT_COLUMNS[3:],
+    }
+    meta = {**published["meta"], "display": display}
+    artifacts.atomic_write_json(
+        path, {"meta": meta, "countries": countries, "agendas": agendas, "points": points}
+    )
+    manifest_path = staged / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["files"]["map.json"] = artifacts.sha256(path)
+    manifest["display"] = display
+    artifacts.atomic_write_json(manifest_path, manifest, indent=2)
+    return display
 
 
 def install(archive: Path, target: Path, pin: dict) -> None:

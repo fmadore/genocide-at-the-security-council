@@ -39,7 +39,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, console, frames, language, lexicon, scopes, series
+from lib import artifacts, console, frames, lexicon, scopes, series
 from lib.paths import (
     EVENTS,
     LEXICON,
@@ -102,14 +102,7 @@ BREAKDOWNS: list[tuple[str, int | None]] = [
     ("participanttype", None),
     ("agenda_item1", None),
     ("agenda_item_manual", 20),
-    ("delivery_language", 10),
 ]
-
-def prepare(speeches: pd.DataFrame) -> pd.DataFrame:
-    """Add the derived columns the breakdowns need."""
-    speeches["delivery_language"] = language.delivery_language(speeches)
-    return speeches
-
 
 def measures(lex: lexicon.Lexicon) -> dict[str, dict[str, dict]]:
     """Every series to compute, all of them over a single term.
@@ -245,6 +238,23 @@ def build_series(
         minimum=minimum,
     )
 
+    # Meeting-clustered bands for the annual and quarterly series, where every
+    # period holds enough meetings to resample; the monthly grid keeps Wilson.
+    clustered: dict[str, tuple] = {}
+    if freq in {"year", "quarter"}:
+        flags = {
+            name: series.columns_for(kind, name)[0]
+            for kind, entries in measures(lex).items()
+            for name in entries
+        }
+        clustered = series.meeting_bootstrap(speeches, periods, totals.index, flags)
+        payload["cluster_interval"] = {
+            "resamples": series.CLUSTER_RESAMPLES,
+            "seed": series.CLUSTER_SEED,
+            "unit": "meeting",
+            "method": "percentile interval over whole meetings resampled within each period",
+        }
+
     computed: dict[str, dict[str, pd.DataFrame]] = {}
     for kind, entries in measures(lex).items():
         block: dict[str, object] = {}
@@ -262,6 +272,12 @@ def build_series(
                 "speech_rate_low": rates(frame["speech_rate_low"], 6),
                 "speech_rate_high": rates(frame["speech_rate_high"], 6),
             }
+            if name in clustered:
+                low, high = clustered[name]
+                block[name] |= {  # type: ignore[operator]
+                    "speech_rate_cluster_low": rates(pd.Series(low), 6),
+                    "speech_rate_cluster_high": rates(pd.Series(high), 6),
+                }
             if count_column is not None:
                 block[name] |= {  # type: ignore[operator]
                     "occurrences": frame["occurrences"].tolist(),
@@ -270,6 +286,40 @@ def build_series(
         payload[kind] = block
 
     return payload, computed
+
+
+#: The splits the rate change is decomposed along, and the measure decomposed.
+DECOMPOSED = ("agenda_item_manual", "speaker_group")
+DECOMPOSED_TERM = "genocide"
+
+
+def build_decomposition(speeches: pd.DataFrame) -> dict[str, object]:
+    """The decade-to-decade change in the genocide speech rate, taken apart.
+
+    Is the word rising because the Council spends more of its time on the
+    situations it is used about, or because it is used more within them? One
+    Kitagawa decomposition per split: by agenda item, which separates agenda
+    composition from use, and by speaker group, which separates who holds the
+    floor from how they speak (docs/ROADMAP.md, RV18).
+    """
+    decades = (speeches["year"] // 10 * 10).astype(int)
+    has_column = series.columns_for("terms", DECOMPOSED_TERM)[0]
+    splits = {}
+    for column in DECOMPOSED:
+        rows = series.rate_decomposition(speeches, decades, has_column, column)
+        splits[column] = [{**row, "group_column": column} for row in rows]
+    return {
+        "term": DECOMPOSED_TERM,
+        "unit": "speech_rate",
+        "periods": "decade",
+        "method": (
+            "Kitagawa (1955) two-factor decomposition of the change in the share of "
+            "speeches carrying the term between consecutive decades: composition "
+            "(the groups' shares of speeches) plus within (the rate inside each "
+            "group). A group present in one decade only contributes composition."
+        ),
+        "splits": splits,
+    }
 
 
 def build_breakdowns(
@@ -986,25 +1036,6 @@ def build_note(
             "|---|---:|---:|---:|",
             *top_rates("agenda_item_manual"),
             "",
-            "## Rate by delivery language",
-            "",
-            "Whether invocation varies with the language a speech was delivered in is a",
-            "crosstab on data the pipeline already has, and this is it.",
-            "An unmarked speech was delivered in English.",
-            "",
-            "| Language | Speeches | With `genocid*` | Rate |",
-            "|---|---:|---:|---:|",
-            *top_rates("delivery_language"),
-            "",
-            "**This does not answer the question.** Delivery language is very nearly a",
-            "restatement of who is speaking: essentially every Russian-language speech is",
-            "Russia's, every Chinese-language speech China's. The spread below is therefore a",
-            "speaker effect wearing a linguistic label, and the low Russian and Chinese rates",
-            "recover the two countries' known reticence rather than anything about language.",
-            "The plan asks the question *holding speaker and period constant*, which needs a",
-            "within-speaker comparison — the states that alternate between languages — and",
-            "that is a model, not a crosstab. Left for 05.",
-            "",
             "## Event overlay",
             "",
             f"{len(events)} curated reference dates in `config/events.csv`, "
@@ -1031,7 +1062,7 @@ def run(
     ensure_dirs()
 
     console.step("Reading the flagged corpus")
-    speeches = prepare(frames.read(SPEECHES_FLAGGED))
+    speeches = frames.read(SPEECHES_FLAGGED)
     lex = lexicon.load()
     console.info(f"lexicon version {lex.version}, {len(lex.active)} active terms")
 
@@ -1054,6 +1085,16 @@ def run(
     for label, columns in breakdowns["measures"].items():  # type: ignore[union-attr]
         console.info(
             f"{label}: " + ", ".join(f"{c} ({len(v['categories'])})" for c, v in columns.items())
+        )
+
+    console.step("Decomposing the genocide rate, decade to decade")
+    decomposition = build_decomposition(speeches)
+    for block in decomposition["splits"].values():  # type: ignore[union-attr]
+        latest = block[-1]
+        console.info(
+            f"{block[0]['group_column']}: {latest['from']}s → {latest['to']}s change "
+            f"{latest['change']:+.4f} = composition {latest['composition']:+.4f} "
+            f"+ within {latest['within']:+.4f}"
         )
 
     console.step("Detecting change points")
@@ -1117,6 +1158,7 @@ def run(
         write_json(monthly, staged / "monthly.json", meta)
         write_json(breakdowns, staged / "breakdowns.json", meta)
         write_json(change, staged / "change_points.json", meta)
+        write_json(decomposition, staged / "decomposition.json", meta)
         write_json(
             {
                 "events": [

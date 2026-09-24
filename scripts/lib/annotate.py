@@ -31,20 +31,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final
 
-from . import artifacts, console, frames, lexicon, llm
+from . import artifacts, console, frames, lexicon, llm, model_runs
 from . import occurrences as occurrences_lib
 from .paths import ROOT, SPEECHES_NORM
 
-#: The one term the model-assisted layer covers; see Phase L in
-#: `docs/PLAN.md` for why the scope is a single word.
-TERM: Final = "genocide"
-
-#: docs/CORPUS.md §8, reproduced exactly by 03 and by `lib.occurrences`. A run
-#: that enumerates anything else is annotating a different corpus, and its rows
-#: could not be joined to the published counts. Only `--limit` may leave this
-#: unmet, and the manifest records the limit that did.
-DOCUMENTED_SPEECHES: Final = 4_133
-DOCUMENTED_OCCURRENCES: Final = 7_747
+#: The one term the model-assisted layer covers; named in `lib.model_runs`.
+TERM: Final = model_runs.TERM
 
 #: Columns a run needs. The normalised frame is 99 columns and 389 MB of text;
 #: reading all of it to use eight of them is a minute of nothing.
@@ -137,16 +129,18 @@ def gather(limit: int | None) -> tuple[list[Speech], list[Speech], int]:
         grouped.setdefault(occurrence.index, []).append(occurrence)
     console.info(f"{len(found):,} occurrences in {len(grouped):,} speeches")
 
+    # The committed counts, which 03 holds the corpus to. A run that enumerates
+    # anything else is annotating a different corpus, and its rows could not be
+    # joined to the published counts. Only `--limit` may leave this unmet, and
+    # the manifest records the limit that did.
     if limit is None and (
-        len(found) != DOCUMENTED_OCCURRENCES or len(grouped) != DOCUMENTED_SPEECHES
+        problems := model_runs.population_problems(
+            (occurrence.filename for occurrence in found), len(found)
+        )
     ):
         console.fail(
-            "The enumeration does not reproduce the documented figures",
-            [
-                f"speeches {len(grouped):,} vs {DOCUMENTED_SPEECHES:,}",
-                f"occurrences {len(found):,} vs {DOCUMENTED_OCCURRENCES:,}",
-                "run 03 and read docs/VALIDATION.md before spending an API call",
-            ],
+            "The enumeration does not reproduce the committed counts",
+            [*problems, "run 03 and read docs/VALIDATION.md before spending a GPU hour"],
         )
 
     everything = []

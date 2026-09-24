@@ -63,12 +63,12 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from lib import artifacts, audit, console, frames, lexicon, llm
+from lib import artifacts, audit, console, frames, lexicon, llm, model_runs
 from lib import occurrences as occurrences_lib
 from lib.kwic import sentence_at, sentence_spans
 from lib.paths import INTERIM, LEXICON, ROOT, SPEECHES_NORM, ensure_dirs, rel
 
-TERM = "genocide"
+TERM = model_runs.TERM
 
 #: Impossible values for a real run, on purpose. A run id is a date and a model
 #: field records an exact API model id, so neither of these can be mistaken for
@@ -89,13 +89,10 @@ TIMESTAMP = "2000-01-01T00:00:00Z"
 
 OUTPUT = INTERIM / "synthetic_run"
 COMPARISON_OUTPUT = INTERIM / "synthetic_run_comparison"
-PROMPT = ROOT / "model_annotations" / TERM / "PROMPT.md"
-REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
+PROMPT = model_runs.PROMPT
+REFERENTS = model_runs.REFERENTS
 
 COLUMNS = ["filename", "body_start", "text", "country_org", "iso3"]
-
-DOCUMENTED_SPEECHES = 3_273
-DOCUMENTED_OCCURRENCES = 6_092
 
 #: The minimum `15_usage.py` withholds a share below. Duplicated here as a
 #: post-condition rather than imported as a rule: this tool's job is to produce a
@@ -540,15 +537,13 @@ def build(limit: int | None) -> None:
         grouped.setdefault(occurrence.index, []).append(occurrence)
     console.info(f"{len(found):,} occurrences in {len(grouped):,} speeches")
     if limit is None and (
-        len(found) != DOCUMENTED_OCCURRENCES or len(grouped) != DOCUMENTED_SPEECHES
+        problems := model_runs.population_problems(
+            (occurrence.filename for occurrence in found), len(found)
+        )
     ):
         console.fail(
-            "the enumeration does not reproduce the documented figures",
-            [
-                f"speeches {len(grouped):,} vs {DOCUMENTED_SPEECHES:,}",
-                f"occurrences {len(found):,} vs {DOCUMENTED_OCCURRENCES:,}",
-                "a fixture cut from a different population would declare the wrong shape",
-            ],
+            "the enumeration does not reproduce the committed counts",
+            [*problems, "a fixture cut from a different population would declare the wrong shape"],
         )
 
     console.step("Reading the prompt and the controlled referents")

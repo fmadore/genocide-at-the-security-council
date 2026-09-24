@@ -100,19 +100,32 @@ def copy_part(sources: Sequence[Path], name: str, *, root: Path | None = None) -
         # The artifact records its original Parquet bytes. Arrow versions can
         # serialize identical content differently. Only a pin bound to this
         # exact manifest may authorize comparison by canonical speech content.
-        content_sha256 = None
+        content_sha256 = geometry_sha256 = None
         pin_path = ROOT / "config/semantic-release.json"
         if pin_path.is_file():
             pin = json.loads(pin_path.read_text(encoding="utf-8"))
             if artifacts.sha256(source / "manifest.json") == pin.get("manifest_sha256"):
                 content_sha256 = pin.get("corpus_content_sha256")
-        semantic_release.validate(source, SPEECHES_FLAGGED, content_sha256=content_sha256)
+                geometry_sha256 = pin.get("corpus_geometry_sha256")
+        semantic_release.validate(
+            source,
+            SPEECHES_FLAGGED,
+            content_sha256=content_sha256,
+            geometry_sha256=geometry_sha256,
+        )
     for source in sources:
         if not source.exists():
             console.fail(f"{rel(source)} is missing — run the step that writes it first")
     with artifacts.atomic_directory(destination) as staged:
         for source in sources:
             shutil.copytree(source, staged, dirs_exist_ok=True)
+        if name == "semantic":
+            # The geometry is the release's; the colours are this corpus's.
+            display = semantic_release.rebind(staged, SPEECHES_FLAGGED)
+            console.info(
+                f"semantic   display attributes re-derived from the corpus: "
+                f"{display['points_changed']:,} points differ from the release"
+            )
     return artifacts.describe_tree(destination)
 
 

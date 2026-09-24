@@ -61,3 +61,44 @@ def neighbour_records(speeches: pd.DataFrame, indices: np.ndarray, distances: np
                 break
         out[ids[i]] = rows
     return out
+
+
+#: What a map point is, column by column. The geometry — `x` and `y` — comes
+#: from the projection; everything after it is a display attribute of the
+#: speech, read from the corpus the map is published with.
+POINT_COLUMNS = ["id", "x", "y", "year", "country", "agenda", "genocide"]
+UNKNOWN_COUNTRY = "Unknown affiliation"
+UNKNOWN_AGENDA = "Unknown agenda"
+
+
+def display_points(
+    speeches: pd.DataFrame, coordinates: dict[str, tuple[float, float]]
+) -> tuple[list[str], list[str], list[list[object]]]:
+    """The map's lookup lists and points, in corpus order.
+
+    `speeches` needs `row_id`, `year`, `country_org`, `agenda_item_manual` and
+    `has_genocide`; `coordinates` maps every row id to its projected `(x, y)`.
+    Step 21 calls this when it projects, and the export calls it again over the
+    published coordinates, so a lexicon or label change reaches the map's
+    colours without a new projection. A row id with no coordinates, or a
+    coordinate with no row, is refused: the two describe different corpora.
+    """
+    ids = speeches["row_id"].astype(str)
+    if set(ids) != set(coordinates) or ids.duplicated().any():
+        raise ValueError("semantic coordinates and corpus row ids differ")
+    countries_col = speeches["country_org"].astype("string").fillna(UNKNOWN_COUNTRY).astype(str)
+    agendas_col = speeches["agenda_item_manual"].astype("string").fillna(UNKNOWN_AGENDA).astype(str)
+    countries = sorted(set(countries_col))
+    agendas = sorted(set(agendas_col))
+    country_ids = {value: index for index, value in enumerate(countries)}
+    agenda_ids = {value: index for index, value in enumerate(agendas)}
+    points = [
+        [identifier, round(float(coordinates[identifier][0]), 4),
+         round(float(coordinates[identifier][1]), 4), int(year),
+         country_ids[country], agenda_ids[agenda], bool(flag)]
+        for identifier, year, country, agenda, flag in zip(
+            ids, speeches["year"], countries_col, agendas_col, speeches["has_genocide"],
+            strict=True,
+        )
+    ]
+    return countries, agendas, points

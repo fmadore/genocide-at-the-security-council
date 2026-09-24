@@ -26,10 +26,11 @@ renamed, stopped being written, or became absent from some rows.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+
+from .artifacts import read_json
 
 #: Artefacts the dashboard fetches, as paths under `web/static/data/`.
 #:
@@ -46,6 +47,7 @@ TRACKED: list[str] = [
     "series/breakdowns.json",
     "series/change_points.json",
     "series/events.json",
+    "series/decomposition.json",
     "lexical/collocates.json",
     "lexical/collocates_sliced.json",
     "lexical/keyness.json",
@@ -73,7 +75,7 @@ TRACKED: list[str] = [
 
 #: A representative document from `speeches/`, chosen by name rather than by
 #: position so the contract does not silently follow a change in sort order.
-SPEECH_SAMPLE = "speeches/SC00001-01.json"
+SPEECH_SAMPLE = "speeches/SC00001-01.json.gz"
 
 #: Keys whose *contents* vary with the data rather than with the code, so only
 #: their presence and type are contracted. `iso3_collisions` is keyed on whichever
@@ -281,7 +283,7 @@ def payload_skeleton(root: Path) -> dict[str, Any]:
         path = root / relative
         if not path.exists():
             continue
-        shapes[relative] = skeleton(json.loads(path.read_text(encoding="utf-8")))
+        shapes[relative] = skeleton(read_json(path))
     return shapes
 
 
@@ -335,7 +337,7 @@ def aggregates(root: Path) -> list[str]:
         path = root / relative
         if not path.exists():
             continue
-        document = json.loads(path.read_text(encoding="utf-8"))
+        document = read_json(path)
         found.extend(f"{relative} {line}" for line in roll_ups(document))
     return found
 
@@ -354,6 +356,6 @@ def check(root: Path, promised: dict[str, Any]) -> tuple[list[str], list[str]]:
         if not path.exists():
             absent.append(relative)
             continue
-        found = skeleton(json.loads(path.read_text(encoding="utf-8")))
+        found = skeleton(read_json(path))
         problems.extend(f"{relative} {line}" for line in differences(expected, found))
     return problems, absent

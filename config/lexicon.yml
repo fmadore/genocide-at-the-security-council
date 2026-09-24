@@ -24,24 +24,6 @@
 #              Conventions, and crimes against humanity
 #   adjacent — the accountability and memory vocabulary that surrounds both
 #
-# `intensity` is the legal ladder, and it is the one ordering of this
-# vocabulary that can be argued in public and cited to an instrument. It ranks
-# a term by the standing its object has in international law, never by how
-# forceful the word feels: *genocide* is a crime defined by a convention of its
-# own (1948); *war crimes* are the grave breaches the 1949 Geneva Conventions
-# define; *crimes against humanity* are a crime in international law with no
-# dedicated convention behind them; *ethnic cleansing* appears in legal texts
-# as an aggravating qualification of a crime and not as a crime itself; and
-# *atrocity* has no legal existence at all. Higher is further up the ladder,
-# and the ranks are distinct and contiguous, so the ordering is total and every
-# pair of rungs is comparable. Only the five terms whose legal standing the
-# ladder is built on carry one — `mass_atrocity` is nested under `atrocity` and
-# shares its want of standing, so a rung of its own would invent a distinction
-# the instruments do not make, and *impunity*, *the ICC* or *never again* are
-# not qualifications of an event and have no place on a ladder of them. The
-# scale is hand-assigned and reviewed by both coders, so any figure drawn from
-# it is **mixed** under R3 and never computed.
-#
 # `anchor` is new in v4 and is the other half of a term's matching rule. A term
 # with `anchor: sentence` is counted only where the sentence holding the match
 # also says `genocid*`; a term without one is counted wherever its pattern
@@ -82,8 +64,38 @@
 # refuses a lexicon the lock no longer describes, so run
 # `python tools/lock_lexicon.py` after editing a pattern or an anchor.
 #
-# Changing this file changes every downstream count. Bump `version` and record
-# what moved.
+# `widened_since` and `widened_from` declare a change to a matching rule that
+# only *adds* occurrences. 03 re-runs the old rule over the corpus and refuses
+# the declaration unless every span it counted is still counted, so a committed
+# run or a coded sample keeps its occurrence identities and reports the added
+# occurrences as a coverage gap instead of being invalidated. A change that
+# drops or moves any occurrence is not a widening: bump `pattern_since`.
+#
+# The `anchor:` block is the pattern an anchored term's sentence must also
+# match. It is versioned and locked like a term, and widening it widens every
+# anchored term, each of which declares so.
+#
+# Changing this file changes every downstream count. Bump `version`, run
+# `python tools/lock_lexicon.py` and `python scripts/03_lexicon.py
+# --update-counts`, and commit `config/lexicon.counts.json` with it: the counts
+# diff is the record of what moved.
+#
+# v8 — 2026-09-24
+#   Review of 24 September 2026, items RV4, RV5 and RV22.
+#   - `genocide` is widened to `\bg[eé]nocid\w*`. The English records borrow
+#     *génocidaires* with its accent 40 times, in 37 speeches, and three of those
+#     speeches say the word no other way, so the old pattern left them out of
+#     the 4,133. Every occurrence the old pattern found keeps its identity; the
+#     committed Qwen run is compatible and reports the 40 as a coverage gap.
+#   - The anchor moves from code into the `anchor:` block below and is widened
+#     the same way, so the seven anchored terms declare `widened_since: 8`.
+#   - `intensity` is removed. Nothing in the pipeline or the dashboard read it,
+#     and its order was contestable: the ICTY Appeals Chamber held in *Tadić*
+#     (sentencing appeal, 26 January 2000) that crimes against humanity are not
+#     in law graver or lesser than war crimes, and the "no dedicated convention"
+#     rung is being overtaken by the General Assembly's negotiation of one. A
+#     ladder published before a figure needs it would have been a claim with
+#     no reader.
 #
 # v7 — 2026-09-12
 #   Retire the separate perpetrator term and its derived subtraction. All
@@ -163,8 +175,14 @@
 #   - no `pattern` changed: every term keeps `pattern_since: 2`, so the gold
 #     sample and the committed model runs recorded against v2 remain valid.
 
-version: 7
-updated: 2026-09-12
+version: 8
+updated: 2026-09-24
+
+anchor:
+  pattern: '\bg[eé]nocid\w*'
+  prefilter: nocid
+  widened_since: 8
+  widened_from: '\bgenocid\w*'
 
 terms:
   aggression:
@@ -179,22 +197,24 @@ terms:
       speech bodies found 256 singular and 74 plural mentions. Standalone
       aggression and war(s) of aggression are excluded: this term measures
       explicit crime vocabulary, not every characterization of a war.
-      It is not part of the validated intensity ladder and does not change
-      the genocide pattern or existing genocide occurrence identities.
+      It does not change the genocide pattern or existing genocide occurrence
+      identities.
 
   genocide:
-    pattern: '\bgenocid\w*'
-    prefilters: [genocid]
-    examples: [genocide, genocidal, genocides, genocidaires]
+    pattern: '\bg[eé]nocid\w*'
+    prefilters: [nocid]
+    examples: [genocide, genocidal, genocides, genocidaires, génocidaires]
     tier: core
     register: core
     pattern_since: 2
-    intensity: 5
+    widened_since: 8
+    widened_from: '\bgenocid\w*'
     note: >
       Counts the full genocide word family, including genocide, genocidal,
-      genocides and borrowed forms present in the English records. The pattern
-      remains unchanged since version 2, preserving occurrence identifiers and
-      compatibility with existing annotations.
+      genocides and the borrowed génocidaires with or without its accent. The
+      pattern's identity dates from version 2; version 8 widened it to the
+      accented form, which added occurrences and moved none, so occurrence
+      identifiers and existing annotations stand.
 
   genocide_ocr_variants:
     pattern: '\b(?:gen[eo]cid|senocid|qenocid)\w*'
@@ -216,7 +236,6 @@ terms:
     tier: atrocity
     register: legal
     pattern_since: 2
-    intensity: 2
     note: >
       The second rung of the legal ladder, and the rung that is not a crime.
       The phrase is all over the instruments — the Commission of Experts on
@@ -234,7 +253,6 @@ terms:
     tier: atrocity
     register: legal
     pattern_since: 2
-    intensity: 3
     note: >
       A crime in international law, and the lowest of the three because it is
       the one with no convention of its own: it is constituted by the
@@ -250,7 +268,6 @@ terms:
     tier: atrocity
     register: legal
     pattern_since: 2
-    intensity: 4
     note: >
       The grave breaches of the four Geneva Conventions of 1949 and of their
       1977 protocols: a body of treaty law rather than the single instrument
@@ -275,7 +292,6 @@ terms:
     tier: adjacent
     register: legal
     pattern_since: 2
-    intensity: 1
     note: >
       The bottom of the ladder, and the reason the ladder is built on legal
       standing rather than on force. *Atrocity* is as strong a word as the
@@ -309,6 +325,7 @@ terms:
     register: legal
     pattern_since: 4
     anchor: sentence
+    widened_since: 8
     note: >
       Article II of the Convention read into the record: the mental element,
       and the phrase that qualifies the destruction. Anchored, because "in
@@ -353,6 +370,7 @@ terms:
     register: preventive
     pattern_since: 4
     anchor: sentence
+    widened_since: 8
     note: >
       Article III of the Convention makes direct and public incitement to
       commit genocide punishable in itself, and it is the offence the
@@ -405,6 +423,7 @@ terms:
     register: commemorative
     pattern_since: 4
     anchor: sentence
+    widened_since: 8
     note: >
       The reason the anchor exists. Unanchored this matched 6,533 occurrences
       across 4,504 speeches, and they are the anniversary of resolution 1325,
@@ -420,6 +439,7 @@ terms:
     register: commemorative
     pattern_since: 4
     anchor: sentence
+    widened_since: 8
     note: >
       Anchored: the commonest thing said after "survivors" in this corpus is
       "of sexual violence", 478 times, and the women-and-peace-and-security
@@ -434,6 +454,7 @@ terms:
     register: contentious
     pattern_since: 4
     anchor: sentence
+    widened_since: 8
     note: >
       Two repairs and an anchor. `deny\w*` missed *denies* and *denied*, which
       is where most of the denying is done; bare `\bdenial\b` matched "denial
@@ -453,6 +474,7 @@ terms:
     register: contentious
     pattern_since: 4
     anchor: sentence
+    widened_since: 8
     note: >
       Anchored: unanchored, the commonest completion is "glorification of war"
       (111 of 501) and the next are the glorification of terrorism under
@@ -481,6 +503,7 @@ terms:
     register: contentious
     pattern_since: 4
     anchor: sentence
+    widened_since: 8
     note: >
       Named `ethnic_hatred` until v4, which was a misnomer: the pattern has
       always matched *ethnic conflict* and *ethnic violence* far more often

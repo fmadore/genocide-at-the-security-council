@@ -4,16 +4,40 @@
     {
       "name": "dashboard",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "web"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "web"
+      ],
       "port": 5173,
       "autoPort": true
     },
     {
       "name": "preview",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "preview", "--prefix", "web"],
+      "runtimeArgs": [
+        "run",
+        "preview",
+        "--prefix",
+        "web"
+      ],
       "port": 4173,
       "autoPort": true
+    },
+    {
+      "name": "coding-page",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8765",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "data/interim"
+      ],
+      "port": 8765
     }
   ]
 }

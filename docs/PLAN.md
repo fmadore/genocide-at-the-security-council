@@ -5,6 +5,14 @@ It replaces the separate improvement roadmap, dated reviews, implementation
 report and research-decision packet. Historical discussion remains in Git history;
 this document records the current position rather than a chronological work log.
 
+## Review of 24 September 2026
+
+Lexicon v8 (the accented *génocidaires*), a Unicode tokenizer, the rejection flag measured
+from the run, meeting-clustered rate bands, a composition decomposition, a blinded gold
+packet with an offline coding page, a design over the union of sampling frames and
+gold-corrected shares are implemented; see [ROADMAP.md](ROADMAP.md). None of them replaces
+the human audit: the gold sample is still uncoded, and the corrected shares wait on it.
+
 ## Published partial preview — 14 September 2026
 
 The user authorized publishing the fetched Qwen checkpoint as a partial,
@@ -250,6 +258,8 @@ chosen inference path because weights and runtime can be recorded and pinned.
 
 Reference documentation has distinct jobs and is not another roadmap:
 
+- [ROADMAP.md](ROADMAP.md): the item-by-item ledger of the review of 24 September 2026,
+  with the evidence each item closed on and what still waits on coders or the cluster.
 - [CORPUS.md](CORPUS.md): canonical source, schema, counts and coverage limits.
 - [VALIDATION.md](VALIDATION.md): dated corpus checks and outstanding source checks.
 - [CLUSTER.md](CLUSTER.md): optional environments and GPU operating instructions.

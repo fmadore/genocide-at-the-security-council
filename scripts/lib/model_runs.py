@@ -1,12 +1,69 @@
-"""Read-only validation shared by sampling, triangulation and aggregation."""
+"""The model-annotation store, and the read-only validation every reader shares.
+
+Sampling (13), annotation (14), aggregation (15) and frame triangulation (17)
+each used to name the store's files, read its pointer files and carry the
+population they assert as constants of their own. They are named here once,
+and the population comes from `config/lexicon.counts.json`.
+"""
 
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
 
 from . import audit, lexicon, llm
-from .paths import ANNOTATIONS, MODEL_ANNOTATIONS
+from .paths import ANNOTATIONS, INTERIM, MODEL_ANNOTATIONS, rel
+
+#: The one term the model-assisted layer covers; see Phase L in docs/PLAN.md
+#: for why the scope is a single word.
+TERM = "genocide"
+
+STORE = MODEL_ANNOTATIONS / TERM
+PROMPT = STORE / "PROMPT.md"
+PROMPTS = STORE / "prompts"
+RUNS = STORE / "runs"
+#: The run the dashboard publishes, the counter-instrument read against it,
+#: and the one run allowed to publish with a coverage gap. One run id each, or
+#: empty; committed and changed as reviewed diffs.
+CURRENT_RUN = STORE / "current_run.txt"
+COMPARISON_RUN = STORE / "comparison_run.txt"
+ALLOW_PARTIAL_RUN = STORE / "allow_partial_run.txt"
+
+REFERENTS = ANNOTATIONS / "lexicon" / "referents.csv"
+GOLD_ANNOTATIONS = ANNOTATIONS / TERM / "annotations.csv"
+SMOKE_RUNS = INTERIM / "model_annotation_smoke"
+
+
+def pointer(path: Path) -> str:
+    """The run id a pointer file names, or the empty string."""
+    return path.read_text(encoding="utf-8").strip() if path.is_file() else ""
+
+
+def population_problems(
+    filenames: Iterable[str], occurrences: int, expected: tuple[int, int] | None = None
+) -> list[str]:
+    """Reasons an enumeration of `TERM` is not the committed one, if any.
+
+    `expected` is `(speeches, occurrences)`; by default the committed counts,
+    which 03 has already held the corpus to. A gold sample, a model run and
+    their aggregation are comparable only when all three enumerate this same
+    population, so it is asserted by each rather than assumed from the others.
+    """
+    speeches_expected, occurrences_expected = expected or lexicon.population(TERM)
+    speeches = len(set(filenames))
+    problems = []
+    if occurrences != occurrences_expected:
+        problems.append(
+            f"{occurrences:,} occurrences against the {occurrences_expected:,} committed in "
+            f"{rel(lexicon.LEXICON_COUNTS)}"
+        )
+    if speeches != speeches_expected:
+        problems.append(
+            f"{speeches:,} speeches against the {speeches_expected:,} committed in "
+            f"{rel(lexicon.LEXICON_COUNTS)}"
+        )
+    return problems
 
 
 def files(directory: Path) -> list[Path]:
@@ -43,9 +100,9 @@ def validate(manifest: dict, rows: list[dict]) -> None:
 
 def resolved(directory: Path) -> list[dict]:
     manifest, rows = read(directory)
-    referents = audit.read_referent_list(ANNOTATIONS / "lexicon" / "referents.csv")
+    referents = audit.read_referent_list(REFERENTS)
     lex = lexicon.load()
-    library = llm.load_prompt_library(MODEL_ANNOTATIONS / "genocide" / "PROMPT.md")
+    library = llm.load_prompt_library(PROMPT)
     if library.by_digest(str(manifest.get("prompt_sha256", ""))) is None:
         raise ValueError("Run prompt digest is not in the prompt archive")
     output = []

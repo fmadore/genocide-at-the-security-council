@@ -26,7 +26,7 @@ def main():
         artifacts.atomic_write_json(args.output, document, indent=1)
         print(f"{len(document['batches'])} batches; array indices 0-{len(document['batches']) - 1}")
     else:
-        annotation_batches.merge(json.loads(args.plan.read_text()), speeches, args.sources, args.output)
+        annotation_batches.merge(json.loads(args.plan.read_text(encoding="utf-8")), speeches, args.sources, args.output)
         print(f"Complete merged run: {args.output}")
 
 
