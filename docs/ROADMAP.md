@@ -10,6 +10,14 @@ Every figure below was measured on the pinned Sakamoto–Matsuoka v5.0 corpus,
 rebuilt in a scratch data root, against the same pipeline at commit `c981f8b`
 as the baseline, and on the committed `2026-09-08-qwen-131k` run.
 
+The change as pushed was rehearsed on 6 October 2026 the way the deploy runs it,
+in a fresh worktree from the pinned corpus: `fetch_semantic.py`, then 00–05, 08,
+09, 11, 12, 13, 15 `--allow-partial`, 17, 20 and the export, all passing (about
+45 minutes, 12 the longest at 17), `export_web.py --check` clean — 9,772 files,
+333 MB, 21 artefacts on the contract — and `npm run build` verified on that
+payload. The checks workflow passed on the branch, the GNU make regressions
+included.
+
 Status: ✅ done · 👥 waits on a human decision or coding · 🖥️ waits on a
 cluster run · ⏸ deferred, with the reason
 
