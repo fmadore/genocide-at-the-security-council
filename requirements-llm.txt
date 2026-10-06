@@ -21,5 +21,7 @@
 # The package is used as a protocol client for the OpenAI-compatible Responses
 # endpoint served by vLLM, not as a client for a hosted vendor. The major stays
 # capped because 3.0 already moved the HTTP client once; the run manifest pins
-# the server and weights that determine the analytical output.
+# the server and weights that determine the analytical output. 3.24 moved it
+# again, from httpx to httpx2, within the major: nothing here imports either
+# except the transport test, which takes whichever the client is built on.
 openai>=3.6.0,<4

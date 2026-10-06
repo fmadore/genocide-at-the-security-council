@@ -64,8 +64,10 @@ jobs:
 
       - run: python -m pip install -r requirements-llm.txt
 
+      # Its HTTP library comes with it (httpx2 from openai 3.24, httpx before),
+      # and the transport test uses whichever the installed client is built on.
       - name: The client is importable, so nothing below can skip
-        run: python -c "import httpx, openai"
+        run: python -c "import openai"
 
       - name: pytest (transport and preflight)
         run: python -m pytest tests/test_annotate_transport.py tests/test_annotation_preflight.py -rs

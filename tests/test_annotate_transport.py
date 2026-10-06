@@ -130,8 +130,12 @@ def test_runtime_record_requires_and_preserves_reproducible_server_facts(
 
 
 def test_sdk_extension_reaches_wire_without_changing_recorded_body() -> None:
-    httpx = pytest.importorskip("httpx")
     OpenAI = pytest.importorskip("openai").OpenAI
+    # The client's own HTTP library: httpx up to openai 3.23, httpx2 from 3.24.
+    try:
+        import httpx2 as httpx
+    except ImportError:
+        httpx = pytest.importorskip("httpx")
 
     received = []
 
