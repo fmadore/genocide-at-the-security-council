@@ -56,10 +56,14 @@ def test_no_code_names_a_speech_of_the_retired_corpus() -> None:
         cwd=ROOT, capture_output=True, text=True, check=True,
     ).stdout.split()
     retired = re.compile(r"UNSC_\d{4}_(?:SPV|S_)")
+    # The one file whose job is to read the retired identifiers: it maps the
+    # prompt's worked examples, which cite them, onto this corpus.
+    reader = "tools/map_prompt_examples.py"
     offenders = [
         name
         for name in listed
-        if name.endswith((".py", ".ts", ".svelte", ".mjs"))
+        if name != reader
+        and name.endswith((".py", ".ts", ".svelte", ".mjs"))
         and not name.endswith(".test.ts")
         and (ROOT / name).is_file()
         and retired.search((ROOT / name).read_text(encoding="utf-8"))

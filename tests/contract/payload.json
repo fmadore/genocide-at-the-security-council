@@ -14,13 +14,13 @@
     "un_regional_group": "null|str"
    }
   ],
-  "iso3_collisions": {},
+  "iso3_collisions": {
+   "*": [
+    "str"
+   ]
+  },
   "measures": {
    "*": {
-    "derived_from?": "str",
-    "derived_minus?": [
-     "str"
-    ],
     "kind": "str",
     "register": "str",
     "rows": [
@@ -643,7 +643,59 @@
   },
   "triangulation": {
    "rule": "str",
-   "runs": []
+   "runs": [
+    {
+     "coverage": "float",
+     "function": {
+      "field": "str",
+      "labels": [
+       "str"
+      ],
+      "multi_label": "bool",
+      "rows": [
+       {
+        "counts": [
+         {
+          "label": "str",
+          "occurrences": "int"
+         }
+        ],
+        "frame": "str",
+        "modal_label": "str",
+        "modal_share": "float",
+        "occurrences": "int",
+        "row_total": "int"
+       }
+      ]
+     },
+     "matched": "int",
+     "model": "str",
+     "rows": "int",
+     "run_id": "str",
+     "speaker_position": {
+      "field": "str",
+      "labels": [
+       "str"
+      ],
+      "multi_label": "bool",
+      "rows": [
+       {
+        "counts": [
+         {
+          "label": "str",
+          "occurrences": "int"
+         }
+        ],
+        "frame": "str",
+        "modal_label": "str",
+        "modal_share": "float",
+        "occurrences": "int",
+        "row_total": "int"
+       }
+      ]
+     }
+    }
+   ]
   },
   "unframed_rule": "str",
   "window": "int"
@@ -1561,6 +1613,12 @@
   ]
  },
  "series/annual.json": {
+  "cluster_interval": {
+   "method": "str",
+   "resamples": "int",
+   "seed": "int",
+   "unit": "str"
+  },
   "corpora": {
    "genocide_free_atrocity": {
     "definition": "str",
@@ -1633,15 +1691,17 @@
   ],
   "terms": {
    "*": {
-    "derived_from?": "str",
-    "derived_minus?": [
-     "str"
-    ],
     "occurrences": [
      "int"
     ],
     "register": "str",
     "speech_rate": [
+     "float"
+    ],
+    "speech_rate_cluster_high": [
+     "float"
+    ],
+    "speech_rate_cluster_low": [
      "float"
     ],
     "speech_rate_high": [
@@ -1683,24 +1743,6 @@
      ]
     },
     "agenda_item_manual": {
-     "categories": [
-      "str"
-     ],
-     "rows": [
-      {
-       "category": "str",
-       "held": "int",
-       "occurrences": "int",
-       "period": "int",
-       "speech_rate": "float",
-       "speech_rate_high": "float",
-       "speech_rate_low": "float",
-       "speeches": "int",
-       "token_rate": "float"
-      }
-     ]
-    },
-    "delivery_language": {
      "categories": [
       "str"
      ],
@@ -1971,6 +2013,81 @@
    }
   }
  },
+ "series/decomposition.json": {
+  "meta": {
+   "analysis_hash": "str",
+   "codebook_tokens": "int",
+   "configs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "meetings": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "rate_per_tokens": "int",
+   "script": "str",
+   "speakers": "int",
+   "speeches": "int",
+   "words": "int"
+  },
+  "method": "str",
+  "periods": "str",
+  "splits": {
+   "agenda_item_manual": [
+    {
+     "change": "float",
+     "composition": "float",
+     "from": "int",
+     "group_column": "str",
+     "largest": [
+      {
+       "contribution": "float",
+       "group": "str"
+      }
+     ],
+     "rate_from": "float",
+     "rate_to": "float",
+     "to": "int",
+     "within": "float"
+    }
+   ],
+   "speaker_group": [
+    {
+     "change": "float",
+     "composition": "float",
+     "from": "int",
+     "group_column": "str",
+     "largest": [
+      {
+       "contribution": "float",
+       "group": "str"
+      }
+     ],
+     "rate_from": "float",
+     "rate_to": "float",
+     "to": "int",
+     "within": "float"
+    }
+   ]
+  },
+  "term": "str",
+  "unit": "str"
+ },
  "series/events.json": {
   "events": [
    {
@@ -2113,10 +2230,6 @@
        }
       ]
      ],
-     "derived_from?": "str",
-     "derived_minus?": [
-      "str"
-     ],
      "excluding": {
       "held": [
        "int"
@@ -2194,10 +2307,6 @@
   ],
   "terms": {
    "*": {
-    "derived_from?": "str",
-    "derived_minus?": [
-     "str"
-    ],
     "occurrences": [
      "int"
     ],
@@ -2225,6 +2334,12 @@
   ]
  },
  "series/quarterly.json": {
+  "cluster_interval": {
+   "method": "str",
+   "resamples": "int",
+   "seed": "int",
+   "unit": "str"
+  },
   "corpora": {
    "genocide_free_atrocity": {
     "definition": "str",
@@ -2297,15 +2412,17 @@
   ],
   "terms": {
    "*": {
-    "derived_from?": "str",
-    "derived_minus?": [
-     "str"
-    ],
     "occurrences": [
      "int"
     ],
     "register": "str",
     "speech_rate": [
+     "float"
+    ],
+    "speech_rate_cluster_high": [
+     "float"
+    ],
+    "speech_rate_cluster_low": [
      "float"
     ],
     "speech_rate_high": [
@@ -2324,7 +2441,7 @@
    }
   }
  },
- "speeches/SC00001-01.json": {
+ "speeches/SC00001-01.json.gz": {
   "agenda": "str",
   "basename": "str",
   "date": "str",
@@ -2387,7 +2504,7 @@
     },
     "id": "str",
     "iso3": "null|str",
-    "language": "str",
+    "language": "null",
     "n": "int",
     "role": "null",
     "speaker": "str",
@@ -2402,6 +2519,7 @@
  },
  "usage/occurrences.json": {
   "meta": {
+   "allow_partial": "bool",
    "analysis_hash": "str",
    "configs": [
     {
@@ -2419,20 +2537,67 @@
      "sha256": "str"
     }
    ],
+   "lexicon_version": "int",
+   "minimum_occurrences": "int",
+   "model": "str",
    "occurrences_annotated": "int",
    "occurrences_total": "int",
    "outputs": [],
    "packages": {
     "*": "str"
    },
+   "prompt_file": "str",
+   "prompt_version": "int",
    "python": "str",
+   "referents_version": "int",
+   "rows_with_split_case_decision": "int",
+   "rows_without_schema_3_fields": "int",
+   "run_dir": "str",
+   "run_id": "str",
+   "run_referents_version": "int",
+   "run_schema_version": "str",
+   "schema_version": "str",
    "script": "str",
-   "state": "str"
+   "state": "str",
+   "term": "str"
   },
-  "occurrences": []
+  "occurrences": [
+   {
+    "accused_actor": "str",
+    "alt": "null",
+    "concrete_case": "str",
+    "contested": [],
+    "evidence_quote": "str",
+    "evidence_valid": "bool",
+    "function": "str",
+    "id": "str",
+    "occurrence_id": "str",
+    "own_state_accused": "str",
+    "proposed_referent": "str",
+    "quotation": "str",
+    "rationale": "str",
+    "referent": "str",
+    "referent_source": "str",
+    "salience": "str",
+    "speaker_position": "str",
+    "verdict": "str",
+    "victim_group": "str"
+   }
+  ]
  },
  "usage/usage.json": {
-  "actors": [],
+  "actors": [
+   {
+    "assigned": "int",
+    "country_org": "str",
+    "eligible": "int",
+    "entity_type": "str",
+    "group": "str",
+    "iso3": "null",
+    "occurrences": "int",
+    "sufficient": "bool"
+   }
+  ],
   "comparison": {
    "abstention": {
     "position_unclear": "int",
@@ -2460,11 +2625,39 @@
    "milestones": [
     "str"
    ],
-   "referents": []
+   "referents": [
+    {
+     "events": [
+      {
+       "actor": "str",
+       "date": "str",
+       "id": "str",
+       "milestone": "str",
+       "speaker_position": "str"
+      }
+     ],
+     "exposed": [
+      {
+       "actor": "str",
+       "date": "str"
+      }
+     ],
+     "id": "str"
+    }
+   ]
   },
   "gold": {
    "adjudicated": "int",
    "coders": [],
+   "corrected_shares": [
+    {
+     "categories": [],
+     "field": "str",
+     "occurrences": "int",
+     "state": "str",
+     "units": "int"
+    }
+   ],
    "double_coded": "int",
    "frames": [
     {
@@ -2482,14 +2675,42 @@
     "labels": [],
     "n": "int"
    },
+   "minimum_gold": "int",
    "model_vs_human": [],
    "model_vs_human_comparison": [],
    "sample_size": "int",
    "state": "str",
-   "unique_occurrences": "int"
+   "unique_occurrences": "int",
+   "weighted_accuracy": [
+    {
+     "estimate": "null",
+     "field": "str",
+     "high": "null",
+     "low": "null",
+     "state": "str",
+     "units": "int"
+    }
+   ]
   },
-  "matrix": [],
+  "matrix": [
+   {
+    "actor": "str",
+    "contested": "int",
+    "count": "int",
+    "positions": {
+     "asserts": "int",
+     "conditional": "int",
+     "no_position": "int",
+     "not_applicable": "int",
+     "rejects": "int",
+     "reports_without_position": "int",
+     "unclear": "int"
+    },
+    "referent": "str"
+   }
+  ],
   "meta": {
+   "allow_partial": "bool",
    "analysis_hash": "str",
    "configs": [
     {
@@ -2507,15 +2728,29 @@
      "sha256": "str"
     }
    ],
+   "lexicon_version": "int",
+   "minimum_occurrences": "int",
+   "model": "str",
    "occurrences_annotated": "int",
    "occurrences_total": "int",
    "outputs": [],
    "packages": {
     "*": "str"
    },
+   "prompt_file": "str",
+   "prompt_version": "int",
    "python": "str",
+   "referents_version": "int",
+   "rows_with_split_case_decision": "int",
+   "rows_without_schema_3_fields": "int",
+   "run_dir": "str",
+   "run_id": "str",
+   "run_referents_version": "int",
+   "run_schema_version": "str",
+   "schema_version": "str",
    "script": "str",
-   "state": "str"
+   "state": "str",
+   "term": "str"
   },
   "minimum_occurrences": "int",
   "model": {
@@ -2537,12 +2772,69 @@
    "requests_recounted": "bool",
    "run_date": "str",
    "run_id": "str",
+   "runtime": {
+    "environments": {
+     "annotator": "str",
+     "server": "str"
+    },
+    "hardware": {
+     "gpu_count": "int",
+     "gpu_model": "str"
+    },
+    "max_output_tokens": "int",
+    "model_revision": "str",
+    "quantization": "str",
+    "reasoning": {
+     "location": "str",
+     "parameter": "str",
+     "value": "str"
+    },
+    "route": "str",
+    "sampling": {
+     "temperature": "float",
+     "top_p": "float"
+    },
+    "served_model": "str",
+    "serving": {
+     "max_model_len": "int",
+     "max_num_seqs": "int",
+     "moe_backend": "null",
+     "prefix_caching": "bool",
+     "reasoning_parser": "str",
+     "speculative_decoding": "null",
+     "tensor_parallel_size": "int"
+    },
+    "vllm_version": "str"
+   },
    "tokens": {
     "input": "int",
     "output": "int"
-   }
+   },
+   "truncation_count": "int"
   },
-  "position_by_actor": [],
+  "position_by_actor": [
+   {
+    "actor": "str",
+    "base_rejects": "float|null",
+    "eligible": "int",
+    "p_value": "float|null",
+    "positions": {
+     "asserts": "int",
+     "conditional": "int",
+     "no_position": "int",
+     "not_applicable": "int",
+     "rejects": "int",
+     "reports_without_position": "int",
+     "unclear": "int"
+    },
+    "q_value": "float|null",
+    "separated": "bool",
+    "share_high": "float|null",
+    "share_low": "float|null",
+    "share_rejects": "float|null",
+    "sufficient": "bool"
+   }
+  ],
   "prompt": "str",
   "referents": [
    {
