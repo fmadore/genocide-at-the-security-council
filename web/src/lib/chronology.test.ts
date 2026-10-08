@@ -220,7 +220,12 @@ describe('term strokes', () => {
 
 	it('keeps the headline term in full ink, solid, and the heavier weight', () => {
 		const strokes = termStrokes(['genocide', ...LEGAL], registerOf, p);
-		expect(strokes.get('genocide')).toEqual({ color: p.ink, dash: 'solid', width: 2 });
+		expect(strokes.get('genocide')).toEqual({
+			color: p.ink,
+			dash: 'solid',
+			width: 2,
+			mark: 'circle'
+		});
 	});
 
 	it('gives every term of a register a stroke of its own', () => {
@@ -242,6 +247,20 @@ describe('term strokes', () => {
 			}
 		}
 		expect(new Set(drawn.map((s) => s.dash))).toEqual(new Set(['solid', 'dashed', 'dotted']));
+	});
+
+	it('never leaves lightness as the only thing separating two lines of one dash', () => {
+		// The converse of the test above, and the one the review of 19 September
+		// 2026 found missing: three tones of one hue measure 1.56 to 2.69:1
+		// against each other, so a shared dash has to be told apart by shape.
+		const strokes = termStrokes(LEGAL, registerOf, p);
+		const drawn = LEGAL.map((name) => strokes.get(name)!);
+		for (const [i, a] of drawn.entries()) {
+			for (const b of drawn.slice(i + 1)) {
+				if (a.dash === b.dash) expect(a.mark).not.toBe(b.mark);
+			}
+		}
+		expect(new Set(drawn.map((s) => `${s.dash} ${s.mark}`)).size).toBe(9);
 	});
 
 	it('keeps the register hue as the family: the first step is the hue itself', () => {

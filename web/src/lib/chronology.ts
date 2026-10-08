@@ -1,6 +1,12 @@
 import type { LineSeriesOption } from 'echarts';
 import { headlineMeasure } from './headline';
-import { registerStroke, type NeutralStroke, type Palette } from './theme';
+import {
+	registerMark,
+	registerStroke,
+	type NeutralStroke,
+	type Palette,
+	type RegisterMark
+} from './theme';
 
 export type ChronologyUnit = 'speech_rate' | 'token_rate' | 'occurrences' | 'speeches';
 export type ChronologyGrain = 'year' | 'quarter';
@@ -153,9 +159,11 @@ export function chronologyParams(
    shelf. What changes is that the hue is now a family rather than a single
    value — `registerStroke` steps its lightness and turns a dash inside it. */
 
-/** A term's line: a stroke inside its register's hue, at a weight. */
+/** A term's line: a stroke inside its register's hue, at a weight, with its marker. */
 export interface TermStroke extends NeutralStroke {
 	width: number;
+	/** Turns with the lightness step, so a shared dash is never told apart by shade alone. */
+	mark: RegisterMark;
 }
 
 /** The headline term's line, in full ink: the figure's one reference line. */
@@ -192,11 +200,30 @@ export function termStrokes(
 		strokes.set(
 			name,
 			name === headline
-				? { color: p.ink, dash: 'solid', width: HEADLINE_STROKE_WIDTH }
-				: { ...registerStroke(register, index, p), width: TERM_STROKE_WIDTH }
+				? { color: p.ink, dash: 'solid', width: HEADLINE_STROKE_WIDTH, mark: 'circle' }
+				: {
+						...registerStroke(register, index, p),
+						width: TERM_STROKE_WIDTH,
+						mark: registerMark(index)
+					}
 		);
 	}
 	return strokes;
+}
+
+/**
+ * A stroke's dash as SVG writes it, matching what ECharts draws: zrender sets
+ * `dashed` at four widths on, two off, and `dotted` at one on, one off. The
+ * term chips draw a short sample of each line with this, so the key beside
+ * the chart is the line on it rather than a description of it.
+ */
+export function dashArray(stroke: {
+	dash: NeutralStroke['dash'];
+	width: number;
+}): string | undefined {
+	if (stroke.dash === 'dashed') return `${4 * stroke.width} ${2 * stroke.width}`;
+	if (stroke.dash === 'dotted') return `${stroke.width}`;
+	return undefined;
 }
 
 /**

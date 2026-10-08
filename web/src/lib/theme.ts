@@ -270,6 +270,27 @@ export function registerStroke(register: string, index: number, p = palette()): 
 	};
 }
 
+/**
+ * The marker each lightness step carries: the hue itself a circle, deepened a
+ * triangle, lifted a diamond.
+ *
+ * `registerStroke` crosses three tones with three dashes, so two lines sharing
+ * a tone never share a dash. The converse did not hold: two lines sharing a
+ * dash were told apart by lightness alone, and within one hue the three steps
+ * measure 1.56 to 2.69:1 against each other, every pair under the 3:1 a
+ * graphical object needs (review of 19 September 2026). The marker turns with
+ * the tone, so any two strokes of one register now differ in dash or in shape
+ * as well as in shade, and both survive greyscale and print.
+ */
+const REGISTER_MARKS = ['circle', 'triangle', 'diamond'] as const;
+export type RegisterMark = (typeof REGISTER_MARKS)[number];
+
+/** The marker for the `index`-th stroke inside a register's hue. */
+export function registerMark(index: number): RegisterMark {
+	const step = Math.max(0, Math.trunc(index));
+	return REGISTER_MARKS[Math.floor(step / REGISTER_DASHES.length) % REGISTER_MARKS.length];
+}
+
 /** Series that carry no category at all: one weight of ink, never the accent. */
 export function neutral(p = palette()): string {
 	return p.inkFaint;

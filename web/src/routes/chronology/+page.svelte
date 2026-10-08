@@ -20,6 +20,7 @@
 		bandOwner,
 		intervalBand,
 		isIntervalBand,
+		dashArray,
 		termStrokes,
 		TERM_STROKE_WIDTH,
 		type TermStroke
@@ -59,6 +60,7 @@
 		axisY,
 		categoricalNeutral,
 		colours,
+		dataZoom,
 		endLabel,
 		grid,
 		legend,
@@ -511,7 +513,7 @@
 		termStrokes(Object.keys(allMeasures), (name) => allMeasures[name]?.register, $colours)
 	);
 	const strokeOf = (name: string, p = $colours): TermStroke =>
-		strokes.get(name) ?? { color: p.ink, dash: 'solid', width: TERM_STROKE_WIDTH };
+		strokes.get(name) ?? { color: p.ink, dash: 'solid', width: TERM_STROKE_WIDTH, mark: 'circle' };
 
 	function toggle(name: string) {
 		selected = selected.includes(name) ? selected.filter((n) => n !== name) : [...selected, name];
@@ -534,8 +536,18 @@
 
 	/* Name each line where it ends rather than in a legend — up to the point
 	   where the labels would sit on top of each other. Past that a legend is the
-	   lesser evil, which is the one case `theme.ts` keeps it for. */
-	const LABELLABLE = 8;
+	   lesser evil, which is the one case `theme.ts` keeps it for.
+
+	   Twelve, and the labels shift apart vertically rather than overlap. It was
+	   eight, and the legal shelf alone is ten terms: the button that draws a
+	   whole shelf as separate lines took away the end labels the moment it was
+	   pressed, which is the one moment a reader most needs to know which line is
+	   which (review of 19 September 2026). A shelf and the headline fit. */
+	const LABELLABLE = 12;
+
+	/* Each marker drawn at a size that reads as the same weight: a triangle or a
+	   diamond at a circle's size looks smaller than it. */
+	const MARK_SIZE = { circle: 5, triangle: 7, diamond: 7 } as const;
 
 	/* How many measures the axis tooltip lists before it stops.
 	
@@ -550,8 +562,8 @@
 	   five reference dates that year carries, more than any other. Measured, that
 	   box is 347px wide-screen and 367px with the figure at phone width, where a
 	   long row wraps; eleven rows ran past the bottom of the figure in both. The
-	   count also happens to be `LABELLABLE`, so a tooltip is cut only once the
-	   chart has given up naming its lines in place.
+	   count was once `LABELLABLE` too; the end labels now hold to twelve, and
+	   the tooltip stays at eight because its limit is the figure's height.
 	
 	   What is cut is the smallest values at that year, and the tooltip says how
 	   many and below what. Cutting by value rather than by position means the
@@ -702,18 +714,12 @@
 				},
 				{ type: 'value', gridIndex: 1, show: false, min: -1, max: 1 }
 			],
+			// The system's slider, not a hand-rolled one: this was the one figure
+			// whose window was a blue wash with blue handles, where `theme.ts`
+			// draws an ink wash and ink handles for every other zoom on the site.
 			dataZoom: [
 				{ type: 'inside', throttle: 50, xAxisIndex: [0, 1] },
-				{
-					type: 'slider',
-					xAxisIndex: [0, 1],
-					height: 18,
-					bottom: 0,
-					borderColor: p.rule,
-					fillerColor: p.accent + '22',
-					handleStyle: { color: p.accent },
-					textStyle: { color: p.inkFaint, fontSize: 11 }
-				}
+				{ ...dataZoom(p), xAxisIndex: [0, 1] }
 			],
 			series: [
 				...(banded
@@ -735,11 +741,15 @@
 						name: measureLabel(name),
 						type: 'line',
 						data: allMeasures[name][unit] ?? [],
-						symbol: 'circle',
-						symbolSize: grain === 'year' ? 5 : 0,
+						// The marker is the line's third code, after hue and dash. At a
+						// quarter's grain ECharts thins the markers to the axis labels'
+						// interval, so they still name the line without carpeting it.
+						symbol: stroke.mark,
+						symbolSize: MARK_SIZE[stroke.mark],
 						lineStyle: { width: stroke.width, color: stroke.color, type: stroke.dash },
 						itemStyle: { color: stroke.color },
 						endLabel: named ? endLabel(stroke.color, measureLabel(name)) : undefined,
+						labelLayout: named ? { moveOverlap: 'shiftY' } : undefined,
 						emphasis: { focus: 'series' }
 					};
 				}),
@@ -924,9 +934,9 @@
 	const FIGURES = [
 		{ title: 'The reading set, year by year' },
 		{ title: 'The word list over time' },
+		{ title: 'Testing for a change in the rate' },
 		{ title: "The vocabulary's calendar" },
 		{ title: 'The same twelve months, pooled' },
-		{ title: 'Testing for a change in the rate' },
 		{ title: 'Who says it, and in what debate' }
 	];
 
@@ -1139,14 +1149,31 @@
 					</button>
 					<div class="chips">
 						{#each group.names as name (name)}
+							{@const stroke = strokeOf(name)}
 							<button
-								class="chip"
+								class="chip term"
 								class:on={selected.includes(name)}
-								style:--chip={strokeOf(name).color}
-								style:--chip-dash={strokeOf(name).dash}
 								onclick={() => toggle(name)}
 								aria-pressed={selected.includes(name)}
 							>
+								<svg class="glyph" viewBox="0 0 24 10" width="24" height="10" aria-hidden="true">
+									<line
+										x1="0"
+										y1="5"
+										x2="24"
+										y2="5"
+										stroke={stroke.color}
+										stroke-width={stroke.width}
+										stroke-dasharray={dashArray(stroke)}
+									/>
+									{#if stroke.mark === 'triangle'}
+										<path d="M12 1.5 L15.75 8.5 L8.25 8.5 Z" fill={stroke.color} />
+									{:else if stroke.mark === 'diamond'}
+										<path d="M12 1 L16 5 L12 9 L8 5 Z" fill={stroke.color} />
+									{:else}
+										<circle cx="12" cy="5" r="2.75" fill={stroke.color} />
+									{/if}
+								</svg>
 								{measureLabel(name)}
 							</button>
 						{/each}
@@ -1216,6 +1243,96 @@
 						>
 					{/each}
 				</tbody>
+			</table>
+		</details>
+	</Figure>
+
+	<Figure
+		title="Testing for a change in the rate"
+		question="Is the genocide series better described by one steady rate, or by two?"
+		source="04_series.py → series/change_points.json"
+		download={{ name: ['unsc', 'rate-change'], table: breaksTable }}
+	>
+		{#snippet reading()}
+			<p>
+				Each row compares the best split into two rates with a constant-rate model. {#if data.breaks.inference.null === 'meeting_block_permutation'}The
+					first p-value accounts for speeches grouped within meetings; the second assumes
+					independent speeches.{:else}The p-value assumes independent speeches.{/if} Smaller p-values
+				indicate stronger evidence against a constant rate under those assumptions.
+				<a href="{resolve('/methods')}#change-points">Test details</a>.
+			</p>
+		{/snippet}
+		{#snippet caveat()}
+			<p>
+				Each side must contain at least {data.breaks.parameters.min_size} periods. A split is accepted
+				below {percent(data.breaks.inference.per_test_alpha)} ({data.breaks.inference.correction}).
+				This identifies a statistical contrast between periods, not its historical cause. An
+				unaccepted split does not establish that usage was constant.
+			</p>
+		{/snippet}
+
+		<table>
+			<thead>
+				<tr>
+					<th>Unit</th>
+					<th>Partition</th>
+					<th class="num">Earlier</th>
+					<th class="num">Later</th>
+					<th class="num">Ratio</th>
+					<th class="num">p, meetings moved</th>
+					<th class="num">p, speeches independent</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each Object.entries(genocideInference) as [name, result] (name)}
+					{#if !result}
+						<tr class="none">
+							<td>{UNITS.find((u) => u.id === name)?.label ?? name}</td>
+							<td colspan="6">no split improves on one steady rate</td>
+						</tr>
+					{:else}
+						<tr class:none={!result.accepted}>
+							<td>{UNITS.find((u) => u.id === name)?.label ?? name}</td>
+							<td>
+								{#if result.accepted}<strong>{result.label}</strong>{:else}{result.label}
+									<span class="verdict">best split; not accepted</span>{/if}
+							</td>
+							<td class="num"
+								>{name === 'speech_rate'
+									? percent(result.before)
+									: decimal(result.before * 100000)}</td
+							>
+							<td class="num"
+								>{name === 'speech_rate'
+									? percent(result.after)
+									: decimal(result.after * 100000)}</td
+							>
+							<!-- The ratio is set in ink whichever way it points. A rise in
+							     genocide vocabulary is not a good or a bad thing, and painting it
+							     red-up / green-down asked the reader to hear a verdict the study
+							     does not make; the sign is carried by the number itself. -->
+							<td class="num">{result.ratio == null ? '—' : `${decimal(result.ratio)}×`}</td>
+							<td class="num"><strong>{result.p_value.toFixed(4)}</strong></td>
+							<td class="num">{result.p_value_independent.toFixed(4)}</td>
+						</tr>
+					{/if}
+				{/each}
+			</tbody>
+		</table>
+		<details class="data-table">
+			<summary><Icon icon={ChevronRight} />View the second, exploratory change-point method</summary
+			>
+			<p>{data.breaks.caveat}</p>
+			<table>
+				<thead><tr><th>Unit</th><th>Candidate year</th><th class="num">Diagnostic p</th></tr></thead
+				>
+				<tbody
+					>{#each Object.entries(genocideBreaks) as [name, breaks] (name)}{#each breaks as item (item.index)}<tr
+								><td>{UNITS.find((unit) => unit.id === name)?.label ?? name}</td><td
+									>{item.label}</td
+								><td class="num">{item.p_value.toFixed(4)}</td></tr
+							>{/each}{/each}</tbody
+				>
 			</table>
 		</details>
 	</Figure>
@@ -1401,7 +1518,7 @@
 							</th>
 							<td class="num">{count(row.held)}</td>
 							<td class="num">{count(row.speeches)}</td>
-							<td class="num">{showRate(row.value)}</td>
+							<td class="num rate">{showRate(row.value)}</td>
 							<td class="num soft">{showRate(row.without)}</td>
 							<td class="item">
 								{#if row.agenda.length}
@@ -1418,96 +1535,6 @@
 				</tbody>
 			</table>
 		{/if}
-	</Figure>
-
-	<Figure
-		title="Testing for a change in the rate"
-		question="Is the genocide series better described by one steady rate, or by two?"
-		source="04_series.py → series/change_points.json"
-		download={{ name: ['unsc', 'rate-change'], table: breaksTable }}
-	>
-		{#snippet reading()}
-			<p>
-				Each row compares the best split into two rates with a constant-rate model. {#if data.breaks.inference.null === 'meeting_block_permutation'}The
-					first p-value accounts for speeches grouped within meetings; the second assumes
-					independent speeches.{:else}The p-value assumes independent speeches.{/if} Smaller p-values
-				indicate stronger evidence against a constant rate under those assumptions.
-				<a href="{resolve('/methods')}#change-points">Test details</a>.
-			</p>
-		{/snippet}
-		{#snippet caveat()}
-			<p>
-				Each side must contain at least {data.breaks.parameters.min_size} periods. A split is accepted
-				below {percent(data.breaks.inference.per_test_alpha)} ({data.breaks.inference.correction}).
-				This identifies a statistical contrast between periods, not its historical cause. An
-				unaccepted split does not establish that usage was constant.
-			</p>
-		{/snippet}
-
-		<table>
-			<thead>
-				<tr>
-					<th>Unit</th>
-					<th>Partition</th>
-					<th class="num">Earlier</th>
-					<th class="num">Later</th>
-					<th class="num">Ratio</th>
-					<th class="num">p, meetings moved</th>
-					<th class="num">p, speeches independent</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each Object.entries(genocideInference) as [name, result] (name)}
-					{#if !result}
-						<tr class="none">
-							<td>{UNITS.find((u) => u.id === name)?.label ?? name}</td>
-							<td colspan="6">no split improves on one steady rate</td>
-						</tr>
-					{:else}
-						<tr class:none={!result.accepted}>
-							<td>{UNITS.find((u) => u.id === name)?.label ?? name}</td>
-							<td>
-								{#if result.accepted}<strong>{result.label}</strong>{:else}{result.label}
-									<span class="verdict">best split; not accepted</span>{/if}
-							</td>
-							<td class="num"
-								>{name === 'speech_rate'
-									? percent(result.before)
-									: decimal(result.before * 100000)}</td
-							>
-							<td class="num"
-								>{name === 'speech_rate'
-									? percent(result.after)
-									: decimal(result.after * 100000)}</td
-							>
-							<!-- The ratio is set in ink whichever way it points. A rise in
-							     genocide vocabulary is not a good or a bad thing, and painting it
-							     red-up / green-down asked the reader to hear a verdict the study
-							     does not make; the sign is carried by the number itself. -->
-							<td class="num">{result.ratio == null ? '—' : `${decimal(result.ratio)}×`}</td>
-							<td class="num"><strong>{result.p_value.toFixed(4)}</strong></td>
-							<td class="num">{result.p_value_independent.toFixed(4)}</td>
-						</tr>
-					{/if}
-				{/each}
-			</tbody>
-		</table>
-		<details class="data-table">
-			<summary><Icon icon={ChevronRight} />View the second, exploratory change-point method</summary
-			>
-			<p>{data.breaks.caveat}</p>
-			<table>
-				<thead><tr><th>Unit</th><th>Candidate year</th><th class="num">Diagnostic p</th></tr></thead
-				>
-				<tbody
-					>{#each Object.entries(genocideBreaks) as [name, breaks] (name)}{#each breaks as item (item.index)}<tr
-								><td>{UNITS.find((unit) => unit.id === name)?.label ?? name}</td><td
-									>{item.label}</td
-								><td class="num">{item.p_value.toFixed(4)}</td></tr
-							>{/each}{/each}</tbody
-				>
-			</table>
-		</details>
 	</Figure>
 
 	<Figure
@@ -1763,6 +1790,24 @@
 		background: var(--paper-sunk);
 	}
 
+	/* A term chip's key is a sample of its line — hue, dash and marker — drawn
+	   as the chart draws it, so the swatch square gives way to it. On a pressed
+	   chip the sample keeps a ground of paper, as the square kept a paper
+	   outline, or an ink line would vanish into the ink fill. */
+	.chip.term::before {
+		content: none;
+	}
+
+	.glyph {
+		flex: none;
+		display: block;
+	}
+
+	.chip.term.on .glyph {
+		background: var(--paper);
+		outline: var(--hair) solid var(--paper);
+	}
+
 	.chip.on {
 		background: var(--ink);
 		border-color: var(--ink);
@@ -1823,9 +1868,17 @@
 	   across half the row read as a selected row rather than as a length. */
 	.calendar tbody tr {
 		/* The zebra stripe `app.css` puts on every other row is switched off: the
-		   bar is translucent, so a stripe behind it would draw the same length in
-		   two different colours down the column. */
+		   bar is drawn in the sunk stock, so a stripe behind it would hide the
+		   bar on every other row. */
 		background-color: transparent;
+	}
+
+	/* The bar lives in the cell whose number it draws. It used to run under the
+	   whole row, six columns of month, counts, rate, the rate without the peak
+	   years and an agenda item, and nothing said which of them it measured
+	   (review of 19 September 2026). Behind the rate it needs no key: its
+	   length is that rate against the highest month's. */
+	.calendar td.rate {
 		background-image: linear-gradient(
 			to right,
 			var(--paper-sunk) 0 calc(var(--w, 0%) - 1px),
