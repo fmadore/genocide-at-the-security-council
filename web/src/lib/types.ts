@@ -3,7 +3,16 @@
  *
  * These are hand-kept in step with `scripts/`, and the file names below say
  * which script owns each one. If a field here is wrong the failure is a blank
- * chart, not an error, so keep the two in sync deliberately.
+ * chart, not an error, so `types.contract.test.ts` holds every interface an
+ * accessor in `data.ts` fetches to the committed skeleton in
+ * `tests/contract/payload.json`: a field declared here must be written there,
+ * under the same name, on every row unless it is declared optional, and in a
+ * kind the declaration accepts. The skeleton is the schema; the reasons stay
+ * here, where they were written.
+ *
+ * A field the skeleton cannot show — one the pipeline writes only for a case
+ * the current data does not hold — carries an `@uncontracted` tag saying so,
+ * and the test refuses the tag the day the skeleton starts carrying the field.
  */
 
 export interface BaseMeta {
@@ -59,9 +68,15 @@ export interface Measure {
 	 * per active term, and a derived measure "has no pattern, enumerates no
 	 * occurrence and appears in no concordance". Its lines are its minuend's,
 	 * which is what `heatmap.termsOf` and `actors.occurrences` resolve through.
+	 *
+	 * @uncontracted Written only on a derived measure, and the lexicon declares none since v7.
 	 */
 	derived_from?: string;
-	/** What is taken out of `derived_from`. Those spans are in the minuend's lines. */
+	/**
+	 * What is taken out of `derived_from`. Those spans are in the minuend's lines.
+	 *
+	 * @uncontracted Written only on a derived measure, and the lexicon declares none since v7.
+	 */
 	derived_minus?: string[];
 }
 
@@ -108,11 +123,14 @@ export interface MonthlyMeasure {
 	token_rate?: (number | null)[];
 	tier?: string;
 	register?: string;
-	/** See `Measure.derived_from`. The chronology's grid resolves its links through it. */
+	/**
+	 * See `Measure.derived_from`. The chronology's grid resolves its links through it.
+	 *
+	 * @uncontracted Written only on a derived measure, and the lexicon declares none since v7.
+	 */
 	derived_from?: string;
+	/** @uncontracted Written only on a derived measure, and the lexicon declares none since v7. */
 	derived_minus?: string[];
-	terms?: string[];
-	members?: string[];
 }
 
 /** One agenda item behind a calendar month's term-bearing speeches. */
@@ -137,8 +155,13 @@ export interface CalendarMeasure extends CalendarReading {
 	kind: 'terms';
 	tier?: string;
 	register?: string;
-	/** See `Measure.derived_from`. */
+	/**
+	 * See `Measure.derived_from`.
+	 *
+	 * @uncontracted Written only on a derived measure, and the lexicon declares none since v7.
+	 */
 	derived_from?: string;
+	/** @uncontracted Written only on a derived measure, and the lexicon declares none since v7. */
 	derived_minus?: string[];
 	/** The same twelve figures with the artefact's control years dropped. */
 	excluding: CalendarReading;
@@ -465,7 +488,15 @@ export interface Meeting {
 	date: string;
 	year: number;
 	topic: string;
-	region: string;
+	/**
+	 * The region of the first speech's agenda item, or null where the source
+	 * leaves it blank: 46 of the 9,464 records as built on 8 October 2026.
+	 *
+	 * The contract samples one record, and that one has a region, so the null
+	 * shows in the skeleton only through `MeetingSummary.region`, which is the
+	 * same value copied into the index.
+	 */
+	region: string | null;
 	agenda: string;
 	scope_counts: Record<'word' | 'vocabulary' | 'debate', number>;
 	delegations: MeetingDelegation[];
@@ -495,7 +526,8 @@ export interface MeetingSummary {
 	date: string;
 	year: number;
 	topic: string;
-	region: string;
+	/** Null where the record's is: see `Meeting.region`. */
+	region: string | null;
 	agenda: string;
 	speeches: number;
 	delegations: number;
@@ -607,8 +639,13 @@ export interface CountryMeasure {
 	kind: 'terms';
 	tier?: string;
 	register?: string;
-	/** See `Measure.derived_from`. The actor table resolves its links through it. */
+	/**
+	 * See `Measure.derived_from`. The actor table resolves its links through it.
+	 *
+	 * @uncontracted Written only on a derived measure, and the lexicon declares none since v7.
+	 */
 	derived_from?: string;
+	/** @uncontracted Written only on a derived measure, and the lexicon declares none since v7. */
 	derived_minus?: string[];
 	rows: CountryMeasureRow[];
 }

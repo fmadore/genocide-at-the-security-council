@@ -449,7 +449,7 @@
 					<p class="meta">
 						{isoDate(record.date)} · {count(record.speeches.length)} speeches · agenda item
 						<strong>{record.agenda}</strong>
-						({record.region})
+						{#if record.region}({record.region}){/if}
 					</p>
 				</div>
 				<p class="jump">

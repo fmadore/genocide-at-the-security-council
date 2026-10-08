@@ -18,6 +18,9 @@
  * built payloads in `data.test.ts`, which is the right place for them: they are
  * about what the interface may honestly draw, not about what the pipeline
  * emits.
+ *
+ * What `types.ts` *declares*, as against what `data.ts` requires, is held to
+ * the same skeleton field by field in `types.contract.test.ts`.
  */
 
 import { describe, expect, it } from 'vitest';
