@@ -13,8 +13,8 @@
 		occurrenceOf,
 		speechOf
 	} from '$lib/data';
-	import { concordanceParams, filterConcordance, readConcordanceState } from '$lib/concordance';
-	import { readScope, speechInScope, withScope } from '$lib/scope';
+	import { concordanceQuery, filterConcordance, readConcordanceState } from '$lib/concordance';
+	import { readScope, speechInScope } from '$lib/scope';
 	import { occurrenceItem, speechItem } from '$lib/basket';
 	import { basket } from '$lib/basket.svelte';
 	import { citationOf, occurrenceQuotation, toBibtex, toCslJson, toRis } from '$lib/citation';
@@ -376,10 +376,7 @@
 	 * return trip lands on the list the reader left.
 	 */
 	const concordanceHref = $derived.by(() => {
-		const search = withScope(
-			concordanceParams(readConcordanceState(page.url.searchParams)),
-			scope
-		).toString();
+		const search = concordanceQuery(page.url.searchParams).toString();
 		return `${resolve('/concordance')}${search ? `?${search}` : ''}`;
 	});
 	const saysTheWord = $derived((record?.speeches ?? []).some((s) => 'genocide' in s.hits));

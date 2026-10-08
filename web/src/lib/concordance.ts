@@ -36,6 +36,7 @@
 
 import { speechOf } from './data';
 import { MONTH_NAMES, shortCountry } from './format';
+import { readScope, withScope } from './scope';
 import type { KwicLine } from './types';
 
 /** The query parameter this module owns. */
@@ -500,4 +501,172 @@ export function chronologyEscape(term: string): EvidenceQuery {
 		query: new URLSearchParams({ series: term }).toString(),
 		scope: 'every speech, the whole corpus, with the filters here left behind'
 	};
+}
+
+/* --- The concordance's history, its narrowings and its cut ends -------------
+   Decisions the route used to make inline, moved here at the boundary where
+   they sit (RV31, review of 24 September 2026): what a change does to the
+   history, which narrowings are in force and what clearing one leaves, and
+   whether a context's hits are all out of sight. The route keeps the controls
+   and the measuring; what it does with a measurement is decided here. */
+
+/**
+ * The concordance's own query, with the reading set beside it, read back out
+ * of any URL that carries it.
+ *
+ * Read and re-written rather than copied, so two addresses that mean the same
+ * concordance compare equal however their parameters were ordered, and a
+ * reader URL — which carries the same state plus the speech and occurrence —
+ * gives back exactly the concordance it was opened from.
+ */
+export function concordanceQuery(params: URLSearchParams): URLSearchParams {
+	return withScope(concordanceParams(readConcordanceState(params)), readScope(params));
+}
+
+/** What a change of state does to the browser's history. */
+export type HistoryStep = 'none' | 'replace' | 'push';
+
+/**
+ * Push, replace, or leave the history alone.
+ *
+ * Every change used to replace the entry it was on. Back therefore left the
+ * concordance altogether, and "Reset filters" wiped nine narrowings with no
+ * way to get them back (review of 19 September 2026). A narrowing — a speaker,
+ * an agenda item, the years, a sort, a reset — now pushes an entry of its own.
+ * Typing in the search box still replaces: a query is refined a few letters at
+ * a time, and one entry per pause would make Back step through spellings. So
+ * the replace needs both facts — that the box settled, and that the query is
+ * all that changed — because a reset or a chip can clear the search too, and
+ * those are steps a reader may want to undo. The first write after the page
+ * loads replaces as well: it only puts an address the reader already followed
+ * into canonical form.
+ */
+export function historyStep(
+	next: URLSearchParams,
+	current: URLSearchParams,
+	how: { first: boolean; typing: boolean }
+): HistoryStep {
+	if (next.toString() === current.toString()) return 'none';
+	if (how.first) return 'replace';
+	const onlyQuery = [...new Set([...next.keys(), ...current.keys()])].every(
+		(key) => key === 'q' || next.get(key) === current.get(key)
+	);
+	return how.typing && onlyQuery ? 'replace' : 'push';
+}
+
+/** A narrowing a reader can see and clear. The sort is not one: it removes no line. */
+export type FilterKey =
+	'q' | 'group' | 'country' | 'type' | 'agenda' | 'spv' | 'referent' | 'years' | 'month';
+
+export interface FilterChip {
+	key: FilterKey;
+	/** The control's own name, so the chip reads as the control it undoes. */
+	label: string;
+	value: string;
+	/** Set in the typewriter face: a meeting symbol is a citation. */
+	symbol?: boolean;
+}
+
+/**
+ * Every narrowing in force, in the order the controls stand.
+ *
+ * Only the meeting filter used to have a chip; the other eight lived as
+ * whatever a select happened to show, scattered along a wrapping bar, and a
+ * reader arriving from a chart's link could not tell what had been applied to
+ * the lines in front of them (review of 19 September 2026). The two lookups are
+ * the route's, because the labels they need are loaded there.
+ */
+export function filtersInForce(
+	state: ConcordanceState,
+	names: { meeting: (spv: string) => string; referent: (id: string) => string }
+): FilterChip[] {
+	const chips: FilterChip[] = [];
+	if (state.query) {
+		chips.push({
+			key: 'q',
+			label: 'Search',
+			value: `${state.query}${state.regex ? ' (regex)' : ''}`
+		});
+	}
+	if (state.group) chips.push({ key: 'group', label: 'Speaker group', value: state.group });
+	if (state.country) {
+		chips.push({ key: 'country', label: 'Speaker', value: shortCountry(state.country) });
+	}
+	if (state.participantType) {
+		chips.push({ key: 'type', label: 'Participant type', value: state.participantType });
+	}
+	if (state.agenda) chips.push({ key: 'agenda', label: 'Agenda item', value: state.agenda });
+	if (state.spv) {
+		chips.push({ key: 'spv', label: 'Meeting', value: names.meeting(state.spv), symbol: true });
+	}
+	if (state.referent) {
+		chips.push({
+			key: 'referent',
+			label: 'Case or concept',
+			value: names.referent(state.referent)
+		});
+	}
+	if (state.from !== CONCORDANCE_DEFAULTS.from || state.to !== CONCORDANCE_DEFAULTS.to) {
+		chips.push({
+			key: 'years',
+			label: 'Years',
+			value: state.from === state.to ? String(state.from) : `${state.from}–${state.to}`
+		});
+	}
+	if (state.month !== null) {
+		chips.push({
+			key: 'month',
+			label: 'Month',
+			value: monthName(state.month) ?? String(state.month)
+		});
+	}
+	return chips;
+}
+
+/** The state with one narrowing cleared and everything else as it was. */
+export function clearFilter(state: ConcordanceState, key: FilterKey): ConcordanceState {
+	switch (key) {
+		case 'q':
+			// The pattern switch belongs to the search it qualifies.
+			return { ...state, query: '', regex: false };
+		case 'group':
+			return { ...state, group: '' };
+		case 'country':
+			return { ...state, country: '' };
+		case 'type':
+			return { ...state, participantType: '' };
+		case 'agenda':
+			return { ...state, agenda: '' };
+		case 'spv':
+			return { ...state, spv: '' };
+		case 'referent':
+			return { ...state, referent: '' };
+		case 'years':
+			return { ...state, from: CONCORDANCE_DEFAULTS.from, to: CONCORDANCE_DEFAULTS.to };
+		case 'month':
+			return { ...state, month: null };
+	}
+}
+
+/** A box along the line, in viewport pixels. */
+interface Span {
+	left: number;
+	right: number;
+}
+
+/**
+ * Whether every search hit in a context lies past the edge of its box.
+ *
+ * A context is loaded at the full width the index declares and drawn at what
+ * the column allows: 87 to 90 characters a side on a wide screen, 20 on a
+ * phone. Search reads the whole of it, so on a search for "Rwanda" 14 of 60
+ * rows matched on a word the reader could not see (review of 19 September
+ * 2026). A context with no hits is never "beyond". The slack is the ellipsis,
+ * which takes the last few pixels of the box and hides what is under it.
+ */
+export function hitsBeyond(box: Span, hits: readonly Span[], slack = 8): boolean {
+	return (
+		hits.length > 0 &&
+		hits.every((hit) => hit.right <= box.left + slack || hit.left >= box.right - slack)
+	);
 }

@@ -26,9 +26,19 @@
 		profileResult,
 		readConcordanceState,
 		readerQuery,
-		yearClick
+		yearClick,
+		clearFilter,
+		concordanceQuery,
+		filtersInForce,
+		historyStep,
+		hitsBeyond
 	} from '$lib/concordance';
-	import type { ConcordanceSort, FacetDimension } from '$lib/concordance';
+	import type {
+		ConcordanceSort,
+		ConcordanceState,
+		FacetDimension,
+		FilterKey
+	} from '$lib/concordance';
 	import { USAGE_TERM } from '$lib/usage';
 	import ResultProfile from '$lib/ResultProfile.svelte';
 	import { kwic, meetingOf, usage, usageOccurrences } from '$lib/data';
@@ -163,7 +173,7 @@
 	const loaded = $derived(!loading && !failure && file !== null);
 
 	/** Put a state read from a URL into the controls, all at once. */
-	function apply(state: ReturnType<typeof readConcordanceState>) {
+	function apply(state: ConcordanceState) {
 		term = state.term;
 		query = searched = state.query;
 		group = state.group;
@@ -264,16 +274,8 @@
 
 	/**
 	 * Keep the URL in step, so any view of the concordance is citable — and so
-	 * that Back undoes a narrowing.
-	 *
-	 * Every change used to replace the entry it was on. Back therefore left the
-	 * concordance altogether, and "Reset filters" wiped nine narrowings with no
-	 * way to get them back (review of 19 September 2026). A narrowing — a
-	 * speaker, an agenda item, the years, a sort, a reset — now pushes an entry
-	 * of its own. Typing in the search box still replaces: a query is refined a
-	 * few letters at a time, and one entry per pause would make Back step
-	 * through spellings. The first write after the page loads replaces too: it
-	 * only puts an address the reader already followed into canonical form.
+	 * that Back undoes a narrowing. Whether a change pushes an entry or replaces
+	 * one is `historyStep`'s decision; this effect only supplies the facts.
 	 */
 	let written = false;
 	$effect(() => {
@@ -283,53 +285,32 @@
 		   from its own controls would silently drop the reader's reading set on
 		   the next keystroke. */
 		const next = withScope(concordanceParams(currentState()), scope);
-		const here = new URLSearchParams(location.search);
-		const current = withScope(concordanceParams(readConcordanceState(here)), readScope(here));
-		const first = !written;
-		const fromBox = settling;
+		const current = concordanceQuery(new URLSearchParams(location.search));
+		const step = historyStep(next, current, { first: !written, typing: settling });
 		written = true;
 		settling = false;
-		if (next.toString() === current.toString()) return;
-		const typed =
-			fromBox &&
-			[...new Set([...next.keys(), ...current.keys()])].every(
-				(key) => key === 'q' || next.get(key) === current.get(key)
-			);
+		if (step === 'none') return;
 		const search = next.toString();
 		const url = `${page.url.pathname}${search ? `?${search}` : ''}`;
-		if (first || typed) replaceState(url, page.state);
-		else pushState(url, page.state);
+		if (step === 'push') pushState(url, page.state);
+		else replaceState(url, page.state);
 	});
 
 	const lines = $derived(file?.lines ?? []);
 
 	/**
-	 * Which contexts hold the reader's search term only where the line is cut.
-	 *
-	 * A context is loaded at the full width the index declares and drawn at
-	 * whatever the column allows: 87 to 90 characters a side on a wide screen,
-	 * 20 on a phone. Search reads the whole of it, so on a search for "Rwanda"
-	 * 14 of 60 rows matched on a word the reader could not see (review of 19
-	 * September 2026). Those contexts are marked, and the clipped end carries the
-	 * hit's own rule, so a row that matched is never a row that seems not to.
+	 * Which contexts hold the reader's search term only where the line is cut,
+	 * measured here and judged by `hitsBeyond`. Those contexts are marked, and
+	 * the clipped end carries the hit's own rule, so a row that matched is never
+	 * a row that seems not to.
 	 */
 	let kwicList = $state.raw<HTMLElement>();
 
 	function markClipped() {
 		if (!kwicList) return;
 		for (const side of kwicList.querySelectorAll<HTMLElement>('.left, .right')) {
-			const hits = side.querySelectorAll('mark.hit');
-			let beyond = false;
-			if (hits.length) {
-				const box = side.getBoundingClientRect();
-				// A few pixels of slack: the ellipsis takes the last of the box.
-				const slack = 8;
-				beyond = [...hits].every((hit) => {
-					const r = hit.getBoundingClientRect();
-					return r.right <= box.left + slack || r.left >= box.right - slack;
-				});
-			}
-			side.classList.toggle('hit-beyond', beyond);
+			const hits = [...side.querySelectorAll('mark.hit')].map((hit) => hit.getBoundingClientRect());
+			side.classList.toggle('hit-beyond', hitsBeyond(side.getBoundingClientRect(), hits));
 		}
 	}
 
@@ -503,80 +484,17 @@
 		};
 	}
 
-	interface InForce {
-		key: string;
-		label: string;
-		value: string;
-		symbol?: boolean;
-		clear: () => void;
-	}
+	/** Every narrowing in force, as a chip that clears it alone: `filtersInForce`. */
+	const inForce = $derived(
+		filtersInForce(currentState(), {
+			meeting: meetingLabel,
+			referent: (id) => referentLabels.get(id) ?? termLabel(id)
+		})
+	);
 
-	/**
-	 * Every narrowing in force, as something the reader can see and undo.
-	 *
-	 * Only the meeting filter used to have a chip; the other eight lived as
-	 * whatever a select happened to show, scattered along a wrapping bar, and a
-	 * reader arriving from a chart's link could not tell what had been applied
-	 * to the lines in front of them (review of 19 September 2026). Each chip
-	 * names its control and clears that narrowing alone; the sort is not one,
-	 * because it reorders without removing a line.
-	 */
-	const inForce = $derived.by(() => {
-		const chips: (InForce | false | '')[] = [
-			searched && {
-				key: 'q',
-				label: 'Search',
-				value: `${searched}${regex ? ' (regex)' : ''}`,
-				clear: () => {
-					query = searched = '';
-					regex = false;
-				}
-			},
-			group && { key: 'group', label: 'Speaker group', value: group, clear: () => (group = '') },
-			country && {
-				key: 'country',
-				label: 'Speaker',
-				value: shortCountry(country),
-				clear: () => (country = '')
-			},
-			participantType && {
-				key: 'type',
-				label: 'Participant type',
-				value: participantType,
-				clear: () => (participantType = '')
-			},
-			agenda && { key: 'agenda', label: 'Agenda item', value: agenda, clear: () => (agenda = '') },
-			spv && {
-				key: 'spv',
-				label: 'Meeting',
-				value: meetingLabel(spv),
-				symbol: true,
-				clear: () => (spv = '')
-			},
-			referent && {
-				key: 'referent',
-				label: 'Case or concept',
-				value: referentLabels.get(referent) ?? termLabel(referent),
-				clear: () => (referent = '')
-			},
-			(from !== CORPUS_START_YEAR || to !== CORPUS_END_YEAR) && {
-				key: 'years',
-				label: 'Years',
-				value: from === to ? String(from) : `${from}–${to}`,
-				clear: () => {
-					from = CONCORDANCE_DEFAULTS.from;
-					to = CONCORDANCE_DEFAULTS.to;
-				}
-			},
-			month !== null && {
-				key: 'month',
-				label: 'Month',
-				value: MONTH_NAMES[month - 1] ?? String(month),
-				clear: () => (month = null)
-			}
-		];
-		return chips.filter((chip): chip is InForce => Boolean(chip));
-	});
+	function clear(key: FilterKey) {
+		apply(clearFilter(currentState(), key));
+	}
 
 	/** What the reader actually narrowed by, for the file's own record. */
 	const applied = () =>
@@ -785,7 +703,7 @@
 			<ul class="in-force" aria-label="Filters in force">
 				{#each inForce as chip (chip.key)}
 					<li>
-						<button type="button" class="chip" onclick={chip.clear}>
+						<button type="button" class="chip" onclick={() => clear(chip.key)}>
 							<span class="chip-label">{chip.label}</span>
 							<span class="chip-value" class:symbol={chip.symbol}>{chip.value}</span>
 							<Icon icon={X} />

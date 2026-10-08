@@ -15,12 +15,17 @@ import {
 	CONCORDANCE_DEFAULTS,
 	cellQuery,
 	chronologyEscape,
+	clearFilter,
 	concordanceParams,
+	concordanceQuery,
 	describeMonth,
 	describeSort,
 	evidenceTerm,
 	facetClick,
 	filterConcordance,
+	filtersInForce,
+	historyStep,
+	hitsBeyond,
 	inMonth,
 	monthName,
 	monthOf,
@@ -525,5 +530,132 @@ describe('the term a measure opens', () => {
 	// name with nothing published under it is not a measure to invent a term for.
 	it('names the measure itself when the artefact says nothing about it', () => {
 		expect(evidenceTerm('genocide', undefined)).toBe('genocide');
+	});
+});
+
+describe('what a change does to the history', () => {
+	const at = (query: string) => new URLSearchParams(query);
+	const later = { first: false, typing: false };
+
+	it('leaves an unchanged address alone, however its parameters were ordered', () => {
+		const next = concordanceQuery(at('from=1994&to=1994&q=Rwanda'));
+		const current = concordanceQuery(at('q=Rwanda&to=1994&from=1994'));
+		expect(historyStep(next, current, later)).toBe('none');
+	});
+
+	it('pushes a narrowing, so Back undoes it', () => {
+		expect(historyStep(at('q=Rwanda&group=E10'), at('q=Rwanda'), later)).toBe('push');
+		expect(historyStep(at('q=Rwanda&sort=right'), at('q=Rwanda'), later)).toBe('push');
+	});
+
+	it('replaces when only the settled search box moved, so Back skips spellings', () => {
+		expect(historyStep(at('q=Rwandan'), at('q=Rwanda'), { first: false, typing: true })).toBe(
+			'replace'
+		);
+	});
+
+	it('pushes a reset or a cleared chip that empties the search, which typing did not do', () => {
+		// The diff alone is "only the query changed"; what decides is how.
+		expect(historyStep(at(''), at('q=Rwanda'), later)).toBe('push');
+	});
+
+	it('pushes when typing lands together with another narrowing', () => {
+		expect(
+			historyStep(at('q=Rwandan&country=France'), at('q=Rwanda'), { first: false, typing: true })
+		).toBe('push');
+	});
+
+	it('replaces on the first write, which only puts a followed address in canonical form', () => {
+		expect(
+			historyStep(at('q=Rwanda'), at('q=Rwanda&from=1946'), { first: true, typing: false })
+		).toBe('replace');
+	});
+
+	it('reads a reader URL back to the concordance it was opened from', () => {
+		const reader = at(
+			'term=genocide&q=warned&from=2014&to=2014&scope=debate&speech=SC07000-01-001&occurrence=SC07000-01-001%231'
+		);
+		expect(concordanceQuery(reader).toString()).toBe('q=warned&from=2014&to=2014&scope=debate');
+	});
+});
+
+describe('the narrowings in force', () => {
+	const names = {
+		meeting: (spv: string) => `S/PV.${spv}`,
+		referent: (id: string) => id.toUpperCase()
+	};
+	const state = {
+		...CONCORDANCE_DEFAULTS,
+		query: 'warned',
+		regex: true,
+		country: 'France',
+		spv: '7000',
+		referent: 'rwanda',
+		from: 2014,
+		to: 2014,
+		month: 6
+	};
+
+	it('names each one by its control, in the order the controls stand', () => {
+		expect(filtersInForce(state, names)).toEqual([
+			{ key: 'q', label: 'Search', value: 'warned (regex)' },
+			{ key: 'country', label: 'Speaker', value: 'France' },
+			{ key: 'spv', label: 'Meeting', value: 'S/PV.7000', symbol: true },
+			{ key: 'referent', label: 'Case or concept', value: 'RWANDA' },
+			{ key: 'years', label: 'Years', value: '2014' },
+			{ key: 'month', label: 'Month', value: 'June' }
+		]);
+	});
+
+	it('counts neither the defaults nor the sort as a narrowing', () => {
+		expect(filtersInForce({ ...CONCORDANCE_DEFAULTS, sort: 'right' }, names)).toEqual([]);
+		expect(
+			filtersInForce({ ...CONCORDANCE_DEFAULTS, from: 1990, to: 1999 }, names).map((c) => c.value)
+		).toEqual(['1990–1999']);
+	});
+
+	it('clears one and leaves the rest as they were', () => {
+		const cleared = clearFilter(state, 'years');
+		expect(cleared.from).toBe(CONCORDANCE_DEFAULTS.from);
+		expect(cleared.to).toBe(CONCORDANCE_DEFAULTS.to);
+		expect(filtersInForce(cleared, names).map((c) => c.key)).toEqual([
+			'q',
+			'country',
+			'spv',
+			'referent',
+			'month'
+		]);
+	});
+
+	it('takes the pattern switch away with the search it qualifies', () => {
+		const cleared = clearFilter(state, 'q');
+		expect(cleared.query).toBe('');
+		expect(cleared.regex).toBe(false);
+	});
+});
+
+describe('a search hit past the cut end of its context', () => {
+	const box = { left: 100, right: 400 };
+
+	it('is beyond when every hit lies outside the box', () => {
+		expect(hitsBeyond(box, [{ left: 10, right: 60 }])).toBe(true);
+		expect(hitsBeyond(box, [{ left: 420, right: 480 }])).toBe(true);
+	});
+
+	it('is not beyond when any hit shows', () => {
+		expect(
+			hitsBeyond(box, [
+				{ left: 10, right: 60 },
+				{ left: 200, right: 250 }
+			])
+		).toBe(false);
+	});
+
+	it('treats a hit under the ellipsis as hidden', () => {
+		expect(hitsBeyond(box, [{ left: 395, right: 450 }])).toBe(true);
+	});
+
+	it('is never beyond with no hits at all', () => {
+		expect(hitsBeyond(box, [])).toBe(false);
 	});
 });
