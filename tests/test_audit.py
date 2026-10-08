@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
 import json
 import re
 from pathlib import Path
@@ -15,15 +14,6 @@ from lib.paths import ROOT
 
 REFERENT_ID = re.compile(r"^[a-z0-9_]+$")
 REFERENT_KINDS = frozenset({"case", "historical", "meta", "reserved"})
-
-
-def _audit_step():
-    path = Path(__file__).resolve().parents[1] / "scripts" / "03_lexicon.py"
-    spec = importlib.util.spec_from_file_location("lexicon_step", path)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 def candidates() -> pd.DataFrame:
@@ -230,7 +220,7 @@ def test_pipeline_builds_three_distinct_frames_from_declared_patterns() -> None:
     )
     counts = lexicon.apply(bodies, lex)
 
-    sample = _audit_step().audit_sample(speeches, bodies, counts, lex, size=2, seed=12)
+    sample = audit.audit_sample(speeches, bodies, counts, lex, size=2, seed=12)
 
     assert set(sample["sampling_frame"]) == {
         audit.PROBABILITY,
@@ -281,7 +271,7 @@ def test_coverage_frame_grows_to_its_strata_rather_than_failing_the_step() -> No
     counts = lexicon.apply(bodies, lex)
 
     # Five strata (genocide in three decades, war in two) against a size of 2.
-    sample = _audit_step().audit_sample(speeches, bodies, counts, lex, size=2, seed=12)
+    sample = audit.audit_sample(speeches, bodies, counts, lex, size=2, seed=12)
 
     coverage = sample.loc[sample["sampling_frame"] == audit.COVERAGE]
     assert len(coverage) == 5

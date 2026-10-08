@@ -124,10 +124,10 @@ describe('membership inside one meeting record', () => {
 	const saysTheWord = hits.some((h) => 'genocide' in h);
 
 	it('agrees with the count the export published for the same record', () => {
-		// `meeting_scope_counts` in 09 counts a speech once however many terms it
-		// carries, and gives the whole record to the debate as soon as one speech
-		// says the word. The reader recomputes that from the offsets it has, so
-		// the two must not be able to disagree.
+		// `lib.scopes.meeting_scope_counts`, behind 09's export, counts a speech
+		// once however many terms it carries, and gives the whole record to the
+		// debate as soon as one speech says the word. The reader recomputes that
+		// from the offsets it has, so the two must not be able to disagree.
 		const under = (scope: (typeof SCOPE_IDS)[number]) =>
 			hits.filter((h) => speechInScope(h, scope, saysTheWord)).length;
 		expect(under('word')).toBe(1);

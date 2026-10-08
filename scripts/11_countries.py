@@ -52,60 +52,11 @@ from lib.paths import (
     write_note,
 )
 
-#: The measures this table carries. It held `atrocity_core` beside the derived
-#: measure until lexicon v5, and that union is the reason several of this step's
-#: careful absences exist: a set has no occurrence count, so the interface had
-#: to detect the withholding and drop a column, an ordering and a tooltip rather
-#: than read it through `?? 0`. The withholding machinery stays — R8's
-#: genocide-free corpus is a population with the same property — but no measure
-#: in this artefact is a roll-up over terms any more.
-#:
-#: One word-family count, also used by the chronology and concordance.
-TRACKED: list[tuple[str, str]] = [
-    ("terms", "genocide"),
-]
-
-#: The measure used for prevalence, withholding and reconciliation.
-HEADLINE = TRACKED[0][1]
-
-#: Columns read from the corpus. The whole table is 100 columns wide and 419 MB
-#: of it is speech text this step never looks at.
-COLUMNS = [
-    "row_id",
-    "year",
-    "country_org",
-    "meeting_symbol",
-    "words",
-    # Kept for the codebook assertion below, never divided by.
-    "tokens",
-    "entity_type",
-    "iso3",
-    "un_regional_group",
-    "speaker_group",
-    "lat",
-    "lon",
-    "source_state",
-    "source_un_org",
-    "source_igo",
-    "source_ngo",
-    "source_permanent_member",
-    "source_elected_member",
-]
-
-
-def measure_attributes(lex: lexicon.Lexicon, kind: str, name: str) -> dict[str, object]:
-    """Describe each measure and retain provenance for generic derived inputs."""
-    if name in lex.derived:
-        measure = lex.derived[name]
-        return {
-            "kind": kind,
-            "tier": measure.tier,
-            "register": measure.register,
-            "derived_from": measure.minuend,
-            "derived_minus": list(measure.subtrahends),
-        }
-    term = lex.terms[name]
-    return {"kind": kind, "tier": term.tier, "register": term.register}
+#: The tracked measures, the headline and the columns read live in `lib.actors`,
+#: beside the builders that aggregate and reconcile them.
+TRACKED = actors.TRACKED
+HEADLINE = actors.HEADLINE
+COLUMNS = actors.COLUMNS
 
 
 def load_corpus(minimum: int) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -161,58 +112,6 @@ def load_corpus(minimum: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     )
     console.info(f"minimum sample {minimum:,} speeches per speaker per period")
     return speeches, crosswalk
-
-
-def build_measures(
-    speeches: pd.DataFrame,
-    lex: lexicon.Lexicon,
-    slices: list[actors.Period],
-    minimum: int,
-) -> tuple[dict[str, object], dict[str, dict[str, pd.DataFrame]]]:
-    """Every measure over every period, reconciled before it is kept."""
-    payload: dict[str, object] = {}
-    computed: dict[str, dict[str, pd.DataFrame]] = {}
-
-    for kind, name in TRACKED:
-        has_column, count_column = series.columns_for(kind, name)
-        rows: list[dict[str, object]] = []
-        computed[name] = {}
-
-        for window in slices:
-            subset = speeches[window.mask(speeches["year"])]
-            frame = actors.by_country(subset, has_column, count_column)
-            if problems := actors.reconcile(
-                frame, subset, has_column, count_column, f"{name} / {window.key}"
-            ):
-                console.fail("the per-country aggregation does not reconcile", problems)
-            frame = actors.withhold_below(frame, minimum)
-            computed[name][window.key] = frame
-            rows += actors.as_rows(frame, window.key)
-
-        # The declared periods are asserted to partition the corpus before any of
-        # this runs, so the four slices must add back up to the whole-corpus row.
-        # Checking it here rather than trusting the assertion is cheap, and it is
-        # the one place a mis-set period boundary would show as a number.
-        if problems := actors.reconcile_periods(computed[name], slices):
-            console.fail(f"{name}: the period slices do not add up to the whole", problems)
-
-        payload[name] = {**measure_attributes(lex, kind, name), "rows": rows}
-        cleared = int(computed[name][actors.WHOLE]["sufficient"].sum())
-        console.info(
-            f"{name:22s} {len(rows):,} rows over {len(slices)} periods; "
-            f"{cleared} speakers clear the minimum over the whole corpus"
-        )
-
-    # The minimum governs a denominator, and a speaker's denominator does not
-    # depend on which vocabulary is counted in it. So every measure must blank
-    # the same rows; a rate shown for one and withheld for the other would look
-    # like a finding about the words.
-    if problems := actors.reconcile_withholding(computed):
-        console.fail("the measures do not agree about a denominator or a withholding", problems)
-    if len(computed) > 1:
-        console.info(f"the {len(computed)} measures withhold from the same speakers in every period")
-
-    return payload, computed
 
 
 def build_standing(
@@ -297,34 +196,6 @@ def build_standing(
         "rows": rows,
     }
     return payload, frames_by_period
-
-
-def build_periods(
-    speeches: pd.DataFrame, slices: list[actors.Period], computed: dict, minimum: int
-) -> list[dict[str, object]]:
-    """Corpus totals per slice, so no consumer has to hard-code a denominator."""
-    out = []
-    for window in slices:
-        subset = speeches[window.mask(speeches["year"])]
-        frame = computed[HEADLINE][window.key]
-        out.append(
-            {
-                **window.as_dict(),
-                "speeches": len(subset),
-                "words": int(subset["words"].sum()),
-                "speakers": int(subset["country_org"].nunique()),
-                "speakers_at_minimum": int(frame["sufficient"].sum()),
-                "speeches_at_minimum": int(frame.loc[frame["sufficient"], "held"].sum()),
-            }
-        )
-        window_min = out[-1]
-        console.info(
-            f"{window.key:10s} {window_min['speeches']:>7,} speeches  "
-            f"{window_min['speakers']:>3} speakers  "
-            f"{window_min['speakers_at_minimum']:>3} at or above {minimum} "
-            f"({window_min['speeches_at_minimum'] / max(len(subset), 1):.1%} of speeches)"
-        )
-    return out
 
 
 def build_note(
@@ -626,13 +497,13 @@ def run(minimum: int) -> None:
 
     console.step("Aggregating by speaker")
     slices = actors.periods(int(speeches["year"].min()), int(speeches["year"].max()))
-    measures, computed = build_measures(speeches, lex, slices, minimum)
+    measures, computed = actors.build_measures(speeches, lex, slices, minimum)
 
     console.step("Reading who held a seat")
     standing, standing_frames = build_standing(speeches, slices, computed)
 
     console.step("Summarising periods")
-    period_totals = build_periods(speeches, slices, computed, minimum)
+    period_totals = actors.build_periods(speeches, slices, computed, minimum)
 
     console.step("Describing speakers")
     try:

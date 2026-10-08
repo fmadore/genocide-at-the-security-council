@@ -1192,6 +1192,29 @@ def projection_agreement(
     }
 
 
+def projection_attributes(
+    sample: pd.DataFrame, nmf_labels: np.ndarray, embedding_labels: np.ndarray
+) -> dict[str, object]:
+    """The columns a neighbourhood in the projection is scored against.
+
+    Occasion first, because that is what the space is suspected of having
+    recovered; subject last, because the comparison between the two is the whole
+    point. `country_org` is here as well as `speaker` because it is the field 06
+    called "same speaker", and the two numbers have to be readable against each
+    other rather than against a footnote explaining that they measure different
+    things.
+    """
+    return {
+        "speaker": sample["speaker"],
+        "country_org": sample["country_org"],
+        "year": sample["year"],
+        "period": assign_period(sample["year"]),
+        "agenda_item_manual": sample["agenda_item_manual"],
+        "nmf_topic": nmf_labels,
+        "embedding_topic": embedding_labels,
+    }
+
+
 def projection_diagnostic(
     projected: np.ndarray,
     clustered: np.ndarray,

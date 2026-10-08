@@ -218,7 +218,8 @@ def measure(
     Such a series reports speeches and the speech rate; occurrences and the
     token rate come back empty rather than plausible-looking. It is the only
     thing on this site that reads over several terms at once, and it is
-    deliberately a population and not a measure — see `comparison_corpora`.
+    deliberately a population and not a measure — see
+    :func:`lib.scopes.comparison_corpora`.
     """
     aggregated = {"speeches": (has_column, "sum")}
     if count_column is not None:
@@ -428,6 +429,17 @@ def withhold_below(frame: pd.DataFrame, held: pd.Series, minimum: int) -> pd.Dat
         if column in out.columns:
             out.loc[~out["sufficient"], column] = np.nan
     return out
+
+
+def rates(values, digits: int) -> list[float | None]:
+    """A rate column as JSON.
+
+    A withheld rate is `null`, never `NaN`: `json.dumps` writes the latter
+    happily and no browser will parse it back. This is also the one place the
+    distinction between "withheld" and "zero" is preserved on the way out, which
+    is the whole argument for withholding in the first place.
+    """
+    return [None if pd.isna(v) else round(float(v), digits) for v in values]
 
 
 def breakdown(

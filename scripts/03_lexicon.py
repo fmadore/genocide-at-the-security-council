@@ -35,7 +35,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, audit, console, frames, lexicon, text
+from lib import artifacts, audit, console, frames, lexicon
 from lib.paths import (
     INTERIM,
     LEXICON,
@@ -56,98 +56,6 @@ AUDIT_COVERAGE = INTERIM / "lexicon_audit_coverage.csv"
 AUDIT_NEGATIVE = INTERIM / "lexicon_audit_negative.csv"
 AUDIT_ANNOTATIONS = ROOT / "annotations" / "lexicon" / "annotations.csv"
 AUDIT_REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
-
-
-def _period(year: int) -> str:
-    return f"{year // 10 * 10}s"
-
-
-def audit_sample(
-    speeches: pd.DataFrame,
-    bodies: pd.Series,
-    counts: pd.DataFrame,
-    lex: lexicon.Lexicon,
-    size: int,
-    seed: int,
-) -> pd.DataFrame:
-    """Separate probability, coverage and high-recall negative audit samples."""
-    rows: list[dict[str, object]] = []
-    years = speeches["year"].to_dict()
-
-    def append(term: lexicon.Term, index: object, body: str, start: int, end: int) -> None:
-        meta = speeches.loc[index]
-        left, keyword, right = text.window(body, start, end)
-        source_digest = audit.source_sha256(body)
-        occurrence = audit.occurrence_id(
-            str(meta["filename"]), term.name, start, end, keyword, source_digest
-        )
-        rows.append(
-            {
-                "occurrence_id": occurrence,
-                "schema_version": audit.SCHEMA_VERSION,
-                "lexicon_version": lex.version,
-                "unit": "occurrence",
-                "term": term.name,
-                "tier": term.tier,
-                "register": term.register,
-                "period": _period(int(years[index])),
-                "filename": meta["filename"],
-                "meeting_symbol": meta["meeting_symbol"],
-                "date": f"{meta['date']:%Y-%m-%d}",
-                "country_org": meta["country_org"],
-                "agenda": meta["agenda_item_manual"],
-                "start": start,
-                "end": end,
-                "source_sha256": source_digest,
-                "source_length": len(body),
-                "left": left,
-                "keyword": keyword,
-                "right": right,
-            }
-        )
-
-    for term in lex.active:
-        holders = counts.index[counts[f"{lexicon.HAS}{term.name}"]]
-        for index, body in bodies.loc[holders].items():
-            for start, end in term.spans(body):
-                append(term, index, body, start, end)
-    if not rows:
-        return pd.DataFrame()
-
-    occurrences = pd.DataFrame(rows)
-    probability = audit.probability_sample(occurrences, size, seed, audit.PROBABILITY)
-    # The coverage frame promises one occurrence per term and period, so its size
-    # is a property of the lexicon, not a setting: 22 terms fitted under 100, the
-    # 28 of v4 make 109 strata and the deploy of 2 September 2026 stopped here.
-    # Growing to the strata count keeps the promise; `coverage_sample` still
-    # refuses a size it cannot honour, for a caller that names one on purpose.
-    strata = occurrences.groupby(["term", "period"]).ngroups
-    coverage_size = max(size, strata)
-    if coverage_size > size:
-        console.info(
-            f"coverage sample grown from {size} to {coverage_size}: one occurrence per "
-            f"term and period is {strata} strata under lexicon v{lex.version}"
-        )
-    coverage = audit.coverage_sample(occurrences, coverage_size, seed + 1)
-
-    rows.clear()
-    for term in lex.disabled:
-        peers = [peer for peer in lex.active if peer.tier == term.tier]
-        for index, body in bodies.items():
-            matches = term.spans(body)
-            if not matches:
-                continue
-            peer_spans = [span for peer in peers for span in peer.spans(body)]
-            for start, end in matches:
-                overlaps = any(
-                    start < peer_end and peer_start < end
-                    for peer_start, peer_end in peer_spans
-                )
-                if not overlaps:
-                    append(term, index, body, start, end)
-    negatives = pd.DataFrame(rows, columns=occurrences.columns)
-    negative = audit.probability_sample(negatives, size, seed + 2, audit.NEGATIVE)
-    return pd.concat([probability, coverage, negative], ignore_index=True)
 
 
 def build_note(
@@ -298,7 +206,7 @@ def run(sample_size: int, seed: int, update_counts: bool = False) -> None:
             console.info(f"    {row['meeting_symbol']} {row['date']:%Y-%m-%d} {row['country_org']}")
 
     console.step("Drawing the precision sample")
-    sample = audit_sample(speeches, bodies, counts, lex, sample_size, seed)
+    sample = audit.audit_sample(speeches, bodies, counts, lex, sample_size, seed)
     AUDIT_CANDIDATES.parent.mkdir(parents=True, exist_ok=True)
     review = audit.write_outputs(
         sample,

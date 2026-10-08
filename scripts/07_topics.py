@@ -185,29 +185,6 @@ def neighbour_inspection() -> dict[str, object]:
     return {key: payload[key] for key in wanted if key in payload}
 
 
-def projection_attributes(
-    sample: pd.DataFrame, nmf_labels: np.ndarray, embedding_labels: np.ndarray
-) -> dict[str, object]:
-    """The columns a neighbourhood in the projection is scored against.
-
-    Occasion first, because that is what the space is suspected of having
-    recovered; subject last, because the comparison between the two is the whole
-    point. `country_org` is here as well as `speaker` because it is the field 06
-    called "same speaker", and the two numbers have to be readable against each
-    other rather than against a footnote explaining that they measure different
-    things.
-    """
-    return {
-        "speaker": sample["speaker"],
-        "country_org": sample["country_org"],
-        "year": sample["year"],
-        "period": topics.assign_period(sample["year"]),
-        "agenda_item_manual": sample["agenda_item_manual"],
-        "nmf_topic": nmf_labels,
-        "embedding_topic": embedding_labels,
-    }
-
-
 def build_figures(
     coordinates: np.ndarray, sample: pd.DataFrame, labels: np.ndarray
 ) -> list[tuple[str, bytes, dict[str, object]]]:
@@ -835,7 +812,7 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
     projection = topics.projection_diagnostic(
         coordinates,
         embedding_model.reduced,
-        projection_attributes(sample, nmf_model.labels, embedding_model.labels),
+        topics.projection_attributes(sample, nmf_model.labels, embedding_model.labels),
         seed=seed,
     )
     for name, block in projection["purity"].items():

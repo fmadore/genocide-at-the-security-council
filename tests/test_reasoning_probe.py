@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from lib import probes
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,7 +31,7 @@ def row(level: str, tokens: int, latency: float = 1.0) -> dict[str, object]:
 
 
 def test_a_varying_reasoning_ladder_passes_and_preserves_each_level() -> None:
-    result = probe.assess_ladder(
+    result = probes.assess_ladder(
         [row("low", 10), row("low", 20), row("high", 100), row("high", 120)],
         ["low", "high"],
     )
@@ -39,18 +40,18 @@ def test_a_varying_reasoning_ladder_passes_and_preserves_each_level() -> None:
 
 
 def test_a_flat_ladder_is_explicitly_refused() -> None:
-    result = probe.assess_ladder([row("low", 10), row("high", 10)], ["low", "high"])
+    result = probes.assess_ladder([row("low", 10), row("high", 10)], ["low", "high"])
     assert result["passed"] is False
 
 
 def test_a_missing_level_cannot_be_mistaken_for_a_ladder() -> None:
     with pytest.raises(ValueError, match="no observations for high"):
-        probe.assess_ladder([row("low", 10)], ["low", "high"])
+        probes.assess_ladder([row("low", 10)], ["low", "high"])
 
 
 @pytest.mark.parametrize("low,high", [(100, 0), (100, 50), (0, 0)])
 def test_reversed_or_empty_reasoning_cannot_pass(low, high):
-    assert not probe.assess_ladder([row("low", low), row("high", high)], ["low", "high"])["passed"]
+    assert not probes.assess_ladder([row("low", low), row("high", high)], ["low", "high"])["passed"]
 
 
 @pytest.mark.parametrize("changed", ["temperature", "top_p", "prompt", "referents", "speech", "runtime"])

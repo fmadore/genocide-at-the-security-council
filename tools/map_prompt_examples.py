@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from lib import artifacts, console, frames, lexicon, llm, model_runs, occurrences
 from lib.paths import SPEECHES_NORM, rel
 
-OUTPUT = model_runs.STORE / "prompt_examples.csv"
+OUTPUT = model_runs.PROMPT_EXAMPLES
 FIELDS = ["prompt_version", "example", "cited_as", "date", "filename", "line_id", "occurrence_id"]
 
 #: `1. Commemoration. UNSC_2014_SPV.7105_spch0017#3, Rwanda, 29 January 2014.`

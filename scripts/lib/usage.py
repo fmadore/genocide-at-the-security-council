@@ -364,6 +364,75 @@ def funnel(rows: pd.DataFrame) -> dict[str, int]:
     }
 
 
+# --- What produced the labels ------------------------------------------------
+
+
+def model_block(
+    manifest: dict[str, object],
+    run_id: str,
+    prompt_digest: str,
+    rows: pd.DataFrame,
+    total: int,
+) -> dict[str, object]:
+    """What produced these labels, and how much of the run is countable.
+
+    Counts that describe the artefact — how many occurrences carry a row, how
+    many abstained, how much evidence could not be located — are measured from
+    the rows rather than copied from the manifest, so they cannot drift from
+    what is actually published here. Counts that describe the *effort* — requests
+    made, tokens spent, speeches that failed to parse — only the run knows, and
+    they are read from its manifest.
+    """
+    stamp = str(manifest.get("completed") or manifest.get("created") or "")
+    tokens = manifest.get("usage") if isinstance(manifest.get("usage"), dict) else {}
+    requests = manifest.get("requests") if isinstance(manifest.get("requests"), dict) else {}
+    verdict = rows["verdict"].astype(str)
+    runtime = manifest.get("runtime")
+    if runtime is not None:
+        if not isinstance(runtime, dict):
+            raise ValueError("Run manifest runtime must be an object.")
+        if not str(runtime.get("model_revision", "")).strip():
+            raise ValueError("Self-hosted run manifest has no model_revision.")
+    block = {
+        "id": str(manifest.get("model", "")),
+        "run_id": run_id or str(manifest.get("run_id", "")),
+        "run_date": stamp[:10],
+        # A string, because it is an identifier rather than a quantity: nothing
+        # here adds prompt versions up or compares them as numbers.
+        "prompt_version": str(manifest.get("prompt_version", "")),
+        # Missing means v1: the first two committed runs predate the explicit
+        # field but carry the v1 list digest and identifiers.
+        "referents_version": str(manifest.get("referents_version", "") or "1"),
+        "prompt_sha256": prompt_digest,
+        "reasoning_effort": str(manifest.get("reasoning_effort", "")),
+        # `sent`, and `submitted` only where a manifest predates the recount.
+        # The old key counted intentions — the Gemini run recorded 7,966 over a
+        # corpus of 3,273 — and the view prints this figure as "Requests", so
+        # reading the old key first would publish the number the review found.
+        # `tools/recount_run.py` writes `sent`; a run whose raw record is gone
+        # keeps `submitted`, and `docs/VALIDATION.md` §7 says which are which.
+        "requests": int(requests.get("sent", requests.get("submitted", 0)) or 0),
+        "requests_recounted": "sent" in requests,
+        "occurrences_total": int(total),
+        "occurrences_annotated": len(rows),
+        "parse_failures": int(manifest.get("parse_failures", 0) or 0),
+        "evidence_invalid": int((~rows["evidence_valid"].map(bool)).sum()),
+        "abstention": {
+            "verdict_uncertain": int((verdict == "uncertain").sum()),
+            "referent_unclear": int((rows["referent"].astype(str) == "unclear").sum()),
+            "position_unclear": int((rows["speaker_position"].astype(str) == "unclear").sum()),
+        },
+        "tokens": {
+            "input": int(tokens.get("input_tokens", 0) or 0),
+            "output": int(tokens.get("output_tokens", 0) or 0),
+        },
+    }
+    if runtime is not None:
+        block["runtime"] = runtime
+        block["truncation_count"] = int(manifest.get("truncation_count", 0) or 0)
+    return block
+
+
 # --- The actor, referent and matrix blocks -----------------------------------
 
 

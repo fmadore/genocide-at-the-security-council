@@ -22,6 +22,9 @@ TERM = "genocide"
 STORE = MODEL_ANNOTATIONS / TERM
 PROMPT = STORE / "PROMPT.md"
 PROMPTS = STORE / "prompts"
+#: The occurrences behind the prompt's worked examples, which 13 keeps out of
+#: every gold frame; written by `tools/map_prompt_examples.py`.
+PROMPT_EXAMPLES = STORE / "prompt_examples.csv"
 RUNS = STORE / "runs"
 #: The run the dashboard publishes, the counter-instrument read against it,
 #: and the one run allowed to publish with a coverage gap. One run id each, or

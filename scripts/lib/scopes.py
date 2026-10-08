@@ -9,11 +9,17 @@ is what the chronology, the actors view and the concordance draw when a reader
 changes scope.  Each cut carries the population it came out of, so every rate
 the site publishes under a scope divides by the whole corpus and not by the
 reading set.
+
+The same predicates are applied here inside one meeting record, for 09's
+meeting export, and to R8's genocide-free comparison corpus, which 04 publishes
+beside the term series.
 """
 
 from __future__ import annotations
 
 import pandas as pd
+
+from . import series
 
 ATROCITY_TERMS = (
     "ethnic_cleansing",
@@ -34,6 +40,11 @@ SCOPE_DEFINITIONS = (
         "Every speech in a meeting where at least one speech contains a genocid* match.",
     ),
 )
+
+#: R8's comparison corpus. These are phrases with determinate legal meanings,
+#: not the broader convenience set in the lexicon. A speech enters once when it
+#: carries any member and leaves whenever it carries `genocid*` too.
+GENOCIDE_FREE_ATROCITY_TERMS = ATROCITY_TERMS
 
 
 def speech_masks(speeches: pd.DataFrame) -> dict[str, pd.Series]:
@@ -132,3 +143,107 @@ def summary(speeches: pd.DataFrame) -> list[dict[str, object]]:
             }
         )
     return rows
+
+
+def meeting_scope_counts(speeches: list[dict[str, object]]) -> dict[str, int]:
+    """R9 membership inside one meeting; the debate is all-or-nothing."""
+    word = sum("genocide" in speech["hits"] for speech in speeches)
+    vocabulary = sum(
+        bool({"genocide", *ATROCITY_TERMS} & set(speech["hits"]))
+        for speech in speeches
+    )
+    return {
+        "word": word,
+        "vocabulary": vocabulary,
+        "debate": len(speeches) if word else 0,
+    }
+
+
+def delegations(speeches: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Who sat in a meeting and which vocabulary each delegation used."""
+    grouped: dict[str, dict[str, object]] = {}
+    for speech in speeches:
+        country = str(speech["country"])
+        row = grouped.setdefault(
+            country,
+            {
+                "country": country,
+                "iso3": speech["iso3"],
+                "group": speech["group"],
+                "type": speech["type"],
+                "speeches": 0,
+                "terms": set(),
+            },
+        )
+        row["speeches"] = int(row["speeches"]) + 1
+        row["terms"].update(speech["hits"])
+    return [
+        {**row, "terms": sorted(row["terms"])}
+        for _, row in sorted(grouped.items(), key=lambda item: item[0].casefold())
+    ]
+
+
+def scope_payload(speeches: pd.DataFrame, meta: dict[str, object]) -> dict[str, object]:
+    """The small shared-layout artefact, kept out of the 3 MB meeting index.
+
+    It carries the two cuts the consuming views need — by year and by speaker —
+    because a scope that changes only a number beside a control is a control
+    nothing obeys, and fetching the meeting index to obey it would cost 3 MB on
+    every page.
+    """
+    return {
+        "meta": meta,
+        "corpus": {
+            "speeches": len(speeches),
+            "meetings": int(speeches["meeting_symbol"].nunique()),
+        },
+        "scopes": summary(speeches),
+        "years": by_year(speeches),
+        "delegations": by_delegation(speeches),
+    }
+
+
+def comparison_corpora(
+    speeches: pd.DataFrame,
+    periods: pd.Series,
+    totals: pd.DataFrame,
+    *,
+    minimum: int | None = None,
+) -> dict[str, dict[str, object]]:
+    """Named corpus slices whose membership is a reproducible row predicate.
+
+    This is deliberately not a set measure. It defines which speeches a later
+    analysis may read, and counts each qualifying speech once even when it uses
+    two or three member phrases. The member term series remain separate.
+    """
+    columns = [f"has_{term}" for term in GENOCIDE_FREE_ATROCITY_TERMS]
+    missing = sorted({"has_genocide", *columns} - set(speeches.columns))
+    if missing:
+        raise ValueError("Comparison corpus is missing columns: " + ", ".join(missing))
+    included = speeches[columns].fillna(False).astype(bool).any(axis=1)
+    has_genocide = speeches["has_genocide"].fillna(False).astype(bool)
+    working = speeches.assign(has_genocide_free_atrocity=included & ~has_genocide)
+    measured = series.measure(
+        working,
+        periods,
+        totals,
+        "has_genocide_free_atrocity",
+        None,
+    )
+    if minimum is not None:
+        measured = series.withhold_below(measured, totals["speeches"], minimum)
+    return {
+        "genocide_free_atrocity": {
+            "label": "Atrocity vocabulary without genocid*",
+            "definition": (
+                "Speeches using ethnic cleansing, crimes against humanity or war crimes "
+                "and containing no genocid* match."
+            ),
+            "members": list(GENOCIDE_FREE_ATROCITY_TERMS),
+            "excludes": ["genocide"],
+            "speeches": measured["speeches"].tolist(),
+            "speech_rate": series.rates(measured["speech_rate"], 6),
+            "speech_rate_low": series.rates(measured["speech_rate_low"], 6),
+            "speech_rate_high": series.rates(measured["speech_rate_high"], 6),
+        }
+    }

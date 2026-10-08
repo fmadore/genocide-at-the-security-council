@@ -11,7 +11,8 @@ from typing import Final
 
 import pandas as pd
 
-from . import artifacts
+from . import artifacts, console, lexicon
+from . import text as text_lib
 
 #: The annotation schema the human file and every new model run are coded
 #: against. Version 3 (2 September 2026) splits `stance` into `speaker_position`
@@ -492,6 +493,98 @@ def coverage_sample(
         .sort_values([*strata, "filename", "start"])
         .reset_index(drop=True)
     )
+
+
+def _period(year: int) -> str:
+    return f"{year // 10 * 10}s"
+
+
+def audit_sample(
+    speeches: pd.DataFrame,
+    bodies: pd.Series,
+    counts: pd.DataFrame,
+    lex: lexicon.Lexicon,
+    size: int,
+    seed: int,
+) -> pd.DataFrame:
+    """Separate probability, coverage and high-recall negative audit samples."""
+    rows: list[dict[str, object]] = []
+    years = speeches["year"].to_dict()
+
+    def append(term: lexicon.Term, index: object, body: str, start: int, end: int) -> None:
+        meta = speeches.loc[index]
+        left, keyword, right = text_lib.window(body, start, end)
+        source_digest = source_sha256(body)
+        occurrence = occurrence_id(
+            str(meta["filename"]), term.name, start, end, keyword, source_digest
+        )
+        rows.append(
+            {
+                "occurrence_id": occurrence,
+                "schema_version": SCHEMA_VERSION,
+                "lexicon_version": lex.version,
+                "unit": "occurrence",
+                "term": term.name,
+                "tier": term.tier,
+                "register": term.register,
+                "period": _period(int(years[index])),
+                "filename": meta["filename"],
+                "meeting_symbol": meta["meeting_symbol"],
+                "date": f"{meta['date']:%Y-%m-%d}",
+                "country_org": meta["country_org"],
+                "agenda": meta["agenda_item_manual"],
+                "start": start,
+                "end": end,
+                "source_sha256": source_digest,
+                "source_length": len(body),
+                "left": left,
+                "keyword": keyword,
+                "right": right,
+            }
+        )
+
+    for term in lex.active:
+        holders = counts.index[counts[f"{lexicon.HAS}{term.name}"]]
+        for index, body in bodies.loc[holders].items():
+            for start, end in term.spans(body):
+                append(term, index, body, start, end)
+    if not rows:
+        return pd.DataFrame()
+
+    occurrences = pd.DataFrame(rows)
+    probability = probability_sample(occurrences, size, seed, PROBABILITY)
+    # The coverage frame promises one occurrence per term and period, so its size
+    # is a property of the lexicon, not a setting: 22 terms fitted under 100, the
+    # 28 of v4 make 109 strata and the deploy of 2 September 2026 stopped here.
+    # Growing to the strata count keeps the promise; `coverage_sample` still
+    # refuses a size it cannot honour, for a caller that names one on purpose.
+    strata = occurrences.groupby(["term", "period"]).ngroups
+    coverage_size = max(size, strata)
+    if coverage_size > size:
+        console.info(
+            f"coverage sample grown from {size} to {coverage_size}: one occurrence per "
+            f"term and period is {strata} strata under lexicon v{lex.version}"
+        )
+    coverage = coverage_sample(occurrences, coverage_size, seed + 1)
+
+    rows.clear()
+    for term in lex.disabled:
+        peers = [peer for peer in lex.active if peer.tier == term.tier]
+        for index, body in bodies.items():
+            matches = term.spans(body)
+            if not matches:
+                continue
+            peer_spans = [span for peer in peers for span in peer.spans(body)]
+            for start, end in matches:
+                overlaps = any(
+                    start < peer_end and peer_start < end
+                    for peer_start, peer_end in peer_spans
+                )
+                if not overlaps:
+                    append(term, index, body, start, end)
+    negatives = pd.DataFrame(rows, columns=occurrences.columns)
+    negative = probability_sample(negatives, size, seed + 2, NEGATIVE)
+    return pd.concat([probability, coverage, negative], ignore_index=True)
 
 
 def read_annotations(path: Path) -> pd.DataFrame:
