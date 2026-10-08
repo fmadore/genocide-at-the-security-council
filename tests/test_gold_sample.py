@@ -8,19 +8,8 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from lib import audit, frames, lexicon, occurrences
-
-
-def _gold_step():
-    path = Path(__file__).resolve().parents[1] / "scripts" / "13_gold_sample.py"
-    spec = importlib.util.spec_from_file_location("gold_sample_step", path)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-gold = _gold_step()
+from lib import audit, frames, lexicon, model_runs, occurrences
+from lib import gold_sample as gold
 
 DENSE = "S/PV.7155"  # one of the seven meetings of docs/CORPUS.md §8.6
 ORDINARY = "S/PV.9999"
@@ -470,7 +459,7 @@ def test_the_packet_order_is_seeded_and_mixes_the_frames() -> None:
 
 
 def test_the_prompt_examples_are_the_committed_mapping() -> None:
-    mapping = pd.read_csv(gold.PROMPT_EXAMPLES, dtype="string", keep_default_na=False)
+    mapping = pd.read_csv(model_runs.PROMPT_EXAMPLES, dtype="string", keep_default_na=False)
     assert len(mapping) == 10 and mapping["occurrence_id"].is_unique
     assert set(mapping["example"]) == {str(number) for number in range(1, 11)}
 

@@ -1,8 +1,8 @@
 """The usage aggregation, checked on constructed rows.
 
 `15_usage.py` reads a run that needs a serving GPU and a corpus that CI does
-not have, so everything it decides lives in `lib.usage` and is asserted here
-against rows written by hand. Two kinds of assertion:
+not have, so everything it decides lives in `lib.usage` and `lib.usage_refusals`
+and is asserted here against rows written by hand. Two kinds of assertion:
 
 - **Recounts.** The aggregation is compared against a brute-force count of the
   same fabricated rows, written in plain loops. A groupby that agrees with a
@@ -15,41 +15,16 @@ against rows written by hand. Two kinds of assertion:
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import re
-import sys
 from pathlib import Path
 
 import pandas as pd
 import pytest
-from lib import audit, lexicon, llm, usage
+from lib import audit, lexicon, llm, usage, usage_refusals
 
 ROOT = Path(__file__).resolve().parents[1]
 
-
-def _step(name: str, module_name: str):
-    """Load a numbered script as a module. A script cannot be named `15_…`.
-
-    Registered in `sys.modules` before it is executed, and removed again if it
-    raises, for uniformity with the other step loaders in this suite: a step
-    that grows a frozen dataclass needs it — `dataclasses` resolves a field's
-    annotations through `sys.modules[cls.__module__]` — and one that does not
-    loses nothing by it.
-    """
-    spec = importlib.util.spec_from_file_location(module_name, ROOT / "scripts" / name)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    try:
-        spec.loader.exec_module(module)
-    except BaseException:
-        sys.modules.pop(module_name, None)
-        raise
-    return module
-
-
-step = _step("15_usage.py", "usage_step")
 
 # --- Fixtures ---------------------------------------------------------------
 
@@ -1240,12 +1215,12 @@ def test_a_self_hosted_model_block_publishes_and_requires_the_weights_revision()
         "runtime": runtime,
         "truncation_count": 2,
     }
-    block = step.model_block(manifest, "qwen-run", "f" * 64, rows({}), 7_747)
+    block = usage.model_block(manifest, "qwen-run", "f" * 64, rows({}), 7_747)
     assert block["runtime"] == runtime
     assert block["truncation_count"] == 2
 
     with pytest.raises(ValueError, match="model_revision"):
-        step.model_block(
+        usage.model_block(
             {**manifest, "runtime": {**runtime, "model_revision": ""}},
             "qwen-run",
             "f" * 64,
@@ -1364,8 +1339,8 @@ def lexicon_at(version: int, pattern_since: int) -> lexicon.Lexicon:
         version=version,
         updated="2026-09-01",
         terms={
-            step.TERM: lexicon.Term(
-                name=step.TERM,
+            usage_refusals.TERM: lexicon.Term(
+                name=usage_refusals.TERM,
                 pattern=pattern,
                 tier="core",
                 register="core",
@@ -1387,13 +1362,13 @@ def test_a_run_survives_a_bump_that_did_not_touch_its_term() -> None:
     enumerates what it did at v2, and the committed run is still about this
     corpus. Refusing it would force a paid re-run for nothing."""
     manifest, rows_ = run_at("2")
-    step.refuse_stale_lexicon(manifest, rows_, lexicon_at(3, pattern_since=2))
+    usage_refusals.refuse_stale_lexicon(manifest, rows_, lexicon_at(3, pattern_since=2))
 
 
 def test_a_run_older_than_the_terms_pattern_is_refused() -> None:
     manifest, rows_ = run_at("1")
     with pytest.raises(SystemExit):
-        step.refuse_stale_lexicon(manifest, rows_, lexicon_at(3, pattern_since=2))
+        usage_refusals.refuse_stale_lexicon(manifest, rows_, lexicon_at(3, pattern_since=2))
 
 
 def test_a_run_newer_than_the_lexicon_is_refused() -> None:
@@ -1401,19 +1376,19 @@ def test_a_run_newer_than_the_lexicon_is_refused() -> None:
     have; the checkout is behind the run, not the other way round."""
     manifest, rows_ = run_at("4")
     with pytest.raises(SystemExit):
-        step.refuse_stale_lexicon(manifest, rows_, lexicon_at(3, pattern_since=2))
+        usage_refusals.refuse_stale_lexicon(manifest, rows_, lexicon_at(3, pattern_since=2))
 
 
 def test_a_run_with_no_recorded_lexicon_version_is_refused() -> None:
     with pytest.raises(SystemExit):
-        step.refuse_stale_lexicon({}, [], lexicon_at(3, pattern_since=2))
+        usage_refusals.refuse_stale_lexicon({}, [], lexicon_at(3, pattern_since=2))
 
 
 def test_rows_are_checked_even_when_the_manifest_is_compatible() -> None:
     """The manifest is written once at the end of a run; the rows arrive as the
     run goes."""
     with pytest.raises(SystemExit):
-        step.refuse_stale_lexicon(
+        usage_refusals.refuse_stale_lexicon(
             {"lexicon_version": "2"},
             [{"lexicon_version": "2"}, {"lexicon_version": "1"}],
             lexicon_at(3, pattern_since=2),
@@ -1513,7 +1488,7 @@ def prompt_library_at(tmp_path: Path, monkeypatch) -> Path:
         encoding="utf-8",
         newline="",
     )
-    monkeypatch.setattr(step, "PROMPT", directory / "PROMPT.md")
+    monkeypatch.setattr(usage_refusals, "PROMPT", directory / "PROMPT.md")
     return directory / "PROMPT.md"
 
 
@@ -1544,7 +1519,7 @@ def test_the_paid_runs_and_a_v2_run_are_read_through_one_library(
     ]
     assert len(manifests) == 4, "the four committed runs of 30 and 31 August 2026"
     for manifest in manifests:
-        resolved = step.resolve_prompt(manifest)
+        resolved = usage_refusals.resolve_prompt(manifest)
         assert resolved.version == 1
         assert resolved.text == v1_text
         assert resolved.name == "prompts/v1.md"
@@ -1553,7 +1528,7 @@ def test_the_paid_runs_and_a_v2_run_are_read_through_one_library(
         "prompt_version": library.current.version,
         "prompt_sha256": library.current.sha256,
     }
-    resolved = step.resolve_prompt(synthetic)
+    resolved = usage_refusals.resolve_prompt(synthetic)
     assert resolved.version == library.current.version >= 2
     assert resolved.text == later_text
     assert resolved.name == "PROMPT.md"
@@ -1566,7 +1541,7 @@ def test_a_prompt_this_checkout_does_not_hold_is_refused_loudly(
     because the reader's next move is to find the file that is missing."""
     prompt_library_at(tmp_path, monkeypatch)
     with pytest.raises(SystemExit):
-        step.resolve_prompt({"prompt_version": 3, "prompt_sha256": "b" * 64})
+        usage_refusals.resolve_prompt({"prompt_version": 3, "prompt_sha256": "b" * 64})
     printed = capsys.readouterr()
     message = printed.out + printed.err
     assert "does not hold" in message
@@ -1579,7 +1554,7 @@ def test_a_version_line_the_bytes_contradict_is_a_provenance_failure(
     """The digest is what was measured; the version line is a claim about it."""
     current = prompt_library_at(tmp_path, monkeypatch)
     with pytest.raises(SystemExit):
-        step.resolve_prompt(
+        usage_refusals.resolve_prompt(
             {"prompt_version": 1, "prompt_sha256": llm.prompt_sha256(current)}
         )
 
@@ -1613,8 +1588,8 @@ def test_a_v1_run_using_a_renamed_referent_is_read_rather_than_refused(tmp_path)
     """
     referents = referents_at(tmp_path)
     rows = [{"referent": "rwanda_1994"}, {"referent": "hypothetical_future"}]
-    assert step.refuse_stale_referents({}, rows, referents) == 1
-    assert [row["referent"] for row in step.resolve_referents(rows, referents)] == [
+    assert usage_refusals.refuse_stale_referents({}, rows, referents) == 1
+    assert [row["referent"] for row in usage_refusals.resolve_referents(rows, referents)] == [
         "rwanda",
         "hypothetical_future",
     ]
@@ -1623,7 +1598,7 @@ def test_a_v1_run_using_a_renamed_referent_is_read_rather_than_refused(tmp_path)
 def test_a_run_that_used_a_referent_its_list_did_not_hold_yet_is_refused(tmp_path) -> None:
     referents = referents_at(tmp_path)
     with pytest.raises(SystemExit):
-        step.refuse_stale_referents(
+        usage_refusals.refuse_stale_referents(
             {"referents_version": "1"}, [{"referent": "syria"}], referents
         )
 
@@ -1633,7 +1608,7 @@ def test_a_run_that_used_a_referent_already_retired_is_refused(tmp_path) -> None
     disagree about which list the model was shown."""
     referents = referents_at(tmp_path)
     with pytest.raises(SystemExit):
-        step.refuse_stale_referents(
+        usage_refusals.refuse_stale_referents(
             {"referents_version": "2"}, [{"referent": "rwanda_1994"}], referents
         )
 
@@ -1641,7 +1616,7 @@ def test_a_run_that_used_a_referent_already_retired_is_refused(tmp_path) -> None
 def test_a_run_newer_than_the_referent_list_is_refused(tmp_path) -> None:
     referents = referents_at(tmp_path)
     with pytest.raises(SystemExit):
-        step.refuse_stale_referents(
+        usage_refusals.refuse_stale_referents(
             {"referents_version": "3"}, [{"referent": "rwanda"}], referents
         )
 
@@ -1651,7 +1626,7 @@ def test_referent_rows_are_checked_at_their_own_recorded_version(tmp_path) -> No
     row-level check exists: the manifest is written once at the end."""
     referents = referents_at(tmp_path)
     with pytest.raises(SystemExit):
-        step.refuse_stale_referents(
+        usage_refusals.refuse_stale_referents(
             {"referents_version": "2"},
             [
                 {"referent": "syria", "referents_version": "2"},
@@ -1665,8 +1640,8 @@ def test_two_runs_on_either_side_of_a_rename_are_counted_in_one_column(tmp_path)
     """What L8's second opinion needs: `rwanda_1994` against `rwanda` is a
     rename, not a disagreement between two instruments."""
     referents = referents_at(tmp_path)
-    published = step.resolve_referents([{"referent": "rwanda_1994"}], referents)
-    comparison = step.resolve_referents([{"referent": "rwanda"}], referents)
+    published = usage_refusals.resolve_referents([{"referent": "rwanda_1994"}], referents)
+    comparison = usage_refusals.resolve_referents([{"referent": "rwanda"}], referents)
     assert published[0]["referent"] == comparison[0]["referent"] == "rwanda"
 
 

@@ -1497,10 +1497,11 @@ def validate_row(
 def resolve_row(row: Mapping[str, object]) -> dict[str, object]:
     """One run row in schema 3's vocabulary, whichever schema wrote it.
 
-    The counterpart of `15_usage.py::resolve_referents`, and the same argument:
-    a superseded value is *translated* rather than refused, because the four
-    committed runs are 12,184 rows that cannot be re-coded without being bought
-    again, and refusing them would mean the schema could never move.
+    The counterpart of :func:`lib.usage_refusals.resolve_referents`, and the
+    same argument: a superseded value is *translated* rather than refused,
+    because the four committed runs are 12,184 rows that cannot be re-coded
+    without being bought again, and refusing them would mean the schema could
+    never move.
 
     A schema-3 row is returned unchanged. A schema-2 row is read as follows:
 
