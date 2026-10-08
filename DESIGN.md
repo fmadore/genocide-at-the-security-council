@@ -258,6 +258,7 @@ quarantined six-hue data ramp — twenty-two tokens, each declared in both theme
 - **Headline** (700, 1.5rem, line-height 1.1): a plate's title, capped at 40rem, its own anchor and underlined on hover.
 - **Title** (700, 1.25rem, line-height 1.1): section headings and the basket dialog's name.
 - **Body** (400, 1rem, line-height 1.5): running prose, capped at the one prose measure of 38rem (~68 characters). A standfirst sets the same face at 1.125rem in quiet ink.
+- **Record** (400, 1rem, line-height 1.68): the long-form reading role, used only by the Reader, the one surface read at length. The same face and measure as Body, looser leading, and a 0.75rem pause wherever the verbatim record starts a paragraph (the record marks one with a single line break, never a blank line). Each speech is a heading, so the debate can be skimmed by speaker.
 - **Label** (600, 0.875rem, letter-spacing 0, sentence case): the apparatus voice — "How to read this", "What it does not show", "Source", "Reading set", a control's name, a table header, the running-head label.
 - **Symbol** (Courier Prime 400, 0.875rem, tabular figures): meeting symbols such as `S/PV.3137`, the script-and-artefact source line, inline code.
 
@@ -290,15 +291,21 @@ twelve from 64rem.
 
 Breakpoints observed: 30rem (the reading set turns on its side), 40rem (type
 and unit-field row length), 44rem (the exit index collapses to one column),
-48rem (apparatus pairs; the running head drops its label), 64rem (gutter,
-apparatus fives, 48 squares to a row). The floor the page is held to is 320px:
+48rem (apparatus pairs; the running head drops its label; the masthead's
+sections become one sideways row below it), 64rem (gutter, apparatus fives, 48
+squares to a row; the Reader's notes move beside the record). The floor the page is held to is 320px:
 nothing on any route may put a horizontal scrollbar on the document there,
 which is the reflow width WCAG 2.2 measures and what 400% zoom leaves of a
 1280px window.
 
 Two sticky bands: the masthead at `z-index: 100`, the figure contents band
 directly under it at `90`, with `scroll-padding-top` computed from both plus
-0.75rem so a deep link never parks a plate's title behind them. Print restores
+0.75rem so a deep link never parks a plate's title behind them. The Reader is
+the one route with more: its toolbar sticks under the masthead from 48rem and
+scrolls away below it, and from 64rem its notes are a column beside the record,
+sticky under the toolbar and scrolling on their own. That column is the width
+the record's measure leaves unused, so no plate gives anything up for it — the
+opposite of the margin apparatus the plates were freed from. Print restores
 pure black on white, drops the masthead, nav and skip link, prints an `http`
 link's URL after it in mono, and forbids a break inside a figure or table.
 
@@ -316,7 +323,7 @@ The only `box-shadow` in the build is inset and functions as a drawn rule, not
 as light:
 - **Current-section underline** (`box-shadow: inset 0 -3px 0 var(--ink)`): marks the active masthead section and the current entry in the running head. An inset rule rather than a border so nothing moves when it appears.
 - **Register underline** (`box-shadow: inset 0 -2px 0 var(--reg-*)`): a marked word's register, under the ochre tint, so colour is never the only code.
-- **Query-hit underline** (`box-shadow: inset 0 -2px 0 var(--blue-flag)`): in the concordance, the reader's own search term, distinguished from the node's ochre wash.
+- **Query-hit underline** (`box-shadow: inset 0 -2px 0 var(--blue)`): in the concordance, the reader's own search term, distinguished from the node's ochre wash. `--blue`, not the flag blue, which measured under 3:1 on the zebra row and is the focus ring's. Where a context holds its hits only past its cut end, a 1.25em rule of the same blue sits under the ellipsis at that end, drawn as a border so a forced-colour mode keeps it.
 
 ### Named Rules
 
@@ -358,6 +365,8 @@ replaces the native one in ink and reverses to `#f2f2f2` in dark.
 
 ### Chips
 - **Style:** a 2rem compact control — 1px ink hairline, paper ground, sentence case at 500 — carrying its series colour as a 0.625rem filled square before the words, its border drawn in the series' own dash so the key agrees with the line on the chart.
+- **Term chip:** the Chronology's term chips carry a 24×10px sample of the line itself — hue, dash and marker, drawn as ECharts draws them — in place of the square, because a term line has three codes and a square can show two. On a pressed chip the sample keeps a paper ground.
+- **Filter chip:** in the concordance, every narrowing in force is a chip under the filter bar: the control's name in faint-ink label weight, the value in ink, a cross, and a click that clears that narrowing alone. The sort is not one; it reorders without removing a line.
 - **State:** hover sinks the ground; selected inverts to ink ground with paper text, and the swatch gains a 1px paper outline so an ink-coloured key survives the inversion.
 
 ### Inputs / Fields
@@ -367,7 +376,7 @@ replaces the native one in ink and reverses to `#f2f2f2` in dark.
 - **Focus:** the global 2px `blue-flag` outline at 2px offset.
 
 ### Navigation
-- **Masthead:** a rule and the ground colour, never a panel — sticky, paper, closed by a 1px ink border-bottom, under the body's own 3px rule. The wordmark is a marked word in a line of running text at 1rem/700 with a faint-ink subtitle beside it. Section links are label type at 500 in quiet ink, each on the same 2.5rem box whether badged or not; hover goes to ink; the current section is 700 in ink with the 3px inset underline. A page's provenance sits under its name as a coloured square and the word in faint ink.
+- **Masthead:** a rule and the ground colour, never a panel — sticky, paper, closed by a 1px ink border-bottom, under the body's own 3px rule. The wordmark is a marked word in a line of running text at 1rem/700 with a faint-ink subtitle beside it. Section links are label type at 500 in quiet ink, each on the same 2.5rem box whether badged or not; hover goes to ink; the current section is 700 in ink with the 3px inset underline. A page's provenance sits under its name as a coloured square and the word in faint ink. The basket and the theme toggle sit beside the sections, not among them: they open or change something and go nowhere. Below 48rem the masthead is two lines — the wordmark as running text with the basket and an icon-only theme toggle at its end, then the sections as one row scrolling sideways with the current one brought into view — so a sticky band that stood 210px tall on a phone stands about 114px.
 - **Running head (Contents):** sticky directly beneath the masthead, one row on every viewport, scrolling sideways rather than wrapping. A "On this page" label (hidden below 48rem), then plate numbers from a CSS counter in faint ink followed by titles in quiet ink; the current entry is 600 in ink with the 3px inset underline.
 - **Footer:** opened by the 3px heavy rule, label type in quiet ink, prose capped at the measure.
 
@@ -406,7 +415,9 @@ inline-start rule — never a coloured bar.
 ### Data Tables
 Collapsed borders, full width, 0.875rem, tabular lining figures. Headers are
 label voice in ink over a 1px ink rule; cells sit over a 1px grey rule; even
-rows take the sunk stock; numeric columns align right. A table is opened by a
+rows take the sunk stock; numeric columns align right. An inline magnitude bar
+sits in the cell whose number it draws, never under a whole row, so it needs no
+key. A table is opened by a
 disclosure whose summary is blue label type with a chevron — the only thing on
 the site that turns (90°, 160ms, disabled under reduced motion).
 
@@ -416,7 +427,13 @@ are a hairline of ink with quiet-ink 12px labels in Hanken Grotesk; reference
 lines and change points are faint ink, dashed, never the accent. Categorical
 series that are not registers are told apart by weight of ink crossed with
 three dashes; register series use the register hue crossed with two tones (34%
-towards ink, 26% towards paper) and three dashes. A magnitude ramp is
+towards ink, 26% towards paper) and three dashes, and each tone carries its own
+marker — circle, triangle, diamond — so two lines sharing a dash never differ by
+lightness alone (the three tones measure 1.56–2.69:1 against each other). Lines
+are named where they end, up to twelve, the labels shifted apart rather than
+stacked; past twelve a legend draws each line's own stroke and marker. A
+figure's single bar series carries no `aria.decal` hatch: on this site a hatch
+means a withheld month. A magnitude ramp is
 `mix(paper, ink, t)`, square-rooted for placement. The data-zoom slider is the
 page's own ground, an 8% ink wash for the window and solid ink handles. The
 loading state is a quiet skeleton: the word in faint ink where an axis title
@@ -442,6 +459,8 @@ would sit, over the hairline baseline the plot will draw on — nothing moves.
 - **Do** give every state drawn as an inset shadow a twin under `forced-colors: active`, and hold every route to 320px without a horizontal scrollbar.
 - **Do** put a colour key in a 0.625rem square before the words, so the words stay ink.
 - **Do** keep hierarchy in weight and position: sentence case at 600 for every label.
+- **Do** give every figure all three exports, CSV, SVG and PNG — a plate drawn in markup rather than by ECharts leaves as a second drawing with its colours resolved to literals (`$lib/multiples`).
+- **Do** let Back undo a narrowing: a filter, a sort or a reset pushes a history entry; typing in a search box replaces one.
 
 ### Don't:
 - **Don't** put a figure, a number or a section in a card, a panel or a tile; separation is a rule or space, radius stays 0.

@@ -390,8 +390,8 @@
       },
       {
         "name": "query-hit-underline",
-        "value": "inset 0 -2px 0 var(--blue-flag)",
-        "purpose": "The reader's own search term inside a concordance line, distinct from the node's ochre wash."
+        "value": "inset 0 -2px 0 var(--blue)",
+        "purpose": "The reader's own search term inside a concordance line, distinct from the node's ochre wash. --blue, not the flag blue, which fell under 3:1 on the zebra row; a hit hidden past a context's cut end is marked by the same rule under the ellipsis."
       }
     ],
     "motion": [
@@ -464,7 +464,7 @@
       "name": "Term Chip",
       "kind": "chip",
       "refersTo": "chip",
-      "description": "A control that names a series: a 2rem hairline rectangle carrying the series' colour as a square swatch before the words, never as an edge.",
+      "description": "A control that names a series: a 2rem hairline rectangle carrying the series' colour as a square swatch before the words, never as an edge. On the Chronology the square gives way to a 24x10px sample of the line itself (hue, dash and marker), because a term line carries three codes and a square shows two.",
       "html": "<button class=\"ds-chip ds-chip-on\" type=\"button\" style=\"--ds-chip-colour:#2c7069\">Legal</button><button class=\"ds-chip\" type=\"button\" style=\"--ds-chip-colour:#a63d40;--ds-chip-dash:dashed\">Contentious</button>",
       "css": ".ds-chip { display: inline-flex; align-items: center; gap: 0.5rem; border: 1px solid var(--ink, #111111); background: var(--paper, #ffffff); color: var(--ink, #111111); padding: 0 0.75rem; min-height: 2rem; margin-right: 0.5rem; font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 0.875rem; font-weight: 500; line-height: 1.4; letter-spacing: 0; text-transform: none; border-radius: 0; cursor: pointer; transition: background 160ms cubic-bezier(0.2,0,0,1), color 160ms cubic-bezier(0.2,0,0,1); } .ds-chip::before { content: ''; width: 0.625rem; height: 0.625rem; flex: none; background: var(--ds-chip-colour, var(--ink, #111111)); background-clip: content-box; border: 2px var(--ds-chip-dash, solid) var(--ds-chip-colour, var(--ink, #111111)); } .ds-chip:hover { background: var(--paper-sunk, #f2f2f2); } .ds-chip-on { background: var(--ink, #111111); border-color: var(--ink, #111111); color: var(--paper, #ffffff); } .ds-chip-on::before { outline: 1px solid var(--paper, #ffffff); } .ds-chip:focus-visible { outline: 2px solid var(--blue-flag, #5b92e5); outline-offset: 2px; }"
     },
@@ -488,7 +488,7 @@
       "name": "Masthead Navigation",
       "kind": "nav",
       "refersTo": "nav-link",
-      "description": "A rule and the ground colour, never a panel: the wordmark as a marked word, sections on one 2.5rem line, the current one carrying the 3px inset rule.",
+      "description": "A rule and the ground colour, never a panel: the wordmark as a marked word, sections on one 2.5rem line, the current one carrying the 3px inset rule. Below 48rem it is two lines: the wordmark with the basket and an icon-only theme toggle, then the sections as one row scrolling sideways with the current one in view.",
       "html": "<header class=\"ds-masthead\"><a class=\"ds-wordmark\" href=\"#\"><strong><mark class=\"ds-mark\">Genocide</mark> at the Security Council</strong><span>1946–2024</span></a><nav class=\"ds-nav\"><a class=\"ds-nav-a ds-nav-active\" href=\"#\">Overview</a><a class=\"ds-nav-a\" href=\"#\">Chronology</a><a class=\"ds-nav-a\" href=\"#\">Concordance</a></nav></header>",
       "css": ".ds-masthead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 2rem; padding: 0.5rem 1.5rem; background: var(--paper, #ffffff); border-top: 3px solid var(--ink, #111111); border-bottom: 1px solid var(--ink, #111111); } .ds-wordmark { display: flex; align-items: baseline; gap: 0.75rem; text-decoration: none; color: var(--ink, #111111); } .ds-wordmark strong { font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; } .ds-wordmark span { font-size: 0.875rem; color: var(--ink-3, #6b6b6b); } .ds-mark { background: var(--mark, #f5d98a); color: inherit; padding: 0.05em 0.14em; } .ds-nav { display: flex; gap: 0 1.5rem; } .ds-nav-a { display: flex; align-items: center; min-height: 2.5rem; font-family: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 0.875rem; font-weight: 500; color: var(--ink-2, #444444); text-decoration: none; transition: color 160ms cubic-bezier(0.2,0,0,1); } .ds-nav-a:hover { color: var(--ink, #111111); } .ds-nav-active { color: var(--ink, #111111); font-weight: 700; box-shadow: inset 0 -3px 0 var(--ink, #111111); } .ds-nav-a:focus-visible { outline: 2px solid var(--blue-flag, #5b92e5); outline-offset: 2px; }"
     },

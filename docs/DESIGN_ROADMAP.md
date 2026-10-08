@@ -431,3 +431,57 @@ surfaces, and that is where the one route that lost points lost them. A next
 round would start from the three critique snapshots rather than from this
 document, and its first three items are the heatmap at phone width, the register
 ladder's 1.56:1 lines, and the concordance's nine invisible filters.
+
+### 8 October 2026: the critique backlog
+
+Worked from the three snapshots of 19 September and the audit's open items, as
+the paragraph above proposed. Two items needed the author's wording and were
+put to the author first; both answers are applied as given.
+
+- **Overview.** Plate 2 names its colours: a key of register names above the
+  rows, each row's name in ink behind a square of its colour, and a Register
+  row in the table. It now leaves as SVG and PNG as well as CSV, drawn a second
+  time in `$lib/multiples` with every colour resolved, because it is the one
+  plate drawn in markup. The label under its ticks reads "59 reference dates in
+  40 years" (the author's wording), which a reader counting the marks can now
+  check. Plate 1's bars lose the `aria.decal` hatch, the only one on the site
+  outside the calendar, where a hatch means a withheld month. A † after the
+  2.47% links to the footer's note on the English record.
+- **Masthead.** Two lines below 48rem: the wordmark with the basket and an
+  icon-only theme toggle, then the sections as one sideways row with the
+  current one brought into view. 210px → 114px at 390px; 241px → 138px at
+  320px; no horizontal scroll at either.
+- **Chronology.** Each tone of a register hue now carries its own marker
+  (circle, triangle, diamond), so two lines sharing a dash differ in shape as
+  well as shade; the term chips show a sample of the line instead of a square.
+  End labels hold to twelve lines and shift apart (confirmed in ECharts 6's own
+  renderer), so drawing the ten-term legal shelf no longer swaps them for a
+  legend. The zoom slider is `theme.ts`'s, not a blue copy. The change test
+  moves up to Plate 3, after the word list it tests; the reading-set plate stays
+  first because the masthead control it follows sits directly above it. The
+  pooled months' bar now sits in the Rate cell it measures. The stale `side-tab`
+  suppression is gone from `.impeccable/config.json`, and `buildPath: code` is
+  written down.
+- **Concordance.** Back undoes a narrowing: filters, sorts and Reset push a
+  history entry, typing replaces one, and Back/Forward restore the controls from
+  the address bar (SvelteKit's shallow entries leave `page.url` behind). Every
+  narrowing in force is a chip that clears it alone. A context whose search hits
+  all lie past its cut end carries the hit's rule under the ellipsis: 14 of 60
+  rows on a search for "Rwanda" matched on a word the reader could not see. The
+  standfirst and reading note now say "up to 150 characters … narrow screens
+  show less" and "Search covers the whole 150 characters, including any part cut
+  off on screen" (the author's wording). Agenda item is a combobox, as Speaker
+  is. "Skip to results" moves into the layout, second after "Skip to content".
+  The reading-set band stays: it drives the delegation shortcuts, and the
+  author chose to keep it.
+- **Reader.** The way back carries the concordance state the reader arrived
+  with. Each speech is an `h2` round its button. The record pauses at each of
+  its paragraph breaks. A marked word's title names its register as well as its
+  term. From 64rem the notes are a sticky column beside the record, using the
+  706px its measure left empty.
+- **Left open, on purpose.** The Overview's exit index (copy is frozen), and the
+  calendar's two refusal states, which would need new wording for a recovery
+  button.
+- **Tests.** Five new journeys (Back and history, the chips, the way back from a
+  speech, the plate's SVG, the phone masthead) and the plate order; unit tests
+  for `$lib/multiples` and the marker rule.
