@@ -258,8 +258,8 @@ chosen inference path because weights and runtime can be recorded and pinned.
 
 Reference documentation has distinct jobs and is not another roadmap:
 
-- [ROADMAP.md](ROADMAP.md): the item-by-item ledger of the review of 24 September 2026,
-  with the evidence each item closed on and what still waits on coders or the cluster.
+- [ROADMAP.md](ROADMAP.md): what is still open from the reviews of 19 and 24 September
+  2026 — work for coders or the cluster — and an index of the finished items the code cites.
 - [CORPUS.md](CORPUS.md): canonical source, schema, counts and coverage limits.
 - [VALIDATION.md](VALIDATION.md): dated corpus checks and outstanding source checks.
 - [CLUSTER.md](CLUSTER.md): optional environments and GPU operating instructions.

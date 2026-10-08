@@ -1139,7 +1139,8 @@ stability across instruments, never validation.
 ## Design replacement, 14 September 2026
 
 The site's visual world was replaced ("The Programme Grid", see
-`DESIGN.md` and `docs/DESIGN_ROADMAP.md`). Nothing analytical changed: no
+`DESIGN.md`; the design roadmap that planned it was retired on 8 October 2026
+and is in git history). Nothing analytical changed: no
 number, no copy, no data contract. What was checked, and how:
 
 | Check | Result |
@@ -1162,7 +1163,8 @@ the diamond is drawn in the page's ink and is white in the dark theme.
 
 ## Design hardening and payload, 19 September 2026
 
-Phases 5 and 6 of `docs/DESIGN_ROADMAP.md`. Nothing analytical changed: no
+Phases 5 and 6 of the design roadmap (retired 8 October 2026, in git history).
+Nothing analytical changed: no
 number, no copy, no data contract, no figure's geometry. What changed is what
 the site does when the reader is not the reader it was built for — a 320px
 window, a forced-colour display, a dead connection — and what it downloads
