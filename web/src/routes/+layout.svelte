@@ -78,6 +78,22 @@
 	   a basket and a theme toggle are one line at 82rem and four at 375px, and a
 	   contents band told the wrong number covers the page or floats over it. */
 	let masthead = $state.raw<HTMLElement>();
+	let sectionStrip = $state.raw<HTMLElement>();
+
+	/* Below 48rem the sections are one row that scrolls sideways, and the one a
+	   reader is on may start out of sight. Bring it in along the row's own axis
+	   only, as the contents band does with its entries: `scrollIntoView` would
+	   also be entitled to scroll the page. Nothing moves where the row fits. */
+	$effect(() => {
+		void here;
+		if (!sectionStrip) return;
+		const link = sectionStrip.querySelector<HTMLElement>('a.active');
+		if (!link) return;
+		const item = link.getBoundingClientRect();
+		const box = sectionStrip.getBoundingClientRect();
+		if (item.left >= box.left && item.right <= box.right) return;
+		sectionStrip.scrollLeft += item.left - box.left - 16;
+	});
 
 	$effect(() => {
 		if (!masthead) return;
@@ -145,6 +161,12 @@
 <span id="top" tabindex="-1"></span>
 
 <a class="skip" href="#main">Skip to content</a>
+<!-- The concordance's run of controls in front of its evidence is the longest
+     on the site, so its way past them sits here, second, rather than in the
+     article behind the masthead and the reading set. -->
+{#if isCurrent('/concordance')}
+	<a class="skip" href="#results">Skip to results</a>
+{/if}
 
 <header class="masthead" bind:this={masthead}>
 	<div class="inner">
@@ -153,7 +175,7 @@
 			<span class="symbol">1946&ndash;2024</span>
 		</a>
 		<nav aria-label="Sections">
-			<ul>
+			<ul bind:this={sectionStrip}>
 				{#each sections as section (section.href)}
 					<li>
 						<a
@@ -175,14 +197,18 @@
 						>
 					</li>
 				{/each}
-				<li class="no-print">
-					<button type="button" class="basket" onclick={() => (basketOpen = true)}>
-						Basket{#if basket.count}<span class="n">{basket.count}</span>{/if}
-					</button>
-				</li>
-				<li class="no-print"><ThemeToggle /></li>
 			</ul>
 		</nav>
+		<!-- Beside the sections rather than among them: they open something or
+		     change the page, and go nowhere, so they are not navigation. Kept out
+		     of the list so that, on a narrow screen, they stay on the wordmark's
+		     line while the sections scroll sideways beneath it. -->
+		<div class="tools no-print">
+			<button type="button" class="basket" onclick={() => (basketOpen = true)}>
+				Basket{#if basket.count}<span class="n">{basket.count}</span>{/if}
+			</button>
+			<ThemeToggle />
+		</div>
 	</div>
 </header>
 
@@ -205,7 +231,8 @@
 			from a single data file; see
 			<a href={resolve('/methods')}>Methods</a>.
 		</p>
-		<p class="quiet">
+		<!-- Linked from the Overview's share, the first count it qualifies. -->
+		<p class="quiet" id="english-record">
 			The transcripts are in English, including translations. The source does not reliably identify
 			the language spoken. Results describe the English records and should be checked against the
 			passages when interpreting a speaker's position.
@@ -333,6 +360,69 @@
 	nav li {
 		display: flex;
 		align-items: center;
+	}
+
+	.tools {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-5);
+	}
+
+	/* The review of 19 September 2026 measured the masthead at 210px of an
+	   844px phone and 241px at 320px: eight sections wrapping to four rows, each
+	   taller for its provenance word, under a band that stays on screen. Below
+	   48rem it is two lines instead. The wordmark shares the first with the
+	   basket and the theme; the sections take the second as one row that
+	   scrolls sideways, which is what the contents band beneath it already
+	   does, so the page's two sticky bands work the same way. */
+	@media (max-width: 48rem) {
+		.masthead .inner {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			grid-template-areas: 'wordmark tools' 'nav nav';
+			gap: 0 var(--sp-4);
+		}
+
+		/* Running text rather than two boxes, so the dates follow the last word
+		   of the title onto its line instead of taking a third line of their own. */
+		.wordmark {
+			grid-area: wordmark;
+			display: block;
+			align-self: center;
+		}
+
+		.wordmark span {
+			margin-inline-start: var(--sp-2);
+			white-space: nowrap;
+		}
+
+		.tools {
+			grid-area: tools;
+			gap: var(--sp-4);
+		}
+
+		nav {
+			grid-area: nav;
+			min-width: 0;
+		}
+
+		nav ul {
+			flex-wrap: nowrap;
+			overflow-x: auto;
+			scrollbar-width: thin;
+		}
+
+		nav li {
+			flex: none;
+			white-space: nowrap;
+		}
+	}
+
+	@media print {
+		nav ul {
+			flex-wrap: wrap;
+			overflow-x: visible;
+		}
 	}
 
 	/* Every entry stands on the same 2rem box, badge or no badge: the review of

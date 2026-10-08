@@ -128,3 +128,24 @@ test('ranking search restores from a link and clamps an unavailable page', async
 	await expect(page).not.toHaveURL(/page=999/);
 	await expect(page).toHaveURL(/scope=debate/);
 });
+
+/**
+ * The masthead stays on screen, so its height is taken from every page a phone
+ * reads. It was 210px of an 844px window at 390px, eight sections wrapping to
+ * four rows (review of 19 September 2026); the sections are one row now, which
+ * scrolls sideways under the wordmark.
+ */
+test('the masthead keeps to two lines on a phone', async ({ page }) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.goto(`${base}/chronology/`);
+	const masthead = page.locator('header.masthead');
+	const box = await masthead.boundingBox();
+	expect(box!.height).toBeLessThan(130);
+
+	const sections = page.getByRole('navigation', { name: 'Sections' });
+	await expect(sections.getByRole('link')).toHaveCount(8);
+	// The section a reader is on starts in view, wherever it falls in the row.
+	await expect(sections.getByRole('link', { name: /Chronology/ })).toBeInViewport();
+	await expect(page.getByRole('button', { name: /^Basket/ })).toBeInViewport();
+	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});

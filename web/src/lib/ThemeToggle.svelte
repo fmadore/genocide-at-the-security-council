@@ -33,7 +33,7 @@
 
 <button type="button" class="toggle" onclick={flip} aria-label="Switch to {next} theme">
 	<Icon icon={next === 'dark' ? Moon : Sun} />
-	{next}
+	<span class="word">{next}</span>
 </button>
 
 <style>
@@ -64,5 +64,24 @@
 	.toggle:hover {
 		background: var(--paper-sunk);
 		color: var(--ink);
+	}
+
+	/* Below 48rem the toggle shares the wordmark's line, and the word gives way
+	   to the icon: the accessible name still says which theme it switches to,
+	   and the box keeps the 2rem height every control on the site is held to. */
+	@media (max-width: 48rem) {
+		.toggle {
+			min-width: 2rem;
+			padding: 0 var(--sp-2);
+		}
+
+		.word {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
 	}
 </style>
