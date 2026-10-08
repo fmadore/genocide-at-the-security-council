@@ -13,8 +13,8 @@
 		occurrenceOf,
 		speechOf
 	} from '$lib/data';
-	import { filterConcordance, readConcordanceState } from '$lib/concordance';
-	import { readScope, speechInScope } from '$lib/scope';
+	import { concordanceParams, filterConcordance, readConcordanceState } from '$lib/concordance';
+	import { readScope, speechInScope, withScope } from '$lib/scope';
 	import { occurrenceItem, speechItem } from '$lib/basket';
 	import { basket } from '$lib/basket.svelte';
 	import { citationOf, occurrenceQuotation, toBibtex, toCslJson, toRis } from '$lib/citation';
@@ -117,6 +117,9 @@
 	});
 
 	const hasHits = (speech: Speech) => Object.keys(speech.hits).length > 0;
+
+	/** A run of the record cut at its paragraph breaks, for the pause drawn between them. */
+	const paragraphs = (text: string) => text.split('\n');
 
 	interface Segment {
 		text: string;
@@ -360,6 +363,25 @@
 	   Recomputed from the offsets already loaded rather than fetched: a second
 	   artefact would be a second answer to a question this file can answer. */
 	const scope = $derived(readScope(page.url.searchParams));
+
+	/**
+	 * The concordance the reader came from, as they left it.
+	 *
+	 * The link that brought them here carries the concordance's whole state —
+	 * `readerQuery` writes it so the previous and next occurrence walk the same
+	 * result set — and the way back used to throw it away: "Concordance" opened
+	 * an unfiltered list of 51,000 lines to a reader who had narrowed to Rwanda
+	 * in 1994 (review of 14 September 2026, still open on the 19th). The same
+	 * state is read back out of this URL, with the reading set beside it, so the
+	 * return trip lands on the list the reader left.
+	 */
+	const concordanceHref = $derived.by(() => {
+		const search = withScope(
+			concordanceParams(readConcordanceState(page.url.searchParams)),
+			scope
+		).toString();
+		return `${resolve('/concordance')}${search ? `?${search}` : ''}`;
+	});
 	const saysTheWord = $derived((record?.speeches ?? []).some((s) => 'genocide' in s.hits));
 	const inScope = $derived(
 		new Set(
@@ -430,7 +452,7 @@
 	<div class="notice">
 		<h1>The meeting record could not be loaded</h1>
 		<p>{failure}</p>
-		<p><a href={resolve('/concordance')}>Back to the concordance</a></p>
+		<p><a href={concordanceHref}>Back to the concordance</a></p>
 	</div>
 {:else if !record}
 	<p class="loading">Loading the meeting record…</p>
@@ -438,7 +460,7 @@
 	<article class="reader">
 		<header>
 			<p class="crumb">
-				<a href={resolve('/concordance')}>Concordance</a><Icon icon={ChevronRight} />meeting record
+				<a href={concordanceHref}>Concordance</a><Icon icon={ChevronRight} />meeting record
 			</p>
 			<div class="titling">
 				<div>
@@ -463,9 +485,12 @@
 
 		<!-- The apparatus, under the header, as a full-width band on the twelve
 		     column grid: the register legend is the key to every mark below it and
-		     has to be readable before the record is, not folded into a margin the
-		     plate width was taken from. -->
-		<aside class="apparatus grid">
+		     has to be readable before the record is. From 64rem it is the column
+		     beside the record instead — the one width the record's measure leaves
+		     unused, so no plate gives anything up for it. First in the source
+		     either way, so it is read before the record. -->
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex (From 64rem the notes are a column that scrolls on its own, and a keyboard has to be able to scroll it.) -->
+		<aside class="apparatus grid" tabindex="0">
 			<div class="note">
 				<span class="label">Highlights in this record</span>
 				{#if marksHere.length}
@@ -594,32 +619,38 @@
 				{@const hits = Object.entries(speech.hits).filter(([t]) => !filterTerm || t === filterTerm)}
 				{@const marked = hits.reduce((n, [, spans]) => n + spans.length, 0)}
 				<li id={speech.id} class:target={speech.id === wantedSpeech}>
-					<button
-						class="head"
-						onclick={() => toggle(speech.id)}
-						aria-expanded={open.has(speech.id)}
-					>
-						<span class="n">{speech.n}</span>
-						<span class="who">
-							<strong>{speech.speaker ?? shortCountry(speech.country)}</strong>
-							<span class="sub">
-								{shortCountry(speech.country)}
-								· {speech.group}
-								{#if speech.role}· {speech.role}{/if}
-								{#if namedLanguage(speech.language)}· spoke in {speech.language}{/if}
+					<!-- A heading round the button, the accordion pattern: 179 speeches
+					     with no heading below the H1 left a screen-reader user no way
+					     to skim the debate by speaker (review of 19 September 2026). -->
+					<h2 class="speech-heading">
+						<button
+							class="head"
+							onclick={() => toggle(speech.id)}
+							aria-expanded={open.has(speech.id)}
+						>
+							<span class="n">{speech.n}</span>
+							<span class="who">
+								<strong>{speech.speaker ?? shortCountry(speech.country)}</strong>
+								<span class="sub">
+									{shortCountry(speech.country)}
+									· {speech.group}
+									{#if speech.role}· {speech.role}{/if}
+									{#if namedLanguage(speech.language)}· spoke in {speech.language}{/if}
+								</span>
 							</span>
-						</span>
-						<span class="tags">
-							{#if inScope.has(speech.id)}
-								<span class="set" title="In the selected reading set">in set</span>
-							{/if}
-							{#if marked}
-								<span class="count">{marked}</span>
-							{/if}
-							<span class="chev" class:down={open.has(speech.id)}><Icon icon={ChevronRight} /></span
-							>
-						</span>
-					</button>
+							<span class="tags">
+								{#if inScope.has(speech.id)}
+									<span class="set" title="In the selected reading set">in set</span>
+								{/if}
+								{#if marked}
+									<span class="count">{marked}</span>
+								{/if}
+								<span class="chev" class:down={open.has(speech.id)}
+									><Icon icon={ChevronRight} /></span
+								>
+							</span>
+						</button>
+					</h2>
 
 					{#if open.has(speech.id)}
 						<div class="text">
@@ -631,9 +662,11 @@
 										data-register={registerFor(segment.terms)}
 										title={segment.exact
 											? `Selected occurrence ${wantedOccurrence}`
-											: segment.terms.map(termLabel).join(', ')}>{segment.text}</mark
+											: `${segment.terms.map(termLabel).join(', ')} · ${registerFor(segment.terms)}`}
+										>{segment.text}</mark
 									>
-								{:else}{segment.text}{/if}
+								{:else}{#each paragraphs(segment.text) as piece, k (k)}{#if k}<span class="pause"
+											></span>{/if}{piece}{/each}{/if}
 							{/each}
 						</div>
 						<p class="speech-meta">
@@ -883,6 +916,14 @@
 		margin-inline: calc(-1 * var(--sp-3));
 	}
 
+	/* The heading carries the button and no voice of its own: the speaker line
+	   is set as it was, and the heading is what an outline of the page reads. */
+	.speech-heading {
+		margin: 0;
+		font: inherit;
+		letter-spacing: normal;
+	}
+
 	.head {
 		display: grid;
 		grid-template-columns: 2.2rem minmax(0, 1fr) auto;
@@ -972,6 +1013,14 @@
 		-webkit-box-orient: vertical;
 	}
 
+	/* The long-form reading role, the one surface on the site read at length:
+	   the body face at a looser 1.68 leading, and a pause where the record
+	   starts a new paragraph. The record marks a paragraph with a single line
+	   break and never a blank line, so under `pre-wrap` a speech of thirteen
+	   paragraphs read as ninety lines without a pause, in first-person testimony
+	   about mass atrocity (review of 19 September 2026). The break is replaced
+	   by a block of space rather than by a second line: a blank line is 1.68em,
+	   which reads as a section, not a paragraph. */
 	.text {
 		margin: var(--sp-2) 0 var(--sp-3) 2.9rem;
 		font-family: var(--sans);
@@ -979,6 +1028,11 @@
 		line-height: 1.68;
 		white-space: pre-wrap;
 		max-width: var(--measure);
+	}
+
+	.pause {
+		display: block;
+		height: var(--sp-3);
 	}
 
 	/* The one occurrence a link asked for. Blue is the interaction layer and
@@ -1012,6 +1066,53 @@
 		margin-bottom: var(--sp-6);
 		padding-top: var(--sp-3);
 		border-top: var(--hair) solid var(--ink);
+	}
+
+	/* From 64rem the record and its notes stand side by side. The record keeps
+	   its measure, which no width improves, and at 1440px that left 706px of
+	   empty column beside it, all on one side (review of 19 September 2026).
+	   The notes take that column and stay beside the record as it scrolls: the
+	   register key is then next to the marks it explains for the whole of a
+	   24,000px debate, rather than a screen above the first of them. They take
+	   the space the prose cannot use, which is the opposite of the margin the
+	   plates gave up: no figure is narrowed by them. */
+	@media (min-width: 64rem) {
+		.reader {
+			display: grid;
+			grid-template-columns: minmax(0, calc(var(--measure) + 2.9rem)) minmax(16rem, 1fr);
+			grid-template-areas:
+				'header header'
+				'toolbar toolbar'
+				'record notes';
+			column-gap: var(--sp-7);
+			align-items: start;
+		}
+
+		.reader > header {
+			grid-area: header;
+		}
+
+		.toolbar {
+			grid-area: toolbar;
+		}
+
+		.speeches {
+			grid-area: record;
+		}
+
+		.apparatus {
+			grid-area: notes;
+			position: sticky;
+			top: calc(var(--masthead-h) + var(--toolbar-h, 0px) + var(--sp-4));
+			max-height: calc(100vh - var(--masthead-h) - var(--toolbar-h, 0px) - var(--sp-6));
+			overflow-y: auto;
+			scrollbar-width: thin;
+			margin-bottom: 0;
+		}
+
+		.apparatus .note {
+			grid-column: span 12;
+		}
 	}
 
 	.note {

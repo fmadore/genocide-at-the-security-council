@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
-	import { replaceState } from '$app/navigation';
+	import { pushState, replaceState } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
@@ -162,8 +162,8 @@
 	   the tally, the empty state — waits for it. */
 	const loaded = $derived(!loading && !failure && file !== null);
 
-	onMount(() => {
-		const state = readConcordanceState(page.url.searchParams);
+	/** Put a state read from a URL into the controls, all at once. */
+	function apply(state: ReturnType<typeof readConcordanceState>) {
 		term = state.term;
 		query = searched = state.query;
 		group = state.group;
@@ -177,21 +177,41 @@
 		month = state.month;
 		sort = state.sort;
 		regex = state.regex;
+	}
+
+	onMount(() => {
+		apply(readConcordanceState(page.url.searchParams));
 		// The first replaceState must wait until SvelteKit has assigned its root.
 		// Running it inside the initial mount callback reaches the client router
 		// before that assignment is complete.
 		void tick().then(() => {
 			urlReady = true;
 		});
+		/* Back and Forward between this page's own entries. They are shallow, so
+		   SvelteKit restores `page.state` and leaves `page.url` where the last
+		   real navigation put it: the address bar is the only thing that knows
+		   which narrowing the reader has stepped back to. */
+		const restore = () => apply(readConcordanceState(new URLSearchParams(location.search)));
+		window.addEventListener('popstate', restore);
+		return () => window.removeEventListener('popstate', restore);
 	});
 
 	/** Long enough to cover typing, short enough not to feel like a wait. */
 	const SETTLE = 200;
 
+	/**
+	 * Set when `searched` was moved by the box settling, and read once by the
+	 * URL below. A plain variable, not state: it says how the last change was
+	 * made, and nothing should redraw because of it. Reset, a chip or Back can
+	 * clear the search too, and those are steps a reader may want to undo.
+	 */
+	let settling = false;
+
 	$effect(() => {
 		const typed = query;
 		if (typed === searched) return;
 		const timer = setTimeout(() => {
+			settling = true;
 			searched = typed;
 		}, SETTLE);
 		return () => clearTimeout(timer);
@@ -242,7 +262,20 @@
 			});
 	});
 
-	/** Keep the URL in step, so any view of the concordance is citable. */
+	/**
+	 * Keep the URL in step, so any view of the concordance is citable — and so
+	 * that Back undoes a narrowing.
+	 *
+	 * Every change used to replace the entry it was on. Back therefore left the
+	 * concordance altogether, and "Reset filters" wiped nine narrowings with no
+	 * way to get them back (review of 19 September 2026). A narrowing — a
+	 * speaker, an agenda item, the years, a sort, a reset — now pushes an entry
+	 * of its own. Typing in the search box still replaces: a query is refined a
+	 * few letters at a time, and one entry per pause would make Back step
+	 * through spellings. The first write after the page loads replaces too: it
+	 * only puts an address the reader already followed into canonical form.
+	 */
+	let written = false;
 	$effect(() => {
 		if (!urlReady) return;
 		/* The scope is layout state and this page owns everything else in the
@@ -250,11 +283,75 @@
 		   from its own controls would silently drop the reader's reading set on
 		   the next keystroke. */
 		const next = withScope(concordanceParams(currentState()), scope);
+		const here = new URLSearchParams(location.search);
+		const current = withScope(concordanceParams(readConcordanceState(here)), readScope(here));
+		const first = !written;
+		const fromBox = settling;
+		written = true;
+		settling = false;
+		if (next.toString() === current.toString()) return;
+		const typed =
+			fromBox &&
+			[...new Set([...next.keys(), ...current.keys()])].every(
+				(key) => key === 'q' || next.get(key) === current.get(key)
+			);
 		const search = next.toString();
-		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
+		const url = `${page.url.pathname}${search ? `?${search}` : ''}`;
+		if (first || typed) replaceState(url, page.state);
+		else pushState(url, page.state);
 	});
 
 	const lines = $derived(file?.lines ?? []);
+
+	/**
+	 * Which contexts hold the reader's search term only where the line is cut.
+	 *
+	 * A context is loaded at the full width the index declares and drawn at
+	 * whatever the column allows: 87 to 90 characters a side on a wide screen,
+	 * 20 on a phone. Search reads the whole of it, so on a search for "Rwanda"
+	 * 14 of 60 rows matched on a word the reader could not see (review of 19
+	 * September 2026). Those contexts are marked, and the clipped end carries the
+	 * hit's own rule, so a row that matched is never a row that seems not to.
+	 */
+	let kwicList = $state.raw<HTMLElement>();
+
+	function markClipped() {
+		if (!kwicList) return;
+		for (const side of kwicList.querySelectorAll<HTMLElement>('.left, .right')) {
+			const hits = side.querySelectorAll('mark.hit');
+			let beyond = false;
+			if (hits.length) {
+				const box = side.getBoundingClientRect();
+				// A few pixels of slack: the ellipsis takes the last of the box.
+				const slack = 8;
+				beyond = [...hits].every((hit) => {
+					const r = hit.getBoundingClientRect();
+					return r.right <= box.left + slack || r.left >= box.right - slack;
+				});
+			}
+			side.classList.toggle('hit-beyond', beyond);
+		}
+	}
+
+	$effect(() => {
+		void [filtered, shown, searched, regex, expanded];
+		const list = kwicList;
+		if (!list) return;
+		// Measured now, once the rows are in the document — not on the next
+		// frame, which a tab in the background never draws. A resize waits for
+		// a frame, because it arrives many times a second while a window moves.
+		markClipped();
+		let frame = 0;
+		const observer = new ResizeObserver(() => {
+			cancelAnimationFrame(frame);
+			frame = requestAnimationFrame(markClipped);
+		});
+		observer.observe(list);
+		return () => {
+			cancelAnimationFrame(frame);
+			observer.disconnect();
+		};
+	});
 
 	const groups = $derived([...new Set(lines.map((l) => l.group))].sort());
 	const countries = $derived(
@@ -406,6 +503,81 @@
 		};
 	}
 
+	interface InForce {
+		key: string;
+		label: string;
+		value: string;
+		symbol?: boolean;
+		clear: () => void;
+	}
+
+	/**
+	 * Every narrowing in force, as something the reader can see and undo.
+	 *
+	 * Only the meeting filter used to have a chip; the other eight lived as
+	 * whatever a select happened to show, scattered along a wrapping bar, and a
+	 * reader arriving from a chart's link could not tell what had been applied
+	 * to the lines in front of them (review of 19 September 2026). Each chip
+	 * names its control and clears that narrowing alone; the sort is not one,
+	 * because it reorders without removing a line.
+	 */
+	const inForce = $derived.by(() => {
+		const chips: (InForce | false | '')[] = [
+			searched && {
+				key: 'q',
+				label: 'Search',
+				value: `${searched}${regex ? ' (regex)' : ''}`,
+				clear: () => {
+					query = searched = '';
+					regex = false;
+				}
+			},
+			group && { key: 'group', label: 'Speaker group', value: group, clear: () => (group = '') },
+			country && {
+				key: 'country',
+				label: 'Speaker',
+				value: shortCountry(country),
+				clear: () => (country = '')
+			},
+			participantType && {
+				key: 'type',
+				label: 'Participant type',
+				value: participantType,
+				clear: () => (participantType = '')
+			},
+			agenda && { key: 'agenda', label: 'Agenda item', value: agenda, clear: () => (agenda = '') },
+			spv && {
+				key: 'spv',
+				label: 'Meeting',
+				value: meetingLabel(spv),
+				symbol: true,
+				clear: () => (spv = '')
+			},
+			referent && {
+				key: 'referent',
+				label: 'Case or concept',
+				value: referentLabels.get(referent) ?? termLabel(referent),
+				clear: () => (referent = '')
+			},
+			(from !== CORPUS_START_YEAR || to !== CORPUS_END_YEAR) && {
+				key: 'years',
+				label: 'Years',
+				value: from === to ? String(from) : `${from}–${to}`,
+				clear: () => {
+					from = CONCORDANCE_DEFAULTS.from;
+					to = CONCORDANCE_DEFAULTS.to;
+				}
+			},
+			month !== null && {
+				key: 'month',
+				label: 'Month',
+				value: MONTH_NAMES[month - 1] ?? String(month),
+				clear: () => (month = null)
+			}
+		];
+		return chips.filter((chip): chip is InForce => Boolean(chip));
+	});
+
 	/** What the reader actually narrowed by, for the file's own record. */
 	const applied = () =>
 		[
@@ -440,19 +612,16 @@
 	<header class="lede">
 		<h1>Concordance</h1>
 		<p class="standfirst">
-			Read each match for a search term with {data.index.meta.width as number} characters of context on
-			either side. This <em>concordance</em> connects the dashboard's counts to passages. Select a line
-			to see the full sentence, citation details and a link to the complete speech.
+			Read each match for a search term with up to {data.index.meta.width as number} characters of context
+			on either side; narrow screens show less. This <em>concordance</em> connects the dashboard's counts
+			to passages. Select a line to see the full sentence, citation details and a link to the complete
+			speech.
 		</p>
 	</header>
 
-	<!-- The apparatus of this page — the reading set, the term, the filters and
-	     the profile — is a long run of controls in front of the evidence they
-	     govern, and on a keyboard it was 152 stops deep. This is the way past it,
-	     in the same visually-hidden-until-focused form as the masthead's own skip
-	     link, and it is the first thing in the article so that the masthead's
-	     "Skip to content" lands one Tab in front of it. -->
-	<a class="skip" href="#results">Skip to results</a>
+	<!-- "Skip to results" is in the layout, beside "Skip to content": in the
+	     article it was the 14th stop, behind the masthead, the basket, the theme
+	     and the reading set (review of 19 September 2026). -->
 
 	<!-- The reading set, and the way into it. R9's scope names a population of
 	     speeches; here it names the delegations that population covers, and each
@@ -505,7 +674,7 @@
 				<input
 					type="search"
 					bind:value={query}
-					placeholder="Words in the displayed passage…"
+					placeholder="Words in the context…"
 					class:bad={badRegex}
 					aria-invalid={badRegex}
 					aria-describedby={badRegex ? 'regex-error' : undefined}
@@ -531,9 +700,11 @@
 
 		{#snippet reading()}
 			<p>
-				The bold centre is the matched text; either side shows {data.index.meta.width as number} characters
-				of context. Search looks within this displayed passage. Select a line to read the full sentence
-				and citation details. Sort by left or right context to group similar phrases alphabetically.
+				The bold centre is the matched text; either side shows up to {data.index.meta
+					.width as number}
+				characters of context. Search covers the whole {data.index.meta.width as number} characters, including
+				any part cut off on screen. Select a line to read the full sentence and citation details. Sort
+				by left or right context to group similar phrases alphabetically.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -564,13 +735,13 @@
 					{#each participantTypes as type (type)}<option value={type}>{type}</option>{/each}
 				</select>
 			</label>
-			<label>
-				Agenda item
-				<select bind:value={agenda}>
-					<option value="">All</option>
-					{#each agendas as a (a)}<option value={a}>{a}</option>{/each}
-				</select>
-			</label>
+			<!-- A combobox, as Speaker is: 252 agenda items in a bare select was a
+			     list to scroll, where the speaker's 300 delegations could be typed. -->
+			<SearchSelect
+				label="Agenda item"
+				options={agendas.map((a) => ({ value: a, label: a }))}
+				bind:value={agenda}
+			/>
 			<label>
 				Years
 				<input type="number" min={CORPUS_START_YEAR} max={CORPUS_END_YEAR} bind:value={from} />
@@ -607,15 +778,23 @@
 					>
 				</label>
 			{/if}
-			{#if spv}
-				<button class="chip" onclick={() => (spv = '')}>
-					<span class="symbol">{spv}</span>
-					<Icon icon={X} />
-					<span class="sr">Clear the meeting filter</span>
-				</button>
-			{/if}
 			<button class="ghost" onclick={reset}>Reset filters</button>
 		</div>
+
+		{#if inForce.length}
+			<ul class="in-force" aria-label="Filters in force">
+				{#each inForce as chip (chip.key)}
+					<li>
+						<button type="button" class="chip" onclick={chip.clear}>
+							<span class="chip-label">{chip.label}</span>
+							<span class="chip-value" class:symbol={chip.symbol}>{chip.value}</span>
+							<Icon icon={X} />
+							<span class="sr">Clear the {chip.label.toLowerCase()} filter</span>
+						</button>
+					</li>
+				{/each}
+			</ul>
+		{/if}
 
 		{#if loaded && lines.length}
 			<ResultProfile
@@ -664,7 +843,7 @@
 			<!-- The target of the skip link above: focusable only programmatically, so
 			     the jump puts the reader at the head of the evidence without adding a
 			     stop of its own to the order it exists to shorten. -->
-			<div class="kwic" role="list" id="results" tabindex="-1">
+			<div class="kwic" role="list" id="results" tabindex="-1" bind:this={kwicList}>
 				{#each filtered.slice(0, shown) as line (line.id)}
 					<div class="row" role="listitem">
 						<button
@@ -968,21 +1147,36 @@
 		background: var(--paper-sunk);
 	}
 
-	/* The masthead's skip link, in its own words. Fixed rather than absolute
-	   because this one can be reached with the page already scrolled, and a
-	   panel that appears above the fold is the whole point of it. */
-	.skip {
-		position: fixed;
-		left: -9999px;
+	/* One row of chips under the filter bar, each naming its control in the
+	   label voice and its value in ink, so the row reads as a sentence of what
+	   has been applied rather than as a set of tags. */
+	.in-force {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-2);
+		margin: 0 0 var(--sp-3);
+		padding: 0;
+		list-style: none;
+		font-family: var(--sans);
+		font-size: var(--step--1);
 	}
 
-	.skip:focus {
-		left: var(--sp-4);
-		top: var(--sp-4);
-		z-index: var(--z-popover);
-		background: var(--paper);
-		border: var(--hair) solid var(--ink);
-		padding: var(--sp-2) var(--sp-3);
+	.in-force .chip {
+		max-width: 100%;
+	}
+
+	.chip-label {
+		color: var(--ink-3);
+		font-weight: 600;
+	}
+
+	/* An agenda item can run to a hundred characters; the chip keeps one line. */
+	.chip-value {
+		min-width: 0;
+		max-width: 24rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.sr {
@@ -1161,6 +1355,31 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		color: var(--ink-2);
+	}
+
+	/* A context whose only search hits lie past its cut end: the hit's own rule,
+	   under the ellipsis, at the end the word is hidden behind. A border rather
+	   than a shadow, so a forced-colour mode paints it too. */
+	.left:global(.hit-beyond),
+	.right:global(.hit-beyond) {
+		position: relative;
+	}
+
+	.left:global(.hit-beyond)::after,
+	.right:global(.hit-beyond)::after {
+		content: '';
+		position: absolute;
+		bottom: 0.1em;
+		width: 1.25em;
+		border-bottom: 2px solid var(--blue);
+	}
+
+	.left:global(.hit-beyond)::after {
+		left: 0;
+	}
+
+	.right:global(.hit-beyond)::after {
+		right: 0;
 	}
 
 	/* The axis narrows; it does not break up. A context that wraps loses the

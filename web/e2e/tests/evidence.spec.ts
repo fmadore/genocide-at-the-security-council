@@ -270,3 +270,85 @@ test('keyboard users retain the actor table and evidence link when the map fails
 	);
 	await expectNoAxeViolations(page);
 });
+
+/**
+ * Back used to leave the concordance: every narrowing replaced the entry it was
+ * on, and "Reset filters" wiped them with no way back (review of 19 September
+ * 2026). A narrowing is now a step Back undoes; typing is not, or Back would
+ * walk through spellings.
+ */
+test('Back undoes a narrowing, and typing does not fill the history', async ({ page }) => {
+	await page.goto(concordance);
+	await expect(page.locator('.status')).toContainText('4 of 4 lines');
+	const entries = () => page.evaluate(() => history.length);
+	const before = await entries();
+
+	const search = page.getByRole('searchbox', { name: 'Search' });
+	await search.fill('warn');
+	await search.fill('warned');
+	await expect(page).toHaveURL(/q=warned/);
+	await expect(page.locator('.status')).toContainText('1 of 4 lines');
+	expect(await entries()).toBe(before);
+
+	await page.getByRole('button', { name: 'Reset filters' }).click();
+	await expect(page).not.toHaveURL(/q=/);
+	await expect(page.locator('.status')).toContainText('4 of 4 lines');
+	expect(await entries()).toBe(before + 1);
+
+	await page.goBack();
+	await expect(page).toHaveURL(/q=warned/);
+	await expect(search).toHaveValue('warned');
+	await expect(page.locator('.status')).toContainText('1 of 4 lines');
+});
+
+test('every narrowing in force is named, and each clears alone', async ({ page }) => {
+	await page.goto(`${concordance}?country=France&from=2015&to=2015`);
+	await expect(page.locator('.status')).toContainText('2 of 4 lines');
+	const inForce = page.getByRole('list', { name: 'Filters in force' });
+	await expect(inForce.getByRole('listitem')).toHaveText([/Speaker\s*France/, /Years\s*2015/]);
+
+	await inForce.getByRole('button', { name: /Clear the speaker filter/ }).click();
+	await expect(page).not.toHaveURL(/country=/);
+	await expect(page).toHaveURL(/from=2015&to=2015/);
+	await expect(inForce.getByRole('listitem')).toHaveText([/Years\s*2015/]);
+	await expectNoAxeViolations(page);
+});
+
+test('the way back from a speech returns to the concordance as it was left', async ({ page }) => {
+	await page.goto(`${concordance}?q=warned`);
+	await expect(page.locator('.status')).toContainText('1 of 4 lines');
+	await page.locator('.line').first().click();
+	await page.getByRole('link', { name: 'Read the whole speech' }).click();
+	await expect(
+		page.getByRole('heading', { name: 'Protection of civilians', level: 1 })
+	).toBeVisible();
+
+	// One heading per speech, so the debate can be skimmed by speaker.
+	await expect(page.locator('h2.speech-heading').first()).toBeVisible();
+	const crumb = page.locator('.crumb').getByRole('link', { name: 'Concordance' });
+	await expect(crumb).toHaveAttribute('href', `${base}/concordance?q=warned`);
+	await crumb.click();
+	await expect(page.locator('.status')).toContainText('1 of 4 lines');
+});
+
+test('the word-by-word plate leaves as an image with its key', async ({ page }) => {
+	await page.goto(`${base}/`);
+	const figure = page.locator('figure.figure').filter({
+		has: page.getByRole('heading', { name: /The vocabulary, word by word/, level: 2 })
+	});
+	// The colours are named on the page, not only in a file.
+	await expect(figure.locator('.key')).toContainText('core');
+
+	const pending = page.waitForEvent('download');
+	await figure.getByRole('button', { name: 'SVG', exact: true }).click();
+	const download = await pending;
+	const svg = await readFile((await download.path())!, 'utf8');
+
+	expect(download.suggestedFilename()).toBe('unsc-vocabulary-word-by-word.svg');
+	expect(svg).toContain('The vocabulary, word by word');
+	expect(svg).toContain('>core</text>');
+	expect(svg).toContain('<polyline');
+	expect(svg).toContain('artifact: series/annual.json');
+	// A file read with none of the site's CSS: no colour may be left as a variable.
+	expect(svg).not.toContain('var(');
+});
