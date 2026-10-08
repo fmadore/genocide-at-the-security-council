@@ -105,44 +105,6 @@ def terms_present(row, lex: lexicon.Lexicon) -> list[lexicon.Term]:
     return [t for t in lex.active if getattr(row, f"{lexicon.HAS}{t.name}")]
 
 
-def meeting_scope_counts(speeches: list[dict[str, object]]) -> dict[str, int]:
-    """R9 membership inside one meeting; the debate is all-or-nothing."""
-    word = sum("genocide" in speech["hits"] for speech in speeches)
-    vocabulary = sum(
-        bool({"genocide", *scopes.ATROCITY_TERMS} & set(speech["hits"]))
-        for speech in speeches
-    )
-    return {
-        "word": word,
-        "vocabulary": vocabulary,
-        "debate": len(speeches) if word else 0,
-    }
-
-
-def delegations(speeches: list[dict[str, object]]) -> list[dict[str, object]]:
-    """Who sat in a meeting and which vocabulary each delegation used."""
-    grouped: dict[str, dict[str, object]] = {}
-    for speech in speeches:
-        country = str(speech["country"])
-        row = grouped.setdefault(
-            country,
-            {
-                "country": country,
-                "iso3": speech["iso3"],
-                "group": speech["group"],
-                "type": speech["type"],
-                "speeches": 0,
-                "terms": set(),
-            },
-        )
-        row["speeches"] = int(row["speeches"]) + 1
-        row["terms"].update(speech["hits"])
-    return [
-        {**row, "terms": sorted(row["terms"])}
-        for _, row in sorted(grouped.items(), key=lambda item: item[0].casefold())
-    ]
-
-
 def build_meeting(meeting, speeches: pd.DataFrame, lex: lexicon.Lexicon) -> dict[str, object]:
     ordered = speeches.sort_values("speech_number")
     first = ordered.iloc[0]
@@ -155,8 +117,8 @@ def build_meeting(meeting, speeches: pd.DataFrame, lex: lexicon.Lexicon) -> dict
         "topic": clean(meeting.topic),
         "region": clean(first["agenda_item1"]),
         "agenda": clean(first["agenda_item_manual"]),
-        "scope_counts": meeting_scope_counts(exported),
-        "delegations": delegations(exported),
+        "scope_counts": scopes.meeting_scope_counts(exported),
+        "delegations": scopes.delegations(exported),
         "speeches": exported,
     }
 
@@ -177,26 +139,6 @@ def summarise(meeting: dict) -> dict[str, object]:
         "scope_counts": meeting["scope_counts"],
         "terms": sorted({name for h in hits for name in h}),
         "occurrences": sum(len(spans) for h in hits for spans in h.values()),
-    }
-
-
-def scope_payload(speeches: pd.DataFrame, meta: dict[str, object]) -> dict[str, object]:
-    """The small shared-layout artefact, kept out of the 3 MB meeting index.
-
-    It carries the two cuts the consuming views need — by year and by speaker —
-    because a scope that changes only a number beside a control is a control
-    nothing obeys, and fetching the meeting index to obey it would cost 3 MB on
-    every page.
-    """
-    return {
-        "meta": meta,
-        "corpus": {
-            "speeches": len(speeches),
-            "meetings": int(speeches["meeting_symbol"].nunique()),
-        },
-        "scopes": scopes.summary(speeches),
-        "years": scopes.by_year(speeches),
-        "delegations": scopes.by_delegation(speeches),
     }
 
 
@@ -296,7 +238,7 @@ def run(scope: str, indent: int | None) -> None:
         configs=[LEXICON],
         extra={"lexicon_version": lex.version, "scope": scope},
     )
-    shared_scopes = scope_payload(speeches, meta)
+    shared_scopes = scopes.scope_payload(speeches, meta)
 
     console.step("Writing one file per meeting")
     grouped = dict(list(speeches.groupby("basename", sort=False)))

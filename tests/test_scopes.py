@@ -2,19 +2,8 @@
 
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-
 import pandas as pd
 from lib import scopes
-
-ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location(
-    "meeting_export", ROOT / "scripts" / "09_export_speeches.py"
-)
-assert SPEC and SPEC.loader
-meeting_export = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(meeting_export)
 
 
 def corpus() -> pd.DataFrame:
@@ -80,12 +69,12 @@ def test_meeting_inventory_counts_each_speech_once_and_names_delegations() -> No
         },
     ]
 
-    assert meeting_export.meeting_scope_counts(speeches) == {
+    assert scopes.meeting_scope_counts(speeches) == {
         "word": 1,
         "vocabulary": 2,
         "debate": 3,
     }
-    assert meeting_export.delegations(speeches) == [
+    assert scopes.delegations(speeches) == [
         {
             "country": "France",
             "iso3": "FRA",
@@ -106,7 +95,7 @@ def test_meeting_inventory_counts_each_speech_once_and_names_delegations() -> No
 
 
 def test_small_scope_payload_keeps_the_denominator_outside_the_reading_sets() -> None:
-    payload = meeting_export.scope_payload(corpus(), {"script": "09_export_speeches.py"})
+    payload = scopes.scope_payload(corpus(), {"script": "09_export_speeches.py"})
 
     assert payload["corpus"] == {"speeches": 4, "meetings": 3}
     assert [row["id"] for row in payload["scopes"]] == ["word", "vocabulary", "debate"]

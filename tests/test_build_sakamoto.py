@@ -2,21 +2,9 @@
 
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-
 import pandas as pd
 import pytest
-
-
-@pytest.fixture(scope="module")
-def build_module():
-    path = Path(__file__).resolve().parents[1] / "scripts" / "01_build_parquet.py"
-    spec = importlib.util.spec_from_file_location("build_sakamoto", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+from lib import sakamoto
 
 
 def meeting_source() -> pd.DataFrame:
@@ -79,9 +67,9 @@ def speech_source() -> pd.DataFrame:
     )
 
 
-def test_adapter_preserves_source_ids_and_body_text(build_module):
-    meetings = build_module.adapt_meetings(meeting_source())
-    speeches = build_module.adapt_speeches(speech_source(), meetings)
+def test_adapter_preserves_source_ids_and_body_text():
+    meetings = sakamoto.adapt_meetings(meeting_source())
+    speeches = sakamoto.adapt_speeches(speech_source(), meetings)
 
     assert speeches["row_id"].tolist() == ["SC00001-01-001", "SC00001-01-002"]
     assert speeches["filename"].tolist() == [
@@ -93,17 +81,17 @@ def test_adapter_preserves_source_ids_and_body_text(build_module):
     assert speeches["speech_format"].eq("Transcript").all()
 
 
-def test_adapter_derives_honest_participant_types(build_module):
-    meetings = build_module.adapt_meetings(meeting_source())
-    speeches = build_module.adapt_speeches(speech_source(), meetings)
+def test_adapter_derives_honest_participant_types():
+    meetings = sakamoto.adapt_meetings(meeting_source())
+    speeches = sakamoto.adapt_speeches(speech_source(), meetings)
 
     assert speeches["participanttype"].tolist() == ["Procedural", "Council member"]
     assert speeches["source_procedural"].tolist() == [True, False]
     assert speeches["source_affiliation"].tolist() == ["Australia", "United States"]
 
 
-def test_meeting_adapter_keeps_all_records_and_first_broad_category(build_module):
-    meetings = build_module.adapt_meetings(meeting_source())
+def test_meeting_adapter_keeps_all_records_and_first_broad_category():
+    meetings = sakamoto.adapt_meetings(meeting_source())
 
     assert meetings.loc[0, "basename"] == "SC00001-01"
     assert meetings.loc[0, "spv"] == "S/PV.1"
@@ -111,6 +99,6 @@ def test_meeting_adapter_keeps_all_records_and_first_broad_category(build_module
     assert meetings.loc[0, "source_word_count"] == 42
 
 
-def test_unknown_boolean_is_refused(build_module):
+def test_unknown_boolean_is_refused():
     with pytest.raises(ValueError, match="unknown boolean"):
-        build_module.as_boolean(pd.Series(["perhaps"]), "closed")
+        sakamoto.as_boolean(pd.Series(["perhaps"]), "closed")

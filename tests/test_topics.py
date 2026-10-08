@@ -1110,7 +1110,7 @@ def test_every_attribute_scored_is_an_attribute_the_note_can_name(step) -> None:
             "agenda_item_manual": ["Rwanda", "Rwanda", "Sudan"],
         }
     )
-    attributes = step.projection_attributes(sample, np.array([0, 0, 1]), np.array([-1, 1, 1]))
+    attributes = topics.projection_attributes(sample, np.array([0, 0, 1]), np.array([-1, 1, 1]))
     assert set(attributes) == set(step.PURITY_LABELS)
     assert set(step.OCCASION_ATTRIBUTES) | set(step.SUBJECT_ATTRIBUTES) <= set(attributes)
     for values in attributes.values():

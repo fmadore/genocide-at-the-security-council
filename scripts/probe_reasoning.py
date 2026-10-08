@@ -12,14 +12,13 @@ import argparse
 import importlib.util
 import json
 import re
-import statistics
 import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import annotate, artifacts, audit, console, llm, model_runs, run_store
+from lib import annotate, artifacts, audit, console, llm, model_runs, probes, run_store
 from lib.paths import INTERIM, rel
 from lib.text import sentence_spans
 
@@ -40,36 +39,6 @@ def annotation_step():
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
-
-
-def assess_ladder(rows: list[dict[str, object]], levels: list[str]) -> dict[str, object]:
-    """Summarise the paired probe and say whether its reasoning depth varies."""
-    summary = []
-    medians = []
-    for level in levels:
-        selected = [row for row in rows if row["level"] == level]
-        reasoning = [int(row["reasoning_tokens"]) for row in selected]
-        latency = [float(row["latency_seconds"]) for row in selected]
-        if not selected:
-            raise ValueError(f"reasoning probe has no observations for {level}")
-        median_reasoning = statistics.median(reasoning)
-        medians.append(median_reasoning)
-        summary.append(
-            {
-                "level": level,
-                "requests": len(selected),
-                "median_reasoning_tokens": median_reasoning,
-                "median_latency_seconds": round(statistics.median(latency), 3),
-            }
-        )
-    first = [int(row["reasoning_tokens"]) for row in rows if row["level"] == levels[0]]
-    last = [int(row["reasoning_tokens"]) for row in rows if row["level"] == levels[-1]]
-    paired = len(first) == len(last) and all(high > low for low, high in zip(first, last, strict=True))
-    return {
-        "levels": summary,
-        "passed": paired and medians[-1] > 0 and medians[-1] == max(medians),
-        "rule": "Every paired top-level response uses more reasoning tokens than its lowest-level response; the top median is positive and maximal. This is an operational screen, not statistical validation.",
-    }
 
 
 def run(args: argparse.Namespace) -> None:
@@ -165,7 +134,7 @@ def run(args: argparse.Namespace) -> None:
                 }
             )
 
-    assessment = assess_ladder(observations, levels)
+    assessment = probes.assess_ladder(observations, levels)
     artefact = {
         **identity,
         "identity_sha256": identity_sha256,

@@ -39,7 +39,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from . import council, entities, series
+from . import console, council, entities, lexicon, series
 
 #: Re-exported, not redefined. The zero-ceiling arithmetic below :data:`MIN_SPEECHES`
 #: is a fact about denominators rather than about countries and now lives in
@@ -175,6 +175,27 @@ def withhold_below(frame: pd.DataFrame, minimum: int = MIN_SPEECHES) -> pd.DataF
     denominator lives beside the measure rather than inside it.
     """
     return series.withhold_below(frame, frame["held"], minimum)
+
+
+def annual_table(speeches: pd.DataFrame, measure: str, minimum: int = MIN_SPEECHES) -> pd.DataFrame:
+    if minimum < 1 or speeches.empty:
+        raise ValueError("a positive minimum and a nonempty corpus are required")
+    if speeches[["row_id", "year", "country_org", "meeting_symbol"]].isna().any().any() or speeches.row_id.duplicated().any():
+        raise ValueError("annual tables require unique speech IDs and complete grouping fields")
+    has, count = series.columns_for("terms", measure)
+    speakers = sorted(speeches.country_org.unique())
+    tables = []
+    for year in range(int(speeches.year.min()), int(speeches.year.max()) + 1):
+        selected = speeches[speeches.year.eq(year)]
+        table = by_country(selected, has, count).reindex(speakers)
+        for column in ("held", "words", "tokens", "meetings", "speeches", "occurrences"):
+            table[column] = table[column].fillna(0).astype(int)
+        table = withhold_below(table, minimum)
+        table["withheld_reason"] = ["no speeches" if n == 0 else "below minimum" if n < minimum else "" for n in table.held]
+        if int(table.held.sum()) != len(selected) or int(table.speeches.sum()) != int(selected[has].sum()) or int(table.occurrences.sum()) != int(selected[count].sum()) or int(table.words.sum()) != int(selected.words.sum()):
+            raise ValueError(f"annual totals do not reconcile for {year}")
+        tables.append(table.assign(year=year, measure=measure).reset_index(names="country_org"))
+    return pd.concat(tables, ignore_index=True)
 
 
 # --- Who held a seat when they spoke ---------------------------------------
@@ -566,4 +587,143 @@ def as_rows(frame: pd.DataFrame, period_key: str) -> list[dict[str, object]]:
                 "token_rate": _rate(row["token_rate"], 4),
             }
         out.append(entry)
+    return out
+
+
+# --- The table 11 writes ---------------------------------------------------
+
+
+#: The measures this table carries. It held `atrocity_core` beside the derived
+#: measure until lexicon v5, and that union is the reason several of 11's
+#: careful absences exist: a set has no occurrence count, so the interface had
+#: to detect the withholding and drop a column, an ordering and a tooltip rather
+#: than read it through `?? 0`. The withholding machinery stays — R8's
+#: genocide-free corpus is a population with the same property — but no measure
+#: in this artefact is a roll-up over terms any more.
+#:
+#: One word-family count, also used by the chronology and concordance.
+TRACKED: list[tuple[str, str]] = [
+    ("terms", "genocide"),
+]
+
+#: The measure used for prevalence, withholding and reconciliation.
+HEADLINE = TRACKED[0][1]
+
+#: Columns read from the corpus. The whole table is 100 columns wide and 419 MB
+#: of it is speech text 11 never looks at.
+COLUMNS = [
+    "row_id",
+    "year",
+    "country_org",
+    "meeting_symbol",
+    "words",
+    # Kept for 11's codebook assertion, never divided by.
+    "tokens",
+    "entity_type",
+    "iso3",
+    "un_regional_group",
+    "speaker_group",
+    "lat",
+    "lon",
+    "source_state",
+    "source_un_org",
+    "source_igo",
+    "source_ngo",
+    "source_permanent_member",
+    "source_elected_member",
+]
+
+
+def measure_attributes(lex: lexicon.Lexicon, kind: str, name: str) -> dict[str, object]:
+    """Describe each measure and retain provenance for generic derived inputs."""
+    if name in lex.derived:
+        measure = lex.derived[name]
+        return {
+            "kind": kind,
+            "tier": measure.tier,
+            "register": measure.register,
+            "derived_from": measure.minuend,
+            "derived_minus": list(measure.subtrahends),
+        }
+    term = lex.terms[name]
+    return {"kind": kind, "tier": term.tier, "register": term.register}
+
+
+def build_measures(
+    speeches: pd.DataFrame,
+    lex: lexicon.Lexicon,
+    slices: list[Period],
+    minimum: int,
+) -> tuple[dict[str, object], dict[str, dict[str, pd.DataFrame]]]:
+    """Every measure over every period, reconciled before it is kept."""
+    payload: dict[str, object] = {}
+    computed: dict[str, dict[str, pd.DataFrame]] = {}
+
+    for kind, name in TRACKED:
+        has_column, count_column = series.columns_for(kind, name)
+        rows: list[dict[str, object]] = []
+        computed[name] = {}
+
+        for window in slices:
+            subset = speeches[window.mask(speeches["year"])]
+            frame = by_country(subset, has_column, count_column)
+            if problems := reconcile(
+                frame, subset, has_column, count_column, f"{name} / {window.key}"
+            ):
+                console.fail("the per-country aggregation does not reconcile", problems)
+            frame = withhold_below(frame, minimum)
+            computed[name][window.key] = frame
+            rows += as_rows(frame, window.key)
+
+        # The declared periods are asserted to partition the corpus before any of
+        # this runs, so the four slices must add back up to the whole-corpus row.
+        # Checking it here rather than trusting the assertion is cheap, and it is
+        # the one place a mis-set period boundary would show as a number.
+        if problems := reconcile_periods(computed[name], slices):
+            console.fail(f"{name}: the period slices do not add up to the whole", problems)
+
+        payload[name] = {**measure_attributes(lex, kind, name), "rows": rows}
+        cleared = int(computed[name][WHOLE]["sufficient"].sum())
+        console.info(
+            f"{name:22s} {len(rows):,} rows over {len(slices)} periods; "
+            f"{cleared} speakers clear the minimum over the whole corpus"
+        )
+
+    # The minimum governs a denominator, and a speaker's denominator does not
+    # depend on which vocabulary is counted in it. So every measure must blank
+    # the same rows; a rate shown for one and withheld for the other would look
+    # like a finding about the words.
+    if problems := reconcile_withholding(computed):
+        console.fail("the measures do not agree about a denominator or a withholding", problems)
+    if len(computed) > 1:
+        console.info(f"the {len(computed)} measures withhold from the same speakers in every period")
+
+    return payload, computed
+
+
+def build_periods(
+    speeches: pd.DataFrame, slices: list[Period], computed: dict, minimum: int
+) -> list[dict[str, object]]:
+    """Corpus totals per slice, so no consumer has to hard-code a denominator."""
+    out = []
+    for window in slices:
+        subset = speeches[window.mask(speeches["year"])]
+        frame = computed[HEADLINE][window.key]
+        out.append(
+            {
+                **window.as_dict(),
+                "speeches": len(subset),
+                "words": int(subset["words"].sum()),
+                "speakers": int(subset["country_org"].nunique()),
+                "speakers_at_minimum": int(frame["sufficient"].sum()),
+                "speeches_at_minimum": int(frame.loc[frame["sufficient"], "held"].sum()),
+            }
+        )
+        window_min = out[-1]
+        console.info(
+            f"{window.key:10s} {window_min['speeches']:>7,} speeches  "
+            f"{window_min['speakers']:>3} speakers  "
+            f"{window_min['speakers_at_minimum']:>3} at or above {minimum} "
+            f"({window_min['speeches_at_minimum'] / max(len(subset), 1):.1%} of speeches)"
+        )
     return out

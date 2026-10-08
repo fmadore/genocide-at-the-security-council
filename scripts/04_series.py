@@ -62,11 +62,6 @@ from lib.paths import (
 #: All headline tests use the full word-family count, matching the concordance.
 TRACKED = [("terms", "genocide")]
 
-#: R8's comparison corpus. These are phrases with determinate legal meanings,
-#: not the broader convenience set in the lexicon. A speech enters once when it
-#: carries any member and leaves whenever it carries `genocid*` too.
-GENOCIDE_FREE_ATROCITY_TERMS = scopes.ATROCITY_TERMS
-
 #: Speeches a month must hold before its rates are published.
 #:
 #: Derived, not declared: at the corpus prevalence of about 3.1%, observing no
@@ -139,63 +134,6 @@ def measures(lex: lexicon.Lexicon) -> dict[str, dict[str, dict]]:
     }
 
 
-def rates(values, digits: int) -> list[float | None]:
-    """A rate column as JSON.
-
-    A withheld rate is `null`, never `NaN`: `json.dumps` writes the latter
-    happily and no browser will parse it back. This is also the one place the
-    distinction between "withheld" and "zero" is preserved on the way out, which
-    is the whole argument for withholding in the first place.
-    """
-    return [None if pd.isna(v) else round(float(v), digits) for v in values]
-
-
-def comparison_corpora(
-    speeches: pd.DataFrame,
-    periods: pd.Series,
-    totals: pd.DataFrame,
-    *,
-    minimum: int | None = None,
-) -> dict[str, dict[str, object]]:
-    """Named corpus slices whose membership is a reproducible row predicate.
-
-    This is deliberately not a set measure. It defines which speeches a later
-    analysis may read, and counts each qualifying speech once even when it uses
-    two or three member phrases. The member term series remain separate.
-    """
-    columns = [f"has_{term}" for term in GENOCIDE_FREE_ATROCITY_TERMS]
-    missing = sorted({"has_genocide", *columns} - set(speeches.columns))
-    if missing:
-        raise ValueError("Comparison corpus is missing columns: " + ", ".join(missing))
-    included = speeches[columns].fillna(False).astype(bool).any(axis=1)
-    has_genocide = speeches["has_genocide"].fillna(False).astype(bool)
-    working = speeches.assign(has_genocide_free_atrocity=included & ~has_genocide)
-    measured = series.measure(
-        working,
-        periods,
-        totals,
-        "has_genocide_free_atrocity",
-        None,
-    )
-    if minimum is not None:
-        measured = series.withhold_below(measured, totals["speeches"], minimum)
-    return {
-        "genocide_free_atrocity": {
-            "label": "Atrocity vocabulary without genocid*",
-            "definition": (
-                "Speeches using ethnic cleansing, crimes against humanity or war crimes "
-                "and containing no genocid* match."
-            ),
-            "members": list(GENOCIDE_FREE_ATROCITY_TERMS),
-            "excludes": ["genocide"],
-            "speeches": measured["speeches"].tolist(),
-            "speech_rate": rates(measured["speech_rate"], 6),
-            "speech_rate_low": rates(measured["speech_rate_low"], 6),
-            "speech_rate_high": rates(measured["speech_rate_high"], 6),
-        }
-    }
-
-
 def build_series(
     speeches: pd.DataFrame,
     lex: lexicon.Lexicon,
@@ -231,7 +169,7 @@ def build_series(
     }
     if minimum is not None:
         payload["sufficient"] = (totals["speeches"] >= minimum).tolist()
-    payload["corpora"] = comparison_corpora(
+    payload["corpora"] = scopes.comparison_corpora(
         speeches,
         periods,
         totals,
@@ -268,20 +206,20 @@ def build_series(
             block[name] = {
                 **attributes,
                 "speeches": frame["speeches"].tolist(),
-                "speech_rate": rates(frame["speech_rate"], 6),
-                "speech_rate_low": rates(frame["speech_rate_low"], 6),
-                "speech_rate_high": rates(frame["speech_rate_high"], 6),
+                "speech_rate": series.rates(frame["speech_rate"], 6),
+                "speech_rate_low": series.rates(frame["speech_rate_low"], 6),
+                "speech_rate_high": series.rates(frame["speech_rate_high"], 6),
             }
             if name in clustered:
                 low, high = clustered[name]
                 block[name] |= {  # type: ignore[operator]
-                    "speech_rate_cluster_low": rates(pd.Series(low), 6),
-                    "speech_rate_cluster_high": rates(pd.Series(high), 6),
+                    "speech_rate_cluster_low": series.rates(pd.Series(low), 6),
+                    "speech_rate_cluster_high": series.rates(pd.Series(high), 6),
                 }
             if count_column is not None:
                 block[name] |= {  # type: ignore[operator]
                     "occurrences": frame["occurrences"].tolist(),
-                    "token_rate": rates(frame["token_rate"], 4),
+                    "token_rate": series.rates(frame["token_rate"], 4),
                 }
         payload[kind] = block
 
@@ -453,15 +391,15 @@ def build_month_of_year(
             "held": totals["speeches"].tolist(),
             "words": totals["words"].tolist(),
             "speeches": measured["speeches"].tolist(),
-            "speech_rate": rates(measured["speech_rate"], 6),
-            "speech_rate_low": rates(measured["speech_rate_low"], 6),
-            "speech_rate_high": rates(measured["speech_rate_high"], 6),
+            "speech_rate": series.rates(measured["speech_rate"], 6),
+            "speech_rate_low": series.rates(measured["speech_rate_low"], 6),
+            "speech_rate_high": series.rates(measured["speech_rate_high"], 6),
             "sufficient": measured["sufficient"].tolist(),
         }
         if count_column is not None:
             block |= {
                 "occurrences": measured["occurrences"].tolist(),
-                "token_rate": rates(measured["token_rate"], 4),
+                "token_rate": series.rates(measured["token_rate"], 4),
             }
         return block
 

@@ -24,25 +24,20 @@ operational evidence: never a model annotation, never input to a figure.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import importlib.util
 import re
 import statistics
 import sys
-from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import annotate, artifacts, audit, console, llm, model_runs
+from lib import annotate, artifacts, audit, console, llm, model_runs, probes
 from lib.paths import INTERIM, rel
 from lib.text import sentence_spans
 
 OUTPUT = INTERIM / "model_annotation_sampling"
 MAX_OUTPUT_TOKENS = 65_536
-
-#: The fields whose agreement between settings is reported.
-COMPARED = ("verdict", "concrete_case", "speaker_position", "referent", "quotation")
 
 
 def annotation_step():
@@ -55,64 +50,6 @@ def annotation_step():
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
-
-
-def parse_settings(text: str) -> list[dict[str, object]]:
-    """`name:temperature:top_p[:top_k]`, comma-separated, at least two, names unique."""
-    settings = []
-    for chunk in text.split(","):
-        parts = chunk.strip().split(":")
-        if len(parts) not in (3, 4) or not re.fullmatch(r"[a-z][a-z0-9_-]*", parts[0]):
-            raise ValueError(f"setting {chunk!r} is not name:temperature:top_p[:top_k]")
-        setting: dict[str, object] = {
-            "name": parts[0],
-            "temperature": float(parts[1]),
-            "top_p": float(parts[2]),
-            "top_k": int(parts[3]) if len(parts) == 4 else None,
-        }
-        if setting["temperature"] < 0 or not 0 < setting["top_p"] <= 1:  # type: ignore[operator]
-            raise ValueError(f"setting {chunk!r} has an invalid temperature or top_p")
-        settings.append(setting)
-    names = [str(setting["name"]) for setting in settings]
-    if len(settings) < 2 or len(set(names)) != len(names):
-        raise ValueError("at least two settings with distinct names are needed")
-    return settings
-
-
-def select(speeches: Sequence[annotate.Speech], count: int, seed: int) -> list[annotate.Speech]:
-    """Half the longest speeches, half a seeded draw from the rest, in corpus order."""
-    by_length = sorted(speeches, key=lambda speech: (-len(speech.body), speech.custom_id))
-    longest = by_length[: count // 2]
-    chosen = {speech.custom_id for speech in longest}
-
-    def rank(speech: annotate.Speech) -> str:
-        return hashlib.sha256(f"{seed}\x1f{speech.custom_id}".encode()).hexdigest()
-
-    rest = sorted((speech for speech in speeches if speech.custom_id not in chosen), key=rank)
-    chosen |= {speech.custom_id for speech in rest[: count - len(longest)]}
-    return [speech for speech in speeches if speech.custom_id in chosen]
-
-
-def agreement(
-    first: dict[str, dict[int, dict[str, object]]],
-    second: dict[str, dict[int, dict[str, object]]],
-) -> dict[str, object]:
-    """Per-field agreement over the occurrences both settings answered."""
-    shared = [
-        (speech, ordinal)
-        for speech, labels in first.items()
-        if speech in second
-        for ordinal in labels
-        if ordinal in second[speech]
-    ]
-    fields = {}
-    for field in COMPARED:
-        same = sum(
-            1 for speech, ordinal in shared
-            if first[speech][ordinal][field] == second[speech][ordinal][field]
-        )
-        fields[field] = round(same / len(shared), 6) if shared else None
-    return {"occurrences": len(shared), "agreement": fields}
 
 
 def summarise(observations: list[dict[str, object]], name: str) -> dict[str, object]:
@@ -134,7 +71,7 @@ def run(args: argparse.Namespace) -> None:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", args.run_id):
         console.fail("run-id must be a single safe directory name")
     try:
-        settings = parse_settings(args.settings)
+        settings = probes.parse_settings(args.settings)
     except ValueError as error:
         console.fail(str(error))
     step = annotation_step()
@@ -142,7 +79,7 @@ def run(args: argparse.Namespace) -> None:
     referents = audit.read_referent_list(model_runs.REFERENTS).current
     table = llm.render_referents(llm.read_referent_table(model_runs.REFERENTS))
     everything, _, _ = annotate.gather(None)
-    speeches = select(everything, args.speeches, args.seed)
+    speeches = probes.select(everything, args.speeches, args.seed)
     console.info(f"{len(speeches)} speeches, {sum(len(s.occurrences) for s in speeches)} occurrences")
 
     api = step.client()
@@ -207,7 +144,7 @@ def run(args: argparse.Namespace) -> None:
         "selection": f"half the longest, half a seeded draw (seed {args.seed})",
         "summary": [summarise(observations, str(setting["name"])) for setting in settings],
         "against_first": {
-            str(setting["name"]): agreement(labels[first], labels[str(setting["name"])])
+            str(setting["name"]): probes.agreement(labels[first], labels[str(setting["name"])])
             for setting in settings[1:]
         },
         "observations": observations,

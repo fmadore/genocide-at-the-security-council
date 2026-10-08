@@ -100,56 +100,6 @@ def encode(model, pieces: list[str], batch_size: int) -> np.ndarray:
     return np.vstack(out).astype(np.float32)
 
 
-def build_neighbours(
-    vectors: np.ndarray, speeches: pd.DataFrame, k: int
-) -> tuple[dict[str, object], pd.DataFrame]:
-    """Nearest neighbours of every genocide-bearing speech.
-
-    docs/PLAN.md §4 asks for this as an inspection, not a result: it is the
-    cheapest way for a reader to find out whether the space has organised the
-    corpus by anything they recognise before anyone builds a topic model on it.
-    """
-    targets = np.flatnonzero(speeches["has_genocide"].to_numpy())
-    if not len(targets):
-        return {"targets": 0, "k": k, "speeches": []}, pd.DataFrame()
-
-    console.info(f"{len(targets):,} genocide-bearing speeches, {k} neighbours each")
-    indices, scores = embeddings.top_neighbours(vectors[targets], vectors, k, exclude=targets)
-
-    meta = speeches.reset_index(drop=True)
-    flat = pd.DataFrame(
-        {
-            "row_id": np.repeat(meta["row_id"].to_numpy()[targets], k),
-            "rank": np.tile(np.arange(1, k + 1), len(targets)),
-            "neighbour_row_id": meta["row_id"].to_numpy()[indices.ravel()],
-            "cosine": scores.ravel(),
-            "neighbour_has_genocide": meta["has_genocide"].to_numpy()[indices.ravel()],
-            "neighbour_year": meta["year"].to_numpy()[indices.ravel()],
-            "same_year": meta["year"].to_numpy()[np.repeat(targets, k)]
-            == meta["year"].to_numpy()[indices.ravel()],
-            "same_speaker": meta["country_org"].to_numpy()[np.repeat(targets, k)]
-            == meta["country_org"].to_numpy()[indices.ravel()],
-        }
-    )
-
-    # The summary is the part worth reading: if a genocide-bearing speech's
-    # nearest neighbour is nearly always another one, the space has found the
-    # vocabulary; if it is nearly always the same meeting, it has found the
-    # agenda instead, which is a different and much less interesting result.
-    top = flat[flat["rank"] == 1]
-    payload = {
-        "targets": len(targets),
-        "k": k,
-        "top1_also_genocide_bearing": round(float(top["neighbour_has_genocide"].mean()), 4),
-        "top1_same_year": round(float(top["same_year"].mean()), 4),
-        "top1_same_speaker": round(float(top["same_speaker"].mean()), 4),
-        "top1_cosine_median": round(float(top["cosine"].median()), 4),
-        "any_k_also_genocide_bearing": round(float(flat["neighbour_has_genocide"].mean()), 4),
-        "corpus_genocide_bearing_share": round(float(speeches["has_genocide"].mean()), 4),
-    }
-    return payload, flat
-
-
 def build_note(
     spec: embeddings.ModelSpec,
     speeches: pd.DataFrame,
@@ -273,7 +223,7 @@ def run(model_key: str | None, limit: int, device: str | None, storage: str, k: 
         console.fail(f"vectors are not unit length (min {norms.min():.4f}, max {norms.max():.4f})")
 
     console.step("Nearest-neighbour inspection")
-    neighbour_summary, neighbour_rows = build_neighbours(vectors, speeches, k)
+    neighbour_summary, neighbour_rows = embeddings.build_neighbours(vectors, speeches, k)
 
     console.step("Writing")
     environment = embeddings.environment(spec, resolved)
