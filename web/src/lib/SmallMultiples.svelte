@@ -14,16 +14,26 @@
 	 *
 	 * Plain SVG rather than a chart library: colour comes from the CSS custom
 	 * properties, so the theme switch needs no redraw, and the whole thing is a
-	 * few hundred bytes of markup that prints.
+	 * few hundred bytes of markup that prints. The download is a second drawing
+	 * of the same rows with the colours resolved, in `$lib/multiples`.
 	 */
+	import { multiplesKey, multiplesPoints, multiplesSvg } from './multiples';
+	import { FONT, palette } from './theme';
+
 	interface Row {
-		/** Shown at the left, in the series' own colour. */
+		/** Shown at the left in ink, behind a square of the series' colour. */
 		name: string;
 		values: number[];
 		/** Any CSS colour — normally `var(--reg-…)`. */
 		colour: string;
 		/** The one number the per-row scaling throws away. */
 		summary: string;
+		/**
+		 * The register the colour stands for, named in the key above the rows.
+		 * Without it a reader was told that colour groups related terms and was
+		 * never told which group a colour was (review of 19 September 2026).
+		 */
+		register?: string;
 	}
 
 	/** A period carrying one or more reference dates, and what they were. */
@@ -53,32 +63,78 @@
 	/** x of the i-th of n points, edge to edge. */
 	const x = (i: number, n: number) => (n < 2 ? 0 : (i / (n - 1)) * W);
 
-	function path(values: number[]): string {
-		const top = Math.max(...values, 0);
-		// A flat-zero row would divide by zero; draw it on the floor instead.
-		const scale = top > 0 ? top : 1;
-		return values
-			.map(
-				(v, i) => `${x(i, values.length).toFixed(1)},${(H - (v / scale) * (H - 4) - 2).toFixed(1)}`
-			)
-			.join(' ');
-	}
-
 	const ticks = $derived(events.map((e) => ({ x: x(e.index, periods.length), title: e.title })));
 	const axis = $derived({
 		first: periods[0],
 		last: periods[periods.length - 1],
 		mid: periods[Math.floor(periods.length / 2)]
 	});
+	const key = $derived(multiplesKey(rows));
+	const ticksLabel = $derived(eventsLabel ?? `${ticks.length} reference dates`);
+
+	/**
+	 * A `var(--…)` resolved against the document, for the file.
+	 *
+	 * Custom properties compute with their own `var()` references substituted,
+	 * so `--reg-core`, declared as `var(--ink)`, reads back as the ink itself.
+	 */
+	function literal(colour: string, style: CSSStyleDeclaration, fallback: string): string {
+		const name = /^var\((--[\w-]+)\)$/.exec(colour.trim())?.[1];
+		return name ? style.getPropertyValue(name).trim() || fallback : colour;
+	}
+
+	/**
+	 * The figure as a file, for `Download.svelte`'s two image formats.
+	 *
+	 * Built fresh on every call rather than read off the page: the page's copy
+	 * colours itself with the theme's custom properties, which a file opened
+	 * anywhere else does not have. Detached, so its size is read from its own
+	 * `width` and `height`, which is the path `Download.svelte` already takes
+	 * for an element with no box.
+	 */
+	export function svg(): SVGSVGElement | null {
+		if (typeof document === 'undefined' || !rows.length) return null;
+		const style = getComputedStyle(document.documentElement);
+		const p = palette();
+		const resolved = rows.map((row) => ({ ...row, colour: literal(row.colour, style, p.ink) }));
+		const markup = multiplesSvg({
+			rows: resolved,
+			periods,
+			key: multiplesKey(resolved).map((entry) => ({
+				label: entry.register,
+				colour: entry.colour
+			})),
+			ticks: events,
+			ticksLabel,
+			colours: { ink: p.ink, faint: p.inkFaint, rule: p.ruleSoft },
+			fontFamily: FONT
+		});
+		const parsed = new DOMParser().parseFromString(markup, 'image/svg+xml').documentElement;
+		return parsed instanceof SVGSVGElement ? parsed : null;
+	}
 </script>
 
+<!-- The key names each colour in words, a square before each word, so the
+     words stay ink: the colour is the register the term sits on, and a reader
+     told that colour groups related terms is owed the name of each group. -->
+{#if key.length}
+	<p class="key">
+		{#each key as entry (entry.register)}
+			<span class="entry"
+				><span class="swatch" style:background={entry.colour}></span>{entry.register}</span
+			>
+		{/each}
+	</p>
+{/if}
 <div class="multiples" role="img" aria-label={description}>
 	{#each rows as row (row.name)}
 		<div class="row">
-			<div class="name" style:color={row.colour}>{row.name}</div>
+			<div class="name">
+				<span class="swatch" style:background={row.colour}></span>{row.name}
+			</div>
 			<svg viewBox="0 0 {W} {H}" preserveAspectRatio="none" aria-hidden="true">
 				<polyline
-					points={path(row.values)}
+					points={multiplesPoints(row.values, W, H)}
 					fill="none"
 					stroke={row.colour}
 					stroke-width="1.6"
@@ -92,7 +148,7 @@
 
 	{#if ticks.length}
 		<div class="row events">
-			<div class="label">{eventsLabel ?? `${ticks.length} reference dates`}</div>
+			<div class="label">{ticksLabel}</div>
 			<div class="rail">
 				<svg viewBox="0 0 {W} 14" preserveAspectRatio="none">
 					{#each ticks as tick, i (i)}
@@ -149,9 +205,37 @@
 	}
 
 	.name {
+		display: flex;
+		align-items: baseline;
+		gap: var(--sp-2);
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		font-weight: 600;
+		color: var(--ink);
+	}
+
+	/* The site's one way of stating a colour key: a 0.625rem square before the
+	   words. Painted by background, which a forced-colour mode drops; the
+	   register then survives as the word in the key and in the table. */
+	.swatch {
+		width: 0.625rem;
+		height: 0.625rem;
+		flex: none;
+	}
+
+	.key {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--sp-1) var(--sp-4);
+		margin: 0 0 var(--sp-2);
+		font-size: var(--step--1);
+		color: var(--ink-3);
+	}
+
+	.entry {
+		display: inline-flex;
+		align-items: baseline;
+		gap: var(--sp-2);
 	}
 
 	svg {

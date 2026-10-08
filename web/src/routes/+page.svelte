@@ -21,8 +21,9 @@
 
 	let { data }: { data: PageData } = $props();
 
-	/* Live chart handle, for the image half of the export. */
+	/* Live chart handles, for the image half of the export. */
 	let contrastFigure = $state<Chart | null>(null);
+	let vocabularyFigure = $state<SmallMultiples | null>(null);
 
 	/**
 	 * Both overview figures read the same annual artefact, so both export it
@@ -114,6 +115,14 @@
 		const p = $colours;
 		return {
 			textStyle,
+			// No hatch. `Chart.svelte` turns on `aria.decal`, which lays a pattern
+			// over every bar, and this is the only bar series on the site: two
+			// series told apart by mark, bar and line, gain nothing from it, and on
+			// this site a hatch means a month withheld for want of speeches. It also
+			// travelled into every downloaded SVG as 79 pattern fills (review of 19
+			// September 2026). ECharts 6 refuses `decal: 'none'` on the series, so
+			// the switch is the chart's own.
+			aria: { enabled: true, decal: { show: false } },
 			// No end labels here: the two axis names already sit at the two ends of
 			// the plot and name a series each, and the right-hand axis owns the
 			// margin an end label would need.
@@ -209,10 +218,12 @@
 			.map((name) => {
 				const series = data.series.terms[name];
 				const bearing = series.speeches.reduce((a, b) => a + b, 0);
+				const register = series.register ?? 'core';
 				return {
 					name: measureLabel(name),
 					values: series.speech_rate,
-					colour: `var(--reg-${series.register ?? 'core'})`,
+					colour: `var(--reg-${register})`,
+					register,
 					summary: percent(held ? bearing / held : 0)
 				};
 			});
@@ -319,7 +330,12 @@
 				<dt class="label">Speeches using {measureLabel(headline)}</dt>
 				<dd>{count(totals.bearing)}</dd>
 				<p>
-					{percent(totals.bearing / totals.speeches)} of all speeches. Forms such as
+					{percent(totals.bearing / totals.speeches)}<a
+						class="note-ref"
+						href="#english-record"
+						aria-describedby="english-record">†</a
+					>
+					of all speeches. Forms such as
 					<em>genocide</em>
 					and <em>genocidal</em> count together.
 				</p>
@@ -434,7 +450,8 @@
 		)} speeches in the period"
 		download={{
 			name: ['unsc', 'vocabulary-word-by-word'],
-			table: () => annualTable('The vocabulary, word by word', [`drawn: ${drawn.join(', ')}`])
+			table: () => annualTable('The vocabulary, word by word', [`drawn: ${drawn.join(', ')}`]),
+			chart: () => vocabularyFigure?.svg() ?? null
 		}}
 	>
 		{#snippet reading()}
@@ -454,10 +471,11 @@
 			</p>
 		{/snippet}
 		<SmallMultiples
+			bind:this={vocabularyFigure}
 			rows={termRows}
 			periods={years}
 			events={eventTicks}
-			eventsLabel="{data.overlay.events.length} reference dates"
+			eventsLabel={`${data.overlay.events.length} reference dates in ${eventTicks.length} ${eventTicks.length === 1 ? 'year' : 'years'}`}
 			description="One row per word, each the share of all speeches held that year that use it, scaled to its own maximum."
 		/>
 		<details class="data-table">
@@ -466,6 +484,9 @@
 				<thead
 					><tr
 						><th>Year</th>{#each termRows as row (row.name)}<th class="num">{row.name}</th
+							>{/each}</tr
+					><tr class="register"
+						><th>Register</th>{#each termRows as row (row.name)}<th class="num">{row.register}</th
 							>{/each}</tr
 					></thead
 				><tbody
@@ -728,6 +749,24 @@
 		.onward-list a {
 			grid-template-columns: minmax(0, 1fr);
 		}
+	}
+
+	/* The marker that sends the share to the footer's note on the English
+	   record, which qualifies every count on the site but sat 3,400px below
+	   the first of them (review of 19 September 2026). */
+	.note-ref {
+		font-size: var(--step--2);
+		vertical-align: super;
+		line-height: 0;
+		padding-inline: 0.1em;
+		text-decoration: none;
+	}
+
+	/* The register under each term's name: the key to the colours, in a table
+	   a reader can copy. Quiet, because it qualifies the header above it. */
+	.data-table .register th {
+		font-weight: 400;
+		color: var(--ink-3);
 	}
 
 	/* `.data-table` itself is in `app.css`: three routes open a table this way. */
