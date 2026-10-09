@@ -32,7 +32,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import annotate, artifacts, audit, console, llm, model_runs, probes
+from lib import annotate, artifacts, audit, console, llm, model_runs, probes, prompts
 from lib.paths import INTERIM, rel
 from lib.text import sentence_spans
 
@@ -75,7 +75,7 @@ def run(args: argparse.Namespace) -> None:
     except ValueError as error:
         console.fail(str(error))
     step = annotation_step()
-    pack = llm.load_prompt(model_runs.PROMPT)
+    pack = prompts.load_prompt(model_runs.PROMPT)
     referents = audit.read_referent_list(model_runs.REFERENTS).current
     table = llm.render_referents(llm.read_referent_table(model_runs.REFERENTS))
     everything, _, _ = annotate.gather(None)
@@ -114,7 +114,7 @@ def run(args: argparse.Namespace) -> None:
                     referents=referents,
                     sentences=(
                         len(sentence_spans(speech.body))
-                        if llm.SENTENCE_EVIDENCE in pack.constraints
+                        if prompts.SENTENCE_EVIDENCE in pack.constraints
                         else 0
                     ),
                 )

@@ -63,7 +63,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from lib import artifacts, audit, console, frames, lexicon, llm, model_runs
+from lib import artifacts, audit, console, frames, lexicon, llm, model_runs, prompts
 from lib import occurrences as occurrences_lib
 from lib.kwic import sentence_at, sentence_spans
 from lib.paths import INTERIM, LEXICON, ROOT, SPEECHES_NORM, ensure_dirs, rel
@@ -547,7 +547,7 @@ def build(limit: int | None) -> None:
         )
 
     console.step("Reading the prompt and the controlled referents")
-    pack = llm.load_prompt(PROMPT)
+    pack = prompts.load_prompt(PROMPT)
     referent_list = audit.read_referent_list(REFERENTS)
     referents = referent_list.current
     cases = referent_weights(
@@ -691,11 +691,11 @@ def build(limit: int | None) -> None:
     console.step("Writing")
     OUTPUT.mkdir(parents=True, exist_ok=True)
     annotations = OUTPUT / "annotations.jsonl"
-    # `lib.llm.append_rows` appends, because a real run arrives in pieces over
-    # hours and must never lose work already paid for. A fixture is rebuilt whole,
-    # so the previous one is removed rather than doubled.
+    # `lib.model_runs.append_rows` appends, because a real run arrives in pieces
+    # over hours and must never lose work already paid for. A fixture is rebuilt
+    # whole, so the previous one is removed rather than doubled.
     annotations.unlink(missing_ok=True)
-    llm.append_rows(annotations, rows)
+    model_runs.append_rows(annotations, rows)
     manifest = {
         "run_id": RUN_ID,
         "term": TERM,
@@ -735,7 +735,7 @@ def build(limit: int | None) -> None:
     COMPARISON_OUTPUT.mkdir(parents=True, exist_ok=True)
     comparison_annotations = COMPARISON_OUTPUT / "annotations.jsonl"
     comparison_annotations.unlink(missing_ok=True)
-    llm.append_rows(comparison_annotations, second)
+    model_runs.append_rows(comparison_annotations, second)
     # The published run's manifest with the second instrument's identity in it,
     # and one honest difference: a comparison run may reach fewer speeches, so
     # `requests` counts the ones it actually contributed rows from.

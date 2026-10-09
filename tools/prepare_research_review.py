@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from lib import artifacts, llm, model_runs
+from lib import artifacts, model_runs
 from lib.paths import INTERIM, ROOT
 
 CUES = {
@@ -51,7 +51,7 @@ def select(rows: list[dict], limit: int = 8) -> dict[str, list[dict]]:
 
 def main() -> None:
     sources = sorted(model_runs.RUNS.glob("*/annotations.jsonl"))
-    rows = [row for source in sources for row in llm.read_rows(source)]
+    rows = [row for source in sources for row in model_runs.read_rows(source)]
     packet = select(rows)
     destination = INTERIM / "research_review" / "candidates.json"
     artifacts.atomic_write_json(destination, {

@@ -9,7 +9,7 @@ import types
 from pathlib import Path
 
 import pytest
-from lib import annotate, llm
+from lib import annotate, llm, model_runs, prompts
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -251,7 +251,7 @@ def test_live_flushes_each_raw_response_before_its_checkpoint(tmp_path: Path) ->
 
     def observe(result: annotate.Outcome) -> None:
         raw_file = next(tmp_path.glob("live-*.jsonl"))
-        checkpoints.append((result.requests, len(llm.read_rows(raw_file))))
+        checkpoints.append((result.requests, len(model_runs.read_rows(raw_file))))
 
     outcome = step.live(
         api,
@@ -307,7 +307,7 @@ def test_transport_truncation_and_validation_failures_have_distinct_kinds(tmp_pa
     )
     step.harvest(outcome, {"speech": speech}, run_meta, set(), paths)
 
-    failures = llm.read_rows(paths["failures"])
+    failures = model_runs.read_rows(paths["failures"])
     assert {row["kind"] for row in failures} == {"transport_refusal", "truncation"}
 
 
@@ -361,7 +361,7 @@ def test_retired_gemini_run_and_prompt_remain_readable() -> None:
             encoding="utf-8"
         )
     )
-    library = llm.load_prompt_library(directory / "PROMPT.md")
+    library = prompts.load_prompt_library(directory / "PROMPT.md")
     matching = [
         pack
         for pack in (library.current, *library.superseded)
@@ -369,5 +369,5 @@ def test_retired_gemini_run_and_prompt_remain_readable() -> None:
     ]
     assert manifest["model"] == "gemini-3.7-flash"
     assert len(matching) == 1
-    [row] = llm.read_rows(directory / "runs" / "2026-08-31-gemini-pilot" / "annotations.jsonl")[:1]
+    [row] = model_runs.read_rows(directory / "runs" / "2026-08-31-gemini-pilot" / "annotations.jsonl")[:1]
     assert tuple(row) == llm.LEGACY_ROW_FIELDS

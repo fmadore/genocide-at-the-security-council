@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import audit, console, lexicon, llm, model_runs
+from . import audit, console, lexicon, llm, model_runs, prompts
 from .agreement import _text
 from .paths import LEXICON, rel
 
@@ -241,7 +241,7 @@ def resolve_referents(
 
 def resolve_prompt(
     manifest: dict[str, object], *, what: str = "the run"
-) -> llm.PromptPack:
+) -> prompts.PromptPack:
     """The prompt this run was actually made with, found by its digest.
 
     `usage.json` publishes the prompt verbatim beside the labels it produced, so
@@ -256,8 +256,8 @@ def resolve_prompt(
 
     So the question changes from "is this today's prompt?" to "is this a prompt
     this repository still holds?" — the same move `referents.csv` makes for its
-    own list, and for the same reason. :func:`lib.llm.load_prompt_library` reads
-    `PROMPT.md` and every superseded version under `prompts/`, and a run
+    own list, and for the same reason. :func:`lib.prompts.load_prompt_library`
+    reads `PROMPT.md` and every superseded version under `prompts/`, and a run
     resolves to whichever of them its bytes hash to. Only a digest that appears
     nowhere is refused, and then loudly: a run whose wording this checkout does
     not hold cannot be published, because the alternative is publishing some
@@ -271,7 +271,7 @@ def resolve_prompt(
     if not PROMPT.is_file():
         raise console.Refusal(f"{rel(PROMPT)} is missing — the run's prompt cannot be published")
     try:
-        library = llm.load_prompt_library(PROMPT)
+        library = prompts.load_prompt_library(PROMPT)
     except (ValueError, FileNotFoundError) as exc:
         raise console.Refusal(
             f"the prompt archive beside {rel(PROMPT)} cannot be read", [str(exc)]
@@ -284,7 +284,7 @@ def resolve_prompt(
             [
                 f"it records {recorded[:12] or '(none)'}...",
                 *(f"this checkout holds {line}" for line in library.describe()),
-                f"a revised prompt keeps its old text as {llm.ARCHIVE}/v<n>.md, so an "
+                f"a revised prompt keeps its old text as {prompts.ARCHIVE}/v<n>.md, so an "
                 "earlier run stays readable; restore that file, or aggregate a run whose "
                 "prompt is here",
             ],
@@ -364,9 +364,9 @@ def row_problems(
 
     The first two mean the corpus or the lexicon moved underneath a run that has
     already been paid for. The third means the run file was appended to twice,
-    which `lib.llm.completed` is meant to prevent and which cannot be repaired
-    here: the two rows may carry different labels, and there is no rule for
-    choosing between them that is not a coin toss.
+    which `lib.model_runs.completed` is meant to prevent and which cannot be
+    repaired here: the two rows may carry different labels, and there is no rule
+    for choosing between them that is not a coin toss.
 
     Returned rather than raised, so the caller can report all of them at once
     instead of one per run.

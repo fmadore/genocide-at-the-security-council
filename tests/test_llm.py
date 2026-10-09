@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from lib import audit, lexicon, llm, occurrences
+from lib import audit, evidence, lexicon, llm, model_runs, occurrences, prompts
 
 ROOT = Path(__file__).resolve().parents[1]
 PROMPT = ROOT / "model_annotations" / "genocide" / "PROMPT.md"
@@ -122,17 +122,17 @@ CASCADE_FP: dict[str, object] = {
 
 
 def test_prompt_parses_into_the_two_templates_the_step_sends() -> None:
-    pack = llm.load_prompt(PROMPT)
+    pack = prompts.load_prompt(PROMPT)
     assert pack.version == 3
     assert "{referents_table}" in pack.system_template
-    for placeholder in llm.USER_PLACEHOLDERS:
+    for placeholder in prompts.USER_PLACEHOLDERS:
         assert "{" + placeholder + "}" in pack.user_template
     assert "```" not in pack.system_template
     assert "```" not in pack.user_template
 
 
 def test_prompt_states_the_task_boundary_and_the_cascade() -> None:
-    system = llm.load_prompt(PROMPT).system_template
+    system = prompts.load_prompt(PROMPT).system_template
     # Wrapped for a human reader, so the sentences are matched unwrapped.
     flat = re.sub(r"\s+", " ", system)
     assert "You never decide whether an underlying event legally constitutes genocide" in flat
@@ -144,20 +144,20 @@ def test_prompt_states_the_task_boundary_and_the_cascade() -> None:
 
 def test_prompt_digest_is_over_the_raw_bytes_and_does_not_move() -> None:
     expected = hashlib.sha256(PROMPT.read_bytes()).hexdigest()
-    assert llm.prompt_sha256(PROMPT) == expected
-    assert llm.load_prompt(PROMPT).sha256 == expected
-    assert llm.load_prompt(PROMPT).sha256 == llm.load_prompt(PROMPT).sha256
+    assert prompts.prompt_sha256(PROMPT) == expected
+    assert prompts.load_prompt(PROMPT).sha256 == expected
+    assert prompts.load_prompt(PROMPT).sha256 == prompts.load_prompt(PROMPT).sha256
 
 
 def test_a_prompt_without_its_sections_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "PROMPT.md"
     path.write_text("version: 1\n\n## System\n\n```text\nnothing\n```\n", encoding="utf-8")
     with pytest.raises(ValueError, match="User template"):
-        llm.load_prompt(path)
+        prompts.load_prompt(path)
 
     path.write_text("## System\n\n```text\n{referents_table}\n```\n", encoding="utf-8")
     with pytest.raises(ValueError, match="version"):
-        llm.load_prompt(path)
+        prompts.load_prompt(path)
 
 
 # --- The prompt archive keeps an older run readable --------------------------
@@ -167,7 +167,7 @@ def test_a_prompt_without_its_sections_is_refused(tmp_path: Path) -> None:
 PROMPT_TEMPLATE = (
     "# Prompt\n\nversion: VERSION\n\n## System\n\n```text\n{referents_table}\n```\n"
     "\n## User template\n\n```text\n"
-    + "\n".join("{" + key + "}" for key in llm.USER_PLACEHOLDERS)
+    + "\n".join("{" + key + "}" for key in prompts.USER_PLACEHOLDERS)
     + "\n```\n"
 )
 
@@ -188,16 +188,16 @@ def archived(directory: Path, *versions: int) -> Path:
     path = directory / "PROMPT.md"
     path.write_text(prompt_text(current), encoding="utf-8", newline="\n")
     if older:
-        (directory / llm.ARCHIVE).mkdir(exist_ok=True)
+        (directory / prompts.ARCHIVE).mkdir(exist_ok=True)
         for version in older:
-            (directory / llm.ARCHIVE / f"v{version}.md").write_text(
+            (directory / prompts.ARCHIVE / f"v{version}.md").write_text(
                 prompt_text(version), encoding="utf-8", newline="\n"
             )
     return path
 
 
 def test_a_library_with_no_archive_is_the_ordinary_state(tmp_path: Path) -> None:
-    library = llm.load_prompt_library(archived(tmp_path, 1))
+    library = prompts.load_prompt_library(archived(tmp_path, 1))
     assert library.current.version == 1
     assert library.superseded == ()
     assert library.by_digest(library.current.sha256) is library.current
@@ -212,13 +212,13 @@ def test_every_version_the_repository_holds_is_resolvable_by_its_digest(
     Resolution is by digest and never by the `version:` line, because the digest
     is what the run actually recorded and the line is a claim about it.
     """
-    library = llm.load_prompt_library(archived(tmp_path, 1, 2, 3))
+    library = prompts.load_prompt_library(archived(tmp_path, 1, 2, 3))
     assert [pack.version for pack in library.packs] == [3, 2, 1]
     for pack in library.packs:
         assert library.by_digest(pack.sha256) is pack
         assert hashlib.sha256(pack.text.encode("utf-8")).hexdigest() == pack.sha256
     assert library.describe()[0].startswith("v3 ")
-    assert library.describe()[-1].endswith(f"in {llm.ARCHIVE}/v1.md")
+    assert library.describe()[-1].endswith(f"in {prompts.ARCHIVE}/v1.md")
 
 
 def test_a_copy_of_the_current_prompt_parked_in_the_archive_is_refused(
@@ -233,44 +233,44 @@ def test_a_copy_of_the_current_prompt_parked_in_the_archive_is_refused(
     fires here: the copy declares the current version, so it is not superseded.
     """
     path = archived(tmp_path, 1, 2)
-    (tmp_path / llm.ARCHIVE / "v2.md").write_bytes(path.read_bytes())
+    (tmp_path / prompts.ARCHIVE / "v2.md").write_bytes(path.read_bytes())
     with pytest.raises(ValueError, match="superseded versions only"):
-        llm.load_prompt_library(path)
+        prompts.load_prompt_library(path)
 
 
 def test_an_archived_prompt_is_named_for_the_version_it_declares(tmp_path: Path) -> None:
     path = archived(tmp_path / "unnamed", 1, 2)
-    archive = path.parent / llm.ARCHIVE
+    archive = path.parent / prompts.ARCHIVE
     (archive / "v1.md").rename(archive / "old.md")
     with pytest.raises(ValueError, match="named for its version"):
-        llm.load_prompt_library(path)
+        prompts.load_prompt_library(path)
 
     path = archived(tmp_path / "misnamed", 1, 2)
-    archive = path.parent / llm.ARCHIVE
+    archive = path.parent / prompts.ARCHIVE
     (archive / "v1.md").rename(archive / "v9.md")
     with pytest.raises(ValueError, match="file name and the header"):
-        llm.load_prompt_library(path)
+        prompts.load_prompt_library(path)
 
 
 def test_the_archive_holds_superseded_versions_only(tmp_path: Path) -> None:
     """A version above `PROMPT.md`'s means an edit went backwards, and the
     archive would then hold the instrument rather than its history."""
     path = archived(tmp_path, 2, 3)
-    archive = path.parent / llm.ARCHIVE
+    archive = path.parent / prompts.ARCHIVE
     (archive / "v2.md").unlink()
     (archive / "v4.md").write_text(
         prompt_text(4), encoding="utf-8", newline="\n"
     )
     with pytest.raises(ValueError, match="superseded versions only"):
-        llm.load_prompt_library(path)
+        prompts.load_prompt_library(path)
 
 
 def test_the_repository_holds_every_version_from_one_to_the_current(tmp_path: Path) -> None:
     """Asserted against the real files, as the prompt's own digest test is: the
     archive is provenance, and provenance that only holds in a fixture is none.
     A gap in the sequence is a run that resolves to nothing."""
-    library = llm.load_prompt_library(PROMPT)
-    assert library.current.sha256 == llm.prompt_sha256(PROMPT)
+    library = prompts.load_prompt_library(PROMPT)
+    assert library.current.sha256 == prompts.prompt_sha256(PROMPT)
     assert {pack.version for pack in library.packs} == set(
         range(1, library.current.version + 1)
     )
@@ -300,7 +300,7 @@ def test_a_request_carries_the_cache_key_only_when_there_is_one(tmp_path: Path) 
     was sent before the field existed and the two stay comparable."""
     found = enumerate_bodies(BODIES)
     request = llm.build_request(
-        {"filename": "one.txt"}, BODIES["one.txt"], found[:1], llm.load_prompt(PROMPT), "table"
+        {"filename": "one.txt"}, BODIES["one.txt"], found[:1], prompts.load_prompt(PROMPT), "table"
     )
     plain = llm.request_body(
         request, model="a-model", reasoning_effort="medium", max_output_tokens=99
@@ -410,7 +410,7 @@ META = {
 
 def build() -> llm.SpeechRequest:
     found = enumerate_bodies({str(META["filename"]): SPEECH})
-    pack = llm.load_prompt(PROMPT)
+    pack = prompts.load_prompt(PROMPT)
     return llm.build_request(META, SPEECH, found, pack, "  rwanda_1994 — Rwanda 1994 — a case")
 
 
@@ -675,7 +675,7 @@ def test_a_response_that_is_not_the_agreed_shape_is_refused() -> None:
 
 def test_an_exact_quotation_is_located_and_valid() -> None:
     body = "The Council was told that this is genocide and must be named."
-    start, end, valid, relocated = llm.locate_evidence(body, "this is genocide", 34, 42)
+    start, end, valid, relocated = evidence.locate_evidence(body, "this is genocide", 34, 42)
     assert body[start:end] == "this is genocide"
     assert valid is True
     assert relocated is False
@@ -684,7 +684,7 @@ def test_an_exact_quotation_is_located_and_valid() -> None:
 def test_a_quotation_copied_across_a_line_break_maps_back_to_the_real_offsets() -> None:
     body = "The Council was told\nthat this is\n   genocide and must be named."
     match = body.index("genocide")
-    start, end, valid, relocated = llm.locate_evidence(body, "this is genocide", match, match + 8)
+    start, end, valid, relocated = evidence.locate_evidence(body, "this is genocide", match, match + 8)
     assert body[start:end] == "this is\n   genocide"
     assert valid is True
     # Collapsing whitespace is what the record's line breaks need and nothing
@@ -696,11 +696,11 @@ def test_the_match_chosen_is_the_one_the_occurrence_falls_inside() -> None:
     body = "acts of genocide in one place. Later, acts of genocide in another place."
     first = body.index("genocide")
     second = body.index("genocide", first + 1)
-    start, end, valid, _ = llm.locate_evidence(body, "acts of genocide", second, second + 8)
+    start, end, valid, _ = evidence.locate_evidence(body, "acts of genocide", second, second + 8)
     assert (start, end) == (second - 8, second + 8)
     assert valid is True
 
-    start, end, valid, _ = llm.locate_evidence(body, "acts of genocide", first, first + 8)
+    start, end, valid, _ = evidence.locate_evidence(body, "acts of genocide", first, first + 8)
     assert (start, end) == (first - 8, first + 8)
     assert valid is True
 
@@ -708,14 +708,14 @@ def test_the_match_chosen_is_the_one_the_occurrence_falls_inside() -> None:
 def test_a_quotation_that_is_not_in_the_speech_records_no_offsets() -> None:
     body = "The Council was told that this is genocide."
     nothing = (None, None, False, False)
-    assert llm.locate_evidence(body, "the Secretary-General said", 34, 42) == nothing
-    assert llm.locate_evidence(body, "   ", 34, 42) == nothing
+    assert evidence.locate_evidence(body, "the Secretary-General said", 34, 42) == nothing
+    assert evidence.locate_evidence(body, "   ", 34, 42) == nothing
 
 
 def test_a_quotation_found_in_the_wrong_place_is_located_but_not_valid() -> None:
     body = "First, this is genocide. Second, these are acts of war and nothing else."
     match = body.index("genocide")
-    start, end, valid, _ = llm.locate_evidence(body, "these are acts of war", match, match + 8)
+    start, end, valid, _ = evidence.locate_evidence(body, "these are acts of war", match, match + 8)
     assert body[start:end] == "these are acts of war"
     assert valid is False
 
@@ -732,7 +732,7 @@ def test_a_wrapping_quotation_mark_the_record_does_not_have_is_relocated() -> No
     # statement about the passage, not part of it.
     body = 'He said only this. Genocide is not a slogan; it is in our body."'
     match = body.index("Genocide")
-    start, end, valid, relocated = llm.locate_evidence(
+    start, end, valid, relocated = evidence.locate_evidence(
         body, '"Genocide is not a slogan; it is in our body."', match, match + 8
     )
     assert body[start:end] == "Genocide is not a slogan; it is in our body."
@@ -745,7 +745,7 @@ def test_a_word_the_record_hyphenates_across_a_line_break_is_relocated() -> None
     # model returns the word whole.
     body = "The Secretary- General's Adviser on the Prevention of Genocide spoke."
     match = body.index("Genocide")
-    start, end, valid, relocated = llm.locate_evidence(
+    start, end, valid, relocated = evidence.locate_evidence(
         body, "The Secretary-General's Adviser on the Prevention of Genocide", match, match + 8
     )
     assert body[start:end] == "The Secretary- General's Adviser on the Prevention of Genocide"
@@ -757,7 +757,7 @@ def test_one_letter_s_case_at_the_front_of_a_clause_is_relocated() -> None:
     # mid-sentence clause as a sentence of its own and capitalised it.
     body = "In its report, the Commission found evidence that acts of genocide occurred."
     match = body.index("genocide")
-    start, end, valid, relocated = llm.locate_evidence(
+    start, end, valid, relocated = evidence.locate_evidence(
         body, "The Commission found evidence that acts of genocide occurred.", match, match + 8
     )
     assert body[start:end] == "the Commission found evidence that acts of genocide occurred."
@@ -767,7 +767,7 @@ def test_one_letter_s_case_at_the_front_of_a_clause_is_relocated() -> None:
 def test_the_record_s_own_typography_is_folded_on_both_sides() -> None:
     body = "He called it \u201cgenocide\u201d \u2014 plainly, in the Council."
     match = body.index("genocide")
-    start, end, valid, relocated = llm.locate_evidence(
+    start, end, valid, relocated = evidence.locate_evidence(
         body, 'He called it "genocide" - plainly, in the Council.', match, match + 8
     )
     assert body[start:end] == body
@@ -780,7 +780,7 @@ def test_a_paraphrase_is_not_relocated_however_close_it_comes() -> None:
     # span the speaker did not say is not evidence about the speech.
     body = "We have little doubt that the memory of the crimes of genocide will remain."
     match = body.index("genocide")
-    assert llm.locate_evidence(
+    assert evidence.locate_evidence(
         body, "We have little doubt that the crimes of genocide will remain.", match, match + 8
     ) == (None, None, False, False)
 
@@ -791,7 +791,7 @@ def test_a_quote_found_in_another_sentence_is_still_not_valid() -> None:
     # has nothing to do with it and does not rescue it.
     body = "Denial by those convicted of genocide. Elsewhere, convicted of genocide too."
     second = body.index("genocide", body.index("genocide") + 1)
-    start, _, valid, relocated = llm.locate_evidence(
+    start, _, valid, relocated = evidence.locate_evidence(
         body, "Denial by those convicted of genocide.", second, second + 8
     )
     assert start == 0
@@ -847,8 +847,8 @@ def test_historical_schema3_is_read_without_reintroducing_model_confidence():
         llm.validate_row(old, REFERENTS)
     assert "confidence" not in llm.RESPONSE_FIELDS
     assert "confidence" in audit.ANNOTATION_FIELDS
-    library = llm.load_prompt_library(PROMPT)
-    archived = llm.load_prompt(PROMPT.parent / "prompts" / "v2.md")
+    library = prompts.load_prompt_library(PROMPT)
+    archived = prompts.load_prompt(PROMPT.parent / "prompts" / "v2.md")
     assert library.by_digest(archived.sha256) is not None
 
 
@@ -929,7 +929,7 @@ BODIES = {
 
 def written(tmp_path: Path, rows: list[dict[str, object]]) -> Path:
     path = tmp_path / "annotations.jsonl"
-    llm.append_rows(path, rows)
+    model_runs.append_rows(path, rows)
     return path
 
 
@@ -944,16 +944,16 @@ def test_a_speech_counts_as_done_only_when_all_its_occurrences_are_written(
         meta(),
     )
     path = written(tmp_path, everything)
-    assert llm.completed(path, found, prompt_sha256="f" * 64, model="a-model") == {"one.txt"}
+    assert model_runs.completed(path, found, prompt_sha256="f" * 64, model="a-model") == {"one.txt"}
 
     partial = written(tmp_path / "half", everything[:1])
-    assert llm.completed(partial, found, prompt_sha256="f" * 64, model="a-model") == set()
+    assert model_runs.completed(partial, found, prompt_sha256="f" * 64, model="a-model") == set()
 
 
 def test_an_absent_run_file_means_nothing_has_been_asked_yet(tmp_path: Path) -> None:
     found = enumerate_bodies(BODIES)
     missing = tmp_path / "annotations.jsonl"
-    assert llm.completed(missing, found, prompt_sha256="f" * 64, model="a-model") == set()
+    assert model_runs.completed(missing, found, prompt_sha256="f" * 64, model="a-model") == set()
 
 
 def test_a_run_written_with_another_prompt_or_model_is_never_resumed(tmp_path: Path) -> None:
@@ -967,9 +967,9 @@ def test_a_run_written_with_another_prompt_or_model_is_never_resumed(tmp_path: P
     path = written(tmp_path, rows)
 
     with pytest.raises(ValueError, match="different prompt"):
-        llm.completed(path, found, prompt_sha256="a" * 64, model="a-model")
+        model_runs.completed(path, found, prompt_sha256="a" * 64, model="a-model")
     with pytest.raises(ValueError, match="different model"):
-        llm.completed(path, found, prompt_sha256="f" * 64, model="another-model")
+        model_runs.completed(path, found, prompt_sha256="f" * 64, model="another-model")
 
 
 def test_a_row_from_a_corpus_that_has_moved_is_refused(tmp_path: Path) -> None:
@@ -983,7 +983,7 @@ def test_a_row_from_a_corpus_that_has_moved_is_refused(tmp_path: Path) -> None:
     path = written(tmp_path, rows)
     moved = enumerate_bodies({**BODIES, "two.txt": "The word genocide appears once, here."})
     with pytest.raises(ValueError, match="corpus does not have"):
-        llm.completed(path, moved, prompt_sha256="f" * 64, model="a-model")
+        model_runs.completed(path, moved, prompt_sha256="f" * 64, model="a-model")
 
 
 # --- Instrument constraints a prompt declares (RV7, RV8) -----------------------
@@ -1002,23 +1002,23 @@ def constrained_prompt(tmp_path: Path, constraints: str, *, sentences: bool = Tr
 
 def test_the_committed_prompt_declares_no_constraint_and_keeps_its_schema() -> None:
     """v3 runs are identified by their request bytes; nothing here may move them."""
-    assert llm.load_prompt(PROMPT).constraints == frozenset()
+    assert prompts.load_prompt(PROMPT).constraints == frozenset()
     assert build().schema is None
     assert llm.response_schema() == llm._base_schema()
 
 
 def test_an_unknown_constraint_is_refused(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="unknown constraints"):
-        llm.load_prompt(constrained_prompt(tmp_path, "free-text-everything"))
+        prompts.load_prompt(constrained_prompt(tmp_path, "free-text-everything"))
 
 
 def test_sentence_evidence_needs_its_placeholder(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="sentences"):
-        llm.load_prompt(constrained_prompt(tmp_path, "sentence-evidence", sentences=False))
+        prompts.load_prompt(constrained_prompt(tmp_path, "sentence-evidence", sentences=False))
 
 
 def test_a_referent_enum_prompt_puts_the_ids_and_ordinals_in_the_schema(tmp_path: Path) -> None:
-    pack = llm.load_prompt(constrained_prompt(tmp_path, "referent-enum", sentences=False))
+    pack = prompts.load_prompt(constrained_prompt(tmp_path, "referent-enum", sentences=False))
     found = enumerate_bodies({str(META["filename"]): SPEECH})
     request = llm.build_request(META, SPEECH, found, pack, "table", referent_ids=["rwanda_1994", "other"])
     occurrences_schema = request.schema["properties"]["occurrences"]
@@ -1031,14 +1031,14 @@ def test_a_referent_enum_prompt_puts_the_ids_and_ordinals_in_the_schema(tmp_path
 
 
 def test_a_referent_enum_prompt_without_ids_is_refused(tmp_path: Path) -> None:
-    pack = llm.load_prompt(constrained_prompt(tmp_path, "referent-enum", sentences=False))
+    pack = prompts.load_prompt(constrained_prompt(tmp_path, "referent-enum", sentences=False))
     found = enumerate_bodies({str(META["filename"]): SPEECH})
     with pytest.raises(ValueError, match="referent ids"):
         llm.build_request(META, SPEECH, found, pack, "table")
 
 
 def test_sentence_evidence_is_numbered_answered_and_always_located(tmp_path: Path) -> None:
-    pack = llm.load_prompt(constrained_prompt(tmp_path, "referent-enum, sentence-evidence"))
+    pack = prompts.load_prompt(constrained_prompt(tmp_path, "referent-enum, sentence-evidence"))
     found = enumerate_bodies({str(META["filename"]): SPEECH})
     request = llm.build_request(META, SPEECH, found, pack, "table", referent_ids=sorted(REFERENTS))
     assert request.sentence_count == 3

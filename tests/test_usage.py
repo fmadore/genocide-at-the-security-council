@@ -28,7 +28,7 @@ from lib import (
     console,
     gold_estimates,
     lexicon,
-    llm,
+    prompts,
     usage,
     usage_comparison,
     usage_refusals,
@@ -1080,7 +1080,7 @@ def test_the_coders_multi_label_agreement_reports_alpha_and_the_label_table() ->
 
 
 def second_run(*changes: dict[str, object]) -> list[dict[str, object]]:
-    """A comparison run's rows, in the shape `lib.llm.read_rows` returns them.
+    """A comparison run's rows, in the shape `lib.model_runs.read_rows` gives them.
 
     A list of dicts and not a frame, because that is what `15_usage.py` has in
     hand when it reads a second run: the comparison never joins the corpus, so
@@ -1489,11 +1489,11 @@ def prompt_library_at(tmp_path: Path, monkeypatch) -> Path:
     only its digest is under test.
     """
     directory = tmp_path / "genocide"
-    (directory / llm.ARCHIVE).mkdir(parents=True)
-    real = llm.load_prompt_library(ROOT / "model_annotations" / "genocide" / "PROMPT.md")
+    (directory / prompts.ARCHIVE).mkdir(parents=True)
+    real = prompts.load_prompt_library(ROOT / "model_annotations" / "genocide" / "PROMPT.md")
     v1 = next(pack for pack in real.packs if pack.version == 1)
     later = max(pack.version for pack in real.packs) + 1
-    (directory / llm.ARCHIVE / "v1.md").write_text(v1.text, encoding="utf-8", newline="")
+    (directory / prompts.ARCHIVE / "v1.md").write_text(v1.text, encoding="utf-8", newline="")
     (directory / "PROMPT.md").write_text(
         v1.text.replace("version: 1", f"version: {later}", 1),
         encoding="utf-8",
@@ -1519,7 +1519,7 @@ def test_the_paid_runs_and_a_v2_run_are_read_through_one_library(
     under the old one.
     """
     current = prompt_library_at(tmp_path, monkeypatch)
-    library = llm.load_prompt_library(current)
+    library = prompts.load_prompt_library(current)
     v1_text = next(pack for pack in library.packs if pack.version == 1).text
     later_text = library.current.text
     assert v1_text != later_text
@@ -1564,7 +1564,7 @@ def test_a_version_line_the_bytes_contradict_is_a_provenance_failure(
     current = prompt_library_at(tmp_path, monkeypatch)
     with pytest.raises(SystemExit):
         usage_refusals.resolve_prompt(
-            {"prompt_version": 1, "prompt_sha256": llm.prompt_sha256(current)}
+            {"prompt_version": 1, "prompt_sha256": prompts.prompt_sha256(current)}
         )
 
 

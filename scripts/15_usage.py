@@ -77,6 +77,7 @@ from lib import (
     lexicon,
     llm,
     model_runs,
+    prompts,
     usage,
     usage_comparison,
     usage_refusals,
@@ -387,7 +388,7 @@ def retest_block(
             # compared against would report every label as a disagreement.
             sibling_rows = [
                 llm.resolve_row(row)
-                for row in llm.read_rows(candidate.parent / "annotations.jsonl")
+                for row in model_runs.read_rows(candidate.parent / "annotations.jsonl")
             ]
             overlap = len(usage_comparison.comparison_overlap(rows, sibling_rows))
             if overlap and (best is None or overlap > best[0]):
@@ -977,7 +978,7 @@ def run_without_model() -> None:
             "run_date": "",
             "prompt_version": "",
             "referents_version": str(referent_list.version),
-            "prompt_sha256": llm.prompt_sha256(PROMPT) if PROMPT.is_file() else "",
+            "prompt_sha256": prompts.prompt_sha256(PROMPT) if PROMPT.is_file() else "",
             "reasoning_effort": "",
             "requests": 0,
             "requests_recounted": False,

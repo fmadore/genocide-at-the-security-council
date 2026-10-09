@@ -56,10 +56,10 @@ def _records(
     """Either shape a run arrives in, as a list of mappings.
 
     The published run reaches this module as a frame joined to the corpus and a
-    comparison run as the list of dicts `lib.llm.read_rows` returns. Neither is
-    converted into the other: five string columns is all a comparison reads, and
-    building a frame around 6,092 raw rows to read them would copy the run for
-    nothing.
+    comparison run as the list of dicts `lib.model_runs.read_rows` returns.
+    Neither is converted into the other: five string columns is all a comparison
+    reads, and building a frame around 6,092 raw rows to read them would copy
+    the run for nothing.
     """
     if isinstance(rows, pd.DataFrame):
         return [] if rows.empty else rows.to_dict(orient="records")

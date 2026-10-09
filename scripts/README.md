@@ -339,10 +339,12 @@ What follows from that, worth knowing before you start:
 | [`lib/kwic.py`](lib/kwic.py) | Concordance-line extraction; re-exports the sentence segmentation it used to own. |
 | [`lib/occurrences.py`](lib/occurrences.py) | One enumeration of a term's occurrences, carrying both the audit `occurrence_id` and the KWIC line id; 13, 14 and 15 share it. |
 | [`lib/gold_sample.py`](lib/gold_sample.py) | Step 13's sampling design: the cue and model-label strata, the three frames, each unit's inclusion probability under their union, and the blinded packet. |
-| [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: prompt parsing, request building, response validation against the codebook's vocabularies, evidence-quote location in three passes (exact, whitespace-collapsed, then folded and flagged `evidence_relocated`), resume rules. No network, no SDK import at module level. |
+| [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: request building, response validation against the codebook's vocabularies, row assembly and the row gate. No network, no SDK import at module level. |
+| [`lib/prompts.py`](lib/prompts.py) | The prompt file and its archive of superseded versions: parsing, placeholders, declared constraints, and resolution by digest. |
+| [`lib/evidence.py`](lib/evidence.py) | Evidence-quote location in three passes (exact, whitespace-collapsed, then folded and flagged `evidence_relocated`), and the bounds on a sentence-number answer. |
 | [`lib/annotate.py`](lib/annotate.py) | Step 14's provider-independent population, output ceiling, manifest and refusal rules. No SDK is imported here. |
 | [`lib/probes.py`](lib/probes.py) | What the two pre-run probes decide: whether a reasoning ladder climbs, the sampling settings, the speeches compared and how far two settings agree. No server, no socket. |
-| [`lib/model_runs.py`](lib/model_runs.py) | The model-annotation store's files and pointers, the population check against the committed counts, and the read-only validation every run reader shares. |
+| [`lib/model_runs.py`](lib/model_runs.py) | The model-annotation store's files and pointers, the population check against the committed counts, the read-only validation every run reader shares, and the run file itself: read, appended to, and checked for a resumed run. |
 | [`lib/usage.py`](lib/usage.py) | Aggregation for the usage layer: the model block, eligible/assigned funnel, the actor × referent matrix, withholding, diffusion and exposure. |
 | [`lib/agreement.py`](lib/agreement.py) | The agreement arithmetic every comparison shares: kappa with its withholding rule, PABAK, Krippendorff's α under MASI, per-label kappa, the per-class support floor, Jaccard. |
 | [`lib/gold_estimates.py`](lib/gold_estimates.py) | The gold block: the human reference label, agreement between the coders, the model scored against them, and the design-weighted accuracy and corrected shares. |
