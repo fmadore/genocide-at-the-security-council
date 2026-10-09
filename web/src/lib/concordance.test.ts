@@ -719,12 +719,12 @@ describe('an occurrence opened from a filtered concordance', () => {
 		line({ id: 'c#1', date: '1996-01-01' }),
 		line({ id: 'd#1', date: '1997-01-01' })
 	];
-	const placements = referentMap([
-		{ id: 'a#1', referent: 'rwanda_1994' },
-		{ id: 'b#1', referent: 'rwanda_1994' },
-		{ id: 'c#1', referent: '' },
-		{ id: 'd#1', referent: 'rwanda_1994' }
-	]);
+	const placements = referentMap({
+		'a#1': 'rwanda_1994',
+		'b#1': 'rwanda_1994',
+		'c#1': '',
+		'd#1': 'rwanda_1994'
+	});
 
 	it('leaves unplaced occurrences out of the referent map', () => {
 		expect([...placements.keys()]).toEqual(['a#1', 'b#1', 'd#1']);

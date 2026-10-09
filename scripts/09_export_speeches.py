@@ -15,6 +15,10 @@ highlights matches without re-running the lexicon in JavaScript. The regexes are
 the analysis; a second implementation of them in the browser would be a second
 thing to keep true.
 
+The provenance block is the same for every meeting, so it is written whole once,
+in the index. Each meeting file carries the part of it that cites the file and a
+`provenance` key naming `meetings.json`; see `CITED`.
+
 **This output cannot be committed** — see the note it writes for what that means
 for deployment.
 
@@ -46,6 +50,14 @@ from lib.paths import (
 SPEECH_DIR = WEB_DATA / "speeches"
 INDEX = WEB_DATA / "meetings.json"
 SCOPES_INDEX = WEB_DATA / "scopes.json"
+
+#: What a meeting file keeps of the provenance block, which is the same for all
+#: of them and is written whole once, in the index. The reader's basket and
+#: citations read the lexicon version and the analysis hash; the dashboard's
+#: fetch refuses any artefact without a script and a generation time; the
+#: commit says which code to look at. The hash is still over the whole block
+#: (`artifacts.shared_provenance`).
+CITED = ("script", "generated", "git_commit", "lexicon_version")
 
 COLUMNS = [
     "filename",
@@ -121,6 +133,11 @@ def build_meeting(meeting, speeches: pd.DataFrame, lex: lexicon.Lexicon) -> dict
         "delegations": scopes.delegations(exported),
         "speeches": exported,
     }
+
+
+def meeting_document(meta: dict[str, object], built: dict[str, object]) -> dict[str, object]:
+    """One meeting file: the meeting, and enough of the shared block to cite it."""
+    return artifacts.shared_provenance({"meta": meta, **built}, CITED, INDEX.name)
 
 
 def summarise(meeting: dict) -> dict[str, object]:
@@ -251,7 +268,9 @@ def run(scope: str, indent: int | None) -> None:
                 continue
             built = build_meeting(meeting, group, lex)
             path = staged / f"{meeting.basename}.json.gz"
-            artifacts.atomic_write_json_gzip(path, {"meta": meta, **built}, indent=indent)
+            artifacts.atomic_write_json_gzip(
+                path, meeting_document(meta, built), indent=indent, hashed=True
+            )
             total_bytes += path.stat().st_size
             written += len(built["speeches"])
             rows.append(summarise(built))

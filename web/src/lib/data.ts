@@ -32,7 +32,8 @@ import type {
 	ScopeIndex,
 	SpeakerKeyness,
 	Usage,
-	UsageOccurrences
+	UsageOccurrences,
+	UsageReferents
 } from './types';
 
 const cache = new Map<string, Promise<unknown>>();
@@ -671,6 +672,15 @@ const validateUsageOccurrences: Validator = (record, path) => {
 	}
 };
 
+/** The referent filter's map: a placement that names no referent would filter on nothing. */
+const validateUsageReferents: Validator = (record, path) => {
+	for (const [id, referent] of Object.entries(recordAt(record, 'placements'))) {
+		if (typeof referent !== 'string' || !referent) {
+			throw new Error(`${path}.placements places ${id} on no referent.`);
+		}
+	}
+};
+
 /**
  * How many of the two by-name families a session may hold at once.
  *
@@ -967,6 +977,7 @@ export const REQUIRED = {
 		gold: 'object'
 	},
 	'usage/occurrences.json': { meta: 'object', occurrences: 'array' },
+	'usage/referents.json': { meta: 'object', placements: 'object' },
 	'frames/frames.json': {
 		meta: 'object',
 		codebook: 'array',
@@ -1025,11 +1036,15 @@ export const usageOccurrences = at<UsageOccurrences>(
 	'usage/occurrences.json',
 	validateUsageOccurrences
 );
+/* The referent filter needs one field of those rows, so the concordance and
+   the reader fetch it alone: a few hundred kilobytes rather than seven
+   megabytes of labels, rationales and quotations. */
+export const usageReferents = at<UsageReferents>('usage/referents.json', validateUsageReferents);
 
-/* 17's composition of the node's occurrences. The per-occurrence assignments in
-   `frames/occurrences.json` are not fetched: the figure is an aggregate, and a
-   megabyte of rows nobody draws is a megabyte nobody should download. They stay
-   in the payload for a reader who wants to check the table by hand. */
+/* 17's composition of the node's occurrences. The per-occurrence assignments are
+   not in the payload: the figure is an aggregate, and a megabyte of rows nobody
+   draws is a megabyte nobody should download. They stay in the derived tables
+   for a reader who wants to check the table by hand. */
 export const nodeFrames = at<NodeFrames>('frames/frames.json', validateNodeFrames);
 
 /* 04's decade-to-decade decomposition of the genocide rate (RV18). */

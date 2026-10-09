@@ -167,7 +167,7 @@ export function filterConcordance(
 	lines: readonly KwicLine[],
 	state: ConcordanceState,
 	/**
-	 * Occurrence id → referent id, from `usage/occurrences.json`. Without it a
+	 * Occurrence id → referent id, from `usage/referents.json`. Without it a
 	 * referent filter keeps nothing rather than everything: a URL that asks for
 	 * Rwanda must never show the whole corpus under a heading that says Rwanda.
 	 */
@@ -250,15 +250,12 @@ const SORT_KEYS: Record<ConcordanceSort, (line: KwicLine) => string> = {
 
 /**
  * The published run's referent for each occurrence it placed, as the referent
- * filter reads it. Occurrences the run left unplaced are not in the map, so a
- * referent filter never keeps them.
+ * filter reads it, from `usage/referents.json`. Occurrences the run left
+ * unplaced are not in the map, so a referent filter never keeps them; an empty
+ * placement is dropped for the same reason.
  */
-export function referentMap(
-	occurrences: readonly { id: string; referent: string }[]
-): Map<string, string> {
-	return new Map(
-		occurrences.filter((row) => row.referent).map((row) => [row.id, row.referent] as const)
-	);
+export function referentMap(placements: Readonly<Record<string, string>>): Map<string, string> {
+	return new Map(Object.entries(placements).filter(([, referent]) => referent));
 }
 
 /** Where one occurrence stands in a filtered result, for previous and next. */

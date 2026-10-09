@@ -60,12 +60,13 @@ TRACKED: list[str] = [
     # anything about the other's.
     "usage/usage.json",
     "usage/occurrences.json",
-    # 17's summary, but not its `occurrences.json`. That file ships — the export
-    # copies a directory wholesale, and a reader who downloads the payload should
-    # be able to check the table row by row — and no figure fetches it. The
+    # The referent filter's map, cut from `occurrences.json` by the export.
+    "usage/referents.json",
+    # 17's summary only. Its `occurrences.json` stays in `data/derived/` and out
+    # of the payload (`export_web.NOT_SHIPPED`): no figure fetches it, and the
     # dashboard's half of this contract (`web/src/lib/contract.test.ts`) refuses
-    # an artefact tracked here that nothing reads, and it is right to: a shape
-    # promised to no consumer is a promise nobody can break.
+    # an artefact tracked here that nothing reads, rightly: a shape promised to
+    # no consumer is a promise nobody can break.
     "frames/frames.json",
     "kwic/index.json",
     "kwic/genocide.json",
@@ -80,7 +81,8 @@ SPEECH_SAMPLE = "speeches/SC00001-01.json.gz"
 #: Keys whose *contents* vary with the data rather than with the code, so only
 #: their presence and type are contracted. `iso3_collisions` is keyed on whichever
 #: codes happen to be shared; `terms`, `measures`, `series` and speech `hits` are
-#: keyed on the lexicon; `packages` on whatever the environment had installed.
+#: keyed on the lexicon; `packages` on whatever the environment had installed;
+#: `placements` on the occurrences a model run placed on a referent.
 #: Recording today's key set would make an ordinary lexicon edit look like a
 #: breaking change, and the point of this file is to be believed when it fails.
 #:
@@ -95,6 +97,7 @@ OPAQUE: frozenset[str] = frozenset(
         "iso3_collisions",
         "measures",
         "packages",
+        "placements",
         "series",
         "terms",
     }
