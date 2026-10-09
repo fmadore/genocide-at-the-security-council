@@ -36,6 +36,7 @@ import {
 	topFacet,
 	yearClick
 } from './concordance';
+import { shortCountry } from './format';
 import type { KwicLine } from './types';
 
 const read = (query: string) => readMonth(new URLSearchParams(query).get(MONTH_PARAM));
@@ -277,6 +278,46 @@ describe('sorting a citable table', () => {
 	] as const)('keeps the key ahead of the tiebreaker (%s)', (sort, rows) => {
 		const result = filterConcordance(rows, { ...CONCORDANCE_DEFAULTS, sort });
 		expect(result.lines.map((row) => row.id)).toEqual(['a#1', 'b#1']);
+	});
+
+	/**
+	 * The keys are computed once per line rather than per comparison, and the
+	 * order a reader cites must not move because of it. The reference below is
+	 * the comparator as it was written before, applied to a set built to collide
+	 * on every key: shared speakers and agenda items, empty and punctuated left
+	 * contexts, case and accents in the right context, and dates repeated.
+	 */
+	it.each(SORTS)('orders a colliding set exactly as the per-comparison sort did (%s)', (sort) => {
+		const words = ['Genocide', 'genocide,', 'rwanda', 'Rwanda.', 'état', 'etat', '', 'the  law'];
+		let seed = 7;
+		const pick = <T>(items: readonly T[]): T => {
+			seed = (seed * 48271) % 2147483647;
+			return items[seed % items.length] as T;
+		};
+		const rows = Array.from({ length: 400 }, (_, index) =>
+			line({
+				id: `SC${String(index % 37).padStart(5, '0')}-01-${String(index % 11).padStart(3, '0')}#${index}`,
+				date: pick(['1994-04-07', '1994-04-07', '2014-06-11', '1993-11-02']),
+				country: pick(['Rwanda', 'France', 'United Kingdom of Great Britain and Northern Ireland']),
+				agenda: pick(['The situation in Rwanda', 'Angola', 'the situation in rwanda']),
+				left: `${pick(words)} ${pick(words)}`.trim(),
+				right: ` ${pick(words)} ${pick(words)}`
+			})
+		);
+		const tail = (value: string) =>
+			[...value.toLowerCase().replace(/[^a-z ]/g, '')].reverse().join('');
+		const keyOf: Record<(typeof SORTS)[number], (row: KwicLine) => string> = {
+			date: (row) => row.date,
+			country: (row) => shortCountry(row.country),
+			agenda: (row) => row.agenda,
+			left: (row) => tail(row.left),
+			right: (row) => row.right.toLowerCase()
+		};
+		const reference = [...rows]
+			.sort((a, b) => keyOf[sort](a).localeCompare(keyOf[sort](b)) || a.id.localeCompare(b.id))
+			.map((row) => row.id);
+		const result = filterConcordance(rows, { ...CONCORDANCE_DEFAULTS, sort });
+		expect(result.lines.map((row) => row.id)).toEqual(reference);
 	});
 });
 

@@ -202,8 +202,6 @@ export function filterConcordance(
 		return matcher ? matcher(line) : true;
 	});
 
-	const tail = (value: string) =>
-		[...value.toLowerCase().replace(/[^a-z ]/g, '')].reverse().join('');
 	/**
 	 * Every sort ends on the occurrence ID, because ties are the normal case here.
 	 *
@@ -215,18 +213,40 @@ export function filterConcordance(
 	 * whenever anything upstream changes. `actors.ts` states the standard this
 	 * meets: a table that reorders itself is a table a reader cannot cite. The ID
 	 * is the tiebreaker because it is the one key that is unique by construction.
+	 *
+	 * Each line's key is computed once, before the sort, rather than inside the
+	 * comparator. A comparison sort calls the comparator about n log n times, so
+	 * a key built per call was built some thirty times per line on the largest
+	 * terms — and the reversed left context, a string rebuilt character by
+	 * character, made that sort take seconds on every filter change and every
+	 * previous/next in the reader.
 	 */
-	const then = (key: (line: KwicLine) => string) => (a: KwicLine, b: KwicLine) =>
-		key(a).localeCompare(key(b)) || a.id.localeCompare(b.id);
-	const by: Record<ConcordanceSort, (a: KwicLine, b: KwicLine) => number> = {
-		date: then((line) => line.date),
-		country: then((line) => shortCountry(line.country)),
-		agenda: then((line) => line.agenda),
-		left: then((line) => tail(line.left)),
-		right: then((line) => line.right.toLowerCase())
-	};
-	return { lines: [...rows].sort(by[state.sort]), badRegex };
+	const key = SORT_KEYS[state.sort];
+	const keyed = rows.map((line) => ({ line, key: key(line) }));
+	keyed.sort((a, b) => COLLATOR.compare(a.key, b.key) || COLLATOR.compare(a.line.id, b.line.id));
+	return { lines: keyed.map((entry) => entry.line), badRegex };
 }
+
+/**
+ * The collation every concordance sort uses.
+ *
+ * One instance rather than `localeCompare` per comparison: with no arguments
+ * the two are defined to compare identically, and `localeCompare` constructs
+ * the equivalent collator on every call.
+ */
+const COLLATOR = new Intl.Collator();
+
+/** The left context read backwards, letters and spaces only, so lines group on the word before the match. */
+const tail = (value: string) => [...value.toLowerCase().replace(/[^a-z ]/g, '')].reverse().join('');
+
+/** What each sort orders a line by, before the ID breaks the tie. */
+const SORT_KEYS: Record<ConcordanceSort, (line: KwicLine) => string> = {
+	date: (line) => line.date,
+	country: (line) => shortCountry(line.country),
+	agenda: (line) => line.agenda,
+	left: (line) => tail(line.left),
+	right: (line) => line.right.toLowerCase()
+};
 
 /**
  * What a sort is called, in the one place both the control and the file read.
