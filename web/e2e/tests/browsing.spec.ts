@@ -3,10 +3,25 @@ import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { base } from '../../playwright.config';
 
-test('home onward navigation includes every main subpage', async ({ page }) => {
+test('the overview ends on a route, and the masthead still reaches every page', async ({
+	page
+}) => {
 	await page.goto(`${base}/`);
-	const onward = page.locator('.onward');
-	for (const route of [
+	// When, who, what was said: the standfirst's three questions, in its order.
+	const route = page.locator('.onward');
+	await expect(route.getByRole('heading', { level: 2 })).toHaveText(
+		'Test a claim against the record'
+	);
+	await expect(route.locator('ol > li strong')).toHaveText(['Chronology', 'Actors', 'Concordance']);
+	for (const [index, path] of ['chronology', 'actors', 'concordance'].entries()) {
+		const link = route.locator('ol > li a').nth(index);
+		expect(
+			await link.evaluate((element) => new URL((element as HTMLAnchorElement).href).pathname)
+		).toBe(`${base}/${path}`);
+	}
+	// The other destinations the index used to repeat are one row up, sticky.
+	const sections = page.getByRole('navigation', { name: 'Sections' });
+	for (const path of [
 		'chronology',
 		'language',
 		'actors',
@@ -15,11 +30,7 @@ test('home onward navigation includes every main subpage', async ({ page }) => {
 		'semantic',
 		'methods'
 	]) {
-		const link = onward.locator(`a[href$="/${route}"]`);
-		await expect(link).toBeVisible();
-		expect(
-			await link.evaluate((element) => new URL((element as HTMLAnchorElement).href).pathname)
-		).toBe(`${base}/${route}`);
+		await expect(sections.locator(`a[href$="/${path}"]`)).toHaveCount(1);
 	}
 });
 

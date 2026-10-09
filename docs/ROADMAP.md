@@ -31,6 +31,10 @@ full ledger with its evidence column is in git history (this file before
    8 October 2026 because site copy is frozen: the Overview's closing index of
    seven equal destinations, and a recovery button for the Chronology calendar's
    two refusal states ("No month reached …", "This measure is not in the data").
+   *Wording drafted on 9 October 2026, waiting for FM to read it before it goes
+   live:* the index is now a three-step route (Chronology, Actors, Concordance)
+   under "Test a claim against the record", and each refusal offers a button to
+   the nearest figure that can be drawn.
 
 ### Waits on the cluster
 
