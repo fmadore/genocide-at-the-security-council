@@ -651,28 +651,22 @@ export interface PositionProfile {
 	total: number;
 	positions: PositionCounts;
 	segments: PositionSegment[];
-	shareRejects: number;
-	/** The count behind the share, which is a fact at every denominator. */
+	/** Occurrences labelled `rejects`: the count the rows are ordered by. */
 	rejects: number;
-	/** The 95% Wilson bounds, and how they are written. */
-	low: number | null;
-	high: number | null;
-	intervalText: string;
-	/** Whether the speaker rejects more than the rest of the Council (FDR 5%). */
-	separated: boolean;
 }
 
-export interface PositionRankingResult {
-	/** Speakers whose share may be published, most rejecting first. */
+export interface PositionProfilesResult {
+	/** Speakers at or over the minimum, each with its band, most rejections first. */
 	rows: PositionProfile[];
 	/**
-	 * Speakers under the minimum, unranked and counts only.
+	 * Speakers under the minimum: counts only, and no band.
 	 *
-	 * Never sorted into the ranking and never given a share: naming near-misses
-	 * beside a ranked table invites reading them as ranked, which is the same
-	 * objection `actors.ts` makes about its own `under` list.
+	 * A count is a fact at every denominator; a band is a set of shares, and
+	 * two occurrences out of two is not "100% of this delegation's uses". These
+	 * rows are listed apart, in the figure's full table, rather than among the
+	 * banded ones — the same objection `actors.ts` makes about its `under` list.
 	 */
-	withheld: { actor: string; eligible: number; positions: PositionCounts; total: number }[];
+	withheld: Omit<PositionProfile, 'segments'>[];
 	minimum: number;
 }
 
@@ -690,57 +684,48 @@ function segmentsOf(positions: PositionCounts, total: number): PositionSegment[]
 	return segments;
 }
 
+/** Most rejections first; the name settles every tie. */
+const byRejections = (a: { rejects: number; actor: string }, b: typeof a) =>
+	b.rejects - a.rejects || a.actor.localeCompare(b.actor);
+
 /**
- * Who rejects the word — separated from the corpus first, and then not ranked.
+ * Who rejects the word — plain counts, until the label has been checked.
  *
- * **The order is not the share.** At the minimum of twenty occurrences a
- * single rejection reads as 5%, and a table sorted on that puts one draw above
- * another draw from the same urn. What can be ordered is the rows the pipeline
- * flags `separated` — an exact test against the rest of the Council, read under
- * a 5% false discovery rate — and those come first, ordered among themselves by
- * share. Everything else follows by count, with its interval printed, and is
- * not a ranking of anything.
+ * **Counts only (FM, 9 October 2026).** The figure used to mark the
+ * delegations that reject more often than the rest of the Council, and to order
+ * them by their share of rejections. Both rested on the model's `rejects`
+ * label, which no person has yet checked, and a mark of "unusual" beside a
+ * named state is the output most likely to be quoted out of context. So every
+ * row is ordered by how many occurrences the run labelled `rejects`, then by
+ * name: a count, not a rate, and not a claim that one delegation rejects more
+ * often than another. The marks and the share ordering return only when
+ * `rejects` passes the human check in `docs/EVALUATION_PLAN.md`, section 9.
+ * The payload still carries the shares, intervals and test results; nothing
+ * here reads them.
  *
- * A speaker under the minimum is not sorted to the bottom; it is not sorted. A
- * null read through `?? 0` would put every rarely-heard delegation at the foot
- * of a ranking of rejection, which is a claim about them that nothing measured.
+ * The minimum still governs the band, which is a set of shares. A speaker
+ * under it keeps its counts, loses its band, and is listed apart.
  */
-export function positionRanking(data: Usage): PositionRankingResult {
+export function positionProfiles(data: Usage): PositionProfilesResult {
 	const rows: PositionProfile[] = [];
-	const withheld: PositionRankingResult['withheld'] = [];
+	const withheld: PositionProfilesResult['withheld'] = [];
 
 	for (const row of data.position_by_actor) {
 		const positions = { ...emptyPositions(), ...row.positions };
 		const total = sumPositions(positions);
-		if (row.sufficient && row.share_rejects !== null && Number.isFinite(row.share_rejects)) {
-			rows.push({
-				actor: row.actor,
-				eligible: row.eligible,
-				total,
-				positions,
-				segments: segmentsOf(positions, total),
-				shareRejects: row.share_rejects,
-				rejects: positions.rejects ?? 0,
-				low: row.share_low,
-				high: row.share_high,
-				intervalText:
-					row.share_low === null || row.share_high === null
-						? '—'
-						: `${percent(row.share_low)}\u2013${percent(row.share_high)}`,
-				separated: Boolean(row.separated)
-			});
-		} else {
-			withheld.push({ actor: row.actor, eligible: row.eligible, positions, total });
-		}
+		const counts = {
+			actor: row.actor,
+			eligible: row.eligible,
+			total,
+			positions,
+			rejects: positions.rejects ?? 0
+		};
+		if (row.sufficient) rows.push({ ...counts, segments: segmentsOf(positions, total) });
+		else withheld.push(counts);
 	}
 
-	rows.sort(
-		(a, b) =>
-			Number(b.separated) - Number(a.separated) ||
-			(a.separated ? b.shareRejects - a.shareRejects : b.rejects - a.rejects) ||
-			a.actor.localeCompare(b.actor)
-	);
-	withheld.sort((a, b) => b.eligible - a.eligible || a.actor.localeCompare(b.actor));
+	rows.sort(byRejections);
+	withheld.sort(byRejections);
 	return { rows, withheld, minimum: data.minimum_occurrences };
 }
 
@@ -2165,11 +2150,17 @@ export const POSITION_COLUMNS = [
 	'group',
 	'eligible',
 	'sufficient',
-	'share_rejects',
 	...POSITIONS.map((speaker_position) => `position_${speaker_position}`)
 ];
 
-/** Every speaker's speaker_position profile, including the ones whose share is withheld. */
+/**
+ * Every speaker's position counts, the ones under the minimum included.
+ *
+ * Counts only, as the figure is: the payload's rejection share, its interval
+ * and its test result stay out of the file until `rejects` has passed the human
+ * check. `sufficient` stays in, because it is what decides whether a row has a
+ * band, and a file should say why a delegation it lists was not drawn.
+ */
 export function positionExportRows(data: Usage): (string | number | boolean | null)[][] {
 	const actors = new Map(data.actors.map((actor) => [actor.country_org, actor]));
 	return data.position_by_actor.map((row) => {
@@ -2180,7 +2171,6 @@ export function positionExportRows(data: Usage): (string | number | boolean | nu
 			actor?.group ?? null,
 			row.eligible,
 			row.sufficient,
-			row.share_rejects,
 			...POSITIONS.map((speaker_position) => row.positions[speaker_position] ?? 0)
 		];
 	});

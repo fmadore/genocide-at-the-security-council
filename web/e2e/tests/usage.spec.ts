@@ -283,6 +283,60 @@ test(
 	}
 );
 
+/** The position figure, likewise. */
+const rejectsOf = (page: Page) =>
+	page.locator('figure.figure').filter({
+		has: page.getByRole('heading', { name: 'Who rejects the word', level: 2 })
+	});
+
+test(
+	'who rejects the word is counts only, with no share, interval or mark',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		// Decided on 9 October 2026: until human coding has measured how often the
+		// `rejects` label is right, no delegation is marked as unusual and none is
+		// ordered by its share of rejections. The fixture still carries the shares,
+		// the intervals and the flag; the page must print none of them.
+		await openUsage(page);
+		const figure = rejectsOf(page);
+		const table = figure.locator('table.positions');
+
+		await expect(table.locator('thead th')).toHaveText(['Delegation', 'Eligible', 'Rejects']);
+		// Rwanda has one rejection and France none, so Rwanda first; the European
+		// Union is under the minimum of three and has no band.
+		await expect(table.locator('tbody th[scope="row"]')).toHaveText(['Rwanda', 'France']);
+		await expect(table.locator('tbody tr').first().locator('td')).toHaveText(['5', '1']);
+		await expect(table.locator('abbr')).toHaveCount(0);
+		await expect(figure).not.toContainText('95% interval');
+		await expect(figure).toContainText('No delegation is marked as unusual');
+
+		// The full table lists the speaker under the minimum apart, under words
+		// rather than a fainter ink alone.
+		await figure.getByText('All position counts, withheld delegations included').click();
+		const full = figure.getByRole('region', { name: 'All position counts' });
+		await expect(
+			full.getByText('Fewer than 3 eligible mentions, so no band in the figure')
+		).toBeVisible();
+		await expect(full.getByRole('columnheader', { name: 'Rejection share' })).toHaveCount(0);
+		await expect(full.locator('tr.withheld th')).toHaveText(['European Union']);
+
+		// And the file says the same: counts, and why a row has no band.
+		const pending = page.waitForEvent('download');
+		await figure.getByRole('button', { name: 'CSV', exact: true }).click();
+		const csv = await readFile((await (await pending).path())!, 'utf8');
+		// The byte-order mark Excel needs comes first, before the comment rows.
+		const header = csv
+			.slice(csv.indexOf('#'))
+			.split('\r\n')
+			.find((line) => !line.startsWith('#'))!;
+		expect(header.split(',')).not.toContain('share_rejects');
+		expect(header.split(',')).toContain('sufficient');
+		expect(csv).toContain('# on screen: ordered by: occurrences labelled rejects, then name');
+
+		await expectNoAxeViolations(page);
+	}
+);
+
 test('the referent picker moves both figures, and the URL carries it', async ({ page }) => {
 	await openUsage(page);
 	const figure = diffusionOf(page);
