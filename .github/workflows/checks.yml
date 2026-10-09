@@ -54,8 +54,12 @@ jobs:
       - name: ruff
         run: ruff check --output-format=github .
 
+      # Over scripts/lib only, as configured in pyproject.toml.
+      - name: mypy
+        run: python -m mypy
+
       - name: pytest
-        run: python -m pytest
+        run: python -m pytest --cov --cov-report=term:skip-covered
 
   # The transport tests exercise step 14's real request path through the
   # OpenAI-compatible client, and skip without it. The job above must not have

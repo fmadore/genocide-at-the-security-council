@@ -99,7 +99,7 @@ def validate(
         raise ValueError("semantic payload is incomplete or has failed checksum validation")
     corpus_path = corpus_sha256 if isinstance(corpus_sha256, Path) else None
     if corpus_path:
-        corpus_sha256 = artifacts.sha256(corpus_sha256)
+        corpus_sha256 = artifacts.sha256(corpus_path)
     if any(item.get("sha256") == corpus_sha256 for item in meta.get("inputs", [])):
         return meta
     if corpus_path and content_sha256 and corpus_fingerprint(corpus_path) == content_sha256:

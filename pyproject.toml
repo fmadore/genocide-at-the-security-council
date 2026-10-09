@@ -40,22 +40,11 @@ warn_redundant_casts = true
 # landed and `python -m mypy` is clean on it; several are clean already.
 [[tool.mypy.overrides]]
 module = [
-    "lib.actors",
-    "lib.annotate",
-    "lib.artifacts",
     "lib.audit",
-    "lib.console",
-    "lib.council",
-    "lib.entities",
     "lib.frames",
     "lib.keyness",
     "lib.lexical",
     "lib.lexicon",
-    "lib.llm",
-    "lib.model_runs",
-    "lib.paths",
-    "lib.semantic_release",
-    "lib.usage_refusals",
 ]
 ignore_errors = true
 
@@ -85,13 +74,15 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # Strict, so a misspelt marker or setting is an error rather than a test that
-# silently stops being selected or configured. Coverage is reported on every
-# run, CI's included, and never enforced: see [tool.coverage] below.
+# silently stops being selected or configured. Coverage is not on by default:
+# it makes a run about 1.7 times slower, so the Checks workflow asks for it
+# and reports it, never enforced (see [tool.coverage] below). Locally:
+#     python -m pytest --cov --cov-report=term:skip-covered
 #
 # CI runs everything. For a quick local loop, leave out the tests that run
-# numbered scripts as subprocesses or search with hypothesis, and coverage:
-#     python -m pytest -m "not slow" --no-cov
-addopts = "-q --strict-markers --strict-config --cov --cov-report=term:skip-covered"
+# numbered scripts as subprocesses or search with hypothesis:
+#     python -m pytest -m "not slow"
+addopts = "-q --strict-markers --strict-config"
 # A FutureWarning is pandas or numpy announcing that a result will change in a
 # coming release; in a pipeline whose output is numbers, that is a failure to
 # act on now, not a line to scroll past.

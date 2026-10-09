@@ -34,6 +34,7 @@ null halfway through a render.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -404,7 +405,7 @@ def describe_speakers(
     return out
 
 
-def _same(left: object, right: object) -> bool:
+def _same(left: Any, right: Any) -> bool:
     """Equality that treats two missing values as agreeing."""
     left_missing, right_missing = pd.isna(left), pd.isna(right)
     if left_missing or right_missing:
@@ -550,11 +551,11 @@ def reconcile_withholding(computed: dict[str, dict[str, pd.DataFrame]]) -> list[
     return problems
 
 
-def _count(value: object) -> int | None:
+def _count(value: Any) -> int | None:
     return None if pd.isna(value) else int(value)
 
 
-def _rate(value: object, digits: int) -> float | None:
+def _rate(value: Any, digits: int) -> float | None:
     return None if pd.isna(value) else round(float(value), digits)
 
 
@@ -706,7 +707,7 @@ def build_periods(
     speeches: pd.DataFrame, slices: list[Period], computed: dict, minimum: int
 ) -> list[dict[str, object]]:
     """Corpus totals per slice, so no consumer has to hard-code a denominator."""
-    out = []
+    out: list[dict[str, Any]] = []
     for window in slices:
         subset = speeches[window.mask(speeches["year"])]
         frame = computed[HEADLINE][window.key]

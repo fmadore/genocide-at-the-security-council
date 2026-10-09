@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -73,7 +74,7 @@ UNKNOWN_AGENDA = "Unknown agenda"
 
 def display_points(
     speeches: pd.DataFrame, coordinates: dict[str, tuple[float, float]]
-) -> tuple[list[str], list[str], list[list[object]]]:
+) -> tuple[list[str], list[str], list[list[Any]]]:
     """The map's lookup lists and points, in corpus order.
 
     `speeches` needs `row_id`, `year`, `country_org`, `agenda_item_manual` and

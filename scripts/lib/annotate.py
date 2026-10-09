@@ -29,7 +29,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 from . import artifacts, console, frames, lexicon, llm, model_runs
 from . import occurrences as occurrences_lib
@@ -189,7 +189,7 @@ def read_manifest(path: Path) -> dict[str, object]:
 
 def write_manifest(
     path: Path,
-    previous: dict[str, object],
+    previous: dict[str, Any],
     *,
     meta: llm.RunMeta,
     referents_sha256: str,
@@ -239,8 +239,9 @@ def write_manifest(
     each of them says *which* file, and the version says *which state of it*,
     and 15 refuses a run whose two disagree.
     """
-    before = previous.get("requests") if isinstance(previous.get("requests"), dict) else {}
-    tokens = previous.get("usage") if isinstance(previous.get("usage"), dict) else {}
+    recorded_requests, recorded_usage = previous.get("requests"), previous.get("usage")
+    before: dict[str, Any] = recorded_requests if isinstance(recorded_requests, dict) else {}
+    tokens: dict[str, Any] = recorded_usage if isinstance(recorded_usage, dict) else {}
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     done = planned_requests > 0 and complete >= planned_requests
     history = [dict(entry) for entry in previous.get("passes") or [] if isinstance(entry, dict)]

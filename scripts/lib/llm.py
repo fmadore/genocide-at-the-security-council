@@ -46,7 +46,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 from . import audit
 from . import referents as referents_lib
@@ -995,9 +995,12 @@ def validate_response(
 
     expected = set(ordinals)
     if set(labels) != expected:
-        extra = sorted(set(labels) - expected)
-        absent = sorted(expected - set(labels))
-        raise ValueError(f"Ordinals do not match the request: unexpected={extra}, missing={absent}")
+        extra_ordinals = sorted(set(labels) - expected)
+        absent_ordinals = sorted(expected - set(labels))
+        raise ValueError(
+            f"Ordinals do not match the request: unexpected={extra_ordinals}, "
+            f"missing={absent_ordinals}"
+        )
     return labels
 
 
@@ -1320,7 +1323,7 @@ class RunMeta:
 def annotation_rows(
     occurrences: Sequence[Occurrence],
     body: str,
-    labels: Mapping[int, Mapping[str, object]],
+    labels: Mapping[int, Mapping[str, Any]],
     meta: RunMeta,
 ) -> list[dict[str, object]]:
     """One row per occurrence, in the run's fixed key order."""
@@ -1328,10 +1331,12 @@ def annotation_rows(
     spans = sentence_spans(body) if any("evidence_sentences" in e for e in labels.values()) else []
     for occurrence in occurrences:
         entry = labels[occurrence.ordinal]
+        start: int | None
+        end: int | None
         if "evidence_sentences" in entry:
             # Sentence evidence cannot be misquoted: the span is the sentences'
             # own, and valid exactly when it holds the occurrence.
-            first, last = entry["evidence_sentences"]  # type: ignore[misc]
+            first, last = entry["evidence_sentences"]
             start, end = spans[first - 1][0], spans[last - 1][1]
             quote = body[start:end]
             valid, relocated = start <= occurrence.start and occurrence.end <= end, False
@@ -1382,7 +1387,7 @@ def annotation_rows(
 
 
 def validate_row(
-    row: Mapping[str, object], referents: set[str], *, appending: bool = True
+    row: Mapping[str, Any], referents: set[str], *, appending: bool = True
 ) -> None:
     """The gate a row passes to be written into a committed run, or read back out.
 
