@@ -370,6 +370,14 @@ for days or starts at once. This also explains why the Qwen runs were scheduled
 without trouble — they asked for one card, so the default charged them a quarter
 of the node rather than a half.
 
+`submit_annotate.sh` and `serve_annotation.sh` now carry
+`#SBATCH --mem-per-gpu=128G` themselves, in place of the `--mem=96G` that the
+partition ignored, so every annotation command in this document gets it without
+saying so: `--gres=gpu:h100:2` on the sbatch line becomes 256 GiB by itself. To
+change the amount, pass `--mem-per-gpu` on the sbatch line, not `--mem`. Other
+jobs on `GPU` still need it said: `submit_embed.sh` asks for its one card with a
+plain `--mem`, which the partition turns into a quarter of the node.
+
 There is no lowercase `gpu` partition. The default model needs one card of any
 of these; `GPU` is requested in `submit_embed.sh` for speed, but an L40 on
 `normal` works and usually starts sooner.
