@@ -83,6 +83,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      # Python writes to a pipe in blocks, so a step's output used to reach the
+      # log in one piece when the step exited. Unbuffered, it arrives as it is
+      # printed, and a slow step shows where its time goes.
+      PYTHONUNBUFFERED: '1'
     steps:
       - uses: actions/checkout@v7
 
@@ -149,7 +154,20 @@ jobs:
           # here: it needs a GPU, and 15 aggregates the committed run named in
           # model_annotations/genocide/current_run.txt, or writes the usage
           # artefacts in their waiting state when that file is empty.
-          make payload
+          #
+          # One step at a time, on purpose. After 03, the steps up to the
+          # export are independent, and in run 37827234106 the sequence took
+          # 24.3 minutes where `make -j3` would have finished with 12, at about
+          # 17.5. But every step loads the corpus, about 1 GB of text and
+          # several times that as Python objects, and this runner has 16 GB:
+          # three at once could be killed for memory, which fails the deploy,
+          # and their logs would interleave. The gain also applies only when
+          # the payload cache misses. GNU time, where the runner has it,
+          # prints each step's wall time and peak memory, which is the
+          # measurement to decide on before trying -j.
+          timed=python
+          [ -x /usr/bin/time ] && timed="/usr/bin/time -f '    %e s, peak memory %M KB' python"
+          make payload PY="$timed"
 
       # Saved explicitly rather than by letting `actions/cache` write in its own
       # post step, so that a run which failed part-way through the pipeline
