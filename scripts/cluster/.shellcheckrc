@@ -1,0 +1,4 @@
+# The scripts source env.sh from their own directory, so `shellcheck` run from
+# anywhere, locally or in CI, follows it and checks the functions they call.
+source-path=SCRIPTDIR
+external-sources=true

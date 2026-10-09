@@ -6,12 +6,12 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-# On the GPU partition this --mem is silently overridden by the partition's
-# DefMemPerGPU, which charges the node's whole memory divided by its GPU count
-# per card requested. One card is a quarter of the node and schedules readily;
-# two cards are half of it and can wait days. Pass --mem-per-gpu explicitly on
-# the sbatch line for any multi-card job. See docs/CLUSTER.md.
-#SBATCH --mem=96G
+# Per card, because the GPU partition charges memory per card: without an
+# explicit --mem-per-gpu its DefMemPerGPU bills a quarter of the node for each
+# card, and a plain --mem does not lower that. Two cards then need half the
+# node free and can wait days; at 128G a card, `--gres=gpu:h100:2` asks for
+# 256G and started within seconds (job 780174). See docs/CLUSTER.md.
+#SBATCH --mem-per-gpu=128G
 #SBATCH --time=24:00:00
 #SBATCH --output=logs/annotate-%j.out
 #SBATCH --error=logs/annotate-%j.err
@@ -22,6 +22,9 @@ source "$REPO/scripts/cluster/env.sh"
 
 export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
 export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
+# Slurm writes the log to a file, where Python buffers output in blocks: the
+# log of a running or killed job would lag, or lose, its last lines.
+export PYTHONUNBUFFERED="${PYTHONUNBUFFERED:-1}"
 configure_annotation_model
 set_threads
 cd "$REPO"
@@ -79,9 +82,15 @@ SERVER_PID=$!
 # sends corpus text. The loop also notices a server that died during startup.
 load_python
 activate_annotator
-export VLLM_VERSION="$($VLLM_VENV/bin/python -c 'import vllm; print(vllm.__version__)')"
-export VLLM_GPU_MODEL="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -1)"
-export VLLM_GPU_COUNT="$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)"
+# Assigned, then exported: `export VAR="$(cmd)"` returns export's status, so a
+# failing command did not stop the job. 14 refuses an empty field, but only
+# after the weights have loaded, and a failed nvidia-smi still counted "0"
+# GPUs, which it would have recorded. One call serves both GPU fields.
+VLLM_VERSION="$("$VLLM_VENV/bin/python" -c 'import vllm; print(vllm.__version__)')"
+gpus="$(nvidia-smi --query-gpu=name --format=csv,noheader)"
+VLLM_GPU_MODEL="${gpus%%$'\n'*}"
+VLLM_GPU_COUNT="$(printf '%s\n' "$gpus" | wc -l)"
+export VLLM_VERSION VLLM_GPU_MODEL VLLM_GPU_COUNT
 python - "$VLLM_BASE_URL" "$SERVER_PID" <<'PY'
 import os, sys, time, urllib.request
 

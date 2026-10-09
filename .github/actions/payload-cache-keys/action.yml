@@ -1,0 +1,83 @@
+# The cache keys for the pinned corpus and the derived payload, defined once.
+# The deploy saves under them; anything else that wants the deploy's payload
+# restores with them, and two copies of this logic would sooner or later
+# compose keys that never match.
+name: Payload cache keys
+description: Compose the raw-corpus and derived-payload cache keys from the dataset pin and the payload's inputs.
+
+outputs:
+  version:
+    description: The pinned dataset version.
+    value: ${{ steps.pin.outputs.version }}
+  raw:
+    description: Key of the pinned corpus cache.
+    value: ${{ steps.keys.outputs.raw }}
+  derived:
+    description: Key of the derived payload cache.
+    value: ${{ steps.keys.outputs.derived }}
+
+runs:
+  using: composite
+  steps:
+    # Read from the one file that defines the pin, so the cache key and the
+    # download can never disagree about which version is being built. With
+    # sed, so composing a key needs no Python environment.
+    - name: Read the dataset pin
+      id: pin
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        version=$(sed -n 's/^DATASET_VERSION = "\(.*\)"$/\1/p' scripts/lib/paths.py)
+        if [ -z "$version" ]; then
+          echo "::error file=scripts/lib/paths.py::DATASET_VERSION not found — refusing to build a cache key that would be shared across pins"
+          exit 1
+        fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "Pinned dataset version $version"
+
+    # The derived key is the input set that determines the payload: the
+    # configs, the two annotation stores, the locked environment, the graph,
+    # the Python the payload runs, the pin, the deploy workflow, which names
+    # the Python version and the steps that run, and this file. A key that
+    # misses one of these would ship a payload that does not match the code,
+    # which is the failure to design against; every artifact still carries its
+    # own input hashes and generating commit, so a miss stays detectable after
+    # the fact.
+    #
+    # The Python is taken exactly, from `make payload-code`: the scripts the
+    # payload's recipes run and the modules they import, which tools/lib_deps.py
+    # generates from the imports and tests/test_build_graph.py holds to them.
+    # Hashing all of scripts/ instead threw a 25-minute cache away for edits to
+    # the cluster harness, step 14 or a README, none of which the payload runs.
+    # The configs and annotation stores are taken whole, not as the Makefile
+    # names them, because `lib` reads files no rule declares (the council
+    # membership and country aliases, for instance).
+    #
+    # Tracked files only, through git, so nothing the build writes into the
+    # tree, bytecode included, can move the key between restore and save.
+    - name: Compose the cache keys
+      id: keys
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        code=$(make --no-print-directory -s payload-code)
+        for required in scripts/00_fetch_data.py scripts/export_web.py scripts/lib/paths.py; do
+          if ! grep -qxF "$required" <<<"$code"; then
+            echo "::error file=Makefile::make payload-code did not list $required — refusing to key the payload on a partial graph"
+            exit 1
+          fi
+        done
+        inputs=$(
+          {
+            git ls-files -- config annotations model_annotations requirements.lock \
+              Makefile scripts/deps.mk tests/contract/payload.json \
+              .github/workflows/deploy.yml .github/actions/payload-cache-keys
+            printf '%s\n' "$code"
+          } | LC_ALL=C sort -u
+        )
+        digest=$(printf '%s\n' "$inputs" | tr '\n' '\0' | xargs -0 sha256sum | sha256sum | cut -c1-64)
+        echo "Keyed on $(wc -l <<<"$inputs") files, $(wc -l <<<"$code") of them the Python the payload runs."
+        {
+          echo "raw=raw-v${{ steps.pin.outputs.version }}"
+          echo "derived=derived-v${{ steps.pin.outputs.version }}-$digest"
+        } >> "$GITHUB_OUTPUT"

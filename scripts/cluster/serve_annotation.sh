@@ -7,7 +7,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=96G
+# Per card, as in submit_annotate.sh: the GPU partition bills a quarter of the
+# node per card unless --mem-per-gpu says otherwise.
+#SBATCH --mem-per-gpu=128G
 #SBATCH --time=04:00:00
 #SBATCH --output=logs/serve-%j.out
 #SBATCH --error=logs/serve-%j.err
