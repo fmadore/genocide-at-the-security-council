@@ -24,6 +24,7 @@ a refusal the step makes on purpose and not something to work around here.
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -98,6 +99,102 @@ def synthetic_corpus(seed: int = 20_260_902) -> pd.DataFrame:
     frame = pd.DataFrame(rows)
     flags = lexicon.apply(frame["text"].str.slice(frame["body_start"].iloc[0]), lex)
     return pd.concat([frame, flags], axis=1)
+
+
+#: Golden floats are compared to one part in a billion rather than to the last
+#: digit: the file is written on one platform and checked on another (Windows on
+#: ARM locally, Linux in CI), and a summation order that differs by a rounding
+#: step is not a change in what the arithmetic says.
+RELATIVE_TOLERANCE = 1e-9
+#: A value that should be zero has no scale for a relative tolerance to work
+#: with, so a residue this small on either side of it still counts as zero.
+ABSOLUTE_TOLERANCE = 1e-12
+
+#: Where a step that ignored the environment would write. All three are ignored
+#: by git, so `git status` alone cannot see a leak into them.
+OUTPUT_ROOTS = ("data", "notes", "web/static")
+
+
+def mismatches(found: object, expected: object, at: str = "$") -> list[str]:
+    """Every place two JSON values differ, floats within the tolerance above.
+
+    Keys, list lengths, strings, booleans and nulls must match exactly; a float
+    on either side is compared numerically, so `1` and `1.0` agree.
+    """
+    numeric = (int, float)
+    if isinstance(expected, dict) and isinstance(found, dict):
+        if set(found) != set(expected):
+            return [
+                f"{at}: keys differ (only found: {sorted(set(found) - set(expected))}, "
+                f"only expected: {sorted(set(expected) - set(found))})"
+            ]
+        return [m for key in expected for m in mismatches(found[key], expected[key], f"{at}.{key}")]
+    if isinstance(expected, list) and isinstance(found, list):
+        if len(found) != len(expected):
+            return [f"{at}: {len(found)} items, expected {len(expected)}"]
+        return [m for i, pair in enumerate(zip(found, expected, strict=True)) for m in mismatches(*pair, f"{at}[{i}]")]
+    if (
+        isinstance(expected, numeric)
+        and isinstance(found, numeric)
+        and not isinstance(expected, bool)
+        and not isinstance(found, bool)
+        and (isinstance(expected, float) or isinstance(found, float))
+    ):
+        close = math.isclose(
+            found, expected, rel_tol=RELATIVE_TOLERANCE, abs_tol=ABSOLUTE_TOLERANCE
+        )
+        return [] if close else [f"{at}: {found!r}, expected {expected!r}"]
+    if type(found) is not type(expected) or found != expected:
+        return [f"{at}: {found!r}, expected {expected!r}"]
+    return []
+
+
+def tree_state() -> tuple[str, dict[str, int]]:
+    """What git can see of the checkout, and when each output directory changed.
+
+    The pipeline writes every file by staging it and renaming it into place,
+    which changes the modification time of the directory it lands in even when
+    the file already existed. So the directories under the output roots, three
+    levels down, are enough to see a write into them without reading the tens
+    of thousands of corpus files a working copy holds there.
+    """
+    status = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    times: dict[str, int] = {}
+
+    def visit(directory: Path, depth: int) -> None:
+        times[directory.relative_to(ROOT).as_posix()] = directory.stat().st_mtime_ns
+        if depth == 0:
+            return
+        for child in directory.iterdir():
+            if child.is_dir() and not child.is_symlink():
+                visit(child, depth - 1)
+
+    for name in OUTPUT_ROOTS:
+        if (ROOT / name).is_dir():
+            visit(ROOT / name, 3)
+    return status, times
+
+
+def compare_golden(found: dict[str, object], name: str) -> None:
+    """Hold `found` to the committed golden file, or rewrite it on request."""
+    golden = GOLDEN / name
+    if os.environ.get("UPDATE_GOLDEN"):
+        golden.write_text(json.dumps(found, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    assert golden.exists(), "no golden file: run once with UPDATE_GOLDEN=1 and commit the result"
+    expected = json.loads(golden.read_text(encoding="utf-8"))
+    # Through JSON first, so a tuple and a list, or an int key and its string,
+    # compare as the file will hold them.
+    differences = mismatches(json.loads(json.dumps(found)), expected)
+    assert not differences, (
+        "the analytical values moved; if that is intended, regenerate with UPDATE_GOLDEN=1 "
+        "and commit the diff:\n" + "\n".join(differences[:20])
+    )
 
 
 def run_step(script: str, roots: dict[str, str], *args: str) -> None:
@@ -207,20 +304,12 @@ def test_04_08_and_17_reproduce_the_golden_values(tmp_path: Path) -> None:
     derived = tmp_path / "data" / "derived"
     derived.mkdir(parents=True)
     synthetic_corpus().to_parquet(derived / "speeches_flagged.parquet", index=False)
+    before = tree_state()
 
     run_step("04_series.py", roots, "--trials", "200")
     run_step("08_kwic.py", roots, "--terms", "genocide,war_crimes")
     run_step("17_frames.py", roots, "--trials", "200", "--no-model")
 
+    assert tree_state() == before, "a step wrote into the repository's own tree"
     found = analytical(derived / "series", derived / "kwic", derived / "frames")
-    golden = GOLDEN / "end_to_end_04_08.json"
-    if os.environ.get("UPDATE_GOLDEN"):
-        golden.write_text(json.dumps(found, indent=1, sort_keys=True) + "\n", encoding="utf-8")
-    assert golden.exists(), "no golden file: run once with UPDATE_GOLDEN=1 and commit the result"
-    expected = json.loads(golden.read_text(encoding="utf-8"))
-    assert found == expected, (
-        "the analytical values moved; if that is intended, regenerate with UPDATE_GOLDEN=1 "
-        "and commit the diff"
-    )
-    # Nothing leaked into the repository's own tree.
-    assert not (ROOT / "notes" / "04_series.md").exists() or True
+    compare_golden(found, "end_to_end_04_08.json")
