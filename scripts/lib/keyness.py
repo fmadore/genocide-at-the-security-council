@@ -44,6 +44,7 @@ from __future__ import annotations
 from array import array
 from collections import Counter
 from dataclasses import dataclass
+from functools import cached_property
 
 import numpy as np
 import pandas as pd
@@ -141,6 +142,11 @@ class DocumentTerms:
     @property
     def entries(self) -> int:
         return len(self.terms)
+
+    @cached_property
+    def ids(self) -> dict[str, int]:
+        """Each word's vocabulary id, for reading a few words out of :meth:`totals`."""
+        return {word: identifier for identifier, word in enumerate(self.words)}
 
     def totals(self, rows: np.ndarray) -> np.ndarray:
         """Summed counts per vocabulary id over the given row positions."""
@@ -251,13 +257,26 @@ def strata(frame: pd.DataFrame, keys: list[str] = lexical.MATCH_ON) -> pd.Series
     speech with no hand-coded agenda item is still comparable to another speech
     with no hand-coded agenda item, and dropping it would quietly shrink the
     denominator the coverage figure is read against.
+
+    Codes are numbered in order of first appearance. The number is not only a
+    label: it seeds the stratum's draw (`lexical._stratum_rng`) and orders the
+    strata a pairing visits, so a numbering in any other order would redraw
+    every published control. Each column is compared as text, so two values
+    printing the same are one stratum, and the columns are combined as integer
+    codes, so the partition is built a column at a time rather than a row at a
+    time.
     """
     missing = [key for key in keys if key not in frame.columns]
     if missing:
         raise KeyError(f"strata needs {', '.join(missing)}")
-    joined = frame[keys].astype("string").fillna("\x00").agg("\x1f".join, axis=1)
-    codes, _ = pd.factorize(joined, use_na_sentinel=False)
-    return pd.Series(codes, index=frame.index, name="stratum")
+    combined = np.zeros(len(frame), dtype=np.int64)
+    for key in keys:
+        codes, uniques = pd.factorize(frame[key].astype("string"), use_na_sentinel=False)
+        # Re-factorised at every column so the product stays below the row
+        # count however many keys there are; only the partition matters until
+        # the last factorisation, which fixes the order.
+        combined, _ = pd.factorize(combined * max(len(uniques), 1) + codes)
+    return pd.Series(combined, index=frame.index, name="stratum")
 
 
 # --- One speaker -----------------------------------------------------------
@@ -298,10 +317,19 @@ def self_reference(name: str) -> frozenset[str]:
 
 
 def pair_speaker(
-    frame: pd.DataFrame, mask: pd.Series, stratum: str, seed: int
+    frame: pd.DataFrame,
+    mask: pd.Series,
+    stratum: str,
+    seed: int,
+    *,
+    strata: lexical.Strata | None = None,
 ) -> tuple[pd.Index, pd.Index, Pairing]:
-    """Target and control rows for one speaker, plus what the matching cost."""
-    matched = lexical.matched_control(frame, mask, [stratum], seed)
+    """Target and control rows for one speaker, plus what the matching cost.
+
+    `strata` is the frame grouped by `stratum` once, for a caller pairing many
+    speakers; see :class:`lib.lexical.Strata`.
+    """
+    matched = lexical.matched_control(frame, mask, [stratum], seed, strata=strata)
     return (
         matched.target_index,
         matched.control_index,
@@ -329,6 +357,7 @@ def speaker_keyness(
     minimum: int = MIN_PAIRS,
     min_coverage: float = MIN_COVERAGE,
     floor: float = lexical.G2_FLOOR,
+    strata: lexical.Strata | None = None,
 ) -> dict[str, object]:
     """One speaker's keywords against a matched control, and against the corpus.
 
@@ -355,9 +384,12 @@ def speaker_keyness(
     speeches to compare" and "compared on an unrepresentative part of the record"
     are different objections and a consumer that reports one for the other is
     telling a reader something untrue.
+
+    `strata` is `frame` grouped by `stratum` once, which a caller profiling many
+    speakers passes so that no pairing regroups the corpus.
     """
     mask = frame["country_org"] == name
-    targets, controls, pairing = pair_speaker(frame, mask, stratum, seed)
+    targets, controls, pairing = pair_speaker(frame, mask, stratum, seed, strata=strata)
     withheld_because = [
         *(["pairs"] if pairing.pairs < minimum else []),
         *(["coverage"] if pairing.coverage < min_coverage else []),
@@ -431,6 +463,7 @@ def speaker_keyness(
             [str(row["word"]) for row in rows],
             seed=seed,
             repetitions=repetitions,
+            strata=strata,
         )
     return payload
 
@@ -444,6 +477,7 @@ def _stability(
     *,
     seed: int,
     repetitions: int,
+    strata: lexical.Strata | None = None,
 ) -> dict[str, object]:
     """Where each keyword's effect size lands across consecutive seeds.
 
@@ -459,21 +493,28 @@ def _stability(
     interval drawn from *other* seeds can exclude the very number it is printed
     next to, and a reader meeting `+1.33 [+1.38, +1.53]` has been shown what
     looks exactly like an error. Both figures now come from one sample.
+
+    Each draw reads its keywords' counts straight from the summed arrays rather
+    than through a `Counter` of the whole vocabulary, of which it would read
+    forty entries.
     """
     effects: dict[str, list[float]] = {word: [] for word in words}
+    columns = [matrix.ids.get(word) for word in words]
     coverages: list[float] = []
     for repetition in range(repetitions):
-        targets, controls, pairing = pair_speaker(frame, mask, stratum, seed + repetition)
+        targets, controls, pairing = pair_speaker(
+            frame, mask, stratum, seed + repetition, strata=strata
+        )
         coverages.append(pairing.coverage)
-        target_counts = matrix.counter(targets.to_numpy())
-        control_counts = matrix.counter(controls.to_numpy())
-        target_total = sum(target_counts.values())
-        control_total = sum(control_counts.values())
-        for word in words:
+        target_counts = matrix.totals(targets.to_numpy())
+        control_counts = matrix.totals(controls.to_numpy())
+        target_total = int(target_counts.sum())
+        control_total = int(control_counts.sum())
+        for word, column in zip(words, columns, strict=True):
             effects[word].append(
                 lexical.log_ratio(
-                    target_counts.get(word, 0),
-                    control_counts.get(word, 0),
+                    0 if column is None else int(target_counts[column]),
+                    0 if column is None else int(control_counts[column]),
                     target_total,
                     control_total,
                 )

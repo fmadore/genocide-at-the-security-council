@@ -281,6 +281,46 @@ class TestMatchedControl:
         assert len(control.target_index) == len(control.control_index) == 0
         assert control.coverage == 0.0
 
+    def test_strata_grouped_once_draw_what_grouping_afresh_draws(self, frame):
+        """Grouping once is a saving and must never be a second sample."""
+        strata = lexical.Strata.of(frame, ["year", "agenda"])
+        masks = [frame["hit"], ~frame["hit"], frame["tag"].str.endswith("0")]
+        for mask in masks:
+            for seed in (1, 2, 3):
+                fresh = lexical.matched_control(frame, mask, ["year", "agenda"], seed)
+                reused = lexical.matched_control(
+                    frame, mask, ["year", "agenda"], seed, strata=strata
+                )
+                assert list(reused.target_index) == list(fresh.target_index)
+                assert list(reused.control_index) == list(fresh.control_index)
+                assert reused.short_strata == fresh.short_strata
+                assert (reused.matched, reused.wanted) == (fresh.matched, fresh.wanted)
+
+    def test_strata_from_another_frame_are_refused(self, frame):
+        strata = lexical.Strata.of(frame.iloc[:4], ["year", "agenda"])
+        with pytest.raises(ValueError, match="different frame"):
+            lexical.matched_control(frame, "hit", ["year", "agenda"], strata=strata)
+
+    def test_a_target_with_a_missing_key_is_wanted_but_never_paired(self, frame):
+        """As under `groupby`: no stratum, so no partner, and coverage says so."""
+        frame = pd.concat(
+            [frame, pd.DataFrame([{"year": 1994, "agenda": None, "hit": True, "tag": "t-na"}])],
+            ignore_index=True,
+        )
+        control = lexical.matched_control(frame, "hit", ["year", "agenda"])
+        assert control.wanted == 6
+        assert control.matched == 4
+        assert len(frame) - 1 not in set(control.target_index)
+
+    def test_strata_are_visited_in_key_order_with_rows_in_frame_order(self):
+        frame = pd.DataFrame(
+            {"year": [2000, 1994, 2000, 1994, None], "agenda": ["b", "a", "b", "a", "a"]}
+        )
+        strata = lexical.Strata.of(frame, ["year", "agenda"])
+        assert strata.keys == [(1994.0, "a"), (2000.0, "b")]
+        assert [rows.tolist() for rows in strata.rows] == [[1, 3], [0, 2]]
+        assert strata.group.tolist() == [1, 0, 1, 0, -1]
+
 
 class TestPmiNetwork:
     def lex(self, *names) -> Lexicon:

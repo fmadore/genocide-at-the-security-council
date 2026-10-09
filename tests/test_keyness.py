@@ -113,6 +113,30 @@ class TestStrata:
         with pytest.raises(KeyError, match="speaker_group"):
             keyness.strata(pd.DataFrame({"year": [1994], "agenda_item_manual": ["x"]}))
 
+    def test_codes_are_numbered_in_order_of_first_appearance(self):
+        """The code seeds its stratum's draw, so its number is part of the result.
+
+        Numbered any other way — in sorted order, say — the same partition
+        would redraw every published control.
+        """
+        table = frame(
+            ["A", "B", "C", "D", "E"],
+            [2000, 1994, 2000, 1994, 1980],
+            ["Syria", "Rwanda", "Syria", None, "Rwanda"],
+        )
+        assert keyness.strata(table).tolist() == [0, 1, 0, 2, 3]
+
+    def test_values_are_compared_as_text(self):
+        """A year read as a number and as a string is one stratum, as it always was."""
+        table = pd.DataFrame(
+            {
+                "year": pd.Series([1994, "1994"], dtype=object),
+                "agenda_item_manual": ["Rwanda", "Rwanda"],
+                "speaker_group": ["E10", "E10"],
+            }
+        )
+        assert keyness.strata(table).nunique() == 1
+
 
 class TestSelfReference:
     def test_a_word_from_the_speakers_own_name_is_caught(self):
@@ -326,6 +350,27 @@ class TestSpeakerKeyness:
             min_coverage=0.0,
         )
         assert run()["keywords"] == run()["keywords"]
+
+    def test_strata_grouped_once_give_the_same_block(self, table):
+        """12 groups the frame once for every speaker; the tables must not move."""
+        matrix = self.matrix(table)
+        reference = matrix.counter(list(table.index))
+        strata = lexical.Strata.of(table, ["stratum"])
+        run = lambda **extra: keyness.speaker_keyness(  # noqa: E731
+            table,
+            matrix,
+            "A",
+            "stratum",
+            reference,
+            100,
+            frozenset(),
+            seed=7,
+            minimum=1,
+            min_coverage=0.0,
+            repetitions=3,
+            **extra,
+        )
+        assert run(strata=strata) == run()
 
 
 class TestAgendaComposition:

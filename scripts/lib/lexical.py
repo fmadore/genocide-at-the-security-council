@@ -457,6 +457,41 @@ MATCH_ON: list[str] = ["year", "agenda_item_manual", "speaker_group"]
 SEED = 20_260_807
 
 
+@dataclass(frozen=True)
+class Strata:
+    """Every row of a frame filed under its matching stratum, grouped once.
+
+    :func:`matched_control` needs, per stratum, the rows that could serve as
+    controls, in frame order. Grouping the whole corpus to find them is most of
+    a pairing's cost, and 12 pairs a hundred and fifty speakers eleven times
+    each against the same frame and the same keys; the grouping does not
+    depend on which rows are targets, so it is done here once and every pairing
+    reads it. The strata are numbered in the order `groupby(sort=True)` visits
+    them and each one's rows keep frame order, which is what keeps the seeded
+    draws identical to grouping afresh on every call.
+
+    A row with a missing key belongs to no stratum (`group` is -1), as it does
+    under `groupby`'s default.
+    """
+
+    index: pd.Index  #: the frame's index, to refuse a frame this was not built from
+    keys: list[tuple]  #: each stratum's key, in `groupby(sort=True)` order
+    rows: list[np.ndarray]  #: each stratum's row positions, ascending
+    group: np.ndarray  #: each row's stratum number, or -1
+
+    @classmethod
+    def of(cls, frame: pd.DataFrame, keys: list[str]) -> Strata:
+        # One column is grouped by its name rather than as a list of one, so a
+        # key is the value itself; `_stratum` then makes every key the tuple
+        # the stratum's seed is read from (`_stratum_rng`).
+        grouped = frame.groupby(keys[0] if len(keys) == 1 else keys, sort=True)
+        group = grouped.ngroup().fillna(-1).to_numpy(dtype=np.int64)
+        names = [_stratum(key) for key in grouped.size().index]
+        order = np.argsort(group, kind="stable")
+        bounds = np.searchsorted(group[order], np.arange(len(names) + 1), side="left")
+        rows = [order[bounds[g] : bounds[g + 1]] for g in range(len(names))]
+        return cls(index=frame.index, keys=names, rows=rows, group=group)
+
 
 @dataclass(frozen=True)
 class MatchedPairs:
@@ -496,6 +531,8 @@ def matched_control(
     flag: str | pd.Series,
     keys: list[str],
     seed: int = SEED,
+    *,
+    strata: Strata | None = None,
 ) -> MatchedPairs:
     """One non-target speech per target, from the same stratum.
 
@@ -511,45 +548,48 @@ def matched_control(
     would mean a hundred and thirty-three passes writing a hundred and
     thirty-three columns, but it is the same pairing either way — which is the
     point of it being this function rather than a second one.
+
+    `strata`, from :class:`Strata` over the same frame and keys, saves the
+    grouping when one frame is paired many times. Without it the frame is
+    grouped here, and the draws are the same either way.
     """
+    if strata is None:
+        strata = Strata.of(frame, keys)
+    elif not strata.index.equals(frame.index):
+        raise ValueError("these strata were grouped from a different frame")
     mask = frame[flag] if isinstance(flag, str) else flag
-    targets = frame[mask]
-    pool = frame[~mask]
-    # A list of one column is unwrapped, and both sides are keyed through
-    # `_stratum` regardless. Grouping by `["stratum"]` gives a scalar from
-    # `.groups` and a one-tuple from iteration — pandas deprecates the first and
-    # will change it — so the two lookups silently miss each other and every
-    # stratum comes back empty, which reads as "no comparable speech exists"
-    # rather than as a bug.
-    by = keys[0] if len(keys) == 1 else keys
-    available = {
-        _stratum(key): list(idx) for key, idx in pool.groupby(by, sort=True).groups.items()
-    }
+    if not mask.index.equals(frame.index):
+        mask = mask.reindex(frame.index)
+    is_target = mask.to_numpy(dtype=bool, na_value=False)
+    labels = frame.index.to_numpy()
 
     picked_targets: list = []
     picked_controls: list = []
     short: list[tuple[tuple, int, int]] = []
-    for key, group in targets.groupby(by, sort=True):
+    # Only the strata holding a target, in key order. A target with a missing
+    # key has no stratum and is never paired, but still counts as wanted.
+    for g in np.unique(strata.group[is_target & (strata.group >= 0)]):
+        rows = strata.rows[g]
+        hit = is_target[rows]
+        group, candidates = rows[hit], rows[~hit]
         wanted = len(group)
-        candidates = available.get(_stratum(key), [])
         take = min(wanted, len(candidates))
+        key = strata.keys[g]
         if take < wanted:
-            short.append((_stratum(key), wanted, take))
+            short.append((key, wanted, take))
         if take:
-            rng = _stratum_rng(seed, _stratum(key))
-            target_indices = np.asarray(group.index)
+            rng = _stratum_rng(seed, key)
+            target_indices = labels[group]
             if take < wanted:
                 target_indices = rng.choice(target_indices, take, replace=False)
             picked_targets.extend(target_indices.tolist())
-            picked_controls.extend(
-                rng.choice(np.asarray(candidates), take, replace=False).tolist()
-            )
+            picked_controls.extend(rng.choice(labels[candidates], take, replace=False).tolist())
 
     return MatchedPairs(
         target_index=pd.Index(picked_targets),
         control_index=pd.Index(picked_controls),
         matched=len(picked_controls),
-        wanted=len(targets),
+        wanted=int(is_target.sum()),
         short_strata=short,
     )
 

@@ -136,6 +136,9 @@ def build_speakers(
     min_coverage: float,
 ) -> list[dict[str, object]]:
     """One block per candidate speaker, in descending order of speeches given."""
+    # Grouped once: every speaker is paired against the same frame and strata,
+    # eleven times over with the stability draws.
+    strata = lexical.Strata.of(speeches, [stratum_column])
     rows: list[dict[str, object]] = []
     for position, (name, held) in enumerate(candidates.items(), start=1):
         block = keyness.speaker_keyness(
@@ -151,6 +154,7 @@ def build_speakers(
             repetitions=repetitions,
             minimum=minimum,
             min_coverage=min_coverage,
+            strata=strata,
         )
         block = {
             "country_org": str(name),
