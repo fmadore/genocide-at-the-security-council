@@ -36,7 +36,26 @@ on:
     branches: [main]
     paths:
       - 'config/**'
+      # The pipeline, less what the payload never runs: the cluster harness,
+      # step 14 with its batches, probes and preflight, the GPU and diagnostic
+      # steps, and prose. tests/test_build_graph.py fails if any of these
+      # becomes something `make payload` runs. An edit to a `lib` module only
+      # the cluster imports still starts a run, which then finds its payload
+      # cached: the cache key, unlike this list, is read off the Makefile.
       - 'scripts/**'
+      - '!scripts/cluster/**'
+      - '!scripts/**/*.md'
+      - '!scripts/06_*'
+      - '!scripts/07_*'
+      - '!scripts/10_*'
+      - '!scripts/14_*'
+      - '!scripts/18_*'
+      - '!scripts/19_*'
+      - '!scripts/21_*'
+      - '!scripts/annotation_batches.py'
+      - '!scripts/preflight_*'
+      - '!scripts/probe_*'
+      - '!scripts/score_intrusion.py'
       - 'web/**'
       # The two versioned annotation stores. 03 has read `annotations/` since it
       # existed and 15 reads both, yet neither triggered a build nor entered the
@@ -48,6 +67,7 @@ on:
       - 'Makefile'
       - 'tests/contract/payload.json'
       - '.github/workflows/deploy.yml'
+      - '.github/actions/payload-cache-keys/**'
   workflow_dispatch:
 
 permissions:
@@ -63,14 +83,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    env:
-      # Not a preference — a correctness requirement for the derived cache key
-      # below. Importing anything under `scripts/` writes `__pycache__`, a .pyc
-      # records the mtime of the source it was compiled from, and a fresh
-      # checkout stamps a new mtime every run. `hashFiles('scripts/**')` would
-      # then differ between the restore and the save, and the cache would never
-      # hit twice in a row while appearing to work.
-      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@v7
 
@@ -82,38 +94,13 @@ jobs:
 
       - run: python -m pip install --require-hashes -r requirements.lock
 
-      # Read from the one file that defines the pin, so the cache key and the
-      # download can never disagree about which version is being built. With
-      # sed rather than by importing lib.paths, for the reason in `env` above.
-      - name: Read the dataset pin
-        id: pin
-        run: |
-          version=$(sed -n 's/^DATASET_VERSION = "\(.*\)"$/\1/p' scripts/lib/paths.py)
-          if [ -z "$version" ]; then
-            echo "::error file=scripts/lib/paths.py::DATASET_VERSION not found — refusing to build a cache key that would be shared across pins"
-            exit 1
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Pinned dataset version $version"
-
       # Composed once and read by both the restore and the save, so the two
-      # cannot be evaluated against different trees.
-      #
-      # The derived key is the input set that determines the payload: the
-      # configs, the pipeline, the two annotation stores, the locked
-      # environment, the pin, and this file —
-      # which names the Python version and the list of steps that run, and is
-      # therefore an input like any other. A key that misses one of these would
-      # ship a payload that does not match the code, which is the failure to
-      # design against; every artifact still carries its own input hashes and
-      # generating commit, so a miss stays detectable after the fact.
+      # cannot be evaluated against different trees. What the keys cover, and
+      # why, is in the action, which the checks share so that they restore
+      # exactly what this job saves.
       - name: Compose the cache keys
         id: keys
-        run: |
-          {
-            echo "raw=raw-v${{ steps.pin.outputs.version }}"
-            echo "derived=derived-v${{ steps.pin.outputs.version }}-${{ hashFiles('config/**', 'scripts/**', 'annotations/**', 'model_annotations/**', 'requirements.lock', 'Makefile', 'tests/contract/payload.json', '.github/workflows/deploy.yml') }}"
-          } >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/payload-cache-keys
 
       # No `restore-keys` on either, deliberately. A partial match is exactly
       # the payload-that-does-not-match-the-code failure: better to rebuild.
@@ -147,7 +134,7 @@ jobs:
         if: steps.derived.outputs.cache-hit != 'true'
         run: python scripts/fetch_semantic.py
 
-      - name: Rebuild data payload from Dataverse v${{ steps.pin.outputs.version }}
+      - name: Rebuild data payload from Dataverse v${{ steps.keys.outputs.version }}
         if: steps.derived.outputs.cache-hit != 'true'
         run: |
           # 00 is cache-aware already: it MD5-checks every local file and prints

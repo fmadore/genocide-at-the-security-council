@@ -12,6 +12,7 @@
 #   make cluster    the GPU / spaCy steps, on a machine that has them
 #   make -n payload what would run, and in what order
 #   make clean      delete what `make payload` writes, and nothing else
+#   make payload-code  the Python files `make payload` runs (the deploy's cache key)
 #
 # 14 is never a target: it reserves a cluster GPU and writes a reviewed run.
 # 15 aggregates the run named in model_annotations/genocide/current_run.txt.
@@ -65,7 +66,7 @@ TOPICS     := data/derived/topics/manifest.json
 LEMMAS     := data/derived/lemmas/lemmas.parquet
 LEXICAL_LEMMA := data/derived/lexical_lemma/collocates.json
 
-.PHONY: all payload derived raw cluster clean wipe-data robustness robustness-lemma robustness-extended semantic
+.PHONY: all payload payload-code derived raw cluster clean wipe-data robustness robustness-lemma robustness-extended semantic
 
 all: payload
 
@@ -138,6 +139,20 @@ $(PAYLOAD): $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRI
 	$(PY) scripts/export_web.py
 
 payload: $(PAYLOAD)
+
+# The Python files `make payload` runs, one per line: every script its recipes
+# call and every `lib` module those import, plus the semantic restore the
+# deploy runs just before it. The deploy keys its payload cache on this list
+# rather than on all of scripts/, so an edit to a cluster script or to step 14
+# no longer throws away a 25-minute build. It is read off the graph above, not
+# kept beside it: make prints every payload recipe without running it (-nB),
+# with $(PY) standing for that rule's prerequisites ($^). That works because
+# every payload recipe starts with $(PY); a recipe that did not would still
+# list its script, but not its modules.
+payload-code:
+	@{ $(MAKE) --no-print-directory -nB payload 'PY=$$^' | tr ' ' '\n'; \
+	   printf '%s\n' scripts/fetch_semantic.py $(LIB_FETCH_SEMANTIC); } \
+	 | grep '^scripts/.*\.py$$' | LC_ALL=C sort -u
 
 # --- Cluster-only steps (docs/CLUSTER.md) -------------------------------------
 # Not part of the release pipeline: they need requirements-cluster.txt and a
