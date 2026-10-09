@@ -38,8 +38,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import csv
-import io
 import json
 import sys
 import time
@@ -361,14 +359,12 @@ def model_payload(
 
 
 def write_csv(path: Path, rows: list[dict]) -> None:
-    if not rows:
-        return
-    buffer = io.StringIO(newline="")
-    writer = csv.DictWriter(buffer, fieldnames=list(rows[0]), lineterminator="\n")
-    writer.writeheader()
-    for row in rows:
-        writer.writerow({k: ("|".join(v) if isinstance(v, list) else v) for k, v in row.items()})
-    artifacts.atomic_write_text(path, buffer.getvalue())
+    """The rows as CSV, a list cell as its items joined by `|`; no rows, no file."""
+    if rows:
+        artifacts.atomic_write_csv(
+            path,
+            [{k: ("|".join(v) if isinstance(v, list) else v) for k, v in row.items()} for row in rows],
+        )
 
 
 def strongest(purity: dict, names: tuple[str, ...]) -> str:

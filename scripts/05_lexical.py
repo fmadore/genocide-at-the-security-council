@@ -458,12 +458,6 @@ def build_network(speeches: pd.DataFrame, lex: lexicon.Lexicon, minimum: int) ->
     }
 
 
-def write_json(payload: dict, path: Path, meta: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    artifacts.atomic_write_json(path, {"meta": meta, **payload})
-    console.info(f"wrote {rel(path)}  ({path.stat().st_size / 1e3:,.0f} kB)")
-
-
 def _matching_pairs(keyness: dict, top: int = 15) -> list[tuple[str, float, float]]:
     """Top unmatched keywords, with their matched effect size beside them.
 
@@ -743,12 +737,15 @@ def run(
         },
     )
     with artifacts.atomic_directory(counting.directory) as staged:
-        write_json(
-            {"nodes": collocate_payload, "widths": WIDTHS}, staged / "collocates.json", meta
-        )
-        write_json(slices, staged / "collocates_sliced.json", meta)
-        write_json(keyness, staged / "keyness.json", meta)
-        write_json(network, staged / "network.json", meta)
+        for name, payload in (
+            ("collocates.json", {"nodes": collocate_payload, "widths": WIDTHS}),
+            ("collocates_sliced.json", slices),
+            ("keyness.json", keyness),
+            ("network.json", network),
+        ):
+            path = staged / name
+            artifacts.atomic_write_json(path, {"meta": meta, **payload})
+            console.info(f"wrote {rel(path)}  ({path.stat().st_size / 1e3:,.0f} kB)")
 
     note = write_note(
         f"05_lexical{counting.suffix}.md",

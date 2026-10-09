@@ -100,12 +100,6 @@ def read_columns(lex: lexicon.Lexicon) -> list[str]:
     ]
 
 
-def write_json(payload: dict, path: Path, meta: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    artifacts.atomic_write_json(path, {"meta": meta, **payload})
-    console.info(f"wrote {rel(path)}  ({path.stat().st_size / 1e3:,.0f} kB)")
-
-
 def calendar_lines(monthly: dict) -> list[str]:
     """The month resolution, said in words derived from what it found.
 
@@ -536,31 +530,33 @@ def run(
             "rate_per_tokens": series.RATE_PER,
         },
     )
-    with artifacts.atomic_directory(SERIES) as staged:
-        write_json(annual, staged / "annual.json", meta)
-        write_json(quarterly, staged / "quarterly.json", meta)
-        write_json(monthly, staged / "monthly.json", meta)
-        write_json(breakdowns, staged / "breakdowns.json", meta)
-        write_json(change, staged / "change_points.json", meta)
-        write_json(decomposition, staged / "decomposition.json", meta)
-        write_json(
+    overlay = {
+        "events": [
             {
-                "events": [
-                    {
-                        "date": f"{row.date:%Y-%m-%d}",
-                        "year": int(row.year),
-                        "label": row.label,
-                        "kind": row.kind,
-                        "source": row.source,
-                        "source_url": row.source_url,
-                        "note": row.note,
-                    }
-                    for row in events.itertuples()
-                ]
-            },
-            staged / "events.json",
-            meta,
-        )
+                "date": f"{row.date:%Y-%m-%d}",
+                "year": int(row.year),
+                "label": row.label,
+                "kind": row.kind,
+                "source": row.source,
+                "source_url": row.source_url,
+                "note": row.note,
+            }
+            for row in events.itertuples()
+        ]
+    }
+    with artifacts.atomic_directory(SERIES) as staged:
+        for name, payload in (
+            ("annual.json", annual),
+            ("quarterly.json", quarterly),
+            ("monthly.json", monthly),
+            ("breakdowns.json", breakdowns),
+            ("change_points.json", change),
+            ("decomposition.json", decomposition),
+            ("events.json", overlay),
+        ):
+            path = staged / name
+            artifacts.atomic_write_json(path, {"meta": meta, **payload})
+            console.info(f"wrote {rel(path)}  ({path.stat().st_size / 1e3:,.0f} kB)")
 
     note = write_note(
         "04_series.md", build_note(speeches, annual, monthly, computed, change, events, lex)
