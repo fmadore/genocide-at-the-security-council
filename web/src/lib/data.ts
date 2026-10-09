@@ -730,6 +730,44 @@ export const unreachable = (path: string) =>
 	`figures already visited stay available offline.`;
 
 /**
+ * A failure this boundary has already put into words for the reader.
+ *
+ * Every refusal `json()` produces — no connection, a status, a missing field, a
+ * validator's objection — reaches its caller as one of these, so a consumer can
+ * tell a sentence written for a reader from an accident in the code. The page
+ * error hook relies on that distinction: it passes these messages through and
+ * leaves anything else to SvelteKit's generic wording.
+ *
+ * `status` is the HTTP status when the server answered and refused, and null
+ * otherwise, which is what lets `optional` tell a file this release does not
+ * carry from one that is there and wrong.
+ */
+export class DataError extends Error {
+	readonly status: number | null;
+
+	constructor(message: string, status: number | null = null) {
+		super(message);
+		this.name = 'DataError';
+		this.status = status;
+	}
+}
+
+/**
+ * An artefact a page can draw without, and only when it is absent.
+ *
+ * A payload built before an optional artefact existed answers 404 for it, and
+ * the page should draw everything else. A file that is present and refused by
+ * the boundary is a different fact: the release carries it and it is wrong, so
+ * the refusal goes on to the page rather than becoming a quiet "no data".
+ */
+export function optional<T>(request: Promise<T>): Promise<T | null> {
+	return request.catch((error: unknown) => {
+		if (error instanceof DataError && error.status === 404) return null;
+		throw error;
+	});
+}
+
+/**
  * A response body as JSON, decompressing a gzip member the server did not.
  *
  * The speech files are stored gzipped (`speeches/*.json.gz`) because they are
@@ -760,7 +798,7 @@ export function json<T>(
 	if (!cache.has(url)) {
 		const request = fetcher(url)
 			.catch(() => {
-				throw new Error(unreachable(path));
+				throw new DataError(unreachable(path));
 			})
 			.then((response) => {
 				if (!response.ok) {
@@ -768,9 +806,10 @@ export function json<T>(
 					// needs to know the file is not there and that nothing they did
 					// caused it; whoever is building the site locally needs the
 					// second half, which is why the missing path is named first.
-					throw new Error(
+					throw new DataError(
 						`Could not load ${path} (HTTP ${response.status}). ` +
-							`Try again or reload the page. If the problem persists, this data file may be unavailable in the current release.`
+							`Try again or reload the page. If the problem persists, this data file may be unavailable in the current release.`,
+						response.status
 					);
 				}
 				return path.endsWith('.gz') ? parse(response) : (response.json() as Promise<unknown>);
@@ -799,10 +838,14 @@ export function json<T>(
 				validate?.(record, path);
 				return payload as T;
 			})
-			.catch((error) => {
+			.catch((error: unknown) => {
 				cache.delete(url);
 				recent.delete(url);
-				throw error;
+				// The shape and validator refusals above are plain `Error`s with a
+				// sentence written for the reader; they leave as `DataError`s so
+				// every refusal this function makes is recognisable as one.
+				if (error instanceof DataError) throw error;
+				throw new DataError(error instanceof Error ? error.message : String(error));
 			});
 		cache.set(url, request);
 	}
