@@ -160,17 +160,29 @@ are not excluded from the sampling frames. A coder's reading of them may no
 longer be independent of the model.
 
 **Where they are identified.** `data/interim/qwen-review-sample.json` holds 59
-records. Each carries an `id`, the occurrence identifier in the form
-`SC00211-01-007#1` (speech identifier, `#`, the occurrence's ordinal in the
-speech), with Qwen's labels, evidence quote and rationale. The `data/interim/`
-folder is not under version control, so this file exists only on the machine
-where the review was run.
+records over 51 speeches. Each carries an `id` in the form `SC00211-01-007#1`
+(speech identifier, `#`, the occurrence's ordinal in the speech): the line
+identifier that the concordance calls `id` and the gold files call `line_id`,
+not the checksum-based `occurrence_id`. Each record also holds Qwen's labels,
+the evidence quote and the rationale. The `data/interim/` folder is not under
+version control, so this file exists only on the machine where the review was
+run.
+
+**One trap when matching them.** The ordinals were counted under lexicon 6.
+Lexicon 8 added the accented *génocidaires*, which shifts the ordinal of later
+occurrences in a speech that uses it. Two of the 59 are affected:
+`SC04429-01-009#5` is `#6` under lexicon 8, and `SC05697-01-040#1` is `#2`
+(checked against the corpus on 9 October 2026). Matching on the line identifier
+alone would flag the wrong passage in those two speeches; match on the speech
+and the matched text, or recompute the identifiers.
 
 **Proposal for carrying the flag.**
 
-- Commit the 59 occurrence identifiers, without the labels, as a versioned list,
-  so the flag can be reproduced from the repository. The pipeline change that
-  reads it is planned separately.
+- Commit the 59 identifiers, without the labels, as a versioned list, so the
+  flag can be reproduced from the repository. Store the checksum-based
+  `occurrence_id` beside each line identifier, since it does not move when the
+  lexicon adds a form. The pipeline change that reads the list is planned
+  separately.
 - Report every agreement and accuracy figure twice: over all coded occurrences,
   and without the flagged ones. If the two differ by more than the interval
   width, say so beside the figure.
