@@ -25,7 +25,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from lib import artifacts, audit, console, frames, gold_estimates, llm, model_runs
+from lib import artifacts, console, frames, gold_estimates, llm, model_runs, schema
 from lib.paths import INTERIM, SPEECHES_NORM, rel
 
 PACKET = model_runs.GOLD_PACKET
@@ -51,15 +51,15 @@ VOCABULARIES = {
 def check_vocabularies() -> None:
     """The page's lists are the codebook's, or the page is not built."""
     expected = {
-        "verdict": audit.VERDICTS, "source_checked": audit.SOURCE_CHECKED,
-        "quotation": audit.QUOTATIONS, "concrete_case": audit.CONCRETE_CASE,
-        "speaker_position": audit.POSITIONS, "referent_source": audit.REFERENT_SOURCES,
-        "own_state_accused": audit.OWN_STATE_ACCUSED, "salience": audit.SALIENCE,
-        "confidence": audit.CONFIDENCE,
+        "verdict": schema.VERDICTS, "source_checked": schema.SOURCE_CHECKED,
+        "quotation": schema.QUOTATIONS, "concrete_case": schema.CONCRETE_CASE,
+        "speaker_position": schema.POSITIONS, "referent_source": schema.REFERENT_SOURCES,
+        "own_state_accused": schema.OWN_STATE_ACCUSED, "salience": schema.SALIENCE,
+        "confidence": schema.CONFIDENCE,
     }
     for field, values in expected.items():
         if set(VOCABULARIES[field]) != set(values):
-            console.fail(f"the page's {field} list differs from lib.audit", [str(sorted(values))])
+            console.fail(f"the page's {field} list differs from lib.schema", [str(sorted(values))])
 
 
 def data() -> dict[str, object]:
@@ -78,10 +78,10 @@ def data() -> dict[str, object]:
         for item in llm.read_referent_table(model_runs.REFERENTS)
     ]
     return {
-        "columns": list(audit.ANNOTATION_FIELDS),
+        "columns": list(schema.ANNOTATION_FIELDS),
         "coders": [*gold_estimates.CODERS, gold_estimates.ADJUDICATOR],
         "vocabularies": VOCABULARIES,
-        "functions": sorted(audit.FUNCTIONS),
+        "functions": sorted(schema.FUNCTIONS),
         "referents": referents,
         "items": packet.drop(columns=["left", "right"]).to_dict(orient="records"),
         "bodies": bodies,

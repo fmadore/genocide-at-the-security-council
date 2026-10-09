@@ -29,6 +29,8 @@ from lib import (
     gold_estimates,
     lexicon,
     prompts,
+    sampling,
+    schema,
     usage,
     usage_comparison,
     usage_refusals,
@@ -175,7 +177,7 @@ def test_the_funnel_counts_what_each_gate_removes() -> None:
 def test_every_speaker_position_key_is_written_even_when_nothing_used_it() -> None:
     counts = usage.position_counts(rows({"speaker_position": "asserts"}))
     assert list(counts) == list(usage.POSITIONS)
-    assert set(counts) == set(audit.POSITIONS)
+    assert set(counts) == set(schema.POSITIONS)
     assert counts["asserts"] == 1
     assert all(counts[key] == 0 for key in usage.POSITIONS if key != "asserts")
 
@@ -701,7 +703,7 @@ def test_the_multi_label_field_is_scored_by_overlap() -> None:
 def annotation(occurrence: str, coder: str, **changes: str) -> dict[str, str]:
     base = {
         "occurrence_id": occurrence,
-        "schema_version": audit.SCHEMA_VERSION,
+        "schema_version": schema.SCHEMA_VERSION,
         "lexicon_version": "2",
         "coder": coder,
         "coded_at": "2026-09-01",
@@ -728,8 +730,8 @@ def annotation(occurrence: str, coder: str, **changes: str) -> dict[str, str]:
 
 def annotations(*records: dict[str, str]) -> pd.DataFrame:
     if not records:
-        return pd.DataFrame(columns=list(audit.ANNOTATION_FIELDS))
-    return pd.DataFrame(records).loc[:, list(audit.ANNOTATION_FIELDS)]
+        return pd.DataFrame(columns=list(schema.ANNOTATION_FIELDS))
+    return pd.DataFrame(records).loc[:, list(schema.ANNOTATION_FIELDS)]
 
 
 def test_the_gold_state_moves_from_not_started_to_complete() -> None:
@@ -765,7 +767,7 @@ def test_the_gold_state_moves_from_not_started_to_complete() -> None:
 
 
 def test_a_file_of_blank_rows_is_still_not_started() -> None:
-    blank = annotations(dict.fromkeys(audit.ANNOTATION_FIELDS, ""))
+    blank = annotations(dict.fromkeys(schema.ANNOTATION_FIELDS, ""))
     assert gold_estimates.gold_block(
         blank, rows(), sample_size=200, unique_occurrences=2
     )["state"] == "not_started"
@@ -910,10 +912,10 @@ def test_the_declared_category_counts_are_the_codebook_s_own() -> None:
     # vocabulary does; held to the codebook here so it cannot drift in silence.
     referents = audit.read_referents(ROOT / "annotations" / "lexicon" / "referents.csv")
     codebook = {
-        "verdict": len(audit.VERDICTS),
-        "quotation": len(audit.QUOTATIONS),
-        "concrete_case": len(audit.CONCRETE_CASE),
-        "speaker_position": len(audit.POSITIONS),
+        "verdict": len(schema.VERDICTS),
+        "quotation": len(schema.QUOTATIONS),
+        "concrete_case": len(schema.CONCRETE_CASE),
+        "speaker_position": len(schema.POSITIONS),
         "referent": len(referents),
     }
     assert codebook == agreement.FIELD_CATEGORIES
@@ -1659,7 +1661,7 @@ def test_two_runs_on_either_side_of_a_rename_are_counted_in_one_column(tmp_path)
 
 def coded(occurrence: str, **labels: str) -> list[dict[str, object]]:
     """Two coders agreeing on every single-label field of one occurrence."""
-    base = dict.fromkeys(audit.ANNOTATION_FIELDS, "")
+    base = dict.fromkeys(schema.ANNOTATION_FIELDS, "")
     row = {**base, "occurrence_id": occurrence, "verdict": "true_positive",
            "concrete_case": "yes", "speaker_position": "asserts", **labels}
     return [{**row, "coder": coder} for coder in gold_estimates.CODERS]
@@ -1815,15 +1817,15 @@ def test_coverage_inclusion_matches_what_the_sampler_records() -> None:
             "start": range(30),
         }
     )
-    drawn = audit.coverage_sample(frame, 8, 5)
-    everyone = audit.coverage_inclusion(frame, 8).set_axis(frame["occurrence_id"])
+    drawn = sampling.coverage_sample(frame, 8, 5)
+    everyone = sampling.coverage_inclusion(frame, 8).set_axis(frame["occurrence_id"])
     for row in drawn.itertuples():
         assert everyone[row.occurrence_id] == pytest.approx(row.inclusion_probability)
 
 
 def test_the_union_of_independent_frames() -> None:
     first, second = pd.Series([0.5, 0.0]), pd.Series([0.5, 0.2])
-    assert audit.union_inclusion(first, second).tolist() == pytest.approx([0.75, 0.2])
+    assert sampling.union_inclusion(first, second).tolist() == pytest.approx([0.75, 0.2])
 
 
 def test_a_delegation_is_exposed_from_the_first_debate_that_named_the_case() -> None:

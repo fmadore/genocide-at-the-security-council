@@ -53,10 +53,10 @@ from lib import artifacts, console, frames, model_runs, node_frames, series
 from lib import lexicon as lexicon_lib
 from lib import occurrences as occurrences_lib
 from lib.paths import (
-    ANNOTATIONS,
     FRAMES,
     LEXICON,
     MODEL_ANNOTATIONS,
+    REFERENTS,
     ROOT,
     SPEECHES_FLAGGED,
     ensure_dirs,
@@ -589,7 +589,7 @@ def run(width: int, trials: int, seed: int, alpha: float, use_model: bool) -> No
         "17_frames.py",
         inputs=[SPEECHES_FLAGGED, CURRENT_RUN, COMPARISON_RUN,
                 *(path for name, _ in loaded for path in model_runs.files(RUNS / name))],
-        configs=[LEXICON, ANNOTATIONS / "lexicon" / "referents.csv",
+        configs=[LEXICON, REFERENTS,
                  MODEL_ANNOTATIONS / TERM / "PROMPT.md",
                  *sorted((MODEL_ANNOTATIONS / TERM / "prompts").glob("*.md"))],
         extra={

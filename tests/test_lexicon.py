@@ -24,7 +24,7 @@ from dataclasses import replace
 
 import pandas as pd
 import pytest
-from lib import lexicon
+from lib import lexicon, lexicon_lock
 from lib.lexicon import Lexicon, Term
 
 
@@ -286,33 +286,33 @@ class TestCommittedCounts:
         }
 
     def test_identical_counts_pass(self):
-        assert lexicon.count_problems(self.record(a=(1, 2)), self.record(a=(1, 2))) == []
+        assert lexicon_lock.count_problems(self.record(a=(1, 2)), self.record(a=(1, 2))) == []
 
     def test_a_moved_count_is_named(self):
-        problems = lexicon.count_problems(self.record(a=(1, 3)), self.record(a=(1, 2)))
+        problems = lexicon_lock.count_problems(self.record(a=(1, 3)), self.record(a=(1, 2)))
         assert problems == ["'a': 1 speeches / 3 occurrences, committed 1 / 2"]
 
     def test_added_and_removed_terms_are_both_named(self):
-        problems = lexicon.count_problems(self.record(a=(1, 2)), self.record(b=(1, 2)))
+        problems = lexicon_lock.count_problems(self.record(a=(1, 2)), self.record(b=(1, 2)))
         assert "'a' is counted but not committed" in problems
         assert "'b' is committed but no longer counted" in problems
 
     def test_another_corpus_is_refused(self):
         other = {**self.record(a=(1, 2)), "speeches": 11}
-        assert "corpus of 11 speeches" in lexicon.count_problems(other, self.record(a=(1, 2)))[0]
+        assert "corpus of 11 speeches" in lexicon_lock.count_problems(other, self.record(a=(1, 2)))[0]
 
     def test_the_record_is_built_from_the_flag_columns(self, lex):
         frame = lexicon.apply(pd.Series(["genocide and atrocities", "nothing"]), lex)
-        record = lexicon.counts_record(frame, lex, 2)
+        record = lexicon_lock.counts_record(frame, lex, 2)
         assert record["terms"]["genocide"] == {"speeches": 1, "occurrences": 1}
         assert record["speeches"] == 2 and record["lexicon_version"] == 1
 
     def test_the_population_is_read_from_the_committed_file(self):
-        speeches, occurrences = lexicon.population("genocide")
+        speeches, occurrences = lexicon_lock.population("genocide")
         assert 0 < speeches <= occurrences
 
     def test_every_enabled_term_is_committed(self, real_lex):
-        committed = lexicon.load_counts()["terms"]
+        committed = lexicon_lock.load_counts()["terms"]
         assert set(committed) == {t.name for t in real_lex.active} | set(real_lex.derived)
 
 

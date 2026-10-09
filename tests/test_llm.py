@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from lib import audit, evidence, lexicon, llm, model_runs, occurrences, prompts
+from lib import audit, evidence, lexicon, llm, model_runs, occurrences, prompts, schema
 
 ROOT = Path(__file__).resolve().parents[1]
 PROMPT = ROOT / "model_annotations" / "genocide" / "PROMPT.md"
@@ -138,7 +138,7 @@ def test_prompt_states_the_task_boundary_and_the_cascade() -> None:
     assert "You never decide whether an underlying event legally constitutes genocide" in flat
     assert 'If verdict is "false_positive"' in flat
     assert "reserved for false positives" in flat
-    for label in sorted(audit.POSITIONS | audit.QUOTATIONS | audit.FUNCTIONS):
+    for label in sorted(schema.POSITIONS | schema.QUOTATIONS | schema.FUNCTIONS):
         assert label in system, f"the prompt never names {label}"
 
 
@@ -443,14 +443,14 @@ def test_the_speech_travels_unmarked_and_the_occurrences_travel_beside_it() -> N
 
 
 def test_the_schema_is_strict_and_asks_for_a_list_of_functions() -> None:
-    schema = llm.response_schema()
-    item = schema["properties"]["occurrences"]["items"]
-    assert schema["additionalProperties"] is False
+    response = llm.response_schema()
+    item = response["properties"]["occurrences"]["items"]
+    assert response["additionalProperties"] is False
     assert item["additionalProperties"] is False
     assert set(item["required"]) == set(llm.RESPONSE_FIELDS)
     assert set(item["properties"]) == set(llm.RESPONSE_FIELDS)
     assert item["properties"]["function"]["type"] == "array"
-    assert set(item["properties"]["verdict"]["enum"]) == set(audit.VERDICTS)
+    assert set(item["properties"]["verdict"]["enum"]) == set(schema.VERDICTS)
     assert item["properties"]["referent"]["type"] == "string"
 
 
@@ -846,7 +846,7 @@ def test_historical_schema3_is_read_without_reintroducing_model_confidence():
     with pytest.raises(ValueError):
         llm.validate_row(old, REFERENTS)
     assert "confidence" not in llm.RESPONSE_FIELDS
-    assert "confidence" in audit.ANNOTATION_FIELDS
+    assert "confidence" in schema.ANNOTATION_FIELDS
     library = prompts.load_prompt_library(PROMPT)
     archived = prompts.load_prompt(PROMPT.parent / "prompts" / "v2.md")
     assert library.by_digest(archived.sha256) is not None

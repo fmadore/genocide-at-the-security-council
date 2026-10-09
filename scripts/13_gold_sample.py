@@ -95,6 +95,7 @@ from lib import (
     llm,
     model_runs,
     occurrences,
+    sampling,
 )
 from lib.paths import (
     INTERIM,
@@ -304,7 +305,7 @@ def build_note(
     flagged = int(sample.drop_duplicates("occurrence_id")[PRIOR_REVIEW_FLAG].sum())
     frames_seen = {
         name: sample.loc[sample["sampling_frame"] == name]
-        for name in (audit.PROBABILITY, audit.COVERAGE, DISAGREEMENT)
+        for name in (sampling.PROBABILITY, sampling.COVERAGE, DISAGREEMENT)
     }
     unique = int(sample["occurrence_id"].nunique())
 
@@ -313,8 +314,8 @@ def build_note(
         total = int((candidates["cue"] == cue).sum())
         cue_rows.append(
             f"| `{cue}` | {total:,} | {total / population:.1%} | "
-            f"{int((frames_seen[audit.PROBABILITY]['cue'] == cue).sum())} | "
-            f"{int((frames_seen[audit.COVERAGE]['cue'] == cue).sum())} |"
+            f"{int((frames_seen[sampling.PROBABILITY]['cue'] == cue).sum())} | "
+            f"{int((frames_seen[sampling.COVERAGE]['cue'] == cue).sum())} |"
         )
 
     period_rows = []
@@ -322,8 +323,8 @@ def build_note(
         total = int((candidates["period"] == period).sum())
         period_rows.append(
             f"| {period} | {total:,} | {total / population:.1%} | "
-            f"{int((frames_seen[audit.PROBABILITY]['period'] == period).sum())} | "
-            f"{int((frames_seen[audit.COVERAGE]['period'] == period).sum())} |"
+            f"{int((frames_seen[sampling.PROBABILITY]['period'] == period).sum())} | "
+            f"{int((frames_seen[sampling.COVERAGE]['period'] == period).sum())} |"
         )
 
     strata = int(sample["strata_total"].dropna().max()) if "strata_total" in sample else 0
@@ -344,8 +345,8 @@ def build_note(
             "",
             "| Frame | Rows | Size | Seed |",
             "|---|---:|---:|---:|",
-            f"| probability | {len(frames_seen[audit.PROBABILITY])} | {probability} | {seed} |",
-            f"| coverage | {len(frames_seen[audit.COVERAGE])} | {coverage} | {seed + 1} |",
+            f"| probability | {len(frames_seen[sampling.PROBABILITY])} | {probability} | {seed} |",
+            f"| coverage | {len(frames_seen[sampling.COVERAGE])} | {coverage} | {seed + 1} |",
             f"| disagreement | {len(frames_seen[DISAGREEMENT])} | per stratum, below | "
             f"{seed + 2} |",
             "",
@@ -480,8 +481,8 @@ def run(probability: int, coverage: int, seed: int) -> None:
         candidate_path=GOLD_CANDIDATES,
         review_path=GOLD_REVIEW,
         frame_paths={
-            audit.PROBABILITY: GOLD_PROBABILITY,
-            audit.COVERAGE: GOLD_COVERAGE,
+            sampling.PROBABILITY: GOLD_PROBABILITY,
+            sampling.COVERAGE: GOLD_COVERAGE,
             DISAGREEMENT: GOLD_DISAGREEMENT,
             MODEL_STRATA: GOLD_MODEL_STRATA,
         },

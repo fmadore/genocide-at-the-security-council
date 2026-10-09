@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, block_lexical, frames, keyness, lexical, lexicon, uncertainty
+from lib import artifacts, block_lexical, console, frames, keyness, lexical, lexicon, uncertainty
 from lib.paths import DERIVED, LEXICON, ROOT, SPEECHES_FLAGGED, STOPWORDS
 
 
@@ -106,4 +106,4 @@ if __name__ == "__main__":
     parser.add_argument("--speakers", nargs="+")
     parser.add_argument("--limit", type=int, default=40)
     args = parser.parse_args()
-    run(args.repetitions, args.seed, args.speakers, args.limit)
+    console.main(lambda: run(args.repetitions, args.seed, args.speakers, args.limit))

@@ -13,14 +13,14 @@ import re
 import subprocess
 from pathlib import Path
 
-from lib import lexicon
+from lib import lexicon_lock
 from lib.paths import EXPECTED_SPEECHES, EXPECTED_WORDS
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def committed_genocide() -> tuple[int, int, int]:
-    record = lexicon.load_counts()
+    record = lexicon_lock.load_counts()
     entry = record["terms"]["genocide"]
     return int(record["lexicon_version"]), int(entry["speeches"]), int(entry["occurrences"])
 

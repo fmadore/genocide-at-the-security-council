@@ -14,7 +14,7 @@ import re
 import pandas as pd
 import pytest
 import yaml
-from lib import council, entities, lexicon, series
+from lib import council, entities, lexicon, lexicon_lock, series
 from lib.paths import (
     COUNCIL_MEMBERSHIP,
     COUNTRY_ALIASES,
@@ -421,7 +421,7 @@ def a_lock(version: int, terms: dict[str, lexicon.Term]) -> dict[str, object]:
         "terms": {
             name: {
                 "pattern_since": term.pattern_since,
-                "pattern_sha256": lexicon.pattern_sha256(term.pattern),
+                "pattern_sha256": lexicon_lock.pattern_sha256(term.pattern),
             }
             for name, term in sorted(terms.items())
         },
@@ -441,7 +441,7 @@ class TestLexiconLock:
         """`load()` already checked this — the point here is that a failure
         names the lock and the command that rewrites it."""
         lock = json.loads(LEXICON_LOCK.read_text(encoding="utf-8"))
-        lexicon.check_lock(lex.terms, lex.version, lock)
+        lexicon_lock.check_lock(lex.terms, lex.version, lock)
         assert lock["version"] == lex.version
         assert set(lock["terms"]) == set(lex.terms), "every term is locked, disabled included"
 
@@ -451,7 +451,7 @@ class TestLexiconLock:
         lock = a_lock(3, terms)
         edited = {"genocide": a_term("genocide", r"\bgenocid\w*|\bshoah\b", 2)}
         with pytest.raises(ValueError, match="pattern of 'genocide' changed"):
-            lexicon.check_lock(edited, 3, lock)
+            lexicon_lock.check_lock(edited, 3, lock)
 
     def test_an_edited_pattern_passes_only_once_the_lock_is_rewritten(self):
         """Bumping `pattern_since` is half of it: the lock still records the old
@@ -459,8 +459,8 @@ class TestLexiconLock:
         old = a_lock(3, {"genocide": a_term("genocide", r"\bgenocid\w*", 2)})
         bumped = {"genocide": a_term("genocide", r"\bgenocid\w*|\bshoah\b", 3)}
         with pytest.raises(ValueError, match="pattern of 'genocide' changed"):
-            lexicon.check_lock(bumped, 3, old)
-        lexicon.check_lock(bumped, 3, a_lock(3, bumped))
+            lexicon_lock.check_lock(bumped, 3, old)
+        lexicon_lock.check_lock(bumped, 3, a_lock(3, bumped))
 
     def test_a_pattern_since_edited_on_its_own_is_refused(self):
         """The declaration moved and the pattern did not, which the lock also
@@ -468,24 +468,24 @@ class TestLexiconLock:
         terms = {"genocide": a_term("genocide", r"\bgenocid\w*", 2)}
         moved = {"genocide": a_term("genocide", r"\bgenocid\w*", 3)}
         with pytest.raises(ValueError, match="declares pattern_since 3"):
-            lexicon.check_lock(moved, 3, a_lock(3, terms))
+            lexicon_lock.check_lock(moved, 3, a_lock(3, terms))
 
     def test_a_term_missing_from_the_lock_is_refused(self):
         terms = {"genocide": a_term("genocide", r"\bgenocid\w*", 2)}
         lock = a_lock(3, terms)
         terms["holocaust"] = a_term("holocaust", r"\bholocaust\b", 3)
         with pytest.raises(ValueError, match="does not lock"):
-            lexicon.check_lock(terms, 3, lock)
+            lexicon_lock.check_lock(terms, 3, lock)
 
     def test_a_locked_term_the_lexicon_dropped_is_refused(self):
         terms = {"genocide": a_term("genocide", r"\bgenocid\w*", 2)}
         lock = a_lock(3, {**terms, "holocaust": a_term("holocaust", r"\bholocaust\b", 3)})
         with pytest.raises(ValueError, match="no longer defines"):
-            lexicon.check_lock(terms, 3, lock)
+            lexicon_lock.check_lock(terms, 3, lock)
 
     def test_a_version_mismatch_is_refused(self):
         """A lock left behind by a bump describes a file that no longer exists,
         whatever it says about the patterns."""
         terms = {"genocide": a_term("genocide", r"\bgenocid\w*", 2)}
         with pytest.raises(ValueError, match="locks lexicon version 2"):
-            lexicon.check_lock(terms, 3, a_lock(2, terms))
+            lexicon_lock.check_lock(terms, 3, a_lock(2, terms))

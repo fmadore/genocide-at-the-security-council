@@ -39,13 +39,15 @@ def main() -> None:
 
     unknown = [k for k in keys if k not in registry.models]
     if unknown:
-        console.fail(
+        raise console.Refusal(
             f"unknown model key(s): {', '.join(unknown)}",
             [f"available: {', '.join(registry.models)}"],
         )
 
     if os.environ.get("HF_HUB_OFFLINE") == "1":
-        console.fail("HF_HUB_OFFLINE=1 — this step needs the network; run it on the login node")
+        raise console.Refusal(
+            "HF_HUB_OFFLINE=1 — this step needs the network; run it on the login node"
+        )
 
     from huggingface_hub import snapshot_download
 
@@ -60,4 +62,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    console.main(main)

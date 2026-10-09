@@ -37,7 +37,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import actors, artifacts, console, council, entities, frames, lexicon, series
+from lib import actors, artifacts, console, council, entities, frames, lexicon, notes, series
 from lib.paths import (
     COUNTRIES,
     ENTITIES,
@@ -213,10 +213,17 @@ def build_note(
     types = pd.Series({s["country_org"]: s["entity_type"] for s in speakers})
     groups = pd.Series({s["country_org"]: s["un_regional_group"] or "—" for s in speakers})
 
-    def table(frame: pd.DataFrame, limit: int) -> list[str]:
+    def ranked(frame: pd.DataFrame, limit: int) -> list[list[object]]:
         return [
-            f"| {name} | {types.get(name, '?')} | {row.held:,.0f} | {row.speeches:,.0f} | "
-            f"{row.speech_rate:.2%} | {row.token_rate:.2f} | {groups.get(name, '—')} |"
+            [
+                name,
+                types.get(name, "?"),
+                f"{row.held:,.0f}",
+                f"{row.speeches:,.0f}",
+                f"{row.speech_rate:.2%}",
+                f"{row.token_rate:.2f}",
+                groups.get(name, "—"),
+            ]
             for name, row in frame.head(limit).iterrows()
         ]
 
@@ -321,15 +328,29 @@ def build_note(
             "",
             "## What clears it",
             "",
-            "| Period | Speeches | Speakers | At or above the minimum | Share of speeches covered |",
-            "|---|---:|---:|---:|---:|",
-            *[
-                f"| {p['key']} | {p['speeches']:,} | {p['speakers']:,} | "
-                f"{p['speakers_at_minimum']:,} | "
-                # A period without speeches has no share to show, rather than a crash.
-                f"{format(p['speeches_at_minimum'] / p['speeches'], '.1%') if p['speeches'] else '—'} |"
-                for p in payload["periods"]
-            ],
+            *notes.table(
+                [
+                    "Period",
+                    "Speeches",
+                    "Speakers",
+                    "At or above the minimum",
+                    "Share of speeches covered",
+                ],
+                [
+                    [
+                        p["key"],
+                        f"{p['speeches']:,}",
+                        f"{p['speakers']:,}",
+                        f"{p['speakers_at_minimum']:,}",
+                        # A period without speeches has no share to show, rather than a crash.
+                        format(p["speeches_at_minimum"] / p["speeches"], ".1%")
+                        if p["speeches"]
+                        else "—",
+                    ]
+                    for p in payload["periods"]
+                ],
+                "lrrrr",
+            ),
             "",
             f"{len(below):,} of {len(whole):,} speakers fall below the minimum over the whole "
             f"corpus and carry no rate. They account for "
@@ -348,9 +369,19 @@ def build_note(
             "carry `genocid*`. Read the denominator column: this is a rate table, and the",
             "countries at the top are not the ones that said the word most often.",
             "",
-            "| Speaker | Type | Speeches | With `genocid*` | Rate | Per 100k words | UN group |",
-            "|---|---|---:|---:|---:|---:|---|",
-            *table(cleared, 15),
+            *notes.table(
+                [
+                    "Speaker",
+                    "Type",
+                    "Speeches",
+                    "With `genocid*`",
+                    "Rate",
+                    "Per 100k words",
+                    "UN group",
+                ],
+                ranked(cleared, 15),
+                "llrrrrl",
+            ),
             "",
             f"{len(silent)} speakers clear the minimum and never use the word at all"
             + (f": {', '.join(silent.index[:6])}." if len(silent) else "."),
@@ -364,13 +395,20 @@ def build_note(
             "all. A view that shades a speaker with one membership colour is wrong about "
             f"the first group, which is where the interesting cases are.",
             "",
-            "| Speaker | Speeches | As E10 | As non-member | Seated share |",
-            "|---|---:|---:|---:|---:|",
-            *[
-                f"| {name} | {int(row.held):,} | {int(row.elected):,} | "
-                f"{int(row.outside):,} | {row.seated_share:.0%} |"
-                for name, row in swung.head(12).iterrows()
-            ],
+            *notes.table(
+                ["Speaker", "Speeches", "As E10", "As non-member", "Seated share"],
+                [
+                    [
+                        name,
+                        f"{int(row.held):,}",
+                        f"{int(row.elected):,}",
+                        f"{int(row.outside):,}",
+                        f"{row.seated_share:.0%}",
+                    ]
+                    for name, row in swung.head(12).iterrows()
+                ],
+                "lrrrr",
+            ),
             "",
             "The composition is written per speaker and per period in `standing`, as five "
             "counts that sum to the speaker's own denominator. All five are kept rather "
@@ -403,9 +441,11 @@ def build_note(
             "successor's ISO 3166 code so it can be placed at all, which makes the code "
             "ambiguous rather than absent:",
             "",
-            "| Code | Speakers sharing it |",
-            "|---|---|",
-            *[f"| `{code}` | {', '.join(names)} |" for code, names in sorted(collisions.items())],
+            *notes.table(
+                ["Code", "Speakers sharing it"],
+                [[f"`{code}`", ", ".join(names)] for code, names in sorted(collisions.items())],
+                "ll",
+            ),
             "",
             "**They are kept as separate rows.** Merging Yugoslavia into Serbia would build a "
             "denominator no state ever had, and the successions are not clean: Yugoslavia "
@@ -427,20 +467,30 @@ def build_note(
             "complete and every rate in it still correct, so the total is the only place the "
             "loss shows.",
             "",
-            "| Check | Table | Corpus |",
-            "|---|---:|---:|",
-            f"| Speeches | {int(whole['held'].sum()):,} | {len(speeches):,} |",
-            f"| Words | {int(whole['words'].sum()):,} | {int(speeches['words'].sum()):,} |",
-            *[
-                line
-                for kind, name in TRACKED
-                for line in (
-                    f"| `{name}` speeches | {corpus_total(name, 'speeches'):,} | "
-                    f"{int(speeches[series.columns_for(kind, name)[0]].sum()):,} |",
-                    f"| `{name}` occurrences | {corpus_total(name, 'occurrences'):,} | "
-                    f"{int(speeches[series.columns_for(kind, name)[1]].sum()):,} |",
-                )
-            ],
+            *notes.table(
+                ["Check", "Table", "Corpus"],
+                [
+                    ["Speeches", f"{int(whole['held'].sum()):,}", f"{len(speeches):,}"],
+                    ["Words", f"{int(whole['words'].sum()):,}", f"{int(speeches['words'].sum()):,}"],
+                    *[
+                        line
+                        for kind, name in TRACKED
+                        for line in (
+                            [
+                                f"`{name}` speeches",
+                                f"{corpus_total(name, 'speeches'):,}",
+                                f"{int(speeches[series.columns_for(kind, name)[0]].sum()):,}",
+                            ],
+                            [
+                                f"`{name}` occurrences",
+                                f"{corpus_total(name, 'occurrences'):,}",
+                                f"{int(speeches[series.columns_for(kind, name)[1]].sum()):,}",
+                            ],
+                        )
+                    ],
+                ],
+                "lrr",
+            ),
             "",
             *[
                 f"`{name}` is `{minuend}` less {' and '.join(f'`{s}`' for s in subtrahends)}, "

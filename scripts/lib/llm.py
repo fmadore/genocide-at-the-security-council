@@ -14,7 +14,7 @@ to by `lib.model_runs`; each states the rule it keeps. Two things this module is
 responsible for:
 
 - **The model's labels are checked against the human codebook's own vocabulary.**
-  The enums come from :mod:`lib.audit` — the frozensets the human annotation file
+  The enums come from :mod:`lib.schema` — the frozensets the human annotation file
   is validated against — so the model cannot invent a category the codebook does
   not have. The false-positive cascade and the multi-label function rules are
   enforced here exactly as `audit._validate_labels` enforces them there. They are
@@ -36,12 +36,13 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Final
 
+from . import referents as referents_lib
+
 # Every name imported with a redundant `as` is a re-export, kept importable from
 # this module for the callers and tests that still reach it here; new code
 # imports it from where it is defined. The `as` marks it as deliberate rather
 # than as an unused import.
-from . import audit
-from . import referents as referents_lib
+from . import schema as schema_lib
 from .evidence import _WHITESPACE_RE, _sentence_range, locate_evidence
 from .evidence import FOLDED as FOLDED
 from .evidence import WRAPPERS as WRAPPERS
@@ -171,30 +172,30 @@ RESPONSE_FIELDS: Final = (
 
 #: Single-valued fields and the vocabulary each is closed over.
 ENUMS: Final[dict[str, frozenset[str]]] = {
-    "verdict": audit.VERDICTS,
-    "quotation": audit.QUOTATIONS,
-    "concrete_case": audit.CONCRETE_CASE,
-    "speaker_position": audit.POSITIONS,
-    "referent_source": audit.REFERENT_SOURCES,
-    "own_state_accused": audit.OWN_STATE_ACCUSED,
-    "salience": audit.SALIENCE,
+    "verdict": schema_lib.VERDICTS,
+    "quotation": schema_lib.QUOTATIONS,
+    "concrete_case": schema_lib.CONCRETE_CASE,
+    "speaker_position": schema_lib.POSITIONS,
+    "referent_source": schema_lib.REFERENT_SOURCES,
+    "own_state_accused": schema_lib.OWN_STATE_ACCUSED,
+    "salience": schema_lib.SALIENCE,
 }
 
 #: The same, for a row written against annotation schema 2.
 LEGACY_ENUMS: Final[dict[str, frozenset[str]]] = {
-    "verdict": audit.VERDICTS,
-    "quotation": audit.QUOTATIONS,
-    "stance": audit.STANCES,
-    "confidence": audit.CONFIDENCE,
+    "verdict": schema_lib.VERDICTS,
+    "quotation": schema_lib.QUOTATIONS,
+    "stance": schema_lib.STANCES,
+    "confidence": schema_lib.CONFIDENCE,
 }
 
 #: The fields a false positive must set to `not_applicable`, and the subset in
-#: which that value may not appear otherwise. Both come from `lib.audit`, which
+#: which that value may not appear otherwise. Both come from `lib.schema`, which
 #: is where the human codebook's own rules live: the model is held to the
 #: coder's cascade and not to one of its own.
-CASCADE: Final = audit.CASCADE_FIELDS
-RESERVED: Final = audit.RESERVED_FIELDS
-FREE_TEXT_CASCADE: Final = audit.FREE_TEXT_CASCADE_FIELDS
+CASCADE: Final = schema_lib.CASCADE_FIELDS
+RESERVED: Final = schema_lib.RESERVED_FIELDS
+FREE_TEXT_CASCADE: Final = schema_lib.FREE_TEXT_CASCADE_FIELDS
 
 #: The schema-2 cascade, for reading a committed run back.
 LEGACY_CASCADE: Final = ("quotation", "stance", "function", "referent")
@@ -349,33 +350,33 @@ def _base_schema() -> dict[str, object]:
                     "required": list(RESPONSE_FIELDS),
                     "properties": {
                         "ordinal": {"type": "integer"},
-                        "verdict": {"type": "string", "enum": sorted(audit.VERDICTS)},
-                        "quotation": {"type": "string", "enum": sorted(audit.QUOTATIONS)},
+                        "verdict": {"type": "string", "enum": sorted(schema_lib.VERDICTS)},
+                        "quotation": {"type": "string", "enum": sorted(schema_lib.QUOTATIONS)},
                         "concrete_case": {
                             "type": "string",
-                            "enum": sorted(audit.CONCRETE_CASE),
+                            "enum": sorted(schema_lib.CONCRETE_CASE),
                         },
                         "speaker_position": {
                             "type": "string",
-                            "enum": sorted(audit.POSITIONS),
+                            "enum": sorted(schema_lib.POSITIONS),
                         },
                         "function": {
                             "type": "array",
-                            "items": {"type": "string", "enum": sorted(audit.FUNCTIONS)},
+                            "items": {"type": "string", "enum": sorted(schema_lib.FUNCTIONS)},
                         },
                         "referent": {"type": "string"},
                         "proposed_referent": {"type": "string"},
                         "referent_source": {
                             "type": "string",
-                            "enum": sorted(audit.REFERENT_SOURCES),
+                            "enum": sorted(schema_lib.REFERENT_SOURCES),
                         },
                         "accused_actor": {"type": "string"},
                         "victim_group": {"type": "string"},
                         "own_state_accused": {
                             "type": "string",
-                            "enum": sorted(audit.OWN_STATE_ACCUSED),
+                            "enum": sorted(schema_lib.OWN_STATE_ACCUSED),
                         },
-                        "salience": {"type": "string", "enum": sorted(audit.SALIENCE)},
+                        "salience": {"type": "string", "enum": sorted(schema_lib.SALIENCE)},
                         "evidence_quote": {"type": "string"},
                         "rationale": {"type": "string"},
                     },
@@ -582,7 +583,7 @@ def _functions(value: object) -> tuple[str, ...]:
         raise ValueError(f"Function must be a list or a pipe-joined string: {value!r}")
     if not parts:
         raise ValueError("Function needs at least one label.")
-    unknown = [part for part in parts if part not in audit.FUNCTIONS]
+    unknown = [part for part in parts if part not in schema_lib.FUNCTIONS]
     if unknown:
         raise ValueError(f"Unknown function label: {unknown[0] or '(blank)'}")
     if len(set(parts)) != len(parts):
@@ -616,8 +617,8 @@ def check_labels(
     codebook to grow a column no coder has been trained on, to carry something
     this field already carries.
     """
-    legacy = str(schema) == audit.LEGACY_SCHEMA_VERSION
-    if str(schema) == "3" and str(entry.get("confidence", "")) not in audit.CONFIDENCE:
+    legacy = str(schema) == schema_lib.LEGACY_SCHEMA_VERSION
+    if str(schema) == "3" and str(entry.get("confidence", "")) not in schema_lib.CONFIDENCE:
         raise ValueError("Unknown historical confidence label")
     for field, allowed in (LEGACY_ENUMS if legacy else ENUMS).items():
         value = str(entry[field])
@@ -926,7 +927,7 @@ def validate_row(
             raise ValueError(f"Row keys are wrong: unexpected={unexpected}, missing={absent}")
         raise ValueError("Row keys are in the wrong order; see llm.ROW_FIELDS.")
 
-    expected_schema = audit.LEGACY_SCHEMA_VERSION if legacy else ("3" if tuple(row) == SCHEMA3_ROW_FIELDS else SCHEMA_VERSION)
+    expected_schema = schema_lib.LEGACY_SCHEMA_VERSION if legacy else ("3" if tuple(row) == SCHEMA3_ROW_FIELDS else SCHEMA_VERSION)
     check_labels(row, referents, schema=expected_schema)
 
     for field in ("start", "end"):
@@ -998,9 +999,9 @@ def resolve_row(row: Mapping[str, object]) -> dict[str, object]:
     A schema-3 row is returned unchanged. A schema-2 row is read as follows:
 
     - `stance` becomes `speaker_position` through
-      :data:`lib.audit.POSITION_FROM_STANCE`, which is six renames and one value
+      :data:`lib.schema.POSITION_FROM_STANCE`, which is six renames and one value
       that changed meaning;
-    - `concrete_case` is derived by :func:`lib.audit.concrete_case_from_v1` from
+    - `concrete_case` is derived by :func:`lib.schema.concrete_case_from_v1` from
       the stance and the referent, and is `unclear` wherever those two cannot
       answer it;
     - the six fields schema 3 adds have **no v1 image at all** and are returned
@@ -1021,8 +1022,8 @@ def resolve_row(row: Mapping[str, object]) -> dict[str, object]:
     resolved.update(
         {
             "referents_version": "1",
-            "concrete_case": audit.concrete_case_from_v1(stance, referent),
-            "speaker_position": audit.POSITION_FROM_STANCE.get(stance, "unclear"),
+            "concrete_case": schema_lib.concrete_case_from_v1(stance, referent),
+            "speaker_position": schema_lib.POSITION_FROM_STANCE.get(stance, "unclear"),
             "referent_source": "",
             "accused_actor": "",
             "victim_group": "",
