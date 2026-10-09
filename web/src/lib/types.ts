@@ -482,6 +482,11 @@ export interface Speech {
 }
 
 export interface Meeting {
+	/**
+	 * The short form of 09's provenance: what cites the file, with `provenance`
+	 * naming `meetings.json`, which holds the block every meeting file shares.
+	 * The analysis hash is taken with that block in place.
+	 */
 	meta: LexiconMeta;
 	basename: string;
 	spv: string;

@@ -267,6 +267,49 @@ def test_analysis_hash_ignores_the_code_that_computed_the_same_payload():
     assert artifacts.analysis_hash(first) == artifacts.analysis_hash(edited)
 
 
+# --- A provenance block shared by many files -------------------------------
+
+SHARED = {
+    "script": "09_export_speeches.py",
+    "generated": "2026-10-09T00:00:00Z",
+    "git_commit": SHA,
+    "lexicon_version": 8,
+    "inputs": [{"path": "speeches_flagged.parquet", "sha256": "a"}],
+    "configs": [{"path": "lexicon.yml", "sha256": "b"}],
+    "code": [{"path": "s.py", "sha256": "c"}],
+}
+
+
+def test_a_file_sharing_its_provenance_keeps_what_cites_it_and_the_whole_hash(tmp_path):
+    """The cut file's hash is the uncut file's, so it identifies the same analysis."""
+    whole = {"meta": SHARED, "basename": "SC07000-01", "speeches": [{"id": "SC07000-01-001"}]}
+    cut = artifacts.shared_provenance(whole, ("script", "lexicon_version"), "meetings.json")
+
+    assert cut["meta"] == {
+        "script": "09_export_speeches.py",
+        "lexicon_version": 8,
+        "provenance": "meetings.json",
+        "analysis_hash": artifacts.analysis_hash(whole),
+    }
+    target = tmp_path / "SC07000-01.json.gz"
+    artifacts.atomic_write_json_gzip(target, cut, hashed=True)
+    written = artifacts.read_json(target)
+    assert written == cut
+    # Checked as the docstring says: the shared block put back, then hashed.
+    assert isinstance(written, dict)
+    restored = {**written, "meta": SHARED}
+    assert artifacts.analysis_hash(restored) == written["meta"]["analysis_hash"]
+
+
+def test_a_shared_hash_still_moves_with_the_shared_inputs():
+    """The block is out of the file, not out of the identity."""
+    body = {"basename": "SC07000-01"}
+    moved = {**SHARED, "inputs": [{"path": "speeches_flagged.parquet", "sha256": "z"}]}
+    first = artifacts.shared_provenance({"meta": SHARED, **body}, ("script",), "meetings.json")
+    second = artifacts.shared_provenance({"meta": moved, **body}, ("script",), "meetings.json")
+    assert first["meta"]["analysis_hash"] != second["meta"]["analysis_hash"]
+
+
 # --- One CSV writer --------------------------------------------------------
 
 

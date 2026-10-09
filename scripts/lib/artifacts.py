@@ -118,11 +118,45 @@ def with_analysis_hash(payload: object) -> object:
     return prepared
 
 
-def json_text(payload: object, *, indent: int | None = None) -> str:
-    """The canonical serialisation every JSON artefact is written with."""
+def shared_provenance(
+    payload: dict[str, object], keep: Sequence[str], held_in: str
+) -> dict[str, object]:
+    """One of many files that share a provenance block, cut to what cites it.
+
+    The block of inputs, configurations, packages and code is identical across
+    every file one loop writes; repeated in each of 09's 9,464 meeting files it
+    adds about a kilobyte of compressed payload apiece. The cut file keeps
+    the `keep` keys, names the file that holds the whole block as `provenance`,
+    and carries the `analysis_hash` of the uncut payload: the hash it would have
+    if it held the block itself. It is checked the same way, by putting the
+    block from `held_in` back as `meta` and hashing. Write the result with
+    `hashed=True`, or the writer would hash the cut block instead.
+    """
+    meta = payload["meta"]
+    if not isinstance(meta, dict):
+        raise TypeError("shared_provenance needs a payload with a meta block")
+    return {
+        **payload,
+        "meta": {
+            **{key: meta[key] for key in keep if key in meta},
+            "provenance": held_in,
+            "analysis_hash": analysis_hash(payload),
+        },
+    }
+
+
+def json_text(payload: object, *, indent: int | None = None, hashed: bool = False) -> str:
+    """The canonical serialisation every JSON artefact is written with.
+
+    `hashed` says the payload already carries its `analysis_hash` and must be
+    written as it is: see `shared_provenance`.
+    """
     separators = None if indent is not None else (",", ":")
     return json.dumps(
-        with_analysis_hash(payload), ensure_ascii=False, indent=indent, separators=separators
+        payload if hashed else with_analysis_hash(payload),
+        ensure_ascii=False,
+        indent=indent,
+        separators=separators,
     )
 
 
@@ -130,7 +164,9 @@ def atomic_write_json(path: Path, payload: object, *, indent: int | None = None)
     atomic_write_text(path, json_text(payload, indent=indent))
 
 
-def atomic_write_json_gzip(path: Path, payload: object, *, indent: int | None = None) -> None:
+def atomic_write_json_gzip(
+    path: Path, payload: object, *, indent: int | None = None, hashed: bool = False
+) -> None:
     """Write JSON as a gzip member, byte-identical for identical content.
 
     `mtime=0` and a fixed level keep the bytes a function of the payload alone,
@@ -138,7 +174,11 @@ def atomic_write_json_gzip(path: Path, payload: object, *, indent: int | None = 
     """
     atomic_write_bytes(
         path,
-        gzip.compress(json_text(payload, indent=indent).encode("utf-8"), compresslevel=9, mtime=0),
+        gzip.compress(
+            json_text(payload, indent=indent, hashed=hashed).encode("utf-8"),
+            compresslevel=9,
+            mtime=0,
+        ),
     )
 
 

@@ -299,6 +299,12 @@ package versions, and `analysis_hash`, a checksum of the file's content that
 ignores the timestamp and commit. Two files with the same `analysis_hash` hold the
 same analysis.
 
+The 9,464 meeting files under `speeches/` share one such block, which is written
+once, in `meetings.json`. Each keeps the script, `generated`, `git_commit`, the
+lexicon version and its `analysis_hash`, and a `provenance` field naming
+`meetings.json`. Its `analysis_hash` is taken with the shared block in place, so
+it changes when an input or configuration does, as every other file's does.
+
 Every CSV download begins with comment lines starting `#` (read as comments by
 pandas and R): the site, the figure, the artifact and the script that wrote it,
 the lexicon version, the analysis hash, the commit, the inputs and

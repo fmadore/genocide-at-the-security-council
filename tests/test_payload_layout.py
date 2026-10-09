@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from lib import artifacts
 from lib.paths import COUNTRIES, DERIVED, SPEAKER_KEYNESS
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -112,6 +113,40 @@ def test_the_frames_rows_stay_out_of_the_payload(tmp_path):
     assert (frames / "occurrences.json").exists()
 
 
+def test_a_meeting_file_cites_itself_and_leaves_the_block_to_the_index():
+    """What the reader reads from a meeting's `meta` survives the cut.
+
+    The dashboard refuses an artefact without a script and a generation time,
+    and the basket records the lexicon version and the analysis hash. The rest
+    of the block is the index's, and the hash still covers it.
+    """
+    nine = importlib.import_module("09_export_speeches")
+    meta = {
+        "script": "09_export_speeches.py",
+        "generated": "2026-10-09T00:00:00Z",
+        "git_commit": "0" * 40,
+        "python": "3.12.7",
+        "packages": {"pandas": "3.0.5"},
+        "inputs": [{"path": "speeches_flagged.parquet", "bytes": 1, "sha256": "a"}],
+        "configs": [{"path": "config/lexicon.yml", "bytes": 1, "sha256": "b"}],
+        "code": [{"path": "scripts/09_export_speeches.py", "bytes": 1, "sha256": "c"}],
+        "lexicon_version": 8,
+        "scope": "all",
+    }
+    built = {"basename": "SC07000-01", "speeches": [{"id": "SC07000-01-001", "hits": {}}]}
+
+    document = nine.meeting_document(meta, built)
+
+    assert document["meta"] == {
+        "script": "09_export_speeches.py",
+        "generated": "2026-10-09T00:00:00Z",
+        "git_commit": "0" * 40,
+        "lexicon_version": 8,
+        "provenance": nine.INDEX.name,
+        "analysis_hash": artifacts.analysis_hash({"meta": meta, **built}),
+    }
+    assert nine.INDEX.name == "meetings.json"
+    assert {key: document[key] for key in built} == built
 
 
 def test_a_missing_declared_artefact_stops_the_export(tmp_path, monkeypatch):
