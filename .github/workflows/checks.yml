@@ -154,8 +154,9 @@ jobs:
       - name: svelte-check
         run: npm run check
 
+      # With a coverage report, as the Python job has; reported, never enforced.
       - name: vitest
-        run: npm test
+        run: npm run test:coverage
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
