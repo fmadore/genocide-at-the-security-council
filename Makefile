@@ -15,6 +15,15 @@
 # 14 is never a target: it reserves a cluster GPU and writes a reviewed run.
 # 15 aggregates the run named in model_annotations/genocide/current_run.txt.
 
+# `&:` grouped targets need GNU make 4.3 and `$(file <)` needs 4.2. An older
+# make (macOS still ships 3.81) reads `&:` as an ordinary rule with an extra
+# target named `&`, and `$(file <)` as an empty variable, and carries on without
+# an error: grouped steps can run once per output, and 15 loses its
+# --allow-partial flag. 4.3 is the release that announces `grouped-target`.
+ifeq ($(filter grouped-target,$(.FEATURES)),)
+$(error GNU make 4.3 or later is required, and this is $(MAKE_VERSION). On macOS, install GNU make with Homebrew and run gmake)
+endif
+
 PY ?= python
 # Only the explicitly selected preview may bypass the coverage gate.
 SELECTED_RUN := $(strip $(file <model_annotations/genocide/current_run.txt))
