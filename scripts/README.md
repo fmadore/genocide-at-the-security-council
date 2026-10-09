@@ -354,11 +354,12 @@ What follows from that, worth knowing before you start:
 | [`lib/keyness.py`](lib/keyness.py) | One speaker against the room: the corpus as a count matrix, the strata, the two gates, agenda composition. |
 | [`lib/embeddings.py`](lib/embeddings.py) | The model registry, the chunking policy for long speeches, pooling, neighbours. |
 | [`lib/topics.py`](lib/topics.py) | The frozen sample, both topic models, and the evaluation: NPMI coherence, adjusted Rand, c-TF-IDF, word intrusion. |
+| [`lib/projection.py`](lib/projection.py) | The 2D projection as a diagnostic against a thematic reading: neighbourhood purity, trustworthiness, neighbour loss, and the figures. Step 21 reads it as well as 07. |
 | [`lib/lemmas.py`](lib/lemmas.py) | The lemma layer: offset alignment to `lexical.tokenise`, the stored form, the audit mapping. |
 | [`lib/download_models.py`](lib/download_models.py) | Prefetches weights on the cluster login node. |
 
-`embeddings.py`, `topics.py` and `lemmas.py` import torch, scikit-learn, umap-learn and
-spaCy *inside* the functions that need them, so the test suite and steps 00–05 run without
+`embeddings.py`, `topics.py`, `projection.py` and `lemmas.py` import torch, scikit-learn,
+umap-learn, matplotlib and spaCy *inside* the functions that need them, so the test suite and steps 00–05 run without
 the cluster extras installed. Everything that decides what a model sees, and what is done
 with what it returns, is plain Python and is tested on any machine.
 
