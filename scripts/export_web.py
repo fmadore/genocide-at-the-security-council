@@ -13,7 +13,7 @@ writes a manifest of what it took.
     derived/countries/*.json       → static/data/countries/
     derived/speaker_keyness/*.json → static/data/countries/
     derived/usage/*.json           → static/data/usage/  (+ referents.json, cut here)
-    derived/frames/*.json          → static/data/frames/
+    derived/frames/frames.json     → static/data/frames/
     derived/actor_year/            → static/data/actor_year/
     derived/semantic/              → static/data/semantic/
 
@@ -85,6 +85,13 @@ IN_PLACE = [
     ("scopes.json", "09_export_speeches.py"),
 ]
 
+#: Files a step writes beside what the dashboard reads, left out of the payload.
+#: 17's per-occurrence assignments are fetched by no view and offered as no
+#: download, and every visitor's deploy would carry their 1.4 MB. They stay in
+#: `data/derived/frames/`, and so in the derived tables a release deposits, for
+#: anyone checking the frames table row by row.
+NOT_SHIPPED: dict[str, tuple[str, ...]] = {"frames": ("occurrences.json",)}
+
 #: The referent filter's whole need from 15's rows: the referent of each
 #: occurrence the run placed on one, keyed by line id. The concordance and the
 #: reader read this rather than `usage/occurrences.json`, which carries every
@@ -122,7 +129,12 @@ def copy_part(sources: Sequence[Path], name: str, *, root: Path | None = None) -
             console.fail(f"{rel(source)} is missing — run the step that writes it first")
     with artifacts.atomic_directory(destination) as staged:
         for source in sources:
-            shutil.copytree(source, staged, dirs_exist_ok=True)
+            shutil.copytree(
+                source,
+                staged,
+                dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns(*NOT_SHIPPED.get(name, ())),
+            )
         if name == "usage":
             artifacts.atomic_write_json(
                 staged / PLACEMENTS, placements(sources[0] / "occurrences.json")

@@ -99,6 +99,19 @@ def test_the_referent_filter_gets_its_map_without_the_rows(tmp_path):
     assert "\n" not in written  # compact: it is fetched whole by every filtered view
 
 
+def test_the_frames_rows_stay_out_of_the_payload(tmp_path):
+    """17 still writes them; the export leaves them in `data/derived/`."""
+    frames = tmp_path / "frames"
+    frames.mkdir()
+    for name in ("frames.json", "occurrences.json"):
+        (frames / name).write_text("{}", encoding="utf-8")
+
+    export_web.copy_part((frames,), "frames", root=tmp_path / "web")
+
+    assert {path.name for path in (tmp_path / "web" / "frames").iterdir()} == {"frames.json"}
+    assert (frames / "occurrences.json").exists()
+
+
 
 
 def test_a_missing_declared_artefact_stops_the_export(tmp_path, monkeypatch):

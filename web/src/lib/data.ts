@@ -1039,10 +1039,10 @@ export const usageOccurrences = at<UsageOccurrences>(
    megabytes of labels, rationales and quotations. */
 export const usageReferents = at<UsageReferents>('usage/referents.json', validateUsageReferents);
 
-/* 17's composition of the node's occurrences. The per-occurrence assignments in
-   `frames/occurrences.json` are not fetched: the figure is an aggregate, and a
-   megabyte of rows nobody draws is a megabyte nobody should download. They stay
-   in the payload for a reader who wants to check the table by hand. */
+/* 17's composition of the node's occurrences. The per-occurrence assignments are
+   not in the payload: the figure is an aggregate, and a megabyte of rows nobody
+   draws is a megabyte nobody should download. They stay in the derived tables
+   for a reader who wants to check the table by hand. */
 export const nodeFrames = at<NodeFrames>('frames/frames.json', validateNodeFrames);
 
 /* 04's decade-to-decade decomposition of the genocide rate (RV18). */
