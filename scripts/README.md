@@ -324,6 +324,7 @@ What follows from that, worth knowing before you start:
 |---|---|
 | [`lib/paths.py`](lib/paths.py) | Where everything lives. One definition, imported everywhere. |
 | [`lib/console.py`](lib/console.py) | Uniform reporting, and UTF-8 stdout on Windows. |
+| [`lib/notes.py`](lib/notes.py) | The Markdown table the findings notes are written with, refusing a row that does not fit its header. |
 | [`lib/artifacts.py`](lib/artifacts.py) | Atomic files/directories, hashes and provenance manifests. |
 | [`lib/contract.py`](lib/contract.py) | The payload's shape, and whether it still has it. Enforced at the export seam. |
 | [`lib/frames.py`](lib/frames.py) | Parquet read/write; `body()` reconstructs a speech minus its form of address. |

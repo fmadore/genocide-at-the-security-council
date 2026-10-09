@@ -49,7 +49,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, console, frames, lexical, topics
+from lib import artifacts, console, frames, lexical, notes, topics
 from lib import projection as projection_lib
 from lib.paths import (
     EMBEDDINGS,
@@ -397,16 +397,19 @@ def projection_section(projection: dict, inspection: dict) -> list[str]:
     )
     recovered = (purity[occasion]["lift"] or 0.0) > (purity[subject]["lift"] or 0.0)
 
-    def row(name: str) -> str:
+    def row(name: str) -> list[str]:
         block = purity[name]
         lift = f"x{block['lift']:.1f}" if block["lift"] else "—"
         # Not `capitalize`, which would lowercase the rest and turn NMF and
         # HDBSCAN into words nobody in this project uses.
         label = PURITY_LABELS.get(name, name)
-        return (
-            f"| {label[:1].upper()}{label[1:]} | {block['mean']:.1%} | "
-            f"{block['base_rate']:.1%} | {lift} | {block['distinct_values']:,} |"
-        )
+        return [
+            f"{label[:1].upper()}{label[1:]}",
+            f"{block['mean']:.1%}",
+            f"{block['base_rate']:.1%}",
+            lift,
+            f"{block['distinct_values']:,}",
+        ]
 
     finding = (
         f"**{purity[occasion]['mean']:.1%} of the {k} speeches nearest a speech in this "
@@ -467,9 +470,17 @@ def projection_section(projection: dict, inspection: dict) -> list[str]:
         "randomly chosen other speech would give, because a purity on its own is "
         "unreadable:",
         "",
-        "| Attribute shared with a neighbour | In the projection | At random | Lift | Distinct values |",
-        "|---|---:|---:|---:|---:|",
-        *[row(name) for name in purity],
+        *notes.table(
+            [
+                "Attribute shared with a neighbour",
+                "In the projection",
+                "At random",
+                "Lift",
+                "Distinct values",
+            ],
+            [row(name) for name in purity],
+            "lrrrr",
+        ),
         "",
         finding,
         "",
@@ -513,12 +524,17 @@ def build_note(nmf: dict, embedding: dict, evaluation: dict, sample: pd.DataFram
         for label in sorted(payload["words"], key=lambda x: int(x))[:limit]:
             block = composition.get(int(label), {})
             rows.append(
-                f"| {label} | {block.get('documents', 0):,} | "
-                f"{coherence.get(label, 0):+.3f} | "
-                f"{block.get('formulaic_share', 0) or 0:.0%} | "
-                f"{', '.join(f'`{w}`' for w in payload['words'][label][:8])} |"
+                [
+                    label,
+                    f"{block.get('documents', 0):,}",
+                    f"{coherence.get(label, 0):+.3f}",
+                    f"{block.get('formulaic_share', 0) or 0:.0%}",
+                    ", ".join(f"`{w}`" for w in payload["words"][label][:8]),
+                ]
             )
-        return rows
+        return notes.table(
+            ["Topic", "Speeches", "NPMI", "Procedural", "Strongest words"], rows, "rrrrl"
+        )
 
     verdict = evaluation["verdict"]
     calibration = evaluation["calibration"]
@@ -539,14 +555,38 @@ def build_note(nmf: dict, embedding: dict, evaluation: dict, sample: pd.DataFram
             "",
             "## The gates, and where each model stands",
             "",
-            "| Gate (§4) | Baseline (NMF) | Embedding (UMAP + HDBSCAN) |",
-            "|---|---:|---:|",
-            f"| Topics found | {nmf['topics']} | {embedding['topics']} |",
-            f"| Left unassigned | {nmf['unassigned_share']:.1%} | {embedding['unassigned_share']:.1%} |",
-            f"| Mean NPMI coherence | {nmf['coherence']['mean']:+.3f} | {embedding['coherence']['mean']:+.3f} |",
-            f"| Worst topic coherence | {nmf['coherence']['min']:+.3f} | {embedding['coherence']['min']:+.3f} |",
-            f"| Stability across seeds (ARI) | {evaluation['stability']['nmf']['adjusted_rand_mean']:.3f} | {evaluation['stability']['embedding']['adjusted_rand_mean']:.3f} |",
-            f"| Worst pair | {evaluation['stability']['nmf']['adjusted_rand_min']:.3f} | {evaluation['stability']['embedding']['adjusted_rand_min']:.3f} |",
+            *notes.table(
+                ["Gate (§4)", "Baseline (NMF)", "Embedding (UMAP + HDBSCAN)"],
+                [
+                    ["Topics found", nmf["topics"], embedding["topics"]],
+                    [
+                        "Left unassigned",
+                        f"{nmf['unassigned_share']:.1%}",
+                        f"{embedding['unassigned_share']:.1%}",
+                    ],
+                    [
+                        "Mean NPMI coherence",
+                        f"{nmf['coherence']['mean']:+.3f}",
+                        f"{embedding['coherence']['mean']:+.3f}",
+                    ],
+                    [
+                        "Worst topic coherence",
+                        f"{nmf['coherence']['min']:+.3f}",
+                        f"{embedding['coherence']['min']:+.3f}",
+                    ],
+                    [
+                        "Stability across seeds (ARI)",
+                        f"{evaluation['stability']['nmf']['adjusted_rand_mean']:.3f}",
+                        f"{evaluation['stability']['embedding']['adjusted_rand_mean']:.3f}",
+                    ],
+                    [
+                        "Worst pair",
+                        f"{evaluation['stability']['nmf']['adjusted_rand_min']:.3f}",
+                        f"{evaluation['stability']['embedding']['adjusted_rand_min']:.3f}",
+                    ],
+                ],
+                "lrr",
+            ),
             "",
             "**Adjusted Rand index** is 1.0 when two runs agree completely and 0.0 when "
             "they agree no more than chance. Each run resamples 90% of the frozen sample "
@@ -574,28 +614,37 @@ def build_note(nmf: dict, embedding: dict, evaluation: dict, sample: pd.DataFram
                 "corpus than on randomly dealt words."
             ),
             "",
-            "| Share of the best topic | Randomly dealt | This corpus |",
-            "|---|---:|---:|",
-            *[
-                f"| {label} | {calibration['null_shares'][key]:.3f} | "
-                f"{calibration['observed_shares'][key]:.3f} |"
-                for key, label in [
-                    ("median", "median"),
-                    ("p90", "90th percentile"),
-                    ("p95", "95th percentile"),
-                    ("p99", "99th percentile"),
-                ]
-            ],
+            *notes.table(
+                ["Share of the best topic", "Randomly dealt", "This corpus"],
+                [
+                    [
+                        label,
+                        f"{calibration['null_shares'][key]:.3f}",
+                        f"{calibration['observed_shares'][key]:.3f}",
+                    ]
+                    for key, label in [
+                        ("median", "median"),
+                        ("p90", "90th percentile"),
+                        ("p95", "95th percentile"),
+                        ("p99", "99th percentile"),
+                    ]
+                ],
+                "lrr",
+            ),
             "",
             "How much the headline depends on where that line sits:",
             "",
-            "| min_weight | Unassigned |",
-            "|---:|---:|",
-            *[
-                f"| {point['min_weight']:.4f}{' **(chosen)**' if point['chosen'] else ''} | "
-                f"{point['unassigned_share']:.1%} |"
-                for point in calibration["curve"]
-            ],
+            *notes.table(
+                ["min_weight", "Unassigned"],
+                [
+                    [
+                        f"{point['min_weight']:.4f}{' **(chosen)**' if point['chosen'] else ''}",
+                        f"{point['unassigned_share']:.1%}",
+                    ]
+                    for point in calibration["curve"]
+                ],
+                "rr",
+            ),
             "",
             "Because the two models otherwise abstain at different rates, the baseline is "
             "also read a second time at HDBSCAN's own rate — same factorisation, same "
@@ -609,14 +658,10 @@ def build_note(nmf: dict, embedding: dict, evaluation: dict, sample: pd.DataFram
             "",
             "## Baseline: NMF over TF-IDF",
             "",
-            "| Topic | Speeches | NPMI | Procedural | Strongest words |",
-            "|---:|---:|---:|---:|---|",
             *word_table(nmf),
             "",
             "## Embedding: UMAP into HDBSCAN",
             "",
-            "| Topic | Speeches | NPMI | Procedural | Strongest words |",
-            "|---:|---:|---:|---:|---|",
             *word_table(embedding),
             "",
             "The *Procedural* column is the share of a topic's words that appear in more "
@@ -632,14 +677,20 @@ def build_note(nmf: dict, embedding: dict, evaluation: dict, sample: pd.DataFram
             "Each k is calibrated on its own, because the floor it is calibrated against "
             "is 1/k. The `min_weight` column is a result of the run, not a setting of it.",
             "",
-            "| k | Topics | min_weight (floor) | Unassigned | Mean NPMI |",
-            "|---:|---:|---:|---:|---:|",
-            *[
-                f"| {row['k']} | {row['topics']} | {row['min_weight']:.4f} "
-                f"({row['min_weight_floor']:.4f}) | {row['unassigned_share']:.1%} | "
-                f"{row['coherence_mean']:+.3f} |"
-                for row in evaluation["k_sweep"]
-            ],
+            *notes.table(
+                ["k", "Topics", "min_weight (floor)", "Unassigned", "Mean NPMI"],
+                [
+                    [
+                        row["k"],
+                        row["topics"],
+                        f"{row['min_weight']:.4f} ({row['min_weight_floor']:.4f})",
+                        f"{row['unassigned_share']:.1%}",
+                        f"{row['coherence_mean']:+.3f}",
+                    ]
+                    for row in evaluation["k_sweep"]
+                ],
+                "rrrrr",
+            ),
             "",
             "## What is still missing",
             "",

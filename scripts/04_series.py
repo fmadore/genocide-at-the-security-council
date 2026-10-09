@@ -39,7 +39,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, console, frames, lexicon, series
+from lib import artifacts, console, frames, lexicon, notes, series
 from lib.paths import (
     EVENTS,
     LEXICON,
@@ -193,22 +193,34 @@ def calendar_lines(monthly: dict) -> list[str]:
         "and this is the same failure as reading a missing key through `?? 0`, in a form "
         "that covers 53 cells.",
         "",
-        "| Month | Speeches held | With `genocid*` | Rate | Without "
-        + "/".join(str(y) for y in monthly["month_of_year"]["excluded_years"])
-        + " | Largest item behind them |",
-        "|---|---:|---:|---:|---:|---|",
-        *[
-            f"| {row['month']} | {row['held']:,} | {row['speeches']:,} | "
-            f"{shown(row['rate'])} | {shown(row['without'])} | "
-            + (
-                f"{row['agenda'][0]['item']} ({row['agenda'][0]['speeches']}, "
-                f"{row['agenda'][0]['share']:.0%})"
-                if row["agenda"]
-                else "—"
-            )
-            + " |"
-            for row in rows
-        ],
+        *notes.table(
+            [
+                "Month",
+                "Speeches held",
+                "With `genocid*`",
+                "Rate",
+                "Without "
+                + "/".join(str(y) for y in monthly["month_of_year"]["excluded_years"]),
+                "Largest item behind them",
+            ],
+            [
+                [
+                    row["month"],
+                    f"{row['held']:,}",
+                    f"{row['speeches']:,}",
+                    shown(row["rate"]),
+                    shown(row["without"]),
+                    (
+                        f"{row['agenda'][0]['item']} ({row['agenda'][0]['speeches']}, "
+                        f"{row['agenda'][0]['share']:.0%})"
+                        if row["agenda"]
+                        else "—"
+                    ),
+                ]
+                for row in rows
+            ],
+            "lrrrrl",
+        ),
         "",
         *verdict,
         "**This table is not a margin of the grid.** A calendar month pools thirty-two "
@@ -296,9 +308,14 @@ def build_note(
     peak_rate = int(genocide["speech_rate"].idxmax())
 
     rows = [
-        f"| {year} | {corpus.loc[year, 'speeches']:,} | "
-        f"{genocide.loc[year, 'speeches']:,} | {genocide.loc[year, 'occurrences']:,} | "
-        f"{genocide.loc[year, 'speech_rate']:.2%} | {genocide.loc[year, 'token_rate']:.2f} |"
+        [
+            year,
+            f"{corpus.loc[year, 'speeches']:,}",
+            f"{genocide.loc[year, 'speeches']:,}",
+            f"{genocide.loc[year, 'occurrences']:,}",
+            f"{genocide.loc[year, 'speech_rate']:.2%}",
+            f"{genocide.loc[year, 'token_rate']:.2f}",
+        ]
         for year in years
     ]
 
@@ -332,17 +349,21 @@ def build_note(
                 )
         change_lines.append("")
 
-    def top_rates(column: str, minimum: int = 200) -> list[str]:
+    def top_rates(column: str, label: str, minimum: int = 200) -> list[str]:
         grouped = speeches.groupby(column).agg(
             held=("row_id", "size"), hits=("has_genocide", "sum")
         )
         grouped = grouped[grouped["held"] >= minimum]
         grouped["rate"] = grouped["hits"] / grouped["held"]
         grouped = grouped.sort_values("rate", ascending=False).head(8)
-        return [
-            f"| {row.Index} | {row.held:,.0f} | {row.hits:,.0f} | {row.rate:.2%} |"
-            for row in grouped.itertuples()
-        ]
+        return notes.table(
+            [label, "Speeches", "With `genocid*`", "Rate"],
+            [
+                [row.Index, f"{row.held:,.0f}", f"{row.hits:,.0f}", f"{row.rate:.2%}"]
+                for row in grouped.itertuples()
+            ],
+            "lrrr",
+        )
 
     return "\n".join(
         [
@@ -360,9 +381,18 @@ def build_note(
             "",
             "## `genocide`, per year",
             "",
-            "| Year | Speeches held | With `genocid*` | Occurrences | Rate | Per 100k words |",
-            "|---|---:|---:|---:|---:|---:|",
-            *rows,
+            *notes.table(
+                [
+                    "Year",
+                    "Speeches held",
+                    "With `genocid*`",
+                    "Occurrences",
+                    "Rate",
+                    "Per 100k words",
+                ],
+                rows,
+                "lrrrrr",
+            ),
             "",
             f"Occurrences peak in **{peak_raw}**; the *rate* peaks in **{peak_rate}**. "
             "Where those two disagree, the corpus grew.",
@@ -381,18 +411,14 @@ def build_note(
             *calendar_lines(monthly),
             "## Rate by speaker group",
             "",
-            "| Group | Speeches | With `genocid*` | Rate |",
-            "|---|---:|---:|---:|",
-            *top_rates("speaker_group", minimum=0),
+            *top_rates("speaker_group", "Group", minimum=0),
             "",
             "## Rate by agenda item",
             "",
             "Items with at least 200 speeches, so a single mention in a rare debate cannot",
             "top the table.",
             "",
-            "| Agenda item | Speeches | With `genocid*` | Rate |",
-            "|---|---:|---:|---:|",
-            *top_rates("agenda_item_manual"),
+            *top_rates("agenda_item_manual", "Agenda item"),
             "",
             "## Event overlay",
             "",

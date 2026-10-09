@@ -77,6 +77,7 @@ from lib import (
     lexicon,
     llm,
     model_runs,
+    notes,
     prompts,
     schema,
     usage,
@@ -541,6 +542,12 @@ def write_first_events(diffusion: dict[str, object], rows: pd.DataFrame) -> None
     console.info(f"wrote {rel(FIRST_EVENTS)}: {len(records):,} first events to verify")
 
 
+#: The note's two gold tables, each written with and without the passages read
+#: before coding.
+AGREEMENT_HEADERS = ["Field", "n", "Observed", "Kappa"]
+SCORED_HEADERS = ["Field", "n", "Accuracy", "Macro-F1", "Model abstention"]
+
+
 def build_note(
     payload: dict[str, object],
     counts: dict[str, int],
@@ -566,6 +573,7 @@ def build_note(
     total = int(model["occurrences_total"])
     withheld = [row for row in actors if not row["sufficient"]]
     withheld_shares = [row for row in positions if not row["sufficient"]]
+    abstention = model["abstention"]
 
     def share(value: int, of: int) -> str:
         return f"{value / of:.1%}" if of else "—"
@@ -610,8 +618,13 @@ def build_note(
         }
         first = min(mentions, key=lambda event: (str(event["date"]), str(event["id"])))
         spread.append(
-            f"| `{entry['id']}` | {first['actor']}, {first['date']} | "
-            f"{len(mentions):,} | {len(asserting):,} | {len(rejecting):,} |"
+            [
+                f"`{entry['id']}`",
+                f"{first['actor']}, {first['date']}",
+                f"{len(mentions):,}",
+                f"{len(asserting):,}",
+                f"{len(rejecting):,}",
+            ]
         )
 
     by_name = {str(actor["country_org"]): actor for actor in actors}
@@ -619,37 +632,55 @@ def build_note(
     for row in ranked[:15]:
         actor = by_name[str(row["actor"])]
         leaders.append(
-            f"| {row['actor']} | {actor['group'] or '—'} | {actor['occurrences']:,} | "
-            f"{row['eligible']:,} | {actor['assigned']:,} | "
-            f"{percent(row['share_rejects'])} |"
+            [
+                row["actor"],
+                actor["group"] or "—",
+                f"{actor['occurrences']:,}",
+                f"{row['eligible']:,}",
+                f"{actor['assigned']:,}",
+                percent(row["share_rejects"]),
+            ]
         )
 
     comparison = payload["comparison"]
     compared = [
-        f"| `{row['field']}` | {row['n']:,} | {number(row['observed'])} | "
-        f"{number(row['kappa'])} | {row['contested']:,} |"
+        [
+            f"`{row['field']}`",
+            f"{row['n']:,}",
+            number(row["observed"]),
+            number(row["kappa"]),
+            f"{row['contested']:,}",
+        ]
         for row in comparison["fields"]
     ]
 
     agreement = [
-        f"| `{row['field']}` | {row['n']} | {number(row['observed'])} | "
-        f"{number(row['kappa'])} |"
+        [f"`{row['field']}`", row["n"], number(row["observed"]), number(row["kappa"])]
         for row in gold["human_agreement"]
     ]
     scored = [
-        f"| `{row['field']}` | {row['n']} | {number(row['accuracy'])} | "
-        f"{number(row['macro_f1'])} | {number(row['abstention_rate'])} |"
+        [
+            f"`{row['field']}`",
+            row["n"],
+            number(row["accuracy"]),
+            number(row["macro_f1"]),
+            number(row["abstention_rate"]),
+        ]
         for row in gold["model_vs_human"]
     ]
     prior = prior_review or {}
     agreement_without = [
-        f"| `{row['field']}` | {row['n']} | {number(row['observed'])} | "
-        f"{number(row['kappa'])} |"
+        [f"`{row['field']}`", row["n"], number(row["observed"]), number(row["kappa"])]
         for row in prior.get("human_agreement", [])
     ]
     scored_without = [
-        f"| `{row['field']}` | {row['n']} | {number(row['accuracy'])} | "
-        f"{number(row['macro_f1'])} | {number(row['abstention_rate'])} |"
+        [
+            f"`{row['field']}`",
+            row["n"],
+            number(row["accuracy"]),
+            number(row["macro_f1"]),
+            number(row["abstention_rate"]),
+        ]
         for row in prior.get("model_vs_human", [])
     ]
     jaccard_without = prior.get("function_jaccard")
@@ -713,37 +744,49 @@ def build_note(
             "does not hold yet, and dropping it would understate how much of the corpus is "
             "about a case at all.",
             "",
-            "| Step | Occurrences | Share of annotated |",
-            "|---|---:|---:|",
-            f"| Annotated | {counts['annotated']:,} | 100.0% |",
-            f"| — verdict `false_positive` | {counts['false_positive']:,} | "
-            f"{share(counts['false_positive'], annotated)} |",
-            f"| — verdict `uncertain` | {counts['uncertain']:,} | "
-            f"{share(counts['uncertain'], annotated)} |",
-            f"| — evidence not located | {counts['evidence_invalid']:,} | "
-            f"{share(counts['evidence_invalid'], annotated)} |",
-            f"| **Eligible** | {counts['eligible']:,} | "
-            f"{share(counts['eligible'], annotated)} |",
-            f"| — referent `unclear` | {counts['referent_unclear']:,} | "
-            f"{share(counts['referent_unclear'], annotated)} |",
-            f"| **Assigned** | {counts['assigned']:,} | "
-            f"{share(counts['assigned'], annotated)} |",
+            *notes.table(
+                ["Step", "Occurrences", "Share of annotated"],
+                [
+                    ["Annotated", f"{counts['annotated']:,}", "100.0%"],
+                    *[
+                        [label, f"{counts[key]:,}", share(counts[key], annotated)]
+                        for label, key in [
+                            ("— verdict `false_positive`", "false_positive"),
+                            ("— verdict `uncertain`", "uncertain"),
+                            ("— evidence not located", "evidence_invalid"),
+                            ("**Eligible**", "eligible"),
+                            ("— referent `unclear`", "referent_unclear"),
+                            ("**Assigned**", "assigned"),
+                        ]
+                    ],
+                ],
+                "lrr",
+            ),
             "",
             "## Abstention",
             "",
             "The prompt tells the model that an honest abstention beats a guess, so these "
             "are a measurement of the run rather than a defect in it.",
             "",
-            "| Field | Abstained | Share of annotated |",
-            "|---|---:|---:|",
-            f"| `verdict` = `uncertain` | {model['abstention']['verdict_uncertain']:,} | "
-            f"{share(model['abstention']['verdict_uncertain'], annotated)} |",
-            f"| `speaker_position` = `unclear` | {model['abstention']['position_unclear']:,} | "
-            f"{share(model['abstention']['position_unclear'], annotated)} |",
-            f"| `referent` = `unclear` | {model['abstention']['referent_unclear']:,} | "
-            f"{share(model['abstention']['referent_unclear'], annotated)} |",
-            f"| evidence not located | {model['evidence_invalid']:,} | "
-            f"{share(model['evidence_invalid'], annotated)} |",
+            *notes.table(
+                ["Field", "Abstained", "Share of annotated"],
+                [
+                    *[
+                        [label, f"{abstention[key]:,}", share(abstention[key], annotated)]
+                        for label, key in [
+                            ("`verdict` = `uncertain`", "verdict_uncertain"),
+                            ("`speaker_position` = `unclear`", "position_unclear"),
+                            ("`referent` = `unclear`", "referent_unclear"),
+                        ]
+                    ],
+                    [
+                        "evidence not located",
+                        f"{model['evidence_invalid']:,}",
+                        share(model["evidence_invalid"], annotated),
+                    ],
+                ],
+                "lrr",
+            ),
             "",
             "## What the word is used about",
             "",
@@ -752,12 +795,14 @@ def build_note(
             "can and always read zero; `other` can, and its count is how much of the corpus "
             "is about a case the controlled list does not hold yet.",
             "",
-            "| Referent | Kind | Assigned |",
-            "|---|---|---:|",
-            *[
-                f"| `{row['id']}` | {row['kind']} | {row['occurrences']:,} |"
-                for row in referents[:15]
-            ],
+            *notes.table(
+                ["Referent", "Kind", "Assigned"],
+                [
+                    [f"`{row['id']}`", row["kind"], f"{row['occurrences']:,}"]
+                    for row in referents[:15]
+                ],
+                "llr",
+            ),
             "",
             "## Who uses it",
             "",
@@ -765,9 +810,11 @@ def build_note(
             "eligible occurrences, which is the denominator the position composition is cut "
             "from.",
             "",
-            "| Speaker | Group | Occurrences | Eligible | Assigned | Rejects or denies |",
-            "|---|---|---:|---:|---:|---:|",
-            *leaders,
+            *notes.table(
+                ["Speaker", "Group", "Occurrences", "Eligible", "Assigned", "Rejects or denies"],
+                leaders,
+                "llrrrr",
+            ),
             "",
             "## Diffusion",
             "",
@@ -780,9 +827,11 @@ def build_note(
             "",
             *(
                 [
-                    "| Referent | First mention | Delegations | Asserting | Rejecting |",
-                    "|---|---|---:|---:|---:|",
-                    *spread,
+                    *notes.table(
+                        ["Referent", "First mention", "Delegations", "Asserting", "Rejecting"],
+                        spread,
+                        "llrrr",
+                    ),
                     "",
                     "Firsts in this corpus and nowhere else. The date is the first "
                     "sitting at which that delegation is recorded using the word about "
@@ -839,9 +888,7 @@ def build_note(
                     "the codebook leaves two readers. A kappa of `—` is a field on which "
                     "one category was used throughout, where the statistic is not defined.",
                     "",
-                    "| Field | n | Observed | Kappa |",
-                    "|---|---:|---:|---:|",
-                    *agreement,
+                    *notes.table(AGREEMENT_HEADERS, agreement, "lrrr"),
                     "",
                 ]
                 if agreement
@@ -860,9 +907,7 @@ def build_note(
                     "coders' agreed label otherwise; a field they disagree on with no "
                     "adjudication is left out rather than resolved by a rule.",
                     "",
-                    "| Field | n | Accuracy | Macro-F1 | Model abstention |",
-                    "|---|---:|---:|---:|---:|",
-                    *scored,
+                    *notes.table(SCORED_HEADERS, scored, "lrrrr"),
                     "",
                     (
                         f"`function` is multi-label, so it carries no kappa and no macro-F1. "
@@ -892,9 +937,7 @@ def build_note(
                     "",
                     *(
                         [
-                            "| Field | n | Observed | Kappa |",
-                            "|---|---:|---:|---:|",
-                            *agreement_without,
+                            *notes.table(AGREEMENT_HEADERS, agreement_without, "lrrr"),
                             "",
                         ]
                         if agreement_without
@@ -902,9 +945,7 @@ def build_note(
                     ),
                     *(
                         [
-                            "| Field | n | Accuracy | Macro-F1 | Model abstention |",
-                            "|---|---:|---:|---:|---:|",
-                            *scored_without,
+                            *notes.table(SCORED_HEADERS, scored_without, "lrrrr"),
                             "",
                         ]
                         if scored_without
@@ -952,9 +993,9 @@ def build_note(
                     "true positive while the other refused the match is exactly the "
                     "disagreement worth reading.",
                     "",
-                    "| Field | n | Observed | Kappa | Contested |",
-                    "|---|---:|---:|---:|---:|",
-                    *compared,
+                    *notes.table(
+                        ["Field", "n", "Observed", "Kappa", "Contested"], compared, "lrrrr"
+                    ),
                     "",
                     (
                         "`function` is multi-label and carries no kappa. Mean Jaccard "
