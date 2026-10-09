@@ -44,10 +44,11 @@ import {
 	orderReferents,
 	readUsageState,
 	retestRows,
+	runStatus,
 	selectUsage,
 	positionExportRows,
 	positionLabel,
-	positionRanking,
+	positionProfiles,
 	stepFocus,
 	usageParams
 } from './usage';
@@ -717,7 +718,7 @@ describe('moving through the matrix from the keyboard', () => {
 });
 
 describe('who rejects the word', () => {
-	it('orders only the shares the artefact published, and leaves out the rest', () => {
+	it('bands only the speakers at the minimum, and lists the rest apart', () => {
 		const rows: UsagePositionRow[] = [
 			{
 				actor: 'Alpha',
@@ -750,19 +751,20 @@ describe('who rejects the word', () => {
 				separated: false
 			}
 		];
-		const result = positionRanking(corpus({ position_by_actor: rows }));
-		// Neither clears the corpus rate, so the two are ordered by rejection
-		// count and the order is not a claim that one rejects more than the other.
+		const result = positionProfiles(corpus({ position_by_actor: rows }));
+		// Ordered by the count of rejections, which is not a claim that one
+		// delegation rejects more often than the other.
 		expect(result.rows.map((row) => row.actor)).toEqual(['Delta', 'Alpha']);
-		// Not ranked low; not ranked. A null read through `?? 0` would put every
-		// rarely-heard delegation at the foot of a ranking of rejection.
+		expect(result.rows.map((row) => row.rejects)).toEqual([5, 2]);
+		// Under the minimum: its counts kept, no band, and not among the others.
 		expect(result.withheld.map((row) => row.actor)).toEqual(['Bravo']);
 		expect(result.withheld[0]!.total).toBe(3);
+		expect(result.withheld[0]).not.toHaveProperty('segments');
 		expect(result.minimum).toBe(4);
 	});
 
-	it('withholds a row that claims to be sufficient and carries no share', () => {
-		const result = positionRanking(
+	it('withholds by the minimum alone, never by the share', () => {
+		const result = positionProfiles(
 			corpus({
 				position_by_actor: [
 					{
@@ -774,19 +776,28 @@ describe('who rejects the word', () => {
 						share_low: null,
 						share_high: null,
 						separated: false
+					},
+					{
+						actor: 'Bravo',
+						eligible: 2,
+						sufficient: false,
+						positions: positions({ rejects: 2 }),
+						share_rejects: 1,
+						share_low: 0.34,
+						share_high: 1,
+						separated: true
 					}
 				]
 			})
 		);
-		// The fetch boundary refuses such a payload, so this never arrives — but a
-		// figure that would rank it by a null if it did is a figure one edit away
-		// from doing so.
-		expect(result.rows).toEqual([]);
-		expect(result.withheld.map((row) => row.actor)).toEqual(['Alpha']);
+		// The figure no longer reads a share, so a missing one changes nothing,
+		// and a flag the pipeline still writes cannot lift a row over the minimum.
+		expect(result.rows.map((row) => row.actor)).toEqual(['Alpha']);
+		expect(result.withheld.map((row) => row.actor)).toEqual(['Bravo']);
 	});
 
 	it('lays the bands out in one pass of cumulative bounds, zeros omitted', () => {
-		const result = positionRanking(corpus());
+		const result = positionProfiles(corpus());
 		const alpha = result.rows[0];
 		expect(alpha!.total).toBe(8);
 		expect(alpha!.segments.map((segment) => segment.speaker_position)).toEqual([
@@ -1591,6 +1602,40 @@ describe('the gold sample’s own state', () => {
 	});
 });
 
+describe('the status a model-derived file carries', () => {
+	const partial = { ...model, occurrences_total: 7747, occurrences_annotated: 7694 };
+
+	it('says partial, unvalidated and awaiting checking, with the run and its coverage', () => {
+		expect(runStatus(corpus({ model: partial }))).toBe(
+			'labels from a partial, unvalidated model run awaiting human checking ' +
+				'(run 2026-09-01-luna-v1: 7,694 of 7,747 occurrences annotated)'
+		);
+	});
+
+	it('drops "partial" when the run reached every occurrence', () => {
+		expect(runStatus(corpus())).toBe(
+			'labels from an unvalidated model run awaiting human checking ' +
+				'(run 2026-09-01-luna-v1: all 6,092 occurrences annotated)'
+		);
+	});
+
+	it('says the checking has started once it has', () => {
+		expect(runStatus(corpus({ gold: { ...gold, state: 'in_progress' } }))).toContain(
+			'an unvalidated model run with human checking in progress'
+		);
+	});
+
+	it('keeps "partial" after the sample is coded, and says nothing of validation', () => {
+		expect(runStatus(corpus({ model: partial, gold: { ...gold, state: 'complete' } }))).toBe(
+			'labels from a partial model run (run 2026-09-01-luna-v1: 7,694 of 7,747 occurrences annotated)'
+		);
+	});
+
+	it('disappears once the run is complete and the sample coded', () => {
+		expect(runStatus(corpus({ gold: { ...gold, state: 'complete' } }))).toBeNull();
+	});
+});
+
 describe('what leaves in a file', () => {
 	it('exports every cell the artefact holds, not the rows the figure drew', () => {
 		const data = corpus();
@@ -1621,12 +1666,16 @@ describe('what leaves in a file', () => {
 		).toEqual([]);
 	});
 
-	it('exports every speaker_position profile, withheld shares included', () => {
+	it('exports every speaker’s position counts, and no share, interval or mark', () => {
 		const rows = positionExportRows(corpus());
 		expect(rows.map((row) => row[0])).toEqual(['Alpha', 'Bravo']);
 		expect(rows[0]).toHaveLength(POSITION_COLUMNS.length);
-		expect(rows[1]![POSITION_COLUMNS.indexOf('share_rejects')]).toBeNull();
+		expect(rows[1]![POSITION_COLUMNS.indexOf('sufficient')]).toBe(false);
 		expect(rows[0]![POSITION_COLUMNS.indexOf('position_rejects')]).toBe(2);
+		// Counts only, until the `rejects` label has been checked by hand.
+		for (const column of ['share_rejects', 'share_low', 'share_high', 'separated', 'q_value']) {
+			expect(POSITION_COLUMNS).not.toContain(column);
+		}
 	});
 });
 
@@ -1772,26 +1821,26 @@ describe('what a second instrument does to the figures', () => {
 	});
 });
 
-describe('who rejects the word, ordered by what can be ordered', () => {
+describe('who rejects the word, in counts only', () => {
 	const rows: UsagePositionRow[] = [
 		{
 			actor: 'Sudan',
-			eligible: 43,
+			eligible: 21,
 			sufficient: true,
-			positions: positions({ asserts: 24, rejects: 19 }),
-			share_rejects: 0.441,
-			share_low: 0.304,
-			share_high: 0.589,
+			positions: positions({ asserts: 12, rejects: 9 }),
+			share_rejects: 0.429,
+			share_low: 0.245,
+			share_high: 0.635,
 			separated: true
 		},
 		{
 			actor: 'Kenya',
-			eligible: 24,
+			eligible: 240,
 			sufficient: true,
-			positions: positions({ asserts: 23, rejects: 1 }),
-			share_rejects: 0.042,
-			share_low: 0.007,
-			share_high: 0.202,
+			positions: positions({ asserts: 221, rejects: 19 }),
+			share_rejects: 0.079,
+			share_low: 0.051,
+			share_high: 0.121,
 			separated: false
 		},
 		{
@@ -1803,28 +1852,42 @@ describe('who rejects the word, ordered by what can be ordered', () => {
 			share_low: 0.019,
 			share_high: 0.222,
 			separated: false
+		},
+		{
+			actor: 'Algeria',
+			eligible: 25,
+			sufficient: true,
+			positions: positions({ asserts: 23, rejects: 2 }),
+			share_rejects: 0.08,
+			share_low: 0.022,
+			share_high: 0.25,
+			separated: false
 		}
 	];
 
-	it('puts the separated rows first and does not rank the rest by share', () => {
-		const result = positionRanking(corpus({ position_by_actor: rows, minimum_occurrences: 20 }));
-		// Sudan clears the corpus rate. China's 6.9% is higher than Kenya's 4.2%
-		// and both intervals cover 1.7%, so the two are ordered by count and the
-		// order is not a claim that one rejects more often than the other.
-		expect(result.rows.map((row) => row.actor)).toEqual(['Sudan', 'China', 'Kenya']);
-		expect(result.rows.map((row) => row.separated)).toEqual([true, false, false]);
-		expect(result.rows[0]!.rejects).toBe(19);
-		expect(result.rows[0]!.intervalText).toBe('30.40%–58.90%');
+	it('orders by the count of rejections and then by name, never by share or flag', () => {
+		const result = positionProfiles(corpus({ position_by_actor: rows, minimum_occurrences: 20 }));
+		// Sudan carries the pipeline's flag and the highest share, and still comes
+		// second: the flag and the share are not read until `rejects` has been
+		// checked by hand. Algeria and China tie on two, and the name decides.
+		expect(result.rows.map((row) => row.actor)).toEqual(['Kenya', 'Sudan', 'Algeria', 'China']);
+		expect(result.rows.map((row) => row.rejects)).toEqual([19, 9, 2, 2]);
 	});
 
-	it('writes a dash where the artefact recorded no interval', () => {
-		const result = positionRanking(
-			corpus({
-				minimum_occurrences: 20,
-				position_by_actor: [{ ...rows[0]!, share_low: null, share_high: null, separated: false }]
-			})
-		);
-		expect(result.rows[0]!.intervalText).toBe('—');
+	it('carries no share, interval or mark for a figure to print', () => {
+		const result = positionProfiles(corpus({ position_by_actor: rows, minimum_occurrences: 20 }));
+		for (const row of result.rows) {
+			expect(Object.keys(row).sort()).toEqual(
+				['actor', 'eligible', 'positions', 'rejects', 'segments', 'total'].sort()
+			);
+		}
+	});
+
+	it('orders the speakers under the minimum by the same rule, apart from the rest', () => {
+		const under = rows.map((row) => ({ ...row, sufficient: false }));
+		const result = positionProfiles(corpus({ position_by_actor: under, minimum_occurrences: 20 }));
+		expect(result.rows).toEqual([]);
+		expect(result.withheld.map((row) => row.actor)).toEqual(['Kenya', 'Sudan', 'Algeria', 'China']);
 	});
 });
 

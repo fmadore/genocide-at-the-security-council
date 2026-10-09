@@ -55,6 +55,8 @@ test('the filtered CSV records filters, provenance, and only matching rows', asy
 	expect(csv).toContain('# on screen: search: warned; sorted by: date');
 	expect(csv).toContain('SC07000-01-001#1');
 	expect(csv).not.toContain('SC07000-01-001#2');
+	// Nothing in this file rests on the model, so it carries no run status.
+	expect(csv).not.toContain('# status:');
 });
 
 test('the filtered CSV records a referent filter with the others', async ({ page }) => {
@@ -68,6 +70,12 @@ test('the filtered CSV records a referent filter with the others', async ({ page
 	await page.getByRole('button', { name: 'Export 2 to CSV' }).click();
 	const csv = await readFile((await (await pending).path())!, 'utf8');
 	expect(csv).toContain('# on screen: referent: Rwanda (1994); years: 2014–2014; sorted by: date');
+	// Which lines are in the file is the model's decision here, so the file
+	// carries the status of the run that made it.
+	expect(csv).toContain(
+		'# status: labels from an unvalidated model run awaiting human checking ' +
+			'(run 2026-09-01-luna-v1: all 12 occurrences annotated)'
+	);
 });
 
 test('an exported figure embeds its reading and provenance in the image', async ({ page }) => {

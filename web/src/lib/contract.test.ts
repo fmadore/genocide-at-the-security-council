@@ -24,6 +24,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { readBuild } from './build';
 import { REQUIRED } from './data';
 /**
  * The committed shape, imported rather than read off disk.
@@ -292,9 +293,29 @@ async function speechFixture(): Promise<unknown> {
 	return JSON.parse(text) as unknown;
 }
 
+/**
+ * The payload manifest is not a contracted artefact: `export_web.py` writes it
+ * after the contract check, to describe the payload rather than to be part of
+ * it, and the dashboard reads only the footer's build line from it, leniently
+ * (`$lib/build`). Its fixture is held instead to the keys `assemble()` writes,
+ * so it cannot drift into a shape no build produces.
+ */
+const MANIFEST = 'manifest.json';
+const MANIFEST_KEYS = ['bytes', 'files', 'generated', 'git_commit', 'parts'];
+
 describe('the browser fixtures against what the pipeline writes', () => {
-	it('contracts every fixture but the semantic map, which the pipeline does not track', () => {
-		expect(fixtures.filter((entry) => !entry.artefact).map((entry) => entry.path)).toEqual([]);
+	it('contracts every fixture but the payload manifest', () => {
+		expect(
+			fixtures.filter((entry) => !entry.artefact && entry.path !== MANIFEST).map((e) => e.path)
+		).toEqual([]);
+	});
+
+	it('holds the manifest fixture to the keys the export writes, and to what the footer reads', () => {
+		const manifest = fixtures.find((entry) => entry.path === MANIFEST)?.data;
+		expect(Object.keys(manifest as object).sort()).toEqual(MANIFEST_KEYS);
+		expect(readBuild(manifest)).toMatchObject({ release: null, dirty: false });
+		expect(readBuild(manifest)?.generated).toBeTruthy();
+		expect(readBuild(manifest)?.commit).toMatch(/^[0-9a-f]{40}$/);
 	});
 
 	it.each(fixtures.filter((entry) => entry.artefact).map((entry) => [entry.path, entry]))(

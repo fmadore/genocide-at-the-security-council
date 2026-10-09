@@ -87,6 +87,7 @@
 				height,
 				title: request?.title ?? 'Figure',
 				filters: request?.filters,
+				status: request?.status,
 				provenance:
 					request?.provenance ??
 					({ artifact: 'unknown', script: 'unknown', generated: 'unknown' } as never),

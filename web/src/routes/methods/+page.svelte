@@ -220,6 +220,33 @@
 		missing metadata and the source's division of records into speeches can affect the analysis.
 	</p>
 
+	<!-- The limits that apply to every count on the site, from docs/CORPUS.md
+	     ("Limitations that must remain visible") and docs/CLAIMS.md. The two
+	     meeting-record figures are the source's and do not travel in the
+	     payload, so they are written here as CORPUS.md states them. -->
+	<h2 id="limits">What this record is not</h2>
+	<p>
+		<strong>Not the words spoken.</strong> For speakers who used French, Russian, Chinese, Arabic or
+		Spanish, <em>genocide</em> in the English record is the word a UN interpreter or translator chose,
+		not necessarily their own. Keep this in mind when comparing delegations: part of a difference between
+		them may lie in translation.
+	</p>
+	<p>
+		<strong>Not every meeting.</strong> Informal consultations are not meetings of the Council and leave
+		no verbatim record, so nothing said in them is counted. Of the 10,294 meeting records in the source,
+		830 hold no speeches; 663 of them are closed meetings. Only meetings with speeches enter the counts.
+	</p>
+	<p>
+		<strong>Not a complete count.</strong> The text comes from scanned records. Scanning can damage a
+		word, and a damaged word is not counted, so every count is a minimum. Scanning quality has not been
+		measured decade by decade, so the shortfall may be larger in some periods than in others.
+	</p>
+	<p>
+		<strong>Not yet checked by hand.</strong> No term on the search list has a measured precision: nobody
+		has yet read a sample of its matches to see how many are real uses. How many real uses the patterns
+		miss has not been estimated either.
+	</p>
+
 	<h2 id="provenance">Where the results come from</h2>
 	<p>
 		<strong>Computed from the record</strong> identifies counts or calculations based on text and
@@ -293,11 +320,22 @@
 		unaccepted one means insufficient evidence under this test. Historical reference dates provide context,
 		not causal evidence. The second change-point method is exploratory.
 	</p>
+	<!-- Two methods, named figure by figure, so that this page and the
+	     Chronology say the same thing about the band (review of 8 October
+	     2026, A4). The band follows `bandBounds` in `$lib/chronology`. -->
 	<p>
-		<strong>95% Wilson intervals</strong> accompany speech shares. They indicate precision under a model
-		treating speeches as independent observations; wider intervals usually accompany smaller totals. The
-		observed corpus share itself is a count of available records. These intervals do not account for clustered
-		meetings, classification errors or missing records, and comparing overlapping intervals is not a formal
+		Two kinds of 95% interval accompany shares on this site. On the Chronology, the
+		share-of-speeches lines in <em>The word list over time</em> sit in a band from
+		<strong>resampling whole meetings</strong>: the speeches of one meeting are drawn together, so
+		the band widens where a year's share rests on a few debates. The other intervals are
+		<strong>95% Wilson intervals</strong>: in <em>Who says it, and in what debate</em> on the
+		Chronology, <em>Speakers by rate</em> on Actors and <em>What the word is doing</em> under Words in
+		context. They treat each speech or occurrence as independent, so they ignore clustering within meetings
+		and can be too narrow. Wider intervals usually accompany smaller totals.
+	</p>
+	<p>
+		Neither kind accounts for classification errors or missing records. The observed corpus share
+		itself is a count of available records, and comparing overlapping intervals is not a formal
 		significance test.
 	</p>
 

@@ -39,6 +39,10 @@ test('a file that cannot be reached says so, and how to recover', async ({ page 
 		page.getByText('Could not reach series/annual.json.', { exact: false })
 	).toBeVisible();
 	await expect(page.getByText('Reconnect and reload the page', { exact: false })).toBeVisible();
+	// And what offline can still offer, exactly: the cache has ceilings.
+	await expect(
+		page.getByText('the cache keeps only the 100 meeting records', { exact: false })
+	).toBeVisible();
 	await expect(page.getByText('Internal Error')).toHaveCount(0);
 });
 

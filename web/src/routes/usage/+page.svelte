@@ -25,7 +25,7 @@
 	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, isoDate, percent, shortCountry, termLabel } from '$lib/format';
 	import { segments } from '$lib/highlight';
-	import { PAGE_METADATA } from '$lib/seo';
+	import { PAGE_METADATA, REPOSITORY } from '$lib/seo';
 	import {
 		CONTESTED_COLUMNS,
 		DIFFUSION_COLUMNS,
@@ -52,7 +52,8 @@
 		positionExportRows,
 		retestRows,
 		positionLabel,
-		positionRanking,
+		positionProfiles,
+		runStatus,
 		usageParams
 	} from '$lib/usage';
 	import type {
@@ -109,8 +110,11 @@
 	});
 
 	const plan = $derived(matrixPlan(artefact, current()));
-	const ranking = $derived(positionRanking(artefact));
+	const profiles = $derived(positionProfiles(artefact));
 	const gold = $derived(goldProgress(artefact));
+	/* Partial, unvalidated, awaiting human checking — whatever the payload says
+	   of the run, printed under the title of every file this page hands out. */
+	const status = $derived(runStatus(artefact));
 	const selected = $derived(Boolean(actor || referent));
 	/* The second opinion, or the empty block that says none was run. Everything
 	   about it on this page is drawn on `computed` and on nothing else: under
@@ -303,6 +307,7 @@
 			columns: MATRIX_COLUMNS,
 			rows: matrixExportRows(artefact),
 			provenance: provenanceOf(artefact.meta, 'usage/usage.json'),
+			status,
 			filters: onScreen(),
 			scope:
 				`every filled cell the artefact holds — ${count(artefact.matrix.length)} pairings over ` +
@@ -322,6 +327,7 @@
 			columns: DIFFUSION_COLUMNS,
 			rows: diffusionExportRows(artefact),
 			provenance: provenanceOf(artefact.meta, 'usage/usage.json'),
+			status,
 			filters: [
 				`on screen: ${diffusion.label}`,
 				`milestones: first placed use, first assertion, first refusal of the word`,
@@ -340,6 +346,7 @@
 			columns: CONTESTED_COLUMNS,
 			rows: contestedExportRows(artefact, annotations?.occurrences ?? [], lines),
 			provenance: provenanceOf(artefact.meta, 'usage/occurrences.json'),
+			status,
 			filters: [
 				`published run: ${artefact.model.id}, run ${artefact.model.run_id}`,
 				`second opinion: ${comparison.model}, run ${comparison.runId}`,
@@ -360,14 +367,16 @@
 			columns: POSITION_COLUMNS,
 			rows: positionExportRows(artefact),
 			provenance: provenanceOf(artefact.meta, 'usage/usage.json'),
+			status,
 			filters: [
-				`ranked by: share of eligible occurrences that reject or deny`,
-				`minimum for a share: ${artefact.minimum_occurrences} eligible occurrences`,
+				`ordered by: occurrences labelled rejects, then name`,
+				`minimum for a band: ${artefact.minimum_occurrences} eligible occurrences`,
+				`counts only: no rejection share, interval or mark until human coding has checked the rejects label`,
 				`labels: ${artefact.model.id}, run ${artefact.model.run_id}`
 			],
 			scope:
-				`every speaker the run produced a speaker_position profile for, including the ` +
-				`${count(ranking.withheld.length)} whose share is withheld and written null`
+				`every speaker the run produced position counts for, including the ` +
+				`${count(profiles.withheld.length)} under the minimum, whose sufficient column is false`
 		};
 	}
 </script>
@@ -1172,19 +1181,21 @@
 	>
 		{#snippet reading()}
 			<p>
-				Band widths show an affiliation's model-assigned positions. The share and interval columns
-				concern rejections. Marked rows have a lower interval bound above the published reference
-				rate and are ordered by rejection share; remaining rows follow by rejection count. Hover
-				over an affiliation for all position counts.
+				Each row is an affiliation with at least {count(profiles.minimum)} eligible mentions. The band
+				shows how the model labelled them. The two columns count those mentions and the ones labelled
+				<em>rejects</em>. Rows are ordered by that second count, then by name. Hover over an
+				affiliation for all position counts.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				Position labels can misread negation, reported speech or qualifications. {count(
-					ranking.withheld.length
-				)} affiliations have fewer than {count(ranking.minimum)} eligible mentions and no displayed share.
-				Intervals do not account for model errors or repeated mentions within meetings. These are classifications
-				of passages, not fixed delegation positions.
+				A count grows with how often a delegation spoke, and labels can misread negation or reported
+				speech. No delegation is marked as unusual until human coding measures how often the
+				<em>rejects</em> label is right. {count(profiles.withheld.length)}
+				{profiles.withheld.length === 1 ? 'affiliation' : 'affiliations'} under {count(
+					profiles.minimum
+				)} eligible mentions {profiles.withheld.length === 1 ? 'appears' : 'appear'} only in the full
+				table.
 			</p>
 		{/snippet}
 		{#snippet more()}
@@ -1192,14 +1203,15 @@
 				<em>Asserts</em> applies genocide to a case; <em>rejects</em> disputes that
 				characterisation. <em>Reports without a position</em> attributes a claim without adopting
 				it. <em>Conditional</em> makes its application conditional. Other categories cover abstract uses,
-				uncertainty or inapplicable cases. Each eligible mention receives one position label.
+				uncertainty or inapplicable cases. Each eligible mention receives one position label. These are
+				classifications of passages, not fixed delegation positions.
 			</p>
 			<p>
-				The dot marks the source data's separation flag. The 95% Wilson interval indicates precision
-				assuming independent mentions; it does not establish pairwise differences between
-				delegations. See <a href="{resolve('/methods')}#model-labels"
-					>classification and validation methods</a
-				>.
+				Until the label has been checked, the figure shows counts only: no share of rejections, no
+				interval and no mark for an unusual delegation. These return only if <em>rejects</em> meets
+				the standard in the project's
+				<a href="{REPOSITORY}/blob/main/docs/EVALUATION_PLAN.md">evaluation plan</a>. See
+				<a href="{resolve('/methods')}#model-labels">classification and validation methods</a>.
 			</p>
 		{/snippet}
 
@@ -1221,44 +1233,35 @@
 			distinction.
 		</p>
 
-		{#if ranking.rows.length === 0}
+		{#if profiles.rows.length === 0}
 			<p class="refusal">
-				No affiliation reached {count(ranking.minimum)} eligible mentions. Counts remain available below;
+				No affiliation reached {count(profiles.minimum)} eligible mentions. Counts remain available below;
 				there are too few mentions to display shares.
 			</p>
 		{:else}
 			<ScrollRegion label="Position profile table" tall>
 				<table class="positions">
 					<caption class="sr-only">
-						Delegations by the share of their eligible occurrences that reject or deny the
-						characterisation, those that reject more than the rest of the Council first
+						Delegations with at least {count(profiles.minimum)} eligible occurrences, ordered by how many
+						of them the model labelled as rejecting the characterisation, then by name
 					</caption>
 					<thead>
 						<tr>
 							<th scope="col">Delegation</th>
 							<th scope="col" class="num">Eligible</th>
 							<th scope="col" class="num">Rejects</th>
-							<th scope="col" class="num">Share</th>
-							<th scope="col" class="num">95% interval</th>
 						</tr>
 					</thead>
 					<tbody>
-						{#each ranking.rows as row (row.actor)}
-							<tr
-								class="band"
-								class:withheld={!row.separated}
-								style:--bands="linear-gradient(to right, {bands(row.segments)})"
-							>
-								<th scope="row" title={describePositions(row.positions, row.total)}>
-									{shortCountry(row.actor)}{#if row.separated}<abbr
-											title="Rejects more often than the rest of the Council (exact test, 5% false discovery rate)."
-											>&nbsp;&#9679;</abbr
-										>{/if}
+						{#each profiles.rows as row (row.actor)}
+							<tr class="band" style:--bands="linear-gradient(to right, {bands(row.segments)})">
+								<!-- Counts without their shares: a denominator of 0 leaves them out,
+								     as the figure itself does until the label has been checked. -->
+								<th scope="row" title={describePositions(row.positions, 0)}>
+									{shortCountry(row.actor)}
 								</th>
 								<td class="num">{count(row.eligible)}</td>
 								<td class="num">{count(row.rejects)}</td>
-								<td class="num">{percent(row.shareRejects)}</td>
-								<td class="num">{row.intervalText}</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -1279,31 +1282,39 @@
 							{#each POSITIONS as speaker_position (speaker_position)}
 								<th scope="col" class="num">{positionLabel(speaker_position)}</th>
 							{/each}
-							<th scope="col" class="num">Rejection share</th>
 						</tr>
 					</thead>
 					<tbody>
-						{#each ranking.rows as row (row.actor)}
+						{#each profiles.rows as row (row.actor)}
 							<tr>
 								<th scope="row">{shortCountry(row.actor)}</th>
 								<td class="num">{count(row.eligible)}</td>
 								{#each POSITIONS as speaker_position (speaker_position)}
 									<td class="num">{count(row.positions[speaker_position] ?? 0)}</td>
 								{/each}
-								<td class="num">{percent(row.shareRejects)}</td>
-							</tr>
-						{/each}
-						{#each ranking.withheld as row (row.actor)}
-							<tr class="withheld">
-								<th scope="row">{shortCountry(row.actor)}</th>
-								<td class="num">{count(row.eligible)}</td>
-								{#each POSITIONS as speaker_position (speaker_position)}
-									<td class="num">{count(row.positions[speaker_position] ?? 0)}</td>
-								{/each}
-								<td class="num">withheld</td>
 							</tr>
 						{/each}
 					</tbody>
+					<!-- Apart, under a heading of their own, rather than marked by a
+					     fainter ink alone: colour is never the only code here. -->
+					{#if profiles.withheld.length}
+						<tbody>
+							<tr>
+								<th scope="rowgroup" colspan={POSITIONS.length + 2}>
+									Fewer than {count(profiles.minimum)} eligible mentions, so no band in the figure
+								</th>
+							</tr>
+							{#each profiles.withheld as row (row.actor)}
+								<tr class="withheld">
+									<th scope="row">{shortCountry(row.actor)}</th>
+									<td class="num">{count(row.eligible)}</td>
+									{#each POSITIONS as speaker_position (speaker_position)}
+										<td class="num">{count(row.positions[speaker_position] ?? 0)}</td>
+									{/each}
+								</tr>
+							{/each}
+						</tbody>
+					{/if}
 				</table>
 			</ScrollRegion>
 		</details>
@@ -2193,13 +2204,8 @@
 		background-image: var(--bands);
 	}
 
-	tr.withheld td:last-child {
-		color: var(--ink-3);
-		font-style: italic;
-	}
-
 	/* A row or a cell whose figure is present but must not be ordered or quoted:
-	   a share not distinguishable from the rest of the Council, a per-class rate under its
+	   a delegation under the minimum for a band, a per-class rate under its
 	   support floor, a kappa withheld for a flat margin. Set back rather than
 	   hidden — the counts behind them are facts, and only the rate is not. */
 	tbody tr.withheld th[scope='row'],

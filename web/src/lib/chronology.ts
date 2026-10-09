@@ -151,6 +151,36 @@ export function chronologyParams(
 	return params;
 }
 
+/* --- A way out of the calendar's two refusals --------------------------------
+   The calendar refuses in two ways, and a refusal with no next step leaves a
+   reader with a centred grey sentence and nothing to press (critique of 19
+   September 2026, heuristic 9). The way out is the nearest figure that can be
+   drawn: another measure of the same calendar where the asked-for one is not in
+   the data, and otherwise the same measure by year, where no minimum applies
+   because a year always holds thousands of speeches. */
+
+export type CalendarRecovery =
+	/** Draw the calendar for another measure the monthly artefact does carry. */
+	| { kind: 'measure'; measure: string }
+	/** Show the word list by year, with this measure added when it has a series. */
+	| { kind: 'yearly'; measure: string | null };
+
+export function calendarRecovery(
+	refusal: 'no-measure' | 'none-drawable' | null,
+	measure: string,
+	monthly: readonly string[],
+	yearly: readonly string[]
+): CalendarRecovery | null {
+	if (!refusal) return null;
+	if (refusal === 'no-measure') {
+		const fallback = headlineMeasure(monthly) ?? monthly[0];
+		if (fallback && fallback !== measure) return { kind: 'measure', measure: fallback };
+	}
+	// No month reaches the minimum whatever the measure, because the minimum is
+	// on the month's own speeches: changing measure would refuse again.
+	return { kind: 'yearly', measure: yearly.includes(measure) ? measure : null };
+}
+
 /* --- One stroke per term ----------------------------------------------------
    The word-list figure used to draw every term of a register in the register's
    one hue, so selecting the legal shelf put nine identical teal lines on the

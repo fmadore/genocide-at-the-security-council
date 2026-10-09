@@ -244,15 +244,6 @@
 			.sort((a, b) => a.index - b.index);
 	});
 
-	const kinds = $derived(
-		Object.entries(
-			data.overlay.events.reduce<Record<string, number>>((acc, e) => {
-				acc[e.kind] = (acc[e.kind] ?? 0) + 1;
-				return acc;
-			}, {})
-		).sort((a, b) => b[1] - a[1])
-	);
-
 	/* Read in place of the drawing, and it names the base too: an accessible
 	   description that stops at "the share of speeches" leaves the reader who
 	   cannot see the axis with exactly the ambiguity the axis was rewritten to
@@ -493,70 +484,42 @@
 		</details>
 	</Figure>
 
-	<!-- The programme's index: numbered, ruled, no arrows. -->
+	<!-- A route, not a menu. The standfirst asks when the word appears, who
+	     uses it and what the passages say; each step answers one of those, in
+	     that order. The masthead already lists every section, and repeating all
+	     seven here made the foot of the page a second navigation bar (design
+	     audit of 19 September 2026, "a menu, not a route"). -->
 	<section class="onward">
-		<h2>Where to go from here</h2>
-		<ul class="onward-list">
-			<li>
-				<a href={resolve('/semantic')}
-					><strong>Semantic map</strong><span
-						>Explore speech similarity, coloured by affiliation or meeting agenda, with links to the
-						source speeches.</span
-					></a
-				>
-			</li>
+		<h2>Test a claim against the record</h2>
+		<ol class="onward-list">
 			<li>
 				<a href={resolve('/chronology')}>
 					<strong>Chronology</strong>
 					<span
-						>Every word on the list over time, set against {data.overlay.events.length} reference dates:
-						{kinds.map(([k, n]) => `${n} ${k}`).join(', ')}.</span
+						>When the word was used. Set it beside related terms and {data.overlay.events.length}
+						{data.overlay.events.length === 1 ? 'reference date' : 'reference dates'}, year by year
+						or month by month.</span
 					>
 				</a>
 			</li>
 			<li>
-				<a href={resolve('/language')}>
-					<strong>Words in context</strong>
+				<a href={resolve('/actors')}>
+					<strong>Actors</strong>
 					<span
-						>The words that sit next to <em>genocide</em>, how they differ from one speaker or
-						decade to the next, and which terms turn up in the same speech.</span
+						>Who used it, measured against each speaker’s own speeches, with Council membership.</span
 					>
 				</a>
-			</li>
-			<li>
-				<a href={resolve('/actors')}
-					><strong>Actors</strong><span
-						>Who uses the vocabulary, measured against each speaker’s own record, with Council
-						membership and distinctive words.</span
-					></a
-				>
 			</li>
 			<li>
 				<a href={resolve('/concordance')}>
 					<strong>Concordance</strong>
 					<span
-						>All {count(sum(data.series.terms.genocide!.occurrences ?? []))} matches for
-						<code>genocid*</code> with the text around them, sortable, and openable to the full speech.</span
+						>What was said. All {count(sum(data.series.terms.genocide!.occurrences ?? []))} matches for
+						<code>genocid*</code>, each with its sentence and the meeting symbol to cite.</span
 					>
 				</a>
 			</li>
-			<li>
-				<a href={resolve('/usage')}
-					><strong>Usage</strong><span
-						>Experimental model readings of which genocide speakers mean and how they frame it, with
-						coverage and validation status.</span
-					></a
-				>
-			</li>
-			<li>
-				<a href={resolve('/methods')}>
-					<strong>Methods</strong>
-					<span
-						>How each figure was made, where its numbers come from, and what they cannot show.</span
-					>
-				</a>
-			</li>
-		</ul>
+		</ol>
 	</section>
 </article>
 
@@ -694,8 +657,9 @@
 		font-size: var(--step-3);
 	}
 
-	/* The index: separated by rules and space, never by boxes. Unnumbered,
-	   because the order of the sections carries nothing a reader needs. */
+	/* The route: separated by rules and space, never by boxes. An ordered list,
+	   because the order is the standfirst's; no printed numbers, because the
+	   three questions it answers already say which comes first. */
 	.onward-list {
 		list-style: none;
 		margin: 0;

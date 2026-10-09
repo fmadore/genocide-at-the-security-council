@@ -10,6 +10,7 @@
 	import pageProvenance from '$lib/page-provenance.json';
 	import { PROVENANCE_LABELS, type ProvenanceKind } from '$lib/figures';
 	import { basket } from '$lib/basket.svelte';
+	import { buildLine } from '$lib/build';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
@@ -29,6 +30,10 @@
 	});
 
 	const REPO = 'https://github.com/fmadore/genocide-at-the-security-council';
+
+	/* The footer's build line: the manifest's date and commit, the lexicon
+	   version from the scopes the layout already holds. */
+	const build = $derived(buildLine(data.build, data.scopeIndex.meta.lexicon_version, REPO));
 
 	const sections = [
 		{ href: '/', label: 'Overview', blurb: 'The question, and the headline numbers' },
@@ -244,6 +249,16 @@
 			<a href="{REPO}/blob/main/LICENSE-DATA.md">CC BY 4.0</a>. Speech text quoted from the record
 			remains CC0.
 		</p>
+		<!-- Which build of the data a reader is looking at: the payload manifest's
+		     date and commit, and the lexicon the counts were made with. A release
+		     name leads the line once one exists (`$lib/build`). -->
+		{#if build}
+			<p class="quiet" id="build">
+				{build.before}{#if build.commit}{#if build.commit.href}<a href={build.commit.href}
+							><code>{build.commit.short}</code></a
+						>{:else}<code>{build.commit.short}</code>{/if}{/if}{build.after}
+			</p>
+		{/if}
 	</div>
 </footer>
 

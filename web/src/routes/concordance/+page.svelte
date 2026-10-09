@@ -39,7 +39,7 @@
 		FacetDimension,
 		FilterKey
 	} from '$lib/concordance';
-	import { USAGE_TERM } from '$lib/usage';
+	import { USAGE_TERM, runStatus } from '$lib/usage';
 	import ResultProfile from '$lib/ResultProfile.svelte';
 	import { Resource } from '$lib/resource.svelte';
 	import { kwic, meetingOf, usage, usageOccurrences } from '$lib/data';
@@ -141,6 +141,9 @@
 	let referentOf = $state<Map<string, string> | null>(null);
 	const referentLabels = new SvelteMap<string, string>();
 	let referentsFailed = $state<string | null>(null);
+	/* What the payload says of the run those placements come from, for the file
+	   a referent-filtered list is downloaded as: `runStatus` in `$lib/usage`. */
+	let runLabel = $state<string | null>(null);
 	let from = $state(CORPUS_START_YEAR);
 	let to = $state(CORPUS_END_YEAR);
 	/* A month of the year, orthogonal to the year bounds above: `month = 6` with
@@ -333,6 +336,7 @@
 			.then(([occurrences, run]) => {
 				referentOf = referentMap(occurrences.occurrences);
 				for (const r of run.referents) referentLabels.set(r.id, r.label);
+				runLabel = runStatus(run);
 			})
 			.catch((error: Error) => {
 				referentsFailed = error.message;
@@ -448,7 +452,10 @@
 			// so its manifest is on `file` and not on `data`.
 			provenance: provenanceOf(file?.meta ?? data.index.meta, `kwic/${term}.json`),
 			filters,
-			scope
+			scope,
+			// The lines are the record's own, but under a referent filter which of
+			// them are in the file is the model's decision, and the file says so.
+			status: referentsOffered && referent && referentOf ? runLabel : null
 		};
 	}
 

@@ -3,10 +3,25 @@ import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { base } from '../../playwright.config';
 
-test('home onward navigation includes every main subpage', async ({ page }) => {
+test('the overview ends on a route, and the masthead still reaches every page', async ({
+	page
+}) => {
 	await page.goto(`${base}/`);
-	const onward = page.locator('.onward');
-	for (const route of [
+	// When, who, what was said: the standfirst's three questions, in its order.
+	const route = page.locator('.onward');
+	await expect(route.getByRole('heading', { level: 2 })).toHaveText(
+		'Test a claim against the record'
+	);
+	await expect(route.locator('ol > li strong')).toHaveText(['Chronology', 'Actors', 'Concordance']);
+	for (const [index, path] of ['chronology', 'actors', 'concordance'].entries()) {
+		const link = route.locator('ol > li a').nth(index);
+		expect(
+			await link.evaluate((element) => new URL((element as HTMLAnchorElement).href).pathname)
+		).toBe(`${base}/${path}`);
+	}
+	// The other destinations the index used to repeat are one row up, sticky.
+	const sections = page.getByRole('navigation', { name: 'Sections' });
+	for (const path of [
 		'chronology',
 		'language',
 		'actors',
@@ -15,12 +30,20 @@ test('home onward navigation includes every main subpage', async ({ page }) => {
 		'semantic',
 		'methods'
 	]) {
-		const link = onward.locator(`a[href$="/${route}"]`);
-		await expect(link).toBeVisible();
-		expect(
-			await link.evaluate((element) => new URL((element as HTMLAnchorElement).href).pathname)
-		).toBe(`${base}/${route}`);
+		await expect(sections.locator(`a[href$="/${path}"]`)).toHaveCount(1);
 	}
+});
+
+test('the footer says which build of the data is on the page', async ({ page }) => {
+	// The fixture manifest's date and commit, and the fixture lexicon version
+	// the scopes carry: one line, the commit linked to the repository.
+	await page.goto(`${base}/methods/`);
+	const line = page.locator('footer #build');
+	await expect(line).toHaveText('Data built 5 September 2026 from commit 1a2b3c4 · lexicon 4');
+	await expect(line.getByRole('link', { name: '1a2b3c4' })).toHaveAttribute(
+		'href',
+		'https://github.com/fmadore/genocide-at-the-security-council/commit/1a2b3c4d5e6f708192a3b4c5d6e7f80912a3b4c5'
+	);
 });
 
 test(
