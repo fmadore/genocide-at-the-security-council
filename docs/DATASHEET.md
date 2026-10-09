@@ -76,7 +76,7 @@ The full list of limitations is in [CORPUS.md](CORPUS.md#limitations-that-must-r
 
 The project collects nothing itself. It reads two files from the source dataset:
 
-> Sakamoto, T., & Matsuoka, T. (2026). *The UNSC Meetings and Speeches*
+> Sakamoto, T., & Matsuoka, T. (2023). *The UNSC Meetings and Speeches*
 > (Version 5.0) [Data set]. Harvard Dataverse.
 > <https://doi.org/10.7910/DVN/CKPTRB> (CC0 1.0).
 

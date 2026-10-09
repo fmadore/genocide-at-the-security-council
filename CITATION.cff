@@ -31,15 +31,15 @@ keywords:
   - international relations
   - reproducible research
 references:
-  # The corpus. The year is that of version 5.0, the pinned version
-  # (config/dataset-pin.json). Harvard Dataverse's own suggested citation
-  # gives 2023, the year the dataset was first published (15 March 2023),
-  # followed by "V5".
+  # The corpus. The year follows Harvard Dataverse's own suggested citation,
+  # which gives the year the dataset was first published (2023) followed by
+  # the version; the pinned version 5.0 (config/dataset-pin.json) was released
+  # on 31 March 2026, which is what `date-released` records.
   - type: database
     title: "The UNSC Meetings and Speeches"
     version: "5.0"
     date-released: "2026-03-31"
-    year: 2026
+    year: 2023
     doi: "10.7910/DVN/CKPTRB"
     url: "https://doi.org/10.7910/DVN/CKPTRB"
     publisher:

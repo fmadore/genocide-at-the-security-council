@@ -343,13 +343,13 @@ disambiguation first, and that is its own project, not a field on this corpus.
 
 ## Citation
 
-> Sakamoto, T., & Matsuoka, T. (2026). _The UNSC Meetings and Speeches_
+> Sakamoto, T., & Matsuoka, T. (2023). _The UNSC Meetings and Speeches_
 > (Version 5.0) [Data set]. Harvard Dataverse.
 > https://doi.org/10.7910/DVN/CKPTRB
 
-The year is that of version 5.0, released 31 March 2026. Harvard Dataverse's own
-suggested citation gives 2023, the year the dataset was first published, followed by
-"V5"; either form identifies the same pinned version.
+The year follows Harvard Dataverse's own suggested citation: the year the dataset
+was first published, followed by the version. Version 5.0, the pinned version, was
+released on 31 March 2026.
 
 Associated article: Sakamoto, T., Matsuoka, T., & Ito, H. (2026), “The Security
 Council in its entirety: unveiling 80 years of deliberation through the UNSC
