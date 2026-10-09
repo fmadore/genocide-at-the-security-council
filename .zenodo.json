@@ -1,0 +1,44 @@
+{
+  "title": "Genocide at the Security Council",
+  "upload_type": "software",
+  "description": "<p>Data pipeline, computational analysis and interactive dashboard studying the use of the word <em>genocide</em> and its semantic neighbourhood in United Nations Security Council speeches, 1946–2024. The corpus is Sakamoto and Matsuoka, <em>The UNSC Meetings and Speeches</em>, version 5.0 (Harvard Dataverse, CC0).</p><p>The model-derived labels in this repository are unvalidated: the human gold sample has not yet been coded. See docs/CLAIMS.md for the status of each kind of figure.</p>",
+  "creators": [
+    {
+      "name": "Madore, Frédérick",
+      "affiliation": "University of Bayreuth",
+      "orcid": "0000-0003-0959-2092"
+    }
+  ],
+  "license": "mit",
+  "notes": "The code is licensed under MIT. Derived artefacts and the project's own prose are licensed under CC BY 4.0, and the source corpus text remains CC0 1.0; see LICENSE-DATA.md.",
+  "access_right": "open",
+  "language": "eng",
+  "keywords": [
+    "United Nations Security Council",
+    "genocide",
+    "atrocity crimes",
+    "digital humanities",
+    "corpus linguistics",
+    "lexicometry",
+    "concordance",
+    "discourse analysis",
+    "text as data",
+    "computational social science",
+    "international relations",
+    "reproducible research"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "10.7910/DVN/CKPTRB",
+      "scheme": "doi",
+      "relation": "isDerivedFrom",
+      "resource_type": "dataset"
+    },
+    {
+      "identifier": "10.1093/jopres/xjag018",
+      "scheme": "doi",
+      "relation": "references",
+      "resource_type": "publication-article"
+    }
+  ]
+}
