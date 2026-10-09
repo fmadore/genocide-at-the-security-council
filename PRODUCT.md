@@ -72,7 +72,9 @@ of its numbers can be walked back to a meeting symbol and a script.
 - Terminology is fixed by the study: *occurrence*, *speech*, *meeting*,
   *reading set*, *register*, *keyness*, *change point*. The site's copy is not
   to be edited under design work.
-- A service worker serves pages and data offline after first visit.
+- A service worker serves the pages, and the data most recently opened, offline
+  after a first visit: the 100 meeting records, 6 concordance terms and 32
+  related-speech files opened last (`web/src/service-worker.ts`).
 - Explicitly undecided: whether students or journalists will get orientation
   of their own.
 
