@@ -22,13 +22,33 @@ export interface Family {
 	matches: (path: string) => boolean;
 	/** How many of its files the offline cache keeps, most recently fetched first. */
 	keep: number;
+	/**
+	 * What a reader calls these files, for the sentence that says what is kept
+	 * offline (`unreachable` in `$lib/data`), so the ceiling and the copy that
+	 * states it cannot drift apart.
+	 */
+	noun?: string;
 }
 
 export const OFFLINE_KEEP: readonly Family[] = [
-	{ matches: (path) => path.startsWith('kwic/') && path !== 'kwic/index.json', keep: 6 },
-	{ matches: (path) => path.startsWith('speeches/'), keep: 100 },
-	{ matches: (path) => path.startsWith('semantic/neighbours/'), keep: 32 }
+	{ matches: (path) => path.startsWith('speeches/'), keep: 100, noun: 'meeting records' },
+	{
+		matches: (path) => path.startsWith('kwic/') && path !== 'kwic/index.json',
+		keep: 6,
+		noun: 'concordance terms'
+	},
+	{
+		matches: (path) => path.startsWith('semantic/neighbours/'),
+		keep: 32,
+		noun: 'related-speech files'
+	}
 ];
+
+/** `100 meeting records, 6 concordance terms and 32 related-speech files`. */
+export function offlineCeilings(families: readonly Family[] = OFFLINE_KEEP): string {
+	const named = families.filter((family) => family.noun).map((f) => `${f.keep} ${f.noun}`);
+	return named.length > 1 ? `${named.slice(0, -1).join(', ')} and ${named.at(-1)}` : named.join('');
+}
 
 /**
  * The cached paths to drop so that each bounded family keeps only its most

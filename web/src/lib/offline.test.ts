@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { OFFLINE_KEEP, overflow } from './offline';
+import { unreachable } from './data';
+import { OFFLINE_KEEP, offlineCeilings, overflow } from './offline';
 
 const root = '/site/data/';
 
@@ -39,6 +40,21 @@ describe('the offline cache ceiling', () => {
 			'/elsewhere/data/speeches/A.json.gz'
 		];
 		expect(overflow(cached, root)).toEqual([]);
+	});
+
+	it('names every ceiling in the sentence a reader offline is shown', () => {
+		// The sentence is built from the ceilings, so a change to one changes the
+		// copy with it: "pages already visited stay available offline" was true
+		// until the meeting files got a ceiling, and nothing said so.
+		expect(OFFLINE_KEEP.every((family) => family.noun)).toBe(true);
+		expect(offlineCeilings()).toBe(
+			'100 meeting records, 6 concordance terms and 32 related-speech files'
+		);
+		expect(offlineCeilings([{ matches: () => true, keep: 3, noun: 'things' }])).toBe('3 things');
+		expect(unreachable('speeches/SC07000-01.json.gz')).toContain(
+			'the cache keeps only the 100 meeting records, 6 concordance terms and 32 ' +
+				'related-speech files opened most recently.'
+		);
 	});
 
 	it('bounds every family that grows with the reading', () => {

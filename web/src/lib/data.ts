@@ -11,6 +11,7 @@
 
 import { browser } from '$app/environment';
 import { base } from '$app/paths';
+import { offlineCeilings } from './offline';
 import type {
 	AnnualSeries,
 	Breakdowns,
@@ -727,8 +728,9 @@ function evict(path: string, url: string): void {
  */
 export const unreachable = (path: string) =>
 	`Could not reach ${path}. There is no connection to the site, and this file ` +
-	`is not in the offline cache. Reconnect and reload the page; pages and ` +
-	`figures already visited stay available offline.`;
+	`is not in the offline cache. Reconnect and reload the page. Pages already ` +
+	`visited stay available offline, but the cache keeps only the ` +
+	`${offlineCeilings()} opened most recently.`;
 
 /**
  * A failure this boundary has already put into words for the reader.
