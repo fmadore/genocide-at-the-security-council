@@ -71,6 +71,25 @@ class TestDocumentTerms:
         assert spread["council"]["meetings"] is None
         assert matrix.dispersion([]) == {}
 
+    def test_the_whole_count_comes_back_in_the_order_05_counted_it(self):
+        """05's reference is read through the matrix; its order must not move."""
+        whole = keyness.build(CORPUS).counter(list(range(len(CORPUS))))
+        assert list(whole.items()) == list(lexical.vocabulary(CORPUS).items())
+
+    def test_each_row_is_the_counter_its_text_gives(self):
+        matrix = keyness.build(CORPUS)
+        rows = [3, 0, 5]
+        expected = lexical.document_vocabulary([CORPUS[i] for i in rows])
+        found = matrix.counters(rows)
+        assert [list(c.items()) for c in found] == [list(c.items()) for c in expected]
+
+    def test_another_tokenisation_counts_its_own_units(self):
+        """Lemma rows are counted through the same matrix, split their own way."""
+        rows = ["kill|kill|state", "state|council"]
+        matrix = lexical.document_terms(rows, tokens=lambda row: row.split("|"))
+        assert matrix.counter([0, 1]) == Counter({"kill": 2, "state": 2, "council": 1})
+        assert matrix.counters([1]) == [Counter({"state": 1, "council": 1})]
+
     def test_the_matrix_knows_its_own_shape(self):
         matrix = keyness.build(CORPUS)
         assert matrix.documents == len(CORPUS)

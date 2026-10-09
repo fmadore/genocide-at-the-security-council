@@ -122,7 +122,7 @@ def eligible(speeches: pd.DataFrame, minimum: int) -> pd.Series:
 
 def build_speakers(
     speeches: pd.DataFrame,
-    matrix: keyness.DocumentTerms,
+    matrix: lexical.DocumentTerms,
     stratum_column: str,
     reference,
     reference_total: int,

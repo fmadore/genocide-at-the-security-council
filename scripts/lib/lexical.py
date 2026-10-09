@@ -37,9 +37,11 @@ import bisect
 import hashlib
 import math
 import re
+from array import array
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from functools import cached_property
 
 import numpy as np
 import pandas as pd
@@ -186,6 +188,179 @@ def vocabulary(texts) -> Counter[str]:
 def document_vocabulary(texts) -> list[Counter[str]]:
     """The same counts, one `Counter` per document, for :func:`dispersion`."""
     return [Counter(words(source)) for source in texts]
+
+
+# --- The corpus as counts --------------------------------------------------
+
+
+def _gather(indptr: np.ndarray, rows: np.ndarray) -> np.ndarray:
+    """Positions of every (document, term) entry belonging to `rows`.
+
+    The loop-free form of ``concatenate([arange(indptr[r], indptr[r+1]) ...])``.
+    Written out because the readable version allocates one array per document,
+    and this is called once per speaker per seed.
+    """
+    starts = indptr[rows]
+    lengths = indptr[rows + 1] - starts
+    total = int(lengths.sum())
+    if total == 0:
+        return np.empty(0, dtype=np.int64)
+    out_starts = np.zeros(len(rows), dtype=np.int64)
+    np.cumsum(lengths[:-1], out=out_starts[1:])
+    return np.arange(total) - np.repeat(out_starts, lengths) + np.repeat(starts, lengths)
+
+
+@dataclass(frozen=True)
+class DocumentTerms:
+    """The corpus as (document, term, count) triples, in compressed row form.
+
+    `indptr[i]:indptr[i + 1]` is document *i*'s slice of `terms` and `counts`.
+    Row numbers are positions in the frame the matrix was built from, which is
+    why its callers refuse anything but a positional index: a matrix that
+    silently disagreed with its frame about which row is which would produce a
+    perfectly plausible table for the wrong speaker.
+
+    05 reads its matched draws from it and 12 its speakers', so a step
+    tokenises the corpus once however many draws re-read the same speeches.
+    """
+
+    words: list[str]
+    indptr: np.ndarray
+    terms: np.ndarray
+    counts: np.ndarray
+
+    @property
+    def documents(self) -> int:
+        return len(self.indptr) - 1
+
+    @property
+    def entries(self) -> int:
+        return len(self.terms)
+
+    @cached_property
+    def ids(self) -> dict[str, int]:
+        """Each word's vocabulary id, for reading a few words out of :meth:`totals`."""
+        return {word: identifier for identifier, word in enumerate(self.words)}
+
+    def totals(self, rows: np.ndarray) -> np.ndarray:
+        """Summed counts per vocabulary id over the given row positions."""
+        positions = _gather(self.indptr, np.asarray(rows, dtype=np.int64))
+        if len(positions) == 0:
+            return np.zeros(len(self.words), dtype=np.int64)
+        return np.bincount(
+            self.terms[positions],
+            weights=self.counts[positions],
+            minlength=len(self.words),
+        ).astype(np.int64)
+
+    def counter(self, rows: np.ndarray) -> Counter[str]:
+        """The same sum as a `Counter`, which is what :func:`compare` reads."""
+        totals = self.totals(rows)
+        present = np.flatnonzero(totals)
+        return Counter({self.words[i]: int(totals[i]) for i in present})
+
+    def counters(self, rows: np.ndarray) -> list[Counter[str]]:
+        """Each row's own counts, in row order, for :func:`dispersion`.
+
+        A row's words keep the order they first appear in its text, so each is
+        the `Counter` :func:`document_vocabulary` builds from that text.
+        """
+        found: list[Counter[str]] = []
+        for row in np.asarray(rows, dtype=np.int64).tolist():
+            start, stop = int(self.indptr[row]), int(self.indptr[row + 1])
+            found.append(
+                Counter(
+                    dict(
+                        zip(
+                            [self.words[term] for term in self.terms[start:stop].tolist()],
+                            self.counts[start:stop].tolist(),
+                            strict=True,
+                        )
+                    )
+                )
+            )
+        return found
+
+    def dispersion(
+        self, rows: np.ndarray, meetings: np.ndarray | None = None
+    ) -> dict[str, dict[str, object]]:
+        """:func:`dispersion` over the given rows, vectorised.
+
+        The same numbers the pure-Python version gives on the same documents —
+        asserted in `tests/test_keyness.py` — computed here over the matrix
+        because a speaker with two thousand speeches, re-paired twenty times,
+        cannot afford to rebuild two thousand `Counter`s per draw. `meetings`
+        is the meeting of every document in the *matrix* (positional, like the
+        rows), or None for a null column.
+        """
+        rows = np.asarray(rows, dtype=np.int64)
+        if rows.size == 0:
+            return {}
+        lengths = self.indptr[rows + 1] - self.indptr[rows]
+        positions = _gather(self.indptr, rows)
+        if positions.size == 0:
+            return {}
+        local = np.repeat(np.arange(rows.size), lengths)
+        terms = self.terms[positions]
+        counts = self.counts[positions].astype(float)
+        sizes = np.bincount(local, weights=counts, minlength=rows.size)
+        total = float(sizes.sum())
+        if total <= 0:
+            return {}
+        expected = sizes / total
+        vocabulary = len(self.words)
+        frequency = np.bincount(terms, weights=counts, minlength=vocabulary)
+        observed = counts / frequency[terms]
+        difference = np.bincount(
+            terms, weights=np.abs(expected[local] - observed), minlength=vocabulary
+        )
+        covered = np.bincount(terms, weights=expected[local], minlength=vocabulary)
+        documents = np.bincount(terms, minlength=vocabulary)
+        distinct: np.ndarray | None = None
+        if meetings is not None:
+            codes = pd.factorize(np.asarray(meetings)[rows])[0]
+            key = np.unique(terms.astype(np.int64) * (codes.max() + 1) + codes[local])
+            distinct = np.bincount(key // (codes.max() + 1), minlength=vocabulary)
+        present = np.flatnonzero(frequency)
+        return {
+            self.words[i]: {
+                "documents": int(documents[i]),
+                "meetings": None if distinct is None else int(distinct[i]),
+                "dp": round(float(0.5 * (difference[i] + 1.0 - covered[i])), 4),
+            }
+            for i in present
+        }
+
+
+def document_terms(texts, tokens: Callable[[str], list[str]] = words) -> DocumentTerms:
+    """Count every document once, into the compressed form above.
+
+    `tokens` turns one text into its countable units: :func:`words` by
+    default, `lib.lemmas.decode` for a lemma row. Words are numbered in order
+    of first appearance, so :meth:`DocumentTerms.counter` over every row is the
+    `Counter` :func:`vocabulary` returns, in the same order.
+
+    `array` rather than a list of Python ints: twenty-six million entries is
+    a hundred megabytes as int32 and roughly a gigabyte as boxed integers.
+    """
+    vocabulary: dict[str, int] = {}
+    indptr = array("q", [0])
+    terms = array("i")
+    counts = array("i")
+    for source in texts:
+        for word, count in Counter(tokens(source)).items():
+            identifier = vocabulary.get(word)
+            if identifier is None:
+                identifier = vocabulary[word] = len(vocabulary)
+            terms.append(identifier)
+            counts.append(count)
+        indptr.append(len(terms))
+    return DocumentTerms(
+        words=list(vocabulary),
+        indptr=np.frombuffer(indptr, dtype=np.int64).copy(),
+        terms=np.frombuffer(terms, dtype=np.int32).copy(),
+        counts=np.frombuffer(counts, dtype=np.int32).copy(),
+    )
 
 
 # --- Dispersion ------------------------------------------------------------
