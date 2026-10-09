@@ -143,6 +143,56 @@ test('a basket from another version is refused without being destroyed', async (
 	expect(await page.evaluate(() => localStorage.getItem('unsc-genocide:basket'))).not.toBe(foreign);
 });
 
+/**
+ * Two tabs share one stored basket. Each used to save its own copy over the
+ * whole of it, so the last tab to save erased what the other had added.
+ */
+test('two open tabs add to one basket rather than overwriting each other', async ({ context }) => {
+	const first = await context.newPage();
+	const second = await context.newPage();
+	for (const tab of [first, second]) {
+		await tab.goto(concordance);
+		await expect(tab.locator('.line').first()).toBeVisible();
+	}
+
+	await first.locator('.line').first().click();
+	await first.getByRole('button', { name: 'Add to basket' }).first().click();
+	await expect(first.getByRole('button', { name: /^Basket/ })).toContainText('1');
+	// The other tab follows the write as it happens.
+	await expect(second.getByRole('button', { name: /^Basket/ })).toContainText('1');
+
+	await second.locator('.line').nth(1).click();
+	await second.getByRole('button', { name: 'Add to basket' }).first().click();
+	await expect(second.getByRole('button', { name: /^Basket/ })).toContainText('2');
+	await expect(first.getByRole('button', { name: /^Basket/ })).toContainText('2');
+
+	const stored = await first.evaluate(() =>
+		JSON.parse(localStorage.getItem('unsc-genocide:basket') ?? '{}')
+	);
+	expect(stored.items.map((item: { id: string }) => item.id)).toEqual([
+		'SC07000-01-001#1',
+		'SC07000-01-001#2'
+	]);
+
+	// A note written in one tab survives a removal made in the other.
+	await first.getByRole('button', { name: /^Basket/ }).click();
+	const drawer = first.getByRole('dialog');
+	await drawer.getByRole('textbox').first().fill('Kept from the first tab.');
+	await drawer.getByRole('textbox').first().blur();
+	await second.getByRole('button', { name: /^Basket/ }).click();
+	await second
+		.getByRole('dialog')
+		.getByRole('button', { name: /^Remove/ })
+		.last()
+		.click();
+	await expect(first.getByRole('button', { name: /^Basket/ })).toContainText('1');
+	const after = await second.evaluate(() =>
+		JSON.parse(localStorage.getItem('unsc-genocide:basket') ?? '{}')
+	);
+	expect(after.items).toHaveLength(1);
+	expect(after.items[0].note).toBe('Kept from the first tab.');
+});
+
 async function expectNoAxeViolations(page: import('@playwright/test').Page) {
 	const { violations } = await new AxeBuilder({ page }).analyze();
 	expect(violations).toEqual([]);
