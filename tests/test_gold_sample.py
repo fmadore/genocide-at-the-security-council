@@ -466,6 +466,25 @@ def test_the_prompt_examples_are_the_committed_mapping() -> None:
     assert set(mapping["example"]) == {str(number) for number in range(1, 11)}
 
 
+def test_the_prior_review_list_carries_identities_and_nothing_else() -> None:
+    """The 59 passages read against Qwen's labels on 10 September 2026: an
+    identity per passage, never a label, and the two whose ordinal lexicon 8
+    moved recorded under both line ids (docs/EVALUATION_PLAN.md §4)."""
+    listed = pd.read_csv(model_runs.PRIOR_REVIEW, dtype="string", keep_default_na=False)
+    assert list(listed.columns) == [
+        "occurrence_id", "line_id", "reviewed_line_id", "reviewed_on", "source",
+    ]
+    assert len(listed) == 59
+    assert listed["occurrence_id"].is_unique and listed["reviewed_line_id"].is_unique
+    assert (listed["occurrence_id"].str.fullmatch(r"[0-9a-f]{64}")).all()
+    assert set(listed["reviewed_on"]) == {"2026-09-10"}
+    moved = listed.loc[listed["line_id"] != listed["reviewed_line_id"]]
+    assert dict(zip(moved["reviewed_line_id"], moved["line_id"], strict=True)) == {
+        "SC04429-01-009#5": "SC04429-01-009#6",
+        "SC05697-01-040#1": "SC05697-01-040#2",
+    }
+
+
 def test_the_coding_page_offers_exactly_the_codebook_vocabularies() -> None:
     spec = importlib.util.spec_from_file_location(
         "coding_page", Path(__file__).resolve().parents[1] / "tools" / "coding_page.py"

@@ -43,6 +43,14 @@ ALLOW_PARTIAL_RUN = STORE / "allow_partial_run.txt"
 GOLD_ANNOTATIONS = ANNOTATIONS / TERM / "annotations.csv"
 SMOKE_RUNS = INTERIM / "model_annotation_smoke"
 
+#: The passages read against a model's labels before gold coding began, by
+#: identity and without their labels; written by `tools/prior_review.py`. 13
+#: flags those it draws with a column of this name in the candidate and design
+#: files, never in the packet, and 15 reads the flag back from the candidates
+#: to report every gold figure with and without them.
+PRIOR_REVIEW = ANNOTATIONS / TERM / "prior_review.csv"
+PRIOR_REVIEW_FLAG = "prior_review"
+
 #: The gold sample 13 draws: every candidate row, the design that weights a
 #: coded unit back to the corpus, and the blinded packet a coder opens. 15
 #: reports on the first two and `tools/coding_page.py` renders the third.

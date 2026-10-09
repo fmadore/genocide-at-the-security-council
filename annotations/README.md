@@ -46,10 +46,19 @@ shows each passage in its speech, takes the evidence span as a text selection, a
 codebook's cascade and exports rows in this file's column order. The frames stay in the
 candidate and review files, which are the key.
 
+**Passages already read against a model's labels are flagged, not dropped.**
+`genocide/prior_review.csv` lists the 59 occurrences read against the Qwen run's labels on
+10 September 2026, by `occurrence_id` and line id and with no label, evidence or rationale;
+`tools/prior_review.py` rebuilds it from the review's records, step 13 marks the ones it draws
+with a `prior_review` column in the candidate and design files (never in the packet), and
+step 15 reports every gold figure with and without them
+([`docs/EVALUATION_PLAN.md`](../docs/EVALUATION_PLAN.md), section 4).
+
 **A model label can be a sampling stratum, exactly as the cue is.** The optional third frame
 is cut from `model_annotations/`, and what it says about an occurrence is that it is worth a
 coder's time—never what the coder should write. Nothing under this directory is read while a
-candidate is being drawn, and nothing here is written by any script.
+candidate is being drawn, and nothing here is written by the pipeline: `prior_review.csv`
+changes only when someone runs `tools/prior_review.py --write` and commits the diff.
 
 Same schema, same codebook, same rules: the columns are the twenty-two in
 `lexicon/annotations.csv`, the labels are the ones defined in `lexicon/CODEBOOK.md`
