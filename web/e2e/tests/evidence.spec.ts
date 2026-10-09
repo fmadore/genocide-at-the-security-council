@@ -149,9 +149,9 @@ test('a concordance hit opens, copies, and traverses exact occurrences', async (
 test('an occurrence opened under a referent filter keeps its tools and its neighbours', async ({
 	page
 }) => {
-	// The reader filtered the term's lines without the published run's
-	// placements, so a referent filter kept none of them and the quotation,
-	// basket, citation and previous/next controls vanished without a word.
+	// The referent filter needs the published run's placements. Without them
+	// it keeps no line, and the quotation, basket, citation and previous/next
+	// controls would have nothing to act on.
 	await page.goto(
 		`${base}/reader/SC07000-01?term=genocide&referent=rwanda_1994&speech=SC07000-01-001&occurrence=SC07000-01-001%231`
 	);

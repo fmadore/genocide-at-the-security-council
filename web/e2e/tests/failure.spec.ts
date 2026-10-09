@@ -4,9 +4,8 @@
  * Every route loads its artefacts in `+page.ts`, and SvelteKit replaces the
  * message of an error it did not raise with "Internal Error". The sentences
  * `$lib/data` writes — no connection, not in this release, refused by the
- * boundary — therefore never reached a reader on a page load, which is the one
- * moment a reader offline most needs them. The hook in `hooks.client.ts` passes
- * them through.
+ * boundary — are the ones a reader offline most needs on a page load, so the
+ * hook in `hooks.client.ts` passes them through.
  *
  * Each failure is staged on a client-side navigation, because that is where the
  * browser fetches for itself: the first page of a visit arrives with its data
@@ -56,7 +55,7 @@ test('a file the boundary refuses carries the refusal to the page', async ({ pag
 
 test('a decomposition that is present and refused is not drawn around', async ({ page }) => {
 	// The one artefact the chronology may do without is the one most likely to
-	// fail quietly: a refusal used to become "no data" along with an absence.
+	// fail quietly: only its absence may become "no data", never a refusal.
 	await page.route('**/data/series/decomposition.json', (route) =>
 		route.fulfill({ json: { meta: { script: 'fixture', generated: 'fixture' }, term: 'genocide' } })
 	);

@@ -216,10 +216,10 @@ export function filterConcordance(
 	 *
 	 * Each line's key is computed once, before the sort, rather than inside the
 	 * comparator. A comparison sort calls the comparator about n log n times, so
-	 * a key built per call was built some thirty times per line on the largest
-	 * terms — and the reversed left context, a string rebuilt character by
-	 * character, made that sort take seconds on every filter change and every
-	 * previous/next in the reader.
+	 * a key built per call would be built some thirty times per line on the
+	 * largest terms, and the reversed left context is a string rebuilt character
+	 * by character. This sort runs on every filter change and on every previous
+	 * or next in the reader.
 	 */
 	const key = SORT_KEYS[state.sort];
 	const keyed = rows.map((line) => ({ line, key: key(line) }));
@@ -701,11 +701,11 @@ export function filtersInForce(
  * Every narrowing in force, as the exported file records it, then the sort.
  *
  * Built from `filtersInForce` so the file and the chips cannot disagree about
- * which narrowings apply: the list used to be written out a second time by
- * hand, and it left out the referent, so a file filtered to one referent said
- * nothing of it. The wording is the file's own, which predates the chips and
- * stays as it was: the speaker and the meeting are written as the corpus
- * writes them rather than shortened, and the years always as a range.
+ * which narrowings apply: a second list written by hand is a list that can
+ * leave one out, and a file that does not name a filter misstates how its
+ * rows were chosen. The wording is the file's own rather than the chips': the
+ * speaker and the meeting are written as the corpus writes them rather than
+ * shortened, and the years always as a range.
  */
 export function exportFilters(
 	state: ConcordanceState,

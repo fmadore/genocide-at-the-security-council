@@ -191,7 +191,7 @@ describe('what a bad response is turned into', () => {
 		const { DataError, annual, collocates } = await fresh();
 		// The page error hook passes these sentences to the reader and nothing
 		// else, so a refusal that left as a plain Error would reach the page as
-		// "Internal Error" again.
+		// "Internal Error".
 		const missing = await collocates(responder(null, { ok: false, status: 404 }).fetcher).catch(
 			(error: unknown) => error
 		);

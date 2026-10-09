@@ -678,8 +678,8 @@ describe('the narrowings in force', () => {
 	});
 
 	it('writes every chip into the exported file, the referent included', () => {
-		// The file's list used to be written out by hand beside the chips and left
-		// the referent out, so a download filtered to one referent did not say so.
+		// Every chip is a narrowing of the rows, so every one belongs in the file:
+		// a download filtered to one referent has to say so.
 		const everything = {
 			...state,
 			group: 'E10',

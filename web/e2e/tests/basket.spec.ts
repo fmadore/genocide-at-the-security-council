@@ -144,8 +144,8 @@ test('a basket from another version is refused without being destroyed', async (
 });
 
 /**
- * Two tabs share one stored basket. Each used to save its own copy over the
- * whole of it, so the last tab to save erased what the other had added.
+ * Two tabs share one stored basket. A tab that saved its own copy over the
+ * whole of it would erase whatever the other had added since.
  */
 test('two open tabs add to one basket rather than overwriting each other', async ({ context }) => {
 	const first = await context.newPage();
