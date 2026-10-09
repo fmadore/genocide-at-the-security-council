@@ -70,8 +70,9 @@ import io
 import math
 import textwrap
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -299,7 +300,7 @@ def calibrate(
     null_shares: np.ndarray,
     k: int,
     quantile: float = NULL_QUANTILE,
-) -> dict[str, object]:
+) -> dict[str, Any]:
     """Where to draw NMF's abstention line, and the evidence for drawing it there.
 
     The rule, fixed before the run: assign a document only when its best topic is
@@ -418,7 +419,7 @@ def fit_nmf(
     weights, model = factorise(matrix)
     shares = dominant_share(weights)
 
-    calibration: dict[str, object] | None = None
+    calibration: dict[str, Any] | None = None
     if min_weight is None:
         # `transform`, not `fit_transform`: the null must be scored through the
         # real corpus's vocabulary and idf, or the two share distributions are
@@ -792,7 +793,7 @@ def intrusion_key(items: list[dict[str, object]]) -> list[dict[str, object]]:
 
 
 def score_intrusion(
-    responses: list[dict[str, object]], key: list[dict[str, object]]
+    responses: list[dict[str, Any]], key: list[dict[str, object]]
 ) -> dict[str, object]:
     """Join a completed task to its key and report accuracy per model.
 
@@ -1284,7 +1285,7 @@ def group_others(values: object, limit: int, other: str = OTHER_LABEL) -> np.nda
 
 def draw_projection(
     projected: np.ndarray,
-    values: object,
+    values: Collection[object],
     *,
     title: str,
     colour_label: str,

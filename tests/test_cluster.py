@@ -12,11 +12,15 @@ They also pin the two invariants the pipeline depends on — that 06 runs before
 
 from __future__ import annotations
 
+import argparse
+import importlib
 import re
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import yaml
+from conftest import make_speeches
 
 ROOT = Path(__file__).resolve().parents[1]
 CLUSTER = ROOT / "scripts" / "cluster"
@@ -197,15 +201,46 @@ def test_annotation_profiles_pin_every_selected_checkpoint() -> None:
 
 def test_annotation_smoke_output_cannot_be_a_committed_run() -> None:
     job = read(CLUSTER / "submit_annotate.sh")
-    step = (ROOT / "scripts" / "14_llm_annotate.py").read_text(encoding="utf-8")
+    step = importlib.import_module("14_llm_annotate")
     from lib import model_runs
     from lib.paths import INTERIM, MODEL_ANNOTATIONS
 
     assert "UNSC_SMOKE" in job and "--smoke" in job
     assert model_runs.SMOKE_RUNS.is_relative_to(INTERIM)
     assert not model_runs.SMOKE_RUNS.is_relative_to(MODEL_ANNOTATIONS)
-    assert "SMOKE_RUNS = model_runs.SMOKE_RUNS" in step
-    assert 'if args.smoke and args.limit is None' in step
+    assert step.SMOKE_RUNS == model_runs.SMOKE_RUNS
+
+
+def annotation_arguments(**overrides: object) -> argparse.Namespace:
+    """What 14's parser hands `run`, up to the checks made before any request."""
+    values: dict[str, object] = {
+        "run_id": "smoke-probe",
+        "smoke": True,
+        "limit": None,
+        "concurrency": 4,
+        "temperature": 0.0,
+        "top_p": 1.0,
+    }
+    return argparse.Namespace(**{**values, **overrides})
+
+
+def test_a_smoke_annotation_without_a_limit_is_refused(tmp_path, monkeypatch, capsys) -> None:
+    """A smoke run must never cover the full corpus: 14 stops before it asks
+    anything, and with a limit the same run gets past that check."""
+    step = importlib.import_module("14_llm_annotate")
+    monkeypatch.setattr(step, "SMOKE_RUNS", tmp_path / "smoke")
+    monkeypatch.setattr(step, "ensure_dirs", lambda: None)
+    monkeypatch.delenv("VLLM_BASE_URL", raising=False)
+
+    with pytest.raises(SystemExit):
+        step.run(annotation_arguments())
+    assert "--smoke requires --limit" in capsys.readouterr().err
+
+    with pytest.raises(SystemExit):
+        step.run(annotation_arguments(limit=5))
+    refused = capsys.readouterr().err
+    assert "--smoke requires --limit" not in refused
+    assert "VLLM_BASE_URL is not set" in refused
 
 
 def test_the_topic_job_does_not_request_a_gpu() -> None:
@@ -225,13 +260,37 @@ def test_the_topic_job_refuses_to_run_without_embeddings() -> None:
     assert "vectors.npy" in text and "exit 1" in text
 
 
-def test_the_smoke_test_cannot_overwrite_a_real_run() -> None:
+def test_the_smoke_test_cannot_overwrite_a_real_run(monkeypatch, capsys) -> None:
     """`atomic_directory` replaces its target wholesale, so a 256-speech test
-    would leave something indistinguishable from a corpus artefact."""
+    would leave something indistinguishable from a corpus artefact.
+
+    06 is run up to the point where it would load the model, which needs a GPU
+    stack CI does not have, and the directory it announces is read off its log.
+    """
     assert "--limit" in read(CLUSTER / "smoke.sh")
-    step = (ROOT / "scripts" / "06_embed.py").read_text(encoding="utf-8")
-    assert "SMOKE = DERIVED" in step
-    assert "target = SMOKE" in step
+    step = importlib.import_module("06_embed")
+    from lib.paths import DERIVED, EMBEDDINGS, rel
+
+    assert step.SMOKE.parent == DERIVED and step.SMOKE != EMBEDDINGS
+
+    class ModelWouldLoad(Exception):
+        pass
+
+    def load_model(*args: object, **kwargs: object) -> None:
+        raise ModelWouldLoad
+
+    corpus = make_speeches([{"has_genocide": False} for _ in range(5)])
+    monkeypatch.setattr(step, "ensure_dirs", lambda: None)
+    monkeypatch.setattr(step.frames, "read", lambda path, columns=None: corpus[columns])
+    monkeypatch.setattr(step.embeddings, "load_model", load_model)
+
+    with pytest.raises(ModelWouldLoad):
+        step.run(None, 3, None, "float16", 10)
+    assert f"writing to {rel(step.SMOKE)}" in capsys.readouterr().out
+
+    with pytest.raises(ModelWouldLoad):
+        step.run(None, 0, None, "float16", 10)
+    assert "writing to" not in capsys.readouterr().out
 
 
 # --- Documentation and configuration agree ---------------------------------
@@ -271,14 +330,21 @@ def test_the_gpu_requirements_are_separate_from_the_pinned_pipeline() -> None:
 # --- Step order ------------------------------------------------------------
 
 
-def test_embeddings_are_step_06_and_topics_step_07() -> None:
+def test_embeddings_are_step_06_and_topics_step_07(tmp_path, monkeypatch, capsys) -> None:
     """07 reads 06's vectors; the reverse numbering would make an earlier step
-    depend on a later one."""
-    paths = (ROOT / "scripts" / "lib" / "paths.py").read_text(encoding="utf-8")
-    assert re.search(r'EMBEDDINGS = DERIVED / "embeddings"\s*#\s*06', paths)
-    assert re.search(r'TOPICS = DERIVED / "topics"\s*#\s*07', paths)
-    assert (ROOT / "scripts" / "06_embed.py").exists()
-    assert (ROOT / "scripts" / "07_topics.py").exists()
+    depend on a later one. 06 writes the directory 07 reads, and 07 refuses to
+    start without it and says which step to run."""
+    from lib.paths import EMBEDDINGS, TOPICS
+
+    embed = importlib.import_module("06_embed")
+    topic = importlib.import_module("07_topics")
+    assert embed.EMBEDDINGS == topic.EMBEDDINGS == EMBEDDINGS
+    assert TOPICS != EMBEDDINGS
+
+    monkeypatch.setattr(topic, "EMBEDDINGS", tmp_path / "embeddings")
+    with pytest.raises(SystemExit):
+        topic.load_vectors(pd.Series(["r0"]))
+    assert "run 06_embed.py first" in capsys.readouterr().err
 
 
 #: Everything 07 writes into data/derived/topics/. The dashboard must be unable
@@ -312,7 +378,12 @@ def test_topics_stay_out_of_the_dashboard() -> None:
 
 def test_the_step_writes_every_file_the_guarantee_covers() -> None:
     """The list above is only a guarantee if it is the list of what 07 writes.
-    A new artefact that nothing checks is a new artefact nothing protects."""
+    A new artefact that nothing checks is a new artefact nothing protects.
+
+    Read from 07's source, deliberately: running 07 needs scikit-learn, UMAP
+    and HDBSCAN, which CI does not install, and the file names are written
+    inline where the step stages its directory rather than kept in a constant
+    a test could import."""
     step = (ROOT / "scripts" / "07_topics.py").read_text(encoding="utf-8")
     for name in TOPIC_FILES:
         assert name in step, f"07 no longer writes {name} — update TOPIC_FILES"

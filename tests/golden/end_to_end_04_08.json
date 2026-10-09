@@ -173,6 +173,74 @@
     0.0,
     0.071429
    ],
+   "speech_rate_cluster_high": [
+    0.259259,
+    0.208333,
+    0.416667,
+    0.09375,
+    0.12,
+    0.125,
+    0.129247,
+    0.125,
+    0.0,
+    0.173913,
+    0.0,
+    0.088235,
+    0.115385,
+    0.085714,
+    0.115385,
+    0.18774,
+    0.166667,
+    0.136364,
+    0.133333,
+    0.181818,
+    0.0,
+    0.206897,
+    0.214286,
+    0.0,
+    0.12,
+    0.0,
+    0.083452,
+    0.115385,
+    0.0,
+    0.0,
+    0.0,
+    0.129032
+   ],
+   "speech_rate_cluster_low": [
+    0.0,
+    0.025641,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.033333,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
    "speech_rate_high": [
     0.289759,
     0.242182,
@@ -562,6 +630,144 @@
     0
    ]
   }
+ },
+ "decomposition": {
+  "agenda_item_manual": [
+   {
+    "change": -0.028586,
+    "composition": 1.1e-05,
+    "from": 1990,
+    "group_column": "agenda_item_manual",
+    "largest": [
+     {
+      "contribution": -0.017683,
+      "group": "Syria"
+     },
+     {
+      "contribution": -0.010903,
+      "group": "Rwanda"
+     }
+    ],
+    "rate_from": 0.069264,
+    "rate_to": 0.040678,
+    "to": 2000,
+    "within": -0.028597
+   },
+   {
+    "change": -0.004254,
+    "composition": 0.00068,
+    "from": 2000,
+    "group_column": "agenda_item_manual",
+    "largest": [
+     {
+      "contribution": -0.017106,
+      "group": "Rwanda"
+     },
+     {
+      "contribution": 0.012852,
+      "group": "Syria"
+     }
+    ],
+    "rate_from": 0.040678,
+    "rate_to": 0.036424,
+    "to": 2010,
+    "within": -0.004934
+   },
+   {
+    "change": -0.019617,
+    "composition": -0.000239,
+    "from": 2010,
+    "group_column": "agenda_item_manual",
+    "largest": [
+     {
+      "contribution": -0.029801,
+      "group": "Syria"
+     },
+     {
+      "contribution": 0.010184,
+      "group": "Rwanda"
+     }
+    ],
+    "rate_from": 0.036424,
+    "rate_to": 0.016807,
+    "to": 2020,
+    "within": -0.019378
+   }
+  ],
+  "speaker_group": [
+   {
+    "change": -0.028586,
+    "composition": 0.002127,
+    "from": 1990,
+    "group_column": "speaker_group",
+    "largest": [
+     {
+      "contribution": -0.024463,
+      "group": "P5"
+     },
+     {
+      "contribution": -0.007147,
+      "group": "E10"
+     },
+     {
+      "contribution": 0.003023,
+      "group": "Non-member state"
+     }
+    ],
+    "rate_from": 0.069264,
+    "rate_to": 0.040678,
+    "to": 2000,
+    "within": -0.030713
+   },
+   {
+    "change": -0.004254,
+    "composition": 9e-05,
+    "from": 2000,
+    "group_column": "speaker_group",
+    "largest": [
+     {
+      "contribution": -0.010405,
+      "group": "Non-member state"
+     },
+     {
+      "contribution": 0.009698,
+      "group": "E10"
+     },
+     {
+      "contribution": -0.003547,
+      "group": "P5"
+     }
+    ],
+    "rate_from": 0.040678,
+    "rate_to": 0.036424,
+    "to": 2010,
+    "within": -0.004344
+   },
+   {
+    "change": -0.019617,
+    "composition": -0.001019,
+    "from": 2010,
+    "group_column": "speaker_group",
+    "largest": [
+     {
+      "contribution": -0.019868,
+      "group": "E10"
+     },
+     {
+      "contribution": 0.006873,
+      "group": "Non-member state"
+     },
+     {
+      "contribution": -0.006623,
+      "group": "P5"
+     }
+    ],
+    "rate_from": 0.036424,
+    "rate_to": 0.016807,
+    "to": 2020,
+    "within": -0.018598
+   }
+  ]
  },
  "frames": {
   "by_year": {

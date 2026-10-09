@@ -1,0 +1,1951 @@
+{
+ "countries": {
+  "countries": [
+   {
+    "country_org": "China",
+    "entity_type": "state",
+    "first_year": 1946,
+    "last_year": 2023,
+    "speeches": 586
+   },
+   {
+    "country_org": "France",
+    "entity_type": "state",
+    "first_year": 1946,
+    "last_year": 2023,
+    "speeches": 576
+   },
+   {
+    "country_org": "Nigeria",
+    "entity_type": "state",
+    "first_year": 1946,
+    "last_year": 2023,
+    "speeches": 591
+   },
+   {
+    "country_org": "Rwanda",
+    "entity_type": "state",
+    "first_year": 1946,
+    "last_year": 2023,
+    "speeches": 575
+   }
+  ],
+  "genocide": [
+   {
+    "country_org": "China",
+    "held": 586,
+    "occurrences": 24,
+    "period": "all",
+    "speech_rate": 0.040956,
+    "speech_rate_high": 0.060216,
+    "speech_rate_low": 0.027674,
+    "speeches": 24,
+    "sufficient": true,
+    "token_rate": 102.3891,
+    "words": 23440
+   },
+   {
+    "country_org": "France",
+    "held": 576,
+    "occurrences": 23,
+    "period": "all",
+    "speech_rate": 0.039931,
+    "speech_rate_high": 0.059204,
+    "speech_rate_low": 0.026753,
+    "speeches": 23,
+    "sufficient": true,
+    "token_rate": 99.8264,
+    "words": 23040
+   },
+   {
+    "country_org": "Nigeria",
+    "held": 591,
+    "occurrences": 29,
+    "period": "all",
+    "speech_rate": 0.049069,
+    "speech_rate_high": 0.069583,
+    "speech_rate_low": 0.03438,
+    "speeches": 29,
+    "sufficient": true,
+    "token_rate": 122.6734,
+    "words": 23640
+   },
+   {
+    "country_org": "Rwanda",
+    "held": 575,
+    "occurrences": 25,
+    "period": "all",
+    "speech_rate": 0.043478,
+    "speech_rate_high": 0.063395,
+    "speech_rate_low": 0.029621,
+    "speeches": 25,
+    "sufficient": true,
+    "token_rate": 108.6957,
+    "words": 23000
+   },
+   {
+    "country_org": "China",
+    "held": 28,
+    "occurrences": 1,
+    "period": "1946-1949",
+    "speech_rate": null,
+    "speech_rate_high": null,
+    "speech_rate_low": null,
+    "speeches": 1,
+    "sufficient": false,
+    "token_rate": null,
+    "words": 1120
+   },
+   {
+    "country_org": "France",
+    "held": 30,
+    "occurrences": 2,
+    "period": "1946-1949",
+    "speech_rate": null,
+    "speech_rate_high": null,
+    "speech_rate_low": null,
+    "speeches": 2,
+    "sufficient": false,
+    "token_rate": null,
+    "words": 1200
+   },
+   {
+    "country_org": "Nigeria",
+    "held": 36,
+    "occurrences": 5,
+    "period": "1946-1949",
+    "speech_rate": null,
+    "speech_rate_high": null,
+    "speech_rate_low": null,
+    "speeches": 5,
+    "sufficient": false,
+    "token_rate": null,
+    "words": 1440
+   },
+   {
+    "country_org": "Rwanda",
+    "held": 19,
+    "occurrences": 0,
+    "period": "1946-1949",
+    "speech_rate": null,
+    "speech_rate_high": null,
+    "speech_rate_low": null,
+    "speeches": 0,
+    "sufficient": false,
+    "token_rate": null,
+    "words": 760
+   },
+   {
+    "country_org": "China",
+    "held": 70,
+    "occurrences": 3,
+    "period": "1950-1959",
+    "speech_rate": 0.042857,
+    "speech_rate_high": 0.118597,
+    "speech_rate_low": 0.014682,
+    "speeches": 3,
+    "sufficient": true,
+    "token_rate": 107.1429,
+    "words": 2800
+   },
+   {
+    "country_org": "France",
+    "held": 63,
+    "occurrences": 1,
+    "period": "1950-1959",
+    "speech_rate": 0.015873,
+    "speech_rate_high": 0.084585,
+    "speech_rate_low": 0.002807,
+    "speeches": 1,
+    "sufficient": true,
+    "token_rate": 39.6825,
+    "words": 2520
+   },
+   {
+    "country_org": "Nigeria",
+    "held": 74,
+    "occurrences": 2,
+    "period": "1950-1959",
+    "speech_rate": 0.027027,
+    "speech_rate_high": 0.093293,
+    "speech_rate_low": 0.007443,
+    "speeches": 2,
+    "sufficient": true,
+    "token_rate": 67.5676,
+    "words": 2960
+   },
+   {
+    "country_org": "Rwanda",
+    "held": 85,
+    "occurrences": 4,
+    "period": "1950-1959",
+    "speech_rate": 0.047059,
+    "speech_rate_high": 0.114837,
+    "speech_rate_low": 0.01845,
+    "speeches": 4,
+    "sufficient": true,
+    "token_rate": 117.6471,
+    "words": 3400
+   },
+   {
+    "country_org": "China",
+    "held": 72,
+    "occurrences": 3,
+    "period": "1960-1969",
+    "speech_rate": 0.041667,
+    "speech_rate_high": 0.115493,
+    "speech_rate_low": 0.014271,
+    "speeches": 3,
+    "sufficient": true,
+    "token_rate": 104.1667,
+    "words": 2880
+   },
+   {
+    "country_org": "France",
+    "held": 67,
+    "occurrences": 2,
+    "period": "1960-1969",
+    "speech_rate": 0.029851,
+    "speech_rate_high": 0.102466,
+    "speech_rate_low": 0.008225,
+    "speeches": 2,
+    "sufficient": true,
+    "token_rate": 74.6269,
+    "words": 2680
+   },
+   {
+    "country_org": "Nigeria",
+    "held": 78,
+    "occurrences": 5,
+    "period": "1960-1969",
+    "speech_rate": 0.064103,
+    "speech_rate_high": 0.141436,
+    "speech_rate_low": 0.027689,
+    "speeches": 5,
+    "sufficient": true,
+    "token_rate": 160.2564,
+    "words": 3120
+   },
+   {
+    "country_org": "Rwanda",
+    "held": 85,
+    "occurrences": 3,
+    "period": "1960-1969",
+    "speech_rate": 0.035294,
+    "speech_rate_high": 0.0987,
+    "speech_rate_low": 0.012075,
+    "speeches": 3,
+    "sufficient": true,
+    "token_rate": 88.2353,
+    "words": 3400
+   },
+   {
+    "country_org": "China",
+    "held": 87,
+    "occurrences": 4,
+    "period": "1970-1979",
+    "speech_rate": 0.045977,
+    "speech_rate_high": 0.11233,
+    "speech_rate_low": 0.018023,
+    "speeches": 4,
+    "sufficient": true,
+    "token_rate": 114.9425,
+    "words": 3480
+   },
+   {
+    "country_org": "France",
+    "held": 80,
+    "occurrences": 2,
+    "period": "1970-1979",
+    "speech_rate": 0.025,
+    "speech_rate_high": 0.086644,
+    "speech_rate_low": 0.006883,
+    "speeches": 2,
+    "sufficient": true,
+    "token_rate": 62.5,
+    "words": 3200
+   },
+   {
+    "country_org": "Nigeria",
+    "held": 72,
+    "occurrences": 2,
+    "period": "1970-1979",
+    "speech_rate": 0.027778,
+    "speech_rate_high": 0.095742,
+    "speech_rate_low": 0.007651,
+    "speeches": 2,
+    "sufficient": true,
+    "token_rate": 69.4444,
+    "words": 2880
+   },
+   {
+    "country_org": "Rwanda",
+    "held": 68,
+    "occurrences": 1,
+    "period": "1970-1979",
+    "speech_rate": 0.014706,
+    "speech_rate_high": 0.07871,
+    "speech_rate_low": 0.002601,
+    "speeches": 1,
+    "sufficient": true,
+    "token_rate": 36.7647,
+    "words": 2720
+   },
+   {
+    "country_org": "China",
+    "held": 69,
+    "occurrences": 0,
+    "period": "1980-1989",
+    "speech_rate": 0.0,
+    "speech_rate_high": 0.052737,
+    "speech_rate_low": 0.0,
+    "speeches": 0,
+    "sufficient": true,
+    "token_rate": 0.0,
+    "words": 2760
+   },
+   {
+    "country_org": "France",
+    "held": 83,
+    "occurrences": 7,
+    "period": "1980-1989",
+    "speech_rate": 0.084337,
+    "speech_rate_high": 0.163995,
+    "speech_rate_low": 0.041453,
+    "speeches": 7,
+    "sufficient": true,
+    "token_rate": 210.8434,
+    "words": 3320
+   },
+   {
+    "country_org": "Nigeria",
+    "held": 68,
+    "occurrences": 2,
+    "period": "1980-1989",
+    "speech_rate": 0.029412,
+    "speech_rate_high": 0.101046,
+    "speech_rate_low": 0.008103,
+    "speeches": 2,
+    "sufficient": true,
+    "token_rate": 73.5294,
+    "words": 2720
+   },
+   {
+    "country_org": "Rwanda",
+    "held": 78,
+    "occurrences": 4,
+    "period": "1980-1989",
+    "speech_rate": 0.051282,
+    "speech_rate_high": 0.124567,
+    "speech_rate_low": 0.020121,
+    "speeches": 4,
+    "sufficient": true,
+    "token_rate": 128.2051,
+    "words": 3120
+   },
+   {
+    "country_org": "China",
+    "held": 78,
+    "occurrences": 4,
+    "period": "1990-1999",
+    "speech_rate": 0.051282,
+    "speech_rate_high": 0.124567,
+    "speech_rate_low": 0.020121,
+    "speeches": 4,
+    "sufficient": true,
+    "token_rate": 128.2051,
+    "words": 3120
+   },
+   {
+    "country_org": "France",
+    "held": 57,
+    "occurrences": 2,
+    "period": "1990-1999",
+    "speech_rate": 0.035088,
+    "speech_rate_high": 0.119208,
+    "speech_rate_low": 0.009676,
+    "speeches": 2,
+    "sufficient": true,
+    "token_rate": 87.7193,
+    "words": 2280
+   },
+   {
+    "country_org": "Nigeria",
+    "held": 83,
+    "occurrences": 6,
+    "period": "1990-1999",
+    "speech_rate": 0.072289,
+    "speech_rate_high": 0.148868,
+    "speech_rate_low": 0.03355,
+    "speeches": 6,
+    "sufficient": true,
+    "token_rate": 180.7229,
+    "words": 3320
+   },
+   {
+    "country_org": "Rwanda",
+    "held": 67,
+    "occurrences": 3,
+    "period": "1990-1999",
+    "speech_rate": 0.044776,
+    "speech_rate_high": 0.123578,
+    "speech_rate_low": 0.015344,
+    "speeches": 3,
+    "sufficient": true,
+    "token_rate": 111.9403,
+    "words": 2680
+   },
+   {
+    "country_org": "China",
+    "held": 78,
+    "occurrences": 4,
+    "period": "2000-2009",
+    "speech_rate": 0.051282,
+    "speech_rate_high": 0.124567,
+    "speech_rate_low": 0.020121,
+    "speeches": 4,
+    "sufficient": true,
+    "token_rate": 128.2051,
+    "words": 3120
+   },
+   {
+    "country_org": "France",
+    "held": 76,
+    "occurrences": 2,
+    "period": "2000-2009",
+    "speech_rate": 0.026316,
+    "speech_rate_high": 0.090966,
+    "speech_rate_low": 0.007247,
+    "speeches": 2,
+    "sufficient": true,
+    "token_rate": 65.7895,
+    "words": 3040
+   },
+   {
+    "country_org": "Nigeria",
+    "held": 77,
+    "occurrences": 2,
+    "period": "2000-2009",
+    "speech_rate": 0.025974,
+    "speech_rate_high": 0.089846,
+    "speech_rate_low": 0.007152,
+    "speeches": 2,
+    "sufficient": true,
+    "token_rate": 64.9351,
+    "words": 3080
+   },
+   {
+    "country_org": "Rwanda",
+    "held": 70,
+    "occurrences": 4,
+    "period": "2000-2009",
+    "speech_rate": 0.057143,
+    "speech_rate_high": 0.13792,
+    "speech_rate_low": 0.022444,
+    "speeches": 4,
+    "sufficient": true,
+    "token_rate": 142.8571,
+    "words": 2800
+   },
+   {
+    "country_org": "China",
+    "held": 77,
+    "occurrences": 3,
+    "period": "2010-2019",
+    "speech_rate": 0.038961,
+    "speech_rate_high": 0.1084,
+    "speech_rate_low": 0.013338,
+    "speeches": 3,
+    "sufficient": true,
+    "token_rate": 97.4026,
+    "words": 3080
+   },
+   {
+    "country_org": "France",
+    "held": 89,
+    "occurrences": 4,
+    "period": "2010-2019",
+    "speech_rate": 0.044944,
+    "speech_rate_high": 0.10993,
+    "speech_rate_low": 0.017614,
+    "speeches": 4,
+    "sufficient": true,
+    "token_rate": 112.3596,
+    "words": 3560
+   },
+   {
+    "country_org": "Nigeria",
+    "held": 73,
+    "occurrences": 4,
+    "period": "2010-2019",
+    "speech_rate": 0.054795,
+    "speech_rate_high": 0.13259,
+    "speech_rate_low": 0.021512,
+    "speeches": 4,
+    "sufficient": true,
+    "token_rate": 136.9863,
+    "words": 2920
+   },
+   {
+    "country_org": "Rwanda",
+    "held": 74,
+    "occurrences": 3,
+    "period": "2010-2019",
+    "speech_rate": 0.040541,
+    "speech_rate_high": 0.112547,
+    "speech_rate_low": 0.013882,
+    "speeches": 3,
+    "sufficient": true,
+    "token_rate": 101.3514,
+    "words": 2960
+   },
+   {
+    "country_org": "China",
+    "held": 27,
+    "occurrences": 2,
+    "period": "2020-2024",
+    "speech_rate": null,
+    "speech_rate_high": null,
+    "speech_rate_low": null,
+    "speeches": 2,
+    "sufficient": false,
+    "token_rate": null,
+    "words": 1080
+   },
+   {
+    "country_org": "France",
+    "held": 31,
+    "occurrences": 1,
+    "period": "2020-2024",
+    "speech_rate": null,
+    "speech_rate_high": null,
+    "speech_rate_low": null,
+    "speeches": 1,
+    "sufficient": false,
+    "token_rate": null,
+    "words": 1240
+   },
+   {
+    "country_org": "Nigeria",
+    "held": 30,
+    "occurrences": 1,
+    "period": "2020-2024",
+    "speech_rate": null,
+    "speech_rate_high": null,
+    "speech_rate_low": null,
+    "speeches": 1,
+    "sufficient": false,
+    "token_rate": null,
+    "words": 1200
+   },
+   {
+    "country_org": "Rwanda",
+    "held": 29,
+    "occurrences": 3,
+    "period": "2020-2024",
+    "speech_rate": null,
+    "speech_rate_high": null,
+    "speech_rate_low": null,
+    "speeches": 3,
+    "sufficient": false,
+    "token_rate": null,
+    "words": 1160
+   }
+  ],
+  "periods": [
+   {
+    "first_year": 1946,
+    "key": "all",
+    "label": "1946-2023",
+    "last_year": 2023,
+    "speakers": 4,
+    "speakers_at_minimum": 4,
+    "speeches": 2328,
+    "speeches_at_minimum": 2328,
+    "words": 93120
+   },
+   {
+    "first_year": 1946,
+    "key": "1946-1949",
+    "label": "1946-1949",
+    "last_year": 1949,
+    "speakers": 4,
+    "speakers_at_minimum": 0,
+    "speeches": 113,
+    "speeches_at_minimum": 0,
+    "words": 4520
+   },
+   {
+    "first_year": 1950,
+    "key": "1950-1959",
+    "label": "1950-1959",
+    "last_year": 1959,
+    "speakers": 4,
+    "speakers_at_minimum": 4,
+    "speeches": 292,
+    "speeches_at_minimum": 292,
+    "words": 11680
+   },
+   {
+    "first_year": 1960,
+    "key": "1960-1969",
+    "label": "1960-1969",
+    "last_year": 1969,
+    "speakers": 4,
+    "speakers_at_minimum": 4,
+    "speeches": 302,
+    "speeches_at_minimum": 302,
+    "words": 12080
+   },
+   {
+    "first_year": 1970,
+    "key": "1970-1979",
+    "label": "1970-1979",
+    "last_year": 1979,
+    "speakers": 4,
+    "speakers_at_minimum": 4,
+    "speeches": 307,
+    "speeches_at_minimum": 307,
+    "words": 12280
+   },
+   {
+    "first_year": 1980,
+    "key": "1980-1989",
+    "label": "1980-1989",
+    "last_year": 1989,
+    "speakers": 4,
+    "speakers_at_minimum": 4,
+    "speeches": 298,
+    "speeches_at_minimum": 298,
+    "words": 11920
+   },
+   {
+    "first_year": 1990,
+    "key": "1990-1999",
+    "label": "1990-1999",
+    "last_year": 1999,
+    "speakers": 4,
+    "speakers_at_minimum": 4,
+    "speeches": 285,
+    "speeches_at_minimum": 285,
+    "words": 11400
+   },
+   {
+    "first_year": 2000,
+    "key": "2000-2009",
+    "label": "2000-2009",
+    "last_year": 2009,
+    "speakers": 4,
+    "speakers_at_minimum": 4,
+    "speeches": 301,
+    "speeches_at_minimum": 301,
+    "words": 12040
+   },
+   {
+    "first_year": 2010,
+    "key": "2010-2019",
+    "label": "2010-2019",
+    "last_year": 2019,
+    "speakers": 4,
+    "speakers_at_minimum": 4,
+    "speeches": 313,
+    "speeches_at_minimum": 313,
+    "words": 12520
+   },
+   {
+    "first_year": 2020,
+    "key": "2020-2024",
+    "label": "2020-2024",
+    "last_year": 2024,
+    "speakers": 4,
+    "speakers_at_minimum": 0,
+    "speeches": 117,
+    "speeches_at_minimum": 0,
+    "words": 4680
+   }
+  ],
+  "standing": [
+   {
+    "country_org": "China",
+    "groups": {
+     "E10": 191,
+     "Non-member state": 199,
+     "Non-state": 0,
+     "P5": 196,
+     "UN": 0
+    },
+    "held": 586,
+    "period": "all",
+    "seated": 387,
+    "seated_share": 0.66041
+   },
+   {
+    "country_org": "France",
+    "groups": {
+     "E10": 203,
+     "Non-member state": 215,
+     "Non-state": 0,
+     "P5": 158,
+     "UN": 0
+    },
+    "held": 576,
+    "period": "all",
+    "seated": 361,
+    "seated_share": 0.626736
+   },
+   {
+    "country_org": "Nigeria",
+    "groups": {
+     "E10": 205,
+     "Non-member state": 188,
+     "Non-state": 0,
+     "P5": 198,
+     "UN": 0
+    },
+    "held": 591,
+    "period": "all",
+    "seated": 403,
+    "seated_share": 0.681895
+   },
+   {
+    "country_org": "Rwanda",
+    "groups": {
+     "E10": 189,
+     "Non-member state": 192,
+     "Non-state": 0,
+     "P5": 194,
+     "UN": 0
+    },
+    "held": 575,
+    "period": "all",
+    "seated": 383,
+    "seated_share": 0.666087
+   },
+   {
+    "country_org": "China",
+    "groups": {
+     "E10": 12,
+     "Non-member state": 7,
+     "Non-state": 0,
+     "P5": 9,
+     "UN": 0
+    },
+    "held": 28,
+    "period": "1946-1949",
+    "seated": 21,
+    "seated_share": 0.75
+   },
+   {
+    "country_org": "France",
+    "groups": {
+     "E10": 12,
+     "Non-member state": 12,
+     "Non-state": 0,
+     "P5": 6,
+     "UN": 0
+    },
+    "held": 30,
+    "period": "1946-1949",
+    "seated": 18,
+    "seated_share": 0.6
+   },
+   {
+    "country_org": "Nigeria",
+    "groups": {
+     "E10": 9,
+     "Non-member state": 18,
+     "Non-state": 0,
+     "P5": 9,
+     "UN": 0
+    },
+    "held": 36,
+    "period": "1946-1949",
+    "seated": 18,
+    "seated_share": 0.5
+   },
+   {
+    "country_org": "Rwanda",
+    "groups": {
+     "E10": 11,
+     "Non-member state": 2,
+     "Non-state": 0,
+     "P5": 6,
+     "UN": 0
+    },
+    "held": 19,
+    "period": "1946-1949",
+    "seated": 17,
+    "seated_share": 0.894737
+   },
+   {
+    "country_org": "China",
+    "groups": {
+     "E10": 25,
+     "Non-member state": 25,
+     "Non-state": 0,
+     "P5": 20,
+     "UN": 0
+    },
+    "held": 70,
+    "period": "1950-1959",
+    "seated": 45,
+    "seated_share": 0.642857
+   },
+   {
+    "country_org": "France",
+    "groups": {
+     "E10": 23,
+     "Non-member state": 18,
+     "Non-state": 0,
+     "P5": 22,
+     "UN": 0
+    },
+    "held": 63,
+    "period": "1950-1959",
+    "seated": 45,
+    "seated_share": 0.714286
+   },
+   {
+    "country_org": "Nigeria",
+    "groups": {
+     "E10": 32,
+     "Non-member state": 25,
+     "Non-state": 0,
+     "P5": 17,
+     "UN": 0
+    },
+    "held": 74,
+    "period": "1950-1959",
+    "seated": 49,
+    "seated_share": 0.662162
+   },
+   {
+    "country_org": "Rwanda",
+    "groups": {
+     "E10": 23,
+     "Non-member state": 24,
+     "Non-state": 0,
+     "P5": 38,
+     "UN": 0
+    },
+    "held": 85,
+    "period": "1950-1959",
+    "seated": 61,
+    "seated_share": 0.717647
+   },
+   {
+    "country_org": "China",
+    "groups": {
+     "E10": 21,
+     "Non-member state": 27,
+     "Non-state": 0,
+     "P5": 24,
+     "UN": 0
+    },
+    "held": 72,
+    "period": "1960-1969",
+    "seated": 45,
+    "seated_share": 0.625
+   },
+   {
+    "country_org": "France",
+    "groups": {
+     "E10": 21,
+     "Non-member state": 28,
+     "Non-state": 0,
+     "P5": 18,
+     "UN": 0
+    },
+    "held": 67,
+    "period": "1960-1969",
+    "seated": 39,
+    "seated_share": 0.58209
+   },
+   {
+    "country_org": "Nigeria",
+    "groups": {
+     "E10": 22,
+     "Non-member state": 25,
+     "Non-state": 0,
+     "P5": 31,
+     "UN": 0
+    },
+    "held": 78,
+    "period": "1960-1969",
+    "seated": 53,
+    "seated_share": 0.679487
+   },
+   {
+    "country_org": "Rwanda",
+    "groups": {
+     "E10": 26,
+     "Non-member state": 29,
+     "Non-state": 0,
+     "P5": 30,
+     "UN": 0
+    },
+    "held": 85,
+    "period": "1960-1969",
+    "seated": 56,
+    "seated_share": 0.658824
+   },
+   {
+    "country_org": "China",
+    "groups": {
+     "E10": 30,
+     "Non-member state": 26,
+     "Non-state": 0,
+     "P5": 31,
+     "UN": 0
+    },
+    "held": 87,
+    "period": "1970-1979",
+    "seated": 61,
+    "seated_share": 0.701149
+   },
+   {
+    "country_org": "France",
+    "groups": {
+     "E10": 23,
+     "Non-member state": 27,
+     "Non-state": 0,
+     "P5": 30,
+     "UN": 0
+    },
+    "held": 80,
+    "period": "1970-1979",
+    "seated": 53,
+    "seated_share": 0.6625
+   },
+   {
+    "country_org": "Nigeria",
+    "groups": {
+     "E10": 24,
+     "Non-member state": 24,
+     "Non-state": 0,
+     "P5": 24,
+     "UN": 0
+    },
+    "held": 72,
+    "period": "1970-1979",
+    "seated": 48,
+    "seated_share": 0.666667
+   },
+   {
+    "country_org": "Rwanda",
+    "groups": {
+     "E10": 21,
+     "Non-member state": 22,
+     "Non-state": 0,
+     "P5": 25,
+     "UN": 0
+    },
+    "held": 68,
+    "period": "1970-1979",
+    "seated": 46,
+    "seated_share": 0.676471
+   },
+   {
+    "country_org": "China",
+    "groups": {
+     "E10": 20,
+     "Non-member state": 20,
+     "Non-state": 0,
+     "P5": 29,
+     "UN": 0
+    },
+    "held": 69,
+    "period": "1980-1989",
+    "seated": 49,
+    "seated_share": 0.710145
+   },
+   {
+    "country_org": "France",
+    "groups": {
+     "E10": 27,
+     "Non-member state": 34,
+     "Non-state": 0,
+     "P5": 22,
+     "UN": 0
+    },
+    "held": 83,
+    "period": "1980-1989",
+    "seated": 49,
+    "seated_share": 0.590361
+   },
+   {
+    "country_org": "Nigeria",
+    "groups": {
+     "E10": 23,
+     "Non-member state": 19,
+     "Non-state": 0,
+     "P5": 26,
+     "UN": 0
+    },
+    "held": 68,
+    "period": "1980-1989",
+    "seated": 49,
+    "seated_share": 0.720588
+   },
+   {
+    "country_org": "Rwanda",
+    "groups": {
+     "E10": 27,
+     "Non-member state": 26,
+     "Non-state": 0,
+     "P5": 25,
+     "UN": 0
+    },
+    "held": 78,
+    "period": "1980-1989",
+    "seated": 52,
+    "seated_share": 0.666667
+   },
+   {
+    "country_org": "China",
+    "groups": {
+     "E10": 24,
+     "Non-member state": 32,
+     "Non-state": 0,
+     "P5": 22,
+     "UN": 0
+    },
+    "held": 78,
+    "period": "1990-1999",
+    "seated": 46,
+    "seated_share": 0.589744
+   },
+   {
+    "country_org": "France",
+    "groups": {
+     "E10": 29,
+     "Non-member state": 17,
+     "Non-state": 0,
+     "P5": 11,
+     "UN": 0
+    },
+    "held": 57,
+    "period": "1990-1999",
+    "seated": 40,
+    "seated_share": 0.701754
+   },
+   {
+    "country_org": "Nigeria",
+    "groups": {
+     "E10": 36,
+     "Non-member state": 23,
+     "Non-state": 0,
+     "P5": 24,
+     "UN": 0
+    },
+    "held": 83,
+    "period": "1990-1999",
+    "seated": 60,
+    "seated_share": 0.722892
+   },
+   {
+    "country_org": "Rwanda",
+    "groups": {
+     "E10": 23,
+     "Non-member state": 29,
+     "Non-state": 0,
+     "P5": 15,
+     "UN": 0
+    },
+    "held": 67,
+    "period": "1990-1999",
+    "seated": 38,
+    "seated_share": 0.567164
+   },
+   {
+    "country_org": "China",
+    "groups": {
+     "E10": 20,
+     "Non-member state": 30,
+     "Non-state": 0,
+     "P5": 28,
+     "UN": 0
+    },
+    "held": 78,
+    "period": "2000-2009",
+    "seated": 48,
+    "seated_share": 0.615385
+   },
+   {
+    "country_org": "France",
+    "groups": {
+     "E10": 27,
+     "Non-member state": 29,
+     "Non-state": 0,
+     "P5": 20,
+     "UN": 0
+    },
+    "held": 76,
+    "period": "2000-2009",
+    "seated": 47,
+    "seated_share": 0.618421
+   },
+   {
+    "country_org": "Nigeria",
+    "groups": {
+     "E10": 28,
+     "Non-member state": 22,
+     "Non-state": 0,
+     "P5": 27,
+     "UN": 0
+    },
+    "held": 77,
+    "period": "2000-2009",
+    "seated": 55,
+    "seated_share": 0.714286
+   },
+   {
+    "country_org": "Rwanda",
+    "groups": {
+     "E10": 23,
+     "Non-member state": 25,
+     "Non-state": 0,
+     "P5": 22,
+     "UN": 0
+    },
+    "held": 70,
+    "period": "2000-2009",
+    "seated": 45,
+    "seated_share": 0.642857
+   },
+   {
+    "country_org": "China",
+    "groups": {
+     "E10": 31,
+     "Non-member state": 21,
+     "Non-state": 0,
+     "P5": 25,
+     "UN": 0
+    },
+    "held": 77,
+    "period": "2010-2019",
+    "seated": 56,
+    "seated_share": 0.727273
+   },
+   {
+    "country_org": "France",
+    "groups": {
+     "E10": 29,
+     "Non-member state": 38,
+     "Non-state": 0,
+     "P5": 22,
+     "UN": 0
+    },
+    "held": 89,
+    "period": "2010-2019",
+    "seated": 51,
+    "seated_share": 0.573034
+   },
+   {
+    "country_org": "Nigeria",
+    "groups": {
+     "E10": 21,
+     "Non-member state": 25,
+     "Non-state": 0,
+     "P5": 27,
+     "UN": 0
+    },
+    "held": 73,
+    "period": "2010-2019",
+    "seated": 48,
+    "seated_share": 0.657534
+   },
+   {
+    "country_org": "Rwanda",
+    "groups": {
+     "E10": 25,
+     "Non-member state": 29,
+     "Non-state": 0,
+     "P5": 20,
+     "UN": 0
+    },
+    "held": 74,
+    "period": "2010-2019",
+    "seated": 45,
+    "seated_share": 0.608108
+   },
+   {
+    "country_org": "China",
+    "groups": {
+     "E10": 8,
+     "Non-member state": 11,
+     "Non-state": 0,
+     "P5": 8,
+     "UN": 0
+    },
+    "held": 27,
+    "period": "2020-2024",
+    "seated": 16,
+    "seated_share": 0.592593
+   },
+   {
+    "country_org": "France",
+    "groups": {
+     "E10": 12,
+     "Non-member state": 12,
+     "Non-state": 0,
+     "P5": 7,
+     "UN": 0
+    },
+    "held": 31,
+    "period": "2020-2024",
+    "seated": 19,
+    "seated_share": 0.612903
+   },
+   {
+    "country_org": "Nigeria",
+    "groups": {
+     "E10": 10,
+     "Non-member state": 7,
+     "Non-state": 0,
+     "P5": 13,
+     "UN": 0
+    },
+    "held": 30,
+    "period": "2020-2024",
+    "seated": 23,
+    "seated_share": 0.766667
+   },
+   {
+    "country_org": "Rwanda",
+    "groups": {
+     "E10": 10,
+     "Non-member state": 6,
+     "Non-state": 0,
+     "P5": 13,
+     "UN": 0
+    },
+    "held": 29,
+    "period": "2020-2024",
+    "seated": 23,
+    "seated_share": 0.793103
+   }
+  ]
+ },
+ "lexical": {
+  "collocates": {
+   "crimes_against_humanity": {
+    "15": {
+     "collocates": [],
+     "occurrences": 0,
+     "window_tokens": 0
+    },
+    "5": {
+     "collocates": [],
+     "occurrences": 0,
+     "window_tokens": 0
+    },
+    "8": {
+     "collocates": [],
+     "occurrences": 0,
+     "window_tokens": 0
+    }
+   },
+   "ethnic_cleansing": {
+    "15": {
+     "collocates": [],
+     "occurrences": 0,
+     "window_tokens": 0
+    },
+    "5": {
+     "collocates": [],
+     "occurrences": 0,
+     "window_tokens": 0
+    },
+    "8": {
+     "collocates": [],
+     "occurrences": 0,
+     "window_tokens": 0
+    }
+   },
+   "genocide": {
+    "15": {
+     "collocates": [
+      {
+       "documents": 101,
+       "dp": -0.0,
+       "g2": 728.745,
+       "log_dice": 14.0,
+       "log_ratio": 12.823,
+       "meetings": 87,
+       "reference": 0,
+       "target": 101,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 101,
+     "window_tokens": 2525
+    },
+    "5": {
+     "collocates": [
+      {
+       "documents": 101,
+       "dp": -0.0,
+       "g2": 913.836,
+       "log_dice": 14.0,
+       "log_ratio": 14.169,
+       "meetings": 87,
+       "reference": 0,
+       "target": 101,
+       "word": "tutsi"
+      },
+      {
+       "documents": 30,
+       "dp": 0.703,
+       "g2": -11.926,
+       "log_dice": 7.703,
+       "log_ratio": -0.752,
+       "meetings": 29,
+       "reference": 5681,
+       "target": 37,
+       "word": "report"
+      },
+      {
+       "documents": 29,
+       "dp": 0.7129,
+       "g2": -12.286,
+       "log_dice": 7.683,
+       "log_ratio": -0.771,
+       "meetings": 29,
+       "reference": 5604,
+       "target": 36,
+       "word": "conflict"
+      },
+      {
+       "documents": 28,
+       "dp": 0.7228,
+       "g2": -18.465,
+       "log_dice": 7.479,
+       "log_ratio": -0.977,
+       "meetings": 28,
+       "reference": 5744,
+       "target": 32,
+       "word": "resolution"
+      }
+     ],
+     "occurrences": 101,
+     "window_tokens": 1010
+    },
+    "8": {
+     "collocates": [
+      {
+       "documents": 101,
+       "dp": -0.0,
+       "g2": 818.895,
+       "log_dice": 14.0,
+       "log_ratio": 13.482,
+       "meetings": 87,
+       "reference": 0,
+       "target": 101,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 101,
+     "window_tokens": 1616
+    }
+   }
+  },
+  "keyness": {
+   "control_speeches": 101,
+   "control_tokens": 4040,
+   "coverage": 1.0,
+   "eligible_target_speeches": 101,
+   "keywords": [
+    {
+     "documents": 101,
+     "dp": -0.0,
+     "g2": 140.016,
+     "log_ratio": 7.658,
+     "meetings": 87,
+     "reference": 0,
+     "target": 101,
+     "word": "genocide"
+    },
+    {
+     "documents": 101,
+     "dp": -0.0,
+     "g2": 140.016,
+     "log_ratio": 7.658,
+     "meetings": 87,
+     "reference": 0,
+     "target": 101,
+     "word": "tutsi"
+    }
+   ],
+   "keywords_unmatched": [
+    {
+     "documents": 101,
+     "dp": -0.0,
+     "g2": 633.804,
+     "log_ratio": 12.121,
+     "meetings": 87,
+     "reference": 0,
+     "target": 101,
+     "word": "genocide"
+    },
+    {
+     "documents": 101,
+     "dp": -0.0,
+     "g2": 633.804,
+     "log_ratio": 12.121,
+     "meetings": 87,
+     "reference": 0,
+     "target": 101,
+     "word": "tutsi"
+    },
+    {
+     "documents": 85,
+     "dp": 0.2883,
+     "g2": -15.84,
+     "log_ratio": -0.405,
+     "meetings": 74,
+     "reference": 5548,
+     "target": 190,
+     "word": "accountability"
+    }
+   ],
+   "short_strata": [],
+   "stability": {
+    "coverage_max": 1.0,
+    "coverage_min": 1.0,
+    "keyword_log_ratio": [
+     {
+      "median": 7.658,
+      "p05": 7.658,
+      "p95": 7.658,
+      "word": "genocide"
+     },
+     {
+      "median": 7.658,
+      "p05": 7.658,
+      "p95": 7.658,
+      "word": "tutsi"
+     }
+    ],
+    "repetitions": 5,
+    "seed_first": 20260807
+   },
+   "target_speeches": 101,
+   "target_tokens": 4040
+  },
+  "network": {
+   "by_period": {
+    "1946-1949": [],
+    "1950-1959": [],
+    "1960-1969": [],
+    "1970-1979": [],
+    "1980-1989": [],
+    "1990-1999": [],
+    "2000-2009": [],
+    "2010-2019": [],
+    "2020-2024": []
+   },
+   "edges": [],
+   "speeches": {
+    "aggression": 0,
+    "atrocity": 0,
+    "commemoration": 0,
+    "crimes_against_humanity": 0,
+    "denial": 0,
+    "early_warning": 0,
+    "ethnic_cleansing": 0,
+    "ethnic_violence": 0,
+    "extermination": 0,
+    "genocidal_ideology": 0,
+    "genocide": 101,
+    "genocide_convention": 0,
+    "glorification": 0,
+    "holocaust": 0,
+    "icc": 0,
+    "icj": 0,
+    "impunity": 0,
+    "incitement": 0,
+    "intent_to_destroy": 0,
+    "mass_atrocity": 0,
+    "mass_killing": 0,
+    "massacre": 0,
+    "never_again": 0,
+    "prevention_of_genocide": 0,
+    "responsibility_to_protect": 0,
+    "survivors": 0,
+    "tribunals": 0,
+    "war_crimes": 133
+   }
+  },
+  "sliced": {
+   "by_country": {
+    "China": {
+     "collocates": [
+      {
+       "documents": 24,
+       "dp": 0.0,
+       "g2": 153.443,
+       "log_dice": 12.619,
+       "log_ratio": 6.234,
+       "meetings": 23,
+       "reference": 77,
+       "target": 24,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 24,
+     "speeches": 24,
+     "window_tokens": 384
+    },
+    "France": {
+     "collocates": [
+      {
+       "documents": 23,
+       "dp": 0.0,
+       "g2": 146.787,
+       "log_dice": 12.569,
+       "log_ratio": 6.216,
+       "meetings": 23,
+       "reference": 78,
+       "target": 23,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 23,
+     "speeches": 23,
+     "window_tokens": 368
+    },
+    "Nigeria": {
+     "collocates": [
+      {
+       "documents": 29,
+       "dp": 0.0,
+       "g2": 187.11,
+       "log_dice": 12.836,
+       "log_ratio": 6.33,
+       "meetings": 26,
+       "reference": 72,
+       "target": 29,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 29,
+     "speeches": 29,
+     "window_tokens": 464
+    },
+    "Rwanda": {
+     "collocates": [
+      {
+       "documents": 25,
+       "dp": -0.0,
+       "g2": 160.124,
+       "log_dice": 12.667,
+       "log_ratio": 6.253,
+       "meetings": 25,
+       "reference": 76,
+       "target": 25,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 25,
+     "speeches": 25,
+     "window_tokens": 400
+    }
+   },
+   "by_period": {
+    "1946-1949": {
+     "collocates": [
+      {
+       "documents": 8,
+       "dp": 0.0,
+       "g2": 49.77,
+       "log_dice": 11.232,
+       "log_ratio": 5.966,
+       "meetings": 7,
+       "reference": 93,
+       "target": 8,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 8,
+     "speeches": 8,
+     "window_tokens": 128
+    },
+    "1950-1959": {
+     "collocates": [
+      {
+       "documents": 10,
+       "dp": 0.0,
+       "g2": 62.416,
+       "log_dice": 11.528,
+       "log_ratio": 5.997,
+       "meetings": 10,
+       "reference": 91,
+       "target": 10,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 10,
+     "speeches": 10,
+     "window_tokens": 160
+    },
+    "1960-1969": {
+     "collocates": [
+      {
+       "documents": 13,
+       "dp": 0.0,
+       "g2": 81.546,
+       "log_dice": 11.868,
+       "log_ratio": 6.044,
+       "meetings": 11,
+       "reference": 88,
+       "target": 13,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 13,
+     "speeches": 13,
+     "window_tokens": 208
+    },
+    "1970-1979": {
+     "collocates": [
+      {
+       "documents": 9,
+       "dp": -0.0,
+       "g2": 56.083,
+       "log_dice": 11.389,
+       "log_ratio": 5.981,
+       "meetings": 8,
+       "reference": 92,
+       "target": 9,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 9,
+     "speeches": 9,
+     "window_tokens": 144
+    },
+    "1980-1989": {
+     "collocates": [
+      {
+       "documents": 13,
+       "dp": 0.0,
+       "g2": 81.546,
+       "log_dice": 11.868,
+       "log_ratio": 6.044,
+       "meetings": 13,
+       "reference": 88,
+       "target": 13,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 13,
+     "speeches": 13,
+     "window_tokens": 208
+    },
+    "1990-1999": {
+     "collocates": [
+      {
+       "documents": 15,
+       "dp": 0.0,
+       "g2": 94.409,
+       "log_dice": 12.049,
+       "log_ratio": 6.077,
+       "meetings": 12,
+       "reference": 86,
+       "target": 15,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 15,
+     "speeches": 15,
+     "window_tokens": 240
+    },
+    "2000-2009": {
+     "collocates": [
+      {
+       "documents": 12,
+       "dp": 0.0,
+       "g2": 75.148,
+       "log_dice": 11.765,
+       "log_ratio": 6.028,
+       "meetings": 10,
+       "reference": 89,
+       "target": 12,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 12,
+     "speeches": 12,
+     "window_tokens": 192
+    },
+    "2010-2019": {
+     "collocates": [
+      {
+       "documents": 14,
+       "dp": 0.0,
+       "g2": 87.966,
+       "log_dice": 11.962,
+       "log_ratio": 6.06,
+       "meetings": 9,
+       "reference": 87,
+       "target": 14,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 14,
+     "speeches": 14,
+     "window_tokens": 224
+    },
+    "2020-2024": {
+     "collocates": [
+      {
+       "documents": 7,
+       "dp": 0.0,
+       "g2": 43.478,
+       "log_dice": 11.052,
+       "log_ratio": 5.95,
+       "meetings": 7,
+       "reference": 94,
+       "target": 7,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 7,
+     "speeches": 7,
+     "window_tokens": 112
+    }
+   },
+   "by_speaker_group": {
+    "E10": {
+     "collocates": [
+      {
+       "documents": 27,
+       "dp": 0.0,
+       "g2": 173.564,
+       "log_dice": 12.755,
+       "log_ratio": 6.291,
+       "meetings": 27,
+       "reference": 74,
+       "target": 27,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 27,
+     "speeches": 27,
+     "window_tokens": 432
+    },
+    "Non-member state": {
+     "collocates": [
+      {
+       "documents": 41,
+       "dp": -0.0,
+       "g2": 270.778,
+       "log_dice": 13.208,
+       "log_ratio": 6.59,
+       "meetings": 35,
+       "reference": 60,
+       "target": 41,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 41,
+     "speeches": 41,
+     "window_tokens": 656
+    },
+    "P5": {
+     "collocates": [
+      {
+       "documents": 33,
+       "dp": 0.0,
+       "g2": 214.53,
+       "log_dice": 12.978,
+       "log_ratio": 6.411,
+       "meetings": 33,
+       "reference": 68,
+       "target": 33,
+       "word": "tutsi"
+      }
+     ],
+     "occurrences": 33,
+     "speeches": 33,
+     "window_tokens": 528
+    }
+   }
+  }
+ },
+ "speaker_keyness": {
+  "corpus_tokens": 93120,
+  "corpus_types": 22,
+  "speakers": [
+   {
+    "agenda": {
+     "concentration": 1.0,
+     "held": 591,
+     "items": 2,
+     "other": {
+      "share": 0.0,
+      "speeches": 0
+     },
+     "top": [
+      {
+       "item": "Syria",
+       "share": 0.5161,
+       "speeches": 305
+      },
+      {
+       "item": "Rwanda",
+       "share": 0.4839,
+       "speeches": 286
+      }
+     ]
+    },
+    "control_tokens": 21840,
+    "country_org": "Nigeria",
+    "coverage": 0.9239,
+    "held": 591,
+    "keywords": [],
+    "keywords_unmatched": [],
+    "pairs": 546,
+    "short_strata": 34,
+    "shortfall": 45,
+    "stability": {
+     "coverage_max": 0.9239,
+     "coverage_min": 0.9239,
+     "keyword_log_ratio": [],
+     "repetitions": 3
+    },
+    "sufficient": true,
+    "target_tokens": 21840,
+    "withheld_because": []
+   },
+   {
+    "agenda": {
+     "concentration": 1.0,
+     "held": 586,
+     "items": 2,
+     "other": {
+      "share": 0.0,
+      "speeches": 0
+     },
+     "top": [
+      {
+       "item": "Rwanda",
+       "share": 0.5307,
+       "speeches": 311
+      },
+      {
+       "item": "Syria",
+       "share": 0.4693,
+       "speeches": 275
+      }
+     ]
+    },
+    "control_tokens": 21440,
+    "country_org": "China",
+    "coverage": 0.9147,
+    "held": 586,
+    "keywords": [],
+    "keywords_unmatched": [],
+    "pairs": 536,
+    "short_strata": 33,
+    "shortfall": 50,
+    "stability": {
+     "coverage_max": 0.9147,
+     "coverage_min": 0.9147,
+     "keyword_log_ratio": [],
+     "repetitions": 3
+    },
+    "sufficient": true,
+    "target_tokens": 21440,
+    "withheld_because": []
+   },
+   {
+    "agenda": {
+     "concentration": 1.0,
+     "held": 576,
+     "items": 2,
+     "other": {
+      "share": 0.0,
+      "speeches": 0
+     },
+     "top": [
+      {
+       "item": "Rwanda",
+       "share": 0.5278,
+       "speeches": 304
+      },
+      {
+       "item": "Syria",
+       "share": 0.4722,
+       "speeches": 272
+      }
+     ]
+    },
+    "control_tokens": 21440,
+    "country_org": "France",
+    "coverage": 0.9306,
+    "held": 576,
+    "keywords": [],
+    "keywords_unmatched": [],
+    "pairs": 536,
+    "short_strata": 30,
+    "shortfall": 40,
+    "stability": {
+     "coverage_max": 0.9306,
+     "coverage_min": 0.9306,
+     "keyword_log_ratio": [],
+     "repetitions": 3
+    },
+    "sufficient": true,
+    "target_tokens": 21440,
+    "withheld_because": []
+   },
+   {
+    "agenda": {
+     "concentration": 1.0,
+     "held": 575,
+     "items": 2,
+     "other": {
+      "share": 0.0,
+      "speeches": 0
+     },
+     "top": [
+      {
+       "item": "Syria",
+       "share": 0.5043,
+       "speeches": 290
+      },
+      {
+       "item": "Rwanda",
+       "share": 0.4957,
+       "speeches": 285
+      }
+     ]
+    },
+    "control_tokens": 20960,
+    "country_org": "Rwanda",
+    "coverage": 0.9113,
+    "held": 575,
+    "keywords": [],
+    "keywords_unmatched": [],
+    "pairs": 524,
+    "short_strata": 31,
+    "shortfall": 51,
+    "stability": {
+     "coverage_max": 0.9113,
+     "coverage_min": 0.9113,
+     "keyword_log_ratio": [],
+     "repetitions": 3
+    },
+    "sufficient": true,
+    "target_tokens": 20960,
+    "withheld_because": []
+   }
+  ],
+  "speakers_considered": 4,
+  "speakers_published": 4,
+  "speakers_total": 4,
+  "speakers_withheld": 0
+ }
+}

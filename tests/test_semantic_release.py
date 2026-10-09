@@ -2,8 +2,8 @@ import hashlib
 import json
 import zipfile
 
-import pandas as pd
 import pytest
+from conftest import make_speeches
 from lib import artifacts, semantic_release
 
 #: A published map over the two speeches of `speeches()`, as step 21 writes one.
@@ -81,10 +81,12 @@ def test_verified_local_release_needs_no_network(tmp_path, monkeypatch):
 
 
 def speeches():
-    return pd.DataFrame({"row_id": ["b", "a"], "text": ["Hello. One", "Two"],
-                         "body_start": [7, 0], "year": [2000, 2001],
-                         "country_org": ["A", None], "agenda_item_manual": ["B", None],
-                         "has_genocide": [False, True]})
+    # Only these columns: the fingerprint is over what the map reads, and a
+    # missing value has to stay missing rather than take a default.
+    return make_speeches({"row_id": ["b", "a"], "text": ["Hello. One", "Two"],
+                          "body_start": [7, 0], "year": [2000, 2001],
+                          "country_org": ["A", None], "agenda_item_manual": ["B", None],
+                          "has_genocide": [False, True]}, complete=False)
 
 
 def test_content_identity_ignores_serialization_and_row_order(tmp_path):

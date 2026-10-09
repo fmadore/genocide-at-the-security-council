@@ -44,7 +44,10 @@ def merge(document: dict, speeches, sources: list[Path], output: Path) -> dict:
         raise ValueError("Merge output already exists; use a fresh run id")
     if len(sources) != len(document["batches"]):
         raise ValueError("Missing or extra batch directories")
-    records, manifests, provenance, seen_batches = [], [], [], set()
+    records: list[dict] = []
+    manifests: list[dict] = []
+    provenance: list[dict] = []
+    seen_batches: set = set()
     common = None
     for directory in sources:
         manifest, rows = model_runs.read(directory)

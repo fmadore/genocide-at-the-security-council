@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from conftest import make_speeches
 from lib import audit, frames, lexicon, model_runs, occurrences
 from lib import gold_sample as gold
 
@@ -141,17 +142,18 @@ def term() -> lexicon.Term:
 
 
 def corpus() -> tuple[pd.DataFrame, pd.Series]:
-    speeches = pd.DataFrame(
+    speeches = make_speeches(
         {
-            "filename": [f"speech-{number}.txt" for number in range(len(SPEECHES))],
-            "text": [ADDRESS + body for body, *_ in SPEECHES],
-            "body_start": [len(ADDRESS)] * len(SPEECHES),
-            "year": [year for _, year, *_ in SPEECHES],
-            "meeting_symbol": [symbol for *_, symbol, _ in SPEECHES],
-            "date": pd.to_datetime([f"{year}-04-07" for _, year, *_ in SPEECHES]),
-            "country_org": ["Rwanda"] * len(SPEECHES),
-            "agenda_item_manual": ["Rwanda"] * len(SPEECHES),
+            "filename": f"speech-{number}.txt",
+            "text": ADDRESS + body,
+            "body_start": len(ADDRESS),
+            "year": year,
+            "meeting_symbol": symbol,
+            "date": f"{year}-04-07",
+            "country_org": "Rwanda",
+            "agenda_item_manual": "Rwanda",
         }
+        for number, (body, year, symbol, _) in enumerate(SPEECHES)
     )
     return speeches, frames.body(speeches)
 
