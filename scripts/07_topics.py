@@ -50,6 +50,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import artifacts, console, frames, lexical, topics
+from lib import projection as projection_lib
 from lib.paths import (
     EMBEDDINGS,
     ROOT,
@@ -200,22 +201,23 @@ def build_figures(
     The cluster figure is the one most likely to be misread, so its caption says
     where the clusters came from: five dimensions, not these two.
     """
-    delegations = topics.group_others(sample["country_org"], FIGURE_CATEGORIES)
-    clusters = topics.group_others(
+    delegations = projection_lib.group_others(sample["country_org"], FIGURE_CATEGORIES)
+    clusters = projection_lib.group_others(
         [
-            topics.UNASSIGNED_LABEL if label == topics.UNASSIGNED else f"topic {label}"
+            projection_lib.UNASSIGNED_LABEL if label == topics.UNASSIGNED else f"topic {label}"
             for label in labels
         ],
         FIGURE_CATEGORIES,
     )
 
     def named(values: np.ndarray) -> int:
-        return len({v for v in values if v not in (topics.OTHER_LABEL, topics.UNASSIGNED_LABEL)})
+        muted = (projection_lib.OTHER_LABEL, projection_lib.UNASSIGNED_LABEL)
+        return len({v for v in values if v not in muted})
 
     return [
         (
             "projection_year.png",
-            topics.draw_projection(
+            projection_lib.draw_projection(
                 coordinates,
                 sample["year"],
                 title="Speech vectors projected to 2D, coloured by year",
@@ -231,7 +233,7 @@ def build_figures(
         ),
         (
             "projection_speaker.png",
-            topics.draw_projection(
+            projection_lib.draw_projection(
                 coordinates,
                 delegations,
                 title="The same projection, coloured by delegation",
@@ -249,7 +251,7 @@ def build_figures(
         ),
         (
             "projection_cluster.png",
-            topics.draw_projection(
+            projection_lib.draw_projection(
                 coordinates,
                 clusters,
                 title="The same projection, coloured by HDBSCAN cluster",
@@ -807,9 +809,9 @@ def run(sample_size: int, k: int, seeds: int, seed: int, sweep: bool) -> None:
 
     console.step("2D projection — a diagnostic, not a map")
     started = time.monotonic()
-    coordinates = topics.project_2d(vectors, seed)
+    coordinates = projection_lib.project_2d(vectors, seed)
     console.info(f"{len(coordinates):,} points projected ({time.monotonic() - started:.0f}s)")
-    projection = topics.projection_diagnostic(
+    projection = projection_lib.projection_diagnostic(
         coordinates,
         embedding_model.reduced,
         topics.projection_attributes(sample, nmf_model.labels, embedding_model.labels),

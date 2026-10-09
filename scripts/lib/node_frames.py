@@ -716,11 +716,11 @@ def crosstab(
 ) -> dict[str, object]:
     """Frame by model label, over the occurrences both instruments reached.
 
-    `multi` splits a pipe-joined field, as `lib.usage` documents `function` to
-    be, so an occurrence carrying two functions contributes to two cells and the
-    row totals exceed the occurrence count. `row_total` says so, because a reader
-    who sums a row and gets more than the frame's size is entitled to know why
-    before deciding the table is broken.
+    `multi` splits a pipe-joined field, as `lib.usage_comparison` documents
+    `function` to be, so an occurrence carrying two functions contributes to two
+    cells and the row totals exceed the occurrence count. `row_total` says so,
+    because a reader who sums a row and gets more than the frame's size is
+    entitled to know why before deciding the table is broken.
 
     The counts come back as a list of `{label, occurrences}` rather than as an
     object keyed on the labels: the vocabulary is a model's, not this

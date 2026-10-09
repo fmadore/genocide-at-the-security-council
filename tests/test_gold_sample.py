@@ -460,10 +460,55 @@ def test_the_packet_order_is_seeded_and_mixes_the_frames() -> None:
     )["occurrence_id"].tolist()
 
 
+def test_the_prior_review_flag_marks_a_drawn_sample_and_moves_nothing() -> None:
+    """Set after the draw and appended last: every column the files already had
+    keeps its place and its values, so the sample stays as drawn."""
+    candidates = built()
+    sample = gold.draw(candidates, 3, 5, 21)
+    reviewed = {*sample["occurrence_id"].iloc[:2], "an-occurrence-the-sample-missed"}
+    flagged = gold.flag_prior_review(sample, reviewed)
+    assert list(flagged.columns) == [*sample.columns, model_runs.PRIOR_REVIEW_FLAG]
+    pd.testing.assert_frame_equal(flagged[list(sample.columns)], sample)
+    marked = flagged.loc[flagged[model_runs.PRIOR_REVIEW_FLAG], "occurrence_id"]
+    assert set(marked) == set(sample["occurrence_id"].iloc[:2])
+
+    design = gold.design(candidates, 3, 5, gold.MODEL_STRATA)
+    weighted = gold.flag_prior_review(design, reviewed)
+    pd.testing.assert_frame_equal(weighted[list(design.columns)], design)
+    assert int(weighted[model_runs.PRIOR_REVIEW_FLAG].sum()) == 2
+
+
+def test_the_packet_never_says_a_passage_was_read_before() -> None:
+    sample = gold.draw(built(), 3, 5, 21)
+    flagged = gold.flag_prior_review(sample, set(sample["occurrence_id"]))
+    packet = gold.packet(flagged, 21)
+    assert model_runs.PRIOR_REVIEW_FLAG not in packet.columns
+    pd.testing.assert_frame_equal(packet, gold.packet(sample, 21))
+
+
 def test_the_prompt_examples_are_the_committed_mapping() -> None:
     mapping = pd.read_csv(model_runs.PROMPT_EXAMPLES, dtype="string", keep_default_na=False)
     assert len(mapping) == 10 and mapping["occurrence_id"].is_unique
     assert set(mapping["example"]) == {str(number) for number in range(1, 11)}
+
+
+def test_the_prior_review_list_carries_identities_and_nothing_else() -> None:
+    """The 59 passages read against Qwen's labels on 10 September 2026: an
+    identity per passage, never a label, and the two whose ordinal lexicon 8
+    moved recorded under both line ids (docs/EVALUATION_PLAN.md §4)."""
+    listed = pd.read_csv(model_runs.PRIOR_REVIEW, dtype="string", keep_default_na=False)
+    assert list(listed.columns) == [
+        "occurrence_id", "line_id", "reviewed_line_id", "reviewed_on", "source",
+    ]
+    assert len(listed) == 59
+    assert listed["occurrence_id"].is_unique and listed["reviewed_line_id"].is_unique
+    assert (listed["occurrence_id"].str.fullmatch(r"[0-9a-f]{64}")).all()
+    assert set(listed["reviewed_on"]) == {"2026-09-10"}
+    moved = listed.loc[listed["line_id"] != listed["reviewed_line_id"]]
+    assert dict(zip(moved["reviewed_line_id"], moved["line_id"], strict=True)) == {
+        "SC04429-01-009#5": "SC04429-01-009#6",
+        "SC05697-01-040#1": "SC05697-01-040#2",
+    }
 
 
 def test_the_coding_page_offers_exactly_the_codebook_vocabularies() -> None:

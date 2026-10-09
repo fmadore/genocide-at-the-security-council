@@ -68,7 +68,20 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, audit, console, frames, lexicon, llm, model_runs, usage, usage_refusals
+from lib import (
+    artifacts,
+    audit,
+    console,
+    frames,
+    gold_estimates,
+    lexicon,
+    llm,
+    model_runs,
+    prompts,
+    usage,
+    usage_comparison,
+    usage_refusals,
+)
 from lib import occurrences as occurrences_lib
 from lib import referents as referents_lib
 from lib.paths import (
@@ -85,8 +98,9 @@ from lib.paths import (
 
 # The refusals a run must pass, and the resolutions that read an older run in
 # today's vocabulary, live in `lib.usage_refusals`; the counting, and the model
-# block that describes a run, in `lib.usage`. Both are tested there on
-# constructed manifests and rows, which this step cannot be.
+# block that describes a run, in `lib.usage`; the gold block in
+# `lib.gold_estimates` and the second opinion in `lib.usage_comparison`. All are
+# tested there on constructed manifests and rows, which this step cannot be.
 
 TERM = model_runs.TERM
 
@@ -104,6 +118,27 @@ REFERENTS = model_runs.REFERENTS
 GOLD_ANNOTATIONS = model_runs.GOLD_ANNOTATIONS
 GOLD_CANDIDATES = model_runs.GOLD_CANDIDATES
 GOLD_DESIGN = model_runs.GOLD_DESIGN
+#: The passages read against a model's labels before coding, and the column 13
+#: marks them with in the candidate file this step reads.
+PRIOR_REVIEW = model_runs.PRIOR_REVIEW
+PRIOR_REVIEW_FLAG = model_runs.PRIOR_REVIEW_FLAG
+
+
+def reviewed_before_coding(candidates: pd.DataFrame) -> set[str]:
+    """The sampled occurrences 13 marked as read against a model's labels.
+
+    Read off the candidate file rather than off the committed list, so the
+    occurrences set aside are exactly the ones the sample this step reports on
+    carries the mark for. The file is read as text, where pandas wrote the
+    boolean as `True`.
+    """
+    if PRIOR_REVIEW_FLAG not in candidates:
+        console.fail(
+            f"{rel(GOLD_CANDIDATES)} has no `{PRIOR_REVIEW_FLAG}` column",
+            ["re-run 13_gold_sample.py; it marks the passages read before coding"],
+        )
+    marked = candidates[PRIOR_REVIEW_FLAG].astype(str) == "True"
+    return set(candidates.loc[marked, "occurrence_id"].astype(str))
 
 #: Columns this step needs. The normalised frame is 99 columns and 389 MB of
 #: text; the eleven below are the enumeration's inputs plus the speaker
@@ -349,7 +384,7 @@ def retest_block(
     same questionnaire — and hard-coding two run ids would leave the block
     stale the first time a third run is bought.
 
-    The statistics are the ones :func:`usage.comparison_fields` computes between
+    The statistics are the ones :func:`usage_comparison.comparison_fields` computes between
     two *different* models, deliberately, so a reader can lay one table over the
     other and read the difference. Nothing here is an accuracy either: a model
     that agrees with itself perfectly may be perfectly wrong.
@@ -374,15 +409,15 @@ def retest_block(
             # compared against would report every label as a disagreement.
             sibling_rows = [
                 llm.resolve_row(row)
-                for row in llm.read_rows(candidate.parent / "annotations.jsonl")
+                for row in model_runs.read_rows(candidate.parent / "annotations.jsonl")
             ]
-            overlap = len(usage.comparison_overlap(rows, sibling_rows))
+            overlap = len(usage_comparison.comparison_overlap(rows, sibling_rows))
             if overlap and (best is None or overlap > best[0]):
                 best = (overlap, str(sibling.get("run_id", "")), sibling_rows)
         if best is None:
             continue
         overlap, sibling_id, sibling_rows = best
-        contested = usage.contested_rows(rows, sibling_rows)
+        contested = usage_comparison.contested_rows(rows, sibling_rows)
         out.append(
             {
                 "which": label,
@@ -390,8 +425,8 @@ def retest_block(
                 "run_id": run_id,
                 "retest_run_id": sibling_id,
                 "overlap": overlap,
-                "fields": usage.comparison_fields(rows, sibling_rows),
-                "function_jaccard": usage.comparison_function_jaccard(rows, sibling_rows),
+                "fields": usage_comparison.comparison_fields(rows, sibling_rows),
+                "function_jaccard": usage_comparison.comparison_function_jaccard(rows, sibling_rows),
                 "identical": int(sum(not fields for fields, _ in contested.values())),
             }
         )
@@ -513,8 +548,14 @@ def build_note(
     run_directory: Path,
     *,
     synthetic: bool = False,
+    prior_review: dict[str, object] | None = None,
 ) -> str:
-    """The findings note: the funnel, the leaders, and what is withheld."""
+    """The findings note: the funnel, the leaders, and what is withheld.
+
+    `prior_review` is :func:`lib.gold_estimates.without_prior_review`'s block:
+    once anything is coded, the note repeats its gold tables without the
+    passages read against a model's labels before coding.
+    """
     model = payload["model"]
     gold = payload["gold"]
     actors = payload["actors"]
@@ -599,6 +640,18 @@ def build_note(
         f"{number(row['macro_f1'])} | {number(row['abstention_rate'])} |"
         for row in gold["model_vs_human"]
     ]
+    prior = prior_review or {}
+    agreement_without = [
+        f"| `{row['field']}` | {row['n']} | {number(row['observed'])} | "
+        f"{number(row['kappa'])} |"
+        for row in prior.get("human_agreement", [])
+    ]
+    scored_without = [
+        f"| `{row['field']}` | {row['n']} | {number(row['accuracy'])} | "
+        f"{number(row['macro_f1'])} | {number(row['abstention_rate'])} |"
+        for row in prior.get("model_vs_human", [])
+    ]
+    jaccard_without = prior.get("function_jaccard")
 
     return "\n".join(
         [
@@ -824,6 +877,51 @@ def build_note(
             ),
             *(
                 [
+                    "### Without the passages read before coding",
+                    "",
+                    f"{prior.get('flagged_coded', 0):,} of the {prior.get('coded', 0):,} coded "
+                    "occurrences are among the passages read against the Qwen run's labels "
+                    "on 10 September 2026, before coding began "
+                    f"(`{rel(PRIOR_REVIEW)}`), so a coder may have seen the model's answer "
+                    "for them. They stay in the sample, and every figure above is repeated "
+                    "here without them (docs/EVALUATION_PLAN.md, section 4). PABAK, the MASI "
+                    "alpha, the comparison run's scores, the weighted accuracy and the "
+                    "corrected shares are repeated in the step's manifest, under "
+                    "`gold_without_prior_review`.",
+                    "",
+                    *(
+                        [
+                            "| Field | n | Observed | Kappa |",
+                            "|---|---:|---:|---:|",
+                            *agreement_without,
+                            "",
+                        ]
+                        if agreement_without
+                        else []
+                    ),
+                    *(
+                        [
+                            "| Field | n | Accuracy | Macro-F1 | Model abstention |",
+                            "|---|---:|---:|---:|---:|",
+                            *scored_without,
+                            "",
+                        ]
+                        if scored_without
+                        else []
+                    ),
+                    (
+                        "Mean Jaccard overlap on `function` against the same reference: "
+                        f"**{float(jaccard_without):.3f}**."
+                        if jaccard_without is not None
+                        else "The `function` overlap could not be computed without them."
+                    ),
+                    "",
+                ]
+                if prior and (agreement or scored)
+                else []
+            ),
+            *(
+                [
                     "## The second opinion",
                     "",
                     "A second model was given the same prompt and the same "
@@ -964,7 +1062,7 @@ def run_without_model() -> None:
             "run_date": "",
             "prompt_version": "",
             "referents_version": str(referent_list.version),
-            "prompt_sha256": llm.prompt_sha256(PROMPT) if PROMPT.is_file() else "",
+            "prompt_sha256": prompts.prompt_sha256(PROMPT) if PROMPT.is_file() else "",
             "reasoning_effort": "",
             "requests": 0,
             "requests_recounted": False,
@@ -982,9 +1080,9 @@ def run_without_model() -> None:
         "matrix": [],
         "position_by_actor": [],
         "diffusion": {"milestones": list(usage.MILESTONES), "referents": []},
-        "comparison": usage.comparison_block([], []),
+        "comparison": usage_comparison.comparison_block([], []),
         "retest": [],
-        "gold": usage.gold_block(
+        "gold": gold_estimates.gold_block(
             annotations,
             empty,
             sample_size=len(candidates),
@@ -1018,6 +1116,11 @@ def run_without_model() -> None:
                     artifacts.describe_file(USAGE / "usage.json", ROOT),
                     artifacts.describe_file(USAGE / "occurrences.json", ROOT),
                 ],
+                # Kept out of the payload, whose shape the contract fixes; the
+                # coders' agreement is all there is to repeat without a model.
+                "gold_without_prior_review": gold_estimates.without_prior_review(
+                    annotations, empty, reviewed=reviewed_before_coding(candidates)
+                ),
             },
         ),
         indent=1,
@@ -1177,8 +1280,8 @@ def run(args: argparse.Namespace) -> None:
     console.info(f"{len(rows):,} occurrences carry a label")
 
     console.step("Weighing the second opinion")
-    contested = usage.contested_rows(rows, comparison_raw)
-    comparison = usage.comparison_block(
+    contested = usage_comparison.contested_rows(rows, comparison_raw)
+    comparison = usage_comparison.comparison_block(
         rows,
         comparison_raw,
         run_id=comparison_id,
@@ -1281,7 +1384,7 @@ def run(args: argparse.Namespace) -> None:
         )
     design = pd.read_csv(GOLD_DESIGN, dtype={"occurrence_id": "string"}, keep_default_na=False)
     annotations = audit.read_annotations(GOLD_ANNOTATIONS)
-    gold = usage.gold_block(
+    gold = gold_estimates.gold_block(
         annotations,
         rows,
         sample_size=len(candidates),
@@ -1301,11 +1404,28 @@ def run(args: argparse.Namespace) -> None:
         # which is what the weighted accuracy and the corrected shares divide by.
         design=design,
     )
-    jaccard = usage.function_jaccard(annotations, rows)
+    jaccard = gold_estimates.function_jaccard(annotations, rows)
     console.info(
         f"gold state '{gold['state']}': {gold['double_coded']:,} of "
         f"{gold['unique_occurrences']:,} occurrences double-coded, "
         f"{gold['adjudicated']:,} adjudicated"
+    )
+    # Every gold figure again without the passages read against a model's labels
+    # before coding (docs/EVALUATION_PLAN.md §4). Written to the note and the
+    # manifest rather than the payload: the payload's shape is the contract the
+    # dashboard is built against, and nothing on it reads these figures yet.
+    reviewed = reviewed_before_coding(candidates)
+    without_review = gold_estimates.without_prior_review(
+        annotations,
+        rows,
+        reviewed=reviewed,
+        comparison=pd.DataFrame(comparison_raw),
+        design=design,
+    )
+    console.info(
+        f"{len(reviewed):,} sampled occurrences were read against a model's labels before "
+        f"coding, {without_review['flagged_coded']:,} of them coded; every gold figure is "
+        "repeated without them"
     )
 
     console.step("Writing")
@@ -1400,6 +1520,7 @@ def run(args: argparse.Namespace) -> None:
             args.minimum,
             directory,
             synthetic=bool(manifest.get("synthetic")),
+            prior_review=without_review,
         ),
     )
     console.info(f"wrote {note.name}")
@@ -1440,6 +1561,7 @@ def run(args: argparse.Namespace) -> None:
                 "matrix_cells": len(blocks["matrix"]),
                 "diffusion_events": events,
                 "gold_state": gold["state"],
+                "gold_without_prior_review": without_review,
             },
         ),
         indent=1,

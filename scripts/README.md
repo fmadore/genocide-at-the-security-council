@@ -339,21 +339,27 @@ What follows from that, worth knowing before you start:
 | [`lib/kwic.py`](lib/kwic.py) | Concordance-line extraction; re-exports the sentence segmentation it used to own. |
 | [`lib/occurrences.py`](lib/occurrences.py) | One enumeration of a term's occurrences, carrying both the audit `occurrence_id` and the KWIC line id; 13, 14 and 15 share it. |
 | [`lib/gold_sample.py`](lib/gold_sample.py) | Step 13's sampling design: the cue and model-label strata, the three frames, each unit's inclusion probability under their union, and the blinded packet. |
-| [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: prompt parsing, request building, response validation against the codebook's vocabularies, evidence-quote location in three passes (exact, whitespace-collapsed, then folded and flagged `evidence_relocated`), resume rules. No network, no SDK import at module level. |
+| [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: request building, response validation against the codebook's vocabularies, row assembly and the row gate. No network, no SDK import at module level. |
+| [`lib/prompts.py`](lib/prompts.py) | The prompt file and its archive of superseded versions: parsing, placeholders, declared constraints, and resolution by digest. |
+| [`lib/evidence.py`](lib/evidence.py) | Evidence-quote location in three passes (exact, whitespace-collapsed, then folded and flagged `evidence_relocated`), and the bounds on a sentence-number answer. |
 | [`lib/annotate.py`](lib/annotate.py) | Step 14's provider-independent population, output ceiling, manifest and refusal rules. No SDK is imported here. |
 | [`lib/probes.py`](lib/probes.py) | What the two pre-run probes decide: whether a reasoning ladder climbs, the sampling settings, the speeches compared and how far two settings agree. No server, no socket. |
-| [`lib/model_runs.py`](lib/model_runs.py) | The model-annotation store's files and pointers, the population check against the committed counts, and the read-only validation every run reader shares. |
-| [`lib/usage.py`](lib/usage.py) | Aggregation for the usage layer: the model block, eligible/assigned funnel, the actor × referent matrix, withholding, and the agreement arithmetic — kappa with its withholding rule, PABAK, Krippendorff's α under MASI, per-label kappa, the per-class support floor. |
+| [`lib/model_runs.py`](lib/model_runs.py) | The model-annotation store's files and pointers, the population check against the committed counts, the read-only validation every run reader shares, and the run file itself: read, appended to, and checked for a resumed run. |
+| [`lib/usage.py`](lib/usage.py) | Aggregation for the usage layer: the model block, eligible/assigned funnel, the actor × referent matrix, withholding, diffusion and exposure. |
+| [`lib/agreement.py`](lib/agreement.py) | The agreement arithmetic every comparison shares: kappa with its withholding rule, PABAK, Krippendorff's α under MASI, per-label kappa, the per-class support floor, Jaccard. |
+| [`lib/gold_estimates.py`](lib/gold_estimates.py) | The gold block: the human reference label, agreement between the coders, the model scored against them, and the design-weighted accuracy and corrected shares. |
+| [`lib/usage_comparison.py`](lib/usage_comparison.py) | A second run read against the published one, over the overlap: agreement per field and per referent, and the contested occurrences. |
 | [`lib/usage_refusals.py`](lib/usage_refusals.py) | Step 15's refusals — lexicon, rows, codebook, referent list, prompt, comparison, coverage — and the resolutions that read an older run in today's vocabulary. |
 | [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood as a floor with log ratio and logDice as the rank, dispersion (documents, meetings, DP), matched controls, PMI with definitional pairs suppressed. |
 | [`lib/keyness.py`](lib/keyness.py) | One speaker against the room: the corpus as a count matrix, the strata, the two gates, agenda composition. |
 | [`lib/embeddings.py`](lib/embeddings.py) | The model registry, the chunking policy for long speeches, pooling, neighbours. |
 | [`lib/topics.py`](lib/topics.py) | The frozen sample, both topic models, and the evaluation: NPMI coherence, adjusted Rand, c-TF-IDF, word intrusion. |
+| [`lib/projection.py`](lib/projection.py) | The 2D projection as a diagnostic against a thematic reading: neighbourhood purity, trustworthiness, neighbour loss, and the figures. Step 21 reads it as well as 07. |
 | [`lib/lemmas.py`](lib/lemmas.py) | The lemma layer: offset alignment to `lexical.tokenise`, the stored form, the audit mapping. |
 | [`lib/download_models.py`](lib/download_models.py) | Prefetches weights on the cluster login node. |
 
-`embeddings.py`, `topics.py` and `lemmas.py` import torch, scikit-learn, umap-learn and
-spaCy *inside* the functions that need them, so the test suite and steps 00–05 run without
+`embeddings.py`, `topics.py`, `projection.py` and `lemmas.py` import torch, scikit-learn,
+umap-learn, matplotlib and spaCy *inside* the functions that need them, so the test suite and steps 00–05 run without
 the cluster extras installed. Everything that decides what a model sees, and what is done
 with what it returns, is plain Python and is tested on any machine.
 

@@ -64,6 +64,13 @@ examples are cut from (`model_annotations/genocide/prompt_examples.csv`) are
 outside every frame: their labels are dictated to the model, so they cannot
 test it.
 
+The 59 passages read against the Qwen run's labels on 10 September 2026
+(`annotations/genocide/prior_review.csv`) are treated the other way: they stay
+in every frame, because the sample stays as drawn, and the ones drawn are
+flagged (decided by FM on 9 October 2026, docs/EVALUATION_PLAN.md §4). A
+`prior_review` column marks them in the candidate and design files, and never
+in the packet; step 15 reports every gold figure with and without them.
+
 Usage:
     python scripts/13_gold_sample.py [--probability 120] [--coverage 80] [--seed 21]
 """
@@ -131,6 +138,9 @@ GOLD_REVIEW = INTERIM / "genocide_gold_review.csv"
 GOLD_PACKET = model_runs.GOLD_PACKET
 #: The occurrences behind the prompt's worked examples, excluded from every frame.
 PROMPT_EXAMPLES = model_runs.PROMPT_EXAMPLES
+#: The passages read against a model's labels before coding: flagged, never excluded.
+PRIOR_REVIEW = model_runs.PRIOR_REVIEW
+PRIOR_REVIEW_FLAG = model_runs.PRIOR_REVIEW_FLAG
 #: Every population occurrence's probability under each frame and under their
 #: union, which is what lets 15 weight a coded unit however it was drawn.
 GOLD_DESIGN = model_runs.GOLD_DESIGN
@@ -234,6 +244,29 @@ def prompt_example_ids(found: Sequence[occurrences.Occurrence]) -> set[str]:
     return listed
 
 
+def prior_review_ids(found: Sequence[occurrences.Occurrence]) -> set[str]:
+    """The passages read against a model's labels before coding, as ids of this enumeration.
+
+    Refuses a list naming an occurrence the corpus no longer has, for the reason
+    :func:`prompt_example_ids` does: the flag would then silently flag nothing.
+    """
+    if not PRIOR_REVIEW.is_file():
+        console.fail(
+            f"{rel(PRIOR_REVIEW)} is missing",
+            ["restore it from version control; `tools/prior_review.py` rebuilds it"],
+        )
+    listed = set(
+        pd.read_csv(PRIOR_REVIEW, dtype="string", keep_default_na=False)["occurrence_id"]
+    )
+    present = {occurrence.occurrence_id for occurrence in found}
+    if missing := sorted(listed - present):
+        console.fail(
+            f"{rel(PRIOR_REVIEW)} names occurrences this corpus does not have",
+            [*missing[:5], "run `python tools/prior_review.py` to see which passages moved"],
+        )
+    return listed
+
+
 def stratum_rows(candidates: pd.DataFrame, sample: pd.DataFrame) -> list[str]:
     """The disagreement frame's own table: what it holds and at what probability."""
     drawn = sample.loc[sample["sampling_frame"] == DISAGREEMENT]
@@ -264,8 +297,11 @@ def build_note(
     coverage: int,
     seed: int,
     annotated: int,
+    *,
+    reviewed: int = 0,
 ) -> str:
     population = len(candidates)
+    flagged = int(sample.drop_duplicates("occurrence_id")[PRIOR_REVIEW_FLAG].sum())
     frames_seen = {
         name: sample.loc[sample["sampling_frame"] == name]
         for name in (audit.PROBABILITY, audit.COVERAGE, DISAGREEMENT)
@@ -360,6 +396,12 @@ def build_note(
             f"occurrences each of the two coders takes independently ({2 * unique} rows when",
             "the sample is complete), following `annotations/lexicon/CODEBOOK.md`.",
             "",
+            f"**{flagged}** of the {unique} occurrences are among the {reviewed} passages read",
+            "against the Qwen run's labels on 10 September 2026, before coding began",
+            f"(`{rel(PRIOR_REVIEW)}`). They stay in the sample as drawn: the `{PRIOR_REVIEW_FLAG}`",
+            "column marks them in the candidate and design files and never in the packet, and",
+            "step 15 reports every gold figure with and without them.",
+            "",
         ]
     ) + "\n"
 
@@ -424,6 +466,14 @@ def run(probability: int, coverage: int, seed: int) -> None:
         f"{len(sample)} candidate rows over {unique} distinct occurrences "
         f"(seeds {seed}, {seed + 1} and {seed + 2})"
     )
+    # Read only now, so the list cannot reach the draw: it marks the sample drawn.
+    reviewed = prior_review_ids(found)
+    sample = gold_sample.flag_prior_review(sample, reviewed)
+    flagged = int(sample.drop_duplicates("occurrence_id")[PRIOR_REVIEW_FLAG].sum())
+    console.info(
+        f"{flagged} of them are among the {len(reviewed)} passages read against a model's "
+        f"labels before coding; `{PRIOR_REVIEW_FLAG}` marks them, outside the packet"
+    )
     review = audit.write_outputs(
         sample,
         annotation_path=GOLD_ANNOTATIONS,
@@ -445,7 +495,9 @@ def run(probability: int, coverage: int, seed: int) -> None:
     console.info(
         f"wrote {rel(GOLD_CANDIDATES)} and {rel(GOLD_REVIEW)} ({annotated} annotations)"
     )
-    weights = gold_sample.design(candidates, probability, coverage, third)
+    weights = gold_sample.flag_prior_review(
+        gold_sample.design(candidates, probability, coverage, third), reviewed
+    )
     artifacts.atomic_write_text(GOLD_DESIGN, weights.to_csv(index=False, lineterminator="\n"))
     drawn = weights.loc[weights["occurrence_id"].isin(sample["occurrence_id"])]
     console.info(
@@ -461,7 +513,9 @@ def run(probability: int, coverage: int, seed: int) -> None:
     console.step("Writing")
     note = write_note(
         "13_gold_sample.md",
-        build_note(candidates, sample, probability, coverage, seed, annotated),
+        build_note(
+            candidates, sample, probability, coverage, seed, annotated, reviewed=len(reviewed)
+        ),
     )
     console.info(f"wrote {note.name}")
     manifest = artifacts.provenance(
@@ -470,7 +524,8 @@ def run(probability: int, coverage: int, seed: int) -> None:
         inputs=[SPEECHES_NORM, CURRENT_RUN, COMPARISON_RUN,
                 *(path for name in (published_run, comparison_run) if name
                   for path in model_runs.files(RUNS / name))],
-        configs=[LEXICON, GOLD_ANNOTATIONS, REFERENTS, PROMPT_EXAMPLES, MODEL_ANNOTATIONS / TERM / "PROMPT.md",
+        configs=[LEXICON, GOLD_ANNOTATIONS, REFERENTS, PROMPT_EXAMPLES, PRIOR_REVIEW,
+                 MODEL_ANNOTATIONS / TERM / "PROMPT.md",
                  *sorted((MODEL_ANNOTATIONS / TERM / "prompts").glob("*.md"))],
         extra={
             "model_overlap": candidates.attrs.get("model_overlap", {}),
@@ -485,6 +540,13 @@ def run(probability: int, coverage: int, seed: int) -> None:
                 artifacts.describe_file(GOLD_DESIGN, ROOT),
             ],
             "excluded_prompt_examples": sorted(examples),
+            "prior_review": {
+                "listed": len(reviewed),
+                "in_sample": flagged,
+                "flagged": sorted(
+                    sample.loc[sample[PRIOR_REVIEW_FLAG], "occurrence_id"].astype(str).unique()
+                ),
+            },
             "third_frame": third,
             "lexicon_version": lex.version,
             "term": TERM,

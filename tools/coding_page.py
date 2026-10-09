@@ -25,7 +25,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from lib import artifacts, audit, console, frames, llm, model_runs, usage
+from lib import artifacts, audit, console, frames, gold_estimates, llm, model_runs
 from lib.paths import INTERIM, SPEECHES_NORM, rel
 
 PACKET = model_runs.GOLD_PACKET
@@ -79,7 +79,7 @@ def data() -> dict[str, object]:
     ]
     return {
         "columns": list(audit.ANNOTATION_FIELDS),
-        "coders": [*usage.CODERS, usage.ADJUDICATOR],
+        "coders": [*gold_estimates.CODERS, gold_estimates.ADJUDICATOR],
         "vocabularies": VOCABULARIES,
         "functions": sorted(audit.FUNCTIONS),
         "referents": referents,

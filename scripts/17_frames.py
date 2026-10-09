@@ -106,10 +106,10 @@ CURRENT_RUN = model_runs.CURRENT_RUN
 COMPARISON_RUN = model_runs.COMPARISON_RUN
 
 #: The model fields a frame is crossed against. `speaker_position` is
-#: single-label and `function` is pipe-joined, as `lib.usage` documents; they are
-#: handled apart for that reason and not for any other. A run coded against
-#: annotation schema 2 records the field as `stance`, and `model_rows` resolves
-#: it onto this name before anything is crossed with it.
+#: single-label and `function` is pipe-joined, as `lib.usage_comparison`
+#: documents; they are handled apart for that reason and not for any other. A
+#: run coded against annotation schema 2 records the field as `stance`, and
+#: `model_rows` resolves it onto this name before anything is crossed with it.
 POSITION_FIELD = "speaker_position"
 FUNCTION_FIELD = "function"
 

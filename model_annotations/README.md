@@ -110,7 +110,7 @@ existed there was exactly one file the digest could be compared against, and edi
 on 2 September 2026 for that price alone. Now a run resolves *by digest* against `PROMPT.md`
 and every file here, and only a wording this repository no longer holds is refused.
 
-Two rules keep the resolution unambiguous, and `lib.llm.load_prompt_library` enforces both:
+Two rules keep the resolution unambiguous, and `lib.prompts.load_prompt_library` enforces both:
 a file here is named for the version it declares, and every version here is *below*
 `PROMPT.md`'s. So the current text is never duplicated into this directory — the rejected
 alternative, an archive holding every version including the current one, reads more evenly

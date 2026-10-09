@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, console, embeddings, frames, semantic, topics
+from lib import artifacts, console, embeddings, frames, projection, semantic
 from lib.paths import EMBEDDINGS, ROOT, SEMANTIC, SPEECHES_FLAGGED
 
 
@@ -38,7 +38,7 @@ def project(vectors: np.ndarray, seed: int, neighbours: int = 30):
     for query, actual in zip(queries, exact, strict=True):
         candidates = [int(i) for i in indices[query] if i != query][:10]
         recalls.append(len(set(candidates) & set(actual)) / 10)
-    evaluation = topics.projection_agreement(vectors, coordinates, seed=seed, max_points=1000)
+    evaluation = projection.projection_agreement(vectors, coordinates, seed=seed, max_points=1000)
     evaluation["measured_against"] = "original normalized speech embeddings"
     evaluation["ann_recall_at_10"] = round(float(np.mean(recalls)), 4)
     evaluation["ann_exact_query_sample"] = len(queries)
