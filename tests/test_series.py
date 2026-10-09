@@ -9,6 +9,8 @@ has to be reported as what it is rather than as a regime change.
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -618,3 +620,219 @@ class TestBlockNull:
         assert found is not None
         assert found["label"] == "2008"
         assert found["accepted"] is True
+
+
+def _meetings(hits_per_meeting: list[int], speeches: int = 10, year: int = 2000) -> pd.DataFrame:
+    """One year of meetings, `speeches` each, the first `hits` of each saying the word."""
+    rows = []
+    for meeting, hits in enumerate(hits_per_meeting):
+        for i in range(speeches):
+            rows.append(
+                {
+                    "row_id": f"{year}-{meeting}-{i}",
+                    "year": year,
+                    "meeting_symbol": f"S/PV.{year}{meeting:03d}",
+                    "has_genocide": i < hits,
+                    "has_war_crimes": i < hits,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+class TestMeetingBootstrap:
+    FLAGS: ClassVar[dict[str, str]] = {"genocide": "has_genocide"}
+
+    def interval(self, frame: pd.DataFrame, **kwargs) -> tuple[float, float]:
+        periods = series.period(frame, "year")
+        index = pd.Index(sorted(periods.unique()))
+        low, high = series.meeting_bootstrap(frame, periods, index, self.FLAGS, **kwargs)[
+            "genocide"
+        ]
+        return float(low[0]), float(high[0])
+
+    def test_the_same_seed_draws_the_same_band(self):
+        frame = pd.concat(
+            [_meetings([10, 10, *[0] * 18]), _meetings([3, 0, 5, 1, *[2] * 16], year=2001)],
+            ignore_index=True,
+        )
+        periods = series.period(frame, "year")
+        index = pd.Index([2000, 2001])
+        # Few resamples, so the percentiles fall between draws and a different
+        # seed has room to move them; at 999 the band settles on the same
+        # values whatever the seed.
+        def band(seed: int) -> np.ndarray:
+            low, high = series.meeting_bootstrap(
+                frame, periods, index, self.FLAGS, seed=seed, resamples=19
+            )["genocide"]
+            return np.concatenate([low, high])
+
+        np.testing.assert_array_equal(band(7), band(7))
+        assert any(not np.array_equal(band(7), band(seed)) for seed in range(8, 12))
+
+    def test_the_default_seed_is_the_published_one(self):
+        """The payload records `CLUSTER_SEED`; the band must be the one it drew."""
+        frame = _meetings([10, 10, *[0] * 18])
+        assert self.interval(frame) == self.interval(
+            frame, seed=series.CLUSTER_SEED, resamples=series.CLUSTER_RESAMPLES
+        )
+
+    def test_a_word_held_by_a_few_meetings_is_wider_than_wilson(self):
+        """Twenty of 200 speeches either way; only where they sit differs.
+
+        In two debates of ten, the year's rate rests on whether those two
+        sessions are drawn, and the band has to say so. Wilson sees 20 of 200
+        independent trials and cannot.
+        """
+        clustered = _meetings([10, 10, *[0] * 18])
+        wilson_low, wilson_high = (float(v) for v in series.wilson_interval(20, 200))
+        low, high = self.interval(clustered)
+        assert low < wilson_low and high > wilson_high
+        assert (high - low) > 2 * (wilson_high - wilson_low)
+
+    def test_a_word_spread_over_every_meeting_is_narrower_than_wilson(self):
+        """One speech in each of twenty meetings: every draw gives the same rate."""
+        spread = _meetings([1] * 20)
+        wilson_low, wilson_high = (float(v) for v in series.wilson_interval(20, 200))
+        low, high = self.interval(spread)
+        assert low == pytest.approx(0.1) and high == pytest.approx(0.1)
+        assert wilson_low < low and high < wilson_high
+
+    def test_measures_share_one_draw_of_meetings(self):
+        """Two flags set on the same speeches get the same band, not two draws."""
+        frame = _meetings([10, 4, 0, 0, 7, 0, 0, 0, 0, 1])
+        periods = series.period(frame, "year")
+        out = series.meeting_bootstrap(
+            frame,
+            periods,
+            pd.Index([2000]),
+            {"genocide": "has_genocide", "war_crimes": "has_war_crimes"},
+        )
+        np.testing.assert_array_equal(out["genocide"][0], out["war_crimes"][0])
+        np.testing.assert_array_equal(out["genocide"][1], out["war_crimes"][1])
+
+    def test_a_period_without_meetings_has_no_band(self):
+        frame = _meetings([10, 0, 0, 0])
+        periods = series.period(frame, "year")
+        low, high = series.meeting_bootstrap(
+            frame, periods, pd.Index([1999, 2000]), self.FLAGS
+        )["genocide"]
+        assert np.isnan(low[0]) and np.isnan(high[0])
+        assert 0.0 <= low[1] <= 0.25 <= high[1] <= 1.0
+
+
+def _decomposition_corpus(cells: dict[int, dict[str, tuple[int, int]]]) -> pd.DataFrame:
+    """Speeches from `{year: {group: (speeches, carrying the word)}}`."""
+    rows = []
+    for year, groups in cells.items():
+        for group, (speeches, hits) in groups.items():
+            rows.extend(
+                {"year": year, "agenda": group, "has_genocide": i < hits}
+                for i in range(speeches)
+            )
+    return pd.DataFrame(rows)
+
+
+class TestRateDecomposition:
+    #: Every share and rate below is a binary fraction, so the arithmetic, and
+    #: the six-decimal rounding the payload applies, are exact and the expected
+    #: values can be compared with `==`.
+    CELLS: ClassVar[dict[int, dict[str, tuple[int, int]]]] = {
+        # 1/4 of speeches carry the word.
+        2000: {"A": (2, 1), "B": (2, 0)},
+        # 14/16: B's speakers start using it, and C arrives already using it.
+        2001: {"A": (4, 2), "B": (4, 4), "C": (8, 8)},
+        # 1/4 again: B and C leave, and A uses it less.
+        2002: {"A": (4, 1)},
+    }
+
+    def decompose(self, cells=None) -> list[dict[str, object]]:
+        frame = _decomposition_corpus(cells or self.CELLS)
+        return series.rate_decomposition(
+            frame, series.period(frame, "year"), "has_genocide", "agenda"
+        )
+
+    def test_a_hand_worked_example(self):
+        """Worked by hand from the formula in the docstring.
+
+        2000 to 2001: shares go A .5 -> .25, B .5 -> .25, C 0 -> .5; rates A .5
+        -> .5, B 0 -> 1, C (none) -> 1. Composition is (-.25)(1)/2 for A,
+        (-.25)(1)/2 for B and (.5)(2)/2 for C, which is .25; within is B's
+        (1)(.75)/2 = .375 alone. They add to .875 - .25 = .625, and by group
+        to A -.125, B -.125 + .375 = .25 and C .5.
+
+        2001 to 2002: shares A .25 -> 1, B .25 -> 0, C .5 -> 0; rates A .5 ->
+        .25, B and C carried across at 1. Composition (.75)(.75)/2 - .25 - .5 =
+        -.46875; within (-.25)(1.25)/2 = -.15625; together -.625.
+        """
+        first, second = self.decompose()
+        assert first == {
+            "from": 2000,
+            "to": 2001,
+            "rate_from": 0.25,
+            "rate_to": 0.875,
+            "change": 0.625,
+            "composition": 0.25,
+            "within": 0.375,
+            "largest": [
+                {"group": "C", "contribution": 0.5},
+                {"group": "B", "contribution": 0.25},
+                {"group": "A", "contribution": -0.125},
+            ],
+        }
+        assert second == {
+            "from": 2001,
+            "to": 2002,
+            "rate_from": 0.875,
+            "rate_to": 0.25,
+            "change": -0.625,
+            "composition": -0.46875,
+            "within": -0.15625,
+            "largest": [
+                {"group": "C", "contribution": -0.5},
+                {"group": "B", "contribution": -0.25},
+                {"group": "A", "contribution": 0.125},
+            ],
+        }
+
+    def test_a_group_in_one_period_only_is_all_composition(self):
+        """C arrives in 2001: its contribution is its new share times its rate."""
+        first, _ = self.decompose()
+        contribution = {row["group"]: row["contribution"] for row in first["largest"]}
+        assert contribution["C"] == 0.5 * 1.0
+
+    @pytest.mark.parametrize("seed", range(8))
+    def test_composition_plus_within_is_the_change(self, monkeypatch, seed):
+        """The identity the method rests on, on corpora with no special structure.
+
+        The payload rounds each figure to six decimals on its own, so the
+        published three can disagree in the last place. The identity is a
+        claim about the arithmetic, and is checked before that rounding, by
+        replacing the module's `round` with the identity.
+        """
+        monkeypatch.setattr(series, "round", lambda value, digits=None: value, raising=False)
+        rng = np.random.default_rng(seed)
+        cells = {
+            year: {
+                group: (n := int(rng.integers(1, 60)), int(rng.integers(0, n + 1)))
+                for group in "ABCDEFG"
+                if rng.random() < 0.7
+            }
+            or {"A": (5, 1)}
+            for year in range(1990, 1996)
+        }
+        rows = self.decompose(cells)
+        assert len(rows) == 5
+        for row in rows:
+            assert row["composition"] + row["within"] == pytest.approx(
+                row["change"], rel=0, abs=1e-12
+            )
+
+    def test_the_published_parts_add_up_to_the_rounding(self):
+        """After rounding, the three published figures agree to 1.5e-6."""
+        rng = np.random.default_rng(11)
+        cells = {
+            year: {group: (37, int(rng.integers(0, 38))) for group in "ABCD"}
+            for year in range(1990, 1994)
+        }
+        for row in self.decompose(cells):
+            assert abs(row["composition"] + row["within"] - row["change"]) <= 1.5e-6

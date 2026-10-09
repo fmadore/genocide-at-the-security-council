@@ -185,7 +185,9 @@ def compare_golden(found: dict[str, object], name: str) -> None:
     """Hold `found` to the committed golden file, or rewrite it on request."""
     golden = GOLDEN / name
     if os.environ.get("UPDATE_GOLDEN"):
-        golden.write_text(json.dumps(found, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+        golden.write_text(
+            json.dumps(found, indent=1, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+        )
     assert golden.exists(), "no golden file: run once with UPDATE_GOLDEN=1 and commit the result"
     expected = json.loads(golden.read_text(encoding="utf-8"))
     # Through JSON first, so a tuple and a list, or an int key and its string,
@@ -215,6 +217,7 @@ def analytical(series_dir: Path, kwic_dir: Path, frames_dir: Path) -> dict[str, 
     annual = json.loads((series_dir / "annual.json").read_text(encoding="utf-8"))
     change = json.loads((series_dir / "change_points.json").read_text(encoding="utf-8"))
     monthly = json.loads((series_dir / "monthly.json").read_text(encoding="utf-8"))
+    decomposition = json.loads((series_dir / "decomposition.json").read_text(encoding="utf-8"))
     genocide = annual["terms"]["genocide"]
     index = json.loads((kwic_dir / "index.json").read_text(encoding="utf-8"))
     lines = json.loads((kwic_dir / "genocide.json").read_text(encoding="utf-8"))["lines"]
@@ -230,6 +233,10 @@ def analytical(series_dir: Path, kwic_dir: Path, frames_dir: Path) -> dict[str, 
                     "speech_rate",
                     "speech_rate_low",
                     "speech_rate_high",
+                    # The band drawn by resampling whole meetings, which the
+                    # Chronology shows instead of Wilson's.
+                    "speech_rate_cluster_low",
+                    "speech_rate_cluster_high",
                     "occurrences",
                     "token_rate",
                 )
@@ -266,6 +273,9 @@ def analytical(series_dir: Path, kwic_dir: Path, frames_dir: Path) -> dict[str, 
             }
             for name, by_measure in change["inference"]["series"].items()
         },
+        # Decade to decade, by agenda item and by speaker group: how much of the
+        # change in the genocide rate is the agenda moving, and how much use.
+        "decomposition": decomposition["splits"],
         "monthly_coverage": monthly["coverage"],
         "kwic": {
             "counts": {entry["term"]: entry["count"] for entry in index["terms"]},
