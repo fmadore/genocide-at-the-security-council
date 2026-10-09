@@ -17,7 +17,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, frames, lemmas, lexical, robustness
+from lib import artifacts, console, frames, lemmas, lexical, robustness
 from lib.lexical import MATCH_ON, SEED
 from lib.paths import DERIVED, ROOT, SPEECHES_FLAGGED, STOPWORDS
 
@@ -164,4 +164,4 @@ if __name__ == "__main__":
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--lemma-layer", type=Path, help="validated step-10 output directory")
     args = parser.parse_args()
-    run(args.seed, args.limit, args.lemma_layer)
+    console.main(lambda: run(args.seed, args.limit, args.lemma_layer))
