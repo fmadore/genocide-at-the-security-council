@@ -165,6 +165,38 @@ describe('interval bands', () => {
 		expect(strip.data).toEqual([0]);
 	});
 
+	/* Two intervals can stand behind a band. The Wilson interval treats every
+	   speech as independent; the meeting-clustered one resamples whole meetings
+	   and is the honest one where a year's word sits in a few debates. */
+	const wilson = { speech_rate_low: [0.08, 0.1], speech_rate_high: [0.4, 0.3] };
+
+	it('draws the meeting-clustered interval where the artefact carries one', async () => {
+		const { bandBounds } = await import('./chronology');
+		const bounds = bandBounds({
+			...wilson,
+			speech_rate_cluster_low: [0.05, null],
+			speech_rate_cluster_high: [0.45, null]
+		});
+		expect(bounds).toEqual({ low: [0.05, null], high: [0.45, null], clustered: true });
+	});
+
+	it('draws the Wilson interval for a payload written before the clustered one', async () => {
+		const { bandBounds } = await import('./chronology');
+		expect(bandBounds(wilson)).toEqual({
+			low: [0.08, 0.1],
+			high: [0.4, 0.3],
+			clustered: false
+		});
+	});
+
+	it('does not mix the two intervals when only one clustered bound is present', async () => {
+		const { bandBounds } = await import('./chronology');
+		const bounds = bandBounds({ ...wilson, speech_rate_cluster_low: [0.05, 0.06] });
+		expect(bounds.clustered).toBe(false);
+		expect(bounds.low).toBe(wilson.speech_rate_low);
+		expect(bounds.high).toBe(wilson.speech_rate_high);
+	});
+
 	it('tells a band from the line it belongs to', async () => {
 		const { isIntervalBand, bandOwner, BAND_SUFFIX } = await import('./chronology');
 		expect(isIntervalBand(`Genocide${BAND_SUFFIX}`)).toBe(true);

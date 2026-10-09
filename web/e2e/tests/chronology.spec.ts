@@ -151,3 +151,21 @@ test('the calendar stays legible at a phone width', async ({ page }) => {
 	// And the page still does not scroll sideways at the reflow width.
 	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
+
+test('the band is the meeting-clustered interval where the artefact carries one', async ({
+	page
+}) => {
+	// The fixture carries both intervals for 1994: Wilson 8.07%–41.62% and,
+	// from resampling whole meetings, 5.00%–45.00%. The chart's tooltip states
+	// the interval the band is drawn from, so it is the one to read back.
+	await page.goto(`${base}/chronology/`);
+	const figure = page.locator('figure.figure').filter({
+		has: page.getByRole('heading', { name: 'The word list over time', level: 2 })
+	});
+	const plot = figure.locator('.chart').first();
+	await expect(plot.locator('svg')).toBeVisible({ timeout: 15_000 });
+	// The middle of the plot is 1994, the middle of the three fixture years.
+	await plot.hover();
+	await expect(plot).toContainText('5.00%–45.00%');
+	await expect(plot).not.toContainText('8.07%–41.62%');
+});
