@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from conftest import make_speeches
-from lib import audit, frames, lexicon, model_runs, occurrences
+from lib import audit, frames, lexicon, model_runs, occurrences, sampling
 from lib import gold_sample as gold
 
 DENSE = "S/PV.7155"  # one of the seven meetings of docs/CORPUS.md §8.6
@@ -178,13 +178,13 @@ def test_candidates_carry_the_audit_columns_plus_the_cue_and_the_kwic_id() -> No
 def test_the_drawn_sample_satisfies_what_the_merge_requires() -> None:
     sample = gold.draw(built(), 3, 5, 21)
     assert set(sample.columns) >= audit.CANDIDATE_REQUIRED
-    assert set(sample["sampling_frame"]) == {audit.PROBABILITY, audit.COVERAGE}
+    assert set(sample["sampling_frame"]) == {sampling.PROBABILITY, sampling.COVERAGE}
 
 
 def test_the_coverage_frame_holds_every_period_cue_stratum() -> None:
     candidates = built()
     coverage = gold.draw(candidates, 3, 5, 21).pipe(
-        lambda sample: sample.loc[sample["sampling_frame"] == audit.COVERAGE]
+        lambda sample: sample.loc[sample["sampling_frame"] == sampling.COVERAGE]
     )
     assert set(zip(coverage["period"], coverage["cue"], strict=True)) == set(
         zip(candidates["period"], candidates["cue"], strict=True)
@@ -226,7 +226,7 @@ def test_an_occurrence_in_both_frames_keeps_one_row_in_each() -> None:
     for _, rows in sample.loc[sample["occurrence_id"].duplicated(keep=False)].groupby(
         "occurrence_id"
     ):
-        assert sorted(rows["sampling_frame"]) == sorted([audit.PROBABILITY, audit.COVERAGE])
+        assert sorted(rows["sampling_frame"]) == sorted([sampling.PROBABILITY, sampling.COVERAGE])
         assert rows["candidate_id"].nunique() == 2
 
 
@@ -334,7 +334,7 @@ def test_the_frame_records_a_probability_per_stratum_and_a_census_where_it_takes
             "",
         ]
     )
-    sample = audit.stratified_sample(
+    sample = sampling.stratified_sample(
         candidates,
         {"rejects": None, "other_referent": 2, "reports_without_position": 5},
         21,
@@ -361,15 +361,15 @@ def test_the_frame_records_a_probability_per_stratum_and_a_census_where_it_takes
 def test_the_stratified_draw_is_reproducible_from_its_seed() -> None:
     candidates = strata_frame().assign(stratum=["other_referent"] * 8)
     sizes = {"other_referent": 3}
-    first = audit.stratified_sample(candidates, sizes, 21, gold.DISAGREEMENT)
-    again = audit.stratified_sample(candidates, sizes, 21, gold.DISAGREEMENT)
-    shuffled = audit.stratified_sample(
+    first = sampling.stratified_sample(candidates, sizes, 21, gold.DISAGREEMENT)
+    again = sampling.stratified_sample(candidates, sizes, 21, gold.DISAGREEMENT)
+    shuffled = sampling.stratified_sample(
         candidates.sample(frac=1, random_state=5).reset_index(drop=True),
         sizes,
         21,
         gold.DISAGREEMENT,
     )
-    other_seed = audit.stratified_sample(candidates, sizes, 22, gold.DISAGREEMENT)
+    other_seed = sampling.stratified_sample(candidates, sizes, 22, gold.DISAGREEMENT)
     assert first["occurrence_id"].tolist() == again["occurrence_id"].tolist()
     assert set(first["occurrence_id"]) == set(shuffled["occurrence_id"])
     assert set(first["occurrence_id"]) != set(other_seed["occurrence_id"])
@@ -378,7 +378,7 @@ def test_the_stratified_draw_is_reproducible_from_its_seed() -> None:
 def test_a_repository_with_no_published_run_pair_draws_only_the_first_two_frames() -> None:
     candidates = strata_frame().assign(stratum="")
     sample = gold.draw(candidates, 3, 5, 21)
-    assert set(sample["sampling_frame"]) == {audit.PROBABILITY, audit.COVERAGE}
+    assert set(sample["sampling_frame"]) == {sampling.PROBABILITY, sampling.COVERAGE}
 
 
 def test_the_three_frames_keep_one_row_and_one_probability_each() -> None:
@@ -387,8 +387,8 @@ def test_the_three_frames_keep_one_row_and_one_probability_each() -> None:
     )
     sample = gold.draw(candidates, 8, 5, 21, sizes={"rejects": None})
     assert set(sample["sampling_frame"]) == {
-        audit.PROBABILITY,
-        audit.COVERAGE,
+        sampling.PROBABILITY,
+        sampling.COVERAGE,
         gold.DISAGREEMENT,
     }
     assert not sample["candidate_id"].duplicated().any()

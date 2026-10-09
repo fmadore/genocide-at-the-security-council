@@ -78,6 +78,7 @@ from lib import (
     llm,
     model_runs,
     prompts,
+    schema,
     usage,
     usage_comparison,
     usage_refusals,
@@ -1226,7 +1227,7 @@ def run(args: argparse.Namespace) -> None:
     if schema_counts["unanswered"]:
         console.info(
             f"{schema_counts['unanswered']:,} rows were coded against annotation schema "
-            f"{audit.LEGACY_SCHEMA_VERSION} and carry none of the six fields schema "
+            f"{schema.LEGACY_SCHEMA_VERSION} and carry none of the six fields schema "
             f"{llm.SCHEMA_VERSION} adds; they are read, never guessed at"
         )
     if schema_counts["split_decision"]:
@@ -1255,7 +1256,7 @@ def run(args: argparse.Namespace) -> None:
             what="the comparison run",
         )
         comparison_schema_version = str(
-            comparison_manifest.get("schema_version", "") or audit.LEGACY_SCHEMA_VERSION
+            comparison_manifest.get("schema_version", "") or schema.LEGACY_SCHEMA_VERSION
         )
         if len(comparison_raw) < len(found):
             console.warn(
@@ -1461,7 +1462,7 @@ def run(args: argparse.Namespace) -> None:
             # have.
             "schema_version": llm.SCHEMA_VERSION,
             "run_schema_version": str(
-                manifest.get("schema_version", "") or audit.LEGACY_SCHEMA_VERSION
+                manifest.get("schema_version", "") or schema.LEGACY_SCHEMA_VERSION
             ),
             "rows_without_schema_3_fields": schema_counts["unanswered"],
             "rows_with_split_case_decision": schema_counts["split_decision"],

@@ -35,7 +35,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, audit, console, frames, lexicon
+from lib import artifacts, audit, console, frames, lexicon, sampling
 from lib.paths import (
     INTERIM,
     LEXICON,
@@ -218,9 +218,9 @@ def run(sample_size: int, seed: int, update_counts: bool = False) -> None:
         candidate_path=AUDIT_CANDIDATES,
         review_path=AUDIT_REVIEW,
         frame_paths={
-            audit.PROBABILITY: AUDIT_PROBABILITY,
-            audit.COVERAGE: AUDIT_COVERAGE,
-            audit.NEGATIVE: AUDIT_NEGATIVE,
+            sampling.PROBABILITY: AUDIT_PROBABILITY,
+            sampling.COVERAGE: AUDIT_COVERAGE,
+            sampling.NEGATIVE: AUDIT_NEGATIVE,
         },
         referent_path=AUDIT_REFERENTS,
         # Candidates are regenerated at the current lexicon version, so a coded

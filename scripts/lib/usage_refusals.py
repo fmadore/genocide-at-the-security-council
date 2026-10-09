@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import audit, console, lexicon, llm, model_runs, prompts
+from . import audit, console, lexicon, llm, model_runs, prompts, schema
 from .agreement import _text
 from .paths import LEXICON, rel
 
@@ -198,12 +198,12 @@ def resolve_schema(
       between `concrete_case` and `no_position` is what stops a third.
     """
     recorded = str(manifest.get("schema_version", "") or llm.SCHEMA_VERSION)
-    if recorded not in (llm.SCHEMA_VERSION, "3", audit.LEGACY_SCHEMA_VERSION):
+    if recorded not in (llm.SCHEMA_VERSION, "3", schema.LEGACY_SCHEMA_VERSION):
         raise console.Refusal(
             f"{what} records an annotation schema this checkout cannot read",
             [
                 f"it says version {recorded}; this checkout reads "
-                f"{audit.LEGACY_SCHEMA_VERSION} and {llm.SCHEMA_VERSION}",
+                f"{schema.LEGACY_SCHEMA_VERSION} and {llm.SCHEMA_VERSION}",
                 "check out the commit whose codebook matches the run",
             ],
         )

@@ -27,8 +27,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from .audit import DEFAULT_REFERENTS, ReferentList
+from .audit import ReferentList
 from .paths import rel
+from .schema import DEFAULT_REFERENTS
 
 #: Columns without which the file is not a referent list at all. The others
 #: arrived later, and a file that has not grown them is read as what it meant

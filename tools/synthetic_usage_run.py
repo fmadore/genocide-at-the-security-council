@@ -63,7 +63,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from lib import artifacts, audit, console, frames, lexicon, llm, model_runs, prompts
+from lib import artifacts, audit, console, frames, lexicon, llm, model_runs, prompts, schema
 from lib import occurrences as occurrences_lib
 from lib.kwic import sentence_at, sentence_spans
 from lib.paths import INTERIM, LEXICON, ROOT, SPEECHES_NORM, ensure_dirs, rel
@@ -554,7 +554,7 @@ def build(limit: int | None) -> None:
         [
             referent.id
             for referent in llm.read_referent_table(REFERENTS)
-            if referent.id not in audit.DEFAULT_REFERENTS
+            if referent.id not in schema.DEFAULT_REFERENTS
         ]
     )
     console.info(f"prompt v{pack.version} {pack.sha256[:12]}, {len(cases)} controlled cases")
@@ -643,7 +643,7 @@ def build(limit: int | None) -> None:
     # reached through the false-positive cascade and the two abstention paths, and
     # a fixture that never took one of those would leave that path untested.
     if problems := check_variants(
-        frame, [name for name, _ in cases] + sorted(audit.DEFAULT_REFERENTS)
+        frame, [name for name, _ in cases] + sorted(schema.DEFAULT_REFERENTS)
     ):
         console.fail(
             "the fabricated distribution would ship a single-variant contract",
