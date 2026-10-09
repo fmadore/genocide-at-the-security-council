@@ -27,7 +27,10 @@
 //   stays on the Overview should not pay 2 MB for a chart engine they never see.
 // - *Network-first, cache as fallback*: everything else — the prerendered pages
 //   and the speech and series JSON. The record is the truth and it is small per
-//   request; the cache is what is left when the network is gone.
+//   request; the cache is what is left when the network is gone. The families
+//   of data that grow with the reading — concordances, meetings, neighbour
+//   shards — keep only their most recently fetched files (`$lib/offline`), so
+//   an afternoon in the reader does not leave the corpus on disk.
 //
 // **Why nothing calls `skipWaiting()`.** A deployment changes the hashed names
 // in `build`, so a tab left open on the old HTML would start asking a new
@@ -37,6 +40,7 @@
 // second-most annoying thing a page can do after asking to be installed.
 
 import { base, build, files, version } from '$service-worker';
+import { OFFLINE_KEEP, overflow } from '$lib/offline';
 
 const worker = self as unknown as ServiceWorkerGlobalScope;
 
@@ -56,6 +60,9 @@ const FALLBACK = `${base}/404.html`;
 // cache is discarded on the next deployment. `FALLBACK` is deliberately not in
 // this set: it is reached by name when a navigation fails, never by its own URL.
 const CACHE_FIRST = new Set([...build, ...files]);
+
+// Where the pipeline's artefacts are served from, as the ceilings name them.
+const DATA = `${base}/data/`;
 
 worker.addEventListener('install', (event) => {
 	event.waitUntil(precache());
@@ -136,6 +143,7 @@ async function respond(request: Request, url: URL): Promise<Response> {
 		// document that exists. The fallback is cached once, by name, above.
 		if (response.ok && !response.headers.get('cache-control')?.includes('no-store')) {
 			await cache.put(request, response.clone());
+			await trim(cache, url);
 		}
 
 		return response;
@@ -152,5 +160,29 @@ async function respond(request: Request, url: URL): Promise<Response> {
 		}
 
 		throw error;
+	}
+}
+
+/**
+ * Drop the oldest files of the family a data file belongs to, past its ceiling.
+ *
+ * Called after each `put`, which moves the entry to the end of the cache's
+ * order, so the order is oldest fetch first and the files dropped are the ones
+ * read longest ago. Most requests belong to no bounded family and return
+ * before the cache is listed.
+ */
+async function trim(cache: Cache, url: URL): Promise<void> {
+	if (!url.pathname.startsWith(DATA)) return;
+	const path = url.pathname.slice(DATA.length);
+	if (!OFFLINE_KEEP.some((family) => family.matches(path))) return;
+	const held = await cache.keys();
+	const stale = new Set(
+		overflow(
+			held.map((entry) => new URL(entry.url).pathname),
+			DATA
+		)
+	);
+	for (const entry of held) {
+		if (stale.has(new URL(entry.url).pathname)) await cache.delete(entry);
 	}
 }

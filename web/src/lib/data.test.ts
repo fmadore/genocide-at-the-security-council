@@ -95,6 +95,25 @@ describe('the cache in front of the artefacts', () => {
 		expect(fetchers.b.calls.count, 'b was the least recently read of four').toBe(2);
 	});
 
+	it('goes through each page’s own fetch while prerendering', async () => {
+		// SvelteKit inlines into a prerendered page the responses that page's
+		// own `fetch` returned. A cache shared across pages would leave every
+		// page after the first without the files an earlier one had asked for.
+		vi.resetModules();
+		vi.doMock('$app/environment', () => ({ browser: false }));
+		try {
+			const { annual } = await import('./data');
+			const first = responder(annualPayload());
+			const second = responder(annualPayload());
+			await annual(first.fetcher);
+			await annual(second.fetcher);
+			expect(first.calls.count).toBe(1);
+			expect(second.calls.count).toBe(1);
+		} finally {
+			vi.doUnmock('$app/environment');
+		}
+	});
+
 	it('keeps every small artefact for the whole session', async () => {
 		const { annual, kwic } = await fresh();
 		const series = responder(annualPayload());

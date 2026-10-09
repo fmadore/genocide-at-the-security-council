@@ -479,8 +479,11 @@ test('a build with no second opinion shows none of it', async ({ page }) => {
 
 	// Interception sees browser requests, and the first load of a page is answered
 	// by the server. Arriving from another section runs the view's load in the
-	// browser, which is where the variant payload can be substituted.
+	// browser, which is where the variant payload can be substituted. A chart
+	// drawn on the Overview means the page has hydrated and the router owns the
+	// link; a click before that is a full page load, answered by the server.
 	await page.goto(`${base}/`);
+	await expect(page.locator('.chart svg').first()).toBeVisible();
 	await page
 		.getByRole('navigation', { name: 'Sections' })
 		.getByRole('link', { name: 'Usage' })

@@ -97,11 +97,11 @@ would hand over unfiltered — would spend a reader's data on 6,594 meetings the
 open. So `svelte.config.js` filters that directory out of `serviceWorker.files`, and the
 three strategies follow from the same fact:
 
-| What                                  | Strategy                         | Why                                                                                                 |
-| ------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Icons, manifest, `geo/countries.json` | Precached on install             | ~170 KB, and any page that draws needs it                                                           |
-| `_app/immutable/**`                   | Cache-first, filled as used      | Content-hashed, so a hit is never stale; not precached, as two thirds of it is ECharts and MapLibre |
-| Pages and `data/**`                   | Network-first, cache as fallback | The record is the truth; the cache is what is left when the network is gone                         |
+| What                                  | Strategy                         | Why                                                                                                                                                                               |
+| ------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Icons, manifest, `geo/countries.json` | Precached on install             | ~170 KB, and any page that draws needs it                                                                                                                                         |
+| `_app/immutable/**`                   | Cache-first, filled as used      | Content-hashed, so a hit is never stale; not precached, as two thirds of it is ECharts and MapLibre                                                                               |
+| Pages and `data/**`                   | Network-first, cache as fallback | The record is the truth; the cache is what is left when the network is gone. Concordances, meetings and neighbour shards keep their most recent files only (`src/lib/offline.ts`) |
 
 A navigation that fails and has no cached page falls back to the `404.html` shell, so the
 router still boots and each view says for itself what it could not load. That shell is
