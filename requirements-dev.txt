@@ -3,3 +3,5 @@
 
 pytest>=9.1.1,<10
 ruff>=0.16.5,<0.17
+# Property-based tests (tests/test_properties.py).
+hypothesis>=6.168.5,<7
