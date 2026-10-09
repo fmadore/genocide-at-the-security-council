@@ -48,6 +48,19 @@ test('the filtered CSV records filters, provenance, and only matching rows', asy
 	expect(csv).not.toContain('SC07000-01-001#2');
 });
 
+test('the filtered CSV records a referent filter with the others', async ({ page }) => {
+	await page.goto(`${concordance}?referent=rwanda_1994&from=2014&to=2014`);
+	await expect(page.locator('.status')).toContainText('2 of 4 lines');
+	await expect(
+		page.getByRole('list', { name: 'Filters in force' }).getByRole('listitem')
+	).toHaveText([/Case or concept\s*Rwanda \(1994\)/, /Years\s*2014/]);
+
+	const pending = page.waitForEvent('download');
+	await page.getByRole('button', { name: 'Export 2 to CSV' }).click();
+	const csv = await readFile((await (await pending).path())!, 'utf8');
+	expect(csv).toContain('# on screen: referent: Rwanda (1994); years: 2014–2014; sorted by: date');
+});
+
 test('an exported figure embeds its reading and provenance in the image', async ({ page }) => {
 	await page.goto(`${base}/`);
 	const figure = page.locator('figure.figure').filter({
@@ -131,6 +144,33 @@ test('a concordance hit opens, copies, and traverses exact occurrences', async (
 	expect(ris.trimEnd().endsWith('ER  -')).toBe(true);
 
 	await expectNoAxeViolations(page);
+});
+
+test('an occurrence opened under a referent filter keeps its tools and its neighbours', async ({
+	page
+}) => {
+	// The reader filtered the term's lines without the published run's
+	// placements, so a referent filter kept none of them and the quotation,
+	// basket, citation and previous/next controls vanished without a word.
+	await page.goto(
+		`${base}/reader/SC07000-01?term=genocide&referent=rwanda_1994&speech=SC07000-01-001&occurrence=SC07000-01-001%231`
+	);
+	await expect(page.locator('mark.occurrence')).toHaveAttribute(
+		'data-occurrence',
+		'SC07000-01-001#1'
+	);
+	await expect(page.getByRole('button', { name: 'Copy quotation + citation' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Add to basket' }).first()).toBeVisible();
+	await expect(page.getByRole('button', { name: 'RIS', exact: true })).toBeVisible();
+	// Two of the four fixture lines are placed on this referent.
+	await expect(page.getByText('1 of 2', { exact: true })).toBeVisible();
+	await page.getByRole('link', { name: 'Next occurrence' }).click();
+	await expect(page.locator('mark.occurrence')).toHaveAttribute(
+		'data-occurrence',
+		'SC07000-01-001#2'
+	);
+	await expect(page.getByText('2 of 2', { exact: true })).toBeVisible();
+	await expect(page).toHaveURL(/referent=rwanda_1994/);
 });
 
 /**

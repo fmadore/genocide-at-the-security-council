@@ -249,6 +249,60 @@ const SORT_KEYS: Record<ConcordanceSort, (line: KwicLine) => string> = {
 };
 
 /**
+ * The published run's referent for each occurrence it placed, as the referent
+ * filter reads it. Occurrences the run left unplaced are not in the map, so a
+ * referent filter never keeps them.
+ */
+export function referentMap(
+	occurrences: readonly { id: string; referent: string }[]
+): Map<string, string> {
+	return new Map(
+		occurrences.filter((row) => row.referent).map((row) => [row.id, row.referent] as const)
+	);
+}
+
+/** Where one occurrence stands in a filtered result, for previous and next. */
+export interface ResultPosition {
+	/** One-based. */
+	position: number;
+	total: number;
+	previous: string | null;
+	next: string | null;
+}
+
+/**
+ * One occurrence, and where it stands in the concordance it was opened from.
+ *
+ * The line is looked up by its id among all the term's lines rather than
+ * among the filtered ones. Quoting, keeping and citing an occurrence are about
+ * the occurrence, and a filter the reader cannot satisfy here — a referent
+ * whose placements did not load, a term the run did not annotate — must not
+ * take them away. Previous and next do walk the filtered order, so they are
+ * null when the occurrence is outside it.
+ */
+export function occurrenceInResult(
+	lines: readonly KwicLine[],
+	state: ConcordanceState,
+	id: string,
+	referents: ReadonlyMap<string, string> | null = null
+): { line: KwicLine | null; position: ResultPosition | null } {
+	const line = lines.find((entry) => entry.id === id) ?? null;
+	if (!line) return { line: null, position: null };
+	const ordered = filterConcordance(lines, state, referents).lines;
+	const index = ordered.findIndex((entry) => entry.id === id);
+	if (index < 0) return { line, position: null };
+	return {
+		line,
+		position: {
+			position: index + 1,
+			total: ordered.length,
+			previous: ordered[index - 1]?.id ?? null,
+			next: ordered[index + 1]?.id ?? null
+		}
+	};
+}
+
+/**
  * What a sort is called, in the one place both the control and the file read.
  *
  * The serialized value is `country`, and it stays that way: URLs of this site
@@ -641,6 +695,45 @@ export function filtersInForce(
 		});
 	}
 	return chips;
+}
+
+/**
+ * Every narrowing in force, as the exported file records it, then the sort.
+ *
+ * Built from `filtersInForce` so the file and the chips cannot disagree about
+ * which narrowings apply: the list used to be written out a second time by
+ * hand, and it left out the referent, so a file filtered to one referent said
+ * nothing of it. The wording is the file's own, which predates the chips and
+ * stays as it was: the speaker and the meeting are written as the corpus
+ * writes them rather than shortened, and the years always as a range.
+ */
+export function exportFilters(
+	state: ConcordanceState,
+	names: { meeting: (spv: string) => string; referent: (id: string) => string }
+): string[] {
+	const lines = filtersInForce(state, names).map((chip) => {
+		switch (chip.key) {
+			case 'q':
+				return `search: ${chip.value}`;
+			case 'group':
+				return `group: ${chip.value}`;
+			case 'country':
+				return `speaker: ${state.country}`;
+			case 'type':
+				return `participant type: ${chip.value}`;
+			case 'agenda':
+				return `agenda: ${chip.value}`;
+			case 'spv':
+				return `meeting: ${state.spv}`;
+			case 'referent':
+				return `referent: ${chip.value}`;
+			case 'years':
+				return `years: ${state.from}–${state.to}`;
+			case 'month':
+				return describeMonth(state.month) ?? `month: ${chip.value}`;
+		}
+	});
+	return [...lines, `sorted by: ${describeSort(state.sort)}`];
 }
 
 /** The state with one narrowing cleared and everything else as it was. */

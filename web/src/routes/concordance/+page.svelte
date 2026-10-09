@@ -19,13 +19,13 @@
 		CORPUS_END_YEAR,
 		CORPUS_START_YEAR,
 		concordanceParams,
-		describeMonth,
-		describeSort,
+		exportFilters,
 		facetClick,
 		filterConcordance,
 		profileResult,
 		readConcordanceState,
 		readerQuery,
+		referentMap,
 		yearClick,
 		clearFilter,
 		concordanceQuery,
@@ -353,11 +353,7 @@
 		if (!urlReady || !referentsOffered || referentOf) return;
 		Promise.all([usageOccurrences(), usage()])
 			.then(([occurrences, run]) => {
-				referentOf = new Map(
-					occurrences.occurrences
-						.filter((row) => row.referent)
-						.map((row) => [row.id, row.referent] as [string, string])
-				);
+				referentOf = referentMap(occurrences.occurrences);
 				for (const r of run.referents) referentLabels.set(r.id, r.label);
 			})
 			.catch((error: Error) => {
@@ -496,19 +492,12 @@
 		apply(clearFilter(currentState(), key));
 	}
 
-	/** What the reader actually narrowed by, for the file's own record. */
+	/** What the reader actually narrowed by, for the file's own record: `exportFilters`. */
 	const applied = () =>
-		[
-			searched ? `search: ${searched}${regex ? ' (regex)' : ''}` : null,
-			group ? `group: ${group}` : null,
-			country ? `speaker: ${country}` : null,
-			participantType ? `participant type: ${participantType}` : null,
-			agenda ? `agenda: ${agenda}` : null,
-			spv ? `meeting: ${spv}` : null,
-			from !== CORPUS_START_YEAR || to !== CORPUS_END_YEAR ? `years: ${from}–${to}` : null,
-			describeMonth(month),
-			`sorted by: ${describeSort(sort)}`
-		].filter((line): line is string => line !== null);
+		exportFilters(currentState(), {
+			meeting: meetingLabel,
+			referent: (id) => referentLabels.get(id) ?? termLabel(id)
+		});
 
 	function download() {
 		saveCsv(

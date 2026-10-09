@@ -11,9 +11,16 @@
 		meeting as loadMeeting,
 		meetingOf,
 		occurrenceOf,
-		speechOf
+		speechOf,
+		usageOccurrences
 	} from '$lib/data';
-	import { concordanceQuery, filterConcordance, readConcordanceState } from '$lib/concordance';
+	import {
+		concordanceQuery,
+		occurrenceInResult,
+		readConcordanceState,
+		referentMap
+	} from '$lib/concordance';
+	import { USAGE_TERM } from '$lib/usage';
 	import { readScope, speechInScope } from '$lib/scope';
 	import { occurrenceItem, speechItem } from '$lib/basket';
 	import { basket } from '$lib/basket.svelte';
@@ -86,19 +93,22 @@
 		selectedLine = null;
 		if (!occurrence || !term) return;
 		const state = readConcordanceState(new URLSearchParams(search));
-		kwic(term)
-			.then((file) => {
+		/* The referent filter reads the published run's placements, exactly as
+		   the concordance does, and only for the term that run annotated.
+		   Without them it keeps nothing, so previous and next would vanish while
+		   the concordance the reader came from still listed the occurrence. */
+		const referents =
+			state.referent && term === USAGE_TERM
+				? usageOccurrences()
+						.then((file) => referentMap(file.occurrences))
+						.catch(() => null)
+				: Promise.resolve(null);
+		Promise.all([kwic(term), referents])
+			.then(([file, placements]) => {
 				if (occurrence !== wantedOccurrence || search !== page.url.search) return;
-				const ordered = filterConcordance(file.lines, state).lines;
-				const index = ordered.findIndex((line) => line.id === occurrence);
-				if (index < 0) return;
-				selectedLine = ordered[index];
-				resultNavigation = {
-					position: index + 1,
-					total: ordered.length,
-					previous: ordered[index - 1]?.id ?? null,
-					next: ordered[index + 1]?.id ?? null
-				};
+				const found = occurrenceInResult(file.lines, state, occurrence, placements);
+				selectedLine = found.line;
+				resultNavigation = found.position;
 			})
 			.catch(() => {
 				// Navigation is an enhancement. The meeting evidence remains usable if
