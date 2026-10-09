@@ -41,6 +41,7 @@
 	} from '$lib/concordance';
 	import { USAGE_TERM } from '$lib/usage';
 	import ResultProfile from '$lib/ResultProfile.svelte';
+	import { Resource } from '$lib/resource.svelte';
 	import { kwic, meetingOf, usage, usageOccurrences } from '$lib/data';
 	import { filename, provenanceOf, saveCsv, toCsv } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
@@ -149,20 +150,25 @@
 	let month = $state<number | null>(null);
 	let sort = $state<ConcordanceSort>('date');
 	let regex = $state(false);
-	let shown = $state(PAGE);
+	/* How many lines are on screen. Any change to the filter resets the
+	   window; "Show more" widens it until the next one. */
+	let shown = $derived.by(() => {
+		void [term, searched, group, country, participantType, agenda, spv, from, to, month, sort];
+		return PAGE;
+	});
 	let expanded = $state<string | null>(null);
 
-	let file = $state<KwicFile | null>(null);
-	/* True from the first paint, not from the first fetch.
+	/* Loading from the first paint, not from the first fetch.
 
 	   The effect below cannot start the fetch until `url.ready`, and a page that
-	   reported `loading = false` in the meantime painted "0 of 0 lines", an
-	   export of nothing and "No passages match" over a 6.2 MB file that was
-	   still on its way — a false zero that blamed the reader's filters for it.
-	   The state starts where the page actually is: nothing has arrived yet. */
-	let loading = $state(true);
-	let failure = $state<string | null>(null);
-	let retry = $state(0);
+	   reported `loading = false` in the meantime would paint "0 of 0 lines", an
+	   export of nothing and "No passages match" over a 6.2 MB file still on its
+	   way — a false zero that blames the reader's filters for it. The state
+	   starts where the page actually is: nothing has arrived yet. */
+	const kwicFile = new Resource<KwicFile>({ loading: true });
+	const file = $derived(kwicFile.value);
+	const loading = $derived(kwicFile.loading);
+	const failure = $derived(kwicFile.failure);
 
 	/* Not-yet-loaded and nothing-matched are different facts about the same
 	   empty list, and only one of them may be stated. `loaded` is the second:
@@ -265,19 +271,7 @@
 	$effect(() => {
 		if (!url.ready) return;
 		const wanted = term;
-		void retry;
-		loading = true;
-		failure = null;
-		kwic(wanted)
-			.then((loaded) => {
-				if (wanted === term) file = loaded;
-			})
-			.catch((error: Error) => {
-				if (wanted === term) failure = error.message;
-			})
-			.finally(() => {
-				if (wanted === term) loading = false;
-			});
+		void kwicFile.load(() => kwic(wanted));
 	});
 
 	const lines = $derived(file?.lines ?? []);
@@ -396,12 +390,6 @@
 			})
 		);
 	}
-
-	$effect(() => {
-		// Any change to the filter resets the page window.
-		void [term, searched, group, country, participantType, agenda, spv, from, to, month, sort];
-		shown = PAGE;
-	});
 
 	function reset() {
 		// Immediately, not after `SETTLE`: clearing every filter at once is not
@@ -703,7 +691,7 @@
 				<span>Loading {termLabel(term)} — {bytes(entry?.bytes ?? 0)}…</span>
 			{:else if failure}
 				<span class="error">{failure}</span>
-				<button class="ghost" onclick={() => (retry += 1)}>Try again</button>
+				<button class="ghost" onclick={() => kwicFile.retry()}>Try again</button>
 			{:else}
 				<span>
 					<strong>{count(filtered.length)}</strong> of {count(lines.length)} lines

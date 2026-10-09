@@ -21,6 +21,7 @@
 	} from '$lib/concordance';
 	import { USAGE_TERM } from '$lib/usage';
 	import { visible } from '$lib/reader';
+	import { Resource } from '$lib/resource.svelte';
 	import { readScope, speechInScope } from '$lib/scope';
 	import { occurrenceItem, speechItem } from '$lib/basket';
 	import { basket } from '$lib/basket.svelte';
@@ -46,8 +47,11 @@
 	const wantedTerm = $derived(page.url.searchParams.get('term'));
 	const wantedOccurrence = $derived(page.url.searchParams.get('occurrence'));
 
-	let record = $state<Meeting | null>(null);
-	let failure = $state<string | null>(null);
+	/* The record is emptied whenever another meeting, speech or occurrence is
+	   asked for, so the page never shows one meeting under another's address. */
+	const meetingRecord = new Resource<Meeting>();
+	const record = $derived(meetingRecord.value);
+	const failure = $derived(meetingRecord.failure);
 	let registers = $state<Record<string, string>>({});
 	let open = new SvelteSet<string>();
 	let showAddress = $state(false);
@@ -65,23 +69,18 @@
 		const wanted = basename;
 		const speech = wantedSpeech;
 		const occurrence = wantedOccurrence;
-		record = null;
-		failure = null;
 		copyState = 'idle';
 		quoteState = 'idle';
-		loadMeeting(wanted)
+		void meetingRecord
+			.load(() => loadMeeting(wanted), { clear: true })
 			.then(async (loaded) => {
-				if (wanted !== basename) return;
-				record = loaded;
+				if (!loaded) return;
 				const target = speech ?? loaded.speeches.find((s) => hasHits(s))?.id;
 				open.clear();
 				if (target) open.add(target);
 				await tick();
 				const exact = occurrence ? document.querySelector<HTMLElement>('[data-occurrence]') : null;
 				(exact ?? document.getElementById(target ?? ''))?.scrollIntoView({ block: 'center' });
-			})
-			.catch((error: Error) => {
-				if (wanted === basename) failure = error.message;
 			});
 	});
 

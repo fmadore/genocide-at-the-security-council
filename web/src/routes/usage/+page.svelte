@@ -65,6 +65,7 @@
 		UsageUnit
 	} from '$lib/usage';
 	import type {
+		KwicFile,
 		KwicLine,
 		PositionCounts,
 		UsageActor,
@@ -72,6 +73,7 @@
 		UsageReferent
 	} from '$lib/types';
 	import { urlState } from '$lib/url-state.svelte';
+	import { Resource } from '$lib/resource.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -82,8 +84,14 @@
 	let unit = $state<UsageUnit>('count');
 	let sort = $state<UsageSort>('assigned');
 	let contested = $state(false);
-	/** How many quotations of the drill-down are on screen. Presentation only. */
-	let shown = $state(20);
+	/**
+	 * How many quotations of the drill-down are on screen. Presentation only:
+	 * a new selection or filter starts again at twenty, "Show more" widens it.
+	 */
+	let shown = $derived.by(() => {
+		void [actor, referent, contested];
+		return 20;
+	});
 
 	const current = (): UsageState => ({ actor, referent, unit, sort, contested });
 
@@ -138,37 +146,23 @@
 	   browser fetch after render, so nothing about the page's first paint changes
 	   — and on a build with no comparison run, which is the published state,
 	   nothing is fetched until a reader opens a cell. */
-	let annotations = $state<UsageOccurrences | null>(null);
-	let lines = $state<KwicLine[]>([]);
-	let loading = $state(false);
-	let failure = $state<string | null>(null);
-	let retry = $state(0);
+	const evidenceFiles = new Resource<[UsageOccurrences, KwicFile]>();
+	const annotations = $derived(evidenceFiles.value?.[0] ?? null);
+	const lines = $derived<KwicLine[]>(evidenceFiles.value?.[1].lines ?? []);
+	const loading = $derived(evidenceFiles.loading);
+	const failure = $derived(evidenceFiles.failure);
 	let fetched = false;
 
 	const wanted = $derived(selected || comparison.computed);
 
 	$effect(() => {
-		void retry;
 		if (!wanted || fetched) return;
 		fetched = true;
-		loading = true;
-		failure = null;
-		Promise.all([usageOccurrences(), kwic(USAGE_TERM)])
-			.then(([coded, file]) => {
-				annotations = coded;
-				lines = file.lines;
-			})
-			.catch((error: Error) => {
-				failure = error.message;
-			})
-			.finally(() => {
-				loading = false;
-			});
+		void evidenceFiles.load(() => Promise.all([usageOccurrences(), kwic(USAGE_TERM)]));
 	});
 
 	function again() {
-		fetched = false;
-		retry += 1;
+		void evidenceFiles.retry();
 	}
 
 	/* One enumeration of a selection's occurrences, asked twice: the filter is a
@@ -190,11 +184,6 @@
 			: []
 	);
 	const evidence = $derived(contested ? contestedEvidence : allEvidence);
-
-	$effect(() => {
-		void [actor, referent, contested];
-		shown = 20;
-	});
 
 	function pick(nextActor: string, nextReferent: string) {
 		const next = selectUsage(current(), nextActor, nextReferent);
