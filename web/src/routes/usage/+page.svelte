@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ScrollRegion from '$lib/ScrollRegion.svelte';
 	/**
 	 * The experimental layer: which genocide a delegation meant, and what it was
 	 * doing with the word.
@@ -10,9 +11,7 @@
 	 * what a key press does, and `$lib/data` refuses a payload that would let this
 	 * page publish something the model did not say.
 	 */
-	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import DiffusionChart from '$lib/DiffusionChart.svelte';
@@ -42,6 +41,9 @@
 		diffusionPlan,
 		drillDown,
 		goldProgress,
+		instrumentOccurrences,
+		instrumentReferents,
+		instrumentVersion,
 		isInstrumentDependent,
 		matrixExportRows,
 		matrixPlan,
@@ -63,13 +65,15 @@
 		UsageUnit
 	} from '$lib/usage';
 	import type {
+		KwicFile,
 		KwicLine,
 		PositionCounts,
 		UsageActor,
 		UsageOccurrences,
 		UsageReferent
 	} from '$lib/types';
-	import { onMount, tick } from 'svelte';
+	import { urlState } from '$lib/url-state.svelte';
+	import { Resource } from '$lib/resource.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -80,31 +84,28 @@
 	let unit = $state<UsageUnit>('count');
 	let sort = $state<UsageSort>('assigned');
 	let contested = $state(false);
-	let urlReady = $state(false);
-	/** How many quotations of the drill-down are on screen. Presentation only. */
-	let shown = $state(20);
+	/**
+	 * How many quotations of the drill-down are on screen. Presentation only:
+	 * a new selection or filter starts again at twenty, "Show more" widens it.
+	 */
+	let shown = $derived.by(() => {
+		void [actor, referent, contested];
+		return 20;
+	});
 
 	const current = (): UsageState => ({ actor, referent, unit, sort, contested });
 
-	onMount(() => {
-		const state = readUsageState(page.url.searchParams, artefact);
-		actor = state.actor;
-		referent = state.referent;
-		unit = state.unit;
-		sort = state.sort;
-		contested = state.contested;
-		// The first replaceState must wait until SvelteKit has assigned its root,
-		// exactly as the actor and concordance views do.
-		void tick().then(() => {
-			urlReady = true;
-		});
-	});
-
 	/** Keep the URL in step, so any reading of this matrix is citable. */
-	$effect(() => {
-		if (!urlReady) return;
-		const search = usageParams(current()).toString();
-		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
+	urlState({
+		read: (params) => {
+			const state = readUsageState(params, artefact);
+			actor = state.actor;
+			referent = state.referent;
+			unit = state.unit;
+			sort = state.sort;
+			contested = state.contested;
+		},
+		write: () => usageParams(current())
 	});
 
 	const plan = $derived(matrixPlan(artefact, current()));
@@ -126,27 +127,9 @@
 		run.fields.find((row) => row.field === field)?.observedText ?? '—';
 	const referentLabel = (id: string) =>
 		artefact.referents.find((entry) => entry.id === id)?.label ?? termLabel(id);
-	const instrumentVersion = $derived(Number.parseInt(artefact.model.referents_version, 10) || 1);
-	/** Exactly the identifiers offered to this run, reconstructed from the list's
-	 * since/retired bounds rather than silently showing today's vocabulary. */
-	const instrumentReferents = $derived(
-		artefact.referents.filter(
-			(entry) =>
-				entry.since <= instrumentVersion &&
-				(entry.retired_in === null || entry.retired_in > instrumentVersion)
-		)
-	);
-	function instrumentOccurrences(entry: UsageReferent): number {
-		let current = entry;
-		const seen = [entry.id];
-		while (current.superseded_by && !seen.includes(current.superseded_by)) {
-			seen.push(current.superseded_by);
-			const successor = artefact.referents.find((row) => row.id === current.superseded_by);
-			if (!successor) break;
-			current = successor;
-		}
-		return current.occurrences;
-	}
+	/* The controlled list as this run was offered it: `$lib/usage`. */
+	const listVersion = $derived(instrumentVersion(artefact));
+	const offered = $derived(instrumentReferents(artefact));
 
 	/* ---- the evidence, fetched at the first drill-down and not before -------
 	   Two artefacts, requested together rather than in sequence: they are
@@ -163,37 +146,23 @@
 	   browser fetch after render, so nothing about the page's first paint changes
 	   — and on a build with no comparison run, which is the published state,
 	   nothing is fetched until a reader opens a cell. */
-	let annotations = $state<UsageOccurrences | null>(null);
-	let lines = $state<KwicLine[]>([]);
-	let loading = $state(false);
-	let failure = $state<string | null>(null);
-	let retry = $state(0);
+	const evidenceFiles = new Resource<[UsageOccurrences, KwicFile]>();
+	const annotations = $derived(evidenceFiles.value?.[0] ?? null);
+	const lines = $derived<KwicLine[]>(evidenceFiles.value?.[1].lines ?? []);
+	const loading = $derived(evidenceFiles.loading);
+	const failure = $derived(evidenceFiles.failure);
 	let fetched = false;
 
 	const wanted = $derived(selected || comparison.computed);
 
 	$effect(() => {
-		void retry;
 		if (!wanted || fetched) return;
 		fetched = true;
-		loading = true;
-		failure = null;
-		Promise.all([usageOccurrences(), kwic(USAGE_TERM)])
-			.then(([coded, file]) => {
-				annotations = coded;
-				lines = file.lines;
-			})
-			.catch((error: Error) => {
-				failure = error.message;
-			})
-			.finally(() => {
-				loading = false;
-			});
+		void evidenceFiles.load(() => Promise.all([usageOccurrences(), kwic(USAGE_TERM)]));
 	});
 
 	function again() {
-		fetched = false;
-		retry += 1;
+		void evidenceFiles.retry();
 	}
 
 	/* One enumeration of a selection's occurrences, asked twice: the filter is a
@@ -215,11 +184,6 @@
 			: []
 	);
 	const evidence = $derived(contested ? contestedEvidence : allEvidence);
-
-	$effect(() => {
-		void [actor, referent, contested];
-		shown = 20;
-	});
 
 	function pick(nextActor: string, nextReferent: string) {
 		const next = selectUsage(current(), nextActor, nextReferent);
@@ -570,13 +534,7 @@
 				</dl>
 
 				{#if comparison.fields.length}
-					<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-					<div
-						class="scroll"
-						role="region"
-						aria-label="Agreement between the two runs"
-						tabindex="0"
-					>
+					<ScrollRegion label="Agreement between the two runs" tall>
 						<table>
 							<caption class="sr-only">
 								How far the published run and the second opinion agree, field by field, over the
@@ -611,7 +569,7 @@
 								{/each}
 							</tbody>
 						</table>
-					</div>
+					</ScrollRegion>
 					<p class="quiet">
 						A passage can receive several rhetorical-function labels. Their mean overlap between
 						runs is {comparison.functionJaccardText} (Jaccard similarity: 1 means identical sets). Krippendorff's
@@ -640,13 +598,7 @@
 						</p>
 					{/if}
 					{#if comparison.functionLabels.length}
-						<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-						<div
-							class="scroll"
-							role="region"
-							aria-label="Agreement per function label"
-							tabindex="0"
-						>
+						<ScrollRegion label="Agreement per function label" tall>
 							<table>
 								<caption class="sr-only">
 									How far the two runs agree that each function label applies
@@ -672,7 +624,7 @@
 									{/each}
 								</tbody>
 							</table>
-						</div>
+						</ScrollRegion>
 					{/if}
 					<p class="quiet">
 						Reporting another person's claim can resemble asserting it. Compare the reporting and
@@ -1051,8 +1003,7 @@
 				{/if}
 			</p>
 
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-			<div class="scroll" role="region" aria-label="Chronology of firsts" tabindex="0">
+			<ScrollRegion label="Chronology of firsts" tall>
 				<table class="chronology">
 					<caption class="sr-only">
 						Every first the curves are made of, for {diffusion.label}, oldest first
@@ -1096,7 +1047,7 @@
 						{/each}
 					</tbody>
 				</table>
-			</div>
+			</ScrollRegion>
 		{/if}
 	</Figure>
 
@@ -1143,8 +1094,7 @@
 					a sentence in the concordance for {USAGE_TERM}. They are in the CSV below.
 				</p>
 			{:else}
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-				<div class="scroll" role="region" aria-label="Contested passages" tabindex="0">
+				<ScrollRegion label="Contested passages" tall>
 					<table class="contested-table">
 						<caption class="sr-only">
 							Occurrences the published run and the second opinion labelled differently, most
@@ -1193,7 +1143,7 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
+				</ScrollRegion>
 
 				<p class="disclosure">
 					{count(listing.rows.length)} of {count(listing.contested)} contested occurrences are drawn here,
@@ -1277,8 +1227,7 @@
 				there are too few mentions to display shares.
 			</p>
 		{:else}
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-			<div class="scroll" role="region" aria-label="Position profile table" tabindex="0">
+			<ScrollRegion label="Position profile table" tall>
 				<table class="positions">
 					<caption class="sr-only">
 						Delegations by the share of their eligible occurrences that reject or deny the
@@ -1314,15 +1263,14 @@
 						{/each}
 					</tbody>
 				</table>
-			</div>
+			</ScrollRegion>
 		{/if}
 
 		<details class="data-table">
 			<summary
 				><Icon icon={ChevronRight} />All position counts, withheld delegations included</summary
 			>
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-			<div class="scroll" role="region" aria-label="All position counts" tabindex="0">
+			<ScrollRegion label="All position counts" tall>
 				<table>
 					<thead>
 						<tr>
@@ -1357,7 +1305,7 @@
 						{/each}
 					</tbody>
 				</table>
-			</div>
+			</ScrollRegion>
 		</details>
 	</Figure>
 
@@ -1375,11 +1323,10 @@
 		</details>
 		<details class="data-table referent-codebook">
 			<summary
-				><Icon icon={ChevronRight} />Show the controlled referent list (version {instrumentVersion},
-				{count(instrumentReferents.length)} identifiers)</summary
+				><Icon icon={ChevronRight} />Show the controlled referent list (version {listVersion},
+				{count(offered.length)} identifiers)</summary
 			>
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-			<div class="table-scroll" role="region" aria-label="Controlled referent list" tabindex="0">
+			<ScrollRegion label="Controlled referent list">
 				<table>
 					<thead>
 						<tr>
@@ -1389,7 +1336,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						{#each instrumentReferents as entry (entry.id)}
+						{#each offered as entry (entry.id)}
 							<tr>
 								<th scope="row">
 									{entry.label}<br /><code>{entry.id}</code>
@@ -1402,12 +1349,12 @@
 									{/if}
 								</th>
 								<td>{entry.description}</td>
-								<td class="number">{count(instrumentOccurrences(entry))}</td>
+								<td class="number">{count(instrumentOccurrences(artefact, entry))}</td>
 							</tr>
 						{/each}
 					</tbody>
 				</table>
-			</div>
+			</ScrollRegion>
 		</details>
 	</section>
 
@@ -1428,8 +1375,7 @@
 			</p>
 			{#if gold.hasAgreement}
 				<h3>Between the two coders</h3>
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-				<div class="scroll" role="region" aria-label="Agreement between coders" tabindex="0">
+				<ScrollRegion label="Agreement between coders" tall>
 					<table>
 						<thead>
 							<tr>
@@ -1452,7 +1398,7 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
+				</ScrollRegion>
 				<p class="quiet">
 					A dash means kappa is unavailable or withheld because one category accounts for more than
 					99% of a coder's labels. Observed agreement gives the share of identical decisions; PABAK
@@ -1469,13 +1415,7 @@
 					macro F1 weights equally the categories with at least twenty reference examples. A dash means
 					no score is available.
 				</p>
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-				<div
-					class="scroll"
-					role="region"
-					aria-label="The published run against the human labels"
-					tabindex="0"
-				>
+				<ScrollRegion label="The published run against the human labels" tall>
 					<table>
 						<thead>
 							<tr>
@@ -1504,11 +1444,10 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
+				</ScrollRegion>
 				<details class="data-table">
 					<summary><Icon icon={ChevronRight} />Scores for each category</summary>
-					<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-					<div class="scroll" role="region" aria-label="Per class scores" tabindex="0">
+					<ScrollRegion label="Per class scores" tall>
 						<table>
 							<thead>
 								<tr>
@@ -1539,7 +1478,7 @@
 								{/each}
 							</tbody>
 						</table>
-					</div>
+					</ScrollRegion>
 				</details>
 			{/if}
 			{#if gold.hasComparisonScores}
@@ -1549,13 +1488,7 @@
 					sizes and exclusions alongside the scores. Its classifications remain separate from the
 					main figures.
 				</p>
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-				<div
-					class="scroll"
-					role="region"
-					aria-label="The second model against the same human labels"
-					tabindex="0"
-				>
+				<ScrollRegion label="The second model against the same human labels" tall>
 					<table>
 						<thead>
 							<tr>
@@ -1584,7 +1517,7 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
+				</ScrollRegion>
 			{/if}
 		{/if}
 	</section>
@@ -1699,7 +1632,7 @@
 		margin: 0 0 var(--sp-2);
 	}
 
-	.second-opinion .scroll {
+	.second-opinion :global(.scroll) {
 		margin-top: var(--sp-3);
 	}
 
@@ -1850,11 +1783,6 @@
 	   window. It scrolls inside its own box, and it is focusable so the scroll is
 	   reachable from the keyboard — the same arrangement the reference-dates and
 	   available-terms tables already use. */
-	.table-scroll {
-		max-width: 100%;
-		overflow-x: auto;
-	}
-
 	/* The experimental marking at the scale of one row: the warning token the
 	   whole apparatus block carries, as a rule under the word rather than a
 	   filled chip — a chip would read as something to press, and the line already
@@ -2232,12 +2160,6 @@
 		height: 0.55rem;
 		background: var(--band);
 		display: inline-block;
-	}
-
-	.scroll {
-		overflow-x: auto;
-		max-height: 32rem;
-		overflow-y: auto;
 	}
 
 	table {

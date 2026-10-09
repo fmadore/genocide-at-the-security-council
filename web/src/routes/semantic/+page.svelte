@@ -11,6 +11,7 @@
 	import PageMeta from '$lib/PageMeta.svelte';
 	import { PAGE_METADATA } from '$lib/seo';
 	import { unreachable } from '$lib/data';
+	import { Resource } from '$lib/resource.svelte';
 	import {
 		validateMap,
 		validateNeighbours,
@@ -19,10 +20,22 @@
 		type Point
 	} from '$lib/semantic';
 	import { categoricalData, colours, dataZoom, neutral } from '$lib/theme';
-	let map = $state.raw<SemanticMap>();
-	let status = $state('Loading the semantic map…');
-	let related = $state<[string, number][]>([]);
-	let neighbourStatus = $state('');
+	/* The map, or null for a release that does not carry it: a 404, or the
+	   pipeline's own placeholder while the map is still being made. */
+	const semanticMap = new Resource<SemanticMap | null>({ loading: true });
+	const map = $derived(semanticMap.value ?? undefined);
+	const NOT_AVAILABLE =
+		'The speech similarity data are not available in this release. You can still search passages in the Concordance.';
+	const status = $derived(
+		semanticMap.loading
+			? 'Loading the semantic map…'
+			: (semanticMap.failure ?? (semanticMap.value === null ? NOT_AVAILABLE : ''))
+	);
+	const neighbours = new Resource<[string, number][]>();
+	const related = $derived(neighbours.value ?? []);
+	const neighbourStatus = $derived(
+		neighbours.loading ? 'Loading related speeches…' : (neighbours.failure ?? '')
+	);
 	let query = $state('');
 	const params = $derived(new URLSearchParams(query));
 	const colour = $derived(
@@ -69,7 +82,7 @@
 	 * hiding points still moves nothing.
 	 */
 	const bounds = $derived.by(() => {
-		const box = [Infinity, -Infinity, Infinity, -Infinity];
+		const box: [number, number, number, number] = [Infinity, -Infinity, Infinity, -Infinity];
 		for (const p of map?.points ?? []) {
 			if (!all && !p[6]) continue;
 			box[0] = Math.min(box[0], p[1]);
@@ -94,8 +107,8 @@
 		return colour === 'year'
 			? String(Math.floor(p[3] / 10) * 10) + 's'
 			: colour === 'agenda'
-				? map!.agendas[p[5]]
-				: map!.countries[p[4]];
+				? map!.agendas[p[5]]!
+				: map!.countries[p[4]]!;
 	}
 	const categories = $derived.by(() => {
 		const counts = new SvelteMap<string, number>();
@@ -114,12 +127,12 @@
 		const grouped: Point[][] = Array.from({ length: categories.length + 1 }, () => []);
 		for (const p of rows) {
 			const index = categories.indexOf(category(p));
-			grouped[index < 0 ? categories.length : index].push(p);
+			grouped[index < 0 ? categories.length : index]!.push(p);
 		}
 		return [...categories, 'Other']
 			.map((name, index) => ({
 				name,
-				rows: grouped[index],
+				rows: grouped[index]!,
 				color: index === categories.length ? other : fills[index]
 			}))
 			.filter((group) => group.rows.length);
@@ -179,33 +192,23 @@
 		};
 		restore();
 		window.addEventListener('popstate', restore);
-		const controller = new AbortController();
-		fetch(`${base}/data/semantic/map.json`, { signal: controller.signal })
-			.then(async (response) => {
-				if (response.status === 404) {
-					status =
-						'The speech similarity data are not available in this release. You can still search passages in the Concordance.';
-					return;
-				}
-				if (!response.ok) throw new Error('Could not load the semantic map. Reload to retry.');
-				const data = await response.json();
-				if (data.status === 'pending') {
-					status =
-						'The speech similarity data are not available in this release. You can still search passages in the Concordance.';
-					return;
-				}
-				map = validateMap(data);
-				status = '';
-			})
-			.catch((error: unknown) => {
-				if (controller.signal.aborted) return;
-				// A rejected fetch carries the browser's "Failed to fetch"; the
-				// statuses above carry sentences of their own and are kept.
-				status =
-					error instanceof TypeError ? unreachable('semantic/map.json') : (error as Error).message;
-			});
+		void semanticMap.load((signal) =>
+			fetch(`${base}/data/semantic/map.json`, { signal })
+				.then(async (response) => {
+					if (response.status === 404) return null;
+					if (!response.ok) throw new Error('Could not load the semantic map. Reload to retry.');
+					const data = await response.json();
+					if (data.status === 'pending') return null;
+					return validateMap(data);
+				})
+				.catch((error: unknown) => {
+					// A rejected fetch carries the browser's "Failed to fetch"; the
+					// statuses above carry sentences of their own and are kept.
+					throw error instanceof TypeError ? new Error(unreachable('semantic/map.json')) : error;
+				})
+		);
 		return () => {
-			controller.abort();
+			semanticMap.abort();
 			window.removeEventListener('popstate', restore);
 		};
 	});
@@ -213,30 +216,25 @@
 		const speech = selected;
 		const position = positions.get(speech);
 		const known = new Set(positions.keys());
-		related = [];
 		if (position === undefined) {
-			neighbourStatus = '';
+			neighbours.reset();
 			return;
 		}
-		const controller = new AbortController();
-		neighbourStatus = 'Loading related speeches…';
-		fetch(`${base}/data/semantic/neighbours/${position % 256}.json`, { signal: controller.signal })
-			.then(async (response) => {
-				if (!response.ok)
-					throw new Error('Related speeches could not be loaded. Reload the page to retry.');
-				const result = await response.json();
-				if (controller.signal.aborted) return;
-				related = validateNeighbours(result, speech, known);
-				neighbourStatus = '';
-			})
-			.catch((error: unknown) => {
-				if (controller.signal.aborted) return;
-				neighbourStatus =
-					error instanceof TypeError
-						? unreachable(`semantic/neighbours/${position % 256}.json`)
-						: (error as Error).message;
-			});
-		return () => controller.abort();
+		const shard = `semantic/neighbours/${position % 256}.json`;
+		void neighbours.load(
+			(signal) =>
+				fetch(`${base}/data/${shard}`, { signal })
+					.then(async (response) => {
+						if (!response.ok)
+							throw new Error('Related speeches could not be loaded. Reload the page to retry.');
+						return validateNeighbours(await response.json(), speech, known);
+					})
+					.catch((error: unknown) => {
+						throw error instanceof TypeError ? new Error(unreachable(shard)) : error;
+					}),
+			{ clear: true }
+		);
+		return () => neighbours.abort();
 	});
 </script>
 
@@ -282,7 +280,9 @@
 				>.
 			</p>
 		{/snippet}
-		{#if status}<p role="status">{status}</p>{/if}
+		<!-- Always in the document, with only its words changing, so a screen
+		     reader is listening before the status arrives. Empty, it takes no room. -->
+		<p role="status" class:quiet={!status}>{status}</p>
 		{#if map}
 			<div class="filters">
 				<label
@@ -373,9 +373,9 @@
 						score (cosine) ranges from −1 to 1; higher values mean more similar embeddings. It is
 						not a percentage of shared meaning.
 					</p>
-					{#if neighbourStatus}<p role="status">{neighbourStatus}</p>{/if}
+					<p role="status" class:quiet={!neighbourStatus}>{neighbourStatus}</p>
 					<ol>
-						{#each related as [id, score] (id)}{@const p = map.points[positions.get(id)!]}
+						{#each related as [id, score] (id)}{@const p = map.points[positions.get(id)!]!}
 							<li>
 								<a href={href(id)}>{map.countries[p[4]]} · {p[3]} · {id}</a> · similarity {score.toFixed(
 									3
@@ -448,6 +448,11 @@
 		height: 0.65rem;
 		border-radius: 50%;
 		flex: 0 0 auto;
+	}
+	/* An empty status region, out of the flow so it adds no line and no gap. */
+	.quiet {
+		position: absolute;
+		margin: 0;
 	}
 	.diagnostic {
 		color: var(--ink-2);

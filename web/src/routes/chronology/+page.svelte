@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { goto, replaceState } from '$app/navigation';
+	import ScrollRegion from '$lib/ScrollRegion.svelte';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
@@ -72,7 +73,7 @@
 	} from '$lib/theme';
 	import type { BreakdownRow, CouncilEvent, Measure } from '$lib/types';
 	import type { EChartsOption, LineSeriesOption } from 'echarts';
-	import { onMount, tick } from 'svelte';
+	import { urlState } from '$lib/url-state.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 
@@ -116,9 +117,8 @@
 			: [...eventKinds, kind];
 	};
 	const kindStroke = (kind: string, p = $colours) =>
-		categoricalNeutral(p)[EVENT_KINDS.indexOf(kind) % 6].color;
+		categoricalNeutral(p)[EVENT_KINDS.indexOf(kind) % 6]!.color;
 	let split = $state<string>('none');
-	let urlReady = $state(false);
 
 	const source = $derived(grain === 'year' ? data.year : data.quarter);
 	const periods = $derived(source.periods.map(String));
@@ -153,7 +153,7 @@
 				...tooltip(p),
 				formatter: (params: unknown) => {
 					const [first] = params as { dataIndex: number }[];
-					const row = scopeYears[first.dataIndex];
+					const row = scopeYears[first!.dataIndex]!;
 					return (
 						`<strong>${row.year}</strong><br>${count(row.speeches)} of ` +
 						`${count(row.held)} speeches — ${row.share === null ? '—' : percent(row.share)}`
@@ -310,8 +310,8 @@
 					name,
 					measure.kind,
 					measure.register ?? null,
-					source.corpus.speeches[index],
-					source.corpus.words[index],
+					source.corpus.speeches[index]!,
+					source.corpus.words[index]!,
 					measure.speeches[index] ?? null,
 					measure.speech_rate[index] ?? null,
 					measure.speech_rate_low[index] ?? null,
@@ -463,7 +463,7 @@
 		const groups: { heading: string; colour: string; names: string[] }[] = [];
 		for (const register of REGISTER_ORDER) {
 			const names = Object.keys(allMeasures).filter(
-				(name) => allMeasures[name].register === register
+				(name) => allMeasures[name]!.register === register
 			);
 			if (names.length)
 				groups.push({ heading: register, colour: registerColour(register, $colours), names });
@@ -652,7 +652,7 @@
 					const interval = (seriesName: string | undefined, index: number | undefined) => {
 						if (!banded || index == null) return '';
 						const internal = usable.find((n) => measureLabel(n) === bandOwner(seriesName ?? ''));
-						const bounds = internal ? bandBounds(allMeasures[internal]) : null;
+						const bounds = internal ? bandBounds(allMeasures[internal]!) : null;
 						const low = bounds?.low[index] ?? null;
 						const high = bounds?.high[index] ?? null;
 						return low == null || high == null
@@ -679,7 +679,7 @@
 						.join('<br>');
 					// Naming the threshold keeps the cut honest: the reader is told the
 					// size of what is missing, not just that something is.
-					const floor = kept.length ? size(kept[kept.length - 1]) : -Infinity;
+					const floor = kept.length ? size(kept[kept.length - 1]!) : -Infinity;
 					const more = cut.length
 						? `<br><span style="opacity:.7">${count(cut.length)} more` +
 							`${Number.isFinite(floor) ? ` at or below ${show(floor)}` : ''}</span>`
@@ -727,8 +727,8 @@
 							intervalBand(
 								measureLabel(name),
 								strokeOf(name, p).color,
-								bandBounds(allMeasures[name]).low,
-								bandBounds(allMeasures[name]).high
+								bandBounds(allMeasures[name]!).low,
+								bandBounds(allMeasures[name]!).high
 							)
 						)
 					: []),
@@ -740,7 +740,7 @@
 					return {
 						name: measureLabel(name),
 						type: 'line',
-						data: allMeasures[name][unit] ?? [],
+						data: allMeasures[name]![unit] ?? [],
 						// The marker is the line's third code, after hue and dash. At a
 						// quarter's grain ECharts thins the markers to the axis labels'
 						// interval, so they still name the line without carpeting it.
@@ -798,41 +798,35 @@
 		splits: SPLITS.map(({ id }) => id)
 	}));
 
-	onMount(() => {
-		const state = readChronologyState(page.url.searchParams, urlChoices);
-		unit = state.unit;
-		grain = state.grain;
-		selected = state.series;
-		gridMeasure = state.calendarMeasure;
-		gridUnit = state.calendarUnit;
-		split = state.split;
-		void tick().then(() => {
-			urlReady = true;
-		});
-	});
-
-	$effect(() => {
-		if (!urlReady) return;
+	urlState({
+		read: (params) => {
+			const state = readChronologyState(params, urlChoices);
+			unit = state.unit;
+			grain = state.grain;
+			selected = state.series;
+			gridMeasure = state.calendarMeasure;
+			gridUnit = state.calendarUnit;
+			split = state.split;
+		},
 		/* The scope is layout state and the page owns everything else in the
 		   query, so it is merged back in here: a page that rebuilt its own URL
 		   from its own controls would silently drop the reader's reading set on
 		   the next keystroke. */
-		const params = withScope(
-			chronologyParams(
-				{
-					unit,
-					grain,
-					series: selected,
-					calendarMeasure: gridMeasure,
-					calendarUnit: gridUnit,
-					split
-				},
-				urlChoices
-			),
-			scope
-		);
-		const search = params.toString();
-		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
+		write: () =>
+			withScope(
+				chronologyParams(
+					{
+						unit,
+						grain,
+						series: selected,
+						calendarMeasure: gridMeasure,
+						calendarUnit: gridUnit,
+						split
+					},
+					urlChoices
+				),
+				scope
+			)
 	});
 
 	const splitBlock = $derived(
@@ -892,7 +886,7 @@
 				...block.categories.flatMap((category, i) =>
 					intervalBand(
 						category,
-						strokes[i % strokes.length].color,
+						strokes[i % strokes.length]!.color,
 						years.map((y) => cell(category, y)?.speech_rate_low ?? null),
 						years.map((y) => cell(category, y)?.speech_rate_high ?? null)
 					)
@@ -908,10 +902,10 @@
 					symbol: 'none',
 					lineStyle: {
 						width: 2,
-						color: strokes[i % strokes.length].color,
-						type: strokes[i % strokes.length].dash
+						color: strokes[i % strokes.length]!.color,
+						type: strokes[i % strokes.length]!.dash
 					},
-					itemStyle: { color: strokes[i % strokes.length].color },
+					itemStyle: { color: strokes[i % strokes.length]!.color },
 					emphasis: { focus: 'series' }
 				}))
 			]
@@ -1236,8 +1230,8 @@
 						<tr
 							><td>{period}</td>{#each usable as name (name)}{@const value =
 									unit === 'speech_rate'
-										? percent(Number(allMeasures[name][unit]?.[index] ?? 0))
-										: decimal(Number(allMeasures[name][unit]?.[index] ?? 0))}<td class="num"
+										? percent(Number(allMeasures[name]![unit]?.[index] ?? 0))
+										: decimal(Number(allMeasures[name]![unit]?.[index] ?? 0))}<td class="num"
 									><a href={plottedHref(name, period)}>{value}</a></td
 								>{/each}</tr
 						>
@@ -1522,9 +1516,9 @@
 							<td class="num soft">{showRate(row.without)}</td>
 							<td class="item">
 								{#if row.agenda.length}
-									{row.agenda[0].item}
+									{row.agenda[0]!.item}
 									<span class="soft"
-										>{count(row.agenda[0].speeches)} · {percent(row.agenda[0].share)}</span
+										>{count(row.agenda[0]!.speeches)} · {percent(row.agenda[0]!.share)}</span
 									>
 								{:else}
 									—
@@ -1626,8 +1620,7 @@
 			the official record used to verify its date and description. They are there for context; a date
 			falling near a change in the chart is not evidence that it produced the change.
 		</p>
-		<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-		<div class="table-scroll" role="region" aria-label="Reference dates table" tabindex="0">
+		<ScrollRegion label="Reference dates table">
 			<table>
 				<thead>
 					<tr><th>Date</th><th>Event</th><th>Kind</th><th>Source</th></tr>
@@ -1645,7 +1638,7 @@
 					{/each}
 				</tbody>
 			</table>
-		</div>
+		</ScrollRegion>
 	</section>
 </article>
 
@@ -1934,11 +1927,6 @@
 
 	.events h2 {
 		font-size: var(--step-3);
-	}
-
-	.table-scroll {
-		max-width: 100%;
-		overflow-x: auto;
 	}
 
 	/* Set in the grotesk's tabular figures rather than the typewriter face: the

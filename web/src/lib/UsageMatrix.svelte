@@ -178,8 +178,8 @@
 								tabindex={isAt(r, c) ? 0 : -1}
 								aria-pressed={cell.selected}
 								class:selected={cell.selected}
-								title={label(cell, row.actor, plan.columns[c].referent)}
-								aria-label={label(cell, row.actor, plan.columns[c].referent)}
+								title={label(cell, row.actor, plan.columns[c]!.referent)}
+								aria-label={label(cell, row.actor, plan.columns[c]!.referent)}
 								onclick={() => pick(r, c, cell.actor, cell.referent)}
 							>
 								<span aria-hidden="true">{cell.state === 'drawn' ? format(value(cell)) : ''}</span>

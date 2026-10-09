@@ -157,7 +157,7 @@ describe('changing a basket', () => {
 
 	it('writes a note', () => {
 		const change = setNote(filled(item()), item().id, 'The denial reading.');
-		expect(change.basket.items[0].note).toBe('The denial reading.');
+		expect(change.basket.items[0]!.note).toBe('The denial reading.');
 		expect(change.refused).toBeNull();
 	});
 
@@ -165,7 +165,7 @@ describe('changing a basket', () => {
 	it('refuses an over-long note rather than cutting it', () => {
 		const long = 'x'.repeat(MAX_NOTE + 1);
 		const change = setNote(filled(item()), item().id, long);
-		expect(change.basket.items[0].note).toBe('');
+		expect(change.basket.items[0]!.note).toBe('');
 		expect(change.refused).toContain(String(MAX_NOTE));
 	});
 

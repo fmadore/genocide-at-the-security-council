@@ -381,7 +381,7 @@ export function calendar(
 	const strongest = [...rows].sort((a, b) => (b.value ?? 0) - (a.value ?? 0)).slice(0, 2);
 	const leaders = strongest.map((row) => row.agenda[0]?.item ?? null);
 	const shared =
-		leaders.length === 2 && leaders[0] !== null && leaders[0] === leaders[1] ? leaders[0] : null;
+		leaders.length === 2 && leaders[0] !== null && leaders[0] === leaders[1] ? leaders[0]! : null;
 
 	return {
 		rows,

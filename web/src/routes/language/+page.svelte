@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { goto, replaceState } from '$app/navigation';
-	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
 	import Contents from '$lib/Contents.svelte';
@@ -23,9 +22,14 @@
 		profile as frameProfile
 	} from '$lib/nodeframes';
 	import {
+		alignedRows,
+		compareTop,
 		languageParams,
+		matrixEdges,
+		matrixTerms,
 		profilePlan,
 		readLanguageState,
+		topWords,
 		type Alignment,
 		type KeynessView,
 		type LanguageChoices,
@@ -46,9 +50,10 @@
 	} from '$lib/format';
 	import { axisX, axisY, colours, grid, textStyle, tooltip } from '$lib/theme';
 	import { PAGE_METADATA } from '$lib/seo';
-	import type { CollocateBlock, Word } from '$lib/types';
+	import type { CollocateBlock } from '$lib/types';
 	import type { EChartsOption } from 'echarts';
-	import { onMount, tick, untrack } from 'svelte';
+	import { untrack } from 'svelte';
+	import { urlState } from '$lib/url-state.svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 
@@ -301,11 +306,10 @@
 	let sliceB = $state('United States Of America');
 	let period = $state('whole');
 	let keynessView = $state<KeynessView>('matched');
-	let urlReady = $state(false);
 
 	const nodes = $derived(Object.keys(data.collocates.nodes));
 	const widths = $derived(data.collocates.widths.map(String));
-	const block = $derived(data.collocates.nodes[node].widths[width]);
+	const block = $derived(data.collocates.nodes[node]!.widths[width]!);
 
 	const sliceOptions = $derived(Object.keys(data.sliced[sliceKind]));
 	const blockA = $derived<CollocateBlock | undefined>(data.sliced[sliceKind][sliceA]);
@@ -314,8 +318,8 @@
 	$effect(() => {
 		// Switching the kind of slice invalidates the two chosen members.
 		const options = Object.keys(data.sliced[sliceKind]);
-		if (!options.includes(sliceA)) sliceA = options[0];
-		if (!options.includes(sliceB)) sliceB = options[1] ?? options[0];
+		if (!options.includes(sliceA)) sliceA = options[0]!;
+		if (!options.includes(sliceB)) sliceB = options[1] ?? options[0]!;
 	});
 
 	/* The sliced artefact declares the fewest speeches it will stand a profile
@@ -342,7 +346,7 @@
 	$effect(() => {
 		// Changing the facet invalidates the member chosen inside the old one.
 		const options = frameMembers(data.frames, frameFacet).map((row) => row.member);
-		if (options.length > 0 && !options.includes(frameMember)) frameMember = options[0];
+		if (options.length > 0 && !options.includes(frameMember)) frameMember = options[0]!;
 	});
 
 	const frameSlice = $derived(frameMemberOf(data.frames, frameFacet, frameMember));
@@ -371,7 +375,7 @@
 	$effect(() => {
 		// Changing the facet invalidates the member chosen inside the old one.
 		const options = profileFacet === 'whole' ? [] : Object.keys(data.sliced[profileFacet]);
-		if (options.length > 0 && !options.includes(profileMember)) profileMember = options[0];
+		if (options.length > 0 && !options.includes(profileMember)) profileMember = options[0]!;
 	});
 
 	const profileBlock = $derived<CollocateBlock | undefined>(
@@ -505,24 +509,9 @@
 
 	const periods = $derived(['whole', ...Object.keys(data.network.by_period)]);
 
-	/* The matrix's rows: every active term, with the period's own speech counts
-	   where a period is chosen, so the diagonal says what the cells divide by. */
-	const matrixTerms = $derived.by(() => {
-		const periodBlock = period === 'whole' ? null : data.network.by_period[period];
-		const periodCounts = new Map(periodBlock?.terms.map((term) => [term.name, term.speeches]));
-		return data.network.terms.map((term) => ({
-			name: term.name,
-			register: term.register,
-			speeches: periodCounts.get(term.name) ?? term.speeches
-		}));
-	});
-	const matrixEdges = $derived(
-		period === 'whole' ? data.network.edges : (data.network.by_period[period]?.edges ?? [])
-	);
-
-	function topWords(b: CollocateBlock | undefined, n = 18): Word[] {
-		return b?.collocates.slice(0, n) ?? [];
-	}
+	/* The matrix's rows and cells for the chosen period: `$lib/language`. */
+	const termsInMatrix = $derived(matrixTerms(data.network, period));
+	const edgesInMatrix = $derived(matrixEdges(data.network, period));
 
 	/**
 	 * Two ways to set the two profiles against each other, because they answer
@@ -552,83 +541,52 @@
 		profileDefault: { node: data.sliced.term, width: String(data.sliced.width) }
 	}));
 
-	onMount(() => {
-		const state = readLanguageState(page.url.searchParams, urlChoices);
-		node = state.node;
-		width = state.width;
-		sliceKind = state.sliceKind;
-		sliceA = state.sliceA;
-		sliceB = state.sliceB;
-		align = state.align;
-		profileFacet = state.profileFacet;
-		profileNode = state.profileNode;
-		profileWidth = state.profileWidth;
-		profileMember = state.profileMember;
-		profileLimit = state.profileLimit;
-		profileFloor = state.profileFloor;
-		keynessView = state.keynessView;
-		period = state.period;
-		void tick().then(() => {
-			urlReady = true;
-		});
+	urlState({
+		read: (params) => {
+			const state = readLanguageState(params, urlChoices);
+			node = state.node;
+			width = state.width;
+			sliceKind = state.sliceKind;
+			sliceA = state.sliceA;
+			sliceB = state.sliceB;
+			align = state.align;
+			profileFacet = state.profileFacet;
+			profileNode = state.profileNode;
+			profileWidth = state.profileWidth;
+			profileMember = state.profileMember;
+			profileLimit = state.profileLimit;
+			profileFloor = state.profileFloor;
+			keynessView = state.keynessView;
+			period = state.period;
+		},
+		write: () =>
+			languageParams(
+				{
+					node,
+					width,
+					sliceKind,
+					sliceA,
+					sliceB,
+					align,
+					profileFacet,
+					profileNode,
+					profileWidth,
+					profileMember,
+					profileLimit,
+					profileFloor,
+					keynessView,
+					period
+				},
+				urlChoices
+			)
 	});
 
-	$effect(() => {
-		if (!urlReady) return;
-		const params = languageParams(
-			{
-				node,
-				width,
-				sliceKind,
-				sliceA,
-				sliceB,
-				align,
-				profileFacet,
-				profileNode,
-				profileWidth,
-				profileMember,
-				profileLimit,
-				profileFloor,
-				keynessView,
-				period
-			},
-			urlChoices
-		);
-		const search = params.toString();
-		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
-	});
-
-	const alignedRows = $derived.by(() => {
-		const inA = new Map((blockA?.collocates ?? []).map((w) => [w.word, w]));
-		const inB = new Map((blockB?.collocates ?? []).map((w) => [w.word, w]));
-		const words = [
-			...new Set([...topWords(blockA).map((w) => w.word), ...topWords(blockB).map((w) => w.word)])
-		];
-		return words
-			.map((word) => ({ word, a: inA.get(word) ?? null, b: inB.get(word) ?? null }))
-			.sort(
-				(x, y) =>
-					Math.max(y.a?.log_ratio ?? 0, y.b?.log_ratio ?? 0) -
-					Math.max(x.a?.log_ratio ?? 0, x.b?.log_ratio ?? 0)
-			);
-	});
-
-	/**
-	 * One scale for both columns. Normalising each side to its own maximum would
-	 * make two bars of equal length mean two different numbers, which is the one
-	 * thing a side-by-side comparison must not do.
-	 */
-	const compareTop = $derived(
-		Math.max(
-			...(align === 'word'
-				? alignedRows.flatMap((r) => [r.a?.log_ratio ?? 0, r.b?.log_ratio ?? 0])
-				: [...topWords(blockA), ...topWords(blockB)].map((w) => w.log_ratio)),
-			0
-		) || 1
-	);
+	/* The aligned rows and the one scale both columns share: `$lib/language`. */
+	const aligned = $derived(alignedRows(blockA, blockB));
+	const scaleTop = $derived(compareTop(align, blockA, blockB));
 
 	const barWidth = (value: number | null | undefined) =>
-		value == null ? '0%' : `${Math.max(1.5, (value / compareTop) * 100)}%`;
+		value == null ? '0%' : `${Math.max(1.5, (value / scaleTop) * 100)}%`;
 
 	const sliceLabel = (name: string) => memberLabel(sliceKind, name);
 	const concordanceHref = (term: string, query = '') => {
@@ -1146,12 +1104,12 @@
 				{#each [{ key: sliceA, b: blockA }, { key: sliceB, b: blockB }] as side, i (side.key)}
 					{#if i === 1}<div class="gutter" aria-hidden="true"></div>{/if}
 					<div class="side">
-						<h4>
+						<h3>
 							<span class="who">{sliceLabel(side.key)}</span>
 							<span class="num"
 								>{count(side.b?.speeches ?? 0)} speeches · {count(side.b?.occurrences ?? 0)} occurrences</span
 							>
-						</h4>
+						</h3>
 						{#if (side.b?.speeches ?? 0) < minimumSpeeches}
 							<p class="withheld">
 								{count(side.b?.speeches ?? 0)} speeches, fewer than the {count(minimumSpeeches)} required
@@ -1192,7 +1150,7 @@
 					<span class="who">{sliceLabel(sliceB)}</span>
 					<span class="num">{count(blockB?.speeches ?? 0)} sp.</span>
 				</div>
-				{#each alignedRows as row (row.word)}
+				{#each aligned as row (row.word)}
 					<div class="prow">
 						<span class="num">{row.a ? signed(row.a.log_ratio) : '—'}</span>
 						<span class="track left">
@@ -1399,8 +1357,8 @@
 
 		<TermMatrix
 			bind:this={matrixFigure}
-			terms={matrixTerms}
-			edges={matrixEdges}
+			terms={termsInMatrix}
+			edges={edgesInMatrix}
 			suppressed={data.network.suppressed_nested_edges ?? []}
 			minimum={data.network.min_speeches}
 			href={(term) => concordanceHref(term)}
@@ -1565,7 +1523,10 @@
 		}
 	}
 
-	.compare h4 {
+	/* A third-level heading under the plate's own second-level one, so the
+	   outline has no gap; set at 500, the weight the column heads are drawn at. */
+	.compare h3 {
+		font-weight: 500;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: baseline;
@@ -1580,7 +1541,7 @@
 		font-weight: 700;
 	}
 
-	.compare h4 .num {
+	.compare h3 .num {
 		font-weight: 400;
 		font-size: var(--step--1);
 		font-variant-numeric: tabular-nums lining-nums;

@@ -9,6 +9,7 @@
  * all of them.
  */
 
+import { browser } from '$app/environment';
 import { base } from '$app/paths';
 import type {
 	AnnualSeries,
@@ -730,6 +731,44 @@ export const unreachable = (path: string) =>
 	`figures already visited stay available offline.`;
 
 /**
+ * A failure this boundary has already put into words for the reader.
+ *
+ * Every refusal `json()` produces — no connection, a status, a missing field, a
+ * validator's objection — reaches its caller as one of these, so a consumer can
+ * tell a sentence written for a reader from an accident in the code. The page
+ * error hook relies on that distinction: it passes these messages through and
+ * leaves anything else to SvelteKit's generic wording.
+ *
+ * `status` is the HTTP status when the server answered and refused, and null
+ * otherwise, which is what lets `optional` tell a file this release does not
+ * carry from one that is there and wrong.
+ */
+export class DataError extends Error {
+	readonly status: number | null;
+
+	constructor(message: string, status: number | null = null) {
+		super(message);
+		this.name = 'DataError';
+		this.status = status;
+	}
+}
+
+/**
+ * An artefact a page can draw without, and only when it is absent.
+ *
+ * A payload built before an optional artefact existed answers 404 for it, and
+ * the page should draw everything else. A file that is present and refused by
+ * the boundary is a different fact: the release carries it and it is wrong, so
+ * the refusal goes on to the page rather than becoming a quiet "no data".
+ */
+export function optional<T>(request: Promise<T>): Promise<T | null> {
+	return request.catch((error: unknown) => {
+		if (error instanceof DataError && error.status === 404) return null;
+		throw error;
+	});
+}
+
+/**
  * A response body as JSON, decompressing a gzip member the server did not.
  *
  * The speech files are stored gzipped (`speeches/*.json.gz`) because they are
@@ -748,7 +787,80 @@ async function parse(response: Response): Promise<unknown> {
 	return JSON.parse(text) as unknown;
 }
 
-/** Fetch and cache a JSON payload, keyed on its path. */
+/**
+ * Fetch a JSON payload and hold it to its shape, its provenance and its
+ * validator. Every refusal leaves as a `DataError`.
+ */
+function request<T>(
+	path: string,
+	url: string,
+	fetcher: typeof fetch,
+	shape: Shape,
+	validate?: Validator
+): Promise<T> {
+	return fetcher(url)
+		.catch(() => {
+			throw new DataError(unreachable(path));
+		})
+		.then((response) => {
+			if (!response.ok) {
+				// Two readers, one sentence. A visitor who followed a stale link
+				// needs to know the file is not there and that nothing they did
+				// caused it; whoever is building the site locally needs the
+				// second half, which is why the missing path is named first.
+				throw new DataError(
+					`Could not load ${path} (HTTP ${response.status}). ` +
+						`Try again or reload the page. If the problem persists, this data file may be unavailable in the current release.`,
+					response.status
+				);
+			}
+			return path.endsWith('.gz') ? parse(response) : (response.json() as Promise<unknown>);
+		})
+		.then((payload) => {
+			if (!payload || typeof payload !== 'object') {
+				throw new Error(`${path} is not a JSON object.`);
+			}
+			const record = payload as Record<string, unknown>;
+			const keys = Object.keys(shape);
+			// Absence first, and all of it at once: a reader repairing an
+			// artefact by hand should not have to reload three times to find
+			// out what else is not there.
+			const missing = keys.filter((key) => !(key in record));
+			if (missing.length) {
+				throw new Error(`${path} is missing required field(s): ${missing.join(', ')}.`);
+			}
+			// Then the kinds. Present-but-wrong is a different failure from
+			// absent — a field renamed upstream reads as missing, a field whose
+			// type changed reads as this — so it gets its own sentence.
+			const wrong = keys
+				.filter((key) => !KINDS[shape[key]!].holds(record[key]))
+				.map((key) => `${path}.${key} ${KINDS[shape[key]!].must}.`);
+			if (wrong.length) throw new Error(wrong.join(' '));
+			validateMeta(record, path);
+			validate?.(record, path);
+			return payload as T;
+		})
+		.catch((error: unknown) => {
+			// The shape and validator refusals above are plain `Error`s with a
+			// sentence written for the reader; they leave as `DataError`s so
+			// every refusal this function makes is recognisable as one.
+			if (error instanceof DataError) throw error;
+			throw new DataError(error instanceof Error ? error.message : String(error));
+		});
+}
+
+/**
+ * Fetch and cache a JSON payload, keyed on its path.
+ *
+ * The cache is the browser's only. Prerendering builds every page in one
+ * process, and a module-level cache there would hand the second page to ask
+ * for a file the first page's response, so the second page's own `fetch` — the
+ * one SvelteKit records and inlines into that page's HTML — would never be
+ * called. Each prerendered page would then carry only the files no earlier
+ * page had asked for, and the browser would fetch the rest again on
+ * hydration. On the server every call goes through the page's own `fetch`, so
+ * every page inlines all of its data.
+ */
 export function json<T>(
 	path: string,
 	fetcher: typeof fetch = fetch,
@@ -756,55 +868,19 @@ export function json<T>(
 	validate?: Validator
 ): Promise<T> {
 	const url = `${base}/data/${path}`;
+	if (!browser) return request<T>(path, url, fetcher, shape, validate);
 	evict(path, url);
 	if (!cache.has(url)) {
-		const request = fetcher(url)
-			.catch(() => {
-				throw new Error(unreachable(path));
-			})
-			.then((response) => {
-				if (!response.ok) {
-					// Two readers, one sentence. A visitor who followed a stale link
-					// needs to know the file is not there and that nothing they did
-					// caused it; whoever is building the site locally needs the
-					// second half, which is why the missing path is named first.
-					throw new Error(
-						`Could not load ${path} (HTTP ${response.status}). ` +
-							`Try again or reload the page. If the problem persists, this data file may be unavailable in the current release.`
-					);
-				}
-				return path.endsWith('.gz') ? parse(response) : (response.json() as Promise<unknown>);
-			})
-			.then((payload) => {
-				if (!payload || typeof payload !== 'object') {
-					throw new Error(`${path} is not a JSON object.`);
-				}
-				const record = payload as Record<string, unknown>;
-				const keys = Object.keys(shape);
-				// Absence first, and all of it at once: a reader repairing an
-				// artefact by hand should not have to reload three times to find
-				// out what else is not there.
-				const missing = keys.filter((key) => !(key in record));
-				if (missing.length) {
-					throw new Error(`${path} is missing required field(s): ${missing.join(', ')}.`);
-				}
-				// Then the kinds. Present-but-wrong is a different failure from
-				// absent — a field renamed upstream reads as missing, a field whose
-				// type changed reads as this — so it gets its own sentence.
-				const wrong = keys
-					.filter((key) => !KINDS[shape[key]].holds(record[key]))
-					.map((key) => `${path}.${key} ${KINDS[shape[key]].must}.`);
-				if (wrong.length) throw new Error(wrong.join(' '));
-				validateMeta(record, path);
-				validate?.(record, path);
-				return payload as T;
-			})
-			.catch((error) => {
+		cache.set(
+			url,
+			request<T>(path, url, fetcher, shape, validate).catch((error: unknown) => {
+				// Evicted, so that a retry asks the network again rather than being
+				// handed the same refusal for the rest of the session.
 				cache.delete(url);
 				recent.delete(url);
 				throw error;
-			});
-		cache.set(url, request);
+			})
+		);
 	}
 	return cache.get(url) as Promise<T>;
 }
@@ -988,7 +1064,7 @@ export function meetingOf(lineId: string): string {
 
 /** `SC00232-01-005#1` → `SC00232-01-005`. */
 export function speechOf(lineId: string): string {
-	return lineId.split('#')[0];
+	return lineId.split('#')[0]!;
 }
 
 /** `SC00232-01-005#3` → the one-based occurrence ordinal `3`. */

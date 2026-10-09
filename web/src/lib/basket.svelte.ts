@@ -14,6 +14,12 @@
  * Everything that decides anything lives in `basket.ts` and is tested there.
  * This file holds the rune, the two storage calls, and the failure they can
  * produce.
+ *
+ * **Storage is the basket; the rune is this tab's view of it.** Two tabs open
+ * on the site share one stored basket, and a tab that wrote its own copy over
+ * it would erase whatever the other had added, removed or annotated since:
+ * the last tab to save would win. So every change starts from what is stored
+ * at that moment, and a write from another tab is followed as it happens.
  */
 
 import { browser } from '$app/environment';
@@ -27,7 +33,7 @@ import {
 	serializeBasket,
 	setNote
 } from './basket';
-import type { Basket, BasketItem } from './basket';
+import type { Basket, BasketChange, BasketItem } from './basket';
 
 /**
  * Storage that never throws.
@@ -38,12 +44,14 @@ import type { Basket, BasketItem } from './basket';
  * for the length of the session, so every access is guarded and the failure
  * becomes a sentence rather than a broken page.
  */
-function load(): string | null {
-	if (!browser) return null;
+function load(): string | null | undefined {
+	if (!browser) return undefined;
 	try {
 		return localStorage.getItem(BASKET_KEY);
 	} catch {
-		return null;
+		// Unreadable rather than empty: a basket that cannot be read is not one
+		// that has been emptied, and must not replace the copy in memory.
+		return undefined;
 	}
 }
 
@@ -65,6 +73,13 @@ class BasketStore {
 	#loaded = false;
 
 	/**
+	 * True after this browser refused a write, until one succeeds. The copy in
+	 * memory is then ahead of storage, and reading storage back over it would
+	 * throw away exactly the work the reader was told to export.
+	 */
+	#unsaved = false;
+
+	/**
 	 * Read storage once, from an effect rather than from a getter.
 	 *
 	 * The lazy version of this — load on first read of `count` — mutates state
@@ -77,29 +92,59 @@ class BasketStore {
 	hydrate(): void {
 		if (this.#loaded || !browser) return;
 		this.#loaded = true;
-		const read = readBasket(load());
-		this.#basket = read.basket;
+		this.#read();
+		// The browser fires `storage` in every other tab on the origin when one
+		// tab writes, and never in the tab that wrote. `key` is null when another
+		// tab cleared the whole of storage.
+		window.addEventListener('storage', (event) => {
+			if (event.key === BASKET_KEY || event.key === null) this.#read();
+		});
+	}
+
+	/**
+	 * Take up what storage holds now.
+	 *
+	 * An envelope this build cannot read blocks writing, as on the first read. A
+	 * readable one found while blocked means another tab chose to start a new
+	 * basket over the value this one refused, and that choice holds here too.
+	 */
+	#read(): void {
+		if (this.#unsaved) return;
+		const stored = load();
+		if (stored === undefined) return;
+		const read = readBasket(stored);
 		if (read.unreadable) {
 			this.#problem = read.unreadable;
 			this.#blocked = true;
+			return;
 		}
+		if (this.#blocked) {
+			this.#blocked = false;
+			this.#problem = null;
+		}
+		this.#basket = read.basket;
 	}
 
 	#persist(): void {
 		if (!browser || this.#blocked) return;
 		try {
 			localStorage.setItem(BASKET_KEY, serializeBasket(this.#basket));
+			this.#unsaved = false;
 		} catch {
+			this.#unsaved = true;
 			this.#problem =
 				'This browser would not save the basket — its storage may be full or blocked. ' +
 				'What is here still works for this visit; export it before closing the tab.';
 		}
 	}
 
-	#apply(change: { basket: Basket; refused: string | null }): boolean {
-		this.#problem = change.refused;
-		if (change.refused) return false;
-		this.#basket = change.basket;
+	/** Apply a change to the basket as stored now, not as this tab last saw it. */
+	#apply(change: (basket: Basket) => BasketChange): boolean {
+		this.#read();
+		const result = change(this.#basket);
+		this.#problem = result.refused;
+		if (result.refused) return false;
+		this.#basket = result.basket;
 		this.#persist();
 		return true;
 	}
@@ -129,15 +174,15 @@ class BasketStore {
 	}
 
 	add(item: BasketItem): boolean {
-		return this.#apply(addItem(this.#basket, item));
+		return this.#apply((basket) => addItem(basket, item));
 	}
 
 	remove(id: string): void {
-		this.#apply(removeItem(this.#basket, id));
+		this.#apply((basket) => removeItem(basket, id));
 	}
 
 	note(id: string, note: string): boolean {
-		return this.#apply(setNote(this.#basket, id, note));
+		return this.#apply((basket) => setNote(basket, id, note));
 	}
 
 	clear(): void {

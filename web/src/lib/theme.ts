@@ -147,7 +147,7 @@ export function registerColour(register: string, p = palette()): string {
  * takes `categoricalNeutral`.
  */
 export function categorical(p = palette()): string[] {
-	return REGISTERS.map((r) => p.registers[r]);
+	return REGISTERS.map((r) => p.registers[r]!);
 }
 
 /**
@@ -263,10 +263,10 @@ export const REGISTER_STROKES = REGISTER_DASHES.length * REGISTER_TONES.length;
  */
 export function registerStroke(register: string, index: number, p = palette()): NeutralStroke {
 	const step = Math.max(0, Math.trunc(index));
-	const tone = REGISTER_TONES[Math.floor(step / REGISTER_DASHES.length) % REGISTER_TONES.length];
+	const tone = REGISTER_TONES[Math.floor(step / REGISTER_DASHES.length) % REGISTER_TONES.length]!;
 	return {
 		color: tone(registerColour(register, p), p),
-		dash: REGISTER_DASHES[step % REGISTER_DASHES.length]
+		dash: REGISTER_DASHES[step % REGISTER_DASHES.length]!
 	};
 }
 
@@ -288,7 +288,7 @@ export type RegisterMark = (typeof REGISTER_MARKS)[number];
 /** The marker for the `index`-th stroke inside a register's hue. */
 export function registerMark(index: number): RegisterMark {
 	const step = Math.max(0, Math.trunc(index));
-	return REGISTER_MARKS[Math.floor(step / REGISTER_DASHES.length) % REGISTER_MARKS.length];
+	return REGISTER_MARKS[Math.floor(step / REGISTER_DASHES.length) % REGISTER_MARKS.length]!;
 }
 
 /** Series that carry no category at all: one weight of ink, never the accent. */

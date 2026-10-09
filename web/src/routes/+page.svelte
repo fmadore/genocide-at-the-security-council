@@ -13,6 +13,7 @@
 	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, isoDate, measureLabel, percent } from '$lib/format';
 	import { headlineMeasure } from '$lib/headline';
+	import { densest as densestYear, loudest as loudestYear, overviewTotals } from '$lib/overview';
 	import { PAGE_METADATA, STRUCTURED_DATA_JSON } from '$lib/seo';
 	import { axisX, axisY, colours, grid, textStyle, tooltip } from '$lib/theme';
 	import type { Measure } from '$lib/types';
@@ -40,8 +41,8 @@
 					String(period),
 					name,
 					measure.register ?? null,
-					data.series.corpus.speeches[index],
-					data.series.corpus.words[index],
+					data.series.corpus.speeches[index]!,
+					data.series.corpus.words[index]!,
 					measure.speeches[index] ?? null,
 					measure.speech_rate[index] ?? null,
 					measure.occurrences?.[index] ?? null,
@@ -73,18 +74,12 @@
 	const corpus = $derived(data.series.corpus);
 	/* Keep the overview consistent with the chronology, actors and concordance. */
 	const headline = $derived(headlineMeasure(Object.keys(data.series.terms)) ?? 'genocide');
-	const genocide = $derived(data.series.terms[headline]);
+	const genocide = $derived(data.series.terms[headline]!);
 
 	const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
-	const totals = $derived({
-		speeches: sum(corpus.speeches),
-		words: sum(corpus.words),
-		meetings: sum(corpus.meetings),
-		bearing: sum(genocide.speeches),
-		occurrences: sum(genocide.occurrences ?? []),
-		speakers: (data.series.meta.speakers as number) ?? 0
-	});
+	/* The headline figures, and the two years the page names: `$lib/overview`. */
+	const totals = $derived(overviewTotals(data.series, genocide));
 
 	/* The two titles, written once: the figures carry them and so does the
 	   contents, and a slug derived from two copies of a string is a deep link
@@ -96,10 +91,8 @@
 		{ title: `The vocabulary, word by word, ${period}` }
 	]);
 
-	const densest = $derived(years[genocide.speech_rate.indexOf(Math.max(...genocide.speech_rate))]);
-	const loudest = $derived(
-		years[(genocide.occurrences ?? []).indexOf(Math.max(...(genocide.occurrences ?? [])))]
-	);
+	const densest = $derived(densestYear(years, genocide));
+	const loudest = $derived(loudestYear(years, genocide));
 	const index1994 = $derived(years.indexOf(1994));
 
 	const rateInference = $derived(data.breaks.inference.series[headline]?.speech_rate ?? null);
@@ -216,7 +209,7 @@
 		return [headline, ...SHOWN_TERMS]
 			.filter((name) => name in data.series.terms)
 			.map((name) => {
-				const series = data.series.terms[name];
+				const series = data.series.terms[name]!;
 				const bearing = series.speeches.reduce((a, b) => a + b, 0);
 				const register = series.register ?? 'core';
 				return {
@@ -361,7 +354,7 @@
 			The records contain {count(Math.max(...(genocide.occurrences ?? [])))} occurrences in {loudest},
 			compared with {count(genocide.occurrences?.[index1994] ?? 0)} in 1994. Annual speech numbers also
 			changed: the final year has {decimal(
-				corpus.speeches[corpus.speeches.length - 1] / corpus.speeches[0]
+				corpus.speeches[corpus.speeches.length - 1]! / corpus.speeches[0]!
 			)} times the first year's total. Compare counts with the share of speeches using the term to distinguish
 			repeated mentions from wider use across speeches.
 		</p>
@@ -370,7 +363,7 @@
 	<Figure
 		fullscreen
 		onfullscreenchange={() => contrastFigure?.resize()}
-		title={FIGURES[0].title}
+		title={FIGURES[0]!.title}
 		question="Did the Council come to talk about genocide more, or simply to talk more?"
 		source="04_series.py → series/annual.json, series/change_points.json"
 		download={{
@@ -421,7 +414,7 @@
 									>{year}</a
 								></td
 							><td class="num">{count(genocide.occurrences?.[index] ?? 0)}</td><td class="num"
-								>{percent(genocide.speech_rate[index])}</td
+								>{percent(genocide.speech_rate[index]!)}</td
 							></tr
 						>{/each}</tbody
 				>
@@ -442,7 +435,7 @@
 
 	<Figure
 		fullscreen
-		title={FIGURES[1].title}
+		title={FIGURES[1]!.title}
 		question="How does use of genocide compare with related terms over time?"
 		source="04_series.py → series/annual.json"
 		note="Each row is scaled to its own maximum · the number at the right is the share of all {count(
@@ -492,7 +485,7 @@
 				><tbody
 					>{#each years as year, index (year)}<tr
 							><td>{year}</td>{#each termRows as row (row.name)}<td class="num"
-									>{percent(row.values[index])}</td
+									>{percent(row.values[index]!)}</td
 								>{/each}</tr
 						>{/each}</tbody
 				>
@@ -542,7 +535,7 @@
 				<a href={resolve('/concordance')}>
 					<strong>Concordance</strong>
 					<span
-						>All {count(sum(data.series.terms.genocide.occurrences ?? []))} matches for
+						>All {count(sum(data.series.terms.genocide!.occurrences ?? []))} matches for
 						<code>genocid*</code> with the text around them, sortable, and openable to the full speech.</span
 					>
 				</a>

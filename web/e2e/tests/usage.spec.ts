@@ -55,140 +55,149 @@ const contestedOf = (page: Page) =>
 		has: page.getByRole('heading', { name: 'The contested passages', level: 2 })
 	});
 
-test('the page says whose reading this is before it draws anything', async ({ page }) => {
-	await openUsage(page);
-	await expect(
-		page.getByRole('heading', { name: 'What the word was doing', level: 1 })
-	).toBeVisible();
+test(
+	'the page says whose reading this is before it draws anything',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		await openUsage(page);
+		await expect(
+			page.getByRole('heading', { name: 'What the word was doing', level: 1 })
+		).toBeVisible();
 
-	// The standing apparatus block, above the first figure in the document.
-	const experiment = page.locator('section.experiment');
-	await expect(experiment).toContainText('Experimental — model-derived');
-	await expect(experiment).toContainText(
-		'Human coding provides a separate reference for evaluation'
-	);
-	await expect(experiment).toContainText('chatgpt-5.6-luna-2026-08-01');
-	await expect(experiment).toContainText('sha256:0f1e2d3c4b5a…');
-	await expect(experiment).toContainText('12 of 12 occurrences');
-	// An untouched gold sample is reported as untouched, never as a zero score.
-	await expect(experiment).toContainText('not started — 0 of 200 coded');
-	await page.getByText('Show the controlled referent list (version 1, 5 identifiers)').click();
-	const codebook = page.locator('details.referent-codebook');
-	await expect(codebook).toContainText('rwanda_1994');
-	await expect(codebook).toContainText(
-		'The 1994 genocide against the Tutsi in Rwanda and its aftermath.'
-	);
-	await expect(codebook.getByRole('row', { name: /Rwanda \(1994\)/ })).toContainText('3');
+		// The standing apparatus block, above the first figure in the document.
+		const experiment = page.locator('section.experiment');
+		await expect(experiment).toContainText('Experimental — model-derived');
+		await expect(experiment).toContainText(
+			'Human coding provides a separate reference for evaluation'
+		);
+		await expect(experiment).toContainText('chatgpt-5.6-luna-2026-08-01');
+		await expect(experiment).toContainText('sha256:0f1e2d3c4b5a…');
+		await expect(experiment).toContainText('12 of 12 occurrences');
+		// An untouched gold sample is reported as untouched, never as a zero score.
+		await expect(experiment).toContainText('not started — 0 of 200 coded');
+		await page.getByText('Show the controlled referent list (version 1, 5 identifiers)').click();
+		const codebook = page.locator('details.referent-codebook');
+		await expect(codebook).toContainText('rwanda_1994');
+		await expect(codebook).toContainText(
+			'The 1994 genocide against the Tutsi in Rwanda and its aftermath.'
+		);
+		await expect(codebook.getByRole('row', { name: /Rwanda \(1994\)/ })).toContainText('3');
 
-	const matrix = matrixOf(page);
-	// Referents ranked by weight, with the meta referent moved past the cases
-	// even though it ties the largest of them on count — and the abstention code
-	// given no column at all, because an occurrence carrying it is not placed.
-	await expect(matrix.locator('thead th button')).toHaveText([
-		'Rwanda (1994)',
-		'Bosnia and Srebrenica',
-		'The Holocaust',
-		'Genocide Convention and legal definition'
-	]);
-	const speakers = matrix.locator('th.who button');
-	await expect(speakers).toHaveCount(3);
-	await expect(speakers.nth(0)).toContainText('Rwanda');
-	await expect(speakers.nth(2)).toContainText('European Union');
+		const matrix = matrixOf(page);
+		// Referents ranked by weight, with the meta referent moved past the cases
+		// even though it ties the largest of them on count — and the abstention code
+		// given no column at all, because an occurrence carrying it is not placed.
+		await expect(matrix.locator('thead th button')).toHaveText([
+			'Rwanda (1994)',
+			'Bosnia and Srebrenica',
+			'The Holocaust',
+			'Genocide Convention and legal definition'
+		]);
+		const speakers = matrix.locator('th.who button');
+		await expect(speakers).toHaveCount(3);
+		await expect(speakers.nth(0)).toContainText('Rwanda');
+		await expect(speakers.nth(2)).toContainText('European Union');
 
-	// The cut and the empty column are stated rather than left to be noticed.
-	await expect(matrix.locator('p.disclosure')).toContainText(
-		'Showing 3 of 3 affiliations with assigned mentions.'
-	);
-	await expect(matrix.locator('p.disclosure')).toContainText(
-		'1 column has no assigned mentions among the displayed rows.'
-	);
+		// The cut and the empty column are stated rather than left to be noticed.
+		await expect(matrix.locator('p.disclosure')).toContainText(
+			'Showing 3 of 3 affiliations with assigned mentions.'
+		);
+		await expect(matrix.locator('p.disclosure')).toContainText(
+			'1 column has no assigned mentions among the displayed rows.'
+		);
 
-	await expectNoAxeViolations(page);
-});
+		await expectNoAxeViolations(page);
+	}
+);
 
-test('the matrix opens full screen, remains readable, and restores keyboard focus', async ({
-	page
-}) => {
-	// Exercise the fixed overlay used by iOS Safari, where the element Fullscreen
-	// API is absent. Chromium's native path is covered by the same component state.
-	await page.addInitScript(() => {
-		Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
-			value: undefined,
-			configurable: true
+test(
+	'the matrix opens full screen, remains readable, and restores keyboard focus',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		// Exercise the fixed overlay used by iOS Safari, where the element Fullscreen
+		// API is absent. Chromium's native path is covered by the same component state.
+		await page.addInitScript(() => {
+			Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+				value: undefined,
+				configurable: true
+			});
 		});
-	});
-	await openUsage(page);
-	const matrix = matrixOf(page);
-	const trigger = matrix.getByRole('button', {
-		name: 'View full screen: Which genocide each delegation means'
-	});
-	await trigger.click();
+		await openUsage(page);
+		const matrix = matrixOf(page);
+		const trigger = matrix.getByRole('button', {
+			name: 'View full screen: Which genocide each delegation means'
+		});
+		await trigger.click();
 
-	await expect(matrix).toHaveClass(/fullscreen-open/);
-	await expect(matrix.locator('[data-provenance="model"]')).toBeVisible();
-	await expect(
-		matrix.getByRole('button', { name: /^Rwanda × Rwanda \(1994\): 2 occurrences/ })
-	).toBeVisible();
-	await page.keyboard.press('Escape');
-	await expect(matrix).not.toHaveClass(/fullscreen-open/);
-	await expect(trigger).toBeFocused();
-	await expectNoAxeViolations(page);
-});
+		await expect(matrix).toHaveClass(/fullscreen-open/);
+		await expect(matrix.locator('[data-provenance="model"]')).toBeVisible();
+		await expect(
+			matrix.getByRole('button', { name: /^Rwanda × Rwanda \(1994\): 2 occurrences/ })
+		).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(matrix).not.toHaveClass(/fullscreen-open/);
+		await expect(trigger).toBeFocused();
+		await expectNoAxeViolations(page);
+	}
+);
 
-test('a cell opens the occurrences behind it, and a way into the record', async ({ page }) => {
-	await openUsage(page);
-	const matrix = matrixOf(page);
+test(
+	'a cell opens the occurrences behind it, and a way into the record',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		await openUsage(page);
+		const matrix = matrixOf(page);
 
-	await matrix.getByRole('button', { name: /^Rwanda × Rwanda \(1994\): 2 occurrences/ }).click();
-	await expect(page).toHaveURL(/\?actor=Rwanda&referent=rwanda_1994$/);
+		await matrix.getByRole('button', { name: /^Rwanda × Rwanda \(1994\): 2 occurrences/ }).click();
+		await expect(page).toHaveURL(/\?actor=Rwanda&referent=rwanda_1994$/);
 
-	const evidence = page.locator('section.evidence');
-	await expect(
-		page.getByRole('heading', { name: 'Rwanda on Rwanda (1994)', level: 2 })
-	).toBeVisible();
-	await expect(evidence.locator('ol.quotations li')).toHaveCount(2);
-	await expect(evidence.locator('blockquote').first()).toHaveText(
-		'We warned that genocide could occur.'
-	);
-	await expect(evidence.locator('.speaker_position').first()).toHaveText('Conditional');
-	await expect(evidence.locator('.speaker_position').nth(1)).toHaveText('Rejects');
+		const evidence = page.locator('section.evidence');
+		await expect(
+			page.getByRole('heading', { name: 'Rwanda on Rwanda (1994)', level: 2 })
+		).toBeVisible();
+		await expect(evidence.locator('ol.quotations li')).toHaveCount(2);
+		await expect(evidence.locator('blockquote').first()).toHaveText(
+			'We warned that genocide could occur.'
+		);
+		await expect(evidence.locator('.speaker_position').first()).toHaveText('Conditional');
+		await expect(evidence.locator('.speaker_position').nth(1)).toHaveText('Rejects');
 
-	// Annotation schema 3's six fields, shown where the run answered them and
-	// absent where it did not. The first occurrence in the fixture stands for a
-	// run coded against schema 3 and the rest for one coded against schema 2,
-	// which has no image of any of the six: an empty value is "never asked" and
-	// must not be rendered as an answer.
-	const answered = evidence.locator('ol.quotations li').nth(0).locator('dl.schema-fields');
-	await expect(answered.locator('dt')).toHaveText([
-		'Referent read from',
-		'Accused',
-		'Victim group',
-		'Speaker’s own State accused',
-		'Salience',
-		'Rationale'
-	]);
-	await expect(answered.locator('dd').first()).toHaveText('passage');
-	await expect(evidence.locator('ol.quotations li').nth(1).locator('dl.schema-fields')).toHaveCount(
-		0
-	);
+		// Annotation schema 3's six fields, shown where the run answered them and
+		// absent where it did not. The first occurrence in the fixture stands for a
+		// run coded against schema 3 and the rest for one coded against schema 2,
+		// which has no image of any of the six: an empty value is "never asked" and
+		// must not be rendered as an answer.
+		const answered = evidence.locator('ol.quotations li').nth(0).locator('dl.schema-fields');
+		await expect(answered.locator('dt')).toHaveText([
+			'Referent read from',
+			'Accused',
+			'Victim group',
+			'Speaker’s own State accused',
+			'Salience',
+			'Rationale'
+		]);
+		await expect(answered.locator('dd').first()).toHaveText('passage');
+		await expect(
+			evidence.locator('ol.quotations li').nth(1).locator('dl.schema-fields')
+		).toHaveCount(0);
 
-	// The link carries the term, the speech and the exact occurrence, so the
-	// reader opens on the span the label was read from.
-	await expect(
-		evidence.getByRole('link', { name: 'Read the whole speech' }).first()
-	).toHaveAttribute(
-		'href',
-		`${base}/reader/SC07000-01?term=genocide&speech=SC07000-01-001&occurrence=SC07000-01-001%231`
-	);
-	// The concordance cannot name one line, so the link lands on the delegation
-	// and the record it came from.
-	await expect(evidence.getByRole('link', { name: 'See in concordance' }).first()).toHaveAttribute(
-		'href',
-		`${base}/concordance?term=genocide&country=Rwanda&spv=S%2FPV.7000`
-	);
+		// The link carries the term, the speech and the exact occurrence, so the
+		// reader opens on the span the label was read from.
+		await expect(
+			evidence.getByRole('link', { name: 'Read the whole speech' }).first()
+		).toHaveAttribute(
+			'href',
+			`${base}/reader/SC07000-01?term=genocide&speech=SC07000-01-001&occurrence=SC07000-01-001%231`
+		);
+		// The concordance cannot name one line, so the link lands on the delegation
+		// and the record it came from.
+		await expect(
+			evidence.getByRole('link', { name: 'See in concordance' }).first()
+		).toHaveAttribute('href', `${base}/concordance?term=genocide&country=Rwanda&spv=S%2FPV.7000`);
 
-	await expectNoAxeViolations(page);
-});
+		await expectNoAxeViolations(page);
+	}
+);
 
 test('the unit toggle is written into the URL and hatches what it withholds', async ({ page }) => {
 	await openUsage(page);
@@ -234,41 +243,45 @@ test('a copied URL restores the same reading of the matrix', async ({ page }) =>
 	);
 });
 
-test('the diffusion figure draws one referent and lists the firsts behind it', async ({ page }) => {
-	await openUsage(page);
-	const figure = diffusionOf(page);
+test(
+	'the diffusion figure draws one referent and lists the firsts behind it',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		await openUsage(page);
+		const figure = diffusionOf(page);
 
-	// With nothing selected the figure falls back to the first named case the
-	// chronology carries, and the curve's own key names what was drawn.
-	await expect(figure.getByRole('combobox', { name: 'Case or concept' })).toHaveValue(
-		'rwanda_1994'
-	);
-	await expect(figure.locator('.key')).toContainText('Placed the word on it');
-	await expect(figure.locator('.key')).toContainText('Refused the word for it');
-	await expect(figure.getByRole('img')).toHaveAttribute(
-		'aria-label',
-		/Cumulative delegations for Rwanda \(1994\)/
-	);
+		// With nothing selected the figure falls back to the first named case the
+		// chronology carries, and the curve's own key names what was drawn.
+		await expect(figure.getByRole('combobox', { name: 'Case or concept' })).toHaveValue(
+			'rwanda_1994'
+		);
+		await expect(figure.locator('.key')).toContainText('Placed the word on it');
+		await expect(figure.locator('.key')).toContainText('Refused the word for it');
+		await expect(figure.getByRole('img')).toHaveAttribute(
+			'aria-label',
+			/Cumulative delegations for Rwanda \(1994\)/
+		);
 
-	// The chronology is the accessible figure: the same steps, in order, as text.
-	const rows = figure.locator('table.chronology tbody tr');
-	await expect(rows).toHaveCount(4);
-	await expect(rows.nth(0)).toContainText('Rwanda');
-	await expect(rows.nth(0)).toContainText('Placed the word on it');
-	await expect(rows.nth(1)).toContainText('Refused the word for it');
-	await expect(rows.nth(3)).toContainText('European Union');
-	await expect(rows.nth(3)).toContainText('Asserted it');
+		// The chronology is the accessible figure: the same steps, in order, as text.
+		const rows = figure.locator('table.chronology tbody tr');
+		await expect(rows).toHaveCount(4);
+		await expect(rows.nth(0)).toContainText('Rwanda');
+		await expect(rows.nth(0)).toContainText('Placed the word on it');
+		await expect(rows.nth(1)).toContainText('Refused the word for it');
+		await expect(rows.nth(3)).toContainText('European Union');
+		await expect(rows.nth(3)).toContainText('Asserted it');
 
-	// The link into the record is built from the line identifier alone, and the
-	// concordance link needs a record symbol this fixture has no line for.
-	await expect(rows.nth(0).getByRole('link').first()).toHaveAttribute(
-		'href',
-		`${base}/reader/SC07000-01?term=genocide&speech=SC07000-01-001&occurrence=SC07000-01-001%231`
-	);
-	await expect(rows.nth(2).getByRole('link', { name: 'concordance' })).toHaveCount(0);
+		// The link into the record is built from the line identifier alone, and the
+		// concordance link needs a record symbol this fixture has no line for.
+		await expect(rows.nth(0).getByRole('link').first()).toHaveAttribute(
+			'href',
+			`${base}/reader/SC07000-01?term=genocide&speech=SC07000-01-001&occurrence=SC07000-01-001%231`
+		);
+		await expect(rows.nth(2).getByRole('link', { name: 'concordance' })).toHaveCount(0);
 
-	await expectNoAxeViolations(page);
-});
+		await expectNoAxeViolations(page);
+	}
+);
 
 test('the referent picker moves both figures, and the URL carries it', async ({ page }) => {
 	await openUsage(page);
@@ -330,33 +343,35 @@ test('the whole matrix is one tab stop, and the arrow keys move inside it', asyn
  * both readings rather than one replaced by the other.
  * --------------------------------------------------------------------------- */
 
-test('the apparatus names the second opinion and what agreement between two models is', async ({
-	page
-}) => {
-	await openUsage(page);
-	const second = page.locator('section.experiment .second-opinion');
-	await expect(page.getByRole('heading', { name: 'Second opinion', level: 2 })).toBeVisible();
+test(
+	'the apparatus names the second opinion and what agreement between two models is',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		await openUsage(page);
+		const second = page.locator('section.experiment .second-opinion');
+		await expect(page.getByRole('heading', { name: 'Second opinion', level: 2 })).toBeVisible();
 
-	await expect(second).toContainText('gemini-3-pro-2026-07-15');
-	await expect(second).toContainText('2026-09-06-gemini-v1');
-	// The same question, asked the same way: 15 refuses to publish a comparison
-	// made from other instructions, and the page states that rather than assuming it.
-	await expect(second).toContainText('the same instructions');
-	await expect(second).toContainText('Agreement measures consistency between the models');
-	await expect(second).toContainText('4 carry a label from both runs');
+		await expect(second).toContainText('gemini-3-pro-2026-07-15');
+		await expect(second).toContainText('2026-09-06-gemini-v1');
+		// The same question, asked the same way: 15 refuses to publish a comparison
+		// made from other instructions, and the page states that rather than assuming it.
+		await expect(second).toContainText('the same instructions');
+		await expect(second).toContainText('Agreement measures consistency between the models');
+		await expect(second).toContainText('4 carry a label from both runs');
 
-	const rows = second.locator('table tbody tr');
-	await expect(rows).toHaveCount(4);
-	await expect(rows.nth(0)).toContainText('verdict');
-	// With every row in one category there is no chance agreement to correct for,
-	// and a kappa of 0.00 would read as two runs agreeing by luck alone.
-	await expect(rows.nth(0).locator('td').nth(2)).toHaveText('—');
-	await expect(rows.nth(2)).toContainText('50.00%');
-	await expect(second).toContainText('0.88');
-	await expect(second).toContainText('2 of 4 compared occurrences');
+		const rows = second.locator('table tbody tr');
+		await expect(rows).toHaveCount(4);
+		await expect(rows.nth(0)).toContainText('verdict');
+		// With every row in one category there is no chance agreement to correct for,
+		// and a kappa of 0.00 would read as two runs agreeing by luck alone.
+		await expect(rows.nth(0).locator('td').nth(2)).toHaveText('—');
+		await expect(rows.nth(2)).toContainText('50.00%');
+		await expect(second).toContainText('0.88');
+		await expect(second).toContainText('2 of 4 compared occurrences');
 
-	await expectNoAxeViolations(page);
-});
+		await expectNoAxeViolations(page);
+	}
+);
 
 test('a contested quotation is marked, and carries the other reading in place', async ({
 	page
@@ -404,52 +419,56 @@ test('a copied URL restores the contested filter', async ({ page }) => {
 	await expect(page).toHaveURL(/\/usage\/\?actor=Rwanda&referent=rwanda_1994&contested=1$/);
 });
 
-test('the reading list ranks the contested passages hardest first', async ({ page }) => {
-	await openUsage(page);
-	const figure = contestedOf(page);
-	const rows = figure.locator('table.contested-table tbody tr');
-	await expect(rows).toHaveCount(2);
+test(
+	'the reading list ranks the contested passages hardest first',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		await openUsage(page);
+		const figure = contestedOf(page);
+		const rows = figure.locator('table.contested-table tbody tr');
+		await expect(rows).toHaveCount(2);
 
-	// Three fields apart in 2015 above one field apart in 2014: the order is how
-	// much the two instruments disagree, not the date.
-	await expect(rows.nth(0)).toContainText('France');
-	await expect(rows.nth(0)).toContainText('8 July 2015');
-	await expect(rows.nth(0).locator('.field')).toHaveText([
-		'speaker position',
-		'function',
-		'referent'
-	]);
-	await expect(rows.nth(0).locator('.reading.other')).toHaveText([
-		'Rejects',
-		'accusation or qualification',
-		'Genocide Convention and legal definition'
-	]);
-	await expect(rows.nth(0).locator('.reading:not(.other)')).toHaveText([
-		'Asserts',
-		'accusation or qualification, accountability',
-		'Bosnia and Srebrenica'
-	]);
-	await expect(rows.nth(1)).toContainText('Rwanda');
+		// Three fields apart in 2015 above one field apart in 2014: the order is how
+		// much the two instruments disagree, not the date.
+		await expect(rows.nth(0)).toContainText('France');
+		await expect(rows.nth(0)).toContainText('8 July 2015');
+		await expect(rows.nth(0).locator('.field')).toHaveText([
+			'speaker position',
+			'function',
+			'referent'
+		]);
+		await expect(rows.nth(0).locator('.reading.other')).toHaveText([
+			'Rejects',
+			'accusation or qualification',
+			'Genocide Convention and legal definition'
+		]);
+		await expect(rows.nth(0).locator('.reading:not(.other)')).toHaveText([
+			'Asserts',
+			'accusation or qualification, accountability',
+			'Bosnia and Srebrenica'
+		]);
+		await expect(rows.nth(1)).toContainText('Rwanda');
 
-	// The reader link idiom the chronology uses: the identifier is the link.
-	await expect(rows.nth(0).getByRole('link').first()).toHaveAttribute(
-		'href',
-		`${base}/reader/SC07481-01?term=genocide&speech=SC07481-01-007&occurrence=SC07481-01-007%231`
-	);
-	await expect(rows.nth(0).getByRole('link', { name: 'concordance' })).toHaveAttribute(
-		'href',
-		`${base}/concordance?term=genocide&country=France&spv=S%2FPV.7481`
-	);
+		// The reader link idiom the chronology uses: the identifier is the link.
+		await expect(rows.nth(0).getByRole('link').first()).toHaveAttribute(
+			'href',
+			`${base}/reader/SC07481-01?term=genocide&speech=SC07481-01-007&occurrence=SC07481-01-007%231`
+		);
+		await expect(rows.nth(0).getByRole('link', { name: 'concordance' })).toHaveAttribute(
+			'href',
+			`${base}/concordance?term=genocide&country=France&spv=S%2FPV.7481`
+		);
 
-	await expect(figure.locator('p.disclosure')).toContainText(
-		'2 of 2 contested occurrences are drawn here, out of 4'
-	);
-	await expect(figure).toContainText('Agreement can also conceal a shared mistake.');
+		await expect(figure.locator('p.disclosure')).toContainText(
+			'2 of 2 contested occurrences are drawn here, out of 4'
+		);
+		await expect(figure).toContainText('Agreement can also conceal a shared mistake.');
 
-	await expectNoAxeViolations(page);
-});
+		await expectNoAxeViolations(page);
+	}
+);
 
-test('a build with no second opinion shows none of it', async ({ page }) => {
+test('a build with no second opinion shows none of it', { tag: '@a11y' }, async ({ page }) => {
 	const body = await readFile(
 		new URL('../fixtures/data/usage/usage.json', import.meta.url),
 		'utf8'
@@ -479,8 +498,11 @@ test('a build with no second opinion shows none of it', async ({ page }) => {
 
 	// Interception sees browser requests, and the first load of a page is answered
 	// by the server. Arriving from another section runs the view's load in the
-	// browser, which is where the variant payload can be substituted.
+	// browser, which is where the variant payload can be substituted. A chart
+	// drawn on the Overview means the page has hydrated and the router owns the
+	// link; a click before that is a full page load, answered by the server.
 	await page.goto(`${base}/`);
+	await expect(page.locator('.chart svg').first()).toBeVisible();
 	await page
 		.getByRole('navigation', { name: 'Sections' })
 		.getByRole('link', { name: 'Usage' })

@@ -17,38 +17,42 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { base } from '../../playwright.config';
 
-test('the chronology draws its six plates from the artefacts', async ({ page }) => {
-	const response = await page.goto(`${base}/chronology/`);
-	expect(response?.status()).toBe(200);
+test(
+	'the chronology draws its six plates from the artefacts',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		const response = await page.goto(`${base}/chronology/`);
+		expect(response?.status()).toBe(200);
 
-	await expect(page.getByRole('heading', { name: 'Chronology', level: 1 })).toBeVisible();
-	for (const plate of [
-		'The reading set, year by year',
-		'The word list over time',
-		'Testing for a change in the rate',
-		"The vocabulary's calendar",
-		'The same twelve months, pooled',
-		'Who says it, and in what debate'
-	]) {
-		await expect(page.getByRole('heading', { name: plate })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Chronology', level: 1 })).toBeVisible();
+		for (const plate of [
+			'The reading set, year by year',
+			'The word list over time',
+			'Testing for a change in the rate',
+			"The vocabulary's calendar",
+			'The same twelve months, pooled',
+			'Who says it, and in what debate'
+		]) {
+			await expect(page.getByRole('heading', { name: plate })).toBeVisible();
+		}
+		// The page's one citable result follows the word list it tests rather than
+		// sitting fifth of six (review of 19 September 2026): the running head lists
+		// the plates in the order the page prints them.
+		await expect(
+			page.getByRole('navigation', { name: 'Figures on this page' }).getByRole('link')
+		).toHaveText([
+			'The reading set, year by year',
+			'The word list over time',
+			'Testing for a change in the rate',
+			"The vocabulary's calendar",
+			'The same twelve months, pooled',
+			'Who says it, and in what debate'
+		]);
+
+		const { violations } = await new AxeBuilder({ page }).analyze();
+		expect(violations).toEqual([]);
 	}
-	// The page's one citable result follows the word list it tests rather than
-	// sitting fifth of six (review of 19 September 2026): the running head lists
-	// the plates in the order the page prints them.
-	await expect(
-		page.getByRole('navigation', { name: 'Figures on this page' }).getByRole('link')
-	).toHaveText([
-		'The reading set, year by year',
-		'The word list over time',
-		'Testing for a change in the rate',
-		"The vocabulary's calendar",
-		'The same twelve months, pooled',
-		'Who says it, and in what debate'
-	]);
-
-	const { violations } = await new AxeBuilder({ page }).analyze();
-	expect(violations).toEqual([]);
-});
+);
 
 test('a term the artefact does not carry is dropped, not fatal', async ({ page }) => {
 	// The page opens on four named terms and the fixture lexicon carries one.
@@ -150,4 +154,22 @@ test('the calendar stays legible at a phone width', async ({ page }) => {
 
 	// And the page still does not scroll sideways at the reflow width.
 	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+test('the band is the meeting-clustered interval where the artefact carries one', async ({
+	page
+}) => {
+	// The fixture carries both intervals for 1994: Wilson 8.07%–41.62% and,
+	// from resampling whole meetings, 5.00%–45.00%. The chart's tooltip states
+	// the interval the band is drawn from, so it is the one to read back.
+	await page.goto(`${base}/chronology/`);
+	const figure = page.locator('figure.figure').filter({
+		has: page.getByRole('heading', { name: 'The word list over time', level: 2 })
+	});
+	const plot = figure.locator('.chart').first();
+	await expect(plot.locator('svg')).toBeVisible({ timeout: 15_000 });
+	// The middle of the plot is 1994, the middle of the three fixture years.
+	await plot.hover();
+	await expect(plot).toContainText('5.00%–45.00%');
+	await expect(plot).not.toContainText('8.07%–41.62%');
 });

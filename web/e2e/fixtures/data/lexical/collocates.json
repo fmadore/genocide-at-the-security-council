@@ -1,0 +1,2090 @@
+{
+	"meta": {
+		"script": "05_lexical.py",
+		"generated": "2026-09-12T10:08:44Z",
+		"git_commit": "fixture",
+		"inputs": [
+			{
+				"path": "data/derived/speeches_flagged.parquet",
+				"sha256": "fixture-input"
+			}
+		],
+		"configs": [
+			{
+				"path": "config/lexicon.yml",
+				"sha256": "fixture-config"
+			},
+			{
+				"path": "config/stopwords.txt",
+				"sha256": "fixture-config"
+			}
+		],
+		"lexicon_version": 7,
+		"corpus_tokens": 86854907,
+		"corpus_types": 197902,
+		"stopwords": 149,
+		"min_count": 5,
+		"g2_floor": 10.83,
+		"ranked_by": {
+			"collocates": "log_dice",
+			"keywords": "log_ratio"
+		},
+		"limit": 100,
+		"vocabulary": "surface"
+	},
+	"nodes": {
+		"genocide": {
+			"pattern": "\\bgenocid\\w*",
+			"register": "core",
+			"widths": {
+				"5": {
+					"occurrences": 7747,
+					"window_tokens": 76280,
+					"collocates": [
+						{
+							"word": "humanity",
+							"target": 1126,
+							"reference": 6470,
+							"g2": 9484.884,
+							"log_ratio": 7.629,
+							"log_dice": 11.232,
+							"documents": 1015,
+							"meetings": 453,
+							"dp": 0.7721
+						},
+						{
+							"word": "crimes",
+							"target": 2668,
+							"reference": 29469,
+							"g2": 19216.633,
+							"log_ratio": 6.686,
+							"log_dice": 11.098,
+							"documents": 1530,
+							"meetings": 601,
+							"dp": 0.6645
+						},
+						{
+							"word": "cleansing",
+							"target": 382,
+							"reference": 1410,
+							"g2": 3522.228,
+							"log_ratio": 8.268,
+							"log_dice": 10.358,
+							"documents": 345,
+							"meetings": 212,
+							"dp": 0.9121
+						},
+						{
+							"word": "srebrenica",
+							"target": 271,
+							"reference": 945,
+							"g2": 2525.84,
+							"log_ratio": 8.35,
+							"log_dice": 9.952,
+							"documents": 195,
+							"meetings": 92,
+							"dp": 0.9152
+						},
+						{
+							"word": "rwanda",
+							"target": 590,
+							"reference": 11517,
+							"g2": 3608.546,
+							"log_ratio": 5.865,
+							"log_dice": 9.927,
+							"documents": 421,
+							"meetings": 233,
+							"dp": 0.7814
+						},
+						{
+							"word": "ethnic",
+							"target": 416,
+							"reference": 8390,
+							"g2": 2518.299,
+							"log_ratio": 5.818,
+							"log_dice": 9.686,
+							"documents": 375,
+							"meetings": 234,
+							"dp": 0.8972
+						},
+						{
+							"word": "tutsi",
+							"target": 174,
+							"reference": 118,
+							"g2": 2055.295,
+							"log_ratio": 10.712,
+							"log_dice": 9.47,
+							"documents": 112,
+							"meetings": 84,
+							"dp": 0.9108
+						},
+						{
+							"word": "punishment",
+							"target": 218,
+							"reference": 2353,
+							"g2": 1579.698,
+							"log_ratio": 6.72,
+							"log_dice": 9.435,
+							"documents": 204,
+							"meetings": 128,
+							"dp": 0.8882
+						},
+						{
+							"word": "rwandan",
+							"target": 195,
+							"reference": 1305,
+							"g2": 1587.791,
+							"log_ratio": 7.409,
+							"log_dice": 9.433,
+							"documents": 160,
+							"meetings": 98,
+							"dp": 0.9112
+						},
+						{
+							"word": "war",
+							"target": 1233,
+							"reference": 56795,
+							"g2": 5517.133,
+							"log_ratio": 4.626,
+							"log_dice": 9.263,
+							"documents": 1093,
+							"meetings": 514,
+							"dp": 0.7494
+						},
+						{
+							"word": "crime",
+							"target": 457,
+							"reference": 16512,
+							"g2": 2256.17,
+							"log_ratio": 4.977,
+							"log_dice": 9.243,
+							"documents": 376,
+							"meetings": 251,
+							"dp": 0.8237
+						},
+						{
+							"word": "denial",
+							"target": 173,
+							"reference": 2637,
+							"g2": 1139.988,
+							"log_ratio": 6.222,
+							"log_dice": 9.069,
+							"documents": 123,
+							"meetings": 50,
+							"dp": 0.9162
+						},
+						{
+							"word": "prevention",
+							"target": 322,
+							"reference": 19857,
+							"g2": 1263.491,
+							"log_ratio": 4.205,
+							"log_dice": 8.562,
+							"documents": 271,
+							"meetings": 145,
+							"dp": 0.8888
+						},
+						{
+							"word": "adviser",
+							"target": 115,
+							"reference": 2147,
+							"g2": 713.179,
+							"log_ratio": 5.929,
+							"log_dice": 8.556,
+							"documents": 105,
+							"meetings": 69,
+							"dp": 0.9589
+						},
+						{
+							"word": "perpetrated",
+							"target": 129,
+							"reference": 5259,
+							"g2": 607.165,
+							"log_ratio": 4.802,
+							"log_dice": 8.33,
+							"documents": 124,
+							"meetings": 115,
+							"dp": 0.9511
+						},
+						{
+							"word": "atrocities",
+							"target": 135,
+							"reference": 6213,
+							"g2": 604.289,
+							"log_ratio": 4.628,
+							"log_dice": 8.294,
+							"documents": 125,
+							"meetings": 100,
+							"dp": 0.9417
+						},
+						{
+							"word": "responsible",
+							"target": 256,
+							"reference": 19003,
+							"g2": 915.929,
+							"log_ratio": 3.938,
+							"log_dice": 8.279,
+							"documents": 197,
+							"meetings": 138,
+							"dp": 0.9246
+						},
+						{
+							"word": "twentieth",
+							"target": 88,
+							"reference": 1465,
+							"g2": 565.046,
+							"log_ratio": 6.095,
+							"log_dice": 8.276,
+							"documents": 78,
+							"meetings": 39,
+							"dp": 0.9501
+						},
+						{
+							"word": "committed",
+							"target": 393,
+							"reference": 35146,
+							"g2": 1271.066,
+							"log_ratio": 3.669,
+							"log_dice": 8.217,
+							"documents": 331,
+							"meetings": 244,
+							"dp": 0.8433
+						},
+						{
+							"word": "perpetrators",
+							"target": 152,
+							"reference": 10002,
+							"g2": 577.959,
+							"log_ratio": 4.112,
+							"log_dice": 8.12,
+							"documents": 135,
+							"meetings": 101,
+							"dp": 0.92
+						}
+					]
+				},
+				"8": {
+					"occurrences": 7747,
+					"window_tokens": 120443,
+					"collocates": [
+						{
+							"word": "humanity",
+							"target": 1541,
+							"reference": 6055,
+							"g2": 12636.718,
+							"log_ratio": 7.518,
+							"log_dice": 11.684,
+							"documents": 1352,
+							"meetings": 513,
+							"dp": 0.7087
+						},
+						{
+							"word": "crimes",
+							"target": 3429,
+							"reference": 28708,
+							"g2": 23386.133,
+							"log_ratio": 6.427,
+							"log_dice": 11.46,
+							"documents": 1617,
+							"meetings": 631,
+							"dp": 0.649
+						},
+						{
+							"word": "cleansing",
+							"target": 436,
+							"reference": 1356,
+							"g2": 3753.625,
+							"log_ratio": 7.855,
+							"log_dice": 10.549,
+							"documents": 390,
+							"meetings": 229,
+							"dp": 0.8993
+						},
+						{
+							"word": "rwanda",
+							"target": 792,
+							"reference": 11315,
+							"g2": 4604.864,
+							"log_ratio": 5.656,
+							"log_dice": 10.352,
+							"documents": 513,
+							"meetings": 265,
+							"dp": 0.7517
+						},
+						{
+							"word": "srebrenica",
+							"target": 297,
+							"reference": 919,
+							"g2": 2559.554,
+							"log_ratio": 7.863,
+							"log_dice": 10.085,
+							"documents": 210,
+							"meetings": 96,
+							"dp": 0.9096
+						},
+						{
+							"word": "ethnic",
+							"target": 486,
+							"reference": 8320,
+							"g2": 2659.111,
+							"log_ratio": 5.395,
+							"log_dice": 9.91,
+							"documents": 433,
+							"meetings": 257,
+							"dp": 0.8753
+						},
+						{
+							"word": "war",
+							"target": 1683,
+							"reference": 56345,
+							"g2": 7073.89,
+							"log_ratio": 4.427,
+							"log_dice": 9.712,
+							"documents": 1451,
+							"meetings": 602,
+							"dp": 0.6763
+						},
+						{
+							"word": "rwandan",
+							"target": 219,
+							"reference": 1281,
+							"g2": 1638.831,
+							"log_ratio": 6.944,
+							"log_dice": 9.6,
+							"documents": 175,
+							"meetings": 105,
+							"dp": 0.899
+						},
+						{
+							"word": "tutsi",
+							"target": 184,
+							"reference": 108,
+							"g2": 2037.253,
+							"log_ratio": 10.261,
+							"log_dice": 9.551,
+							"documents": 114,
+							"meetings": 85,
+							"dp": 0.9092
+						},
+						{
+							"word": "punishment",
+							"target": 223,
+							"reference": 2348,
+							"g2": 1425.073,
+							"log_ratio": 6.096,
+							"log_dice": 9.468,
+							"documents": 208,
+							"meetings": 131,
+							"dp": 0.8894
+						},
+						{
+							"word": "crime",
+							"target": 509,
+							"reference": 16460,
+							"g2": 2172.562,
+							"log_ratio": 4.477,
+							"log_dice": 9.398,
+							"documents": 398,
+							"meetings": 262,
+							"dp": 0.8207
+						},
+						{
+							"word": "adviser",
+							"target": 202,
+							"reference": 2060,
+							"g2": 1303.011,
+							"log_ratio": 6.142,
+							"log_dice": 9.369,
+							"documents": 170,
+							"meetings": 88,
+							"dp": 0.94
+						},
+						{
+							"word": "prevention",
+							"target": 538,
+							"reference": 19641,
+							"g2": 2173.939,
+							"log_ratio": 4.302,
+							"log_dice": 9.302,
+							"documents": 445,
+							"meetings": 243,
+							"dp": 0.816
+						},
+						{
+							"word": "denial",
+							"target": 190,
+							"reference": 2620,
+							"g2": 1117.441,
+							"log_ratio": 5.707,
+							"log_dice": 9.204,
+							"documents": 131,
+							"meetings": 55,
+							"dp": 0.9157
+						},
+						{
+							"word": "responsible",
+							"target": 306,
+							"reference": 18953,
+							"g2": 937.955,
+							"log_ratio": 3.539,
+							"log_dice": 8.536,
+							"documents": 244,
+							"meetings": 170,
+							"dp": 0.9123
+						},
+						{
+							"word": "perpetrators",
+							"target": 202,
+							"reference": 9952,
+							"g2": 703.705,
+							"log_ratio": 3.87,
+							"log_dice": 8.53,
+							"documents": 183,
+							"meetings": 127,
+							"dp": 0.9064
+						},
+						{
+							"word": "atrocities",
+							"target": 157,
+							"reference": 6191,
+							"g2": 611.784,
+							"log_ratio": 4.191,
+							"log_dice": 8.512,
+							"documents": 143,
+							"meetings": 112,
+							"dp": 0.9324
+						},
+						{
+							"word": "committed",
+							"target": 480,
+							"reference": 35059,
+							"g2": 1328.983,
+							"log_ratio": 3.302,
+							"log_dice": 8.505,
+							"documents": 403,
+							"meetings": 276,
+							"dp": 0.8233
+						},
+						{
+							"word": "perpetrated",
+							"target": 145,
+							"reference": 5243,
+							"g2": 588.519,
+							"log_ratio": 4.316,
+							"log_dice": 8.499,
+							"documents": 140,
+							"meetings": 129,
+							"dp": 0.9422
+						},
+						{
+							"word": "criminals",
+							"target": 112,
+							"reference": 2395,
+							"g2": 565.561,
+							"log_ratio": 5.074,
+							"log_dice": 8.483,
+							"documents": 103,
+							"meetings": 49,
+							"dp": 0.9583
+						}
+					]
+				},
+				"15": {
+					"occurrences": 7747,
+					"window_tokens": 217700,
+					"collocates": [
+						{
+							"word": "humanity",
+							"target": 1596,
+							"reference": 6000,
+							"g2": 11336.354,
+							"log_ratio": 6.726,
+							"log_dice": 11.735,
+							"documents": 1392,
+							"meetings": 532,
+							"dp": 0.6928
+						},
+						{
+							"word": "crimes",
+							"target": 3782,
+							"reference": 28355,
+							"g2": 22156.719,
+							"log_ratio": 5.73,
+							"log_dice": 11.601,
+							"documents": 1713,
+							"meetings": 663,
+							"dp": 0.6241
+						},
+						{
+							"word": "rwanda",
+							"target": 1158,
+							"reference": 10949,
+							"g2": 6287.804,
+							"log_ratio": 5.395,
+							"log_dice": 10.9,
+							"documents": 645,
+							"meetings": 310,
+							"dp": 0.7244
+						},
+						{
+							"word": "cleansing",
+							"target": 469,
+							"reference": 1323,
+							"g2": 3563.955,
+							"log_ratio": 7.14,
+							"log_dice": 10.654,
+							"documents": 419,
+							"meetings": 245,
+							"dp": 0.8899
+						},
+						{
+							"word": "srebrenica",
+							"target": 330,
+							"reference": 886,
+							"g2": 2535.29,
+							"log_ratio": 7.212,
+							"log_dice": 10.237,
+							"documents": 228,
+							"meetings": 106,
+							"dp": 0.9056
+						},
+						{
+							"word": "ethnic",
+							"target": 561,
+							"reference": 8245,
+							"g2": 2586.036,
+							"log_ratio": 4.759,
+							"log_dice": 10.117,
+							"documents": 494,
+							"meetings": 289,
+							"dp": 0.8554
+						},
+						{
+							"word": "rwandan",
+							"target": 272,
+							"reference": 1228,
+							"g2": 1843.885,
+							"log_ratio": 6.462,
+							"log_dice": 9.913,
+							"documents": 210,
+							"meetings": 124,
+							"dp": 0.8824
+						},
+						{
+							"word": "war",
+							"target": 1927,
+							"reference": 56101,
+							"g2": 6450.706,
+							"log_ratio": 3.773,
+							"log_dice": 9.907,
+							"documents": 1616,
+							"meetings": 660,
+							"dp": 0.6335
+						},
+						{
+							"word": "tutsi",
+							"target": 198,
+							"reference": 94,
+							"g2": 2005.136,
+							"log_ratio": 9.711,
+							"log_dice": 9.657,
+							"documents": 123,
+							"meetings": 89,
+							"dp": 0.9088
+						},
+						{
+							"word": "crime",
+							"target": 597,
+							"reference": 16372,
+							"g2": 2063.56,
+							"log_ratio": 3.859,
+							"log_dice": 9.628,
+							"documents": 437,
+							"meetings": 285,
+							"dp": 0.8185
+						},
+						{
+							"word": "punishment",
+							"target": 236,
+							"reference": 2335,
+							"g2": 1261.589,
+							"log_ratio": 5.33,
+							"log_dice": 9.55,
+							"documents": 215,
+							"meetings": 137,
+							"dp": 0.8889
+						},
+						{
+							"word": "adviser",
+							"target": 205,
+							"reference": 2057,
+							"g2": 1090.523,
+							"log_ratio": 5.31,
+							"log_dice": 9.39,
+							"documents": 170,
+							"meetings": 88,
+							"dp": 0.9415
+						},
+						{
+							"word": "prevention",
+							"target": 564,
+							"reference": 19615,
+							"g2": 1706.574,
+							"log_ratio": 3.516,
+							"log_dice": 9.37,
+							"documents": 457,
+							"meetings": 249,
+							"dp": 0.8189
+						},
+						{
+							"word": "denial",
+							"target": 213,
+							"reference": 2597,
+							"g2": 1055.936,
+							"log_ratio": 5.029,
+							"log_dice": 9.369,
+							"documents": 145,
+							"meetings": 62,
+							"dp": 0.9156
+						},
+						{
+							"word": "atrocities",
+							"target": 234,
+							"reference": 6114,
+							"g2": 829.547,
+							"log_ratio": 3.929,
+							"log_dice": 9.087,
+							"documents": 210,
+							"meetings": 158,
+							"dp": 0.9143
+						},
+						{
+							"word": "committed",
+							"target": 666,
+							"reference": 34873,
+							"g2": 1535.287,
+							"log_ratio": 2.926,
+							"log_dice": 8.978,
+							"documents": 509,
+							"meetings": 331,
+							"dp": 0.7993
+						},
+						{
+							"word": "tribunal",
+							"target": 260,
+							"reference": 9517,
+							"g2": 762.865,
+							"log_ratio": 3.443,
+							"log_dice": 8.925,
+							"documents": 211,
+							"meetings": 107,
+							"dp": 0.8918
+						},
+						{
+							"word": "perpetrators",
+							"target": 260,
+							"reference": 9894,
+							"g2": 744.822,
+							"log_ratio": 3.387,
+							"log_dice": 8.895,
+							"documents": 234,
+							"meetings": 157,
+							"dp": 0.8938
+						},
+						{
+							"word": "criminals",
+							"target": 149,
+							"reference": 2358,
+							"g2": 666.334,
+							"log_ratio": 4.652,
+							"log_dice": 8.895,
+							"documents": 130,
+							"meetings": 64,
+							"dp": 0.9446
+						},
+						{
+							"word": "convention",
+							"target": 312,
+							"reference": 14095,
+							"g2": 799.152,
+							"log_ratio": 3.139,
+							"log_dice": 8.85,
+							"documents": 236,
+							"meetings": 143,
+							"dp": 0.8859
+						}
+					]
+				}
+			}
+		},
+		"ethnic_cleansing": {
+			"pattern": "\\bethnic(?:ally)?[\\s-]+cleans\\w*",
+			"register": "legal",
+			"widths": {
+				"5": {
+					"occurrences": 1780,
+					"window_tokens": 17752,
+					"collocates": [
+						{
+							"word": "genocide",
+							"target": 380,
+							"reference": 6633,
+							"g2": 3504.596,
+							"log_ratio": 8.131,
+							"log_dice": 10.468,
+							"documents": 339,
+							"meetings": 213,
+							"dp": 0.7328
+						},
+						{
+							"word": "humanity",
+							"target": 220,
+							"reference": 7376,
+							"g2": 1749.098,
+							"log_ratio": 7.189,
+							"log_dice": 9.587,
+							"documents": 209,
+							"meetings": 107,
+							"dp": 0.8644
+						},
+						{
+							"word": "crimes",
+							"target": 487,
+							"reference": 31650,
+							"g2": 3240.398,
+							"log_ratio": 6.234,
+							"log_dice": 8.878,
+							"documents": 287,
+							"meetings": 163,
+							"dp": 0.8031
+						},
+						{
+							"word": "abhorrent",
+							"target": 30,
+							"reference": 848,
+							"g2": 248.526,
+							"log_ratio": 7.435,
+							"log_dice": 8.531,
+							"documents": 28,
+							"meetings": 18,
+							"dp": 0.9701
+						},
+						{
+							"word": "practice",
+							"target": 118,
+							"reference": 13199,
+							"g2": 660.019,
+							"log_ratio": 5.451,
+							"log_dice": 8.001,
+							"documents": 107,
+							"meetings": 41,
+							"dp": 0.8809
+						},
+						{
+							"word": "populations",
+							"target": 82,
+							"reference": 8757,
+							"g2": 466.05,
+							"log_ratio": 5.517,
+							"log_dice": 7.983,
+							"documents": 80,
+							"meetings": 48,
+							"dp": 0.9432
+						},
+						{
+							"word": "serbs",
+							"target": 48,
+							"reference": 4792,
+							"g2": 279.111,
+							"log_ratio": 5.615,
+							"log_dice": 7.892,
+							"documents": 42,
+							"meetings": 33,
+							"dp": 0.9483
+						},
+						{
+							"word": "serbian",
+							"target": 39,
+							"reference": 3716,
+							"g2": 230.326,
+							"log_ratio": 5.682,
+							"log_dice": 7.851,
+							"documents": 31,
+							"meetings": 23,
+							"dp": 0.9566
+						},
+						{
+							"word": "rape",
+							"target": 36,
+							"reference": 3569,
+							"g2": 209.823,
+							"log_ratio": 5.625,
+							"log_dice": 7.775,
+							"documents": 35,
+							"meetings": 29,
+							"dp": 0.969
+						},
+						{
+							"word": "campaign",
+							"target": 49,
+							"reference": 6210,
+							"g2": 262.186,
+							"log_ratio": 5.27,
+							"log_dice": 7.642,
+							"documents": 42,
+							"meetings": 32,
+							"dp": 0.947
+						},
+						{
+							"word": "nagorno-karabakh",
+							"target": 10,
+							"reference": 287,
+							"g2": 82.545,
+							"log_ratio": 7.413,
+							"log_dice": 7.302,
+							"documents": 7,
+							"meetings": 7,
+							"dp": 0.9921
+						},
+						{
+							"word": "genocidal",
+							"target": 11,
+							"reference": 594,
+							"g2": 77.184,
+							"log_ratio": 6.501,
+							"log_dice": 7.24,
+							"documents": 11,
+							"meetings": 10,
+							"dp": 0.9865
+						},
+						{
+							"word": "policy",
+							"target": 144,
+							"reference": 31474,
+							"g2": 619.426,
+							"log_ratio": 4.484,
+							"log_dice": 7.142,
+							"documents": 121,
+							"meetings": 79,
+							"dp": 0.8649
+						},
+						{
+							"word": "displacement",
+							"target": 34,
+							"reference": 6092,
+							"g2": 159.186,
+							"log_ratio": 4.771,
+							"log_dice": 7.139,
+							"documents": 34,
+							"meetings": 34,
+							"dp": 0.9735
+						},
+						{
+							"word": "massive",
+							"target": 26,
+							"reference": 4255,
+							"g2": 126.264,
+							"log_ratio": 4.902,
+							"log_dice": 7.135,
+							"documents": 25,
+							"meetings": 24,
+							"dp": 0.9792
+						},
+						{
+							"word": "killings",
+							"target": 19,
+							"reference": 2674,
+							"g2": 97.805,
+							"log_ratio": 5.119,
+							"log_dice": 7.121,
+							"documents": 19,
+							"meetings": 19,
+							"dp": 0.9854
+						},
+						{
+							"word": "abominable",
+							"target": 9,
+							"reference": 352,
+							"g2": 68.839,
+							"log_ratio": 6.967,
+							"log_dice": 7.106,
+							"documents": 9,
+							"meetings": 6,
+							"dp": 0.9899
+						},
+						{
+							"word": "murder",
+							"target": 21,
+							"reference": 3311,
+							"g2": 103.491,
+							"log_ratio": 4.955,
+							"log_dice": 7.073,
+							"documents": 21,
+							"meetings": 18,
+							"dp": 0.9797
+						},
+						{
+							"word": "systematic",
+							"target": 29,
+							"reference": 5274,
+							"g2": 134.947,
+							"log_ratio": 4.749,
+							"log_dice": 7.068,
+							"documents": 29,
+							"meetings": 26,
+							"dp": 0.97
+						},
+						{
+							"word": "waves",
+							"target": 9,
+							"reference": 421,
+							"g2": 65.683,
+							"log_ratio": 6.708,
+							"log_dice": 7.06,
+							"documents": 9,
+							"meetings": 9,
+							"dp": 0.9916
+						}
+					]
+				},
+				"8": {
+					"occurrences": 1780,
+					"window_tokens": 28295,
+					"collocates": [
+						{
+							"word": "genocide",
+							"target": 425,
+							"reference": 6588,
+							"g2": 3622.581,
+							"log_ratio": 7.629,
+							"log_dice": 10.629,
+							"documents": 378,
+							"meetings": 226,
+							"dp": 0.7058
+						},
+						{
+							"word": "humanity",
+							"target": 245,
+							"reference": 7351,
+							"g2": 1774.422,
+							"log_ratio": 6.676,
+							"log_dice": 9.742,
+							"documents": 234,
+							"meetings": 124,
+							"dp": 0.8486
+						},
+						{
+							"word": "crimes",
+							"target": 551,
+							"reference": 31586,
+							"g2": 3295.62,
+							"log_ratio": 5.742,
+							"log_dice": 9.056,
+							"documents": 306,
+							"meetings": 178,
+							"dp": 0.7859
+						},
+						{
+							"word": "abhorrent",
+							"target": 35,
+							"reference": 843,
+							"g2": 268.454,
+							"log_ratio": 6.993,
+							"log_dice": 8.753,
+							"documents": 33,
+							"meetings": 21,
+							"dp": 0.9666
+						},
+						{
+							"word": "serbian",
+							"target": 69,
+							"reference": 3686,
+							"g2": 422.173,
+							"log_ratio": 5.844,
+							"log_dice": 8.674,
+							"documents": 54,
+							"meetings": 31,
+							"dp": 0.9274
+						},
+						{
+							"word": "serbs",
+							"target": 76,
+							"reference": 4764,
+							"g2": 441.361,
+							"log_ratio": 5.613,
+							"log_dice": 8.555,
+							"documents": 63,
+							"meetings": 45,
+							"dp": 0.9262
+						},
+						{
+							"word": "populations",
+							"target": 101,
+							"reference": 8738,
+							"g2": 523.468,
+							"log_ratio": 5.148,
+							"log_dice": 8.284,
+							"documents": 98,
+							"meetings": 59,
+							"dp": 0.9309
+						},
+						{
+							"word": "rape",
+							"target": 48,
+							"reference": 3557,
+							"g2": 263.161,
+							"log_ratio": 5.372,
+							"log_dice": 8.19,
+							"documents": 47,
+							"meetings": 39,
+							"dp": 0.9604
+						},
+						{
+							"word": "practice",
+							"target": 124,
+							"reference": 13193,
+							"g2": 593.248,
+							"log_ratio": 4.85,
+							"log_dice": 8.072,
+							"documents": 112,
+							"meetings": 44,
+							"dp": 0.879
+						},
+						{
+							"word": "bosnian",
+							"target": 36,
+							"reference": 3280,
+							"g2": 182.984,
+							"log_ratio": 5.074,
+							"log_dice": 7.855,
+							"documents": 30,
+							"meetings": 15,
+							"dp": 0.9589
+						},
+						{
+							"word": "campaign",
+							"target": 52,
+							"reference": 6207,
+							"g2": 237.311,
+							"log_ratio": 4.684,
+							"log_dice": 7.728,
+							"documents": 44,
+							"meetings": 34,
+							"dp": 0.9451
+						},
+						{
+							"word": "banja",
+							"target": 12,
+							"reference": 147,
+							"g2": 107.713,
+							"log_ratio": 7.969,
+							"log_dice": 7.664,
+							"documents": 10,
+							"meetings": 8,
+							"dp": 0.9898
+						},
+						{
+							"word": "concentration",
+							"target": 15,
+							"reference": 730,
+							"g2": 94.499,
+							"log_ratio": 5.979,
+							"log_dice": 7.605,
+							"documents": 15,
+							"meetings": 11,
+							"dp": 0.9763
+						},
+						{
+							"word": "nagorno-karabakh",
+							"target": 12,
+							"reference": 285,
+							"g2": 92.369,
+							"log_ratio": 7.014,
+							"log_dice": 7.565,
+							"documents": 8,
+							"meetings": 8,
+							"dp": 0.9915
+						},
+						{
+							"word": "luka",
+							"target": 11,
+							"reference": 147,
+							"g2": 96.901,
+							"log_ratio": 7.843,
+							"log_dice": 7.539,
+							"documents": 10,
+							"meetings": 8,
+							"dp": 0.9898
+						},
+						{
+							"word": "systematic",
+							"target": 39,
+							"reference": 5264,
+							"g2": 168.832,
+							"log_ratio": 4.507,
+							"log_dice": 7.495,
+							"documents": 39,
+							"meetings": 34,
+							"dp": 0.9621
+						},
+						{
+							"word": "massive",
+							"target": 33,
+							"reference": 4248,
+							"g2": 145.839,
+							"log_ratio": 4.575,
+							"log_dice": 7.479,
+							"documents": 31,
+							"meetings": 27,
+							"dp": 0.9702
+						},
+						{
+							"word": "displacement",
+							"target": 42,
+							"reference": 6084,
+							"g2": 176.175,
+							"log_ratio": 4.405,
+							"log_dice": 7.444,
+							"documents": 42,
+							"meetings": 40,
+							"dp": 0.9683
+						},
+						{
+							"word": "serb",
+							"target": 25,
+							"reference": 3006,
+							"g2": 113.742,
+							"log_ratio": 4.674,
+							"log_dice": 7.412,
+							"documents": 24,
+							"meetings": 17,
+							"dp": 0.973
+						},
+						{
+							"word": "bosnians",
+							"target": 11,
+							"reference": 410,
+							"g2": 75.018,
+							"log_ratio": 6.363,
+							"log_dice": 7.355,
+							"documents": 9,
+							"meetings": 6,
+							"dp": 0.9898
+						}
+					]
+				},
+				"15": {
+					"occurrences": 1780,
+					"window_tokens": 52523,
+					"collocates": [
+						{
+							"word": "genocide",
+							"target": 456,
+							"reference": 6557,
+							"g2": 3392.323,
+							"log_ratio": 6.845,
+							"log_dice": 10.731,
+							"documents": 402,
+							"meetings": 238,
+							"dp": 0.6819
+						},
+						{
+							"word": "humanity",
+							"target": 264,
+							"reference": 7332,
+							"g2": 1629.248,
+							"log_ratio": 5.895,
+							"log_dice": 9.85,
+							"documents": 253,
+							"meetings": 139,
+							"dp": 0.8282
+						},
+						{
+							"word": "serbs",
+							"target": 128,
+							"reference": 4712,
+							"g2": 720.31,
+							"log_ratio": 5.488,
+							"log_dice": 9.307,
+							"documents": 95,
+							"meetings": 60,
+							"dp": 0.8878
+						},
+						{
+							"word": "serbian",
+							"target": 107,
+							"reference": 3648,
+							"g2": 617.976,
+							"log_ratio": 5.599,
+							"log_dice": 9.307,
+							"documents": 78,
+							"meetings": 46,
+							"dp": 0.8957
+						},
+						{
+							"word": "crimes",
+							"target": 615,
+							"reference": 31522,
+							"g2": 3069.141,
+							"log_ratio": 5.011,
+							"log_dice": 9.215,
+							"documents": 341,
+							"meetings": 190,
+							"dp": 0.7592
+						},
+						{
+							"word": "abhorrent",
+							"target": 37,
+							"reference": 841,
+							"g2": 242.656,
+							"log_ratio": 6.184,
+							"log_dice": 8.833,
+							"documents": 35,
+							"meetings": 23,
+							"dp": 0.9653
+						},
+						{
+							"word": "bosnian",
+							"target": 62,
+							"reference": 3254,
+							"g2": 306.592,
+							"log_ratio": 4.977,
+							"log_dice": 8.639,
+							"documents": 49,
+							"meetings": 27,
+							"dp": 0.9428
+						},
+						{
+							"word": "rape",
+							"target": 63,
+							"reference": 3542,
+							"g2": 303.231,
+							"log_ratio": 4.878,
+							"log_dice": 8.583,
+							"documents": 61,
+							"meetings": 49,
+							"dp": 0.9492
+						},
+						{
+							"word": "populations",
+							"target": 124,
+							"reference": 8715,
+							"g2": 544.027,
+							"log_ratio": 4.555,
+							"log_dice": 8.58,
+							"documents": 121,
+							"meetings": 71,
+							"dp": 0.9118
+						},
+						{
+							"word": "serb",
+							"target": 51,
+							"reference": 2980,
+							"g2": 241.712,
+							"log_ratio": 4.822,
+							"log_dice": 8.44,
+							"documents": 48,
+							"meetings": 32,
+							"dp": 0.953
+						},
+						{
+							"word": "acquisition",
+							"target": 27,
+							"reference": 1314,
+							"g2": 137.429,
+							"log_ratio": 5.086,
+							"log_dice": 8.147,
+							"documents": 25,
+							"meetings": 17,
+							"dp": 0.973
+						},
+						{
+							"word": "practice",
+							"target": 129,
+							"reference": 13188,
+							"g2": 474.838,
+							"log_ratio": 4.015,
+							"log_dice": 8.129,
+							"documents": 114,
+							"meetings": 46,
+							"dp": 0.8771
+						},
+						{
+							"word": "luka",
+							"target": 16,
+							"reference": 142,
+							"g2": 133.713,
+							"log_ratio": 7.541,
+							"log_dice": 8.08,
+							"documents": 14,
+							"meetings": 11,
+							"dp": 0.9863
+						},
+						{
+							"word": "banja",
+							"target": 16,
+							"reference": 143,
+							"g2": 133.502,
+							"log_ratio": 7.531,
+							"log_dice": 8.079,
+							"documents": 14,
+							"meetings": 11,
+							"dp": 0.9863
+						},
+						{
+							"word": "systematic",
+							"target": 58,
+							"reference": 5245,
+							"g2": 226.82,
+							"log_ratio": 4.192,
+							"log_dice": 8.068,
+							"documents": 58,
+							"meetings": 49,
+							"dp": 0.9455
+						},
+						{
+							"word": "albanians",
+							"target": 22,
+							"reference": 957,
+							"g2": 116.727,
+							"log_ratio": 5.248,
+							"log_dice": 8.03,
+							"documents": 18,
+							"meetings": 16,
+							"dp": 0.9759
+						},
+						{
+							"word": "concentration",
+							"target": 20,
+							"reference": 725,
+							"g2": 113.143,
+							"log_ratio": 5.511,
+							"log_dice": 8.02,
+							"documents": 19,
+							"meetings": 12,
+							"dp": 0.97
+						},
+						{
+							"word": "nagorno-karabakh",
+							"target": 16,
+							"reference": 281,
+							"g2": 112.885,
+							"log_ratio": 6.556,
+							"log_dice": 7.98,
+							"documents": 9,
+							"meetings": 9,
+							"dp": 0.9903
+						},
+						{
+							"word": "massive",
+							"target": 46,
+							"reference": 4235,
+							"g2": 178.344,
+							"log_ratio": 4.166,
+							"log_dice": 7.958,
+							"documents": 43,
+							"meetings": 37,
+							"dp": 0.9578
+						},
+						{
+							"word": "displacement",
+							"target": 59,
+							"reference": 6067,
+							"g2": 216.532,
+							"log_ratio": 4.006,
+							"log_dice": 7.934,
+							"documents": 57,
+							"meetings": 54,
+							"dp": 0.9572
+						}
+					]
+				}
+			}
+		},
+		"crimes_against_humanity": {
+			"pattern": "\\bcrimes?\\s+against\\s+humanity",
+			"register": "legal",
+			"widths": {
+				"5": {
+					"occurrences": 4434,
+					"window_tokens": 44168,
+					"collocates": [
+						{
+							"word": "genocide",
+							"target": 1336,
+							"reference": 5677,
+							"g2": 13440.218,
+							"log_ratio": 8.853,
+							"log_dice": 11.901,
+							"documents": 1179,
+							"meetings": 481,
+							"dp": 0.655
+						},
+						{
+							"word": "crimes",
+							"target": 2770,
+							"reference": 29367,
+							"g2": 23171.698,
+							"log_ratio": 7.534,
+							"log_dice": 11.277,
+							"documents": 2266,
+							"meetings": 917,
+							"dp": 0.387
+						},
+						{
+							"word": "war",
+							"target": 2625,
+							"reference": 55403,
+							"g2": 18489.723,
+							"log_ratio": 6.541,
+							"log_dice": 10.427,
+							"documents": 2300,
+							"meetings": 933,
+							"dp": 0.3761
+						},
+						{
+							"word": "cleansing",
+							"target": 229,
+							"reference": 1563,
+							"g2": 2105.383,
+							"log_ratio": 8.17,
+							"log_dice": 10.235,
+							"documents": 219,
+							"meetings": 117,
+							"dp": 0.9363
+						},
+						{
+							"word": "amount",
+							"target": 172,
+							"reference": 3560,
+							"g2": 1218.009,
+							"log_ratio": 6.569,
+							"log_dice": 9.431,
+							"documents": 165,
+							"meetings": 125,
+							"dp": 0.952
+						},
+						{
+							"word": "ethnic",
+							"target": 240,
+							"reference": 8566,
+							"g2": 1446.409,
+							"log_ratio": 5.783,
+							"log_dice": 9.214,
+							"documents": 229,
+							"meetings": 118,
+							"dp": 0.9333
+						},
+						{
+							"word": "constitute",
+							"target": 226,
+							"reference": 8184,
+							"g2": 1355.697,
+							"log_ratio": 5.762,
+							"log_dice": 9.171,
+							"documents": 224,
+							"meetings": 176,
+							"dp": 0.9351
+						},
+						{
+							"word": "perpetrators",
+							"target": 201,
+							"reference": 9953,
+							"g2": 1084.124,
+							"log_ratio": 5.311,
+							"log_dice": 8.819,
+							"documents": 194,
+							"meetings": 170,
+							"dp": 0.9371
+						},
+						{
+							"word": "committed",
+							"target": 448,
+							"reference": 35091,
+							"g2": 2021.889,
+							"log_ratio": 4.649,
+							"log_dice": 8.521,
+							"documents": 429,
+							"meetings": 327,
+							"dp": 0.8571
+						},
+						{
+							"word": "committing",
+							"target": 68,
+							"reference": 2454,
+							"g2": 408.361,
+							"log_ratio": 5.767,
+							"log_dice": 8.323,
+							"documents": 68,
+							"meetings": 67,
+							"dp": 0.9815
+						},
+						{
+							"word": "responsible",
+							"target": 217,
+							"reference": 19042,
+							"g2": 932.426,
+							"log_ratio": 4.485,
+							"log_dice": 8.229,
+							"documents": 214,
+							"meetings": 176,
+							"dp": 0.9347
+						},
+						{
+							"word": "crime",
+							"target": 191,
+							"reference": 16778,
+							"g2": 820.328,
+							"log_ratio": 4.484,
+							"log_dice": 8.192,
+							"documents": 182,
+							"meetings": 140,
+							"dp": 0.9463
+						},
+						{
+							"word": "prosecute",
+							"target": 50,
+							"reference": 1766,
+							"g2": 302.349,
+							"log_ratio": 5.798,
+							"log_dice": 8.034,
+							"documents": 50,
+							"meetings": 47,
+							"dp": 0.9828
+						},
+						{
+							"word": "violations",
+							"target": 263,
+							"reference": 29803,
+							"g2": 1003.095,
+							"log_ratio": 4.116,
+							"log_dice": 7.965,
+							"documents": 254,
+							"meetings": 195,
+							"dp": 0.9233
+						},
+						{
+							"word": "perpetrated",
+							"target": 71,
+							"reference": 5317,
+							"g2": 326.522,
+							"log_ratio": 4.714,
+							"log_dice": 7.888,
+							"documents": 71,
+							"meetings": 71,
+							"dp": 0.9788
+						},
+						{
+							"word": "heinous",
+							"target": 50,
+							"reference": 2495,
+							"g2": 268.94,
+							"log_ratio": 5.3,
+							"log_dice": 7.875,
+							"documents": 49,
+							"meetings": 48,
+							"dp": 0.9855
+						},
+						{
+							"word": "commit",
+							"target": 67,
+							"reference": 5652,
+							"g2": 292.914,
+							"log_ratio": 4.542,
+							"log_dice": 7.756,
+							"documents": 67,
+							"meetings": 62,
+							"dp": 0.9776
+						},
+						{
+							"word": "accused",
+							"target": 51,
+							"reference": 3630,
+							"g2": 239.5,
+							"log_ratio": 4.787,
+							"log_dice": 7.686,
+							"documents": 49,
+							"meetings": 46,
+							"dp": 0.9844
+						},
+						{
+							"word": "rape",
+							"target": 50,
+							"reference": 3555,
+							"g2": 234.907,
+							"log_ratio": 4.789,
+							"log_dice": 7.671,
+							"documents": 50,
+							"meetings": 42,
+							"dp": 0.9855
+						},
+						{
+							"word": "impunity",
+							"target": 114,
+							"reference": 14149,
+							"g2": 415.395,
+							"log_ratio": 3.985,
+							"log_dice": 7.642,
+							"documents": 110,
+							"meetings": 94,
+							"dp": 0.9669
+						}
+					]
+				},
+				"8": {
+					"occurrences": 4434,
+					"window_tokens": 70544,
+					"collocates": [
+						{
+							"word": "genocide",
+							"target": 1534,
+							"reference": 5479,
+							"g2": 14472.13,
+							"log_ratio": 8.428,
+							"log_dice": 12.1,
+							"documents": 1339,
+							"meetings": 504,
+							"dp": 0.6148
+						},
+						{
+							"word": "crimes",
+							"target": 2958,
+							"reference": 29179,
+							"g2": 22396.679,
+							"log_ratio": 6.962,
+							"log_dice": 11.372,
+							"documents": 2304,
+							"meetings": 928,
+							"dp": 0.3779
+						},
+						{
+							"word": "war",
+							"target": 2707,
+							"reference": 55321,
+							"g2": 16734.536,
+							"log_ratio": 5.912,
+							"log_dice": 10.472,
+							"documents": 2341,
+							"meetings": 940,
+							"dp": 0.3664
+						},
+						{
+							"word": "cleansing",
+							"target": 248,
+							"reference": 1544,
+							"g2": 2091.03,
+							"log_ratio": 7.626,
+							"log_dice": 10.35,
+							"documents": 237,
+							"meetings": 125,
+							"dp": 0.9309
+						},
+						{
+							"word": "amount",
+							"target": 185,
+							"reference": 3547,
+							"g2": 1166.313,
+							"log_ratio": 6.004,
+							"log_dice": 9.536,
+							"documents": 177,
+							"meetings": 135,
+							"dp": 0.9489
+						},
+						{
+							"word": "constitute",
+							"target": 256,
+							"reference": 8154,
+							"g2": 1364.488,
+							"log_ratio": 5.271,
+							"log_dice": 9.351,
+							"documents": 253,
+							"meetings": 194,
+							"dp": 0.9252
+						},
+						{
+							"word": "ethnic",
+							"target": 258,
+							"reference": 8548,
+							"g2": 1355.658,
+							"log_ratio": 5.215,
+							"log_dice": 9.319,
+							"documents": 247,
+							"meetings": 131,
+							"dp": 0.9275
+						},
+						{
+							"word": "perpetrators",
+							"target": 263,
+							"reference": 9891,
+							"g2": 1318.109,
+							"log_ratio": 5.032,
+							"log_dice": 9.206,
+							"documents": 253,
+							"meetings": 208,
+							"dp": 0.9199
+						},
+						{
+							"word": "committed",
+							"target": 538,
+							"reference": 35001,
+							"g2": 2136.613,
+							"log_ratio": 4.241,
+							"log_dice": 8.785,
+							"documents": 513,
+							"meetings": 384,
+							"dp": 0.8331
+						},
+						{
+							"word": "impunity",
+							"target": 237,
+							"reference": 14026,
+							"g2": 983.472,
+							"log_ratio": 4.378,
+							"log_dice": 8.698,
+							"documents": 230,
+							"meetings": 179,
+							"dp": 0.9325
+						},
+						{
+							"word": "prosecute",
+							"target": 74,
+							"reference": 1742,
+							"g2": 437.372,
+							"log_ratio": 5.708,
+							"log_dice": 8.6,
+							"documents": 74,
+							"meetings": 67,
+							"dp": 0.9755
+						},
+						{
+							"word": "responsible",
+							"target": 279,
+							"reference": 18980,
+							"g2": 1084.635,
+							"log_ratio": 4.177,
+							"log_dice": 8.592,
+							"documents": 275,
+							"meetings": 219,
+							"dp": 0.9164
+						},
+						{
+							"word": "violations",
+							"target": 387,
+							"reference": 29679,
+							"g2": 1417.82,
+							"log_ratio": 4.004,
+							"log_dice": 8.522,
+							"documents": 360,
+							"meetings": 265,
+							"dp": 0.8927
+						},
+						{
+							"word": "crime",
+							"target": 238,
+							"reference": 16731,
+							"g2": 910.612,
+							"log_ratio": 4.129,
+							"log_dice": 8.509,
+							"documents": 220,
+							"meetings": 172,
+							"dp": 0.9345
+						},
+						{
+							"word": "committing",
+							"target": 76,
+							"reference": 2446,
+							"g2": 403.568,
+							"log_ratio": 5.256,
+							"log_dice": 8.484,
+							"documents": 76,
+							"meetings": 75,
+							"dp": 0.9791
+						},
+						{
+							"word": "prosecution",
+							"target": 70,
+							"reference": 3283,
+							"g2": 321.337,
+							"log_ratio": 4.713,
+							"log_dice": 8.202,
+							"documents": 70,
+							"meetings": 56,
+							"dp": 0.9776
+						},
+						{
+							"word": "atrocities",
+							"target": 94,
+							"reference": 6254,
+							"g2": 369.356,
+							"log_ratio": 4.209,
+							"log_dice": 8.158,
+							"documents": 91,
+							"meetings": 78,
+							"dp": 0.9716
+						},
+						{
+							"word": "accountability",
+							"target": 162,
+							"reference": 14463,
+							"g2": 547.873,
+							"log_ratio": 3.784,
+							"log_dice": 8.122,
+							"documents": 156,
+							"meetings": 125,
+							"dp": 0.9531
+						},
+						{
+							"word": "accountable",
+							"target": 95,
+							"reference": 6648,
+							"g2": 364.289,
+							"log_ratio": 4.136,
+							"log_dice": 8.122,
+							"documents": 92,
+							"meetings": 87,
+							"dp": 0.9733
+						},
+						{
+							"word": "rape",
+							"target": 68,
+							"reference": 3537,
+							"g2": 298.784,
+							"log_ratio": 4.564,
+							"log_dice": 8.115,
+							"documents": 67,
+							"meetings": 56,
+							"dp": 0.9796
+						}
+					]
+				},
+				"15": {
+					"occurrences": 4434,
+					"window_tokens": 131570,
+					"collocates": [
+						{
+							"word": "genocide",
+							"target": 1591,
+							"reference": 5422,
+							"g2": 13165.074,
+							"log_ratio": 7.596,
+							"log_dice": 12.153,
+							"documents": 1374,
+							"meetings": 519,
+							"dp": 0.606
+						},
+						{
+							"word": "crimes",
+							"target": 3275,
+							"reference": 28862,
+							"g2": 21450.619,
+							"log_ratio": 6.225,
+							"log_dice": 11.519,
+							"documents": 2387,
+							"meetings": 961,
+							"dp": 0.3578
+						},
+						{
+							"word": "war",
+							"target": 2819,
+							"reference": 55209,
+							"g2": 14220.698,
+							"log_ratio": 5.073,
+							"log_dice": 10.53,
+							"documents": 2395,
+							"meetings": 963,
+							"dp": 0.3514
+						},
+						{
+							"word": "cleansing",
+							"target": 258,
+							"reference": 1534,
+							"g2": 1877.752,
+							"log_ratio": 6.793,
+							"log_dice": 10.407,
+							"documents": 245,
+							"meetings": 130,
+							"dp": 0.9283
+						},
+						{
+							"word": "impunity",
+							"target": 442,
+							"reference": 13821,
+							"g2": 1839.959,
+							"log_ratio": 4.398,
+							"log_dice": 9.597,
+							"documents": 420,
+							"meetings": 282,
+							"dp": 0.8747
+						},
+						{
+							"word": "amount",
+							"target": 188,
+							"reference": 3544,
+							"g2": 961.957,
+							"log_ratio": 5.128,
+							"log_dice": 9.559,
+							"documents": 180,
+							"meetings": 137,
+							"dp": 0.9479
+						},
+						{
+							"word": "perpetrators",
+							"target": 335,
+							"reference": 9819,
+							"g2": 1435.192,
+							"log_ratio": 4.491,
+							"log_dice": 9.556,
+							"documents": 322,
+							"meetings": 250,
+							"dp": 0.8991
+						},
+						{
+							"word": "ethnic",
+							"target": 286,
+							"reference": 8520,
+							"g2": 1216.551,
+							"log_ratio": 4.468,
+							"log_dice": 9.467,
+							"documents": 271,
+							"meetings": 148,
+							"dp": 0.9202
+						},
+						{
+							"word": "constitute",
+							"target": 275,
+							"reference": 8135,
+							"g2": 1173.384,
+							"log_ratio": 4.478,
+							"log_dice": 9.454,
+							"documents": 270,
+							"meetings": 204,
+							"dp": 0.9195
+						},
+						{
+							"word": "committed",
+							"target": 691,
+							"reference": 34848,
+							"g2": 2264.334,
+							"log_ratio": 3.708,
+							"log_dice": 9.146,
+							"documents": 637,
+							"meetings": 448,
+							"dp": 0.7997
+						},
+						{
+							"word": "rape",
+							"target": 133,
+							"reference": 3472,
+							"g2": 598.761,
+							"log_ratio": 4.658,
+							"log_dice": 9.082,
+							"documents": 126,
+							"meetings": 88,
+							"dp": 0.9622
+						},
+						{
+							"word": "violations",
+							"target": 556,
+							"reference": 29510,
+							"g2": 1770.124,
+							"log_ratio": 3.634,
+							"log_dice": 9.045,
+							"documents": 502,
+							"meetings": 344,
+							"dp": 0.853
+						},
+						{
+							"word": "criminal",
+							"target": 428,
+							"reference": 22131,
+							"g2": 1382.974,
+							"log_ratio": 3.672,
+							"log_dice": 9.021,
+							"documents": 406,
+							"meetings": 277,
+							"dp": 0.8781
+						},
+						{
+							"word": "prosecute",
+							"target": 95,
+							"reference": 1721,
+							"g2": 493.245,
+							"log_ratio": 5.185,
+							"log_dice": 8.96,
+							"documents": 95,
+							"meetings": 86,
+							"dp": 0.9696
+						},
+						{
+							"word": "responsible",
+							"target": 357,
+							"reference": 18902,
+							"g2": 1138.151,
+							"log_ratio": 3.638,
+							"log_dice": 8.948,
+							"documents": 343,
+							"meetings": 275,
+							"dp": 0.8961
+						},
+						{
+							"word": "court",
+							"target": 428,
+							"reference": 23768,
+							"g2": 1327.415,
+							"log_ratio": 3.569,
+							"log_dice": 8.936,
+							"documents": 392,
+							"meetings": 258,
+							"dp": 0.8813
+						},
+						{
+							"word": "accountability",
+							"target": 284,
+							"reference": 14341,
+							"g2": 929.967,
+							"log_ratio": 3.706,
+							"log_dice": 8.932,
+							"documents": 267,
+							"meetings": 193,
+							"dp": 0.9199
+						},
+						{
+							"word": "accountable",
+							"target": 160,
+							"reference": 6583,
+							"g2": 584.224,
+							"log_ratio": 4.002,
+							"log_dice": 8.874,
+							"documents": 156,
+							"meetings": 137,
+							"dp": 0.9528
+						},
+						{
+							"word": "atrocities",
+							"target": 148,
+							"reference": 6200,
+							"g2": 535.472,
+							"log_ratio": 3.976,
+							"log_dice": 8.813,
+							"documents": 139,
+							"meetings": 118,
+							"dp": 0.9574
+						},
+						{
+							"word": "code",
+							"target": 85,
+							"reference": 1837,
+							"g2": 412.963,
+							"log_ratio": 4.931,
+							"log_dice": 8.775,
+							"documents": 80,
+							"meetings": 49,
+							"dp": 0.9754
+						}
+					]
+				}
+			}
+		}
+	},
+	"widths": [5, 8, 15]
+}

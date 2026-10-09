@@ -47,22 +47,24 @@ test('a scoped delegation shortcut filters the lines it names', async ({ page })
 	await expect(page).toHaveURL(/scope=debate/);
 });
 
-test('the actors table ranks the reading set against each delegation’s own record', async ({
-	page
-}) => {
-	await page.goto(`${base}/actors/?scope=vocabulary`);
+test(
+	'the actors table ranks the reading set against each delegation’s own record',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		await page.goto(`${base}/actors/?scope=vocabulary`);
 
-	const figure = page.locator('section.table-wrap').first();
-	const rwanda = figure.getByRole('row', { name: /Rwanda/ });
-	// 120 of Rwanda's own 300 speeches, and the denominator is Rwanda's record —
-	// not the reading set, which is the one thing a scope may never move.
-	await expect(rwanda).toContainText('300');
-	await expect(rwanda).toContainText('120');
-	await expect(rwanda).toContainText('40.00%');
+		const figure = page.locator('section.table-wrap').first();
+		const rwanda = figure.getByRole('row', { name: /Rwanda/ });
+		// 120 of Rwanda's own 300 speeches, and the denominator is Rwanda's record —
+		// not the reading set, which is the one thing a scope may never move.
+		await expect(rwanda).toContainText('300');
+		await expect(rwanda).toContainText('120');
+		await expect(rwanda).toContainText('40.00%');
 
-	const { violations } = await new AxeBuilder({ page }).analyze();
-	expect(violations).toEqual([]);
-});
+		const { violations } = await new AxeBuilder({ page }).analyze();
+		expect(violations).toEqual([]);
+	}
+);
 
 test('the reader marks which speeches of a whole debate the reading set holds', async ({
 	page

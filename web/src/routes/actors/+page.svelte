@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { replaceState } from '$app/navigation';
 	import { base, resolve } from '$app/paths';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
@@ -36,7 +35,7 @@
 	} from '$lib/scope';
 	import { PAGE_METADATA } from '$lib/seo';
 	import type { PageData } from './$types';
-	import { onMount, tick } from 'svelte';
+	import { urlState } from '$lib/url-state.svelte';
 
 	let { data }: { data: PageData } = $props();
 	const artefact = $derived(data.countries);
@@ -45,7 +44,6 @@
 	let period = $state('all');
 	let order = $state<Ordering>('speech_rate');
 	let selected = $state<string | null>(null);
-	let urlReady = $state(false);
 	let countryMap = $state<CountryMap | null>(null);
 
 	const measures = $derived(Object.keys(artefact.measures));
@@ -75,32 +73,33 @@
 		if (index >= 0) rankingPage = Math.floor(index / pageSize) + 1;
 	});
 
-	onMount(() => {
-		const state = readActorState(page.url.searchParams, artefact);
-		measure = state.measure;
-		period = state.period;
-		order = state.order;
-		speakerSearch = page.url.searchParams.get('q') ?? '';
-		const requestedPage = Number(page.url.searchParams.get('page') ?? 1);
-		void tick().then(() => {
+	/* The ranking page is clamped once the state the address carries has
+	   reached the table, because how many pages there are depends on it. */
+	let requestedPage = 1;
+	urlState({
+		read: (params) => {
+			const state = readActorState(params, artefact);
+			measure = state.measure;
+			period = state.period;
+			order = state.order;
+			speakerSearch = params.get('q') ?? '';
+			requestedPage = Number(params.get('page') ?? 1);
+		},
+		settle: () => {
 			rankingPage = Number.isSafeInteger(requestedPage)
 				? Math.max(1, Math.min(pageCount, requestedPage))
 				: 1;
-			urlReady = true;
-		});
-	});
-
-	$effect(() => {
-		if (!urlReady) return;
-		/* The scope is layout state and the page owns everything else in the
-		   query, so it is merged back in here: a page that rebuilt its own URL
-		   from its own controls would silently drop the reader's reading set on
-		   the next keystroke. */
-		const params = withScope(actorParams({ measure, period, order }, artefact), scope);
-		if (speakerSearch) params.set('q', speakerSearch);
-		if (rankingPage > 1) params.set('page', String(rankingPage));
-		const search = params.toString();
-		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
+		},
+		write: () => {
+			/* The scope is layout state and the page owns everything else in the
+			   query, so it is merged back in here: a page that rebuilt its own URL
+			   from its own controls would silently drop the reader's reading set on
+			   the next keystroke. */
+			const params = withScope(actorParams({ measure, period, order }, artefact), scope);
+			if (speakerSearch) params.set('q', speakerSearch);
+			if (rankingPage > 1) params.set('page', String(rankingPage));
+			return params;
+		}
 	});
 
 	$effect(() => {
@@ -151,9 +150,8 @@
 	 */
 	function table(): ExportRequest {
 		const speakers = new Map(artefact.countries.map((s) => [s.country_org, s]));
-		const rows = artefact.measures[measure].rows
-			.filter((row) => row.period === period)
-			.map((row) => {
+		const rows = artefact.measures[measure]!.rows.filter((row) => row.period === period).map(
+			(row) => {
 				const speaker = speakers.get(row.country_org);
 				return [
 					row.country_org,
@@ -173,7 +171,8 @@
 					row.sufficient,
 					speaker?.mappable ?? null
 				];
-			});
+			}
+		);
 		return {
 			title: `Speakers by rate — ${measureLabel(measure)}, ${result.period?.label ?? period}`,
 			columns: [
@@ -220,7 +219,7 @@
 	 * disagree about the same delegation.
 	 */
 	function describeSpeaker(point: MapPoint) {
-		const { speaker, row } = point.speakers[0];
+		const { speaker, row } = point.speakers[0]!;
 		return {
 			heading: shortCountry(speaker.country_org),
 			lines: [
@@ -583,10 +582,10 @@
 			<CountryMap
 				bind:this={countryMap}
 				points={drawn}
-				selected={chosen?.speakers[0].speaker.country_org ?? null}
+				selected={chosen?.speakers[0]!.speaker.country_org ?? null}
 				onselect={(point) => {
 					speakerSearch = '';
-					selected = point?.speakers[0].speaker.country_org ?? null;
+					selected = point?.speakers[0]!.speaker.country_org ?? null;
 				}}
 				describe={describeSpeaker}
 			/>
@@ -595,7 +594,7 @@
 
 	{#if chosen}
 		<aside class="picked">
-			<h2>{shortCountry(selected ?? chosen.speakers[0].speaker.country_org)}</h2>
+			<h2>{shortCountry(selected ?? chosen.speakers[0]!.speaker.country_org)}</h2>
 			{#if chosen.speakers.length > 1}
 				<p class="stacked">
 					This point carries {chosen.speakers.length} speakers, which share both a map position and a

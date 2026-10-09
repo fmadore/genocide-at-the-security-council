@@ -147,6 +147,13 @@ describe('the CSV body', () => {
 	it('writes a withheld rate as blank, matching the artefact’s null', () => {
 		expect(toCsv(request())).toContain('1995,\r\n');
 	});
+
+	it('refuses a row whose cells do not match the columns', () => {
+		const short = { ...request(), rows: [[1994, 0.1], [1995]] };
+		expect(() => toCsv(short)).toThrow(/Row 2 of .* has 1 cells for 2 columns/);
+		const long = { ...request(), rows: [[1994, 0.1, 'extra']] };
+		expect(() => toCsv(long)).toThrow(/Row 1 of .* has 3 cells for 2 columns/);
+	});
 });
 
 describe('filenames', () => {

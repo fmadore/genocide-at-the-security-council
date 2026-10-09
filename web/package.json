@@ -10,6 +10,7 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"lint": "prettier --check . && eslint . && node scripts/word-budget.mjs && node scripts/figure-provenance.mjs",
 		"test": "vitest run",
+		"test:coverage": "vitest run --coverage",
 		"test:e2e": "playwright test",
 		"test:e2e:sw": "playwright test --config playwright.sw.config.ts"
 	},
@@ -20,6 +21,7 @@
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.70.3",
 		"@sveltejs/vite-plugin-svelte": "^7.3.0",
+		"@vitest/coverage-v8": "4.1.11",
 		"eslint": "^10.9.1",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.23.0",

@@ -11,6 +11,9 @@ export default defineConfig({
 	workers: 1,
 	forbidOnly: Boolean(process.env.CI),
 	retries: process.env.CI ? 2 : 0,
+	// A test that passes only on a retry is reported as failed in CI rather
+	// than as green: the retry is there to say a test is flaky, not to hide it.
+	failOnFlakyTests: Boolean(process.env.CI),
 	reporter: process.env.CI ? 'github' : 'list',
 	use: {
 		baseURL: origin,
@@ -23,6 +26,14 @@ export default defineConfig({
 		{
 			name: 'chromium',
 			use: { ...devices['Desktop Chrome'] }
+		},
+		{
+			// The accessibility scans again, in the scheme a reader whose system is
+			// set to dark gets from the first paint. Only the tests tagged @a11y
+			// run here: the rest assert behaviour that does not change with colour.
+			name: 'chromium-dark',
+			grep: /@a11y/,
+			use: { ...devices['Desktop Chrome'], colorScheme: 'dark' }
 		}
 	],
 	webServer: {

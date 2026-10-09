@@ -45,7 +45,7 @@
 		}
 		if (event.key === 'Enter' && open && active >= 0 && matches[active]) {
 			event.preventDefault();
-			choose(matches[active].value);
+			choose(matches[active]!.value);
 			return;
 		}
 		if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
@@ -110,9 +110,13 @@
 					</li>
 				{/each}
 			</ul>
-			{#if !matches.length}<p role="status">No matching options.</p>{/if}
+			{#if !matches.length}<p aria-hidden="true">No matching options.</p>{/if}
 		</div>
 	{/if}
+	<!-- The live region is always in the document and only its words change: a
+	     region inserted with its message already in it is one many screen readers
+	     never announce. The plate above shows the same sentence to the eye. -->
+	<p class="sr-only" role="status">{open && !matches.length ? 'No matching options.' : ''}</p>
 </div>
 
 <style>
@@ -179,5 +183,14 @@
 		padding: var(--sp-2) var(--sp-3);
 		font-size: var(--step--1);
 		color: var(--ink-3);
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 </style>
