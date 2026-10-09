@@ -48,9 +48,8 @@ from datetime import date
 from pathlib import Path
 from typing import Final
 
-import pandas as pd
-
 from . import audit
+from . import referents as referents_lib
 from .kwic import sentence_at, sentence_spans
 from .occurrences import Occurrence
 
@@ -491,37 +490,25 @@ class Referent:
 def read_referent_table(path: Path) -> list[Referent]:
     """The referent list with the columns the prompt renders.
 
-    :func:`lib.audit.read_referents` already validates the identifiers and is the
-    authority on which ones an annotation may use; this reads the same file for
-    the richer fields, tolerating a header that has not yet grown them. A row
-    with no declared kind is reserved if it is one of the three reserved IDs and
-    a case otherwise, which is what the file meant before `kind` existed.
+    Parsed, and held to every rule of the list, by `lib.referents`, which also
+    decides a row's `kind` when the file does not declare one. This is the view
+    a prompt needs: no `iso3`, because a model has no use for an ISO code.
 
     Retired identifiers are left out, because the model is offered only what is
     current. They stay in the file so a committed run that used one can still be
     read, but rendering them would invite a new run to reuse a category the
     list has withdrawn, and the run would then be neither v1 nor v2.
     """
-    table = pd.read_csv(path, dtype="string", keep_default_na=False)
-    missing = sorted({"id", "label", "description"} - set(table.columns))
-    if missing:
-        raise ValueError(f"Referent file is missing columns: {', '.join(missing)}")
-    referents = []
-    for values in table.to_dict(orient="records"):
-        identifier = str(values["id"])
-        if str(values.get("retired_in") or "").strip():
-            continue
-        default = "reserved" if identifier in audit.DEFAULT_REFERENTS else "case"
-        referents.append(
-            Referent(
-                id=identifier,
-                label=str(values["label"]),
-                description=str(values["description"]),
-                kind=str(values.get("kind") or "") or default,
-                years=str(values.get("years") or ""),
-            )
+    return [
+        Referent(
+            id=row.id,
+            label=row.label,
+            description=row.description,
+            kind=row.kind,
+            years=row.years,
         )
-    return referents
+        for row in referents_lib.read(path).current()
+    ]
 
 
 def render_referents(referents: Sequence[Referent]) -> str:

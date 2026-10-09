@@ -70,6 +70,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import artifacts, audit, console, frames, lexicon, llm, model_runs, usage, usage_refusals
 from lib import occurrences as occurrences_lib
+from lib import referents as referents_lib
 from lib.paths import (
     INTERIM,
     LEXICON,
@@ -163,52 +164,24 @@ ROW_FIELDS = (
 # --- Reading the inputs ------------------------------------------------------
 
 
-def read_referents(path: Path) -> list[dict[str, object]]:
-    """The controlled referent list with the columns the artefact publishes.
+def read_referents(path: Path) -> tuple[audit.ReferentList, list[dict[str, object]]]:
+    """The controlled referent list, as the run is checked against it and as published.
 
-    A third reader of `referents.csv`, deliberately. `lib.audit.read_referents`
-    returns the identifiers and is the authority on which ones an annotation may
-    use; `lib.llm.read_referent_table` returns what the *prompt* renders, which
-    does not include `iso3` because a model has no use for an ISO code. The usage
-    view does: it puts a case on a map. Widening the prompt's dataclass to carry
-    a field the prompt never shows would be the worse of the two duplications.
+    Parsed once by `lib.referents`, which holds every reader of the file to the
+    same rules. The first view is the versions a run must be compatible with;
+    the second is every row with the columns the artefact publishes, `iso3`
+    included because the usage view puts a case on a map. Retired referents are
+    published too, and marked, so a run made before a retirement still has a
+    row for each identifier it counted under.
 
-    Retired referents are published too, and marked. A run made before a
-    retirement counted rows under the old identifier, and the block has to hold
-    a row for each of them or those counts land nowhere; a run made after it
-    counts none, and the view needs to know that an empty column is a withdrawn
-    category rather than a case no delegation ever raised.
+    A cell that breaks a rule stops the step with the rule, the row and the
+    file named, rather than with a traceback.
     """
-    table = pd.read_csv(path, dtype="string", keep_default_na=False)
-    required = {
-        "id",
-        "label",
-        "description",
-        "kind",
-        "iso3",
-        "years",
-        "since",
-        "retired_in",
-        "superseded_by",
-    }
-    missing = sorted(required - set(table.columns))
-    if missing:
-        console.fail(f"{rel(path)} is missing columns: {', '.join(missing)}")
-    return [
-        {
-            **{
-                key: str(row[key])
-                for key in ("id", "label", "description", "kind", "iso3", "years")
-            },
-            "since": int(str(row.get("since") or "1")),
-            "retired_in": (
-                int(str(row["retired_in"])) if str(row.get("retired_in") or "") else None
-            ),
-            "retired": bool(str(row.get("retired_in", "") or "").strip()),
-            "superseded_by": str(row.get("superseded_by", "") or "").strip(),
-        }
-        for row in table.to_dict(orient="records")
-    ]
+    try:
+        parsed = referents_lib.read(path)
+        return parsed.listing(), parsed.published()
+    except referents_lib.ReferentFileError as error:
+        console.fail(str(error))
 
 
 def uncommitted_run(run_dir: Path, flag: str) -> Path:
@@ -965,8 +938,8 @@ def run_without_model() -> None:
     annotations = audit.read_annotations(GOLD_ANNOTATIONS)
     empty = pd.DataFrame()
     prompt_text = PROMPT.read_text(encoding="utf-8") if PROMPT.is_file() else ""
-    referent_list = audit.read_referent_list(REFERENTS)
-    referent_rows = [{**row, "occurrences": 0} for row in read_referents(REFERENTS)]
+    referent_list, published = read_referents(REFERENTS)
+    referent_rows = [{**row, "occurrences": 0} for row in published]
     zeros = {
         "verdict_uncertain": 0,
         "referent_unclear": 0,
@@ -1125,7 +1098,7 @@ def run(args: argparse.Namespace) -> None:
         f"prompt v{prompt.version}, sha256 {prompt.sha256[:12]}, published from "
         f"{prompt.name}"
     )
-    referent_list = audit.read_referent_list(REFERENTS)
+    referent_list, referent_table = read_referents(REFERENTS)
     raw_rows, schema_counts, superseded = usage_refusals.validated(
         manifest, raw_rows, lex=lex, enumerated=enumerated, referent_list=referent_list
     )
@@ -1245,7 +1218,6 @@ def run(args: argparse.Namespace) -> None:
         console.info("no run of either model with the same prompt to retest against")
 
     console.step("Aggregating")
-    referent_table = read_referents(REFERENTS)
     blocks = usage.aggregate(
         rows,
         referent_table,
