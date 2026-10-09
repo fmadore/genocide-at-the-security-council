@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ScrollRegion from '$lib/ScrollRegion.svelte';
 	/**
 	 * The experimental layer: which genocide a delegation meant, and what it was
 	 * doing with the word.
@@ -555,13 +556,7 @@
 				</dl>
 
 				{#if comparison.fields.length}
-					<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-					<div
-						class="scroll"
-						role="region"
-						aria-label="Agreement between the two runs"
-						tabindex="0"
-					>
+					<ScrollRegion label="Agreement between the two runs" tall>
 						<table>
 							<caption class="sr-only">
 								How far the published run and the second opinion agree, field by field, over the
@@ -596,7 +591,7 @@
 								{/each}
 							</tbody>
 						</table>
-					</div>
+					</ScrollRegion>
 					<p class="quiet">
 						A passage can receive several rhetorical-function labels. Their mean overlap between
 						runs is {comparison.functionJaccardText} (Jaccard similarity: 1 means identical sets). Krippendorff's
@@ -625,13 +620,7 @@
 						</p>
 					{/if}
 					{#if comparison.functionLabels.length}
-						<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-						<div
-							class="scroll"
-							role="region"
-							aria-label="Agreement per function label"
-							tabindex="0"
-						>
+						<ScrollRegion label="Agreement per function label" tall>
 							<table>
 								<caption class="sr-only">
 									How far the two runs agree that each function label applies
@@ -657,7 +646,7 @@
 									{/each}
 								</tbody>
 							</table>
-						</div>
+						</ScrollRegion>
 					{/if}
 					<p class="quiet">
 						Reporting another person's claim can resemble asserting it. Compare the reporting and
@@ -1036,8 +1025,7 @@
 				{/if}
 			</p>
 
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-			<div class="scroll" role="region" aria-label="Chronology of firsts" tabindex="0">
+			<ScrollRegion label="Chronology of firsts" tall>
 				<table class="chronology">
 					<caption class="sr-only">
 						Every first the curves are made of, for {diffusion.label}, oldest first
@@ -1081,7 +1069,7 @@
 						{/each}
 					</tbody>
 				</table>
-			</div>
+			</ScrollRegion>
 		{/if}
 	</Figure>
 
@@ -1128,8 +1116,7 @@
 					a sentence in the concordance for {USAGE_TERM}. They are in the CSV below.
 				</p>
 			{:else}
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-				<div class="scroll" role="region" aria-label="Contested passages" tabindex="0">
+				<ScrollRegion label="Contested passages" tall>
 					<table class="contested-table">
 						<caption class="sr-only">
 							Occurrences the published run and the second opinion labelled differently, most
@@ -1178,7 +1165,7 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
+				</ScrollRegion>
 
 				<p class="disclosure">
 					{count(listing.rows.length)} of {count(listing.contested)} contested occurrences are drawn here,
@@ -1262,8 +1249,7 @@
 				there are too few mentions to display shares.
 			</p>
 		{:else}
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-			<div class="scroll" role="region" aria-label="Position profile table" tabindex="0">
+			<ScrollRegion label="Position profile table" tall>
 				<table class="positions">
 					<caption class="sr-only">
 						Delegations by the share of their eligible occurrences that reject or deny the
@@ -1299,15 +1285,14 @@
 						{/each}
 					</tbody>
 				</table>
-			</div>
+			</ScrollRegion>
 		{/if}
 
 		<details class="data-table">
 			<summary
 				><Icon icon={ChevronRight} />All position counts, withheld delegations included</summary
 			>
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-			<div class="scroll" role="region" aria-label="All position counts" tabindex="0">
+			<ScrollRegion label="All position counts" tall>
 				<table>
 					<thead>
 						<tr>
@@ -1342,7 +1327,7 @@
 						{/each}
 					</tbody>
 				</table>
-			</div>
+			</ScrollRegion>
 		</details>
 	</Figure>
 
@@ -1363,8 +1348,7 @@
 				><Icon icon={ChevronRight} />Show the controlled referent list (version {listVersion},
 				{count(offered.length)} identifiers)</summary
 			>
-			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-			<div class="table-scroll" role="region" aria-label="Controlled referent list" tabindex="0">
+			<ScrollRegion label="Controlled referent list">
 				<table>
 					<thead>
 						<tr>
@@ -1392,7 +1376,7 @@
 						{/each}
 					</tbody>
 				</table>
-			</div>
+			</ScrollRegion>
 		</details>
 	</section>
 
@@ -1413,8 +1397,7 @@
 			</p>
 			{#if gold.hasAgreement}
 				<h3>Between the two coders</h3>
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-				<div class="scroll" role="region" aria-label="Agreement between coders" tabindex="0">
+				<ScrollRegion label="Agreement between coders" tall>
 					<table>
 						<thead>
 							<tr>
@@ -1437,7 +1420,7 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
+				</ScrollRegion>
 				<p class="quiet">
 					A dash means kappa is unavailable or withheld because one category accounts for more than
 					99% of a coder's labels. Observed agreement gives the share of identical decisions; PABAK
@@ -1454,13 +1437,7 @@
 					macro F1 weights equally the categories with at least twenty reference examples. A dash means
 					no score is available.
 				</p>
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-				<div
-					class="scroll"
-					role="region"
-					aria-label="The published run against the human labels"
-					tabindex="0"
-				>
+				<ScrollRegion label="The published run against the human labels" tall>
 					<table>
 						<thead>
 							<tr>
@@ -1489,11 +1466,10 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
+				</ScrollRegion>
 				<details class="data-table">
 					<summary><Icon icon={ChevronRight} />Scores for each category</summary>
-					<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-					<div class="scroll" role="region" aria-label="Per class scores" tabindex="0">
+					<ScrollRegion label="Per class scores" tall>
 						<table>
 							<thead>
 								<tr>
@@ -1524,7 +1500,7 @@
 								{/each}
 							</tbody>
 						</table>
-					</div>
+					</ScrollRegion>
 				</details>
 			{/if}
 			{#if gold.hasComparisonScores}
@@ -1534,13 +1510,7 @@
 					sizes and exclusions alongside the scores. Its classifications remain separate from the
 					main figures.
 				</p>
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-				<div
-					class="scroll"
-					role="region"
-					aria-label="The second model against the same human labels"
-					tabindex="0"
-				>
+				<ScrollRegion label="The second model against the same human labels" tall>
 					<table>
 						<thead>
 							<tr>
@@ -1569,7 +1539,7 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
+				</ScrollRegion>
 			{/if}
 		{/if}
 	</section>
@@ -1684,7 +1654,7 @@
 		margin: 0 0 var(--sp-2);
 	}
 
-	.second-opinion .scroll {
+	.second-opinion :global(.scroll) {
 		margin-top: var(--sp-3);
 	}
 
@@ -1835,11 +1805,6 @@
 	   window. It scrolls inside its own box, and it is focusable so the scroll is
 	   reachable from the keyboard — the same arrangement the reference-dates and
 	   available-terms tables already use. */
-	.table-scroll {
-		max-width: 100%;
-		overflow-x: auto;
-	}
-
 	/* The experimental marking at the scale of one row: the warning token the
 	   whole apparatus block carries, as a rule under the word rather than a
 	   filled chip — a chip would read as something to press, and the line already
@@ -2217,12 +2182,6 @@
 		height: 0.55rem;
 		background: var(--band);
 		display: inline-block;
-	}
-
-	.scroll {
-		overflow-x: auto;
-		max-height: 32rem;
-		overflow-y: auto;
 	}
 
 	table {

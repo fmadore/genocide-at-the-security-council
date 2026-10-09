@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ScrollRegion from '$lib/ScrollRegion.svelte';
 	import SearchSelect from '$lib/SearchSelect.svelte';
 	import { resolve } from '$app/paths';
 	import { browser } from '$app/environment';
@@ -864,8 +865,7 @@
 			single words and some short phrases. Each term is held in its own file, downloaded when you select
 			it.
 		</p>
-		<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-		<div class="table-scroll" role="region" aria-label="Available terms table" tabindex="0">
+		<ScrollRegion label="Available terms table">
 			<table>
 				<thead>
 					<tr>
@@ -893,7 +893,7 @@
 					{/each}
 				</tbody>
 			</table>
-		</div>
+		</ScrollRegion>
 	</section>
 </article>
 
@@ -1501,11 +1501,6 @@
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		color: var(--ink-2);
-	}
-
-	.table-scroll {
-		max-width: 100%;
-		overflow-x: auto;
 	}
 
 	/* The term on screen, marked in the table by weight and by an ink rule

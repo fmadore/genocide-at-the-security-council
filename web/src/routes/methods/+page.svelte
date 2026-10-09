@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ScrollRegion from '$lib/ScrollRegion.svelte';
 	import { resolve } from '$app/paths';
 	import { count, matchedOn, percent } from '$lib/format';
 	import PageMeta from '$lib/PageMeta.svelte';
@@ -432,8 +433,7 @@
 		> cover data consistency and implementation; they do not mean a researcher has verified every passage.
 		Model-based results require separate interpretation and validation.
 	</p>
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-	<div class="table-scroll" role="region" aria-label="Analysis steps" tabindex="0">
+	<ScrollRegion label="Analysis steps">
 		<table class="ledger">
 			<thead><tr><th>Step</th><th>Purpose and checks</th><th>Output</th><th>Status</th></tr></thead
 			><tbody
@@ -447,7 +447,7 @@
 					>{/each}</tbody
 			>
 		</table>
-	</div>
+	</ScrollRegion>
 
 	<h2>Reproducing and citing the analysis</h2>
 	<p>
@@ -484,8 +484,9 @@
 		max-width: var(--measure);
 	}
 
-	.prose > .table-scroll {
+	.prose > :global(.table-scroll) {
 		max-width: 100%;
+		margin: var(--sp-4) 0 var(--sp-6);
 	}
 
 	.standfirst {
@@ -501,11 +502,6 @@
 
 	h3 {
 		margin-top: var(--sp-5);
-	}
-
-	.table-scroll {
-		margin: var(--sp-4) 0 var(--sp-6);
-		overflow-x: auto;
 	}
 
 	/* A ledger, not prose: what each step establishes, the artefact it leaves,

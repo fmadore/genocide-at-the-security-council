@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ScrollRegion from '$lib/ScrollRegion.svelte';
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { browser } from '$app/environment';
@@ -1626,8 +1627,7 @@
 			the official record used to verify its date and description. They are there for context; a date
 			falling near a change in the chart is not evidence that it produced the change.
 		</p>
-		<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-		<div class="table-scroll" role="region" aria-label="Reference dates table" tabindex="0">
+		<ScrollRegion label="Reference dates table">
 			<table>
 				<thead>
 					<tr><th>Date</th><th>Event</th><th>Kind</th><th>Source</th></tr>
@@ -1645,7 +1645,7 @@
 					{/each}
 				</tbody>
 			</table>
-		</div>
+		</ScrollRegion>
 	</section>
 </article>
 
@@ -1934,11 +1934,6 @@
 
 	.events h2 {
 		font-size: var(--step-3);
-	}
-
-	.table-scroll {
-		max-width: 100%;
-		overflow-x: auto;
 	}
 
 	/* Set in the grotesk's tabular figures rather than the typewriter face: the
