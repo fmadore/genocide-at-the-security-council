@@ -9,6 +9,10 @@
 # DOI-addressable, and `python scripts/00_fetch_data.py` rebuilds it on the
 # cluster login node faster than this connection would move it.
 #
+# Files deleted here are deleted there too, but only under scripts/, tests/
+# and tools/, so a removed module cannot stay importable on the cluster. Data,
+# logs, notes, model runs and .env are outside those and never touched.
+#
 # `.env` is excluded on purpose. It is where your account-specific paths live,
 # and the cluster wants its own copy with cluster paths in it.
 # ---------------------------------------------------------------------------
@@ -24,7 +28,7 @@ while [[ $# -gt 0 ]]; do
     --ssh)     SSH_TARGET="${2:?--ssh needs a target}"; shift 2 ;;
     --remote)  REMOTE_REPO="${2:?--remote needs a path}"; shift 2 ;;
     --dry-run) DRY=(--dry-run); shift ;;
-    -h|--help) sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1 (try --help)" >&2; exit 2 ;;
   esac
 done
@@ -40,6 +44,7 @@ EXCLUDES=(
   .git .env data logs notes node_modules __pycache__
   .venv .pytest_cache .ruff_cache web/.svelte-kit web/build .impeccable
 )
+SSH=(ssh -o BatchMode=yes -o ConnectTimeout=20 "$SSH_TARGET")
 
 echo ">> $REPO  ->  $SSH_TARGET:$REMOTE_REPO"
 
@@ -60,8 +65,7 @@ else
     exit 0
   fi
   tar czf - -C "$REPO" "${ARGS[@]}" . \
-    | ssh -o BatchMode=yes -o ConnectTimeout=20 "$SSH_TARGET" \
-        "mkdir -p $REMOTE_REPO && tar xzf - -C $REMOTE_REPO"
+    | "${SSH[@]}" "mkdir -p $REMOTE_REPO && tar xzf - -C $REMOTE_REPO"
 fi
 
 # Stamp the commit. `.git` is excluded from the transfer, so a job on the cluster
@@ -76,18 +80,58 @@ if [[ "$COMMIT" != unknown && -n "$(git -C "$REPO" status --porcelain 2>/dev/nul
 else
   echo ">> commit $COMMIT"
 fi
-ssh -o BatchMode=yes -o ConnectTimeout=20 "$SSH_TARGET" \
-  "printf '%s\n' '$COMMIT' > $REMOTE_REPO/.git-commit"
+
+# Prune what was deleted here. Neither transfer deletes anything, so a module
+# removed locally stayed importable on the cluster, and a removed test kept
+# running there. The cluster's scripts/, tests/ and tools/ are cut back to the
+# files this machine has in them, skipping the names the transfer skips, so
+# its own __pycache__ survives. The list of files to keep goes over stdin, and
+# nothing is pruned unless it names env.sh, so a list that came out empty
+# cannot empty the directories.
+CODE_DIRS=(scripts tests tools)
+PRUNE=()
+for e in "${EXCLUDES[@]}"; do
+  [[ "$e" == */* ]] || PRUNE+=(-name "$e" -prune -o)
+done
+KEEP="$(cd "$REPO" && find "${CODE_DIRS[@]}" "${PRUNE[@]}" -type f -print)"
+if ! grep -qx 'scripts/cluster/env.sh' <<<"$KEEP"; then
+  echo "ERROR: could not list the local code files; nothing was stamped or pruned." >&2
+  exit 1
+fi
 
 # Verify rather than assume. A remote extraction that runs out of quota leaves a
 # *partial* repository — some files new, some stale, none obviously wrong — and
 # the next job then fails somewhere unrelated with a confusing error. Checking a
 # handful of files that must exist turns that into an immediate, honest failure.
-echo ">> verifying"
 SENTINELS="scripts/cluster/env.sh scripts/cluster/setup_env.sh requirements.lock requirements-cluster.txt"
-if ! ssh -o BatchMode=yes -o ConnectTimeout=20 "$SSH_TARGET" \
-     "cd $REMOTE_REPO 2>/dev/null && for f in $SENTINELS; do [ -s \"\$f\" ] || { echo \"MISSING: \$f\" >&2; exit 1; }; done"; then
-  echo "ERROR: the transfer did not arrive intact." >&2
+
+# Stamp, prune and verify over one connection: the login nodes ban an address
+# after a burst of connections. Quoted, so it is expanded by the cluster's
+# shell, with the values below set in front of it.
+FINISH="$(cat <<'REMOTE'
+cd "$repo" 2>/dev/null || { echo "REMOTE_MISSING: $repo" >&2; exit 3; }
+if [ "$dry" != 1 ]; then printf '%s\n' "$commit" > .git-commit; fi
+keep=$(mktemp) && here=$(mktemp) || exit 1
+trap 'rm -f "$keep" "$here"' EXIT
+LC_ALL=C sort > "$keep"
+grep -qx 'scripts/cluster/env.sh' "$keep" || { echo "KEEP_LIST_INCOMPLETE" >&2; exit 5; }
+# $dirs and $prune are word lists on purpose.
+find $dirs $prune -type f -print 2>/dev/null | LC_ALL=C sort > "$here"
+LC_ALL=C comm -23 "$here" "$keep" | while IFS= read -r f; do
+  if [ "$dry" = 1 ]; then echo "   would remove $f"; else rm -f -- "$f" && echo "   removed $f"; fi
+done
+[ "$dry" = 1 ] && exit 0
+for f in $sentinels; do [ -s "$f" ] || { echo "MISSING: $f" >&2; exit 1; }; done
+REMOTE
+)"
+echo ">> pruning deleted code and verifying"
+dry=0
+[[ ${#DRY[@]} -gt 0 ]] && dry=1
+status=0
+"${SSH[@]}" "repo=$REMOTE_REPO commit='$COMMIT' dry=$dry dirs='${CODE_DIRS[*]}' prune='${PRUNE[*]}' sentinels='$SENTINELS'
+$FINISH" <<<"$KEEP" || status=$?
+if (( status != 0 )); then
+  echo "ERROR: the transfer did not arrive intact (remote status $status)." >&2
   echo "       Check the remote quota — a full disk truncates the extraction:" >&2
   echo "         ssh $SSH_TARGET 'df -h ~; du -sh ~/* | sort -rh | head'" >&2
   exit 1

@@ -453,6 +453,12 @@ manifest it wrote.
 bash scripts/cluster/push_code.sh
 ```
 
+Run it again after every change. It copies the working tree, then deletes on
+the cluster the files under `scripts/`, `tests/` and `tools/` that no longer
+exist here, so a removed module cannot linger there; nothing outside those
+three directories is ever deleted, so data, logs, notes and model runs written
+on the cluster are safe.
+
 Then on the cluster:
 
 ```bash
