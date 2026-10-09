@@ -1528,6 +1528,17 @@ export interface UsageOccurrences {
 	occurrences: UsageOccurrence[];
 }
 
+/* --- export_web.py: usage/referents.json, cut from usage/occurrences.json --- */
+
+export interface UsageReferents {
+	meta: BaseMeta;
+	/**
+	 * Line id → referent id, for every occurrence the run placed on a referent.
+	 * An unplaced occurrence is absent, so a referent filter never keeps it.
+	 */
+	placements: Record<string, string>;
+}
+
 /* --- 04_series.py: series/decomposition.json ------------------------------ */
 
 export interface DecompositionRow {

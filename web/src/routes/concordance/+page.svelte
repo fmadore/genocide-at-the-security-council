@@ -42,7 +42,7 @@
 	import { USAGE_TERM } from '$lib/usage';
 	import ResultProfile from '$lib/ResultProfile.svelte';
 	import { Resource } from '$lib/resource.svelte';
-	import { kwic, meetingOf, usage, usageOccurrences } from '$lib/data';
+	import { kwic, meetingOf, usage, usageReferents } from '$lib/data';
 	import { filename, provenanceOf, saveCsv, toCsv } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import Figure from '$lib/Figure.svelte';
@@ -329,9 +329,9 @@
 	   the map it keeps nothing, and the status line says so. */
 	$effect(() => {
 		if (!url.ready || !referentsOffered || referentOf) return;
-		Promise.all([usageOccurrences(), usage()])
-			.then(([occurrences, run]) => {
-				referentOf = referentMap(occurrences.occurrences);
+		Promise.all([usageReferents(), usage()])
+			.then(([referents, run]) => {
+				referentOf = referentMap(referents.placements);
 				for (const r of run.referents) referentLabels.set(r.id, r.label);
 			})
 			.catch((error: Error) => {
@@ -537,7 +537,7 @@
 	<Figure
 		title="Keyword in context"
 		question="What was actually said, each of the {count(entry?.count ?? 0)} times?"
-		source={`08_kwic.py → kwic/${term}.json${referentsOffered && referent && referentOf ? '; 15_usage.py → usage/occurrences.json' : ''}`}
+		source={`08_kwic.py → kwic/${term}.json${referentsOffered && referent && referentOf ? '; 15_usage.py → usage/referents.json' : ''}`}
 	>
 		{#snippet controls()}
 			<label>

@@ -12,7 +12,7 @@ writes a manifest of what it took.
     derived/kwic/*.json            → static/data/kwic/
     derived/countries/*.json       → static/data/countries/
     derived/speaker_keyness/*.json → static/data/countries/
-    derived/usage/*.json           → static/data/usage/
+    derived/usage/*.json           → static/data/usage/  (+ referents.json, cut here)
     derived/frames/*.json          → static/data/frames/
     derived/actor_year/            → static/data/actor_year/
     derived/semantic/              → static/data/semantic/
@@ -85,6 +85,17 @@ IN_PLACE = [
     ("scopes.json", "09_export_speeches.py"),
 ]
 
+#: The referent filter's whole need from 15's rows: the referent of each
+#: occurrence the run placed on one, keyed by line id. The concordance and the
+#: reader read this rather than `usage/occurrences.json`, which carries every
+#: label, rationale and quotation and is twenty-five times the size; the usage
+#: view's drill-down still reads that file, so it ships too.
+PLACEMENTS = "referents.json"
+
+#: Keys of 15's provenance carried into the placements' own, so the map says
+#: which run and which lists its labels come from without a second fetch.
+PLACEMENT_META = ("lexicon_version", "run_id", "referents_version")
+
 
 def copy_part(sources: Sequence[Path], name: str, *, root: Path | None = None) -> dict[str, object]:
     """Atomically mirror one or more directories into one payload directory.
@@ -112,6 +123,10 @@ def copy_part(sources: Sequence[Path], name: str, *, root: Path | None = None) -
     with artifacts.atomic_directory(destination) as staged:
         for source in sources:
             shutil.copytree(source, staged, dirs_exist_ok=True)
+        if name == "usage":
+            artifacts.atomic_write_json(
+                staged / PLACEMENTS, placements(sources[0] / "occurrences.json")
+            )
         if name == "semantic":
             # The geometry is the release's; the colours are this corpus's.
             display = semantic_release.rebind(staged, SPEECHES_FLAGGED)
@@ -120,6 +135,27 @@ def copy_part(sources: Sequence[Path], name: str, *, root: Path | None = None) -
                 f"{display['points_changed']:,} points differ from the release"
             )
     return artifacts.describe_tree(destination)
+
+
+def placements(source: Path) -> dict[str, object]:
+    """The occurrence → referent map, with provenance naming the rows it was cut from.
+
+    An occurrence the run left unplaced is not in the map, which is what makes a
+    referent filter keep none of them.
+    """
+    document = artifacts.read_json(source)
+    if not isinstance(document, dict):
+        console.fail(f"{rel(source)} is not an object")
+    rows, origin = document["occurrences"], document["meta"]
+    return {
+        "meta": artifacts.provenance(
+            ROOT,
+            "export_web.py",
+            inputs=[source],
+            extra={key: origin[key] for key in PLACEMENT_META if key in origin},
+        ),
+        "placements": {row["id"]: row["referent"] for row in rows if row["referent"]},
+    }
 
 
 def measure(path: Path) -> dict[str, object]:

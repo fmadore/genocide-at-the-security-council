@@ -2725,6 +2725,39 @@
    }
   ]
  },
+ "usage/referents.json": {
+  "meta": {
+   "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "configs": [],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "referents_version": "int",
+   "run_id": "str",
+   "script": "str"
+  },
+  "placements": {
+   "*": "str"
+  }
+ },
  "usage/usage.json": {
   "actors": [
    {

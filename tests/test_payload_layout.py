@@ -62,6 +62,45 @@ def test_copying_several_sources_keeps_every_file(tmp_path, monkeypatch):
     assert written == {"rates.json", "keyness.json"}
 
 
+def test_the_referent_filter_gets_its_map_without_the_rows(tmp_path):
+    """The export cuts 15's rows down to the one field the filter reads.
+
+    An unplaced occurrence stays out of the map, which is what keeps it out of a
+    filtered concordance; the rows themselves still ship for the usage view.
+    """
+    usage = tmp_path / "usage"
+    usage.mkdir()
+    rows = [
+        {"id": "SC07000-01-001#1", "referent": "rwanda_1994", "rationale": "long"},
+        {"id": "SC07000-01-001#2", "referent": "", "rationale": "long"},
+        {"id": "SC07481-01-007#1", "referent": "bosnia_srebrenica", "rationale": "long"},
+    ]
+    meta = {"script": "15_usage.py", "run_id": "run", "referents_version": 2, "model": "m"}
+    (usage / "occurrences.json").write_text(
+        json.dumps({"meta": meta, "occurrences": rows}), encoding="utf-8"
+    )
+    web = tmp_path / "web"
+
+    export_web.copy_part((usage,), "usage", root=web)
+
+    assert {path.name for path in (web / "usage").iterdir()} == {
+        "occurrences.json",
+        export_web.PLACEMENTS,
+    }
+    written = (web / "usage" / export_web.PLACEMENTS).read_text(encoding="utf-8")
+    cut = json.loads(written)
+    assert cut["placements"] == {
+        "SC07000-01-001#1": "rwanda_1994",
+        "SC07481-01-007#1": "bosnia_srebrenica",
+    }
+    assert cut["meta"]["script"] == "export_web.py"
+    assert (cut["meta"]["run_id"], cut["meta"]["referents_version"]) == ("run", 2)
+    assert "model" not in cut["meta"]
+    assert "\n" not in written  # compact: it is fetched whole by every filtered view
+
+
+
+
 def test_a_missing_declared_artefact_stops_the_export(tmp_path, monkeypatch):
     """A warning let an incomplete payload ship. The seam refuses it instead."""
     monkeypatch.setattr(export_web, "WEB_DATA", tmp_path)
@@ -72,6 +111,10 @@ def test_a_missing_declared_artefact_stops_the_export(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as raised:
         export_web.check_contract()
     assert raised.value.code == 1
+
+
+
+
 
 
 def test_late_export_failure_keeps_the_previous_release(tmp_path, monkeypatch):

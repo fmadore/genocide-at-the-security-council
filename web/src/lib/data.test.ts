@@ -494,6 +494,18 @@ describe('the validators that are about the research rather than the types', () 
 		);
 	});
 
+	it('reads the referent map, and refuses a placement on no referent', async () => {
+		const { usageReferents } = await fresh();
+		const placed = responder({ meta, placements: { 'SC07000-01-001#1': 'rwanda_1994' } });
+		await expect(usageReferents(placed.fetcher)).resolves.toMatchObject({
+			placements: { 'SC07000-01-001#1': 'rwanda_1994' }
+		});
+
+		const { usageReferents: second } = await fresh();
+		const empty = responder({ meta, placements: { 'SC07000-01-001#1': '' } });
+		await expect(second(empty.fetcher)).rejects.toThrow(/places SC07000-01-001#1 on no referent/);
+	});
+
 	it('accepts an ordinary coverage', async () => {
 		const { keyness } = await fresh();
 		const { fetcher } = responder({

@@ -11,7 +11,7 @@
 		meeting as loadMeeting,
 		meetingOf,
 		speechOf,
-		usageOccurrences
+		usageReferents
 	} from '$lib/data';
 	import {
 		concordanceQuery,
@@ -98,8 +98,8 @@
 		   the concordance the reader came from still listed the occurrence. */
 		const referents =
 			state.referent && term === USAGE_TERM
-				? usageOccurrences()
-						.then((file) => referentMap(file.occurrences))
+				? usageReferents()
+						.then((file) => referentMap(file.placements))
 						.catch(() => null)
 				: Promise.resolve(null);
 		Promise.all([kwic(term), referents])
