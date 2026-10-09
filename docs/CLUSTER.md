@@ -121,6 +121,32 @@ unfinished array indices with the same base run ID, plan and model settings
 An incomplete batch retries unfinished speeches on resume, including rejected
 responses. A completed batch is immutable and must not be resubmitted.
 
+`retry_batches.sh` does that resubmission from the login node, with the checks
+built in. For the Gemma run:
+
+```bash
+bash scripts/cluster/retry_batches.sh --model gemma --gpus 2 \
+  --run-id 2026-09-09-gemma4 --plan data/interim/gemma-plan.json \
+  --indices 3,7 --smoke 2026-09-09-gemma4-smoke
+```
+
+It submits `submit_annotate.sh` as an array over the given indices, at most two
+at a time (`--concurrent`), with `--gres=gpu:h100:<gpus>`, the tensor-parallel
+size set to the same number, and `--mem-per-gpu=128G`. Before queueing anything
+it refuses an index outside the plan, a batch whose manifest already says
+`complete`, and, with `--smoke`, a smoke record that is not complete or that
+served a different model, card count, tensor-parallel size or context length,
+which is the comparison the smoke gate below says to make by hand. `--dry-run`
+runs the checks and prints the `sbatch` line. Every option also has an
+environment variable; `--help` lists them.
+
+The Gemma array and its retry of 24 September 2026 (job 782721) ran through a
+wrapper kept only in the cluster workspace, which `/workdir` purges after 60
+days without writes. It was recovered from the 7 October backup of that
+workspace: it hard-coded the run id, plan and profile, and checked only the
+smoke's `status`, inside each task. `retry_batches.sh` is that wrapper with the
+run passed in and the checks moved before submission.
+
 Check each batch manifest's `status`, not just Slurm's exit code: a pass can
 end normally while recording rejected speeches. After every batch completes,
 assemble a new run:
