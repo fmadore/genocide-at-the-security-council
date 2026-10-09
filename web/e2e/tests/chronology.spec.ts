@@ -17,38 +17,42 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { base } from '../../playwright.config';
 
-test('the chronology draws its six plates from the artefacts', async ({ page }) => {
-	const response = await page.goto(`${base}/chronology/`);
-	expect(response?.status()).toBe(200);
+test(
+	'the chronology draws its six plates from the artefacts',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		const response = await page.goto(`${base}/chronology/`);
+		expect(response?.status()).toBe(200);
 
-	await expect(page.getByRole('heading', { name: 'Chronology', level: 1 })).toBeVisible();
-	for (const plate of [
-		'The reading set, year by year',
-		'The word list over time',
-		'Testing for a change in the rate',
-		"The vocabulary's calendar",
-		'The same twelve months, pooled',
-		'Who says it, and in what debate'
-	]) {
-		await expect(page.getByRole('heading', { name: plate })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Chronology', level: 1 })).toBeVisible();
+		for (const plate of [
+			'The reading set, year by year',
+			'The word list over time',
+			'Testing for a change in the rate',
+			"The vocabulary's calendar",
+			'The same twelve months, pooled',
+			'Who says it, and in what debate'
+		]) {
+			await expect(page.getByRole('heading', { name: plate })).toBeVisible();
+		}
+		// The page's one citable result follows the word list it tests rather than
+		// sitting fifth of six (review of 19 September 2026): the running head lists
+		// the plates in the order the page prints them.
+		await expect(
+			page.getByRole('navigation', { name: 'Figures on this page' }).getByRole('link')
+		).toHaveText([
+			'The reading set, year by year',
+			'The word list over time',
+			'Testing for a change in the rate',
+			"The vocabulary's calendar",
+			'The same twelve months, pooled',
+			'Who says it, and in what debate'
+		]);
+
+		const { violations } = await new AxeBuilder({ page }).analyze();
+		expect(violations).toEqual([]);
 	}
-	// The page's one citable result follows the word list it tests rather than
-	// sitting fifth of six (review of 19 September 2026): the running head lists
-	// the plates in the order the page prints them.
-	await expect(
-		page.getByRole('navigation', { name: 'Figures on this page' }).getByRole('link')
-	).toHaveText([
-		'The reading set, year by year',
-		'The word list over time',
-		'Testing for a change in the rate',
-		"The vocabulary's calendar",
-		'The same twelve months, pooled',
-		'Who says it, and in what debate'
-	]);
-
-	const { violations } = await new AxeBuilder({ page }).analyze();
-	expect(violations).toEqual([]);
-});
+);
 
 test('a term the artefact does not carry is dropped, not fatal', async ({ page }) => {
 	// The page opens on four named terms and the fixture lexicon carries one.

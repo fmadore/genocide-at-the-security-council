@@ -1,0 +1,740 @@
+{
+	"meta": {
+		"script": "05_lexical.py",
+		"generated": "2026-09-12T10:08:44Z",
+		"git_commit": "fixture",
+		"inputs": [
+			{
+				"path": "data/derived/speeches_flagged.parquet",
+				"sha256": "fixture-input"
+			}
+		],
+		"configs": [
+			{
+				"path": "config/lexicon.yml",
+				"sha256": "fixture-config"
+			},
+			{
+				"path": "config/stopwords.txt",
+				"sha256": "fixture-config"
+			}
+		],
+		"lexicon_version": 7,
+		"corpus_tokens": 86854907,
+		"corpus_types": 197902,
+		"stopwords": 149,
+		"min_count": 5,
+		"g2_floor": 10.83,
+		"ranked_by": {
+			"collocates": "log_dice",
+			"keywords": "log_ratio"
+		},
+		"limit": 100,
+		"vocabulary": "surface"
+	},
+	"term": "genocide",
+	"matched_on": ["year", "agenda_item_manual", "speaker_group"],
+	"seed": 20260807,
+	"target_speeches": 3950,
+	"eligible_target_speeches": 4133,
+	"control_speeches": 3950,
+	"coverage": 0.9557,
+	"target_tokens": 4958491,
+	"control_tokens": 3026652,
+	"short_strata": [
+		{
+			"key": [
+				"1963",
+				"Situation in territories in Africa under Portuguese Administration ; ;The question of race conflict in South Africa",
+				"P5"
+			],
+			"wanted": 1,
+			"found": 0
+		},
+		{
+			"key": ["1968", "Complaint by Haiti", "Non-member state"],
+			"wanted": 1,
+			"found": 0
+		},
+		{
+			"key": [
+				"1972",
+				"Question concerning the situation in the Territories under Portuguese administration",
+				"Non-state"
+			],
+			"wanted": 2,
+			"found": 1
+		},
+		{
+			"key": [
+				"1979",
+				"Letters, 13 June 1979 and 15 June 1979, from Morocco (;S/13394; and ;S/13397;)",
+				"Non-state"
+			],
+			"wanted": 1,
+			"found": 0
+		}
+	],
+	"keywords": [
+		{
+			"word": "genocide",
+			"target": 6452,
+			"reference": 0,
+			"g2": 6148.514,
+			"log_ratio": 12.943,
+			"documents": 3705,
+			"meetings": 1439,
+			"dp": 0.3767
+		},
+		{
+			"word": "genocidal",
+			"target": 583,
+			"reference": 0,
+			"g2": 555.577,
+			"log_ratio": 9.475,
+			"documents": 407,
+			"meetings": 336,
+			"dp": 0.8726
+		},
+		{
+			"word": "genocides",
+			"target": 72,
+			"reference": 0,
+			"g2": 68.613,
+			"log_ratio": 6.458,
+			"documents": 65,
+			"meetings": 53,
+			"dp": 0.9853
+		},
+		{
+			"word": "asad",
+			"target": 50,
+			"reference": 0,
+			"g2": 47.648,
+			"log_ratio": 5.932,
+			"documents": 8,
+			"meetings": 5,
+			"dp": 0.9964
+		},
+		{
+			"word": "ex-far",
+			"target": 79,
+			"reference": 1,
+			"g2": 66.473,
+			"log_ratio": 5.592,
+			"documents": 20,
+			"meetings": 16,
+			"dp": 0.994
+		},
+		{
+			"word": "gacaca",
+			"target": 36,
+			"reference": 0,
+			"g2": 34.307,
+			"log_ratio": 5.458,
+			"documents": 16,
+			"meetings": 16,
+			"dp": 0.9961
+		},
+		{
+			"word": "bentiu",
+			"target": 33,
+			"reference": 0,
+			"g2": 31.448,
+			"log_ratio": 5.332,
+			"documents": 16,
+			"meetings": 3,
+			"dp": 0.9966
+		},
+		{
+			"word": "nderitu",
+			"target": 32,
+			"reference": 0,
+			"g2": 30.495,
+			"log_ratio": 5.288,
+			"documents": 28,
+			"meetings": 10,
+			"dp": 0.9957
+		},
+		{
+			"word": "bor",
+			"target": 31,
+			"reference": 0,
+			"g2": 29.542,
+			"log_ratio": 5.242,
+			"documents": 14,
+			"meetings": 2,
+			"dp": 0.9965
+		},
+		{
+			"word": "yankee",
+			"target": 29,
+			"reference": 0,
+			"g2": 27.636,
+			"log_ratio": 5.146,
+			"documents": 12,
+			"meetings": 11,
+			"dp": 0.9942
+		},
+		{
+			"word": "punta",
+			"target": 28,
+			"reference": 0,
+			"g2": 26.683,
+			"log_ratio": 5.095,
+			"documents": 2,
+			"meetings": 2,
+			"dp": 0.9948
+		},
+		{
+			"word": "cong",
+			"target": 27,
+			"reference": 0,
+			"g2": 25.73,
+			"log_ratio": 5.043,
+			"documents": 2,
+			"meetings": 2,
+			"dp": 0.9978
+		},
+		{
+			"word": "rolandis",
+			"target": 27,
+			"reference": 0,
+			"g2": 25.73,
+			"log_ratio": 5.043,
+			"documents": 2,
+			"meetings": 2,
+			"dp": 0.9974
+		},
+		{
+			"word": "carriles",
+			"target": 26,
+			"reference": 0,
+			"g2": 24.777,
+			"log_ratio": 4.988,
+			"documents": 6,
+			"meetings": 6,
+			"dp": 0.9985
+		},
+		{
+			"word": "posada",
+			"target": 26,
+			"reference": 0,
+			"g2": 24.777,
+			"log_ratio": 4.988,
+			"documents": 6,
+			"meetings": 6,
+			"dp": 0.9985
+		},
+		{
+			"word": "este",
+			"target": 25,
+			"reference": 0,
+			"g2": 23.824,
+			"log_ratio": 4.932,
+			"documents": 1,
+			"meetings": 1,
+			"dp": 0.9973
+		},
+		{
+			"word": "imbert",
+			"target": 24,
+			"reference": 0,
+			"g2": 22.871,
+			"log_ratio": 4.873,
+			"documents": 7,
+			"meetings": 5,
+			"dp": 0.9968
+		},
+		{
+			"word": "escudos",
+			"target": 23,
+			"reference": 0,
+			"g2": 21.918,
+			"log_ratio": 4.811,
+			"documents": 6,
+			"meetings": 5,
+			"dp": 0.9945
+		},
+		{
+			"word": "sandinistas",
+			"target": 44,
+			"reference": 1,
+			"g2": 34.28,
+			"log_ratio": 4.747,
+			"documents": 3,
+			"meetings": 3,
+			"dp": 0.9979
+		},
+		{
+			"word": "javanese",
+			"target": 22,
+			"reference": 0,
+			"g2": 20.965,
+			"log_ratio": 4.747,
+			"documents": 2,
+			"meetings": 2,
+			"dp": 0.998
+		},
+		{
+			"word": "kyprianou",
+			"target": 21,
+			"reference": 0,
+			"g2": 20.012,
+			"log_ratio": 4.68,
+			"documents": 8,
+			"meetings": 8,
+			"dp": 0.9934
+		},
+		{
+			"word": "fdd",
+			"target": 20,
+			"reference": 0,
+			"g2": 19.059,
+			"log_ratio": 4.61,
+			"documents": 4,
+			"meetings": 4,
+			"dp": 0.9987
+		},
+		{
+			"word": "castro",
+			"target": 39,
+			"reference": 1,
+			"g2": 29.753,
+			"log_ratio": 4.573,
+			"documents": 12,
+			"meetings": 12,
+			"dp": 0.9916
+		},
+		{
+			"word": "denktag",
+			"target": 19,
+			"reference": 0,
+			"g2": 18.106,
+			"log_ratio": 4.536,
+			"documents": 3,
+			"meetings": 3,
+			"dp": 0.9977
+		},
+		{
+			"word": "augmentation",
+			"target": 36,
+			"reference": 1,
+			"g2": 27.052,
+			"log_ratio": 4.458,
+			"documents": 8,
+			"meetings": 8,
+			"dp": 0.9834
+		}
+	],
+	"keywords_unmatched": [
+		{
+			"word": "alir",
+			"target": 14,
+			"reference": 0,
+			"g2": 80.168,
+			"log_ratio": 8.853,
+			"documents": 2,
+			"meetings": 2,
+			"dp": 0.9993
+		},
+		{
+			"word": "duan-pham",
+			"target": 14,
+			"reference": 0,
+			"g2": 80.168,
+			"log_ratio": 8.853,
+			"documents": 2,
+			"meetings": 2,
+			"dp": 0.9978
+		},
+		{
+			"word": "r2p",
+			"target": 14,
+			"reference": 0,
+			"g2": 80.168,
+			"log_ratio": 8.853,
+			"documents": 5,
+			"meetings": 5,
+			"dp": 0.999
+		},
+		{
+			"word": "genocidal",
+			"target": 583,
+			"reference": 22,
+			"g2": 3151.991,
+			"log_ratio": 8.774,
+			"documents": 407,
+			"meetings": 336,
+			"dp": 0.8726
+		},
+		{
+			"word": "ajmer",
+			"target": 11,
+			"reference": 0,
+			"g2": 62.989,
+			"log_ratio": 8.505,
+			"documents": 3,
+			"meetings": 3,
+			"dp": 0.9894
+		},
+		{
+			"word": "swayam",
+			"target": 11,
+			"reference": 0,
+			"g2": 62.989,
+			"log_ratio": 8.505,
+			"documents": 3,
+			"meetings": 3,
+			"dp": 0.991
+		},
+		{
+			"word": "champa",
+			"target": 10,
+			"reference": 0,
+			"g2": 57.263,
+			"log_ratio": 8.368,
+			"documents": 2,
+			"meetings": 2,
+			"dp": 0.9978
+		},
+		{
+			"word": "genocides",
+			"target": 72,
+			"reference": 4,
+			"g2": 381.421,
+			"log_ratio": 8.216,
+			"documents": 65,
+			"meetings": 53,
+			"dp": 0.9853
+		},
+		{
+			"word": "fsln",
+			"target": 8,
+			"reference": 0,
+			"g2": 45.81,
+			"log_ratio": 8.046,
+			"documents": 2,
+			"meetings": 2,
+			"dp": 0.9982
+		},
+		{
+			"word": "jathas",
+			"target": 8,
+			"reference": 0,
+			"g2": 45.81,
+			"log_ratio": 8.046,
+			"documents": 3,
+			"meetings": 3,
+			"dp": 0.9904
+		},
+		{
+			"word": "ndindiliyimana",
+			"target": 8,
+			"reference": 0,
+			"g2": 45.81,
+			"log_ratio": 8.046,
+			"documents": 5,
+			"meetings": 4,
+			"dp": 0.9983
+		},
+		{
+			"word": "nuki",
+			"target": 8,
+			"reference": 0,
+			"g2": 45.81,
+			"log_ratio": 8.046,
+			"documents": 1,
+			"meetings": 1,
+			"dp": 0.9996
+		},
+		{
+			"word": "occupation-made",
+			"target": 8,
+			"reference": 0,
+			"g2": 45.81,
+			"log_ratio": 8.046,
+			"documents": 6,
+			"meetings": 6,
+			"dp": 0.9979
+		},
+		{
+			"word": "qaid-e-azam",
+			"target": 8,
+			"reference": 0,
+			"g2": 45.81,
+			"log_ratio": 8.046,
+			"documents": 2,
+			"meetings": 2,
+			"dp": 0.9922
+		},
+		{
+			"word": "genocidaires",
+			"target": 14,
+			"reference": 1,
+			"g2": 72.938,
+			"log_ratio": 7.853,
+			"documents": 9,
+			"meetings": 9,
+			"dp": 0.9974
+		},
+		{
+			"word": "anti-rwanda",
+			"target": 7,
+			"reference": 0,
+			"g2": 40.084,
+			"log_ratio": 7.853,
+			"documents": 4,
+			"meetings": 4,
+			"dp": 0.999
+		},
+		{
+			"word": "suchetgarh",
+			"target": 7,
+			"reference": 0,
+			"g2": 40.084,
+			"log_ratio": 7.853,
+			"documents": 1,
+			"meetings": 1,
+			"dp": 0.9954
+		},
+		{
+			"word": "caballerfas",
+			"target": 6,
+			"reference": 0,
+			"g2": 34.358,
+			"log_ratio": 7.631,
+			"documents": 1,
+			"meetings": 1,
+			"dp": 0.9975
+		},
+		{
+			"word": "fatmeh",
+			"target": 6,
+			"reference": 0,
+			"g2": 34.358,
+			"log_ratio": 7.631,
+			"documents": 1,
+			"meetings": 1,
+			"dp": 0.9986
+		},
+		{
+			"word": "godhra",
+			"target": 6,
+			"reference": 0,
+			"g2": 34.358,
+			"log_ratio": 7.631,
+			"documents": 2,
+			"meetings": 2,
+			"dp": 0.9968
+		},
+		{
+			"word": "huzair",
+			"target": 6,
+			"reference": 0,
+			"g2": 34.358,
+			"log_ratio": 7.631,
+			"documents": 1,
+			"meetings": 1,
+			"dp": 0.999
+		},
+		{
+			"word": "jarad",
+			"target": 6,
+			"reference": 0,
+			"g2": 34.358,
+			"log_ratio": 7.631,
+			"documents": 2,
+			"meetings": 1,
+			"dp": 0.9994
+		},
+		{
+			"word": "jullundur",
+			"target": 6,
+			"reference": 0,
+			"g2": 34.358,
+			"log_ratio": 7.631,
+			"documents": 1,
+			"meetings": 1,
+			"dp": 0.9954
+		},
+		{
+			"word": "kinyarwandaspeaking",
+			"target": 6,
+			"reference": 0,
+			"g2": 34.358,
+			"log_ratio": 7.631,
+			"documents": 4,
+			"meetings": 4,
+			"dp": 0.9984
+		},
+		{
+			"word": "ngirumpatse",
+			"target": 6,
+			"reference": 0,
+			"g2": 34.358,
+			"log_ratio": 7.631,
+			"documents": 5,
+			"meetings": 3,
+			"dp": 0.9984
+		}
+	],
+	"stability": {
+		"repetitions": 20,
+		"seed_first": 20260807,
+		"coverage_min": 0.9557,
+		"coverage_max": 0.9557,
+		"keyword_log_ratio": [
+			{
+				"word": "genocide",
+				"median": 12.937,
+				"p05": 12.91,
+				"p95": 12.974
+			},
+			{
+				"word": "genocidal",
+				"median": 9.471,
+				"p05": 9.439,
+				"p95": 9.51
+			},
+			{
+				"word": "genocides",
+				"median": 6.434,
+				"p05": 6.366,
+				"p95": 6.472
+			},
+			{
+				"word": "asad",
+				"median": 4.435,
+				"p05": 2.915,
+				"p95": 5.932
+			},
+			{
+				"word": "ex-far",
+				"median": 5.573,
+				"p05": 3.986,
+				"p95": 6.583
+			},
+			{
+				"word": "gacaca",
+				"median": 5.428,
+				"p05": 3.369,
+				"p95": 5.536
+			},
+			{
+				"word": "bentiu",
+				"median": 2.006,
+				"p05": 0.866,
+				"p95": 4.353
+			},
+			{
+				"word": "nderitu",
+				"median": 5.161,
+				"p05": 4.173,
+				"p95": 5.241
+			},
+			{
+				"word": "bor",
+				"median": 2.639,
+				"p05": 1.881,
+				"p95": 4.306
+			},
+			{
+				"word": "yankee",
+				"median": 3.127,
+				"p05": 1.018,
+				"p95": 5.147
+			},
+			{
+				"word": "punta",
+				"median": 5.06,
+				"p05": 0.474,
+				"p95": 5.11
+			},
+			{
+				"word": "cong",
+				"median": 5.031,
+				"p05": 4.058,
+				"p95": 5.079
+			},
+			{
+				"word": "rolandis",
+				"median": 5.026,
+				"p05": 3.009,
+				"p95": 5.079
+			},
+			{
+				"word": "carriles",
+				"median": 2.408,
+				"p05": 0.188,
+				"p95": 5.004
+			},
+			{
+				"word": "posada",
+				"median": 2.408,
+				"p05": 0.188,
+				"p95": 5.004
+			},
+			{
+				"word": "este",
+				"median": 4.897,
+				"p05": 0.315,
+				"p95": 4.946
+			},
+			{
+				"word": "imbert",
+				"median": 4.857,
+				"p05": 3.908,
+				"p95": 4.891
+			},
+			{
+				"word": "escudos",
+				"median": 3.341,
+				"p05": 2.747,
+				"p95": 4.826
+			},
+			{
+				"word": "sandinistas",
+				"median": 5.729,
+				"p05": 0.329,
+				"p95": 5.763
+			},
+			{
+				"word": "javanese",
+				"median": 4.739,
+				"p05": 4.714,
+				"p95": 4.784
+			},
+			{
+				"word": "kyprianou",
+				"median": 0.239,
+				"p05": -0.983,
+				"p95": 4.674
+			},
+			{
+				"word": "fdd",
+				"median": 4.594,
+				"p05": 1.625,
+				"p95": 4.646
+			},
+			{
+				"word": "castro",
+				"median": 2.145,
+				"p05": 0.456,
+				"p95": 4.564
+			},
+			{
+				"word": "denktag",
+				"median": 4.515,
+				"p05": 2.413,
+				"p95": 4.553
+			},
+			{
+				"word": "augmentation",
+				"median": 3.948,
+				"p05": 2.108,
+				"p95": 5.454
+			}
+		]
+	}
+}

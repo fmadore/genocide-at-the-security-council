@@ -23,6 +23,14 @@ export default defineConfig({
 		{
 			name: 'chromium',
 			use: { ...devices['Desktop Chrome'] }
+		},
+		{
+			// The accessibility scans again, in the scheme a reader whose system is
+			// set to dark gets from the first paint. Only the tests tagged @a11y
+			// run here: the rest assert behaviour that does not change with colour.
+			name: 'chromium-dark',
+			grep: /@a11y/,
+			use: { ...devices['Desktop Chrome'], colorScheme: 'dark' }
 		}
 	],
 	webServer: {

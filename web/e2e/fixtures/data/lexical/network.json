@@ -1,0 +1,981 @@
+{
+	"meta": {
+		"script": "05_lexical.py",
+		"generated": "2026-09-12T10:08:44Z",
+		"git_commit": "fixture",
+		"inputs": [
+			{
+				"path": "data/derived/speeches_flagged.parquet",
+				"sha256": "fixture-input"
+			}
+		],
+		"configs": [
+			{
+				"path": "config/lexicon.yml",
+				"sha256": "fixture-config"
+			},
+			{
+				"path": "config/stopwords.txt",
+				"sha256": "fixture-config"
+			}
+		],
+		"lexicon_version": 7,
+		"corpus_tokens": 86854907,
+		"corpus_types": 197902,
+		"stopwords": 149,
+		"min_count": 5,
+		"g2_floor": 10.83,
+		"ranked_by": {
+			"collocates": "log_dice",
+			"keywords": "log_ratio"
+		},
+		"limit": 100,
+		"vocabulary": "surface"
+	},
+	"min_speeches": 20,
+	"terms": [
+		{
+			"name": "genocide",
+			"tier": "core",
+			"register": "core",
+			"speeches": 4133
+		},
+		{
+			"name": "crimes_against_humanity",
+			"tier": "atrocity",
+			"register": "legal",
+			"speeches": 3725
+		},
+		{
+			"name": "war_crimes",
+			"tier": "atrocity",
+			"register": "legal",
+			"speeches": 4820
+		},
+		{
+			"name": "atrocity",
+			"tier": "adjacent",
+			"register": "legal",
+			"speeches": 5156
+		},
+		{
+			"name": "impunity",
+			"tier": "adjacent",
+			"register": "accountability",
+			"speeches": 10260
+		},
+		{
+			"name": "icc",
+			"tier": "adjacent",
+			"register": "accountability",
+			"speeches": 4794
+		},
+		{
+			"name": "icj",
+			"tier": "adjacent",
+			"register": "accountability",
+			"speeches": 3044
+		},
+		{
+			"name": "massacre",
+			"tier": "adjacent",
+			"register": "descriptive",
+			"speeches": 2870
+		}
+	],
+	"edges": [
+		{
+			"source": "crimes_against_humanity",
+			"target": "war_crimes",
+			"speeches": 2447,
+			"pmi": 4.514,
+			"npmi": 0.7402
+		},
+		{
+			"source": "genocide",
+			"target": "crimes_against_humanity",
+			"speeches": 1618,
+			"pmi": 4.139,
+			"npmi": 0.6182
+		},
+		{
+			"source": "genocide",
+			"target": "war_crimes",
+			"speeches": 1648,
+			"pmi": 3.7937,
+			"npmi": 0.5689
+		},
+		{
+			"source": "impunity",
+			"target": "icc",
+			"speeches": 2762,
+			"pmi": 3.2348,
+			"npmi": 0.5461
+		},
+		{
+			"source": "crimes_against_humanity",
+			"target": "icc",
+			"speeches": 1386,
+			"pmi": 3.7017,
+			"npmi": 0.5351
+		},
+		{
+			"source": "war_crimes",
+			"target": "icc",
+			"speeches": 1587,
+			"pmi": 3.5253,
+			"npmi": 0.5244
+		},
+		{
+			"source": "war_crimes",
+			"target": "impunity",
+			"speeches": 2125,
+			"pmi": 2.8487,
+			"npmi": 0.452
+		},
+		{
+			"source": "crimes_against_humanity",
+			"target": "impunity",
+			"speeches": 1778,
+			"pmi": 2.9633,
+			"npmi": 0.4518
+		},
+		{
+			"source": "genocide",
+			"target": "atrocity",
+			"speeches": 1126,
+			"pmi": 3.147,
+			"npmi": 0.436
+		},
+		{
+			"source": "war_crimes",
+			"target": "atrocity",
+			"speeches": 1200,
+			"pmi": 3.017,
+			"npmi": 0.4234
+		},
+		{
+			"source": "crimes_against_humanity",
+			"target": "atrocity",
+			"speeches": 973,
+			"pmi": 3.0863,
+			"npmi": 0.4154
+		},
+		{
+			"source": "atrocity",
+			"target": "icc",
+			"speeches": 1144,
+			"pmi": 2.9558,
+			"npmi": 0.4108
+		},
+		{
+			"source": "genocide",
+			"target": "massacre",
+			"speeches": 639,
+			"pmi": 3.1749,
+			"npmi": 0.3951
+		},
+		{
+			"source": "genocide",
+			"target": "icc",
+			"speeches": 910,
+			"pmi": 2.9448,
+			"npmi": 0.3913
+		},
+		{
+			"source": "atrocity",
+			"target": "impunity",
+			"speeches": 1790,
+			"pmi": 2.504,
+			"npmi": 0.3823
+		},
+		{
+			"source": "genocide",
+			"target": "impunity",
+			"speeches": 1501,
+			"pmi": 2.569,
+			"npmi": 0.3776
+		},
+		{
+			"source": "atrocity",
+			"target": "massacre",
+			"speeches": 638,
+			"pmi": 2.8536,
+			"npmi": 0.355
+		},
+		{
+			"source": "crimes_against_humanity",
+			"target": "massacre",
+			"speeches": 352,
+			"pmi": 2.4646,
+			"npmi": 0.2771
+		},
+		{
+			"source": "genocide",
+			"target": "icj",
+			"speeches": 389,
+			"pmi": 2.3739,
+			"npmi": 0.2713
+		},
+		{
+			"source": "icc",
+			"target": "icj",
+			"speeches": 388,
+			"pmi": 2.1562,
+			"npmi": 0.2463
+		},
+		{
+			"source": "war_crimes",
+			"target": "massacre",
+			"speeches": 371,
+			"pmi": 2.1686,
+			"npmi": 0.2459
+		},
+		{
+			"source": "war_crimes",
+			"target": "icj",
+			"speeches": 350,
+			"pmi": 1.9997,
+			"npmi": 0.2246
+		},
+		{
+			"source": "crimes_against_humanity",
+			"target": "icj",
+			"speeches": 250,
+			"pmi": 1.886,
+			"npmi": 0.2009
+		},
+		{
+			"source": "atrocity",
+			"target": "icj",
+			"speeches": 326,
+			"pmi": 1.8,
+			"npmi": 0.1999
+		},
+		{
+			"source": "impunity",
+			"target": "massacre",
+			"speeches": 547,
+			"pmi": 1.6388,
+			"npmi": 0.1984
+		},
+		{
+			"source": "icj",
+			"target": "massacre",
+			"speeches": 172,
+			"pmi": 1.7227,
+			"npmi": 0.1735
+		},
+		{
+			"source": "impunity",
+			"target": "icj",
+			"speeches": 493,
+			"pmi": 1.404,
+			"npmi": 0.1669
+		},
+		{
+			"source": "icc",
+			"target": "massacre",
+			"speeches": 172,
+			"pmi": 1.0674,
+			"npmi": 0.1075
+		}
+	],
+	"by_period": {
+		"2000-2009": {
+			"terms": [
+				{
+					"name": "genocide",
+					"speeches": 847
+				},
+				{
+					"name": "crimes_against_humanity",
+					"speeches": 771
+				},
+				{
+					"name": "war_crimes",
+					"speeches": 1065
+				},
+				{
+					"name": "atrocity",
+					"speeches": 689
+				},
+				{
+					"name": "impunity",
+					"speeches": 2231
+				},
+				{
+					"name": "icc",
+					"speeches": 1124
+				},
+				{
+					"name": "icj",
+					"speeches": 305
+				},
+				{
+					"name": "massacre",
+					"speeches": 395
+				}
+			],
+			"edges": [
+				{
+					"source": "crimes_against_humanity",
+					"target": "war_crimes",
+					"speeches": 537,
+					"pmi": 4.2472,
+					"npmi": 0.7378
+				},
+				{
+					"source": "genocide",
+					"target": "crimes_against_humanity",
+					"speeches": 409,
+					"pmi": 4.1848,
+					"npmi": 0.6805
+				},
+				{
+					"source": "genocide",
+					"target": "war_crimes",
+					"speeches": 400,
+					"pmi": 3.6867,
+					"npmi": 0.5964
+				},
+				{
+					"source": "impunity",
+					"target": "icc",
+					"speeches": 711,
+					"pmi": 3.0415,
+					"npmi": 0.5683
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "icc",
+					"speeches": 345,
+					"pmi": 3.5311,
+					"npmi": 0.5521
+				},
+				{
+					"source": "war_crimes",
+					"target": "icc",
+					"speeches": 383,
+					"pmi": 3.2158,
+					"npmi": 0.515
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "impunity",
+					"speeches": 448,
+					"pmi": 2.9189,
+					"npmi": 0.485
+				},
+				{
+					"source": "war_crimes",
+					"target": "impunity",
+					"speeches": 507,
+					"pmi": 2.6314,
+					"npmi": 0.4506
+				},
+				{
+					"source": "genocide",
+					"target": "icc",
+					"speeches": 257,
+					"pmi": 2.9706,
+					"npmi": 0.4356
+				},
+				{
+					"source": "genocide",
+					"target": "impunity",
+					"speeches": 389,
+					"pmi": 2.5796,
+					"npmi": 0.4146
+				},
+				{
+					"source": "atrocity",
+					"target": "impunity",
+					"speeches": 297,
+					"pmi": 2.4881,
+					"npmi": 0.3763
+				},
+				{
+					"source": "atrocity",
+					"target": "icc",
+					"speeches": 175,
+					"pmi": 2.7141,
+					"npmi": 0.368
+				},
+				{
+					"source": "genocide",
+					"target": "massacre",
+					"speeches": 92,
+					"pmi": 2.9973,
+					"npmi": 0.361
+				},
+				{
+					"source": "war_crimes",
+					"target": "atrocity",
+					"speeches": 162,
+					"pmi": 2.6805,
+					"npmi": 0.3581
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "atrocity",
+					"speeches": 125,
+					"pmi": 2.7725,
+					"npmi": 0.3527
+				},
+				{
+					"source": "war_crimes",
+					"target": "massacre",
+					"speeches": 100,
+					"pmi": 2.7872,
+					"npmi": 0.3407
+				},
+				{
+					"source": "atrocity",
+					"target": "massacre",
+					"speeches": 72,
+					"pmi": 2.9415,
+					"npmi": 0.3398
+				},
+				{
+					"source": "genocide",
+					"target": "atrocity",
+					"speeches": 125,
+					"pmi": 2.6369,
+					"npmi": 0.3355
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "massacre",
+					"speeches": 60,
+					"pmi": 2.5162,
+					"npmi": 0.2821
+				},
+				{
+					"source": "war_crimes",
+					"target": "icj",
+					"speeches": 46,
+					"pmi": 2.0399,
+					"npmi": 0.2193
+				},
+				{
+					"source": "impunity",
+					"target": "massacre",
+					"speeches": 103,
+					"pmi": 1.763,
+					"npmi": 0.2166
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "icj",
+					"speeches": 25,
+					"pmi": 1.6263,
+					"npmi": 0.1597
+				},
+				{
+					"source": "icc",
+					"target": "massacre",
+					"speeches": 42,
+					"pmi": 1.4578,
+					"npmi": 0.1545
+				},
+				{
+					"source": "genocide",
+					"target": "icj",
+					"speeches": 26,
+					"pmi": 1.5472,
+					"npmi": 0.1528
+				},
+				{
+					"source": "icc",
+					"target": "icj",
+					"speeches": 30,
+					"pmi": 1.3455,
+					"npmi": 0.1356
+				},
+				{
+					"source": "impunity",
+					"target": "icj",
+					"speeches": 47,
+					"pmi": 1.0041,
+					"npmi": 0.1083
+				}
+			]
+		},
+		"2010-2019": {
+			"terms": [
+				{
+					"name": "genocide",
+					"speeches": 1359
+				},
+				{
+					"name": "crimes_against_humanity",
+					"speeches": 1698
+				},
+				{
+					"name": "war_crimes",
+					"speeches": 2113
+				},
+				{
+					"name": "atrocity",
+					"speeches": 2014
+				},
+				{
+					"name": "impunity",
+					"speeches": 4812
+				},
+				{
+					"name": "icc",
+					"speeches": 2492
+				},
+				{
+					"name": "icj",
+					"speeches": 546
+				},
+				{
+					"name": "massacre",
+					"speeches": 516
+				}
+			],
+			"edges": [
+				{
+					"source": "crimes_against_humanity",
+					"target": "war_crimes",
+					"speeches": 1213,
+					"pmi": 3.9474,
+					"npmi": 0.7543
+				},
+				{
+					"source": "genocide",
+					"target": "crimes_against_humanity",
+					"speeches": 757,
+					"pmi": 3.9039,
+					"npmi": 0.6602
+				},
+				{
+					"source": "genocide",
+					"target": "war_crimes",
+					"speeches": 770,
+					"pmi": 3.613,
+					"npmi": 0.6135
+				},
+				{
+					"source": "impunity",
+					"target": "icc",
+					"speeches": 1548,
+					"pmi": 2.5584,
+					"npmi": 0.5241
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "icc",
+					"speeches": 724,
+					"pmi": 2.9648,
+					"npmi": 0.496
+				},
+				{
+					"source": "genocide",
+					"target": "atrocity",
+					"speeches": 476,
+					"pmi": 2.9883,
+					"npmi": 0.454
+				},
+				{
+					"source": "war_crimes",
+					"target": "icc",
+					"speeches": 741,
+					"pmi": 2.6829,
+					"npmi": 0.4513
+				},
+				{
+					"source": "war_crimes",
+					"target": "impunity",
+					"speeches": 1092,
+					"pmi": 2.293,
+					"npmi": 0.4258
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "impunity",
+					"speeches": 888,
+					"pmi": 2.3101,
+					"npmi": 0.4065
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "atrocity",
+					"speeches": 477,
+					"pmi": 2.6701,
+					"npmi": 0.4058
+				},
+				{
+					"source": "atrocity",
+					"target": "icc",
+					"speeches": 620,
+					"pmi": 2.4949,
+					"npmi": 0.4023
+				},
+				{
+					"source": "war_crimes",
+					"target": "atrocity",
+					"speeches": 540,
+					"pmi": 2.5336,
+					"npmi": 0.3958
+				},
+				{
+					"source": "genocide",
+					"target": "icc",
+					"speeches": 453,
+					"pmi": 2.6096,
+					"npmi": 0.3922
+				},
+				{
+					"source": "genocide",
+					"target": "impunity",
+					"speeches": 658,
+					"pmi": 2.1989,
+					"npmi": 0.3595
+				},
+				{
+					"source": "atrocity",
+					"target": "impunity",
+					"speeches": 866,
+					"pmi": 2.0276,
+					"npmi": 0.3545
+				},
+				{
+					"source": "genocide",
+					"target": "massacre",
+					"speeches": 114,
+					"pmi": 2.891,
+					"npmi": 0.3344
+				},
+				{
+					"source": "atrocity",
+					"target": "massacre",
+					"speeches": 134,
+					"pmi": 2.5567,
+					"npmi": 0.304
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "massacre",
+					"speeches": 112,
+					"pmi": 2.5442,
+					"npmi": 0.2934
+				},
+				{
+					"source": "war_crimes",
+					"target": "massacre",
+					"speeches": 126,
+					"pmi": 2.3987,
+					"npmi": 0.2822
+				},
+				{
+					"source": "icc",
+					"target": "icj",
+					"speeches": 131,
+					"pmi": 2.1353,
+					"npmi": 0.2529
+				},
+				{
+					"source": "genocide",
+					"target": "icj",
+					"speeches": 78,
+					"pmi": 2.262,
+					"npmi": 0.2461
+				},
+				{
+					"source": "war_crimes",
+					"target": "icj",
+					"speeches": 88,
+					"pmi": 1.7993,
+					"npmi": 0.1995
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "icj",
+					"speeches": 70,
+					"pmi": 1.7846,
+					"npmi": 0.1909
+				},
+				{
+					"source": "icc",
+					"target": "massacre",
+					"speeches": 85,
+					"pmi": 1.5928,
+					"npmi": 0.1756
+				},
+				{
+					"source": "atrocity",
+					"target": "icj",
+					"speeches": 74,
+					"pmi": 1.6185,
+					"npmi": 0.1746
+				},
+				{
+					"source": "impunity",
+					"target": "massacre",
+					"speeches": 147,
+					"pmi": 1.4337,
+					"npmi": 0.1732
+				},
+				{
+					"source": "icj",
+					"target": "massacre",
+					"speeches": 23,
+					"pmi": 1.8973,
+					"npmi": 0.1732
+				},
+				{
+					"source": "impunity",
+					"target": "icj",
+					"speeches": 150,
+					"pmi": 1.3813,
+					"npmi": 0.1675
+				}
+			]
+		},
+		"2020-2024": {
+			"terms": [
+				{
+					"name": "genocide",
+					"speeches": 954
+				},
+				{
+					"name": "crimes_against_humanity",
+					"speeches": 829
+				},
+				{
+					"name": "war_crimes",
+					"speeches": 1371
+				},
+				{
+					"name": "atrocity",
+					"speeches": 1418
+				},
+				{
+					"name": "impunity",
+					"speeches": 2223
+				},
+				{
+					"name": "icc",
+					"speeches": 1016
+				},
+				{
+					"name": "icj",
+					"speeches": 947
+				},
+				{
+					"name": "massacre",
+					"speeches": 415
+				}
+			],
+			"edges": [
+				{
+					"source": "crimes_against_humanity",
+					"target": "war_crimes",
+					"speeches": 637,
+					"pmi": 3.9022,
+					"npmi": 0.7242
+				},
+				{
+					"source": "genocide",
+					"target": "crimes_against_humanity",
+					"speeches": 339,
+					"pmi": 3.5154,
+					"npmi": 0.5582
+				},
+				{
+					"source": "genocide",
+					"target": "war_crimes",
+					"speeches": 401,
+					"pmi": 3.0319,
+					"npmi": 0.5007
+				},
+				{
+					"source": "war_crimes",
+					"target": "icc",
+					"speeches": 411,
+					"pmi": 2.9766,
+					"npmi": 0.4944
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "icc",
+					"speeches": 285,
+					"pmi": 3.1742,
+					"npmi": 0.4847
+				},
+				{
+					"source": "genocide",
+					"target": "atrocity",
+					"speeches": 350,
+					"pmi": 2.787,
+					"npmi": 0.4458
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "atrocity",
+					"speeches": 299,
+					"pmi": 2.7624,
+					"npmi": 0.4263
+				},
+				{
+					"source": "genocide",
+					"target": "massacre",
+					"speeches": 138,
+					"pmi": 3.217,
+					"npmi": 0.4236
+				},
+				{
+					"source": "war_crimes",
+					"target": "atrocity",
+					"speeches": 421,
+					"pmi": 2.5303,
+					"npmi": 0.4227
+				},
+				{
+					"source": "genocide",
+					"target": "icj",
+					"speeches": 239,
+					"pmi": 2.8191,
+					"npmi": 0.4144
+				},
+				{
+					"source": "impunity",
+					"target": "icc",
+					"speeches": 426,
+					"pmi": 2.331,
+					"npmi": 0.3906
+				},
+				{
+					"source": "atrocity",
+					"target": "icc",
+					"speeches": 308,
+					"pmi": 2.5118,
+					"npmi": 0.3902
+				},
+				{
+					"source": "icc",
+					"target": "icj",
+					"speeches": 224,
+					"pmi": 2.6348,
+					"npmi": 0.3821
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "impunity",
+					"speeches": 357,
+					"pmi": 2.3696,
+					"npmi": 0.3807
+				},
+				{
+					"source": "atrocity",
+					"target": "impunity",
+					"speeches": 487,
+					"pmi": 2.0432,
+					"npmi": 0.3538
+				},
+				{
+					"source": "war_crimes",
+					"target": "impunity",
+					"speeches": 469,
+					"pmi": 2.0374,
+					"npmi": 0.3495
+				},
+				{
+					"source": "atrocity",
+					"target": "massacre",
+					"speeches": 132,
+					"pmi": 2.5811,
+					"npmi": 0.337
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "massacre",
+					"speeches": 77,
+					"pmi": 2.5779,
+					"npmi": 0.3056
+				},
+				{
+					"source": "war_crimes",
+					"target": "icj",
+					"speeches": 211,
+					"pmi": 2.1162,
+					"npmi": 0.3031
+				},
+				{
+					"source": "genocide",
+					"target": "impunity",
+					"speeches": 305,
+					"pmi": 1.9398,
+					"npmi": 0.3007
+				},
+				{
+					"source": "genocide",
+					"target": "icc",
+					"speeches": 165,
+					"pmi": 2.1831,
+					"npmi": 0.2975
+				},
+				{
+					"source": "war_crimes",
+					"target": "massacre",
+					"speeches": 109,
+					"pmi": 2.3535,
+					"npmi": 0.2966
+				},
+				{
+					"source": "crimes_against_humanity",
+					"target": "icj",
+					"speeches": 131,
+					"pmi": 2.1543,
+					"npmi": 0.2809
+				},
+				{
+					"source": "atrocity",
+					"target": "icj",
+					"speeches": 197,
+					"pmi": 1.9685,
+					"npmi": 0.278
+				},
+				{
+					"source": "icj",
+					"target": "massacre",
+					"speeches": 68,
+					"pmi": 2.2066,
+					"npmi": 0.2561
+				},
+				{
+					"source": "impunity",
+					"target": "massacre",
+					"speeches": 119,
+					"pmi": 1.7829,
+					"npmi": 0.2283
+				},
+				{
+					"source": "impunity",
+					"target": "icj",
+					"speeches": 220,
+					"pmi": 1.4792,
+					"npmi": 0.2137
+				},
+				{
+					"source": "icc",
+					"target": "massacre",
+					"speeches": 35,
+					"pmi": 1.1469,
+					"npmi": 0.1198
+				}
+			]
+		}
+	},
+	"suppressed_nested_edges": [
+		{
+			"source": "genocide",
+			"target": "genocide_convention",
+			"reason": "nested"
+		}
+	]
+}

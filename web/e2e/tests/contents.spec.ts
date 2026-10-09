@@ -71,18 +71,22 @@ test('the contents reaches the last figure by keyboard alone', async ({ page }) 
 	).not.toBeInViewport();
 });
 
-test('the contents stays on screen and marks where the reader is', async ({ page }) => {
-	await page.goto(`${base}/usage/`);
-	const band = contents(page);
-	const marked = band.locator('a[aria-current="location"]');
+test(
+	'the contents stays on screen and marks where the reader is',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		await page.goto(`${base}/usage/`);
+		const band = contents(page);
+		const marked = band.locator('a[aria-current="location"]');
 
-	await expect(marked).toHaveCount(0);
-	await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+		await expect(marked).toHaveCount(0);
+		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 
-	await expect(band).toBeInViewport();
-	await expect(marked).toHaveCount(1);
-	await expect(marked).toHaveText('Who rejects the word');
+		await expect(band).toBeInViewport();
+		await expect(marked).toHaveCount(1);
+		await expect(marked).toHaveText('Who rejects the word');
 
-	const { violations } = await new AxeBuilder({ page }).analyze();
-	expect(violations).toEqual([]);
-});
+		const { violations } = await new AxeBuilder({ page }).analyze();
+		expect(violations).toEqual([]);
+	}
+);

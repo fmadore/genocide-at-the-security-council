@@ -21,7 +21,9 @@ export default {
 			// A fixture build needs only the routes its browser tests visit. Normal
 			// releases retain SvelteKit's all-route discovery.
 			crawl: !fixtureMode,
-			entries: fixtureMode ? ['/', '/chronology', '/concordance', '/actors', '/usage'] : ['*'],
+			entries: fixtureMode
+				? ['/', '/chronology', '/concordance', '/actors', '/usage', '/language', '/methods']
+				: ['*'],
 			handleHttpError: fixtureMode ? 'warn' : 'fail',
 			handleUnseenRoutes: fixtureMode ? 'ignore' : 'fail'
 		},

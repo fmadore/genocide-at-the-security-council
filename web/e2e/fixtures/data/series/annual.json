@@ -31,6 +31,18 @@
 		"unit": "meeting",
 		"method": "percentile interval over whole meetings resampled within each period"
 	},
+	"corpora": {
+		"genocide_free_atrocity": {
+			"label": "Atrocity vocabulary without genocid*",
+			"definition": "Speeches using ethnic cleansing, crimes against humanity or war crimes and containing no genocid* match.",
+			"members": ["ethnic_cleansing", "crimes_against_humanity", "war_crimes"],
+			"excludes": ["genocide"],
+			"speeches": [1, 2, 4],
+			"speech_rate": [0.1, 0.1, 0.1333],
+			"speech_rate_low": [0.0179, 0.0279, 0.0531],
+			"speech_rate_high": [0.4042, 0.301, 0.2968]
+		}
+	},
 	"terms": {
 		"genocide": {
 			"speeches": [1, 4, 3],

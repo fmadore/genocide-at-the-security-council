@@ -23,32 +23,38 @@ test('home onward navigation includes every main subpage', async ({ page }) => {
 	}
 });
 
-test('speaker search supports keyboard selection, cancellation and clearing', async ({ page }) => {
-	await page.goto(`${base}/concordance/?scope=debate`);
-	await expect(page.locator('.status')).toContainText('4 of 4 lines');
-	const speaker = page.getByRole('combobox', { name: 'Speaker', exact: true });
-	await speaker.fill('rwan');
-	await expect(page.getByRole('option', { name: 'Rwanda', exact: true })).toBeVisible();
-	await speaker.press('ArrowDown');
-	await speaker.press('Enter');
-	await expect(speaker).toHaveValue('Rwanda');
-	await expect(page).toHaveURL(/country=Rwanda/);
-	await expect(page).toHaveURL(/scope=debate/);
-	await speaker.fill('no such speaker');
-	await expect(page.getByRole('status').filter({ hasText: 'No matching options.' })).toBeVisible();
-	await speaker.press('Escape');
-	await expect(speaker).toHaveValue('Rwanda');
-	await speaker.click();
-	const all = page
-		.getByRole('listbox', { name: 'Speaker', exact: true })
-		.getByRole('option', { name: 'All', exact: true });
-	await expect(all).toBeVisible();
-	const { violations } = await new AxeBuilder({ page }).analyze();
-	expect(violations).toEqual([]);
-	await all.click();
-	await expect(page).not.toHaveURL(/country=/);
-	await expect(page.locator('.status')).toContainText('4 of 4 lines');
-});
+test(
+	'speaker search supports keyboard selection, cancellation and clearing',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		await page.goto(`${base}/concordance/?scope=debate`);
+		await expect(page.locator('.status')).toContainText('4 of 4 lines');
+		const speaker = page.getByRole('combobox', { name: 'Speaker', exact: true });
+		await speaker.fill('rwan');
+		await expect(page.getByRole('option', { name: 'Rwanda', exact: true })).toBeVisible();
+		await speaker.press('ArrowDown');
+		await speaker.press('Enter');
+		await expect(speaker).toHaveValue('Rwanda');
+		await expect(page).toHaveURL(/country=Rwanda/);
+		await expect(page).toHaveURL(/scope=debate/);
+		await speaker.fill('no such speaker');
+		await expect(
+			page.getByRole('status').filter({ hasText: 'No matching options.' })
+		).toBeVisible();
+		await speaker.press('Escape');
+		await expect(speaker).toHaveValue('Rwanda');
+		await speaker.click();
+		const all = page
+			.getByRole('listbox', { name: 'Speaker', exact: true })
+			.getByRole('option', { name: 'All', exact: true });
+		await expect(all).toBeVisible();
+		const { violations } = await new AxeBuilder({ page }).analyze();
+		expect(violations).toEqual([]);
+		await all.click();
+		await expect(page).not.toHaveURL(/country=/);
+		await expect(page.locator('.status')).toContainText('4 of 4 lines');
+	}
+);
 
 test('all profile speakers remain selectable beyond the first eight', async ({ page }) => {
 	const fixture = JSON.parse(

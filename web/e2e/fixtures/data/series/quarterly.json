@@ -44,6 +44,24 @@
 		"unit": "meeting",
 		"method": "percentile interval over whole meetings resampled within each period"
 	},
+	"corpora": {
+		"genocide_free_atrocity": {
+			"label": "Atrocity vocabulary without genocid*",
+			"definition": "Speeches using ethnic cleansing, crimes against humanity or war crimes and containing no genocid* match.",
+			"members": ["ethnic_cleansing", "crimes_against_humanity", "war_crimes"],
+			"excludes": ["genocide"],
+			"speeches": [1, 1, 1, 1, 3, 3, 3, 3, 2, 2, 2, 2],
+			"speech_rate": [0.04, 0.04, 0.04, 0.04, 0.075, 0.075, 0.075, 0.075, 0.08, 0.08, 0.08, 0.08],
+			"speech_rate_low": [
+				0.0071, 0.0071, 0.0071, 0.0071, 0.0258, 0.0258, 0.0258, 0.0258, 0.0222, 0.0222, 0.0222,
+				0.0222
+			],
+			"speech_rate_high": [
+				0.1954, 0.1954, 0.1954, 0.1954, 0.1986, 0.1986, 0.1986, 0.1986, 0.2497, 0.2497, 0.2497,
+				0.2497
+			]
+		}
+	},
 	"terms": {
 		"genocide": {
 			"speeches": [2, 2, 2, 2, 6, 6, 6, 6, 2, 2, 2, 2],

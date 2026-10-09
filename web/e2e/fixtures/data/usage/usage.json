@@ -4,8 +4,18 @@
 		"generated": "2026-09-01T00:00:00Z",
 		"git_commit": "fixture",
 		"lexicon_version": 2,
-		"inputs": [{ "path": "model_annotations/luna-v1.csv", "sha256": "fixture-input" }],
-		"configs": [{ "path": "annotations/lexicon/referents.csv", "sha256": "fixture-config" }]
+		"inputs": [
+			{
+				"path": "model_annotations/luna-v1.csv",
+				"sha256": "fixture-input"
+			}
+		],
+		"configs": [
+			{
+				"path": "annotations/lexicon/referents.csv",
+				"sha256": "fixture-config"
+			}
+		]
 	},
 	"model": {
 		"id": "chatgpt-5.6-luna-2026-08-01",
@@ -16,12 +26,55 @@
 		"prompt_sha256": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
 		"reasoning_effort": "high",
 		"requests": 2,
+		"requests_recounted": true,
 		"occurrences_total": 12,
 		"occurrences_annotated": 12,
 		"parse_failures": 0,
+		"truncation_count": 0,
 		"evidence_invalid": 1,
-		"abstention": { "verdict_uncertain": 1, "referent_unclear": 2, "position_unclear": 1 },
-		"tokens": { "input": 0, "output": 0 }
+		"abstention": {
+			"verdict_uncertain": 1,
+			"referent_unclear": 2,
+			"position_unclear": 1
+		},
+		"tokens": {
+			"input": 0,
+			"output": 0
+		},
+		"runtime": {
+			"route": "openai-compatible-responses",
+			"served_model": "chatgpt-5.6-luna-2026-08-01",
+			"model_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+			"quantization": "none",
+			"vllm_version": "0.28.0",
+			"environments": {
+				"annotator": "locked+llm-client-overlay",
+				"server": "vllm"
+			},
+			"hardware": {
+				"gpu_model": "NVIDIA H100 80GB HBM3",
+				"gpu_count": 1
+			},
+			"serving": {
+				"max_model_len": 131072,
+				"max_num_seqs": 4,
+				"reasoning_parser": "qwen3",
+				"tensor_parallel_size": 1,
+				"prefix_caching": true,
+				"speculative_decoding": null,
+				"moe_backend": null
+			},
+			"reasoning": {
+				"parameter": "reasoning_effort",
+				"value": "high",
+				"location": "chat_template_kwargs"
+			},
+			"sampling": {
+				"temperature": 0.0,
+				"top_p": 1.0
+			},
+			"max_output_tokens": 65536
+		}
 	},
 	"prompt": "You are given one occurrence of the word genocide in a UN Security Council speech.\nSay which genocide it refers to, using an identifier from the controlled list, and what the speaker is doing with the word.\nQuote the shortest span of the speech that supports both answers, verbatim.\nAnswer unclear rather than guessing.",
 	"referents": [
@@ -129,6 +182,7 @@
 			"actor": "Rwanda",
 			"referent": "rwanda_1994",
 			"count": 2,
+			"contested": 1,
 			"positions": {
 				"asserts": 0,
 				"reports_without_position": 0,
@@ -143,6 +197,7 @@
 			"actor": "Rwanda",
 			"referent": "genocide_convention_law",
 			"count": 2,
+			"contested": 0,
 			"positions": {
 				"asserts": 0,
 				"reports_without_position": 0,
@@ -157,6 +212,7 @@
 			"actor": "France",
 			"referent": "bosnia_srebrenica",
 			"count": 2,
+			"contested": 1,
 			"positions": {
 				"asserts": 1,
 				"reports_without_position": 1,
@@ -171,6 +227,7 @@
 			"actor": "France",
 			"referent": "genocide_convention_law",
 			"count": 1,
+			"contested": 0,
 			"positions": {
 				"asserts": 0,
 				"reports_without_position": 0,
@@ -185,6 +242,7 @@
 			"actor": "European Union",
 			"referent": "rwanda_1994",
 			"count": 1,
+			"contested": 0,
 			"positions": {
 				"asserts": 1,
 				"reports_without_position": 0,
@@ -210,7 +268,13 @@
 				"unclear": 0,
 				"not_applicable": 0
 			},
-			"share_rejects": 0.2
+			"share_rejects": 0.2,
+			"share_low": 0.0362,
+			"share_high": 0.6245,
+			"base_rejects": 0.1,
+			"p_value": 0.42,
+			"q_value": 0.42,
+			"separated": false
 		},
 		{
 			"actor": "France",
@@ -225,7 +289,13 @@
 				"unclear": 0,
 				"not_applicable": 0
 			},
-			"share_rejects": 0
+			"share_rejects": 0,
+			"share_low": 0.0,
+			"share_high": 0.5615,
+			"base_rejects": 0.1,
+			"p_value": 0.42,
+			"q_value": 0.42,
+			"separated": false
 		},
 		{
 			"actor": "European Union",
@@ -240,7 +310,13 @@
 				"unclear": 1,
 				"not_applicable": 0
 			},
-			"share_rejects": null
+			"share_rejects": null,
+			"share_low": null,
+			"share_high": null,
+			"base_rejects": null,
+			"p_value": null,
+			"q_value": null,
+			"separated": false
 		}
 	],
 	"diffusion": {
@@ -248,6 +324,7 @@
 		"referents": [
 			{
 				"id": "rwanda_1994",
+				"exposed": [],
 				"events": [
 					{
 						"date": "2014-06-11",
@@ -281,6 +358,7 @@
 			},
 			{
 				"id": "bosnia_srebrenica",
+				"exposed": [],
 				"events": [
 					{
 						"date": "2015-07-08",
@@ -310,26 +388,83 @@
 		"occurrences_annotated": 4,
 		"overlap": 4,
 		"evidence_invalid": 0,
-		"abstention": { "verdict_uncertain": 0, "referent_unclear": 1, "position_unclear": 0 },
+		"abstention": {
+			"verdict_uncertain": 0,
+			"referent_unclear": 1,
+			"position_unclear": 0
+		},
 		"fields": [
-			{ "field": "verdict", "n": 4, "observed": 1.0, "kappa": null, "contested": 0 },
-			{ "field": "quotation", "n": 4, "observed": 1.0, "kappa": 1.0, "contested": 0 },
-			{ "field": "speaker_position", "n": 4, "observed": 0.5, "kappa": 0.2, "contested": 2 },
-			{ "field": "referent", "n": 4, "observed": 0.75, "kappa": 0.6, "contested": 1 }
+			{
+				"field": "verdict",
+				"n": 4,
+				"observed": 1.0,
+				"kappa": null,
+				"contested": 0
+			},
+			{
+				"field": "quotation",
+				"n": 4,
+				"observed": 1.0,
+				"kappa": 1.0,
+				"contested": 0
+			},
+			{
+				"field": "speaker_position",
+				"n": 4,
+				"observed": 0.5,
+				"kappa": 0.2,
+				"contested": 2
+			},
+			{
+				"field": "referent",
+				"n": 4,
+				"observed": 0.75,
+				"kappa": 0.6,
+				"contested": 1
+			}
 		],
+		"referents": [],
 		"function_jaccard": 0.875,
+		"function_alpha_masi": 0.81,
+		"function_labels": [],
 		"function_contested": 1,
 		"contested_any": 2
 	},
+	"retest": [],
 	"gold": {
 		"sample_size": 200,
 		"unique_occurrences": 197,
 		"coders": [],
 		"double_coded": 0,
 		"adjudicated": 0,
+		"minimum_gold": 30,
+		"frames": [
+			{
+				"frame": "coverage",
+				"rows": 80,
+				"occurrences": 80,
+				"coded": 0,
+				"weighted": false
+			},
+			{
+				"frame": "probability",
+				"rows": 120,
+				"occurrences": 120,
+				"coded": 0,
+				"weighted": true
+			}
+		],
 		"human_agreement": [],
+		"human_function": {
+			"n": 0,
+			"jaccard": null,
+			"alpha_masi": null,
+			"labels": []
+		},
 		"model_vs_human": [],
 		"model_vs_human_comparison": [],
+		"weighted_accuracy": [],
+		"corrected_shares": [],
 		"state": "not_started"
 	}
 }
