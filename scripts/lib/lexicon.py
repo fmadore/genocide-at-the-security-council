@@ -45,6 +45,7 @@ import functools
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -556,17 +557,8 @@ def _anchor(raw: Mapping[str, object], version: int) -> Anchor:
     )
 
 
-def load(*, check_lock: bool = True) -> Lexicon:
-    """Read and compile config/lexicon.yml.
-
-    `check_lock` holds the file to `config/lexicon.lock.json`, which is what
-    catches a pattern edited without its `pattern_since`. Only the tool that
-    writes that lock passes False: every other caller wants the check.
-    """
-    if not LEXICON.exists():
-        raise FileNotFoundError(f"{rel(LEXICON)} is missing")
-    raw = yaml.safe_load(LEXICON.read_text(encoding="utf-8"))
-
+def _version(raw: Mapping[str, Any]) -> int:
+    """The file's release number, which every `pattern_since` is bounded by."""
     version = raw.get("version", 0)
     if not isinstance(version, int) or isinstance(version, bool):
         raise ValueError(f"{rel(LEXICON)}: 'version' must be an integer, got {version!r}")
@@ -577,130 +569,121 @@ def load(*, check_lock: bool = True) -> Lexicon:
             f"{rel(LEXICON)}: 'version' must be at least 1, got {version}; every release "
             "of the lexicon is numbered and the first one is 1"
         )
+    return version
 
-    anchor = _anchor(raw, version)
 
-    terms: dict[str, Term] = {}
-    for name, spec in raw["terms"].items():
-        try:
-            regex = re.compile(spec["pattern"], re.IGNORECASE)
-        except re.error as exc:
-            raise ValueError(f"{rel(LEXICON)}: term '{name}' has an invalid pattern: {exc}") from exc
-        since = spec.get("pattern_since")
-        if not isinstance(since, int) or isinstance(since, bool):
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' needs an integer 'pattern_since' — the "
-                "lexicon version at which its pattern last changed"
-            )
-        if not 1 <= since <= version:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' has pattern_since {since}, outside "
-                f"1..{version}; a pattern cannot have changed in a version that does "
-                "not exist yet"
-            )
-
-        # Refused rather than ignored, as `sets` is: v8 removed the legal
-        # ladder because nothing read it and its order was contestable, and a
-        # revived key would look like a decision nothing implements.
-        if "intensity" in spec:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' declares 'intensity', which was removed "
-                "at v8 and nothing reads; see the v8 note in the file's header"
-            )
-
-        term_anchor = spec.get("anchor")
-        if term_anchor is not None and term_anchor not in ANCHORS:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' declares anchor {term_anchor!r}; the "
-                f"anchors are {sorted(ANCHORS)}, or none at all. An unrecognised "
-                "anchor would count every match and look like a decision to anchor"
-            )
-        widened, previous = _widening(f"term '{name}'", spec, version, since)
-        # An anchored term's rule includes the anchor, so an anchor widening is a
-        # widening of every anchored term, and each has to say so: it is what a
-        # reader of that term's artefacts is told about their coverage.
-        if (
-            term_anchor is not None
-            and anchor.widened_since is not None
-            and since < anchor.widened_since
-            and (widened is None or widened < anchor.widened_since)
-        ):
-            raise ValueError(
-                f"{rel(LEXICON)}: the anchor was widened at v{anchor.widened_since}, "
-                f"so anchored term '{name}' must declare widened_since "
-                f"{anchor.widened_since} (or a later pattern_since)"
-            )
-
-        terms[name] = Term(
-            name=name,
-            pattern=spec["pattern"],
-            pattern_since=since,
-            tier=spec.get("tier", "adjacent"),
-            register=spec.get("register", "other"),
-            enabled=spec.get("enabled", True),
-            note=(spec.get("note") or "").strip(),
-            examples=tuple(str(example) for example in spec.get("examples", [])),
-            prefilters=tuple(str(literal) for literal in spec.get("prefilters", [])),
-            nested_under=spec.get("nested_under"),
-            anchor=term_anchor,
-            widened_since=widened,
-            widened_from=previous,
-            regex=regex,
-            anchor_regex=anchor.regex if term_anchor is not None else None,
-            anchor_prefilter=anchor.prefilter,
-        )
-
-        if not terms[name].examples:
-            raise ValueError(f"{rel(LEXICON)}: term '{name}' needs at least one example")
-        if not terms[name].prefilters:
-            raise ValueError(f"{rel(LEXICON)}: term '{name}' needs at least one prefilter")
-        missed = [example for example in terms[name].examples if not regex.search(example)]
-        if missed:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' does not match its examples: {missed}"
-            )
-        unfiltered = [
-            example
-            for example in terms[name].examples
-            if not any(literal.lower() in example.lower() for literal in terms[name].prefilters)
-        ]
-        if unfiltered:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' prefilters miss its examples: {unfiltered}"
-            )
-        # The records keep their hard line breaks, so `\s+` in a pattern spans a
-        # newline that a multi-word literal never will: such a literal would skip
-        # the speech and lose the match rather than merely slow the scan down.
-        # ASCII for the same reason rather than for tidiness: the fast path is
-        # `str.contains(case=False)`, upper-case containment, while the pattern
-        # runs under `re.IGNORECASE`. The two agree on ASCII and diverge outside
-        # it — `re.IGNORECASE` folds U+0130 "İ" to "i", upper-casing does not —
-        # so a non-ASCII literal could skip a speech the regex would match.
-        unusable = [
-            literal
-            for literal in terms[name].prefilters
-            if any(c.isspace() for c in literal) or not literal.isascii()
-        ]
-        if unusable:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' has prefilters that are not whitespace-free "
-                f"ASCII: {unusable}; a prefilter is a plain case-insensitive substring test "
-                "and must be one ASCII token"
-            )
-
-    # Refused rather than ignored. A `sets:` block reintroduced here would look
-    # like a working feature and count nothing, and the reason it went is not a
-    # detail of implementation: a named group of terms published as a measure is
-    # a grouping this file chose on the reader's behalf.
-    if "sets" in raw:
+def _term(name: str, spec: Mapping[str, Any], version: int, anchor: Anchor) -> Term:
+    """One entry of `terms:`, compiled and held to every rule a term keeps."""
+    try:
+        regex = re.compile(spec["pattern"], re.IGNORECASE)
+    except re.error as exc:
+        raise ValueError(f"{rel(LEXICON)}: term '{name}' has an invalid pattern: {exc}") from exc
+    since = spec.get("pattern_since")
+    if not isinstance(since, int) or isinstance(since, bool):
         raise ValueError(
-            f"{rel(LEXICON)}: 'sets' was removed at v5 and nothing reads it. The site "
-            "publishes one measure per term and the reader composes the group; see the "
-            "v5 note in the file's header"
+            f"{rel(LEXICON)}: term '{name}' needs an integer 'pattern_since' — the "
+            "lexicon version at which its pattern last changed"
+        )
+    if not 1 <= since <= version:
+        raise ValueError(
+            f"{rel(LEXICON)}: term '{name}' has pattern_since {since}, outside "
+            f"1..{version}; a pattern cannot have changed in a version that does "
+            "not exist yet"
         )
 
-    check_nesting(terms)
+    # Refused rather than ignored, as `sets` is: v8 removed the legal
+    # ladder because nothing read it and its order was contestable, and a
+    # revived key would look like a decision nothing implements.
+    if "intensity" in spec:
+        raise ValueError(
+            f"{rel(LEXICON)}: term '{name}' declares 'intensity', which was removed "
+            "at v8 and nothing reads; see the v8 note in the file's header"
+        )
 
+    term_anchor = spec.get("anchor")
+    if term_anchor is not None and term_anchor not in ANCHORS:
+        raise ValueError(
+            f"{rel(LEXICON)}: term '{name}' declares anchor {term_anchor!r}; the "
+            f"anchors are {sorted(ANCHORS)}, or none at all. An unrecognised "
+            "anchor would count every match and look like a decision to anchor"
+        )
+    widened, previous = _widening(f"term '{name}'", spec, version, since)
+    # An anchored term's rule includes the anchor, so an anchor widening is a
+    # widening of every anchored term, and each has to say so: it is what a
+    # reader of that term's artefacts is told about their coverage.
+    if (
+        term_anchor is not None
+        and anchor.widened_since is not None
+        and since < anchor.widened_since
+        and (widened is None or widened < anchor.widened_since)
+    ):
+        raise ValueError(
+            f"{rel(LEXICON)}: the anchor was widened at v{anchor.widened_since}, "
+            f"so anchored term '{name}' must declare widened_since "
+            f"{anchor.widened_since} (or a later pattern_since)"
+        )
+
+    term = Term(
+        name=name,
+        pattern=spec["pattern"],
+        pattern_since=since,
+        tier=spec.get("tier", "adjacent"),
+        register=spec.get("register", "other"),
+        enabled=spec.get("enabled", True),
+        note=(spec.get("note") or "").strip(),
+        examples=tuple(str(example) for example in spec.get("examples", [])),
+        prefilters=tuple(str(literal) for literal in spec.get("prefilters", [])),
+        nested_under=spec.get("nested_under"),
+        anchor=term_anchor,
+        widened_since=widened,
+        widened_from=previous,
+        regex=regex,
+        anchor_regex=anchor.regex if term_anchor is not None else None,
+        anchor_prefilter=anchor.prefilter,
+    )
+
+    if not term.examples:
+        raise ValueError(f"{rel(LEXICON)}: term '{name}' needs at least one example")
+    if not term.prefilters:
+        raise ValueError(f"{rel(LEXICON)}: term '{name}' needs at least one prefilter")
+    missed = [example for example in term.examples if not regex.search(example)]
+    if missed:
+        raise ValueError(
+            f"{rel(LEXICON)}: term '{name}' does not match its examples: {missed}"
+        )
+    unfiltered = [
+        example
+        for example in term.examples
+        if not any(literal.lower() in example.lower() for literal in term.prefilters)
+    ]
+    if unfiltered:
+        raise ValueError(
+            f"{rel(LEXICON)}: term '{name}' prefilters miss its examples: {unfiltered}"
+        )
+    # The records keep their hard line breaks, so `\s+` in a pattern spans a
+    # newline that a multi-word literal never will: such a literal would skip
+    # the speech and lose the match rather than merely slow the scan down.
+    # ASCII for the same reason rather than for tidiness: the fast path is
+    # `str.contains(case=False)`, upper-case containment, while the pattern
+    # runs under `re.IGNORECASE`. The two agree on ASCII and diverge outside
+    # it — `re.IGNORECASE` folds U+0130 "İ" to "i", upper-casing does not —
+    # so a non-ASCII literal could skip a speech the regex would match.
+    unusable = [
+        literal
+        for literal in term.prefilters
+        if any(c.isspace() for c in literal) or not literal.isascii()
+    ]
+    if unusable:
+        raise ValueError(
+            f"{rel(LEXICON)}: term '{name}' has prefilters that are not whitespace-free "
+            f"ASCII: {unusable}; a prefilter is a plain case-insensitive substring test "
+            "and must be one ASCII token"
+        )
+    return term
+
+
+def _derived(raw: Mapping[str, Any], terms: Mapping[str, Term]) -> dict[str, Derived]:
+    """The `derived:` block: each measure a term minus terms nested inside it."""
     derived: dict[str, Derived] = {}
     for name, spec in (raw.get("derived") or {}).items():
         if name in terms:
@@ -740,6 +723,37 @@ def load(*, check_lock: bool = True) -> Lexicon:
             register=spec.get("register", terms[str(minuend)].register),
             note=(spec.get("note") or "").strip(),
         )
+    return derived
+
+
+def load(*, check_lock: bool = True) -> Lexicon:
+    """Read and compile config/lexicon.yml.
+
+    `check_lock` holds the file to `config/lexicon.lock.json`, which is what
+    catches a pattern edited without its `pattern_since`. Only the tool that
+    writes that lock passes False: every other caller wants the check.
+    """
+    if not LEXICON.exists():
+        raise FileNotFoundError(f"{rel(LEXICON)} is missing")
+    raw = yaml.safe_load(LEXICON.read_text(encoding="utf-8"))
+
+    version = _version(raw)
+    anchor = _anchor(raw, version)
+    terms = {name: _term(name, spec, version, anchor) for name, spec in raw["terms"].items()}
+
+    # Refused rather than ignored. A `sets:` block reintroduced here would look
+    # like a working feature and count nothing, and the reason it went is not a
+    # detail of implementation: a named group of terms published as a measure is
+    # a grouping this file chose on the reader's behalf.
+    if "sets" in raw:
+        raise ValueError(
+            f"{rel(LEXICON)}: 'sets' was removed at v5 and nothing reads it. The site "
+            "publishes one measure per term and the reader composes the group; see the "
+            "v5 note in the file's header"
+        )
+
+    check_nesting(terms)
+    derived = _derived(raw, terms)
 
     if check_lock:
         _check_committed_lock(terms, version, anchor)
