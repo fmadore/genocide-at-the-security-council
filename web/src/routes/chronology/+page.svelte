@@ -10,6 +10,7 @@
 	import Figure from '$lib/Figure.svelte';
 	import Heatmap from '$lib/Heatmap.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import { figureId } from '$lib/figures';
 	import PageMeta from '$lib/PageMeta.svelte';
 	import {
 		chronologyParams,
@@ -18,6 +19,8 @@
 		type ChronologyChoices,
 		type ChronologyUnit as Unit,
 		bandBounds,
+		calendarRecovery,
+		type CalendarRecovery,
 		bandOwner,
 		intervalBand,
 		isIntervalBand,
@@ -74,6 +77,7 @@
 	import type { BreakdownRow, CouncilEvent, Measure } from '$lib/types';
 	import type { EChartsOption, LineSeriesOption } from 'echarts';
 	import { urlState } from '$lib/url-state.svelte';
+	import { tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 
@@ -254,6 +258,31 @@
 		linkable ? (evidence(byMonth, gridMeasure, cell)[0] ?? null) : null;
 	const rowLink = (row: CalendarRow) =>
 		linkable ? (pooledEvidence(byMonth, gridMeasure, row)[0] ?? null) : null;
+
+	/* --- When the calendar refuses ----------------------------------------
+	   Each refusal offers the nearest figure that can be drawn rather than only
+	   saying why this one cannot: `calendarRecovery` in `$lib/chronology`. */
+	const recovery = $derived(
+		calendarRecovery(heat.refusal, gridMeasure, gridMeasures, Object.keys(data.year.terms))
+	);
+	const WORD_LIST = figureId({ title: 'The word list over time' });
+
+	async function recover(step: CalendarRecovery) {
+		if (step.kind === 'measure') {
+			gridMeasure = step.measure;
+			return;
+		}
+		// The same measure in the same unit, by year, on the plate above. Focus
+		// follows the reader there, so the keyboard does not stay on a button
+		// that has just sent them elsewhere.
+		grain = 'year';
+		unit = heat.unit;
+		if (step.measure && !selected.includes(step.measure)) selected = [...selected, step.measure];
+		await tick();
+		const plate = document.getElementById(WORD_LIST);
+		plate?.scrollIntoView({ block: 'start' });
+		plate?.querySelector<HTMLElement>('h2 a')?.focus({ preventScroll: true });
+	}
 
 	/** Every measure and every month, including the 53 that carry no rate. */
 	function monthTable(): ExportRequest {
@@ -1403,6 +1432,17 @@
 				{:else}
 					This measure is not in the data.
 				{/if}
+				{#if recovery}
+					<button type="button" onclick={() => recover(recovery)}>
+						{#if recovery.kind === 'measure'}
+							Show {measureLabel(recovery.measure)} instead
+						{:else if recovery.measure}
+							Show {measureLabel(recovery.measure)} by year
+						{:else}
+							Show the word list by year
+						{/if}
+					</button>
+				{/if}
 			</p>
 		{:else}
 			<Heatmap
@@ -1847,6 +1887,13 @@
 		font-size: var(--step--1);
 		padding: var(--sp-6) 0;
 		text-align: center;
+	}
+
+	/* The way out of a refusal: the global button, on a line of its own under
+	   the sentence that says why there is nothing to draw. */
+	.empty button {
+		display: block;
+		margin: var(--sp-3) auto 0;
 	}
 
 	/* The bar *is* the table. Length is drawn in the row's own background, so the

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	calendarRecovery,
 	chronologyParams,
 	readChronologyState,
 	splitEvidenceQuery,
@@ -322,5 +323,45 @@ describe('term strokes', () => {
 		const stroke = termStrokes(['unfiled'], () => undefined, p).get('unfiled')!;
 		expect(stroke.color).toBe(p.ink);
 		expect(stroke.color).not.toBe(p.accent);
+	});
+});
+
+describe('a way out of the calendar’s refusals', () => {
+	const monthly = ['genocide', 'war_crimes'];
+	const yearly = ['genocide', 'war_crimes', 'massacre'];
+
+	it('offers nothing while the calendar draws', () => {
+		expect(calendarRecovery(null, 'genocide', monthly, yearly)).toBeNull();
+	});
+
+	it('offers the headline measure when the asked-for one is not in the calendar', () => {
+		expect(calendarRecovery('no-measure', 'massacre', monthly, yearly)).toEqual({
+			kind: 'measure',
+			measure: 'genocide'
+		});
+		expect(calendarRecovery('no-measure', 'massacre', ['war_crimes'], yearly)).toEqual({
+			kind: 'measure',
+			measure: 'war_crimes'
+		});
+	});
+
+	it('offers the year when the calendar has no measure to fall back on', () => {
+		expect(calendarRecovery('no-measure', 'massacre', [], yearly)).toEqual({
+			kind: 'yearly',
+			measure: 'massacre'
+		});
+		expect(calendarRecovery('no-measure', '', [], yearly)).toEqual({
+			kind: 'yearly',
+			measure: null
+		});
+	});
+
+	it('offers the same measure by year when no month reached the minimum', () => {
+		// The minimum is on the month's own speeches, so another measure would
+		// refuse in the same way; only a coarser grain can draw.
+		expect(calendarRecovery('none-drawable', 'genocide', monthly, yearly)).toEqual({
+			kind: 'yearly',
+			measure: 'genocide'
+		});
 	});
 });
