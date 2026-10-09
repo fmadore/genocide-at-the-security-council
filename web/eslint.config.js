@@ -60,7 +60,8 @@ export default ts.config(
 			'static/',
 			'node_modules/',
 			'test-results/',
-			'playwright-report/'
+			'playwright-report/',
+			'coverage/'
 		]
 	}
 );

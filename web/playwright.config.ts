@@ -11,6 +11,9 @@ export default defineConfig({
 	workers: 1,
 	forbidOnly: Boolean(process.env.CI),
 	retries: process.env.CI ? 2 : 0,
+	// A test that passes only on a retry is reported as failed in CI rather
+	// than as green: the retry is there to say a test is flaky, not to hide it.
+	failOnFlakyTests: Boolean(process.env.CI),
 	reporter: process.env.CI ? 'github' : 'list',
 	use: {
 		baseURL: origin,

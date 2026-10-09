@@ -19,3 +19,4 @@ static/geo/
 # Upstream licence texts travel with the fonts verbatim. Reformatting the terms
 # of a licence is not ours to do.
 src/fonts/LICENSE-*
+coverage/

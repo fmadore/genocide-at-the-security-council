@@ -16,6 +16,16 @@ export default defineConfig({
 	test: {
 		environment: 'node',
 		include: ['src/**/*.test.ts'],
+		// Reported, not enforced: `npm run test:coverage` says which modules the
+		// suite reaches. A threshold would reward tests written for the number
+		// rather than for a decision, so there is none.
+		coverage: {
+			provider: 'v8',
+			include: ['src/**/*.ts'],
+			exclude: ['src/**/*.test.ts'],
+			reporter: ['text-summary', 'text', 'html'],
+			reportsDirectory: 'coverage'
+		},
 		alias: {
 			// `$app/paths` is a SvelteKit virtual module and has no file behind it.
 			// Aliased once here rather than mocked in each spec, so the next person

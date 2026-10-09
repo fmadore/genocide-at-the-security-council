@@ -4,3 +4,4 @@ build/
 static/data/
 test-results/
 playwright-report/
+coverage/

@@ -9,6 +9,7 @@ npm run dev      # http://localhost:5173/genocide-at-the-security-council/
 npm run check    # svelte-check
 npm run lint     # prettier + eslint
 npm test         # vitest — unit tests over the modules the views compute with
+npm run test:coverage # the same, with a coverage report in coverage/ (reported, no threshold)
 npm run test:e2e # Playwright — Chromium journeys over tiny fixtures
 npm run test:e2e:sw # Playwright — built-site reader recovery while offline
 npm run build    # → build/, then verify-static.mjs checks every public route arrived
