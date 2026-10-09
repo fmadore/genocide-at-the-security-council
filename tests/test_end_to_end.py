@@ -33,7 +33,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-from lib import lexicon
+from conftest import make_speeches
 
 ROOT = Path(__file__).resolve().parents[1]
 GOLDEN = Path(__file__).resolve().parent / "golden"
@@ -42,17 +42,18 @@ SCRIPTS = ROOT / "scripts"
 VOCABULARY = ["council", "peace", "security", "report", "situation", "region", "conflict", "civilians", "protection", "humanitarian", "mission", "resolution", "justice", "tribunal", "accountability", "prevention"]
 
 
-def synthetic_corpus(seed: int = 20_260_902) -> pd.DataFrame:
-    """Thirty-two years of speeches with the word clustering into a few debates.
+def synthetic_corpus(seed: int = 20_260_902, first_year: int = 1992) -> pd.DataFrame:
+    """Years of speeches up to 2023, with the word clustering into a few debates.
 
-    Every column 04 and 08 read is here, with the lexicon flags computed by
-    `lexicon.apply` from the text, exactly as 03 computes them.
+    Built by `conftest.make_speeches`, so every column of the normalised corpus
+    is here and the source flags agree with the speaker groups as 02 makes
+    them, with the lexicon flags computed by `lexicon.apply` from the text,
+    exactly as 03 computes them.
     """
     rng = np.random.default_rng(seed)
-    lex = lexicon.load()
     rows: list[dict[str, object]] = []
     speakers = ["France", "Rwanda", "Nigeria", "China"]
-    for year in range(1992, 2024):
+    for year in range(first_year, 2024):
         for meeting in range(6):
             dense = meeting == 0 and year in (1994, 2014)
             symbol = f"S/PV.{3000 + (year - 1992) * 10 + meeting}"
@@ -90,15 +91,15 @@ def synthetic_corpus(seed: int = 20_260_902) -> pd.DataFrame:
                         "participanttype": "member",
                         "agenda_item1": "Africa",
                         "agenda_item_manual": str(rng.choice(["Rwanda", "Syria"])),
-                        "spoken_language": "" if rng.random() < 0.7 else "French",
-                        "speech_format": "in-person",
                         "text": opening + body,
                         "body_start": len(opening),
                     }
                 )
-    frame = pd.DataFrame(rows)
-    flags = lexicon.apply(frame["text"].str.slice(frame["body_start"].iloc[0]), lex)
-    return pd.concat([frame, flags], axis=1)
+                # Drawn and thrown away: every value after it, and so every
+                # golden value, depends on the generator's position, and this
+                # draw belongs to a column the corpus does not have.
+                rng.random()
+    return make_speeches(rows, flagged=True)
 
 
 #: Golden floats are compared to one part in a billion rather than to the last

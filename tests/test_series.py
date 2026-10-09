@@ -14,6 +14,7 @@ from typing import ClassVar
 import numpy as np
 import pandas as pd
 import pytest
+from conftest import make_speeches
 from lib import series
 
 YEARS = list(range(1992, 2024))
@@ -41,7 +42,7 @@ def corpus():
                     "n_genocide": 3 if i == 0 else 0,
                 }
             )
-    return pd.DataFrame(rows)
+    return make_speeches(rows)
 
 
 class TestPeriods:
@@ -636,7 +637,7 @@ def _meetings(hits_per_meeting: list[int], speeches: int = 10, year: int = 2000)
                     "has_war_crimes": i < hits,
                 }
             )
-    return pd.DataFrame(rows)
+    return make_speeches(rows)
 
 
 class TestMeetingBootstrap:
@@ -726,10 +727,10 @@ def _decomposition_corpus(cells: dict[int, dict[str, tuple[int, int]]]) -> pd.Da
     for year, groups in cells.items():
         for group, (speeches, hits) in groups.items():
             rows.extend(
-                {"year": year, "agenda": group, "has_genocide": i < hits}
+                {"year": year, "agenda_item_manual": group, "has_genocide": i < hits}
                 for i in range(speeches)
             )
-    return pd.DataFrame(rows)
+    return make_speeches(rows)
 
 
 class TestRateDecomposition:
@@ -748,7 +749,7 @@ class TestRateDecomposition:
     def decompose(self, cells=None) -> list[dict[str, object]]:
         frame = _decomposition_corpus(cells or self.CELLS)
         return series.rate_decomposition(
-            frame, series.period(frame, "year"), "has_genocide", "agenda"
+            frame, series.period(frame, "year"), "has_genocide", "agenda_item_manual"
         )
 
     def test_a_hand_worked_example(self):

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import pandas as pd
+from conftest import make_speeches
 from lib import scopes
 
 
 def corpus() -> pd.DataFrame:
-    return pd.DataFrame(
+    return make_speeches(
         {
             "meeting_symbol": ["A", "A", "B", "C"],
             "year": [1994, 1994, 1995, 1995],

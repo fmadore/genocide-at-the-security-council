@@ -19,6 +19,7 @@ import json
 
 import pandas as pd
 import pytest
+from conftest import make_speeches
 from lib import actors, council
 
 # --- Fixtures --------------------------------------------------------------
@@ -60,7 +61,9 @@ def corpus() -> pd.DataFrame:
         speech(1000 + i, "Quiet", 1995, 200, term=i < 2, count=2 if i == 0 else (1 if i == 1 else 0))
         for i in range(5)
     ]
-    return pd.DataFrame(rows)
+    # Only the columns given: the drift tests below read the legacy roster,
+    # which `council.speaker_group` consults only when the source flags are absent.
+    return make_speeches(rows, complete=False)
 
 
 def mixed_corpus() -> pd.DataFrame:
@@ -75,7 +78,7 @@ def mixed_corpus() -> pd.DataFrame:
         for i in range(3)
     ]
     extra += [speech(3000 + i, "Secretariat", 2005, 400, term=False) for i in range(2)]
-    return pd.concat([corpus(), pd.DataFrame(extra)], ignore_index=True)
+    return pd.concat([corpus(), make_speeches(extra, complete=False)], ignore_index=True)
 
 
 def crosswalk() -> pd.DataFrame:

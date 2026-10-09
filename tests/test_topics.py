@@ -22,6 +22,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+from conftest import make_speeches
 from lib import topics
 
 # --- Adjusted Rand index ---------------------------------------------------
@@ -150,7 +151,7 @@ def test_ctfidf_of_an_all_unassigned_run_is_empty() -> None:
 
 def frame(n: int = 400) -> pd.DataFrame:
     years = np.tile(np.arange(1992, 2024), n // 32 + 1)[:n]
-    return pd.DataFrame(
+    return make_speeches(
         {
             "row_id": [f"r{i:04d}" for i in range(n)],
             "year": years,

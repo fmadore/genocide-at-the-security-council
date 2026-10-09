@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 import pandas as pd
+from conftest import make_speeches
 from lib import actors, lexicon, series
 
 STEP = Path(__file__).resolve().parents[1] / "scripts" / "11_countries.py"
@@ -40,15 +41,8 @@ def loaded_corpus() -> pd.DataFrame:
         _speech(1000 + i, "Quiet", 1995, 200, term=i < 2, count=2 if i == 0 else (1 if i == 1 else 0))
         for i in range(5)
     ]
-    frame = pd.DataFrame(rows)
-    frame = frame.assign(
-        source_state=True,
-        source_un_org=False,
-        source_igo=False,
-        source_ngo=False,
-        source_permanent_member=False,
-        source_elected_member=True,
-    )
+    # The source flags follow from `entity_type` and `speaker_group`, as 02 reads them.
+    frame = make_speeches(rows)
     wanted = actors.COLUMNS + [
         column
         for kind, name in actors.TRACKED
