@@ -417,7 +417,7 @@ def validated(
     return rows, schema_counts, superseded
 
 
-def refuse_partial(annotated: int, total: int, allow: bool) -> None:
+def refuse_partial(annotated: int, total: int, allow: bool, *, run_id: str = "") -> None:
     """A gap is reported honestly or refused, never averaged over."""
     if annotated >= total:
         return
@@ -428,8 +428,10 @@ def refuse_partial(annotated: int, total: int, allow: bool) -> None:
             [
                 f"{missing:,} occurrences are missing, so every count here would be a "
                 "floor of unknown depth",
-                "resume the run with 14_llm_annotate.py --poll, or pass --allow-partial "
-                "to publish the coverage as it stands",
+                f"resume it with 14_llm_annotate.py --run-id {run_id or '<run id>'} and the "
+                "model and sampling settings it was started with (on the cluster, resubmit "
+                "the identical submit_annotate.sh command); completed speeches are skipped",
+                "or pass --allow-partial to publish the coverage as it stands",
             ],
         )
     console.warn(

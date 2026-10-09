@@ -1102,7 +1102,7 @@ def run(args: argparse.Namespace) -> None:
     raw_rows, schema_counts, superseded = usage_refusals.validated(
         manifest, raw_rows, lex=lex, enumerated=enumerated, referent_list=referent_list
     )
-    usage_refusals.refuse_partial(len(raw_rows), len(found), args.allow_partial)
+    usage_refusals.refuse_partial(len(raw_rows), len(found), args.allow_partial, run_id=run_id)
     console.info(
         f"referent list v{referent_list.version}: {len(referent_list.current)} current, "
         f"{len(referent_list.retired_in)} retired, every row validated against them"

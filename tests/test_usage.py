@@ -1750,3 +1750,25 @@ def test_a_delegation_is_exposed_from_the_first_debate_that_named_the_case() -> 
         {"actor": "Rwanda", "date": "1994-05-01"},
     ]
     assert exposed["gaza"] == [{"actor": "Rwanda", "date": "1995-01-01"}]
+
+
+# --- A coverage gap -----------------------------------------------------------
+
+
+def test_the_resume_advice_names_only_flags_step_14_accepts(capsys) -> None:
+    """The advice once named `--poll`, a flag step 14 had dropped."""
+    import subprocess
+    import sys
+
+    with pytest.raises(SystemExit):
+        usage_refusals.refuse_partial(9, 10, False, run_id="2026-09-08-qwen-131k")
+    printed = capsys.readouterr()
+    advice = printed.out + printed.err
+    assert "14_llm_annotate.py --run-id 2026-09-08-qwen-131k" in advice
+    usage_text = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "14_llm_annotate.py"), "--help"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    resume = advice.split("14_llm_annotate.py", 1)[1].split("\n", 1)[0]
+    for flag in re.findall(r"--[a-z][a-z-]+", resume):
+        assert flag in usage_text, flag
