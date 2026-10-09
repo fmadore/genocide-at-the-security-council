@@ -15,9 +15,6 @@ The reporting vocabulary is deliberately small:
 from __future__ import annotations
 
 import sys
-import time
-from collections.abc import Iterator
-from contextlib import contextmanager
 
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
@@ -46,15 +43,6 @@ def fail(message: str, problems: list[str] | None = None) -> None:
     for problem in problems or []:
         print(f"  - {problem}", file=sys.stderr)
     sys.exit(1)
-
-
-@contextmanager
-def timed(message: str) -> Iterator[None]:
-    """Time a phase and report how long it took."""
-    step(message)
-    started = time.monotonic()
-    yield
-    info(f"({time.monotonic() - started:.1f}s)")
 
 
 def table(rows: list[tuple[str, object]], indent: str = "   ") -> None:

@@ -74,11 +74,6 @@ COLUMNS: Final = [
 BASE_OUTPUT_TOKENS: Final = 32_000
 PER_OCCURRENCE_TOKENS: Final = 1_200
 
-#: Requests per batch file. The API ceilings are far higher; this is about how
-#: much is in flight behind one id when something goes wrong, and about getting
-#: the first rows onto disk within hours rather than at the end.
-BATCH_CHUNK: Final = 400
-
 
 @dataclass(frozen=True)
 class Speech:

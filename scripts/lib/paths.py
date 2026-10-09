@@ -35,7 +35,6 @@ INTERIM = DATA / "interim"  # intermediate artefacts
 DERIVED = DATA / "derived"  # canonical parquet + analysis outputs
 
 CONFIG = ROOT / "config"
-DOCS = ROOT / "docs"
 NOTES = _root("GENOCIDE_NOTES_ROOT", ROOT / "notes")  # Markdown findings notes emitted by scripts
 WEB_DATA = _root("GENOCIDE_WEB_DATA_ROOT", ROOT / "web" / "static" / "data")  # dashboard payloads
 

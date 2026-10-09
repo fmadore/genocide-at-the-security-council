@@ -21,7 +21,6 @@ TERM = "genocide"
 
 STORE = MODEL_ANNOTATIONS / TERM
 PROMPT = STORE / "PROMPT.md"
-PROMPTS = STORE / "prompts"
 #: The occurrences behind the prompt's worked examples, which 13 keeps out of
 #: every gold frame; written by `tools/map_prompt_examples.py`.
 PROMPT_EXAMPLES = STORE / "prompt_examples.csv"

@@ -227,28 +227,6 @@ ANNOTATION_FIELDS = (
     "comment",
 )
 
-#: The schema-2 columns, for reading a file coded before the split. No such file
-#: exists — both `annotations.csv` are header-only, and always were — so this
-#: says what version 2 was and is the shape a migration would read.
-LEGACY_ANNOTATION_FIELDS = (
-    "occurrence_id",
-    "schema_version",
-    "lexicon_version",
-    "coder",
-    "coded_at",
-    "verdict",
-    "source_checked",
-    "quotation",
-    "stance",
-    "function",
-    "referent",
-    "evidence_start",
-    "evidence_end",
-    "confidence",
-    "comment",
-)
-
-
 def source_sha256(text: str) -> str:
     """A digest that invalidates an occurrence identity when its source changes."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
