@@ -11,6 +11,7 @@
 #   make raw        fetch or MD5-verify the pinned corpus (always runs 00)
 #   make cluster    the GPU / spaCy steps, on a machine that has them
 #   make -n payload what would run, and in what order
+#   make clean      delete what `make payload` writes, and nothing else
 #
 # 14 is never a target: it reserves a cluster GPU and writes a reviewed run.
 # 15 aggregates the run named in model_annotations/genocide/current_run.txt.
@@ -56,6 +57,7 @@ SPEAKER_KEYNESS := data/derived/speaker_keyness/speaker_keyness.json
 GOLD      := $(addprefix data/interim/genocide_gold_,candidates.csv review.csv probability.csv coverage.csv disagreement.csv model_strata.csv packet.csv design.csv)
 USAGE     := data/derived/usage/usage.json data/derived/usage/occurrences.json
 NODE_FRAMES := data/derived/frames/frames.json data/derived/frames/occurrences.json
+ACTOR_YEAR := data/derived/actor_year/actor_year.csv
 PAYLOAD   := web/static/data/manifest.json
 
 EMBEDDINGS := data/derived/embeddings/manifest.json
@@ -63,7 +65,7 @@ TOPICS     := data/derived/topics/manifest.json
 LEMMAS     := data/derived/lemmas/lemmas.parquet
 LEXICAL_LEMMA := data/derived/lexical_lemma/collocates.json
 
-.PHONY: all payload derived raw cluster clean robustness robustness-lemma robustness-extended semantic
+.PHONY: all payload derived raw cluster clean wipe-data robustness robustness-lemma robustness-extended semantic
 
 all: payload
 
@@ -126,13 +128,13 @@ $(USAGE) &: $(NORM) $(GOLD) scripts/15_usage.py $(LIB_15_USAGE) config/lexicon.y
 $(NODE_FRAMES) &: $(FLAGGED) scripts/17_frames.py $(LIB_17_FRAMES) config/lexicon.yml $(MODEL_INPUTS) $(REFERENTS)
 	$(PY) scripts/17_frames.py
 
-data/derived/actor_year/actor_year.csv: $(FLAGGED) scripts/20_actor_year.py $(LIB_20_ACTOR_YEAR)
+$(ACTOR_YEAR): $(FLAGGED) scripts/20_actor_year.py $(LIB_20_ACTOR_YEAR)
 	$(PY) scripts/20_actor_year.py
 
-derived: $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(GOLD) $(USAGE) $(NODE_FRAMES) data/derived/actor_year/actor_year.csv
+derived: $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(GOLD) $(USAGE) $(NODE_FRAMES) $(ACTOR_YEAR)
 
 # --- The site's payload -------------------------------------------------------
-$(PAYLOAD): $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(USAGE) $(NODE_FRAMES) scripts/export_web.py $(LIB_EXPORT_WEB) tests/contract/payload.json config/semantic-release.json data/derived/actor_year/actor_year.csv $(wildcard data/derived/semantic/manifest.json)
+$(PAYLOAD): $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(USAGE) $(NODE_FRAMES) scripts/export_web.py $(LIB_EXPORT_WEB) tests/contract/payload.json config/semantic-release.json $(ACTOR_YEAR) $(wildcard data/derived/semantic/manifest.json)
 	$(PY) scripts/export_web.py
 
 payload: $(PAYLOAD)
@@ -168,5 +170,32 @@ robustness-extended: $(FLAGGED)
 semantic: $(FLAGGED) $(EMBEDDINGS)
 	$(PY) scripts/21_semantic_map.py
 
+# What the payload's recipes write, and nothing else: their targets, the
+# directories each step owns whole, the side files 03, 13 and 15 regenerate on
+# every run, and the payload itself. Everything else under data/ is something
+# this Makefile cannot rebuild: the corpus, the semantic release, the GPU-only
+# embeddings, lemmas and topics, the model runs' raw responses and probes, and
+# anything kept there by hand.
+PAYLOAD_DIRS := $(sort $(patsubst %/,%,$(dir $(SERIES) $(LEXICAL) $(KWIC) $(COUNTRIES) $(SPEAKER_KEYNESS) $(USAGE) $(NODE_FRAMES) $(ACTOR_YEAR))))
+PAYLOAD_SIDE_FILES := \
+	$(addprefix data/derived/manifests/,01_build_parquet.json 02_normalise.json 03_lexicon.json 13_gold_sample.json 15_usage.json) \
+	$(addprefix data/interim/lexicon_audit_,candidates.csv review.csv probability.csv coverage.csv negative.csv) \
+	data/interim/genocide_first_events.csv
+
 clean:
-	rm -rf data/derived data/interim web/static/data
+	rm -rf $(SPEECHES) $(MEETINGS) $(NORM) $(FLAGGED) $(GOLD) $(PAYLOAD_DIRS) $(PAYLOAD_SIDE_FILES) web/static/data $(wildcard web/static/.data.*)
+
+# The full wipe `clean` used to be, for when the cluster results really should
+# go: everything under data/derived and data/interim, and the payload. It asks
+# first, and a run without a terminal to answer it deletes nothing.
+wipe-data:
+	@echo "This deletes everything under data/derived and data/interim, and web/static/data,"
+	@echo "including results only the GPU cluster can rebuild (embeddings, lemmas, topics,"
+	@echo "llm_raw, probes) and anything kept there by hand. 'make clean' removes only"
+	@echo "what 'make payload' rebuilds."
+	@printf 'Type "wipe" to delete them: '; read answer; \
+	 [ "$$answer" = wipe ] || { echo "Nothing deleted."; exit 1; }
+	for d in data/derived data/interim; do \
+	  if [ -d "$$d" ]; then find "$$d" -mindepth 1 -maxdepth 1 ! -name .gitkeep -exec rm -rf {} +; fi; \
+	done
+	rm -rf web/static/data
