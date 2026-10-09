@@ -1037,6 +1037,25 @@ export const kwicIndex = at<KwicIndex>('kwic/index.json');
 export const meetingIndex = at<MeetingIndex>('meetings.json', validateMeetingIndex);
 export const scopeIndex = at<ScopeIndex>('scopes.json', validateScopeIndex);
 
+/**
+ * The payload's own manifest, `data/manifest.json`, as JSON — or null.
+ *
+ * Not one of the artefacts above, and deliberately not held to `REQUIRED`:
+ * `export_web.py` writes it after the contract check, to say when the payload
+ * was built and from which commit, and the only thing drawn from it is the
+ * footer's build line. A payload without one (a development tree, an older
+ * build) loses that line and nothing else, so every failure here is a null
+ * rather than a refusal. `readBuild` in `$lib/build` decides what of it to use.
+ */
+export async function payloadManifest(fetcher: typeof fetch = fetch): Promise<unknown> {
+	try {
+		const response = await fetcher(`${base}/data/manifest.json`);
+		return response.ok ? ((await response.json()) as unknown) : null;
+	} catch {
+		return null;
+	}
+}
+
 /* Fetched by name rather than fixed, so the path is built per call. */
 export const kwic = (term: string, f?: typeof fetch) =>
 	json<KwicFile>(`kwic/${encodeURIComponent(term)}.json`, f, REQUIRED['kwic/*.json']);

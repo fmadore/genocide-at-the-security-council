@@ -240,6 +240,23 @@ describe('an artefact a page can draw without', () => {
 	});
 });
 
+describe('the payload manifest behind the footer', () => {
+	it('hands over the manifest as it is, for `$lib/build` to read', async () => {
+		const { payloadManifest } = await fresh();
+		const manifest = { generated: '2026-09-14T08:58:33Z', git_commit: 'abc' };
+		await expect(payloadManifest(responder(manifest).fetcher)).resolves.toEqual(manifest);
+	});
+
+	it('is null, never a refusal, when there is none or it cannot be reached', async () => {
+		const { payloadManifest } = await fresh();
+		const absent = responder(null, { ok: false, status: 404 });
+		await expect(payloadManifest(absent.fetcher)).resolves.toBeNull();
+		const offline = (() =>
+			Promise.reject(new TypeError('Failed to fetch'))) as unknown as typeof fetch;
+		await expect(payloadManifest(offline)).resolves.toBeNull();
+	});
+});
+
 describe('the validators that are about the research rather than the types', () => {
 	it('keeps reading scopes separate from the fixed corpus denominator', async () => {
 		const { meetingIndex } = await fresh();
