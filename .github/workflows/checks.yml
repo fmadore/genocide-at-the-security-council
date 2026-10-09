@@ -5,6 +5,9 @@
 # tests/test_config.py runs against those real files — and any path filter that
 # forgets one reintroduces exactly the gap it was meant to close. Neither job
 # needs data or network beyond its own package installs.
+#
+# The deploy calls this file too (`workflow_call`) and publishes only when every
+# job here passes.
 
 name: Checks
 
@@ -13,12 +16,17 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: checks-${{ github.ref }}
+  # `github.workflow` in the group because a called workflow runs under its
+  # caller's name. With a fixed prefix, the deploy's copy of these checks and
+  # the standalone run for the same push would share a group, and each would
+  # cancel the other.
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

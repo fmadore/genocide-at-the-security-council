@@ -80,6 +80,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A push that failed the checks used to deploy anyway. Calling them from
+  # here, rather than waiting on the separate Checks run, keeps this
+  # workflow's path filter: a `workflow_run` trigger would follow every Checks
+  # run, whatever the push touched. The cost is that a push to main that
+  # starts a deploy runs the checks twice, once in each workflow, about six
+  # runner-minutes. The rebuild does not wait for them; only publishing does,
+  # so a deploy takes as long as the slower of the two rather than their sum.
+  # A flaky check now holds back a publish until it is re-run.
+  checks:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/checks.yml
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -206,7 +219,7 @@ jobs:
           path: web/build
 
   deploy:
-    needs: build
+    needs: [checks, build]
     runs-on: ubuntu-latest
     environment:
       name: github-pages

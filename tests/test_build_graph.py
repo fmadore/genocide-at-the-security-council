@@ -42,6 +42,14 @@ def test_deploy_tracks_graph_and_contract():
                for step in workflow["jobs"]["build"]["steps"])
 
 
+def test_the_deploy_publishes_only_after_the_checks_pass():
+    workflow, _ = _deploy()
+    checks = yaml.safe_load((ROOT / ".github/workflows/checks.yml").read_text(encoding="utf-8"))
+    assert "workflow_call" in checks.get("on", checks.get(True))
+    assert workflow["jobs"]["checks"]["uses"] == "./.github/workflows/checks.yml"
+    assert "checks" in workflow["jobs"]["deploy"]["needs"]
+
+
 def _github_glob(pattern: str) -> re.Pattern[str]:
     """GitHub's path-filter globs: `**` crosses directories, `*` does not."""
     regex, i = "", 0
