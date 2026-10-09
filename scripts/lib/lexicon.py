@@ -38,13 +38,15 @@ against the raw text would inflate every country name and the word "President".
 from __future__ import annotations
 
 import bisect
+import functools
 import hashlib
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import yaml
 
@@ -159,8 +161,8 @@ class Term:
                 kept.append(match.span())
         return kept
 
-    def count(self, texts: pd.Series) -> pd.Series:
-        """Occurrences of this term in each text.
+    def candidates(self, texts: pd.Series, haystack: Haystack | None = None) -> pd.Series:
+        """The texts that could hold a match: those holding one of the literals.
 
         The prefilters are a fast path and never a second filter: `load` refuses
         a literal that is not a whitespace-free ASCII token, and
@@ -177,24 +179,154 @@ class Term:
         therefore in its text, so requiring the literal cannot lose one, and it
         keeps sentence segmentation off the hundred thousand speeches that never
         say the word.
+
+        `haystack`, a :class:`Haystack` over `texts`, gives the same answer
+        faster; a caller testing many literals against one corpus builds it
+        once.
         """
-        candidates = pd.Series(False, index=texts.index)
+        if haystack is None:
+            haystack = Haystack(texts)
+        elif not haystack.index.equals(texts.index):
+            raise ValueError("the haystack was built from different texts")
+        found = np.zeros(len(texts), dtype=bool)
         for literal in self.prefilters:
-            candidates |= texts.str.contains(literal, case=False, regex=False, na=False)
+            found |= haystack.contains(literal)
         if self.anchor is not None:
-            candidates &= texts.str.contains(
-                self.anchor_prefilter, case=False, regex=False, na=False
-            )
+            found &= haystack.contains(self.anchor_prefilter)
+        return pd.Series(found, index=texts.index)
+
+    def find(
+        self, texts: pd.Series, haystack: Haystack | None = None
+    ) -> dict[object, list[tuple[int, int]]]:
+        """Every span this term counts, keyed by text, for the texts holding one.
+
+        In the order of `texts`. :meth:`count` is the lengths of these; a step
+        that also needs the spans themselves keeps this and skips matching every
+        text a second time.
+        """
+        sources = texts.loc[self.candidates(texts, haystack)]
+        found: dict[object, list[tuple[int, int]]] = {}
+        for index, source in sources.items():
+            spans = self.spans(source)
+            if spans:
+                found[index] = spans
+        return found
+
+    def count(
+        self,
+        texts: pd.Series,
+        haystack: Haystack | None = None,
+        *,
+        found: Mapping[object, list[tuple[int, int]]] | None = None,
+    ) -> pd.Series:
+        """Occurrences of this term in each text.
+
+        `found` is :meth:`find` over the same texts, when the caller has it.
+        """
+        if found is None:
+            found = self.find(texts, haystack)
         counts = pd.Series(0, index=texts.index, dtype="int64")
-        if candidates.any():
-            sources = texts.loc[candidates]
-            matched = pd.Series(
-                [len(self.spans(source)) for source in sources],
-                index=sources.index,
-                dtype="int64",
-            )
-            counts.loc[candidates] = matched
+        if found:
+            counts.loc[list(found)] = [len(spans) for spans in found.values()]
         return counts
+
+
+def _reaching_ascii(last: int) -> list[str]:
+    """Non-ASCII characters up to code point `last` whose upper case holds ASCII."""
+    return [
+        chr(point)
+        for point in range(0x80, last + 1)
+        if not 0xD800 <= point <= 0xDFFF
+        and any(ord(upper) < 0x80 for upper in chr(point).upper())
+    ]
+
+
+@functools.cache
+def _upper_reaches_ascii() -> re.Pattern[str]:
+    """The non-ASCII characters whose upper case holds an ASCII character.
+
+    The dotless i (U+0131) upper-cases to 'I', the sharp s (U+00DF) to 'SS',
+    the fi ligature (U+FB01) to 'FI': in a text holding one of these,
+    `str.upper` can make a literal's match that upper-casing ASCII alone does
+    not. Read from the running Python's own case tables, so the set is
+    whatever `str.upper` does rather than a list kept beside it. Only the
+    Basic Multilingual Plane is read: no character beyond it upper-cases into
+    ASCII, which `tests/test_lexicon.py` checks against every code point for
+    the running Python, and reading all of them would cost every step a second.
+    """
+    reach = _reaching_ascii(0xFFFF)
+    return re.compile("[" + "".join(re.escape(character) for character in reach) + "]")
+
+
+class Haystack:
+    """Texts prepared once for the prefilters' case-insensitive substring tests.
+
+    :meth:`contains` answers exactly what `str.contains(literal, case=False,
+    regex=False, na=False)` answers on an object column, which is upper-case
+    containment run in Python: every call upper-cases every text again, and
+    :func:`apply` makes some fifty calls over the corpus. Here the texts are
+    upper-cased once, into one buffer, and each literal becomes a byte search
+    that jumps to the next text at its first hit, remembered for the next term
+    that names the same literal.
+
+    The texts are upper-cased in ASCII only (`bytes.upper`). For an ASCII
+    literal that is the same test, because a match of an ASCII literal lies
+    inside a run of ASCII characters and both upper-casings treat those alike —
+    except in a text holding a character whose upper case contains ASCII (see
+    :func:`_upper_reaches_ascii`). Those few texts are tested as `str.contains`
+    tests them, and so is any literal that is not ASCII. A NUL byte separates
+    the texts, so no literal can match across two of them. Arrow strings'
+    case-insensitive search is not used: it folds case with RE2's Unicode
+    tables, which match the Kelvin sign for `k` where upper-casing does not, so
+    its candidates could differ from the ones every count was taken with.
+    """
+
+    def __init__(self, texts: pd.Series) -> None:
+        self.index = texts.index
+        values = texts.to_list()
+        reach = _upper_reaches_ascii()
+        self._missing = np.array([not isinstance(text, str) for text in values], dtype=bool)
+        self._texts = [text if isinstance(text, str) else "" for text in values]
+        self._special = [
+            (position, text.upper())
+            for position, text in enumerate(self._texts)
+            if reach.search(text)
+        ]
+        # Built a text at a time, so no second copy of the whole corpus is
+        # ever held.
+        self._buffer = bytearray()
+        self._starts: list[int] = []
+        for text in self._texts:
+            self._starts.append(len(self._buffer))
+            self._buffer += text.encode("utf-8").upper()
+            self._buffer += b"\x00"
+        self._starts.append(len(self._buffer))
+        self._cache: dict[str, np.ndarray] = {}
+
+    def contains(self, literal: str) -> np.ndarray:
+        """Which texts hold `literal`, case aside, as a boolean array."""
+        found = self._cache.get(literal)
+        if found is not None:
+            return found
+        needle = literal.upper()
+        if needle and needle.isascii() and "\x00" not in needle:
+            found = np.zeros(len(self._texts), dtype=bool)
+            pattern = needle.encode("ascii")
+            starts = self._starts
+            position = self._buffer.find(pattern)
+            while position != -1:
+                text = bisect.bisect_right(starts, position) - 1
+                found[text] = True
+                position = self._buffer.find(pattern, starts[text + 1])
+            for text, upper in self._special:
+                found[text] = needle in upper
+        else:
+            found = np.array([needle in text.upper() for text in self._texts], dtype=bool)
+        found[self._missing] = False
+        # Shared by every term naming the literal, so nobody may change it.
+        found.flags.writeable = False
+        self._cache[literal] = found
+        return found
 
 
 @dataclass(frozen=True)
@@ -739,7 +871,26 @@ def load(*, check_lock: bool = True) -> Lexicon:
     )
 
 
-def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
+def find_all(
+    bodies: pd.Series, terms: Iterable[Term], haystack: Haystack | None = None
+) -> dict[str, dict[object, list[tuple[int, int]]]]:
+    """:meth:`Term.find` for several terms over one corpus, keyed by term name.
+
+    One :class:`Haystack` serves every term. 03 keeps the result: its counts,
+    its OCR delta and its precision sample are all read from these spans
+    rather than from a fresh pass of the lexicon for each.
+    """
+    if haystack is None:
+        haystack = Haystack(bodies)
+    return {term.name: term.find(bodies, haystack) for term in terms}
+
+
+def apply(
+    bodies: pd.Series,
+    lex: Lexicon,
+    *,
+    found: Mapping[str, Mapping[object, list[tuple[int, int]]]] | None = None,
+) -> pd.DataFrame:
     """Count every active term in every speech body.
 
     Returns a frame of ``n_<term>`` and ``has_<term>`` columns, one such pair
@@ -757,10 +908,15 @@ def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
     it can be made honestly. A derived measure is the one exception that proves
     the rule and is not one: it *subtracts* one term from another rather than
     adding two, and it is declared, checked and published under its own name.
+
+    `found`, from :func:`find_all` over the same bodies, is counted rather than
+    matched again.
     """
+    if found is None:
+        found = find_all(bodies, lex.active)
     counts = pd.DataFrame(index=bodies.index)
     for term in lex.active:
-        counts[f"{COUNT}{term.name}"] = term.count(bodies)
+        counts[f"{COUNT}{term.name}"] = term.count(bodies, found=found[term.name])
         counts[f"{HAS}{term.name}"] = counts[f"{COUNT}{term.name}"] > 0
 
     for measure in lex.derived.values():
@@ -785,33 +941,45 @@ def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
     return counts
 
 
-def ocr_delta(bodies: pd.Series, lex: Lexicon) -> list[dict[str, object]]:
+def ocr_delta(
+    bodies: pd.Series,
+    lex: Lexicon,
+    *,
+    found: Mapping[str, Mapping[object, list[tuple[int, int]]]] | None = None,
+) -> list[dict[str, object]]:
     """Extra speeches each disabled term would add, over the enabled terms.
 
     Reported rather than absorbed: silently folding OCR noise into the headline
     count would overstate how much of it there is.
+
+    `found`, from :func:`find_all` over the same bodies and every term, saves
+    re-counting the enabled terms, which 03 has just counted.
     """
+    if found is None:
+        found = find_all(bodies, lex.terms.values())
     report: list[dict[str, object]] = []
     for term in lex.disabled:
-        found = term.count(bodies) > 0
+        found_here = term.count(bodies, found=found[term.name]) > 0
         # Compare against the terms of the same tier that are switched on.
         peers = [t for t in lex.active if t.tier == term.tier]
         already = pd.Series(False, index=bodies.index)
         for peer in peers:
-            already |= peer.count(bodies) > 0
+            already |= peer.count(bodies, found=found[peer.name]) > 0
         report.append(
             {
                 "term": term.name,
                 "pattern": term.pattern,
-                "speeches": int(found.sum()),
-                "extra": int((found & ~already).sum()),
-                "extra_index": bodies.index[found & ~already].tolist(),
+                "speeches": int(found_here.sum()),
+                "extra": int((found_here & ~already).sum()),
+                "extra_index": bodies.index[found_here & ~already].tolist(),
             }
         )
     return report
 
 
-def check_widenings(bodies: pd.Series, lex: Lexicon) -> list[str]:
+def check_widenings(
+    bodies: pd.Series, lex: Lexicon, haystack: Haystack | None = None
+) -> list[str]:
     """Where this version's declared widenings are not widenings, measured.
 
     A widening promises that every span the old rule counted is still counted,
@@ -822,7 +990,17 @@ def check_widenings(bodies: pd.Series, lex: Lexicon) -> list[str]:
     matches, and any old span the current rule no longer yields is reported.
     Only this version's widenings are checked; an earlier one was checked in the
     release that declared it.
+
+    Where only the anchor widened, the old rule runs the term's own pattern,
+    and every match of that holds one of the term's literals — the promise
+    :meth:`Term.candidates` rests on — so only the bodies holding one are
+    re-run. A replaced pattern makes no such promise: what it matched need not
+    hold the new pattern's literals, least of all where the widening is broken,
+    so it is re-run on every body. `haystack` is a :class:`Haystack` over
+    `bodies`, built here when not given.
     """
+    if haystack is not None and not haystack.index.equals(bodies.index):
+        raise ValueError("the haystack was built from different texts")
     anchor = lex.anchor
     old_anchor = (
         re.compile(anchor.widened_from, re.IGNORECASE)
@@ -842,9 +1020,17 @@ def check_widenings(bodies: pd.Series, lex: Lexicon) -> list[str]:
             )
             continue
         search = old_regex or term.regex
+        texts = bodies
+        if old_regex is None:
+            if haystack is None:
+                haystack = Haystack(bodies)
+            holding = np.zeros(len(bodies), dtype=bool)
+            for literal in term.prefilters:
+                holding |= haystack.contains(literal)
+            texts = bodies.loc[holding]
         lost = 0
         first: str | None = None
-        for index, body in bodies.items():
+        for index, body in texts.items():
             if not search.search(body):
                 continue
             if term_old_anchor is not None and not term_old_anchor.search(body):
