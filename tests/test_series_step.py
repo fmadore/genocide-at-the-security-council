@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 
 import pandas as pd
-from lib import lexicon, scopes, series
+from lib import lexicon, scopes, series, series_payload
 
 step = importlib.import_module("04_series")
 
@@ -65,7 +65,7 @@ def test_the_step_reads_every_measure_and_no_text() -> None:
     assert len(read) == len(set(read))
     for term in lex.active:
         assert {f"has_{term.name}", f"n_{term.name}"} <= set(read), term.name
-    for column, _ in step.BREAKDOWNS:
+    for column, _ in series_payload.BREAKDOWNS:
         assert column in read
-    assert step.CALENDAR_AGENDA_COLUMN in read
+    assert series_payload.CALENDAR_AGENDA_COLUMN in read
     assert {"has_genocide", *(f"has_{term}" for term in scopes.ATROCITY_TERMS)} <= set(read)

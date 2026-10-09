@@ -337,6 +337,7 @@ What follows from that, worth knowing before you start:
 | [`lib/schema.py`](lib/schema.py) | The annotation schema: its version, the closed vocabularies a human or model row is coded in, the false-positive cascade, and how a schema-2 row is read at schema 3. |
 | [`lib/sampling.py`](lib/sampling.py) | Samples drawn by a seeded hash of each occurrence's identity, with their inclusion probabilities: equal-probability, stratified and coverage frames, and the chance of entering any of several. |
 | [`lib/series.py`](lib/series.py) | Periods, denominators (words, not the codebook's tokens), rates with their Wilson 95% bounds, breakdowns; change-point detection with a meeting-block null (`meeting_blocks`, `rate_change_point`); the event overlay. |
+| [`lib/series_payload.py`](lib/series_payload.py) | Step 04's artefacts: the annual and quarterly series, the monthly grid with its calendar block, the breakdowns, the decade decomposition and the change-point tests. |
 | [`lib/scopes.py`](lib/scopes.py) | R9's three reading sets and their cuts by year and speaker; 09's per-meeting counts and `scopes.json` payload; R8's genocide-free comparison corpus, which 04 publishes. |
 | [`lib/actors.py`](lib/actors.py) | Per-speaker aggregation over `lib/series.py`'s arithmetic; the minimum-sample rule; ISO3 collisions and what may be mapped; 11's tracked measures, built and reconciled per period; 20's annual table. |
 | [`lib/kwic.py`](lib/kwic.py) | Concordance-line extraction; re-exports the sentence segmentation it used to own. |
