@@ -209,7 +209,15 @@ def compare_golden(found: dict[str, object], name: str) -> None:
 
 
 def run_step(script: str, roots: dict[str, str], *args: str) -> None:
-    env = {**os.environ, **roots, "PYTHONDONTWRITEBYTECODE": "1"}
+    env = {
+        **os.environ,
+        **roots,
+        "PYTHONDONTWRITEBYTECODE": "1",
+        # The warnings pytest turns into errors (pyproject.toml), turned into
+        # errors in the steps too: a child process does not inherit pytest's
+        # filters, and the steps are where pandas would warn.
+        "PYTHONWARNINGS": "error::DeprecationWarning,error::FutureWarning",
+    }
     completed = subprocess.run(
         [sys.executable, str(SCRIPTS / script), *args],
         cwd=ROOT,

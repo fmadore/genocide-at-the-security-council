@@ -5,3 +5,8 @@ pytest>=9.1.1,<10
 ruff>=0.16.5,<0.17
 # Property-based tests (tests/test_properties.py).
 hypothesis>=6.168.5,<7
+# Coverage, reported on every pytest run and never enforced (pyproject.toml).
+# coverage itself is named because the config uses `patch = ["subprocess"]`,
+# which older releases do not have.
+pytest-cov>=7.1.0,<8
+coverage>=7.16.2,<8

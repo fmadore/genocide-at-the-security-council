@@ -28,6 +28,8 @@ from lib import frames, kwic, lexical, lexicon, occurrences, series, usage
 # because it reads them before any fixture of this module would run.
 set_hypothesis_home_dir(Path(tempfile.gettempdir()) / "unsc-debates-hypothesis")
 
+pytestmark = pytest.mark.slow
+
 PROPERTY = settings(derandomize=True, database=None, deadline=None, max_examples=60)
 
 LEX = lexicon.load()

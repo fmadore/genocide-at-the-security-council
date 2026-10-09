@@ -22,6 +22,34 @@ ignore = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
-filterwarnings = ["error::DeprecationWarning"]
-markers = ["slow: runs numbered scripts as subprocesses (tests/test_end_to_end.py)"]
+# Strict, so a misspelt marker or setting is an error rather than a test that
+# silently stops being selected or configured. Coverage is reported on every
+# run, CI's included, and never enforced: see [tool.coverage] below.
+#
+# CI runs everything. For a quick local loop, leave out the tests that run
+# numbered scripts as subprocesses or search with hypothesis, and coverage:
+#     python -m pytest -m "not slow" --no-cov
+addopts = "-q --strict-markers --strict-config --cov --cov-report=term:skip-covered"
+# A FutureWarning is pandas or numpy announcing that a result will change in a
+# coming release; in a pipeline whose output is numbers, that is a failure to
+# act on now, not a line to scroll past.
+filterwarnings = ["error::DeprecationWarning", "error::FutureWarning"]
+markers = [
+    "slow: takes seconds rather than milliseconds; the end-to-end runs of numbered scripts and the property-based search",
+]
+
+[tool.coverage.run]
+source = ["scripts", "tools"]
+branch = true
+# Under .pytest_cache/, which git ignores, rather than a `.coverage` file in the
+# repository root that it does not.
+data_file = ".pytest_cache/coverage/.coverage"
+# The numbered scripts the end-to-end tests run as subprocesses are measured
+# too: coverage starts in each child, and the data are combined at the end.
+patch = ["subprocess"]
+
+[tool.coverage.report]
+# Report only. There is deliberately no `fail_under`: a threshold rewards tests
+# written to touch lines rather than to check what the lines produce.
+show_missing = false
+skip_empty = true
