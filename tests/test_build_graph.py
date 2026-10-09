@@ -50,6 +50,20 @@ def test_the_deploy_publishes_only_after_the_checks_pass():
     assert "checks" in workflow["jobs"]["deploy"]["needs"]
 
 
+def test_the_checks_prerender_over_exactly_what_the_deploy_saved():
+    """A cache entry is found only under the key and the path list it was
+    saved with, so a drift in either would quietly skip the production build."""
+    workflow, _ = _deploy()
+    checks = yaml.safe_load((ROOT / ".github/workflows/checks.yml").read_text(encoding="utf-8"))
+    web = checks["jobs"]["web"]["steps"]
+    saved = next(step for step in workflow["jobs"]["build"]["steps"] if step.get("name") == "Save the derived payload")
+    restored = next(step for step in web if step.get("id") == "payload")
+    assert next(step for step in web if step.get("id") == "keys")["uses"] == "./.github/actions/payload-cache-keys"
+    assert restored["with"]["path"] == saved["with"]["path"]
+    assert restored["with"]["key"] == saved["with"]["key"] == "${{ steps.keys.outputs.derived }}"
+    assert any(step.get("run") == "npm run build" for step in web)
+
+
 def _github_glob(pattern: str) -> re.Pattern[str]:
     """GitHub's path-filter globs: `**` crosses directories, `*` does not."""
     regex, i = "", 0

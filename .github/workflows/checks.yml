@@ -3,8 +3,12 @@
 # Deliberately not path-filtered. The failure this guards against is a bad edit
 # to config/entities.csv, config/lexicon.yml or config/council_membership.csv —
 # tests/test_config.py runs against those real files — and any path filter that
-# forgets one reintroduces exactly the gap it was meant to close. Neither job
-# needs data or network beyond its own package installs.
+# forgets one reintroduces exactly the gap it was meant to close. No job needs
+# network beyond its own package installs, and none builds data: the dashboard
+# job borrows the deploy's cached payload when one matches these inputs.
+#
+# Every job has a timeout several times its usual length, so a hung browser or
+# install fails in minutes rather than after GitHub's six-hour default.
 #
 # The deploy calls this file too (`workflow_call`) and publishes only when every
 # job here passes.
@@ -33,6 +37,7 @@ jobs:
   python:
     name: Pipeline
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
 
@@ -59,6 +64,7 @@ jobs:
   annotation:
     name: Annotation transport
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 
@@ -83,6 +89,7 @@ jobs:
   web:
     name: Dashboard
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: web
@@ -117,3 +124,35 @@ jobs:
 
       - name: Playwright service worker
         run: npm run test:e2e:sw
+
+      # Prerendering as the deploy runs it: production settings, every route
+      # crawled, a failed request fatal, then scripts/verify-static.mjs. The
+      # browser tests above build only their fixture routes, with failures
+      # downgraded to warnings, so a prerender error used to surface only in
+      # the deploy. Prerendering needs the real payload, which only the deploy
+      # builds, so this restores the one the deploy cached for exactly these
+      # pipeline inputs, last, where it cannot touch the tests above. A change
+      # to the pipeline has no such payload yet and is left to the deploy's
+      # own build, which also blocks publishing when it fails.
+      - name: Compose the payload cache key
+        id: keys
+        uses: ./.github/actions/payload-cache-keys
+
+      - name: Restore the deploy's payload
+        id: payload
+        uses: actions/cache/restore@v6
+        with:
+          # The paths the deploy saves, in the same order: an entry is found
+          # only under both the key and the path list it was saved with.
+          path: |
+            data/derived
+            web/static/data
+          key: ${{ steps.keys.outputs.derived }}
+
+      - name: Production build and static checks
+        if: steps.payload.outputs.cache-hit == 'true'
+        run: npm run build
+
+      - name: No payload cached for these inputs
+        if: steps.payload.outputs.cache-hit != 'true'
+        run: echo "::notice::No deploy payload is cached for this pipeline yet, so the production build is left to the deploy."
