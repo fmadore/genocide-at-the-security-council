@@ -15,7 +15,7 @@ import numpy as np
 
 def meeting_blocks(documents, meetings, words: Sequence[str]) -> dict[str, np.ndarray]:
     """Word counts plus the complete token denominator, aggregated by meeting."""
-    blocks = {}
+    blocks: dict[str, np.ndarray] = {}
     for counts, meeting in zip(documents, meetings, strict=True):
         if not isinstance(meeting, str) or not meeting.strip():
             raise ValueError("each speech needs a meeting symbol")

@@ -50,7 +50,7 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
-from typing import Final
+from typing import Any, Final
 
 import numpy as np
 import pandas as pd
@@ -368,7 +368,7 @@ def funnel(rows: pd.DataFrame) -> dict[str, int]:
 
 
 def model_block(
-    manifest: dict[str, object],
+    manifest: dict[str, Any],
     run_id: str,
     prompt_digest: str,
     rows: pd.DataFrame,
@@ -384,8 +384,9 @@ def model_block(
     they are read from its manifest.
     """
     stamp = str(manifest.get("completed") or manifest.get("created") or "")
-    tokens = manifest.get("usage") if isinstance(manifest.get("usage"), dict) else {}
-    requests = manifest.get("requests") if isinstance(manifest.get("requests"), dict) else {}
+    usage_record, requests_record = manifest.get("usage"), manifest.get("requests")
+    tokens = usage_record if isinstance(usage_record, dict) else {}
+    requests = requests_record if isinstance(requests_record, dict) else {}
     verdict = rows["verdict"].astype(str)
     runtime = manifest.get("runtime")
     if runtime is not None:
@@ -455,7 +456,7 @@ def actor_rows(rows: pd.DataFrame, minimum: int = MINIMUM_OCCURRENCES) -> list[d
 
     eligible = eligible_mask(rows)
     assigned = assigned_mask(rows)
-    out: list[dict[str, object]] = []
+    out: list[dict[str, Any]] = []
     for name, group in rows.groupby(rows["country_org"].map(_text), sort=True):
         out.append(
             {
@@ -474,7 +475,7 @@ def actor_rows(rows: pd.DataFrame, minimum: int = MINIMUM_OCCURRENCES) -> list[d
 
 
 def referent_rows(
-    rows: pd.DataFrame, referents: Sequence[Mapping[str, object]]
+    rows: pd.DataFrame, referents: Sequence[Mapping[str, Any]]
 ) -> list[dict[str, object]]:
     """The controlled list with each referent's assigned occurrence count.
 
@@ -491,7 +492,7 @@ def referent_rows(
         if not rows.empty
         else pd.Series(dtype=int)
     )
-    out = [
+    out: list[dict[str, Any]] = [
         {
             "id": _text(referent["id"]),
             "label": _text(referent.get("label")),
@@ -596,7 +597,7 @@ def position_rows(
     grouped = {str(name): group for name, group in kept.groupby(kept["country_org"].map(_text))}
     everything = position_counts(kept)
     all_rejects, all_eligible = int(everything["rejects"]), int(sum(everything.values()))
-    out: list[dict[str, object]] = []
+    out: list[dict[str, Any]] = []
     for actor in actor_order:
         group = grouped.get(actor)
         counts = position_counts(group) if group is not None else dict.fromkeys(POSITIONS, 0)
@@ -1156,7 +1157,7 @@ def per_class(
     predicted: Sequence[object],
     *,
     floor: int = CLASS_SUPPORT_FLOOR,
-) -> list[dict[str, object]]:
+) -> list[dict[str, Any]]:
     """Precision, recall, F1 and the counts behind them, for every label either side used.
 
         precision_c = tp_c / ( tp_c + fp_c )
@@ -1285,7 +1286,7 @@ def classification(
     }
 
 
-def _f1(row: Mapping[str, object]) -> float:
+def _f1(row: Mapping[str, Any]) -> float:
     """One class's F1, recomputed where the table withheld it.
 
     `weighted_f1` is defined over every class the reference used, including the
@@ -1379,7 +1380,7 @@ def reference_labels(annotations: pd.DataFrame) -> dict[str, dict[str, str]]:
     return reference
 
 
-def reference_coverage(annotations: pd.DataFrame) -> dict[str, dict[str, object]]:
+def reference_coverage(annotations: pd.DataFrame) -> dict[str, dict[str, Any]]:
     """Per field: how much of the double-coded sample produced a reference label.
 
     :func:`reference_labels` scores the model only where the two coders agreed

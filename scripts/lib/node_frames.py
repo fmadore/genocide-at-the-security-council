@@ -75,7 +75,7 @@ import re
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Final
+from typing import Any, Final
 
 import pandas as pd
 
@@ -600,7 +600,7 @@ def slice_rows(
     wants the slice that carries the evidence at the top; ties break on the name,
     so the order is a function of the data and not of the group iteration.
     """
-    rows = []
+    rows: list[dict[str, Any]] = []
     for member, group in occurrences.groupby(by, sort=False):
         total = len(group)
         rows.append(
@@ -657,7 +657,7 @@ def period_label(year: int, first: int, span: int) -> str:
 
 def share_change_points(
     occurrences: pd.DataFrame,
-    annual: Mapping[str, object],
+    annual: Mapping[str, Any],
     *,
     minimum: int,
     trials: int,

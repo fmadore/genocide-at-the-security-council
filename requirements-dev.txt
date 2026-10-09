@@ -10,3 +10,6 @@ hypothesis>=6.168.5,<7
 # which older releases do not have.
 pytest-cov>=7.1.0,<8
 coverage>=7.16.2,<8
+# Type checking of scripts/lib (pyproject.toml), and the stubs PyYAML does not ship.
+mypy>=2.4.0,<3
+types-PyYAML>=6.0.12.20260906,<7
