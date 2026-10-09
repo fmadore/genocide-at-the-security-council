@@ -326,7 +326,8 @@ def build_note(
             *[
                 f"| {p['key']} | {p['speeches']:,} | {p['speakers']:,} | "
                 f"{p['speakers_at_minimum']:,} | "
-                f"{p['speeches_at_minimum'] / p['speeches']:.1%} |"
+                # A period without speeches has no share to show, rather than a crash.
+                f"{format(p['speeches_at_minimum'] / p['speeches'], '.1%') if p['speeches'] else '—'} |"
                 for p in payload["periods"]
             ],
             "",

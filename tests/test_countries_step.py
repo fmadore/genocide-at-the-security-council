@@ -143,3 +143,43 @@ def test_the_headline_is_named_once(tmp_path, monkeypatch) -> None:
     written = json.loads((tmp_path / "countries" / "countries.json").read_text(encoding="utf-8"))
     assert set(written["measures"]) == {"war_crimes"}
     assert "genocide" not in json.dumps(written["measures"])
+
+
+def test_a_period_without_speeches_has_no_share_rather_than_a_crash(tmp_path, monkeypatch) -> None:
+    """The note's table divides by each period's speeches. A corpus that starts
+    after a period it reports, as a test corpus or a subset may, has none there,
+    and the row shows a dash where the division used to raise."""
+    step = importlib.import_module("11_countries")
+    rows = [
+        {
+            "year": year,
+            "country_org": country,
+            "meeting_symbol": f"S/PV.{year}",
+            "has_genocide": (year + i) % 3 == 0,
+            "n_genocide": int((year + i) % 3 == 0),
+        }
+        for year in range(2000, 2024)
+        for i, country in enumerate(["Loud", "Quiet", "Loud"])
+    ]
+    corpus = make_speeches(rows)
+    parquet = tmp_path / "speeches_flagged.parquet"
+    corpus.to_parquet(parquet, index=False)
+    notes: dict[str, str] = {}
+    monkeypatch.setattr(step, "SPEECHES_FLAGGED", parquet)
+    monkeypatch.setattr(step, "COUNTRIES", tmp_path / "countries")
+    monkeypatch.setattr(step, "ensure_dirs", lambda: None)
+
+    def write_note(name: str, body: str):
+        notes[name] = body
+        return tmp_path / name
+
+    monkeypatch.setattr(step, "write_note", write_note)
+    monkeypatch.setattr(step, "EXPECTED_SPEECHES", len(corpus))
+    monkeypatch.setattr(step, "EXPECTED_TOKENS", int(corpus["tokens"].sum()))
+    monkeypatch.setattr(step, "EXPECTED_WORDS", int(corpus["words"].sum()))
+
+    step.run(10)
+
+    (body,) = notes.values()
+    empty = [line for line in body.splitlines() if line.startswith("| 1950-1959 | 0 |")]
+    assert empty and empty[0].endswith("| — |")
