@@ -11,9 +11,7 @@
 	 * what a key press does, and `$lib/data` refuses a payload that would let this
 	 * page publish something the model did not say.
 	 */
-	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import DiffusionChart from '$lib/DiffusionChart.svelte';
@@ -73,7 +71,7 @@
 		UsageOccurrences,
 		UsageReferent
 	} from '$lib/types';
-	import { onMount, tick } from 'svelte';
+	import { urlState } from '$lib/url-state.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -84,31 +82,22 @@
 	let unit = $state<UsageUnit>('count');
 	let sort = $state<UsageSort>('assigned');
 	let contested = $state(false);
-	let urlReady = $state(false);
 	/** How many quotations of the drill-down are on screen. Presentation only. */
 	let shown = $state(20);
 
 	const current = (): UsageState => ({ actor, referent, unit, sort, contested });
 
-	onMount(() => {
-		const state = readUsageState(page.url.searchParams, artefact);
-		actor = state.actor;
-		referent = state.referent;
-		unit = state.unit;
-		sort = state.sort;
-		contested = state.contested;
-		// The first replaceState must wait until SvelteKit has assigned its root,
-		// exactly as the actor and concordance views do.
-		void tick().then(() => {
-			urlReady = true;
-		});
-	});
-
 	/** Keep the URL in step, so any reading of this matrix is citable. */
-	$effect(() => {
-		if (!urlReady) return;
-		const search = usageParams(current()).toString();
-		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
+	urlState({
+		read: (params) => {
+			const state = readUsageState(params, artefact);
+			actor = state.actor;
+			referent = state.referent;
+			unit = state.unit;
+			sort = state.sort;
+			contested = state.contested;
+		},
+		write: () => usageParams(current())
 	});
 
 	const plan = $derived(matrixPlan(artefact, current()));

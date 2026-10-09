@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { goto, replaceState } from '$app/navigation';
-	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '$lib/Chart.svelte';
 	import Contents from '$lib/Contents.svelte';
@@ -53,7 +52,8 @@
 	import { PAGE_METADATA } from '$lib/seo';
 	import type { CollocateBlock } from '$lib/types';
 	import type { EChartsOption } from 'echarts';
-	import { onMount, tick, untrack } from 'svelte';
+	import { untrack } from 'svelte';
+	import { urlState } from '$lib/url-state.svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 
@@ -306,7 +306,6 @@
 	let sliceB = $state('United States Of America');
 	let period = $state('whole');
 	let keynessView = $state<KeynessView>('matched');
-	let urlReady = $state(false);
 
 	const nodes = $derived(Object.keys(data.collocates.nodes));
 	const widths = $derived(data.collocates.widths.map(String));
@@ -542,50 +541,44 @@
 		profileDefault: { node: data.sliced.term, width: String(data.sliced.width) }
 	}));
 
-	onMount(() => {
-		const state = readLanguageState(page.url.searchParams, urlChoices);
-		node = state.node;
-		width = state.width;
-		sliceKind = state.sliceKind;
-		sliceA = state.sliceA;
-		sliceB = state.sliceB;
-		align = state.align;
-		profileFacet = state.profileFacet;
-		profileNode = state.profileNode;
-		profileWidth = state.profileWidth;
-		profileMember = state.profileMember;
-		profileLimit = state.profileLimit;
-		profileFloor = state.profileFloor;
-		keynessView = state.keynessView;
-		period = state.period;
-		void tick().then(() => {
-			urlReady = true;
-		});
-	});
-
-	$effect(() => {
-		if (!urlReady) return;
-		const params = languageParams(
-			{
-				node,
-				width,
-				sliceKind,
-				sliceA,
-				sliceB,
-				align,
-				profileFacet,
-				profileNode,
-				profileWidth,
-				profileMember,
-				profileLimit,
-				profileFloor,
-				keynessView,
-				period
-			},
-			urlChoices
-		);
-		const search = params.toString();
-		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
+	urlState({
+		read: (params) => {
+			const state = readLanguageState(params, urlChoices);
+			node = state.node;
+			width = state.width;
+			sliceKind = state.sliceKind;
+			sliceA = state.sliceA;
+			sliceB = state.sliceB;
+			align = state.align;
+			profileFacet = state.profileFacet;
+			profileNode = state.profileNode;
+			profileWidth = state.profileWidth;
+			profileMember = state.profileMember;
+			profileLimit = state.profileLimit;
+			profileFloor = state.profileFloor;
+			keynessView = state.keynessView;
+			period = state.period;
+		},
+		write: () =>
+			languageParams(
+				{
+					node,
+					width,
+					sliceKind,
+					sliceA,
+					sliceB,
+					align,
+					profileFacet,
+					profileNode,
+					profileWidth,
+					profileMember,
+					profileLimit,
+					profileFloor,
+					keynessView,
+					period
+				},
+				urlChoices
+			)
 	});
 
 	/* The aligned rows and the one scale both columns share: `$lib/language`. */

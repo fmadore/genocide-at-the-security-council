@@ -4,8 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
-	import { pushState, replaceState } from '$app/navigation';
-	import { onMount, tick } from 'svelte';
+	import { urlState } from '$lib/url-state.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Bookmark from '@lucide/svelte/icons/bookmark';
@@ -150,14 +149,13 @@
 	let month = $state<number | null>(null);
 	let sort = $state<ConcordanceSort>('date');
 	let regex = $state(false);
-	let urlReady = $state(false);
 	let shown = $state(PAGE);
 	let expanded = $state<string | null>(null);
 
 	let file = $state<KwicFile | null>(null);
 	/* True from the first paint, not from the first fetch.
 
-	   The effect below cannot start the fetch until `urlReady`, and a page that
+	   The effect below cannot start the fetch until `url.ready`, and a page that
 	   reported `loading = false` in the meantime painted "0 of 0 lines", an
 	   export of nothing and "No passages match" over a 6.2 MB file that was
 	   still on its way — a false zero that blamed the reader's filters for it.
@@ -190,22 +188,31 @@
 		regex = state.regex;
 	}
 
-	onMount(() => {
-		apply(readConcordanceState(page.url.searchParams));
-		// The first replaceState must wait until SvelteKit has assigned its root.
-		// Running it inside the initial mount callback reaches the client router
-		// before that assignment is complete.
-		void tick().then(() => {
-			urlReady = true;
-		});
-		/* Back and Forward between this page's own entries. They are shallow, so
-		   SvelteKit restores `page.state` and leaves `page.url` where the last
-		   real navigation put it: the address bar is the only thing that knows
-		   which narrowing the reader has stepped back to. */
-		const restore = () => apply(readConcordanceState(new URLSearchParams(location.search)));
-		window.addEventListener('popstate', restore);
-		return () => window.removeEventListener('popstate', restore);
+	/**
+	 * Keep the URL in step, so any view of the concordance is citable — and so
+	 * that Back undoes a narrowing, and Back and Forward between this page's
+	 * own entries restore the narrowing each one holds. Whether a change pushes
+	 * an entry or replaces one is `historyStep`'s decision; `step` only
+	 * supplies the facts.
+	 */
+	const url = urlState({
+		read: (params) => apply(readConcordanceState(params)),
+		/* The scope is layout state and this page owns everything else in the
+		   query, so it is merged back in here: a page that rebuilt its own URL
+		   from its own controls would silently drop the reader's reading set on
+		   the next keystroke. */
+		write: () => withScope(concordanceParams(currentState()), scope),
+		step: (next) => {
+			const current = concordanceQuery(new URLSearchParams(location.search));
+			const step = historyStep(next, current, { first: !written, typing: settling });
+			written = true;
+			settling = false;
+			return step;
+		},
+		restore: (search) => apply(readConcordanceState(new URLSearchParams(search)))
 	});
+	/** Whether the URL has been written once: the first write only canonicalises it. */
+	let written = false;
 
 	/** Long enough to cover typing, short enough not to feel like a wait. */
 	const SETTLE = 200;
@@ -256,7 +263,7 @@
 	}
 
 	$effect(() => {
-		if (!urlReady) return;
+		if (!url.ready) return;
 		const wanted = term;
 		void retry;
 		loading = true;
@@ -271,30 +278,6 @@
 			.finally(() => {
 				if (wanted === term) loading = false;
 			});
-	});
-
-	/**
-	 * Keep the URL in step, so any view of the concordance is citable — and so
-	 * that Back undoes a narrowing. Whether a change pushes an entry or replaces
-	 * one is `historyStep`'s decision; this effect only supplies the facts.
-	 */
-	let written = false;
-	$effect(() => {
-		if (!urlReady) return;
-		/* The scope is layout state and this page owns everything else in the
-		   query, so it is merged back in here: a page that rebuilt its own URL
-		   from its own controls would silently drop the reader's reading set on
-		   the next keystroke. */
-		const next = withScope(concordanceParams(currentState()), scope);
-		const current = concordanceQuery(new URLSearchParams(location.search));
-		const step = historyStep(next, current, { first: !written, typing: settling });
-		written = true;
-		settling = false;
-		if (step === 'none') return;
-		const search = next.toString();
-		const url = `${page.url.pathname}${search ? `?${search}` : ''}`;
-		if (step === 'push') pushState(url, page.state);
-		else replaceState(url, page.state);
 	});
 
 	const lines = $derived(file?.lines ?? []);
@@ -351,7 +334,7 @@
 	   the URL for any other term is dropped by the filter's own rule: without
 	   the map it keeps nothing, and the status line says so. */
 	$effect(() => {
-		if (!urlReady || !referentsOffered || referentOf) return;
+		if (!url.ready || !referentsOffered || referentOf) return;
 		Promise.all([usageOccurrences(), usage()])
 			.then(([occurrences, run]) => {
 				referentOf = referentMap(occurrences.occurrences);

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ScrollRegion from '$lib/ScrollRegion.svelte';
-	import { goto, replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
@@ -73,7 +73,7 @@
 	} from '$lib/theme';
 	import type { BreakdownRow, CouncilEvent, Measure } from '$lib/types';
 	import type { EChartsOption, LineSeriesOption } from 'echarts';
-	import { onMount, tick } from 'svelte';
+	import { urlState } from '$lib/url-state.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 
@@ -119,7 +119,6 @@
 	const kindStroke = (kind: string, p = $colours) =>
 		categoricalNeutral(p)[EVENT_KINDS.indexOf(kind) % 6].color;
 	let split = $state<string>('none');
-	let urlReady = $state(false);
 
 	const source = $derived(grain === 'year' ? data.year : data.quarter);
 	const periods = $derived(source.periods.map(String));
@@ -799,41 +798,35 @@
 		splits: SPLITS.map(({ id }) => id)
 	}));
 
-	onMount(() => {
-		const state = readChronologyState(page.url.searchParams, urlChoices);
-		unit = state.unit;
-		grain = state.grain;
-		selected = state.series;
-		gridMeasure = state.calendarMeasure;
-		gridUnit = state.calendarUnit;
-		split = state.split;
-		void tick().then(() => {
-			urlReady = true;
-		});
-	});
-
-	$effect(() => {
-		if (!urlReady) return;
+	urlState({
+		read: (params) => {
+			const state = readChronologyState(params, urlChoices);
+			unit = state.unit;
+			grain = state.grain;
+			selected = state.series;
+			gridMeasure = state.calendarMeasure;
+			gridUnit = state.calendarUnit;
+			split = state.split;
+		},
 		/* The scope is layout state and the page owns everything else in the
 		   query, so it is merged back in here: a page that rebuilt its own URL
 		   from its own controls would silently drop the reader's reading set on
 		   the next keystroke. */
-		const params = withScope(
-			chronologyParams(
-				{
-					unit,
-					grain,
-					series: selected,
-					calendarMeasure: gridMeasure,
-					calendarUnit: gridUnit,
-					split
-				},
-				urlChoices
-			),
-			scope
-		);
-		const search = params.toString();
-		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
+		write: () =>
+			withScope(
+				chronologyParams(
+					{
+						unit,
+						grain,
+						series: selected,
+						calendarMeasure: gridMeasure,
+						calendarUnit: gridUnit,
+						split
+					},
+					urlChoices
+				),
+				scope
+			)
 	});
 
 	const splitBlock = $derived(
