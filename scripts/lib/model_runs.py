@@ -17,9 +17,9 @@ import os
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 
-from . import audit, lexicon, prompts
+from . import audit, lexicon, lexicon_lock, prompts
 from .occurrences import Occurrence
-from .paths import ANNOTATIONS, INTERIM, MODEL_ANNOTATIONS, REFERENTS, rel
+from .paths import ANNOTATIONS, INTERIM, LEXICON_COUNTS, MODEL_ANNOTATIONS, REFERENTS, rel
 
 #: The one term the model-assisted layer covers; see Phase L in docs/PLAN.md
 #: for why the scope is a single word.
@@ -85,18 +85,18 @@ def population_problems(
     their aggregation are comparable only when all three enumerate this same
     population, so it is asserted by each rather than assumed from the others.
     """
-    speeches_expected, occurrences_expected = expected or lexicon.population(TERM)
+    speeches_expected, occurrences_expected = expected or lexicon_lock.population(TERM)
     speeches = len(set(filenames))
     problems = []
     if occurrences != occurrences_expected:
         problems.append(
             f"{occurrences:,} occurrences against the {occurrences_expected:,} committed in "
-            f"{rel(lexicon.LEXICON_COUNTS)}"
+            f"{rel(LEXICON_COUNTS)}"
         )
     if speeches != speeches_expected:
         problems.append(
             f"{speeches:,} speeches against the {speeches_expected:,} committed in "
-            f"{rel(lexicon.LEXICON_COUNTS)}"
+            f"{rel(LEXICON_COUNTS)}"
         )
     return problems
 

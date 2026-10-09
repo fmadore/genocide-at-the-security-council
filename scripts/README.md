@@ -332,6 +332,7 @@ What follows from that, worth knowing before you start:
 | [`lib/entities.py`](lib/entities.py) | Source-derived affiliation types; optional legacy ISO3/centroid enrichment without renaming. |
 | [`lib/council.py`](lib/council.py) | Council membership by year; the P5 / E10 / non-member / UN / non-state split. |
 | [`lib/lexicon.py`](lib/lexicon.py) | Loads, compiles and counts `config/lexicon.yml`; `Term.spans` applies a term's whole rule, pattern and sentence anchor together. |
+| [`lib/lexicon_lock.py`](lib/lexicon_lock.py) | The lexicon's two committed records: the pattern lock `load` holds the file to, and the counts 03 holds the corpus to and 13, 14 and 15 read their population from. |
 | [`lib/audit.py`](lib/audit.py) | The lexicon audit: stable occurrence identities, the probability, coverage and negative frames 03 draws, and the merge with human annotations. |
 | [`lib/schema.py`](lib/schema.py) | The annotation schema: its version, the closed vocabularies a human or model row is coded in, the false-positive cascade, and how a schema-2 row is read at schema 3. |
 | [`lib/sampling.py`](lib/sampling.py) | Samples drawn by a seeded hash of each occurrence's identity, with their inclusion probabilities: equal-probability, stratified and coverage frames, and the chance of entering any of several. |

@@ -35,7 +35,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, audit, console, frames, lexicon, sampling
+from lib import artifacts, audit, console, frames, lexicon, lexicon_lock, sampling
 from lib.paths import (
     INTERIM,
     LEXICON,
@@ -180,13 +180,13 @@ def run(sample_size: int, seed: int, update_counts: bool = False) -> None:
     )
 
     console.step("Checking the committed counts")
-    record = lexicon.counts_record(counts, lex, len(speeches))
+    record = lexicon_lock.counts_record(counts, lex, len(speeches))
     if update_counts:
         artifacts.atomic_write_text(
             LEXICON_COUNTS, json.dumps(record, ensure_ascii=False, indent=2) + "\n"
         )
         console.info(f"wrote {rel(LEXICON_COUNTS)}; review its diff and commit it")
-    elif problems := lexicon.count_problems(record, lexicon.load_counts()):
+    elif problems := lexicon_lock.count_problems(record, lexicon_lock.load_counts()):
         console.fail(
             f"the counts differ from {rel(LEXICON_COUNTS)}",
             [

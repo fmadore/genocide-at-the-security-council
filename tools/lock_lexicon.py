@@ -32,7 +32,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from lib import console, lexicon
+from lib import console, lexicon, lexicon_lock
 from lib.paths import LEXICON, LEXICON_LOCK, atomic_write_text, rel
 
 
@@ -48,14 +48,14 @@ def lock_for(lex: lexicon.Lexicon) -> dict[str, object]:
     return {
         "version": lex.version,
         "anchor": {
-            "pattern_sha256": lexicon.pattern_sha256(anchor.pattern),
+            "pattern_sha256": lexicon_lock.pattern_sha256(anchor.pattern),
             "widened_since": anchor.widened_since,
         },
         "terms": {
             name: {
                 "pattern_since": term.pattern_since,
                 "widened_since": term.widened_since,
-                "pattern_sha256": lexicon.pattern_sha256(term.pattern),
+                "pattern_sha256": lexicon_lock.pattern_sha256(term.pattern),
                 "anchor": term.anchor,
             }
             for name, term in sorted(lex.terms.items())
@@ -86,7 +86,7 @@ def unbumped(lex: lexicon.Lexicon, old: dict[str, object]) -> list[str]:
     stale = []
     for name, term in lex.terms.items():
         entry = entries.get(name)
-        digest = lexicon.pattern_sha256(term.pattern)
+        digest = lexicon_lock.pattern_sha256(term.pattern)
         anchored_changed = not isinstance(entry, dict) or entry.get("anchor") != term.anchor
         pattern_changed = not isinstance(entry, dict) or entry.get("pattern_sha256") != digest
         # A pattern edit may be dated either way — as a new rule, or as a
@@ -100,7 +100,7 @@ def unbumped(lex: lexicon.Lexicon, old: dict[str, object]) -> list[str]:
     locked = old.get("anchor")
     if anchor is not None and isinstance(locked, dict):
         anchored = [term for term in lex.terms.values() if term.anchor is not None]
-        moved = locked.get("pattern_sha256") != lexicon.pattern_sha256(anchor.pattern)
+        moved = locked.get("pattern_sha256") != lexicon_lock.pattern_sha256(anchor.pattern)
         if moved and anchor.widened_since != lex.version and any(
             term.pattern_since != lex.version for term in anchored
         ):
@@ -129,7 +129,7 @@ def main() -> None:
                 ["run `python tools/lock_lexicon.py` to write it"],
             )
         try:
-            lexicon.check_lock(lex.terms, lex.version, read_lock(), lex.anchor)
+            lexicon_lock.check_lock(lex.terms, lex.version, read_lock(), lex.anchor)
         except ValueError as exc:
             console.fail(f"{rel(LEXICON_LOCK)} does not describe {rel(LEXICON)}", [str(exc)])
         console.step("The lock matches the lexicon")
