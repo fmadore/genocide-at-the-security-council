@@ -3,43 +3,19 @@
 	 * An ECharts figure that resizes with its container, follows the colour
 	 * scheme, and tears itself down.
 	 *
-	 * Only the chart and component types used by the dashboard are registered;
-	 * this keeps ECharts tree-shakeable while `init` remains browser-only.
+	 * The engine is imported when the chart mounts, from `./echarts`, which
+	 * registers only the chart and component types the dashboard draws. A page
+	 * paints its text, controls and tables without waiting for it, and a page
+	 * with no chart never fetches it at all.
 	 *
 	 * SVG, not canvas. These figures are the part of the site most likely to
 	 * leave it — into a slide, a paper, a printout — and only SVG survives that
 	 * at any size. It also means the text in a chart is real text: selectable,
 	 * searchable, and rendered in the same faces as the page around it.
 	 */
-	import { BarChart, GraphChart, LineChart, ScatterChart } from 'echarts/charts';
-	import {
-		AriaComponent,
-		DataZoomComponent,
-		GridComponent,
-		LegendComponent,
-		MarkLineComponent,
-		TooltipComponent
-	} from 'echarts/components';
-	import { init, use } from 'echarts/core';
 	import { onMount } from 'svelte';
 	import type { EChartsOption } from 'echarts';
 	import type { EChartsType } from 'echarts/core';
-	import { CanvasRenderer, SVGRenderer } from 'echarts/renderers';
-
-	use([
-		BarChart,
-		LineChart,
-		ScatterChart,
-		GraphChart,
-		GridComponent,
-		TooltipComponent,
-		LegendComponent,
-		DataZoomComponent,
-		MarkLineComponent,
-		AriaComponent,
-		SVGRenderer,
-		CanvasRenderer
-	]);
 
 	interface Props {
 		option: EChartsOption;
@@ -90,6 +66,10 @@
 	 * serialises the markup and measures the box the observer last laid out.
 	 */
 	export function svg(): SVGSVGElement | null {
+		// Read through `chart`, so that a figure asking whether there is a
+		// picture to export asks again once the engine has arrived: the element
+		// only exists from then on, and a DOM query alone is not reactive.
+		if (!chart) return null;
 		return element?.querySelector('svg') ?? null;
 	}
 
@@ -113,9 +93,24 @@
 		};
 	}
 
-	// Creates the instance and wires it up. It deliberately draws nothing: the
-	// effect below owns every `setOption`, including the first.
+	// Loads the engine, then creates the instance and wires it up. It
+	// deliberately draws nothing: the effect below owns every `setOption`,
+	// including the first. A chart unmounted before the engine arrives creates
+	// nothing.
 	onMount(() => {
+		let unmounted = false;
+		let teardown = () => {};
+		void import('./echarts').then(({ init }) => {
+			if (unmounted) return;
+			teardown = mount(init);
+		});
+		return () => {
+			unmounted = true;
+			teardown();
+		};
+	});
+
+	function mount(init: typeof import('./echarts').init): () => void {
 		const instance = init(element, undefined, { renderer });
 		if (onclick) instance.on('click', (params) => onclick(params as never));
 		/**
@@ -144,7 +139,7 @@
 			if (frame) cancelAnimationFrame(frame);
 			instance.dispose();
 		};
-	});
+	}
 
 	/**
 	 * Every draw, first and subsequent.

@@ -129,6 +129,7 @@ src/
 │   ├── format.ts        Numbers, country names, UN Digital Library links
 │   ├── export.ts        CSV with provenance, SVG/PNG with the filters in the image
 │   ├── Chart.svelte     ECharts wrapper: lazy import, resize, dark-mode redraw, dispose
+│   ├── echarts.ts       The chart engine, registering only what is drawn; Chart imports it on mount
 │   ├── CountryMap.svelte  MapLibre locator: circles keyed on the speaker, never on ISO3
 │   ├── Heatmap.svelte   The year × month grid, drawn as SVG from `heatmap.ts`
 │   └── Figure.svelte    The explanation frame above
