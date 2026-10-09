@@ -390,7 +390,11 @@
 	$effect(() => {
 		const data = collection();
 		if (map && ready) {
-			(map.getSource(SOURCE) as import('maplibre-gl').GeoJSONSource | undefined)?.setData(data);
+			// Settled by MapLibre's worker. A refusal there leaves the previous dots
+			// on the map, and every speaker it would show is in the table beside it.
+			void (map.getSource(SOURCE) as import('maplibre-gl').GeoJSONSource | undefined)?.setData(
+				data
+			);
 		}
 	});
 
