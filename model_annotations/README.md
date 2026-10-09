@@ -1,14 +1,52 @@
 # Model annotations
 
-> **Partial preview (2026-09-14).** `2026-09-08-qwen-131k` is selected for the
-> canonical Sakamoto–Matsuoka v5 corpus: 7,694 of 7,747 occurrences in 4,097 of
-> 4,133 speeches when it was made; lexicon v8 added the 40 accented
-> *génocidaires* the run predates, so it now covers 7,694 of 7,787. Human
-> validation has not started. The older runs remain
-> historical provenance for the retired corpus and must not be joined to v5.
-> `allow_partial_run.txt` explicitly authorizes this selected run's coverage gap
-> in the Makefile; a different selected run retains strict coverage by default.
-> The comparison pointer remains empty.
+## The published run is a stopped, partial run
+
+The run the site shows, `2026-09-08-qwen-131k`, is **a partial run that was stopped
+and published as a preview** on 14 September 2026. It is not finished, and no
+human has checked its labels: the gold sample is uncoded.
+
+- **Coverage.** Qwen3.8-27B (prompt v3) annotated 4,097 of the 4,133 speeches and
+  7,694 of the 7,747 occurrences of the population it was made against (lexicon
+  v6). Lexicon v8 later added the 40 accented *génocidaires*, which the run
+  predates, so it now covers 7,694 of 7,787 occurrences.
+- **What is missing.** 36 speeches have no accepted response: 34 because the
+  model wrote a display name where an identifier from the referent list was
+  required, 2 because the response was cut off at the output limit. The
+  manifest's `truncation_count` of 4 counts cut-off responses over both passes,
+  so it is larger than the two speeches still missing.
+- **What is excluded.** 24 evidence quotes could not be found in their speech;
+  those rows are left out of every discourse figure. Three more were found only
+  by a looser match (folding quotation marks, dashes, letter case and line-break
+  hyphens) and are marked as relocated.
+- **Why the build accepts it.** A run must cover the whole population unless its
+  gap is authorised. `allow_partial_run.txt` names this run, so the Makefile
+  passes `--allow-partial` to step 15 for it alone; any other selected run is
+  held to full coverage.
+
+**Why the manifest still says `"status": "in_progress"` and `"completed": null`.**
+Read these as "stopped, not finished"; no job is running. Step 14 is the only
+program that writes a manifest, and it writes `complete` only when every planned
+speech has a valid response, which 36 do not. Run files are append-only and are
+never edited by hand, so the status stays as the runner left it. Marking the run
+complete would also make step 14 refuse to resume it, closing the way to a later
+pass over the 36 speeches under the same run identity.
+
+**Why the commit ends in `-dirty`.** The manifest's `git_commit` is
+`98c473f2a1ae4245049ddebb308c7e8595920317-dirty`: the run was started from a
+working copy with uncommitted changes on top of commit `98c473f` (7 September
+2026). Those changes are not in git, and the exact code cannot be recovered after
+the fact. What defines the instrument is recorded separately, by checksum, in
+`identity.json` and the manifest: the prompt, the referent list, the output
+schema (3.1), the occurrence population (lexicon 6), the exact requests sent, the
+model revision, the vLLM version, the hardware and the sampling settings
+(temperature 0). The cluster
+workspace has been pushed from a clean tree since 18 September 2026, so later
+runs cite a commit that exists.
+
+The comparison run (Gemma 4 31B IT, same prompt) is not published:
+`comparison_run.txt` is empty. The four hosted runs of August 2026 remain
+historical provenance for the retired corpus and must not be joined to v5.
 
 Files below this directory are durable, version-controlled research inputs, exactly as the
 ones under `annotations/` are. The difference is who wrote them: `scripts/14_llm_annotate.py`
@@ -42,9 +80,14 @@ genocide/
   comparison_run.txt           the run id read against it as a second opinion, or empty
   runs/<run_id>/
     manifest.json              weights revision, runtime, prompt, counts, usage, status
+    identity.json              checksums of everything that defines the instrument
+    probe.json                 the reasoning-level probe the run passed before it started
     annotations.jsonl          one row per annotated occurrence
     failures.jsonl             one row per speech whose response was refused, with the reason
 ```
+
+`identity.json` and `probe.json` exist for runs made since the integrity repairs of
+September 2026; the four hosted runs of August 2026 predate them.
 
 One directory per lexicon term, one directory per run. A run id names the day, the model and
 the prompt version — `2026-09-05-qwen-v3` — because those three are what a reader needs to
