@@ -496,8 +496,9 @@
 				<a href={resolve('/chronology')}>
 					<strong>Chronology</strong>
 					<span
-						>When the word was used. Set it beside related terms and {data.overlay.events.length} reference
-						dates, year by year or month by month.</span
+						>When the word was used. Set it beside related terms and {data.overlay.events.length}
+						{data.overlay.events.length === 1 ? 'reference date' : 'reference dates'}, year by year
+						or month by month.</span
 					>
 				</a>
 			</li>

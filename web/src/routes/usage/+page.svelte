@@ -1191,9 +1191,11 @@
 			<p>
 				A count grows with how often a delegation spoke, and labels can misread negation or reported
 				speech. No delegation is marked as unusual until human coding measures how often the
-				<em>rejects</em> label is right. {count(profiles.withheld.length)} affiliations under {count(
+				<em>rejects</em> label is right. {count(profiles.withheld.length)}
+				{profiles.withheld.length === 1 ? 'affiliation' : 'affiliations'} under {count(
 					profiles.minimum
-				)} eligible mentions appear only in the full table.
+				)} eligible mentions {profiles.withheld.length === 1 ? 'appears' : 'appear'} only in the full
+				table.
 			</p>
 		{/snippet}
 		{#snippet more()}
