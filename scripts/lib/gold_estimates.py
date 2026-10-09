@@ -13,6 +13,7 @@ tested on constructed rows, by a machine with no corpus and no run.
 from __future__ import annotations
 
 import math
+from collections.abc import Collection
 from typing import Any, Final
 
 import numpy as np
@@ -553,4 +554,73 @@ def gold_block(
         ),
         "minimum_gold": MINIMUM_GOLD,
         "state": state,
+    }
+
+
+# --- Without the passages read before coding ---------------------------------
+
+#: The figures :func:`without_prior_review` repeats, by their keys in
+#: :func:`gold_block`: every agreement and accuracy table the gold sample feeds.
+PRIOR_REVIEW_FIGURES: Final[tuple[str, ...]] = (
+    "human_agreement",
+    "human_function",
+    "model_vs_human",
+    "model_vs_human_comparison",
+    "weighted_accuracy",
+    "corrected_shares",
+)
+
+
+def without(annotations: pd.DataFrame, excluded: Collection[str]) -> pd.DataFrame:
+    """The annotation rows of every occurrence outside `excluded`."""
+    if annotations.empty:
+        return annotations
+    left_out = {str(identifier) for identifier in excluded}
+    return annotations.loc[~annotations["occurrence_id"].map(_text).isin(left_out)]
+
+
+def without_prior_review(
+    annotations: pd.DataFrame,
+    model: pd.DataFrame,
+    *,
+    reviewed: Collection[str],
+    comparison: pd.DataFrame | None = None,
+    design: pd.DataFrame | None = None,
+) -> dict[str, object]:
+    """Every gold figure again, without the passages read against a model's labels.
+
+    Fifty-nine occurrences were read against the Qwen run's labels on 10
+    September 2026, before any gold coding, so whoever read that review has seen
+    the model's answer for them and a discussion of it. They stay in the sample
+    as drawn and are flagged rather than dropped (decided by FM on 9 October
+    2026, docs/EVALUATION_PLAN.md §4), which means each figure is reported
+    twice: over every coded occurrence, as :func:`gold_block` computes it, and
+    here without the flagged ones. A difference wider than the interval on
+    either says the review reached the coding.
+
+    The same functions over the same rows less the flagged occurrences', so the
+    two readings differ by the rows and never by the arithmetic. The figures
+    are :data:`PRIOR_REVIEW_FIGURES` and the `function` Jaccard the note
+    reports; each comes back empty, in :func:`gold_block`'s idiom, until there
+    is something to compute. `reviewed` counts the flagged occurrences handed
+    in, and `coded` and `flagged_coded` the coded occurrences and how many of
+    them were reviewed, which is how far apart the two readings can be.
+    """
+    coded = nonempty(annotations)
+    identifiers = set(coded["occurrence_id"].map(_text)) if not coded.empty else set()
+    flagged = {str(identifier) for identifier in reviewed}
+    kept = without(annotations, flagged)
+    return {
+        "reviewed": len(flagged),
+        "coded": len(identifiers),
+        "flagged_coded": len(identifiers & flagged),
+        "human_agreement": human_agreement(kept),
+        "human_function": human_function_agreement(kept),
+        "model_vs_human": model_vs_human(kept, model),
+        "model_vs_human_comparison": (
+            [] if comparison is None else model_vs_human(kept, comparison)
+        ),
+        "weighted_accuracy": [] if design is None else weighted_accuracy(kept, model, design),
+        "corrected_shares": [] if design is None else corrected_shares(kept, model, design),
+        "function_jaccard": function_jaccard(kept, model),
     }

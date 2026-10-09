@@ -188,9 +188,18 @@ and the matched text, or recompute the identifiers.
   width, say so beside the figure.
 - Keep the flag out of the coders' packet, like the sampling frame.
 
-How many of the 59 fall in the current sample is not known yet. The gold files
-on disk date from 12 September, before the 24 September redraw, so the overlap
-can only be counted against the frozen sample (section 3).
+**Carried (9 October 2026).** The list is `annotations/genocide/prior_review.csv`,
+rebuilt by `tools/prior_review.py` from the review's records and the corpus; all
+59 resolve to one occurrence each, and the two moved ordinals come out as above.
+Step 13 marks the drawn ones with a `prior_review` column in the candidate and
+design files and not in the packet, after the draw, so the sample is unchanged.
+Step 15 repeats every gold figure without them in its note and in its manifest
+(`gold_without_prior_review`); the published payload keeps its shape.
+
+Against the sample step 13 draws on 9 October 2026 (lexicon 8, the Qwen run as
+the only published run), **5 of the 59 fall in the sample**, all in the
+`model_strata` frame. The count holds for the frozen sample only if its
+checksums match the ones recorded under section 3.
 
 ## 5. Keeping the coders independent
 

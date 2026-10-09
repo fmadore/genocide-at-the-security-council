@@ -1718,6 +1718,93 @@ def test_too_few_coded_units_leave_the_blocks_waiting() -> None:
     assert all(row["state"] == "waiting" for row in gold_estimates.weighted_accuracy(annotations, model, design))
 
 
+# --- Without the passages read before coding ---------------------------------
+
+
+def prior_review_fixture() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, set[str]]:
+    """Forty occurrences coded by both coders at one inclusion probability.
+
+    The model calls every one of them `asserts`. The coders agree on `asserts`
+    for the thirty-two that were not reviewed before coding; on the eight that
+    were, they code `rejects`, and on two of those eight JG writes `asserts`.
+    So the model is right on 32 of 40 coded occurrences and on 32 of 32 once
+    the reviewed ones are set aside, and the coders disagree only inside them.
+    """
+    identifiers = [f"o{number:02d}" for number in range(40)]
+    reviewed = set(identifiers[:8])
+    records = []
+    for number, occurrence in enumerate(identifiers):
+        position = "rejects" if occurrence in reviewed else "asserts"
+        for row in coded(occurrence, speaker_position=position):
+            if number < 2 and row["coder"] == "JG":
+                row = {**row, "speaker_position": "asserts"}
+            records.append(row)
+    model = pd.DataFrame(
+        {
+            "occurrence_id": identifiers,
+            "speaker_position": ["asserts"] * 40,
+            "concrete_case": ["yes"] * 40,
+        }
+    )
+    design = pd.DataFrame({"occurrence_id": identifiers, "pi_union": 0.5})
+    return pd.DataFrame(records), model, design, reviewed
+
+
+def test_every_gold_figure_is_reported_again_without_the_reviewed_passages() -> None:
+    annotations, model, design, reviewed = prior_review_fixture()
+    split = gold_estimates.without_prior_review(
+        annotations, model, reviewed=reviewed, design=design
+    )
+    every = gold_estimates.gold_block(
+        annotations, model, sample_size=40, unique_occurrences=40, design=design
+    )
+    assert (split["reviewed"], split["coded"], split["flagged_coded"]) == (8, 40, 8)
+
+    def position(block: list[dict[str, object]]) -> dict[str, object]:
+        return next(row for row in block if row["field"] == "speaker_position")
+
+    # The coders: 38 of 40 agree over every coded occurrence, all 32 without.
+    assert position(every["human_agreement"])["observed"] == pytest.approx(38 / 40)
+    assert position(split["human_agreement"])["n"] == 32
+    assert position(split["human_agreement"])["observed"] == 1.0
+    # The model against the reference: the two disputed occurrences have none,
+    # so it is scored on 38 with 32 right, and on 32 with all right.
+    assert position(every["model_vs_human"])["accuracy"] == pytest.approx(32 / 38)
+    assert position(split["model_vs_human"])["accuracy"] == 1.0
+    # Weighted to the corpus at one probability, the Hajek mean is the plain one.
+    assert position(every["weighted_accuracy"])["estimate"] == pytest.approx(32 / 38)
+    assert position(split["weighted_accuracy"])["estimate"] == 1.0
+    assert position(split["weighted_accuracy"])["units"] == 32
+    shares = {block["field"]: block for block in split["corrected_shares"]}
+    assert shares["speaker_position"]["state"] == "computed"
+    assert split["model_vs_human_comparison"] == []
+
+
+def test_the_split_is_the_gold_block_over_the_rows_left() -> None:
+    """Not a second computation: the same functions over fewer rows."""
+    annotations, model, design, reviewed = prior_review_fixture()
+    split = gold_estimates.without_prior_review(
+        annotations, model, reviewed=reviewed, comparison=model, design=design
+    )
+    kept = gold_estimates.without(annotations, reviewed)
+    block = gold_estimates.gold_block(
+        kept, model, sample_size=32, unique_occurrences=32, comparison=model, design=design
+    )
+    for name in gold_estimates.PRIOR_REVIEW_FIGURES:
+        assert split[name] == block[name], name
+    assert split["function_jaccard"] == gold_estimates.function_jaccard(kept, model)
+
+
+def test_nothing_coded_leaves_the_split_empty() -> None:
+    split = gold_estimates.without_prior_review(
+        annotations(), rows(), reviewed={"occ-000"}
+    )
+    assert (split["coded"], split["flagged_coded"]) == (0, 0)
+    assert split["human_agreement"] == split["model_vs_human"] == []
+    assert split["weighted_accuracy"] == split["corrected_shares"] == []
+    assert split["function_jaccard"] is None
+
+
 def test_coverage_inclusion_matches_what_the_sampler_records() -> None:
     frame = pd.DataFrame(
         {
