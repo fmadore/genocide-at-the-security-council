@@ -561,11 +561,21 @@ Run locally:
 bash scripts/cluster/fetch_results.sh
 bash scripts/cluster/fetch_results.sh --watch 643031   # wait for the job first
 bash scripts/cluster/fetch_results.sh --what topics
+bash scripts/cluster/fetch_results.sh --what run --run 2026-09-09-gemma4
 ```
 
-This pulls `data/derived/embeddings/`, `data/derived/topics/` and `notes/`.
-`/workdir` is not backed up and purges after 60 days, so pull once a run
-finishes rather than treating the cluster as storage.
+By default this pulls `data/derived/embeddings/`, `topics/`, `lemmas/` and
+`lexical_lemma/`, and `notes/`. `--what run` pulls one model-annotation run:
+`model_annotations/genocide/runs/<run id>` and its raw responses, probes and
+smoke record under `data/interim/`, for the id itself and for every
+`<run id>-batch-N`. A batch plan under `data/interim/` is named by whoever made
+it, so copy that by hand. `/workdir` is not backed up and purges after 60 days,
+so pull once a run finishes rather than treating the cluster as storage.
+
+`--watch` polls Slurm from the cluster side, over a single connection, however
+long the job runs; the login nodes ban an address for about ten minutes after a
+burst of connections, which the old one-connection-every-20-seconds loop risked.
+A dropped link is retried after five minutes.
 
 ## Choosing a model
 
