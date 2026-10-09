@@ -234,8 +234,9 @@ def harvest(
 
     `already` names speeches whose complete rows were on disk before this
     scheduler pass began. It guards a resumed run against duplicating durable
-    rows. `usage.row_problems` would refuse duplicates rather than repair them,
-    which is the right refusal about a fault that should not have happened.
+    rows. `usage_refusals.row_problems` would refuse duplicates rather than
+    repair them, which is the right refusal about a fault that should not have
+    happened.
     """
     rows: list[dict[str, object]] = []
     failures = list(outcome.failures)

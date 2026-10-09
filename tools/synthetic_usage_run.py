@@ -498,8 +498,8 @@ def check_comparison(first: pd.DataFrame, second: pd.DataFrame) -> list[str]:
     for field in ("verdict", "quotation", "speaker_position", "function", "referent"):
         before, after = left.loc[shared, field], right.loc[shared, field]
         if field == "function":
-            # Set equality, as `lib.usage` compares it: the pipe order carries no
-            # meaning and must not be counted as a disagreement.
+            # Set equality, as `lib.usage_comparison` compares it: the pipe order
+            # carries no meaning and must not be counted as a disagreement.
             same = [
                 set(x.split("|")) == set(y.split("|"))
                 for x, y in zip(before, after, strict=True)

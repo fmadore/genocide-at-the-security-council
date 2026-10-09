@@ -16,16 +16,18 @@ and cannot be. Every refusal raises :class:`lib.console.Refusal` carrying the
 message the step has always printed, which the step's `console.main` prints
 before it exits, and takes `what`, so that a comparison run is named as one. The
 check over a run's rows that returns its problems instead of refusing,
-:func:`lib.usage.row_problems`, stays with the aggregation.
+:func:`row_problems`, is here too, beside the refusal that reports them.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import pandas as pd
 
-from . import audit, console, lexicon, llm, model_runs, usage
+from . import audit, console, lexicon, llm, model_runs
+from .agreement import _text
 from .paths import LEXICON, rel
 
 #: The one term the model-assisted layer covers, and the store files the
@@ -347,6 +349,50 @@ def refuse_self_comparison(published: Path, comparison: Path) -> None:
         )
 
 
+def row_problems(
+    rows: Sequence[Mapping[str, object]], enumerated: Mapping[str, str]
+) -> list[str]:
+    """Every reason a run's rows cannot be joined to this enumeration.
+
+    `enumerated` maps occurrence_id to the digest of the speech body it was found
+    in. Three failures:
+
+    - a row naming an occurrence the enumeration does not have;
+    - a row whose `source_sha256` differs from the enumerated one, so the same
+      span in the same file is now in a different text;
+    - the same occurrence annotated twice, which would double-count it.
+
+    The first two mean the corpus or the lexicon moved underneath a run that has
+    already been paid for. The third means the run file was appended to twice,
+    which `lib.llm.completed` is meant to prevent and which cannot be repaired
+    here: the two rows may carry different labels, and there is no rule for
+    choosing between them that is not a coin toss.
+
+    Returned rather than raised, so the caller can report all of them at once
+    instead of one per run.
+    """
+    problems: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        identifier = _text(row.get("occurrence_id"))
+        if identifier not in enumerated:
+            problems.append(
+                f"{identifier[:12] or '(blank)'}... names an occurrence this enumeration "
+                "does not have"
+            )
+            continue
+        digest = _text(row.get("source_sha256"))
+        if digest != enumerated[identifier]:
+            problems.append(
+                f"{identifier[:12]}... was annotated against body {digest[:12]}..., "
+                f"the corpus now holds {enumerated[identifier][:12]}..."
+            )
+        if identifier in seen:
+            problems.append(f"{identifier[:12]}... is annotated more than once")
+        seen.add(identifier)
+    return problems
+
+
 def refuse_bad_rows(
     rows: list[dict[str, object]],
     frame: pd.DataFrame,
@@ -358,7 +404,7 @@ def refuse_bad_rows(
     digests = dict(
         zip(frame["occurrence_id"].astype(str), frame["source_sha256"].astype(str), strict=True)
     )
-    if problems := usage.row_problems(rows, digests):
+    if problems := row_problems(rows, digests):
         raise console.Refusal(
             f"{what}'s rows cannot be joined to this corpus",
             [

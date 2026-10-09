@@ -68,7 +68,19 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, audit, console, frames, lexicon, llm, model_runs, usage, usage_refusals
+from lib import (
+    artifacts,
+    audit,
+    console,
+    frames,
+    gold_estimates,
+    lexicon,
+    llm,
+    model_runs,
+    usage,
+    usage_comparison,
+    usage_refusals,
+)
 from lib import occurrences as occurrences_lib
 from lib import referents as referents_lib
 from lib.paths import (
@@ -85,8 +97,9 @@ from lib.paths import (
 
 # The refusals a run must pass, and the resolutions that read an older run in
 # today's vocabulary, live in `lib.usage_refusals`; the counting, and the model
-# block that describes a run, in `lib.usage`. Both are tested there on
-# constructed manifests and rows, which this step cannot be.
+# block that describes a run, in `lib.usage`; the gold block in
+# `lib.gold_estimates` and the second opinion in `lib.usage_comparison`. All are
+# tested there on constructed manifests and rows, which this step cannot be.
 
 TERM = model_runs.TERM
 
@@ -349,7 +362,7 @@ def retest_block(
     same questionnaire — and hard-coding two run ids would leave the block
     stale the first time a third run is bought.
 
-    The statistics are the ones :func:`usage.comparison_fields` computes between
+    The statistics are the ones :func:`usage_comparison.comparison_fields` computes between
     two *different* models, deliberately, so a reader can lay one table over the
     other and read the difference. Nothing here is an accuracy either: a model
     that agrees with itself perfectly may be perfectly wrong.
@@ -376,13 +389,13 @@ def retest_block(
                 llm.resolve_row(row)
                 for row in llm.read_rows(candidate.parent / "annotations.jsonl")
             ]
-            overlap = len(usage.comparison_overlap(rows, sibling_rows))
+            overlap = len(usage_comparison.comparison_overlap(rows, sibling_rows))
             if overlap and (best is None or overlap > best[0]):
                 best = (overlap, str(sibling.get("run_id", "")), sibling_rows)
         if best is None:
             continue
         overlap, sibling_id, sibling_rows = best
-        contested = usage.contested_rows(rows, sibling_rows)
+        contested = usage_comparison.contested_rows(rows, sibling_rows)
         out.append(
             {
                 "which": label,
@@ -390,8 +403,8 @@ def retest_block(
                 "run_id": run_id,
                 "retest_run_id": sibling_id,
                 "overlap": overlap,
-                "fields": usage.comparison_fields(rows, sibling_rows),
-                "function_jaccard": usage.comparison_function_jaccard(rows, sibling_rows),
+                "fields": usage_comparison.comparison_fields(rows, sibling_rows),
+                "function_jaccard": usage_comparison.comparison_function_jaccard(rows, sibling_rows),
                 "identical": int(sum(not fields for fields, _ in contested.values())),
             }
         )
@@ -982,9 +995,9 @@ def run_without_model() -> None:
         "matrix": [],
         "position_by_actor": [],
         "diffusion": {"milestones": list(usage.MILESTONES), "referents": []},
-        "comparison": usage.comparison_block([], []),
+        "comparison": usage_comparison.comparison_block([], []),
         "retest": [],
-        "gold": usage.gold_block(
+        "gold": gold_estimates.gold_block(
             annotations,
             empty,
             sample_size=len(candidates),
@@ -1177,8 +1190,8 @@ def run(args: argparse.Namespace) -> None:
     console.info(f"{len(rows):,} occurrences carry a label")
 
     console.step("Weighing the second opinion")
-    contested = usage.contested_rows(rows, comparison_raw)
-    comparison = usage.comparison_block(
+    contested = usage_comparison.contested_rows(rows, comparison_raw)
+    comparison = usage_comparison.comparison_block(
         rows,
         comparison_raw,
         run_id=comparison_id,
@@ -1281,7 +1294,7 @@ def run(args: argparse.Namespace) -> None:
         )
     design = pd.read_csv(GOLD_DESIGN, dtype={"occurrence_id": "string"}, keep_default_na=False)
     annotations = audit.read_annotations(GOLD_ANNOTATIONS)
-    gold = usage.gold_block(
+    gold = gold_estimates.gold_block(
         annotations,
         rows,
         sample_size=len(candidates),
@@ -1301,7 +1314,7 @@ def run(args: argparse.Namespace) -> None:
         # which is what the weighted accuracy and the corrected shares divide by.
         design=design,
     )
-    jaccard = usage.function_jaccard(annotations, rows)
+    jaccard = gold_estimates.function_jaccard(annotations, rows)
     console.info(
         f"gold state '{gold['state']}': {gold['double_coded']:,} of "
         f"{gold['unique_occurrences']:,} occurrences double-coded, "
