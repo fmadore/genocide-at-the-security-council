@@ -81,28 +81,6 @@ def validate(membership: pd.DataFrame, first_year: int, last_year: int) -> list[
     return problems
 
 
-def validate_against_corpus(
-    membership: pd.DataFrame, speeches: pd.DataFrame
-) -> list[str]:
-    """Check every recorded member actually speaks in the year it served.
-
-    A country holding a seat attends the Council all year, so a member that
-    never speaks is nearly always a wrong year or a misspelled name in
-    config/council_membership.csv rather than a silent delegation.
-    """
-    spoke = set(zip(speeches["year"], speeches["country_org"], strict=True))
-    silent = [
-        f"{row.country_org} ({row.year})"
-        for row in membership.itertuples()
-        if (row.year, row.country_org) not in spoke
-    ]
-    if not silent:
-        return []
-    shown = ", ".join(silent[:10])
-    more = f" (+{len(silent) - 10} more)" if len(silent) > 10 else ""
-    return [f"{len(silent)} recorded members never speak in their term: {shown}{more}"]
-
-
 def drift(speeches: pd.DataFrame, membership: pd.DataFrame | None = None) -> list[str]:
     """Where the frozen ``speaker_group`` no longer matches its inputs.
 

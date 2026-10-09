@@ -121,12 +121,6 @@ class TestCouncilValidation:
         problems = council.validate(membership, 1994, 1994)
         assert any("elected" in p for p in problems)
 
-    def test_flags_a_member_that_never_speaks_in_its_term(self, membership):
-        """Nearly always a mistyped year rather than a silent delegation."""
-        spoke = pd.DataFrame({"year": [1994], "country_org": ["France"]})
-        problems = council.validate_against_corpus(membership, spoke)
-        assert problems and "Rwanda" in problems[0]
-
     def test_flags_a_year_missing_from_the_roster(self, membership):
         complete = pd.DataFrame(
             [

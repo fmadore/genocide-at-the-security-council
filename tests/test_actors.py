@@ -473,45 +473,6 @@ def test_the_whole_corpus_slice_comes_first_and_spans_everything() -> None:
     assert len(slices) == 1 + len(actors.DECADES)
 
 
-# --- Crosswalk drift -------------------------------------------------------
-
-
-def with_attributes(frame: pd.DataFrame, table: pd.DataFrame) -> pd.DataFrame:
-    return frame.merge(table, on="country_org", how="left")
-
-
-def test_an_unedited_crosswalk_reports_no_drift() -> None:
-    frame = with_attributes(corpus(), crosswalk())
-    assert actors.crosswalk_drift(frame, crosswalk()) == []
-
-
-def test_a_crosswalk_edited_since_02_ran_is_caught() -> None:
-    """02 freezes entity_type and the centroid into the corpus. If config/ moved
-    afterwards, this table would be built from the new file while the rest of
-    the payload still carries the old one, and neither would say so."""
-    frame = with_attributes(corpus(), crosswalk())
-    moved = crosswalk()
-    moved.loc[moved["country_org"] == "Loud", "iso3"] = "XXX"
-    problems = actors.crosswalk_drift(frame, moved)
-    assert problems and "Loud" in problems[0] and "iso3" in problems[0]
-
-
-def test_a_moved_centroid_is_caught_and_a_rounding_wobble_is_not() -> None:
-    frame = with_attributes(corpus(), crosswalk())
-    nudged = crosswalk()
-    nudged.loc[nudged["country_org"] == "Quiet", "lat"] = -3.25 + 1e-9
-    assert actors.crosswalk_drift(frame, nudged) == []
-    nudged.loc[nudged["country_org"] == "Quiet", "lat"] = -3.5
-    assert actors.crosswalk_drift(frame, nudged)
-
-
-def test_two_missing_values_are_treated_as_agreeing() -> None:
-    """The Secretariat has no code in either file, and that is agreement rather
-    than a difference between two nulls."""
-    frame = with_attributes(corpus(), crosswalk())
-    assert actors.crosswalk_drift(frame, crosswalk()) == []
-
-
 # --- Who held a seat when they spoke ---------------------------------------
 #
 # `Loud` speaks 200 times: 120 while holding an elected seat and 80 from

@@ -36,10 +36,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
-from . import console, council, entities, lexicon, series
+from . import console, council, lexicon, series
 
 #: Re-exported, not redefined. The zero-ceiling arithmetic below :data:`MIN_SPEECHES`
 #: is a fact about denominators rather than about countries and now lives in
@@ -403,49 +402,6 @@ def describe_speakers(
             }
         )
     return out
-
-
-def _same(left: Any, right: Any) -> bool:
-    """Equality that treats two missing values as agreeing."""
-    left_missing, right_missing = pd.isna(left), pd.isna(right)
-    if left_missing or right_missing:
-        return bool(left_missing and right_missing)
-    if isinstance(left, float) or isinstance(right, float):
-        return bool(np.isclose(float(left), float(right), rtol=0, atol=1e-6))
-    return left == right
-
-
-def crosswalk_drift(speeches: pd.DataFrame, crosswalk: pd.DataFrame) -> list[str]:
-    """Where the attributes 02 froze into the parquet no longer match `config/`.
-
-    `02_normalise.py` joins the crosswalk and writes `entity_type`, `iso3`, the
-    UN group and the centroid into the corpus. If `config/entities.csv` has been
-    edited since, this table would be built from the edited file while every
-    other artefact in the payload still carries the old one — an inconsistency
-    that is invisible in both. Better to stop and re-run 02.
-    """
-    columns = [c for c in entities.ENTITY_COLUMNS if c in speeches.columns]
-    if not columns:
-        return []
-    observed = speeches[["country_org", *columns]].drop_duplicates("country_org")
-    joined = observed.merge(
-        crosswalk[["country_org", *columns]],
-        on="country_org",
-        how="left",
-        suffixes=("_corpus", "_config"),
-        validate="one_to_one",
-    )
-    problems: list[str] = []
-    for row in joined.itertuples(index=False):
-        for column in columns:
-            corpus = getattr(row, f"{column}_corpus")
-            config = getattr(row, f"{column}_config")
-            if not _same(corpus, config):
-                problems.append(
-                    f"{row.country_org}: {column} is {corpus!r} in the corpus and "
-                    f"{config!r} in config/entities.csv"
-                )
-    return problems
 
 
 # --- Reconciliation and serialisation --------------------------------------
