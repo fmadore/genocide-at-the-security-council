@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import actors, artifacts, frames, series
+from lib import actors, artifacts, console, frames, series
 from lib.paths import ACTOR_YEAR, ROOT, SPEECHES_FLAGGED
 
 
@@ -31,4 +31,4 @@ def run() -> None:
 
 
 if __name__ == "__main__":
-    run()
+    console.main(run)

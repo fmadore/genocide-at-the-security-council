@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from lib import audit, lexicon, llm, usage, usage_refusals
+from lib import audit, console, lexicon, llm, usage, usage_refusals
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -1535,17 +1535,15 @@ def test_the_paid_runs_and_a_v2_run_are_read_through_one_library(
 
 
 def test_a_prompt_this_checkout_does_not_hold_is_refused_loudly(
-    tmp_path: Path, monkeypatch, capsys
+    tmp_path: Path, monkeypatch
 ) -> None:
     """The one failure left. It has to name every digest the checkout does hold,
     because the reader's next move is to find the file that is missing."""
     prompt_library_at(tmp_path, monkeypatch)
-    with pytest.raises(SystemExit):
+    with pytest.raises(console.Refusal) as refused:
         usage_refusals.resolve_prompt({"prompt_version": 3, "prompt_sha256": "b" * 64})
-    printed = capsys.readouterr()
-    message = printed.out + printed.err
-    assert "does not hold" in message
-    assert "prompts/v1.md" in message
+    assert "does not hold" in refused.value.message
+    assert any("prompts/v1.md" in problem for problem in refused.value.problems)
 
 
 def test_a_version_line_the_bytes_contradict_is_a_provenance_failure(
@@ -1755,15 +1753,14 @@ def test_a_delegation_is_exposed_from_the_first_debate_that_named_the_case() -> 
 # --- A coverage gap -----------------------------------------------------------
 
 
-def test_the_resume_advice_names_only_flags_step_14_accepts(capsys) -> None:
+def test_the_resume_advice_names_only_flags_step_14_accepts() -> None:
     """The advice once named `--poll`, a flag step 14 had dropped."""
     import subprocess
     import sys
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(console.Refusal) as refused:
         usage_refusals.refuse_partial(9, 10, "", run_id="2026-09-08-qwen-131k")
-    printed = capsys.readouterr()
-    advice = printed.out + printed.err
+    advice = "\n".join(refused.value.problems)
     assert "14_llm_annotate.py --run-id 2026-09-08-qwen-131k" in advice
     usage_text = subprocess.run(
         [sys.executable, str(ROOT / "scripts" / "14_llm_annotate.py"), "--help"],

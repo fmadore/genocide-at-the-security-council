@@ -133,7 +133,7 @@ def gather(limit: int | None) -> tuple[list[Speech], list[Speech], int]:
             (occurrence.filename for occurrence in found), len(found)
         )
     ):
-        console.fail(
+        raise console.Refusal(
             "The enumeration does not reproduce the committed counts",
             [*problems, "run 03 and read docs/VALIDATION.md before spending a GPU hour"],
         )
@@ -309,17 +309,17 @@ def write_manifest(
 def refuse_mismatch(previous: dict[str, object], run_id: str, model: str, digest: str) -> None:
     """A run is one prompt and one model. A change to either is a new run id."""
     if previous.get("status") == "complete":
-        console.fail(
+        raise console.Refusal(
             f"Run {run_id} is already complete",
             ["its manifest says so; publishing a second reading needs a new --run-id"],
         )
     if previous and str(previous.get("model")) != model:
-        console.fail(
+        raise console.Refusal(
             f"Run {run_id} was started with model {previous.get('model')}",
             [f"--model {model} would mix two models in one file; use a new --run-id"],
         )
     if previous and str(previous.get("prompt_sha256")) != digest:
-        console.fail(
+        raise console.Refusal(
             f"Run {run_id} was started with a different prompt",
             [
                 f"manifest {str(previous.get('prompt_sha256'))[:12]}..., file {digest[:12]}...",

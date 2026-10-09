@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, embeddings, frames, semantic, topics
+from lib import artifacts, console, embeddings, frames, semantic, topics
 from lib.paths import EMBEDDINGS, ROOT, SEMANTIC, SPEECHES_FLAGGED
 
 
@@ -86,4 +86,4 @@ if __name__ == "__main__":
     parser.add_argument("--embeddings", type=Path, default=EMBEDDINGS)
     parser.add_argument("--seed", type=int, default=20260910)
     args = parser.parse_args()
-    run(args.embeddings, args.seed)
+    console.main(lambda: run(args.embeddings, args.seed))

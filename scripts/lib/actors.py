@@ -670,7 +670,7 @@ def build_measures(
             if problems := reconcile(
                 frame, subset, has_column, count_column, f"{name} / {window.key}"
             ):
-                console.fail("the per-country aggregation does not reconcile", problems)
+                raise console.Refusal("the per-country aggregation does not reconcile", problems)
             frame = withhold_below(frame, minimum)
             computed[name][window.key] = frame
             rows += as_rows(frame, window.key)
@@ -680,7 +680,7 @@ def build_measures(
         # Checking it here rather than trusting the assertion is cheap, and it is
         # the one place a mis-set period boundary would show as a number.
         if problems := reconcile_periods(computed[name], slices):
-            console.fail(f"{name}: the period slices do not add up to the whole", problems)
+            raise console.Refusal(f"{name}: the period slices do not add up to the whole", problems)
 
         payload[name] = {**measure_attributes(lex, kind, name), "rows": rows}
         cleared = int(computed[name][WHOLE]["sufficient"].sum())
@@ -694,7 +694,7 @@ def build_measures(
     # the same rows; a rate shown for one and withheld for the other would look
     # like a finding about the words.
     if problems := reconcile_withholding(computed):
-        console.fail("the measures do not agree about a denominator or a withholding", problems)
+        raise console.Refusal("the measures do not agree about a denominator or a withholding", problems)
     if len(computed) > 1:
         console.info(f"the {len(computed)} measures withhold from the same speakers in every period")
 

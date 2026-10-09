@@ -465,7 +465,6 @@ def diffusion_block(
                 "a first mention on an invented date is worse than no curve at all",
             ],
         )
-        raise  # unreachable; console.fail exits, and a reader cannot know that
     # The risk set beside each curve: who sat in a debate that named the case.
     exposure = {} if speeches is None else usage.exposure_rows(rows, speeches)
     for entry in referents:
@@ -1490,4 +1489,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    console.main(main)
