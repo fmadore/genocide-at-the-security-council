@@ -1,270 +1,135 @@
 # Project focus and release gates
 
-Updated 10 September 2026. This is the single planning and status document.
-It replaces the separate improvement roadmap, dated reviews, implementation
-report and research-decision packet. Historical discussion remains in Git history;
-this document records the current position rather than a chronological work log.
+Updated 9 October 2026. This document holds the current position only: where the
+project stands, what comes next, the gates a release must pass, and the research
+decisions still in force with their reasons. Superseded status notes, job logs and
+dated verification snapshots were removed on 9 October 2026; they remain in git
+history (`git log -p docs/PLAN.md`) and, for measurements, in
+[VALIDATION.md](VALIDATION.md).
 
-## Review of 24 September 2026
+The section numbers (§1.1, §3, §4, §5, §6, §7, §7.3, §7.5) and the item codes
+(R1, R2, R7 …) are cited from code comments, so they are kept stable.
 
-Lexicon v8 (the accented *génocidaires*), a Unicode tokenizer, the rejection flag measured
-from the run, meeting-clustered rate bands, a composition decomposition, a blinded gold
-packet with an offline coding page, a design over the union of sampling frames and
-gold-corrected shares are implemented; see [ROADMAP.md](ROADMAP.md). None of them replaces
-the human audit: the gold sample is still uncoded, and the corrected shares wait on it.
+## Where the project stands — 8 October 2026
 
-## Published partial preview — 14 September 2026
+| Part | State |
+|---|---|
+| Corpus | Sakamoto and Matsuoka v5.0, 1946–2024, pinned by checksum ([CORPUS.md](CORPUS.md)). Lexicon v8 finds `g[eé]nocid*` in 4,136 speeches, 7,787 occurrences. |
+| Published model layer | A **partial, unvalidated preview**: Qwen3.8-27B run `2026-09-08-qwen-131k`, prompt v3, 4,097 of 4,133 speeches and 7,694 of 7,747 occurrences (7,694 of 7,787 since lexicon v8). See [model_annotations/README.md](../model_annotations/README.md). |
+| Comparison run | Gemma 4 31B IT, prompt v3: 4,129 of 4,133 speeches. Four speeches (two truncations, two validation failures) block the merge of its batches. Its results are not yet fetched or published; `comparison_run.txt` is empty. |
+| Gold sample | Drawn on 24 September 2026: 469 rows over 453 occurrences, in three frames. **0 of 469 rows coded.** The evaluation rules are a proposal ([EVALUATION_PLAN.md](EVALUATION_PLAN.md)). |
+| Semantic map | Experimental. Restored at every build from the pinned release `semantic-2026-09-11` (§4). |
+| Citable release | None yet. [RELEASING.md](RELEASING.md) explains how to cut one. |
+| Reviews | All code from the reviews of 19 and 24 September 2026 is in ([ROADMAP.md](ROADMAP.md)); what remains waits on a person or the cluster. The review of 8 October 2026 is being worked through ([REVIEW_2026-10-08.md](REVIEW_2026-10-08.md)). |
 
-The user authorized publishing the fetched Qwen checkpoint as a partial,
-unvalidated preview. Run `2026-09-08-qwen-131k` covers 4,097/4,133 speeches and
-7,694/7,747 occurrences. All 21 retrieved file hashes matched; corpus, prompt,
-row identity and evidence-locator checks passed. Partial aggregation passed;
-strict aggregation rejected the 53 missing occurrences. The 36 unresolved
-speeches comprise 34 invalid referent identifiers and two truncated responses.
-Twenty-four invalid evidence quotes are excluded from discourse aggregates.
-Human gold review remains not started (0/199); this publication does not close
-the research validation gate. Gemma smoke awaits priority and its array awaits
-the smoke dependency. Monitoring is paused. Earlier status notes below describe
-preceding checkpoints and are superseded by this entry.
+The site remains experimental, and the human-validation gate (§1.1) is open. No
+figure resting on model labels is validated.
 
-## Current focus
+## Priorities
 
-Gemma 4 31B IT is now the selected second model, replacing the planned DeepSeek
-run. The pinned checkpoint `842da3794eaa0b77d5f08bae87a17459d91ff475`
-has been downloaded and verified on Festus. An isolated Gemma workspace passes
-preflight, parser import and the full 4,133-request tokenizer budget audit
-(maximum 79,303 tokens against a 131,072-token context). Gemma uses its actual
-boolean `enable_thinking` control; low/high in the probe mean off/on, not a
-graded effort ladder.
-
-**First successful Gemma inference, 16 September 2026.** A reconnaissance run
-on two L40s (`2026-09-16-gemma4-l40-recon`, job 778579) passed the reasoning
-ladder and annotated 10 of 12 speeches, locating all 36 evidence quotes with
-none relocated. The instrument works. The hardware question it was asked to
-settle is settled against the L40s and recorded in `docs/CLUSTER.md`; the run
-stays on H100s.
-
-**The truncation question is answered: 5 of 100, and a resume pass recovers it.**
-The open question of 16 September assumed the wrong mechanism. Because
-`lib.annotate.output_ceiling` computes an allowance from the speech alone —
-32,000 tokens plus 1,200 per occurrence, with no dependence on the card, the
-context length or the serving configuration — it looked as though particular
-speeches were structurally too long and no hardware choice could help. Two runs
-over the *same twelve speeches* show otherwise:
-
-| Run | Cards | Truncated |
+| Priority | Work | Done when |
 |---|---|---|
-| `2026-09-16-gemma4-l40-recon` | 2x L40 | SC00239-01-003, SC00257-01-004 |
-| `2026-09-09-gemma4-smoke`, pass 1 | 2x H100 | SC00232-01-005 |
-
-The two sets are disjoint, and every one of the twelve was annotated
-successfully in at least one run. Pass 2 of the smoke (job 780176) confirms the
-mechanism directly: re-asking the refused speech under identical settings —
-same model, revision, prompt v3, ceiling and `enable_thinking` — returned it
-complete. The smoke now reads 12 of 12 speeches, 40 of 40 occurrences, zero
-refused, 40 of 40 evidence quotes located and none relocated, in 13 requests
-over 2 passes. That matches Qwen smoke 760798 on coverage, at one extra request.
-
-**The rate, measured over 100 speeches** (`2026-09-18-gemma4-trunc100`, job
-780177, 42 minutes on two H100s): 95 of 100 speeches complete, 182 of 198
-occurrences, **5 refused, every one a truncation**. Gemma spent 378,962 of
-421,597 output tokens on reasoning. Against Qwen's 4 truncations in 4,097
-speeches, Gemma truncates about fifty times as often — 5.0% against 0.1% — which
-on a corpus pass is roughly 200 speeches held back rather than Qwen's 4.
-
-This removes the dilemma the open question was built around. Raising the
-allowance would stop Qwen and Gemma answering under identical limits, and
-disabling thinking would compare a reasoning model against a non-reasoning one;
-both change the instrument. A resume pass changes nothing about it. Gemma's
-reasoning therefore costs a pass budget, not a coverage gap.
-
-Two cautions on that number. `--limit` takes the *first* 100 genocide-bearing
-speeches, so this is a chronological head, not a random sample; if speech length
-drifts across 1946-2025 the rate will not transfer cleanly, and it is reliable
-as an order of magnitude rather than as a published rate. And the recovery is
-not guaranteed per speech: SC00257-01-004 truncated in the recon, succeeded in
-the smoke, and truncated again here, so speeches near the boundary can need more
-than one retry. A corpus run should budget three passes and check what is still
-outstanding after them, rather than assuming one resume clears the field.
-
-**One new quality signal.** At this scale, 3 of 182 evidence quotes could not be
-located, with none relocated. The smoke's 40 of 40 did not show this because it
-was too small. Qwen's published run excludes 24 invalid evidence quotes from
-discourse aggregates on the same basis, so the behaviour is not new to Gemma,
-but the 1.6% here is worth carrying into the array's validation rather than
-meeting it for the first time across 4,133 speeches.
-
-**Throughput, measured.** 24 seconds per speech at four requests in flight on
-two H100s, against 2.9 minutes on two L40s. A 250-speech batch is about 100
-minutes of annotation plus roughly 10 minutes of startup, well inside the
-24-hour wall; the 17 batches at two tasks at a time come to something near 15
-hours for a corpus pass, before resume passes.
-
-**The smoke was resubmitted on 18 September 2026 and started immediately.**
-Qwen continuation **768736** finished COMPLETED at 09:32 on 14 September, which
-made Gemma smoke **768786** eligible the same second. It then sat `PENDING` for
-three days and twenty-one hours with no start estimate, while two of the node's
-four H100s were free. The cause was not queue depth: the `GPU` partition's
-`DefMemPerGPU` charges a two-card job half the node's memory, and the `--mem=128G`
-on the submit line was disregarded. Resubmitted with `--mem-per-gpu=128G`, the
-same script started within seconds. `docs/CLUSTER.md` records the measurement.
-
-Current jobs: the smoke is complete (780174 then 780176), the truncation
-measurement is complete (780177), and array **780175** — 17 fixed batches of at
-most 250 speeches, at most two tasks simultaneously, two H100s per task — is
-**held** (`scontrol hold`). Its `afterok` dependency is satisfied and the
-dispatcher's smoke-manifest guard is satisfied, so the hold is now the only
-thing stopping it. Release with `scontrol release 780175` when the pass budget
-above is accepted.
-
-The cluster workspace was re-pushed from a clean tree on 18 September, so
-`.git-commit` there reads `c29f245` rather than a `-dirty` sha: a corpus run
-started from here will cite a commit that exists. It now carries lexicon 7,
-whose only change was to retire the `genocidaires` term that was already nested
-under `genocide`; `Lexicon.compatible` and the unchanged `referents.csv` keep it
-interchangeable with the lexicon 6 the published Qwen run recorded.
-
-Qwen's own coverage is unchanged by this and was not re-verified here; if its
-continuation stopped incomplete, its checkpoint remains for another resume.
-
-Future model runs now support fixed speech batches through
-`scripts/annotation_batches.py` and Slurm arrays. A plan assigns each speech
-once; separate run directories preserve resumability. The merge requires every
-batch to be complete, disjoint and instrument-compatible, retaining source
-hashes and validation counters. See [CLUSTER.md](CLUSTER.md#independent-batches-for-future-models)
-for submission and selective retry commands. The current Qwen run keeps its
-existing identity; continuation job **768736** is queued after **760799**.
-The downloaded 9 September snapshot has 2,104 completed speeches and 3,608
-annotations; partial aggregation passed locally, with publication unselected.
-
-GPU status, 8 September: smoke job **760798 passed at 08:16 CEST**: all 12
-speeches and 40 occurrences annotated, zero refusals, all 40 evidence spans
-located without relocation. Its nine-response reasoning probe also passed:
-median reasoning tokens were 1,389 / 1,914 / 11,603 for low / medium / xhigh.
-Full-corpus job **760799 started at 08:16 CEST**, after both scheduler success
-and the smoke manifest's completion guard. Its target is 4,133 speeches and
-7,747 occurrences; full coverage and results remain pending.
-
-The model is Qwen3.8-27B at xhigh on one Festus H100. The OpenAI-compatible SDK
-only connects to loopback vLLM. Corrected code and the current 167,642-speech
-corpus are in an isolated workdir, with matching local/remote parquet SHA256.
-Startup fixes bound serving concurrency to four, route SDK extensions through
-`extra_body`, and set context to 131,072. A pinned-tokenizer audit of every
-request found a maximum prompt-plus-output budget of 79,392 tokens. Full text
-and output allowances are preserved. The full-run client timeout is one hour,
-covering legitimate long responses; staged code hashes and the original smoke
-client are retained alongside the logs.
-
-Festus's operating guidance has been checked against the live environment. The
-batch script now checks corpus metadata, SDK call compatibility and cached model
-shards before server startup; package/compilation caches use `/workdir`, and the
-server is isolated from the client overlay. The current-corpus probe and smoke
-gates have passed; full-run completeness and research review remain open.
-
-The local integrity repairs and corpus rebuild are complete. The next research
-milestone is a reviewed annotation instrument and validated evidence. The Bayreuth
-GPU run is in progress; no result or publication run is selected by this work.
-The application remains experimental and the human-validation release gate is open.
-
-| Priority | Work | Status and completion gate |
-|---|---|---|
-| 1 | C1–C7: inspect the Bayreuth result when available | Local transport, runtime, probe and recovery safeguards implemented. Verify actual probe, smoke run, weight/runtime provenance, population coverage and failures before considering publication. Do not restart the running job as part of local cleanup. |
-| 2 | R1 / A4 / H1–H2: review and validate the instrument | Candidate packet prepared; both coders review vocabulary, pilot independently, revise, then code and adjudicate. No automated replacement for human verdicts. |
-| 3 | R2 / R8 / R10: interpretive extensions | Wait for usable, reviewed role/referent evidence. R10's paired design is prepared below. |
-| 4 | R12 / R13 / R15: editorial decisions | Decide disputed figures' purpose; obtain Joël's signed epistemological text and approved attribution. Government overlay remains unadopted. |
-| 5 | S1 / S5: interpret robustness results | Full lemma layer and meeting-deletion/bootstrap tables now exist; inspect fragile speaker keywords and retain conditional interval caveats. |
-| 6 | M1–M3: measured maintenance | Constrained-network results for concordance and the real semantic map are recorded below. Prioritize initial transfer/startup; physical-device measurements remain open. |
+| 1 | Decide the evaluation plan, starting with instrument v3 or v4 (R1; ROADMAP open item 2) | FM and JG have settled the open points in [EVALUATION_PLAN.md](EVALUATION_PLAN.md), the plan is committed with its date, and the sample is frozen. |
+| 2 | Code and adjudicate the gold sample (H1–H2, ROADMAP open item 1) | Every row double-coded, disagreements adjudicated, results reported as the plan requires. No automated replacement for human verdicts. |
+| 3 | Finish the Gemma comparison run | The four outstanding speeches are retried, the batches merge under the checks in §5, the run is fetched and inspected, and a decision on publishing it is recorded. Naming it in `comparison_run.txt` redraws the gold sample's third frame, so it waits until the sample is frozen. |
+| 4 | Cut a citable preview, "v0.1 — unvalidated preview", if FM chooses | Released and archived as [RELEASING.md](RELEASING.md) describes. It does not close the release gate (§1.3). |
+| 5 | Human checks outside the gold sample | First events on the diffusion curves (ROADMAP open item 3), the source checks and lexicon audit in [VALIDATION.md](VALIDATION.md). |
+| 6 | R2 / R8 / R10: interpretive extensions | Wait for reviewed, validated role and referent evidence. |
+| 7 | R12 / R13 / R15: editorial decisions | The purpose of disputed figures decided; Joël's signed epistemological text and approved attribution obtained. The government overlay stays unadopted. |
+| 8 | S1 / S5: read the robustness results | Fragile speaker keywords and stopword leaks inspected before any strong interpretation (§6). |
+| 9 | M1–M3: measured maintenance | Initial concordance transfer and startup; physical-device measurements remain open (§7). |
 
 ## Research contract
 
-### Preliminary Qwen prompt review — 10 September 2026
-
-Reviewed the downloaded 9 September checkpoint, not the later live checkpoint:
-2,104 completed speeches, 3,608 annotation rows, 40 rejected responses out of
-2,144 returned requests. Inspected a purposive 59-occurrence sample: the first
-12 in corpus order, examples across position/quotation/case/function values,
-and every invalid or relocated evidence quote. This is an assistant spot review,
-not an independent human gold set or an estimate of annotation accuracy. The
-reproducible sample is in `data/interim/qwen-review-sample.json`; the downloaded
-run and partial aggregation remain under `data/interim/festus-2026-09-09/`.
-
-**Keep what works.** SC00228-01-002#1 codes the explicit East Punjab accusation
-as an assertion; SC00232-01-005#1–3 recognizes India's explicit rejection;
-SC00211-01-007#1–2 distinguishes general/legal references from a case assertion.
-These examples support retaining the occurrence-level approach and separate
-quotation and position fields. They do not establish corpus-wide reliability.
-
-**First priority: IDs, not labels.** All 38 non-truncation rejections in this
-snapshot are unknown referents expressed as display names (Rwanda, Bosnia and
-Srebrenica, etc.). The two remaining failures are output truncations. The prompt
-requests identifiers but its prose also uses display labels, while the output
-schema accepts any string. One invalid referent causes the whole speech response
-to be rejected. For a future instrument, constrain the field with an enum built
-from the pinned current referent list, and show explicit examples such as
-`rwanda`, never `Rwanda`. The list is already hashed in run provenance; it need
-not be hard-coded in Python. Changing the schema still changes the recorded
-request identity and must not be slipped into the current run. Do not silently
-relabel existing responses or relax the referent validator.
-
-**Second priority: contiguous evidence.** Eleven of 3,608 rows (0.30%) have
-unlocated evidence. Inspection found omitted middle sentences, reordered text
-and spelling changes. SC01253-01-003#2 omits an intervening rhetorical question;
-SC03454-02-003#1 removes UNPROFOR's objection between the draft quotation and the
-speaker's reply; SC04127-01-006#1 reverses the order of the famine description
-and “For Ukraine, genocide is not just a term.” SC01745-01-023#1 changes
-“Kassem” to “Kasem”. The current instruction already prohibits this, but asking
-for the shortest quote supporting every field encourages compression. Proposed
-clarification: one contiguous source span, retaining all intervening text; never
-assemble a quotation from separate passages. If support is distributed, retain
-the continuous span needed to show the attribution/position, rather than editing
-it into a cleaner sentence. Do not repair these quotes by fuzzy acceptance.
-
-**Substantive rules need coder review before revision.** The distancing rule
-automatically maps “allegations of genocide” to rejection, and “accused of
-genocide” to assertion. Neither mapping alone establishes the speaker's view
-of the characterization. SC00235-01-001#3 is coded rejection when Pakistan
-denies accusing India's government, immediately before asserting that genocide
-occurred (#4): actor responsibility and acceptance of the characterization can
-come apart. SC03247-01-039#1 is coded reported speech for “what it termed
-‘genocide’”, despite the prompt's overly broad distancing rule. These are
-instrument-boundary questions, not proof that every affected model label is
-wrong. Explicit endorsement/rejection, neutral attribution and uncertainty
-should be tested on paired boundary examples with the human coders.
-
-Also flag SC03656-01-005#7: a future threat to Zaire is assigned to Rwanda,
-apparently borrowing the speech's background case; review local versus wider
-context. SC06880-01-031#10 gives `own_state_accused=no` while naming no accused
-actor in its anniversary/justice passage; review the applicability boundary.
-
-**Decision:** no live prompt, queued job or annotation has been changed by this
-review. Prepare a small paired pilot for a proposed v4, including the failures
-and these boundary cases. Measure valid-ID output, contiguous evidence and
-human-reviewed field decisions separately. Keep Qwen/Gemma on the same v3 for
-the current comparison unless both are deliberately rerun under a reviewed v4;
-a new prompt/schema needs a new run identity and fresh probe. Human validation
-remains open, and partial aggregates remain unsuitable for unqualified trends.
-
 The object is vocabulary in the English UN verbatim record, not private
 deliberation, untranslated speech, legal adjudication or inferred intent.
-Every quantitative claim needs versioned inputs, an explicit unit/numerator/
+Every quantitative claim needs versioned inputs, an explicit unit, numerator and
 denominator, artifact provenance, an evidence path, a stated limitation and a
 test of its data contract. Model agreement measures stability, not accuracy;
-regex/model agreement is triangulation, not human validation.
+agreement between the lexicon and a model is triangulation, not human validation.
+[CLAIMS.md](CLAIMS.md) lists each kind of published figure and its status.
 
 Keep the numbered Python pipeline, plain artifact files, static SvelteKit hosting
 and lazy evidence loading. No backend, accounts, orchestration framework or model
 registry is currently justified. Open weights on university hardware are the
 chosen inference path because weights and runtime can be recorded and pinned.
 
-Reference documentation has distinct jobs and is not another roadmap:
+### Decisions from the preliminary Qwen review (10 September 2026)
 
-- [ROADMAP.md](ROADMAP.md): what is still open from the reviews of 19 and 24 September
-  2026 — work for coders or the cluster — and an index of the finished items the code cites.
-- [CORPUS.md](CORPUS.md): canonical source, schema, counts and coverage limits.
-- [VALIDATION.md](VALIDATION.md): dated corpus checks and outstanding source checks.
+A purposive sample of 59 occurrences from the 9 September checkpoint of the Qwen
+run (2,104 completed speeches, 3,608 annotation rows) was read against the
+model's labels: the first 12 in corpus order, examples across the position,
+quotation, case and function values, and every invalid or relocated evidence
+quote. This was an assistant's spot review, not an independent human gold set or
+an estimate of accuracy. The sample is in `data/interim/qwen-review-sample.json`,
+which is not under version control.
+
+**The 59 are flagged in the gold sample.** Decided by FM on 9 October 2026: any of
+them that fall in the gold sample stay in it, are marked, and are reported
+separately ([EVALUATION_PLAN.md](EVALUATION_PLAN.md), section 4).
+
+**Keep what works.** SC00228-01-002#1 codes the explicit East Punjab accusation as
+an assertion; SC00232-01-005#1–3 recognises India's explicit rejection;
+SC00211-01-007#1–2 distinguishes general or legal references from a case
+assertion. These support keeping the occurrence-level approach and separate
+quotation and position fields. They do not establish corpus-wide reliability.
+
+**First priority for a future instrument: identifiers, not labels.** Every
+non-truncation rejection in that snapshot was a referent written as a display
+name ("Rwanda", "Bosnia and Srebrenica") instead of an identifier. The prompt
+asks for identifiers but its prose uses display labels, and one invalid referent
+rejects the whole speech's response. A future instrument should constrain the
+field to the pinned referent list and show examples such as `rwanda`, never
+`Rwanda`. Changing the schema changes the recorded request identity, so it must
+not be slipped into a current run. Do not silently relabel existing responses or
+relax the referent validator.
+
+**Second priority: contiguous evidence.** Eleven of 3,608 rows (0.30%) had
+unlocated evidence, from omitted middle sentences, reordered text or corrected
+spelling (SC01253-01-003#2, SC03454-02-003#1, SC04127-01-006#1,
+SC01745-01-023#1). The proposed rule: one contiguous span of the source, keeping
+all intervening text, never assembled from separate passages. Do not repair these
+quotes by fuzzy acceptance.
+
+**Substantive rules need coder review before revision.** The distancing rule maps
+"allegations of genocide" to rejection and "accused of genocide" to assertion;
+neither mapping alone establishes the speaker's view. SC00235-01-001#3 is coded
+rejection where Pakistan denies accusing India's government, just before
+asserting that genocide occurred (#4). SC03247-01-039#1 is coded reported speech
+for "what it termed 'genocide'", despite the rule. Also review SC03656-01-005#7 (a
+future threat to Zaire assigned to Rwanda, apparently from the speech's
+background) and SC06880-01-031#10 (`own_state_accused=no` with no accused actor
+named). These are boundary questions, to be tested on paired examples with the
+human coders; [INSTRUMENT_V4_PROPOSAL.md](INSTRUMENT_V4_PROPOSAL.md) turns them
+into a proposal.
+
+**Decision.** No live prompt, queued job or annotation was changed by this review.
+Qwen and Gemma stay on the same prompt v3 for the current comparison unless both
+are deliberately rerun under a reviewed v4; a new prompt or schema needs a new run
+identity and a fresh probe. Partial aggregates remain unsuitable for unqualified
+trends.
+
+### Reference documents
+
+Each has one job; none is another roadmap.
+
+- [ROADMAP.md](ROADMAP.md): what is still open from the reviews of 19 and 24
+  September 2026, and an index of the finished items the code cites.
+- [REVIEW_2026-10-08.md](REVIEW_2026-10-08.md): the review of 8 October 2026.
+- [EVALUATION_PLAN.md](EVALUATION_PLAN.md): the proposed rules for the gold sample.
+- [CLAIMS.md](CLAIMS.md): each kind of published figure and what it rests on.
+- [CORPUS.md](CORPUS.md): source, schema, counts and coverage limits.
+- [DATASHEET.md](DATASHEET.md): the derived dataset and its fields.
+- [VALIDATION.md](VALIDATION.md): dated checks and outstanding source checks.
+- [RELEASING.md](RELEASING.md) and [RUNBOOK.md](RUNBOOK.md): making a citable
+  release, and what to do when the rebuild fails.
 - [CLUSTER.md](CLUSTER.md): optional environments and GPU operating instructions.
-- [Pipeline guide](../scripts/README.md) and [web guide](../web/README.md): commands and implementation contracts.
-- [Human annotation store](../annotations/README.md), [codebook](../annotations/lexicon/CODEBOOK.md) and [model store](../model_annotations/README.md): versioned instruments and storage rules.
+- [Pipeline guide](../scripts/README.md) and [web guide](../web/README.md):
+  commands and implementation contracts.
+- [Human annotation store](../annotations/README.md),
+  [codebook](../annotations/lexicon/CODEBOOK.md) and
+  [model store](../model_annotations/README.md): versioned instruments and storage
+  rules.
 
 ## 1. Validation and citable release
 
@@ -274,12 +139,13 @@ Generated candidates and human annotations remain separate. Stable occurrence ID
 and declared sampling frames support occurrence-level and speech-level estimates,
 with term-by-period coverage. Freeze and review the current sample before coding;
 record verdict, source check and phenomenon independently, then adjudicate.
-Publish precision and agreement with denominators and uncertainty. A pattern
-change bumps the lexicon version and reopens this gate. A2 occurrence identities
-bind the span and matched text; `pattern_since` prevents incompatible patterns
-from inheriting verdicts while unchanged patterns retain their compatibility.
-Lemma sensitivity never
-changes the surface-form lexicon against which the audit is conducted.
+Publish precision and agreement with denominators and uncertainty, under the
+rules of [EVALUATION_PLAN.md](EVALUATION_PLAN.md) once they are decided. A pattern
+change bumps the lexicon version and reopens this gate. Occurrence identities bind
+the span and matched text; `pattern_since` prevents incompatible patterns from
+inheriting verdicts while unchanged patterns keep their compatibility. Lemma
+sensitivity never changes the surface-form lexicon against which the audit is
+conducted.
 
 ### 1.2 Source checks
 
@@ -290,25 +156,31 @@ Use current CORPUS.md totals; distinguish speeches, meetings and documents.
 
 ### 1.3 Release gate
 
-Before a citable tag: complete the human audit and source checks; rebuild from a
-clean checkout; reconcile analytical hashes apart from timestamps/commit metadata;
-verify the payload and production browser journeys; align published prose with
-the rebuilt figures; archive the audit and reproducible artifacts. Citation
-metadata is in CITATION.cff. Code is MIT, project-authored derived work CC BY 4.0,
-and source speech text remains CC0 (LICENSE-DATA.md). A DOI/archive and citable
-tag remain future release work, not a consequence of a passing build.
+Before a release that claims validated results: complete the human audit and
+source checks; rebuild from a clean checkout; reconcile analytical hashes apart
+from timestamps and commit metadata; verify the payload and production browser
+journeys; align published prose with the rebuilt figures; archive the audit and
+reproducible artifacts. Citation metadata is in CITATION.cff. Code is MIT,
+project-authored derived work CC BY 4.0, and source speech text remains CC0
+(LICENSE-DATA.md).
+
+A preview release, named as unvalidated, may be archived before the gate is
+passed ([RELEASING.md](RELEASING.md)); it gives citations a fixed target and does
+not close the gate. A passing build is never by itself a release.
 
 ## 2. Reproducible publication
 
-The Makefile owns the deterministic DAG. Deployment verifies fresh and cached
-payloads, with input-complete cache keys and caches saved only after success.
-A cache is an optimization; a clean rebuild must work without it. Retain pinned
-source checksums, complete export inventories and atomic replacement boundaries.
-An optional corpus mirror must preserve the original pin and checksum checks.
+The Makefile owns the deterministic build graph. Deployment verifies fresh and
+cached payloads, with input-complete cache keys and caches saved only after
+success. A cache is an optimisation; a clean rebuild must work without it. Retain
+pinned source checksums, complete export inventories and atomic replacement
+boundaries. An optional corpus mirror must preserve the original pin and checksum
+checks.
 
 Keep the hashed release environment separate from optional cluster dependencies.
-GPU arithmetic is not promised bit-identical across devices; manifests record
-the actual hardware/runtime. Operational instructions belong in CLUSTER.md.
+GPU arithmetic is not promised bit-identical across devices; manifests record the
+actual hardware and runtime. Operational instructions belong in CLUSTER.md; what
+to do when a deploy fails is in [RUNBOOK.md](RUNBOOK.md).
 
 ## 3. Actor evidence
 
@@ -323,241 +195,171 @@ State labels do not identify governments, individuals, policy continuity or inte
 Membership is a per-speech status, not one fixed label for a delegation: preserve
 the composition of permanent, elected and non-member participation over time.
 
+Step 20 publishes annual speaker tables (S2) reconciled to corpus speeches, words
+and term occurrences. Rates are withheld below 125 speeches; missing years have
+zero counts and withheld rates; historical affiliations stay distinct; Wilson
+bounds are labelled as speech-level and not meeting-clustered.
+
 ## 4. Optional topics and embeddings
 
-The user has selected speech similarity and evidence retrieval as the question
-for an experimental semantic map (10 September). Step 21 projects complete,
+**Decision (10 September 2026):** the question for the experimental semantic map
+is speech similarity and evidence retrieval. Step 21 projects complete,
 content-validated Qwen3-Embedding-0.6B vectors with a fixed-seed cosine graph and
-UMAP. It reports original-space ANN recall against 128 exact queries (minimum
+UMAP. It reports original-space neighbour recall against exact search (minimum
 0.8), plus projection trustworthiness and neighbour loss on a deterministic
-1,000-speech subsample. The diagnostic is not a human interpretability score.
-The interface colours by source affiliation, source agenda category or decade;
-filters preserve the projection, and related speeches come from original-vector
-similarity, not the drawing. It includes search controls, a paginated table,
-evidence links, URL restoration and a waiting state without invented points.
+1,000-speech subsample. These diagnostics are not a human interpretability score.
+Colour is by source affiliation, agenda category or decade; filters preserve the
+projection; related speeches come from similarity in the original vector space,
+not from the drawing.
 
-Embedding job **775570** completed all **167,642 speeches** (167,878 chunks,
-1,024 dimensions) in 53m34s. The first projection launcher used an incorrect
-model subdirectory; corrected CPU job **775870** completed in 11m04s on
-11 September. Both use isolated workspace
-`/workdir/$USER/unsc/analysis-2026-09-10`; annotation runs are separate.
-Model revision is immutable; every speech is token-counted, decoded chunks are
-rechecked against the token budget, and document prompts are empty. Schema-2
-vectors carry checksums, row identity and exact body hashes. The local exporter
-requires a complete, checksummed semantic artifact from the same corpus.
-The retrieved artifact passes all 258 file checks and matches every speech's
-ID, affiliation, year, agenda and lexical flag. All **1,676,420** neighbour links
-have valid identities, descending cosine scores, no self-links and no duplicates.
-ANN recall@10 is **0.9742** over 128 exact queries. On the 1,000-speech diagnostic
-subsample (k=25), trustworthiness is **0.8000** and neighbour loss **0.6981**.
-UMAP's spectral eigensolver fell back to seeded random initialization; this is
-recorded in the release pin and notes. These diagnostics support exploratory
-use with the visible projection caveat, not claims about diplomatic alignment.
-Five retrieval spot checks (Indonesia 1947, Rwanda 2000, ICC 2012, Iraq 2018,
-Red Sea 2024) returned related agenda/speech material; this is an inspection,
-not a blinded human relevance evaluation.
+**The published release.** It covers all 167,642 speeches (167,878 chunks, 1,024
+dimensions). Neighbour recall@10 is 0.9742 over 128 exact queries; on the
+1,000-speech subsample (k = 25) trustworthiness is 0.8000 and neighbour loss
+0.6981. UMAP's spectral initialisation fell back to seeded random initialisation,
+which the release pin records. These support exploratory use with the visible
+projection caveat, not claims about diplomatic alignment. Five retrieval spot
+checks returned related material; that was an inspection, not a blinded relevance
+evaluation.
 
-`config/semantic-release.json` pins the GitHub release archive, its manifest and
-the corpus by SHA-256. A canonical content fingerprint also binds exact embedded
-bodies and displayed metadata, allowing equivalent Parquet serialization across
-Arrow versions; only a pin matching the artifact's manifest may authorize it.
-The local/CI byte-hash difference was verified to consist exclusively of Arrow
-25.0.0 versus 25.0.1 writer metadata: replacing its three metadata occurrences
-in memory reproduced the deployed corpus SHA-256 exactly, without changing data.
-Clean deployments restore and verify the release before exporting,
-so the full map survives cache eviction without another GPU run. The browser
-loads the 8.93 MB map and fetches neighbour shards only on selection. Filters
-retain category colours, projection bounds and zoom; the selected speech has a
-diamond marker, and selections outside the filters are explicitly identified.
+`config/semantic-release.json` pins the release archive, its manifest and the
+corpus by SHA-256. A content fingerprint binds the embedded bodies, so an
+equivalent Parquet file written by another Arrow version is accepted; only a pin
+matching the artifact's manifest may authorise it. Clean deployments restore and
+verify the release before exporting, so the map survives cache eviction without
+another GPU run. Re-embedding waits on the 24 trimmed openings (ROADMAP open
+item 6).
 
 Topic labels remain deferred. UMAP distance is not diplomatic position or shared
-meaning. Compare clustering in the source embedding space and reduced space;
+meaning. Compare clustering in the source embedding space and the reduced space;
 inspect nearest neighbours, stability across seeds and baselines; require blinded
-human interpretability/intrusion alongside numerical coherence. A machine score
-cannot supply the missing human judgment. Evaluation scripts produce inspection
-evidence, not a release result. Generic sentiment and headline topic maps remain
-out of scope.
+human interpretability or intrusion judgements alongside numerical coherence. A
+machine score cannot supply the missing human judgement. Evaluation scripts
+produce inspection evidence, not a release result. Generic sentiment and headline
+topic maps remain out of scope.
 
 ## 5. Model-assisted interpretation
 
 No model output may overwrite corpus text, lexicon counts or human annotations.
-Archived runs
-from the former corpus remain historical evidence and cannot be silently joined
-to current identities. Require a compatible population, unique occurrence IDs,
-immutable run identity and validated row/manifest provenance. Keep raw receipts,
-located evidence and failures; empty/waiting states are valid published states.
-Select a publication/comparison pointer only after inspecting the actual run.
-An independent comparison instrument should examine shared model blind spots;
-cross-model agreement does not license accuracy claims without the gold sample.
+Archived runs from the former corpus remain historical evidence and cannot be
+silently joined to current identities. Require a compatible population, unique
+occurrence IDs, immutable run identity and validated row and manifest provenance.
+Keep raw receipts, located evidence and failures; empty or waiting states are
+valid published states. Select a publication or comparison pointer only after
+inspecting the actual run. An independent comparison instrument should examine
+shared model blind spots; cross-model agreement does not license accuracy claims
+without the gold sample.
 
 R4 uses prompt v3 and model schema 3.1 without self-reported confidence. R1's
 future schema 4 needs a separately reviewed prompt revision. Preserve historical
 schemas and prompt archives; never silently relabel old runs.
 
+**The two instruments.** The published instrument is Qwen3.8-27B at reasoning
+effort `xhigh` on one H100, context 131,072 tokens, temperature 0; full speech
+text and output allowances are never trimmed. Gemma 4 31B IT, at the pinned
+revision `842da3794eaa0b77d5f08bae87a17459d91ff475`, is the second model,
+replacing the planned DeepSeek run, which this cluster cannot serve (the reason
+is recorded in `scripts/cluster/env.sh`). Gemma's reasoning is a boolean switch
+(`enable_thinking`), not a graded effort: "low" and "high" in its probe mean off
+and on. It runs on two H100s per task; two L40s were tested and rejected
+([CLUSTER.md](CLUSTER.md)).
+
+**Truncation is handled by resume passes, not by changing the instrument.** On
+the first 100 genocide-bearing speeches Gemma cut off 5 responses at the output
+limit, against Qwen's 4 in 4,097. In the smoke test, asking again under identical
+settings returned a cut-off speech complete, but not every time: SC00257-01-004
+was cut off in two of three runs. Raising the output allowance would stop the two models answering
+under identical limits, and switching thinking off would compare a reasoning model
+with a non-reasoning one; both change the instrument. A corpus run therefore
+budgets up to three passes and checks what is still outstanding after them. That
+100 was a chronological head, not a random sample, so the 5% is an order of
+magnitude, not a published rate. The same measurement found 3 of 182 evidence
+quotes unlocated (1.6%); carry that into the run's validation.
+
+**Fixed batches.** Model runs can be split into fixed speech batches
+(`scripts/annotation_batches.py`, Slurm arrays). A plan assigns each speech once;
+separate run directories keep each batch resumable. The merge requires every batch
+to be complete, disjoint and instrument-compatible, and keeps source hashes and
+validation counters ([CLUSTER.md](CLUSTER.md#independent-batches-for-future-models)).
+
 ## 6. Lexical and statistical follow-up
 
-Implemented: meeting-block change-point null, Wilson rate intervals, effect-size
-ranking with a significance floor, dispersion, matched controls and suppression
-of definitional network edges. These do not complete S1/S5: Wilson bounds are not
+Implemented: a meeting-block change-point null, Wilson rate intervals,
+meeting-clustered rate bands for speech rates, a composition decomposition,
+effect-size ranking with a significance floor, dispersion, matched controls drawn
+per stratum, and suppression of definitional network edges. Wilson bounds are not
 meeting-clustered, and variation across control seeds is not sampling uncertainty.
 
-The first S1/S5 diagnostic slice is implemented in
-`scripts/18_lexical_robustness.py` (`make robustness`). It asks whether the
-matched genocide keyness table depends on one meeting or the tokenizer repair.
-The 10 September run uses seed **20260807**, **3,950 matched pairs** (95.57% of
-eligible targets), and deletes each of **2,281 meetings** from both selected
-arms. Controls are held fixed; there is no rematching, and the remaining arms
-can become unbalanced. Primary top-100 words stay fixed, with count and G²
-eligibility recalculated after deletion. These are descriptive influence ranges,
-**not confidence intervals** or estimates of sampling uncertainty.
+**Robustness diagnostics (S1/S5).** Step 18 (`make robustness`) deletes each
+meeting in turn from the matched genocide keyness comparison and compares the
+current and earlier tokenizers; step 19 adds collocate and speaker profiles with
+whole-meeting deletion effects and conditional 95% intervals from meeting-block
+resampling; step 10 and step 18's lemma mode compare surface and lemma rankings.
+The rules for reading them:
 
-The baseline exactly reproduces all 100 published keyword rows and both token
-denominators. **61 words** lose eligibility under at least one deletion; no
-defined effect reverses direction. Six word/deletion combinations have no
-remaining occurrences in either arm and therefore a null effect. No deletion
-empties an arm; future runs exclude such deletions explicitly, while missing
-meeting symbols abort the run. Examples of concentrated vocabulary include
-`bor` (S/PV.7168), `cong` (S/PV.2118), and `sandinistas` (S/PV.2701). Their
-large pooled effects should not be read as evidence of corpus-wide dispersion.
-The definitional `genocide`/`genocidal` effects remain properties of target
-selection, not substantive discoveries.
+- Deletion effects are descriptive influence ranges, **not confidence intervals**
+  or estimates of sampling uncertainty. Controls are held fixed, without
+  rematching.
+- The resampling intervals assume hypothetical exchangeable meetings; they do not
+  measure uncertainty in exhaustive historical counts or rerun matching. An
+  interval needs 20 nonempty meetings per arm and five word-supporting meetings
+  per arm, and is withheld if more than 5% of draws are undefined. LogDice gets
+  deletion ranges, not intervals.
+- Exact type overlap between tokenizers or between surface and lemma lists does
+  not measure semantic equivalence. Surface tables remain the published
+  vocabulary; lemma results are diagnostics.
+- The definitional `genocide`/`genocidal` effects are properties of target
+  selection, not discoveries.
 
-The historical tokenizer from commit `abdc08a` is applied to those same speech
-bodies and pairs, with denominators recomputed. **97 of 100** ranked types
-overlap. The current list adds `r2p`, `rebus`, and `rostow`; the earlier list
-instead contains `kh-`, `revolutionaries`, and `habr`. This compares exact
-surface types, not semantic equivalence. Both tokenizers, code/input hashes,
-selection rules, short strata and exclusions are recorded in the manifest.
-`data/derived/lexical_robustness/` retains the selected pair IDs, complete
-deletion effects in parquet, and CSV tables for meeting influence, deletion
-denominators, and tokenizer rank comparison. Published payloads are unchanged.
+The last full run of these diagnostics (10 September 2026) predates the tokenizer
+and matched-control changes of 24 September (ROADMAP RV3, RV32); its figures are in
+git history and in `data/derived/{lexical_robustness,extended_robustness}/` when
+built. It found vocabulary concentrated in single meetings and 25 speaker–word rows
+whose sign reverses after one deletion; these need close reading before strong
+interpretation.
 
-The surface/lemma sensitivity implementation now supports a separate,
-complete **7,900-speech matched layer**, generated from the saved pair IDs by
-step 10's `--pairs` mode. The local CPU runtime uses spaCy 3.8.16 and
-`en_core_web_sm` 3.8.0. A schema-2 layer binds every lemma sequence to its exact
-speech body and tokenizer, and records the parquet checksum. Steps 05 and 18
-reject stale content, duplicate/missing IDs, malformed tokens, or unequal token
-counts. Full-corpus, matched, and smoke outputs and notes have separate paths.
-
-Step 18's `--lemma-layer` mode compares independently ranked surface/lemma
-lists using the same pairs, denominators, and stoplist. It retains every changed
-form, reports all observed stopword leaks, and writes meeting-deletion summaries
-and complete underlying effects for both representations. Exact type overlap
-does not measure semantic equivalence; these remain descriptive diagnostics.
-See [the CPU workflow](CLUSTER.md#running) for reproduction commands.
-
-The completed 10 September matched run changed **1,268,220 of 7,985,143 tokens**
-(15.9%), reducing 58,221 surface types to 50,472 lemma types. Two speeches
-(0.025%) retained surface forms under the alignment failure rule. The top-100
-lists share **81 exact types**, with unchanged target/control denominators of
-4,958,491 / 3,026,652 tokens. The lemma ranking also has **61 words** that lose
-eligibility under at least one meeting deletion, no defined sign reversals,
-and six word/deletion combinations with no remaining occurrences.
-
-Lemmatisation does not by itself resolve the interpretive problems. For example,
-2,041 instances of `atrocities` become `atrocity`, but 13 target instances and
-zero controls remain as `atrocities`; that residual type enters the lemma
-top-100. `citizens` similarly leaves 48 target and two control instances.
-The comparison CSV now reports counts in both representations and flags types
-with both changed and unchanged occurrences. Context-sensitive tagging may
-explain such splits; they need inspection before substantive interpretation.
-The observed stopword leaks are `further → far` and `further → furth`.
-Results remain diagnostic; the published surface vocabulary is unchanged.
-
-Full-corpus follow-through, 10 September: step 19 evaluated the matched genocide
-comparison, nine collocate profiles (three nodes × windows 5/8/15), and **144 of
-148** candidate speaker profiles meeting the existing matching gates. Its 6,160
-ranked-word rows include whole-meeting deletion effects and conditional 95%
-percentile intervals from 999 meeting-block resamples, seed 20260807. A meeting
-receives the same resampling weight in both arms; selected speeches and ranked
-words remain fixed. These intervals assume hypothetical exchangeable meetings;
-they do not measure uncertainty in exhaustive historical counts or rerun matching.
-The minimum is 20 nonempty meetings per arm and five word-supporting meetings
-per arm; more than 5% undefined draws also withholds an interval. **778 intervals
-are reported; 5,382 are withheld for sparse word support.** LogDice receives
-deletion ranges, not bootstrap intervals. **25 speaker-word rows reverse sign**
-after at least one deletion: examples include Poland/`foe` at S/PV.2111 and
-Spain/`sids` at S/PV.7499. These require close reading before strong interpretation.
-Outputs and their code/input hashes are in `data/derived/extended_robustness/`.
-
-Festus job **775572** completed the full lemma layer: **167,642 speeches**,
-86,854,907 tokens, 13,074,246 changed (15.1%), 197,902 surface types reduced to
-186,159 lemma types. All returned body hashes/token alignments were validated
-locally before promotion. The 38 failed speech alignments retain surface forms.
-The model is spaCy 3.8.16 / en_core_web_sm 3.8.0; tagging took 935 seconds.
-Observed stopword leaks are `does → doe`, `further → far/furth`, and
-`yourselves → yourselve`; these remain explicit sensitivity findings. Worker
-processes now keep BLAS/OpenMP threads at one to prevent oversubscription.
-Step 05's full lemma collocates, slices, matched keyness and network were also
-regenerated in `data/derived/lexical_lemma/`. The comparison retains 3,950 pairs
-and the original 4,958,491 / 3,026,652 token denominators. Surface tables remain
-the primary published vocabulary.
-
-Step 20 implements S2 annual speaker tables for genocide qualification and raw
-genocide: **111,864 rows**, reconciled annually to corpus speeches, word counts
-and term occurrences. **808 rows** meet the 125-speech floor. Missing years have
-zero counts and withheld rates; historical affiliations remain distinct. The
-Actors download retains counts, reasons for withholding and explicitly labelled
-Wilson speech-level bounds (not meeting-clustered). Full CSV and manifest live
-in `data/derived/actor_year/` and are included in ordinary builds.
-
-Remaining S1/S5: read ranked outputs against published interpretation; scrutinize
-the 25 fragile speaker-word findings and the full-layer stopword leaks.
-Deferred S3–S4: funnel plots with meeting-clustered limits and exact vocabulary-intersection tables
-(never reconstructed from pairwise edges). S6: sequential recurrence by meeting
-order with exact evidence links; do not call recurrence interpersonal influence.
+**Remaining S1/S5:** read ranked outputs against the published interpretation;
+scrutinise the fragile speaker–word findings and the lemma layer's stopword leaks.
+**Deferred S3–S4:** funnel plots with meeting-clustered limits, and exact
+vocabulary-intersection tables (never reconstructed from pairwise edges). **S6:**
+sequential recurrence by meeting order with exact evidence links; do not call
+recurrence interpersonal influence.
 
 Later analytical specifications require a preregistered research question:
 conditional vocabulary choice, translation-process sensitivity, membership
 comparisons with agenda and actor/year controls, and government-change overlays.
 Translation sensitivity cannot recover unmediated vocabulary. E1 joins to votes,
-vetoes and resolutions need a hand-verified pilot and preserve document identity;
-association is not causation. E2's former pre-1992 extension is superseded by the
-completed 1946–2024 corpus migration; independent cross-corpus replication remains
+vetoes and resolutions need a hand-verified pilot and must preserve document
+identity; association is not causation. E2's former pre-1992 extension is
+superseded by the 1946–2024 corpus; independent cross-corpus replication remains
 deferred and must pin sources and report overlap discrepancies.
 
 ## 7. Interface and evidence contracts
 
-Implemented while the GPU runs are pending: the home page's onward navigation
-now includes all six main subpages; Actors has 20-row ranking pages and a
-speaker search; concordance has a keyboard-searchable speaker picker and full
-searchable facet lists with line counts. CSV exports retain the complete data.
-Selecting a shared map point keeps the source affiliations separate.
+Computed, mixed and model-derived marks describe the actual selected data;
+navigation marks describe page capability. Provenance is not a quality score.
+Keep URL-restorable filters, exact evidence links, accessible tables, the local
+basket, fullscreen figures, persistent contents and concise reading and caveat
+text. Extract logic into small tested modules at behaviour boundaries, not to hit
+line limits. Colour must not imply a quantity the table does not measure. Show
+numerator, denominator, exclusions and uncertainty in the figure's accessible
+account.
 
-Geography enrichment now accepts reviewed name variants and Unicode-equivalent
-spellings without changing source labels or source classifications. Together
-with the missing Madagascar centroid from the cached reference, this restores
-30 state-labelled affiliations (172 to 202 mappable). Nine source-state labels
-still lack reviewed locations: Czechoslovakia, German Democratic Republic,
+**Geography.** Enrichment accepts reviewed name variants and Unicode-equivalent
+spellings without changing source labels or classifications. Nine source-state
+labels still lack reviewed locations: Czechoslovakia, German Democratic Republic,
 German Federal Republic, India or Netherland, Republic of Vietnam, Turkish
 Federated State of Cyprus, Turkish Federated State of Kibris, Yemen Arab Republic
 and Yemen People's Republic. The interface lists exclusions explicitly. Palestine
 remains unmapped because the source flags classify that affiliation as `other`;
 this is a dataset limitation, not a geopolitical classification by this project.
-Ten legacy regional-group labels were also corrected against the UN DGACM list;
-the source and interpretation are documented in [CORPUS.md](CORPUS.md#affiliation-and-institutional-status).
+Regional-group corrections are documented in
+[CORPUS.md](CORPUS.md#affiliation-and-institutional-status).
 
-Validation of these changes: 66 geography/configuration/country-step tests,
-539 frontend unit tests, and 18 targeted browser tests, including open-combobox
-accessibility, URL restoration, full exports, shared map points and mobile width.
-The regenerated measures, period aggregates and Council standing counts match
-the previous numerical payload exactly.
-Frontend lint, Svelte type checking, the production build and desktop/mobile
-visual checks pass; the build verifies all 12 static entry points.
-
-The next independent research work remains S1/S5 robustness and the human
-instrument pilot. Meeting-block intervals and a compatible full lemma
-layer have been implemented; neither replaces the human audit or
-licenses publishing the partial model run.
-
-Computed, mixed and model-derived marks describe the actual selected data;
-navigation marks describe page capability. Provenance is not a quality score.
-Keep URL-restorable filters, exact evidence links, accessible tables, local basket,
-fullscreen figures, persistent contents and concise reading/caveat text. Extract
-logic into small tested modules at behavior boundaries, not to hit line limits.
-Color must not imply a quantity the table does not measure. Show numerator,
-denominator, exclusions and uncertainty in the figure's accessible account.
+**Performance.** Browser measurements of 7 and 10 September 2026 (git history)
+found that loading and startup, not JSON parsing, dominate the concordance wait.
+The next performance work should target initial concordance transfer while keeping
+full exports, filters and exact evidence links. Physical-device and
+model-enriched payload measurements remain open.
 
 ### 7.3 Actor display safeguards
 
@@ -567,29 +369,29 @@ table must use the same artifact and arithmetic; the map is optional navigation.
 
 ### 7.5 Export contract
 
-Export the complete selected data, not only virtualized or paginated visible rows.
-Carry filters, units, source/provenance and caveats with CSV and image exports;
-an exported image outlives its surrounding page. Navigation and highlighting must
-remain correct under term, speaker, meeting and scope filters.
+Export the complete selected data, not only virtualised or paginated visible rows.
+Carry filters, units, source and provenance, and caveats with CSV and image
+exports; an exported image outlives its surrounding page. Navigation and
+highlighting must remain correct under term, speaker, meeting and scope filters.
 
 ## Roadmap coverage
 
-Stable IDs are retained for code references; they are not separate planning files.
+Stable IDs are kept for code references; they are not separate planning files.
 
 | IDs | Current position |
 |---|---|
-| I1–I4, A1–A3 | Integrity metadata/contracts, separate candidate stores, identities and annotation machinery implemented. A4/H1–H2 wait on humans. |
+| I1–I4, A1–A3 | Integrity metadata and contracts, separate candidate stores, identities and annotation machinery implemented. A4 and H1–H2 wait on the coders. |
 | U1–U10 | Evidence navigation, URL state, basket, result profiles, page metadata, contents and word budgets implemented; maintain browser coverage. |
-| M1–M5 | Shared boundaries, payload measurements, DAG/cache/export repairs and lexicon-edit instructions implemented; ongoing optimization is evidence-driven. Archival release remains gated. |
-| L1–L8 / C1–C7 | Local model machinery exists; current-corpus GPU evidence and human validation remain pending. Historical model runs are not current results. |
+| M1–M5 | Shared boundaries, payload measurements, build-graph, cache and export repairs and lexicon-edit instructions implemented; further optimisation is evidence-driven. |
+| L1–L8 / C1–C7 | Local model machinery and the cluster safeguards exist. The Qwen preview is published; the Gemma run is not yet merged; human validation is pending. Historical model runs are not current results. |
 | R3–R7, R9, R11, R14 | Provenance, confidence removal, fullscreen, published referents, term-only lexicon, scope control, aggression phrase and navigation implemented. |
 | R8 | Computed first stage exists; model-dependent interpretation remains gated. |
-| R1, R2, R10, R12, R13, R15 | Prepared or awaiting evidence/author decisions, detailed below. |
+| R1, R2, R10, R12, R13, R15 | Prepared or awaiting evidence or author decisions, detailed below. |
 
 R7 permits individual terms and declared derived measures, not aggregate register
 or set counts. R9's word, vocabulary and debate sets overlap; they are not nested,
 and changing the reading set does not silently change the denominator. Lexicon v6
-adds only the explicit crime(s) of aggression phrase, not generic aggression or
+added only the explicit crime(s) of aggression phrase, not generic aggression or
 an intensity ranking.
 
 ## R2 — accuser and accused: acceptance gate
@@ -598,25 +400,27 @@ Wait for usable extracted strings, then seed a controlled accused-actor mapping
 from observed evidence and have both coders review it. Cover States, armed groups,
 international bodies and individuals. Never guess unmapped strings into a nearby
 category. Publish an accuser-by-accused matrix with exact evidence links, a
-model-derived mark, explicit missing/unmapped shares and self-accusation retained.
-Unsupported historical schemas must produce a contracted explanatory empty state.
+model-derived mark, explicit missing and unmapped shares, and self-accusation
+retained. Unsupported historical schemas must produce a contracted explanatory
+empty state.
 
 ## R1 — situation, modality and the second referent
 
 Run `python tools/prepare_research_review.py` to regenerate
 `data/interim/research_review/candidates.json`. It selects located quotations
-from archived runs, retains occurrence identities and source hashes, and keeps
+from archived runs, keeps occurrence identities and source hashes, and keeps
 candidate cues separate from labels. These runs describe the earlier corpus;
 their quotes must be checked against the corresponding source. A cue retrieves
-a case for reading and does not establish what an occurrence characterizes.
+a case for reading and does not establish what an occurrence characterises.
 
 The proposed modality review covers armed conflict, persecution, economic
-sanctions, intervention/occupation, colonial rule, famine/starvation and forced
-displacement. Review the boundaries, overlap and an explicit `unclear` option.
-For each candidate, both coders independently record the situation, modality,
-secondary situation if any, evidence span, confidence and a boundary note. Include
-negative cases where a cue appears elsewhere in the quotation. Settle whether
-multiple modalities are possible before adopting a single-valued field.
+sanctions, intervention or occupation, colonial rule, famine or starvation and
+forced displacement. Review the boundaries, overlap and an explicit `unclear`
+option. For each candidate, both coders independently record the situation,
+modality, secondary situation if any, evidence span, confidence and a boundary
+note. Include negative cases where a cue appears elsewhere in the quotation.
+Settle whether multiple modalities are possible before adopting a single-valued
+field.
 
 Version controlled referents with explicit successors and one group per case;
 publish modality and group views with primary-only counts as the default. A
@@ -627,7 +431,7 @@ coverage rather than silently dropping those rows.
 
 Schema-4 acceptance fixtures must cover:
 
-| Case | Required behavior |
+| Case | Required behaviour |
 |---|---|
 | False positive or non-case mention | Modality `not_applicable`, no secondary case |
 | Sanctions named without a situation | Modality retained; missing situation counted explicitly |
@@ -638,9 +442,9 @@ Schema-4 acceptance fixtures must cover:
 
 No modality file is installed in `annotations/`, no existing code is recoded,
 and schema 4 cannot be selected for inference yet. Both coders must review the
-vocabulary before a run uses it, as R1 specifies. Prompt v3/model schema 3.1
-implements only R4; the later reviewed revision therefore needs a new prompt
-version rather than overwriting v3.
+vocabulary before a run uses it. Prompt v3 and model schema 3.1 implement only
+R4; the later reviewed revision therefore needs a new prompt version rather than
+overwriting v3.
 
 ## R10 — paired counter-concept study
 
@@ -652,19 +456,19 @@ than an aggregate humanitarian category.
 
 Use the same meeting as the exact matching stratum. Within it, match genocide-
 silent speeches to genocide-bearing speeches on participant type and speech
-length, with deterministic tie breaking and no replacement. Publish exclusions,
-unmatched shares, length balance, and coverage by speaker and period. Hold
+length, with deterministic tie-breaking and no replacement. Publish exclusions,
+unmatched shares, length balance, and coverage by speaker and period. Hold the
 referent constant only after a validated referent instrument can assign it;
 never impute the referent from the fact that two speeches share a meeting.
 
 Estimate within-pair differences in speech-level term presence. Resample whole
-meetings for uncertainty, retaining all their pairs. Report how matching changes
+meetings for uncertainty, keeping all their pairs. Report how matching changes
 balance and the estimate, without presenting an unadjusted figure as the answer.
 Predeclare alternative length calipers and period restrictions and show their
 sensitivity. A speech expressing humanitarian language establishes vocabulary,
-not an intention to avoid a legal characterization.
+not an intention to avoid a legal characterisation.
 
-The two hypothesized directions require reviewed speaker-role evidence:
+The two hypothesised directions require reviewed speaker-role evidence:
 bystander humanitarian vocabulary and accused-party counter-accusation. Until
 both can be identified and displayed under the same rules, publish neither as
 confirmation. Model disagreement is instrument stability, not accuracy.
@@ -672,9 +476,9 @@ confirmation. Model disagreement is instrument stability, not accuracy.
 ## R12 — figure-purpose decision
 
 The current figures remain available pending the author's choice. The decision
-is between retaining them with a clear reading purpose and removing the pooled
-calendar/proximity views. Record a question, a concrete reading action, and the
-inference that is forbidden for each retained figure. A referent-filtered
+is between keeping them with a clear reading purpose and removing the pooled
+calendar and proximity views. Record a question, a concrete reading action, and
+the inference that is forbidden for each kept figure. A referent-filtered
 calendar additionally waits for a usable validated referent layer.
 
 ## R13 and R15 — commissioned epistemological page
@@ -703,150 +507,46 @@ and editorial approval. This brief supplies structure, not words credited to him
 
 ## Carried research questions
 
-Revisit only with an explicit purpose: a neighbour-speech second pass over unresolved
-referents; evidence-location rates as a figure; Lemkin's conceptual vocabulary;
-individual delegates' circulation (requires name disambiguation); and manual review
-of noisy adjacent terms such as survivors, commemoration, denial, glorification and
-holocaust. Removing aggregates does not make these terms synonymous with genocide.
+Revisit only with an explicit purpose: a neighbour-speech second pass over
+unresolved referents; evidence-location rates as a figure; Lemkin's conceptual
+vocabulary; individual delegates' circulation (requires name disambiguation); and
+manual review of noisy adjacent terms such as survivors, commemoration, denial,
+glorification and holocaust. Removing aggregates does not make these terms
+synonymous with genocide.
 
-## Integrity repairs
+## Safeguards in force
 
-| Finding | Implementation | Verification |
-|---|---|---|
-| 1 — resume identity | Immutable run identity covers prompt, referent bytes, schema, corpus occurrence IDs, selected request bodies, runtime and passed probe. A changed instrument cannot append. | Identity mutation regressions |
-| 2 — interrupted append | Write-ahead speech transaction commits rows/failures and accounting together; a torn tail is replayed once. OS advisory lock excludes a second writer. | Torn-tail, conflicting-tail, injected manifest failure, repeat recovery and writer-lock regressions |
-| 3 — reasoning probe | Cache identity covers exact requests, full runtime, prompt and referents. The chosen top rung must increase reasoning tokens on every paired speech and have the largest positive median. Annotation checks probe request bytes again. | Flat/reversed/zero ladder regressions; operational screen, not statistical validation |
-| 4 — build graph | Referents, named runs and prompt archives invalidate their consumers; known multi-output stages use grouped targets, including series, lexical, gold, usage and frames. | All four synthetic invalidation regressions passed using GNU make in the installed Ubuntu/WSL distribution; native Windows pytest skips these four |
-| 5 — deploy/cache | Makefile and payload contract are trigger/cache inputs; restored and freshly rebuilt payloads undergo shape, inventory and hash checks. | Workflow regression and local payload verification |
-| 6 — model readers | Shared duplicate/provenance/schema/compatibility checks serve sampling and frame triangulation; aggregation uses the same row/manifest guard. Joins enforce unique occurrence IDs. Inputs are recorded in output metadata. | Model-run and existing sampling/usage/frame regressions |
-| 7 — browser cache | Service-worker cache ownership includes the app base path. Activation deletes only this app's old caches. Test servers use explicit ports, strict binding and no server reuse. | Offline browser regression seeds an unrelated cache and an old app cache |
-| 8 — export boundary | Export assembles and validates a complete staged directory before replacing the previous release. | Late-failure regression retains the old manifest and payload |
+The integrity repairs of September 2026 hold these guarantees; each has
+regression tests.
 
-The transaction guarantees apply after a response reaches its durable pending
-record. A process killed while a request is still in flight may require that
-request again; token counters report received/checkpointed responses, not an
-unobservable provider bill. Preserve raw receipts for reconciliation. The lock
-relies on filesystem advisory-lock support; run one annotator per run directory.
+| Finding | Guarantee |
+|---|---|
+| 1 — resume identity | An immutable run identity covers the prompt, referent bytes, schema, corpus occurrence IDs, selected request bodies, runtime and passed probe. A changed instrument cannot append to a run. |
+| 2 — interrupted append | A write-ahead speech transaction commits rows, failures and accounting together; a torn tail is replayed once. An operating-system advisory lock excludes a second writer. |
+| 3 — reasoning probe | The probe's cache identity covers exact requests, full runtime, prompt and referents. The chosen top level must increase reasoning tokens on every paired speech and have the largest positive median. This is an operational screen, not statistical validation. |
+| 4 — build graph | Referents, named runs and prompt archives invalidate their consumers; multi-output stages use grouped targets. |
+| 5 — deploy and cache | The Makefile and payload contract are trigger and cache inputs; restored and rebuilt payloads undergo shape, inventory and hash checks. |
+| 6 — model readers | Shared duplicate, provenance, schema and compatibility checks serve sampling and frame triangulation; aggregation uses the same row and manifest guard; joins enforce unique occurrence IDs. |
+| 7 — browser cache | The service worker's caches belong to the app's base path; activation deletes only this app's old caches. |
+| 8 — export boundary | Export assembles and validates a complete staged directory before replacing the previous release. |
 
-Existing partial runs without `identity.json` are deliberately not migrated by
-guessing their missing inputs. Preserve them and use their original checkout to
-resume, or start a new run ID with the corrected runner. Historical completed
-schema-2 and schema-3 artifacts remain readable. The exact v2 prompt is archived
-for the pending Bayreuth result; this work does not restart it.
-
-## Verification record
-
-Verified locally:
-
-- Python: full suite **1,140 passed, 4 skipped** in the Windows interpreter;
-  the four skipped GNU make cases subsequently passed through Ubuntu/WSL.
-  Linux writer exclusion, release and transaction recovery also passed a
-  separate Ubuntu/WSL smoke check.
-- Ruff, frontend lint and type checking pass; **539 frontend unit tests**,
-  **38 browser journeys** and **1 production service-worker test** pass.
-- Same-sized content changes, missing files, missing manifest parts and false
-  manifest totals are all rejected by the cache verification command.
-- The full corpus's existing annual arrays and genocide concordance rows are
-  unchanged. The aggression counts and reconciled speech offsets are recorded
-  in [VALIDATION.md](VALIDATION.md).
-
-The complete corpus was rebuilt in `data/review-2026-09-07`, validated, then
-promoted locally. All **20 contracted artifact shapes** pass; the web payload
-contains **9,512 files, approximately 687 MB**. The retained rehearsal preserves
-the original input paths recorded in its provenance. Production build and static
-verification pass (12 entrypoints and four icons). No deployment was performed.
-
-Desktop and mobile screenshots confirmed the provenance navigation and locator
-layout. A cold-load anchor could previously place a figure heading beneath the
-sticky navigation; positioning now waits for fonts and layout, yields to reader
-interaction, and has regression coverage at 390 and 1,440 pixels.
-
-## Browser measurements
-
-Production preview, local Chromium, 7 September 2026. Concordance measurements
-use fresh contexts with HTTP cache disabled and service workers blocked. These
-are single-run local measurements, not slow-network or physical-phone claims.
-
-| Concordance | Raw JSON | Gzip | First line | Detail ready | JSON parse | Sampled peak JS heap | Exact reader occurrence |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| genocide | 6.22 MB | 1.14 MB | 786 ms | 894 ms | 22 ms | 33.6 MB | 316 ms |
-| impunity | 10.76 MB | 2.10 MB | 1,076 ms | 1,172 ms | 15 ms | 46.3 MB | 227 ms |
-
-The Actors table became ready in 439 ms; selection took 188 ms and the map's
-loading indicator cleared in 896 ms after scrolling it into view. The latter
-uses the same context after a mobile reload and is not a cold-network measure.
-The external basemap rendered in the mobile screenshot. Existing large
-ECharts/MapLibre chunk warnings remain. Physical mobile, constrained-network and
-future model-enriched payload measurements remain the gate for further sharding;
-the current measurements do not establish that JSON parsing is the bottleneck.
-
-Reproduce against a running production preview from `web/`:
-
-```sh
-node scripts/profile-payload.mjs http://127.0.0.1:4275/genocide-at-the-security-council
-```
-
-The script writes resource timings, measurements and desktop/mobile screenshots
-under the ignored `web/test-results/review/` directory. Human annotations,
-archived run outputs and publication pointers remain unchanged.
-
-### Constrained-network follow-through — 10 September 2026
-
-Production preview in Chromium with fresh contexts, HTTP cache disabled and
-service workers blocked. `--slow4g` applies 1.6 Mbps down / 750 kbps up,
-150 ms latency and 4× CPU slowdown through CDP. This is one simulated run, not
-a physical-phone benchmark. Resource timings and screenshots are retained in
-`web/test-results/review-slow4g/`.
-
-| Concordance | First line | Detail ready | JSON parse | Peak sampled heap | Exact reader occurrence |
-|---|---:|---:|---:|---:|---:|
-| genocide | 11.33 s | 11.90 s | 52 ms | 33.7 MB | 3.50 s |
-| impunity | 15.87 s | 16.59 s | 98 ms | 42.7 MB | 3.41 s |
-
-Actors: table ready 5.98 s, selection 354 ms; map loading cleared in 5.98 s
-after scrolling into view in the same context after a mobile reload. Loading
-and startup dominate the isolated JSON parse in this test. The next performance
-work should target initial concordance transfer while preserving full exports,
-filters and exact evidence links. Do not infer that a parsing worker would fix
-the observed wait. The semantic GPU/CPU chain subsequently completed on
-11 September; its real-data release and diagnostic results are recorded in §4.
-
-Verification for this implementation: 1,206 Python tests pass, with four GNU
-make cases skipped on Windows and then executed successfully in Ubuntu using
-their existing test bodies. Ruff, frontend lint/type checks, 543 frontend unit
-tests and production static verification (13 entrypoints, four icons) pass.
-The existing 43 browser journeys passed; both new semantic journeys pass after
-fixing reactive pagination. The map was checked at 390 and 1,440 pixels using
-explicit test data; those fixture checks did not validate the embeddings themselves.
-Both semantic journeys also pass against the final production build, including
-an all-pages CSV download with model identity. Two later development-server
-startup timeouts were infrastructure failures before tests ran; production
-verification completed normally.
-The payload contract and complete checksum inventory pass with 9,515 files.
-
-**11 September semantic release verification.** The real 167,642-point artifact
-was checked in the production build at 390 and 1,440 pixels, including full-corpus
-display, colour changes, searchable filters, URL restoration and ten neighbours
-per selection. No browser exceptions or axe violations were found. The default
-view became usable in 1.21 s in an unthrottled local preview. With a 390-pixel
-viewport, 4× CPU slowdown, 1.6 Mbps download and 150 ms latency, a fresh preview
-loaded in **17.14 s** and selected neighbours in **1.95 s**. The map transferred
-1.92 MB compressed (8.93 MB decoded); the selected shard transferred 47.6 KB.
-These are browser simulations, not physical-device measurements. Long agenda
-columns scroll horizontally on narrow screens.
-The payload now contains 9,772 files (753 MB); its contract and checksum inventory
-pass. Python checks cover 1,225 passing tests and four Windows-only GNU make
-skips; frontend checks include 543 unit tests, lint, types, production build and
-both semantic browser journeys. The pinned release restores successfully locally.
+The transaction guarantees apply once a response reaches its durable pending
+record. A process killed while a request is in flight may need that request again;
+token counters report received and checkpointed responses, not a provider bill.
+The lock relies on filesystem advisory-lock support; run one annotator per run
+directory. Partial runs without `identity.json` are not migrated by guessing their
+missing inputs: preserve them and resume from their original checkout, or start a
+new run ID.
 
 ## Maintaining this document
 
-Update the current-focus table and the relevant acceptance gate when work changes.
-Record a dated verification snapshot here; keep detailed execution history in Git
-and generated stage notes rather than adding another review or status document.
-Do not mark local implementation as human validation or a successful deployment.
+Keep it to the current position. When work changes, update the state table, the
+priorities and the relevant gate. Record measurements and dated checks in
+VALIDATION.md and leave execution history to git and the generated step notes;
+do not add another status document. Do not mark local implementation as human
+validation or a successful deployment.
 
 Before committing, run the applicable full gates: Python pytest and Ruff;
-frontend unit tests, lint and type checking; production build for shipped routes;
-browser journeys for interaction changes; producer/consumer and payload checks for
-contract changes. Before a tag, also complete section 1's release gate.
+frontend unit tests, lint and type checking; the production build for shipped
+routes; browser journeys for interaction changes; producer, consumer and payload
+checks for contract changes. Before a release, also complete §1.3.
