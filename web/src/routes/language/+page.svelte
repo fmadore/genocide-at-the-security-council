@@ -23,9 +23,14 @@
 		profile as frameProfile
 	} from '$lib/nodeframes';
 	import {
+		alignedRows,
+		compareTop,
 		languageParams,
+		matrixEdges,
+		matrixTerms,
 		profilePlan,
 		readLanguageState,
+		topWords,
 		type Alignment,
 		type KeynessView,
 		type LanguageChoices,
@@ -46,7 +51,7 @@
 	} from '$lib/format';
 	import { axisX, axisY, colours, grid, textStyle, tooltip } from '$lib/theme';
 	import { PAGE_METADATA } from '$lib/seo';
-	import type { CollocateBlock, Word } from '$lib/types';
+	import type { CollocateBlock } from '$lib/types';
 	import type { EChartsOption } from 'echarts';
 	import { onMount, tick, untrack } from 'svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
@@ -505,24 +510,9 @@
 
 	const periods = $derived(['whole', ...Object.keys(data.network.by_period)]);
 
-	/* The matrix's rows: every active term, with the period's own speech counts
-	   where a period is chosen, so the diagonal says what the cells divide by. */
-	const matrixTerms = $derived.by(() => {
-		const periodBlock = period === 'whole' ? null : data.network.by_period[period];
-		const periodCounts = new Map(periodBlock?.terms.map((term) => [term.name, term.speeches]));
-		return data.network.terms.map((term) => ({
-			name: term.name,
-			register: term.register,
-			speeches: periodCounts.get(term.name) ?? term.speeches
-		}));
-	});
-	const matrixEdges = $derived(
-		period === 'whole' ? data.network.edges : (data.network.by_period[period]?.edges ?? [])
-	);
-
-	function topWords(b: CollocateBlock | undefined, n = 18): Word[] {
-		return b?.collocates.slice(0, n) ?? [];
-	}
+	/* The matrix's rows and cells for the chosen period: `$lib/language`. */
+	const termsInMatrix = $derived(matrixTerms(data.network, period));
+	const edgesInMatrix = $derived(matrixEdges(data.network, period));
 
 	/**
 	 * Two ways to set the two profiles against each other, because they answer
@@ -598,37 +588,12 @@
 		replaceState(`${page.url.pathname}${search ? `?${search}` : ''}`, page.state);
 	});
 
-	const alignedRows = $derived.by(() => {
-		const inA = new Map((blockA?.collocates ?? []).map((w) => [w.word, w]));
-		const inB = new Map((blockB?.collocates ?? []).map((w) => [w.word, w]));
-		const words = [
-			...new Set([...topWords(blockA).map((w) => w.word), ...topWords(blockB).map((w) => w.word)])
-		];
-		return words
-			.map((word) => ({ word, a: inA.get(word) ?? null, b: inB.get(word) ?? null }))
-			.sort(
-				(x, y) =>
-					Math.max(y.a?.log_ratio ?? 0, y.b?.log_ratio ?? 0) -
-					Math.max(x.a?.log_ratio ?? 0, x.b?.log_ratio ?? 0)
-			);
-	});
-
-	/**
-	 * One scale for both columns. Normalising each side to its own maximum would
-	 * make two bars of equal length mean two different numbers, which is the one
-	 * thing a side-by-side comparison must not do.
-	 */
-	const compareTop = $derived(
-		Math.max(
-			...(align === 'word'
-				? alignedRows.flatMap((r) => [r.a?.log_ratio ?? 0, r.b?.log_ratio ?? 0])
-				: [...topWords(blockA), ...topWords(blockB)].map((w) => w.log_ratio)),
-			0
-		) || 1
-	);
+	/* The aligned rows and the one scale both columns share: `$lib/language`. */
+	const aligned = $derived(alignedRows(blockA, blockB));
+	const scaleTop = $derived(compareTop(align, blockA, blockB));
 
 	const barWidth = (value: number | null | undefined) =>
-		value == null ? '0%' : `${Math.max(1.5, (value / compareTop) * 100)}%`;
+		value == null ? '0%' : `${Math.max(1.5, (value / scaleTop) * 100)}%`;
 
 	const sliceLabel = (name: string) => memberLabel(sliceKind, name);
 	const concordanceHref = (term: string, query = '') => {
@@ -1192,7 +1157,7 @@
 					<span class="who">{sliceLabel(sliceB)}</span>
 					<span class="num">{count(blockB?.speeches ?? 0)} sp.</span>
 				</div>
-				{#each alignedRows as row (row.word)}
+				{#each aligned as row (row.word)}
 					<div class="prow">
 						<span class="num">{row.a ? signed(row.a.log_ratio) : '—'}</span>
 						<span class="track left">
@@ -1399,8 +1364,8 @@
 
 		<TermMatrix
 			bind:this={matrixFigure}
-			terms={matrixTerms}
-			edges={matrixEdges}
+			terms={termsInMatrix}
+			edges={edgesInMatrix}
 			suppressed={data.network.suppressed_nested_edges ?? []}
 			minimum={data.network.min_speeches}
 			href={(term) => concordanceHref(term)}

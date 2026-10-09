@@ -10,7 +10,6 @@
 		kwicIndex,
 		meeting as loadMeeting,
 		meetingOf,
-		occurrenceOf,
 		speechOf,
 		usageOccurrences
 	} from '$lib/data';
@@ -21,6 +20,7 @@
 		referentMap
 	} from '$lib/concordance';
 	import { USAGE_TERM } from '$lib/usage';
+	import { visible } from '$lib/reader';
 	import { readScope, speechInScope } from '$lib/scope';
 	import { occurrenceItem, speechItem } from '$lib/basket';
 	import { basket } from '$lib/basket.svelte';
@@ -131,93 +131,12 @@
 	/** A run of the record cut at its paragraph breaks, for the pause drawn between them. */
 	const paragraphs = (text: string) => text.split('\n');
 
-	interface Segment {
-		text: string;
-		terms: string[];
-		exact: boolean;
-	}
-
-	/** The one KWIC span named in the URL, if it belongs to this speech and term. */
-	function exactSpan(speech: Speech, only: string | null): [number, number] | null {
-		if (!wantedOccurrence || !wantedTerm || only !== wantedTerm) return null;
-		if (speech.id !== speechOf(wantedOccurrence)) return null;
-		const ordinal = occurrenceOf(wantedOccurrence);
-		return ordinal ? (speech.hits[wantedTerm]?.[ordinal - 1] ?? null) : null;
-	}
-
-	/**
-	 * Split a speech into plain and highlighted runs.
-	 *
-	 * Spans overlap by design — "genocide" sits inside "prevention of genocide" —
-	 * so overlapping ones are merged into a single run that names every term it
-	 * covers, rather than nesting marks or silently dropping one.
-	 */
-	function segments(speech: Speech, only: string | null): Segment[] {
-		const selected = exactSpan(speech, only);
-		const marks = Object.entries(speech.hits)
-			.filter(([term]) => !only || term === only)
-			.flatMap(([term, spans]) =>
-				spans.map(([s, e]) => ({
-					s,
-					e,
-					term,
-					exact: selected?.[0] === s && selected[1] === e
-				}))
-			)
-			.sort((a, b) => a.s - b.s || b.e - a.e);
-
-		const merged: { s: number; e: number; terms: Set<string>; exact: boolean }[] = [];
-		for (const mark of marks) {
-			const last = merged[merged.length - 1];
-			if (last && mark.s < last.e) {
-				last.e = Math.max(last.e, mark.e);
-				last.terms.add(mark.term);
-				last.exact ||= mark.exact;
-			} else {
-				merged.push({ s: mark.s, e: mark.e, terms: new Set([mark.term]), exact: mark.exact });
-			}
-		}
-
-		const out: Segment[] = [];
-		let cursor = 0;
-		for (const block of merged) {
-			if (block.s > cursor)
-				out.push({ text: speech.text.slice(cursor, block.s), terms: [], exact: false });
-			out.push({
-				text: speech.text.slice(block.s, block.e),
-				terms: [...block.terms],
-				exact: block.exact
-			});
-			cursor = block.e;
-		}
-		if (cursor < speech.text.length)
-			out.push({ text: speech.text.slice(cursor), terms: [], exact: false });
-		return out;
-	}
-
-	function visible(speech: Speech): Segment[] {
-		const all = segments(speech, filterTerm);
-		if (showAddress || speech.body_start === 0) return all;
-		// Drop the opening form of address, which is the Secretariat's speaker
-		// line rather than anything the speaker said.
-		let dropped = 0;
-		const out: Segment[] = [];
-		for (const segment of all) {
-			const end = dropped + segment.text.length;
-			if (end <= speech.body_start) {
-				dropped = end;
-				continue;
-			}
-			const from = Math.max(0, speech.body_start - dropped);
-			out.push({ ...segment, text: segment.text.slice(from) });
-			dropped = end;
-		}
-		return out;
-	}
-
 	// Writable derived: seeded from the URL the reader arrived on, then owned by
 	// the select below.
 	let filterTerm = $derived(wantedTerm);
+
+	/* The occurrence the URL names, which `$lib/reader` marks as the exact one. */
+	const selection = $derived({ occurrence: wantedOccurrence, term: wantedTerm });
 
 	const termsHere = $derived(
 		record ? [...new Set(record.speeches.flatMap((s) => Object.keys(s.hits)))].sort() : []
@@ -661,7 +580,7 @@
 
 					{#if open.has(speech.id)}
 						<div class="text">
-							{#each visible(speech) as segment, i (i)}
+							{#each visible(speech, filterTerm, selection, showAddress) as segment, i (i)}
 								{#if segment.terms.length}
 									<mark
 										class:occurrence={segment.exact}

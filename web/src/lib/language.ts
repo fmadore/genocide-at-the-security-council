@@ -178,7 +178,7 @@ export function languageParams(state: LanguageState, choices: LanguageChoices): 
    with the word cloud; the cloud went (review of 1 September 2026, §5.2) and
    the decision stayed, because it was never about the drawing. */
 
-import type { CollocateBlock, Word } from './types';
+import type { CollocateBlock, Network, Word } from './types';
 
 /**
  * Why nothing is drawn. `speeches` and `minimum` are both carried because the
@@ -275,4 +275,92 @@ export function profilePlan(request: ProfileRequest): ProfilePlan {
 		truncated: kept.length - rows.length,
 		refusal: null
 	};
+}
+
+/* --- Two profiles side by side, and the co-occurrence matrix ---------------
+   What the comparison and the matrix show, decided here so the table, the
+   bars and the matrix read one answer each. */
+
+/** How many collocates each side of the comparison lists. */
+export const COMPARED_WORDS = 18;
+
+/** A side's strongest collocates, in its own order, or none for a missing slice. */
+export function topWords(block: CollocateBlock | undefined, n = COMPARED_WORDS): Word[] {
+	return block?.collocates.slice(0, n) ?? [];
+}
+
+/** One word of the aligned comparison, with each side's figures or null where it is absent. */
+export interface AlignedRow {
+	word: string;
+	a: Word | null;
+	b: Word | null;
+}
+
+/**
+ * The aligned comparison: every word in either side's top list, one per row,
+ * with both sides' figures for it, strongest first by the larger of the two
+ * log ratios. A side's figures come from its whole profile, so a word in one
+ * side's top list and further down the other's still has both.
+ */
+export function alignedRows(
+	blockA: CollocateBlock | undefined,
+	blockB: CollocateBlock | undefined
+): AlignedRow[] {
+	const inA = new Map((blockA?.collocates ?? []).map((w) => [w.word, w]));
+	const inB = new Map((blockB?.collocates ?? []).map((w) => [w.word, w]));
+	const words = [
+		...new Set([...topWords(blockA).map((w) => w.word), ...topWords(blockB).map((w) => w.word)])
+	];
+	return words
+		.map((word) => ({ word, a: inA.get(word) ?? null, b: inB.get(word) ?? null }))
+		.sort(
+			(x, y) =>
+				Math.max(y.a?.log_ratio ?? 0, y.b?.log_ratio ?? 0) -
+				Math.max(x.a?.log_ratio ?? 0, x.b?.log_ratio ?? 0)
+		);
+}
+
+/**
+ * One scale for both columns: the largest log ratio either side shows, or 1
+ * when nothing positive is shown. Normalising each side to its own maximum
+ * would make two bars of equal length mean two different numbers, which is the
+ * one thing a side-by-side comparison must not do.
+ */
+export function compareTop(
+	align: Alignment,
+	blockA: CollocateBlock | undefined,
+	blockB: CollocateBlock | undefined
+): number {
+	const shown =
+		align === 'word'
+			? alignedRows(blockA, blockB).flatMap((r) => [r.a?.log_ratio ?? 0, r.b?.log_ratio ?? 0])
+			: [...topWords(blockA), ...topWords(blockB)].map((w) => w.log_ratio);
+	return Math.max(...shown, 0) || 1;
+}
+
+/** A row of the co-occurrence matrix: a term and the speeches its diagonal divides by. */
+export interface MatrixTerm {
+	name: string;
+	register: string;
+	speeches: number;
+}
+
+/**
+ * The matrix's rows: every active term, with the chosen period's own speech
+ * counts where a period is chosen, so the diagonal says what the cells divide
+ * by. A term the period does not list keeps its whole-corpus count.
+ */
+export function matrixTerms(network: Network, period: string): MatrixTerm[] {
+	const periodBlock = period === 'whole' ? null : network.by_period[period];
+	const periodCounts = new Map(periodBlock?.terms.map((term) => [term.name, term.speeches]));
+	return network.terms.map((term) => ({
+		name: term.name,
+		register: term.register,
+		speeches: periodCounts.get(term.name) ?? term.speeches
+	}));
+}
+
+/** The matrix's edges: the whole corpus's, or the chosen period's, or none for an unknown period. */
+export function matrixEdges(network: Network, period: string): Network['edges'] {
+	return period === 'whole' ? network.edges : (network.by_period[period]?.edges ?? []);
 }

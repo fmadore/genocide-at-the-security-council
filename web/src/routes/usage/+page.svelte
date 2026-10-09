@@ -42,6 +42,9 @@
 		diffusionPlan,
 		drillDown,
 		goldProgress,
+		instrumentOccurrences,
+		instrumentReferents,
+		instrumentVersion,
 		isInstrumentDependent,
 		matrixExportRows,
 		matrixPlan,
@@ -126,27 +129,9 @@
 		run.fields.find((row) => row.field === field)?.observedText ?? '—';
 	const referentLabel = (id: string) =>
 		artefact.referents.find((entry) => entry.id === id)?.label ?? termLabel(id);
-	const instrumentVersion = $derived(Number.parseInt(artefact.model.referents_version, 10) || 1);
-	/** Exactly the identifiers offered to this run, reconstructed from the list's
-	 * since/retired bounds rather than silently showing today's vocabulary. */
-	const instrumentReferents = $derived(
-		artefact.referents.filter(
-			(entry) =>
-				entry.since <= instrumentVersion &&
-				(entry.retired_in === null || entry.retired_in > instrumentVersion)
-		)
-	);
-	function instrumentOccurrences(entry: UsageReferent): number {
-		let current = entry;
-		const seen = [entry.id];
-		while (current.superseded_by && !seen.includes(current.superseded_by)) {
-			seen.push(current.superseded_by);
-			const successor = artefact.referents.find((row) => row.id === current.superseded_by);
-			if (!successor) break;
-			current = successor;
-		}
-		return current.occurrences;
-	}
+	/* The controlled list as this run was offered it: `$lib/usage`. */
+	const listVersion = $derived(instrumentVersion(artefact));
+	const offered = $derived(instrumentReferents(artefact));
 
 	/* ---- the evidence, fetched at the first drill-down and not before -------
 	   Two artefacts, requested together rather than in sequence: they are
@@ -1375,8 +1360,8 @@
 		</details>
 		<details class="data-table referent-codebook">
 			<summary
-				><Icon icon={ChevronRight} />Show the controlled referent list (version {instrumentVersion},
-				{count(instrumentReferents.length)} identifiers)</summary
+				><Icon icon={ChevronRight} />Show the controlled referent list (version {listVersion},
+				{count(offered.length)} identifiers)</summary
 			>
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
 			<div class="table-scroll" role="region" aria-label="Controlled referent list" tabindex="0">
@@ -1389,7 +1374,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						{#each instrumentReferents as entry (entry.id)}
+						{#each offered as entry (entry.id)}
 							<tr>
 								<th scope="row">
 									{entry.label}<br /><code>{entry.id}</code>
@@ -1402,7 +1387,7 @@
 									{/if}
 								</th>
 								<td>{entry.description}</td>
-								<td class="number">{count(instrumentOccurrences(entry))}</td>
+								<td class="number">{count(instrumentOccurrences(artefact, entry))}</td>
 							</tr>
 						{/each}
 					</tbody>

@@ -433,6 +433,41 @@ export function orderReferents(referents: readonly UsageReferent[]): UsageRefere
 	return [...ranked.filter((r) => !notACase(r)), ...ranked.filter(notACase)];
 }
 
+/** The controlled list's version the run was coded against, or 1 where it cannot be read. */
+export const instrumentVersion = (data: Usage): number =>
+	Number.parseInt(data.model.referents_version, 10) || 1;
+
+/**
+ * Exactly the identifiers offered to this run, reconstructed from the list's
+ * `since` and `retired_in` bounds rather than silently showing today's
+ * vocabulary.
+ */
+export function instrumentReferents(data: Usage): UsageReferent[] {
+	const version = instrumentVersion(data);
+	return data.referents.filter(
+		(entry) => entry.since <= version && (entry.retired_in === null || entry.retired_in > version)
+	);
+}
+
+/**
+ * The occurrences now counted under an identifier the run was offered.
+ *
+ * A retired identifier hands its counts to what superseded it, so its own
+ * count is the successor's, followed to the end of the chain. A chain that
+ * loops or names an identifier the list does not carry stops where it breaks.
+ */
+export function instrumentOccurrences(data: Usage, entry: UsageReferent): number {
+	let current = entry;
+	const seen = [entry.id];
+	while (current.superseded_by && !seen.includes(current.superseded_by)) {
+		seen.push(current.superseded_by);
+		const successor = data.referents.find((row) => row.id === current.superseded_by);
+		if (!successor) break;
+		current = successor;
+	}
+	return current.occurrences;
+}
+
 /**
  * Which speaker said the word about which genocide, and how much of that is a
  * number the interface may print.

@@ -13,6 +13,7 @@
 	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, isoDate, measureLabel, percent } from '$lib/format';
 	import { headlineMeasure } from '$lib/headline';
+	import { densest as densestYear, loudest as loudestYear, overviewTotals } from '$lib/overview';
 	import { PAGE_METADATA, STRUCTURED_DATA_JSON } from '$lib/seo';
 	import { axisX, axisY, colours, grid, textStyle, tooltip } from '$lib/theme';
 	import type { Measure } from '$lib/types';
@@ -77,14 +78,8 @@
 
 	const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
-	const totals = $derived({
-		speeches: sum(corpus.speeches),
-		words: sum(corpus.words),
-		meetings: sum(corpus.meetings),
-		bearing: sum(genocide.speeches),
-		occurrences: sum(genocide.occurrences ?? []),
-		speakers: (data.series.meta.speakers as number) ?? 0
-	});
+	/* The headline figures, and the two years the page names: `$lib/overview`. */
+	const totals = $derived(overviewTotals(data.series, genocide));
 
 	/* The two titles, written once: the figures carry them and so does the
 	   contents, and a slug derived from two copies of a string is a deep link
@@ -96,10 +91,8 @@
 		{ title: `The vocabulary, word by word, ${period}` }
 	]);
 
-	const densest = $derived(years[genocide.speech_rate.indexOf(Math.max(...genocide.speech_rate))]);
-	const loudest = $derived(
-		years[(genocide.occurrences ?? []).indexOf(Math.max(...(genocide.occurrences ?? [])))]
-	);
+	const densest = $derived(densestYear(years, genocide));
+	const loudest = $derived(loudestYear(years, genocide));
 	const index1994 = $derived(years.indexOf(1994));
 
 	const rateInference = $derived(data.breaks.inference.series[headline]?.speech_rate ?? null);

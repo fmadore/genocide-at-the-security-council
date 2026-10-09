@@ -142,8 +142,24 @@ export function csvField(value: string | number | boolean | null | undefined): s
 	return /[",\n\r]|^\s|\s$/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-/** The whole file: provenance comments, the header row, then the rows. */
+/**
+ * The whole file: provenance comments, the header row, then the rows.
+ *
+ * A row with more or fewer cells than there are columns is refused rather
+ * than written. Spreadsheets and pandas read such a file without complaint and
+ * shift every value after the gap into the next column's heading, so a table
+ * builder that dropped or added one cell would publish numbers under the wrong
+ * names.
+ */
 export function toCsv(request: ExportRequest): string {
+	const width = request.columns.length;
+	const ragged = request.rows.findIndex((row) => row.length !== width);
+	if (ragged >= 0) {
+		throw new Error(
+			`Row ${ragged + 1} of “${request.title}” has ${request.rows[ragged]!.length} cells ` +
+				`for ${width} columns, so the file was not written.`
+		);
+	}
 	const body = request.rows.map((row) => row.map(csvField).join(','));
 	return [...csvHeader(request), request.columns.map(csvField).join(','), ...body, ''].join('\r\n');
 }

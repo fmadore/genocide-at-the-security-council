@@ -33,6 +33,9 @@ import {
 	drillDown,
 	emptyPositions,
 	goldProgress,
+	instrumentOccurrences,
+	instrumentReferents,
+	instrumentVersion,
 	isInstrumentDependent,
 	matrixExportRows,
 	matrixPlan,
@@ -408,6 +411,63 @@ describe('picking a cell, a row or a column', () => {
 		const picked = selectUsage(state({ unit: 'share', sort: 'name' }), 'Alpha', 'bosnia');
 		expect(picked.unit).toBe('share');
 		expect(picked.sort).toBe('name');
+	});
+});
+
+describe('the controlled list a run was offered', () => {
+	const versioned = (referentsVersion: string) =>
+		corpus({
+			model: { ...model, referents_version: referentsVersion },
+			referents: [
+				referent('rwanda_1994', { occurrences: 5 }),
+				// Retired in version 2, and handed to `bosnia` there.
+				referent('srebrenica', {
+					retired_in: 2,
+					retired: true,
+					superseded_by: 'bosnia',
+					occurrences: 0
+				}),
+				referent('bosnia', { since: 2, occurrences: 7 }),
+				referent('darfur', { since: 3, occurrences: 2 })
+			]
+		});
+
+	it('reads the version off the run, and stands in 1 for one it cannot read', () => {
+		expect(instrumentVersion(versioned('2'))).toBe(2);
+		expect(instrumentVersion(versioned(''))).toBe(1);
+		expect(instrumentVersion(versioned('v?'))).toBe(1);
+	});
+
+	it('offers exactly the identifiers current at the run’s version', () => {
+		expect(instrumentReferents(versioned('1')).map((r) => r.id)).toEqual([
+			'rwanda_1994',
+			'srebrenica'
+		]);
+		expect(instrumentReferents(versioned('2')).map((r) => r.id)).toEqual(['rwanda_1994', 'bosnia']);
+		expect(instrumentReferents(versioned('3')).map((r) => r.id)).toEqual([
+			'rwanda_1994',
+			'bosnia',
+			'darfur'
+		]);
+	});
+
+	it('counts a retired identifier under what superseded it', () => {
+		const data = versioned('1');
+		const [rwanda, srebrenica] = instrumentReferents(data);
+		expect(instrumentOccurrences(data, rwanda!)).toBe(5);
+		expect(instrumentOccurrences(data, srebrenica!)).toBe(7);
+	});
+
+	it('stops at a successor the list does not carry, and on a loop', () => {
+		const data = corpus({
+			referents: [
+				referent('a', { superseded_by: 'b', occurrences: 1 }),
+				referent('b', { superseded_by: 'a', occurrences: 2 }),
+				referent('c', { superseded_by: 'missing', occurrences: 3 })
+			]
+		});
+		expect(instrumentOccurrences(data, data.referents[0]!)).toBe(2);
+		expect(instrumentOccurrences(data, data.referents[2]!)).toBe(3);
 	});
 });
 
