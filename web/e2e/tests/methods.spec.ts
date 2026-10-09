@@ -16,6 +16,19 @@ test('methods renders from its artefacts and passes a scan', { tag: '@a11y' }, a
 	await expect(page.getByRole('region', { name: 'Analysis steps' })).toBeVisible();
 	await expect(page.getByText('Word-list version 2.', { exact: false })).toBeVisible();
 
+	// The limits that qualify every count, stated once where the method is.
+	const limits = page.getByRole('heading', { name: 'What this record is not', level: 2 });
+	await expect(limits).toBeVisible();
+	await expect(page.locator('#limits ~ p').first()).toContainText('UN interpreter or translator');
+	for (const lead of [
+		'Not the words spoken.',
+		'Not every meeting.',
+		'Not a complete count.',
+		'Not yet checked by hand.'
+	]) {
+		await expect(page.getByText(lead, { exact: true })).toBeVisible();
+	}
+
 	const { violations } = await new AxeBuilder({ page })
 		// A known finding, left to the design system rather than to a test: the
 		// ledger's "Automatic checks" state is set in the preventive register
