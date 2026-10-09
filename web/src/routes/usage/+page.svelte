@@ -53,6 +53,7 @@
 		retestRows,
 		positionLabel,
 		positionProfiles,
+		runStatus,
 		usageParams
 	} from '$lib/usage';
 	import type {
@@ -111,6 +112,9 @@
 	const plan = $derived(matrixPlan(artefact, current()));
 	const profiles = $derived(positionProfiles(artefact));
 	const gold = $derived(goldProgress(artefact));
+	/* Partial, unvalidated, awaiting human checking — whatever the payload says
+	   of the run, printed under the title of every file this page hands out. */
+	const status = $derived(runStatus(artefact));
 	const selected = $derived(Boolean(actor || referent));
 	/* The second opinion, or the empty block that says none was run. Everything
 	   about it on this page is drawn on `computed` and on nothing else: under
@@ -303,6 +307,7 @@
 			columns: MATRIX_COLUMNS,
 			rows: matrixExportRows(artefact),
 			provenance: provenanceOf(artefact.meta, 'usage/usage.json'),
+			status,
 			filters: onScreen(),
 			scope:
 				`every filled cell the artefact holds — ${count(artefact.matrix.length)} pairings over ` +
@@ -322,6 +327,7 @@
 			columns: DIFFUSION_COLUMNS,
 			rows: diffusionExportRows(artefact),
 			provenance: provenanceOf(artefact.meta, 'usage/usage.json'),
+			status,
 			filters: [
 				`on screen: ${diffusion.label}`,
 				`milestones: first placed use, first assertion, first refusal of the word`,
@@ -340,6 +346,7 @@
 			columns: CONTESTED_COLUMNS,
 			rows: contestedExportRows(artefact, annotations?.occurrences ?? [], lines),
 			provenance: provenanceOf(artefact.meta, 'usage/occurrences.json'),
+			status,
 			filters: [
 				`published run: ${artefact.model.id}, run ${artefact.model.run_id}`,
 				`second opinion: ${comparison.model}, run ${comparison.runId}`,
@@ -360,6 +367,7 @@
 			columns: POSITION_COLUMNS,
 			rows: positionExportRows(artefact),
 			provenance: provenanceOf(artefact.meta, 'usage/usage.json'),
+			status,
 			filters: [
 				`ordered by: occurrences labelled rejects, then name`,
 				`minimum for a band: ${artefact.minimum_occurrences} eligible occurrences`,

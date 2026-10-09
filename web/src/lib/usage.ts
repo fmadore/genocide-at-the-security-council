@@ -56,7 +56,7 @@
 
 import { CONCORDANCE_DEFAULTS, readerQuery } from './concordance';
 import { COMPARED_FIELDS, meetingOf } from './data';
-import { decimal, percent, termLabel } from './format';
+import { count, decimal, percent, termLabel } from './format';
 import { tone } from './theme';
 import type {
 	KwicLine,
@@ -1979,6 +1979,44 @@ export function goldProgress(data: Usage): GoldProgress {
 		hasModelScores: gold.model_vs_human.length > 0,
 		hasComparisonScores: gold.model_vs_human_comparison.length > 0
 	};
+}
+
+const CHECKING: Partial<Record<UsageGold['state'], string>> = {
+	not_started: 'awaiting human checking',
+	in_progress: 'with human checking in progress'
+};
+
+/**
+ * The status line every download made from these labels carries.
+ *
+ * A file leaves the page and its apparatus behind; the run id and the model in
+ * its header say whose labels these are, but not that the run is partial or
+ * that nobody has checked it (review of 8 October 2026, A1). This sentence
+ * says so, from the payload rather than from a constant:
+ *
+ * - *partial* while the run annotated fewer occurrences than there are;
+ * - *unvalidated* while the gold sample is not complete, with whether the
+ *   checking has started;
+ * - nothing at all once the run is complete and the sample coded — a line a
+ *   later payload makes untrue should go without anyone remembering to
+ *   delete it.
+ *
+ * "Complete" is the gold block's own state, not a verdict on the labels: what a
+ * coded sample found belongs to the evaluation plan, and this line only says
+ * whether the finding exists yet.
+ */
+export function runStatus(data: Pick<Usage, 'model' | 'gold'>): string | null {
+	const { model, gold } = data;
+	const partial = model.occurrences_annotated < model.occurrences_total;
+	const unchecked = gold.state !== 'complete';
+	if (!partial && !unchecked) return null;
+	const kind = [partial && 'partial', unchecked && 'unvalidated'].filter(Boolean).join(', ');
+	const article = /^[aeiou]/.test(kind) ? 'an' : 'a';
+	const checking = unchecked && CHECKING[gold.state] ? ` ${CHECKING[gold.state]}` : '';
+	const coverage = partial
+		? `${count(model.occurrences_annotated)} of ${count(model.occurrences_total)} occurrences annotated`
+		: `all ${count(model.occurrences_total)} occurrences annotated`;
+	return `labels from ${article} ${kind} model run${checking} (run ${model.run_id}: ${coverage})`;
 }
 
 /**

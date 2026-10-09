@@ -44,6 +44,7 @@ import {
 	orderReferents,
 	readUsageState,
 	retestRows,
+	runStatus,
 	selectUsage,
 	positionExportRows,
 	positionLabel,
@@ -1598,6 +1599,40 @@ describe('the gold sample’s own state', () => {
 		expect(progress.doubleCoded).toBe(40);
 		expect(progress.hasAgreement).toBe(true);
 		expect(progress.hasModelScores).toBe(false);
+	});
+});
+
+describe('the status a model-derived file carries', () => {
+	const partial = { ...model, occurrences_total: 7747, occurrences_annotated: 7694 };
+
+	it('says partial, unvalidated and awaiting checking, with the run and its coverage', () => {
+		expect(runStatus(corpus({ model: partial }))).toBe(
+			'labels from a partial, unvalidated model run awaiting human checking ' +
+				'(run 2026-09-01-luna-v1: 7,694 of 7,747 occurrences annotated)'
+		);
+	});
+
+	it('drops "partial" when the run reached every occurrence', () => {
+		expect(runStatus(corpus())).toBe(
+			'labels from an unvalidated model run awaiting human checking ' +
+				'(run 2026-09-01-luna-v1: all 6,092 occurrences annotated)'
+		);
+	});
+
+	it('says the checking has started once it has', () => {
+		expect(runStatus(corpus({ gold: { ...gold, state: 'in_progress' } }))).toContain(
+			'an unvalidated model run with human checking in progress'
+		);
+	});
+
+	it('keeps "partial" after the sample is coded, and says nothing of validation', () => {
+		expect(runStatus(corpus({ model: partial, gold: { ...gold, state: 'complete' } }))).toBe(
+			'labels from a partial model run (run 2026-09-01-luna-v1: 7,694 of 7,747 occurrences annotated)'
+		);
+	});
+
+	it('disappears once the run is complete and the sample coded', () => {
+		expect(runStatus(corpus({ gold: { ...gold, state: 'complete' } }))).toBeNull();
 	});
 });
 

@@ -103,6 +103,16 @@ describe('the CSV header', () => {
 		expect(header).toMatch(/# rows: .*including any the figure was not showing/);
 	});
 
+	it('puts a model run’s status straight under the title, and nothing when there is none', () => {
+		const status = 'labels from a partial, unvalidated model run awaiting human checking';
+		const header = csvHeader(request({ status }));
+		expect(header[1]).toBe('# figure: Rate over time');
+		expect(header[2]).toBe(`# status: ${status}`);
+		for (const absent of [undefined, null]) {
+			expect(csvHeader(request({ status: absent })).join('\n')).not.toContain('status:');
+		}
+	});
+
 	it('lets a caller correct the scope line when the file really is a subset', () => {
 		const header = csvHeader(request({ scope: 'the filtered rows only' })).join('\n');
 		expect(header).toContain('# rows: the filtered rows only');
@@ -200,6 +210,23 @@ describe('captioning an image', () => {
 	it('carries the same provenance the CSV does', () => {
 		const out = caption();
 		for (const line of provenanceLines(provenance())) expect(out).toContain(line);
+	});
+
+	it('draws a model run’s status first under the title, as the CSV prints it', () => {
+		const status = 'labels from an unvalidated model run awaiting human checking';
+		const out = captionSvg({
+			svg,
+			width: 600,
+			height: 300,
+			title: 'Rate over time',
+			filters: ['term: genocide'],
+			status,
+			provenance: provenance(),
+			colours
+		});
+		const lines = [...out.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((match) => match[1]);
+		expect(lines.slice(0, 3)).toEqual(['Rate over time', status, 'term: genocide']);
+		expect(caption()).not.toContain('model run');
 	});
 
 	it('grows the canvas for the caption instead of covering the chart', () => {

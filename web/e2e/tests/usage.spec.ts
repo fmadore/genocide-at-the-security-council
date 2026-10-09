@@ -332,6 +332,13 @@ test(
 		expect(header.split(',')).not.toContain('share_rejects');
 		expect(header.split(',')).toContain('sufficient');
 		expect(csv).toContain('# on screen: ordered by: occurrences labelled rejects, then name');
+		// Under the title, the run's status as the payload states it: the fixture
+		// run reached all twelve occurrences, and nobody has coded the sample.
+		expect(csv).toContain(
+			'# figure: Who rejects the word\r\n' +
+				'# status: labels from an unvalidated model run awaiting human checking ' +
+				'(run 2026-09-01-luna-v1: all 12 occurrences annotated)\r\n'
+		);
 
 		await expectNoAxeViolations(page);
 	}
