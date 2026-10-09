@@ -78,7 +78,7 @@ describe('the cache in front of the artefacts', () => {
 		const fetchers = Object.fromEntries(
 			['a', 'b', 'c', 'd'].map((term) => [term, responder(line(term))])
 		);
-		const load = (term: string) => kwic(term, fetchers[term].fetcher);
+		const load = (term: string) => kwic(term, fetchers[term]!.fetcher);
 
 		await load('a');
 		await load('b');
@@ -90,9 +90,9 @@ describe('the cache in front of the artefacts', () => {
 		await load('d');
 
 		await load('a');
-		expect(fetchers.a.calls.count, 'a was read most recently and should be held').toBe(1);
+		expect(fetchers.a!.calls.count, 'a was read most recently and should be held').toBe(1);
 		await load('b');
-		expect(fetchers.b.calls.count, 'b was the least recently read of four').toBe(2);
+		expect(fetchers.b!.calls.count, 'b was the least recently read of four').toBe(2);
 	});
 
 	it('goes through each page’s own fetch while prerendering', async () => {

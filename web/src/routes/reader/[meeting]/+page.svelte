@@ -259,7 +259,7 @@
 
 	// The register names the mark's rule; `app.css` owns what each one looks
 	// like, so the drawing lives in one place rather than in an inline colour.
-	const registerFor = (terms: string[]) => registers[terms[0]] ?? 'core';
+	const registerFor = (terms: string[]) => registers[terms[0]!] ?? 'core';
 
 	/**
 	 * The marginal apparatus: what is marked in this record, counted by register,
@@ -280,7 +280,7 @@
 				tally[register] = (tally[register] ?? 0) + spans.length;
 			}
 		}
-		return ORDER.filter((r) => tally[r]).map((r) => ({ register: r, n: tally[r] }));
+		return ORDER.filter((r) => tally[r]).map((r) => ({ register: r, n: tally[r]! }));
 	});
 
 	/* --- The whole debate, under the reading set the masthead selected -------
@@ -344,10 +344,10 @@
 			// Below 48rem it scrolls away with the page, and a landing that still
 			// budgeted 400px for it would park the marked word at the foot of the
 			// window with nothing under it to read.
-			const stuck = getComputedStyle(entry.target).position === 'sticky';
+			const stuck = getComputedStyle(entry!.target).position === 'sticky';
 			document.documentElement.style.setProperty(
 				'--toolbar-h',
-				stuck ? `${entry.target.getBoundingClientRect().height}px` : '0px'
+				stuck ? `${entry!.target.getBoundingClientRect().height}px` : '0px'
 			);
 		});
 		observer.observe(element);

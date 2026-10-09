@@ -77,10 +77,10 @@ describe('what the dashboard requires against what the pipeline writes', () => {
 			if (!sampled) return; // Reported by the test above; not worth failing twice.
 			const shape = contract[sampled];
 			const absent = Object.keys(required).filter(
-				(key) => !(key in shape) && !(`${key}?` in shape)
+				(key) => !(key in shape!) && !(`${key}?` in shape!)
 			);
 			expect(absent, `${sampled} does not carry ${absent.join(', ')}`).toEqual([]);
-			const optional = Object.keys(required).filter((key) => `${key}?` in shape);
+			const optional = Object.keys(required).filter((key) => `${key}?` in shape!);
 			expect(optional, `${sampled} does not always carry ${optional.join(', ')}`).toEqual([]);
 		}
 	);
@@ -108,10 +108,10 @@ describe('what the dashboard requires against what the pipeline writes', () => {
 			if (!sampled) return;
 			const shape = contract[sampled];
 			const mismatched = Object.entries(required as Record<string, string>)
-				.filter(([key]) => key in shape)
-				.filter(([key, kind]) => !WRITTEN_AS[kind](shape[key]))
+				.filter(([key]) => key in shape!)
+				.filter(([key, kind]) => !WRITTEN_AS[kind]!(shape![key]))
 				.map(
-					([key, kind]) => `${key} is fetched as ${kind}, written as ${JSON.stringify(shape[key])}`
+					([key, kind]) => `${key} is fetched as ${kind}, written as ${JSON.stringify(shape![key])}`
 				);
 			expect(mismatched, mismatched.join('; ')).toEqual([]);
 		}
@@ -132,7 +132,7 @@ describe('what the dashboard requires against what the pipeline writes', () => {
 
 describe('the shape of the blocks a figure would silently mis-draw', () => {
 	it('keeps every actor-measure row sufficient flag required', () => {
-		const measures = contract['countries/countries.json'].measures as Record<string, never>;
+		const measures = contract['countries/countries.json']!.measures as Record<string, never>;
 		const row = (measures['*'] as unknown as { rows: [Record<string, string>] }).rows[0];
 		expect(Object.keys(row)).toContain('sufficient');
 		expect(Object.keys(row)).not.toContain('sufficient?');
@@ -143,7 +143,7 @@ describe('the shape of the blocks a figure would silently mis-draw', () => {
 		// whole `?? 0` argument in `$lib/actors` rests on that null surviving the
 		// pipeline. If it ever arrives as a plain number the withheld rows become
 		// measured zeros and the ranking gains 468 speakers that said nothing.
-		const rows = (contract['countries/countries.json'].measures as Record<string, never>)['*'];
+		const rows = (contract['countries/countries.json']!.measures as Record<string, never>)['*'];
 		const row = (rows as unknown as { rows: [Record<string, string>] }).rows[0];
 		expect(row.speech_rate).toContain('null');
 	});

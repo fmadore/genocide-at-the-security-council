@@ -117,7 +117,7 @@
 			: [...eventKinds, kind];
 	};
 	const kindStroke = (kind: string, p = $colours) =>
-		categoricalNeutral(p)[EVENT_KINDS.indexOf(kind) % 6].color;
+		categoricalNeutral(p)[EVENT_KINDS.indexOf(kind) % 6]!.color;
 	let split = $state<string>('none');
 
 	const source = $derived(grain === 'year' ? data.year : data.quarter);
@@ -153,7 +153,7 @@
 				...tooltip(p),
 				formatter: (params: unknown) => {
 					const [first] = params as { dataIndex: number }[];
-					const row = scopeYears[first.dataIndex];
+					const row = scopeYears[first!.dataIndex]!;
 					return (
 						`<strong>${row.year}</strong><br>${count(row.speeches)} of ` +
 						`${count(row.held)} speeches — ${row.share === null ? '—' : percent(row.share)}`
@@ -310,8 +310,8 @@
 					name,
 					measure.kind,
 					measure.register ?? null,
-					source.corpus.speeches[index],
-					source.corpus.words[index],
+					source.corpus.speeches[index]!,
+					source.corpus.words[index]!,
 					measure.speeches[index] ?? null,
 					measure.speech_rate[index] ?? null,
 					measure.speech_rate_low[index] ?? null,
@@ -463,7 +463,7 @@
 		const groups: { heading: string; colour: string; names: string[] }[] = [];
 		for (const register of REGISTER_ORDER) {
 			const names = Object.keys(allMeasures).filter(
-				(name) => allMeasures[name].register === register
+				(name) => allMeasures[name]!.register === register
 			);
 			if (names.length)
 				groups.push({ heading: register, colour: registerColour(register, $colours), names });
@@ -652,7 +652,7 @@
 					const interval = (seriesName: string | undefined, index: number | undefined) => {
 						if (!banded || index == null) return '';
 						const internal = usable.find((n) => measureLabel(n) === bandOwner(seriesName ?? ''));
-						const bounds = internal ? bandBounds(allMeasures[internal]) : null;
+						const bounds = internal ? bandBounds(allMeasures[internal]!) : null;
 						const low = bounds?.low[index] ?? null;
 						const high = bounds?.high[index] ?? null;
 						return low == null || high == null
@@ -679,7 +679,7 @@
 						.join('<br>');
 					// Naming the threshold keeps the cut honest: the reader is told the
 					// size of what is missing, not just that something is.
-					const floor = kept.length ? size(kept[kept.length - 1]) : -Infinity;
+					const floor = kept.length ? size(kept[kept.length - 1]!) : -Infinity;
 					const more = cut.length
 						? `<br><span style="opacity:.7">${count(cut.length)} more` +
 							`${Number.isFinite(floor) ? ` at or below ${show(floor)}` : ''}</span>`
@@ -727,8 +727,8 @@
 							intervalBand(
 								measureLabel(name),
 								strokeOf(name, p).color,
-								bandBounds(allMeasures[name]).low,
-								bandBounds(allMeasures[name]).high
+								bandBounds(allMeasures[name]!).low,
+								bandBounds(allMeasures[name]!).high
 							)
 						)
 					: []),
@@ -740,7 +740,7 @@
 					return {
 						name: measureLabel(name),
 						type: 'line',
-						data: allMeasures[name][unit] ?? [],
+						data: allMeasures[name]![unit] ?? [],
 						// The marker is the line's third code, after hue and dash. At a
 						// quarter's grain ECharts thins the markers to the axis labels'
 						// interval, so they still name the line without carpeting it.
@@ -886,7 +886,7 @@
 				...block.categories.flatMap((category, i) =>
 					intervalBand(
 						category,
-						strokes[i % strokes.length].color,
+						strokes[i % strokes.length]!.color,
 						years.map((y) => cell(category, y)?.speech_rate_low ?? null),
 						years.map((y) => cell(category, y)?.speech_rate_high ?? null)
 					)
@@ -902,10 +902,10 @@
 					symbol: 'none',
 					lineStyle: {
 						width: 2,
-						color: strokes[i % strokes.length].color,
-						type: strokes[i % strokes.length].dash
+						color: strokes[i % strokes.length]!.color,
+						type: strokes[i % strokes.length]!.dash
 					},
-					itemStyle: { color: strokes[i % strokes.length].color },
+					itemStyle: { color: strokes[i % strokes.length]!.color },
 					emphasis: { focus: 'series' }
 				}))
 			]
@@ -1230,8 +1230,8 @@
 						<tr
 							><td>{period}</td>{#each usable as name (name)}{@const value =
 									unit === 'speech_rate'
-										? percent(Number(allMeasures[name][unit]?.[index] ?? 0))
-										: decimal(Number(allMeasures[name][unit]?.[index] ?? 0))}<td class="num"
+										? percent(Number(allMeasures[name]![unit]?.[index] ?? 0))
+										: decimal(Number(allMeasures[name]![unit]?.[index] ?? 0))}<td class="num"
 									><a href={plottedHref(name, period)}>{value}</a></td
 								>{/each}</tr
 						>
@@ -1516,9 +1516,9 @@
 							<td class="num soft">{showRate(row.without)}</td>
 							<td class="item">
 								{#if row.agenda.length}
-									{row.agenda[0].item}
+									{row.agenda[0]!.item}
 									<span class="soft"
-										>{count(row.agenda[0].speeches)} · {percent(row.agenda[0].share)}</span
+										>{count(row.agenda[0]!.speeches)} · {percent(row.agenda[0]!.share)}</span
 									>
 								{:else}
 									—

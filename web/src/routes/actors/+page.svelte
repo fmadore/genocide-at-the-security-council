@@ -150,9 +150,8 @@
 	 */
 	function table(): ExportRequest {
 		const speakers = new Map(artefact.countries.map((s) => [s.country_org, s]));
-		const rows = artefact.measures[measure].rows
-			.filter((row) => row.period === period)
-			.map((row) => {
+		const rows = artefact.measures[measure]!.rows.filter((row) => row.period === period).map(
+			(row) => {
 				const speaker = speakers.get(row.country_org);
 				return [
 					row.country_org,
@@ -172,7 +171,8 @@
 					row.sufficient,
 					speaker?.mappable ?? null
 				];
-			});
+			}
+		);
 		return {
 			title: `Speakers by rate — ${measureLabel(measure)}, ${result.period?.label ?? period}`,
 			columns: [
@@ -219,7 +219,7 @@
 	 * disagree about the same delegation.
 	 */
 	function describeSpeaker(point: MapPoint) {
-		const { speaker, row } = point.speakers[0];
+		const { speaker, row } = point.speakers[0]!;
 		return {
 			heading: shortCountry(speaker.country_org),
 			lines: [
@@ -582,10 +582,10 @@
 			<CountryMap
 				bind:this={countryMap}
 				points={drawn}
-				selected={chosen?.speakers[0].speaker.country_org ?? null}
+				selected={chosen?.speakers[0]!.speaker.country_org ?? null}
 				onselect={(point) => {
 					speakerSearch = '';
-					selected = point?.speakers[0].speaker.country_org ?? null;
+					selected = point?.speakers[0]!.speaker.country_org ?? null;
 				}}
 				describe={describeSpeaker}
 			/>
@@ -594,7 +594,7 @@
 
 	{#if chosen}
 		<aside class="picked">
-			<h2>{shortCountry(selected ?? chosen.speakers[0].speaker.country_org)}</h2>
+			<h2>{shortCountry(selected ?? chosen.speakers[0]!.speaker.country_org)}</h2>
 			{#if chosen.speakers.length > 1}
 				<p class="stacked">
 					This point carries {chosen.speakers.length} speakers, which share both a map position and a

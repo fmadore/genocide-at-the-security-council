@@ -28,7 +28,7 @@
 	   default, which is the guarantee R9 makes anyway — a URL carrying no scope
 	   renders what the site rendered before R9 — and hydration applies the rest. */
 	const current = $derived(browser ? readScope(page.url.searchParams) : DEFAULT_SCOPE);
-	const chosen = $derived(index.scopes.find((scope) => scope.id === current) ?? index.scopes[0]);
+	const chosen = $derived(index.scopes.find((scope) => scope.id === current) ?? index.scopes[0]!);
 
 	function choose(id: ScopeId) {
 		const search = withScope(page.url.searchParams, id).toString();

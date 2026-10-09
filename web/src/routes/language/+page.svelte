@@ -309,7 +309,7 @@
 
 	const nodes = $derived(Object.keys(data.collocates.nodes));
 	const widths = $derived(data.collocates.widths.map(String));
-	const block = $derived(data.collocates.nodes[node].widths[width]);
+	const block = $derived(data.collocates.nodes[node]!.widths[width]!);
 
 	const sliceOptions = $derived(Object.keys(data.sliced[sliceKind]));
 	const blockA = $derived<CollocateBlock | undefined>(data.sliced[sliceKind][sliceA]);
@@ -318,8 +318,8 @@
 	$effect(() => {
 		// Switching the kind of slice invalidates the two chosen members.
 		const options = Object.keys(data.sliced[sliceKind]);
-		if (!options.includes(sliceA)) sliceA = options[0];
-		if (!options.includes(sliceB)) sliceB = options[1] ?? options[0];
+		if (!options.includes(sliceA)) sliceA = options[0]!;
+		if (!options.includes(sliceB)) sliceB = options[1] ?? options[0]!;
 	});
 
 	/* The sliced artefact declares the fewest speeches it will stand a profile
@@ -346,7 +346,7 @@
 	$effect(() => {
 		// Changing the facet invalidates the member chosen inside the old one.
 		const options = frameMembers(data.frames, frameFacet).map((row) => row.member);
-		if (options.length > 0 && !options.includes(frameMember)) frameMember = options[0];
+		if (options.length > 0 && !options.includes(frameMember)) frameMember = options[0]!;
 	});
 
 	const frameSlice = $derived(frameMemberOf(data.frames, frameFacet, frameMember));
@@ -375,7 +375,7 @@
 	$effect(() => {
 		// Changing the facet invalidates the member chosen inside the old one.
 		const options = profileFacet === 'whole' ? [] : Object.keys(data.sliced[profileFacet]);
-		if (options.length > 0 && !options.includes(profileMember)) profileMember = options[0];
+		if (options.length > 0 && !options.includes(profileMember)) profileMember = options[0]!;
 	});
 
 	const profileBlock = $derived<CollocateBlock | undefined>(

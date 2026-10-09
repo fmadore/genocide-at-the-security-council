@@ -265,7 +265,7 @@ describe('term strokes', () => {
 
 	it('keeps the register hue as the family: the first step is the hue itself', () => {
 		const strokes = termStrokes(LEGAL, registerOf, p);
-		expect(strokes.get(LEGAL[0])!.color).toBe(p.registers.legal);
+		expect(strokes.get(LEGAL[0]!)!.color).toBe(p.registers.legal);
 		expect(termStrokes(['prevention'], registerOf, p).get('prevention')!.color).toBe(
 			p.registers.preventive
 		);
@@ -274,9 +274,9 @@ describe('term strokes', () => {
 	it('steps by position in the register, not by position in the list', () => {
 		// A preventive term sitting between two legal ones must not push the
 		// second legal term onto a different rung.
-		const woven = termStrokes([LEGAL[0], 'prevention', LEGAL[1]], registerOf, p);
-		const plain = termStrokes([LEGAL[0], LEGAL[1]], registerOf, p);
-		expect(woven.get(LEGAL[1])).toEqual(plain.get(LEGAL[1]));
+		const woven = termStrokes([LEGAL[0]!, 'prevention', LEGAL[1]!], registerOf, p);
+		const plain = termStrokes([LEGAL[0]!, LEGAL[1]!], registerOf, p);
+		expect(woven.get(LEGAL[1]!)).toEqual(plain.get(LEGAL[1]!));
 	});
 
 	it('draws a term the same way on every call, so an export matches the screen', () => {

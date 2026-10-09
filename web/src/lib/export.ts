@@ -201,7 +201,7 @@ const XML_ESCAPES: Record<string, string> = {
  * apart, rather than one that is subtly wrong in whichever place it is not.
  */
 export const escapeXml = (value: string): string =>
-	value.replace(/[&<>"']/g, (character) => XML_ESCAPES[character]);
+	value.replace(/[&<>"']/g, (character) => XML_ESCAPES[character]!);
 
 export interface CaptionRequest {
 	/** The chart's serialised `<svg>` markup. */

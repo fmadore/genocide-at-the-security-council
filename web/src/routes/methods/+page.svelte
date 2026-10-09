@@ -263,7 +263,7 @@
 		variants: <code>genocid*</code>, for example, captures forms such as <em>genocide</em>,
 		<em>genocidal</em> and <em>genocides</em>. This word-family count is the default across the
 		overview, chronology and actors pages. It appears in {percent(
-			sum(data.series.terms.genocide.speeches) / totals.speeches
+			sum(data.series.terms.genocide!.speeches) / totals.speeches
 		)} of speeches.
 	</p>
 	<p>

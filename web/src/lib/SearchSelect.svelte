@@ -45,7 +45,7 @@
 		}
 		if (event.key === 'Enter' && open && active >= 0 && matches[active]) {
 			event.preventDefault();
-			choose(matches[active].value);
+			choose(matches[active]!.value);
 			return;
 		}
 		if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;

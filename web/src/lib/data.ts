@@ -833,8 +833,8 @@ function request<T>(
 			// absent — a field renamed upstream reads as missing, a field whose
 			// type changed reads as this — so it gets its own sentence.
 			const wrong = keys
-				.filter((key) => !KINDS[shape[key]].holds(record[key]))
-				.map((key) => `${path}.${key} ${KINDS[shape[key]].must}.`);
+				.filter((key) => !KINDS[shape[key]!].holds(record[key]))
+				.map((key) => `${path}.${key} ${KINDS[shape[key]!].must}.`);
 			if (wrong.length) throw new Error(wrong.join(' '));
 			validateMeta(record, path);
 			validate?.(record, path);
@@ -1064,7 +1064,7 @@ export function meetingOf(lineId: string): string {
 
 /** `SC00232-01-005#1` → `SC00232-01-005`. */
 export function speechOf(lineId: string): string {
-	return lineId.split('#')[0];
+	return lineId.split('#')[0]!;
 }
 
 /** `SC00232-01-005#3` → the one-based occurrence ordinal `3`. */

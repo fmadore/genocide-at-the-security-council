@@ -83,7 +83,7 @@
 		const node = frame;
 		if (!node) return;
 		const observer = new ResizeObserver(([entry]) => {
-			const measured = Math.round(entry.contentRect.width);
+			const measured = Math.round(entry!.contentRect.width);
 			// A zero arrives while the plate is still collapsed, and building the
 			// grid to it would divide the cell into nothing.
 			if (measured > 0) available = measured;

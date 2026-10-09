@@ -1282,7 +1282,7 @@ function ticksFor(from: number, to: number, x: (at: number) => number): Diffusio
 	if (!Number.isFinite(from) || !Number.isFinite(to)) return [];
 	const first = new Date(from).getUTCFullYear();
 	const last = new Date(to).getUTCFullYear();
-	const widest = TICK_STEPS[TICK_STEPS.length - 1];
+	const widest = TICK_STEPS[TICK_STEPS.length - 1]!;
 	const step = TICK_STEPS.find((size) => (last - first) / size <= MAX_TICKS) ?? widest;
 	const ticks: DiffusionTick[] = [];
 	for (let year = Math.ceil(first / step) * step; year <= last; year += step) {
@@ -1309,7 +1309,8 @@ const sameCurve = (
 ) =>
 	a.length === b.length &&
 	a.every(
-		({ event }, index) => event.actor === b[index].event.actor && event.date === b[index].event.date
+		({ event }, index) =>
+			event.actor === b[index]!.event.actor && event.date === b[index]!.event.date
 	);
 
 const noTotals = (): Record<UsageMilestone, number> =>
@@ -1361,7 +1362,7 @@ export function diffusionPlan(data: Usage, state: UsageState): DiffusionPlan {
 		delegations: new Set(entry.events.map((event) => event.actor)).size
 	}));
 
-	const fallback = options.find((option) => option.kind === 'case') ?? options[0];
+	const fallback = options.find((option) => option.kind === 'case') ?? options[0]!;
 	const wanted = state.referent || fallback.id;
 	const chosen = carried.find((entry) => entry.id === wanted);
 	if (!chosen) {

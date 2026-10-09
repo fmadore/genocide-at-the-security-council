@@ -82,7 +82,7 @@
 	 * hiding points still moves nothing.
 	 */
 	const bounds = $derived.by(() => {
-		const box = [Infinity, -Infinity, Infinity, -Infinity];
+		const box: [number, number, number, number] = [Infinity, -Infinity, Infinity, -Infinity];
 		for (const p of map?.points ?? []) {
 			if (!all && !p[6]) continue;
 			box[0] = Math.min(box[0], p[1]);
@@ -107,8 +107,8 @@
 		return colour === 'year'
 			? String(Math.floor(p[3] / 10) * 10) + 's'
 			: colour === 'agenda'
-				? map!.agendas[p[5]]
-				: map!.countries[p[4]];
+				? map!.agendas[p[5]]!
+				: map!.countries[p[4]]!;
 	}
 	const categories = $derived.by(() => {
 		const counts = new SvelteMap<string, number>();
@@ -127,12 +127,12 @@
 		const grouped: Point[][] = Array.from({ length: categories.length + 1 }, () => []);
 		for (const p of rows) {
 			const index = categories.indexOf(category(p));
-			grouped[index < 0 ? categories.length : index].push(p);
+			grouped[index < 0 ? categories.length : index]!.push(p);
 		}
 		return [...categories, 'Other']
 			.map((name, index) => ({
 				name,
-				rows: grouped[index],
+				rows: grouped[index]!,
 				color: index === categories.length ? other : fills[index]
 			}))
 			.filter((group) => group.rows.length);
@@ -373,7 +373,7 @@
 					</p>
 					{#if neighbourStatus}<p role="status">{neighbourStatus}</p>{/if}
 					<ol>
-						{#each related as [id, score] (id)}{@const p = map.points[positions.get(id)!]}
+						{#each related as [id, score] (id)}{@const p = map.points[positions.get(id)!]!}
 							<li>
 								<a href={href(id)}>{map.countries[p[4]]} · {p[3]} · {id}</a> · similarity {score.toFixed(
 									3

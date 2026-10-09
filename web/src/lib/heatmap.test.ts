@@ -261,25 +261,25 @@ describe('the calendar read', () => {
 		// The strongest month is the top of its own ramp. Scaled against the grid
 		// it would be off the end of the scale; scaled against a shared one, every
 		// cell in the grid would be crushed into the bottom fifth.
-		expect(column.rows[5].weight).toBe(1);
-		expect(column.rows[0].weight).toBeCloseTo(0.02 / 0.06);
+		expect(column.rows[5]!.weight).toBe(1);
+		expect(column.rows[0]!.weight).toBeCloseTo(0.02 / 0.06);
 	});
 
 	it('carries the pooled denominator, which is not any cell’s', () => {
 		const column = calendar(payload(), 'genocide');
-		expect(column.rows[0].held).toBe(8000);
+		expect(column.rows[0]!.held).toBe(8000);
 	});
 
 	it('publishes the control reading beside the first one', () => {
 		const column = calendar(payload(), 'genocide');
 		expect(column.excludedYears).toEqual([1994, 1995]);
-		expect(column.rows[5].without).toBeCloseTo(0.0587);
+		expect(column.rows[5]!.without).toBeCloseTo(0.0587);
 	});
 
 	it('names the shared agenda item behind the two strongest months', () => {
 		const column = calendar(payload(), 'genocide');
 		expect(column.shared).toBe('International Tribunals');
-		expect(column.rows[5].agenda[0].speeches).toBe(213);
+		expect(column.rows[5]!.agenda[0]!.speeches).toBe(213);
 	});
 
 	it('says nothing when the strongest months have different items behind them', () => {
@@ -344,11 +344,11 @@ describe('the evidence behind a square', () => {
 	it('opens the cell’s own month and year, not the year around it', () => {
 		const links = evidence(payload(), 'genocide', at(plan(), 1993, 6)!);
 		expect(links).toHaveLength(1);
-		const params = new URLSearchParams(links[0].query);
+		const params = new URLSearchParams(links[0]!.query);
 		expect(readMonth(params.get('month'))).toBe(6);
 		expect(params.get('from')).toBe('1993');
 		expect(params.get('to')).toBe('1993');
-		expect(links[0].scope).toBe('June 1993');
+		expect(links[0]!.scope).toBe('June 1993');
 	});
 
 	// The minimum governs a rate. A month holding 40 speeches has no publishable
@@ -385,7 +385,7 @@ describe('the evidence behind a square', () => {
 		expect(cell.occurrences).toBeNull();
 		const links = evidence(data, 'war_crimes', cell);
 		expect(links.map((link) => link.term)).toEqual(['war_crimes']);
-		expect(readMonth(new URLSearchParams(links[0].query).get('month'))).toBe(6);
+		expect(readMonth(new URLSearchParams(links[0]!.query).get('month'))).toBe(6);
 	});
 });
 
@@ -395,11 +395,11 @@ describe('the evidence behind a pooled row', () => {
 		const june = calendar(data, 'genocide').rows.find((row) => row.month === 6)!;
 		const links = pooledEvidence(data, 'genocide', june);
 		expect(links).toHaveLength(1);
-		const params = new URLSearchParams(links[0].query);
+		const params = new URLSearchParams(links[0]!.query);
 		expect(readMonth(params.get('month'))).toBe(6);
 		expect(params.get('from')).toBeNull();
 		expect(params.get('to')).toBeNull();
-		expect(links[0].scope).toBe('every June');
+		expect(links[0]!.scope).toBe('every June');
 	});
 
 	it('names the term the row was read for, whatever the row withholds', () => {
@@ -426,7 +426,7 @@ describe('every link the grid offers names a concordance that exists', () => {
 	 */
 	function withDerived(): MonthlySeries {
 		const data = payload();
-		const rates = data.terms.genocide.speech_rate;
+		const rates = data.terms.genocide!.speech_rate;
 		const whole = measure(rates);
 		return {
 			...data,
@@ -479,8 +479,8 @@ describe('every link the grid offers names a concordance that exists', () => {
 		const data = withDerived();
 		const cell = at(grid({ data, measure: 'term_subset' }), 1993, 6)!;
 		const [link] = evidence(data, 'term_subset', cell);
-		expect(link.term).toBe('genocide');
-		expect(new URLSearchParams(link.query).get('term')).toBe('genocide');
+		expect(link!.term).toBe('genocide');
+		expect(new URLSearchParams(link!.query).get('term')).toBe('genocide');
 	});
 
 	// The resolution widens the evidence, so the figure has to be able to say by
@@ -495,11 +495,11 @@ describe('every link the grid offers names a concordance that exists', () => {
 		expect(wider.term).toBe('genocide');
 		expect(wider.subtracted).toEqual(['excluded_form']);
 		const sum = (values: (number | null)[]) => values.reduce((a, b) => a! + b!, 0)!;
-		const removed = sum(data.terms.genocide.speeches) - sum(data.terms.term_subset.speeches);
+		const removed = sum(data.terms.genocide!.speeches) - sum(data.terms.term_subset!.speeches);
 		expect(wider.speeches).toBe(removed);
-		expect(wider.speeches).not.toBe(sum(data.terms.excluded_form.speeches));
+		expect(wider.speeches).not.toBe(sum(data.terms.excluded_form!.speeches));
 		expect(wider.occurrences).toBe(
-			sum(data.terms.genocide.occurrences!) - sum(data.terms.term_subset.occurrences!)
+			sum(data.terms.genocide!.occurrences!) - sum(data.terms.term_subset!.occurrences!)
 		);
 	});
 

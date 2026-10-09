@@ -100,7 +100,7 @@
 		const observer = new ResizeObserver(([entry]) => {
 			document.documentElement.style.setProperty(
 				'--masthead-h',
-				`${entry.target.getBoundingClientRect().height}px`
+				`${entry!.target.getBoundingClientRect().height}px`
 			);
 		});
 		observer.observe(masthead);
@@ -180,7 +180,7 @@
 					<li>
 						<a
 							href={resolve(section.href)}
-							title={`${section.blurb}${originOf(section.href) ? ` · ${PROVENANCE_LABELS[originOf(section.href)]}` : ''}`}
+							title={`${section.blurb}${originOf(section.href) ? ` · ${PROVENANCE_LABELS[originOf(section.href)!]}` : ''}`}
 							aria-current={isCurrent(section.href) ? 'page' : undefined}
 							class:active={isCurrent(section.href) ||
 								(isReader && section.href === '/concordance')}
