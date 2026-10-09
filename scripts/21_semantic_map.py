@@ -13,8 +13,8 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, embeddings, frames, semantic, topics
-from lib.paths import DERIVED, EMBEDDINGS, ROOT, SPEECHES_FLAGGED
+from lib import artifacts, console, embeddings, frames, semantic, topics
+from lib.paths import EMBEDDINGS, ROOT, SEMANTIC, SPEECHES_FLAGGED
 
 
 def project(vectors: np.ndarray, seed: int, neighbours: int = 30):
@@ -60,8 +60,7 @@ def run(directory: Path, seed: int) -> None:
         speeches,
         {str(row_id): (x, y) for row_id, (x, y) in zip(speeches["row_id"], coordinates, strict=True)},
     )
-    meta = artifacts.provenance(ROOT, "21_semantic_map.py", inputs=[SPEECHES_FLAGGED, directory / "manifest.json"],
-                                configs=[Path(__file__), ROOT / "scripts/lib/semantic.py", ROOT / "scripts/lib/topics.py"], extra={
+    meta = artifacts.provenance(ROOT, "21_semantic_map.py", inputs=[SPEECHES_FLAGGED, directory / "manifest.json"], extra={
         "schema": 1, "seed": seed, "model_repo": source["model_repo"], "model_revision": source["model_revision"],
         "projection": "UMAP", "metric": "cosine", "n_neighbors": 30, "min_dist": .1,
         "packages": {name: version(name) for name in ("numpy", "umap-learn", "pynndescent", "scikit-learn")},
@@ -69,7 +68,7 @@ def run(directory: Path, seed: int) -> None:
         "neighbours": "Approximate cosine neighbours in the original embedding space; self excluded",
         "point_columns": semantic.POINT_COLUMNS,
     })
-    with artifacts.atomic_directory(DERIVED / "semantic") as staged:
+    with artifacts.atomic_directory(SEMANTIC) as staged:
         artifacts.atomic_write_json(staged / "map.json", {"meta": meta, "countries": countries, "agendas": agendas, "points": points})
         (staged / "neighbours").mkdir()
         shards = [{} for _ in range(256)]
@@ -87,4 +86,4 @@ if __name__ == "__main__":
     parser.add_argument("--embeddings", type=Path, default=EMBEDDINGS)
     parser.add_argument("--seed", type=int, default=20260910)
     args = parser.parse_args()
-    run(args.embeddings, args.seed)
+    console.main(lambda: run(args.embeddings, args.seed))

@@ -47,6 +47,18 @@ def test_the_corpus_guide_quotes_the_committed_counts() -> None:
     assert f"| Project analytical words | {EXPECTED_WORDS:,} |" in corpus
 
 
+def test_the_step_table_lists_every_numbered_step() -> None:
+    """Steps 18, 19 and 20 ran for weeks without a row, 20 inside `make payload`."""
+    readme = (ROOT / "scripts" / "README.md").read_text(encoding="utf-8")
+    table = readme.split("## Steps", 1)[1].split("\n\n", 2)[1]
+    rows = re.findall(r"^\| (\d+|—) \| `([^`]+\.py)` \|", table, re.MULTILINE)
+    assert rows, "the step table lost its rows"
+    numbered = {script: number for number, script in rows if number != "—"}
+    steps = sorted(path.name for path in (ROOT / "scripts").glob("[0-9]*.py"))
+    assert [step for step in steps if step not in numbered] == []
+    assert {script: number for script, number in numbered.items() if not script.startswith(number)} == {}
+
+
 def test_no_code_names_a_speech_of_the_retired_corpus() -> None:
     """`UNSC_1994_SPV.3377_spch0004` was the Schoenfeld corpus's file name; the
     Sakamoto-Matsuoka corpus names the same speech `SC03377-01-004`. A comment or

@@ -34,7 +34,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from lib import console
+from lib import artifacts, console
 from lib import entities as entity_lib
 from lib.paths import COUNTRY_ALIASES, ENTITIES, INTERIM, SPEECHES, ensure_dirs, rel
 
@@ -347,8 +347,7 @@ def main() -> None:
     flagged = int((frame["needs_review"] == "yes").sum())
     console.info(f"{flagged:,} rows flagged for review")
 
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(args.out, index=False, encoding="utf-8")
+    artifacts.atomic_write_csv(args.out, frame)
     console.step(f"Wrote {rel(args.out)}")
     console.info("Review it, then move the corrected file to config/entities.csv")
 

@@ -125,21 +125,21 @@ DISAGREEMENT_SIZES = gold_sample.DISAGREEMENT_SIZES
 MODEL_STRATA = gold_sample.MODEL_STRATA
 MODEL_STRATA_SIZES = gold_sample.MODEL_STRATA_SIZES
 
-GOLD_CANDIDATES = INTERIM / "genocide_gold_candidates.csv"
+GOLD_CANDIDATES = model_runs.GOLD_CANDIDATES
 GOLD_REVIEW = INTERIM / "genocide_gold_review.csv"
 #: What a coder opens. See the module docstring: blinded, deduplicated, shuffled.
-GOLD_PACKET = INTERIM / "genocide_gold_packet.csv"
+GOLD_PACKET = model_runs.GOLD_PACKET
 #: The occurrences behind the prompt's worked examples, excluded from every frame.
 PROMPT_EXAMPLES = model_runs.PROMPT_EXAMPLES
 #: Every population occurrence's probability under each frame and under their
 #: union, which is what lets 15 weight a coded unit however it was drawn.
-GOLD_DESIGN = INTERIM / "genocide_gold_design.csv"
+GOLD_DESIGN = model_runs.GOLD_DESIGN
 GOLD_PROBABILITY = INTERIM / "genocide_gold_probability.csv"
 GOLD_COVERAGE = INTERIM / "genocide_gold_coverage.csv"
 GOLD_ANNOTATIONS = model_runs.GOLD_ANNOTATIONS
 # The controlled referents are shared with 03's audit: one list of cases and
 # entities for the project, not one per sample.
-REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
+REFERENTS = model_runs.REFERENTS
 
 
 # --- The disagreement-stratified frame ---------------------------------------

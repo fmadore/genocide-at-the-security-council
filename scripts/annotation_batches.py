@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from lib import annotate, annotation_batches, artifacts
+from lib import annotate, annotation_batches, artifacts, console
 
 
 def main():
@@ -31,4 +31,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    console.main(main)

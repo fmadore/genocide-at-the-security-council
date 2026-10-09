@@ -227,28 +227,6 @@ ANNOTATION_FIELDS = (
     "comment",
 )
 
-#: The schema-2 columns, for reading a file coded before the split. No such file
-#: exists — both `annotations.csv` are header-only, and always were — so this
-#: says what version 2 was and is the shape a migration would read.
-LEGACY_ANNOTATION_FIELDS = (
-    "occurrence_id",
-    "schema_version",
-    "lexicon_version",
-    "coder",
-    "coded_at",
-    "verdict",
-    "source_checked",
-    "quotation",
-    "stance",
-    "function",
-    "referent",
-    "evidence_start",
-    "evidence_end",
-    "confidence",
-    "comment",
-)
-
-
 def source_sha256(text: str) -> str:
     """A digest that invalidates an occurrence identity when its source changes."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -684,66 +662,16 @@ class ReferentList:
 def read_referent_list(path: Path) -> ReferentList:
     """Read the controlled list with its retirements and its version.
 
-    The identifier checks live here rather than in the caller because every
-    reader of this file depends on them: an identifier with surrounding
-    whitespace, a blank one or a duplicate would each fragment one referent into
-    two silently, which is the failure the controlled list exists to prevent. A
-    file that has not yet grown the version columns is read as version 1 with
-    nothing retired, which is what it meant before they existed.
+    Parsed, and held to every rule of the list, by `lib.referents`; this is
+    the view that keeps an older run readable. A file that has not yet grown
+    the version columns is read as version 1 with nothing retired, which is
+    what it meant before they existed.
     """
-    table = pd.read_csv(path, dtype="string", keep_default_na=False)
-    required = {"id", "label", "description"}
-    missing = sorted(required - set(table.columns))
-    if missing:
-        raise ValueError(f"Referent file is missing columns: {', '.join(missing)}")
-    identifiers = table["id"].astype(str)
-    if identifiers.str.strip().ne(identifiers).any():
-        raise ValueError("Referent IDs must not contain surrounding whitespace.")
-    if identifiers.eq("").any() or identifiers.duplicated().any():
-        raise ValueError("Referent IDs must be nonempty and unique.")
-    missing_defaults = sorted(DEFAULT_REFERENTS - set(identifiers))
-    if missing_defaults:
-        raise ValueError(
-            "Referent file is missing reserved IDs: " + ", ".join(missing_defaults)
-        )
+    # Imported here: `lib.referents` takes the reserved identifiers and
+    # `ReferentList` from this module, so a module-level import would be circular.
+    from . import referents
 
-    since: dict[str, int] = {}
-    retired_in: dict[str, int] = {}
-    superseded_by: dict[str, str] = {}
-    for values in table.to_dict(orient="records"):
-        name = str(values["id"])
-        since[name] = _version_cell(values.get("since"), name, "since", default=1)
-        if retired := _version_cell(values.get("retired_in"), name, "retired_in", default=0):
-            retired_in[name] = retired
-        if successor := str(values.get("superseded_by") or "").strip():
-            superseded_by[name] = successor
-
-    unknown = sorted(set(superseded_by.values()) - set(since))
-    if unknown:
-        raise ValueError(
-            "Referent file supersedes IDs onto ones it does not hold: " + ", ".join(unknown)
-        )
-    stranded = sorted(name for name in superseded_by if name not in retired_in)
-    if stranded:
-        raise ValueError(
-            "Referent file names a successor for IDs it has not retired: " + ", ".join(stranded)
-        )
-    return ReferentList(
-        version=max([*since.values(), *retired_in.values(), 1]),
-        since=since,
-        retired_in=retired_in,
-        superseded_by=superseded_by,
-    )
-
-
-def _version_cell(value: object, name: str, column: str, *, default: int) -> int:
-    """One version number from the file, or the default an empty cell means."""
-    text = str(value or "").strip()
-    if not text:
-        return default
-    if not text.isdigit() or int(text) < 1:
-        raise ValueError(f"Referent '{name}' has a non-numeric {column}: {text}")
-    return int(text)
+    return referents.read(path).listing()
 
 
 def read_referents(path: Path) -> set[str]:

@@ -28,7 +28,7 @@ spaCy steps (`docs/CLUSTER.md`). The deploy workflow runs the same target.
 
 Three environment variables move the tree a run writes to — `GENOCIDE_DATA_ROOT`,
 `GENOCIDE_NOTES_ROOT`, `GENOCIDE_WEB_DATA_ROOT` — and exist for one caller:
-`tests/test_end_to_end.py`, which runs 04 and 08 as subprocesses over a synthetic corpus
+`tests/test_end_to_end.py`, which runs 04, 08 and 17 as subprocesses over a synthetic corpus
 and compares their analytical values with `tests/golden/`. Leave them unset otherwise.
 
 ## Steps
@@ -52,6 +52,9 @@ and compares their analytical values with `tests/golden/`. Leave them unset othe
 | 14 | `14_llm_annotate.py` | `speeches_norm.parquet`, prompt, a local vLLM Responses endpoint | `model_annotations/genocide/runs/<id>/` | ✋ scheduled, experimental |
 | 15 | `15_usage.py` | `model_annotations/genocide/`, `annotations/genocide/`, `speeches_norm.parquet`, the gold design | `derived/usage/*.json`, `data/interim/genocide_first_events.csv` | 🧪 experimental |
 | 17 | `17_frames.py` | `speeches_flagged.parquet`, `config/lexicon.yml`, `model_annotations/genocide/` | `derived/frames/*.json` | ✅ |
+| 18 | `18_lexical_robustness.py` | `speeches_flagged.parquet`, `config/stopwords.txt`; with `--lemma-layer`, a validated 10 layer | `derived/lexical_robustness/`, or `derived/lexical_robustness_lemma/` | 🔬 diagnostic, `make robustness` |
+| 19 | `19_extended_robustness.py` | `speeches_flagged.parquet`, `config/stopwords.txt`, `config/lexicon.yml` | `derived/extended_robustness/` | 🔬 diagnostic, `make robustness-extended` |
+| 20 | `20_actor_year.py` | `speeches_flagged.parquet` | `derived/actor_year/` | ✅ |
 | 21 | `21_semantic_map.py` | `speeches_flagged.parquet`, complete schema-2 embeddings | `derived/semantic/` | 🖥️ CPU projection |
 | — | `fetch_semantic.py` | `config/semantic-release.json`, GitHub release asset | `derived/semantic/` | ✅ verified restore |
 | — | `export_web.py` | `derived/{series,lexical,kwic,countries,usage,frames,actor_year,semantic}/` | `web/static/data/` | ✅ |
@@ -65,6 +68,13 @@ run on the Bayreuth cluster; see [`../docs/CLUSTER.md`](../docs/CLUSTER.md). Non
 speech-similarity map; the release workflow restores its reviewed output with
 `python scripts/fetch_semantic.py` before `make payload`. Run the same restore
 command locally to include the published map without another GPU run.
+
+**18 and 19 test the lexical tables rather than feed them.** 18 redraws 05's matched
+genocide comparison, deletes each meeting in turn and reports how far each top word moves;
+19 adds meeting-block bootstrap intervals for the matched comparison, the collocates and
+the speaker profiles. Both write beside the published tables and never replace them. **20** is part of the release:
+it writes each source affiliation's annual counts and rates, withheld below the same
+minimum as 11, and `export_web.py` copies them to `actor_year/`.
 
 **11 builds the table [`../docs/PLAN.md`](../docs/PLAN.md) §7 requires before anything is
 drawn on a map.** Per speaker and per period: the speaker's own denominator, its

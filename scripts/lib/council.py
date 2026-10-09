@@ -5,9 +5,12 @@ is a property of a *speech*, not of a country. Rwanda spoke as an elected
 member in 1994 and 2013-2014 and as a non-member in every other year of the
 corpus; collapsing that would erase the thing most worth looking at.
 
-`config/council_membership.csv` holds one row per term. This module expands
-those into a year-by-year table and derives the speaker group used throughout
-the dashboard.
+This module derives the speaker group used throughout the dashboard. On the
+canonical corpus it reads the source's own per-speech membership flags.
+`config/council_membership.csv`, one row per term, is the roster a fixture
+without those flags is classified from; :func:`membership_by_year` expands it
+into a year-by-year table and :func:`validate` holds it to the Charter's
+fifteen seats.
 """
 
 from __future__ import annotations
@@ -105,13 +108,12 @@ def drift(speeches: pd.DataFrame, membership: pd.DataFrame | None = None) -> lis
 
     `02_normalise.py` derives the group once and writes it into the parquet, and
     every step after it reads that column rather than recomputing — which is the
-    right dependency, and also the one that hides an edit. A term corrected in
-    `config/council_membership.csv` after 02 last ran would change nothing in the
-    corpus and nothing in any artefact built from it, while the config file and
-    the published figures quietly disagreed about who sat on the Council.
+    right dependency, and also the one that hides an edit. A change to the
+    group's rule, or to the entity typing it reads, after 02 last ran would
+    change nothing in the corpus and nothing in any artefact built from it.
 
-    On the Sakamoto corpus the inputs are source flags stored on each speech.
-    The legacy roster remains supported only for older fixtures.
+    On the canonical corpus the inputs are the source flags stored on each
+    speech; a fixture without them is checked against the legacy roster.
     """
     if "speaker_group" not in speeches.columns:
         return []

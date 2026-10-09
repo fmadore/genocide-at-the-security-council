@@ -83,7 +83,7 @@ def run(repetitions: int, seed: int, speakers: list[str] | None, limit: int) -> 
         primary = lexical.compare(a, a + b, sum(a.values()), sum(b.values()), stopwords, limit=limit)
         words = [row["word"] for row in primary]
         analyse("speaker", str(speaker), primary, block_lexical.blocks(matrix, corpus, targets.to_numpy(), words), block_lexical.blocks(matrix, corpus, controls.to_numpy(), words))
-    meta = artifacts.provenance(ROOT, "19_extended_robustness.py", inputs=[SPEECHES_FLAGGED], configs=[STOPWORDS, LEXICON, Path(__file__), *[ROOT / f"scripts/lib/{name}.py" for name in ("block_lexical", "uncertainty", "lexical", "keyness", "frames", "lexicon")]], extra={
+    meta = artifacts.provenance(ROOT, "19_extended_robustness.py", inputs=[SPEECHES_FLAGGED], configs=[STOPWORDS, LEXICON], extra={
         "seed": seed, "repetitions": repetitions, "limit": limit, "speakers": speakers,
         "interval": "95% percentile meeting-block bootstrap conditional on fixed selected speeches and ranked words; same meeting weights in both arms; no rematching",
         "effect": "log2 token-rate ratio; logDice has deletion ranges only",
@@ -92,10 +92,10 @@ def run(repetitions: int, seed: int, speakers: list[str] | None, limit: int) -> 
         "invalid_draws": "Zero words/denominators are undefined; withhold if more than 5% undefined; no half counts in bootstrap",
     })
     with artifacts.atomic_directory(DERIVED / "extended_robustness") as staged:
-        pd.DataFrame(influence_rows).to_csv(staged / "meeting_influence.csv", index=False)
-        pd.DataFrame(interval_rows).to_csv(staged / "intervals.csv", index=False)
-        pd.DataFrame(selections).to_csv(staged / "speaker_coverage.csv", index=False)
-        pd.DataFrame(primary_rows).to_csv(staged / "rankings.csv", index=False)
+        artifacts.atomic_write_csv(staged / "meeting_influence.csv", pd.DataFrame(influence_rows))
+        artifacts.atomic_write_csv(staged / "intervals.csv", pd.DataFrame(interval_rows))
+        artifacts.atomic_write_csv(staged / "speaker_coverage.csv", pd.DataFrame(selections))
+        artifacts.atomic_write_csv(staged / "rankings.csv", pd.DataFrame(primary_rows))
         artifacts.atomic_write_json(staged / "manifest.json", meta, indent=2)
 
 

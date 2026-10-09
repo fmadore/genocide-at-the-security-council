@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from lib import artifacts, audit, console, frames, llm, model_runs, usage
 from lib.paths import INTERIM, SPEECHES_NORM, rel
 
-PACKET = INTERIM / "genocide_gold_packet.csv"
+PACKET = model_runs.GOLD_PACKET
 OUTPUT = INTERIM / "genocide_coding.html"
 
 #: The codebook's vocabularies, in the order a coder reads them.

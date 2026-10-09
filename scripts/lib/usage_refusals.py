@@ -12,10 +12,11 @@ revised prompt onto the archived wording the run was made with.
 
 They live in `lib` so that each rule can be tested on a constructed manifest;
 the step reads a run that needed a serving GPU and a corpus CI does not have,
-and cannot be. Every refusal still exits through :func:`lib.console.fail` with
-the message the step has always printed, and takes `what`, so that a comparison
-run is named as one. The check over a run's rows that returns its problems
-instead of exiting, :func:`lib.usage.row_problems`, stays with the aggregation.
+and cannot be. Every refusal raises :class:`lib.console.Refusal` carrying the
+message the step has always printed, which the step's `console.main` prints
+before it exits, and takes `what`, so that a comparison run is named as one. The
+check over a run's rows that returns its problems instead of refusing,
+:func:`lib.usage.row_problems`, stays with the aggregation.
 """
 
 from __future__ import annotations
@@ -65,7 +66,7 @@ def refuse_stale_lexicon(
     )
     recorded = str(manifest.get("lexicon_version", ""))
     if not lex.compatible(TERM, recorded):
-        console.fail(
+        raise console.Refusal(
             f"{what} was made against an incompatible lexicon",
             [
                 f"it records version {recorded or '(none)'}; {provenance}",
@@ -78,7 +79,7 @@ def refuse_stale_lexicon(
     recorded_rows = {str(row.get("lexicon_version", "")) for row in rows}
     stale = sorted(version for version in recorded_rows if not lex.compatible(TERM, version))
     if stale:
-        console.fail(
+        raise console.Refusal(
             f"some rows of {what} were written against an incompatible lexicon",
             [f"row lexicon versions: {', '.join(stale)}; {provenance}"],
         )
@@ -121,7 +122,7 @@ def refuse_stale_referents(
         "version was made against version 1"
     )
     if recorded.strip() and int(recorded) > referents.version:
-        console.fail(
+        raise console.Refusal(
             f"{what} was made against a newer referent list than this checkout holds",
             [
                 f"it records version {recorded}; {provenance}",
@@ -148,7 +149,7 @@ def refuse_stale_referents(
         if not referents.compatible(name, version)
     )
     if stale:
-        console.fail(
+        raise console.Refusal(
             f"{what} used referents the list it records could not have offered",
             [
                 *stale[:8],
@@ -196,7 +197,7 @@ def resolve_schema(
     """
     recorded = str(manifest.get("schema_version", "") or llm.SCHEMA_VERSION)
     if recorded not in (llm.SCHEMA_VERSION, "3", audit.LEGACY_SCHEMA_VERSION):
-        console.fail(
+        raise console.Refusal(
             f"{what} records an annotation schema this checkout cannot read",
             [
                 f"it says version {recorded}; this checkout reads "
@@ -266,15 +267,17 @@ def resolve_prompt(
     with a claim is to test it.
     """
     if not PROMPT.is_file():
-        console.fail(f"{rel(PROMPT)} is missing — the run's prompt cannot be published")
+        raise console.Refusal(f"{rel(PROMPT)} is missing — the run's prompt cannot be published")
     try:
         library = llm.load_prompt_library(PROMPT)
     except (ValueError, FileNotFoundError) as exc:
-        console.fail(f"the prompt archive beside {rel(PROMPT)} cannot be read", [str(exc)])
+        raise console.Refusal(
+            f"the prompt archive beside {rel(PROMPT)} cannot be read", [str(exc)]
+        ) from exc
     recorded = str(manifest.get("prompt_sha256", ""))
     pack = library.by_digest(recorded)
     if pack is None:
-        console.fail(
+        raise console.Refusal(
             f"{what} was made with a prompt this checkout does not hold",
             [
                 f"it records {recorded[:12] or '(none)'}...",
@@ -286,7 +289,7 @@ def resolve_prompt(
         )
     declared = str(manifest.get("prompt_version", "")).strip()
     if declared and declared != str(pack.version):
-        console.fail(
+        raise console.Refusal(
             f"{what} records a prompt version its own bytes contradict",
             [
                 f"the manifest says v{declared}; {pack.name} hashes to "
@@ -317,7 +320,7 @@ def refuse_other_prompt(manifest: dict[str, object], digest: str) -> None:
     """
     recorded = str(manifest.get("prompt_sha256", ""))
     if recorded != digest:
-        console.fail(
+        raise console.Refusal(
             "the comparison run was made with a different prompt",
             [
                 f"the comparison run records {recorded[:12] or '(none)'}..., "
@@ -333,7 +336,7 @@ def refuse_other_prompt(manifest: dict[str, object], digest: str) -> None:
 def refuse_self_comparison(published: Path, comparison: Path) -> None:
     """A run compared against itself agrees everywhere and measures nothing."""
     if published.resolve() == comparison.resolve():
-        console.fail(
+        raise console.Refusal(
             "the comparison run is the published run",
             [
                 f"both point at {rel(published)}",
@@ -356,7 +359,7 @@ def refuse_bad_rows(
         zip(frame["occurrence_id"].astype(str), frame["source_sha256"].astype(str), strict=True)
     )
     if problems := usage.row_problems(rows, digests):
-        console.fail(
+        raise console.Refusal(
             f"{what}'s rows cannot be joined to this corpus",
             [
                 *problems[:8],
@@ -375,7 +378,7 @@ def refuse_bad_rows(
         except (ValueError, KeyError) as error:
             invalid.append(f"{str(row.get('occurrence_id', ''))[:12]}...: {error}")
     if invalid:
-        console.fail(
+        raise console.Refusal(
             f"{what} holds rows the current codebook does not accept",
             [
                 *invalid[:8],
@@ -417,22 +420,30 @@ def validated(
     return rows, schema_counts, superseded
 
 
-def refuse_partial(annotated: int, total: int, allow: bool) -> None:
-    """A gap is reported honestly or refused, never averaged over."""
+def refuse_partial(annotated: int, total: int, allowed_by: str, *, run_id: str = "") -> None:
+    """A gap is reported honestly or refused, never averaged over.
+
+    `allowed_by` says what allows a gap — `--allow-partial`, or
+    `model_runs.ALLOW_PARTIAL_RUN` naming the run — and is empty when nothing
+    does.
+    """
     if annotated >= total:
         return
     missing = total - annotated
-    if not allow:
-        console.fail(
+    if not allowed_by:
+        raise console.Refusal(
             f"the run annotates {annotated:,} of {total:,} occurrences",
             [
                 f"{missing:,} occurrences are missing, so every count here would be a "
                 "floor of unknown depth",
-                "resume the run with 14_llm_annotate.py --poll, or pass --allow-partial "
+                f"resume it with 14_llm_annotate.py --run-id {run_id or '<run id>'} and the "
+                "model and sampling settings it was started with (on the cluster, resubmit "
+                "the identical submit_annotate.sh command); completed speeches are skipped",
+                f"or name it in {rel(model_runs.ALLOW_PARTIAL_RUN)}, or pass --allow-partial, "
                 "to publish the coverage as it stands",
             ],
         )
     console.warn(
-        f"--allow-partial: {annotated:,} of {total:,} occurrences annotated "
+        f"{allowed_by}: {annotated:,} of {total:,} occurrences annotated "
         f"({annotated / total:.1%}); the artefact records the gap"
     )

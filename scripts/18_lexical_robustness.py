@@ -111,9 +111,7 @@ def run(seed: int, limit: int, lemma_layer: Path | None = None) -> None:
     summary = robustness.influence_summary(primary, effects, [sum(counts.values()) for counts in totals])
     meta = artifacts.provenance(
         ROOT, "18_lexical_robustness.py", inputs=[SPEECHES_FLAGGED],
-        configs=[STOPWORDS, Path(__file__), ROOT / "scripts/lib/robustness.py",
-                 ROOT / "scripts/lib/lexical.py", ROOT / "scripts/lib/frames.py",
-                 ROOT / "scripts/lib/lemmas.py"],
+        configs=[STOPWORDS],
         extra={
             "seed": seed, "limit": limit, "matched_on": MATCH_ON,
             "matched_pairs": pairs.matched, "eligible_targets": pairs.wanted,
@@ -141,21 +139,21 @@ def run(seed: int, limit: int, lemma_layer: Path | None = None) -> None:
     )
     target = DERIVED / ("lexical_robustness_lemma" if lemma_layer else "lexical_robustness")
     with artifacts.atomic_directory(target) as staged:
-        pd.DataFrame(summary).to_csv(staged / "meeting_influence.csv", index=False)
-        pd.DataFrame(deletions).to_csv(staged / "deletions.csv", index=False)
-        effect_table.to_parquet(staged / "deletion_effects.parquet", index=False)
-        pd.DataFrame(comparison).to_csv(staged / "tokenizer_comparison.csv", index=False)
+        artifacts.atomic_write_csv(staged / "meeting_influence.csv", pd.DataFrame(summary))
+        artifacts.atomic_write_csv(staged / "deletions.csv", pd.DataFrame(deletions))
+        frames.write(effect_table, staged / "deletion_effects.parquet")
+        artifacts.atomic_write_csv(staged / "tokenizer_comparison.csv", pd.DataFrame(comparison))
         if lemma_comparison is not None:
-            pd.DataFrame(lemma_comparison).to_csv(staged / "lemma_comparison.csv", index=False)
-            pd.DataFrame(lemma_summary, columns=list(summary[0])).to_csv(staged / "lemma_meeting_influence.csv", index=False)
-            pd.DataFrame(lemma_effects, columns=EFFECT_COLUMNS).to_parquet(staged / "lemma_deletion_effects.parquet", index=False)
-            pd.DataFrame(lemma_forms, columns=[
+            artifacts.atomic_write_csv(staged / "lemma_comparison.csv", pd.DataFrame(lemma_comparison))
+            artifacts.atomic_write_csv(staged / "lemma_meeting_influence.csv", pd.DataFrame(lemma_summary, columns=list(summary[0])))
+            frames.write(pd.DataFrame(lemma_effects, columns=EFFECT_COLUMNS), staged / "lemma_deletion_effects.parquet")
+            artifacts.atomic_write_csv(staged / "lemma_forms.csv", pd.DataFrame(lemma_forms, columns=[
                 "surface", "lemma", "occurrences", "forms_merged_into_lemma",
-            ]).to_csv(staged / "lemma_forms.csv", index=False)
-        pd.DataFrame({
+            ]))
+        artifacts.atomic_write_csv(staged / "pairs.csv", pd.DataFrame({
             "target_row_id": arms[0]["row_id"].to_numpy(),
             "control_row_id": arms[1]["row_id"].to_numpy(),
-        }).to_csv(staged / "pairs.csv", index=False)
+        }))
         artifacts.atomic_write_json(staged / "manifest.json", meta, indent=2)
     print(f"Wrote {target}: {pairs.matched} pairs, {len(deletions)} deletions, {len(primary)} words")
 

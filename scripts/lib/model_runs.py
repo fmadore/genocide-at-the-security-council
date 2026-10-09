@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from . import audit, lexicon, llm
-from .paths import ANNOTATIONS, INTERIM, MODEL_ANNOTATIONS, rel
+from .paths import ANNOTATIONS, INTERIM, MODEL_ANNOTATIONS, REFERENTS, rel
 
 #: The one term the model-assisted layer covers; see Phase L in docs/PLAN.md
 #: for why the scope is a single word.
@@ -21,7 +21,6 @@ TERM = "genocide"
 
 STORE = MODEL_ANNOTATIONS / TERM
 PROMPT = STORE / "PROMPT.md"
-PROMPTS = STORE / "prompts"
 #: The occurrences behind the prompt's worked examples, which 13 keeps out of
 #: every gold frame; written by `tools/map_prompt_examples.py`.
 PROMPT_EXAMPLES = STORE / "prompt_examples.csv"
@@ -33,14 +32,33 @@ CURRENT_RUN = STORE / "current_run.txt"
 COMPARISON_RUN = STORE / "comparison_run.txt"
 ALLOW_PARTIAL_RUN = STORE / "allow_partial_run.txt"
 
-REFERENTS = ANNOTATIONS / "lexicon" / "referents.csv"
+# `REFERENTS`, the controlled list, is shared with 03's audit and so lives in
+# `lib.paths`; it is imported above and read here as `model_runs.REFERENTS`.
 GOLD_ANNOTATIONS = ANNOTATIONS / TERM / "annotations.csv"
 SMOKE_RUNS = INTERIM / "model_annotation_smoke"
+
+#: The gold sample 13 draws: every candidate row, the design that weights a
+#: coded unit back to the corpus, and the blinded packet a coder opens. 15
+#: reports on the first two and `tools/coding_page.py` renders the third.
+GOLD_CANDIDATES = INTERIM / "genocide_gold_candidates.csv"
+GOLD_DESIGN = INTERIM / "genocide_gold_design.csv"
+GOLD_PACKET = INTERIM / "genocide_gold_packet.csv"
 
 
 def pointer(path: Path) -> str:
     """The run id a pointer file names, or the empty string."""
     return path.read_text(encoding="utf-8").strip() if path.is_file() else ""
+
+
+def partial_allowed(run_id: str) -> bool:
+    """Whether `ALLOW_PARTIAL_RUN` names this committed run.
+
+    Read by 15 itself, so `python scripts/15_usage.py` publishes the run `make`
+    publishes: the allowance used to live only in the Makefile, which turned it
+    into `--allow-partial`, and running the step directly refused the published
+    run. A run read by path rather than by id is never allowed this way.
+    """
+    return bool(run_id) and run_id == pointer(ALLOW_PARTIAL_RUN)
 
 
 def population_problems(

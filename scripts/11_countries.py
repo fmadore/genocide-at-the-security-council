@@ -510,7 +510,6 @@ def run(minimum: int) -> None:
         speakers = actors.describe_speakers(speeches, crosswalk)
     except KeyError as exc:
         console.fail("a speaker would be dropped from the table", [str(exc.args[0])])
-        raise  # unreachable; console.fail exits, and mypy cannot know that
     collisions = actors.iso3_collisions(speakers)
     console.info(f"{sum(1 for s in speakers if s['mappable']):,} speakers are mappable states")
     for code, names in sorted(collisions.items()):

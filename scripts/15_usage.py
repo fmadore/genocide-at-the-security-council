@@ -39,8 +39,8 @@ it is the one the model was given. Revising the prompt is therefore not a
 break: the old text moves into `prompts/v<n>.md`, the runs made with it go on
 resolving to it, and only a wording this repository no longer holds is refused.
 The single tolerated gap is coverage: a run that did not reach every occurrence
-is aggregated under `--allow-partial` and reports honestly how much of the
-corpus it covers. A comparison run has no such gate — it is read over the
+is aggregated when `allow_partial_run.txt` names it, or under `--allow-partial`,
+and reports honestly how much of the corpus it covers. A comparison run has no such gate — it is read over the
 occurrences both runs reached, and the artefact says how many those were — but it
 is refused on everything else the published run is refused on, and on one more: a
 comparison made with a different prompt, which would confound the instrument with
@@ -70,6 +70,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import artifacts, audit, console, frames, lexicon, llm, model_runs, usage, usage_refusals
 from lib import occurrences as occurrences_lib
+from lib import referents as referents_lib
 from lib.paths import (
     INTERIM,
     LEXICON,
@@ -101,8 +102,8 @@ COMPARISON_RUN = model_runs.COMPARISON_RUN
 
 REFERENTS = model_runs.REFERENTS
 GOLD_ANNOTATIONS = model_runs.GOLD_ANNOTATIONS
-GOLD_CANDIDATES = INTERIM / "genocide_gold_candidates.csv"
-GOLD_DESIGN = INTERIM / "genocide_gold_design.csv"
+GOLD_CANDIDATES = model_runs.GOLD_CANDIDATES
+GOLD_DESIGN = model_runs.GOLD_DESIGN
 
 #: Columns this step needs. The normalised frame is 99 columns and 389 MB of
 #: text; the eleven below are the enumeration's inputs plus the speaker
@@ -163,52 +164,24 @@ ROW_FIELDS = (
 # --- Reading the inputs ------------------------------------------------------
 
 
-def read_referents(path: Path) -> list[dict[str, object]]:
-    """The controlled referent list with the columns the artefact publishes.
+def read_referents(path: Path) -> tuple[audit.ReferentList, list[dict[str, object]]]:
+    """The controlled referent list, as the run is checked against it and as published.
 
-    A third reader of `referents.csv`, deliberately. `lib.audit.read_referents`
-    returns the identifiers and is the authority on which ones an annotation may
-    use; `lib.llm.read_referent_table` returns what the *prompt* renders, which
-    does not include `iso3` because a model has no use for an ISO code. The usage
-    view does: it puts a case on a map. Widening the prompt's dataclass to carry
-    a field the prompt never shows would be the worse of the two duplications.
+    Parsed once by `lib.referents`, which holds every reader of the file to the
+    same rules. The first view is the versions a run must be compatible with;
+    the second is every row with the columns the artefact publishes, `iso3`
+    included because the usage view puts a case on a map. Retired referents are
+    published too, and marked, so a run made before a retirement still has a
+    row for each identifier it counted under.
 
-    Retired referents are published too, and marked. A run made before a
-    retirement counted rows under the old identifier, and the block has to hold
-    a row for each of them or those counts land nowhere; a run made after it
-    counts none, and the view needs to know that an empty column is a withdrawn
-    category rather than a case no delegation ever raised.
+    A cell that breaks a rule stops the step with the rule, the row and the
+    file named, rather than with a traceback.
     """
-    table = pd.read_csv(path, dtype="string", keep_default_na=False)
-    required = {
-        "id",
-        "label",
-        "description",
-        "kind",
-        "iso3",
-        "years",
-        "since",
-        "retired_in",
-        "superseded_by",
-    }
-    missing = sorted(required - set(table.columns))
-    if missing:
-        console.fail(f"{rel(path)} is missing columns: {', '.join(missing)}")
-    return [
-        {
-            **{
-                key: str(row[key])
-                for key in ("id", "label", "description", "kind", "iso3", "years")
-            },
-            "since": int(str(row.get("since") or "1")),
-            "retired_in": (
-                int(str(row["retired_in"])) if str(row.get("retired_in") or "") else None
-            ),
-            "retired": bool(str(row.get("retired_in", "") or "").strip()),
-            "superseded_by": str(row.get("superseded_by", "") or "").strip(),
-        }
-        for row in table.to_dict(orient="records")
-    ]
+    try:
+        parsed = referents_lib.read(path)
+        return parsed.listing(), parsed.published()
+    except referents_lib.ReferentFileError as error:
+        console.fail(str(error))
 
 
 def uncommitted_run(run_dir: Path, flag: str) -> Path:
@@ -492,7 +465,6 @@ def diffusion_block(
                 "a first mention on an invented date is worse than no curve at all",
             ],
         )
-        raise  # unreachable; console.fail exits, and a reader cannot know that
     # The risk set beside each curve: who sat in a debate that named the case.
     exposure = {} if speeches is None else usage.exposure_rows(rows, speeches)
     for entry in referents:
@@ -529,9 +501,7 @@ def write_first_events(diffusion: dict[str, object], rows: pd.DataFrame) -> None
         for entry in diffusion["referents"]  # type: ignore[union-attr]
         for event in entry["events"]
     ]
-    artifacts.atomic_write_text(
-        FIRST_EVENTS, pd.DataFrame(records).to_csv(index=False, lineterminator="\n")
-    )
+    artifacts.atomic_write_csv(FIRST_EVENTS, pd.DataFrame(records))
     console.info(f"wrote {rel(FIRST_EVENTS)}: {len(records):,} first events to verify")
 
 
@@ -967,8 +937,8 @@ def run_without_model() -> None:
     annotations = audit.read_annotations(GOLD_ANNOTATIONS)
     empty = pd.DataFrame()
     prompt_text = PROMPT.read_text(encoding="utf-8") if PROMPT.is_file() else ""
-    referent_list = audit.read_referent_list(REFERENTS)
-    referent_rows = [{**row, "occurrences": 0} for row in read_referents(REFERENTS)]
+    referent_list, published = read_referents(REFERENTS)
+    referent_rows = [{**row, "occurrences": 0} for row in published]
     zeros = {
         "verdict_uncertain": 0,
         "referent_unclear": 0,
@@ -1067,6 +1037,15 @@ def run(args: argparse.Namespace) -> None:
 
     console.step("Choosing the run")
     directory, run_id = select_run(args.run, args.run_dir)
+    # Decided on the committed id, before a run read by path borrows the id its
+    # manifest records: the allowance names a committed run.
+    allowed_by = (
+        "--allow-partial"
+        if args.allow_partial
+        else f"{rel(model_runs.ALLOW_PARTIAL_RUN)} names this run"
+        if model_runs.partial_allowed(run_id)
+        else ""
+    )
     manifest, raw_rows = read_run(directory)
     run_id = run_id or str(manifest.get("run_id", ""))
     console.info(f"{rel(directory)}: {len(raw_rows):,} rows, run '{run_id}'")
@@ -1127,11 +1106,11 @@ def run(args: argparse.Namespace) -> None:
         f"prompt v{prompt.version}, sha256 {prompt.sha256[:12]}, published from "
         f"{prompt.name}"
     )
-    referent_list = audit.read_referent_list(REFERENTS)
+    referent_list, referent_table = read_referents(REFERENTS)
     raw_rows, schema_counts, superseded = usage_refusals.validated(
         manifest, raw_rows, lex=lex, enumerated=enumerated, referent_list=referent_list
     )
-    usage_refusals.refuse_partial(len(raw_rows), len(found), args.allow_partial)
+    usage_refusals.refuse_partial(len(raw_rows), len(found), allowed_by, run_id=run_id)
     console.info(
         f"referent list v{referent_list.version}: {len(referent_list.current)} current, "
         f"{len(referent_list.retired_in)} retired, every row validated against them"
@@ -1247,7 +1226,6 @@ def run(args: argparse.Namespace) -> None:
         console.info("no run of either model with the same prompt to retest against")
 
     console.step("Aggregating")
-    referent_table = read_referents(REFERENTS)
     blocks = usage.aggregate(
         rows,
         referent_table,
@@ -1374,7 +1352,7 @@ def run(args: argparse.Namespace) -> None:
             "minimum_occurrences": args.minimum,
             "occurrences_total": len(found),
             "occurrences_annotated": len(rows),
-            "allow_partial": bool(args.allow_partial),
+            "allow_partial": bool(allowed_by),
             "state": "partial_model_run" if len(rows) < len(found) else "annotated_model_run",
             # Output file hashes live in the stage manifest; payloads cannot hash themselves.
             "outputs": [],
@@ -1498,7 +1476,8 @@ def main() -> None:
     parser.add_argument(
         "--allow-partial",
         action="store_true",
-        help="aggregate a run that has not reached every occurrence, and record the gap",
+        help="aggregate a run that has not reached every occurrence, and record the gap; "
+        "implied for the run allow_partial_run.txt names",
     )
     parser.add_argument(
         "--minimum",
@@ -1510,4 +1489,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    console.main(main)
