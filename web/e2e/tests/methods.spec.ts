@@ -29,6 +29,13 @@ test('methods renders from its artefacts and passes a scan', { tag: '@a11y' }, a
 		await expect(page.getByText(lead, { exact: true })).toBeVisible();
 	}
 
+	// The Chronology draws its band from resampling whole meetings; this page
+	// says so, and names the figures whose Wilson intervals ignore clustering.
+	const intervals = page.getByText('Two kinds of 95% interval accompany shares', { exact: false });
+	await expect(intervals).toContainText('resampling whole meetings');
+	await expect(intervals).toContainText('The word list over time');
+	await expect(intervals).toContainText('Speakers by rate');
+
 	const { violations } = await new AxeBuilder({ page })
 		// A known finding, left to the design system rather than to a test: the
 		// ledger's "Automatic checks" state is set in the preventive register

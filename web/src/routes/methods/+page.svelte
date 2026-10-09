@@ -320,11 +320,22 @@
 		unaccepted one means insufficient evidence under this test. Historical reference dates provide context,
 		not causal evidence. The second change-point method is exploratory.
 	</p>
+	<!-- Two methods, named figure by figure, so that this page and the
+	     Chronology say the same thing about the band (review of 8 October
+	     2026, A4). The band follows `bandBounds` in `$lib/chronology`. -->
 	<p>
-		<strong>95% Wilson intervals</strong> accompany speech shares. They indicate precision under a model
-		treating speeches as independent observations; wider intervals usually accompany smaller totals. The
-		observed corpus share itself is a count of available records. These intervals do not account for clustered
-		meetings, classification errors or missing records, and comparing overlapping intervals is not a formal
+		Two kinds of 95% interval accompany shares on this site. On the Chronology, the
+		share-of-speeches lines in <em>The word list over time</em> sit in a band from
+		<strong>resampling whole meetings</strong>: the speeches of one meeting are drawn together, so
+		the band widens where a year's share rests on a few debates. The other intervals are
+		<strong>95% Wilson intervals</strong>: in <em>Who says it, and in what debate</em> on the
+		Chronology, <em>Speakers by rate</em> on Actors and <em>What the word is doing</em> under Words in
+		context. They treat each speech or occurrence as independent, so they ignore clustering within meetings
+		and can be too narrow. Wider intervals usually accompany smaller totals.
+	</p>
+	<p>
+		Neither kind accounts for classification errors or missing records. The observed corpus share
+		itself is a count of available records, and comparing overlapping intervals is not a formal
 		significance test.
 	</p>
 
