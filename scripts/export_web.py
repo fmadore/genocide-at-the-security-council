@@ -7,12 +7,15 @@ diffed and archived independently of whether a web application exists. This
 copies the parts the dashboard actually loads into `web/static/data/` and
 writes a manifest of what it took.
 
-    derived/series/*.json     → static/data/series/
-    derived/lexical/*.json    → static/data/lexical/
-    derived/kwic/*.json       → static/data/kwic/
-    derived/countries/*.json  → static/data/countries/
-    derived/usage/*.json      → static/data/usage/
-    derived/frames/*.json     → static/data/frames/
+    derived/series/*.json          → static/data/series/
+    derived/lexical/*.json         → static/data/lexical/
+    derived/kwic/*.json            → static/data/kwic/
+    derived/countries/*.json       → static/data/countries/
+    derived/speaker_keyness/*.json → static/data/countries/
+    derived/usage/*.json           → static/data/usage/
+    derived/frames/*.json          → static/data/frames/
+    derived/actor_year/            → static/data/actor_year/
+    derived/semantic/              → static/data/semantic/
 
 `09_export_speeches.py` is the one exception and writes its 425 MB straight to
 `web/static/data/speeches/`. Copying that twice to preserve a symmetry nobody

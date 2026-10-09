@@ -16,20 +16,19 @@ than estimates, are always written. That follows :func:`lib.series.measure`,
 which returns an empty occurrence count for a set rather than a plausible-looking
 one.
 
-**A country code is not a country.** Three speakers in the corpus no longer
-exist, and `config/entities.csv` gives each its successor's ISO 3166 code so it
-can still be placed: Yugoslavia and Serbia and Montenegro both carry `SRB`, Zaire
-carries `COD`. They stay distinct rows here — merging them would build a
-denominator no state ever had — and the collisions are reported, because a map
-keyed on ISO3 will otherwise paint several speakers onto one polygon and show
-whichever it drew last.
+**A country code is not a country.** A speaker that no longer exists can carry
+its successor's ISO 3166 code so it can still be placed: `config/entities.csv`
+gives Yugoslavia `SRB`. Such a speaker stays a distinct row here — merging it
+with its successor would build a denominator no state ever had — and code
+collisions are reported, because a map keyed on ISO3 will otherwise paint
+several speakers onto one polygon and show whichever it drew last.
 
-**Most speakers are not countries at all.** Of 601 canonical `country_org`
-values, 200 are states; the UN Secretariat is among the largest speakers in the
-corpus and has no location on any globe. `entities.csv` deliberately gives it no
-centroid, and every row here carries `entity_type` and a `mappable` flag so a
-consumer excludes it deliberately rather than by discovering a null halfway
-through a render.
+**Most speakers are not countries at all.** Fewer than a third of the corpus's
+`country_org` values are states by the source's own typing; the United Nations
+is among the largest speakers and has no location on any globe. Only a state
+receives a centroid, and every row here carries `entity_type` and a `mappable`
+flag so a consumer excludes the rest deliberately rather than by discovering a
+null halfway through a render.
 """
 
 from __future__ import annotations
@@ -363,8 +362,10 @@ def describe_speakers(
 
     A speaker the crosswalk has never seen stops this, rather than being dropped
     from the returned list. Dropping it would leave a table that still looks
-    complete and a total that is quietly short, which is the stance
-    `02_normalise.py` already takes on the same file.
+    complete and a total that is quietly short. The crosswalk is the one
+    `lib.entities.source_affiliation_crosswalk` builds from the corpus itself,
+    so a speaker missing from it means the two were built from different
+    corpora.
     """
     known = set(crosswalk["country_org"])
     unseen = sorted(set(speeches["country_org"].dropna()) - known)

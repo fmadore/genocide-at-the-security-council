@@ -53,11 +53,11 @@ COLUMNS: Final = [
 
 #: A generous ceiling on one speech's answer, as `base + per_occurrence * n`.
 #:
-#: Reasoning tokens count against this on both providers, so the bound has to
-#: cover the thinking as well as the JSON, and the review (§4.5, item 9) found
-#: the old `12,000 + 1,200 * n` under-provisioning long speeches: one Gemini
-#: speech with three occurrences was truncated at 15,600 tokens and lost, and
-#: another with two came within 271 tokens of its own ceiling.
+#: Reasoning tokens count against this, so the bound has to cover the thinking
+#: as well as the JSON, and the review (§4.5, item 9) found the old
+#: `12,000 + 1,200 * n` under-provisioning long speeches: one Gemini speech with
+#: three occurrences was truncated at 15,600 tokens and lost, and another with
+#: two came within 271 tokens of its own ceiling.
 #:
 #: The run's own arithmetic says why the per-occurrence term was the wrong place
 #: to fix that. Over the 3,273 answers Gemini returned, thinking plus output
@@ -68,9 +68,9 @@ COLUMNS: Final = [
 #: width of that residual — while the per-occurrence term stays at 1,200, which
 #: is already seven times the 154 output tokens an occurrence's JSON costs.
 #:
-#: A ceiling is a cap and not a reservation: neither provider bills for tokens a
-#: model did not generate, so the headroom is free, and a truncated answer costs
-#: a whole speech.
+#: A ceiling is a cap and not a reservation: tokens a model does not generate
+#: cost nothing, so the headroom is free, and a truncated answer costs a whole
+#: speech. Step 14 holds the result under the served context window.
 BASE_OUTPUT_TOKENS: Final = 32_000
 PER_OCCURRENCE_TOKENS: Final = 1_200
 
@@ -159,7 +159,7 @@ def gather(limit: int | None) -> tuple[list[Speech], list[Speech], int]:
 
 
 def output_ceiling(speech: Speech, maximum: int) -> int:
-    """The output ceiling for one speech, under the provider's own hard limit."""
+    """The output ceiling for one speech, under the server's own hard limit."""
     return min(maximum, BASE_OUTPUT_TOKENS + PER_OCCURRENCE_TOKENS * len(speech.occurrences))
 
 

@@ -90,8 +90,7 @@ SERIES = DERIVED / "series"      # 04
 LEXICAL = DERIVED / "lexical"    # 05
 # 06 before 07: the embedding-based half of the topic comparison reads the
 # vectors, so topics-then-embeddings would have made an earlier step depend on a
-# later one. These comments were the other way round when the directories were
-# only reserved names; nothing had been built against that order.
+# later one.
 EMBEDDINGS = DERIVED / "embeddings"  # 06 — GPU, see docs/CLUSTER.md
 TOPICS = DERIVED / "topics"      # 07 — evaluation only, not a release artefact
 LEMMAS = DERIVED / "lemmas"      # 10 — the lemma layer; feeds an optional re-run of 05
