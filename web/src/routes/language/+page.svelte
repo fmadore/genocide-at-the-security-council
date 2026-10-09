@@ -1104,12 +1104,12 @@
 				{#each [{ key: sliceA, b: blockA }, { key: sliceB, b: blockB }] as side, i (side.key)}
 					{#if i === 1}<div class="gutter" aria-hidden="true"></div>{/if}
 					<div class="side">
-						<h4>
+						<h3>
 							<span class="who">{sliceLabel(side.key)}</span>
 							<span class="num"
 								>{count(side.b?.speeches ?? 0)} speeches · {count(side.b?.occurrences ?? 0)} occurrences</span
 							>
-						</h4>
+						</h3>
 						{#if (side.b?.speeches ?? 0) < minimumSpeeches}
 							<p class="withheld">
 								{count(side.b?.speeches ?? 0)} speeches, fewer than the {count(minimumSpeeches)} required
@@ -1523,7 +1523,10 @@
 		}
 	}
 
-	.compare h4 {
+	/* A third-level heading under the plate's own second-level one, so the
+	   outline has no gap; set at 500, the weight the column heads are drawn at. */
+	.compare h3 {
+		font-weight: 500;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: baseline;
@@ -1538,7 +1541,7 @@
 		font-weight: 700;
 	}
 
-	.compare h4 .num {
+	.compare h3 .num {
 		font-weight: 400;
 		font-size: var(--step--1);
 		font-variant-numeric: tabular-nums lining-nums;
