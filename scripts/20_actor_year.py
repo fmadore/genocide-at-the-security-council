@@ -9,7 +9,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import actors, artifacts, frames, series
-from lib.paths import DERIVED, ROOT, SPEECHES_FLAGGED
+from lib.paths import ACTOR_YEAR, ROOT, SPEECHES_FLAGGED
 
 
 def run() -> None:
@@ -24,7 +24,7 @@ def run() -> None:
         "missing_years": "Explicit zero counts and withheld rates; historical affiliations remain distinct",
         "rows": len(table), "reconciled": True,
     })
-    with artifacts.atomic_directory(DERIVED / "actor_year") as staged:
+    with artifacts.atomic_directory(ACTOR_YEAR) as staged:
         artifacts.atomic_write_csv(staged / "actor_year.csv", table)
         artifacts.atomic_write_json(staged / "manifest.json", meta, indent=2)
     print(f"Wrote {len(table):,} annual rows; {int(table.sufficient.sum()):,} meet the rate floor", flush=True)

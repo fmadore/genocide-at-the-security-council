@@ -6,9 +6,7 @@ from pathlib import Path
 
 import pytest
 from lib import audit, llm, referents
-
-ROOT = Path(__file__).resolve().parents[1]
-COMMITTED = ROOT / "annotations" / "lexicon" / "referents.csv"
+from lib.paths import REFERENTS as COMMITTED
 
 HEADER = "id,label,description,kind,iso3,years,since,retired_in,superseded_by\n"
 RESERVED = (

@@ -102,8 +102,8 @@ COMPARISON_RUN = model_runs.COMPARISON_RUN
 
 REFERENTS = model_runs.REFERENTS
 GOLD_ANNOTATIONS = model_runs.GOLD_ANNOTATIONS
-GOLD_CANDIDATES = INTERIM / "genocide_gold_candidates.csv"
-GOLD_DESIGN = INTERIM / "genocide_gold_design.csv"
+GOLD_CANDIDATES = model_runs.GOLD_CANDIDATES
+GOLD_DESIGN = model_runs.GOLD_DESIGN
 
 #: Columns this step needs. The normalised frame is 99 columns and 389 MB of
 #: text; the eleven below are the enumeration's inputs plus the speaker

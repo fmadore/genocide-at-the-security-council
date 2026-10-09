@@ -1,4 +1,10 @@
-"""Restore a pinned semantic artifact without rerunning GPU inference."""
+"""Restore a pinned semantic artifact without rerunning GPU inference.
+
+Also the export's rules for that artifact: which corpus fingerprints a pin may
+vouch for (:func:`check_against_pin`), the waiting state published when no map
+exists (:func:`write_pending`), and re-deriving its display attributes from the
+current corpus (:func:`rebind`).
+"""
 
 from __future__ import annotations
 
@@ -12,9 +18,21 @@ import zipfile
 from pathlib import Path
 
 from . import artifacts
+from .paths import SEMANTIC_PIN
 
 FILES = {"map.json", *[f"neighbours/{i}.json" for i in range(256)]}
 MAX_BYTES = 512 * 1024 * 1024
+
+#: Where a pin may send a download: this repository's own release assets.
+RELEASES = "https://github.com/fmadore/genocide-at-the-security-council/releases/download/"
+
+
+def load_pin(path: Path = SEMANTIC_PIN) -> dict:
+    """The committed release pin, refused unless it is one this code reads."""
+    pin = json.loads(path.read_text(encoding="utf-8"))
+    if pin.get("schema") != 1 or not str(pin.get("url", "")).startswith(RELEASES):
+        raise ValueError("unsupported semantic release pin")
+    return pin
 
 
 def corpus_fingerprint(path: Path) -> str:
@@ -91,6 +109,30 @@ def validate(
     raise ValueError("semantic map was built from a different corpus")
 
 
+def check_against_pin(directory: Path, corpus: Path, pin_path: Path = SEMANTIC_PIN) -> dict:
+    """:func:`validate`, with the fingerprints the pin vouches for if it may.
+
+    The artifact records the Parquet bytes it was built from, and Arrow
+    versions can serialise identical content differently. Only a pin bound to
+    this exact manifest may authorise comparison by canonical content or by
+    geometry; any other artifact must match the corpus byte for byte.
+    """
+    content_sha256 = geometry_sha256 = None
+    if pin_path.is_file():
+        pin = load_pin(pin_path)
+        if artifacts.sha256(directory / "manifest.json") == pin.get("manifest_sha256"):
+            content_sha256 = pin.get("corpus_content_sha256")
+            geometry_sha256 = pin.get("corpus_geometry_sha256")
+    return validate(
+        directory, corpus, content_sha256=content_sha256, geometry_sha256=geometry_sha256
+    )
+
+
+def write_pending(directory: Path) -> None:
+    """The explicit waiting state the export publishes when no map exists yet."""
+    artifacts.atomic_write_json(directory / "map.json", {"status": "pending", "schema": 1})
+
+
 def rebind(staged: Path, corpus: Path) -> dict[str, object]:
     """Re-derive the display attributes of a copied map from `corpus`.
 
@@ -164,11 +206,7 @@ def install(archive: Path, target: Path, pin: dict) -> None:
 
 
 def restore(pin_path: Path, target: Path) -> None:
-    pin = json.loads(pin_path.read_text(encoding="utf-8"))
-    if pin.get("schema") != 1 or not pin["url"].startswith(
-        "https://github.com/fmadore/genocide-at-the-security-council/releases/download/"
-    ):
-        raise ValueError("unsupported semantic release pin")
+    pin = load_pin(pin_path)
     if (target / "manifest.json").is_file():
         try:
             if artifacts.sha256(target / "manifest.json") == pin["manifest_sha256"]:

@@ -22,7 +22,8 @@ def release(tmp_path, *, extra=None, corpus="corpus", corrupt=False):
         name: hashlib.sha256(value).hexdigest() for name, value in files.items()
     }}
     files["manifest.json"] = json.dumps(meta).encode()
-    pin = {"manifest_sha256": hashlib.sha256(files["manifest.json"]).hexdigest(),
+    pin = {"schema": 1, "url": semantic_release.RELEASES + "test/semantic.zip",
+           "manifest_sha256": hashlib.sha256(files["manifest.json"]).hexdigest(),
            "corpus_sha256": "corpus"}
     if corrupt:
         files["map.json"] = b"corrupted"
@@ -73,7 +74,6 @@ def test_verified_local_release_needs_no_network(tmp_path, monkeypatch):
     archive, pin = release(tmp_path)
     target = tmp_path / "installed"
     semantic_release.install(archive, target, pin)
-    pin.update(schema=1, url="https://github.com/fmadore/genocide-at-the-security-council/releases/download/test/semantic.zip")
     pin_path = tmp_path / "pin.json"
     pin_path.write_text(json.dumps(pin))
     monkeypatch.setattr(semantic_release.urllib.request, "urlopen", lambda *a, **k: pytest.fail("network used"))
@@ -126,7 +126,7 @@ def test_export_content_fallback_requires_the_pinned_manifest(tmp_path, monkeypa
     config = tmp_path / "config"
     config.mkdir()
     (config / "semantic-release.json").write_text(json.dumps(pin))
-    monkeypatch.setattr(export_web, "ROOT", tmp_path)
+    monkeypatch.setattr(export_web, "SEMANTIC_PIN", config / "semantic-release.json")
     monkeypatch.setattr(export_web, "SPEECHES_FLAGGED", corpus)
     export_web.copy_part([source], "semantic", root=tmp_path / "web")
     pin["manifest_sha256"] = "different artifact"
@@ -164,7 +164,7 @@ def export_with_geometry_pin(tmp_path, monkeypatch, corpus_frame):
     config = tmp_path / "config"
     config.mkdir(exist_ok=True)
     (config / "semantic-release.json").write_text(json.dumps(pin))
-    monkeypatch.setattr(export_web, "ROOT", tmp_path)
+    monkeypatch.setattr(export_web, "SEMANTIC_PIN", config / "semantic-release.json")
     monkeypatch.setattr(export_web, "SPEECHES_FLAGGED", corpus)
     export_web.copy_part([source], "semantic", root=tmp_path / "web")
     return tmp_path / "web" / "semantic"
@@ -197,3 +197,19 @@ def test_rebinding_refuses_a_map_of_other_speeches(tmp_path):
 
     with pytest.raises(ValueError, match="row ids differ"):
         semantic.display_points(speeches(), {"a": (0, 0), "z": (1, 1)})
+
+
+def test_the_committed_pin_is_one_this_code_reads():
+    pin = semantic_release.load_pin()
+    assert pin["url"].startswith(semantic_release.RELEASES)
+
+
+@pytest.mark.parametrize("change", [{"schema": 2}, {"url": "https://example.org/semantic.zip"}])
+def test_a_pin_this_code_cannot_read_is_refused_by_every_reader(tmp_path, change):
+    """The export used to parse the pin raw, and only the restore checked it."""
+    path = tmp_path / "pin.json"
+    path.write_text(json.dumps({"schema": 1, "url": semantic_release.RELEASES + "x.zip"} | change))
+    with pytest.raises(ValueError, match="unsupported"):
+        semantic_release.load_pin(path)
+    with pytest.raises(ValueError, match="unsupported"):
+        semantic_release.check_against_pin(tmp_path, tmp_path / "corpus.parquet", path)

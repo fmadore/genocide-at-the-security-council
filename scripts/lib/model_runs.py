@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from . import audit, lexicon, llm
-from .paths import ANNOTATIONS, INTERIM, MODEL_ANNOTATIONS, rel
+from .paths import ANNOTATIONS, INTERIM, MODEL_ANNOTATIONS, REFERENTS, rel
 
 #: The one term the model-assisted layer covers; see Phase L in docs/PLAN.md
 #: for why the scope is a single word.
@@ -32,9 +32,17 @@ CURRENT_RUN = STORE / "current_run.txt"
 COMPARISON_RUN = STORE / "comparison_run.txt"
 ALLOW_PARTIAL_RUN = STORE / "allow_partial_run.txt"
 
-REFERENTS = ANNOTATIONS / "lexicon" / "referents.csv"
+# `REFERENTS`, the controlled list, is shared with 03's audit and so lives in
+# `lib.paths`; it is imported above and read here as `model_runs.REFERENTS`.
 GOLD_ANNOTATIONS = ANNOTATIONS / TERM / "annotations.csv"
 SMOKE_RUNS = INTERIM / "model_annotation_smoke"
+
+#: The gold sample 13 draws: every candidate row, the design that weights a
+#: coded unit back to the corpus, and the blinded packet a coder opens. 15
+#: reports on the first two and `tools/coding_page.py` renders the third.
+GOLD_CANDIDATES = INTERIM / "genocide_gold_candidates.csv"
+GOLD_DESIGN = INTERIM / "genocide_gold_design.csv"
+GOLD_PACKET = INTERIM / "genocide_gold_packet.csv"
 
 
 def pointer(path: Path) -> str:

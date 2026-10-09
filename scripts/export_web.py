@@ -35,13 +35,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import artifacts, console, contract, semantic_release
 from lib.paths import (
+    ACTOR_YEAR,
     CONTRACT,
     COUNTRIES,
-    DERIVED,
     FRAMES,
     KWIC,
     LEXICAL,
     ROOT,
+    SEMANTIC,
+    SEMANTIC_PIN,
     SERIES,
     SPEAKER_KEYNESS,
     SPEECHES_FLAGGED,
@@ -68,8 +70,8 @@ PARTS = [
     # keys its cache on that directory too.
     ((USAGE,), "usage", "15_usage.py"),
     ((FRAMES,), "frames", "17_frames.py"),
-    ((DERIVED / "actor_year",), "actor_year", "20_actor_year.py"),
-    ((DERIVED / "semantic",), "semantic", "21_semantic_map.py"),
+    ((ACTOR_YEAR,), "actor_year", "20_actor_year.py"),
+    ((SEMANTIC,), "semantic", "21_semantic_map.py"),
 ]
 
 #: Written by 09, not copied. Listed so the manifest describes the whole payload
@@ -92,27 +94,15 @@ def copy_part(sources: Sequence[Path], name: str, *, root: Path | None = None) -
     """
     destination = (root or WEB_DATA) / name
     if name == "semantic":
+        # The one part with rules of its own, all in `lib.semantic_release`: an
+        # explicit waiting state when no map exists, and otherwise a map that
+        # must describe this corpus, by its bytes or by what the pin vouches for.
         source = sources[0]
         if not source.exists():
             with artifacts.atomic_directory(destination) as staged:
-                artifacts.atomic_write_json(staged / "map.json", {"status": "pending", "schema": 1})
+                semantic_release.write_pending(staged)
             return artifacts.describe_tree(destination)
-        # The artifact records its original Parquet bytes. Arrow versions can
-        # serialize identical content differently. Only a pin bound to this
-        # exact manifest may authorize comparison by canonical speech content.
-        content_sha256 = geometry_sha256 = None
-        pin_path = ROOT / "config/semantic-release.json"
-        if pin_path.is_file():
-            pin = json.loads(pin_path.read_text(encoding="utf-8"))
-            if artifacts.sha256(source / "manifest.json") == pin.get("manifest_sha256"):
-                content_sha256 = pin.get("corpus_content_sha256")
-                geometry_sha256 = pin.get("corpus_geometry_sha256")
-        semantic_release.validate(
-            source,
-            SPEECHES_FLAGGED,
-            content_sha256=content_sha256,
-            geometry_sha256=geometry_sha256,
-        )
+        semantic_release.check_against_pin(source, SPEECHES_FLAGGED, SEMANTIC_PIN)
     for source in sources:
         if not source.exists():
             console.fail(f"{rel(source)} is missing — run the step that writes it first")

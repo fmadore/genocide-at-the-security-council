@@ -14,7 +14,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import artifacts, embeddings, frames, semantic, topics
-from lib.paths import DERIVED, EMBEDDINGS, ROOT, SPEECHES_FLAGGED
+from lib.paths import EMBEDDINGS, ROOT, SEMANTIC, SPEECHES_FLAGGED
 
 
 def project(vectors: np.ndarray, seed: int, neighbours: int = 30):
@@ -68,7 +68,7 @@ def run(directory: Path, seed: int) -> None:
         "neighbours": "Approximate cosine neighbours in the original embedding space; self excluded",
         "point_columns": semantic.POINT_COLUMNS,
     })
-    with artifacts.atomic_directory(DERIVED / "semantic") as staged:
+    with artifacts.atomic_directory(SEMANTIC) as staged:
         artifacts.atomic_write_json(staged / "map.json", {"meta": meta, "countries": countries, "agendas": agendas, "points": points})
         (staged / "neighbours").mkdir()
         shards = [{} for _ in range(256)]
