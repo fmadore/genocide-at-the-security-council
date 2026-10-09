@@ -13,7 +13,7 @@ step's docstring and is not repeated here.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from typing import Final
 
 import pandas as pd
@@ -347,6 +347,26 @@ def packet(sample: pd.DataFrame, seed: int) -> pd.DataFrame:
     unique["schema_version"] = audit.SCHEMA_VERSION
     unique["lexicon_version"] = str(sample["lexicon_version"].iloc[0]) if len(sample) else ""
     return unique.reset_index(drop=True)
+
+
+def flag_prior_review(frame: pd.DataFrame, reviewed: Collection[str]) -> pd.DataFrame:
+    """`frame` with one more column, true where the passage was read before coding.
+
+    `reviewed` is `annotations/genocide/prior_review.csv`'s occurrence ids:
+    passages whose model labels were read and discussed before the gold sample
+    was coded, so that a coder's reading of them may not be independent of the
+    model. They are flagged and not dropped (docs/EVALUATION_PLAN.md §4), and
+    every gold figure is reported with and without them.
+
+    The column is set after the draw, so it cannot move one: the sample stays as
+    drawn. It is appended last, so every column the candidate and design files
+    already carry keeps its place and its bytes. :func:`packet` never carries it,
+    for the reason it carries no frame or stratum: it tells a coder something
+    about the passage that the passage does not.
+    """
+    reviewed_ids = {str(identifier) for identifier in reviewed}
+    flagged = frame["occurrence_id"].astype(str).isin(reviewed_ids)
+    return frame.assign(**{model_runs.PRIOR_REVIEW_FLAG: flagged})
 
 
 def design(
