@@ -9,10 +9,11 @@
 // simple.
 //
 // **What it does not do.** It does not try to make the site work offline before
-// it has been used. `web/static/data/` is about 675 MB across 9,510 files—9,464 of
-// them one per meeting — and precaching that is not a heavy version of the right
-// idea, it is the wrong idea: a reader who opens the Overview would spend their
-// month's data on 6,594 meetings they will never read. `svelte.config.js` keeps
+// it has been used. `web/static/data/` runs to hundreds of megabytes, most of
+// it one file per meeting record, 9,464 of them — and precaching that is not a
+// heavy version of the right idea, it is the wrong idea: a reader who opens the
+// Overview would spend their month's data on thousands of meetings they will
+// never read. `svelte.config.js` keeps
 // that directory out of `$service-worker.files` so it cannot arrive here by
 // accident, and the strategies below are chosen around the same fact.
 //

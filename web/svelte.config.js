@@ -14,7 +14,7 @@ export default {
 		// Production and ordinary development continue to use `static/`.
 		files: fixtureMode ? { assets: 'e2e/fixtures' } : undefined,
 		// `fallback` makes the reader an SPA route. Prerendering it would mean
-		// generating 6,595 document pages to display text already fetched as JSON.
+		// generating 9,464 document pages to display text already fetched as JSON.
 		adapter: adapter({ fallback: '404.html', strict: true }),
 		paths: { base },
 		prerender: {
@@ -28,9 +28,9 @@ export default {
 		serviceWorker: {
 			// What `$service-worker.files` is allowed to contain, and therefore what
 			// `src/service-worker.ts` precaches on install. The default is everything
-			// in `static/` bar `.DS_Store`, which here would be 468 MB across 6,632
-			// files — the whole dashboard payload, fetched on a reader's first visit
-			// for the sake of 6,595 meetings they did not ask for. The data is served
+			// in `static/` bar `.DS_Store`, which here would be the whole dashboard
+			// payload — one file per meeting record, 9,464 of them — fetched on a
+			// reader's first visit for the sake of meetings they did not ask for. The data is served
 			// network-first and cached as it is read instead; see the service worker.
 			//
 			// `og.png` is excluded for a smaller reason: it exists for link scrapers,

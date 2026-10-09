@@ -10,7 +10,7 @@
  *
  * This is that check, and it runs in CI with no data present, because the
  * committed contract is the shape rather than the payload: 32 kB of keys and
- * types standing in for 491 MB of JSON.
+ * types standing in for hundreds of megabytes of JSON.
  *
  * What it does not do is validate the contract's *contents* against the
  * validators in `data.ts` — a skeleton has no values, so `coverage must be a

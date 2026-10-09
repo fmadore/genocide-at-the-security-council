@@ -280,7 +280,9 @@
 				>.
 			</p>
 		{/snippet}
-		{#if status}<p role="status">{status}</p>{/if}
+		<!-- Always in the document, with only its words changing, so a screen
+		     reader is listening before the status arrives. Empty, it takes no room. -->
+		<p role="status" class:quiet={!status}>{status}</p>
 		{#if map}
 			<div class="filters">
 				<label
@@ -371,7 +373,7 @@
 						score (cosine) ranges from −1 to 1; higher values mean more similar embeddings. It is
 						not a percentage of shared meaning.
 					</p>
-					{#if neighbourStatus}<p role="status">{neighbourStatus}</p>{/if}
+					<p role="status" class:quiet={!neighbourStatus}>{neighbourStatus}</p>
 					<ol>
 						{#each related as [id, score] (id)}{@const p = map.points[positions.get(id)!]!}
 							<li>
@@ -446,6 +448,11 @@
 		height: 0.65rem;
 		border-radius: 50%;
 		flex: 0 0 auto;
+	}
+	/* An empty status region, out of the flow so it adds no line and no gap. */
+	.quiet {
+		position: absolute;
+		margin: 0;
 	}
 	.diagnostic {
 		color: var(--ink-2);

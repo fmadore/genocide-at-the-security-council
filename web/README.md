@@ -14,7 +14,7 @@ npm run test:e2e:sw # Playwright — built-site reader recovery while offline
 npm run build    # → build/, then verify-static.mjs checks every public route arrived
 ```
 
-The app needs `static/data/`, which is gitignored and 491 MB. Build it with
+The app needs `static/data/`, which is gitignored. Build it with
 `scripts/09_export_speeches.py` then `scripts/export_web.py`. Without it, every page fails
 with a message saying so rather than rendering empty.
 
@@ -70,7 +70,7 @@ comparisons and filters. Hover, chart zoom, map-row focus and other transient pr
 state stay local to the browser session.
 
 `/reader/[meeting]` is the only client-only route: prerendering it would mean generating
-6,595 pages to display text that is already fetched as JSON. The static adapter's
+9,464 pages to display text that is already fetched as JSON. The static adapter's
 `404.html` fallback serves it.
 
 ## Installable, and it never asks
@@ -91,10 +91,10 @@ shared with every other project hosted there. Omitted, it defaults to the resolv
 `minimal-ui` before falling back to `standalone`, because a site whose own claim is that it
 is citable should keep the address of the thing being cited on screen.
 
-**The service worker is built around one number: `static/data/` is 468 MB across 6,632
-files.** Precaching it — the default shape of a service worker, and what `$service-worker`
-would hand over unfiltered — would spend a reader's data on 6,594 meetings they will never
-open. So `svelte.config.js` filters that directory out of `serviceWorker.files`, and the
+**The service worker is built around one fact: `static/data/` holds one file per meeting
+record, 9,464 of them, and runs to hundreds of megabytes.** Precaching it — the default shape
+of a service worker, and what `$service-worker` would hand over unfiltered — would spend a
+reader's data on thousands of meetings they will never open. So `svelte.config.js` filters that directory out of `serviceWorker.files`, and the
 three strategies follow from the same fact:
 
 | What                                  | Strategy                         | Why                                                                                                                                                                               |
@@ -121,7 +121,7 @@ Rebuild the icons with `python tools/build_icons.py`; they are committed, like
 src/
 ├── app.css              Design tokens. Charts read the palette from here too.
 ├── app.html             Theme resolved before first paint; the install prompt cancelled
-├── service-worker.ts    The offline layer. Never precaches the 468 MB data payload.
+├── service-worker.ts    The offline layer. Never precaches the data payload.
 ├── lib/
 │   ├── types.ts         The shapes the pipeline writes — checked against tests/contract/
 │   ├── data.ts          Fetch, cache and refuse: one shape per artefact, one function each
