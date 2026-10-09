@@ -99,6 +99,31 @@ BREAKDOWNS: list[tuple[str, int | None]] = [
     ("agenda_item_manual", 20),
 ]
 
+#: The corpus columns this step reads besides the lexicon's own. It counts
+#: speeches and words and never reads what was said, so the speech text — most
+#: of the parquet's size — stays on disk.
+CORPUS_COLUMNS = [
+    "row_id",
+    "year",
+    "date",
+    "meeting_symbol",
+    "country_org",
+    "iso3",
+    "tokens",
+    "words",
+    *(column for column, _ in BREAKDOWNS),
+]
+
+
+def read_columns(lex: lexicon.Lexicon) -> list[str]:
+    """Every column to read: the corpus columns, then each measure's two."""
+    names = [*(term.name for term in lex.active), *lex.derived]
+    return [
+        *CORPUS_COLUMNS,
+        *(column for name in names for column in series.columns_for("terms", name)),
+    ]
+
+
 def measures(lex: lexicon.Lexicon) -> dict[str, dict[str, dict]]:
     """Every series to compute, all of them over a single term.
 
@@ -1000,8 +1025,8 @@ def run(
     ensure_dirs()
 
     console.step("Reading the flagged corpus")
-    speeches = frames.read(SPEECHES_FLAGGED)
     lex = lexicon.load()
+    speeches = frames.read(SPEECHES_FLAGGED, columns=read_columns(lex))
     console.info(f"lexicon version {lex.version}, {len(lex.active)} active terms")
 
     console.step("Building annual series")

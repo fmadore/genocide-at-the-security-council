@@ -25,7 +25,7 @@ def run(repetitions: int, seed: int, speakers: list[str] | None, limit: int) -> 
     lex = lexicon.load()
     nodes = [lex.terms[name] for name in ["genocide", "ethnic_cleansing", "crimes_against_humanity"]]
     corpus = frames.read(SPEECHES_FLAGGED, columns=[
-        "row_id", "text", "body_start", "country_org", "meeting_symbol", *keyness.MATCH_ON,
+        "row_id", "text", "body_start", "country_org", "meeting_symbol", *lexical.MATCH_ON,
         *[f"has_{node.name}" for node in nodes],
     ])
     bodies = frames.body(corpus)
@@ -45,7 +45,7 @@ def run(repetitions: int, seed: int, speakers: list[str] | None, limit: int) -> 
         print(kind, name, len(words), "words", flush=True)
 
     stopwords = lexical.load_stopwords()
-    pairs = lexical.matched_control(corpus, "has_genocide", keyness.MATCH_ON, seed)
+    pairs = lexical.matched_control(corpus, "has_genocide", lexical.MATCH_ON, seed)
     target_rows, control_rows = pairs.target_index.to_numpy(), pairs.control_index.to_numpy()
     a, b = matrix.counter(target_rows), matrix.counter(control_rows)
     primary = lexical.compare(a, a + b, sum(a.values()), sum(b.values()), stopwords, limit=limit)
@@ -102,7 +102,7 @@ def run(repetitions: int, seed: int, speakers: list[str] | None, limit: int) -> 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repetitions", type=int, default=999)
-    parser.add_argument("--seed", type=int, default=20260807)
+    parser.add_argument("--seed", type=int, default=lexical.SEED)
     parser.add_argument("--speakers", nargs="+")
     parser.add_argument("--limit", type=int, default=40)
     args = parser.parse_args()

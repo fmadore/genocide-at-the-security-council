@@ -480,19 +480,36 @@ def _period(year: int) -> str:
 def audit_sample(
     speeches: pd.DataFrame,
     bodies: pd.Series,
-    counts: pd.DataFrame,
     lex: lexicon.Lexicon,
     size: int,
     seed: int,
+    *,
+    found: Mapping[str, Mapping[object, list[tuple[int, int]]]] | None = None,
 ) -> pd.DataFrame:
-    """Separate probability, coverage and high-recall negative audit samples."""
+    """Separate probability, coverage and high-recall negative audit samples.
+
+    `found` is :func:`lib.lexicon.find_all` over the same bodies and every term,
+    enabled or not: 03 has those spans from counting, and drawing the sample
+    from them rather than matching the corpus again is what guarantees the
+    sample is of the occurrences that were counted.
+    """
+    if found is None:
+        found = lexicon.find_all(bodies, lex.terms.values())
     rows: list[dict[str, object]] = []
     years = speeches["year"].to_dict()
+    # Looked up per column rather than a whole row per occurrence: a row of a
+    # fifty-column frame costs about a millisecond, and there are eighty
+    # thousand occurrences. A speech's digest is likewise taken once.
+    columns = ["filename", "meeting_symbol", "date", "country_org", "agenda_item_manual"]
+    metadata = {column: speeches[column].to_dict() for column in columns}
+    digests: dict[object, str] = {}
 
     def append(term: lexicon.Term, index: object, body: str, start: int, end: int) -> None:
-        meta = speeches.loc[index]
+        meta = {column: values[index] for column, values in metadata.items()}
         left, keyword, right = text_lib.window(body, start, end)
-        source_digest = source_sha256(body)
+        source_digest = digests.get(index)
+        if source_digest is None:
+            source_digest = digests[index] = source_sha256(body)
         occurrence = occurrence_id(
             str(meta["filename"]), term.name, start, end, keyword, source_digest
         )
@@ -522,9 +539,9 @@ def audit_sample(
         )
 
     for term in lex.active:
-        holders = counts.index[counts[f"{lexicon.HAS}{term.name}"]]
-        for index, body in bodies.loc[holders].items():
-            for start, end in term.spans(body):
+        for index, spans in found[term.name].items():
+            body = bodies.at[index]
+            for start, end in spans:
                 append(term, index, body, start, end)
     if not rows:
         return pd.DataFrame()
@@ -548,11 +565,9 @@ def audit_sample(
     rows.clear()
     for term in lex.disabled:
         peers = [peer for peer in lex.active if peer.tier == term.tier]
-        for index, body in bodies.items():
-            matches = term.spans(body)
-            if not matches:
-                continue
-            peer_spans = [span for peer in peers for span in peer.spans(body)]
+        for index, matches in found[term.name].items():
+            body = bodies.at[index]
+            peer_spans = [span for peer in peers for span in found[peer.name].get(index, [])]
             for start, end in matches:
                 overlaps = any(
                     start < peer_end and peer_start < end

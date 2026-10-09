@@ -73,6 +73,17 @@ def test_speeches_without_a_match_contribute_no_rows() -> None:
     assert "two.txt" not in {item.filename for item in found}
 
 
+def test_the_prefilter_skips_only_speeches_with_nothing_to_find() -> None:
+    """13 and 15 enumerate over the whole corpus through the prefilter; the
+    rows must be the ones a scan of every body gives, in the same order."""
+    speeches, bodies = corpus()
+    found = occurrences.enumerate_term(speeches, bodies, term())
+    scanned = [
+        (index, span) for index, body in bodies.items() for span in term().spans(body)
+    ]
+    assert [(item.index, (item.start, item.end)) for item in found] == scanned
+
+
 def test_missing_columns_are_named_rather_than_raising_deeper_in() -> None:
     speeches, bodies = corpus()
     with pytest.raises(KeyError, match="body_start, filename"):

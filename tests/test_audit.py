@@ -218,9 +218,7 @@ def test_pipeline_builds_three_distinct_frames_from_declared_patterns() -> None:
             "agenda_item_manual": ["x", "y", "z"],
         }
     )
-    counts = lexicon.apply(bodies, lex)
-
-    sample = audit.audit_sample(speeches, bodies, counts, lex, size=2, seed=12)
+    sample = audit.audit_sample(speeches, bodies, lex, size=2, seed=12)
 
     assert set(sample["sampling_frame"]) == {
         audit.PROBABILITY,
@@ -268,10 +266,8 @@ def test_coverage_frame_grows_to_its_strata_rather_than_failing_the_step() -> No
             "agenda_item_manual": ["x"] * len(years),
         }
     )
-    counts = lexicon.apply(bodies, lex)
-
     # Five strata (genocide in three decades, war in two) against a size of 2.
-    sample = audit.audit_sample(speeches, bodies, counts, lex, size=2, seed=12)
+    sample = audit.audit_sample(speeches, bodies, lex, size=2, seed=12)
 
     coverage = sample.loc[sample["sampling_frame"] == audit.COVERAGE]
     assert len(coverage) == 5

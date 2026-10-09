@@ -1,9 +1,13 @@
-"""The named R8 comparison corpus written by step 04."""
+"""The named R8 comparison corpus written by step 04, and what 04 reads."""
 
 from __future__ import annotations
 
+import importlib
+
 import pandas as pd
-from lib import scopes, series
+from lib import lexicon, scopes, series
+
+step = importlib.import_module("04_series")
 
 
 def corpus() -> pd.DataFrame:
@@ -47,3 +51,21 @@ def test_comparison_corpus_refuses_a_missing_membership_column() -> None:
         assert "has_war_crimes" in str(error)
     else:
         raise AssertionError("missing corpus predicate column was accepted")
+
+
+def test_the_step_reads_every_measure_and_no_text() -> None:
+    """04 counts speeches and words; the text is most of the parquet and unused.
+
+    A breakdown column left out would not fail: `build_breakdowns` skips a
+    column the frame lacks with a warning, so each one is held here.
+    """
+    lex = lexicon.load()
+    read = step.read_columns(lex)
+    assert "text" not in read and "body_start" not in read
+    assert len(read) == len(set(read))
+    for term in lex.active:
+        assert {f"has_{term.name}", f"n_{term.name}"} <= set(read), term.name
+    for column, _ in step.BREAKDOWNS:
+        assert column in read
+    assert step.CALENDAR_AGENDA_COLUMN in read
+    assert {"has_genocide", *(f"has_{term}" for term in scopes.ATROCITY_TERMS)} <= set(read)

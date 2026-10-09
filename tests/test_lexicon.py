@@ -19,6 +19,7 @@ every term to are checked here as plain values.
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import replace
 
 import pandas as pd
@@ -313,3 +314,122 @@ class TestCommittedCounts:
     def test_every_enabled_term_is_committed(self, real_lex):
         committed = lexicon.load_counts()["terms"]
         assert set(committed) == {t.name for t in real_lex.active} | set(real_lex.derived)
+
+
+class TestTheHaystack:
+    """The prefilter's fast path must answer what `str.contains` answers."""
+
+    # Characters where upper-casing in Python and in ASCII part company, and
+    # where case-folding in RE2 would part company with both: the dotless i,
+    # the long s, the sharp s, the fi ligature, the Kelvin sign, the dotted
+    # capital I, a curly apostrophe, and an accent.
+    TEXTS = (
+        "Genocide was committed.",
+        "a CRIME against humanity",
+        f"the cr{chr(0x131)}me of aggression",
+        f"the cri{chr(0x17F)}is and {chr(0x17F)}urvivors",
+        f"Gro{chr(0xDF)}, ma{chr(0xDF)}acre",
+        f"the {chr(0xFB01)}nal {chr(0xFB02)}ight",
+        f"{chr(0x212A)}ill, kill, KILL",
+        f"{chr(0x130)}ncitement and incitement",
+        f"the Council{chr(0x2019)}s word",
+        f"g{chr(0xE9)}nocidaires",
+        "",
+    )
+    LITERALS = (
+        "crime", "cris", "survivor", "massacre", "final", "flight", "kill", "incit", "nocid", "s",
+    )
+
+    def test_every_literal_agrees_with_str_contains(self):
+        texts = pd.Series(self.TEXTS, dtype=object)
+        haystack = lexicon.Haystack(texts)
+        for literal in self.LITERALS:
+            expected = texts.str.contains(literal, case=False, regex=False, na=False)
+            assert haystack.contains(literal).tolist() == expected.tolist(), literal
+
+    def test_no_character_beyond_the_bmp_upper_cases_into_ascii(self):
+        """The haystack reads only the BMP for the characters it must test apart."""
+        assert lexicon._reaching_ascii(sys.maxunicode) == lexicon._reaching_ascii(0xFFFF)
+
+    def test_a_missing_text_holds_nothing(self):
+        texts = pd.Series(["genocide", None, float("nan")], dtype=object)
+        assert lexicon.Haystack(texts).contains("nocid").tolist() == [True, False, False]
+
+    def test_a_literal_outside_ascii_is_tested_as_str_contains_tests_it(self):
+        texts = pd.Series(["GÉNOCIDE", "genocide"], dtype=object)
+        assert lexicon.Haystack(texts).contains("énoc").tolist() == [True, False]
+
+    def test_an_answer_shared_between_terms_cannot_be_changed(self):
+        found = lexicon.Haystack(pd.Series(["genocide"])).contains("nocid")
+        with pytest.raises(ValueError):
+            found[0] = False
+
+    def test_counts_are_the_same_with_or_without_one(self, lex):
+        texts = pd.Series(["genocide and atrocities", "mass atrocities", "nothing"])
+        haystack = lexicon.Haystack(texts)
+        for each in lex.active:
+            assert each.count(texts, haystack).tolist() == each.count(texts).tolist()
+
+    def test_one_built_from_other_texts_is_refused(self):
+        haystack = lexicon.Haystack(pd.Series(["genocide"]))
+        with pytest.raises(ValueError, match="different texts"):
+            GENOCIDE.candidates(pd.Series(["genocide", "genocide"]), haystack)
+
+
+class TestFind:
+    def test_spans_come_back_for_the_texts_holding_one_in_text_order(self):
+        texts = pd.Series(["genocide, genocidal", "nothing", "the genocide"], index=[7, 3, 5])
+        assert GENOCIDE.find(texts) == {7: [(0, 8), (10, 19)], 5: [(4, 12)]}
+        assert list(GENOCIDE.find(texts)) == [7, 5]
+
+    def test_counting_found_spans_is_counting(self):
+        texts = pd.Series(["genocide, genocidal", "nothing", "the genocide"])
+        found = GENOCIDE.find(texts)
+        assert GENOCIDE.count(texts, found=found).tolist() == [2, 0, 1]
+
+    def test_every_term_is_found_once_for_the_whole_step(self, lex):
+        texts = pd.Series(["genocide and atrocities", "nothing"])
+        found = lexicon.find_all(texts, lex.terms.values())
+        assert set(found) == set(lex.terms)
+        assert lexicon.apply(texts, lex, found=found).equals(lexicon.apply(texts, lex))
+
+
+class TestWideningCheckPrefilter:
+    """Only an anchor-only widening is prefiltered, and it still catches a loss."""
+
+    INCITEMENT = Term(
+        name="incitement",
+        pattern=r"\bincit\w*",
+        tier="adjacent",
+        register="preventive",
+        examples=("incitement",),
+        prefilters=("incit",),
+        anchor="sentence",
+        pattern_since=4,
+        widened_since=8,
+        regex=re.compile(r"\bincit\w*", re.IGNORECASE),
+    )
+
+    def lexicon_with(self, anchor_pattern: str, old_anchor: str) -> Lexicon:
+        anchor = lexicon.Anchor(
+            pattern=anchor_pattern,
+            prefilter="nocid",
+            widened_since=8,
+            widened_from=old_anchor,
+            regex=re.compile(anchor_pattern, re.IGNORECASE),
+        )
+        incitement = replace(self.INCITEMENT, anchor_regex=anchor.regex)
+        return Lexicon(
+            version=8, updated="2026-09-24", terms={"incitement": incitement}, anchor=anchor
+        )
+
+    def test_a_real_anchor_widening_passes(self):
+        bodies = pd.Series(["Incitement to genocide.", "Incitement to génocide.", "Nothing."])
+        lex = self.lexicon_with(r"\bg[eé]nocid\w*", r"\bgenocid\w*")
+        assert lexicon.check_widenings(bodies, lex, lexicon.Haystack(bodies)) == []
+
+    def test_an_anchor_that_narrowed_is_caught(self):
+        bodies = pd.Series(["Incitement to genocide.", "Nothing."])
+        lex = self.lexicon_with(r"\bgénocid\w*", r"\bgenocid\w*")
+        problems = lexicon.check_widenings(bodies, lex, lexicon.Haystack(bodies))
+        assert len(problems) == 1 and "loses 1 span" in problems[0]

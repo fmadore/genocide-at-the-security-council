@@ -56,15 +56,18 @@ def enumerate_term(speeches: pd.DataFrame, bodies: pd.Series, term: Term) -> lis
     term inside a form of address cannot appear and an anchored term yields
     only the occurrences its anchor kept — which is what keeps these rows equal
     in number to 03's ``n_<term>`` sums and 08's line counts.
+
+    Through `Term.find` too, so the bodies holding none of the term's
+    prefilter literals are skipped exactly as 03 skips them when it counts:
+    13, 15 and 17 read the whole corpus, and the pattern need only run on the
+    few thousand speeches that could hold a match.
     """
     if missing := sorted({"filename", "body_start"} - set(speeches.columns)):
         raise KeyError(f"enumerate_term() needs columns: {', '.join(missing)}")
 
     found: list[Occurrence] = []
-    for index, body in bodies.items():
-        matches = term.spans(body)
-        if not matches:
-            continue
+    for index, matches in term.find(bodies).items():
+        body = bodies.at[index]
         filename = str(speeches.at[index, "filename"])
         body_start = int(speeches.at[index, "body_start"])
         stem = filename.removesuffix(".txt")
