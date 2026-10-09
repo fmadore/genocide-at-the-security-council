@@ -206,17 +206,65 @@ def test_provenance_refuses_a_declared_input_that_is_missing(tmp_path):
     present = tmp_path / "present.txt"
     present.write_text("x", encoding="utf-8")
     with pytest.raises(FileNotFoundError, match=r"absent\.txt"):
-        artifacts.provenance(tmp_path, "step.py", inputs=[present, tmp_path / "absent.txt"])
+        artifacts.provenance(
+            tmp_path, "20_actor_year.py", inputs=[present, tmp_path / "absent.txt"]
+        )
 
 
 def test_provenance_records_an_optional_input_as_absent_rather_than_dropping_it(tmp_path):
     present = tmp_path / "present.txt"
     present.write_text("x", encoding="utf-8")
     meta = artifacts.provenance(
-        tmp_path, "step.py", inputs=[present], optional=[tmp_path / "second.txt"]
+        tmp_path, "20_actor_year.py", inputs=[present], optional=[tmp_path / "second.txt"]
     )
     assert [item["path"] for item in meta["inputs"]] == ["present.txt"]
     assert meta["absent_optional"] == ["second.txt"]
+
+
+# --- The code that ran -----------------------------------------------------
+#
+# Five steps used to list their own `lib` files in `configs`, and every list was
+# shorter than the step's imports. The closure is now read from the source.
+
+
+def test_provenance_records_the_script_and_every_module_it_can_execute(tmp_path):
+    code = {item["path"]: item for item in artifacts.provenance(tmp_path, "20_actor_year.py")["code"]}
+    # The three the hand list left out, and the module `council` reaches
+    # through a relative import of its own.
+    for name in ("actors", "council", "frames", "series", "paths", "artifacts"):
+        assert f"scripts/lib/{name}.py" in code
+    assert "scripts/lib/__init__.py" in code
+    script = artifacts.SCRIPTS / "20_actor_year.py"
+    assert code["scripts/20_actor_year.py"]["sha256"] == artifacts.sha256(script)
+
+
+def test_a_maintenance_tool_is_found_under_tools(tmp_path):
+    code = artifacts.provenance(tmp_path, "prepare_research_review.py")["code"]
+    assert code[0]["path"] == "tools/prepare_research_review.py"
+
+
+def test_provenance_refuses_a_script_that_does_not_exist(tmp_path):
+    with pytest.raises(FileNotFoundError, match=r"no_such_step\.py"):
+        artifacts.provenance(tmp_path, "no_such_step.py")
+
+
+def test_the_closure_follows_relative_imports_wherever_they_are(tmp_path):
+    script = tmp_path / "probe.py"
+    script.write_text(
+        "from lib import council\n\n\ndef late():\n    from lib.kwic import build\n",
+        encoding="utf-8",
+    )
+    names = {path.stem for path in artifacts.lib_closure(script)}
+    # `council` imports `paths`, which imports `artifacts`; the import inside a
+    # function body counts, because the step can execute it.
+    assert {"council", "paths", "artifacts", "kwic"} <= names
+    assert "usage" not in names
+
+
+def test_analysis_hash_ignores_the_code_that_computed_the_same_payload():
+    first = {"meta": {"script": "04_series.py", "code": [{"path": "s.py", "sha256": "a"}]}, "x": [1]}
+    edited = {**first, "meta": {**first["meta"], "code": [{"path": "s.py", "sha256": "b"}]}}
+    assert artifacts.analysis_hash(first) == artifacts.analysis_hash(edited)
 
 
 def test_a_gzipped_artefact_is_byte_identical_and_readable(tmp_path):

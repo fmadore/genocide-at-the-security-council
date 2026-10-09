@@ -60,8 +60,7 @@ def run(directory: Path, seed: int) -> None:
         speeches,
         {str(row_id): (x, y) for row_id, (x, y) in zip(speeches["row_id"], coordinates, strict=True)},
     )
-    meta = artifacts.provenance(ROOT, "21_semantic_map.py", inputs=[SPEECHES_FLAGGED, directory / "manifest.json"],
-                                configs=[Path(__file__), ROOT / "scripts/lib/semantic.py", ROOT / "scripts/lib/topics.py"], extra={
+    meta = artifacts.provenance(ROOT, "21_semantic_map.py", inputs=[SPEECHES_FLAGGED, directory / "manifest.json"], extra={
         "schema": 1, "seed": seed, "model_repo": source["model_repo"], "model_revision": source["model_revision"],
         "projection": "UMAP", "metric": "cosine", "n_neighbors": 30, "min_dist": .1,
         "packages": {name: version(name) for name in ("numpy", "umap-learn", "pynndescent", "scikit-learn")},

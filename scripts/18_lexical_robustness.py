@@ -111,9 +111,7 @@ def run(seed: int, limit: int, lemma_layer: Path | None = None) -> None:
     summary = robustness.influence_summary(primary, effects, [sum(counts.values()) for counts in totals])
     meta = artifacts.provenance(
         ROOT, "18_lexical_robustness.py", inputs=[SPEECHES_FLAGGED],
-        configs=[STOPWORDS, Path(__file__), ROOT / "scripts/lib/robustness.py",
-                 ROOT / "scripts/lib/lexical.py", ROOT / "scripts/lib/frames.py",
-                 ROOT / "scripts/lib/lemmas.py"],
+        configs=[STOPWORDS],
         extra={
             "seed": seed, "limit": limit, "matched_on": MATCH_ON,
             "matched_pairs": pairs.matched, "eligible_targets": pairs.wanted,

@@ -83,7 +83,7 @@ def run(repetitions: int, seed: int, speakers: list[str] | None, limit: int) -> 
         primary = lexical.compare(a, a + b, sum(a.values()), sum(b.values()), stopwords, limit=limit)
         words = [row["word"] for row in primary]
         analyse("speaker", str(speaker), primary, block_lexical.blocks(matrix, corpus, targets.to_numpy(), words), block_lexical.blocks(matrix, corpus, controls.to_numpy(), words))
-    meta = artifacts.provenance(ROOT, "19_extended_robustness.py", inputs=[SPEECHES_FLAGGED], configs=[STOPWORDS, LEXICON, Path(__file__), *[ROOT / f"scripts/lib/{name}.py" for name in ("block_lexical", "uncertainty", "lexical", "keyness", "frames", "lexicon")]], extra={
+    meta = artifacts.provenance(ROOT, "19_extended_robustness.py", inputs=[SPEECHES_FLAGGED], configs=[STOPWORDS, LEXICON], extra={
         "seed": seed, "repetitions": repetitions, "limit": limit, "speakers": speakers,
         "interval": "95% percentile meeting-block bootstrap conditional on fixed selected speeches and ranked words; same meeting weights in both arms; no rematching",
         "effect": "log2 token-rate ratio; logDice has deletion ranges only",

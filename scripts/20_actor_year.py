@@ -17,7 +17,7 @@ def run() -> None:
     columns = ["row_id", "year", "country_org", "meeting_symbol", "words", "tokens", *[c for m in measures for c in series.columns_for("terms", m)]]
     speeches = frames.read(SPEECHES_FLAGGED, columns=columns)
     table = pd.concat([actors.annual_table(speeches, m) for m in measures], ignore_index=True)
-    meta = artifacts.provenance(ROOT, "20_actor_year.py", inputs=[SPEECHES_FLAGGED], configs=[Path(__file__), ROOT / "scripts/lib/actors.py", ROOT / "scripts/lib/series.py"], extra={
+    meta = artifacts.provenance(ROOT, "20_actor_year.py", inputs=[SPEECHES_FLAGGED], extra={
         "minimum_speeches": actors.MIN_SPEECHES,
         "interval": "Wilson 95% speech-level bounds; not meeting-clustered",
         "denominators": "held = all speeches by this source affiliation in this year; token_rate divides by words",

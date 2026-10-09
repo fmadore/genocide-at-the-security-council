@@ -291,8 +291,7 @@ def run(model: str, limit: int, processes: int, batch_size: int, pairs_path: Pat
         ROOT,
         "10_lemmatise.py",
         inputs=[SPEECHES_FLAGGED, *([pairs_path] if pairs_path else [])],
-        configs=[STOPWORDS, Path(__file__), ROOT / "scripts/lib/lemmas.py",
-                 ROOT / "scripts/lib/lexical.py", ROOT / "scripts/lib/frames.py"],
+        configs=[STOPWORDS],
         extra={
             "layer_schema": lemmas.LAYER_SCHEMA,
             "tokenizer": lexical.TOKENIZER,
