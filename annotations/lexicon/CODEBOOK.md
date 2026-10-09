@@ -296,12 +296,24 @@ shared pilot required above applies unchanged, and comes first.
 
 The sample is drawn in three frames and the `sampling_frame` column of the candidate file says
 which one a row came from. **Code them alike and read them apart.** The `probability` frame is
-an equal-probability draw and is the only one that estimates anything about the corpus; the
-`coverage` frame guarantees that every period and usage cue is seen at all; the `disagreement`
-frame is a purposive over-sample of the occurrences the two committed model runs read
-differently, and exists so that a rare class has enough rows to be measured. Their inclusion
-probabilities differ by a factor of seven, so a figure computed over the union of them
-estimates nothing, and `15_usage.py` reports the frames separately for that reason.
+an equal-probability draw and is the only one that estimates anything about the corpus on its
+own; the `coverage` frame guarantees that every period and usage cue is seen at all; the
+`model_strata` frame is a purposive over-sample of the labels the published model run assigns
+rarely — `rejects`, a referent on a speech older than the first year in its `years` column, `other`,
+`reports_without_position` and `conditional` — and exists so that a rare class has enough rows
+to be measured. The draw of 24 September 2026 holds 120, 80 and 269 rows, 469 in all over 453
+distinct occurrences; the ten occurrences behind the prompt's worked examples are outside every
+frame.
+
+Once a comparison run is named in `model_annotations/genocide/comparison_run.txt`, step 13
+draws a `disagreement` frame in place of `model_strata`: the same idea, cut from where the two
+runs read an occurrence differently. That would change the sample, which is why the sample
+must be frozen before coding starts ([`docs/EVALUATION_PLAN.md`](../../docs/EVALUATION_PLAN.md)).
+
+The frames' inclusion probabilities differ widely, so an unweighted figure computed over their
+union estimates nothing. `15_usage.py` reports each frame separately, and its corpus-level
+estimates weight every coded unit by its probability under the union of the frames, which
+`genocide_gold_design.csv` records.
 
 **The frame is not a hint.** A row's stratum records why it was drawn — that a model called it
 a rejection, that its referent predates the case it names — and never what to write in it. It
@@ -319,14 +331,18 @@ run keeps its own model identifier and prompt, and it is compared against these 
 never joined into them, and never used to fill a field a coder left uncertain. Where the two
 disagree, the human label is the label; the disagreement is reported as a disagreement.
 
-Drawing a *sample* from what two runs disagree about is the one use of model output that does
-not breach this, and it is worth saying why. A sampling frame decides which passages a human
+Drawing a *sample* from a run's labels, or from what two runs disagree about, is the one use of
+model output that does not breach this, and it is worth saying why. A sampling frame decides which passages a human
 reads; it cannot decide what the human writes, and the inclusion probability it records is what
 lets a later step weight the sample back or decline to. The rule the frame must not break is
 the one above: no row of `annotations/` is written, cleared or suggested by any run.
 
 ## Changelog
 
+- **3, amended 9 October 2026.** The two-coder section described the third sampling frame as
+  the `disagreement` frame over two model runs. Since 24 September 2026 the sample has used the
+  `model_strata` frame, cut from the published run alone, and the section now says so. No
+  field, value or coding rule changes, so the codebook and annotation schema stay at 3.
 - **3 — 2 September 2026.** Annotation schema version 3, and the first field change since
   24 August. `stance` becomes two fields: `speaker_position` records what the speaker does
   with the characterization, and `concrete_case` records whether the word is applied to a

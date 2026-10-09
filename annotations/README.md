@@ -29,9 +29,11 @@ occurrences. Two coders code every one of them independently; the agreement betw
 what the model's scores are read against, so a case coded once is not yet gold.
 
 **Three frames, and one design over them.** There are 120 occurrences drawn with equal
-probability, 80 more that cover every period and usage-cue stratum, and a third frame cut
-from the published model run's labels — or, once two runs exist, from where they disagree —
-so that the rare positions are measurable at all. The frames are reported one by one, and
+probability, 80 more that cover every period and usage-cue stratum, and a third frame of 269
+cut from the published model run's labels (`model_strata`), so that the rare positions are
+measurable at all. Once a second run is named in `comparison_run.txt`, step 13 cuts the third
+frame from where the two runs disagree instead, which changes the sample: freeze it before
+coding starts ([`docs/EVALUATION_PLAN.md`](../docs/EVALUATION_PLAN.md)). The frames are reported one by one, and
 `genocide_gold_design.csv` gives every occurrence its probability under each frame and under
 their union, which is what lets 15 weight *all* the coding back to the corpus. An unweighted
 rate over the union would estimate nothing; a weighted one is design-unbiased.
@@ -49,7 +51,7 @@ is cut from `model_annotations/`, and what it says about an occurrence is that i
 coder's time—never what the coder should write. Nothing under this directory is read while a
 candidate is being drawn, and nothing here is written by any script.
 
-Same schema, same codebook, same rules: the columns are the fifteen in
+Same schema, same codebook, same rules: the columns are the twenty-two in
 `lexicon/annotations.csv`, the labels are the ones defined in `lexicon/CODEBOOK.md`
 (codebook 3, annotation schema 3, referent list 2), and new referents go into
 `lexicon/referents.csv` first. A separate file rather than more rows in
