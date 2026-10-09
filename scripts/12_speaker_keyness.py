@@ -311,7 +311,7 @@ def run(
     speeches = speeches.assign(stratum=stratum)
     console.info(
         f"{stratum.nunique():,} distinct "
-        f"{' + '.join(keyness.MATCH_ON)} strata over {len(speeches):,} speeches"
+        f"{' + '.join(lexical.MATCH_ON)} strata over {len(speeches):,} speeches"
     )
 
     candidates = eligible(speeches, minimum)
@@ -343,7 +343,7 @@ def run(
 
     console.step("Writing")
     payload = {
-        "matched_on": keyness.MATCH_ON,
+        "matched_on": lexical.MATCH_ON,
         "minimum_pairs": minimum,
         "minimum_coverage": min_coverage,
         "minimum_coverage_rule": (
@@ -434,7 +434,7 @@ def run(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--seed", type=int, default=20_260_807, help="control-sampling seed")
+    parser.add_argument("--seed", type=int, default=lexical.SEED, help="control-sampling seed")
     parser.add_argument("--limit", type=int, default=keyness.LIMIT, help="rows per table")
     parser.add_argument(
         "--repetitions",

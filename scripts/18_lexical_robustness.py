@@ -18,9 +18,9 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import artifacts, frames, lemmas, lexical, robustness
+from lib.lexical import MATCH_ON, SEED
 from lib.paths import DERIVED, ROOT, SPEECHES_FLAGGED, STOPWORDS
 
-MATCH_ON = ["year", "agenda_item_manual", "speaker_group"]
 EFFECT_COLUMNS = ["word", "meeting", "target", "control", "log_ratio", "eligible"]
 
 
@@ -162,7 +162,7 @@ def run(seed: int, limit: int, lemma_layer: Path | None = None) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--seed", type=int, default=20260807)
+    parser.add_argument("--seed", type=int, default=SEED)
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--lemma-layer", type=Path, help="validated step-10 output directory")
     args = parser.parse_args()

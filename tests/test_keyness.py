@@ -94,7 +94,7 @@ class TestStrata:
         )
         codes = keyness.strata(table)
         by_code = table.groupby(codes, sort=True).groups
-        by_columns = table.groupby(keyness.MATCH_ON, sort=True).groups
+        by_columns = table.groupby(lexical.MATCH_ON, sort=True).groups
         assert sorted(sorted(v) for v in by_code.values()) == sorted(
             sorted(v) for v in by_columns.values()
         )

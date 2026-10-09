@@ -445,6 +445,18 @@ def collocates(
 
 # --- Matched control -------------------------------------------------------
 
+#: What a control speech has to match on. Year holds the occasion constant,
+#: agenda item the subject, speaker group the institutional position from which
+#: a speech is given. One list for 05, 12, 18 and 19, because a table matched on
+#: other keys than the one it is compared with is a different measurement.
+MATCH_ON: list[str] = ["year", "agenda_item_manual", "speaker_group"]
+
+#: The control-sampling seed every matched table is drawn with unless a run
+#: names another. One constant, so the published tables and the robustness runs
+#: that re-read them start from the same draw.
+SEED = 20_260_807
+
+
 
 @dataclass(frozen=True)
 class MatchedPairs:
@@ -483,7 +495,7 @@ def matched_control(
     frame: pd.DataFrame,
     flag: str | pd.Series,
     keys: list[str],
-    seed: int = 20_260_807,
+    seed: int = SEED,
 ) -> MatchedPairs:
     """One non-target speech per target, from the same stratum.
 

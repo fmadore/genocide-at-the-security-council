@@ -137,10 +137,6 @@ PERIODS: list[tuple[str, int, int]] = [
     ("2020-2024", 2020, 2024),
 ]
 
-#: What a control speech has to match on. Year holds the occasion constant,
-#: agenda item the subject, speaker group the institutional position.
-MATCH_ON = ["year", "agenda_item_manual", "speaker_group"]
-
 COLUMNS = [
     "row_id",
     "year",
@@ -284,7 +280,7 @@ def build_keyness(
     improve on, and shipping both is what lets a reader see whether it did.
     """
     flag = f"{lexicon.HAS}{term.name}"
-    control = lexical.matched_control(speeches, flag, MATCH_ON, seed)
+    control = lexical.matched_control(speeches, flag, lexical.MATCH_ON, seed)
     console.info(
         f"matched {control.matched:,} of {control.wanted:,} targets "
         f"({control.coverage:.1%}); {len(control.short_strata)} strata short"
@@ -332,7 +328,7 @@ def build_keyness(
     effects = {word: [] for word in primary_words}
     coverages = []
     for repetition in range(repetitions):
-        sampled = lexical.matched_control(speeches, flag, MATCH_ON, seed + repetition)
+        sampled = lexical.matched_control(speeches, flag, lexical.MATCH_ON, seed + repetition)
         sampled_targets = counting.counts(speeches.loc[sampled.target_index])
         sampled_controls = counting.counts(speeches.loc[sampled.control_index])
         target_size = sum(sampled_targets.values())
@@ -360,7 +356,7 @@ def build_keyness(
 
     return {
         "term": term.name,
-        "matched_on": MATCH_ON,
+        "matched_on": lexical.MATCH_ON,
         "seed": seed,
         "target_speeches": control.matched,
         "eligible_target_speeches": control.wanted,
@@ -734,7 +730,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, default=100, help="rows kept per table")
     parser.add_argument("--countries", type=int, default=8, help="speakers profiled")
-    parser.add_argument("--seed", type=int, default=20_260_807, help="control-sampling seed")
+    parser.add_argument("--seed", type=int, default=lexical.SEED, help="control-sampling seed")
     parser.add_argument("--min-edge", type=int, default=20, help="shared speeches for an edge")
     parser.add_argument(
         "--matching-repetitions",

@@ -50,11 +50,6 @@ import pandas as pd
 
 from . import actors, lexical
 
-#: What a control speech has to match on — 05's list, unchanged. Year holds the
-#: occasion constant, agenda item the subject, speaker group the institutional
-#: position from which a speech is given.
-MATCH_ON: list[str] = ["year", "agenda_item_manual", "speaker_group"]
-
 #: Matched pairs a speaker needs before its keywords are published.
 #:
 #: Inherited from :data:`lib.actors.MIN_SPEECHES` rather than derived, and the
@@ -244,7 +239,7 @@ def build(texts) -> DocumentTerms:
 # --- Strata ----------------------------------------------------------------
 
 
-def strata(frame: pd.DataFrame, keys: list[str] = MATCH_ON) -> pd.Series:
+def strata(frame: pd.DataFrame, keys: list[str] = lexical.MATCH_ON) -> pd.Series:
     """One integer per distinct combination of the matching keys.
 
     :func:`lib.lexical.matched_control` groups the corpus once per speaker per
