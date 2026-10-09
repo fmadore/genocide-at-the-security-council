@@ -161,8 +161,37 @@ def test_a_missing_declared_artefact_stops_the_export(tmp_path, monkeypatch):
     assert raised.value.code == 1
 
 
+def test_a_payload_over_its_budget_stops_the_export(tmp_path, monkeypatch, capsys):
+    """Over in one file or over in all, the export refuses and says which."""
+    (tmp_path / "kwic").mkdir()
+    (tmp_path / "kwic" / "genocide.json").write_bytes(b"x" * 300)
+    (tmp_path / "scopes.json").write_bytes(b"x" * 50)
+    monkeypatch.setattr(export_web, "TOTAL_BUDGET", 1_000)
+    monkeypatch.setattr(export_web, "FILE_BUDGETS", [("kwic/*.json", 400), ("*", 100)])
+    export_web.check_budget(tmp_path)
+
+    monkeypatch.setattr(export_web, "FILE_BUDGETS", [("kwic/*.json", 200), ("*", 100)])
+    with pytest.raises(SystemExit) as raised:
+        export_web.check_budget(tmp_path)
+    assert raised.value.code == 1
+    reported = capsys.readouterr().err
+    assert "kwic/genocide.json is 300 bytes, over the 200 allowed for kwic/*.json" in reported
+    assert "scopes.json" not in reported
+
+    monkeypatch.setattr(export_web, "FILE_BUDGETS", [("kwic/*.json", 400), ("*", 100)])
+    monkeypatch.setattr(export_web, "TOTAL_BUDGET", 349)
+    with pytest.raises(SystemExit):
+        export_web.check_budget(tmp_path)
+    assert "the payload is 350 bytes, over the 349 allowed in all" in capsys.readouterr().err
 
 
+def test_every_payload_file_has_a_budget_line_to_meet():
+    """The catch-all comes last, or the lines after it would never be read."""
+    patterns = [pattern for pattern, _ in export_web.FILE_BUDGETS]
+    assert patterns[-1] == "*"
+    assert "*" not in patterns[:-1]
+    assert all(ceiling > 0 for _, ceiling in export_web.FILE_BUDGETS)
+    assert export_web.TOTAL_BUDGET < 1_000_000_000  # GitHub Pages' limit for the site
 
 
 def test_late_export_failure_keeps_the_previous_release(tmp_path, monkeypatch):

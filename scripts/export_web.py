@@ -21,6 +21,9 @@ writes a manifest of what it took.
 `web/static/data/speeches/`. Copying that twice to preserve a symmetry nobody
 benefits from would cost a gigabyte of disk.
 
+The payload is held to a size budget, in total and file by file, before the
+manifest marks it complete; see `TOTAL_BUDGET` and `FILE_BUDGETS`.
+
 Usage:
     python scripts/export_web.py
 """
@@ -33,6 +36,7 @@ import shutil
 import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from fnmatch import fnmatch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -103,6 +107,38 @@ PLACEMENTS = "referents.json"
 #: which run and which lists its labels come from without a second fetch.
 PLACEMENT_META = ("lexicon_version", "run_id", "referents_version")
 
+#: What the whole payload may weigh on disk. The deploy's limit is GitHub Pages'
+#: 1 GB for the built site, and a payload that grows by a few megabytes a change
+#: is noticed by nobody until it is a problem; a ceiling makes each such change
+#: argue for itself in a diff. Measured at 329 MB on 9 October 2026 (214 MB as
+#: served gzipped); the headroom is for a few more terms and a fuller model run,
+#: not for a file nobody reads.
+TOTAL_BUDGET = 400_000_000
+
+#: What one file may weigh, by its path in the payload; the first pattern a path
+#: matches sets its ceiling. A reader's browser fetches each of these whole, so a
+#: file that doubles is a page that loads twice as slowly, whatever the total.
+#: Each ceiling is the largest file under its pattern on 9 October 2026, in the
+#: comment beside it, with about a third again of headroom. The last line is the
+#: ceiling for anything not listed, kept small so a new large file arrives with a
+#: line of its own.
+FILE_BUDGETS: list[tuple[str, int]] = [
+    ("speeches/*.json.gz", 250_000),  # 180,533: S/PV.8514, gzipped
+    ("kwic/*.json", 14_500_000),  # 10,757,221: impunity
+    ("semantic/neighbours/*", 250_000),  # 187,240
+    ("semantic/*", 12_000_000),  # 8,934,933: map.json
+    ("usage/occurrences.json", 9_500_000),  # 6,901,828, 7,694 of 7,787 occurrences annotated
+    ("usage/referents.json", 375_000),  # 271,258
+    ("usage/*", 1_200_000),  # 866,653: usage.json
+    ("actor_year/*", 6_250_000),  # 4,594,895: actor_year.csv
+    ("meetings.json", 4_250_000),  # 3,144,792
+    ("countries/*", 3_000_000),  # 2,242,639: speaker_keyness.json
+    ("series/*", 1_250_000),  # 904,475: monthly.json
+    ("lexical/*", 250_000),  # 183,207: collocates_sliced.json
+    ("frames/*", 175_000),  # 127,658: frames.json
+    ("*", 100_000),  # 55,917: scopes.json
+]
+
 
 def copy_part(sources: Sequence[Path], name: str, *, root: Path | None = None) -> dict[str, object]:
     """Atomically mirror one or more directories into one payload directory.
@@ -168,6 +204,38 @@ def placements(source: Path) -> dict[str, object]:
         ),
         "placements": {row["id"]: row["referent"] for row in rows if row["referent"]},
     }
+
+
+def check_budget(root: Path) -> None:
+    """Refuse a payload heavier than its budget, in total or in any one file."""
+    weight, over = 0, []
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        relative = path.relative_to(root).as_posix()
+        size = path.stat().st_size
+        weight += size
+        pattern, ceiling = next(
+            ((pattern, ceiling) for pattern, ceiling in FILE_BUDGETS if fnmatch(relative, pattern)),
+            ("no pattern", 0),
+        )
+        if size > ceiling:
+            over.append(
+                f"{relative} is {size:,} bytes, over the {ceiling:,} allowed for {pattern}"
+            )
+    if weight > TOTAL_BUDGET:
+        over.insert(0, f"the payload is {weight:,} bytes, over the {TOTAL_BUDGET:,} allowed in all")
+    if over:
+        console.fail(
+            "the payload is over its size budget",
+            [
+                *over[:20],
+                *([f"... and {len(over) - 20} more"] if len(over) > 20 else []),
+                "If the growth is meant, raise the budget in export_web.py and say why "
+                "in the commit; if it is not, find what grew.",
+            ],
+        )
+    console.info(
+        f"{weight / 1e6:,.0f} MB of a {TOTAL_BUDGET / 1e6:,.0f} MB budget, and no file over its own"
+    )
 
 
 def measure(path: Path) -> dict[str, object]:
@@ -324,6 +392,7 @@ def assemble(destination: Path) -> None:
     console.step("Checking the payload against the shape the dashboard reads")
     check_contract(destination)
     check_no_aggregates(destination)
+    check_budget(destination)
 
     manifest = {
         "generated": generated,
@@ -354,6 +423,7 @@ def main() -> None:
     if args.check:
         check_contract()
         check_no_aggregates()
+        check_budget(WEB_DATA)
         manifest = json.loads((WEB_DATA / "manifest.json").read_text(encoding="utf-8"))
         for name, described in manifest["parts"].items():
             if name not in {part for _, part, _ in PARTS} | {part for part, _ in IN_PLACE}:
