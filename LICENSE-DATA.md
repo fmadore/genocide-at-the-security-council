@@ -48,6 +48,7 @@ released CC0 by its depositors and stays CC0 in whatever form it reaches you. Ex
 verbatim speech from a derived artefact leaves you holding CC0 material, not CC BY
 material.
 
-Nor does the licence make a derived figure correct. `docs/PLAN.md` states which claims are
-validated and which gates remain open; a number under an open gate is licensed for reuse
-and not yet warranted for citation.
+Nor does the licence make a derived figure correct. [`docs/CLAIMS.md`](docs/CLAIMS.md)
+states what each kind of figure rests on and whether it is validated, and `docs/PLAN.md`
+which gates remain open; a number under an open gate is licensed for reuse and not yet
+warranted for citation.
