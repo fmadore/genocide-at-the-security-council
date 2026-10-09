@@ -66,6 +66,7 @@ export VLLM_CACHE_ROOT="${VLLM_CACHE_ROOT:-$(dirname "$VLLM_VENV")/vllm_cache}"
 # lib/paths.py resolves everything relative to the repository root and
 # lib/artifacts.py records provenance paths relative to it too. A symlink keeps
 # both true without giving the pipeline an environment-dependent path.
+# shellcheck disable=SC2034  # read by setup_env.sh, which sources this file
 DATA_STORE="${UNSC_DATA_STORE:-/workdir/$USER/unsc/data}"
 
 # Lmod module providing Python. `module -t avail python` on Festus currently
@@ -250,7 +251,8 @@ set_threads() {
 archive_outputs() {
   local src="$1"
   local root="${UNSC_ARCHIVE:-$HOME/unsc-archive}"
-  local dest="$root/$(basename "$src")"
+  local dest
+  dest="$root/$(basename "$src")"
   [[ "${UNSC_ARCHIVE:-}" == "off" || "${UNSC_ARCHIVE:-}" == "none" ]] && return 0
   [[ -d "$src" ]] || return 0
   mkdir -p "$dest" 2>/dev/null || { echo "WARN: cannot create archive dir $dest" >&2; return 0; }
