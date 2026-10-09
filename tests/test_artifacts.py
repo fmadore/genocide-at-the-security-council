@@ -267,6 +267,29 @@ def test_analysis_hash_ignores_the_code_that_computed_the_same_payload():
     assert artifacts.analysis_hash(first) == artifacts.analysis_hash(edited)
 
 
+# --- One CSV writer --------------------------------------------------------
+
+
+def test_csv_artefacts_end_lines_with_a_newline_on_every_platform(tmp_path):
+    import pandas as pd
+
+    frame = pd.DataFrame({"word": ["a", "b"], "count": [1, 2]})
+    target = tmp_path / "table.csv"
+    artifacts.atomic_write_csv(target, frame)
+    assert target.read_bytes() == b"word,count\na,1\nb,2\n"
+    rows = [{"word": "a", "count": 1}, {"word": "b", "count": 2}]
+    artifacts.atomic_write_csv(target, rows)
+    assert target.read_bytes() == b"word,count\na,1\nb,2\n"
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_a_row_writer_takes_its_columns_from_the_first_row_or_from_the_caller():
+    rows = [{"b": 1, "a": "x,y"}]
+    assert artifacts.csv_text(rows) == 'b,a\n1,"x,y"\n'
+    assert artifacts.csv_text(rows, fieldnames=["a", "b"]) == 'a,b\n"x,y",1\n'
+    assert artifacts.csv_text([], fieldnames=["a"]) == "a\n"
+
+
 def test_a_gzipped_artefact_is_byte_identical_and_readable(tmp_path):
     first, second = tmp_path / "a.json.gz", tmp_path / "b.json.gz"
     artifacts.atomic_write_json_gzip(first, {"meta": {}, "speeches": [1, 2]})

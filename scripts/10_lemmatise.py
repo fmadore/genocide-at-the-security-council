@@ -33,8 +33,6 @@ replace the full-corpus layer.
 from __future__ import annotations
 
 import argparse
-import csv
-import io
 import sys
 import time
 from importlib.metadata import PackageNotFoundError, version
@@ -65,16 +63,6 @@ SMOKE = DERIVED / "lemmas_smoke"
 MAPPING_LIMIT = 5_000
 
 REPORT_EVERY = 500
-
-
-def write_csv(path: Path, rows: list[dict]) -> None:
-    if not rows:
-        return
-    buffer = io.StringIO(newline="")
-    writer = csv.DictWriter(buffer, fieldnames=list(rows[0]), lineterminator="\n")
-    writer.writeheader()
-    writer.writerows(rows)
-    artifacts.atomic_write_text(path, buffer.getvalue())
 
 
 def build_note(
@@ -319,7 +307,9 @@ def run(model: str, limit: int, processes: int, batch_size: int, pairs_path: Pat
     with artifacts.atomic_directory(target) as staged:
         table.to_parquet(staged / "lemmas.parquet", index=False, compression="zstd")
         meta["table_sha256"] = artifacts.sha256(staged / "lemmas.parquet")
-        write_csv(staged / "mapping.csv", pairs)
+        # No merges, no audit table: an empty file would have no columns to name.
+        if pairs:
+            artifacts.atomic_write_csv(staged / "mapping.csv", pairs)
         artifacts.atomic_write_json(staged / "manifest.json", meta, indent=2)
     size = (target / "lemmas.parquet").stat().st_size / 1e6
     console.info(f"wrote {rel(target)}  {len(table):,} rows ({size:.0f} MB)")

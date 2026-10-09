@@ -25,7 +25,7 @@ def run() -> None:
         "rows": len(table), "reconciled": True,
     })
     with artifacts.atomic_directory(DERIVED / "actor_year") as staged:
-        table.to_csv(staged / "actor_year.csv", index=False)
+        artifacts.atomic_write_csv(staged / "actor_year.csv", table)
         artifacts.atomic_write_json(staged / "manifest.json", meta, indent=2)
     print(f"Wrote {len(table):,} annual rows; {int(table.sufficient.sum()):,} meet the rate floor", flush=True)
 

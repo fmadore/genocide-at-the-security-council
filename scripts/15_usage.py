@@ -529,9 +529,7 @@ def write_first_events(diffusion: dict[str, object], rows: pd.DataFrame) -> None
         for entry in diffusion["referents"]  # type: ignore[union-attr]
         for event in entry["events"]
     ]
-    artifacts.atomic_write_text(
-        FIRST_EVENTS, pd.DataFrame(records).to_csv(index=False, lineterminator="\n")
-    )
+    artifacts.atomic_write_csv(FIRST_EVENTS, pd.DataFrame(records))
     console.info(f"wrote {rel(FIRST_EVENTS)}: {len(records):,} first events to verify")
 
 

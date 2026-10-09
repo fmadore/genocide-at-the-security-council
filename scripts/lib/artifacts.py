@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import ast
+import csv
 import gzip
 import hashlib
+import io
 import json
 import os
 import platform
@@ -12,11 +14,12 @@ import re
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+from typing import Any
 
 #: Where the pipeline's own code lives. Not `provenance`'s `root`, which names
 #: the tree the inputs are described against and which a test may point at a
@@ -137,6 +140,36 @@ def atomic_write_json_gzip(path: Path, payload: object, *, indent: int | None = 
         path,
         gzip.compress(json_text(payload, indent=indent).encode("utf-8"), compresslevel=9, mtime=0),
     )
+
+
+def csv_text(table: Any, *, fieldnames: Sequence[str] | None = None) -> str:
+    """The serialisation every CSV artefact is written with: `\\n`, never `\\r\\n`.
+
+    A data frame is written by pandas without its index; anything else is read
+    as rows of mappings and written by `csv.DictWriter`, with the columns taken
+    from `fieldnames` or else from the first row. Each keeps its own formatting
+    of values, so a caller moved onto this writer changes no cell.
+
+    The line ending is fixed because both writers otherwise use the platform's:
+    the same table came out as different bytes on Windows and on the Linux
+    deploy, and a checksum that differs across machines for identical data
+    cannot say whether anything changed.
+    """
+    if hasattr(table, "to_csv"):
+        return str(table.to_csv(index=False, lineterminator="\n"))
+    rows: list[Mapping[str, object]] = list(table)
+    columns = list(fieldnames) if fieldnames is not None else list(rows[0]) if rows else []
+    buffer = io.StringIO(newline="")
+    writer = csv.DictWriter(buffer, fieldnames=columns, lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    return buffer.getvalue()
+
+
+def atomic_write_csv(
+    path: Path, table: Any, *, fieldnames: Sequence[str] | None = None
+) -> None:
+    atomic_write_text(path, csv_text(table, fieldnames=fieldnames))
 
 
 def read_json(path: Path) -> object:

@@ -92,10 +92,10 @@ def run(repetitions: int, seed: int, speakers: list[str] | None, limit: int) -> 
         "invalid_draws": "Zero words/denominators are undefined; withhold if more than 5% undefined; no half counts in bootstrap",
     })
     with artifacts.atomic_directory(DERIVED / "extended_robustness") as staged:
-        pd.DataFrame(influence_rows).to_csv(staged / "meeting_influence.csv", index=False)
-        pd.DataFrame(interval_rows).to_csv(staged / "intervals.csv", index=False)
-        pd.DataFrame(selections).to_csv(staged / "speaker_coverage.csv", index=False)
-        pd.DataFrame(primary_rows).to_csv(staged / "rankings.csv", index=False)
+        artifacts.atomic_write_csv(staged / "meeting_influence.csv", pd.DataFrame(influence_rows))
+        artifacts.atomic_write_csv(staged / "intervals.csv", pd.DataFrame(interval_rows))
+        artifacts.atomic_write_csv(staged / "speaker_coverage.csv", pd.DataFrame(selections))
+        artifacts.atomic_write_csv(staged / "rankings.csv", pd.DataFrame(primary_rows))
         artifacts.atomic_write_json(staged / "manifest.json", meta, indent=2)
 
 

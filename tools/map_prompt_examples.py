@@ -19,8 +19,6 @@ differs, so a corpus or lexicon change that moved an example is caught.
 from __future__ import annotations
 
 import argparse
-import csv
-import io
 import re
 import sys
 from pathlib import Path
@@ -119,11 +117,7 @@ def build() -> str:
                     "occurrence_id": item.occurrence_id,
                 }
             )
-    stream = io.StringIO()
-    writer = csv.DictWriter(stream, fieldnames=FIELDS, lineterminator="\n")
-    writer.writeheader()
-    writer.writerows(rows)
-    return stream.getvalue()
+    return artifacts.csv_text(rows, fieldnames=FIELDS)
 
 
 def main() -> None:
