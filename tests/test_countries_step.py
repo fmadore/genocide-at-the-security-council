@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import re
-from pathlib import Path
+import importlib
+import json
 
 import pandas as pd
 from conftest import make_speeches
 from lib import actors, lexicon, series
-
-STEP = Path(__file__).resolve().parents[1] / "scripts" / "11_countries.py"
 
 
 def _speech(row: int, country: str, year: int, words: int, *, term: bool, count: int) -> dict:
@@ -101,14 +99,47 @@ def test_every_measure_withholds_from_the_same_speakers() -> None:
     assert any("sufficient" in problem for problem in actors.reconcile_withholding(broken))
 
 
-def test_the_headline_is_named_once_in_the_source() -> None:
+def test_the_headline_is_named_once(tmp_path, monkeypatch) -> None:
     """No read of the headline measure by its literal name.
 
     A rename of `TRACKED` must be the only edit a change of headline needs;
-    every other place reaches the measure through `HEADLINE`, so a literal
-    left behind is a regression waiting for the next rename.
+    every other place reaches the measure through `HEADLINE`. So 11 is run
+    whole, in process, with `war_crimes` as the headline over a corpus that
+    has no genocide columns at all: a literal left behind anywhere in the step
+    or in `lib.actors` fails here with a missing column or measure.
     """
-    source = STEP.read_text(encoding="utf-8") + Path(actors.__file__).read_text(encoding="utf-8")
-    literal = re.compile(r"""computed\[\s*["']genocide["']\s*\]|["']n?_?has_genocide["']|["']n_genocide["']""")
-    assert not literal.findall(source), literal.findall(source)
-    assert "HEADLINE = TRACKED[0][1]" in source
+    assert actors.TRACKED[0][1] == actors.HEADLINE
+    step = importlib.import_module("11_countries")
+    tracked = [("terms", "war_crimes")]
+    for module in (actors, step):
+        monkeypatch.setattr(module, "TRACKED", tracked)
+        monkeypatch.setattr(module, "HEADLINE", "war_crimes")
+
+    # Every period 11 reports holds speeches, and two speakers clear the minimum.
+    rows = [
+        {
+            "year": year,
+            "country_org": country,
+            "meeting_symbol": f"S/PV.{year}",
+            "has_war_crimes": (year + i) % 9 == 0,
+            "n_war_crimes": int((year + i) % 9 == 0),
+        }
+        for year in range(1946, 2024)
+        for i, country in enumerate(["Loud", "Quiet", "Loud"])
+    ]
+    corpus = make_speeches(rows)
+    parquet = tmp_path / "speeches_flagged.parquet"
+    corpus.to_parquet(parquet, index=False)
+    monkeypatch.setattr(step, "SPEECHES_FLAGGED", parquet)
+    monkeypatch.setattr(step, "COUNTRIES", tmp_path / "countries")
+    monkeypatch.setattr(step, "ensure_dirs", lambda: None)
+    monkeypatch.setattr(step, "write_note", lambda name, body: tmp_path / name)
+    monkeypatch.setattr(step, "EXPECTED_SPEECHES", len(corpus))
+    monkeypatch.setattr(step, "EXPECTED_TOKENS", int(corpus["tokens"].sum()))
+    monkeypatch.setattr(step, "EXPECTED_WORDS", int(corpus["words"].sum()))
+
+    step.run(30)
+
+    written = json.loads((tmp_path / "countries" / "countries.json").read_text(encoding="utf-8"))
+    assert set(written["measures"]) == {"war_crimes"}
+    assert "genocide" not in json.dumps(written["measures"])

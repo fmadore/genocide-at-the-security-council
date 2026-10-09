@@ -13,11 +13,15 @@ a test.
 
 from __future__ import annotations
 
+import dataclasses
+import importlib.abc
 import importlib.util
-import inspect
 import json
 import math
+import sys
+import types
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -772,73 +776,171 @@ def test_the_diagnostic_rejects_two_spaces_of_different_sizes() -> None:
 
 
 # --- The projection never reaches a labelling path --------------------------
+#
+# UMAP, HDBSCAN and matplotlib are cluster packages that CI does not install,
+# and `lib.topics` imports them inside the functions that use them. So these
+# tests put recording stand-ins in `sys.modules` and call the real functions:
+# what they check is what the code asks the libraries to do, not what its text
+# says.
 
 
-def body(function: object) -> str:
-    """A function's source with its docstring removed.
+class Libraries:
+    """Stand-ins for `umap`, `sklearn.cluster` and `matplotlib` that record calls."""
 
-    The guards below ask what the code does, and every one of these functions
-    explains in prose that it does not cluster or label. Searching the docstring
-    for the word would find the promise instead of the breach.
-    """
-    source = inspect.getsource(function)
-    doc = inspect.getdoc(function)
-    if doc:
-        for line in doc.splitlines():
-            source = source.replace(line.strip(), "")
-    return source
+    def __init__(self) -> None:
+        self.umap: list[dict[str, object]] = []
+        self.clustered: list[tuple[int, ...]] = []
+        self.events: list[str] = []
+
+    def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        library = self
+
+        class UMAP:
+            def __init__(self, **options: object) -> None:
+                self.options = options
+                library.umap.append(options)
+
+            def fit_transform(self, vectors: np.ndarray) -> np.ndarray:
+                # Deterministic and the right shape: the leading coordinates.
+                return np.asarray(vectors, dtype=np.float64)[:, : int(self.options["n_components"])]
+
+        class HDBSCAN:
+            def __init__(self, **options: object) -> None:
+                library.events.append("hdbscan")
+
+            def fit_predict(self, points: np.ndarray) -> np.ndarray:
+                library.clustered.append(np.asarray(points).shape)
+                return np.arange(len(points)) % 2
+
+        umap = types.ModuleType("umap")
+        umap.UMAP = UMAP
+        cluster = types.ModuleType("sklearn.cluster")
+        cluster.HDBSCAN = HDBSCAN
+        sklearn = types.ModuleType("sklearn")
+        sklearn.cluster = cluster
+
+        # matplotlib as a package whose `pyplot` is imported through a finder,
+        # so the order of `use("Agg")` and the pyplot import is observable.
+        matplotlib = types.ModuleType("matplotlib")
+        matplotlib.__path__ = []
+        matplotlib.use = lambda backend: library.events.append(f"use {backend}")
+        matplotlib.colormaps = mock.MagicMock()
+        pyplot = mock.MagicMock()
+        pyplot.subplots.return_value = (mock.MagicMock(), mock.MagicMock())
+
+        class Finder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+            def find_spec(self, name, path=None, target=None):
+                if name == "matplotlib.pyplot":
+                    return importlib.util.spec_from_loader(name, self)
+                return None
+
+            def create_module(self, spec):
+                library.events.append("import pyplot")
+                return pyplot
+
+            def exec_module(self, module) -> None:
+                return None
+
+        for name, module in {
+            "umap": umap,
+            "sklearn": sklearn,
+            "sklearn.cluster": cluster,
+            "matplotlib": matplotlib,
+        }.items():
+            monkeypatch.setitem(sys.modules, name, module)
+        monkeypatch.delitem(sys.modules, "matplotlib.pyplot", raising=False)
+        monkeypatch.setattr(sys, "meta_path", [Finder(), *sys.meta_path])
 
 
-def test_the_helper_reads_the_code_and_not_the_promise() -> None:
-    """`body` is load-bearing for the two guards below, so it is checked too."""
-    assert "clustering in the space built for a picture" not in body(topics.fit_embedding)
-    assert "HDBSCAN(" in body(topics.fit_embedding)
+@pytest.fixture
+def libraries(monkeypatch: pytest.MonkeyPatch) -> Libraries:
+    recorded = Libraries()
+    recorded.install(monkeypatch)
+    return recorded
 
 
-def test_the_clustering_still_happens_in_five_dimensions() -> None:
+def vectors(n: int = 24, dimensions: int = 8) -> np.ndarray:
+    return np.random.default_rng(23).normal(size=(n, dimensions))
+
+
+def documents(n: int = 24) -> list[list[str]]:
+    return [["council", "peace"] if i % 2 else ["tribunal", "justice"] for i in range(n)]
+
+
+def test_the_clustering_still_happens_in_five_dimensions(libraries, monkeypatch) -> None:
     """docs/PLAN.md §4: clustering in the space built for a picture optimises for
     a picture. Adding the picture must not have quietly moved the clustering
     into it."""
-    signature = inspect.signature(topics.fit_embedding)
-    assert signature.parameters["components"].default == 5
-    source = body(topics.fit_embedding)
-    assert "n_components=components" in source
-    assert "project_2d" not in source
+
+    def no_picture(*args: object, **kwargs: object) -> None:
+        raise AssertionError("fit_embedding reached the 2D projection")
+
+    monkeypatch.setattr(topics, "project_2d", no_picture)
+    model = topics.fit_embedding(vectors(), documents(), seed=3)
+    assert [options["n_components"] for options in libraries.umap] == [5]
+    assert libraries.clustered == [(24, 5)]
+    assert model.reduced is not None and model.reduced.shape == (24, 5)
 
 
-def test_the_projection_is_fitted_in_two_dimensions_and_only_there() -> None:
-    source = body(topics.project_2d)
-    assert "n_components=2" in source
-    assert "HDBSCAN" not in source
+def test_the_projection_is_fitted_in_two_dimensions_and_only_there(libraries) -> None:
+    coordinates = topics.project_2d(vectors(), seed=3)
+    assert [options["n_components"] for options in libraries.umap] == [2]
+    assert coordinates.shape == (24, 2)
+    assert "hdbscan" not in libraries.events and not libraries.clustered
 
 
-def test_no_label_is_derived_from_the_projection() -> None:
+def test_no_label_is_derived_from_the_projection(libraries, monkeypatch) -> None:
     """No function that touches the 2D coordinates may reach a clusterer or the
     labelling that names a topic. This is the property the whole diagnostic
-    depends on, so it is asserted rather than left to the docstrings."""
-    forbidden = ("ctfidf", "HDBSCAN", "fit_predict", "TopicModel", "argmax")
-    for function in (
-        topics.project_2d,
-        topics.projection_diagnostic,
-        topics.projection_agreement,
-        topics.neighbourhood_purity,
-        topics.trustworthiness,
-        topics.draw_projection,
-        topics.group_others,
-    ):
-        source = body(function)
-        for name in forbidden:
-            assert name not in source, f"{function.__name__} reaches {name}"
+    depends on, so every such function is run with the labelling paths made to
+    fail if they are reached."""
+
+    def forbidden(name: str):
+        def reached(*args: object, **kwargs: object) -> None:
+            raise AssertionError(f"the projection reached {name}")
+
+        return reached
+
+    for name in ("ctfidf", "fit_embedding", "fit_nmf", "relabel", "TopicModel"):
+        monkeypatch.setattr(topics, name, forbidden(name))
+
+    projected = topics.project_2d(vectors(), seed=3)
+    clustered = vectors(dimensions=5)
+    values = ["France", "Rwanda", "Chile"] * 8
+    topics.projection_diagnostic(projected, clustered, {"country_org": values}, seed=1, k=4)
+    topics.projection_agreement(clustered, projected, seed=1, k=4)
+    topics.neighbourhood_purity(topics.nearest_neighbours(projected, 4), values)
+    topics.trustworthiness(clustered, projected, 4)
+    topics.group_others(values, 2)
+    topics.draw_projection(
+        projected, values, title="t", colour_label="speaker", categorical=True
+    )
+    topics.draw_projection(
+        projected, list(range(24)), title="t", colour_label="year", categorical=False
+    )
+    assert "hdbscan" not in libraries.events and not libraries.clustered
 
 
 def test_the_clustered_reduction_is_kept_but_never_labelled() -> None:
     """`TopicModel.reduced` exists so the diagnostic can compare the picture
     against the fit that produced the clusters. It must not become a second
-    source of labels."""
+    source of labels: re-thresholding keeps it untouched, and the labels come
+    out the same whatever it holds."""
     model = topics.TopicModel(name="embedding", labels=np.array([0, 1]), words={})
     assert model.reduced is None
-    source = inspect.getsource(topics.relabel)
-    assert "reduced=model.reduced" in source
+
+    weights = np.array([[0.9, 0.1], [0.2, 0.8], [0.5, 0.5]])
+    reduced = np.arange(15, dtype=np.float64).reshape(3, 5)
+    fitted = topics.TopicModel(
+        name="nmf", labels=np.array([0, 1, 0]), words={}, weights=weights, reduced=reduced
+    )
+    docs = [["a", "b"], ["c", "d"], ["a", "c"]]
+    relabelled = topics.relabel(fitted, docs, 0.6)
+    assert relabelled.reduced is reduced
+    elsewhere = topics.relabel(
+        dataclasses.replace(fitted, reduced=-reduced), docs, 0.6
+    )
+    assert relabelled.labels.tolist() == elsewhere.labels.tolist()
 
 
 # --- Figures ----------------------------------------------------------------
@@ -877,12 +979,14 @@ def test_the_figures_state_what_a_umap_axis_is_not() -> None:
     assert "not evidence of influence" in topics.PROJECTION_CAVEAT
 
 
-def test_the_figures_are_drawn_without_a_display() -> None:
+def test_the_figures_are_drawn_without_a_display(libraries) -> None:
     """A backend that reaches for a window is a way to fail forty minutes into a
-    job on a headless compute node, after the expensive part is already done."""
-    source = inspect.getsource(topics.draw_projection)
-    assert 'matplotlib.use("Agg")' in source
-    assert source.index('matplotlib.use("Agg")') < source.index("import matplotlib.pyplot")
+    job on a headless compute node, after the expensive part is already done.
+    The Agg backend has to be chosen before pyplot is imported, or it is too late."""
+    topics.draw_projection(
+        np.zeros((3, 2)), ["a", "b", "a"], title="t", colour_label="c", categorical=True
+    )
+    assert libraries.events.index("use Agg") < libraries.events.index("import pyplot")
 
 
 def test_the_figures_are_deterministic_by_construction() -> None:
