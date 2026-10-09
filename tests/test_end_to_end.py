@@ -1,24 +1,32 @@
-"""Three numbered scripts, run as the pipeline runs them, over a synthetic corpus.
+"""Six numbered scripts, run as the pipeline runs them, over synthetic corpora.
 
 The artefact contract at the export seam is value-blind: it says a field is a
 float, not that the float is the one the arithmetic used to produce. Nothing
 else executed a numbered script end to end (review of 1 September 2026, §6.5),
 so a change to a rate, an interval or a change-point p-value that kept its
-shape would ship. This test builds a small deterministic corpus, runs 04, 08
-and 17 as subprocesses — the way `make payload` runs them, with the data, notes
-and web roots pointed at a temporary tree — and compares the analytical
-values they write against golden JSON committed beside the test.
+shape would ship. These tests build small deterministic corpora, run 04, 08
+and 17, then 05, 11 and 12, as subprocesses — the way `make payload` runs them,
+with the data, notes and web roots pointed at a temporary tree — and compare
+the analytical values they write against golden JSON committed beside them.
 
 Regenerate the golden files, and read the diff, after a change that is meant
 to move numbers:
 
     UPDATE_GOLDEN=1 python -m pytest tests/test_end_to_end.py
 
-Only 04, 08 and 17: 11 and 12 assert the codebook's corpus totals and refuse a
-synthetic one, and 05 needs a corpus large enough for anything to clear the
-G² floor. 17 runs with `--no-model`, because the committed runs annotate the
-real corpus's occurrence ids and would join none of a synthetic one — which is
-a refusal the step makes on purpose and not something to work around here.
+11 and 12 assert the codebook's corpus totals and refuse any other corpus, so
+the second test hands them the synthetic corpus's own totals through the
+environment (`lib.paths`). Its corpus starts in 1946 because 11 divides by
+every period's speeches when it writes its note. 05's tables need more text
+than this corpus holds for many words to clear the G² floor, so most of what
+it pins is the matched comparison and the windows rather than ranked keywords.
+
+Not here: 17's model join, which runs with `--no-model` because the committed
+runs annotate the real corpus's occurrence ids and would join none of a
+synthetic one; 13 and 15, which refuse any enumeration but the committed one,
+and read the committed prompt examples by occurrence id (13) or refuse a run
+directory outside the repository (15); and 01-03, which need the raw
+distribution.
 """
 
 from __future__ import annotations
@@ -305,6 +313,76 @@ def analytical(series_dir: Path, kwic_dir: Path, frames_dir: Path) -> dict[str, 
     }
 
 
+def read_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def lexical_values(directory: Path) -> dict[str, object]:
+    """What 05 measures: windows, slices, the matched comparison and the network."""
+    collocates = read_json(directory / "collocates.json")
+    sliced = read_json(directory / "collocates_sliced.json")
+    keyness = read_json(directory / "keyness.json")
+    network = read_json(directory / "network.json")
+    return {
+        "collocates": {name: node["widths"] for name, node in collocates["nodes"].items()},
+        "sliced": {key: sliced[key] for key in ("by_period", "by_speaker_group", "by_country")},
+        "keyness": {
+            key: keyness[key]
+            for key in (
+                "target_speeches",
+                "eligible_target_speeches",
+                "control_speeches",
+                "coverage",
+                "target_tokens",
+                "control_tokens",
+                "short_strata",
+                "keywords",
+                "keywords_unmatched",
+                "stability",
+            )
+        },
+        "network": {
+            "speeches": {term["name"]: term["speeches"] for term in network["terms"]},
+            "edges": network["edges"],
+            "by_period": {name: block["edges"] for name, block in network["by_period"].items()},
+        },
+    }
+
+
+def countries_values(directory: Path) -> dict[str, object]:
+    """11's per-speaker rates, seats and withholding, without its prose or geography."""
+    countries = read_json(directory / "countries.json")
+    return {
+        "periods": countries["periods"],
+        "countries": [
+            {
+                key: row[key]
+                for key in ("country_org", "entity_type", "speeches", "first_year", "last_year")
+            }
+            for row in countries["countries"]
+        ],
+        "standing": countries["standing"]["rows"],
+        "genocide": countries["measures"]["genocide"]["rows"],
+    }
+
+
+def speaker_keyness_values(directory: Path) -> dict[str, object]:
+    """12's pairing of each speaker's speeches with matched controls, and its tables."""
+    keyness = read_json(directory / "speaker_keyness.json")
+    return {
+        key: keyness[key]
+        for key in (
+            "corpus_tokens",
+            "corpus_types",
+            "speakers_total",
+            "speakers_considered",
+            "speakers_published",
+            "speakers_withheld",
+            "speakers",
+        )
+    }
+
+
 @pytest.mark.slow
 def test_04_08_and_17_reproduce_the_golden_values(tmp_path: Path) -> None:
     roots = {
@@ -324,3 +402,34 @@ def test_04_08_and_17_reproduce_the_golden_values(tmp_path: Path) -> None:
     assert tree_state() == before, "a step wrote into the repository's own tree"
     found = analytical(derived / "series", derived / "kwic", derived / "frames")
     compare_golden(found, "end_to_end_04_08.json")
+
+
+@pytest.mark.slow
+def test_05_11_and_12_reproduce_the_golden_values(tmp_path: Path) -> None:
+    derived = tmp_path / "data" / "derived"
+    derived.mkdir(parents=True)
+    corpus = synthetic_corpus(first_year=1946)
+    corpus.to_parquet(derived / "speeches_flagged.parquet", index=False)
+    roots = {
+        "GENOCIDE_DATA_ROOT": str(tmp_path / "data"),
+        "GENOCIDE_NOTES_ROOT": str(tmp_path / "notes"),
+        "GENOCIDE_WEB_DATA_ROOT": str(tmp_path / "web-data"),
+        "GENOCIDE_EXPECTED_SPEECHES": str(len(corpus)),
+        "GENOCIDE_EXPECTED_TOKENS": str(int(corpus["tokens"].sum())),
+        "GENOCIDE_EXPECTED_WORDS": str(int(corpus["words"].sum())),
+    }
+    before = tree_state()
+
+    run_step("05_lexical.py", roots, "--min-edge", "3", "--matching-repetitions", "5")
+    # Below the 125 the corpus would need, so that some speaker-periods are
+    # published and others withheld, and both paths are held still.
+    run_step("11_countries.py", roots, "--minimum", "50")
+    run_step("12_speaker_keyness.py", roots, "--repetitions", "3")
+
+    assert tree_state() == before, "a step wrote into the repository's own tree"
+    found = {
+        "lexical": lexical_values(derived / "lexical"),
+        "countries": countries_values(derived / "countries"),
+        "speaker_keyness": speaker_keyness_values(derived / "speaker_keyness"),
+    }
+    compare_golden(found, "end_to_end_05_11_12.json")

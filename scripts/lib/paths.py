@@ -125,16 +125,30 @@ DOI = "doi:10.7910/DVN/CKPTRB"
 DATAVERSE = "https://dataverse.harvard.edu"
 DATASET_VERSION = "5.0"
 
+
+def _expected(variable: str, default: int) -> int:
+    """A corpus total the build asserts, overridable from the environment.
+
+    Like the roots above, only `tests/test_end_to_end.py` sets these: 11 and
+    12 refuse any corpus whose totals are not the codebook's, which is the
+    point of them, and the synthetic corpus the test runs them over is not
+    the codebook's. Everything else leaves them unset and gets the figures
+    below.
+    """
+    value = os.environ.get(variable)
+    return int(value) if value else default
+
+
 # Ground truth from the codebook, asserted by the build. `EXPECTED_TOKENS` is
 # quanteda's count over the full text of every speech, punctuation and numbers
 # included, and it is kept as provenance: reproducing it is what says the tar
 # and the TSV describe the same corpus. It is *not* the denominator of a rate —
 # see `EXPECTED_WORDS`.
-EXPECTED_SPEECHES = 167_642
+EXPECTED_SPEECHES = _expected("GENOCIDE_EXPECTED_SPEECHES", 167_642)
 # The source calls this field a word count. The legacy name remains in the
 # canonical table because downstream artefacts already carry `tokens`, but it
 # is provenance only and is never used as a lexical denominator.
-EXPECTED_TOKENS = 87_678_254
+EXPECTED_TOKENS = _expected("GENOCIDE_EXPECTED_TOKENS", 87_678_254)
 
 # Words in the speech bodies, counted with `lib.lexical.words` and asserted by
 # 02. This is the denominator every "per 100,000 words" figure divides by, and
@@ -144,7 +158,7 @@ EXPECTED_TOKENS = 87_678_254
 # 86,854,907 until 24 September 2026, when the tokenizer stopped cutting
 # accented words at the accent and started reading both apostrophes as one
 # (docs/ROADMAP.md, RV3): 42,333 fewer words, 0.05% of the denominator.
-EXPECTED_WORDS = 86_812_574
+EXPECTED_WORDS = _expected("GENOCIDE_EXPECTED_WORDS", 86_812_574)
 
 
 def ensure_dirs() -> None:
