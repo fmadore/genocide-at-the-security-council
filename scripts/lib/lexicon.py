@@ -108,7 +108,7 @@ class Term:
     #: The pattern the widening replaced, kept so 03 can re-run it; ``None``
     #: when only the anchor widened.
     widened_from: str | None = None
-    regex: re.Pattern[str] = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
+    regex: re.Pattern[str] = field(compare=False, repr=False, default=None)  # type: ignore[arg-type]
     #: The anchor this term is held to. `load` sets the compiled `anchor:`
     #: block; a hand-built term falls back to :data:`ANCHOR_RE`.
     anchor_regex: re.Pattern[str] | None = field(compare=False, repr=False, default=None)
@@ -359,7 +359,7 @@ class Anchor:
     prefilter: str
     widened_since: int | None = None
     widened_from: str | None = None
-    regex: re.Pattern[str] = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
+    regex: re.Pattern[str] = field(compare=False, repr=False, default=None)  # type: ignore[arg-type]
 
 
 @dataclass(frozen=True)
@@ -1123,7 +1123,8 @@ def population(term: str, path: Path = LEXICON_COUNTS) -> tuple[int, int]:
     numbers as constants of their own, four copies that a lexicon change had to
     find by hand.
     """
-    entry = load_counts(path)["terms"].get(term)  # type: ignore[union-attr]
+    terms = load_counts(path)["terms"]
+    entry = terms.get(term) if isinstance(terms, Mapping) else None
     if not isinstance(entry, Mapping):
         raise ValueError(f"{rel(path)} holds no counts for '{term}'")
     return int(entry["speeches"]), int(entry["occurrences"])

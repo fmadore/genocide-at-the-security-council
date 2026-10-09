@@ -34,20 +34,6 @@ explicit_package_bases = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 
-# TEMPORARY. These modules were being edited on other branches when mypy was
-# added, so their errors were left to those branches rather than fixed here in
-# conflict with them. Remove each module from this list once its branch has
-# landed and `python -m mypy` is clean on it; several are clean already.
-[[tool.mypy.overrides]]
-module = [
-    "lib.audit",
-    "lib.frames",
-    "lib.keyness",
-    "lib.lexical",
-    "lib.lexicon",
-]
-ignore_errors = true
-
 # The GPU and topic-model packages live in requirements-cluster.txt, not in the
 # lock CI installs, and lib imports them inside the functions that use them.
 [[tool.mypy.overrides]]
