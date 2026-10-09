@@ -417,12 +417,17 @@ def validated(
     return rows, schema_counts, superseded
 
 
-def refuse_partial(annotated: int, total: int, allow: bool, *, run_id: str = "") -> None:
-    """A gap is reported honestly or refused, never averaged over."""
+def refuse_partial(annotated: int, total: int, allowed_by: str, *, run_id: str = "") -> None:
+    """A gap is reported honestly or refused, never averaged over.
+
+    `allowed_by` says what allows a gap — `--allow-partial`, or
+    `model_runs.ALLOW_PARTIAL_RUN` naming the run — and is empty when nothing
+    does.
+    """
     if annotated >= total:
         return
     missing = total - annotated
-    if not allow:
+    if not allowed_by:
         console.fail(
             f"the run annotates {annotated:,} of {total:,} occurrences",
             [
@@ -431,10 +436,11 @@ def refuse_partial(annotated: int, total: int, allow: bool, *, run_id: str = "")
                 f"resume it with 14_llm_annotate.py --run-id {run_id or '<run id>'} and the "
                 "model and sampling settings it was started with (on the cluster, resubmit "
                 "the identical submit_annotate.sh command); completed speeches are skipped",
-                "or pass --allow-partial to publish the coverage as it stands",
+                f"or name it in {rel(model_runs.ALLOW_PARTIAL_RUN)}, or pass --allow-partial, "
+                "to publish the coverage as it stands",
             ],
         )
     console.warn(
-        f"--allow-partial: {annotated:,} of {total:,} occurrences annotated "
+        f"{allowed_by}: {annotated:,} of {total:,} occurrences annotated "
         f"({annotated / total:.1%}); the artefact records the gap"
     )

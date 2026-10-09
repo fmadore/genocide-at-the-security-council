@@ -39,8 +39,8 @@ it is the one the model was given. Revising the prompt is therefore not a
 break: the old text moves into `prompts/v<n>.md`, the runs made with it go on
 resolving to it, and only a wording this repository no longer holds is refused.
 The single tolerated gap is coverage: a run that did not reach every occurrence
-is aggregated under `--allow-partial` and reports honestly how much of the
-corpus it covers. A comparison run has no such gate — it is read over the
+is aggregated when `allow_partial_run.txt` names it, or under `--allow-partial`,
+and reports honestly how much of the corpus it covers. A comparison run has no such gate — it is read over the
 occurrences both runs reached, and the artefact says how many those were — but it
 is refused on everything else the published run is refused on, and on one more: a
 comparison made with a different prompt, which would confound the instrument with
@@ -1038,6 +1038,15 @@ def run(args: argparse.Namespace) -> None:
 
     console.step("Choosing the run")
     directory, run_id = select_run(args.run, args.run_dir)
+    # Decided on the committed id, before a run read by path borrows the id its
+    # manifest records: the allowance names a committed run.
+    allowed_by = (
+        "--allow-partial"
+        if args.allow_partial
+        else f"{rel(model_runs.ALLOW_PARTIAL_RUN)} names this run"
+        if model_runs.partial_allowed(run_id)
+        else ""
+    )
     manifest, raw_rows = read_run(directory)
     run_id = run_id or str(manifest.get("run_id", ""))
     console.info(f"{rel(directory)}: {len(raw_rows):,} rows, run '{run_id}'")
@@ -1102,7 +1111,7 @@ def run(args: argparse.Namespace) -> None:
     raw_rows, schema_counts, superseded = usage_refusals.validated(
         manifest, raw_rows, lex=lex, enumerated=enumerated, referent_list=referent_list
     )
-    usage_refusals.refuse_partial(len(raw_rows), len(found), args.allow_partial, run_id=run_id)
+    usage_refusals.refuse_partial(len(raw_rows), len(found), allowed_by, run_id=run_id)
     console.info(
         f"referent list v{referent_list.version}: {len(referent_list.current)} current, "
         f"{len(referent_list.retired_in)} retired, every row validated against them"
@@ -1344,7 +1353,7 @@ def run(args: argparse.Namespace) -> None:
             "minimum_occurrences": args.minimum,
             "occurrences_total": len(found),
             "occurrences_annotated": len(rows),
-            "allow_partial": bool(args.allow_partial),
+            "allow_partial": bool(allowed_by),
             "state": "partial_model_run" if len(rows) < len(found) else "annotated_model_run",
             # Output file hashes live in the stage manifest; payloads cannot hash themselves.
             "outputs": [],
@@ -1468,7 +1477,8 @@ def main() -> None:
     parser.add_argument(
         "--allow-partial",
         action="store_true",
-        help="aggregate a run that has not reached every occurrence, and record the gap",
+        help="aggregate a run that has not reached every occurrence, and record the gap; "
+        "implied for the run allow_partial_run.txt names",
     )
     parser.add_argument(
         "--minimum",

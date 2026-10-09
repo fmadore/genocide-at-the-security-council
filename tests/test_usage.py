@@ -1761,7 +1761,7 @@ def test_the_resume_advice_names_only_flags_step_14_accepts(capsys) -> None:
     import sys
 
     with pytest.raises(SystemExit):
-        usage_refusals.refuse_partial(9, 10, False, run_id="2026-09-08-qwen-131k")
+        usage_refusals.refuse_partial(9, 10, "", run_id="2026-09-08-qwen-131k")
     printed = capsys.readouterr()
     advice = printed.out + printed.err
     assert "14_llm_annotate.py --run-id 2026-09-08-qwen-131k" in advice

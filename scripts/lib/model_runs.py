@@ -42,6 +42,17 @@ def pointer(path: Path) -> str:
     return path.read_text(encoding="utf-8").strip() if path.is_file() else ""
 
 
+def partial_allowed(run_id: str) -> bool:
+    """Whether `ALLOW_PARTIAL_RUN` names this committed run.
+
+    Read by 15 itself, so `python scripts/15_usage.py` publishes the run `make`
+    publishes: the allowance used to live only in the Makefile, which turned it
+    into `--allow-partial`, and running the step directly refused the published
+    run. A run read by path rather than by id is never allowed this way.
+    """
+    return bool(run_id) and run_id == pointer(ALLOW_PARTIAL_RUN)
+
+
 def population_problems(
     filenames: Iterable[str], occurrences: int, expected: tuple[int, int] | None = None
 ) -> list[str]:
