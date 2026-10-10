@@ -24,4 +24,4 @@
 # the server and weights that determine the analytical output. 3.24 moved it
 # again, from httpx to httpx2, within the major: nothing here imports either
 # except the transport test, which takes whichever the client is built on.
-openai>=3.6.0,<4
+openai>=3.26.0,<4

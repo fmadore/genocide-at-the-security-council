@@ -2,7 +2,7 @@
 -r requirements.txt
 
 pytest>=9.1.1,<10
-ruff>=0.16.5,<0.17
+ruff>=0.16.10,<0.17
 # Property-based tests (tests/test_properties.py).
 hypothesis>=6.168.5,<7
 # Coverage, reported on every pytest run and never enforced (pyproject.toml).
