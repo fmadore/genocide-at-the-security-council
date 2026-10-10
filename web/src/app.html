@@ -50,7 +50,10 @@
 
 		%sveltekit.head%
 	</head>
-	<body data-sveltekit-preload-data="hover">
+	<!-- Data is preloaded when a link is pressed, not when the pointer crosses
+	     it: passing over Actors on the way to another section fetched 3.4 MB
+	     for a page nobody asked for. -->
+	<body data-sveltekit-preload-data="tap">
 		<!--
 		THESIS: A programme, not a dashboard. Every figure is a numbered plate that
 		takes the whole width, with its notes beneath it; nothing is boxed, tiled or

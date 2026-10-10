@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from lib import audit, lexicon
+from lib import audit, lexicon, sampling, schema
 from lib.paths import ROOT
 
 REFERENT_ID = re.compile(r"^[a-z0-9_]+$")
@@ -22,7 +22,7 @@ def candidates() -> pd.DataFrame:
             {
                 "candidate_id": "candidate-1",
                 "occurrence_id": "occurrence-1",
-                "schema_version": audit.SCHEMA_VERSION,
+                "schema_version": schema.SCHEMA_VERSION,
                 "lexicon_version": 2,
                 "unit": "occurrence",
                 "term": "genocide",
@@ -31,7 +31,7 @@ def candidates() -> pd.DataFrame:
                 "end": 18,
                 "source_sha256": "a" * 64,
                 "source_length": 100,
-                "sampling_frame": audit.PROBABILITY,
+                "sampling_frame": sampling.PROBABILITY,
                 "strategy": "simple random occurrence sample",
                 "seed": 12,
                 "frame_size": 20,
@@ -44,7 +44,7 @@ def candidates() -> pd.DataFrame:
             {
                 "candidate_id": "candidate-2",
                 "occurrence_id": "occurrence-2",
-                "schema_version": audit.SCHEMA_VERSION,
+                "schema_version": schema.SCHEMA_VERSION,
                 "lexicon_version": 2,
                 "unit": "speech",
                 "term": "atrocity",
@@ -53,7 +53,7 @@ def candidates() -> pd.DataFrame:
                 "end": 28,
                 "source_sha256": "b" * 64,
                 "source_length": 100,
-                "sampling_frame": audit.COVERAGE,
+                "sampling_frame": sampling.COVERAGE,
                 "strategy": "one per term-period stratum, then simple random fill",
                 "seed": 13,
                 "frame_size": 20,
@@ -68,13 +68,13 @@ def candidates() -> pd.DataFrame:
 
 
 def annotations(*rows: dict[str, str]) -> pd.DataFrame:
-    return pd.DataFrame(rows, columns=audit.ANNOTATION_FIELDS, dtype="string")
+    return pd.DataFrame(rows, columns=schema.ANNOTATION_FIELDS, dtype="string")
 
 
 def annotation(occurrence: str, coder: str = "coder-a", **changes: str) -> dict[str, str]:
     row = {
         "occurrence_id": occurrence,
-        "schema_version": audit.SCHEMA_VERSION,
+        "schema_version": schema.SCHEMA_VERSION,
         "lexicon_version": "2",
         "coder": coder,
         "coded_at": "2026-08-24",
@@ -117,7 +117,7 @@ def test_changed_source_text_changes_the_occurrence_identity() -> None:
 
 
 def test_sampling_frames_share_an_occurrence_but_not_a_candidate_identity() -> None:
-    assert audit.candidate_id("occurrence", "speech") != audit.candidate_id(
+    assert sampling.candidate_id("occurrence", "speech") != sampling.candidate_id(
         "occurrence", "occurrence"
     )
 
@@ -146,12 +146,12 @@ def sampling_frame() -> pd.DataFrame:
 
 def test_probability_sample_is_equal_probability_and_row_order_independent() -> None:
     frame = sampling_frame()
-    first = audit.probability_sample(frame, 3, 7, audit.PROBABILITY)
-    shuffled = audit.probability_sample(
+    first = sampling.probability_sample(frame, 3, 7, sampling.PROBABILITY)
+    shuffled = sampling.probability_sample(
         frame.sample(frac=1, random_state=99).reset_index(drop=True),
         3,
         7,
-        audit.PROBABILITY,
+        sampling.PROBABILITY,
     )
     assert set(first["occurrence_id"]) == set(shuffled["occurrence_id"])
     assert set(first["inclusion_probability"]) == {0.3}
@@ -160,7 +160,7 @@ def test_probability_sample_is_equal_probability_and_row_order_independent() -> 
 
 
 def test_coverage_sample_covers_every_stratum_and_records_reconstructable_weights() -> None:
-    sample = audit.coverage_sample(sampling_frame(), 6, 11)
+    sample = sampling.coverage_sample(sampling_frame(), 6, 11)
     assert set(zip(sample["term"], sample["period"], strict=True)) == {
         ("a", "1990s"),
         ("a", "2000s"),
@@ -177,7 +177,7 @@ def test_coverage_sample_covers_every_stratum_and_records_reconstructable_weight
 
 def test_coverage_sample_refuses_to_drop_declared_strata() -> None:
     with pytest.raises(ValueError, match="smaller than its 4 strata"):
-        audit.coverage_sample(sampling_frame(), 3, 11)
+        sampling.coverage_sample(sampling_frame(), 3, 11)
 
 
 def test_pipeline_builds_three_distinct_frames_from_declared_patterns() -> None:
@@ -218,16 +218,14 @@ def test_pipeline_builds_three_distinct_frames_from_declared_patterns() -> None:
             "agenda_item_manual": ["x", "y", "z"],
         }
     )
-    counts = lexicon.apply(bodies, lex)
-
-    sample = audit.audit_sample(speeches, bodies, counts, lex, size=2, seed=12)
+    sample = audit.audit_sample(speeches, bodies, lex, size=2, seed=12)
 
     assert set(sample["sampling_frame"]) == {
-        audit.PROBABILITY,
-        audit.COVERAGE,
-        audit.NEGATIVE,
+        sampling.PROBABILITY,
+        sampling.COVERAGE,
+        sampling.NEGATIVE,
     }
-    negative = sample.loc[sample["sampling_frame"] == audit.NEGATIVE]
+    negative = sample.loc[sample["sampling_frame"] == sampling.NEGATIVE]
     assert negative["keyword"].tolist() == ["genecide"]
     assert negative["inclusion_probability"].tolist() == [1.0]
 
@@ -268,12 +266,10 @@ def test_coverage_frame_grows_to_its_strata_rather_than_failing_the_step() -> No
             "agenda_item_manual": ["x"] * len(years),
         }
     )
-    counts = lexicon.apply(bodies, lex)
-
     # Five strata (genocide in three decades, war in two) against a size of 2.
-    sample = audit.audit_sample(speeches, bodies, counts, lex, size=2, seed=12)
+    sample = audit.audit_sample(speeches, bodies, lex, size=2, seed=12)
 
-    coverage = sample.loc[sample["sampling_frame"] == audit.COVERAGE]
+    coverage = sample.loc[sample["sampling_frame"] == sampling.COVERAGE]
     assert len(coverage) == 5
     assert sorted(zip(coverage["term"], coverage["period"], strict=True)) == [
         ("genocide", "1990s"),
@@ -283,7 +279,7 @@ def test_coverage_frame_grows_to_its_strata_rather_than_failing_the_step() -> No
         ("war", "2000s"),
     ]
     # The probability frame keeps the size it was asked for.
-    assert len(sample.loc[sample["sampling_frame"] == audit.PROBABILITY]) == 2
+    assert len(sample.loc[sample["sampling_frame"] == sampling.PROBABILITY]) == 2
 
 
 def test_empty_annotations_leave_one_review_row_per_candidate() -> None:
@@ -437,7 +433,7 @@ def test_referent_file_requires_columns_unique_ids_and_reserved_values(tmp_path)
         "not_applicable,N/A,False positive\n",
         encoding="utf-8",
     )
-    assert audit.read_referents(path) == audit.DEFAULT_REFERENTS
+    assert audit.read_referents(path) == schema.DEFAULT_REFERENTS
 
     path.write_text("id,label,description\nother,Other,Known\n", encoding="utf-8")
     with pytest.raises(ValueError, match="missing reserved IDs"):
@@ -454,8 +450,8 @@ def referent_table() -> pd.DataFrame:
 
 def test_committed_referents_are_readable_and_keep_the_reserved_identifiers() -> None:
     referents = audit.read_referents(referent_path())
-    assert referents >= audit.DEFAULT_REFERENTS
-    assert len(referents) > len(audit.DEFAULT_REFERENTS)
+    assert referents >= schema.DEFAULT_REFERENTS
+    assert len(referents) > len(schema.DEFAULT_REFERENTS)
 
 
 def test_committed_referent_ids_use_one_spelling_convention() -> None:
@@ -469,8 +465,8 @@ def test_committed_referents_declare_a_kind_and_reserve_the_defaults() -> None:
     assert "kind" in table.columns
     unknown = sorted(set(table["kind"]) - REFERENT_KINDS)
     assert unknown == []
-    reserved = table.loc[table["id"].isin(audit.DEFAULT_REFERENTS), "kind"]
-    assert len(reserved) == len(audit.DEFAULT_REFERENTS)
+    reserved = table.loc[table["id"].isin(schema.DEFAULT_REFERENTS), "kind"]
+    assert len(reserved) == len(schema.DEFAULT_REFERENTS)
     assert set(reserved) == {"reserved"}
 
 
@@ -532,7 +528,7 @@ def test_the_committed_list_declares_the_version_its_rows_belong_to() -> None:
     referents = referent_list()
     assert referents.version == REFERENT_MEANING_VERSION
     assert referents.current < referents.all
-    assert referents.current >= audit.DEFAULT_REFERENTS
+    assert referents.current >= schema.DEFAULT_REFERENTS
 
 
 def test_the_meaning_bearing_columns_have_not_moved_without_a_decision() -> None:
@@ -642,7 +638,7 @@ def test_a_file_without_the_version_columns_is_read_as_version_one(tmp_path) -> 
     )
     referents = audit.read_referent_list(path)
     assert referents.version == 1
-    assert referents.current == referents.all == audit.DEFAULT_REFERENTS
+    assert referents.current == referents.all == schema.DEFAULT_REFERENTS
 
 
 def test_duplicate_generated_candidate_ids_are_refused() -> None:
@@ -666,8 +662,8 @@ def test_writing_generated_outputs_does_not_change_human_annotations(tmp_path) -
         candidate_path=candidate_path,
         review_path=review_path,
         frame_paths={
-            audit.PROBABILITY: probability_path,
-            audit.COVERAGE: coverage_path,
+            sampling.PROBABILITY: probability_path,
+            sampling.COVERAGE: coverage_path,
         },
     )
 

@@ -21,6 +21,7 @@ import {
 	describeMonth,
 	describeSort,
 	evidenceTerm,
+	exportFilters,
 	facetClick,
 	filterConcordance,
 	filtersInForce,
@@ -29,13 +30,16 @@ import {
 	inMonth,
 	monthName,
 	monthOf,
+	occurrenceInResult,
 	pooledQuery,
 	profileResult,
 	readConcordanceState,
 	readMonth,
+	referentMap,
 	topFacet,
 	yearClick
 } from './concordance';
+import { shortCountry } from './format';
 import type { KwicLine } from './types';
 
 const read = (query: string) => readMonth(new URLSearchParams(query).get(MONTH_PARAM));
@@ -277,6 +281,46 @@ describe('sorting a citable table', () => {
 	] as const)('keeps the key ahead of the tiebreaker (%s)', (sort, rows) => {
 		const result = filterConcordance(rows, { ...CONCORDANCE_DEFAULTS, sort });
 		expect(result.lines.map((row) => row.id)).toEqual(['a#1', 'b#1']);
+	});
+
+	/**
+	 * The keys are computed once per line rather than per comparison, and the
+	 * order a reader cites must not move because of it. The reference below is
+	 * the comparator as it was written before, applied to a set built to collide
+	 * on every key: shared speakers and agenda items, empty and punctuated left
+	 * contexts, case and accents in the right context, and dates repeated.
+	 */
+	it.each(SORTS)('orders a colliding set exactly as the per-comparison sort did (%s)', (sort) => {
+		const words = ['Genocide', 'genocide,', 'rwanda', 'Rwanda.', 'état', 'etat', '', 'the  law'];
+		let seed = 7;
+		const pick = <T>(items: readonly T[]): T => {
+			seed = (seed * 48271) % 2147483647;
+			return items[seed % items.length] as T;
+		};
+		const rows = Array.from({ length: 400 }, (_, index) =>
+			line({
+				id: `SC${String(index % 37).padStart(5, '0')}-01-${String(index % 11).padStart(3, '0')}#${index}`,
+				date: pick(['1994-04-07', '1994-04-07', '2014-06-11', '1993-11-02']),
+				country: pick(['Rwanda', 'France', 'United Kingdom of Great Britain and Northern Ireland']),
+				agenda: pick(['The situation in Rwanda', 'Angola', 'the situation in rwanda']),
+				left: `${pick(words)} ${pick(words)}`.trim(),
+				right: ` ${pick(words)} ${pick(words)}`
+			})
+		);
+		const tail = (value: string) =>
+			[...value.toLowerCase().replace(/[^a-z ]/g, '')].reverse().join('');
+		const keyOf: Record<(typeof SORTS)[number], (row: KwicLine) => string> = {
+			date: (row) => row.date,
+			country: (row) => shortCountry(row.country),
+			agenda: (row) => row.agenda,
+			left: (row) => tail(row.left),
+			right: (row) => row.right.toLowerCase()
+		};
+		const reference = [...rows]
+			.sort((a, b) => keyOf[sort](a).localeCompare(keyOf[sort](b)) || a.id.localeCompare(b.id))
+			.map((row) => row.id);
+		const result = filterConcordance(rows, { ...CONCORDANCE_DEFAULTS, sort });
+		expect(result.lines.map((row) => row.id)).toEqual(reference);
 	});
 });
 
@@ -631,6 +675,96 @@ describe('the narrowings in force', () => {
 		const cleared = clearFilter(state, 'q');
 		expect(cleared.query).toBe('');
 		expect(cleared.regex).toBe(false);
+	});
+
+	it('writes every chip into the exported file, the referent included', () => {
+		// Every chip is a narrowing of the rows, so every one belongs in the file:
+		// a download filtered to one referent has to say so.
+		const everything = {
+			...state,
+			group: 'E10',
+			participantType: 'Mentioned',
+			agenda: 'Protection of civilians',
+			country: 'United Kingdom of Great Britain and Northern Ireland'
+		};
+		expect(exportFilters(everything, names)).toEqual([
+			'search: warned (regex)',
+			'group: E10',
+			// The file writes the speaker as the corpus does, not as the chip shortens it.
+			'speaker: United Kingdom of Great Britain and Northern Ireland',
+			'participant type: Mentioned',
+			'agenda: Protection of civilians',
+			'meeting: 7000',
+			'referent: RWANDA',
+			'years: 2014–2014',
+			'month: June',
+			'sorted by: date'
+		]);
+		expect(
+			exportFilters(everything, names).filter((entry) => !entry.startsWith('sorted by'))
+		).toHaveLength(filtersInForce(everything, names).length);
+	});
+
+	it('exports the sort alone when nothing narrows the lines', () => {
+		expect(exportFilters({ ...CONCORDANCE_DEFAULTS, sort: 'left' }, names)).toEqual([
+			'sorted by: the word before the match'
+		]);
+	});
+});
+
+describe('an occurrence opened from a filtered concordance', () => {
+	const rows = [
+		line({ id: 'a#1', date: '1994-04-07' }),
+		line({ id: 'b#1', date: '1995-01-01', country: 'France' }),
+		line({ id: 'c#1', date: '1996-01-01' }),
+		line({ id: 'd#1', date: '1997-01-01' })
+	];
+	const placements = referentMap({
+		'a#1': 'rwanda_1994',
+		'b#1': 'rwanda_1994',
+		'c#1': '',
+		'd#1': 'rwanda_1994'
+	});
+
+	it('leaves unplaced occurrences out of the referent map', () => {
+		expect([...placements.keys()]).toEqual(['a#1', 'b#1', 'd#1']);
+	});
+
+	it('walks previous and next through the referent filter it was opened under', () => {
+		const state = { ...CONCORDANCE_DEFAULTS, referent: 'rwanda_1994' };
+		const found = occurrenceInResult(rows, state, 'b#1', placements);
+		expect(found.line?.id).toBe('b#1');
+		expect(found.position).toEqual({ position: 2, total: 3, previous: 'a#1', next: 'd#1' });
+	});
+
+	it('keeps the occurrence when the referent placements did not load', () => {
+		// Without the map the filter keeps nothing. The occurrence is still the
+		// one in the URL, so quoting, keeping and citing it must survive; only the
+		// walk through a result set nobody can rebuild is withheld.
+		const state = { ...CONCORDANCE_DEFAULTS, referent: 'rwanda_1994' };
+		const found = occurrenceInResult(rows, state, 'b#1', null);
+		expect(found.line?.id).toBe('b#1');
+		expect(found.position).toBeNull();
+	});
+
+	it('keeps an occurrence the other filters exclude, without a position', () => {
+		const state = { ...CONCORDANCE_DEFAULTS, country: 'Rwanda' };
+		const found = occurrenceInResult(rows, state, 'b#1');
+		expect(found.line?.id).toBe('b#1');
+		expect(found.position).toBeNull();
+		expect(occurrenceInResult(rows, state, 'c#1').position).toEqual({
+			position: 2,
+			total: 3,
+			previous: 'a#1',
+			next: 'd#1'
+		});
+	});
+
+	it('finds nothing for an id the term does not carry', () => {
+		expect(occurrenceInResult(rows, CONCORDANCE_DEFAULTS, 'z#9')).toEqual({
+			line: null,
+			position: null
+		});
 	});
 });
 

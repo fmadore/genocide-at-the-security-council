@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
+	COMPARED_WORDS,
+	alignedRows,
+	compareTop,
 	languageParams,
+	matrixEdges,
+	matrixTerms,
 	readLanguageState,
+	topWords,
 	type LanguageChoices,
 	type LanguageState,
 	profilePlan
 } from './language';
-import type { CollocateBlock, Word } from './types';
+import type { CollocateBlock, Network, Word } from './types';
 
 const choices: LanguageChoices = {
 	nodes: { genocide: ['5', '10'], war_crimes: ['10'] },
@@ -174,5 +180,77 @@ describe('choosing what a profile shows', () => {
 				.slice(0, 12)
 				.map((row) => row.word)
 		);
+	});
+});
+
+describe('two profiles side by side', () => {
+	const a = block([
+		word('crime', 50, 300, 4),
+		word('prevent', 40, 200, 3),
+		word('tribunal', 30, 100, 1)
+	]);
+	const b = block([word('tribunal', 60, 400, 5), word('crime', 20, 80, 0.5)]);
+
+	it('lists each side’s strongest words, to the same depth', () => {
+		expect(topWords(block(rows(30)))).toHaveLength(COMPARED_WORDS);
+		expect(topWords(undefined)).toEqual([]);
+	});
+
+	it('aligns one word per row, strongest first, with a gap where a side lacks it', () => {
+		const aligned = alignedRows(a, b);
+		expect(aligned.map((row) => row.word)).toEqual(['tribunal', 'crime', 'prevent']);
+		expect(aligned[0]?.a?.log_ratio).toBe(1);
+		expect(aligned[0]?.b?.log_ratio).toBe(5);
+		expect(aligned[2]?.b).toBeNull();
+	});
+
+	it('reads a word’s figures from the whole profile, not only the top list', () => {
+		// `crime` is past the other side's top list here and still has its figure.
+		const deep = block([...rows(COMPARED_WORDS), word('crime', 5, 10, 0.2)]);
+		const row = alignedRows(a, deep).find((entry) => entry.word === 'crime');
+		expect(row?.b?.log_ratio).toBe(0.2);
+	});
+
+	it('scales both columns to one top, whichever arrangement is shown', () => {
+		expect(compareTop('rank', a, b)).toBe(5);
+		expect(compareTop('word', a, b)).toBe(5);
+		// Nothing positive to scale by: the unit scale rather than a division by zero.
+		expect(compareTop('rank', block([word('x', 1, 1, -2)]), undefined)).toBe(1);
+		expect(compareTop('word', undefined, undefined)).toBe(1);
+	});
+});
+
+describe('the co-occurrence matrix', () => {
+	const network = {
+		meta: { script: '05_lexical.py', generated: 'fixture' },
+		min_speeches: 5,
+		terms: [
+			{ name: 'genocide', tier: 'core', register: 'core', speeches: 900 },
+			{ name: 'war_crimes', tier: 'legal', register: 'legal', speeches: 400 }
+		],
+		edges: [{ source: 'genocide', target: 'war_crimes', speeches: 120 }],
+		by_period: {
+			'1992–2001': {
+				terms: [{ name: 'genocide', speeches: 300 }],
+				edges: [{ source: 'genocide', target: 'war_crimes', speeches: 40 }]
+			}
+		},
+		suppressed_nested_edges: []
+	} as unknown as Network;
+
+	it('divides by the whole corpus, or by the chosen period where it lists the term', () => {
+		expect(matrixTerms(network, 'whole').map((t) => t.speeches)).toEqual([900, 400]);
+		expect(matrixTerms(network, '1992–2001').map((t) => t.speeches)).toEqual([300, 400]);
+		expect(matrixTerms(network, '1992–2001')[0]).toEqual({
+			name: 'genocide',
+			register: 'core',
+			speeches: 300
+		});
+	});
+
+	it('draws the chosen period’s edges, and none for a period it does not hold', () => {
+		expect(matrixEdges(network, 'whole')).toBe(network.edges);
+		expect(matrixEdges(network, '1992–2001')).toHaveLength(1);
+		expect(matrixEdges(network, '2012–2021')).toEqual([]);
 	});
 });

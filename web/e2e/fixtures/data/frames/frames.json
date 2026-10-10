@@ -1,0 +1,2377 @@
+{
+	"meta": {
+		"script": "17_frames.py",
+		"generated": "2026-09-12T10:37:13Z",
+		"git_commit": "fixture",
+		"inputs": [
+			{
+				"path": "data/derived/speeches_flagged.parquet",
+				"sha256": "fixture-input"
+			},
+			{
+				"path": "model_annotations/genocide/current_run.txt",
+				"sha256": "fixture-input"
+			},
+			{
+				"path": "model_annotations/genocide/comparison_run.txt",
+				"sha256": "fixture-input"
+			}
+		],
+		"configs": [
+			{
+				"path": "config/lexicon.yml",
+				"sha256": "fixture-config"
+			},
+			{
+				"path": "annotations/lexicon/referents.csv",
+				"sha256": "fixture-config"
+			},
+			{
+				"path": "model_annotations/genocide/PROMPT.md",
+				"sha256": "fixture-config"
+			},
+			{
+				"path": "model_annotations/genocide/prompts/v1.md",
+				"sha256": "fixture-config"
+			},
+			{
+				"path": "model_annotations/genocide/prompts/v2.md",
+				"sha256": "fixture-config"
+			}
+		],
+		"lexicon_version": 7,
+		"term": "genocide",
+		"window": 90,
+		"frames": 17,
+		"seed": 20260902,
+		"trials": 2000
+	},
+	"term": "genocide",
+	"pattern": "\\bgenocid\\w*",
+	"window": 90,
+	"occurrences": 7747,
+	"speeches": 4133,
+	"minimum_occurrences": 40,
+	"minimum_occurrences_rule": "Occurrences a slice needs before its shares are published. The counts are written at every denominator; below the minimum the shares are null, on the rule 11_countries.py withholds a rate. At forty occurrences the widest 95% interval on a proportion is about sixteen points, which is coarse and says so; at ten it is thirty-one and the ordering of seventeen frames would be noise.",
+	"precedence_rule": "An occurrence can satisfy several patterns, and the first frame in codebook order wins. The order runs from citation — the word inside the name of an instrument or an office, which is not a claim about any event — through the speaker's footing on the label, the standing atrocity-crimes catalogue, the modality of the mention, to the bare nominal constructions. `matched` counts every occurrence a pattern reached before precedence was applied, so the cost of the ordering is visible rather than assumed.",
+	"unframed_rule": "No pattern in the codebook reached the occurrence. Published as a category, and as a series, because its share is not constant: it runs at about a third in the early 1990s and a tenth in the late 2010s, so a frame that gained share over time may have gained it from the residue rather than from another frame.",
+	"denominator_rule": "Everything here divides by occurrences of the node, not by speeches or by tokens. A frame's share says what the word was doing when it was said; it says nothing about how often it was said, and the two move independently.",
+	"codebook": [
+		{
+			"frame": "legal_instrument",
+			"precedence": 1,
+			"gloss": "The word inside the name of an instrument — the 1948 Convention, a statute, an article. Citation of the law, not a claim that anything happened.",
+			"pattern": "\\b(convention|covenant|statute|protocol|treaty|article\\s+[ivx0-9]+)\\b(?:(?!\\.\\s)[^‹›]){0,70}‹|›\\s*conventions?\\b",
+			"cased_pattern": null,
+			"example": "the Convention on the Prevention and Punishment of the Crime of Genocide",
+			"example_line": "UNSC_1998_SPV.3953_spch0001#1"
+		},
+		{
+			"frame": "mandate_or_office",
+			"precedence": 2,
+			"gloss": "The word inside the name of a United Nations office or mandate. A delegation thanking the Special Adviser is not qualifying an event, and the prevention frame would otherwise absorb every such thanks.",
+			"pattern": "\\b(special\\s+(adviser|advisor|representative|rapporteur)|joint\\s+office|office|framework\\s+of\\s+analysis|focal\\s+point|under-secretary-general)\\b(?:(?!\\.\\s)[^‹›]){0,45}\\bprevention\\s+(and\\s+punishment\\s+)?of\\s+(the\\s+crime\\s+of\\s+)?‹|\\b(special\\s+(adviser|advisor|representative)|office)\\s+on\\s+‹|›\\s*prevention\\s+(office|and\\s+the\\s+responsibility)",
+			"cased_pattern": null,
+			"example": "his Special Adviser on the Prevention of Genocide",
+			"example_line": "UNSC_2007_SPV.5703_spch0028#1"
+		},
+		{
+			"frame": "distancing",
+			"precedence": 3,
+			"gloss": "The label marked as somebody else's: scare quotes around the node, *so-called*, *alleged*, or *allegations of*. The contested use this study most wants to see, and the one a keyness table cannot show.",
+			"pattern": "\\b(so[- ]called|alleged|allegedly|purported|purportedly|supposed|supposedly|self[- ]styled|false|falsely|fabricated|invented|baseless|unfounded|groundless|fictitious|pretext|pretence)\\b(?:(?!\\.\\s)[^‹›]){0,25}‹|\\b(allegations?|accusations?|claims?|assertions?|rhetoric|narrative|myth|slander|libel|propaganda)\\s+(of|about)\\s+(?:(?!\\.\\s)[^‹›]){0,15}‹|[\"'‘“]\\s*‹(?:(?!\\.\\s)[^‹›])*›(?:(?!\\.\\s)[^‹›]){0,25}[\"'’”]",
+			"cased_pattern": null,
+			"example": "he asked himself whether the term \"genocide\" might be applicable",
+			"example_line": "UNSC_2000_SPV.4127_spch0004#2"
+		},
+		{
+			"frame": "qualification",
+			"precedence": 4,
+			"gloss": "The speech act of applying the label: *constitutes*, *amounts to*, *described as*, *recognized as*, or the bare copula. This is nomination in its most explicit form.",
+			"pattern": "\\b(amounts?|amounted|amounting|constitut\\w+|tantamount|equivalent|qualif\\w+|characteriz\\w+|characteris\\w+|describ\\w+|labell?\\w*|termed|deem\\w+|recogniz\\w+|recognis\\w+|declar\\w+|classif\\w+|akin\\s+to|equat\\w+|synonym\\w*|nothing\\s+less\\s+than|nothing\\s+short\\s+of)\\b(?:(?!\\.\\s)[^‹›]){0,25}‹|\\b(is|was|are|were|be|been)\\s+(a\\s+|an\\s+|the\\s+|not\\s+|clearly\\s+|indeed\\s+|simply\\s+|plain\\s+){0,2}‹|\\bcall(s|ed|ing)?\\s+(it|this|that|them|these)\\s+(a\\s+|an\\s+|the\\s+)?‹",
+			"cased_pattern": null,
+			"example": "ISIS crimes against Yazidis constitute genocide",
+			"example_line": "UNSC_2021_S_2021_460_spch0003#1"
+		},
+		{
+			"frame": "crime_of",
+			"precedence": 5,
+			"gloss": "*the crime of genocide*: the offence named as a legal category. The Convention's own head noun, and the register in which a court, rather than a speaker, has decided.",
+			"pattern": "\\bcrimes?\\s+of\\s+(the\\s+)?‹|›\\s+is\\s+a\\s+crime",
+			"cased_pattern": null,
+			"example": "the indictment now includes the crime of genocide",
+			"example_line": "UNSC_2001_SPV.4429_spch0023#1"
+		},
+		{
+			"frame": "acts_of",
+			"precedence": 6,
+			"gloss": "*acts of genocide*, *cases of genocide*: the countable-instance hedge. Saying that acts of genocide occurred is weaker than saying genocide occurred, and 1994 turned on the difference.",
+			"pattern": "\\b(acts?|cases?|instances?|episodes?|forms?)\\s+of\\s+(the\\s+)?‹",
+			"cased_pattern": null,
+			"example": "is an act of genocide",
+			"example_line": "UNSC_1992_SPV.3135_spch0010#3"
+		},
+		{
+			"frame": "intent_or_definition",
+			"precedence": 7,
+			"gloss": "*genocidal intent*, *intent to destroy*, *the definition of genocide*: the Convention's mental element and its wording, argued over as law rather than asserted as fact.",
+			"pattern": "\\b(intent\\w*|dolus|mens\\s+rea|in\\s+whole\\s+or\\s+in\\s+part|elements?\\s+of\\s+the\\s+crime|definition|defined)\\b(?:(?!\\.\\s)[^‹›]){0,30}‹|‹genocidal›\\s+(intent\\w*|design|purpose|plan)|›\\s+(means|is\\s+defined|as\\s+defined)\\b",
+			"cased_pattern": null,
+			"example": "the factors allowing the inference of genocidal intent",
+			"example_line": "UNSC_2018_SPV.8381_spch0012#1"
+		},
+		{
+			"frame": "denial_or_ideology",
+			"precedence": 8,
+			"gloss": "*genocide denial*, *genocide ideology*, *glorification*: denial named as an offence. Meta-discourse about the word, not a use of it — and the speaker here is almost always condemning, not denying.",
+			"pattern": "›\\s+(denial|deniers?|ideolog\\w+|revisionism|negation|denialism)\\b|\\b(denial|denying|deny|denies|denied|denier\\w*|revisionis\\w+|glorif\\w+|negation|minimiz\\w+|minimis\\w+|trivializ\\w+)\\b(?:(?!\\.\\s)[^‹›]){0,25}‹",
+			"cased_pattern": null,
+			"example": "the denial of genocide in the situations under the jurisdiction of the Mechanism",
+			"example_line": "UNSC_2020_S_2020_1236_spch0009#1"
+		},
+		{
+			"frame": "occurrence",
+			"precedence": 9,
+			"gloss": "*genocide occurred*, *genocide continues*, *there is genocide*: the event predicated directly, with no legal or evidential hedge in the clause.",
+			"pattern": "›\\s+(occurr\\w+|occurs|took\\s+place|takes\\s+place|happen\\w+|continu\\w+|unfold\\w+|began|begins|started|ended|is\\s+under\\s+way|was\\s+committed|has\\s+been\\s+committed|is\\s+being\\s+committed|raged|swept)\\b|\\bthere\\s+(is|was|has\\s+been|have\\s+been|are|were)\\s+(a\\s+|an\\s+|the\\s+|no\\s+)?‹",
+			"cased_pattern": null,
+			"example": "unfortunately that genocide occurred in Rwanda",
+			"example_line": "UNSC_2002_SPV.4538Resumption1_spch0043#3"
+		},
+		{
+			"frame": "atrocity_triad",
+			"precedence": 10,
+			"gloss": "The word as one item of the standing list — *war crimes, crimes against humanity, ethnic cleansing*. Formulaic, and the largest single construction in this corpus; the model runs code it exactly as they code a substantive accusation.",
+			"pattern": "\\b(war\\s+crimes?|crimes?\\s+against\\s+humanity|ethnic\\s+cleansing|crimes?\\s+of\\s+aggression|mass\\s+atrocit\\w+)\\b(?:(?!\\.\\s)[^‹›]){0,25}‹|›(?:(?!\\.\\s)[^‹›]){0,25}\\b(war\\s+crimes?|crimes?\\s+against\\s+humanity|ethnic\\s+cleansing|crimes?\\s+of\\s+aggression|mass\\s+atrocit\\w+)\\b",
+			"cased_pattern": null,
+			"example": "war crimes, crimes against humanity and genocide",
+			"example_line": "UNSC_2016_SPV.7829_spch0006#1"
+		},
+		{
+			"frame": "risk_or_threat",
+			"precedence": 11,
+			"gloss": "*risk of genocide*, *another genocide*, *the signs of genocide*: the event as something that has not happened yet. Irrealis, and the vocabulary the prevention agenda is argued in.",
+			"pattern": "\\b(risks?|threats?|threaten\\w*|danger\\w*|spectre|specter|imminent|potential|possibility|warning\\s+signs?|another|new|next|repeat|verge|brink|escalat\\w+|lead\\s+to|slide|precursors?)\\b(?:(?!\\.\\s)[^‹›]){0,25}‹",
+			"cased_pattern": null,
+			"example": "the danger of renewed genocide in the region",
+			"example_line": "UNSC_1999_SPV.3987_spch0015#1"
+		},
+		{
+			"frame": "prevention",
+			"precedence": 12,
+			"gloss": "*prevention of genocide*, *prevent genocide*, *protect populations from genocide*: the duty, stated as a norm. What the Council says it is for.",
+			"pattern": "\\b(prevent\\w*|protect\\w*|avert\\w*|early\\s+warning|halt\\w*|stop\\w*|end|ending|prohibit\\w*|combat\\w*|deter\\w*|responsibility\\s+to\\s+protect|save|spare|put\\s+an\\s+end)\\b(?:(?!\\.\\s)[^‹›]){0,25}‹|›\\s+prevention\\b",
+			"cased_pattern": null,
+			"example": "our obligation to prevent genocide",
+			"example_line": "UNSC_2004_SPV.5100Resumption1_spch0021#3"
+		},
+		{
+			"frame": "commemoration",
+			"precedence": 13,
+			"gloss": "*the anniversary of the genocide*, *the victims of the genocide*, *never again*: the event as memory. The register the Council speaks in every April, and the one the review found the models code as assertion without being told to.",
+			"pattern": "\\b(anniversar\\w+|commemorat\\w+|remembrance|memorial|memory|honour\\w*|honor\\w*|mourn\\w*|tribute|never\\s+again|years?\\s+(since|after|ago))\\b(?:(?!\\.\\s)[^‹›]){0,25}‹|\\b(victims?|survivors?)\\s+of\\s+(the|this|that)\\s+‹",
+			"cased_pattern": null,
+			"example": "the twentieth anniversary of the Rwandan genocide",
+			"example_line": "UNSC_2014_SPV.7196_spch0014#1"
+		},
+		{
+			"frame": "accountability",
+			"precedence": 14,
+			"gloss": "*convicted of genocide*, *genocide fugitives*, *impunity for genocide*: the event inside a legal process that has already started. A court, not a speaker, is the one asserting.",
+			"pattern": "\\b(convicted|convictions?|indicted|indictments?|charged|prosecut\\w+|trials?|sentenc\\w+|acquitt\\w+|guilty|impunity|accountab\\w+|fugitives?|extradit\\w*|apprehend\\w*|at\\s+large)\\b(?:(?!\\.\\s)[^‹›]){0,25}‹|›\\s+(convicts?|fugitives?|suspects?|indictees?|trials?|convictions?|indictments?|prosecutions?|charges?)\\b",
+			"cased_pattern": null,
+			"example": "Sending genocide convicts to serve out the remainder of their sentences",
+			"example_line": "UNSC_2018_SPV.8416_spch0027#18"
+		},
+		{
+			"frame": "perpetration",
+			"precedence": 15,
+			"gloss": "*committed genocide*, *those responsible for genocide*, *a policy of genocide*: agency attributed to somebody. Accusation, before any court has been involved.",
+			"pattern": "\\b(committ\\w+|commit|commits|perpetrat\\w+|carr\\w+\\s+out|responsib\\w+|accus\\w+|suspect\\w+|architects?|authors?|masterminds?|orchestrat\\w+|wag\\w+|conduct\\w+|engag\\w+|planned|planning|inflict\\w+|unleash\\w+|behind|participat\\w+)\\b(?:(?!\\.\\s)[^‹›]){0,25}‹|\\b(polic(y|ies)|campaigns?|plans?|programmes?|practices?|projects?|strateg\\w+)\\s+of\\s+(the\\s+)?‹",
+			"cased_pattern": null,
+			"example": "bring those responsible for the genocide to justice",
+			"example_line": "UNSC_1998_SPV.3875Resumption1_spch0018#2"
+		},
+		{
+			"frame": "directed_against",
+			"precedence": 16,
+			"gloss": "*genocide against X*: the victim group named in the complement. The fullest form of nomination, and the construction *genocide against the Tutsi* made canonical.",
+			"pattern": "›\\s+(against|targeting|aimed\\s+at|directed\\s+against|perpetrated\\s+against|committed\\s+against|inflicted\\s+on|visited\\s+upon)\\b",
+			"cased_pattern": null,
+			"example": "Given the nature of the genocide against the Tutsi in Rwanda",
+			"example_line": "UNSC_2019_SPV.8668Resumption1_spch0002#2"
+		},
+		{
+			"frame": "named_case",
+			"precedence": 17,
+			"gloss": "*the Rwandan genocide*, *the genocide in Srebrenica*, *the 1994 genocide*: the word used as the settled name of a case everyone present agrees on. Nomination that is no longer being argued.",
+			"pattern": "\\b(during|after|before|since|following|throughout|amid)\\s+the\\s+‹|\\b\\d{4}\\s+‹|›\\s+of\\s+\\d{4}",
+			"cased_pattern": "›\\s+(in|of|at)\\s+(the\\s+)?[A-Z]|\\b([Tt]he|[Tt]his|[Tt]hat)\\s+([A-Z][\\w'’-]+\\s+){1,3}‹",
+			"example": "the actions of the United Nations during the 1994 genocide in Rwanda",
+			"example_line": "UNSC_2000_SPV.4127_spch0001#1"
+		}
+	],
+	"totals": {
+		"frames": [
+			{
+				"frame": "legal_instrument",
+				"occurrences": 297,
+				"share": 0.038337420937136955,
+				"share_low": 0.03428550026275536,
+				"share_high": 0.04284695845117333,
+				"matched": 297
+			},
+			{
+				"frame": "mandate_or_office",
+				"occurrences": 198,
+				"share": 0.02555828062475797,
+				"share_low": 0.02227224489303419,
+				"share_high": 0.02931460034757673,
+				"matched": 198
+			},
+			{
+				"frame": "distancing",
+				"occurrences": 99,
+				"share": 0.012779140312378985,
+				"share_low": 0.010508455753637782,
+				"share_high": 0.015532776013655351,
+				"matched": 101
+			},
+			{
+				"frame": "qualification",
+				"occurrences": 269,
+				"share": 0.03472311862656512,
+				"share_low": 0.03087143657600904,
+				"share_high": 0.03903600014546615,
+				"matched": 275
+			},
+			{
+				"frame": "crime_of",
+				"occurrences": 304,
+				"share": 0.03924099651477991,
+				"share_low": 0.035140670977654595,
+				"share_high": 0.04379804323438749,
+				"matched": 529
+			},
+			{
+				"frame": "acts_of",
+				"occurrences": 324,
+				"share": 0.04182264102233123,
+				"share_low": 0.03758735397112709,
+				"share_high": 0.046512090235524654,
+				"matched": 350
+			},
+			{
+				"frame": "intent_or_definition",
+				"occurrences": 49,
+				"share": 0.00632502904350071,
+				"share_low": 0.0047878958984806375,
+				"share_high": 0.008351510882288363,
+				"matched": 66
+			},
+			{
+				"frame": "denial_or_ideology",
+				"occurrences": 280,
+				"share": 0.03614302310571834,
+				"share_low": 0.03221136165253632,
+				"share_high": 0.04053447656597416,
+				"matched": 291
+			},
+			{
+				"frame": "occurrence",
+				"occurrences": 77,
+				"share": 0.009939331354072545,
+				"share_low": 0.007960470852208596,
+				"share_high": 0.012403957921013922,
+				"matched": 103
+			},
+			{
+				"frame": "atrocity_triad",
+				"occurrences": 1502,
+				"share": 0.1938815025171034,
+				"share_low": 0.18523072489939826,
+				"share_high": 0.20283571598976205,
+				"matched": 1853
+			},
+			{
+				"frame": "risk_or_threat",
+				"occurrences": 158,
+				"share": 0.02039499160965535,
+				"share_low": 0.017476987082653526,
+				"share_high": 0.023788398168738092,
+				"matched": 205
+			},
+			{
+				"frame": "prevention",
+				"occurrences": 410,
+				"share": 0.052923712404801856,
+				"share_low": 0.04815621647436637,
+				"share_high": 0.05813436670910688,
+				"matched": 859
+			},
+			{
+				"frame": "commemoration",
+				"occurrences": 285,
+				"share": 0.03678843423260617,
+				"share_low": 0.03282099214136694,
+				"share_high": 0.04121502857579597,
+				"matched": 301
+			},
+			{
+				"frame": "accountability",
+				"occurrences": 217,
+				"share": 0.028010842906931715,
+				"share_low": 0.024563934948505586,
+				"share_high": 0.0319256037869845,
+				"matched": 401
+			},
+			{
+				"frame": "perpetration",
+				"occurrences": 655,
+				"share": 0.0845488576223054,
+				"share_low": 0.07855771306534418,
+				"share_high": 0.09095181255209733,
+				"matched": 990
+			},
+			{
+				"frame": "directed_against",
+				"occurrences": 167,
+				"share": 0.02155673163805344,
+				"share_low": 0.01855197027203348,
+				"share_high": 0.025035743476932472,
+				"matched": 382
+			},
+			{
+				"frame": "named_case",
+				"occurrences": 555,
+				"share": 0.07164063508454886,
+				"share_low": 0.0661076980467265,
+				"share_high": 0.07759817759766674,
+				"matched": 1130
+			},
+			{
+				"frame": "unframed",
+				"occurrences": 1901,
+				"share": 0.24538531044275202,
+				"share_low": 0.23593077994400427,
+				"share_high": 0.25509222433761863,
+				"matched": 0
+			}
+		],
+		"frames_per_occurrence": [
+			{
+				"matched": 0,
+				"occurrences": 1901
+			},
+			{
+				"matched": 1,
+				"occurrences": 3650
+			},
+			{
+				"matched": 2,
+				"occurrences": 1910
+			},
+			{
+				"matched": 3,
+				"occurrences": 283
+			},
+			{
+				"matched": 4,
+				"occurrences": 3
+			}
+		]
+	},
+	"morphology": {
+		"rule": "Every matched word form remains in the total. Noun, adjective and other categories partition the same occurrences counted by the concordance.",
+		"categories": [
+			{
+				"category": "noun",
+				"occurrences": 7138
+			},
+			{
+				"category": "adjective",
+				"occurrences": 609
+			},
+			{
+				"category": "other",
+				"occurrences": 0
+			}
+		],
+		"forms": [
+			{
+				"form": "genocide",
+				"occurrences": 7044,
+				"category": "noun"
+			},
+			{
+				"form": "genocidal",
+				"occurrences": 606,
+				"category": "adjective"
+			},
+			{
+				"form": "genocides",
+				"occurrences": 76,
+				"category": "noun"
+			},
+			{
+				"form": "genocidaires",
+				"occurrences": 16,
+				"category": "noun"
+			},
+			{
+				"form": "genocidally",
+				"occurrences": 3,
+				"category": "adjective"
+			},
+			{
+				"form": "genocidaire",
+				"occurrences": 2,
+				"category": "noun"
+			}
+		]
+	},
+	"by_year": {
+		"years": [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024],
+		"occurrences": [131, 202, 658, 462, 270, 187, 221, 227, 37, 156, 390, 398, 1038],
+		"minimum_occurrences": 40,
+		"frames": {
+			"legal_instrument": {
+				"occurrences": [2, 1, 17, 10, 2, 2, 16, 1, 4, 1, 28, 22, 98],
+				"share": [
+					0.015267175572519083,
+					0.0049504950495049506,
+					0.025835866261398176,
+					0.021645021645021644,
+					0.007407407407407408,
+					0.0106951871657754,
+					0.07239819004524888,
+					0.004405286343612335,
+					null,
+					0.00641025641025641,
+					0.07179487179487179,
+					0.05527638190954774,
+					0.09441233140655106
+				],
+				"share_low": [
+					0.004196844256021768,
+					0.0008744191123899563,
+					0.01619218226935218,
+					0.011798814389263772,
+					0.0020337342875902976,
+					0.00293792292031151,
+					0.04505190104484694,
+					0.00077806494092382,
+					null,
+					0.0011324653171247909,
+					0.0501365998149534,
+					0.03678382779624763,
+					0.07808968451512709
+				],
+				"share_high": [
+					0.05395632976978977,
+					0.027504017642581476,
+					0.04098383521393172,
+					0.0393805264986216,
+					0.02660129729040226,
+					0.038150941465605805,
+					0.11435579453178094,
+					0.024527003093806773,
+					null,
+					0.035412864435195084,
+					0.10180641552904164,
+					0.08227172949019326,
+					0.11372592920301329
+				]
+			},
+			"mandate_or_office": {
+				"occurrences": [1, 0, 38, 19, 18, 12, 4, 5, 2, 2, 17, 10, 24],
+				"share": [
+					0.007633587786259542,
+					0.0,
+					0.057750759878419454,
+					0.04112554112554113,
+					0.06666666666666667,
+					0.06417112299465241,
+					0.01809954751131222,
+					0.022026431718061675,
+					null,
+					0.01282051282051282,
+					0.04358974358974359,
+					0.02512562814070352,
+					0.023121387283236993
+				],
+				"share_low": [
+					0.0013487890456915057,
+					0.0,
+					0.04236138301987489,
+					0.026483903076548947,
+					0.04258246318506562,
+					0.03708622049342456,
+					0.007060507525038,
+					0.009444207962788095,
+					null,
+					0.0035229170716722553,
+					0.027390781471325485,
+					0.013703890970480546,
+					0.015585999116386442
+				],
+				"share_high": [
+					0.04197215150021155,
+					0.01866222112252115,
+					0.07827394097895723,
+					0.06333519315979359,
+					0.10290850444369476,
+					0.10880167510714661,
+					0.04560530812481248,
+					0.05051667987515208,
+					null,
+					0.04553481099555255,
+					0.06869219296718422,
+					0.04562661935232922,
+					0.03417345169235343
+				]
+			},
+			"distancing": {
+				"occurrences": [3, 0, 4, 4, 3, 4, 4, 5, 0, 1, 16, 5, 5],
+				"share": [
+					0.022900763358778626,
+					0.0,
+					0.0060790273556231,
+					0.008658008658008658,
+					0.011111111111111112,
+					0.0213903743315508,
+					0.01809954751131222,
+					0.022026431718061675,
+					null,
+					0.00641025641025641,
+					0.041025641025641026,
+					0.01256281407035176,
+					0.004816955684007707
+				],
+				"share_low": [
+					0.007818443105274058,
+					0.0,
+					0.002366479626897537,
+					0.003371934683799852,
+					0.003785840092852641,
+					0.008348990107597445,
+					0.007060507525038,
+					0.009444207962788095,
+					null,
+					0.0011324653171247909,
+					0.025408082679005517,
+					0.005377697323988104,
+					0.0020592179660216883
+				],
+				"share_high": [
+					0.06516696440044595,
+					0.01866222112252115,
+					0.01552520525152319,
+					0.02204756930511409,
+					0.03215268748831291,
+					0.053699680521250646,
+					0.04560530812481248,
+					0.05051667987515208,
+					null,
+					0.035412864435195084,
+					0.06559670622264188,
+					0.02906737676397535,
+					0.011226353176791036
+				]
+			},
+			"qualification": {
+				"occurrences": [2, 3, 15, 28, 5, 5, 12, 8, 0, 0, 15, 17, 43],
+				"share": [
+					0.015267175572519083,
+					0.01485148514851485,
+					0.022796352583586626,
+					0.06060606060606061,
+					0.018518518518518517,
+					0.026737967914438502,
+					0.05429864253393665,
+					0.03524229074889868,
+					null,
+					0.0,
+					0.038461538461538464,
+					0.04271356783919598,
+					0.041425818882466284
+				],
+				"share_low": [
+					0.004196844256021768,
+					0.005063474797695092,
+					0.013862720446530325,
+					0.04226095020611863,
+					0.007935298254327178,
+					0.011473760074718398,
+					0.031330595441528414,
+					0.017964010481148516,
+					null,
+					0.0,
+					0.02344448822214758,
+					0.02683672435426617,
+					0.0308988128042108
+				],
+				"share_high": [
+					0.05395632976978977,
+					0.04274739322217691,
+					0.03726955355908232,
+					0.08619790137868107,
+					0.042610221333184345,
+					0.06105481367559508,
+					0.09249647349284032,
+					0.06798874220919884,
+					null,
+					0.024032931437414938,
+					0.06248211514263752,
+					0.06733339669732841,
+					0.05533451767045625
+				]
+			},
+			"crime_of": {
+				"occurrences": [6, 9, 10, 21, 15, 12, 14, 12, 6, 12, 14, 18, 26],
+				"share": [
+					0.04580152671755725,
+					0.04455445544554455,
+					0.015197568389057751,
+					0.045454545454545456,
+					0.05555555555555555,
+					0.06417112299465241,
+					0.06334841628959276,
+					0.05286343612334802,
+					null,
+					0.07692307692307693,
+					0.035897435897435895,
+					0.04522613065326633,
+					0.025048169556840076
+				],
+				"share_low": [
+					0.02115788476371245,
+					0.02361461136913033,
+					0.008275591242597212,
+					0.029919624948910806,
+					0.03395302728618324,
+					0.03708622049342456,
+					0.038106823756561145,
+					0.03049542237997617,
+					null,
+					0.04454835847715382,
+					0.021501741109100664,
+					0.02879638957628237,
+					0.017150020101928898
+				],
+				"share_high": [
+					0.096324223181733,
+					0.08249355044544339,
+					0.027747324068837287,
+					0.06848608358708888,
+					0.08962745233305817,
+					0.10880167510714661,
+					0.10351055849893716,
+					0.09011315011358076,
+					null,
+					0.12963335273912036,
+					0.05934667671882213,
+					0.07035081872228148,
+					0.036448786461119105
+				]
+			},
+			"acts_of": {
+				"occurrences": [11, 13, 18, 14, 8, 13, 6, 5, 0, 3, 8, 5, 21],
+				"share": [
+					0.08396946564885496,
+					0.06435643564356436,
+					0.02735562310030395,
+					0.030303030303030304,
+					0.02962962962962963,
+					0.06951871657754011,
+					0.027149321266968326,
+					0.022026431718061675,
+					null,
+					0.019230769230769232,
+					0.020512820512820513,
+					0.01256281407035176,
+					0.02023121387283237
+				],
+				"share_low": [
+					0.04753307496909216,
+					0.037992485043253935,
+					0.017372601554461957,
+					0.018135179363177757,
+					0.015088733874431985,
+					0.041073915223379,
+					0.012500897268681328,
+					0.009444207962788095,
+					null,
+					0.00656140638822535,
+					0.010430013101447182,
+					0.005377697323988104,
+					0.013270011907159792
+				],
+				"share_high": [
+					0.14411020037589567,
+					0.10698053930112096,
+					0.04282528766765757,
+					0.05021738612402192,
+					0.05736727372259851,
+					0.11529388349865755,
+					0.05795523170229873,
+					0.05051667987515208,
+					null,
+					0.0550087199939044,
+					0.03994929150530177,
+					0.02906737676397535,
+					0.03073040527011791
+				]
+			},
+			"intent_or_definition": {
+				"occurrences": [0, 0, 4, 2, 3, 0, 3, 0, 0, 0, 1, 5, 9],
+				"share": [
+					0.0,
+					0.0,
+					0.0060790273556231,
+					0.004329004329004329,
+					0.011111111111111112,
+					0.0,
+					0.013574660633484163,
+					0.0,
+					null,
+					0.0,
+					0.002564102564102564,
+					0.01256281407035176,
+					0.008670520231213872
+				],
+				"share_low": [
+					0.0,
+					0.0,
+					0.002366479626897537,
+					0.0011879729943498661,
+					0.003785840092852641,
+					0.0,
+					0.00462715613632305,
+					0.0,
+					null,
+					0.0,
+					0.0004527705502334377,
+					0.005377697323988104,
+					0.004568211976161814
+				],
+				"share_high": [
+					0.028488707065994576,
+					0.01866222112252115,
+					0.01552520525152319,
+					0.01564491869490693,
+					0.03215268748831291,
+					0.020129058142986548,
+					0.03914350285296265,
+					0.016641113083928197,
+					null,
+					0.024032931437414938,
+					0.014379235298479384,
+					0.02906737676397535,
+					0.016396070675267153
+				]
+			},
+			"denial_or_ideology": {
+				"occurrences": [4, 13, 18, 16, 8, 1, 13, 24, 0, 32, 39, 38, 54],
+				"share": [
+					0.030534351145038167,
+					0.06435643564356436,
+					0.02735562310030395,
+					0.03463203463203463,
+					0.02962962962962963,
+					0.0053475935828877,
+					0.058823529411764705,
+					0.10572687224669604,
+					null,
+					0.20512820512820512,
+					0.1,
+					0.09547738693467336,
+					0.05202312138728324
+				],
+				"share_low": [
+					0.011936969336074028,
+					0.037992485043253935,
+					0.017372601554461957,
+					0.02142782104220279,
+					0.015088733874431985,
+					0.0009446061174064463,
+					0.03469554821501078,
+					0.07208298856035986,
+					null,
+					0.14921638752409183,
+					0.07401732243386254,
+					0.07035243250590376,
+					0.04008931121454773
+				],
+				"share_high": [
+					0.07588067164955445,
+					0.10698053930112096,
+					0.04282528766765757,
+					0.05551135674465404,
+					0.05736727372259851,
+					0.029664355147045487,
+					0.09802667737992274,
+					0.15249304334282582,
+					null,
+					0.275213289990281,
+					0.1337857338156179,
+					0.12833652073204532,
+					0.06726047590881398
+				]
+			},
+			"occurrence": {
+				"occurrences": [1, 3, 8, 6, 3, 2, 2, 0, 0, 2, 1, 3, 20],
+				"share": [
+					0.007633587786259542,
+					0.01485148514851485,
+					0.0121580547112462,
+					0.012987012987012988,
+					0.011111111111111112,
+					0.0106951871657754,
+					0.00904977375565611,
+					0.0,
+					null,
+					0.01282051282051282,
+					0.002564102564102564,
+					0.007537688442211055,
+					0.019267822736030827
+				],
+				"share_low": [
+					0.0013487890456915057,
+					0.005063474797695092,
+					0.006173273862794223,
+					0.005965290340838335,
+					0.003785840092852641,
+					0.00293792292031151,
+					0.002485292825648199,
+					0.0,
+					null,
+					0.0035229170716722553,
+					0.0004527705502334377,
+					0.0025667390768225953,
+					0.012507080451962506
+				],
+				"share_high": [
+					0.04197215150021155,
+					0.04274739322217691,
+					0.02380589797096902,
+					0.028040825947732752,
+					0.03215268748831291,
+					0.038150941465605805,
+					0.03239020950307271,
+					0.016641113083928197,
+					null,
+					0.04553481099555255,
+					0.014379235298479384,
+					0.021924160517202338,
+					0.029573658848161127
+				]
+			},
+			"atrocity_triad": {
+				"occurrences": [57, 59, 113, 104, 73, 73, 84, 60, 13, 23, 100, 64, 105],
+				"share": [
+					0.4351145038167939,
+					0.29207920792079206,
+					0.1717325227963526,
+					0.22510822510822512,
+					0.27037037037037037,
+					0.39037433155080214,
+					0.38009049773755654,
+					0.2643171806167401,
+					null,
+					0.14743589743589744,
+					0.2564102564102564,
+					0.16080402010050251,
+					0.10115606936416185
+				],
+				"share_low": [
+					0.3532632308838599,
+					0.2337194186540938,
+					0.14484163574486314,
+					0.189380661740496,
+					0.2208878184233195,
+					0.32333341432121154,
+					0.3186581649082328,
+					0.21121897385935984,
+					null,
+					0.10029700652498463,
+					0.21559651460833576,
+					0.1279834701156158,
+					0.08425784074814152
+				],
+				"share_high": [
+					0.520662784536918,
+					0.35819952478299416,
+					0.20243406866664115,
+					0.26536945723127525,
+					0.32629542937995526,
+					0.46182857168874814,
+					0.4456201835868003,
+					0.32525943627271203,
+					null,
+					0.2115210861552438,
+					0.3019758593897452,
+					0.20010975154353403,
+					0.1209955181100773
+				]
+			},
+			"risk_or_threat": {
+				"occurrences": [3, 0, 20, 4, 14, 5, 0, 0, 0, 1, 8, 10, 31],
+				"share": [
+					0.022900763358778626,
+					0.0,
+					0.030395136778115502,
+					0.008658008658008658,
+					0.05185185185185185,
+					0.026737967914438502,
+					0.0,
+					0.0,
+					null,
+					0.00641025641025641,
+					0.020512820512820513,
+					0.02512562814070352,
+					0.029865125240847785
+				],
+				"share_low": [
+					0.007818443105274058,
+					0.0,
+					0.019760935085258672,
+					0.003371934683799852,
+					0.03113505350079201,
+					0.011473760074718398,
+					0.0,
+					0.0,
+					null,
+					0.0011324653171247909,
+					0.010430013101447182,
+					0.013703890970480546,
+					0.021118408067383316
+				],
+				"share_high": [
+					0.06516696440044595,
+					0.01866222112252115,
+					0.04648069761453212,
+					0.02204756930511409,
+					0.0851419301152764,
+					0.06105481367559508,
+					0.017085189007591345,
+					0.016641113083928197,
+					null,
+					0.035412864435195084,
+					0.03994929150530177,
+					0.04562661935232922,
+					0.042078787881435
+				]
+			},
+			"prevention": {
+				"occurrences": [3, 5, 59, 25, 17, 6, 6, 5, 3, 6, 8, 18, 96],
+				"share": [
+					0.022900763358778626,
+					0.024752475247524754,
+					0.08966565349544073,
+					0.05411255411255411,
+					0.06296296296296296,
+					0.03208556149732621,
+					0.027149321266968326,
+					0.022026431718061675,
+					null,
+					0.038461538461538464,
+					0.020512820512820513,
+					0.04522613065326633,
+					0.09248554913294797
+				],
+				"share_low": [
+					0.007818443105274058,
+					0.010618076934635491,
+					0.07015110163668975,
+					0.036918423727280165,
+					0.039679088651715363,
+					0.014786433887727803,
+					0.012500897268681328,
+					0.009444207962788095,
+					null,
+					0.0177444321590843,
+					0.010430013101447182,
+					0.02879638957628237,
+					0.07633224657896116
+				],
+				"share_high": [
+					0.06516696440044595,
+					0.05662522235013708,
+					0.11394352887769055,
+					0.07866050940803382,
+					0.09850838297387203,
+					0.06822204298405105,
+					0.05795523170229873,
+					0.05051667987515208,
+					null,
+					0.08136288916776027,
+					0.03994929150530177,
+					0.07035081872228148,
+					0.11164401138487111
+				]
+			},
+			"commemoration": {
+				"occurrences": [3, 11, 78, 40, 5, 2, 1, 18, 1, 6, 6, 12, 44],
+				"share": [
+					0.022900763358778626,
+					0.054455445544554455,
+					0.11854103343465046,
+					0.08658008658008658,
+					0.018518518518518517,
+					0.0106951871657754,
+					0.004524886877828055,
+					0.07929515418502203,
+					null,
+					0.038461538461538464,
+					0.015384615384615385,
+					0.03015075376884422,
+					0.04238921001926782
+				],
+				"share_low": [
+					0.007818443105274058,
+					0.030675819667691263,
+					0.09602905295389241,
+					0.06422550837649885,
+					0.007935298254327178,
+					0.00293792292031151,
+					0.0007992007057196146,
+					0.05074423270580169,
+					null,
+					0.0177444321590843,
+					0.007069484498026525,
+					0.017330083886665085,
+					0.031726670619117374
+				],
+				"share_high": [
+					0.06516696440044595,
+					0.09486477341178304,
+					0.14548114059836484,
+					0.11575301700624369,
+					0.042610221333184345,
+					0.038150941465605805,
+					0.02518114496243651,
+					0.12184806949256963,
+					null,
+					0.08136288916776027,
+					0.03315344903499783,
+					0.051954600930083195,
+					0.05642633773270372
+				]
+			},
+			"accountability": {
+				"occurrences": [13, 2, 14, 4, 11, 1, 14, 19, 0, 17, 15, 14, 16],
+				"share": [
+					0.09923664122137404,
+					0.009900990099009901,
+					0.02127659574468085,
+					0.008658008658008658,
+					0.040740740740740744,
+					0.0053475935828877,
+					0.06334841628959276,
+					0.08370044052863436,
+					null,
+					0.10897435897435898,
+					0.038461538461538464,
+					0.035175879396984924,
+					0.015414258188824663
+				],
+				"share_low": [
+					0.05891488690754284,
+					0.002719421234626599,
+					0.012715593648497092,
+					0.003371934683799852,
+					0.022898792510834234,
+					0.0009446061174064463,
+					0.038106823756561145,
+					0.05423750270803963,
+					null,
+					0.06915919829493856,
+					0.02344448822214758,
+					0.02106719903525173,
+					0.009510006449437478
+				],
+				"share_high": [
+					0.16239285539726198,
+					0.03537523115279512,
+					0.03539480861827992,
+					0.02204756930511409,
+					0.07146770309571522,
+					0.029664355147045487,
+					0.10351055849893716,
+					0.12701875444113409,
+					null,
+					0.16758450449586026,
+					0.06248211514263752,
+					0.05817166027543508,
+					0.024892021342069918
+				]
+			},
+			"perpetration": {
+				"occurrences": [5, 17, 35, 28, 12, 10, 5, 10, 1, 13, 24, 30, 64],
+				"share": [
+					0.03816793893129771,
+					0.08415841584158416,
+					0.05319148936170213,
+					0.06060606060606061,
+					0.044444444444444446,
+					0.053475935828877004,
+					0.02262443438914027,
+					0.04405286343612335,
+					null,
+					0.08333333333333333,
+					0.06153846153846154,
+					0.07537688442211055,
+					0.06165703275529865
+				],
+				"share_low": [
+					0.016411333469222626,
+					0.05320678798209632,
+					0.038492154873999304,
+					0.04226095020611863,
+					0.025604104732590418,
+					0.029303167978165977,
+					0.009701619787901516,
+					0.024101927292910597,
+					null,
+					0.049345650854239156,
+					0.04169901126054812,
+					0.053306863951832165,
+					0.04857852881863737
+				],
+				"share_high": [
+					0.08623854099631437,
+					0.13063109889207972,
+					0.07307755390832592,
+					0.08619790137868107,
+					0.07606588687713202,
+					0.09562492137947443,
+					0.05185935252251374,
+					0.07917873529904154,
+					null,
+					0.13734845867693996,
+					0.08993126193599771,
+					0.10556539131036281,
+					0.07796803707626494
+				]
+			},
+			"directed_against": {
+				"occurrences": [0, 6, 26, 13, 6, 0, 6, 5, 0, 7, 11, 7, 33],
+				"share": [
+					0.0,
+					0.0297029702970297,
+					0.03951367781155015,
+					0.02813852813852814,
+					0.022222222222222223,
+					0.0,
+					0.027149321266968326,
+					0.022026431718061675,
+					null,
+					0.04487179487179487,
+					0.028205128205128206,
+					0.017587939698492462,
+					0.031791907514450865
+				],
+				"share_low": [
+					0.0,
+					0.013682774959062366,
+					0.02710576358662087,
+					0.016516743949535652,
+					0.010223507349966372,
+					0.0,
+					0.012500897268681328,
+					0.009444207962788095,
+					null,
+					0.0219033374935471,
+					0.015820910229529885,
+					0.008545143987732857,
+					0.022725863662938856
+				],
+				"share_high": [
+					0.028488707065994576,
+					0.0632767399581605,
+					0.0572670995461837,
+					0.047542515387835445,
+					0.04762550824071814,
+					0.020129058142986548,
+					0.05795523170229873,
+					0.05051667987515208,
+					null,
+					0.08971638214820239,
+					0.04979295098780598,
+					0.03585410459416912,
+					0.044310688040187576
+				]
+			},
+			"named_case": {
+				"occurrences": [4, 25, 57, 50, 16, 12, 9, 16, 2, 13, 12, 18, 52],
+				"share": [
+					0.030534351145038167,
+					0.12376237623762376,
+					0.08662613981762918,
+					0.10822510822510822,
+					0.05925925925925926,
+					0.06417112299465241,
+					0.04072398190045249,
+					0.07048458149779736,
+					null,
+					0.08333333333333333,
+					0.03076923076923077,
+					0.04522613065326633,
+					0.05009633911368015
+				],
+				"share_low": [
+					0.011936969336074028,
+					0.08525217169663715,
+					0.06746166123186347,
+					0.08306026872733871,
+					0.03680188195465954,
+					0.03708622049342456,
+					0.02157052786731122,
+					0.04384823592705276,
+					null,
+					0.049345650854239156,
+					0.017687309025869628,
+					0.02879638957628237,
+					0.03840558390850159
+				],
+				"share_high": [
+					0.07588067164955445,
+					0.17631544023714116,
+					0.11058922580484558,
+					0.13985131815368956,
+					0.09408209366775487,
+					0.10880167510714661,
+					0.07557107108536318,
+					0.11141615636971378,
+					null,
+					0.13734845867693996,
+					0.05300473772832856,
+					0.07035081872228148,
+					0.065104847460552
+				]
+			},
+			"unframed": {
+				"occurrences": [13, 35, 124, 74, 51, 27, 22, 34, 5, 17, 67, 102, 297],
+				"share": [
+					0.09923664122137404,
+					0.17326732673267325,
+					0.1884498480243161,
+					0.16017316017316016,
+					0.18888888888888888,
+					0.1443850267379679,
+					0.09954751131221719,
+					0.14977973568281938,
+					null,
+					0.10897435897435898,
+					0.1717948717948718,
+					0.2562814070351759,
+					0.2861271676300578
+				],
+				"share_low": [
+					0.05891488690754284,
+					0.12730276490330827,
+					0.16040946712872262,
+					0.12955206797889826,
+					0.14668836203752803,
+					0.10116521859471257,
+					0.06666163039254926,
+					0.10920583464989869,
+					null,
+					0.06915919829493856,
+					0.13760581706727087,
+					0.21586191584317774,
+					0.25946107006273544
+				],
+				"share_high": [
+					0.16239285539726198,
+					0.23142700335497285,
+					0.2201068264099736,
+					0.19639886649801572,
+					0.23981797369594096,
+					0.20192122382783934,
+					0.14611700514746728,
+					0.2020097467613109,
+					null,
+					0.16758450449586026,
+					0.21238643421435405,
+					0.3013606212008041,
+					0.314370441209063
+				]
+			}
+		}
+	},
+	"slices": {
+		"period": [
+			{
+				"member": "2019-2026",
+				"occurrences": 2246,
+				"sufficient": true,
+				"frames": [
+					{
+						"frame": "legal_instrument",
+						"occurrences": 154,
+						"share": 0.06856634016028496,
+						"share_low": 0.0588345565489475,
+						"share_high": 0.07977141392870249
+					},
+					{
+						"frame": "mandate_or_office",
+						"occurrences": 60,
+						"share": 0.026714158504007122,
+						"share_low": 0.02081054036297566,
+						"share_high": 0.0342339865903184
+					},
+					{
+						"frame": "distancing",
+						"occurrences": 32,
+						"share": 0.014247551202137132,
+						"share_low": 0.010110246540660246,
+						"share_high": 0.020043637660698006
+					},
+					{
+						"frame": "qualification",
+						"occurrences": 83,
+						"share": 0.03695458593054319,
+						"share_low": 0.029909971400191054,
+						"share_high": 0.04558044067076457
+					},
+					{
+						"frame": "crime_of",
+						"occurrences": 88,
+						"share": 0.039180765805877114,
+						"share_low": 0.031911744167373156,
+						"share_high": 0.04802342553785672
+					},
+					{
+						"frame": "acts_of",
+						"occurrences": 42,
+						"share": 0.018699910952804988,
+						"share_low": 0.013864212812545308,
+						"share_high": 0.02517918665736145
+					},
+					{
+						"frame": "intent_or_definition",
+						"occurrences": 15,
+						"share": 0.006678539626001781,
+						"share_low": 0.0040514864930165425,
+						"share_high": 0.010990221751809252
+					},
+					{
+						"frame": "denial_or_ideology",
+						"occurrences": 187,
+						"share": 0.08325912733748887,
+						"share_low": 0.07253259952584233,
+						"share_high": 0.09540877133801774
+					},
+					{
+						"frame": "occurrence",
+						"occurrences": 26,
+						"share": 0.01157613535173642,
+						"share_low": 0.007912068988711555,
+						"share_high": 0.016908106051517595
+					},
+					{
+						"frame": "atrocity_triad",
+						"occurrences": 365,
+						"share": 0.16251113089937666,
+						"share_low": 0.14783233412244143,
+						"share_high": 0.17834240852158198
+					},
+					{
+						"frame": "risk_or_threat",
+						"occurrences": 50,
+						"share": 0.02226179875333927,
+						"share_low": 0.016926914318231297,
+						"share_high": 0.029228097366514258
+					},
+					{
+						"frame": "prevention",
+						"occurrences": 136,
+						"share": 0.060552092609082814,
+						"share_low": 0.05141852706056843,
+						"share_high": 0.07118631593369426
+					},
+					{
+						"frame": "commemoration",
+						"occurrences": 87,
+						"share": 0.03873552983081033,
+						"share_low": 0.031510819325493745,
+						"share_high": 0.04753539885288128
+					},
+					{
+						"frame": "accountability",
+						"occurrences": 81,
+						"share": 0.036064113980409616,
+						"share_low": 0.02911132685831437,
+						"share_high": 0.04460118215893155
+					},
+					{
+						"frame": "perpetration",
+						"occurrences": 142,
+						"share": 0.06322350845948353,
+						"share_low": 0.053885564407194414,
+						"share_high": 0.07405298774819738
+					},
+					{
+						"frame": "directed_against",
+						"occurrences": 63,
+						"share": 0.02804986642920748,
+						"share_low": 0.021985517221696744,
+						"share_high": 0.03572586431216186
+					},
+					{
+						"frame": "named_case",
+						"occurrences": 113,
+						"share": 0.05031166518254675,
+						"share_low": 0.04201463011499323,
+						"share_high": 0.060144327761607906
+					},
+					{
+						"frame": "unframed",
+						"occurrences": 522,
+						"share": 0.23241317898486197,
+						"share_low": 0.2154112406391766,
+						"share_high": 0.2503288917210583
+					}
+				]
+			},
+			{
+				"member": "2011-2018",
+				"occurrences": 2240,
+				"sufficient": true,
+				"frames": [
+					{
+						"frame": "legal_instrument",
+						"occurrences": 50,
+						"share": 0.022321428571428572,
+						"share_low": 0.016972361081049915,
+						"share_high": 0.02930606844545975
+					},
+					{
+						"frame": "mandate_or_office",
+						"occurrences": 96,
+						"share": 0.04285714285714286,
+						"share_low": 0.03522315213771302,
+						"share_high": 0.052056391633451375
+					},
+					{
+						"frame": "distancing",
+						"occurrences": 28,
+						"share": 0.0125,
+						"share_low": 0.00866244142396207,
+						"share_high": 0.018006759550756205
+					},
+					{
+						"frame": "qualification",
+						"occurrences": 73,
+						"share": 0.032589285714285716,
+						"share_low": 0.025999299042937074,
+						"share_high": 0.040779687605899964
+					},
+					{
+						"frame": "crime_of",
+						"occurrences": 93,
+						"share": 0.04151785714285714,
+						"share_low": 0.03401159795557201,
+						"share_high": 0.05059396010398446
+					},
+					{
+						"frame": "acts_of",
+						"occurrences": 86,
+						"share": 0.038392857142857145,
+						"share_low": 0.03119378423223916,
+						"share_high": 0.047172473833565515
+					},
+					{
+						"frame": "intent_or_definition",
+						"occurrences": 16,
+						"share": 0.007142857142857143,
+						"share_low": 0.0044014955053014015,
+						"share_high": 0.011571762622985203
+					},
+					{
+						"frame": "denial_or_ideology",
+						"occurrences": 77,
+						"share": 0.034375,
+						"share_low": 0.02759174722434295,
+						"share_high": 0.04275255370663798
+					},
+					{
+						"frame": "occurrence",
+						"occurrences": 26,
+						"share": 0.011607142857142858,
+						"share_low": 0.00793329394184718,
+						"share_high": 0.016953249891799152
+					},
+					{
+						"frame": "atrocity_triad",
+						"occurrences": 594,
+						"share": 0.26517857142857143,
+						"share_low": 0.24731147974211973,
+						"share_high": 0.2838496921559589
+					},
+					{
+						"frame": "risk_or_threat",
+						"occurrences": 47,
+						"share": 0.020982142857142855,
+						"share_low": 0.01581554752093032,
+						"share_high": 0.027788896293971424
+					},
+					{
+						"frame": "prevention",
+						"occurrences": 126,
+						"share": 0.05625,
+						"share_low": 0.047446211392305974,
+						"share_high": 0.0665731894949376
+					},
+					{
+						"frame": "commemoration",
+						"occurrences": 142,
+						"share": 0.06339285714285714,
+						"share_low": 0.054030561020948956,
+						"share_high": 0.07425009699487013
+					},
+					{
+						"frame": "accountability",
+						"occurrences": 63,
+						"share": 0.028125,
+						"share_low": 0.022044568322989625,
+						"share_high": 0.03582113262048768
+					},
+					{
+						"frame": "perpetration",
+						"occurrences": 122,
+						"share": 0.054464285714285715,
+						"share_low": 0.045806517725273714,
+						"share_high": 0.06464756887982595
+					},
+					{
+						"frame": "directed_against",
+						"occurrences": 58,
+						"share": 0.025892857142857145,
+						"share_low": 0.020083380009639974,
+						"share_high": 0.033325678081157474
+					},
+					{
+						"frame": "named_case",
+						"occurrences": 179,
+						"share": 0.07991071428571428,
+						"share_low": 0.0693874834992332,
+						"share_high": 0.09187233162641688
+					},
+					{
+						"frame": "unframed",
+						"occurrences": 364,
+						"share": 0.1625,
+						"share_low": 0.147802772046616,
+						"share_high": 0.178352828628189
+					}
+				]
+			},
+			{
+				"member": "2003-2010",
+				"occurrences": 1084,
+				"sufficient": true,
+				"frames": [
+					{
+						"frame": "legal_instrument",
+						"occurrences": 31,
+						"share": 0.02859778597785978,
+						"share_low": 0.0202190529987449,
+						"share_high": 0.04030581327365425
+					},
+					{
+						"frame": "mandate_or_office",
+						"occurrences": 42,
+						"share": 0.03874538745387454,
+						"share_low": 0.028790928689152145,
+						"share_high": 0.05195747275155152
+					},
+					{
+						"frame": "distancing",
+						"occurrences": 13,
+						"share": 0.011992619926199263,
+						"share_low": 0.007021804200332103,
+						"share_high": 0.020410004523932386
+					},
+					{
+						"frame": "qualification",
+						"occurrences": 32,
+						"share": 0.02952029520295203,
+						"share_low": 0.020987227950324344,
+						"share_high": 0.0413761415191934
+					},
+					{
+						"frame": "crime_of",
+						"occurrences": 44,
+						"share": 0.04059040590405904,
+						"share_low": 0.030374234023474975,
+						"share_high": 0.054051173811465875
+					},
+					{
+						"frame": "acts_of",
+						"occurrences": 48,
+						"share": 0.04428044280442804,
+						"share_low": 0.03355959042121126,
+						"share_high": 0.05821983020220396
+					},
+					{
+						"frame": "intent_or_definition",
+						"occurrences": 6,
+						"share": 0.005535055350553505,
+						"share_low": 0.002539160989662945,
+						"share_high": 0.012023125354771395
+					},
+					{
+						"frame": "denial_or_ideology",
+						"occurrences": 14,
+						"share": 0.012915129151291513,
+						"share_low": 0.007708667215098847,
+						"share_high": 0.021561644706284234
+					},
+					{
+						"frame": "occurrence",
+						"occurrences": 12,
+						"share": 0.01107011070110701,
+						"share_low": 0.006343768257183014,
+						"share_high": 0.01924953726996288
+					},
+					{
+						"frame": "atrocity_triad",
+						"occurrences": 353,
+						"share": 0.32564575645756455,
+						"share_low": 0.2984074094670936,
+						"share_high": 0.3541154862774923
+					},
+					{
+						"frame": "risk_or_threat",
+						"occurrences": 14,
+						"share": 0.012915129151291513,
+						"share_low": 0.007708667215098847,
+						"share_high": 0.021561644706284234
+					},
+					{
+						"frame": "prevention",
+						"occurrences": 33,
+						"share": 0.03044280442804428,
+						"share_low": 0.02175789884343196,
+						"share_high": 0.042443973823204376
+					},
+					{
+						"frame": "commemoration",
+						"occurrences": 36,
+						"share": 0.033210332103321034,
+						"share_low": 0.02408386325385664,
+						"share_high": 0.04563351900413547
+					},
+					{
+						"frame": "accountability",
+						"occurrences": 35,
+						"share": 0.03228782287822878,
+						"share_low": 0.023306311682913215,
+						"share_high": 0.0445725673779603
+					},
+					{
+						"frame": "perpetration",
+						"occurrences": 125,
+						"share": 0.11531365313653137,
+						"share_low": 0.09764335387425362,
+						"share_high": 0.13570081292729327
+					},
+					{
+						"frame": "directed_against",
+						"occurrences": 3,
+						"share": 0.0027675276752767526,
+						"share_low": 0.0009416458276749816,
+						"share_high": 0.008105130925403579
+					},
+					{
+						"frame": "named_case",
+						"occurrences": 82,
+						"share": 0.07564575645756458,
+						"share_low": 0.061359335095912314,
+						"share_high": 0.09292919422953508
+					},
+					{
+						"frame": "unframed",
+						"occurrences": 161,
+						"share": 0.14852398523985239,
+						"share_low": 0.1285962771246705,
+						"share_high": 0.17093400477314566
+					}
+				]
+			}
+		],
+		"speaker_group": [
+			{
+				"member": "Non-member state",
+				"occurrences": 3597,
+				"sufficient": true,
+				"frames": [
+					{
+						"frame": "legal_instrument",
+						"occurrences": 153,
+						"share": 0.042535446205170975,
+						"share_low": 0.036413957364143115,
+						"share_high": 0.049633002037998905
+					},
+					{
+						"frame": "mandate_or_office",
+						"occurrences": 68,
+						"share": 0.01890464275785377,
+						"share_low": 0.014940157821592925,
+						"share_high": 0.023895614433288127
+					},
+					{
+						"frame": "distancing",
+						"occurrences": 59,
+						"share": 0.016402557686961357,
+						"share_low": 0.012737829002007827,
+						"share_high": 0.021099111672575003
+					},
+					{
+						"frame": "qualification",
+						"occurrences": 139,
+						"share": 0.03864331387267167,
+						"share_low": 0.032820856858646594,
+						"share_high": 0.045450142307475974
+					},
+					{
+						"frame": "crime_of",
+						"occurrences": 146,
+						"share": 0.040589380038921326,
+						"share_low": 0.0346154131371413,
+						"share_high": 0.04754356614699099
+					},
+					{
+						"frame": "acts_of",
+						"occurrences": 167,
+						"share": 0.04642757853767028,
+						"share_low": 0.04002200622297227,
+						"share_high": 0.0538009134151892
+					},
+					{
+						"frame": "intent_or_definition",
+						"occurrences": 29,
+						"share": 0.008062274117319988,
+						"share_low": 0.005619408885278718,
+						"share_high": 0.011554759854976709
+					},
+					{
+						"frame": "denial_or_ideology",
+						"occurrences": 106,
+						"share": 0.029469001946066165,
+						"share_low": 0.024424469800110576,
+						"share_high": 0.03551748023825184
+					},
+					{
+						"frame": "occurrence",
+						"occurrences": 22,
+						"share": 0.0061162079510703364,
+						"share_low": 0.004042592432084052,
+						"share_high": 0.00924359619016165
+					},
+					{
+						"frame": "atrocity_triad",
+						"occurrences": 685,
+						"share": 0.19043647484014456,
+						"share_low": 0.17793779019283817,
+						"share_high": 0.20359565817804304
+					},
+					{
+						"frame": "risk_or_threat",
+						"occurrences": 69,
+						"share": 0.019182652210175146,
+						"share_low": 0.015186160337388153,
+						"share_high": 0.024205037648637146
+					},
+					{
+						"frame": "prevention",
+						"occurrences": 195,
+						"share": 0.05421184320266889,
+						"share_low": 0.047276260958858174,
+						"share_high": 0.062098579151342204
+					},
+					{
+						"frame": "commemoration",
+						"occurrences": 85,
+						"share": 0.02363080344731721,
+						"share_low": 0.019151779884895553,
+						"share_high": 0.029126229799437693
+					},
+					{
+						"frame": "accountability",
+						"occurrences": 117,
+						"share": 0.03252710592160134,
+						"share_low": 0.02721026409576696,
+						"share_high": 0.03884136898518219
+					},
+					{
+						"frame": "perpetration",
+						"occurrences": 275,
+						"share": 0.0764525993883792,
+						"share_low": 0.06821365263374014,
+						"share_high": 0.08559524596799993
+					},
+					{
+						"frame": "directed_against",
+						"occurrences": 87,
+						"share": 0.02418682235195997,
+						"share_low": 0.01965095760587971,
+						"share_high": 0.02973790354074203
+					},
+					{
+						"frame": "named_case",
+						"occurrences": 217,
+						"share": 0.06032805115373923,
+						"share_low": 0.05300629686927982,
+						"share_high": 0.06858790932609399
+					},
+					{
+						"frame": "unframed",
+						"occurrences": 978,
+						"share": 0.2718932443703086,
+						"share_low": 0.257601972896225,
+						"share_high": 0.2866712146999205
+					}
+				]
+			},
+			{
+				"member": "E10",
+				"occurrences": 2002,
+				"sufficient": true,
+				"frames": [
+					{
+						"frame": "legal_instrument",
+						"occurrences": 74,
+						"share": 0.03696303696303696,
+						"share_low": 0.02954565840823384,
+						"share_high": 0.04615397286270774
+					},
+					{
+						"frame": "mandate_or_office",
+						"occurrences": 62,
+						"share": 0.030969030969030968,
+						"share_low": 0.02423315525225927,
+						"share_high": 0.0395014227018013
+					},
+					{
+						"frame": "distancing",
+						"occurrences": 18,
+						"share": 0.008991008991008992,
+						"share_low": 0.005694797593479992,
+						"share_high": 0.014167918198683533
+					},
+					{
+						"frame": "qualification",
+						"occurrences": 49,
+						"share": 0.024475524475524476,
+						"share_low": 0.01856301885534154,
+						"share_high": 0.03220941800543127
+					},
+					{
+						"frame": "crime_of",
+						"occurrences": 88,
+						"share": 0.04395604395604396,
+						"share_low": 0.0358158681324553,
+						"share_high": 0.05384299200818081
+					},
+					{
+						"frame": "acts_of",
+						"occurrences": 77,
+						"share": 0.038461538461538464,
+						"share_low": 0.03088333624170917,
+						"share_high": 0.04780755835845268
+					},
+					{
+						"frame": "intent_or_definition",
+						"occurrences": 5,
+						"share": 0.0024975024975024975,
+						"share_low": 0.001067241029246351,
+						"share_high": 0.005833333669629408
+					},
+					{
+						"frame": "denial_or_ideology",
+						"occurrences": 86,
+						"share": 0.04295704295704296,
+						"share_low": 0.034916025457931675,
+						"share_high": 0.05274865912989093
+					},
+					{
+						"frame": "occurrence",
+						"occurrences": 18,
+						"share": 0.008991008991008992,
+						"share_low": 0.005694797593479992,
+						"share_high": 0.014167918198683533
+					},
+					{
+						"frame": "atrocity_triad",
+						"occurrences": 456,
+						"share": 0.22777222777222778,
+						"share_low": 0.20993250920474588,
+						"share_high": 0.24665465265357467
+					},
+					{
+						"frame": "risk_or_threat",
+						"occurrences": 45,
+						"share": 0.022477522477522476,
+						"share_low": 0.016840992992578747,
+						"share_high": 0.029943092762567056
+					},
+					{
+						"frame": "prevention",
+						"occurrences": 114,
+						"share": 0.056943056943056944,
+						"share_low": 0.047614940390297636,
+						"share_high": 0.067968201936914
+					},
+					{
+						"frame": "commemoration",
+						"occurrences": 92,
+						"share": 0.04595404595404595,
+						"share_low": 0.03761925672281582,
+						"share_high": 0.05602795452344728
+					},
+					{
+						"frame": "accountability",
+						"occurrences": 41,
+						"share": 0.02047952047952048,
+						"share_low": 0.015131991843745331,
+						"share_high": 0.02766374280577347
+					},
+					{
+						"frame": "perpetration",
+						"occurrences": 176,
+						"share": 0.08791208791208792,
+						"share_low": 0.07628415741062963,
+						"share_high": 0.10111842705380059
+					},
+					{
+						"frame": "directed_against",
+						"occurrences": 44,
+						"share": 0.02197802197802198,
+						"share_low": 0.016412455819415986,
+						"share_high": 0.029374542159323072
+					},
+					{
+						"frame": "named_case",
+						"occurrences": 158,
+						"share": 0.07892107892107893,
+						"share_low": 0.06790098924176124,
+						"share_high": 0.09155401524734746
+					},
+					{
+						"frame": "unframed",
+						"occurrences": 399,
+						"share": 0.1993006993006993,
+						"share_low": 0.18238518489065803,
+						"share_high": 0.21736797371247768
+					}
+				]
+			},
+			{
+				"member": "Non-state",
+				"occurrences": 958,
+				"sufficient": true,
+				"frames": [
+					{
+						"frame": "legal_instrument",
+						"occurrences": 39,
+						"share": 0.0407098121085595,
+						"share_low": 0.029921352933178942,
+						"share_high": 0.055166951454364586
+					},
+					{
+						"frame": "mandate_or_office",
+						"occurrences": 23,
+						"share": 0.024008350730688934,
+						"share_low": 0.016050496530312583,
+						"share_high": 0.03576829165314161
+					},
+					{
+						"frame": "distancing",
+						"occurrences": 7,
+						"share": 0.007306889352818371,
+						"share_low": 0.003543887751995516,
+						"share_high": 0.015005384227369346
+					},
+					{
+						"frame": "qualification",
+						"occurrences": 44,
+						"share": 0.04592901878914405,
+						"share_low": 0.03438969306006486,
+						"share_high": 0.06109533514125658
+					},
+					{
+						"frame": "crime_of",
+						"occurrences": 38,
+						"share": 0.03966597077244259,
+						"share_low": 0.0290338542716754,
+						"share_high": 0.05397510535311255
+					},
+					{
+						"frame": "acts_of",
+						"occurrences": 43,
+						"share": 0.04488517745302714,
+						"share_low": 0.033492141002939596,
+						"share_high": 0.05991354243562626
+					},
+					{
+						"frame": "intent_or_definition",
+						"occurrences": 11,
+						"share": 0.011482254697286013,
+						"share_low": 0.006423431046280329,
+						"share_high": 0.02044321998410687
+					},
+					{
+						"frame": "denial_or_ideology",
+						"occurrences": 21,
+						"share": 0.021920668058455117,
+						"share_low": 0.01438152168573698,
+						"share_high": 0.03327857697220605
+					},
+					{
+						"frame": "occurrence",
+						"occurrences": 17,
+						"share": 0.017745302713987474,
+						"share_low": 0.01110840019293222,
+						"share_high": 0.02823431941398848
+					},
+					{
+						"frame": "atrocity_triad",
+						"occurrences": 149,
+						"share": 0.15553235908141963,
+						"share_low": 0.133963523047028,
+						"share_high": 0.1798527052436297
+					},
+					{
+						"frame": "risk_or_threat",
+						"occurrences": 21,
+						"share": 0.021920668058455117,
+						"share_low": 0.01438152168573698,
+						"share_high": 0.03327857697220605
+					},
+					{
+						"frame": "prevention",
+						"occurrences": 50,
+						"share": 0.05219206680584551,
+						"share_low": 0.03981131816579148,
+						"share_high": 0.06814977861206345
+					},
+					{
+						"frame": "commemoration",
+						"occurrences": 24,
+						"share": 0.025052192066805846,
+						"share_low": 0.016891907265062615,
+						"share_high": 0.03700622568114716
+					},
+					{
+						"frame": "accountability",
+						"occurrences": 13,
+						"share": 0.013569937369519834,
+						"share_low": 0.007947276643057624,
+						"share_high": 0.023078063912840743
+					},
+					{
+						"frame": "perpetration",
+						"occurrences": 57,
+						"share": 0.059498956158663886,
+						"share_low": 0.04620545496026067,
+						"share_high": 0.07631105515688336
+					},
+					{
+						"frame": "directed_against",
+						"occurrences": 18,
+						"share": 0.018789144050104383,
+						"share_low": 0.011917575545597898,
+						"share_high": 0.029504488824078377
+					},
+					{
+						"frame": "named_case",
+						"occurrences": 67,
+						"share": 0.06993736951983298,
+						"share_low": 0.05544586891448887,
+						"share_high": 0.08786408883021098
+					},
+					{
+						"frame": "unframed",
+						"occurrences": 316,
+						"share": 0.3298538622129436,
+						"share_low": 0.3008129477359309,
+						"share_high": 0.360253855934909
+					}
+				]
+			}
+		]
+	},
+	"change": {
+		"method": "Single two-rate maximum likelihood partition of a frame's share of the year's occurrences, calibrated by permuting meetings across years under a constant-share null, with the independent-occurrence bootstrap beside it",
+		"null": "meeting_block_permutation",
+		"minimum_occurrences": 250,
+		"familywise_alpha": 0.05,
+		"per_test_alpha": 0.004545454545454546,
+		"correction": "Bonferroni across 11 frames large enough to test",
+		"trials": 2000,
+		"caveat": "A share can move because a frame grew or because the frames beside it shrank; these tests are one per frame and are not a test of the composition as a whole. The unframed residue is itself tested, and a frame whose split falls in the same year as the residue's is describing the codebook's reach rather than the Council's usage.",
+		"tested": [
+			{
+				"frame": "legal_instrument",
+				"occurrences": 297,
+				"result": {
+					"index": 67,
+					"label": "2020",
+					"family": "binomial",
+					"gain": 90.99618101,
+					"null": "meeting_block_permutation",
+					"blocks": 1556,
+					"p_value": 0.0005,
+					"p_value_independent": 0.0005,
+					"alpha": 0.004545454545454546,
+					"accepted": true,
+					"before": 0.025139664804469275,
+					"before_ci95": [0.021392668223087545, 0.029523160645762478],
+					"after": 0.07578008915304606,
+					"after_ci95": [0.06502485980980649, 0.08814654048437676],
+					"ratio": 3.014363546310054,
+					"counts": [144, 153],
+					"exposure": [5728, 2019]
+				}
+			},
+			{
+				"frame": "qualification",
+				"occurrences": 269,
+				"result": {
+					"index": 26,
+					"label": "1979",
+					"family": "binomial",
+					"gain": 5.50453564,
+					"null": "meeting_block_permutation",
+					"blocks": 1556,
+					"p_value": 0.44528,
+					"p_value_independent": 0.23538,
+					"alpha": 0.004545454545454546,
+					"accepted": false,
+					"before": 0.05605381165919283,
+					"before_ci95": [0.038252865088753904, 0.08143698955880364],
+					"after": 0.033420079441172444,
+					"after_ci95": [0.029536551766761347, 0.03779433578135771],
+					"ratio": 0.5962142172305164,
+					"counts": [25, 244],
+					"exposure": [446, 7301]
+				}
+			},
+			{
+				"frame": "crime_of",
+				"occurrences": 304,
+				"result": {
+					"index": 31,
+					"label": "1984",
+					"family": "binomial",
+					"gain": 8.65919801,
+					"null": "meeting_block_permutation",
+					"blocks": 1556,
+					"p_value": 0.2029,
+					"p_value_independent": 0.05397,
+					"alpha": 0.004545454545454546,
+					"accepted": false,
+					"before": 0.02023121387283237,
+					"before_ci95": [0.012088906623592736, 0.03367073936625493],
+					"after": 0.041105598866052445,
+					"after_ci95": [0.03671715061497572, 0.04599351263290453],
+					"ratio": 2.031791029664878,
+					"counts": [14, 290],
+					"exposure": [692, 7055]
+				}
+			},
+			{
+				"frame": "acts_of",
+				"occurrences": 324,
+				"result": {
+					"index": 47,
+					"label": "2000",
+					"family": "binomial",
+					"gain": 61.66965709,
+					"null": "meeting_block_permutation",
+					"blocks": 1556,
+					"p_value": 0.0005,
+					"p_value_independent": 0.0005,
+					"alpha": 0.004545454545454546,
+					"accepted": true,
+					"before": 0.07819905213270142,
+					"before_ci95": [0.06632753877076364, 0.09198602981112597],
+					"after": 0.03168839742531771,
+					"after_ci95": [0.027565869914402415, 0.03640437596039812],
+					"ratio": 0.4052273852570932,
+					"counts": [132, 192],
+					"exposure": [1688, 6059]
+				}
+			},
+			{
+				"frame": "denial_or_ideology",
+				"occurrences": 280,
+				"result": {
+					"index": 57,
+					"label": "2010",
+					"family": "binomial",
+					"gain": 219.27870233,
+					"null": "meeting_block_permutation",
+					"blocks": 1556,
+					"p_value": 0.0005,
+					"p_value_independent": 0.0005,
+					"alpha": 0.004545454545454546,
+					"accepted": true,
+					"before": 0.0031766200762388818,
+					"before_ci95": [0.001726418062511908, 0.005837877011395376],
+					"after": 0.05870841487279843,
+					"after_ci95": [0.05227551772921937, 0.06587790199774057],
+					"ratio": 18.481409001956948,
+					"counts": [10, 270],
+					"exposure": [3148, 4599]
+				}
+			},
+			{
+				"frame": "atrocity_triad",
+				"occurrences": 1502,
+				"result": {
+					"index": 39,
+					"label": "1992",
+					"family": "binomial",
+					"gain": 365.7316328,
+					"null": "meeting_block_permutation",
+					"blocks": 1556,
+					"p_value": 0.0005,
+					"p_value_independent": 0.0005,
+					"alpha": 0.004545454545454546,
+					"accepted": true,
+					"before": 0.0012121212121212121,
+					"before_ci95": [0.00021400121164347544, 0.006833738447766862],
+					"after": 0.2168448425310604,
+					"after_ci95": [0.2072952963123193, 0.226708496106648],
+					"ratio": 178.89699508812484,
+					"counts": [1, 1501],
+					"exposure": [825, 6922]
+				}
+			},
+			{
+				"frame": "prevention",
+				"occurrences": 410,
+				"result": {
+					"index": 24,
+					"label": "1977",
+					"family": "binomial",
+					"gain": 30.52558345,
+					"null": "meeting_block_permutation",
+					"blocks": 1556,
+					"p_value": 0.03198,
+					"p_value_independent": 0.0005,
+					"alpha": 0.004545454545454546,
+					"accepted": false,
+					"before": 0.005037783375314861,
+					"before_ci95": [0.001382630804409755, 0.018179863663513526],
+					"after": 0.05551020408163265,
+					"after_ci95": [0.05050394131998611, 0.06098084706055764],
+					"ratio": 11.018775510204081,
+					"counts": [2, 408],
+					"exposure": [397, 7350]
+				}
+			},
+			{
+				"frame": "commemoration",
+				"occurrences": 285,
+				"result": {
+					"index": 45,
+					"label": "1998",
+					"family": "binomial",
+					"gain": 91.46997208,
+					"null": "meeting_block_permutation",
+					"blocks": 1556,
+					"p_value": 0.0005,
+					"p_value_independent": 0.0005,
+					"alpha": 0.004545454545454546,
+					"accepted": true,
+					"before": 0.0027247956403269754,
+					"before_ci95": [0.0010601143534036636, 0.006985221473854551],
+					"after": 0.044752349100175184,
+					"after_ci95": [0.03991059436519446, 0.050150799437173425],
+					"ratio": 16.424112119764292,
+					"counts": [4, 281],
+					"exposure": [1468, 6279]
+				}
+			},
+			{
+				"frame": "perpetration",
+				"occurrences": 655,
+				"result": {
+					"index": 55,
+					"label": "2008",
+					"family": "binomial",
+					"gain": 97.9507046,
+					"null": "meeting_block_permutation",
+					"blocks": 1556,
+					"p_value": 0.0005,
+					"p_value_independent": 0.0005,
+					"alpha": 0.004545454545454546,
+					"accepted": true,
+					"before": 0.12582094711372277,
+					"before_ci95": [0.11422985886162479, 0.13840442203499947],
+					"after": 0.05995055624227441,
+					"after_ci95": [0.05361374889038165, 0.06698332365445084],
+					"ratio": 0.4764751626618129,
+					"counts": [364, 291],
+					"exposure": [2893, 4854]
+				}
+			},
+			{
+				"frame": "named_case",
+				"occurrences": 555,
+				"result": {
+					"index": 63,
+					"label": "2016",
+					"family": "binomial",
+					"gain": 30.54453612,
+					"null": "meeting_block_permutation",
+					"blocks": 1556,
+					"p_value": 0.02649,
+					"p_value_independent": 0.0005,
+					"alpha": 0.004545454545454546,
+					"accepted": false,
+					"before": 0.08397263114244247,
+					"before_ci95": [0.07647253036066881, 0.09213492562557649],
+					"after": 0.05129958960328317,
+					"after_ci95": [0.043875745728935385, 0.059900863453680155],
+					"ratio": 0.6109084460657648,
+					"counts": [405, 150],
+					"exposure": [4823, 2924]
+				}
+			},
+			{
+				"frame": "unframed",
+				"occurrences": 1901,
+				"result": {
+					"index": 47,
+					"label": "2000",
+					"family": "binomial",
+					"gain": 363.70457614,
+					"null": "meeting_block_permutation",
+					"blocks": 1556,
+					"p_value": 0.0005,
+					"p_value_independent": 0.0005,
+					"alpha": 0.004545454545454546,
+					"accepted": true,
+					"before": 0.42950236966824645,
+					"before_ci95": [0.4060746114231134, 0.45325026871908447],
+					"after": 0.19409143423007097,
+					"after_ci95": [0.18432803431450145, 0.2042424857661832],
+					"ratio": 0.4518984013522204,
+					"counts": [725, 1176],
+					"exposure": [1688, 6059]
+				}
+			}
+		]
+	},
+	"triangulation": {
+		"rule": "The frames are read off the text with no model involved and the labels are read off a model with no frame involved, so a cell where the two agree is two instruments finding the same thing and a cell where they do not is a question. Neither is the other's ground truth: the human gold sample in annotations/ is the only calibration this project has.",
+		"runs": []
+	}
+}

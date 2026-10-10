@@ -78,9 +78,9 @@ describe('what a view draws once it has a scope', () => {
 		// the twenty speeches the Council held that year, and never of the reading
 		// set the control selected.
 		const year = fixture.years[0];
-		for (const scope of SCOPE_IDS) expect(reading(year, scope).held).toBe(20);
-		expect(reading(year, 'word').share).toBeCloseTo(6 / 20);
-		expect(reading(year, 'debate').share).toBeCloseTo(18 / 20);
+		for (const scope of SCOPE_IDS) expect(reading(year!, scope).held).toBe(20);
+		expect(reading(year!, 'word').share).toBeCloseTo(6 / 20);
+		expect(reading(year!, 'debate').share).toBeCloseTo(18 / 20);
 	});
 
 	it('keeps the corpus denominator fixed across every cut and every scope', () => {
@@ -107,7 +107,7 @@ describe('what a view draws once it has a scope', () => {
 	it('ranks delegations by their own record and drops the unrankable', () => {
 		const ranked = rankedDelegations(fixture, 'word', 10, 10);
 		expect(ranked.map((row) => row.country_org)).toEqual(['Rwanda', 'France']);
-		expect(ranked[0].share).toBeCloseTo(5 / 12);
+		expect(ranked[0]!.share).toBeCloseTo(5 / 12);
 		// Chad sat under the minimum, so it is not ranked above delegations whose
 		// share is measured; the debate scope does not rescue it either.
 		expect(rankedDelegations(fixture, 'debate', 10, 10).map((r) => r.country_org)).not.toContain(

@@ -19,14 +19,12 @@ differs, so a corpus or lexicon change that moved an example is caught.
 from __future__ import annotations
 
 import argparse
-import csv
-import io
 import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from lib import artifacts, console, frames, lexicon, llm, model_runs, occurrences
+from lib import artifacts, console, frames, lexicon, model_runs, occurrences, prompts
 from lib.paths import SPEECHES_NORM, rel
 
 OUTPUT = model_runs.PROMPT_EXAMPLES
@@ -80,7 +78,7 @@ def flatten(text: str) -> tuple[str, list[int]]:
 
 
 def build() -> str:
-    pack = llm.load_prompt(model_runs.PROMPT)
+    pack = prompts.load_prompt(model_runs.PROMPT)
     wanted = examples(pack.system_template)
     if not wanted:
         console.fail("no worked examples were found in the prompt's system message")
@@ -119,11 +117,7 @@ def build() -> str:
                     "occurrence_id": item.occurrence_id,
                 }
             )
-    stream = io.StringIO()
-    writer = csv.DictWriter(stream, fieldnames=FIELDS, lineterminator="\n")
-    writer.writeheader()
-    writer.writerows(rows)
-    return stream.getvalue()
+    return artifacts.csv_text(rows, fieldnames=FIELDS)
 
 
 def main() -> None:

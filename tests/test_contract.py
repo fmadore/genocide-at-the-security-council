@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 
 import pandas as pd
-from lib import contract, usage
+from lib import contract, usage_comparison
 from lib.paths import CONTRACT
 
 
@@ -248,7 +248,7 @@ class TestCommittedContract:
         would be refused for a change nobody made. This is what says so first.
         """
         promised = json.loads(CONTRACT.read_text(encoding="utf-8"))
-        empty = contract.skeleton(usage.comparison_block(pd.DataFrame(), []))
+        empty = contract.skeleton(usage_comparison.comparison_block(pd.DataFrame(), []))
         assert (
             list(contract.differences(promised["usage/usage.json"]["comparison"], empty))
             == []

@@ -34,14 +34,14 @@ speaker matched at 40% is being described by a biased half of its own speeches.
 a sum over rows rather than a re-read of its text, which is what makes the
 stability battery affordable: without it, twenty seeds across every eligible
 speaker means tokenising fifty-eight million words forty times over. The counts
-are built with :func:`lib.lexical.words`, so they are identical to what
+are a :class:`lib.lexical.DocumentTerms` built with :func:`lib.lexical.words`,
+so they are identical to what
 :func:`lib.lexical.vocabulary` would have returned — asserted in
 `tests/test_keyness.py` rather than assumed here.
 """
 
 from __future__ import annotations
 
-from array import array
 from collections import Counter
 from dataclasses import dataclass
 
@@ -49,11 +49,6 @@ import numpy as np
 import pandas as pd
 
 from . import actors, lexical
-
-#: What a control speech has to match on — 05's list, unchanged. Year holds the
-#: occasion constant, agenda item the subject, speaker group the institutional
-#: position from which a speech is given.
-MATCH_ON: list[str] = ["year", "agenda_item_manual", "speaker_group"]
 
 #: Matched pairs a speaker needs before its keywords are published.
 #:
@@ -106,145 +101,15 @@ AGENDA_ITEMS = 8
 # --- The corpus as counts --------------------------------------------------
 
 
-def _gather(indptr: np.ndarray, rows: np.ndarray) -> np.ndarray:
-    """Positions of every (document, term) entry belonging to `rows`.
-
-    The loop-free form of ``concatenate([arange(indptr[r], indptr[r+1]) ...])``.
-    Written out because the readable version allocates one array per document,
-    and this is called once per speaker per seed.
-    """
-    starts = indptr[rows]
-    lengths = indptr[rows + 1] - starts
-    total = int(lengths.sum())
-    if total == 0:
-        return np.empty(0, dtype=np.int64)
-    out_starts = np.zeros(len(rows), dtype=np.int64)
-    np.cumsum(lengths[:-1], out=out_starts[1:])
-    return np.arange(total) - np.repeat(out_starts, lengths) + np.repeat(starts, lengths)
-
-
-@dataclass(frozen=True)
-class DocumentTerms:
-    """The corpus as (document, term, count) triples, in compressed row form.
-
-    `indptr[i]:indptr[i + 1]` is document *i*'s slice of `terms` and `counts`.
-    Row numbers are positions in the frame the matrix was built from, which is
-    why :func:`build` refuses anything but a positional index: a matrix that
-    silently disagreed with its frame about which row is which would produce a
-    perfectly plausible table for the wrong speaker.
-    """
-
-    words: list[str]
-    indptr: np.ndarray
-    terms: np.ndarray
-    counts: np.ndarray
-
-    @property
-    def documents(self) -> int:
-        return len(self.indptr) - 1
-
-    @property
-    def entries(self) -> int:
-        return len(self.terms)
-
-    def totals(self, rows: np.ndarray) -> np.ndarray:
-        """Summed counts per vocabulary id over the given row positions."""
-        positions = _gather(self.indptr, np.asarray(rows, dtype=np.int64))
-        if len(positions) == 0:
-            return np.zeros(len(self.words), dtype=np.int64)
-        return np.bincount(
-            self.terms[positions],
-            weights=self.counts[positions],
-            minlength=len(self.words),
-        ).astype(np.int64)
-
-    def counter(self, rows: np.ndarray) -> Counter[str]:
-        """The same sum as a `Counter`, which is what `lexical.compare` reads."""
-        totals = self.totals(rows)
-        present = np.flatnonzero(totals)
-        return Counter({self.words[i]: int(totals[i]) for i in present})
-
-    def dispersion(
-        self, rows: np.ndarray, meetings: np.ndarray | None = None
-    ) -> dict[str, dict[str, object]]:
-        """:func:`lib.lexical.dispersion` over the given rows, vectorised.
-
-        The same numbers the pure-Python version gives on the same documents —
-        asserted in `tests/test_keyness.py` — computed here over the matrix
-        because a speaker with two thousand speeches, re-paired twenty times,
-        cannot afford to rebuild two thousand `Counter`s per draw. `meetings`
-        is the meeting of every document in the *matrix* (positional, like the
-        rows), or None for a null column.
-        """
-        rows = np.asarray(rows, dtype=np.int64)
-        if rows.size == 0:
-            return {}
-        lengths = self.indptr[rows + 1] - self.indptr[rows]
-        positions = _gather(self.indptr, rows)
-        if positions.size == 0:
-            return {}
-        local = np.repeat(np.arange(rows.size), lengths)
-        terms = self.terms[positions]
-        counts = self.counts[positions].astype(float)
-        sizes = np.bincount(local, weights=counts, minlength=rows.size)
-        total = float(sizes.sum())
-        if total <= 0:
-            return {}
-        expected = sizes / total
-        vocabulary = len(self.words)
-        frequency = np.bincount(terms, weights=counts, minlength=vocabulary)
-        observed = counts / frequency[terms]
-        difference = np.bincount(
-            terms, weights=np.abs(expected[local] - observed), minlength=vocabulary
-        )
-        covered = np.bincount(terms, weights=expected[local], minlength=vocabulary)
-        documents = np.bincount(terms, minlength=vocabulary)
-        distinct: np.ndarray | None = None
-        if meetings is not None:
-            codes = pd.factorize(np.asarray(meetings)[rows])[0]
-            key = np.unique(terms.astype(np.int64) * (codes.max() + 1) + codes[local])
-            distinct = np.bincount(key // (codes.max() + 1), minlength=vocabulary)
-        present = np.flatnonzero(frequency)
-        return {
-            self.words[i]: {
-                "documents": int(documents[i]),
-                "meetings": None if distinct is None else int(distinct[i]),
-                "dp": round(float(0.5 * (difference[i] + 1.0 - covered[i])), 4),
-            }
-            for i in present
-        }
-
-
-def build(texts) -> DocumentTerms:
-    """Count every document once, into the compressed form above.
-
-    `array` rather than a list of Python ints: twenty-six million entries is
-    a hundred megabytes as int32 and roughly a gigabyte as boxed integers.
-    """
-    vocabulary: dict[str, int] = {}
-    indptr = array("q", [0])
-    terms = array("i")
-    counts = array("i")
-    for source in texts:
-        for word, count in Counter(lexical.words(source)).items():
-            identifier = vocabulary.get(word)
-            if identifier is None:
-                identifier = vocabulary[word] = len(vocabulary)
-            terms.append(identifier)
-            counts.append(count)
-        indptr.append(len(terms))
-    return DocumentTerms(
-        words=list(vocabulary),
-        indptr=np.frombuffer(indptr, dtype=np.int64).copy(),
-        terms=np.frombuffer(terms, dtype=np.int32).copy(),
-        counts=np.frombuffer(counts, dtype=np.int32).copy(),
-    )
+def build(texts) -> lexical.DocumentTerms:
+    """Count every document once, into :class:`lib.lexical.DocumentTerms`."""
+    return lexical.document_terms(texts)
 
 
 # --- Strata ----------------------------------------------------------------
 
 
-def strata(frame: pd.DataFrame, keys: list[str] = MATCH_ON) -> pd.Series:
+def strata(frame: pd.DataFrame, keys: list[str] = lexical.MATCH_ON) -> pd.Series:
     """One integer per distinct combination of the matching keys.
 
     :func:`lib.lexical.matched_control` groups the corpus once per speaker per
@@ -256,13 +121,26 @@ def strata(frame: pd.DataFrame, keys: list[str] = MATCH_ON) -> pd.Series:
     speech with no hand-coded agenda item is still comparable to another speech
     with no hand-coded agenda item, and dropping it would quietly shrink the
     denominator the coverage figure is read against.
+
+    Codes are numbered in order of first appearance. The number is not only a
+    label: it seeds the stratum's draw (`lexical._stratum_rng`) and orders the
+    strata a pairing visits, so a numbering in any other order would redraw
+    every published control. Each column is compared as text, so two values
+    printing the same are one stratum, and the columns are combined as integer
+    codes, so the partition is built a column at a time rather than a row at a
+    time.
     """
     missing = [key for key in keys if key not in frame.columns]
     if missing:
         raise KeyError(f"strata needs {', '.join(missing)}")
-    joined = frame[keys].astype("string").fillna("\x00").agg("\x1f".join, axis=1)
-    codes, _ = pd.factorize(joined, use_na_sentinel=False)
-    return pd.Series(codes, index=frame.index, name="stratum")
+    combined = np.zeros(len(frame), dtype=np.int64)
+    for key in keys:
+        codes, uniques = pd.factorize(frame[key].astype("string"), use_na_sentinel=False)
+        # Re-factorised at every column so the product stays below the row
+        # count however many keys there are; only the partition matters until
+        # the last factorisation, which fixes the order.
+        combined, _ = pd.factorize(combined * max(len(uniques), 1) + codes)
+    return pd.Series(combined, index=frame.index, name="stratum")
 
 
 # --- One speaker -----------------------------------------------------------
@@ -303,10 +181,19 @@ def self_reference(name: str) -> frozenset[str]:
 
 
 def pair_speaker(
-    frame: pd.DataFrame, mask: pd.Series, stratum: str, seed: int
+    frame: pd.DataFrame,
+    mask: pd.Series,
+    stratum: str,
+    seed: int,
+    *,
+    strata: lexical.Strata | None = None,
 ) -> tuple[pd.Index, pd.Index, Pairing]:
-    """Target and control rows for one speaker, plus what the matching cost."""
-    matched = lexical.matched_control(frame, mask, [stratum], seed)
+    """Target and control rows for one speaker, plus what the matching cost.
+
+    `strata` is the frame grouped by `stratum` once, for a caller pairing many
+    speakers; see :class:`lib.lexical.Strata`.
+    """
+    matched = lexical.matched_control(frame, mask, [stratum], seed, strata=strata)
     return (
         matched.target_index,
         matched.control_index,
@@ -321,7 +208,7 @@ def pair_speaker(
 
 def speaker_keyness(
     frame: pd.DataFrame,
-    matrix: DocumentTerms,
+    matrix: lexical.DocumentTerms,
     name: str,
     stratum: str,
     reference: Counter[str],
@@ -334,6 +221,7 @@ def speaker_keyness(
     minimum: int = MIN_PAIRS,
     min_coverage: float = MIN_COVERAGE,
     floor: float = lexical.G2_FLOOR,
+    strata: lexical.Strata | None = None,
 ) -> dict[str, object]:
     """One speaker's keywords against a matched control, and against the corpus.
 
@@ -360,9 +248,12 @@ def speaker_keyness(
     speeches to compare" and "compared on an unrepresentative part of the record"
     are different objections and a consumer that reports one for the other is
     telling a reader something untrue.
+
+    `strata` is `frame` grouped by `stratum` once, which a caller profiling many
+    speakers passes so that no pairing regroups the corpus.
     """
     mask = frame["country_org"] == name
-    targets, controls, pairing = pair_speaker(frame, mask, stratum, seed)
+    targets, controls, pairing = pair_speaker(frame, mask, stratum, seed, strata=strata)
     withheld_because = [
         *(["pairs"] if pairing.pairs < minimum else []),
         *(["coverage"] if pairing.coverage < min_coverage else []),
@@ -436,19 +327,21 @@ def speaker_keyness(
             [str(row["word"]) for row in rows],
             seed=seed,
             repetitions=repetitions,
+            strata=strata,
         )
     return payload
 
 
 def _stability(
     frame: pd.DataFrame,
-    matrix: DocumentTerms,
+    matrix: lexical.DocumentTerms,
     mask: pd.Series,
     stratum: str,
     words: list[str],
     *,
     seed: int,
     repetitions: int,
+    strata: lexical.Strata | None = None,
 ) -> dict[str, object]:
     """Where each keyword's effect size lands across consecutive seeds.
 
@@ -464,21 +357,28 @@ def _stability(
     interval drawn from *other* seeds can exclude the very number it is printed
     next to, and a reader meeting `+1.33 [+1.38, +1.53]` has been shown what
     looks exactly like an error. Both figures now come from one sample.
+
+    Each draw reads its keywords' counts straight from the summed arrays rather
+    than through a `Counter` of the whole vocabulary, of which it would read
+    forty entries.
     """
     effects: dict[str, list[float]] = {word: [] for word in words}
+    columns = [matrix.ids.get(word) for word in words]
     coverages: list[float] = []
     for repetition in range(repetitions):
-        targets, controls, pairing = pair_speaker(frame, mask, stratum, seed + repetition)
+        targets, controls, pairing = pair_speaker(
+            frame, mask, stratum, seed + repetition, strata=strata
+        )
         coverages.append(pairing.coverage)
-        target_counts = matrix.counter(targets.to_numpy())
-        control_counts = matrix.counter(controls.to_numpy())
-        target_total = sum(target_counts.values())
-        control_total = sum(control_counts.values())
-        for word in words:
+        target_counts = matrix.totals(targets.to_numpy())
+        control_counts = matrix.totals(controls.to_numpy())
+        target_total = int(target_counts.sum())
+        control_total = int(control_counts.sum())
+        for word, column in zip(words, columns, strict=True):
             effects[word].append(
                 lexical.log_ratio(
-                    target_counts.get(word, 0),
-                    control_counts.get(word, 0),
+                    0 if column is None else int(target_counts[column]),
+                    0 if column is None else int(control_counts[column]),
                     target_total,
                     control_total,
                 )

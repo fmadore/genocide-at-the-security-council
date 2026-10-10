@@ -33,23 +33,38 @@ like in a verbatim record, not a ground truth. This module keeps it honest:
 
 Counting runs against the speech *body* (form of address removed). Counting
 against the raw text would inflate every country name and the word "President".
+
+The lock that pins each pattern, and the counts committed beside the file, are
+read and compared by `lib.lexicon_lock`.
 """
 
 from __future__ import annotations
 
 import bisect
-import hashlib
-import json
+import functools
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import Any
 
+import numpy as np
 import pandas as pd
 import yaml
 
 from . import text as text_lib
-from .paths import LEXICON, LEXICON_COUNTS, LEXICON_LOCK, rel
+
+# Every name imported with a redundant `as` is a re-export, kept importable from
+# this module for the callers and tests that still reach it here; new code
+# imports it from where it is defined. The `as` marks it as deliberate rather
+# than as an unused import.
+from .lexicon_lock import _check_committed_lock
+from .lexicon_lock import check_lock as check_lock
+from .lexicon_lock import count_problems as count_problems
+from .lexicon_lock import counts_record as counts_record
+from .lexicon_lock import load_counts as load_counts
+from .lexicon_lock import pattern_sha256 as pattern_sha256
+from .lexicon_lock import population as population
+from .paths import LEXICON, rel
 
 #: Column prefixes. ``has_x`` is a boolean, ``n_x`` the occurrence count.
 HAS = "has_"
@@ -106,7 +121,7 @@ class Term:
     #: The pattern the widening replaced, kept so 03 can re-run it; ``None``
     #: when only the anchor widened.
     widened_from: str | None = None
-    regex: re.Pattern[str] = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
+    regex: re.Pattern[str] = field(compare=False, repr=False, default=None)  # type: ignore[arg-type]
     #: The anchor this term is held to. `load` sets the compiled `anchor:`
     #: block; a hand-built term falls back to :data:`ANCHOR_RE`.
     anchor_regex: re.Pattern[str] | None = field(compare=False, repr=False, default=None)
@@ -159,8 +174,8 @@ class Term:
                 kept.append(match.span())
         return kept
 
-    def count(self, texts: pd.Series) -> pd.Series:
-        """Occurrences of this term in each text.
+    def candidates(self, texts: pd.Series, haystack: Haystack | None = None) -> pd.Series:
+        """The texts that could hold a match: those holding one of the literals.
 
         The prefilters are a fast path and never a second filter: `load` refuses
         a literal that is not a whitespace-free ASCII token, and
@@ -177,24 +192,154 @@ class Term:
         therefore in its text, so requiring the literal cannot lose one, and it
         keeps sentence segmentation off the hundred thousand speeches that never
         say the word.
+
+        `haystack`, a :class:`Haystack` over `texts`, gives the same answer
+        faster; a caller testing many literals against one corpus builds it
+        once.
         """
-        candidates = pd.Series(False, index=texts.index)
+        if haystack is None:
+            haystack = Haystack(texts)
+        elif not haystack.index.equals(texts.index):
+            raise ValueError("the haystack was built from different texts")
+        found = np.zeros(len(texts), dtype=bool)
         for literal in self.prefilters:
-            candidates |= texts.str.contains(literal, case=False, regex=False, na=False)
+            found |= haystack.contains(literal)
         if self.anchor is not None:
-            candidates &= texts.str.contains(
-                self.anchor_prefilter, case=False, regex=False, na=False
-            )
+            found &= haystack.contains(self.anchor_prefilter)
+        return pd.Series(found, index=texts.index)
+
+    def find(
+        self, texts: pd.Series, haystack: Haystack | None = None
+    ) -> dict[object, list[tuple[int, int]]]:
+        """Every span this term counts, keyed by text, for the texts holding one.
+
+        In the order of `texts`. :meth:`count` is the lengths of these; a step
+        that also needs the spans themselves keeps this and skips matching every
+        text a second time.
+        """
+        sources = texts.loc[self.candidates(texts, haystack)]
+        found: dict[object, list[tuple[int, int]]] = {}
+        for index, source in sources.items():
+            spans = self.spans(source)
+            if spans:
+                found[index] = spans
+        return found
+
+    def count(
+        self,
+        texts: pd.Series,
+        haystack: Haystack | None = None,
+        *,
+        found: Mapping[object, list[tuple[int, int]]] | None = None,
+    ) -> pd.Series:
+        """Occurrences of this term in each text.
+
+        `found` is :meth:`find` over the same texts, when the caller has it.
+        """
+        if found is None:
+            found = self.find(texts, haystack)
         counts = pd.Series(0, index=texts.index, dtype="int64")
-        if candidates.any():
-            sources = texts.loc[candidates]
-            matched = pd.Series(
-                [len(self.spans(source)) for source in sources],
-                index=sources.index,
-                dtype="int64",
-            )
-            counts.loc[candidates] = matched
+        if found:
+            counts.loc[list(found)] = [len(spans) for spans in found.values()]
         return counts
+
+
+def _reaching_ascii(last: int) -> list[str]:
+    """Non-ASCII characters up to code point `last` whose upper case holds ASCII."""
+    return [
+        chr(point)
+        for point in range(0x80, last + 1)
+        if not 0xD800 <= point <= 0xDFFF
+        and any(ord(upper) < 0x80 for upper in chr(point).upper())
+    ]
+
+
+@functools.cache
+def _upper_reaches_ascii() -> re.Pattern[str]:
+    """The non-ASCII characters whose upper case holds an ASCII character.
+
+    The dotless i (U+0131) upper-cases to 'I', the sharp s (U+00DF) to 'SS',
+    the fi ligature (U+FB01) to 'FI': in a text holding one of these,
+    `str.upper` can make a literal's match that upper-casing ASCII alone does
+    not. Read from the running Python's own case tables, so the set is
+    whatever `str.upper` does rather than a list kept beside it. Only the
+    Basic Multilingual Plane is read: no character beyond it upper-cases into
+    ASCII, which `tests/test_lexicon.py` checks against every code point for
+    the running Python, and reading all of them would cost every step a second.
+    """
+    reach = _reaching_ascii(0xFFFF)
+    return re.compile("[" + "".join(re.escape(character) for character in reach) + "]")
+
+
+class Haystack:
+    """Texts prepared once for the prefilters' case-insensitive substring tests.
+
+    :meth:`contains` answers exactly what `str.contains(literal, case=False,
+    regex=False, na=False)` answers on an object column, which is upper-case
+    containment run in Python: every call upper-cases every text again, and
+    :func:`apply` makes some fifty calls over the corpus. Here the texts are
+    upper-cased once, into one buffer, and each literal becomes a byte search
+    that jumps to the next text at its first hit, remembered for the next term
+    that names the same literal.
+
+    The texts are upper-cased in ASCII only (`bytes.upper`). For an ASCII
+    literal that is the same test, because a match of an ASCII literal lies
+    inside a run of ASCII characters and both upper-casings treat those alike —
+    except in a text holding a character whose upper case contains ASCII (see
+    :func:`_upper_reaches_ascii`). Those few texts are tested as `str.contains`
+    tests them, and so is any literal that is not ASCII. A NUL byte separates
+    the texts, so no literal can match across two of them. Arrow strings'
+    case-insensitive search is not used: it folds case with RE2's Unicode
+    tables, which match the Kelvin sign for `k` where upper-casing does not, so
+    its candidates could differ from the ones every count was taken with.
+    """
+
+    def __init__(self, texts: pd.Series) -> None:
+        self.index = texts.index
+        values = texts.to_list()
+        reach = _upper_reaches_ascii()
+        self._missing = np.array([not isinstance(text, str) for text in values], dtype=bool)
+        self._texts = [text if isinstance(text, str) else "" for text in values]
+        self._special = [
+            (position, text.upper())
+            for position, text in enumerate(self._texts)
+            if reach.search(text)
+        ]
+        # Built a text at a time, so no second copy of the whole corpus is
+        # ever held.
+        self._buffer = bytearray()
+        self._starts: list[int] = []
+        for text in self._texts:
+            self._starts.append(len(self._buffer))
+            self._buffer += text.encode("utf-8").upper()
+            self._buffer += b"\x00"
+        self._starts.append(len(self._buffer))
+        self._cache: dict[str, np.ndarray] = {}
+
+    def contains(self, literal: str) -> np.ndarray:
+        """Which texts hold `literal`, case aside, as a boolean array."""
+        found = self._cache.get(literal)
+        if found is not None:
+            return found
+        needle = literal.upper()
+        if needle and needle.isascii() and "\x00" not in needle:
+            found = np.zeros(len(self._texts), dtype=bool)
+            pattern = needle.encode("ascii")
+            starts = self._starts
+            position = self._buffer.find(pattern)
+            while position != -1:
+                text = bisect.bisect_right(starts, position) - 1
+                found[text] = True
+                position = self._buffer.find(pattern, starts[text + 1])
+            for text, upper in self._special:
+                found[text] = needle in upper
+        else:
+            found = np.array([needle in text.upper() for text in self._texts], dtype=bool)
+        found[self._missing] = False
+        # Shared by every term naming the literal, so nobody may change it.
+        found.flags.writeable = False
+        self._cache[literal] = found
+        return found
 
 
 @dataclass(frozen=True)
@@ -227,7 +372,7 @@ class Anchor:
     prefilter: str
     widened_since: int | None = None
     widened_from: str | None = None
-    regex: re.Pattern[str] = field(compare=False, repr=False, default=None)  # type: ignore[assignment]
+    regex: re.Pattern[str] = field(compare=False, repr=False, default=None)  # type: ignore[arg-type]
 
 
 @dataclass(frozen=True)
@@ -315,15 +460,6 @@ class Lexicon:
         return out
 
 
-def pattern_sha256(pattern: str) -> str:
-    """The digest the lock pins a term's pattern by.
-
-    One helper for the check and for the tool that writes the lock, so the two
-    can never disagree about what was hashed.
-    """
-    return hashlib.sha256(pattern.encode("utf-8")).hexdigest()
-
-
 def check_nesting(terms: Mapping[str, Term]) -> None:
     """Refuse a `nested_under` graph that cannot describe containment.
 
@@ -361,127 +497,6 @@ def check_nesting(terms: Mapping[str, Term]) -> None:
                 )
             chain.append(parent)
             parent = terms[parent].nested_under
-
-
-def check_lock(
-    terms: Mapping[str, Term],
-    version: int,
-    lock: Mapping[str, object],
-    anchor: Anchor | None = None,
-) -> None:
-    """Refuse a lexicon the committed lock no longer describes.
-
-    `pattern_since` is a hand-written claim about a hand-written matching rule,
-    and nothing inside the file can tell whether the claim survived the last
-    edit. The lock records each pattern's digest — and, since v4, the anchor
-    beside it — against the version the rule is declared to date from, so
-    editing either without bumping `pattern_since` fails here, at 03 and in CI,
-    instead of letting `15_usage.py` aggregate a run enumerated from a rule the
-    file no longer holds. The anchor is recorded literally rather than folded
-    into the digest so that a lock diff says which terms changed register-
-    critical behaviour and which changed a regex. Rewrite the lock with
-    `python tools/lock_lexicon.py`.
-    """
-    locked_version = lock.get("version")
-    if isinstance(locked_version, bool) or not isinstance(locked_version, int):
-        raise ValueError(
-            f"{rel(LEXICON_LOCK)} has no integer 'version': {locked_version!r}; "
-            "run `python tools/lock_lexicon.py`"
-        )
-    if locked_version != version:
-        raise ValueError(
-            f"{rel(LEXICON_LOCK)} locks lexicon version {locked_version}, but "
-            f"{rel(LEXICON)} is version {version}; run `python tools/lock_lexicon.py`"
-        )
-
-    entries = lock.get("terms")
-    if not isinstance(entries, Mapping):
-        raise ValueError(
-            f"{rel(LEXICON_LOCK)} has no 'terms' table; run `python tools/lock_lexicon.py`"
-        )
-    # Every term, the disabled ones included: a held-back pattern is still what
-    # the OCR delta is measured with.
-    missing = sorted(set(terms) - set(entries))
-    if missing:
-        raise ValueError(
-            f"{rel(LEXICON_LOCK)} does not lock {missing}; run `python tools/lock_lexicon.py`"
-        )
-    unknown = sorted(set(entries) - set(terms))
-    if unknown:
-        raise ValueError(
-            f"{rel(LEXICON_LOCK)} locks {unknown}, which {rel(LEXICON)} no longer "
-            "defines; run `python tools/lock_lexicon.py`"
-        )
-
-    if anchor is not None:
-        locked_anchor = lock.get("anchor")
-        if not isinstance(locked_anchor, Mapping):
-            raise ValueError(
-                f"{rel(LEXICON_LOCK)} does not lock the anchor; run "
-                "`python tools/lock_lexicon.py`"
-            )
-        if locked_anchor.get("pattern_sha256") != pattern_sha256(anchor.pattern):
-            raise ValueError(
-                f"{rel(LEXICON)}: the anchor pattern changed, which changes what every "
-                f"anchored term counts: declare it widened_since {version} with the old "
-                f"pattern as widened_from, or set every anchored term's pattern_since to "
-                f"{version}, and run `python tools/lock_lexicon.py`"
-            )
-        if locked_anchor.get("widened_since") != anchor.widened_since:
-            raise ValueError(
-                f"{rel(LEXICON)}: the anchor declares widened_since {anchor.widened_since}, "
-                f"{rel(LEXICON_LOCK)} records {locked_anchor.get('widened_since')!r}; run "
-                "`python tools/lock_lexicon.py`"
-            )
-
-    for name, term in terms.items():
-        entry = entries[name]
-        if not isinstance(entry, Mapping):
-            raise ValueError(
-                f"{rel(LEXICON_LOCK)}: the entry for '{name}' is not a table: {entry!r}; "
-                "run `python tools/lock_lexicon.py`"
-            )
-        if entry.get("pattern_sha256") != pattern_sha256(term.pattern):
-            raise ValueError(
-                f"{rel(LEXICON)}: the pattern of '{name}' changed: set its pattern_since "
-                f"to {version} — or, for a change that only adds matches, its "
-                f"widened_since to {version} with the old pattern as widened_from — "
-                "and run `python tools/lock_lexicon.py`"
-            )
-        if entry.get("widened_since") != term.widened_since:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' declares widened_since "
-                f"{term.widened_since}, {rel(LEXICON_LOCK)} records "
-                f"{entry.get('widened_since')!r}; run `python tools/lock_lexicon.py`"
-            )
-        if entry.get("anchor") != term.anchor:
-            raise ValueError(
-                f"{rel(LEXICON)}: the anchor of '{name}' changed from "
-                f"{entry.get('anchor')!r} to {term.anchor!r}, which changes what it "
-                f"counts as surely as a pattern edit: set its pattern_since to "
-                f"{version} and run `python tools/lock_lexicon.py`"
-            )
-        if entry.get("pattern_since") != term.pattern_since:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' declares pattern_since "
-                f"{term.pattern_since}, {rel(LEXICON_LOCK)} records "
-                f"{entry.get('pattern_since')!r}; the pattern itself has not changed, so "
-                "run `python tools/lock_lexicon.py` once the declaration is the one you want"
-            )
-
-
-def _check_committed_lock(terms: Mapping[str, Term], version: int, anchor: Anchor) -> None:
-    """Read the committed lock and hold `terms` to it.
-
-    Separate from `check_lock` only because `load`'s keyword of that name
-    shadows it inside `load`; the check itself stays a pure function of values.
-    """
-    if not LEXICON_LOCK.exists():
-        raise FileNotFoundError(
-            f"{rel(LEXICON_LOCK)} is missing — it is committed beside "
-            f"{rel(LEXICON)}; run `python tools/lock_lexicon.py` to write it"
-        )
-    check_lock(terms, version, json.loads(LEXICON_LOCK.read_text(encoding="utf-8")), anchor)
 
 
 def _widening(owner: str, spec: Mapping[str, object], version: int, since: int) -> tuple[int | None, str | None]:
@@ -542,17 +557,8 @@ def _anchor(raw: Mapping[str, object], version: int) -> Anchor:
     )
 
 
-def load(*, check_lock: bool = True) -> Lexicon:
-    """Read and compile config/lexicon.yml.
-
-    `check_lock` holds the file to `config/lexicon.lock.json`, which is what
-    catches a pattern edited without its `pattern_since`. Only the tool that
-    writes that lock passes False: every other caller wants the check.
-    """
-    if not LEXICON.exists():
-        raise FileNotFoundError(f"{rel(LEXICON)} is missing")
-    raw = yaml.safe_load(LEXICON.read_text(encoding="utf-8"))
-
+def _version(raw: Mapping[str, Any]) -> int:
+    """The file's release number, which every `pattern_since` is bounded by."""
     version = raw.get("version", 0)
     if not isinstance(version, int) or isinstance(version, bool):
         raise ValueError(f"{rel(LEXICON)}: 'version' must be an integer, got {version!r}")
@@ -563,130 +569,121 @@ def load(*, check_lock: bool = True) -> Lexicon:
             f"{rel(LEXICON)}: 'version' must be at least 1, got {version}; every release "
             "of the lexicon is numbered and the first one is 1"
         )
+    return version
 
-    anchor = _anchor(raw, version)
 
-    terms: dict[str, Term] = {}
-    for name, spec in raw["terms"].items():
-        try:
-            regex = re.compile(spec["pattern"], re.IGNORECASE)
-        except re.error as exc:
-            raise ValueError(f"{rel(LEXICON)}: term '{name}' has an invalid pattern: {exc}") from exc
-        since = spec.get("pattern_since")
-        if not isinstance(since, int) or isinstance(since, bool):
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' needs an integer 'pattern_since' — the "
-                "lexicon version at which its pattern last changed"
-            )
-        if not 1 <= since <= version:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' has pattern_since {since}, outside "
-                f"1..{version}; a pattern cannot have changed in a version that does "
-                "not exist yet"
-            )
-
-        # Refused rather than ignored, as `sets` is: v8 removed the legal
-        # ladder because nothing read it and its order was contestable, and a
-        # revived key would look like a decision nothing implements.
-        if "intensity" in spec:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' declares 'intensity', which was removed "
-                "at v8 and nothing reads; see the v8 note in the file's header"
-            )
-
-        term_anchor = spec.get("anchor")
-        if term_anchor is not None and term_anchor not in ANCHORS:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' declares anchor {term_anchor!r}; the "
-                f"anchors are {sorted(ANCHORS)}, or none at all. An unrecognised "
-                "anchor would count every match and look like a decision to anchor"
-            )
-        widened, previous = _widening(f"term '{name}'", spec, version, since)
-        # An anchored term's rule includes the anchor, so an anchor widening is a
-        # widening of every anchored term, and each has to say so: it is what a
-        # reader of that term's artefacts is told about their coverage.
-        if (
-            term_anchor is not None
-            and anchor.widened_since is not None
-            and since < anchor.widened_since
-            and (widened is None or widened < anchor.widened_since)
-        ):
-            raise ValueError(
-                f"{rel(LEXICON)}: the anchor was widened at v{anchor.widened_since}, "
-                f"so anchored term '{name}' must declare widened_since "
-                f"{anchor.widened_since} (or a later pattern_since)"
-            )
-
-        terms[name] = Term(
-            name=name,
-            pattern=spec["pattern"],
-            pattern_since=since,
-            tier=spec.get("tier", "adjacent"),
-            register=spec.get("register", "other"),
-            enabled=spec.get("enabled", True),
-            note=(spec.get("note") or "").strip(),
-            examples=tuple(str(example) for example in spec.get("examples", [])),
-            prefilters=tuple(str(literal) for literal in spec.get("prefilters", [])),
-            nested_under=spec.get("nested_under"),
-            anchor=term_anchor,
-            widened_since=widened,
-            widened_from=previous,
-            regex=regex,
-            anchor_regex=anchor.regex if term_anchor is not None else None,
-            anchor_prefilter=anchor.prefilter,
-        )
-
-        if not terms[name].examples:
-            raise ValueError(f"{rel(LEXICON)}: term '{name}' needs at least one example")
-        if not terms[name].prefilters:
-            raise ValueError(f"{rel(LEXICON)}: term '{name}' needs at least one prefilter")
-        missed = [example for example in terms[name].examples if not regex.search(example)]
-        if missed:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' does not match its examples: {missed}"
-            )
-        unfiltered = [
-            example
-            for example in terms[name].examples
-            if not any(literal.lower() in example.lower() for literal in terms[name].prefilters)
-        ]
-        if unfiltered:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' prefilters miss its examples: {unfiltered}"
-            )
-        # The records keep their hard line breaks, so `\s+` in a pattern spans a
-        # newline that a multi-word literal never will: such a literal would skip
-        # the speech and lose the match rather than merely slow the scan down.
-        # ASCII for the same reason rather than for tidiness: the fast path is
-        # `str.contains(case=False)`, upper-case containment, while the pattern
-        # runs under `re.IGNORECASE`. The two agree on ASCII and diverge outside
-        # it — `re.IGNORECASE` folds U+0130 "İ" to "i", upper-casing does not —
-        # so a non-ASCII literal could skip a speech the regex would match.
-        unusable = [
-            literal
-            for literal in terms[name].prefilters
-            if any(c.isspace() for c in literal) or not literal.isascii()
-        ]
-        if unusable:
-            raise ValueError(
-                f"{rel(LEXICON)}: term '{name}' has prefilters that are not whitespace-free "
-                f"ASCII: {unusable}; a prefilter is a plain case-insensitive substring test "
-                "and must be one ASCII token"
-            )
-
-    # Refused rather than ignored. A `sets:` block reintroduced here would look
-    # like a working feature and count nothing, and the reason it went is not a
-    # detail of implementation: a named group of terms published as a measure is
-    # a grouping this file chose on the reader's behalf.
-    if "sets" in raw:
+def _term(name: str, spec: Mapping[str, Any], version: int, anchor: Anchor) -> Term:
+    """One entry of `terms:`, compiled and held to every rule a term keeps."""
+    try:
+        regex = re.compile(spec["pattern"], re.IGNORECASE)
+    except re.error as exc:
+        raise ValueError(f"{rel(LEXICON)}: term '{name}' has an invalid pattern: {exc}") from exc
+    since = spec.get("pattern_since")
+    if not isinstance(since, int) or isinstance(since, bool):
         raise ValueError(
-            f"{rel(LEXICON)}: 'sets' was removed at v5 and nothing reads it. The site "
-            "publishes one measure per term and the reader composes the group; see the "
-            "v5 note in the file's header"
+            f"{rel(LEXICON)}: term '{name}' needs an integer 'pattern_since' — the "
+            "lexicon version at which its pattern last changed"
+        )
+    if not 1 <= since <= version:
+        raise ValueError(
+            f"{rel(LEXICON)}: term '{name}' has pattern_since {since}, outside "
+            f"1..{version}; a pattern cannot have changed in a version that does "
+            "not exist yet"
         )
 
-    check_nesting(terms)
+    # Refused rather than ignored, as `sets` is: v8 removed the legal
+    # ladder because nothing read it and its order was contestable, and a
+    # revived key would look like a decision nothing implements.
+    if "intensity" in spec:
+        raise ValueError(
+            f"{rel(LEXICON)}: term '{name}' declares 'intensity', which was removed "
+            "at v8 and nothing reads; see the v8 note in the file's header"
+        )
 
+    term_anchor = spec.get("anchor")
+    if term_anchor is not None and term_anchor not in ANCHORS:
+        raise ValueError(
+            f"{rel(LEXICON)}: term '{name}' declares anchor {term_anchor!r}; the "
+            f"anchors are {sorted(ANCHORS)}, or none at all. An unrecognised "
+            "anchor would count every match and look like a decision to anchor"
+        )
+    widened, previous = _widening(f"term '{name}'", spec, version, since)
+    # An anchored term's rule includes the anchor, so an anchor widening is a
+    # widening of every anchored term, and each has to say so: it is what a
+    # reader of that term's artefacts is told about their coverage.
+    if (
+        term_anchor is not None
+        and anchor.widened_since is not None
+        and since < anchor.widened_since
+        and (widened is None or widened < anchor.widened_since)
+    ):
+        raise ValueError(
+            f"{rel(LEXICON)}: the anchor was widened at v{anchor.widened_since}, "
+            f"so anchored term '{name}' must declare widened_since "
+            f"{anchor.widened_since} (or a later pattern_since)"
+        )
+
+    term = Term(
+        name=name,
+        pattern=spec["pattern"],
+        pattern_since=since,
+        tier=spec.get("tier", "adjacent"),
+        register=spec.get("register", "other"),
+        enabled=spec.get("enabled", True),
+        note=(spec.get("note") or "").strip(),
+        examples=tuple(str(example) for example in spec.get("examples", [])),
+        prefilters=tuple(str(literal) for literal in spec.get("prefilters", [])),
+        nested_under=spec.get("nested_under"),
+        anchor=term_anchor,
+        widened_since=widened,
+        widened_from=previous,
+        regex=regex,
+        anchor_regex=anchor.regex if term_anchor is not None else None,
+        anchor_prefilter=anchor.prefilter,
+    )
+
+    if not term.examples:
+        raise ValueError(f"{rel(LEXICON)}: term '{name}' needs at least one example")
+    if not term.prefilters:
+        raise ValueError(f"{rel(LEXICON)}: term '{name}' needs at least one prefilter")
+    missed = [example for example in term.examples if not regex.search(example)]
+    if missed:
+        raise ValueError(
+            f"{rel(LEXICON)}: term '{name}' does not match its examples: {missed}"
+        )
+    unfiltered = [
+        example
+        for example in term.examples
+        if not any(literal.lower() in example.lower() for literal in term.prefilters)
+    ]
+    if unfiltered:
+        raise ValueError(
+            f"{rel(LEXICON)}: term '{name}' prefilters miss its examples: {unfiltered}"
+        )
+    # The records keep their hard line breaks, so `\s+` in a pattern spans a
+    # newline that a multi-word literal never will: such a literal would skip
+    # the speech and lose the match rather than merely slow the scan down.
+    # ASCII for the same reason rather than for tidiness: the fast path is
+    # `str.contains(case=False)`, upper-case containment, while the pattern
+    # runs under `re.IGNORECASE`. The two agree on ASCII and diverge outside
+    # it — `re.IGNORECASE` folds U+0130 "İ" to "i", upper-casing does not —
+    # so a non-ASCII literal could skip a speech the regex would match.
+    unusable = [
+        literal
+        for literal in term.prefilters
+        if any(c.isspace() for c in literal) or not literal.isascii()
+    ]
+    if unusable:
+        raise ValueError(
+            f"{rel(LEXICON)}: term '{name}' has prefilters that are not whitespace-free "
+            f"ASCII: {unusable}; a prefilter is a plain case-insensitive substring test "
+            "and must be one ASCII token"
+        )
+    return term
+
+
+def _derived(raw: Mapping[str, Any], terms: Mapping[str, Term]) -> dict[str, Derived]:
+    """The `derived:` block: each measure a term minus terms nested inside it."""
     derived: dict[str, Derived] = {}
     for name, spec in (raw.get("derived") or {}).items():
         if name in terms:
@@ -726,6 +723,37 @@ def load(*, check_lock: bool = True) -> Lexicon:
             register=spec.get("register", terms[str(minuend)].register),
             note=(spec.get("note") or "").strip(),
         )
+    return derived
+
+
+def load(*, check_lock: bool = True) -> Lexicon:
+    """Read and compile config/lexicon.yml.
+
+    `check_lock` holds the file to `config/lexicon.lock.json`, which is what
+    catches a pattern edited without its `pattern_since`. Only the tool that
+    writes that lock passes False: every other caller wants the check.
+    """
+    if not LEXICON.exists():
+        raise FileNotFoundError(f"{rel(LEXICON)} is missing")
+    raw = yaml.safe_load(LEXICON.read_text(encoding="utf-8"))
+
+    version = _version(raw)
+    anchor = _anchor(raw, version)
+    terms = {name: _term(name, spec, version, anchor) for name, spec in raw["terms"].items()}
+
+    # Refused rather than ignored. A `sets:` block reintroduced here would look
+    # like a working feature and count nothing, and the reason it went is not a
+    # detail of implementation: a named group of terms published as a measure is
+    # a grouping this file chose on the reader's behalf.
+    if "sets" in raw:
+        raise ValueError(
+            f"{rel(LEXICON)}: 'sets' was removed at v5 and nothing reads it. The site "
+            "publishes one measure per term and the reader composes the group; see the "
+            "v5 note in the file's header"
+        )
+
+    check_nesting(terms)
+    derived = _derived(raw, terms)
 
     if check_lock:
         _check_committed_lock(terms, version, anchor)
@@ -739,7 +767,26 @@ def load(*, check_lock: bool = True) -> Lexicon:
     )
 
 
-def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
+def find_all(
+    bodies: pd.Series, terms: Iterable[Term], haystack: Haystack | None = None
+) -> dict[str, dict[object, list[tuple[int, int]]]]:
+    """:meth:`Term.find` for several terms over one corpus, keyed by term name.
+
+    One :class:`Haystack` serves every term. 03 keeps the result: its counts,
+    its OCR delta and its precision sample are all read from these spans
+    rather than from a fresh pass of the lexicon for each.
+    """
+    if haystack is None:
+        haystack = Haystack(bodies)
+    return {term.name: term.find(bodies, haystack) for term in terms}
+
+
+def apply(
+    bodies: pd.Series,
+    lex: Lexicon,
+    *,
+    found: Mapping[str, Mapping[object, list[tuple[int, int]]]] | None = None,
+) -> pd.DataFrame:
     """Count every active term in every speech body.
 
     Returns a frame of ``n_<term>`` and ``has_<term>`` columns, one such pair
@@ -757,10 +804,15 @@ def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
     it can be made honestly. A derived measure is the one exception that proves
     the rule and is not one: it *subtracts* one term from another rather than
     adding two, and it is declared, checked and published under its own name.
+
+    `found`, from :func:`find_all` over the same bodies, is counted rather than
+    matched again.
     """
+    if found is None:
+        found = find_all(bodies, lex.active)
     counts = pd.DataFrame(index=bodies.index)
     for term in lex.active:
-        counts[f"{COUNT}{term.name}"] = term.count(bodies)
+        counts[f"{COUNT}{term.name}"] = term.count(bodies, found=found[term.name])
         counts[f"{HAS}{term.name}"] = counts[f"{COUNT}{term.name}"] > 0
 
     for measure in lex.derived.values():
@@ -785,33 +837,45 @@ def apply(bodies: pd.Series, lex: Lexicon) -> pd.DataFrame:
     return counts
 
 
-def ocr_delta(bodies: pd.Series, lex: Lexicon) -> list[dict[str, object]]:
+def ocr_delta(
+    bodies: pd.Series,
+    lex: Lexicon,
+    *,
+    found: Mapping[str, Mapping[object, list[tuple[int, int]]]] | None = None,
+) -> list[dict[str, object]]:
     """Extra speeches each disabled term would add, over the enabled terms.
 
     Reported rather than absorbed: silently folding OCR noise into the headline
     count would overstate how much of it there is.
+
+    `found`, from :func:`find_all` over the same bodies and every term, saves
+    re-counting the enabled terms, which 03 has just counted.
     """
+    if found is None:
+        found = find_all(bodies, lex.terms.values())
     report: list[dict[str, object]] = []
     for term in lex.disabled:
-        found = term.count(bodies) > 0
+        found_here = term.count(bodies, found=found[term.name]) > 0
         # Compare against the terms of the same tier that are switched on.
         peers = [t for t in lex.active if t.tier == term.tier]
         already = pd.Series(False, index=bodies.index)
         for peer in peers:
-            already |= peer.count(bodies) > 0
+            already |= peer.count(bodies, found=found[peer.name]) > 0
         report.append(
             {
                 "term": term.name,
                 "pattern": term.pattern,
-                "speeches": int(found.sum()),
-                "extra": int((found & ~already).sum()),
-                "extra_index": bodies.index[found & ~already].tolist(),
+                "speeches": int(found_here.sum()),
+                "extra": int((found_here & ~already).sum()),
+                "extra_index": bodies.index[found_here & ~already].tolist(),
             }
         )
     return report
 
 
-def check_widenings(bodies: pd.Series, lex: Lexicon) -> list[str]:
+def check_widenings(
+    bodies: pd.Series, lex: Lexicon, haystack: Haystack | None = None
+) -> list[str]:
     """Where this version's declared widenings are not widenings, measured.
 
     A widening promises that every span the old rule counted is still counted,
@@ -822,7 +886,17 @@ def check_widenings(bodies: pd.Series, lex: Lexicon) -> list[str]:
     matches, and any old span the current rule no longer yields is reported.
     Only this version's widenings are checked; an earlier one was checked in the
     release that declared it.
+
+    Where only the anchor widened, the old rule runs the term's own pattern,
+    and every match of that holds one of the term's literals — the promise
+    :meth:`Term.candidates` rests on — so only the bodies holding one are
+    re-run. A replaced pattern makes no such promise: what it matched need not
+    hold the new pattern's literals, least of all where the widening is broken,
+    so it is re-run on every body. `haystack` is a :class:`Haystack` over
+    `bodies`, built here when not given.
     """
+    if haystack is not None and not haystack.index.equals(bodies.index):
+        raise ValueError("the haystack was built from different texts")
     anchor = lex.anchor
     old_anchor = (
         re.compile(anchor.widened_from, re.IGNORECASE)
@@ -842,9 +916,17 @@ def check_widenings(bodies: pd.Series, lex: Lexicon) -> list[str]:
             )
             continue
         search = old_regex or term.regex
+        texts = bodies
+        if old_regex is None:
+            if haystack is None:
+                haystack = Haystack(bodies)
+            holding = np.zeros(len(bodies), dtype=bool)
+            for literal in term.prefilters:
+                holding |= haystack.contains(literal)
+            texts = bodies.loc[holding]
         lost = 0
         first: str | None = None
-        for index, body in bodies.items():
+        for index, body in texts.items():
             if not search.search(body):
                 continue
             if term_old_anchor is not None and not term_old_anchor.search(body):
@@ -860,84 +942,3 @@ def check_widenings(bodies: pd.Series, lex: Lexicon) -> list[str]:
                 f"counted (first: speech {first}); it is not a widening — bump pattern_since"
             )
     return problems
-
-
-# --- Committed counts -------------------------------------------------------
-
-
-def counts_record(counts: pd.DataFrame, lex: Lexicon, speeches: int) -> dict[str, object]:
-    """What `config/lexicon.counts.json` should say for these counts.
-
-    One entry per enabled term and derived measure, in name order so the file
-    diffs by term. The corpus size is recorded beside them because a count is
-    only a count of something.
-    """
-    names = sorted([term.name for term in lex.active] + list(lex.derived))
-    return {
-        "lexicon_version": lex.version,
-        "speeches": int(speeches),
-        "terms": {
-            name: {
-                "speeches": int(counts[f"{HAS}{name}"].sum()),
-                "occurrences": int(counts[f"{COUNT}{name}"].sum()),
-            }
-            for name in names
-        },
-    }
-
-
-def load_counts(path: Path = LEXICON_COUNTS) -> dict[str, object]:
-    """The committed counts, refusing a file that is missing or malformed."""
-    if not path.exists():
-        raise FileNotFoundError(
-            f"{rel(path)} is missing — run `python scripts/03_lexicon.py --update-counts` "
-            "on the pinned corpus and commit it"
-        )
-    record = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(record, dict) or not isinstance(record.get("terms"), dict):
-        raise ValueError(f"{rel(path)} has no 'terms' table")
-    return record
-
-
-def count_problems(record: Mapping[str, object], committed: Mapping[str, object]) -> list[str]:
-    """Every way the measured counts differ from the committed ones.
-
-    The version is not compared: a release that edited no pattern moves no
-    count, and holding it to a rewrite would make every note edit a corpus run.
-    What is compared is what a published number depends on — the corpus size
-    and each term's two counts — and a term present on one side only.
-    """
-    problems = []
-    if record.get("speeches") != committed.get("speeches"):
-        problems.append(
-            f"corpus of {record.get('speeches')!r} speeches; the committed counts describe "
-            f"{committed.get('speeches')!r}"
-        )
-    measured = record.get("terms", {})
-    locked = committed.get("terms", {})
-    assert isinstance(measured, Mapping) and isinstance(locked, Mapping)
-    for name in sorted(set(measured) | set(locked)):
-        if name not in locked:
-            problems.append(f"'{name}' is counted but not committed")
-        elif name not in measured:
-            problems.append(f"'{name}' is committed but no longer counted")
-        elif measured[name] != locked[name]:
-            now, then = measured[name], locked[name]
-            problems.append(
-                f"'{name}': {now['speeches']:,} speeches / {now['occurrences']:,} "
-                f"occurrences, committed {then['speeches']:,} / {then['occurrences']:,}"
-            )
-    return problems
-
-
-def population(term: str, path: Path = LEXICON_COUNTS) -> tuple[int, int]:
-    """`(speeches, occurrences)` the committed counts give `term`.
-
-    What 13, 14 and 15 hold their enumeration to. They used to carry the two
-    numbers as constants of their own, four copies that a lexicon change had to
-    find by hand.
-    """
-    entry = load_counts(path)["terms"].get(term)  # type: ignore[union-attr]
-    if not isinstance(entry, Mapping):
-        raise ValueError(f"{rel(path)} holds no counts for '{term}'")
-    return int(entry["speeches"]), int(entry["occurrences"])

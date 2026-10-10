@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import ast
+import csv
 import gzip
 import hashlib
+import io
 import json
 import os
 import platform
@@ -11,11 +14,19 @@ import re
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager, suppress
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+from typing import Any
+
+#: Where the pipeline's own code lives. Not `provenance`'s `root`, which names
+#: the tree the inputs are described against and which a test may point at a
+#: temporary directory: the code that ran is always this checkout's.
+LIB = Path(__file__).resolve().parent
+SCRIPTS = LIB.parent
+CODE_ROOT = SCRIPTS.parent
 
 
 @contextmanager
@@ -69,7 +80,11 @@ def atomic_write_text(path: Path, payload: str) -> None:
     atomic_write_bytes(path, payload.encode("utf-8"))
 
 
-_VOLATILE_META = frozenset({"generated", "git_commit", "analysis_hash"})
+#: Metadata that says how an artefact came to be written rather than what it
+#: holds. `code` is here with the time and the commit: a refactor that moves no
+#: number must not mint a new analysis, and one that does move a number changes
+#: the payload, and so the hash, by itself.
+_VOLATILE_META = frozenset({"generated", "git_commit", "analysis_hash", "code"})
 
 
 def analysis_hash(payload: dict[str, object]) -> str:
@@ -77,7 +92,8 @@ def analysis_hash(payload: dict[str, object]) -> str:
 
     The payload itself and the non-volatile metadata are canonical JSON. Config
     and input digests therefore remain part of the identity, while regenerating
-    the same result later or from a dirty checkout does not mint a new analysis.
+    the same result later, from a dirty checkout or from edited code that
+    computes the same thing does not mint a new analysis.
     """
     canonical = dict(payload)
     meta = canonical.get("meta")
@@ -102,11 +118,45 @@ def with_analysis_hash(payload: object) -> object:
     return prepared
 
 
-def json_text(payload: object, *, indent: int | None = None) -> str:
-    """The canonical serialisation every JSON artefact is written with."""
+def shared_provenance(
+    payload: dict[str, object], keep: Sequence[str], held_in: str
+) -> dict[str, object]:
+    """One of many files that share a provenance block, cut to what cites it.
+
+    The block of inputs, configurations, packages and code is identical across
+    every file one loop writes; repeated in each of 09's 9,464 meeting files it
+    adds about a kilobyte of compressed payload apiece. The cut file keeps
+    the `keep` keys, names the file that holds the whole block as `provenance`,
+    and carries the `analysis_hash` of the uncut payload: the hash it would have
+    if it held the block itself. It is checked the same way, by putting the
+    block from `held_in` back as `meta` and hashing. Write the result with
+    `hashed=True`, or the writer would hash the cut block instead.
+    """
+    meta = payload["meta"]
+    if not isinstance(meta, dict):
+        raise TypeError("shared_provenance needs a payload with a meta block")
+    return {
+        **payload,
+        "meta": {
+            **{key: meta[key] for key in keep if key in meta},
+            "provenance": held_in,
+            "analysis_hash": analysis_hash(payload),
+        },
+    }
+
+
+def json_text(payload: object, *, indent: int | None = None, hashed: bool = False) -> str:
+    """The canonical serialisation every JSON artefact is written with.
+
+    `hashed` says the payload already carries its `analysis_hash` and must be
+    written as it is: see `shared_provenance`.
+    """
     separators = None if indent is not None else (",", ":")
     return json.dumps(
-        with_analysis_hash(payload), ensure_ascii=False, indent=indent, separators=separators
+        payload if hashed else with_analysis_hash(payload),
+        ensure_ascii=False,
+        indent=indent,
+        separators=separators,
     )
 
 
@@ -114,7 +164,9 @@ def atomic_write_json(path: Path, payload: object, *, indent: int | None = None)
     atomic_write_text(path, json_text(payload, indent=indent))
 
 
-def atomic_write_json_gzip(path: Path, payload: object, *, indent: int | None = None) -> None:
+def atomic_write_json_gzip(
+    path: Path, payload: object, *, indent: int | None = None, hashed: bool = False
+) -> None:
     """Write JSON as a gzip member, byte-identical for identical content.
 
     `mtime=0` and a fixed level keep the bytes a function of the payload alone,
@@ -122,8 +174,42 @@ def atomic_write_json_gzip(path: Path, payload: object, *, indent: int | None = 
     """
     atomic_write_bytes(
         path,
-        gzip.compress(json_text(payload, indent=indent).encode("utf-8"), compresslevel=9, mtime=0),
+        gzip.compress(
+            json_text(payload, indent=indent, hashed=hashed).encode("utf-8"),
+            compresslevel=9,
+            mtime=0,
+        ),
     )
+
+
+def csv_text(table: Any, *, fieldnames: Sequence[str] | None = None) -> str:
+    """The serialisation every CSV artefact is written with: `\\n`, never `\\r\\n`.
+
+    A data frame is written by pandas without its index; anything else is read
+    as rows of mappings and written by `csv.DictWriter`, with the columns taken
+    from `fieldnames` or else from the first row. Each keeps its own formatting
+    of values, so a caller moved onto this writer changes no cell.
+
+    The line ending is fixed because both writers otherwise use the platform's:
+    the same table came out as different bytes on Windows and on the Linux
+    deploy, and a checksum that differs across machines for identical data
+    cannot say whether anything changed.
+    """
+    if hasattr(table, "to_csv"):
+        return str(table.to_csv(index=False, lineterminator="\n"))
+    rows: list[Mapping[str, object]] = list(table)
+    columns = list(fieldnames) if fieldnames is not None else list(rows[0]) if rows else []
+    buffer = io.StringIO(newline="")
+    writer = csv.DictWriter(buffer, fieldnames=columns, lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    return buffer.getvalue()
+
+
+def atomic_write_csv(
+    path: Path, table: Any, *, fieldnames: Sequence[str] | None = None
+) -> None:
+    atomic_write_text(path, csv_text(table, fieldnames=fieldnames))
 
 
 def read_json(path: Path) -> object:
@@ -258,6 +344,70 @@ def git_commit(root: Path) -> str:
     return "unknown"
 
 
+def _lib_imports(path: Path, *, inside_lib: bool) -> set[str]:
+    """Module names under `lib` that one file imports, wherever in it they are."""
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.ImportFrom):
+            if inside_lib and node.level == 1:
+                if node.module:
+                    found.add(node.module.split(".")[0])
+                else:
+                    found.update(alias.name for alias in node.names)
+            elif node.level == 0 and node.module == "lib":
+                found.update(alias.name for alias in node.names)
+            elif node.level == 0 and node.module and node.module.startswith("lib."):
+                found.add(node.module.split(".")[1])
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.startswith("lib."):
+                    found.add(alias.name.split(".")[1])
+    return {name for name in found if (LIB / f"{name}.py").is_file()}
+
+
+def lib_closure(script: Path) -> list[Path]:
+    """Every `lib` module a script can execute, in name order.
+
+    The script's own imports — `from lib import x`, `from lib.x import y` —
+    followed through `lib`'s relative imports to a fixed point. Read from the
+    source rather than from `sys.modules`, so the answer is the same whichever
+    branch of the script ran and whether or not it has run at all.
+    """
+    pending = list(_lib_imports(script, inside_lib=False))
+    seen: set[str] = set()
+    while pending:
+        name = pending.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        pending.extend(_lib_imports(LIB / f"{name}.py", inside_lib=True) - seen)
+    return sorted(LIB / f"{name}.py" for name in seen)
+
+
+def code_files(script: str) -> list[Path]:
+    """The script a step runs from, `lib/__init__.py`, and its `lib` closure.
+
+    A numbered step lives in `scripts/` and a maintenance helper in `tools/`. A
+    name found in neither is refused rather than recorded as having no code: a
+    manifest that names a script nobody can find describes nothing.
+    """
+    for directory in (SCRIPTS, CODE_ROOT / "tools"):
+        path = directory / script
+        if path.is_file():
+            return [path, LIB / "__init__.py", *lib_closure(path)]
+    raise FileNotFoundError(f"provenance names a script that does not exist: {script}")
+
+
+def describe_code(script: str) -> list[dict[str, object]]:
+    """Every file of code a script can execute, described as inputs are.
+
+    A list rather than a mapping keyed by path, like `inputs` and `configs`:
+    the payload contract records an object's keys, and a step that gained an
+    import would otherwise read there as a changed shape.
+    """
+    return [describe_file(path, CODE_ROOT) for path in code_files(script)]
+
+
 def provenance(
     root: Path,
     script: str,
@@ -273,6 +423,13 @@ def provenance(
     leaves out an input it was told about describes a run that did not happen,
     which is worse than no manifest; a caller with a genuinely optional input
     names it in `optional`, where its absence is recorded rather than hidden.
+
+    `code` holds the digest of the script and of every `lib` module it can
+    execute, found from its imports rather than listed by its caller: the hand
+    lists this replaced were each shorter than the real imports. The commit
+    names the code only when the tree was clean, and a run from a dirty tree is
+    exactly the one whose code needs naming. It stays out of `analysis_hash`;
+    see `_VOLATILE_META`.
     """
     declared = [*(inputs or []), *(configs or [])]
     if missing := [path for path in declared if not path.exists()]:
@@ -294,6 +451,7 @@ def provenance(
         "packages": packages,
         "inputs": [describe_file(path, root) for path in [*(inputs or []), *present]],
         "configs": [describe_file(path, root) for path in configs or []],
+        "code": describe_code(script),
     }
     if absent:
         payload["absent_optional"] = [

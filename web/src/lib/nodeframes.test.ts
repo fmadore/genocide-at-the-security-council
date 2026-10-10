@@ -186,7 +186,7 @@ describe('the profile', () => {
 
 	it('keeps the residue in the ranking rather than pinning it to the bottom', () => {
 		const data = artefact();
-		expect(profile(data, null)[1].frame).toBe(UNFRAMED);
+		expect(profile(data, null)[1]!.frame).toBe(UNFRAMED);
 	});
 
 	it('carries the codebook gloss, and its own sentence for the residue', () => {
@@ -249,21 +249,21 @@ describe('the share axis', () => {
 
 describe('what the figure is entitled to mark', () => {
 	it('marks a row whose interval does not cover the corpus share', () => {
-		const row = { ...profile(artefact(), null)[0], share: 0.7, low: 0.6, high: 0.8 };
+		const row = { ...profile(artefact(), null)[0]!, share: 0.7, low: 0.6, high: 0.8 };
 		expect(outside(row)).toBe(true);
 	});
 
 	it('marks nothing where the interval covers it, or where there is none', () => {
 		const rows = profile(artefact(), null);
-		expect(outside({ ...rows[0], share: 0.52, low: 0.42, high: 0.62 })).toBe(false);
-		expect(outside(rows[0])).toBe(false);
+		expect(outside({ ...rows[0]!, share: 0.52, low: 0.42, high: 0.62 })).toBe(false);
+		expect(outside(rows[0]!)).toBe(false);
 	});
 
 	it('offers the largest marked shifts first', () => {
 		const data = artefact();
 		const rows = profile(data, member(data, 'period', '2016-2023'));
 		const found = movers(rows, 2);
-		expect(found[0].frame).toBe('atrocity_triad');
+		expect(found[0]!.frame).toBe('atrocity_triad');
 		expect(found.length).toBeLessThanOrEqual(2);
 	});
 
@@ -277,8 +277,8 @@ describe('the morphological split', () => {
 	it('names the forms behind each category', () => {
 		const rows = morphology(artefact());
 		expect(rows.map((row) => row.category)).toEqual(['noun', 'adjective']);
-		expect(rows[0].forms).toEqual(['genocide', 'genocides']);
-		expect(rows[0].share).toBeCloseTo(0.9, 6);
+		expect(rows[0]!.forms).toEqual(['genocide', 'genocides']);
+		expect(rows[0]!.share).toBeCloseTo(0.9, 6);
 	});
 
 	it('leaves out a category the corpus never used', () => {

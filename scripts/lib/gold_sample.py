@@ -13,12 +13,12 @@ step's docstring and is not repeated here.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from typing import Final
 
 import pandas as pd
 
-from . import audit, lexicon, llm, model_runs, occurrences, text
+from . import lexicon, llm, model_runs, occurrences, sampling, schema, text
 
 #: The seven densest meetings, docs/CORPUS.md §8.6. Together they hold a tenth of
 #: the occurrences, and they are where the word is argued over at length rather
@@ -132,7 +132,7 @@ def candidate_rows(
         rows.append(
             {
                 "occurrence_id": occurrence.occurrence_id,
-                "schema_version": audit.SCHEMA_VERSION,
+                "schema_version": schema.SCHEMA_VERSION,
                 "lexicon_version": lex.version,
                 "unit": "occurrence",
                 "term": term.name,
@@ -195,8 +195,8 @@ DISAGREEMENT_SIZES: dict[str, int | None] = {
     "contested_speaker_position_or_referent": 100,
 }
 
-#: The name of the second frame, beside `audit.PROBABILITY` and
-#: `audit.COVERAGE`. Not added to `lib.audit`: the two there are general
+#: The name of the second frame, beside `sampling.PROBABILITY` and
+#: `sampling.COVERAGE`. Not added to `lib.sampling`: the two there are general
 #: sampling designs the lexicon audit uses too, and this one is a design over
 #: two model runs of one term.
 DISAGREEMENT: Final = "disagreement"
@@ -299,13 +299,13 @@ def draw(
     together they would be a number that is neither.
     """
     frames_drawn = [
-        audit.probability_sample(candidates, probability, seed, audit.PROBABILITY),
-        audit.coverage_sample(candidates, coverage, seed + 1, strata=("period", "cue")),
+        sampling.probability_sample(candidates, probability, seed, sampling.PROBABILITY),
+        sampling.coverage_sample(candidates, coverage, seed + 1, strata=("period", "cue")),
     ]
     if "stratum" in candidates and candidates["stratum"].astype(str).str.len().gt(0).any():
         two_runs = frame == DISAGREEMENT
         frames_drawn.append(
-            audit.stratified_sample(
+            sampling.stratified_sample(
                 candidates,
                 sizes or (DISAGREEMENT_SIZES if two_runs else MODEL_STRATA_SIZES),
                 seed + 2,
@@ -338,15 +338,35 @@ def packet(sample: pd.DataFrame, seed: int) -> pd.DataFrame:
     frame, stratum, cue, probability — is carried, and neither is any label.
     """
     unique = sample.drop_duplicates("occurrence_id")[PACKET_PASSAGE].copy()
-    order = unique["occurrence_id"].map(lambda value: audit._rank(str(value), seed))
+    order = unique["occurrence_id"].map(lambda value: sampling._rank(str(value), seed))
     unique = unique.assign(_order=order).sort_values("_order").drop(columns="_order")
     unique.insert(0, "position", range(1, len(unique) + 1))
-    blank = [column for column in audit.ANNOTATION_FIELDS if column not in unique]
+    blank = [column for column in schema.ANNOTATION_FIELDS if column not in unique]
     for column in blank:
         unique[column] = ""
-    unique["schema_version"] = audit.SCHEMA_VERSION
+    unique["schema_version"] = schema.SCHEMA_VERSION
     unique["lexicon_version"] = str(sample["lexicon_version"].iloc[0]) if len(sample) else ""
     return unique.reset_index(drop=True)
+
+
+def flag_prior_review(frame: pd.DataFrame, reviewed: Collection[str]) -> pd.DataFrame:
+    """`frame` with one more column, true where the passage was read before coding.
+
+    `reviewed` is `annotations/genocide/prior_review.csv`'s occurrence ids:
+    passages whose model labels were read and discussed before the gold sample
+    was coded, so that a coder's reading of them may not be independent of the
+    model. They are flagged and not dropped (docs/EVALUATION_PLAN.md §4), and
+    every gold figure is reported with and without them.
+
+    The column is set after the draw, so it cannot move one: the sample stays as
+    drawn. It is appended last, so every column the candidate and design files
+    already carry keeps its place and its bytes. :func:`packet` never carries it,
+    for the reason it carries no frame or stratum: it tells a coder something
+    about the passage that the passage does not.
+    """
+    reviewed_ids = {str(identifier) for identifier in reviewed}
+    flagged = frame["occurrence_id"].astype(str).isin(reviewed_ids)
+    return frame.assign(**{model_runs.PRIOR_REVIEW_FLAG: flagged})
 
 
 def design(
@@ -364,7 +384,7 @@ def design(
     """
     population = len(candidates)
     first = pd.Series(min(probability, population) / population, index=candidates.index)
-    second = audit.coverage_inclusion(
+    second = sampling.coverage_inclusion(
         candidates, max(coverage, candidates.groupby(["period", "cue"]).ngroups),
         strata=("period", "cue"),
     )
@@ -376,7 +396,7 @@ def design(
             count = int(members.sum())
             if count:
                 third[members] = (count if size is None else min(size, count)) / count
-    union = audit.union_inclusion(first, second, third)
+    union = sampling.union_inclusion(first, second, third)
     return pd.DataFrame(
         {
             "occurrence_id": candidates["occurrence_id"],

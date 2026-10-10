@@ -1,27 +1,20 @@
 """Speaker affiliation helpers.
 
-The canonical corpus uses the affiliation and category flags distributed with
-Sakamoto--Matsuoka v5.  The hand-curated files in ``config/`` are retained for
-legacy artefacts and optional geographic enrichment, but they are not allowed
-to rename or classify speakers in the canonical build.
+The canonical corpus types its speakers from the affiliation and category flags
+distributed with Sakamoto--Matsuoka v5: :func:`source_entity_type` per speech,
+:func:`source_affiliation_crosswalk` per affiliation. No hand-curated file
+renames or classifies a speaker in the canonical build, because a label the
+source did not assert is an interpretation the corpus cannot be cited for.
 
-`country_org` holds 629 distinct values, of which only about 195 are states.
-The rest are IGOs, UN bodies, NGOs, local associations, universities and a
-handful of firms. Two hand-checked files under `config/` turn that into
-something aggregatable:
+Two hand-checked files under `config/` remain, for narrower jobs:
 
-- **`country_aliases.csv`** merges labels denoting the same speaker
-  (`Türkiye` → `Turkey`, `Interpol` → `INTERPOL`).
-- **`entities.csv`** gives each canonical label its type, ISO3 code, UN
-  regional group and centroid.
-
-Both are curated artefacts, not computed ones, so :func:`validate_coverage`
-refuses to proceed on a `country_org` value that has never been typed. Without
-that check a newly added speaker would silently vanish from the map and from
-every state/non-state comparison — the failure would be invisible in the
-output, which is the worst kind.
-
-`tools/bootstrap_entities.py` proposes rows for new values.
+- **`entities.csv`** is the geographic lookup :func:`enrich_geography` reads to
+  give a source-typed state its ISO3 code, UN regional group and centroid. It
+  never changes `country_org` or `entity_type`.
+- **`country_aliases.csv`** maps labels denoting the same speaker. It is read by
+  `tools/bootstrap_entities.py`, which proposes rows for `entities.csv`, and,
+  with :func:`validate_coverage` and :func:`attach`, by the fixtures that still
+  carry a hand-typed crosswalk.
 """
 
 from __future__ import annotations
@@ -194,7 +187,7 @@ def canonicalise(names: pd.Series, aliases: dict[str, str] | None = None) -> pd.
 
 
 def load_entities() -> pd.DataFrame:
-    """The crosswalk, indexed by canonical ``country_org``."""
+    """`config/entities.csv`, one row per canonical ``country_org``."""
     if not ENTITIES.exists():
         raise FileNotFoundError(
             f"{rel(ENTITIES)} is missing. Generate a draft with:\n"

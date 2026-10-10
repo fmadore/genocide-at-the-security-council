@@ -231,7 +231,7 @@ def run(model_key: str | None, limit: int, device: str | None, storage: str, k: 
         ROOT,
         "06_embed.py",
         inputs=[SPEECHES_FLAGGED],
-        configs=[embeddings.REGISTRY, Path(__file__), ROOT / "scripts/lib/embeddings.py"],
+        configs=[embeddings.REGISTRY],
         extra={
             "embedding_schema": 2,
             "registry_version": registry.version,

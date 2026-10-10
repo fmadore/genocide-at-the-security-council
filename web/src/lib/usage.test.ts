@@ -33,6 +33,9 @@ import {
 	drillDown,
 	emptyPositions,
 	goldProgress,
+	instrumentOccurrences,
+	instrumentReferents,
+	instrumentVersion,
 	isInstrumentDependent,
 	matrixExportRows,
 	matrixPlan,
@@ -41,10 +44,11 @@ import {
 	orderReferents,
 	readUsageState,
 	retestRows,
+	runStatus,
 	selectUsage,
 	positionExportRows,
 	positionLabel,
-	positionRanking,
+	positionProfiles,
 	stepFocus,
 	usageParams
 } from './usage';
@@ -411,6 +415,63 @@ describe('picking a cell, a row or a column', () => {
 	});
 });
 
+describe('the controlled list a run was offered', () => {
+	const versioned = (referentsVersion: string) =>
+		corpus({
+			model: { ...model, referents_version: referentsVersion },
+			referents: [
+				referent('rwanda_1994', { occurrences: 5 }),
+				// Retired in version 2, and handed to `bosnia` there.
+				referent('srebrenica', {
+					retired_in: 2,
+					retired: true,
+					superseded_by: 'bosnia',
+					occurrences: 0
+				}),
+				referent('bosnia', { since: 2, occurrences: 7 }),
+				referent('darfur', { since: 3, occurrences: 2 })
+			]
+		});
+
+	it('reads the version off the run, and stands in 1 for one it cannot read', () => {
+		expect(instrumentVersion(versioned('2'))).toBe(2);
+		expect(instrumentVersion(versioned(''))).toBe(1);
+		expect(instrumentVersion(versioned('v?'))).toBe(1);
+	});
+
+	it('offers exactly the identifiers current at the run’s version', () => {
+		expect(instrumentReferents(versioned('1')).map((r) => r.id)).toEqual([
+			'rwanda_1994',
+			'srebrenica'
+		]);
+		expect(instrumentReferents(versioned('2')).map((r) => r.id)).toEqual(['rwanda_1994', 'bosnia']);
+		expect(instrumentReferents(versioned('3')).map((r) => r.id)).toEqual([
+			'rwanda_1994',
+			'bosnia',
+			'darfur'
+		]);
+	});
+
+	it('counts a retired identifier under what superseded it', () => {
+		const data = versioned('1');
+		const [rwanda, srebrenica] = instrumentReferents(data);
+		expect(instrumentOccurrences(data, rwanda!)).toBe(5);
+		expect(instrumentOccurrences(data, srebrenica!)).toBe(7);
+	});
+
+	it('stops at a successor the list does not carry, and on a loop', () => {
+		const data = corpus({
+			referents: [
+				referent('a', { superseded_by: 'b', occurrences: 1 }),
+				referent('b', { superseded_by: 'a', occurrences: 2 }),
+				referent('c', { superseded_by: 'missing', occurrences: 3 })
+			]
+		});
+		expect(instrumentOccurrences(data, data.referents[0]!)).toBe(2);
+		expect(instrumentOccurrences(data, data.referents[2]!)).toBe(3);
+	});
+});
+
 describe('the column order', () => {
 	it('ranks the cases by weight and groups the meta referents after them', () => {
 		const data = corpus();
@@ -514,38 +575,38 @@ describe('the matrix', () => {
 	it('counts a sparse payload’s missing cells as empty rather than as zero data', () => {
 		const plan = matrixPlan(corpus(), state());
 		const alpha = plan.rows[0];
-		expect(alpha.cells.map((c) => c.count)).toEqual([4, 1, 0, 1]);
-		expect(alpha.cells.map((c) => c.state)).toEqual(['drawn', 'drawn', 'empty', 'drawn']);
-		expect(alpha.cells[2].positions).toEqual(emptyPositions());
+		expect(alpha!.cells.map((c) => c.count)).toEqual([4, 1, 0, 1]);
+		expect(alpha!.cells.map((c) => c.state)).toEqual(['drawn', 'drawn', 'empty', 'drawn']);
+		expect(alpha!.cells[2]!.positions).toEqual(emptyPositions());
 	});
 
 	it('publishes a count for every speaker and a share only above the minimum', () => {
 		const counted = matrixPlan(corpus(), state({ unit: 'count' }));
 		const shared = matrixPlan(corpus(), state({ unit: 'share' }));
-		const bravoCounted = counted.rows[1].cells[0];
-		const bravoShared = shared.rows[1].cells[0];
+		const bravoCounted = counted.rows[1]!.cells[0];
+		const bravoShared = shared.rows[1]!.cells[0];
 		// A count of one is a fact about the record; one out of two is not "50% of
 		// this delegation's uses". The same cell is drawn under one unit and
 		// hatched under the other.
-		expect(bravoCounted.state).toBe('drawn');
-		expect(bravoShared.state).toBe('withheld-share');
-		expect(bravoShared.share).toBeNull();
+		expect(bravoCounted!.state).toBe('drawn');
+		expect(bravoShared!.state).toBe('withheld-share');
+		expect(bravoShared!.share).toBeNull();
 		expect(counted.disclosure.withheldRows).toBe(1);
-		expect(counted.rows[0].cells[0].share).toBeCloseTo(4 / 6, 12);
+		expect(counted.rows[0]!.cells[0]!.share).toBeCloseTo(4 / 6, 12);
 	});
 
 	it('runs the ramp from zero to the largest cell that may actually be drawn', () => {
 		const counted = matrixPlan(corpus(), state({ unit: 'count' }));
 		expect(counted.high).toBe(4);
-		expect(counted.rows[0].cells[0].weight).toBe(1);
-		expect(counted.rows[0].cells[0].tone).toBe(1);
-		expect(counted.rows[0].cells[2].tone).toBe(0);
+		expect(counted.rows[0]!.cells[0]!.weight).toBe(1);
+		expect(counted.rows[0]!.cells[0]!.tone).toBe(1);
+		expect(counted.rows[0]!.cells[2]!.tone).toBe(0);
 
 		const shared = matrixPlan(corpus(), state({ unit: 'share' }));
 		// A hatched cell must never set the top of a scale it is not on: Bravo's
 		// withheld 1-of-2 would otherwise be the highest share in the figure.
 		expect(shared.high).toBeCloseTo(4 / 6, 12);
-		expect(shared.rows[1].cells[0].weight).toBe(0);
+		expect(shared.rows[1]!.cells[0]!.weight).toBe(0);
 	});
 
 	it('marks the selected pair, its row and its column, and nothing when nothing is selected', () => {
@@ -657,7 +718,7 @@ describe('moving through the matrix from the keyboard', () => {
 });
 
 describe('who rejects the word', () => {
-	it('orders only the shares the artefact published, and leaves out the rest', () => {
+	it('bands only the speakers at the minimum, and lists the rest apart', () => {
 		const rows: UsagePositionRow[] = [
 			{
 				actor: 'Alpha',
@@ -690,19 +751,20 @@ describe('who rejects the word', () => {
 				separated: false
 			}
 		];
-		const result = positionRanking(corpus({ position_by_actor: rows }));
-		// Neither clears the corpus rate, so the two are ordered by rejection
-		// count and the order is not a claim that one rejects more than the other.
+		const result = positionProfiles(corpus({ position_by_actor: rows }));
+		// Ordered by the count of rejections, which is not a claim that one
+		// delegation rejects more often than the other.
 		expect(result.rows.map((row) => row.actor)).toEqual(['Delta', 'Alpha']);
-		// Not ranked low; not ranked. A null read through `?? 0` would put every
-		// rarely-heard delegation at the foot of a ranking of rejection.
+		expect(result.rows.map((row) => row.rejects)).toEqual([5, 2]);
+		// Under the minimum: its counts kept, no band, and not among the others.
 		expect(result.withheld.map((row) => row.actor)).toEqual(['Bravo']);
-		expect(result.withheld[0].total).toBe(3);
+		expect(result.withheld[0]!.total).toBe(3);
+		expect(result.withheld[0]).not.toHaveProperty('segments');
 		expect(result.minimum).toBe(4);
 	});
 
-	it('withholds a row that claims to be sufficient and carries no share', () => {
-		const result = positionRanking(
+	it('withholds by the minimum alone, never by the share', () => {
+		const result = positionProfiles(
 			corpus({
 				position_by_actor: [
 					{
@@ -714,30 +776,39 @@ describe('who rejects the word', () => {
 						share_low: null,
 						share_high: null,
 						separated: false
+					},
+					{
+						actor: 'Bravo',
+						eligible: 2,
+						sufficient: false,
+						positions: positions({ rejects: 2 }),
+						share_rejects: 1,
+						share_low: 0.34,
+						share_high: 1,
+						separated: true
 					}
 				]
 			})
 		);
-		// The fetch boundary refuses such a payload, so this never arrives — but a
-		// figure that would rank it by a null if it did is a figure one edit away
-		// from doing so.
-		expect(result.rows).toEqual([]);
-		expect(result.withheld.map((row) => row.actor)).toEqual(['Alpha']);
+		// The figure no longer reads a share, so a missing one changes nothing,
+		// and a flag the pipeline still writes cannot lift a row over the minimum.
+		expect(result.rows.map((row) => row.actor)).toEqual(['Alpha']);
+		expect(result.withheld.map((row) => row.actor)).toEqual(['Bravo']);
 	});
 
 	it('lays the bands out in one pass of cumulative bounds, zeros omitted', () => {
-		const result = positionRanking(corpus());
+		const result = positionProfiles(corpus());
 		const alpha = result.rows[0];
-		expect(alpha.total).toBe(8);
-		expect(alpha.segments.map((segment) => segment.speaker_position)).toEqual([
+		expect(alpha!.total).toBe(8);
+		expect(alpha!.segments.map((segment) => segment.speaker_position)).toEqual([
 			'asserts',
 			'rejects',
 			'unclear'
 		]);
-		expect(alpha.segments[0]).toMatchObject({ count: 5, from: 0 });
-		expect(alpha.segments[0].to).toBeCloseTo(62.5, 10);
-		expect(alpha.segments[1].from).toBeCloseTo(62.5, 10);
-		expect(alpha.segments[2].to).toBeCloseTo(100, 10);
+		expect(alpha!.segments[0]).toMatchObject({ count: 5, from: 0 });
+		expect(alpha!.segments[0]!.to).toBeCloseTo(62.5, 10);
+		expect(alpha!.segments[1]!.from).toBeCloseTo(62.5, 10);
+		expect(alpha!.segments[2]!.to).toBeCloseTo(100, 10);
 	});
 });
 
@@ -846,7 +917,7 @@ describe('the quotations behind a cell', () => {
 			'Rwanda'
 		);
 		// Whitespace and case are not a difference worth printing the span twice for.
-		expect(same.quoteDiffers).toBe(false);
+		expect(same!.quoteDiffers).toBe(false);
 
 		const [narrower] = drillDown(
 			[
@@ -857,18 +928,18 @@ describe('the quotations behind a cell', () => {
 			lines,
 			'Rwanda'
 		);
-		expect(narrower.quoteDiffers).toBe(true);
+		expect(narrower!.quoteDiffers).toBe(true);
 	});
 
 	it('carries a link into the record and a link back into the concordance', () => {
 		const [row] = drillDown([annotation('SC07000-01-001#1')], lines, 'Rwanda');
-		expect(row.reader.meeting).toBe('SC07000-01');
-		expect(row.reader.query).toBe(
+		expect(row!.reader.meeting).toBe('SC07000-01');
+		expect(row!.reader.query).toBe(
 			'term=genocide&speech=SC07000-01-001&occurrence=SC07000-01-001%231'
 		);
 		// The concordance cannot name one line, so the link lands on the smallest
 		// set it can express that certainly contains it.
-		expect(row.concordance.query).toBe('term=genocide&country=Rwanda&spv=S%2FPV.7000');
+		expect(row!.concordance.query).toBe('term=genocide&country=Rwanda&spv=S%2FPV.7000');
 	});
 
 	it('carries both readings of a contested occurrence, and none where the two agreed', () => {
@@ -893,15 +964,18 @@ describe('the quotations behind a cell', () => {
 		);
 		// Listed in the artefact's own field order rather than the row's, so two
 		// occurrences contested on the same pair read the same way.
-		expect(rows[0].contested.map((entry) => entry.field)).toEqual(['speaker_position', 'referent']);
-		expect(rows[0].contested[0]).toMatchObject({
+		expect(rows[0]!.contested.map((entry) => entry.field)).toEqual([
+			'speaker_position',
+			'referent'
+		]);
+		expect(rows[0]!.contested[0]).toMatchObject({
 			label: 'speaker position',
 			published: 'Conditional',
 			second: 'Rejects'
 		});
 		// A referent is named from the controlled list, not printed as its id.
-		expect(rows[0].contested[1].second).toBe('Bosnia and Srebrenica');
-		expect(rows[1].contested).toEqual([]);
+		expect(rows[0]!.contested[1]!.second).toBe('Bosnia and Srebrenica');
+		expect(rows[1]!.contested).toEqual([]);
 	});
 
 	it('names a contested referent by its identifier when the list is not to hand', () => {
@@ -925,7 +999,7 @@ describe('the quotations behind a cell', () => {
 		);
 		// Degraded to readable words rather than blank: the drill-down is fed two
 		// artefacts and the controlled list is in neither of them.
-		expect(row.contested[0].second).toBe('genocide convention law');
+		expect(row!.contested[0]!.second).toBe('genocide convention law');
 	});
 
 	it('narrows to the contested occurrences without a second enumeration of them', () => {
@@ -945,13 +1019,13 @@ describe('the quotations behind a cell', () => {
 		];
 		// Nothing is marked on a build that says no second opinion was made, whatever
 		// the rows happen to carry: the claim would have nothing behind it.
-		expect(drillDown(all, lines, '', 'rwanda_1994')[1].contested).toEqual([]);
+		expect(drillDown(all, lines, '', 'rwanda_1994')[1]!.contested).toEqual([]);
 		expect(drillDown(all, lines, '', 'rwanda_1994', { compared: true })).toHaveLength(2);
 		const only = drillDown(all, lines, '', 'rwanda_1994', { compared: true, contestedOnly: true });
 		expect(only.map((row) => row.id)).toEqual(['SC07481-01-007#1']);
 		// The filter narrows the same list rather than building another: everything
 		// a row carries is what it carried unfiltered.
-		expect(only[0].sentence).toBe('The Council must call this genocide by its name.');
+		expect(only[0]!.sentence).toBe('The Council must call this genocide by its name.');
 		expect(drillDown(all, lines, 'Rwanda', '', { compared: true, contestedOnly: true })).toEqual(
 			[]
 		);
@@ -1083,7 +1157,7 @@ describe('how a referent spread through the Council', () => {
 		expect(plan.drawn.map((series) => series.milestone)).toEqual(['mention']);
 		expect(plan.series.map((series) => series.drawn)).toEqual([true, false, false]);
 		expect(plan.totals.asserts).toBe(0);
-		expect(plan.series[1].path).toBe('');
+		expect(plan.series[1]!.path).toBe('');
 	});
 
 	it('marks every step while the steps can be told apart, and none once they cannot', () => {
@@ -1131,10 +1205,10 @@ describe('how a referent spread through the Council', () => {
 		const plan = diffusionPlan(corpus(), state({ referent: 'rwanda_1994' }));
 		expect(plan.span).toEqual({ from: '1994-04-21', to: '2004-04-07' });
 		const asserts = plan.series.find((series) => series.milestone === 'asserts');
-		expect(asserts?.points[0].x).toBeCloseTo(DIFFUSION_BOX.left, 6);
-		expect(asserts?.points[1].x).toBeCloseTo(DIFFUSION_BOX.right, 6);
-		expect(asserts?.points[1].y).toBeCloseTo(DIFFUSION_BOX.top, 6);
-		expect(asserts?.points[0].y).toBeCloseTo((DIFFUSION_BOX.top + DIFFUSION_BOX.bottom) / 2, 6);
+		expect(asserts?.points[0]!.x).toBeCloseTo(DIFFUSION_BOX.left, 6);
+		expect(asserts?.points[1]!.x).toBeCloseTo(DIFFUSION_BOX.right, 6);
+		expect(asserts?.points[1]!.y).toBeCloseTo(DIFFUSION_BOX.top, 6);
+		expect(asserts?.points[0]!.y).toBeCloseTo((DIFFUSION_BOX.top + DIFFUSION_BOX.bottom) / 2, 6);
 		// A floor, a jump at each event, and a flat run to the right-hand edge.
 		// Nothing joined between two delegations, and no sloped segment says it did.
 		expect(asserts?.path).toBe('M 5.0,175.0 H 5.0 V 90.0 H 715.0 V 5.0 H 715.0');
@@ -1144,7 +1218,7 @@ describe('how a referent spread through the Council', () => {
 		// along a fixed axis instead of rescaling it.
 		const convention = diffusionPlan(corpus(), state({ referent: 'convention' }));
 		expect(convention.span).toEqual(plan.span);
-		const at = convention.series[0].points[0].x;
+		const at = convention.series[0]!.points[0]!.x;
 		expect(at).toBeGreaterThan(DIFFUSION_BOX.left);
 		expect(at).toBeLessThan(DIFFUSION_BOX.right);
 	});
@@ -1155,7 +1229,7 @@ describe('how a referent spread through the Council', () => {
 		// 1994 is on the axis and its January is not: the span is the data's, so a
 		// rule outside it would be a year the figure does not cover.
 		expect(plan.ticks.every((tick) => tick.x >= DIFFUSION_BOX.left)).toBe(true);
-		expect(plan.ticks[0].anchor).toBe('middle');
+		expect(plan.ticks[0]!.anchor).toBe('middle');
 		// The last one all but touches the right edge, where a centred label would
 		// hang off the figure and push a scrollbar onto its body.
 		expect(plan.ticks.at(-1)?.anchor).toBe('end');
@@ -1165,7 +1239,7 @@ describe('how a referent spread through the Council', () => {
 		const single = only([moment('1994-04-21', 'Alpha', 'asserts', 'asserts', 'SC03368-01-005#1')]);
 		const plan = diffusionPlan(single, state());
 		expect(plan.ticks).toEqual([]);
-		expect(plan.series[1].points[0].x).toBeCloseTo(
+		expect(plan.series[1]!.points[0]!.x).toBeCloseTo(
 			(DIFFUSION_BOX.left + DIFFUSION_BOX.right) / 2,
 			6
 		);
@@ -1204,9 +1278,9 @@ describe('the chronology the curve summarises', () => {
 		]);
 		// One occurrence can be two firsts, and the date and the identifier cannot
 		// separate them; the rank can.
-		expect(rows[0].id).toBe(rows[1].id);
+		expect(rows[0]!.id).toBe(rows[1]!.id);
 		expect(rows.map((row) => row.ordinal)).toEqual([1, 1, 2, 1, 2]);
-		expect(rows[3].positionLabel).toBe('Rejects');
+		expect(rows[3]!.positionLabel).toBe('Rejects');
 	});
 
 	it('omits a milestone the figure folded away, whose events are already listed', () => {
@@ -1231,19 +1305,19 @@ describe('the chronology the curve summarises', () => {
 
 	it('links into the record from the identifier alone, and into the concordance only with a line', () => {
 		const [first] = diffusionChronology(plan());
-		expect(first.reader.meeting).toBe('SC03368-01');
-		expect(first.reader.query).toBe(
+		expect(first!.reader.meeting).toBe('SC03368-01');
+		expect(first!.reader.query).toBe(
 			'term=genocide&speech=SC03368-01-005&occurrence=SC03368-01-005%231'
 		);
 		// The concordance cannot be addressed without a record symbol, and the
 		// symbol lives in a file this page fetches only on demand. A null rather
 		// than a link built out of the identifier, which would be a guess.
-		expect(first.concordance).toBeNull();
-		expect(first.spv).toBe('');
+		expect(first!.concordance).toBeNull();
+		expect(first!.spv).toBe('');
 
 		const joined = diffusionChronology(plan(), [record('SC03368-01-005#1')]);
-		expect(joined[0].spv).toBe('S/PV.3368');
-		expect(joined[0].concordance?.query).toBe('term=genocide&country=Rwanda&spv=S%2FPV.3368');
+		expect(joined[0]!.spv).toBe('S/PV.3368');
+		expect(joined[0]!.concordance?.query).toBe('term=genocide&country=Rwanda&spv=S%2FPV.3368');
 		// A row whose line is not in the file keeps its reader link and loses only
 		// the concordance one: the chronology is not a list of quotations.
 		expect(joined.at(-1)?.concordance).toBeNull();
@@ -1297,7 +1371,7 @@ describe('the second opinion, as the apparatus states it', () => {
 			kappaText: '—',
 			observedText: '99.00%'
 		});
-		expect(apparatus.fields[2].kappaText).toBe('0.74');
+		expect(apparatus.fields[2]!.kappaText).toBe('0.74');
 		expect(apparatus.functionJaccardText).toBe('0.72');
 	});
 
@@ -1414,20 +1488,20 @@ describe('the contested passages', () => {
 			['France', 3],
 			['Rwanda', 1]
 		]);
-		expect(listing.rows[0].contested.map((entry) => entry.field)).toEqual([
+		expect(listing.rows[0]!.contested.map((entry) => entry.field)).toEqual([
 			'speaker_position',
 			'function',
 			'referent'
 		]);
-		expect(listing.rows[0].contested[0]).toMatchObject({
+		expect(listing.rows[0]!.contested[0]).toMatchObject({
 			published: 'Asserts',
 			second: 'Rejects'
 		});
 		// The published labels stay published: nothing here is replaced.
-		expect(listing.rows[0].referent).toBe('rwanda_1994');
-		expect(listing.rows[0].sentence).toBe('The Council must call this genocide by its name.');
-		expect(listing.rows[0].reader.meeting).toBe('SC07481-01');
-		expect(listing.rows[0].concordance.query).toBe('term=genocide&country=France&spv=S%2FPV.7481');
+		expect(listing.rows[0]!.referent).toBe('rwanda_1994');
+		expect(listing.rows[0]!.sentence).toBe('The Council must call this genocide by its name.');
+		expect(listing.rows[0]!.reader.meeting).toBe('SC07481-01');
+		expect(listing.rows[0]!.concordance.query).toBe('term=genocide&country=France&spv=S%2FPV.7481');
 	});
 
 	it('drops a contested occurrence it cannot quote, and counts what it dropped', () => {
@@ -1465,18 +1539,18 @@ describe('the contested passages', () => {
 			'SC07000-01-001#1',
 			'SC07481-01-007#1'
 		]);
-		expect(rows[0][CONTESTED_COLUMNS.indexOf('date')]).toBeNull();
-		expect(rows[0][CONTESTED_COLUMNS.indexOf('actor')]).toBeNull();
+		expect(rows[0]![CONTESTED_COLUMNS.indexOf('date')]).toBeNull();
+		expect(rows[0]![CONTESTED_COLUMNS.indexOf('actor')]).toBeNull();
 		// The artefact's own values, not the page's wording: a file is read by a
 		// script, and `rejects` is what joins back to the run.
 		const last = rows[2];
-		expect(last[CONTESTED_COLUMNS.indexOf('contested_fields')]).toBe(
+		expect(last![CONTESTED_COLUMNS.indexOf('contested_fields')]).toBe(
 			'speaker_position|function|referent'
 		);
-		expect(last[CONTESTED_COLUMNS.indexOf('contested_count')]).toBe(3);
-		expect(last[CONTESTED_COLUMNS.indexOf('published_speaker_position')]).toBe('asserts');
-		expect(last[CONTESTED_COLUMNS.indexOf('comparison_speaker_position')]).toBe('rejects');
-		expect(last[CONTESTED_COLUMNS.indexOf('comparison_referent')]).toBe('bosnia');
+		expect(last![CONTESTED_COLUMNS.indexOf('contested_count')]).toBe(3);
+		expect(last![CONTESTED_COLUMNS.indexOf('published_speaker_position')]).toBe('asserts');
+		expect(last![CONTESTED_COLUMNS.indexOf('comparison_speaker_position')]).toBe('rejects');
+		expect(last![CONTESTED_COLUMNS.indexOf('comparison_referent')]).toBe('bosnia');
 	});
 });
 
@@ -1528,6 +1602,40 @@ describe('the gold sample’s own state', () => {
 	});
 });
 
+describe('the status a model-derived file carries', () => {
+	const partial = { ...model, occurrences_total: 7747, occurrences_annotated: 7694 };
+
+	it('says partial, unvalidated and awaiting checking, with the run and its coverage', () => {
+		expect(runStatus(corpus({ model: partial }))).toBe(
+			'labels from a partial, unvalidated model run awaiting human checking ' +
+				'(run 2026-09-01-luna-v1: 7,694 of 7,747 occurrences annotated)'
+		);
+	});
+
+	it('drops "partial" when the run reached every occurrence', () => {
+		expect(runStatus(corpus())).toBe(
+			'labels from an unvalidated model run awaiting human checking ' +
+				'(run 2026-09-01-luna-v1: all 6,092 occurrences annotated)'
+		);
+	});
+
+	it('says the checking has started once it has', () => {
+		expect(runStatus(corpus({ gold: { ...gold, state: 'in_progress' } }))).toContain(
+			'an unvalidated model run with human checking in progress'
+		);
+	});
+
+	it('keeps "partial" after the sample is coded, and says nothing of validation', () => {
+		expect(runStatus(corpus({ model: partial, gold: { ...gold, state: 'complete' } }))).toBe(
+			'labels from a partial model run (run 2026-09-01-luna-v1: 7,694 of 7,747 occurrences annotated)'
+		);
+	});
+
+	it('disappears once the run is complete and the sample coded', () => {
+		expect(runStatus(corpus({ gold: { ...gold, state: 'complete' } }))).toBeNull();
+	});
+});
+
 describe('what leaves in a file', () => {
 	it('exports every cell the artefact holds, not the rows the figure drew', () => {
 		const data = corpus();
@@ -1548,8 +1656,8 @@ describe('what leaves in a file', () => {
 		const rows = diffusionExportRows(corpus());
 		expect(rows).toHaveLength(6);
 		expect(rows[0]).toHaveLength(DIFFUSION_COLUMNS.length);
-		expect(rows[0][DIFFUSION_COLUMNS.indexOf('referent')]).toBe('convention');
-		expect(rows[0][DIFFUSION_COLUMNS.indexOf('referent_kind')]).toBe('meta');
+		expect(rows[0]![DIFFUSION_COLUMNS.indexOf('referent')]).toBe('convention');
+		expect(rows[0]![DIFFUSION_COLUMNS.indexOf('referent_kind')]).toBe('meta');
 		// An envelope the figure folds away is still an event the run recorded.
 		const milestone = DIFFUSION_COLUMNS.indexOf('milestone');
 		expect(rows.filter((row) => row[milestone] === 'mention')).toHaveLength(3);
@@ -1558,12 +1666,16 @@ describe('what leaves in a file', () => {
 		).toEqual([]);
 	});
 
-	it('exports every speaker_position profile, withheld shares included', () => {
+	it('exports every speaker’s position counts, and no share, interval or mark', () => {
 		const rows = positionExportRows(corpus());
 		expect(rows.map((row) => row[0])).toEqual(['Alpha', 'Bravo']);
 		expect(rows[0]).toHaveLength(POSITION_COLUMNS.length);
-		expect(rows[1][POSITION_COLUMNS.indexOf('share_rejects')]).toBeNull();
-		expect(rows[0][POSITION_COLUMNS.indexOf('position_rejects')]).toBe(2);
+		expect(rows[1]![POSITION_COLUMNS.indexOf('sufficient')]).toBe(false);
+		expect(rows[0]![POSITION_COLUMNS.indexOf('position_rejects')]).toBe(2);
+		// Counts only, until the `rejects` label has been checked by hand.
+		for (const column of ['share_rejects', 'share_low', 'share_high', 'separated', 'q_value']) {
+			expect(POSITION_COLUMNS).not.toContain(column);
+		}
 	});
 });
 
@@ -1579,7 +1691,7 @@ describe('what a second instrument does to the figures', () => {
 			}),
 			USAGE_DEFAULTS
 		);
-		const cells = plan.rows[0].cells;
+		const cells = plan.rows[0]!.cells;
 		const rwanda = cells.find((entry) => entry.referent === 'rwanda_1994');
 		const bosnia = cells.find((entry) => entry.referent === 'bosnia');
 		expect(rwanda?.contested).toBe(1);
@@ -1647,11 +1759,11 @@ describe('what a second instrument does to the figures', () => {
 			})
 		);
 		expect(rows).toHaveLength(1);
-		expect(rows[0].retestRunId).toBe('2026-08-30-luna-pilot');
+		expect(rows[0]!.retestRunId).toBe('2026-08-30-luna-pilot');
 		// 69 of 91: about a quarter of one model's own labels move between two
 		// calls, which is what the cross-model column has to be read against.
-		expect(rows[0].identicalShare).toBeCloseTo(69 / 91, 6);
-		expect(rows[0].fields[0].observedText).toBe('94.50%');
+		expect(rows[0]!.identicalShare).toBeCloseTo(69 / 91, 6);
+		expect(rows[0]!.fields[0]!.observedText).toBe('94.50%');
 		expect(retestRows(corpus({}))).toEqual([]);
 	});
 
@@ -1709,26 +1821,26 @@ describe('what a second instrument does to the figures', () => {
 	});
 });
 
-describe('who rejects the word, ordered by what can be ordered', () => {
+describe('who rejects the word, in counts only', () => {
 	const rows: UsagePositionRow[] = [
 		{
 			actor: 'Sudan',
-			eligible: 43,
+			eligible: 21,
 			sufficient: true,
-			positions: positions({ asserts: 24, rejects: 19 }),
-			share_rejects: 0.441,
-			share_low: 0.304,
-			share_high: 0.589,
+			positions: positions({ asserts: 12, rejects: 9 }),
+			share_rejects: 0.429,
+			share_low: 0.245,
+			share_high: 0.635,
 			separated: true
 		},
 		{
 			actor: 'Kenya',
-			eligible: 24,
+			eligible: 240,
 			sufficient: true,
-			positions: positions({ asserts: 23, rejects: 1 }),
-			share_rejects: 0.042,
-			share_low: 0.007,
-			share_high: 0.202,
+			positions: positions({ asserts: 221, rejects: 19 }),
+			share_rejects: 0.079,
+			share_low: 0.051,
+			share_high: 0.121,
 			separated: false
 		},
 		{
@@ -1740,28 +1852,42 @@ describe('who rejects the word, ordered by what can be ordered', () => {
 			share_low: 0.019,
 			share_high: 0.222,
 			separated: false
+		},
+		{
+			actor: 'Algeria',
+			eligible: 25,
+			sufficient: true,
+			positions: positions({ asserts: 23, rejects: 2 }),
+			share_rejects: 0.08,
+			share_low: 0.022,
+			share_high: 0.25,
+			separated: false
 		}
 	];
 
-	it('puts the separated rows first and does not rank the rest by share', () => {
-		const result = positionRanking(corpus({ position_by_actor: rows, minimum_occurrences: 20 }));
-		// Sudan clears the corpus rate. China's 6.9% is higher than Kenya's 4.2%
-		// and both intervals cover 1.7%, so the two are ordered by count and the
-		// order is not a claim that one rejects more often than the other.
-		expect(result.rows.map((row) => row.actor)).toEqual(['Sudan', 'China', 'Kenya']);
-		expect(result.rows.map((row) => row.separated)).toEqual([true, false, false]);
-		expect(result.rows[0].rejects).toBe(19);
-		expect(result.rows[0].intervalText).toBe('30.40%–58.90%');
+	it('orders by the count of rejections and then by name, never by share or flag', () => {
+		const result = positionProfiles(corpus({ position_by_actor: rows, minimum_occurrences: 20 }));
+		// Sudan carries the pipeline's flag and the highest share, and still comes
+		// second: the flag and the share are not read until `rejects` has been
+		// checked by hand. Algeria and China tie on two, and the name decides.
+		expect(result.rows.map((row) => row.actor)).toEqual(['Kenya', 'Sudan', 'Algeria', 'China']);
+		expect(result.rows.map((row) => row.rejects)).toEqual([19, 9, 2, 2]);
 	});
 
-	it('writes a dash where the artefact recorded no interval', () => {
-		const result = positionRanking(
-			corpus({
-				minimum_occurrences: 20,
-				position_by_actor: [{ ...rows[0], share_low: null, share_high: null, separated: false }]
-			})
-		);
-		expect(result.rows[0].intervalText).toBe('—');
+	it('carries no share, interval or mark for a figure to print', () => {
+		const result = positionProfiles(corpus({ position_by_actor: rows, minimum_occurrences: 20 }));
+		for (const row of result.rows) {
+			expect(Object.keys(row).sort()).toEqual(
+				['actor', 'eligible', 'positions', 'rejects', 'segments', 'total'].sort()
+			);
+		}
+	});
+
+	it('orders the speakers under the minimum by the same rule, apart from the rest', () => {
+		const under = rows.map((row) => ({ ...row, sufficient: false }));
+		const result = positionProfiles(corpus({ position_by_actor: under, minimum_occurrences: 20 }));
+		expect(result.rows).toEqual([]);
+		expect(result.withheld.map((row) => row.actor)).toEqual(['Kenya', 'Sudan', 'Algeria', 'China']);
 	});
 });
 

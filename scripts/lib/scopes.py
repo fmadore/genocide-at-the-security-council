@@ -17,6 +17,8 @@ beside the term series.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 
 from . import series
@@ -129,7 +131,7 @@ def summary(speeches: pd.DataFrame) -> list[dict[str, object]]:
     """Counts for the scope control, always against the complete input corpus."""
     masks = speech_masks(speeches)
     definitions = {key: (label, definition) for key, label, definition in SCOPE_DEFINITIONS}
-    rows = []
+    rows: list[dict[str, object]] = []
     for key in ("word", "vocabulary", "debate"):
         mask = masks[key]
         label, definition = definitions[key]
@@ -145,7 +147,7 @@ def summary(speeches: pd.DataFrame) -> list[dict[str, object]]:
     return rows
 
 
-def meeting_scope_counts(speeches: list[dict[str, object]]) -> dict[str, int]:
+def meeting_scope_counts(speeches: list[dict[str, Any]]) -> dict[str, int]:
     """R9 membership inside one meeting; the debate is all-or-nothing."""
     word = sum("genocide" in speech["hits"] for speech in speeches)
     vocabulary = sum(
@@ -159,9 +161,9 @@ def meeting_scope_counts(speeches: list[dict[str, object]]) -> dict[str, int]:
     }
 
 
-def delegations(speeches: list[dict[str, object]]) -> list[dict[str, object]]:
+def delegations(speeches: list[dict[str, Any]]) -> list[dict[str, object]]:
     """Who sat in a meeting and which vocabulary each delegation used."""
-    grouped: dict[str, dict[str, object]] = {}
+    grouped: dict[str, dict[str, Any]] = {}
     for speech in speeches:
         country = str(speech["country"])
         row = grouped.setdefault(

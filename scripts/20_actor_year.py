@@ -8,8 +8,8 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import actors, artifacts, frames, series
-from lib.paths import DERIVED, ROOT, SPEECHES_FLAGGED
+from lib import actors, artifacts, console, frames, series
+from lib.paths import ACTOR_YEAR, ROOT, SPEECHES_FLAGGED
 
 
 def run() -> None:
@@ -17,18 +17,18 @@ def run() -> None:
     columns = ["row_id", "year", "country_org", "meeting_symbol", "words", "tokens", *[c for m in measures for c in series.columns_for("terms", m)]]
     speeches = frames.read(SPEECHES_FLAGGED, columns=columns)
     table = pd.concat([actors.annual_table(speeches, m) for m in measures], ignore_index=True)
-    meta = artifacts.provenance(ROOT, "20_actor_year.py", inputs=[SPEECHES_FLAGGED], configs=[Path(__file__), ROOT / "scripts/lib/actors.py", ROOT / "scripts/lib/series.py"], extra={
+    meta = artifacts.provenance(ROOT, "20_actor_year.py", inputs=[SPEECHES_FLAGGED], extra={
         "minimum_speeches": actors.MIN_SPEECHES,
         "interval": "Wilson 95% speech-level bounds; not meeting-clustered",
         "denominators": "held = all speeches by this source affiliation in this year; token_rate divides by words",
         "missing_years": "Explicit zero counts and withheld rates; historical affiliations remain distinct",
         "rows": len(table), "reconciled": True,
     })
-    with artifacts.atomic_directory(DERIVED / "actor_year") as staged:
-        table.to_csv(staged / "actor_year.csv", index=False)
+    with artifacts.atomic_directory(ACTOR_YEAR) as staged:
+        artifacts.atomic_write_csv(staged / "actor_year.csv", table)
         artifacts.atomic_write_json(staged / "manifest.json", meta, indent=2)
     print(f"Wrote {len(table):,} annual rows; {int(table.sufficient.sum()):,} meet the rate floor", flush=True)
 
 
 if __name__ == "__main__":
-    run()
+    console.main(run)

@@ -12,19 +12,22 @@ revised prompt onto the archived wording the run was made with.
 
 They live in `lib` so that each rule can be tested on a constructed manifest;
 the step reads a run that needed a serving GPU and a corpus CI does not have,
-and cannot be. Every refusal still exits through :func:`lib.console.fail` with
-the message the step has always printed, and takes `what`, so that a comparison
-run is named as one. The check over a run's rows that returns its problems
-instead of exiting, :func:`lib.usage.row_problems`, stays with the aggregation.
+and cannot be. Every refusal raises :class:`lib.console.Refusal` carrying the
+message the step has always printed, which the step's `console.main` prints
+before it exits, and takes `what`, so that a comparison run is named as one. The
+check over a run's rows that returns its problems instead of refusing,
+:func:`row_problems`, is here too, beside the refusal that reports them.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import pandas as pd
 
-from . import audit, console, lexicon, llm, model_runs, usage
+from . import audit, console, lexicon, llm, model_runs, prompts, schema
+from .agreement import _text
 from .paths import LEXICON, rel
 
 #: The one term the model-assisted layer covers, and the store files the
@@ -65,7 +68,7 @@ def refuse_stale_lexicon(
     )
     recorded = str(manifest.get("lexicon_version", ""))
     if not lex.compatible(TERM, recorded):
-        console.fail(
+        raise console.Refusal(
             f"{what} was made against an incompatible lexicon",
             [
                 f"it records version {recorded or '(none)'}; {provenance}",
@@ -78,7 +81,7 @@ def refuse_stale_lexicon(
     recorded_rows = {str(row.get("lexicon_version", "")) for row in rows}
     stale = sorted(version for version in recorded_rows if not lex.compatible(TERM, version))
     if stale:
-        console.fail(
+        raise console.Refusal(
             f"some rows of {what} were written against an incompatible lexicon",
             [f"row lexicon versions: {', '.join(stale)}; {provenance}"],
         )
@@ -121,7 +124,7 @@ def refuse_stale_referents(
         "version was made against version 1"
     )
     if recorded.strip() and int(recorded) > referents.version:
-        console.fail(
+        raise console.Refusal(
             f"{what} was made against a newer referent list than this checkout holds",
             [
                 f"it records version {recorded}; {provenance}",
@@ -148,7 +151,7 @@ def refuse_stale_referents(
         if not referents.compatible(name, version)
     )
     if stale:
-        console.fail(
+        raise console.Refusal(
             f"{what} used referents the list it records could not have offered",
             [
                 *stale[:8],
@@ -195,12 +198,12 @@ def resolve_schema(
       between `concrete_case` and `no_position` is what stops a third.
     """
     recorded = str(manifest.get("schema_version", "") or llm.SCHEMA_VERSION)
-    if recorded not in (llm.SCHEMA_VERSION, "3", audit.LEGACY_SCHEMA_VERSION):
-        console.fail(
+    if recorded not in (llm.SCHEMA_VERSION, "3", schema.LEGACY_SCHEMA_VERSION):
+        raise console.Refusal(
             f"{what} records an annotation schema this checkout cannot read",
             [
                 f"it says version {recorded}; this checkout reads "
-                f"{audit.LEGACY_SCHEMA_VERSION} and {llm.SCHEMA_VERSION}",
+                f"{schema.LEGACY_SCHEMA_VERSION} and {llm.SCHEMA_VERSION}",
                 "check out the commit whose codebook matches the run",
             ],
         )
@@ -238,7 +241,7 @@ def resolve_referents(
 
 def resolve_prompt(
     manifest: dict[str, object], *, what: str = "the run"
-) -> llm.PromptPack:
+) -> prompts.PromptPack:
     """The prompt this run was actually made with, found by its digest.
 
     `usage.json` publishes the prompt verbatim beside the labels it produced, so
@@ -253,8 +256,8 @@ def resolve_prompt(
 
     So the question changes from "is this today's prompt?" to "is this a prompt
     this repository still holds?" — the same move `referents.csv` makes for its
-    own list, and for the same reason. :func:`lib.llm.load_prompt_library` reads
-    `PROMPT.md` and every superseded version under `prompts/`, and a run
+    own list, and for the same reason. :func:`lib.prompts.load_prompt_library`
+    reads `PROMPT.md` and every superseded version under `prompts/`, and a run
     resolves to whichever of them its bytes hash to. Only a digest that appears
     nowhere is refused, and then loudly: a run whose wording this checkout does
     not hold cannot be published, because the alternative is publishing some
@@ -266,27 +269,29 @@ def resolve_prompt(
     with a claim is to test it.
     """
     if not PROMPT.is_file():
-        console.fail(f"{rel(PROMPT)} is missing — the run's prompt cannot be published")
+        raise console.Refusal(f"{rel(PROMPT)} is missing — the run's prompt cannot be published")
     try:
-        library = llm.load_prompt_library(PROMPT)
+        library = prompts.load_prompt_library(PROMPT)
     except (ValueError, FileNotFoundError) as exc:
-        console.fail(f"the prompt archive beside {rel(PROMPT)} cannot be read", [str(exc)])
+        raise console.Refusal(
+            f"the prompt archive beside {rel(PROMPT)} cannot be read", [str(exc)]
+        ) from exc
     recorded = str(manifest.get("prompt_sha256", ""))
     pack = library.by_digest(recorded)
     if pack is None:
-        console.fail(
+        raise console.Refusal(
             f"{what} was made with a prompt this checkout does not hold",
             [
                 f"it records {recorded[:12] or '(none)'}...",
                 *(f"this checkout holds {line}" for line in library.describe()),
-                f"a revised prompt keeps its old text as {llm.ARCHIVE}/v<n>.md, so an "
+                f"a revised prompt keeps its old text as {prompts.ARCHIVE}/v<n>.md, so an "
                 "earlier run stays readable; restore that file, or aggregate a run whose "
                 "prompt is here",
             ],
         )
     declared = str(manifest.get("prompt_version", "")).strip()
     if declared and declared != str(pack.version):
-        console.fail(
+        raise console.Refusal(
             f"{what} records a prompt version its own bytes contradict",
             [
                 f"the manifest says v{declared}; {pack.name} hashes to "
@@ -317,7 +322,7 @@ def refuse_other_prompt(manifest: dict[str, object], digest: str) -> None:
     """
     recorded = str(manifest.get("prompt_sha256", ""))
     if recorded != digest:
-        console.fail(
+        raise console.Refusal(
             "the comparison run was made with a different prompt",
             [
                 f"the comparison run records {recorded[:12] or '(none)'}..., "
@@ -333,7 +338,7 @@ def refuse_other_prompt(manifest: dict[str, object], digest: str) -> None:
 def refuse_self_comparison(published: Path, comparison: Path) -> None:
     """A run compared against itself agrees everywhere and measures nothing."""
     if published.resolve() == comparison.resolve():
-        console.fail(
+        raise console.Refusal(
             "the comparison run is the published run",
             [
                 f"both point at {rel(published)}",
@@ -342,6 +347,50 @@ def refuse_self_comparison(published: Path, comparison: Path) -> None:
                 f"name a different run in {rel(COMPARISON_RUN)}, or empty it",
             ],
         )
+
+
+def row_problems(
+    rows: Sequence[Mapping[str, object]], enumerated: Mapping[str, str]
+) -> list[str]:
+    """Every reason a run's rows cannot be joined to this enumeration.
+
+    `enumerated` maps occurrence_id to the digest of the speech body it was found
+    in. Three failures:
+
+    - a row naming an occurrence the enumeration does not have;
+    - a row whose `source_sha256` differs from the enumerated one, so the same
+      span in the same file is now in a different text;
+    - the same occurrence annotated twice, which would double-count it.
+
+    The first two mean the corpus or the lexicon moved underneath a run that has
+    already been paid for. The third means the run file was appended to twice,
+    which `lib.model_runs.completed` is meant to prevent and which cannot be
+    repaired here: the two rows may carry different labels, and there is no rule
+    for choosing between them that is not a coin toss.
+
+    Returned rather than raised, so the caller can report all of them at once
+    instead of one per run.
+    """
+    problems: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        identifier = _text(row.get("occurrence_id"))
+        if identifier not in enumerated:
+            problems.append(
+                f"{identifier[:12] or '(blank)'}... names an occurrence this enumeration "
+                "does not have"
+            )
+            continue
+        digest = _text(row.get("source_sha256"))
+        if digest != enumerated[identifier]:
+            problems.append(
+                f"{identifier[:12]}... was annotated against body {digest[:12]}..., "
+                f"the corpus now holds {enumerated[identifier][:12]}..."
+            )
+        if identifier in seen:
+            problems.append(f"{identifier[:12]}... is annotated more than once")
+        seen.add(identifier)
+    return problems
 
 
 def refuse_bad_rows(
@@ -355,8 +404,8 @@ def refuse_bad_rows(
     digests = dict(
         zip(frame["occurrence_id"].astype(str), frame["source_sha256"].astype(str), strict=True)
     )
-    if problems := usage.row_problems(rows, digests):
-        console.fail(
+    if problems := row_problems(rows, digests):
+        raise console.Refusal(
             f"{what}'s rows cannot be joined to this corpus",
             [
                 *problems[:8],
@@ -375,7 +424,7 @@ def refuse_bad_rows(
         except (ValueError, KeyError) as error:
             invalid.append(f"{str(row.get('occurrence_id', ''))[:12]}...: {error}")
     if invalid:
-        console.fail(
+        raise console.Refusal(
             f"{what} holds rows the current codebook does not accept",
             [
                 *invalid[:8],
@@ -417,22 +466,30 @@ def validated(
     return rows, schema_counts, superseded
 
 
-def refuse_partial(annotated: int, total: int, allow: bool) -> None:
-    """A gap is reported honestly or refused, never averaged over."""
+def refuse_partial(annotated: int, total: int, allowed_by: str, *, run_id: str = "") -> None:
+    """A gap is reported honestly or refused, never averaged over.
+
+    `allowed_by` says what allows a gap — `--allow-partial`, or
+    `model_runs.ALLOW_PARTIAL_RUN` naming the run — and is empty when nothing
+    does.
+    """
     if annotated >= total:
         return
     missing = total - annotated
-    if not allow:
-        console.fail(
+    if not allowed_by:
+        raise console.Refusal(
             f"the run annotates {annotated:,} of {total:,} occurrences",
             [
                 f"{missing:,} occurrences are missing, so every count here would be a "
                 "floor of unknown depth",
-                "resume the run with 14_llm_annotate.py --poll, or pass --allow-partial "
+                f"resume it with 14_llm_annotate.py --run-id {run_id or '<run id>'} and the "
+                "model and sampling settings it was started with (on the cluster, resubmit "
+                "the identical submit_annotate.sh command); completed speeches are skipped",
+                f"or name it in {rel(model_runs.ALLOW_PARTIAL_RUN)}, or pass --allow-partial, "
                 "to publish the coverage as it stands",
             ],
         )
     console.warn(
-        f"--allow-partial: {annotated:,} of {total:,} occurrences annotated "
+        f"{allowed_by}: {annotated:,} of {total:,} occurrences annotated "
         f"({annotated / total:.1%}); the artefact records the gap"
     )

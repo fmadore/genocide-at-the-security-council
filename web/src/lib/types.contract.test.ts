@@ -170,7 +170,7 @@ function accessors(text: string): Accessor[] {
 		) {
 			const [argument] = node.typeArguments;
 			const path = pathOf(node.arguments[0]);
-			if (path && ts.isTypeReferenceNode(argument) && ts.isIdentifier(argument.typeName)) {
+			if (path && ts.isTypeReferenceNode(argument!) && ts.isIdentifier(argument.typeName)) {
 				found.push({ type: argument.typeName.text, ...path });
 			}
 		}
@@ -279,8 +279,8 @@ function audit(checker: ts.TypeChecker, roots: Root[]) {
 			);
 			return;
 		}
-		if (Array.isArray(shape)) elements(candidates[0], shape, path);
-		else properties(candidates[0], shape, path);
+		if (Array.isArray(shape)) elements(candidates[0]!, shape, path);
+		else properties(candidates[0]!, shape, path);
 	};
 
 	const elements = (type: ts.Type, shape: Shape[], path: string) => {
@@ -291,7 +291,7 @@ function audit(checker: ts.TypeChecker, roots: Root[]) {
 		if (checker.isTupleType(type)) {
 			members.forEach((member, index) => walk(member, element, `${path}[${index}]`));
 		} else {
-			walk(members[0], element, `${path}[]`);
+			walk(members[0]!, element, `${path}[]`);
 		}
 	};
 
@@ -358,7 +358,7 @@ const compiled = compile(declaring);
 const fetchers = accessors(fetching);
 const roots = Object.entries(contract).flatMap(([artefact, shape]): Root[] => {
 	const names = fetchedAs(artefact, fetchers);
-	const symbol = names.length === 1 ? compiled.exported.get(names[0]) : undefined;
+	const symbol = names.length === 1 ? compiled.exported.get(names[0]!) : undefined;
 	return symbol
 		? [{ artefact, shape, type: compiled.checker.getDeclaredTypeOfSymbol(symbol) }]
 		: [];
@@ -381,7 +381,7 @@ describe('what types.ts declares against what the pipeline writes', () => {
 			names,
 			`data.ts fetches ${artefact} as ${names.join(' and ') || 'nothing typed'}`
 		).toHaveLength(1);
-		expect(compiled.exported.has(names[0]), `types.ts exports no ${names[0]}`).toBe(true);
+		expect(compiled.exported.has(names[0]!), `types.ts exports no ${names[0]}`).toBe(true);
 	});
 
 	it('fetches nothing as a type the contract cannot check', () => {

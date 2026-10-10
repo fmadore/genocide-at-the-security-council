@@ -49,7 +49,7 @@
 	bind:this={element}
 	viewBox="0 0 {WIDTH} {height}"
 	width="100%"
-	role="img"
+	role="group"
 	aria-label={description}
 	style:font-family="var(--sans)"
 	class="dotplot"

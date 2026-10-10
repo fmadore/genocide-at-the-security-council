@@ -4,14 +4,25 @@
 		"generated": "2026-08-24T00:00:00Z",
 		"git_commit": "fixture",
 		"lexicon_version": 2,
-		"inputs": [{ "path": "speeches_flagged.parquet", "sha256": "fixture-input" }],
-		"configs": [{ "path": "config/lexicon.yml", "sha256": "fixture-config" }]
+		"inputs": [
+			{
+				"path": "speeches_flagged.parquet",
+				"sha256": "fixture-input"
+			}
+		],
+		"configs": [
+			{
+				"path": "config/lexicon.yml",
+				"sha256": "fixture-config"
+			}
+		]
 	},
 	"term": "genocide",
 	"pattern": "genocide",
 	"tier": "core",
 	"register": "core",
 	"count": 4,
+	"id_format": "<speech filename without .txt>#<one-based occurrence ordinal>",
 	"lines": [
 		{
 			"id": "SC07000-01-001#1",

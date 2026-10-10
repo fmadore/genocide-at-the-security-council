@@ -28,7 +28,7 @@ spaCy steps (`docs/CLUSTER.md`). The deploy workflow runs the same target.
 
 Three environment variables move the tree a run writes to — `GENOCIDE_DATA_ROOT`,
 `GENOCIDE_NOTES_ROOT`, `GENOCIDE_WEB_DATA_ROOT` — and exist for one caller:
-`tests/test_end_to_end.py`, which runs 04 and 08 as subprocesses over a synthetic corpus
+`tests/test_end_to_end.py`, which runs 04, 08 and 17 as subprocesses over a synthetic corpus
 and compares their analytical values with `tests/golden/`. Leave them unset otherwise.
 
 ## Steps
@@ -52,6 +52,9 @@ and compares their analytical values with `tests/golden/`. Leave them unset othe
 | 14 | `14_llm_annotate.py` | `speeches_norm.parquet`, prompt, a local vLLM Responses endpoint | `model_annotations/genocide/runs/<id>/` | ✋ scheduled, experimental |
 | 15 | `15_usage.py` | `model_annotations/genocide/`, `annotations/genocide/`, `speeches_norm.parquet`, the gold design | `derived/usage/*.json`, `data/interim/genocide_first_events.csv` | 🧪 experimental |
 | 17 | `17_frames.py` | `speeches_flagged.parquet`, `config/lexicon.yml`, `model_annotations/genocide/` | `derived/frames/*.json` | ✅ |
+| 18 | `18_lexical_robustness.py` | `speeches_flagged.parquet`, `config/stopwords.txt`; with `--lemma-layer`, a validated 10 layer | `derived/lexical_robustness/`, or `derived/lexical_robustness_lemma/` | 🔬 diagnostic, `make robustness` |
+| 19 | `19_extended_robustness.py` | `speeches_flagged.parquet`, `config/stopwords.txt`, `config/lexicon.yml` | `derived/extended_robustness/` | 🔬 diagnostic, `make robustness-extended` |
+| 20 | `20_actor_year.py` | `speeches_flagged.parquet` | `derived/actor_year/` | ✅ |
 | 21 | `21_semantic_map.py` | `speeches_flagged.parquet`, complete schema-2 embeddings | `derived/semantic/` | 🖥️ CPU projection |
 | — | `fetch_semantic.py` | `config/semantic-release.json`, GitHub release asset | `derived/semantic/` | ✅ verified restore |
 | — | `export_web.py` | `derived/{series,lexical,kwic,countries,usage,frames,actor_year,semantic}/` | `web/static/data/` | ✅ |
@@ -65,6 +68,13 @@ run on the Bayreuth cluster; see [`../docs/CLUSTER.md`](../docs/CLUSTER.md). Non
 speech-similarity map; the release workflow restores its reviewed output with
 `python scripts/fetch_semantic.py` before `make payload`. Run the same restore
 command locally to include the published map without another GPU run.
+
+**18 and 19 test the lexical tables rather than feed them.** 18 redraws 05's matched
+genocide comparison, deletes each meeting in turn and reports how far each top word moves;
+19 adds meeting-block bootstrap intervals for the matched comparison, the collocates and
+the speaker profiles. Both write beside the published tables and never replace them. **20** is part of the release:
+it writes each source affiliation's annual counts and rates, withheld below the same
+minimum as 11, and `export_web.py` copies them to `actor_year/`.
 
 **11 builds the table [`../docs/PLAN.md`](../docs/PLAN.md) §7 requires before anything is
 drawn on a map.** Per speaker and per period: the speaker's own denominator, its
@@ -314,6 +324,7 @@ What follows from that, worth knowing before you start:
 |---|---|
 | [`lib/paths.py`](lib/paths.py) | Where everything lives. One definition, imported everywhere. |
 | [`lib/console.py`](lib/console.py) | Uniform reporting, and UTF-8 stdout on Windows. |
+| [`lib/notes.py`](lib/notes.py) | The Markdown table the findings notes are written with, refusing a row that does not fit its header. |
 | [`lib/artifacts.py`](lib/artifacts.py) | Atomic files/directories, hashes and provenance manifests. |
 | [`lib/contract.py`](lib/contract.py) | The payload's shape, and whether it still has it. Enforced at the export seam. |
 | [`lib/frames.py`](lib/frames.py) | Parquet read/write; `body()` reconstructs a speech minus its form of address. |
@@ -322,28 +333,38 @@ What follows from that, worth knowing before you start:
 | [`lib/entities.py`](lib/entities.py) | Source-derived affiliation types; optional legacy ISO3/centroid enrichment without renaming. |
 | [`lib/council.py`](lib/council.py) | Council membership by year; the P5 / E10 / non-member / UN / non-state split. |
 | [`lib/lexicon.py`](lib/lexicon.py) | Loads, compiles and counts `config/lexicon.yml`; `Term.spans` applies a term's whole rule, pattern and sentence anchor together. |
-| [`lib/audit.py`](lib/audit.py) | The lexicon audit: stable occurrence and candidate identities, the probability, coverage and negative frames 03 draws, and the merge with human annotations. |
+| [`lib/lexicon_lock.py`](lib/lexicon_lock.py) | The lexicon's two committed records: the pattern lock `load` holds the file to, and the counts 03 holds the corpus to and 13, 14 and 15 read their population from. |
+| [`lib/audit.py`](lib/audit.py) | The lexicon audit: stable occurrence identities, the probability, coverage and negative frames 03 draws, and the merge with human annotations. |
+| [`lib/schema.py`](lib/schema.py) | The annotation schema: its version, the closed vocabularies a human or model row is coded in, the false-positive cascade, and how a schema-2 row is read at schema 3. |
+| [`lib/sampling.py`](lib/sampling.py) | Samples drawn by a seeded hash of each occurrence's identity, with their inclusion probabilities: equal-probability, stratified and coverage frames, and the chance of entering any of several. |
 | [`lib/series.py`](lib/series.py) | Periods, denominators (words, not the codebook's tokens), rates with their Wilson 95% bounds, breakdowns; change-point detection with a meeting-block null (`meeting_blocks`, `rate_change_point`); the event overlay. |
+| [`lib/series_payload.py`](lib/series_payload.py) | Step 04's artefacts: the annual and quarterly series, the monthly grid with its calendar block, the breakdowns, the decade decomposition and the change-point tests. |
 | [`lib/scopes.py`](lib/scopes.py) | R9's three reading sets and their cuts by year and speaker; 09's per-meeting counts and `scopes.json` payload; R8's genocide-free comparison corpus, which 04 publishes. |
 | [`lib/actors.py`](lib/actors.py) | Per-speaker aggregation over `lib/series.py`'s arithmetic; the minimum-sample rule; ISO3 collisions and what may be mapped; 11's tracked measures, built and reconciled per period; 20's annual table. |
 | [`lib/kwic.py`](lib/kwic.py) | Concordance-line extraction; re-exports the sentence segmentation it used to own. |
 | [`lib/occurrences.py`](lib/occurrences.py) | One enumeration of a term's occurrences, carrying both the audit `occurrence_id` and the KWIC line id; 13, 14 and 15 share it. |
 | [`lib/gold_sample.py`](lib/gold_sample.py) | Step 13's sampling design: the cue and model-label strata, the three frames, each unit's inclusion probability under their union, and the blinded packet. |
-| [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: prompt parsing, request building, response validation against the codebook's vocabularies, evidence-quote location in three passes (exact, whitespace-collapsed, then folded and flagged `evidence_relocated`), resume rules. No network, no SDK import at module level. |
+| [`lib/llm.py`](lib/llm.py) | The model annotation layer's logic: request building, response validation against the codebook's vocabularies, row assembly and the row gate. No network, no SDK import at module level. |
+| [`lib/prompts.py`](lib/prompts.py) | The prompt file and its archive of superseded versions: parsing, placeholders, declared constraints, and resolution by digest. |
+| [`lib/evidence.py`](lib/evidence.py) | Evidence-quote location in three passes (exact, whitespace-collapsed, then folded and flagged `evidence_relocated`), and the bounds on a sentence-number answer. |
 | [`lib/annotate.py`](lib/annotate.py) | Step 14's provider-independent population, output ceiling, manifest and refusal rules. No SDK is imported here. |
 | [`lib/probes.py`](lib/probes.py) | What the two pre-run probes decide: whether a reasoning ladder climbs, the sampling settings, the speeches compared and how far two settings agree. No server, no socket. |
-| [`lib/model_runs.py`](lib/model_runs.py) | The model-annotation store's files and pointers, the population check against the committed counts, and the read-only validation every run reader shares. |
-| [`lib/usage.py`](lib/usage.py) | Aggregation for the usage layer: the model block, eligible/assigned funnel, the actor × referent matrix, withholding, and the agreement arithmetic — kappa with its withholding rule, PABAK, Krippendorff's α under MASI, per-label kappa, the per-class support floor. |
+| [`lib/model_runs.py`](lib/model_runs.py) | The model-annotation store's files and pointers, the population check against the committed counts, the read-only validation every run reader shares, and the run file itself: read, appended to, and checked for a resumed run. |
+| [`lib/usage.py`](lib/usage.py) | Aggregation for the usage layer: the model block, eligible/assigned funnel, the actor × referent matrix, withholding, diffusion and exposure. |
+| [`lib/agreement.py`](lib/agreement.py) | The agreement arithmetic every comparison shares: kappa with its withholding rule, PABAK, Krippendorff's α under MASI, per-label kappa, the per-class support floor, Jaccard. |
+| [`lib/gold_estimates.py`](lib/gold_estimates.py) | The gold block: the human reference label, agreement between the coders, the model scored against them, and the design-weighted accuracy and corrected shares. |
+| [`lib/usage_comparison.py`](lib/usage_comparison.py) | A second run read against the published one, over the overlap: agreement per field and per referent, and the contested occurrences. |
 | [`lib/usage_refusals.py`](lib/usage_refusals.py) | Step 15's refusals — lexicon, rows, codebook, referent list, prompt, comparison, coverage — and the resolutions that read an older run in today's vocabulary. |
 | [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood as a floor with log ratio and logDice as the rank, dispersion (documents, meetings, DP), matched controls, PMI with definitional pairs suppressed. |
 | [`lib/keyness.py`](lib/keyness.py) | One speaker against the room: the corpus as a count matrix, the strata, the two gates, agenda composition. |
 | [`lib/embeddings.py`](lib/embeddings.py) | The model registry, the chunking policy for long speeches, pooling, neighbours. |
 | [`lib/topics.py`](lib/topics.py) | The frozen sample, both topic models, and the evaluation: NPMI coherence, adjusted Rand, c-TF-IDF, word intrusion. |
+| [`lib/projection.py`](lib/projection.py) | The 2D projection as a diagnostic against a thematic reading: neighbourhood purity, trustworthiness, neighbour loss, and the figures. Step 21 reads it as well as 07. |
 | [`lib/lemmas.py`](lib/lemmas.py) | The lemma layer: offset alignment to `lexical.tokenise`, the stored form, the audit mapping. |
 | [`lib/download_models.py`](lib/download_models.py) | Prefetches weights on the cluster login node. |
 
-`embeddings.py`, `topics.py` and `lemmas.py` import torch, scikit-learn, umap-learn and
-spaCy *inside* the functions that need them, so the test suite and steps 00–05 run without
+`embeddings.py`, `topics.py`, `projection.py` and `lemmas.py` import torch, scikit-learn,
+umap-learn, matplotlib and spaCy *inside* the functions that need them, so the test suite and steps 00–05 run without
 the cluster extras installed. Everything that decides what a model sees, and what is done
 with what it returns, is plain Python and is tested on any machine.
 

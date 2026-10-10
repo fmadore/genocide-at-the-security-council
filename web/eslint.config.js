@@ -22,6 +22,27 @@ export default ts.config(
 		}
 	},
 	{
+		// Rules that need the type checker, wherever `tsconfig.json` can see the
+		// file. A promise nobody awaits or catches fails nowhere: its rejection
+		// reaches no message on the page and no test. The service worker is
+		// excluded from the project by SvelteKit, so it is linted without types.
+		//
+		// One program built from `tsconfig.json` rather than the project service,
+		// which makes the same pass about three times slower on this tree.
+		files: ['src/**/*.ts', 'src/**/*.svelte', 'test/**/*.ts'],
+		ignores: ['src/service-worker.ts'],
+		languageOptions: {
+			parserOptions: {
+				project: './tsconfig.json',
+				projectService: false,
+				tsconfigRootDir: import.meta.dirname
+			}
+		},
+		rules: {
+			'@typescript-eslint/no-floating-promises': 'error'
+		}
+	},
+	{
 		rules: {
 			// Every internal *static* route is written with resolve(), which this
 			// rule is there to enforce. What is left are links it cannot check
@@ -39,7 +60,8 @@ export default ts.config(
 			'static/',
 			'node_modules/',
 			'test-results/',
-			'playwright-report/'
+			'playwright-report/',
+			'coverage/'
 		]
 	}
 );

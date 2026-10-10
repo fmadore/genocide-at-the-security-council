@@ -3,10 +3,25 @@ import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { base } from '../../playwright.config';
 
-test('home onward navigation includes every main subpage', async ({ page }) => {
+test('the overview ends on a route, and the masthead still reaches every page', async ({
+	page
+}) => {
 	await page.goto(`${base}/`);
-	const onward = page.locator('.onward');
-	for (const route of [
+	// When, who, what was said: the standfirst's three questions, in its order.
+	const route = page.locator('.onward');
+	await expect(route.getByRole('heading', { level: 2 })).toHaveText(
+		'Test a claim against the record'
+	);
+	await expect(route.locator('ol > li strong')).toHaveText(['Chronology', 'Actors', 'Concordance']);
+	for (const [index, path] of ['chronology', 'actors', 'concordance'].entries()) {
+		const link = route.locator('ol > li a').nth(index);
+		expect(
+			await link.evaluate((element) => new URL((element as HTMLAnchorElement).href).pathname)
+		).toBe(`${base}/${path}`);
+	}
+	// The other destinations the index used to repeat are one row up, sticky.
+	const sections = page.getByRole('navigation', { name: 'Sections' });
+	for (const path of [
 		'chronology',
 		'language',
 		'actors',
@@ -15,40 +30,54 @@ test('home onward navigation includes every main subpage', async ({ page }) => {
 		'semantic',
 		'methods'
 	]) {
-		const link = onward.locator(`a[href$="/${route}"]`);
-		await expect(link).toBeVisible();
-		expect(
-			await link.evaluate((element) => new URL((element as HTMLAnchorElement).href).pathname)
-		).toBe(`${base}/${route}`);
+		await expect(sections.locator(`a[href$="/${path}"]`)).toHaveCount(1);
 	}
 });
 
-test('speaker search supports keyboard selection, cancellation and clearing', async ({ page }) => {
-	await page.goto(`${base}/concordance/?scope=debate`);
-	await expect(page.locator('.status')).toContainText('4 of 4 lines');
-	const speaker = page.getByRole('combobox', { name: 'Speaker', exact: true });
-	await speaker.fill('rwan');
-	await expect(page.getByRole('option', { name: 'Rwanda', exact: true })).toBeVisible();
-	await speaker.press('ArrowDown');
-	await speaker.press('Enter');
-	await expect(speaker).toHaveValue('Rwanda');
-	await expect(page).toHaveURL(/country=Rwanda/);
-	await expect(page).toHaveURL(/scope=debate/);
-	await speaker.fill('no such speaker');
-	await expect(page.getByRole('status').filter({ hasText: 'No matching options.' })).toBeVisible();
-	await speaker.press('Escape');
-	await expect(speaker).toHaveValue('Rwanda');
-	await speaker.click();
-	const all = page
-		.getByRole('listbox', { name: 'Speaker', exact: true })
-		.getByRole('option', { name: 'All', exact: true });
-	await expect(all).toBeVisible();
-	const { violations } = await new AxeBuilder({ page }).analyze();
-	expect(violations).toEqual([]);
-	await all.click();
-	await expect(page).not.toHaveURL(/country=/);
-	await expect(page.locator('.status')).toContainText('4 of 4 lines');
+test('the footer says which build of the data is on the page', async ({ page }) => {
+	// The fixture manifest's date and commit, and the fixture lexicon version
+	// the scopes carry: one line, the commit linked to the repository.
+	await page.goto(`${base}/methods/`);
+	const line = page.locator('footer #build');
+	await expect(line).toHaveText('Data built 5 September 2026 from commit 1a2b3c4 · lexicon 4');
+	await expect(line.getByRole('link', { name: '1a2b3c4' })).toHaveAttribute(
+		'href',
+		'https://github.com/fmadore/genocide-at-the-security-council/commit/1a2b3c4d5e6f708192a3b4c5d6e7f80912a3b4c5'
+	);
 });
+
+test(
+	'speaker search supports keyboard selection, cancellation and clearing',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		await page.goto(`${base}/concordance/?scope=debate`);
+		await expect(page.locator('.status')).toContainText('4 of 4 lines');
+		const speaker = page.getByRole('combobox', { name: 'Speaker', exact: true });
+		await speaker.fill('rwan');
+		await expect(page.getByRole('option', { name: 'Rwanda', exact: true })).toBeVisible();
+		await speaker.press('ArrowDown');
+		await speaker.press('Enter');
+		await expect(speaker).toHaveValue('Rwanda');
+		await expect(page).toHaveURL(/country=Rwanda/);
+		await expect(page).toHaveURL(/scope=debate/);
+		await speaker.fill('no such speaker');
+		await expect(
+			page.getByRole('status').filter({ hasText: 'No matching options.' })
+		).toBeVisible();
+		await speaker.press('Escape');
+		await expect(speaker).toHaveValue('Rwanda');
+		await speaker.click();
+		const all = page
+			.getByRole('listbox', { name: 'Speaker', exact: true })
+			.getByRole('option', { name: 'All', exact: true });
+		await expect(all).toBeVisible();
+		const { violations } = await new AxeBuilder({ page }).analyze();
+		expect(violations).toEqual([]);
+		await all.click();
+		await expect(page).not.toHaveURL(/country=/);
+		await expect(page.locator('.status')).toContainText('4 of 4 lines');
+	}
+);
 
 test('all profile speakers remain selectable beyond the first eight', async ({ page }) => {
 	const fixture = JSON.parse(

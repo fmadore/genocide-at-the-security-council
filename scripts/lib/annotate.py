@@ -29,7 +29,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 from . import artifacts, console, frames, lexicon, llm, model_runs
 from . import occurrences as occurrences_lib
@@ -53,11 +53,11 @@ COLUMNS: Final = [
 
 #: A generous ceiling on one speech's answer, as `base + per_occurrence * n`.
 #:
-#: Reasoning tokens count against this on both providers, so the bound has to
-#: cover the thinking as well as the JSON, and the review (§4.5, item 9) found
-#: the old `12,000 + 1,200 * n` under-provisioning long speeches: one Gemini
-#: speech with three occurrences was truncated at 15,600 tokens and lost, and
-#: another with two came within 271 tokens of its own ceiling.
+#: Reasoning tokens count against this, so the bound has to cover the thinking
+#: as well as the JSON, and the review (§4.5, item 9) found the old
+#: `12,000 + 1,200 * n` under-provisioning long speeches: one Gemini speech with
+#: three occurrences was truncated at 15,600 tokens and lost, and another with
+#: two came within 271 tokens of its own ceiling.
 #:
 #: The run's own arithmetic says why the per-occurrence term was the wrong place
 #: to fix that. Over the 3,273 answers Gemini returned, thinking plus output
@@ -68,16 +68,11 @@ COLUMNS: Final = [
 #: width of that residual — while the per-occurrence term stays at 1,200, which
 #: is already seven times the 154 output tokens an occurrence's JSON costs.
 #:
-#: A ceiling is a cap and not a reservation: neither provider bills for tokens a
-#: model did not generate, so the headroom is free, and a truncated answer costs
-#: a whole speech.
+#: A ceiling is a cap and not a reservation: tokens a model does not generate
+#: cost nothing, so the headroom is free, and a truncated answer costs a whole
+#: speech. Step 14 holds the result under the served context window.
 BASE_OUTPUT_TOKENS: Final = 32_000
 PER_OCCURRENCE_TOKENS: Final = 1_200
-
-#: Requests per batch file. The API ceilings are far higher; this is about how
-#: much is in flight behind one id when something goes wrong, and about getting
-#: the first rows onto disk within hours rather than at the end.
-BATCH_CHUNK: Final = 400
 
 
 @dataclass(frozen=True)
@@ -138,7 +133,7 @@ def gather(limit: int | None) -> tuple[list[Speech], list[Speech], int]:
             (occurrence.filename for occurrence in found), len(found)
         )
     ):
-        console.fail(
+        raise console.Refusal(
             "The enumeration does not reproduce the committed counts",
             [*problems, "run 03 and read docs/VALIDATION.md before spending a GPU hour"],
         )
@@ -164,7 +159,7 @@ def gather(limit: int | None) -> tuple[list[Speech], list[Speech], int]:
 
 
 def output_ceiling(speech: Speech, maximum: int) -> int:
-    """The output ceiling for one speech, under the provider's own hard limit."""
+    """The output ceiling for one speech, under the server's own hard limit."""
     return min(maximum, BASE_OUTPUT_TOKENS + PER_OCCURRENCE_TOKENS * len(speech.occurrences))
 
 
@@ -194,7 +189,7 @@ def read_manifest(path: Path) -> dict[str, object]:
 
 def write_manifest(
     path: Path,
-    previous: dict[str, object],
+    previous: dict[str, Any],
     *,
     meta: llm.RunMeta,
     referents_sha256: str,
@@ -244,8 +239,9 @@ def write_manifest(
     each of them says *which* file, and the version says *which state of it*,
     and 15 refuses a run whose two disagree.
     """
-    before = previous.get("requests") if isinstance(previous.get("requests"), dict) else {}
-    tokens = previous.get("usage") if isinstance(previous.get("usage"), dict) else {}
+    recorded_requests, recorded_usage = previous.get("requests"), previous.get("usage")
+    before: dict[str, Any] = recorded_requests if isinstance(recorded_requests, dict) else {}
+    tokens: dict[str, Any] = recorded_usage if isinstance(recorded_usage, dict) else {}
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     done = planned_requests > 0 and complete >= planned_requests
     history = [dict(entry) for entry in previous.get("passes") or [] if isinstance(entry, dict)]
@@ -314,17 +310,17 @@ def write_manifest(
 def refuse_mismatch(previous: dict[str, object], run_id: str, model: str, digest: str) -> None:
     """A run is one prompt and one model. A change to either is a new run id."""
     if previous.get("status") == "complete":
-        console.fail(
+        raise console.Refusal(
             f"Run {run_id} is already complete",
             ["its manifest says so; publishing a second reading needs a new --run-id"],
         )
     if previous and str(previous.get("model")) != model:
-        console.fail(
+        raise console.Refusal(
             f"Run {run_id} was started with model {previous.get('model')}",
             [f"--model {model} would mix two models in one file; use a new --run-id"],
         )
     if previous and str(previous.get("prompt_sha256")) != digest:
-        console.fail(
+        raise console.Refusal(
             f"Run {run_id} was started with a different prompt",
             [
                 f"manifest {str(previous.get('prompt_sha256'))[:12]}..., file {digest[:12]}...",

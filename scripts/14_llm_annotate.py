@@ -38,7 +38,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import annotate, artifacts, audit, console, llm, model_runs, run_store
+from lib import annotate, artifacts, audit, console, llm, model_runs, prompts, run_store
 from lib.annotate import Builder, Outcome, Speech
 from lib.paths import INTERIM, ROOT, ensure_dirs, rel
 from lib.text import sentence_spans
@@ -204,7 +204,7 @@ def live(
             else:
                 result.responses[custom_id] = body
                 outcome.responses[custom_id] = body
-                llm.append_rows(
+                model_runs.append_rows(
                     raw_file,
                     [{"custom_id": custom_id, "response": {"status_code": 200, "body": body}}],
                 )
@@ -234,8 +234,9 @@ def harvest(
 
     `already` names speeches whose complete rows were on disk before this
     scheduler pass began. It guards a resumed run against duplicating durable
-    rows. `usage.row_problems` would refuse duplicates rather than repair them,
-    which is the right refusal about a fault that should not have happened.
+    rows. `usage_refusals.row_problems` would refuse duplicates rather than
+    repair them, which is the right refusal about a fault that should not have
+    happened.
     """
     rows: list[dict[str, object]] = []
     failures = list(outcome.failures)
@@ -264,7 +265,7 @@ def harvest(
                 referents=referents,
                 sentences=(
                     len(sentence_spans(speech.body))
-                    if llm.SENTENCE_EVIDENCE in constraints
+                    if prompts.SENTENCE_EVIDENCE in constraints
                     else 0
                 ),
             )
@@ -299,9 +300,9 @@ def harvest(
         staged.update({"annotations.jsonl": rows, "failures.jsonl": failure_rows})
     else:
         if rows:
-            llm.append_rows(paths["annotations"], rows)
+            model_runs.append_rows(paths["annotations"], rows)
         if failure_rows:
-            llm.append_rows(paths["failures"], failure_rows)
+            model_runs.append_rows(paths["failures"], failure_rows)
     return {
         "written": written,
         "failures": len(failures),
@@ -406,7 +407,7 @@ def _run(args: argparse.Namespace) -> None:
     }
 
     console.step("Reading the prompt and the controlled referents")
-    pack = llm.load_prompt(PROMPT)
+    pack = prompts.load_prompt(PROMPT)
     # Current identifiers only, on both paths: the table the model is shown and
     # the set its answers are checked against are the same list, so a retired
     # category cannot be chosen and cannot be accepted if it somehow is.
@@ -500,11 +501,11 @@ def _run(args: argparse.Namespace) -> None:
     )
 
     console.step("Choosing what still has to be asked")
-    already = llm.completed(
+    already = model_runs.completed(
         paths["annotations"], enumerated, prompt_sha256=pack.sha256, model=args.model
     )
     remaining = [speech for speech in speeches if speech.filename not in already]
-    refused = {str(row.get("custom_id", "")) for row in llm.read_rows(paths["failures"])}
+    refused = {str(row.get("custom_id", "")) for row in model_runs.read_rows(paths["failures"])}
     if args.retry_failures:
         remaining = [speech for speech in remaining if speech.custom_id in refused]
         console.info(f"--retry-failures: {len(remaining):,} previously refused speeches")
@@ -531,7 +532,7 @@ def _run(args: argparse.Namespace) -> None:
     # a quadratic one; relying on memory alone would lose the checkpoint on a
     # walltime kill. Rows, failures and the atomic manifest are therefore all
     # flushed by `checkpoint` before the next completed future is consumed.
-    rows = llm.read_rows(paths["annotations"])
+    rows = model_runs.read_rows(paths["annotations"])
     per_speech: dict[str, int] = {}
     for row in rows:
         name = str(row.get("filename", ""))
@@ -542,7 +543,7 @@ def _run(args: argparse.Namespace) -> None:
         if per_speech.get(speech.filename, 0) >= len(speech.occurrences)
     }
     outstanding_ids = (
-        {str(row.get("custom_id", "")) for row in llm.read_rows(paths["failures"])}
+        {str(row.get("custom_id", "")) for row in model_runs.read_rows(paths["failures"])}
         & {speech.custom_id for speech in speeches if speech.filename not in covered}
     )
     written = len(rows)
@@ -699,4 +700,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    console.main(main)

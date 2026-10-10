@@ -169,17 +169,17 @@ describe('bars', () => {
 	it('scales within one reading, never across both', () => {
 		// utopia is 4 matched and 6 unmatched. If the two shared a scale, the
 		// matched bar would be two-thirds; within its own reading it is full.
-		expect(bars(speaker(), 'matched')[0].weight).toBe(1);
-		expect(bars(speaker(), 'unmatched')[0].weight).toBe(1);
-		expect(bars(speaker(), 'matched')[1].weight).toBeCloseTo(0.5);
+		expect(bars(speaker(), 'matched')[0]!.weight).toBe(1);
+		expect(bars(speaker(), 'unmatched')[0]!.weight).toBe(1);
+		expect(bars(speaker(), 'matched')[1]!.weight).toBeCloseTo(0.5);
 	});
 
 	it('carries the stability interval only where the artefact has one', () => {
 		const rows = bars(speaker(), 'matched');
 		// The observed range, not the percentiles: the row prints one draw beside
 		// it, and p05 at ten draws can sit above the value it is printed next to.
-		expect(rows[0].interval).toEqual({ median: 4.01, low: 3.8, high: 4.2 });
-		expect(rows[1].interval).toBeNull();
+		expect(rows[0]!.interval).toEqual({ median: 4.01, low: 3.8, high: 4.2 });
+		expect(rows[1]!.interval).toBeNull();
 	});
 
 	it('offers no interval on the unmatched reading, which has none', () => {
@@ -228,10 +228,10 @@ describe('exportRows', () => {
 
 	it('carries the stability interval where it exists and nulls where it does not', () => {
 		const rows = exportRows(speaker());
-		expect(rows[0].slice(-3)).toEqual([3.8, 4.01, 4.2]);
-		expect(rows[1].slice(-3)).toEqual([null, null, null]);
+		expect(rows[0]!.slice(-3)).toEqual([3.8, 4.01, 4.2]);
+		expect(rows[1]!.slice(-3)).toEqual([null, null, null]);
 		// The unmatched reading has no interval at all, by construction.
-		expect(rows[3].slice(-3)).toEqual([null, null, null]);
+		expect(rows[3]!.slice(-3)).toEqual([null, null, null]);
 	});
 
 	it('has a column for every field it emits', () => {

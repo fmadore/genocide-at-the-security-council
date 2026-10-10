@@ -18,8 +18,8 @@ import importlib.util
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import pytest
+from conftest import make_speeches
 from lib import embeddings
 
 
@@ -52,7 +52,7 @@ def corpus():
             ]
         )
     )
-    speeches = pd.DataFrame(
+    speeches = make_speeches(
         {
             "row_id": [f"r{i}" for i in range(7)],
             "year": [1994, 1994, 2004, 1995, 2005, 2005, 2015],

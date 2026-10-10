@@ -35,12 +35,13 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, audit, console, frames, lexicon
+from lib import artifacts, audit, console, frames, lexicon, lexicon_lock, sampling
 from lib.paths import (
     INTERIM,
     LEXICON,
     LEXICON_COUNTS,
     MANIFESTS,
+    REFERENTS,
     ROOT,
     SPEECHES_FLAGGED,
     SPEECHES_NORM,
@@ -55,7 +56,6 @@ AUDIT_PROBABILITY = INTERIM / "lexicon_audit_probability.csv"
 AUDIT_COVERAGE = INTERIM / "lexicon_audit_coverage.csv"
 AUDIT_NEGATIVE = INTERIM / "lexicon_audit_negative.csv"
 AUDIT_ANNOTATIONS = ROOT / "annotations" / "lexicon" / "annotations.csv"
-AUDIT_REFERENTS = ROOT / "annotations" / "lexicon" / "referents.csv"
 
 
 def build_note(
@@ -162,12 +162,16 @@ def run(sample_size: int, seed: int, update_counts: bool = False) -> None:
     )
 
     console.step("Counting terms")
-    counts = lexicon.apply(bodies, lex)
+    # Every term's spans, the held-back ones included, found once: the counts,
+    # the OCR delta and the precision sample are all read from them.
+    haystack = lexicon.Haystack(bodies)
+    found = lexicon.find_all(bodies, lex.terms.values(), haystack)
+    counts = lexicon.apply(bodies, lex, found=found)
     console.info(f"{counts.shape[1]} lexicon columns")
 
     console.step("Verifying declared widenings")
     widened = [term.name for term in lex.terms.values() if term.widened_since == lex.version]
-    if problems := lexicon.check_widenings(bodies, lex):
+    if problems := lexicon.check_widenings(bodies, lex, haystack):
         console.fail("a declared widening loses occurrences the old rule counted", problems)
     console.info(
         f"{len(widened)} term(s) widened at v{lex.version}, every old span still counted"
@@ -176,13 +180,13 @@ def run(sample_size: int, seed: int, update_counts: bool = False) -> None:
     )
 
     console.step("Checking the committed counts")
-    record = lexicon.counts_record(counts, lex, len(speeches))
+    record = lexicon_lock.counts_record(counts, lex, len(speeches))
     if update_counts:
         artifacts.atomic_write_text(
             LEXICON_COUNTS, json.dumps(record, ensure_ascii=False, indent=2) + "\n"
         )
         console.info(f"wrote {rel(LEXICON_COUNTS)}; review its diff and commit it")
-    elif problems := lexicon.count_problems(record, lexicon.load_counts()):
+    elif problems := lexicon_lock.count_problems(record, lexicon_lock.load_counts()):
         console.fail(
             f"the counts differ from {rel(LEXICON_COUNTS)}",
             [
@@ -195,7 +199,7 @@ def run(sample_size: int, seed: int, update_counts: bool = False) -> None:
         console.info(f"{len(record['terms'])} terms match {rel(LEXICON_COUNTS)}")
 
     console.step("Measuring the OCR-tolerant patterns")
-    ocr = lexicon.ocr_delta(bodies, lex)
+    ocr = lexicon.ocr_delta(bodies, lex, found=found)
     for entry in ocr:
         console.info(
             f"{entry['term']}: {entry['speeches']:,} speeches, {entry['extra']:,} not "
@@ -206,7 +210,7 @@ def run(sample_size: int, seed: int, update_counts: bool = False) -> None:
             console.info(f"    {row['meeting_symbol']} {row['date']:%Y-%m-%d} {row['country_org']}")
 
     console.step("Drawing the precision sample")
-    sample = audit.audit_sample(speeches, bodies, counts, lex, sample_size, seed)
+    sample = audit.audit_sample(speeches, bodies, lex, sample_size, seed, found=found)
     AUDIT_CANDIDATES.parent.mkdir(parents=True, exist_ok=True)
     review = audit.write_outputs(
         sample,
@@ -214,11 +218,11 @@ def run(sample_size: int, seed: int, update_counts: bool = False) -> None:
         candidate_path=AUDIT_CANDIDATES,
         review_path=AUDIT_REVIEW,
         frame_paths={
-            audit.PROBABILITY: AUDIT_PROBABILITY,
-            audit.COVERAGE: AUDIT_COVERAGE,
-            audit.NEGATIVE: AUDIT_NEGATIVE,
+            sampling.PROBABILITY: AUDIT_PROBABILITY,
+            sampling.COVERAGE: AUDIT_COVERAGE,
+            sampling.NEGATIVE: AUDIT_NEGATIVE,
         },
-        referent_path=AUDIT_REFERENTS,
+        referent_path=REFERENTS,
         # Candidates are regenerated at the current lexicon version, so a coded
         # row keeps the version it was coded at: what decides is whether its
         # term still enumerates the same occurrences, not the version number.
@@ -244,7 +248,7 @@ def run(sample_size: int, seed: int, update_counts: bool = False) -> None:
         ROOT,
         "03_lexicon.py",
         inputs=[SPEECHES_NORM],
-        configs=[LEXICON, LEXICON_COUNTS, AUDIT_ANNOTATIONS, AUDIT_REFERENTS],
+        configs=[LEXICON, LEXICON_COUNTS, AUDIT_ANNOTATIONS, REFERENTS],
         extra={
             "outputs": [
                 artifacts.describe_file(SPEECHES_FLAGGED, ROOT),

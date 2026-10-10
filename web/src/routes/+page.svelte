@@ -13,6 +13,7 @@
 	import type { ExportRequest } from '$lib/export';
 	import { count, decimal, isoDate, measureLabel, percent } from '$lib/format';
 	import { headlineMeasure } from '$lib/headline';
+	import { densest as densestYear, loudest as loudestYear, overviewTotals } from '$lib/overview';
 	import { PAGE_METADATA, STRUCTURED_DATA_JSON } from '$lib/seo';
 	import { axisX, axisY, colours, grid, textStyle, tooltip } from '$lib/theme';
 	import type { Measure } from '$lib/types';
@@ -40,8 +41,8 @@
 					String(period),
 					name,
 					measure.register ?? null,
-					data.series.corpus.speeches[index],
-					data.series.corpus.words[index],
+					data.series.corpus.speeches[index]!,
+					data.series.corpus.words[index]!,
 					measure.speeches[index] ?? null,
 					measure.speech_rate[index] ?? null,
 					measure.occurrences?.[index] ?? null,
@@ -73,18 +74,12 @@
 	const corpus = $derived(data.series.corpus);
 	/* Keep the overview consistent with the chronology, actors and concordance. */
 	const headline = $derived(headlineMeasure(Object.keys(data.series.terms)) ?? 'genocide');
-	const genocide = $derived(data.series.terms[headline]);
+	const genocide = $derived(data.series.terms[headline]!);
 
 	const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
-	const totals = $derived({
-		speeches: sum(corpus.speeches),
-		words: sum(corpus.words),
-		meetings: sum(corpus.meetings),
-		bearing: sum(genocide.speeches),
-		occurrences: sum(genocide.occurrences ?? []),
-		speakers: (data.series.meta.speakers as number) ?? 0
-	});
+	/* The headline figures, and the two years the page names: `$lib/overview`. */
+	const totals = $derived(overviewTotals(data.series, genocide));
 
 	/* The two titles, written once: the figures carry them and so does the
 	   contents, and a slug derived from two copies of a string is a deep link
@@ -96,10 +91,8 @@
 		{ title: `The vocabulary, word by word, ${period}` }
 	]);
 
-	const densest = $derived(years[genocide.speech_rate.indexOf(Math.max(...genocide.speech_rate))]);
-	const loudest = $derived(
-		years[(genocide.occurrences ?? []).indexOf(Math.max(...(genocide.occurrences ?? [])))]
-	);
+	const densest = $derived(densestYear(years, genocide));
+	const loudest = $derived(loudestYear(years, genocide));
 	const index1994 = $derived(years.indexOf(1994));
 
 	const rateInference = $derived(data.breaks.inference.series[headline]?.speech_rate ?? null);
@@ -216,7 +209,7 @@
 		return [headline, ...SHOWN_TERMS]
 			.filter((name) => name in data.series.terms)
 			.map((name) => {
-				const series = data.series.terms[name];
+				const series = data.series.terms[name]!;
 				const bearing = series.speeches.reduce((a, b) => a + b, 0);
 				const register = series.register ?? 'core';
 				return {
@@ -250,15 +243,6 @@
 			.map(([index, labels]) => ({ index: Number(index), title: labels.join('\n') }))
 			.sort((a, b) => a.index - b.index);
 	});
-
-	const kinds = $derived(
-		Object.entries(
-			data.overlay.events.reduce<Record<string, number>>((acc, e) => {
-				acc[e.kind] = (acc[e.kind] ?? 0) + 1;
-				return acc;
-			}, {})
-		).sort((a, b) => b[1] - a[1])
-	);
 
 	/* Read in place of the drawing, and it names the base too: an accessible
 	   description that stops at "the share of speeches" leaves the reader who
@@ -361,7 +345,7 @@
 			The records contain {count(Math.max(...(genocide.occurrences ?? [])))} occurrences in {loudest},
 			compared with {count(genocide.occurrences?.[index1994] ?? 0)} in 1994. Annual speech numbers also
 			changed: the final year has {decimal(
-				corpus.speeches[corpus.speeches.length - 1] / corpus.speeches[0]
+				corpus.speeches[corpus.speeches.length - 1]! / corpus.speeches[0]!
 			)} times the first year's total. Compare counts with the share of speeches using the term to distinguish
 			repeated mentions from wider use across speeches.
 		</p>
@@ -370,7 +354,7 @@
 	<Figure
 		fullscreen
 		onfullscreenchange={() => contrastFigure?.resize()}
-		title={FIGURES[0].title}
+		title={FIGURES[0]!.title}
 		question="Did the Council come to talk about genocide more, or simply to talk more?"
 		source="04_series.py → series/annual.json, series/change_points.json"
 		download={{
@@ -421,7 +405,7 @@
 									>{year}</a
 								></td
 							><td class="num">{count(genocide.occurrences?.[index] ?? 0)}</td><td class="num"
-								>{percent(genocide.speech_rate[index])}</td
+								>{percent(genocide.speech_rate[index]!)}</td
 							></tr
 						>{/each}</tbody
 				>
@@ -442,7 +426,7 @@
 
 	<Figure
 		fullscreen
-		title={FIGURES[1].title}
+		title={FIGURES[1]!.title}
 		question="How does use of genocide compare with related terms over time?"
 		source="04_series.py → series/annual.json"
 		note="Each row is scaled to its own maximum · the number at the right is the share of all {count(
@@ -492,7 +476,7 @@
 				><tbody
 					>{#each years as year, index (year)}<tr
 							><td>{year}</td>{#each termRows as row (row.name)}<td class="num"
-									>{percent(row.values[index])}</td
+									>{percent(row.values[index]!)}</td
 								>{/each}</tr
 						>{/each}</tbody
 				>
@@ -500,70 +484,42 @@
 		</details>
 	</Figure>
 
-	<!-- The programme's index: numbered, ruled, no arrows. -->
+	<!-- A route, not a menu. The standfirst asks when the word appears, who
+	     uses it and what the passages say; each step answers one of those, in
+	     that order. The masthead already lists every section, and repeating all
+	     seven here made the foot of the page a second navigation bar (design
+	     audit of 19 September 2026, "a menu, not a route"). -->
 	<section class="onward">
-		<h2>Where to go from here</h2>
-		<ul class="onward-list">
-			<li>
-				<a href={resolve('/semantic')}
-					><strong>Semantic map</strong><span
-						>Explore speech similarity, coloured by affiliation or meeting agenda, with links to the
-						source speeches.</span
-					></a
-				>
-			</li>
+		<h2>Test a claim against the record</h2>
+		<ol class="onward-list">
 			<li>
 				<a href={resolve('/chronology')}>
 					<strong>Chronology</strong>
 					<span
-						>Every word on the list over time, set against {data.overlay.events.length} reference dates:
-						{kinds.map(([k, n]) => `${n} ${k}`).join(', ')}.</span
+						>When the word was used. Set it beside related terms and {data.overlay.events.length}
+						{data.overlay.events.length === 1 ? 'reference date' : 'reference dates'}, year by year
+						or month by month.</span
 					>
 				</a>
 			</li>
 			<li>
-				<a href={resolve('/language')}>
-					<strong>Words in context</strong>
+				<a href={resolve('/actors')}>
+					<strong>Actors</strong>
 					<span
-						>The words that sit next to <em>genocide</em>, how they differ from one speaker or
-						decade to the next, and which terms turn up in the same speech.</span
+						>Who used it, measured against each speaker’s own speeches, with Council membership.</span
 					>
 				</a>
-			</li>
-			<li>
-				<a href={resolve('/actors')}
-					><strong>Actors</strong><span
-						>Who uses the vocabulary, measured against each speaker’s own record, with Council
-						membership and distinctive words.</span
-					></a
-				>
 			</li>
 			<li>
 				<a href={resolve('/concordance')}>
 					<strong>Concordance</strong>
 					<span
-						>All {count(sum(data.series.terms.genocide.occurrences ?? []))} matches for
-						<code>genocid*</code> with the text around them, sortable, and openable to the full speech.</span
+						>What was said. All {count(sum(data.series.terms.genocide!.occurrences ?? []))} matches for
+						<code>genocid*</code>, each with its sentence and the meeting symbol to cite.</span
 					>
 				</a>
 			</li>
-			<li>
-				<a href={resolve('/usage')}
-					><strong>Usage</strong><span
-						>Experimental model readings of which genocide speakers mean and how they frame it, with
-						coverage and validation status.</span
-					></a
-				>
-			</li>
-			<li>
-				<a href={resolve('/methods')}>
-					<strong>Methods</strong>
-					<span
-						>How each figure was made, where its numbers come from, and what they cannot show.</span
-					>
-				</a>
-			</li>
-		</ul>
+		</ol>
 	</section>
 </article>
 
@@ -701,8 +657,9 @@
 		font-size: var(--step-3);
 	}
 
-	/* The index: separated by rules and space, never by boxes. Unnumbered,
-	   because the order of the sections carries nothing a reader needs. */
+	/* The route: separated by rules and space, never by boxes. An ordered list,
+	   because the order is the standfirst's; no printed numbers, because the
+	   three questions it answers already say which comes first. */
 	.onward-list {
 		list-style: none;
 		margin: 0;

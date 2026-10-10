@@ -76,7 +76,7 @@ def test_passed_probe_is_reused_only_for_identical_inputs(tmp_path, monkeypatch,
     monkeypatch.setattr(probe.audit, "read_referent_list", lambda _: SimpleNamespace(current={"other"}))
     monkeypatch.setattr(probe.llm, "read_referent_table", lambda _: [])
     monkeypatch.setattr(probe.llm, "render_referents", lambda _: "table")
-    monkeypatch.setattr(probe.llm, "load_prompt", lambda _: pack)
+    monkeypatch.setattr(probe.prompts, "load_prompt", lambda _: pack)
     monkeypatch.setattr(probe.llm, "build_request", lambda meta, body, *rest, **kw: body)
     monkeypatch.setattr(probe.llm, "request_body", lambda body, **kw: {
         "body": body, "level": kw["reasoning_effort"], "temperature": kw["temperature"], "top_p": kw["top_p"]})

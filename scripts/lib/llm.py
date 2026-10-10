@@ -1,34 +1,25 @@
-"""The model annotation layer: the prompt, the contract, and what comes back.
+"""The model annotation layer: the request, the contract, and what comes back.
 
 `scripts/14_llm_annotate.py` is the only caller that talks to an API. Everything
 that decides *what a model is asked* and *what is done with what it returns*
-lives here, in plain Python, so it can be tested on any machine with no key, no
-network and no `openai` package installed. That is the same division 06, 07 and
-10 make against torch and spaCy; here the stakes are higher, because a run costs
-money and cannot be repeated by CI or by the deploy to find out whether the
-parsing was right.
+lives in `lib`, in plain Python, so it can be tested on any machine with no key,
+no network and no `openai` package installed. That is the same division 06, 07
+and 10 make against torch and spaCy; here the stakes are higher, because a run
+costs money and cannot be repeated by CI or by the deploy to find out whether
+the parsing was right.
 
-Four things this module is responsible for:
+The prompt files are read by `lib.prompts`, the model's evidence is found in the
+speech by `lib.evidence`, and a run's `annotations.jsonl` is read and appended
+to by `lib.model_runs`; each states the rule it keeps. Two things this module is
+responsible for:
 
-- **The prompt is a file, not a string literal.** `model_annotations/genocide/
-  PROMPT.md` holds the system message and the per-speech user template as fenced
-  blocks. Its raw bytes are hashed into every manifest and every row, so a label
-  can always be traced to the exact wording that produced it, and editing the
-  file is a visible version change rather than a silent drift. The superseded
-  wordings are kept beside it under `prompts/`, and a run is resolved against
-  the one whose bytes it recorded — so revising the prompt costs a new run id
-  and not the runs already paid for.
 - **The model's labels are checked against the human codebook's own vocabulary.**
-  The enums come from :mod:`lib.audit` — the frozensets the human annotation file
+  The enums come from :mod:`lib.schema` — the frozensets the human annotation file
   is validated against — so the model cannot invent a category the codebook does
   not have. The false-positive cascade and the multi-label function rules are
   enforced here exactly as `audit._validate_labels` enforces them there. They are
   reimplemented rather than shared because audit's version operates on a merged
   candidate frame; the semantics, not the code path, are what must agree.
-- **Evidence is located, not trusted.** The model returns a quotation; this
-  module finds it in the speech and records the offsets, or records that it could
-  not. A quote that cannot be located is not an error — it is a measurement, and
-  `evidence_valid` is one of the numbers the pilot is evaluated on.
 - **Nothing here writes anywhere near `annotations/`.** The output is a JSONL row
   set with a fixed key order, appended to a committed run directory under
   `model_annotations/`. docs/PLAN.md §5: no model output may overwrite corpus
@@ -37,22 +28,38 @@ Four things this module is responsible for:
 
 from __future__ import annotations
 
-import hashlib
 import json
-import os
 import re
-import unicodedata
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
-import pandas as pd
+from . import referents as referents_lib
 
-from . import audit
+# Every name imported with a redundant `as` is a re-export, kept importable from
+# this module for the callers and tests that still reach it here; new code
+# imports it from where it is defined. The `as` marks it as deliberate rather
+# than as an unused import.
+from . import schema as schema_lib
+from .evidence import _WHITESPACE_RE, _sentence_range, locate_evidence
+from .evidence import FOLDED as FOLDED
+from .evidence import WRAPPERS as WRAPPERS
 from .kwic import sentence_at, sentence_spans
+from .model_runs import append_rows as append_rows
+from .model_runs import completed as completed
+from .model_runs import read_rows as read_rows
 from .occurrences import Occurrence
+from .prompts import ARCHIVE as ARCHIVE
+from .prompts import CONSTRAINTS as CONSTRAINTS
+from .prompts import REFERENT_ENUM, SENTENCE_EVIDENCE, SENTENCES_PLACEHOLDER, PromptPack, _fill
+from .prompts import SYSTEM_PLACEHOLDERS as SYSTEM_PLACEHOLDERS
+from .prompts import USER_PLACEHOLDERS as USER_PLACEHOLDERS
+from .prompts import PromptLibrary as PromptLibrary
+from .prompts import load_prompt as load_prompt
+from .prompts import load_prompt_library as load_prompt_library
+from .prompts import prompt_sha256 as prompt_sha256
 
 #: Model schema; human schema 3 keeps its independent confidence field.
 SCHEMA_VERSION: Final = "3.1"  # model-only revision: human schema 3 retains confidence
@@ -165,72 +172,36 @@ RESPONSE_FIELDS: Final = (
 
 #: Single-valued fields and the vocabulary each is closed over.
 ENUMS: Final[dict[str, frozenset[str]]] = {
-    "verdict": audit.VERDICTS,
-    "quotation": audit.QUOTATIONS,
-    "concrete_case": audit.CONCRETE_CASE,
-    "speaker_position": audit.POSITIONS,
-    "referent_source": audit.REFERENT_SOURCES,
-    "own_state_accused": audit.OWN_STATE_ACCUSED,
-    "salience": audit.SALIENCE,
+    "verdict": schema_lib.VERDICTS,
+    "quotation": schema_lib.QUOTATIONS,
+    "concrete_case": schema_lib.CONCRETE_CASE,
+    "speaker_position": schema_lib.POSITIONS,
+    "referent_source": schema_lib.REFERENT_SOURCES,
+    "own_state_accused": schema_lib.OWN_STATE_ACCUSED,
+    "salience": schema_lib.SALIENCE,
 }
 
 #: The same, for a row written against annotation schema 2.
 LEGACY_ENUMS: Final[dict[str, frozenset[str]]] = {
-    "verdict": audit.VERDICTS,
-    "quotation": audit.QUOTATIONS,
-    "stance": audit.STANCES,
-    "confidence": audit.CONFIDENCE,
+    "verdict": schema_lib.VERDICTS,
+    "quotation": schema_lib.QUOTATIONS,
+    "stance": schema_lib.STANCES,
+    "confidence": schema_lib.CONFIDENCE,
 }
 
 #: The fields a false positive must set to `not_applicable`, and the subset in
-#: which that value may not appear otherwise. Both come from `lib.audit`, which
+#: which that value may not appear otherwise. Both come from `lib.schema`, which
 #: is where the human codebook's own rules live: the model is held to the
 #: coder's cascade and not to one of its own.
-CASCADE: Final = audit.CASCADE_FIELDS
-RESERVED: Final = audit.RESERVED_FIELDS
-FREE_TEXT_CASCADE: Final = audit.FREE_TEXT_CASCADE_FIELDS
+CASCADE: Final = schema_lib.CASCADE_FIELDS
+RESERVED: Final = schema_lib.RESERVED_FIELDS
+FREE_TEXT_CASCADE: Final = schema_lib.FREE_TEXT_CASCADE_FIELDS
 
 #: The schema-2 cascade, for reading a committed run back.
 LEGACY_CASCADE: Final = ("quotation", "stance", "function", "referent")
 
 #: The name the structured-output schema is registered under in a request.
 SCHEMA_NAME: Final = "unsc_occurrence_annotations"
-
-#: Placeholders each template declares. Substitution is by literal replacement
-#: rather than `str.format`, because both templates contain JSON braces and a
-#: format call would read them as fields.
-SYSTEM_PLACEHOLDERS: Final = ("referents_table",)
-USER_PLACEHOLDERS: Final = (
-    "filename",
-    "date",
-    "country_org",
-    "participant_type",
-    "meeting_symbol",
-    "agenda_item",
-    "speech",
-    "occurrence_count",
-    "occurrences",
-)
-
-#: Constraints a prompt may declare on a `constraints:` line in its header,
-#: each of which changes what the model is asked for and so is part of the
-#: prompt's own versioned text. A prompt that declares none — v1 to v3 — builds
-#: byte-identical requests to the ones its runs were made with.
-#:
-#: `referent-enum` puts the controlled identifiers, the request's own ordinals
-#: and the exact number of occurrences into the structured-output schema, so a
-#: guided decoder cannot return "Rwanda" for `rwanda` (73 of the Qwen run's 77
-#: refusals) or answer an occurrence twice. `sentence-evidence` numbers the
-#: speech's sentences and asks for evidence as a first and last sentence number
-#: instead of a copied quotation, so evidence is contiguous and always located
-#: (docs/ROADMAP.md, RV7 and RV8).
-REFERENT_ENUM: Final = "referent-enum"
-SENTENCE_EVIDENCE: Final = "sentence-evidence"
-CONSTRAINTS: Final = frozenset({REFERENT_ENUM, SENTENCE_EVIDENCE})
-_CONSTRAINTS_RE = re.compile(r"^constraints:[ \t]*(?P<names>[^\n]*)$", re.MULTILINE)
-
-#: The placeholder a `sentence-evidence` prompt must carry: the numbered list.
-SENTENCES_PLACEHOLDER: Final = "sentences"
 
 #: Kinds in `referents.csv`, in the order the rendered table presents them. A
 #: kind the file introduces later is appended after these rather than dropped.
@@ -241,237 +212,6 @@ KIND_HEADINGS: Final = {
     "meta": "Non-case referents:",
     "reserved": "Reserved identifiers, whose rules follow this table:",
 }
-
-_HEADING_RE = re.compile(r"^##[ \t]+(?P<title>.+?)[ \t]*$", re.MULTILINE)
-_FENCE_RE = re.compile(r"^```[^\n]*\n(?P<body>.*?)\n```[ \t]*$", re.MULTILINE | re.DOTALL)
-_VERSION_RE = re.compile(r"^version:[ \t]*(?P<version>\d+)[ \t]*$", re.MULTILINE)
-_WHITESPACE_RE = re.compile(r"\s+")
-
-
-# --- The prompt ------------------------------------------------------------
-
-
-#: The directory beside `PROMPT.md` that keeps the *superseded* prompt texts,
-#: one file per version, named `v<n>.md`.
-#:
-#: Every run records the SHA-256 of the prompt file's raw bytes, on the manifest
-#: and on every one of its rows, and 15 publishes that prompt verbatim beside
-#: the labels it produced. So the digest is the run's only handle on the wording
-#: it was made with, and until this directory existed there was exactly one file
-#: that digest could be compared against: editing `PROMPT.md` made both
-#: committed runs unpublishable, and `/usage` went dark. That is not a
-#: hypothetical — it is the reason two changes were declined in one afternoon,
-#: `genocidaires` and the referent identifiers, each of which would have been a
-#: better instrument bought at the price of the two runs already paid for.
-#:
-#: The escape is the one `referents.csv` takes for its own list: keep every past
-#: state, and resolve a run against the state it names rather than against
-#: today's. A run resolves *by digest*, not by the `prompt_version` number,
-#: because the digest is what was actually recorded and a version line is a
-#: human's claim about it — the number is checked against the resolved file and
-#: a disagreement is a provenance failure, which is the only thing it is good
-#: for.
-#:
-#: The archive holds superseded versions **only**, and `PROMPT.md` alone holds
-#: the current one. The rejected alternative was an archive holding every
-#: version, `prompts/v2.md` being a byte-for-byte copy of `PROMPT.md`: it reads
-#: more evenly, and it costs a state in which the two copies differ, which is
-#: the one failure a digest cannot repair and would have to refuse. One writable
-#: prompt and an append-only history behind it cannot reach that state at all.
-ARCHIVE: Final = "prompts"
-
-_ARCHIVE_NAME_RE = re.compile(r"^v(?P<version>[1-9]\d*)\.md$")
-
-
-@dataclass(frozen=True)
-class PromptPack:
-    """One version of the prompt, with the digest that identifies it."""
-
-    version: int
-    sha256: str
-    #: The file's raw text, as read. Carried rather than re-read from disk
-    #: because a superseded version is published from the archive while
-    #: `PROMPT.md` holds something else, and a caller that went back to a path
-    #: would have to know which of the two it was holding.
-    text: str
-    system_template: str
-    user_template: str
-    #: What to call this file when a message has to name it.
-    name: str = "PROMPT.md"
-    #: The instrument constraints the header declares; see :data:`CONSTRAINTS`.
-    constraints: frozenset[str] = frozenset()
-
-
-@dataclass(frozen=True)
-class PromptLibrary:
-    """The current prompt and every superseded one, keyed by digest."""
-
-    current: PromptPack
-    superseded: tuple[PromptPack, ...]
-
-    @property
-    def packs(self) -> tuple[PromptPack, ...]:
-        """Newest first, which is the order a failure message lists them in."""
-        return (self.current, *sorted(self.superseded, key=lambda p: -p.version))
-
-    def by_digest(self, digest: str) -> PromptPack | None:
-        """The prompt whose bytes hash to `digest`, or nothing if none does."""
-        for pack in self.packs:
-            if pack.sha256 == digest:
-                return pack
-        return None
-
-    def describe(self) -> list[str]:
-        """One line per known prompt, for the message that refuses an unknown."""
-        return [f"v{pack.version} {pack.sha256[:12]}... in {pack.name}" for pack in self.packs]
-
-
-def prompt_sha256(path: Path) -> str:
-    """The digest recorded in the manifest and in every row.
-
-    Over the file's raw bytes, not over the parsed sections: the documentation
-    around the fenced blocks explains what a label means, and a reader who
-    changes it has changed the prompt's provenance even when the two templates
-    come out identical.
-    """
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def _section(source: str, title: str, path: Path) -> str:
-    """The first fenced block under the `## <title>` heading."""
-    headings = list(_HEADING_RE.finditer(source))
-    for position, heading in enumerate(headings):
-        if heading.group("title").strip().lower() != title.lower():
-            continue
-        end = headings[position + 1].start() if position + 1 < len(headings) else len(source)
-        fence = _FENCE_RE.search(source, heading.end(), end)
-        if not fence:
-            raise ValueError(f"{path.name}: section '## {title}' has no fenced block.")
-        return fence.group("body")
-    raise ValueError(f"{path.name}: no '## {title}' section.")
-
-
-def load_prompt(path: Path) -> PromptPack:
-    """Read PROMPT.md into the two templates and the digest of the whole file."""
-    if not path.is_file():
-        raise FileNotFoundError(f"Prompt file is missing: {path}")
-    source = path.read_text(encoding="utf-8")
-    version = _VERSION_RE.search(source)
-    if not version:
-        raise ValueError(f"{path.name}: no 'version: <n>' line in the header.")
-    declared_line = _CONSTRAINTS_RE.search(source.split("## System", 1)[0])
-    constraints = frozenset(
-        name.strip()
-        for name in (declared_line.group("names").split(",") if declared_line else [])
-        if name.strip()
-    )
-    if unknown := sorted(constraints - CONSTRAINTS):
-        raise ValueError(f"{path.name}: unknown constraints {unknown}; known: {sorted(CONSTRAINTS)}")
-    pack = PromptPack(
-        version=int(version.group("version")),
-        sha256=prompt_sha256(path),
-        text=source,
-        system_template=_section(source, "System", path),
-        user_template=_section(source, "User template", path),
-        name=path.name,
-        constraints=constraints,
-    )
-    user_placeholders = (
-        (*USER_PLACEHOLDERS, SENTENCES_PLACEHOLDER)
-        if SENTENCE_EVIDENCE in constraints
-        else USER_PLACEHOLDERS
-    )
-    for template, declared, name in (
-        (pack.system_template, SYSTEM_PLACEHOLDERS, "System"),
-        (pack.user_template, user_placeholders, "User template"),
-    ):
-        missing = [key for key in declared if "{" + key + "}" not in template]
-        if missing:
-            raise ValueError(
-                f"{path.name}: '## {name}' is missing placeholders: {', '.join(missing)}"
-            )
-    return pack
-
-
-def load_prompt_library(path: Path) -> PromptLibrary:
-    """`PROMPT.md` and every superseded version beside it, checked as one set.
-
-    The current file is the one 14 renders; the files under
-    :data:`ARCHIVE` are the ones earlier runs were made with, and each is loaded
-    through :func:`load_prompt` rather than merely hashed, so a text that no
-    longer parses into two templates is found here and not on the day someone
-    tries to reproduce a run from it.
-
-    Four rules, each of which exists because breaking it would make a run's
-    digest ambiguous or its version a lie:
-
-    - an archived file is named for the version it declares, `v<n>.md`, so the
-      directory can be read without opening anything;
-    - no two prompts in the library share a version number;
-    - every archived version is below the current one. The archive is history,
-      and a version above `PROMPT.md`'s means an edit went backwards. This is
-      also what forbids parking a copy of the current text in the archive, which
-      is the layout rejected above;
-    - no two share a digest. The three rules above already make that
-      unreachable — two files with different `version:` lines cannot have the
-      same bytes — so this one is held for the invariant rather than for a case
-      anyone has produced: :meth:`PromptLibrary.by_digest` returns one pack, and
-      a library that could answer with two would make it a coin toss.
-
-    An empty or absent archive is the ordinary state of a repository whose
-    prompt has never been revised, and is not an error.
-    """
-    current = load_prompt(path)
-    directory = path.parent / ARCHIVE
-    superseded: list[PromptPack] = []
-    for file in sorted(directory.glob("*.md")) if directory.is_dir() else []:
-        name = _ARCHIVE_NAME_RE.match(file.name)
-        if not name:
-            raise ValueError(
-                f"{ARCHIVE}/{file.name}: an archived prompt is named for its version, "
-                "as v<n>.md."
-            )
-        pack = load_prompt(file)
-        if pack.version != int(name.group("version")):
-            raise ValueError(
-                f"{ARCHIVE}/{file.name} declares version {pack.version}; "
-                "the file name and the header have to agree."
-            )
-        if pack.version >= current.version:
-            raise ValueError(
-                f"{ARCHIVE}/{file.name} is version {pack.version} and {path.name} is "
-                f"version {current.version}; the archive holds superseded versions only."
-            )
-        superseded.append(
-            PromptPack(
-                version=pack.version,
-                sha256=pack.sha256,
-                text=pack.text,
-                system_template=pack.system_template,
-                user_template=pack.user_template,
-                name=f"{ARCHIVE}/{file.name}",
-            )
-        )
-
-    packs = [current, *superseded]
-    for field, label in (("version", "version"), ("sha256", "digest")):
-        seen: dict[object, str] = {}
-        for pack in packs:
-            value = getattr(pack, field)
-            if value in seen:
-                raise ValueError(
-                    f"{pack.name} and {seen[value]} have the same prompt {label} "
-                    f"({str(value)[:12]}); a prompt version is one file and one digest."
-                )
-            seen[value] = pack.name
-    return PromptLibrary(current=current, superseded=tuple(superseded))
-
-
-def _fill(template: str, values: Mapping[str, object]) -> str:
-    filled = template
-    for key, value in values.items():
-        filled = filled.replace("{" + key + "}", str(value))
-    return filled
 
 
 # --- The controlled referents ----------------------------------------------
@@ -491,37 +231,25 @@ class Referent:
 def read_referent_table(path: Path) -> list[Referent]:
     """The referent list with the columns the prompt renders.
 
-    :func:`lib.audit.read_referents` already validates the identifiers and is the
-    authority on which ones an annotation may use; this reads the same file for
-    the richer fields, tolerating a header that has not yet grown them. A row
-    with no declared kind is reserved if it is one of the three reserved IDs and
-    a case otherwise, which is what the file meant before `kind` existed.
+    Parsed, and held to every rule of the list, by `lib.referents`, which also
+    decides a row's `kind` when the file does not declare one. This is the view
+    a prompt needs: no `iso3`, because a model has no use for an ISO code.
 
     Retired identifiers are left out, because the model is offered only what is
     current. They stay in the file so a committed run that used one can still be
     read, but rendering them would invite a new run to reuse a category the
     list has withdrawn, and the run would then be neither v1 nor v2.
     """
-    table = pd.read_csv(path, dtype="string", keep_default_na=False)
-    missing = sorted({"id", "label", "description"} - set(table.columns))
-    if missing:
-        raise ValueError(f"Referent file is missing columns: {', '.join(missing)}")
-    referents = []
-    for values in table.to_dict(orient="records"):
-        identifier = str(values["id"])
-        if str(values.get("retired_in") or "").strip():
-            continue
-        default = "reserved" if identifier in audit.DEFAULT_REFERENTS else "case"
-        referents.append(
-            Referent(
-                id=identifier,
-                label=str(values["label"]),
-                description=str(values["description"]),
-                kind=str(values.get("kind") or "") or default,
-                years=str(values.get("years") or ""),
-            )
+    return [
+        Referent(
+            id=row.id,
+            label=row.label,
+            description=row.description,
+            kind=row.kind,
+            years=row.years,
         )
-    return referents
+        for row in referents_lib.read(path).current()
+    ]
 
 
 def render_referents(referents: Sequence[Referent]) -> str:
@@ -622,33 +350,33 @@ def _base_schema() -> dict[str, object]:
                     "required": list(RESPONSE_FIELDS),
                     "properties": {
                         "ordinal": {"type": "integer"},
-                        "verdict": {"type": "string", "enum": sorted(audit.VERDICTS)},
-                        "quotation": {"type": "string", "enum": sorted(audit.QUOTATIONS)},
+                        "verdict": {"type": "string", "enum": sorted(schema_lib.VERDICTS)},
+                        "quotation": {"type": "string", "enum": sorted(schema_lib.QUOTATIONS)},
                         "concrete_case": {
                             "type": "string",
-                            "enum": sorted(audit.CONCRETE_CASE),
+                            "enum": sorted(schema_lib.CONCRETE_CASE),
                         },
                         "speaker_position": {
                             "type": "string",
-                            "enum": sorted(audit.POSITIONS),
+                            "enum": sorted(schema_lib.POSITIONS),
                         },
                         "function": {
                             "type": "array",
-                            "items": {"type": "string", "enum": sorted(audit.FUNCTIONS)},
+                            "items": {"type": "string", "enum": sorted(schema_lib.FUNCTIONS)},
                         },
                         "referent": {"type": "string"},
                         "proposed_referent": {"type": "string"},
                         "referent_source": {
                             "type": "string",
-                            "enum": sorted(audit.REFERENT_SOURCES),
+                            "enum": sorted(schema_lib.REFERENT_SOURCES),
                         },
                         "accused_actor": {"type": "string"},
                         "victim_group": {"type": "string"},
                         "own_state_accused": {
                             "type": "string",
-                            "enum": sorted(audit.OWN_STATE_ACCUSED),
+                            "enum": sorted(schema_lib.OWN_STATE_ACCUSED),
                         },
-                        "salience": {"type": "string", "enum": sorted(audit.SALIENCE)},
+                        "salience": {"type": "string", "enum": sorted(schema_lib.SALIENCE)},
                         "evidence_quote": {"type": "string"},
                         "rationale": {"type": "string"},
                     },
@@ -855,7 +583,7 @@ def _functions(value: object) -> tuple[str, ...]:
         raise ValueError(f"Function must be a list or a pipe-joined string: {value!r}")
     if not parts:
         raise ValueError("Function needs at least one label.")
-    unknown = [part for part in parts if part not in audit.FUNCTIONS]
+    unknown = [part for part in parts if part not in schema_lib.FUNCTIONS]
     if unknown:
         raise ValueError(f"Unknown function label: {unknown[0] or '(blank)'}")
     if len(set(parts)) != len(parts):
@@ -889,8 +617,8 @@ def check_labels(
     codebook to grow a column no coder has been trained on, to carry something
     this field already carries.
     """
-    legacy = str(schema) == audit.LEGACY_SCHEMA_VERSION
-    if str(schema) == "3" and str(entry.get("confidence", "")) not in audit.CONFIDENCE:
+    legacy = str(schema) == schema_lib.LEGACY_SCHEMA_VERSION
+    if str(schema) == "3" and str(entry.get("confidence", "")) not in schema_lib.CONFIDENCE:
         raise ValueError("Unknown historical confidence label")
     for field, allowed in (LEGACY_ENUMS if legacy else ENUMS).items():
         value = str(entry[field])
@@ -1008,22 +736,13 @@ def validate_response(
 
     expected = set(ordinals)
     if set(labels) != expected:
-        extra = sorted(set(labels) - expected)
-        absent = sorted(expected - set(labels))
-        raise ValueError(f"Ordinals do not match the request: unexpected={extra}, missing={absent}")
+        extra_ordinals = sorted(set(labels) - expected)
+        absent_ordinals = sorted(expected - set(labels))
+        raise ValueError(
+            f"Ordinals do not match the request: unexpected={extra_ordinals}, "
+            f"missing={absent_ordinals}"
+        )
     return labels
-
-
-def _sentence_range(value: object, sentences: int) -> tuple[int, int]:
-    """A first and last sentence number, inside the request's own numbering."""
-    if not isinstance(value, Mapping) or set(value) != {"first", "last"}:
-        raise ValueError(f"evidence_sentences must be {{first, last}}, not {value!r}.")
-    first, last = value["first"], value["last"]
-    if any(isinstance(item, bool) or not isinstance(item, int) for item in (first, last)):
-        raise ValueError(f"Sentence numbers must be integers: {value!r}.")
-    if not 1 <= first <= last <= sentences:
-        raise ValueError(f"Sentences {first}-{last} are outside 1-{sentences} or reversed.")
-    return first, last
 
 
 def response_document(payload: str | bytes) -> object:
@@ -1084,234 +803,6 @@ def response_document(payload: str | bytes) -> object:
     raise ValueError(f"Response is not JSON: {exact_error}")
 
 
-# --- Locating the evidence --------------------------------------------------
-
-
-def _flatten(source: str) -> tuple[str, list[int]]:
-    """Whitespace-collapsed text, and where each character came from.
-
-    `offsets[i]` is the index in `source` of `flat[i]`, so a span found in the
-    flattened text maps straight back without a second search over the original.
-    """
-    flat: list[str] = []
-    offsets: list[int] = []
-    space = False
-    for index, character in enumerate(source):
-        if character.isspace():
-            space = True
-            continue
-        if space and flat:
-            flat.append(" ")
-            offsets.append(index)
-        space = False
-        flat.append(character)
-        offsets.append(index)
-    return "".join(flat), offsets
-
-
-#: Characters the record's typography and a model's transcription of it disagree
-#: about, mapped to the plain form the two can be compared through.
-#:
-#: The Council's records are typeset with curly quotation marks and en dashes,
-#: and a model asked for a verbatim span returns the passage as prose with the
-#: typography normalised on the way out — so the quote is the right words and
-#: not the right bytes, and an exact substring search finds nothing. NFKC folds
-#: the ligatures, the non-breaking spaces and the compatibility forms; this
-#: table folds what NFKC leaves alone, because Unicode holds that a curly
-#: apostrophe and a straight one are different characters and is right to.
-#:
-#: Every replacement is one character wide, and the fold is applied character by
-#: character rather than to the whole string, so a folded body indexes into the
-#: same positions as the body it was folded from.
-FOLDED: Final[dict[str, str]] = {
-    "\u2018": "'",  # left single quotation mark
-    "\u2019": "'",  # right single quotation mark — the record's apostrophe
-    "\u201a": "'",
-    "\u201b": "'",
-    "\u2032": "'",  # prime, which OCR reads an apostrophe as
-    "\u201c": '"',  # left double quotation mark
-    "\u201d": '"',  # right double quotation mark
-    "\u201e": '"',
-    "\u2033": '"',
-    "\u00ab": '"',  # guillemets, from the French-language records
-    "\u00bb": '"',
-    "\u2010": "-",  # hyphen
-    "\u2011": "-",  # non-breaking hyphen
-    "\u2012": "-",  # figure dash
-    "\u2013": "-",  # en dash — the record's range and parenthetical dash
-    "\u2014": "-",  # em dash
-    "\u2015": "-",  # horizontal bar
-    "\u2212": "-",  # minus sign
-    "\u00ad": "-",  # soft hyphen
-}
-
-#: Quotation marks a model wraps around the span it is reporting. Stripped from
-#: the *ends of the quote* alone, in the relocating pass alone, and never from
-#: the record: six of the eighteen quotes the two runs could not place are a
-#: verbatim span with one quotation mark in front of it that the record does not
-#: have there — the model has marked the passage as a quotation, which is a
-#: statement about the passage and not part of it.
-WRAPPERS: Final = "\"'\u2018\u2019\u201c\u201d\u00ab\u00bb\u2039\u203a\u201e\u201a "
-
-
-def _fold(character: str) -> str:
-    """One character in the form two typographies can be compared through.
-
-    NFKC, the table above, and lower case, in that order, and always exactly one
-    character wide: a fold that changed the length would break the offset
-    mapping :func:`_normalised` builds, and the offsets are what make a span
-    found in the folded text a span in the real body. Anything NFKC or `lower`
-    expands — the Turkish dotted capital, a handful of ligatures the corpus does
-    not contain — keeps its original character rather than being expanded, which
-    costs a match nobody has yet needed and cannot cost an offset.
-
-    Lower case is here because two of the unplaced quotes differ from the record
-    in exactly one letter's case, at the front, where the model has presented a
-    mid-sentence clause as a sentence of its own.
-    """
-    folded = unicodedata.normalize("NFKC", FOLDED.get(character, character)).lower()
-    return folded if len(folded) == 1 else character
-
-
-def _normalised(source: str) -> tuple[str, list[int]]:
-    """The folded, whitespace-collapsed text, and where each character came from.
-
-    :func:`_flatten` with two more relaxations, each one a case the two
-    committed runs actually produced:
-
-    - every character folded by :func:`_fold`;
-    - the space after a hyphen dropped, which closes the record's line-break
-      hyphenation. The Council's records break words across lines and the OCR
-      keeps the break, so the body holds `gender- based` and
-      `Secretary- General's` where the model returns the word whole. The rule is
-      applied to both sides, so a genuine dash before a word — the record's
-      parenthetical em dash — is closed on both and still matches.
-
-    `offsets[i]` is the index in `source` of the ith character of the result, as
-    in :func:`_flatten`, so a span found here maps back without a second search.
-    """
-    text: list[str] = []
-    offsets: list[int] = []
-    space = False
-    for index, character in enumerate(source):
-        if character.isspace():
-            space = True
-            continue
-        if space and text and text[-1] != "-":
-            text.append(" ")
-            offsets.append(index)
-        space = False
-        text.append(_fold(character))
-        offsets.append(index)
-    return "".join(text), offsets
-
-
-def _matches(haystack: str, needle: str) -> list[int]:
-    found = []
-    position = haystack.find(needle)
-    while position != -1:
-        found.append(position)
-        position = haystack.find(needle, position + 1)
-    return found
-
-
-def _spans(text: str, needle: str, offsets: list[int]) -> list[tuple[int, int]]:
-    """Every match of `needle` in a normalised `text`, as spans in the original.
-
-    One place rather than two, because the two normalising passes below differ
-    only in how they normalise and a second copy of this arithmetic is a second
-    chance to be off by one at the end of a span.
-    """
-    return [
-        (offsets[position], offsets[position + len(needle) - 1] + 1)
-        for position in _matches(text, needle)
-    ]
-
-
-def _choose(spans: list[tuple[int, int]], start: int, end: int) -> tuple[int, int]:
-    """The span that best answers for the occurrence at `[start, end)`.
-
-    Containing beats overlapping beats first-in-the-speech. A speaker who says
-    "genocide" six times in one paragraph produces six occurrences whose evidence
-    quotes may be identical strings; picking the first match every time would
-    attach five of them to a passage they are not in.
-    """
-    for span in spans:
-        if span[0] <= start and end <= span[1]:
-            return span
-    for span in spans:
-        if span[0] < end and start < span[1]:
-            return span
-    return spans[0]
-
-
-def locate_evidence(
-    body: str, quote: str, occurrence_start: int, occurrence_end: int
-) -> tuple[int | None, int | None, bool, bool]:
-    """Where the model's quotation actually is, and whether it can be believed.
-
-    Three passes, each admitting one more kind of difference between what the
-    record says and what a model returned when asked to copy it:
-
-    1. exact substring;
-    2. runs of whitespace collapsed on both sides, which is what a model returns
-       when it copies across a line break in the record;
-    3. the relocating pass — :func:`_normalised` on both sides, and the model's
-       own wrapping quotation marks stripped off the quote.
-
-    The third is the review's (§4.5, item 4). Of the eighteen quotes the two
-    committed runs could not place, ten are of this kind and none of them is a
-    fabrication: six carry a leading quotation mark the record does not have
-    there, two straddle a word the record hyphenates across a line break, and
-    two differ from the record in the case of one letter. The remaining eight
-    are three false positives answered with the literal string
-    `not_applicable`, one quote found in a different sentence of the same
-    speech, and four passages the model has genuinely paraphrased or spliced —
-    and those must stay unplaced, which is what the relaxations are kept narrow
-    for.
-
-    A quote placed by the third pass is *relocated*, and the row carries the
-    flag. Its offsets are as good as any other pass's; what the flag records is
-    that the record's punctuation, hyphenation or capitalisation had to be
-    ignored to find it, and a reader counting how far a run's evidence can be
-    trusted is entitled to know how many.
-
-    Each pass maps its match back through its own normalisation, so the offsets
-    recorded are into the real body and never into a normalised copy.
-
-    Returns `(start, end, valid, relocated)`. `valid` is true only when the
-    located passage contains the occurrence's own span, which is the codebook's
-    rule for a human evidence span too. A quote that is found in the wrong place
-    still reports where it was found, marked invalid, because that is the more
-    useful thing to look at; a quote that is nowhere in the speech returns
-    `(None, None, False, False)`. Never raises: an unlocatable quote is a
-    measurement of the run, not a fault in it.
-    """
-    if not quote.strip():
-        return None, None, False, False
-
-    relocated = False
-    spans = [(position, position + len(quote)) for position in _matches(body, quote)]
-    if not spans:
-        flat, offsets = _flatten(body)
-        needle = _WHITESPACE_RE.sub(" ", quote).strip()
-        if not needle:
-            return None, None, False, False
-        spans = _spans(flat, needle, offsets)
-    if not spans:
-        folded, offsets = _normalised(body)
-        needle, _ = _normalised(quote.strip(WRAPPERS))
-        if not needle:
-            return None, None, False, False
-        spans = _spans(folded, needle, offsets)
-        relocated = bool(spans)
-    if not spans:
-        return None, None, False, False
-
-    start, end = _choose(spans, occurrence_start, occurrence_end)
-    return start, end, start <= occurrence_start and occurrence_end <= end, relocated
-
-
 # --- Assembling and checking rows -------------------------------------------
 
 
@@ -1333,7 +824,7 @@ class RunMeta:
 def annotation_rows(
     occurrences: Sequence[Occurrence],
     body: str,
-    labels: Mapping[int, Mapping[str, object]],
+    labels: Mapping[int, Mapping[str, Any]],
     meta: RunMeta,
 ) -> list[dict[str, object]]:
     """One row per occurrence, in the run's fixed key order."""
@@ -1341,10 +832,12 @@ def annotation_rows(
     spans = sentence_spans(body) if any("evidence_sentences" in e for e in labels.values()) else []
     for occurrence in occurrences:
         entry = labels[occurrence.ordinal]
+        start: int | None
+        end: int | None
         if "evidence_sentences" in entry:
             # Sentence evidence cannot be misquoted: the span is the sentences'
             # own, and valid exactly when it holds the occurrence.
-            first, last = entry["evidence_sentences"]  # type: ignore[misc]
+            first, last = entry["evidence_sentences"]
             start, end = spans[first - 1][0], spans[last - 1][1]
             quote = body[start:end]
             valid, relocated = start <= occurrence.start and occurrence.end <= end, False
@@ -1395,7 +888,7 @@ def annotation_rows(
 
 
 def validate_row(
-    row: Mapping[str, object], referents: set[str], *, appending: bool = True
+    row: Mapping[str, Any], referents: set[str], *, appending: bool = True
 ) -> None:
     """The gate a row passes to be written into a committed run, or read back out.
 
@@ -1434,7 +927,7 @@ def validate_row(
             raise ValueError(f"Row keys are wrong: unexpected={unexpected}, missing={absent}")
         raise ValueError("Row keys are in the wrong order; see llm.ROW_FIELDS.")
 
-    expected_schema = audit.LEGACY_SCHEMA_VERSION if legacy else ("3" if tuple(row) == SCHEMA3_ROW_FIELDS else SCHEMA_VERSION)
+    expected_schema = schema_lib.LEGACY_SCHEMA_VERSION if legacy else ("3" if tuple(row) == SCHEMA3_ROW_FIELDS else SCHEMA_VERSION)
     check_labels(row, referents, schema=expected_schema)
 
     for field in ("start", "end"):
@@ -1506,9 +999,9 @@ def resolve_row(row: Mapping[str, object]) -> dict[str, object]:
     A schema-3 row is returned unchanged. A schema-2 row is read as follows:
 
     - `stance` becomes `speaker_position` through
-      :data:`lib.audit.POSITION_FROM_STANCE`, which is six renames and one value
+      :data:`lib.schema.POSITION_FROM_STANCE`, which is six renames and one value
       that changed meaning;
-    - `concrete_case` is derived by :func:`lib.audit.concrete_case_from_v1` from
+    - `concrete_case` is derived by :func:`lib.schema.concrete_case_from_v1` from
       the stance and the referent, and is `unclear` wherever those two cannot
       answer it;
     - the six fields schema 3 adds have **no v1 image at all** and are returned
@@ -1529,8 +1022,8 @@ def resolve_row(row: Mapping[str, object]) -> dict[str, object]:
     resolved.update(
         {
             "referents_version": "1",
-            "concrete_case": audit.concrete_case_from_v1(stance, referent),
-            "speaker_position": audit.POSITION_FROM_STANCE.get(stance, "unclear"),
+            "concrete_case": schema_lib.concrete_case_from_v1(stance, referent),
+            "speaker_position": schema_lib.POSITION_FROM_STANCE.get(stance, "unclear"),
             "referent_source": "",
             "accused_actor": "",
             "victim_group": "",
@@ -1555,95 +1048,3 @@ UNANSWERED_BY_V1: Final = (
     "salience",
     "rationale",
 )
-
-
-# --- The run file ------------------------------------------------------------
-
-
-def read_rows(path: Path) -> list[dict[str, object]]:
-    """Every row of a run's `annotations.jsonl`, or nothing if it has none yet."""
-    if not path.is_file():
-        return []
-    rows = []
-    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        if not line.strip():
-            continue
-        try:
-            rows.append(json.loads(line))
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"{path.name} line {number} is not JSON: {exc}") from exc
-    return rows
-
-
-def append_rows(path: Path, rows: Iterable[Mapping[str, object]]) -> int:
-    """Append rows and get them onto the disk before returning.
-
-    Deliberately not atomic-replace, which is how every other artefact in this
-    repository is written. A run is hours of GPU work arriving in pieces, and
-    rewriting the whole file per response would risk the one failure mode that
-    actually matters here: losing completed inference. The file only ever
-    grows, each line is complete when written, and a crash costs only requests
-    still in flight rather than the run.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    written = 0
-    with path.open("a", encoding="utf-8", newline="\n") as stream:
-        for row in rows:
-            stream.write(json.dumps(row, ensure_ascii=False) + "\n")
-            written += 1
-        stream.flush()
-        os.fsync(stream.fileno())
-    return written
-
-
-def completed(
-    path: Path,
-    occurrences: Sequence[Occurrence],
-    *,
-    prompt_sha256: str,
-    model: str,
-) -> set[str]:
-    """Speeches this run has already annotated in full, for a resumed run.
-
-    Refuses rather than resumes when the file was written with a different
-    prompt or a different model: a run is one prompt and one model, and a mixed
-    `annotations.jsonl` is a file whose rows cannot be compared with each other.
-    A changed prompt is a new run id, not a continuation.
-
-    Refuses too when a row names an occurrence the corpus no longer has. The
-    occurrence ID is built over the span and the digest of the speech body, so
-    that only happens when the corpus or the lexicon moved underneath the run,
-    and appending to it would silently mix two enumerations.
-    """
-    rows = read_rows(path)
-    if not rows:
-        return set()
-
-    stale_prompts = {str(row.get("prompt_sha256", "")) for row in rows} - {prompt_sha256}
-    if stale_prompts:
-        raise ValueError(
-            f"{path.name} was written with a different prompt "
-            f"({sorted(stale_prompts)[0][:12]}...); a changed prompt is a new run id."
-        )
-    stale_models = {str(row.get("model", "")) for row in rows} - {model}
-    if stale_models:
-        raise ValueError(
-            f"{path.name} was written with a different model ({sorted(stale_models)[0]}); "
-            "a run is one prompt and one model."
-        )
-
-    expected: dict[str, set[str]] = {}
-    for occurrence in occurrences:
-        expected.setdefault(occurrence.filename, set()).add(occurrence.occurrence_id)
-    known = {identifier for identifiers in expected.values() for identifier in identifiers}
-
-    seen: dict[str, set[str]] = {}
-    for row in rows:
-        identifier = str(row.get("occurrence_id", ""))
-        if identifier not in known:
-            raise ValueError(
-                f"{path.name} names an occurrence the corpus does not have ({identifier[:12]}"
-                "...); the corpus or the lexicon changed under this run."
-            )
-        seen.setdefault(str(row.get("filename", "")), set()).add(identifier)
-    return {filename for filename, ids in expected.items() if ids <= seen.get(filename, set())}

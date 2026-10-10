@@ -10,10 +10,18 @@
 		kwicIndex,
 		meeting as loadMeeting,
 		meetingOf,
-		occurrenceOf,
-		speechOf
+		speechOf,
+		usageReferents
 	} from '$lib/data';
-	import { concordanceQuery, filterConcordance, readConcordanceState } from '$lib/concordance';
+	import {
+		concordanceQuery,
+		occurrenceInResult,
+		readConcordanceState,
+		referentMap
+	} from '$lib/concordance';
+	import { USAGE_TERM } from '$lib/usage';
+	import { visible } from '$lib/reader';
+	import { Resource } from '$lib/resource.svelte';
 	import { readScope, speechInScope } from '$lib/scope';
 	import { occurrenceItem, speechItem } from '$lib/basket';
 	import { basket } from '$lib/basket.svelte';
@@ -39,8 +47,11 @@
 	const wantedTerm = $derived(page.url.searchParams.get('term'));
 	const wantedOccurrence = $derived(page.url.searchParams.get('occurrence'));
 
-	let record = $state<Meeting | null>(null);
-	let failure = $state<string | null>(null);
+	/* The record is emptied whenever another meeting, speech or occurrence is
+	   asked for, so the page never shows one meeting under another's address. */
+	const meetingRecord = new Resource<Meeting>();
+	const record = $derived(meetingRecord.value);
+	const failure = $derived(meetingRecord.failure);
 	let registers = $state<Record<string, string>>({});
 	let open = new SvelteSet<string>();
 	let showAddress = $state(false);
@@ -58,23 +69,18 @@
 		const wanted = basename;
 		const speech = wantedSpeech;
 		const occurrence = wantedOccurrence;
-		record = null;
-		failure = null;
 		copyState = 'idle';
 		quoteState = 'idle';
-		loadMeeting(wanted)
+		void meetingRecord
+			.load(() => loadMeeting(wanted), { clear: true })
 			.then(async (loaded) => {
-				if (wanted !== basename) return;
-				record = loaded;
+				if (!loaded) return;
 				const target = speech ?? loaded.speeches.find((s) => hasHits(s))?.id;
 				open.clear();
 				if (target) open.add(target);
 				await tick();
 				const exact = occurrence ? document.querySelector<HTMLElement>('[data-occurrence]') : null;
 				(exact ?? document.getElementById(target ?? ''))?.scrollIntoView({ block: 'center' });
-			})
-			.catch((error: Error) => {
-				if (wanted === basename) failure = error.message;
 			});
 	});
 
@@ -86,19 +92,22 @@
 		selectedLine = null;
 		if (!occurrence || !term) return;
 		const state = readConcordanceState(new URLSearchParams(search));
-		kwic(term)
-			.then((file) => {
+		/* The referent filter reads the published run's placements, exactly as
+		   the concordance does, and only for the term that run annotated.
+		   Without them it keeps nothing, so previous and next would vanish while
+		   the concordance the reader came from still listed the occurrence. */
+		const referents =
+			state.referent && term === USAGE_TERM
+				? usageReferents()
+						.then((file) => referentMap(file.placements))
+						.catch(() => null)
+				: Promise.resolve(null);
+		Promise.all([kwic(term), referents])
+			.then(([file, placements]) => {
 				if (occurrence !== wantedOccurrence || search !== page.url.search) return;
-				const ordered = filterConcordance(file.lines, state).lines;
-				const index = ordered.findIndex((line) => line.id === occurrence);
-				if (index < 0) return;
-				selectedLine = ordered[index];
-				resultNavigation = {
-					position: index + 1,
-					total: ordered.length,
-					previous: ordered[index - 1]?.id ?? null,
-					next: ordered[index + 1]?.id ?? null
-				};
+				const found = occurrenceInResult(file.lines, state, occurrence, placements);
+				selectedLine = found.line;
+				resultNavigation = found.position;
 			})
 			.catch(() => {
 				// Navigation is an enhancement. The meeting evidence remains usable if
@@ -121,93 +130,12 @@
 	/** A run of the record cut at its paragraph breaks, for the pause drawn between them. */
 	const paragraphs = (text: string) => text.split('\n');
 
-	interface Segment {
-		text: string;
-		terms: string[];
-		exact: boolean;
-	}
-
-	/** The one KWIC span named in the URL, if it belongs to this speech and term. */
-	function exactSpan(speech: Speech, only: string | null): [number, number] | null {
-		if (!wantedOccurrence || !wantedTerm || only !== wantedTerm) return null;
-		if (speech.id !== speechOf(wantedOccurrence)) return null;
-		const ordinal = occurrenceOf(wantedOccurrence);
-		return ordinal ? (speech.hits[wantedTerm]?.[ordinal - 1] ?? null) : null;
-	}
-
-	/**
-	 * Split a speech into plain and highlighted runs.
-	 *
-	 * Spans overlap by design — "genocide" sits inside "prevention of genocide" —
-	 * so overlapping ones are merged into a single run that names every term it
-	 * covers, rather than nesting marks or silently dropping one.
-	 */
-	function segments(speech: Speech, only: string | null): Segment[] {
-		const selected = exactSpan(speech, only);
-		const marks = Object.entries(speech.hits)
-			.filter(([term]) => !only || term === only)
-			.flatMap(([term, spans]) =>
-				spans.map(([s, e]) => ({
-					s,
-					e,
-					term,
-					exact: selected?.[0] === s && selected[1] === e
-				}))
-			)
-			.sort((a, b) => a.s - b.s || b.e - a.e);
-
-		const merged: { s: number; e: number; terms: Set<string>; exact: boolean }[] = [];
-		for (const mark of marks) {
-			const last = merged[merged.length - 1];
-			if (last && mark.s < last.e) {
-				last.e = Math.max(last.e, mark.e);
-				last.terms.add(mark.term);
-				last.exact ||= mark.exact;
-			} else {
-				merged.push({ s: mark.s, e: mark.e, terms: new Set([mark.term]), exact: mark.exact });
-			}
-		}
-
-		const out: Segment[] = [];
-		let cursor = 0;
-		for (const block of merged) {
-			if (block.s > cursor)
-				out.push({ text: speech.text.slice(cursor, block.s), terms: [], exact: false });
-			out.push({
-				text: speech.text.slice(block.s, block.e),
-				terms: [...block.terms],
-				exact: block.exact
-			});
-			cursor = block.e;
-		}
-		if (cursor < speech.text.length)
-			out.push({ text: speech.text.slice(cursor), terms: [], exact: false });
-		return out;
-	}
-
-	function visible(speech: Speech): Segment[] {
-		const all = segments(speech, filterTerm);
-		if (showAddress || speech.body_start === 0) return all;
-		// Drop the opening form of address, which is the Secretariat's speaker
-		// line rather than anything the speaker said.
-		let dropped = 0;
-		const out: Segment[] = [];
-		for (const segment of all) {
-			const end = dropped + segment.text.length;
-			if (end <= speech.body_start) {
-				dropped = end;
-				continue;
-			}
-			const from = Math.max(0, speech.body_start - dropped);
-			out.push({ ...segment, text: segment.text.slice(from) });
-			dropped = end;
-		}
-		return out;
-	}
-
 	// Writable derived: seeded from the URL the reader arrived on, then owned by
 	// the select below.
 	let filterTerm = $derived(wantedTerm);
+
+	/* The occurrence the URL names, which `$lib/reader` marks as the exact one. */
+	const selection = $derived({ occurrence: wantedOccurrence, term: wantedTerm });
 
 	const termsHere = $derived(
 		record ? [...new Set(record.speeches.flatMap((s) => Object.keys(s.hits)))].sort() : []
@@ -331,7 +259,7 @@
 
 	// The register names the mark's rule; `app.css` owns what each one looks
 	// like, so the drawing lives in one place rather than in an inline colour.
-	const registerFor = (terms: string[]) => registers[terms[0]] ?? 'core';
+	const registerFor = (terms: string[]) => registers[terms[0]!] ?? 'core';
 
 	/**
 	 * The marginal apparatus: what is marked in this record, counted by register,
@@ -352,7 +280,7 @@
 				tally[register] = (tally[register] ?? 0) + spans.length;
 			}
 		}
-		return ORDER.filter((r) => tally[r]).map((r) => ({ register: r, n: tally[r] }));
+		return ORDER.filter((r) => tally[r]).map((r) => ({ register: r, n: tally[r]! }));
 	});
 
 	/* --- The whole debate, under the reading set the masthead selected -------
@@ -416,10 +344,10 @@
 			// Below 48rem it scrolls away with the page, and a landing that still
 			// budgeted 400px for it would park the marked word at the foot of the
 			// window with nothing under it to read.
-			const stuck = getComputedStyle(entry.target).position === 'sticky';
+			const stuck = getComputedStyle(entry!.target).position === 'sticky';
 			document.documentElement.style.setProperty(
 				'--toolbar-h',
-				stuck ? `${entry.target.getBoundingClientRect().height}px` : '0px'
+				stuck ? `${entry!.target.getBoundingClientRect().height}px` : '0px'
 			);
 		});
 		observer.observe(element);
@@ -651,7 +579,7 @@
 
 					{#if open.has(speech.id)}
 						<div class="text">
-							{#each visible(speech) as segment, i (i)}
+							{#each visible(speech, filterTerm, selection, showAddress) as segment, i (i)}
 								{#if segment.terms.length}
 									<mark
 										class:occurrence={segment.exact}

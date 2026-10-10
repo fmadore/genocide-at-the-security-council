@@ -53,10 +53,10 @@ from lib import artifacts, console, frames, model_runs, node_frames, series
 from lib import lexicon as lexicon_lib
 from lib import occurrences as occurrences_lib
 from lib.paths import (
-    ANNOTATIONS,
     FRAMES,
     LEXICON,
     MODEL_ANNOTATIONS,
+    REFERENTS,
     ROOT,
     SPEECHES_FLAGGED,
     ensure_dirs,
@@ -106,10 +106,10 @@ CURRENT_RUN = model_runs.CURRENT_RUN
 COMPARISON_RUN = model_runs.COMPARISON_RUN
 
 #: The model fields a frame is crossed against. `speaker_position` is
-#: single-label and `function` is pipe-joined, as `lib.usage` documents; they are
-#: handled apart for that reason and not for any other. A run coded against
-#: annotation schema 2 records the field as `stance`, and `model_rows` resolves
-#: it onto this name before anything is crossed with it.
+#: single-label and `function` is pipe-joined, as `lib.usage_comparison`
+#: documents; they are handled apart for that reason and not for any other. A
+#: run coded against annotation schema 2 records the field as `stance`, and
+#: `model_rows` resolves it onto this name before anything is crossed with it.
 POSITION_FIELD = "speaker_position"
 FUNCTION_FIELD = "function"
 
@@ -589,7 +589,7 @@ def run(width: int, trials: int, seed: int, alpha: float, use_model: bool) -> No
         "17_frames.py",
         inputs=[SPEECHES_FLAGGED, CURRENT_RUN, COMPARISON_RUN,
                 *(path for name, _ in loaded for path in model_runs.files(RUNS / name))],
-        configs=[LEXICON, ANNOTATIONS / "lexicon" / "referents.csv",
+        configs=[LEXICON, REFERENTS,
                  MODEL_ANNOTATIONS / TERM / "PROMPT.md",
                  *sorted((MODEL_ANNOTATIONS / TERM / "prompts").glob("*.md"))],
         extra={

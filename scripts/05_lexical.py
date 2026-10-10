@@ -32,6 +32,7 @@ import argparse
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -55,7 +56,7 @@ from lib.paths import (
 class Counting:
     """Surface forms or lemmas — the two ways this step can count one corpus.
 
-    Everything below asks a `Counting` for a frame's token counts and for the
+    Everything below asks a `Counting` for a frame's count matrix and for the
     tokeniser to hand `lexical.collocates`, so the difference between the two
     vocabularies lives here and nowhere else. Lemma mode never writes over the
     surface tables: it has its own output directory, because those tables are
@@ -75,23 +76,41 @@ class Counting:
     def suffix(self) -> str:
         return "" if self.mode == "surface" else "_lemma"
 
-    def counts(self, frame: pd.DataFrame) -> object:
-        if self.mode == "surface":
-            return lexical.vocabulary(frames.body(frame))
-        return lemmas.vocabulary(self.rows.loc[frame.index])
+    def matrix(self, frame: pd.DataFrame) -> lexical.DocumentTerms:
+        """Every speech in `frame` counted once, row by row.
 
-    def documents(self, frame: pd.DataFrame) -> list:
-        """The same counts, one `Counter` per speech, for `lexical.dispersion`."""
+        The corpus reference, the matched comparison and each of its stability
+        draws are sums over these rows, so the twenty-one draws over the same
+        eight thousand speeches tokenise none of them again.
+        """
         if self.mode == "surface":
-            return lexical.document_vocabulary(frames.body(frame))
-        return [lemmas.vocabulary([row]) for row in self.rows.loc[frame.index]]
+            return lexical.document_terms(frames.body(frame))
+        return lexical.document_terms(self.rows.loc[frame.index], tokens=lemmas.decode)
 
-    def tokeniser(self, frame: pd.DataFrame):
-        """A callback for `lexical.collocates`, or None for surface counting."""
-        if self.mode == "surface":
-            return None
-        rows = self.rows.loc[frame.index].tolist()
-        return lambda index, source: lemmas.tokens(source, rows[index])
+    def tokeniser(self, frame: pd.DataFrame, memory: dict | None = None):
+        """A callback for `lexical.collocates` over `frame`'s speeches.
+
+        `memory`, a dict shared between calls, keeps each speech's tokens under
+        its label: the three window widths and the period, group and speaker
+        slices read the same speeches again, and need not tokenise them again.
+        Without one, surface counting needs no callback at all.
+        """
+        rows = None if self.mode == "surface" else self.rows.loc[frame.index].tolist()
+        if memory is None:
+            if rows is None:
+                return None
+            return lambda index, source: lemmas.tokens(source, rows[index])
+        labels = frame.index.tolist()
+
+        def read(index: int, source: str) -> lexical.Tokens:
+            found = memory.get(labels[index])
+            if found is None:
+                found = memory[labels[index]] = (
+                    lexical.tokenise(source) if rows is None else lemmas.tokens(source, rows[index])
+                )
+            return found
+
+        return read
 
 
 def load_lemmas(speeches: pd.DataFrame) -> pd.Series:
@@ -137,10 +156,6 @@ PERIODS: list[tuple[str, int, int]] = [
     ("2020-2024", 2020, 2024),
 ]
 
-#: What a control speech has to match on. Year holds the occasion constant,
-#: agenda item the subject, speaker group the institutional position.
-MATCH_ON = ["year", "agenda_item_manual", "speaker_group"]
-
 COLUMNS = [
     "row_id",
     "year",
@@ -162,18 +177,25 @@ def node_terms(lex: lexicon.Lexicon) -> list[lexicon.Term]:
 
 
 def build_collocates(
-    bodies: pd.Series,
+    holders: pd.DataFrame,
     terms: list[lexicon.Term],
     reference,
     reference_total: int,
     stopwords: frozenset[str],
     limit: int,
-    tokeniser=None,
-    meetings: list | None = None,
+    counting: Counting,
 ) -> dict[str, object]:
-    """Each node at each window width, over the whole corpus."""
+    """Each node at each window width, over the whole corpus.
+
+    `holders` are the speeches holding any of `terms`.
+    """
+    bodies = frames.body(holders)
+    meetings = holders["meeting_symbol"].tolist()
     out: dict[str, object] = {}
     for term in terms:
+        # Kept for one term's widths only, so at most one node's speeches are
+        # held as tokens at a time.
+        tokeniser = counting.tokeniser(holders, memory={})
         widths: dict[str, object] = {}
         for width in WIDTHS:
             rows, occurrences, tokens = lexical.collocates(
@@ -217,6 +239,8 @@ def build_slices(
     """
     flag = f"{lexicon.HAS}{term.name}"
     holders = speeches[speeches[flag]]
+    # A speech sits in one period, one group and perhaps one speaker's slice.
+    memory: dict = {}
 
     def profile(subset: pd.DataFrame) -> dict[str, object]:
         rows, occurrences, tokens = lexical.collocates(
@@ -227,7 +251,7 @@ def build_slices(
             reference_total,
             stopwords,
             limit=limit,
-            tokeniser=counting.tokeniser(subset),
+            tokeniser=counting.tokeniser(subset, memory),
             meetings=subset["meeting_symbol"].tolist(),
         )
         return {
@@ -275,30 +299,35 @@ def build_keyness(
     limit: int,
     seed: int,
     repetitions: int,
-    counting: Counting,
+    matrix: lexical.DocumentTerms,
 ) -> dict[str, object]:
     """Genocide speeches against a year/agenda/group-matched control set.
 
     The same comparison is also run against the whole corpus, unmatched. That
     second table is not a result — it is the thing the matching is supposed to
     improve on, and shipping both is what lets a reader see whether it did.
+
+    `matrix` counts every speech of `speeches`, by position.
     """
     flag = f"{lexicon.HAS}{term.name}"
-    control = lexical.matched_control(speeches, flag, MATCH_ON, seed)
+    # Grouped once for the published draw and every stability draw.
+    strata = lexical.Strata.of(speeches, lexical.MATCH_ON)
+    positions = speeches.index.get_indexer
+    control = lexical.matched_control(speeches, flag, lexical.MATCH_ON, seed, strata=strata)
     console.info(
         f"matched {control.matched:,} of {control.wanted:,} targets "
         f"({control.coverage:.1%}); {len(control.short_strata)} strata short"
     )
 
     targets = speeches.loc[control.target_index]
-    target_counts = counting.counts(targets)
-    control_counts = counting.counts(speeches.loc[control.control_index])
+    target_counts = matrix.counter(positions(control.target_index))
+    control_counts = matrix.counter(positions(control.control_index))
     target_total = sum(target_counts.values())
     control_total = sum(control_counts.values())
 
     # Dispersion over the target speeches: a keyword is a property of the
     # register only if it is spread across them, and of one debate if not.
-    documents = counting.documents(targets)
+    documents = matrix.counters(positions(control.target_index))
     spread = lexical.dispersion(
         documents,
         [sum(counts.values()) for counts in documents],
@@ -330,19 +359,23 @@ def build_keyness(
 
     primary_words = [str(row["word"]) for row in rows]
     effects = {word: [] for word in primary_words}
+    # Each draw reads its keywords' counts straight from the summed arrays.
+    columns = [matrix.ids.get(word) for word in primary_words]
     coverages = []
     for repetition in range(repetitions):
-        sampled = lexical.matched_control(speeches, flag, MATCH_ON, seed + repetition)
-        sampled_targets = counting.counts(speeches.loc[sampled.target_index])
-        sampled_controls = counting.counts(speeches.loc[sampled.control_index])
-        target_size = sum(sampled_targets.values())
-        control_size = sum(sampled_controls.values())
+        sampled = lexical.matched_control(
+            speeches, flag, lexical.MATCH_ON, seed + repetition, strata=strata
+        )
+        sampled_targets = matrix.totals(positions(sampled.target_index))
+        sampled_controls = matrix.totals(positions(sampled.control_index))
+        target_size = int(sampled_targets.sum())
+        control_size = int(sampled_controls.sum())
         coverages.append(sampled.coverage)
-        for word in primary_words:
+        for word, column in zip(primary_words, columns, strict=True):
             effects[word].append(
                 lexical.log_ratio(
-                    sampled_targets.get(word, 0),
-                    sampled_controls.get(word, 0),
+                    0 if column is None else int(sampled_targets[column]),
+                    0 if column is None else int(sampled_controls[column]),
                     target_size,
                     control_size,
                 )
@@ -360,7 +393,7 @@ def build_keyness(
 
     return {
         "term": term.name,
-        "matched_on": MATCH_ON,
+        "matched_on": lexical.MATCH_ON,
         "seed": seed,
         "target_speeches": control.matched,
         "eligible_target_speeches": control.wanted,
@@ -423,12 +456,6 @@ def build_network(speeches: pd.DataFrame, lex: lexicon.Lexicon, minimum: int) ->
         # `denial`-`genocide` edge was partly definitional and used to be drawn.
         "suppressed_nested_edges": lexical.definitional_pairs(lex),
     }
-
-
-def write_json(payload: dict, path: Path, meta: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    artifacts.atomic_write_json(path, {"meta": meta, **payload})
-    console.info(f"wrote {rel(path)}  ({path.stat().st_size / 1e3:,.0f} kB)")
 
 
 def _matching_pairs(keyness: dict, top: int = 15) -> list[tuple[str, float, float]]:
@@ -645,7 +672,8 @@ def run(
         counting = Counting(vocabulary, load_lemmas(speeches))
 
     console.step(f"Counting the corpus vocabulary ({vocabulary})")
-    reference = counting.counts(speeches)
+    matrix = counting.matrix(speeches)
+    reference = matrix.counter(np.arange(len(speeches)))
     reference_total = sum(reference.values())
     console.info(f"{reference_total:,} tokens, {len(reference):,} types")
 
@@ -654,14 +682,7 @@ def run(
     console.step("Collocates, whole corpus")
     holders = speeches[speeches[[f"{lexicon.HAS}{t.name}" for t in terms]].any(axis=1)]
     collocate_payload = build_collocates(
-        frames.body(holders),
-        terms,
-        reference,
-        reference_total,
-        stopwords,
-        limit,
-        tokeniser=counting.tokeniser(holders),
-        meetings=holders["meeting_symbol"].tolist(),
+        holders, terms, reference, reference_total, stopwords, limit, counting
     )
 
     console.step("Collocates, sliced")
@@ -686,7 +707,7 @@ def run(
         limit,
         seed,
         repetitions,
-        counting,
+        matrix,
     )
 
     console.step("Co-occurrence network")
@@ -716,12 +737,15 @@ def run(
         },
     )
     with artifacts.atomic_directory(counting.directory) as staged:
-        write_json(
-            {"nodes": collocate_payload, "widths": WIDTHS}, staged / "collocates.json", meta
-        )
-        write_json(slices, staged / "collocates_sliced.json", meta)
-        write_json(keyness, staged / "keyness.json", meta)
-        write_json(network, staged / "network.json", meta)
+        for name, payload in (
+            ("collocates.json", {"nodes": collocate_payload, "widths": WIDTHS}),
+            ("collocates_sliced.json", slices),
+            ("keyness.json", keyness),
+            ("network.json", network),
+        ):
+            path = staged / name
+            artifacts.atomic_write_json(path, {"meta": meta, **payload})
+            console.info(f"wrote {rel(path)}  ({path.stat().st_size / 1e3:,.0f} kB)")
 
     note = write_note(
         f"05_lexical{counting.suffix}.md",
@@ -734,7 +758,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, default=100, help="rows kept per table")
     parser.add_argument("--countries", type=int, default=8, help="speakers profiled")
-    parser.add_argument("--seed", type=int, default=20_260_807, help="control-sampling seed")
+    parser.add_argument("--seed", type=int, default=lexical.SEED, help="control-sampling seed")
     parser.add_argument("--min-edge", type=int, default=20, help="shared speeches for an edge")
     parser.add_argument(
         "--matching-repetitions",

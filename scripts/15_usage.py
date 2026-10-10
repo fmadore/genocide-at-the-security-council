@@ -39,8 +39,8 @@ it is the one the model was given. Revising the prompt is therefore not a
 break: the old text moves into `prompts/v<n>.md`, the runs made with it go on
 resolving to it, and only a wording this repository no longer holds is refused.
 The single tolerated gap is coverage: a run that did not reach every occurrence
-is aggregated under `--allow-partial` and reports honestly how much of the
-corpus it covers. A comparison run has no such gate — it is read over the
+is aggregated when `allow_partial_run.txt` names it, or under `--allow-partial`,
+and reports honestly how much of the corpus it covers. A comparison run has no such gate — it is read over the
 occurrences both runs reached, and the artefact says how many those were — but it
 is refused on everything else the published run is refused on, and on one more: a
 comparison made with a different prompt, which would confound the instrument with
@@ -68,8 +68,24 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import artifacts, audit, console, frames, lexicon, llm, model_runs, usage, usage_refusals
+from lib import (
+    artifacts,
+    audit,
+    console,
+    frames,
+    gold_estimates,
+    lexicon,
+    llm,
+    model_runs,
+    notes,
+    prompts,
+    schema,
+    usage,
+    usage_comparison,
+    usage_refusals,
+)
 from lib import occurrences as occurrences_lib
+from lib import referents as referents_lib
 from lib.paths import (
     INTERIM,
     LEXICON,
@@ -84,8 +100,9 @@ from lib.paths import (
 
 # The refusals a run must pass, and the resolutions that read an older run in
 # today's vocabulary, live in `lib.usage_refusals`; the counting, and the model
-# block that describes a run, in `lib.usage`. Both are tested there on
-# constructed manifests and rows, which this step cannot be.
+# block that describes a run, in `lib.usage`; the gold block in
+# `lib.gold_estimates` and the second opinion in `lib.usage_comparison`. All are
+# tested there on constructed manifests and rows, which this step cannot be.
 
 TERM = model_runs.TERM
 
@@ -101,8 +118,29 @@ COMPARISON_RUN = model_runs.COMPARISON_RUN
 
 REFERENTS = model_runs.REFERENTS
 GOLD_ANNOTATIONS = model_runs.GOLD_ANNOTATIONS
-GOLD_CANDIDATES = INTERIM / "genocide_gold_candidates.csv"
-GOLD_DESIGN = INTERIM / "genocide_gold_design.csv"
+GOLD_CANDIDATES = model_runs.GOLD_CANDIDATES
+GOLD_DESIGN = model_runs.GOLD_DESIGN
+#: The passages read against a model's labels before coding, and the column 13
+#: marks them with in the candidate file this step reads.
+PRIOR_REVIEW = model_runs.PRIOR_REVIEW
+PRIOR_REVIEW_FLAG = model_runs.PRIOR_REVIEW_FLAG
+
+
+def reviewed_before_coding(candidates: pd.DataFrame) -> set[str]:
+    """The sampled occurrences 13 marked as read against a model's labels.
+
+    Read off the candidate file rather than off the committed list, so the
+    occurrences set aside are exactly the ones the sample this step reports on
+    carries the mark for. The file is read as text, where pandas wrote the
+    boolean as `True`.
+    """
+    if PRIOR_REVIEW_FLAG not in candidates:
+        console.fail(
+            f"{rel(GOLD_CANDIDATES)} has no `{PRIOR_REVIEW_FLAG}` column",
+            ["re-run 13_gold_sample.py; it marks the passages read before coding"],
+        )
+    marked = candidates[PRIOR_REVIEW_FLAG].astype(str) == "True"
+    return set(candidates.loc[marked, "occurrence_id"].astype(str))
 
 #: Columns this step needs. The normalised frame is 99 columns and 389 MB of
 #: text; the eleven below are the enumeration's inputs plus the speaker
@@ -163,52 +201,24 @@ ROW_FIELDS = (
 # --- Reading the inputs ------------------------------------------------------
 
 
-def read_referents(path: Path) -> list[dict[str, object]]:
-    """The controlled referent list with the columns the artefact publishes.
+def read_referents(path: Path) -> tuple[audit.ReferentList, list[dict[str, object]]]:
+    """The controlled referent list, as the run is checked against it and as published.
 
-    A third reader of `referents.csv`, deliberately. `lib.audit.read_referents`
-    returns the identifiers and is the authority on which ones an annotation may
-    use; `lib.llm.read_referent_table` returns what the *prompt* renders, which
-    does not include `iso3` because a model has no use for an ISO code. The usage
-    view does: it puts a case on a map. Widening the prompt's dataclass to carry
-    a field the prompt never shows would be the worse of the two duplications.
+    Parsed once by `lib.referents`, which holds every reader of the file to the
+    same rules. The first view is the versions a run must be compatible with;
+    the second is every row with the columns the artefact publishes, `iso3`
+    included because the usage view puts a case on a map. Retired referents are
+    published too, and marked, so a run made before a retirement still has a
+    row for each identifier it counted under.
 
-    Retired referents are published too, and marked. A run made before a
-    retirement counted rows under the old identifier, and the block has to hold
-    a row for each of them or those counts land nowhere; a run made after it
-    counts none, and the view needs to know that an empty column is a withdrawn
-    category rather than a case no delegation ever raised.
+    A cell that breaks a rule stops the step with the rule, the row and the
+    file named, rather than with a traceback.
     """
-    table = pd.read_csv(path, dtype="string", keep_default_na=False)
-    required = {
-        "id",
-        "label",
-        "description",
-        "kind",
-        "iso3",
-        "years",
-        "since",
-        "retired_in",
-        "superseded_by",
-    }
-    missing = sorted(required - set(table.columns))
-    if missing:
-        console.fail(f"{rel(path)} is missing columns: {', '.join(missing)}")
-    return [
-        {
-            **{
-                key: str(row[key])
-                for key in ("id", "label", "description", "kind", "iso3", "years")
-            },
-            "since": int(str(row.get("since") or "1")),
-            "retired_in": (
-                int(str(row["retired_in"])) if str(row.get("retired_in") or "") else None
-            ),
-            "retired": bool(str(row.get("retired_in", "") or "").strip()),
-            "superseded_by": str(row.get("superseded_by", "") or "").strip(),
-        }
-        for row in table.to_dict(orient="records")
-    ]
+    try:
+        parsed = referents_lib.read(path)
+        return parsed.listing(), parsed.published()
+    except referents_lib.ReferentFileError as error:
+        console.fail(str(error))
 
 
 def uncommitted_run(run_dir: Path, flag: str) -> Path:
@@ -376,7 +386,7 @@ def retest_block(
     same questionnaire — and hard-coding two run ids would leave the block
     stale the first time a third run is bought.
 
-    The statistics are the ones :func:`usage.comparison_fields` computes between
+    The statistics are the ones :func:`usage_comparison.comparison_fields` computes between
     two *different* models, deliberately, so a reader can lay one table over the
     other and read the difference. Nothing here is an accuracy either: a model
     that agrees with itself perfectly may be perfectly wrong.
@@ -401,15 +411,15 @@ def retest_block(
             # compared against would report every label as a disagreement.
             sibling_rows = [
                 llm.resolve_row(row)
-                for row in llm.read_rows(candidate.parent / "annotations.jsonl")
+                for row in model_runs.read_rows(candidate.parent / "annotations.jsonl")
             ]
-            overlap = len(usage.comparison_overlap(rows, sibling_rows))
+            overlap = len(usage_comparison.comparison_overlap(rows, sibling_rows))
             if overlap and (best is None or overlap > best[0]):
                 best = (overlap, str(sibling.get("run_id", "")), sibling_rows)
         if best is None:
             continue
         overlap, sibling_id, sibling_rows = best
-        contested = usage.contested_rows(rows, sibling_rows)
+        contested = usage_comparison.contested_rows(rows, sibling_rows)
         out.append(
             {
                 "which": label,
@@ -417,8 +427,8 @@ def retest_block(
                 "run_id": run_id,
                 "retest_run_id": sibling_id,
                 "overlap": overlap,
-                "fields": usage.comparison_fields(rows, sibling_rows),
-                "function_jaccard": usage.comparison_function_jaccard(rows, sibling_rows),
+                "fields": usage_comparison.comparison_fields(rows, sibling_rows),
+                "function_jaccard": usage_comparison.comparison_function_jaccard(rows, sibling_rows),
                 "identical": int(sum(not fields for fields, _ in contested.values())),
             }
         )
@@ -492,7 +502,6 @@ def diffusion_block(
                 "a first mention on an invented date is worse than no curve at all",
             ],
         )
-        raise  # unreachable; console.fail exits, and a reader cannot know that
     # The risk set beside each curve: who sat in a debate that named the case.
     exposure = {} if speeches is None else usage.exposure_rows(rows, speeches)
     for entry in referents:
@@ -529,10 +538,14 @@ def write_first_events(diffusion: dict[str, object], rows: pd.DataFrame) -> None
         for entry in diffusion["referents"]  # type: ignore[union-attr]
         for event in entry["events"]
     ]
-    artifacts.atomic_write_text(
-        FIRST_EVENTS, pd.DataFrame(records).to_csv(index=False, lineterminator="\n")
-    )
+    artifacts.atomic_write_csv(FIRST_EVENTS, pd.DataFrame(records))
     console.info(f"wrote {rel(FIRST_EVENTS)}: {len(records):,} first events to verify")
+
+
+#: The note's two gold tables, each written with and without the passages read
+#: before coding.
+AGREEMENT_HEADERS = ["Field", "n", "Observed", "Kappa"]
+SCORED_HEADERS = ["Field", "n", "Accuracy", "Macro-F1", "Model abstention"]
 
 
 def build_note(
@@ -543,8 +556,14 @@ def build_note(
     run_directory: Path,
     *,
     synthetic: bool = False,
+    prior_review: dict[str, object] | None = None,
 ) -> str:
-    """The findings note: the funnel, the leaders, and what is withheld."""
+    """The findings note: the funnel, the leaders, and what is withheld.
+
+    `prior_review` is :func:`lib.gold_estimates.without_prior_review`'s block:
+    once anything is coded, the note repeats its gold tables without the
+    passages read against a model's labels before coding.
+    """
     model = payload["model"]
     gold = payload["gold"]
     actors = payload["actors"]
@@ -554,6 +573,7 @@ def build_note(
     total = int(model["occurrences_total"])
     withheld = [row for row in actors if not row["sufficient"]]
     withheld_shares = [row for row in positions if not row["sufficient"]]
+    abstention = model["abstention"]
 
     def share(value: int, of: int) -> str:
         return f"{value / of:.1%}" if of else "—"
@@ -598,8 +618,13 @@ def build_note(
         }
         first = min(mentions, key=lambda event: (str(event["date"]), str(event["id"])))
         spread.append(
-            f"| `{entry['id']}` | {first['actor']}, {first['date']} | "
-            f"{len(mentions):,} | {len(asserting):,} | {len(rejecting):,} |"
+            [
+                f"`{entry['id']}`",
+                f"{first['actor']}, {first['date']}",
+                f"{len(mentions):,}",
+                f"{len(asserting):,}",
+                f"{len(rejecting):,}",
+            ]
         )
 
     by_name = {str(actor["country_org"]): actor for actor in actors}
@@ -607,28 +632,58 @@ def build_note(
     for row in ranked[:15]:
         actor = by_name[str(row["actor"])]
         leaders.append(
-            f"| {row['actor']} | {actor['group'] or '—'} | {actor['occurrences']:,} | "
-            f"{row['eligible']:,} | {actor['assigned']:,} | "
-            f"{percent(row['share_rejects'])} |"
+            [
+                row["actor"],
+                actor["group"] or "—",
+                f"{actor['occurrences']:,}",
+                f"{row['eligible']:,}",
+                f"{actor['assigned']:,}",
+                percent(row["share_rejects"]),
+            ]
         )
 
     comparison = payload["comparison"]
     compared = [
-        f"| `{row['field']}` | {row['n']:,} | {number(row['observed'])} | "
-        f"{number(row['kappa'])} | {row['contested']:,} |"
+        [
+            f"`{row['field']}`",
+            f"{row['n']:,}",
+            number(row["observed"]),
+            number(row["kappa"]),
+            f"{row['contested']:,}",
+        ]
         for row in comparison["fields"]
     ]
 
     agreement = [
-        f"| `{row['field']}` | {row['n']} | {number(row['observed'])} | "
-        f"{number(row['kappa'])} |"
+        [f"`{row['field']}`", row["n"], number(row["observed"]), number(row["kappa"])]
         for row in gold["human_agreement"]
     ]
     scored = [
-        f"| `{row['field']}` | {row['n']} | {number(row['accuracy'])} | "
-        f"{number(row['macro_f1'])} | {number(row['abstention_rate'])} |"
+        [
+            f"`{row['field']}`",
+            row["n"],
+            number(row["accuracy"]),
+            number(row["macro_f1"]),
+            number(row["abstention_rate"]),
+        ]
         for row in gold["model_vs_human"]
     ]
+    prior = prior_review or {}
+    agreement_without = [
+        [f"`{row['field']}`", row["n"], number(row["observed"]), number(row["kappa"])]
+        for row in prior.get("human_agreement", [])
+    ]
+    scored_without = [
+        [
+            f"`{row['field']}`",
+            row["n"],
+            number(row["accuracy"]),
+            number(row["macro_f1"]),
+            number(row["abstention_rate"]),
+        ]
+        for row in prior.get("model_vs_human", [])
+    ]
+    jaccard_without = prior.get("function_jaccard")
 
     return "\n".join(
         [
@@ -689,37 +744,49 @@ def build_note(
             "does not hold yet, and dropping it would understate how much of the corpus is "
             "about a case at all.",
             "",
-            "| Step | Occurrences | Share of annotated |",
-            "|---|---:|---:|",
-            f"| Annotated | {counts['annotated']:,} | 100.0% |",
-            f"| — verdict `false_positive` | {counts['false_positive']:,} | "
-            f"{share(counts['false_positive'], annotated)} |",
-            f"| — verdict `uncertain` | {counts['uncertain']:,} | "
-            f"{share(counts['uncertain'], annotated)} |",
-            f"| — evidence not located | {counts['evidence_invalid']:,} | "
-            f"{share(counts['evidence_invalid'], annotated)} |",
-            f"| **Eligible** | {counts['eligible']:,} | "
-            f"{share(counts['eligible'], annotated)} |",
-            f"| — referent `unclear` | {counts['referent_unclear']:,} | "
-            f"{share(counts['referent_unclear'], annotated)} |",
-            f"| **Assigned** | {counts['assigned']:,} | "
-            f"{share(counts['assigned'], annotated)} |",
+            *notes.table(
+                ["Step", "Occurrences", "Share of annotated"],
+                [
+                    ["Annotated", f"{counts['annotated']:,}", "100.0%"],
+                    *[
+                        [label, f"{counts[key]:,}", share(counts[key], annotated)]
+                        for label, key in [
+                            ("— verdict `false_positive`", "false_positive"),
+                            ("— verdict `uncertain`", "uncertain"),
+                            ("— evidence not located", "evidence_invalid"),
+                            ("**Eligible**", "eligible"),
+                            ("— referent `unclear`", "referent_unclear"),
+                            ("**Assigned**", "assigned"),
+                        ]
+                    ],
+                ],
+                "lrr",
+            ),
             "",
             "## Abstention",
             "",
             "The prompt tells the model that an honest abstention beats a guess, so these "
             "are a measurement of the run rather than a defect in it.",
             "",
-            "| Field | Abstained | Share of annotated |",
-            "|---|---:|---:|",
-            f"| `verdict` = `uncertain` | {model['abstention']['verdict_uncertain']:,} | "
-            f"{share(model['abstention']['verdict_uncertain'], annotated)} |",
-            f"| `speaker_position` = `unclear` | {model['abstention']['position_unclear']:,} | "
-            f"{share(model['abstention']['position_unclear'], annotated)} |",
-            f"| `referent` = `unclear` | {model['abstention']['referent_unclear']:,} | "
-            f"{share(model['abstention']['referent_unclear'], annotated)} |",
-            f"| evidence not located | {model['evidence_invalid']:,} | "
-            f"{share(model['evidence_invalid'], annotated)} |",
+            *notes.table(
+                ["Field", "Abstained", "Share of annotated"],
+                [
+                    *[
+                        [label, f"{abstention[key]:,}", share(abstention[key], annotated)]
+                        for label, key in [
+                            ("`verdict` = `uncertain`", "verdict_uncertain"),
+                            ("`speaker_position` = `unclear`", "position_unclear"),
+                            ("`referent` = `unclear`", "referent_unclear"),
+                        ]
+                    ],
+                    [
+                        "evidence not located",
+                        f"{model['evidence_invalid']:,}",
+                        share(model["evidence_invalid"], annotated),
+                    ],
+                ],
+                "lrr",
+            ),
             "",
             "## What the word is used about",
             "",
@@ -728,12 +795,14 @@ def build_note(
             "can and always read zero; `other` can, and its count is how much of the corpus "
             "is about a case the controlled list does not hold yet.",
             "",
-            "| Referent | Kind | Assigned |",
-            "|---|---|---:|",
-            *[
-                f"| `{row['id']}` | {row['kind']} | {row['occurrences']:,} |"
-                for row in referents[:15]
-            ],
+            *notes.table(
+                ["Referent", "Kind", "Assigned"],
+                [
+                    [f"`{row['id']}`", row["kind"], f"{row['occurrences']:,}"]
+                    for row in referents[:15]
+                ],
+                "llr",
+            ),
             "",
             "## Who uses it",
             "",
@@ -741,9 +810,11 @@ def build_note(
             "eligible occurrences, which is the denominator the position composition is cut "
             "from.",
             "",
-            "| Speaker | Group | Occurrences | Eligible | Assigned | Rejects or denies |",
-            "|---|---|---:|---:|---:|---:|",
-            *leaders,
+            *notes.table(
+                ["Speaker", "Group", "Occurrences", "Eligible", "Assigned", "Rejects or denies"],
+                leaders,
+                "llrrrr",
+            ),
             "",
             "## Diffusion",
             "",
@@ -756,9 +827,11 @@ def build_note(
             "",
             *(
                 [
-                    "| Referent | First mention | Delegations | Asserting | Rejecting |",
-                    "|---|---|---:|---:|---:|",
-                    *spread,
+                    *notes.table(
+                        ["Referent", "First mention", "Delegations", "Asserting", "Rejecting"],
+                        spread,
+                        "llrrr",
+                    ),
                     "",
                     "Firsts in this corpus and nowhere else. The date is the first "
                     "sitting at which that delegation is recorded using the word about "
@@ -815,9 +888,7 @@ def build_note(
                     "the codebook leaves two readers. A kappa of `—` is a field on which "
                     "one category was used throughout, where the statistic is not defined.",
                     "",
-                    "| Field | n | Observed | Kappa |",
-                    "|---|---:|---:|---:|",
-                    *agreement,
+                    *notes.table(AGREEMENT_HEADERS, agreement, "lrrr"),
                     "",
                 ]
                 if agreement
@@ -836,9 +907,7 @@ def build_note(
                     "coders' agreed label otherwise; a field they disagree on with no "
                     "adjudication is left out rather than resolved by a rule.",
                     "",
-                    "| Field | n | Accuracy | Macro-F1 | Model abstention |",
-                    "|---|---:|---:|---:|---:|",
-                    *scored,
+                    *notes.table(SCORED_HEADERS, scored, "lrrrr"),
                     "",
                     (
                         f"`function` is multi-label, so it carries no kappa and no macro-F1. "
@@ -850,6 +919,47 @@ def build_note(
                     "",
                 ]
                 if scored
+                else []
+            ),
+            *(
+                [
+                    "### Without the passages read before coding",
+                    "",
+                    f"{prior.get('flagged_coded', 0):,} of the {prior.get('coded', 0):,} coded "
+                    "occurrences are among the passages read against the Qwen run's labels "
+                    "on 10 September 2026, before coding began "
+                    f"(`{rel(PRIOR_REVIEW)}`), so a coder may have seen the model's answer "
+                    "for them. They stay in the sample, and every figure above is repeated "
+                    "here without them (docs/EVALUATION_PLAN.md, section 4). PABAK, the MASI "
+                    "alpha, the comparison run's scores, the weighted accuracy and the "
+                    "corrected shares are repeated in the step's manifest, under "
+                    "`gold_without_prior_review`.",
+                    "",
+                    *(
+                        [
+                            *notes.table(AGREEMENT_HEADERS, agreement_without, "lrrr"),
+                            "",
+                        ]
+                        if agreement_without
+                        else []
+                    ),
+                    *(
+                        [
+                            *notes.table(SCORED_HEADERS, scored_without, "lrrrr"),
+                            "",
+                        ]
+                        if scored_without
+                        else []
+                    ),
+                    (
+                        "Mean Jaccard overlap on `function` against the same reference: "
+                        f"**{float(jaccard_without):.3f}**."
+                        if jaccard_without is not None
+                        else "The `function` overlap could not be computed without them."
+                    ),
+                    "",
+                ]
+                if prior and (agreement or scored)
                 else []
             ),
             *(
@@ -883,9 +993,9 @@ def build_note(
                     "true positive while the other refused the match is exactly the "
                     "disagreement worth reading.",
                     "",
-                    "| Field | n | Observed | Kappa | Contested |",
-                    "|---|---:|---:|---:|---:|",
-                    *compared,
+                    *notes.table(
+                        ["Field", "n", "Observed", "Kappa", "Contested"], compared, "lrrrr"
+                    ),
                     "",
                     (
                         "`function` is multi-label and carries no kappa. Mean Jaccard "
@@ -967,8 +1077,8 @@ def run_without_model() -> None:
     annotations = audit.read_annotations(GOLD_ANNOTATIONS)
     empty = pd.DataFrame()
     prompt_text = PROMPT.read_text(encoding="utf-8") if PROMPT.is_file() else ""
-    referent_list = audit.read_referent_list(REFERENTS)
-    referent_rows = [{**row, "occurrences": 0} for row in read_referents(REFERENTS)]
+    referent_list, published = read_referents(REFERENTS)
+    referent_rows = [{**row, "occurrences": 0} for row in published]
     zeros = {
         "verdict_uncertain": 0,
         "referent_unclear": 0,
@@ -994,7 +1104,7 @@ def run_without_model() -> None:
             "run_date": "",
             "prompt_version": "",
             "referents_version": str(referent_list.version),
-            "prompt_sha256": llm.prompt_sha256(PROMPT) if PROMPT.is_file() else "",
+            "prompt_sha256": prompts.prompt_sha256(PROMPT) if PROMPT.is_file() else "",
             "reasoning_effort": "",
             "requests": 0,
             "requests_recounted": False,
@@ -1012,9 +1122,9 @@ def run_without_model() -> None:
         "matrix": [],
         "position_by_actor": [],
         "diffusion": {"milestones": list(usage.MILESTONES), "referents": []},
-        "comparison": usage.comparison_block([], []),
+        "comparison": usage_comparison.comparison_block([], []),
         "retest": [],
-        "gold": usage.gold_block(
+        "gold": gold_estimates.gold_block(
             annotations,
             empty,
             sample_size=len(candidates),
@@ -1048,6 +1158,11 @@ def run_without_model() -> None:
                     artifacts.describe_file(USAGE / "usage.json", ROOT),
                     artifacts.describe_file(USAGE / "occurrences.json", ROOT),
                 ],
+                # Kept out of the payload, whose shape the contract fixes; the
+                # coders' agreement is all there is to repeat without a model.
+                "gold_without_prior_review": gold_estimates.without_prior_review(
+                    annotations, empty, reviewed=reviewed_before_coding(candidates)
+                ),
             },
         ),
         indent=1,
@@ -1067,6 +1182,15 @@ def run(args: argparse.Namespace) -> None:
 
     console.step("Choosing the run")
     directory, run_id = select_run(args.run, args.run_dir)
+    # Decided on the committed id, before a run read by path borrows the id its
+    # manifest records: the allowance names a committed run.
+    allowed_by = (
+        "--allow-partial"
+        if args.allow_partial
+        else f"{rel(model_runs.ALLOW_PARTIAL_RUN)} names this run"
+        if model_runs.partial_allowed(run_id)
+        else ""
+    )
     manifest, raw_rows = read_run(directory)
     run_id = run_id or str(manifest.get("run_id", ""))
     console.info(f"{rel(directory)}: {len(raw_rows):,} rows, run '{run_id}'")
@@ -1127,11 +1251,11 @@ def run(args: argparse.Namespace) -> None:
         f"prompt v{prompt.version}, sha256 {prompt.sha256[:12]}, published from "
         f"{prompt.name}"
     )
-    referent_list = audit.read_referent_list(REFERENTS)
+    referent_list, referent_table = read_referents(REFERENTS)
     raw_rows, schema_counts, superseded = usage_refusals.validated(
         manifest, raw_rows, lex=lex, enumerated=enumerated, referent_list=referent_list
     )
-    usage_refusals.refuse_partial(len(raw_rows), len(found), args.allow_partial)
+    usage_refusals.refuse_partial(len(raw_rows), len(found), allowed_by, run_id=run_id)
     console.info(
         f"referent list v{referent_list.version}: {len(referent_list.current)} current, "
         f"{len(referent_list.retired_in)} retired, every row validated against them"
@@ -1144,7 +1268,7 @@ def run(args: argparse.Namespace) -> None:
     if schema_counts["unanswered"]:
         console.info(
             f"{schema_counts['unanswered']:,} rows were coded against annotation schema "
-            f"{audit.LEGACY_SCHEMA_VERSION} and carry none of the six fields schema "
+            f"{schema.LEGACY_SCHEMA_VERSION} and carry none of the six fields schema "
             f"{llm.SCHEMA_VERSION} adds; they are read, never guessed at"
         )
     if schema_counts["split_decision"]:
@@ -1173,7 +1297,7 @@ def run(args: argparse.Namespace) -> None:
             what="the comparison run",
         )
         comparison_schema_version = str(
-            comparison_manifest.get("schema_version", "") or audit.LEGACY_SCHEMA_VERSION
+            comparison_manifest.get("schema_version", "") or schema.LEGACY_SCHEMA_VERSION
         )
         if len(comparison_raw) < len(found):
             console.warn(
@@ -1198,8 +1322,8 @@ def run(args: argparse.Namespace) -> None:
     console.info(f"{len(rows):,} occurrences carry a label")
 
     console.step("Weighing the second opinion")
-    contested = usage.contested_rows(rows, comparison_raw)
-    comparison = usage.comparison_block(
+    contested = usage_comparison.contested_rows(rows, comparison_raw)
+    comparison = usage_comparison.comparison_block(
         rows,
         comparison_raw,
         run_id=comparison_id,
@@ -1247,7 +1371,6 @@ def run(args: argparse.Namespace) -> None:
         console.info("no run of either model with the same prompt to retest against")
 
     console.step("Aggregating")
-    referent_table = read_referents(REFERENTS)
     blocks = usage.aggregate(
         rows,
         referent_table,
@@ -1303,7 +1426,7 @@ def run(args: argparse.Namespace) -> None:
         )
     design = pd.read_csv(GOLD_DESIGN, dtype={"occurrence_id": "string"}, keep_default_na=False)
     annotations = audit.read_annotations(GOLD_ANNOTATIONS)
-    gold = usage.gold_block(
+    gold = gold_estimates.gold_block(
         annotations,
         rows,
         sample_size=len(candidates),
@@ -1323,11 +1446,28 @@ def run(args: argparse.Namespace) -> None:
         # which is what the weighted accuracy and the corrected shares divide by.
         design=design,
     )
-    jaccard = usage.function_jaccard(annotations, rows)
+    jaccard = gold_estimates.function_jaccard(annotations, rows)
     console.info(
         f"gold state '{gold['state']}': {gold['double_coded']:,} of "
         f"{gold['unique_occurrences']:,} occurrences double-coded, "
         f"{gold['adjudicated']:,} adjudicated"
+    )
+    # Every gold figure again without the passages read against a model's labels
+    # before coding (docs/EVALUATION_PLAN.md §4). Written to the note and the
+    # manifest rather than the payload: the payload's shape is the contract the
+    # dashboard is built against, and nothing on it reads these figures yet.
+    reviewed = reviewed_before_coding(candidates)
+    without_review = gold_estimates.without_prior_review(
+        annotations,
+        rows,
+        reviewed=reviewed,
+        comparison=pd.DataFrame(comparison_raw),
+        design=design,
+    )
+    console.info(
+        f"{len(reviewed):,} sampled occurrences were read against a model's labels before "
+        f"coding, {without_review['flagged_coded']:,} of them coded; every gold figure is "
+        "repeated without them"
     )
 
     console.step("Writing")
@@ -1363,7 +1503,7 @@ def run(args: argparse.Namespace) -> None:
             # have.
             "schema_version": llm.SCHEMA_VERSION,
             "run_schema_version": str(
-                manifest.get("schema_version", "") or audit.LEGACY_SCHEMA_VERSION
+                manifest.get("schema_version", "") or schema.LEGACY_SCHEMA_VERSION
             ),
             "rows_without_schema_3_fields": schema_counts["unanswered"],
             "rows_with_split_case_decision": schema_counts["split_decision"],
@@ -1374,7 +1514,7 @@ def run(args: argparse.Namespace) -> None:
             "minimum_occurrences": args.minimum,
             "occurrences_total": len(found),
             "occurrences_annotated": len(rows),
-            "allow_partial": bool(args.allow_partial),
+            "allow_partial": bool(allowed_by),
             "state": "partial_model_run" if len(rows) < len(found) else "annotated_model_run",
             # Output file hashes live in the stage manifest; payloads cannot hash themselves.
             "outputs": [],
@@ -1422,6 +1562,7 @@ def run(args: argparse.Namespace) -> None:
             args.minimum,
             directory,
             synthetic=bool(manifest.get("synthetic")),
+            prior_review=without_review,
         ),
     )
     console.info(f"wrote {note.name}")
@@ -1462,6 +1603,7 @@ def run(args: argparse.Namespace) -> None:
                 "matrix_cells": len(blocks["matrix"]),
                 "diffusion_events": events,
                 "gold_state": gold["state"],
+                "gold_without_prior_review": without_review,
             },
         ),
         indent=1,
@@ -1498,7 +1640,8 @@ def main() -> None:
     parser.add_argument(
         "--allow-partial",
         action="store_true",
-        help="aggregate a run that has not reached every occurrence, and record the gap",
+        help="aggregate a run that has not reached every occurrence, and record the gap; "
+        "implied for the run allow_partial_run.txt names",
     )
     parser.add_argument(
         "--minimum",
@@ -1510,4 +1653,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    console.main(main)

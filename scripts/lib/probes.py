@@ -14,13 +14,14 @@ import hashlib
 import re
 import statistics
 from collections.abc import Sequence
+from typing import Any
 
 from . import annotate
 
 # --- The reasoning ladder --------------------------------------------------
 
 
-def assess_ladder(rows: list[dict[str, object]], levels: list[str]) -> dict[str, object]:
+def assess_ladder(rows: list[dict[str, Any]], levels: list[str]) -> dict[str, object]:
     """Summarise the paired probe and say whether its reasoning depth varies."""
     summary = []
     medians = []

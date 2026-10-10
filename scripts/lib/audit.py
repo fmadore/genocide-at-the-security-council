@@ -1,4 +1,8 @@
-"""Durable boundaries between generated audit candidates and human annotations."""
+"""Durable boundaries between generated audit candidates and human annotations.
+
+The vocabulary a row is coded in is `lib.schema`'s, and the frames 03 draws are
+`lib.sampling`'s; this module joins the two at the human file.
+"""
 
 from __future__ import annotations
 
@@ -7,168 +11,45 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Final
 
 import pandas as pd
 
 from . import artifacts, console, lexicon
 from . import text as text_lib
+from .sampling import COVERAGE as COVERAGE
 
-#: The annotation schema the human file and every new model run are coded
-#: against. Version 3 (2 September 2026) splits `stance` into `speaker_position`
-#: and `concrete_case` and adds the six fields the study's own question needs;
-#: the codebook's changelog says why each moved.
-SCHEMA_VERSION = "3"
-
-#: The schema the two paid runs of 30 and 31 August 2026 were coded against, on
-#: 12,184 rows. They cannot be re-coded without buying them again, so they are
-#: read at their own version and resolved onto the current vocabulary rather
-#: than refused, which is the discipline `referents.csv` already applies to its
-#: own list.
-LEGACY_SCHEMA_VERSION = "2"
-
-PROBABILITY: Final = "probability"
-COVERAGE: Final = "coverage"
-NEGATIVE: Final = "negative_high_recall"
-
-VERDICTS: Final = frozenset({"true_positive", "false_positive", "uncertain"})
-SOURCE_CHECKED: Final = frozenset({"yes", "no"})
-QUOTATIONS: Final = frozenset(
-    {"not_quoted", "direct_quotation", "attributed_or_reported", "unclear", "not_applicable"}
+# Every name imported with a redundant `as` is a re-export, kept importable from
+# this module for the callers and tests that still reach it here; new code
+# imports it from where it is defined. The `as` marks it as deliberate rather
+# than as an unused import.
+from .sampling import NEGATIVE, PROBABILITY, coverage_sample, probability_sample
+from .sampling import candidate_id as candidate_id
+from .sampling import coverage_inclusion as coverage_inclusion
+from .sampling import stratified_sample as stratified_sample
+from .sampling import union_inclusion as union_inclusion
+from .schema import (
+    ANNOTATION_FIELDS,
+    CASCADE_FIELDS,
+    CONCRETE_CASE,
+    CONFIDENCE,
+    DEFAULT_REFERENTS,
+    FREE_TEXT_CASCADE_FIELDS,
+    FUNCTIONS,
+    OWN_STATE_ACCUSED,
+    POSITIONS,
+    QUOTATIONS,
+    REFERENT_SOURCES,
+    RESERVED_FIELDS,
+    SALIENCE,
+    SCHEMA_VERSION,
+    SOURCE_CHECKED,
+    VERDICTS,
 )
-#: What the speaker does with the characterization, at schema 3.
-#:
-#: Four real positions, a fifth value for the passages that characterize nothing,
-#: and the two reserved answers. `no_position` and `concrete_case` are locked to
-#: each other — see :data:`CONCRETE_CASE` — so the abstract-versus-concrete
-#: decision is taken once instead of competing with itself across three fields,
-#: which is what the review of 1 September 2026 (§4.2, item 1) found v1 doing.
-POSITIONS: Final = frozenset(
-    {
-        "asserts",
-        "rejects",
-        "conditional",
-        "reports_without_position",
-        "no_position",
-        "unclear",
-        "not_applicable",
-    }
-)
-
-#: The schema-2 `stance` vocabulary, kept because two committed runs use it.
-#: Nothing new may be coded against it; :data:`POSITION_FROM_STANCE` says what
-#: each value becomes when an older run is read.
-STANCES: Final = frozenset(
-    {
-        "asserts",
-        "attributes_or_reports",
-        "rejects_or_denies",
-        "hypothetical_or_conditional",
-        "neutral_legal_reference",
-        "unclear",
-        "not_applicable",
-    }
-)
-
-#: Whether the word is applied to a determinate case in this passage.
-#:
-#: A four-value string enum rather than the JSON boolean the review asked for,
-#: and the cascade is the reason: a false positive answers every discourse field
-#: with `not_applicable`, and an honest abstention has to be able to say
-#: `unclear`. A boolean carries neither, so one of the two would have to travel
-#: in a second field or be spelled `false` — which would make "not a concrete
-#: case" and "not a real occurrence of the word" the same value. Every other
-#: field in this schema is a closed string vocabulary checked by one code path,
-#: and this one is too.
-CONCRETE_CASE: Final = frozenset({"yes", "no", "unclear", "not_applicable"})
-
-#: Where in the request the referent was found, which measures the instrument
-#: rather than the passage: 25-47% of the two runs' named-case rows carry no cue
-#: for that case in their evidence quote (review §4.2, item 4), and nothing
-#: recorded whether the header had been read instead.
-REFERENT_SOURCES: Final = frozenset({"passage", "speech", "header", "not_applicable"})
-
-#: Whether the speaker's own State or organisation is the one accused — the
-#: denial question Phase L exists for, and unanswerable from any v1 field.
-#: `not_applicable` here means "this passage accuses no one", of which a false
-#: positive is one case; it is not the cascade's reserved value.
-OWN_STATE_ACCUSED: Final = frozenset({"yes", "no", "not_applicable"})
-
-#: Whether the characterization is what the passage is doing, or an item in a
-#: list. The atrocity triad is 1,446 of the 6,092 occurrences and was coded
-#: identically to a sustained accusation.
-SALIENCE: Final = frozenset({"passing", "substantive", "not_applicable"})
-FUNCTIONS: Final = frozenset(
-    {
-        "accusation_or_qualification",
-        "warning_or_prevention",
-        "commemoration",
-        "accountability",
-        "institutional_title_or_mandate",
-        "other",
-        "unclear",
-        "not_applicable",
-    }
-)
-CONFIDENCE: Final = frozenset({"low", "medium", "high"})
-DEFAULT_REFERENTS: Final = frozenset({"other", "unclear", "not_applicable"})
-
-#: What a schema-2 `stance` becomes when a run coded against it is read at
-#: schema 3. Six of the seven values are renames and carry over exactly; the
-#: seventh is the one that changed meaning.
-#:
-#: `neutral_legal_reference` was the value answering two questions at once, and
-#: it is the only one that also determines `concrete_case`: a passage a coder
-#: called a neutral legal reference is a passage that characterizes no case, so
-#: it resolves to `no_position` with `concrete_case: "no"`. The other values say
-#: nothing about `concrete_case` on their own — :func:`concrete_case_from_v1`
-#: reads it off the recorded referent instead, and abstains where it cannot.
-POSITION_FROM_STANCE: Final[Mapping[str, str]] = {
-    "asserts": "asserts",
-    "rejects_or_denies": "rejects",
-    "hypothetical_or_conditional": "conditional",
-    "attributes_or_reports": "reports_without_position",
-    "neutral_legal_reference": "no_position",
-    "unclear": "unclear",
-    "not_applicable": "not_applicable",
-}
-
-#: The three referents that mean "this passage names no case". They are what
-#: makes `concrete_case` recoverable from a v1 row at all.
-NON_CASE_REFERENTS: Final = frozenset(
-    {"genocide_in_general", "genocide_convention_law", "institutional_mandate"}
-)
-
-
-def concrete_case_from_v1(stance: str, referent: str) -> str:
-    """`concrete_case` for a row coded before the field existed.
-
-    A derivation from two recorded fields rather than a re-coding, of the same
-    character as resolving a superseded referent onto its successor: the rule
-    applied is schema 3's own — the value is "no" exactly when the word is
-    applied to no determinate case — and the evidence for it is what the v1
-    coder actually wrote.
-
-    Two recorded values answer it. `stance: neutral_legal_reference` says the
-    passage characterizes no case, and so does any of the three non-case
-    referents. Where the two disagree — a neutral legal reference filed under a
-    named case, or an assertion filed under `genocide_in_general` — the referent
-    is believed, because it is the field whose vocabulary says what the passage
-    is *about*, while the stance value was carrying two questions at once and is
-    the one schema 3 split apart.
-
-    An `unclear` or `not_applicable` referent leaves it `unclear`: a row that
-    could not name what the word was applied to is no evidence that it was
-    applied to anything. That residue is not resolved, and 15 publishes how
-    large it is.
-    """
-    if stance == "not_applicable" or referent == "not_applicable":
-        return "not_applicable"
-    if referent in NON_CASE_REFERENTS:
-        return "no"
-    if referent == "unclear" or not referent or stance == "unclear":
-        return "unclear"
-    return "yes"
+from .schema import LEGACY_SCHEMA_VERSION as LEGACY_SCHEMA_VERSION
+from .schema import NON_CASE_REFERENTS as NON_CASE_REFERENTS
+from .schema import POSITION_FROM_STANCE as POSITION_FROM_STANCE
+from .schema import STANCES as STANCES
+from .schema import concrete_case_from_v1 as concrete_case_from_v1
 
 CANDIDATE_REQUIRED = frozenset(
     {
@@ -195,60 +76,6 @@ CANDIDATE_REQUIRED = frozenset(
     }
 )
 
-#: The columns of `annotations/**/annotations.csv` at schema 3, in file order.
-#:
-#: They mirror the model run's own fields one for one, which is the property
-#: that makes the two layers commensurable and the reason a change to either is
-#: a change to both. `rationale` is required and is one sentence on why the
-#: position and the case decision are what they are; `comment` stays free-form
-#: for everything else, including the pair a compound referent leaves behind.
-ANNOTATION_FIELDS = (
-    "occurrence_id",
-    "schema_version",
-    "lexicon_version",
-    "coder",
-    "coded_at",
-    "verdict",
-    "source_checked",
-    "quotation",
-    "concrete_case",
-    "speaker_position",
-    "function",
-    "referent",
-    "referent_source",
-    "accused_actor",
-    "victim_group",
-    "own_state_accused",
-    "salience",
-    "evidence_start",
-    "evidence_end",
-    "rationale",
-    "confidence",
-    "comment",
-)
-
-#: The schema-2 columns, for reading a file coded before the split. No such file
-#: exists — both `annotations.csv` are header-only, and always were — so this
-#: says what version 2 was and is the shape a migration would read.
-LEGACY_ANNOTATION_FIELDS = (
-    "occurrence_id",
-    "schema_version",
-    "lexicon_version",
-    "coder",
-    "coded_at",
-    "verdict",
-    "source_checked",
-    "quotation",
-    "stance",
-    "function",
-    "referent",
-    "evidence_start",
-    "evidence_end",
-    "confidence",
-    "comment",
-)
-
-
 def source_sha256(text: str) -> str:
     """A digest that invalidates an occurrence identity when its source changes."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -267,234 +94,6 @@ def occurrence_id(
     return hashlib.sha256(identity.encode("utf-8")).hexdigest()
 
 
-def candidate_id(occurrence: str, sampling_frame: str) -> str:
-    """Identity for one occurrence's place in a named sampling frame."""
-    return hashlib.sha256(f"{occurrence}\x1f{sampling_frame}".encode()).hexdigest()
-
-
-def _digest(values: list[str]) -> str:
-    return hashlib.sha256("\n".join(sorted(values)).encode("utf-8")).hexdigest()
-
-
-def _rank(value: str, seed: int) -> str:
-    return hashlib.sha256(f"{seed}\x1f{value}".encode()).hexdigest()
-
-
-def probability_sample(
-    frame: pd.DataFrame, size: int, seed: int, sampling_frame: str
-) -> pd.DataFrame:
-    """A row-order-independent equal-probability sample of occurrences."""
-    if size < 1:
-        raise ValueError("Sample size must be positive.")
-    if frame["occurrence_id"].duplicated().any():
-        raise ValueError("A sampling frame may contain each occurrence only once.")
-    population = len(frame)
-    draw = min(size, population)
-    ranked = frame.assign(
-        _draw=frame["occurrence_id"].map(lambda value: _rank(str(value), seed))
-    ).sort_values(["_draw", "occurrence_id"])
-    selected = ranked.head(draw).drop(columns="_draw").copy()
-    probability = draw / population if population else 0.0
-    selected["sampling_frame"] = sampling_frame
-    selected["strategy"] = "simple random occurrence sample"
-    selected["seed"] = seed
-    selected["frame_size"] = population
-    selected["sample_size"] = draw
-    selected["inclusion_probability"] = probability
-    selected["sampling_weight"] = 1 / probability if probability else float("nan")
-    selected["stratum_size"] = population
-    frame_digest = _digest(frame["occurrence_id"].astype(str).tolist())
-    selected["frame_sha256"] = frame_digest
-    selected["sample_sha256"] = _digest(
-        [sampling_frame, str(seed), frame_digest, *selected["occurrence_id"].astype(str).tolist()]
-    )
-    selected["candidate_id"] = selected["occurrence_id"].map(
-        lambda value: candidate_id(str(value), sampling_frame)
-    )
-    return selected.sort_values(["term", "filename", "start"]).reset_index(drop=True)
-
-
-def stratified_sample(
-    frame: pd.DataFrame,
-    sizes: Mapping[str, int | None],
-    seed: int,
-    sampling_frame: str,
-    *,
-    stratum_column: str = "stratum",
-    strategy: str = "disproportionate stratified occurrence sample",
-) -> pd.DataFrame:
-    """A fixed number of occurrences from each named stratum, at its own probability.
-
-    :func:`probability_sample` gives every occurrence the same chance and is the
-    frame an unbiased estimate is computed from. This is the other kind: the
-    strata are chosen precisely because they are rare or contested, each is
-    sampled at a rate of its own, and the rates differ by two orders of
-    magnitude. Nothing drawn here estimates a corpus quantity, and the
-    `inclusion_probability` it records is what says so — a reader who wants an
-    estimate weights by it, and a reader who wants per-class recall on
-    `rejects_or_denies` reads the stratum unweighted and is right to.
-
-    `sizes` maps a stratum name to how many to draw from it, or to None for a
-    census — all of it, at probability 1, which is what a stratum of 134 rows
-    that the whole design exists to measure deserves. A stratum smaller than its
-    size is likewise taken whole; a stratum named in `sizes` and absent from the
-    frame contributes nothing and is not an error, because a design written
-    against two model runs must survive a run that found none of something.
-
-    Rows whose stratum is blank or absent from `sizes` are outside the frame and
-    are not drawn. The stratum column is expected to be *disjoint* — one stratum
-    per occurrence, assigned in a precedence the caller decides — because
-    overlapping strata make the inclusion probability of a row the union of
-    several draws, and nothing downstream could reconstruct it from what is
-    recorded here.
-    """
-    if frame["occurrence_id"].duplicated().any():
-        raise ValueError("A sampling frame may contain each occurrence only once.")
-    frame_digest = _digest(frame["occurrence_id"].astype(str).tolist())
-    selected: list[pd.DataFrame] = []
-    for name, size in sizes.items():
-        if size is not None and size < 1:
-            raise ValueError(f"Stratum {name!r} asks for {size} occurrences.")
-        stratum = frame.loc[frame[stratum_column].astype(str) == name]
-        if stratum.empty:
-            continue
-        population = len(stratum)
-        draw = population if size is None else min(size, population)
-        ranked = stratum.assign(
-            _draw=stratum["occurrence_id"].map(lambda value: _rank(str(value), seed))
-        ).sort_values(["_draw", "occurrence_id"])
-        chosen = ranked.head(draw).drop(columns="_draw").copy()
-        chosen["stratum_size"] = population
-        chosen["sample_size"] = draw
-        chosen["inclusion_probability"] = draw / population
-        chosen["sampling_weight"] = population / draw
-        selected.append(chosen)
-
-    if not selected:
-        return frame.iloc[0:0].copy()
-    sample = pd.concat(selected, ignore_index=True)
-    sample["sampling_frame"] = sampling_frame
-    sample["strategy"] = strategy
-    sample["seed"] = seed
-    sample["frame_size"] = len(frame)
-    sample["frame_sha256"] = frame_digest
-    sample["sample_sha256"] = _digest(
-        [sampling_frame, str(seed), frame_digest, *sample["occurrence_id"].astype(str).tolist()]
-    )
-    sample["candidate_id"] = sample["occurrence_id"].map(
-        lambda value: candidate_id(str(value), sampling_frame)
-    )
-    return sample.sort_values([stratum_column, "filename", "start"]).reset_index(drop=True)
-
-
-def coverage_inclusion(
-    frame: pd.DataFrame, size: int, *, strata: tuple[str, ...] = ("term", "period")
-) -> pd.Series:
-    """Every occurrence's probability of entering :func:`coverage_sample`.
-
-    One anchor per stratum at `1 / stratum size`, then a simple random fill of
-    what is left: a unit is included as its stratum's anchor or, failing that,
-    by the fill. The same arithmetic `coverage_sample` records for the rows it
-    draws, computed for every row of the frame, which is what a design-weighted
-    estimate over several frames needs.
-    """
-    if frame.empty:
-        return pd.Series(dtype=float, index=frame.index)
-    stratum_sizes = frame.groupby(list(strata))["occurrence_id"].transform("size")
-    strata_total = frame.groupby(list(strata)).ngroups
-    remaining_total = len(frame) - strata_total
-    fill_draws = min(max(size - strata_total, 0), remaining_total)
-    fill_probability = fill_draws / remaining_total if remaining_total else 0.0
-    anchor = 1 / stratum_sizes
-    return anchor + (1 - anchor) * fill_probability
-
-
-def union_inclusion(*probabilities: pd.Series) -> pd.Series:
-    """The probability of entering at least one of several independent draws.
-
-    `1 - prod(1 - p_f)`. The frames are drawn with different seeds of the same
-    hash ranking, which is what licenses treating them as independent.
-    """
-    missed = pd.Series(1.0, index=probabilities[0].index)
-    for probability in probabilities:
-        missed = missed * (1 - probability.fillna(0.0))
-    return 1 - missed
-
-
-def coverage_sample(
-    frame: pd.DataFrame,
-    size: int,
-    seed: int,
-    *,
-    strata: tuple[str, ...] = ("term", "period"),
-) -> pd.DataFrame:
-    """Cover each stratum once, then fill randomly with recorded probabilities."""
-    if size < 1:
-        raise ValueError("Sample size must be positive.")
-    if frame["occurrence_id"].duplicated().any():
-        raise ValueError("A sampling frame may contain each occurrence only once.")
-    if frame.empty:
-        return probability_sample(frame, size, seed, COVERAGE)
-
-    ranked = frame.assign(
-        _anchor=frame["occurrence_id"].map(lambda value: _rank(str(value), seed))
-    )
-    anchors = (
-        ranked.sort_values(["_anchor", "occurrence_id"])
-        .groupby(list(strata), sort=True)
-        .head(1)
-    )
-    strata_total = len(anchors)
-    if size < strata_total:
-        raise ValueError(
-            f"Coverage sample size {size} is smaller than its {strata_total} strata."
-        )
-    remaining = ranked.drop(index=anchors.index).assign(
-        _fill=lambda rows: rows["occurrence_id"].map(
-            lambda value: _rank(str(value), seed + 1)
-        )
-    )
-    fill_draws = min(size - strata_total, len(remaining))
-    selected = pd.concat(
-        [anchors, remaining.sort_values(["_fill", "occurrence_id"]).head(fill_draws)]
-    ).copy()
-    stratum_sizes = frame.groupby(list(strata))["occurrence_id"].size()
-    remaining_total = len(frame) - strata_total
-    fill_probability = fill_draws / remaining_total if remaining_total else 0.0
-
-    def inclusion(row: pd.Series) -> float:
-        stratum = tuple(row[field] for field in strata)
-        stratum_size = int(stratum_sizes.loc[stratum])
-        anchor_probability = 1 / stratum_size
-        return anchor_probability + (1 - anchor_probability) * fill_probability
-
-    selected["stratum_size"] = selected.apply(
-        lambda row: int(stratum_sizes.loc[tuple(row[field] for field in strata)]), axis=1
-    )
-    selected["inclusion_probability"] = selected.apply(inclusion, axis=1)
-    selected["sampling_weight"] = 1 / selected["inclusion_probability"]
-    selected["sampling_frame"] = COVERAGE
-    selected["strategy"] = "one per term-period stratum, then simple random fill"
-    selected["seed"] = seed
-    selected["frame_size"] = len(frame)
-    selected["sample_size"] = len(selected)
-    selected["strata_total"] = strata_total
-    selected["fill_draws"] = fill_draws
-    frame_digest = _digest(frame["occurrence_id"].astype(str).tolist())
-    selected["frame_sha256"] = frame_digest
-    selected["sample_sha256"] = _digest(
-        [COVERAGE, str(seed), frame_digest, *selected["occurrence_id"].astype(str).tolist()]
-    )
-    selected["candidate_id"] = selected["occurrence_id"].map(
-        lambda value: candidate_id(str(value), COVERAGE)
-    )
-    return (
-        selected.drop(columns=["_anchor", "_fill"], errors="ignore")
-        .sort_values([*strata, "filename", "start"])
-        .reset_index(drop=True)
-    )
-
-
 def _period(year: int) -> str:
     return f"{year // 10 * 10}s"
 
@@ -502,19 +101,36 @@ def _period(year: int) -> str:
 def audit_sample(
     speeches: pd.DataFrame,
     bodies: pd.Series,
-    counts: pd.DataFrame,
     lex: lexicon.Lexicon,
     size: int,
     seed: int,
+    *,
+    found: Mapping[str, Mapping[object, list[tuple[int, int]]]] | None = None,
 ) -> pd.DataFrame:
-    """Separate probability, coverage and high-recall negative audit samples."""
+    """Separate probability, coverage and high-recall negative audit samples.
+
+    `found` is :func:`lib.lexicon.find_all` over the same bodies and every term,
+    enabled or not: 03 has those spans from counting, and drawing the sample
+    from them rather than matching the corpus again is what guarantees the
+    sample is of the occurrences that were counted.
+    """
+    if found is None:
+        found = lexicon.find_all(bodies, lex.terms.values())
     rows: list[dict[str, object]] = []
     years = speeches["year"].to_dict()
+    # Looked up per column rather than a whole row per occurrence: a row of a
+    # fifty-column frame costs about a millisecond, and there are eighty
+    # thousand occurrences. A speech's digest is likewise taken once.
+    columns = ["filename", "meeting_symbol", "date", "country_org", "agenda_item_manual"]
+    metadata = {column: speeches[column].to_dict() for column in columns}
+    digests: dict[object, str] = {}
 
     def append(term: lexicon.Term, index: object, body: str, start: int, end: int) -> None:
-        meta = speeches.loc[index]
+        meta = {column: values[index] for column, values in metadata.items()}
         left, keyword, right = text_lib.window(body, start, end)
-        source_digest = source_sha256(body)
+        source_digest = digests.get(index)
+        if source_digest is None:
+            source_digest = digests[index] = source_sha256(body)
         occurrence = occurrence_id(
             str(meta["filename"]), term.name, start, end, keyword, source_digest
         )
@@ -544,9 +160,9 @@ def audit_sample(
         )
 
     for term in lex.active:
-        holders = counts.index[counts[f"{lexicon.HAS}{term.name}"]]
-        for index, body in bodies.loc[holders].items():
-            for start, end in term.spans(body):
+        for index, spans in found[term.name].items():
+            body = bodies.at[index]
+            for start, end in spans:
                 append(term, index, body, start, end)
     if not rows:
         return pd.DataFrame()
@@ -570,11 +186,9 @@ def audit_sample(
     rows.clear()
     for term in lex.disabled:
         peers = [peer for peer in lex.active if peer.tier == term.tier]
-        for index, body in bodies.items():
-            matches = term.spans(body)
-            if not matches:
-                continue
-            peer_spans = [span for peer in peers for span in peer.spans(body)]
+        for index, matches in found[term.name].items():
+            body = bodies.at[index]
+            peer_spans = [span for peer in peers for span in found[peer.name].get(index, [])]
             for start, end in matches:
                 overlaps = any(
                     start < peer_end and peer_start < end
@@ -684,66 +298,16 @@ class ReferentList:
 def read_referent_list(path: Path) -> ReferentList:
     """Read the controlled list with its retirements and its version.
 
-    The identifier checks live here rather than in the caller because every
-    reader of this file depends on them: an identifier with surrounding
-    whitespace, a blank one or a duplicate would each fragment one referent into
-    two silently, which is the failure the controlled list exists to prevent. A
-    file that has not yet grown the version columns is read as version 1 with
-    nothing retired, which is what it meant before they existed.
+    Parsed, and held to every rule of the list, by `lib.referents`; this is
+    the view that keeps an older run readable. A file that has not yet grown
+    the version columns is read as version 1 with nothing retired, which is
+    what it meant before they existed.
     """
-    table = pd.read_csv(path, dtype="string", keep_default_na=False)
-    required = {"id", "label", "description"}
-    missing = sorted(required - set(table.columns))
-    if missing:
-        raise ValueError(f"Referent file is missing columns: {', '.join(missing)}")
-    identifiers = table["id"].astype(str)
-    if identifiers.str.strip().ne(identifiers).any():
-        raise ValueError("Referent IDs must not contain surrounding whitespace.")
-    if identifiers.eq("").any() or identifiers.duplicated().any():
-        raise ValueError("Referent IDs must be nonempty and unique.")
-    missing_defaults = sorted(DEFAULT_REFERENTS - set(identifiers))
-    if missing_defaults:
-        raise ValueError(
-            "Referent file is missing reserved IDs: " + ", ".join(missing_defaults)
-        )
+    # Imported here: `lib.referents` takes `ReferentList` from this module, so a
+    # module-level import would be circular.
+    from . import referents
 
-    since: dict[str, int] = {}
-    retired_in: dict[str, int] = {}
-    superseded_by: dict[str, str] = {}
-    for values in table.to_dict(orient="records"):
-        name = str(values["id"])
-        since[name] = _version_cell(values.get("since"), name, "since", default=1)
-        if retired := _version_cell(values.get("retired_in"), name, "retired_in", default=0):
-            retired_in[name] = retired
-        if successor := str(values.get("superseded_by") or "").strip():
-            superseded_by[name] = successor
-
-    unknown = sorted(set(superseded_by.values()) - set(since))
-    if unknown:
-        raise ValueError(
-            "Referent file supersedes IDs onto ones it does not hold: " + ", ".join(unknown)
-        )
-    stranded = sorted(name for name in superseded_by if name not in retired_in)
-    if stranded:
-        raise ValueError(
-            "Referent file names a successor for IDs it has not retired: " + ", ".join(stranded)
-        )
-    return ReferentList(
-        version=max([*since.values(), *retired_in.values(), 1]),
-        since=since,
-        retired_in=retired_in,
-        superseded_by=superseded_by,
-    )
-
-
-def _version_cell(value: object, name: str, column: str, *, default: int) -> int:
-    """One version number from the file, or the default an empty cell means."""
-    text = str(value or "").strip()
-    if not text:
-        return default
-    if not text.isdigit() or int(text) < 1:
-        raise ValueError(f"Referent '{name}' has a non-numeric {column}: {text}")
-    return int(text)
+    return referents.read(path).listing()
 
 
 def read_referents(path: Path) -> set[str]:
@@ -757,38 +321,6 @@ def read_referents(path: Path) -> set[str]:
     identifiers too.
     """
     return read_referent_list(path).current
-
-
-#: Fields a false positive must answer with `not_applicable`.
-CASCADE_FIELDS: Final = (
-    "quotation",
-    "concrete_case",
-    "speaker_position",
-    "function",
-    "referent",
-    "referent_source",
-    "own_state_accused",
-    "salience",
-)
-
-#: Fields a false positive must leave empty.
-FREE_TEXT_CASCADE_FIELDS: Final = ("accused_actor", "victim_group")
-
-#: Fields in which `not_applicable` means "false positive" and nothing else.
-#:
-#: A strict subset of :data:`CASCADE_FIELDS`, and the three left out are left
-#: out deliberately. `referent_source`, `own_state_accused` and `salience` each
-#: have a real "there is nothing here to record" answer — no referent to place,
-#: no one accused, no occurrence to weigh — which is a fact about the passage
-#: and not about the verdict. Sharing one spelling with the cascade is a smaller
-#: cost than a fourth value in three vocabularies.
-RESERVED_FIELDS: Final = (
-    "quotation",
-    "concrete_case",
-    "speaker_position",
-    "function",
-    "referent",
-)
 
 
 def _annotation_values(row: pd.Series, field: str, allowed: frozenset[str]) -> None:

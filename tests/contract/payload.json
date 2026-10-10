@@ -43,6 +43,13 @@
   },
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "codebook_tokens": "int",
    "configs": [
     {
@@ -127,6 +134,13 @@
   ],
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "configs": [
     {
      "bytes": "int",
@@ -538,6 +552,13 @@
   "denominator_rule": "str",
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "configs": [
     {
      "bytes": "int",
@@ -723,6 +744,13 @@
   ],
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "configs": [
     {
      "bytes": "int",
@@ -755,6 +783,13 @@
  "kwic/index.json": {
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "configs": [
     {
      "bytes": "int",
@@ -798,6 +833,13 @@
  "lexical/collocates.json": {
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "configs": [
     {
      "bytes": "int",
@@ -1270,6 +1312,13 @@
   },
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "configs": [
     {
      "bytes": "int",
@@ -1342,6 +1391,13 @@
   ],
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "configs": [
     {
      "bytes": "int",
@@ -1435,6 +1491,13 @@
   ],
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "configs": [
     {
      "bytes": "int",
@@ -1515,6 +1578,13 @@
   ],
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "configs": [
     {
      "bytes": "int",
@@ -1567,6 +1637,13 @@
   ],
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "configs": [
     {
      "bytes": "int",
@@ -1657,6 +1734,13 @@
   "freq": "str",
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "codebook_tokens": "int",
    "configs": [
     {
@@ -1818,6 +1902,13 @@
   },
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "codebook_tokens": "int",
    "configs": [
     {
@@ -1919,6 +2010,13 @@
   },
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "codebook_tokens": "int",
    "configs": [
     {
@@ -2016,6 +2114,13 @@
  "series/decomposition.json": {
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "codebook_tokens": "int",
    "configs": [
     {
@@ -2102,6 +2207,13 @@
   ],
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "codebook_tokens": "int",
    "configs": [
     {
@@ -2181,6 +2293,13 @@
   "informative_zero_minimum": "int",
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "codebook_tokens": "int",
    "configs": [
     {
@@ -2378,6 +2497,13 @@
   "freq": "str",
   "meta": {
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "codebook_tokens": "int",
    "configs": [
     {
@@ -2459,28 +2585,10 @@
   ],
   "meta": {
    "analysis_hash": "str",
-   "configs": [
-    {
-     "bytes": "int",
-     "path": "str",
-     "sha256": "str"
-    }
-   ],
    "generated": "str",
    "git_commit": "str",
-   "inputs": [
-    {
-     "bytes": "int",
-     "path": "str",
-     "sha256": "str"
-    }
-   ],
    "lexicon_version": "int",
-   "packages": {
-    "*": "str"
-   },
-   "python": "str",
-   "scope": "str",
+   "provenance": "str",
    "script": "str"
   },
   "region": "str",
@@ -2521,6 +2629,13 @@
   "meta": {
    "allow_partial": "bool",
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "configs": [
     {
      "bytes": "int",
@@ -2584,6 +2699,39 @@
     "victim_group": "str"
    }
   ]
+ },
+ "usage/referents.json": {
+  "meta": {
+   "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "configs": [],
+   "generated": "str",
+   "git_commit": "str",
+   "inputs": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
+   "lexicon_version": "int",
+   "packages": {
+    "*": "str"
+   },
+   "python": "str",
+   "referents_version": "int",
+   "run_id": "str",
+   "script": "str"
+  },
+  "placements": {
+   "*": "str"
+  }
  },
  "usage/usage.json": {
   "actors": [
@@ -2712,6 +2860,13 @@
   "meta": {
    "allow_partial": "bool",
    "analysis_hash": "str",
+   "code": [
+    {
+     "bytes": "int",
+     "path": "str",
+     "sha256": "str"
+    }
+   ],
    "configs": [
     {
      "bytes": "int",

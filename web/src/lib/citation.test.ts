@@ -62,7 +62,7 @@ function parseRis(text: string): Record<string, string[]> {
 	for (const row of text.split('\r\n')) {
 		const match = /^([A-Z][A-Z0-9])\s{2}- ?(.*)$/.exec(row);
 		if (!match) continue;
-		(fields[match[1]] ??= []).push(match[2]);
+		(fields[match[1]!] ??= []).push(match[2]!);
 	}
 	return fields;
 }
@@ -77,7 +77,7 @@ function parseBibtex(text: string): { type: string; key: string; fields: Record<
 	const fields: Record<string, string> = {};
 	for (const row of text.split('\n').slice(1)) {
 		const match = /^\t(\w+) = \{([\s\S]*)\},$/.exec(row);
-		if (match) fields[match[1]] = unTex(match[2]);
+		if (match) fields[match[1]!] = unTex(match[2]!);
 	}
 	return { type: head?.[1] ?? '', key: head?.[2] ?? '', fields };
 }
@@ -184,7 +184,7 @@ describe('RIS', () => {
 		expect(fields.PY).toEqual(['2014']);
 		expect(fields.UR).toEqual([URL]);
 		expect(fields.Y2).toEqual(['2026/08/27']);
-		expect(fields.N1[0]).toContain('occurrence UNSC_2014_SPV.7000_spch0001#1');
+		expect(fields.N1![0]).toContain('occurrence UNSC_2014_SPV.7000_spch0001#1');
 	});
 });
 

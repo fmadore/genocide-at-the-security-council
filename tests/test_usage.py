@@ -1,8 +1,9 @@
 """The usage aggregation, checked on constructed rows.
 
 `15_usage.py` reads a run that needs a serving GPU and a corpus that CI does
-not have, so everything it decides lives in `lib.usage` and `lib.usage_refusals`
-and is asserted here against rows written by hand. Two kinds of assertion:
+not have, so everything it decides lives in `lib.usage`, `lib.agreement`,
+`lib.gold_estimates`, `lib.usage_comparison` and `lib.usage_refusals` and is
+asserted here against rows written by hand. Two kinds of assertion:
 
 - **Recounts.** The aggregation is compared against a brute-force count of the
   same fabricated rows, written in plain loops. A groupby that agrees with a
@@ -21,7 +22,19 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from lib import audit, lexicon, llm, usage, usage_refusals
+from lib import (
+    agreement,
+    audit,
+    console,
+    gold_estimates,
+    lexicon,
+    prompts,
+    sampling,
+    schema,
+    usage,
+    usage_comparison,
+    usage_refusals,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -164,7 +177,7 @@ def test_the_funnel_counts_what_each_gate_removes() -> None:
 def test_every_speaker_position_key_is_written_even_when_nothing_used_it() -> None:
     counts = usage.position_counts(rows({"speaker_position": "asserts"}))
     assert list(counts) == list(usage.POSITIONS)
-    assert set(counts) == set(audit.POSITIONS)
+    assert set(counts) == set(schema.POSITIONS)
     assert counts["asserts"] == 1
     assert all(counts[key] == 0 for key in usage.POSITIONS if key != "asserts")
 
@@ -592,22 +605,22 @@ RIGHT = ["yes", "yes", "yes", "yes", "no", "no", "yes", "no", "no", "no"]
 
 
 def test_observed_agreement_and_kappa_match_the_hand_computation() -> None:
-    assert usage.observed_agreement(LEFT, RIGHT) == 0.7
-    assert usage.cohens_kappa(LEFT, RIGHT) == 0.4
+    assert agreement.observed_agreement(LEFT, RIGHT) == 0.7
+    assert agreement.cohens_kappa(LEFT, RIGHT) == 0.4
 
 
 def test_kappa_is_none_where_it_is_not_defined() -> None:
     # One category throughout: the two agreed completely, chance predicts
     # complete agreement, and 1 - p_e is zero. 0.0 would say the opposite.
-    assert usage.observed_agreement(["yes"] * 5, ["yes"] * 5) == 1.0
-    assert usage.cohens_kappa(["yes"] * 5, ["yes"] * 5) is None
-    assert usage.cohens_kappa([], []) is None
-    assert usage.observed_agreement([], []) is None
+    assert agreement.observed_agreement(["yes"] * 5, ["yes"] * 5) == 1.0
+    assert agreement.cohens_kappa(["yes"] * 5, ["yes"] * 5) is None
+    assert agreement.cohens_kappa([], []) is None
+    assert agreement.observed_agreement([], []) is None
 
 
 def test_paired_labels_of_different_lengths_are_refused() -> None:
     with pytest.raises(ValueError, match="paired labels"):
-        usage.observed_agreement(["a", "b"], ["a"])
+        agreement.observed_agreement(["a", "b"], ["a"])
 
 
 # Five judgements over three classes:
@@ -628,9 +641,9 @@ def test_the_per_class_table_matches_the_hand_computation() -> None:
     # `floor=1`: the hand computation is over five judgements, and the support
     # floor the artefact publishes at would withhold all three rates. What the
     # floor does is asserted separately, below.
-    table = {row["label"]: row for row in usage.per_class(REFERENCE, PREDICTED, floor=1)}
+    table = {row["label"]: row for row in agreement.per_class(REFERENCE, PREDICTED, floor=1)}
     assert [
-        row["label"] for row in usage.per_class(REFERENCE, PREDICTED, floor=1)
+        row["label"] for row in agreement.per_class(REFERENCE, PREDICTED, floor=1)
     ] == ["a", "b", "c"]
     assert (table["a"]["precision"], table["a"]["recall"], table["a"]["f1"]) == (
         1.0,
@@ -648,7 +661,7 @@ def test_the_per_class_table_matches_the_hand_computation() -> None:
 
 def test_accuracy_and_macro_f1_match_the_hand_computation() -> None:
     # weighted-F1 = (2 * 0.666667 + 2 * 0.800 + 1 * 1.000) / 5 = 0.786667
-    scored = usage.classification(REFERENCE, PREDICTED, floor=1)
+    scored = agreement.classification(REFERENCE, PREDICTED, floor=1)
     assert scored is not None
     assert scored["n"] == 5
     assert scored["accuracy"] == 0.8
@@ -659,15 +672,15 @@ def test_accuracy_and_macro_f1_match_the_hand_computation() -> None:
 def test_macro_f1_is_none_on_a_degenerate_comparison() -> None:
     # One category on both sides: the F1 of the only class says nothing about
     # telling classes apart.
-    scored = usage.classification(["a", "a"], ["a", "a"])
+    scored = agreement.classification(["a", "a"], ["a", "a"])
     assert scored is not None
     assert scored["accuracy"] == 1.0
     assert scored["macro_f1"] is None
-    assert usage.classification([], []) is None
+    assert agreement.classification([], []) is None
 
 
 def test_the_abstention_rate_counts_the_field_s_own_declining_label() -> None:
-    scored = usage.classification(
+    scored = agreement.classification(
         ["true_positive"] * 4, ["true_positive", "uncertain", "uncertain", "false_positive"],
         abstention="uncertain",
     )
@@ -680,8 +693,8 @@ def test_the_multi_label_field_is_scored_by_overlap() -> None:
     # {a,b} vs {a}        -> 1/2
     # {a} vs {c}          -> 0
     # mean = (1 + 0.5 + 0) / 3 = 0.5
-    assert usage.jaccard(["a", "a|b", "a"], ["a", "a", "c"]) == 0.5
-    assert usage.jaccard([], []) is None
+    assert agreement.jaccard(["a", "a|b", "a"], ["a", "a", "c"]) == 0.5
+    assert agreement.jaccard([], []) is None
 
 
 # --- The gold sample --------------------------------------------------------
@@ -690,7 +703,7 @@ def test_the_multi_label_field_is_scored_by_overlap() -> None:
 def annotation(occurrence: str, coder: str, **changes: str) -> dict[str, str]:
     base = {
         "occurrence_id": occurrence,
-        "schema_version": audit.SCHEMA_VERSION,
+        "schema_version": schema.SCHEMA_VERSION,
         "lexicon_version": "2",
         "coder": coder,
         "coded_at": "2026-09-01",
@@ -717,19 +730,19 @@ def annotation(occurrence: str, coder: str, **changes: str) -> dict[str, str]:
 
 def annotations(*records: dict[str, str]) -> pd.DataFrame:
     if not records:
-        return pd.DataFrame(columns=list(audit.ANNOTATION_FIELDS))
-    return pd.DataFrame(records).loc[:, list(audit.ANNOTATION_FIELDS)]
+        return pd.DataFrame(columns=list(schema.ANNOTATION_FIELDS))
+    return pd.DataFrame(records).loc[:, list(schema.ANNOTATION_FIELDS)]
 
 
 def test_the_gold_state_moves_from_not_started_to_complete() -> None:
-    empty = usage.gold_block(
+    empty = gold_estimates.gold_block(
         annotations(), rows(), sample_size=200, unique_occurrences=2
     )
     assert empty["state"] == "not_started"
     assert (empty["coders"], empty["double_coded"], empty["adjudicated"]) == ([], 0, 0)
     assert (empty["human_agreement"], empty["model_vs_human"]) == ([], [])
 
-    started = usage.gold_block(
+    started = gold_estimates.gold_block(
         annotations(annotation("occ-000", "FM")), rows(), sample_size=200,
         unique_occurrences=2,
     )
@@ -737,7 +750,7 @@ def test_the_gold_state_moves_from_not_started_to_complete() -> None:
     assert started["coders"] == [{"coder": "FM", "rows": 1}]
     assert started["double_coded"] == 0
 
-    done = usage.gold_block(
+    done = gold_estimates.gold_block(
         annotations(
             annotation("occ-000", "FM"),
             annotation("occ-000", "JG"),
@@ -754,8 +767,8 @@ def test_the_gold_state_moves_from_not_started_to_complete() -> None:
 
 
 def test_a_file_of_blank_rows_is_still_not_started() -> None:
-    blank = annotations(dict.fromkeys(audit.ANNOTATION_FIELDS, ""))
-    assert usage.gold_block(
+    blank = annotations(dict.fromkeys(schema.ANNOTATION_FIELDS, ""))
+    assert gold_estimates.gold_block(
         blank, rows(), sample_size=200, unique_occurrences=2
     )["state"] == "not_started"
 
@@ -768,8 +781,8 @@ def test_human_agreement_is_computed_over_the_double_coded_occurrences_only() ->
         annotation("occ-001", "JG", speaker_position="asserts"),
         annotation("occ-002", "FM"),  # coded once; contributes to no pair
     )
-    table = {row["field"]: row for row in usage.human_agreement(coded)}
-    assert set(table) == set(usage.SINGLE_LABEL_FIELDS)
+    table = {row["field"]: row for row in gold_estimates.human_agreement(coded)}
+    assert set(table) == set(agreement.SINGLE_LABEL_FIELDS)
     assert table["speaker_position"]["n"] == 2
     assert table["speaker_position"]["observed"] == 0.5
     # One category on the verdict field, so kappa is not defined there.
@@ -796,15 +809,15 @@ ADJUDICATED = annotations(
 
 
 def test_an_adjudicated_label_beats_the_two_coders_agreeing() -> None:
-    reference = usage.reference_labels(ADJUDICATED)
+    reference = gold_estimates.reference_labels(ADJUDICATED)
     assert reference["occ-000"]["verdict"] == "uncertain"
     assert reference["occ-001"]["verdict"] == "true_positive"
 
 
 def test_a_disagreement_nobody_adjudicated_is_left_out_rather_than_resolved() -> None:
-    reference = usage.reference_labels(ADJUDICATED)
+    reference = gold_estimates.reference_labels(ADJUDICATED)
     assert "occ-002" not in reference
-    scored = {row["field"]: row for row in usage.model_vs_human(ADJUDICATED, rows({}, {}, {}))}
+    scored = {row["field"]: row for row in gold_estimates.model_vs_human(ADJUDICATED, rows({}, {}, {}))}
     # occ-000 and occ-001 have a reference; occ-002 does not.
     assert scored["verdict"]["n"] == 2
     # The model said true_positive for both; the reference says uncertain, then
@@ -816,11 +829,11 @@ def test_the_model_is_scored_only_where_it_annotated_the_occurrence() -> None:
     # The run covers occ-001 alone, so the join leaves one comparable pair.
     scored = {
         row["field"]: row
-        for row in usage.model_vs_human(ADJUDICATED, rows({"occurrence_id": "occ-001"}))
+        for row in gold_estimates.model_vs_human(ADJUDICATED, rows({"occurrence_id": "occ-001"}))
     }
     assert scored["verdict"]["n"] == 1
     assert scored["verdict"]["accuracy"] == 1.0
-    assert usage.model_vs_human(ADJUDICATED, rows()) == []
+    assert gold_estimates.model_vs_human(ADJUDICATED, rows()) == []
 
 
 def test_the_function_overlap_uses_the_same_reference_rule() -> None:
@@ -834,8 +847,8 @@ def test_the_function_overlap_uses_the_same_reference_rule() -> None:
         annotation("occ-001", "JG", function="accountability"),
     )
     model = rows({"function": "accountability"}, {"function": "accountability"})
-    assert usage.function_jaccard(coded, model) == 1.0
-    assert usage.function_jaccard(annotations(), model) is None
+    assert gold_estimates.function_jaccard(coded, model) == 1.0
+    assert gold_estimates.function_jaccard(annotations(), model) is None
 
 
 
@@ -846,9 +859,9 @@ def test_the_minority_share_is_the_flatter_of_the_two_margins() -> None:
     # Left: 99 of 100 "a", so 1% fell outside its commonest label.
     # Right: every one "a", so nothing did. The smaller of the two governs,
     # because one flat margin is enough to make kappa's correction meaningless.
-    assert usage.minority_share(["a"] * 99 + ["b"], ["a"] * 100) == 0.0
-    assert usage.minority_share(["a"] * 99 + ["b"], ["a"] * 98 + ["b"] * 2) == 0.01
-    assert usage.minority_share([], []) is None
+    assert agreement.minority_share(["a"] * 99 + ["b"], ["a"] * 100) == 0.0
+    assert agreement.minority_share(["a"] * 99 + ["b"], ["a"] * 98 + ["b"] * 2) == 0.01
+    assert agreement.minority_share([], []) is None
 
 
 # PABAK over k categories:  ( k * p_o - 1 ) / ( k - 1 )
@@ -859,18 +872,18 @@ def test_the_minority_share_is_the_flatter_of_the_two_margins() -> None:
 def test_pabak_matches_the_hand_computation() -> None:
     left = ["a"] * 99 + ["b"]
     right = ["a"] * 100
-    assert usage.observed_agreement(left, right) == 0.99
-    assert usage.pabak(left, right, categories=3) == 0.985
-    assert usage.pabak(left, right) == 0.98
-    assert usage.pabak(left, right, categories=1) is None
-    assert usage.pabak([], [], categories=3) is None
+    assert agreement.observed_agreement(left, right) == 0.99
+    assert agreement.pabak(left, right, categories=3) == 0.985
+    assert agreement.pabak(left, right) == 0.98
+    assert agreement.pabak(left, right, categories=1) is None
+    assert agreement.pabak([], [], categories=3) is None
 
 
 def test_kappa_is_withheld_where_one_margin_is_flat_and_pabak_is_not() -> None:
     # The verdict field of both committed runs, in miniature: 99.9% agreement
     # over a field one label carries. Kappa divides by what chance leaves, which
     # is almost nothing, and returns a number that reads as failure.
-    withheld = usage.chance_corrected(["a"] * 999 + ["b"], ["a"] * 1000, categories=3)
+    withheld = agreement.chance_corrected(["a"] * 999 + ["b"], ["a"] * 1000, categories=3)
     assert withheld["kappa"] is None
     assert withheld["kappa_withheld"] is True
     assert withheld["minority_share"] == 0.0
@@ -878,7 +891,7 @@ def test_kappa_is_withheld_where_one_margin_is_flat_and_pabak_is_not() -> None:
 
     # A field with information in both margins keeps its kappa, and the flag
     # says nothing was suppressed.
-    kept = usage.chance_corrected(LEFT, RIGHT, categories=2)
+    kept = agreement.chance_corrected(LEFT, RIGHT, categories=2)
     assert kept["kappa"] == 0.4
     assert kept["kappa_withheld"] is False
     assert kept["pabak"] == 0.4  # k = 2: 2 * 0.7 - 1
@@ -887,10 +900,10 @@ def test_kappa_is_withheld_where_one_margin_is_flat_and_pabak_is_not() -> None:
 def test_a_kappa_that_was_never_defined_is_not_reported_as_withheld() -> None:
     # One category across both raters: kappa is undefined, not suppressed, and
     # the two readings are different findings.
-    undefined = usage.chance_corrected(["a"] * 5, ["a"] * 5, categories=3)
+    undefined = agreement.chance_corrected(["a"] * 5, ["a"] * 5, categories=3)
     assert undefined["kappa"] is None
     assert undefined["kappa_withheld"] is True
-    empty = usage.chance_corrected([], [], categories=3)
+    empty = agreement.chance_corrected([], [], categories=3)
     assert (empty["kappa"], empty["kappa_withheld"], empty["pabak"]) == (None, False, None)
 
 
@@ -899,14 +912,14 @@ def test_the_declared_category_counts_are_the_codebook_s_own() -> None:
     # vocabulary does; held to the codebook here so it cannot drift in silence.
     referents = audit.read_referents(ROOT / "annotations" / "lexicon" / "referents.csv")
     codebook = {
-        "verdict": len(audit.VERDICTS),
-        "quotation": len(audit.QUOTATIONS),
-        "concrete_case": len(audit.CONCRETE_CASE),
-        "speaker_position": len(audit.POSITIONS),
+        "verdict": len(schema.VERDICTS),
+        "quotation": len(schema.QUOTATIONS),
+        "concrete_case": len(schema.CONCRETE_CASE),
+        "speaker_position": len(schema.POSITIONS),
         "referent": len(referents),
     }
-    assert codebook == usage.FIELD_CATEGORIES
-    assert set(usage.FIELD_CATEGORIES) == set(usage.SINGLE_LABEL_FIELDS)
+    assert codebook == agreement.FIELD_CATEGORIES
+    assert set(agreement.FIELD_CATEGORIES) == set(agreement.SINGLE_LABEL_FIELDS)
 
 
 # --- The multi-label field ---------------------------------------------------
@@ -915,15 +928,15 @@ def test_the_declared_category_counts_are_the_codebook_s_own() -> None:
 def test_the_masi_distance_is_jaccard_weighted_by_containment() -> None:
     a, b, c = frozenset({"a"}), frozenset({"b"}), frozenset({"c"})
     # Identical: J = 1, M = 1, distance 0.
-    assert usage.masi_distance(a, a) == 0.0
+    assert agreement.masi_distance(a, a) == 0.0
     # Proper subset: J = 1/2, M = 2/3, similarity 1/3, distance 2/3.
-    assert usage.masi_distance(a, a | b) == pytest.approx(2 / 3)
+    assert agreement.masi_distance(a, a | b) == pytest.approx(2 / 3)
     # Intersecting, neither contained: J = 1/3, M = 1/3, similarity 1/9.
-    assert usage.masi_distance(a | b, a | c) == pytest.approx(1 - 1 / 9)
+    assert agreement.masi_distance(a | b, a | c) == pytest.approx(1 - 1 / 9)
     # Disjoint: distance 1.
-    assert usage.masi_distance(a, b) == 1.0
+    assert agreement.masi_distance(a, b) == 1.0
     # Two empty sets are one judgement, not a division by zero.
-    assert usage.masi_distance(frozenset(), frozenset()) == 0.0
+    assert agreement.masi_distance(frozenset(), frozenset()) == 0.0
 
 
 # Krippendorff's alpha under MASI over three units, two coders:
@@ -942,18 +955,18 @@ def test_the_masi_distance_is_jaccard_weighted_by_containment() -> None:
 #
 #   alpha = 1 - (5/9) / (23/45) = 1 - 25/23 = -2/23 = -0.086957
 def test_krippendorff_alpha_under_masi_matches_the_hand_computation() -> None:
-    assert usage.krippendorff_alpha_masi(["a", "a|b", "a"], ["a", "a", "c"]) == -0.086957
-    assert usage.krippendorff_alpha_masi([], []) is None
+    assert agreement.krippendorff_alpha_masi(["a", "a|b", "a"], ["a", "a", "c"]) == -0.086957
+    assert agreement.krippendorff_alpha_masi([], []) is None
     # Nothing but one set throughout: expected disagreement is zero, and the
     # ratio is undefined rather than a perfect score.
-    assert usage.krippendorff_alpha_masi(["a", "a"], ["a", "a"]) is None
+    assert agreement.krippendorff_alpha_masi(["a", "a"], ["a", "a"]) is None
 
 
 def test_alpha_ignores_the_order_the_labels_were_written_in() -> None:
     # The same two judgements written in two orders. Observed disagreement is
     # zero and the two units differ from each other, so the statistic has
     # something to divide by and returns perfect agreement rather than nothing.
-    assert usage.krippendorff_alpha_masi(["a|b", "b|c"], ["b|a", "c|b"]) == 1.0
+    assert agreement.krippendorff_alpha_masi(["a|b", "b|c"], ["b|a", "c|b"]) == 1.0
 
 
 def test_per_label_kappa_names_the_label_the_two_readings_differ_on() -> None:
@@ -961,14 +974,14 @@ def test_per_label_kappa_names_the_label_the_two_readings_differ_on() -> None:
     # every left-hand set and no right-hand one.
     left = ["commemoration|accountability"] * 2 + ["commemoration"] * 2
     right = ["commemoration"] * 4
-    table = {row["label"]: row for row in usage.per_label_kappa(left, right)}
+    table = {row["label"]: row for row in agreement.per_label_kappa(left, right)}
     assert table["commemoration"]["left"] == 4
     assert table["commemoration"]["right"] == 4
     # Both sides put it on every unit: one category, no chance to correct.
     assert table["commemoration"]["kappa"] is None
     assert (table["accountability"]["left"], table["accountability"]["right"]) == (2, 0)
     assert table["accountability"]["observed"] == 0.5
-    assert usage.per_label_kappa([], []) == []
+    assert agreement.per_label_kappa([], []) == []
 
 
 # --- The support floor under the per-class table -----------------------------
@@ -977,7 +990,7 @@ def test_per_label_kappa_names_the_label_the_two_readings_differ_on() -> None:
 def test_a_class_below_the_support_floor_keeps_its_counts_and_loses_its_rates() -> None:
     reference = ["a"] * 25 + ["b"] * 3
     predicted = ["a"] * 24 + ["b"] + ["b"] * 2 + ["a"]
-    table = {row["label"]: row for row in usage.per_class(reference, predicted)}
+    table = {row["label"]: row for row in agreement.per_class(reference, predicted)}
     assert table["a"]["measurable"] is True
     assert table["a"]["support"] == 25
     assert table["a"]["f1"] is not None
@@ -998,7 +1011,7 @@ def test_the_macro_average_is_over_measurable_classes_and_the_weighted_one_is_no
     # weighted = (25 * 0.96 + 3 * 0.666667) / 28 = 26/28 = 0.928571
     reference = ["a"] * 25 + ["b"] * 3
     predicted = ["a"] * 24 + ["b"] + ["b"] * 2 + ["a"]
-    scored = usage.classification(reference, predicted)
+    scored = agreement.classification(reference, predicted)
     assert scored is not None
     assert scored["macro_f1"] == 0.96
     assert scored["weighted_f1"] == 0.928571
@@ -1011,7 +1024,7 @@ def test_a_field_whose_every_class_is_rare_reports_no_macro_average() -> None:
     # and a macro-F1 over them would be an average of numbers computed in halves.
     labels = [f"case_{index}" for index in range(9)]
     reference = [label for label in labels for _ in range(2)]
-    scored = usage.classification(reference, list(reference))
+    scored = agreement.classification(reference, list(reference))
     assert scored is not None
     assert scored["macro_f1"] is None
     assert scored["weighted_f1"] == 1.0
@@ -1023,17 +1036,17 @@ def test_a_field_whose_every_class_is_rare_reports_no_macro_average() -> None:
 
 
 def test_the_excluded_share_travels_with_the_score() -> None:
-    coverage = usage.reference_coverage(ADJUDICATED)
+    coverage = gold_estimates.reference_coverage(ADJUDICATED)
     # Three double-coded occurrences; occ-002's coders differ on every field.
     assert coverage["speaker_position"]["available"] == 3
     assert coverage["speaker_position"]["resolved"] == 2
     assert coverage["speaker_position"]["excluded"] == 1
     assert coverage["speaker_position"]["excluded_share"] == 0.333333
-    scored = {row["field"]: row for row in usage.model_vs_human(ADJUDICATED, rows({}, {}, {}))}
+    scored = {row["field"]: row for row in gold_estimates.model_vs_human(ADJUDICATED, rows({}, {}, {}))}
     assert scored["speaker_position"]["double_coded"] == 3
     assert scored["speaker_position"]["excluded"] == 1
     assert scored["speaker_position"]["excluded_share"] == 0.333333
-    assert usage.reference_coverage(annotations()) == {}
+    assert gold_estimates.reference_coverage(annotations()) == {}
 
 
 def test_the_two_coders_function_sets_are_compared_as_sets_not_as_strings() -> None:
@@ -1044,7 +1057,7 @@ def test_the_two_coders_function_sets_are_compared_as_sets_not_as_strings() -> N
         annotation("occ-000", "JG", function="commemoration|accountability"),
     )
     model = rows({"function": "accountability|commemoration"})
-    assert usage.function_jaccard(coded, model) == 1.0
+    assert gold_estimates.function_jaccard(coded, model) == 1.0
 
 
 def test_the_coders_multi_label_agreement_reports_alpha_and_the_label_table() -> None:
@@ -1054,7 +1067,7 @@ def test_the_coders_multi_label_agreement_reports_alpha_and_the_label_table() ->
         annotation("occ-001", "FM", function="accountability|commemoration"),
         annotation("occ-001", "JG", function="commemoration"),
     )
-    block = usage.human_function_agreement(coded)
+    block = gold_estimates.human_function_agreement(coded)
     assert block["n"] == 2
     assert block["jaccard"] == 0.75  # (1 + 1/2) / 2
     assert block["alpha_masi"] is not None
@@ -1062,14 +1075,14 @@ def test_the_coders_multi_label_agreement_reports_alpha_and_the_label_table() ->
         "accountability",
         "commemoration",
     }
-    empty = usage.human_function_agreement(annotations())
+    empty = gold_estimates.human_function_agreement(annotations())
     assert (empty["n"], empty["alpha_masi"], empty["labels"]) == (0, None, [])
 
 # --- The second opinion -----------------------------------------------------
 
 
 def second_run(*changes: dict[str, object]) -> list[dict[str, object]]:
-    """A comparison run's rows, in the shape `lib.llm.read_rows` returns them.
+    """A comparison run's rows, in the shape `lib.model_runs.read_rows` gives them.
 
     A list of dicts and not a frame, because that is what `15_usage.py` has in
     hand when it reads a second run: the comparison never joins the corpus, so
@@ -1091,7 +1104,7 @@ def test_a_field_is_contested_only_where_the_two_runs_label_it_differently() -> 
         {"speaker_position": "rejects"},
         {"speaker_position": "unclear"},
     )
-    table = {row["field"]: row for row in usage.comparison_fields(published, second)}
+    table = {row["field"]: row for row in usage_comparison.comparison_fields(published, second)}
     assert table["speaker_position"]["n"] == 3
     assert table["speaker_position"]["contested"] == 2
     # The other three fields are identical in both runs and contest nothing.
@@ -1107,20 +1120,20 @@ def test_the_multi_label_field_is_compared_as_a_set() -> None:
     # are not a disagreement; a strictly larger set is.
     published = rows({"function": "a|b"}, {"function": "a"})
     second = second_run({"function": "b|a"}, {"function": "a|b"})
-    contested = usage.contested_rows(published, second)
+    contested = usage_comparison.contested_rows(published, second)
     assert contested["occ-000"] == ([], None)
     assert contested["occ-001"][0] == ["function"]
     # `function` carries no kappa, so it is absent from the per-field table and
     # reported as an overlap instead.
-    assert [row["field"] for row in usage.comparison_fields(published, second)] == list(
-        usage.SINGLE_LABEL_FIELDS
+    assert [row["field"] for row in usage_comparison.comparison_fields(published, second)] == list(
+        agreement.SINGLE_LABEL_FIELDS
     )
 
 
 def test_the_alternative_reading_is_carried_in_full_or_not_at_all() -> None:
     published = rows({}, {})
     second = second_run({"speaker_position": "rejects"}, {})
-    contested = usage.contested_rows(published, second)
+    contested = usage_comparison.contested_rows(published, second)
     fields, alternative = contested["occ-000"]
     assert fields == ["speaker_position"]
     # Every compared label, not only the contested one: a reader told an occurrence is
@@ -1133,7 +1146,7 @@ def test_the_alternative_reading_is_carried_in_full_or_not_at_all() -> None:
         "function": "accusation_or_qualification",
         "referent": "rwanda_1994",
     }
-    assert list(alternative) == list(usage.COMPARED_FIELDS)
+    assert list(alternative) == list(usage_comparison.COMPARED_FIELDS)
     # Agreement carries no alternative: a reading identical to the published one
     # is not an alternative to it.
     assert contested["occ-001"] == ([], None)
@@ -1142,12 +1155,12 @@ def test_the_alternative_reading_is_carried_in_full_or_not_at_all() -> None:
 def test_the_overlap_is_what_both_runs_reached_and_nothing_else() -> None:
     published = rows({"occurrence_id": "a"}, {"occurrence_id": "b"})
     second = second_run({"occurrence_id": "b"}, {"occurrence_id": "c"})
-    assert usage.comparison_overlap(published, second) == ["b"]
-    assert list(usage.contested_rows(published, second)) == ["b"]
-    assert usage.comparison_fields(published, second)[0]["n"] == 1
+    assert usage_comparison.comparison_overlap(published, second) == ["b"]
+    assert list(usage_comparison.contested_rows(published, second)) == ["b"]
+    assert usage_comparison.comparison_fields(published, second)[0]["n"] == 1
     # An occurrence only one run reached is absent from the mapping rather than
     # present and agreeing, and the block says how far the two overlap.
-    block = usage.comparison_block(published, second)
+    block = usage_comparison.comparison_block(published, second)
     assert (block["occurrences_annotated"], block["overlap"]) == (2, 1)
 
 
@@ -1155,12 +1168,12 @@ def test_a_refused_match_is_compared_rather_than_filtered_out() -> None:
     # The published run called the match a false positive and the second called
     # it a true positive. The eligibility gate every other block is cut on would
     # drop this row, and it is the disagreement most worth reading.
-    contested = usage.contested_rows(rows(false_positive()), second_run({}))
+    contested = usage_comparison.contested_rows(rows(false_positive()), second_run({}))
     fields, alternative = contested["occ-000"]
-    assert fields == list(usage.COMPARED_FIELDS)
+    assert fields == list(usage_comparison.COMPARED_FIELDS)
     assert alternative["verdict"] == "true_positive"
     # Nor is an evidence quotation nobody could locate a reason to drop a row.
-    assert usage.contested_rows(rows({"evidence_valid": False}), second_run({})) == {
+    assert usage_comparison.contested_rows(rows({"evidence_valid": False}), second_run({})) == {
         "occ-000": ([], None)
     }
 
@@ -1168,7 +1181,7 @@ def test_a_refused_match_is_compared_rather_than_filtered_out() -> None:
 def test_observed_and_kappa_are_the_statistics_the_two_coders_are_scored_by() -> None:
     published = rows(*[{"speaker_position": STANCE_OF[value]} for value in LEFT])
     second = second_run(*[{"speaker_position": STANCE_OF[value]} for value in RIGHT])
-    table = {row["field"]: row for row in usage.comparison_fields(published, second)}
+    table = {row["field"]: row for row in usage_comparison.comparison_fields(published, second)}
     # p_o = 0.70 and kappa = 0.40, hand-computed above LEFT and RIGHT.
     assert (table["speaker_position"]["observed"], table["speaker_position"]["kappa"]) == (0.7, 0.4)
     assert table["speaker_position"]["contested"] == 3
@@ -1182,7 +1195,7 @@ def test_the_multi_label_overlap_is_reported_where_kappa_cannot_be() -> None:
     # {a} vs {a} -> 1, {a,b} vs {a} -> 1/2, {a} vs {c} -> 0; mean 0.5.
     published = rows({"function": "a"}, {"function": "a|b"}, {"function": "a"})
     second = second_run({"function": "a"}, {"function": "a"}, {"function": "c"})
-    block = usage.comparison_block(published, second)
+    block = usage_comparison.comparison_block(published, second)
     assert block["function_jaccard"] == 0.5
     assert block["function_contested"] == 2
     assert block["contested_any"] == 2
@@ -1194,7 +1207,7 @@ def test_what_the_second_run_did_is_counted_over_all_of_its_rows() -> None:
         {"occurrence_id": "a"},
         {"occurrence_id": "b", "referent": "unclear", "evidence_valid": False},
     )
-    block = usage.comparison_block(published, second)
+    block = usage_comparison.comparison_block(published, second)
     # The abstention and the unlocatable evidence belong to the second run and
     # are reported whether or not the published run reached that occurrence; the
     # agreement figures below them are over the overlap alone.
@@ -1231,8 +1244,8 @@ def test_a_self_hosted_model_block_publishes_and_requires_the_weights_revision()
 
 def test_an_empty_comparison_is_written_as_a_state_rather_than_as_an_absence() -> None:
     published = rows({}, {})
-    empty = usage.comparison_block(published, [])
-    computed = usage.comparison_block(
+    empty = usage_comparison.comparison_block(published, [])
+    computed = usage_comparison.comparison_block(
         published, second_run({"speaker_position": "unclear"}, {}), run_id="0000-00-00-second"
     )
     # One builder, so the two states cannot drift apart: a consumer reads the
@@ -1260,7 +1273,7 @@ def test_an_empty_comparison_is_written_as_a_state_rather_than_as_an_absence() -
         "referent_unclear": 0,
         "position_unclear": 0,
     }
-    assert usage.contested_rows(published, []) == {}
+    assert usage_comparison.contested_rows(published, []) == {}
 
 
 def test_the_comparison_run_is_scored_against_the_same_human_reference() -> None:
@@ -1271,7 +1284,7 @@ def test_the_comparison_run_is_scored_against_the_same_human_reference() -> None
         *repeat(2, verdict="uncertain", quotation="unclear", speaker_position="unclear",
                 function="unclear", referent="unclear")
     )
-    block = usage.gold_block(
+    block = gold_estimates.gold_block(
         ADJUDICATED, published, sample_size=200, unique_occurrences=2, comparison=second
     )
     scored = {row["field"]: row for row in block["model_vs_human_comparison"]}
@@ -1280,7 +1293,7 @@ def test_the_comparison_run_is_scored_against_the_same_human_reference() -> None
     assert keys.index("model_vs_human_comparison") == keys.index("model_vs_human") + 1
     # Empty rather than absent where no comparison run was read, as every other
     # table in this block is until it can be computed.
-    assert usage.gold_block(
+    assert gold_estimates.gold_block(
         ADJUDICATED, published, sample_size=200, unique_occurrences=2
     )["model_vs_human_comparison"] == []
 
@@ -1291,7 +1304,7 @@ ENUMERATED = {"occ-000": "digest-a", "occ-001": "digest-b"}
 
 
 def test_a_row_naming_an_occurrence_the_corpus_does_not_have_is_refused() -> None:
-    problems = usage.row_problems(
+    problems = usage_refusals.row_problems(
         [{"occurrence_id": "occ-999", "source_sha256": "digest-a"}], ENUMERATED
     )
     assert len(problems) == 1
@@ -1299,7 +1312,7 @@ def test_a_row_naming_an_occurrence_the_corpus_does_not_have_is_refused() -> Non
 
 
 def test_a_row_whose_body_digest_has_moved_is_refused() -> None:
-    problems = usage.row_problems(
+    problems = usage_refusals.row_problems(
         [{"occurrence_id": "occ-000", "source_sha256": "digest-moved"}], ENUMERATED
     )
     assert len(problems) == 1
@@ -1308,13 +1321,13 @@ def test_a_row_whose_body_digest_has_moved_is_refused() -> None:
 
 def test_the_same_occurrence_annotated_twice_is_refused() -> None:
     row = {"occurrence_id": "occ-000", "source_sha256": "digest-a"}
-    problems = usage.row_problems([row, dict(row)], ENUMERATED)
+    problems = usage_refusals.row_problems([row, dict(row)], ENUMERATED)
     assert len(problems) == 1
     assert "more than once" in problems[0]
 
 
 def test_rows_that_agree_with_the_enumeration_raise_nothing() -> None:
-    assert usage.row_problems(
+    assert usage_refusals.row_problems(
         [
             {"occurrence_id": "occ-000", "source_sha256": "digest-a"},
             {"occurrence_id": "occ-001", "source_sha256": "digest-b"},
@@ -1411,13 +1424,13 @@ def test_the_referent_table_between_two_runs_is_cross_instrument_and_floored() -
     published = second_run(*({"referent": "rwanda_1994"},) * 25, {"referent": "gaza"})
     comparison = second_run(*({"referent": "rwanda_1994"},) * 24, {"referent": "gaza"},
                             {"referent": "gaza"})
-    table = {row["label"]: row for row in usage.comparison_referents(published, comparison)}
+    table = {row["label"]: row for row in usage_comparison.comparison_referents(published, comparison)}
     assert table["rwanda_1994"]["measurable"] is True
     assert table["rwanda_1994"]["support"] == 25
     # One occurrence of `gaza` in the published run: counted, never rated.
     assert table["gaza"]["support"] == 1
     assert table["gaza"]["f1"] is None
-    assert usage.comparison_referents([], []) == []
+    assert usage_comparison.comparison_referents([], []) == []
 
 
 def test_the_gold_frames_are_reported_apart_and_only_one_is_weighted() -> None:
@@ -1428,20 +1441,20 @@ def test_the_gold_frames_are_reported_apart_and_only_one_is_weighted() -> None:
         }
     )
     coded = annotations(annotation("occ-000", "FM"), annotation("occ-002", "FM"))
-    table = {row["frame"]: row for row in usage.frame_rows(candidates, coded)}
+    table = {row["frame"]: row for row in gold_estimates.frame_rows(candidates, coded)}
     assert table["probability"]["weighted"] is True
     assert table["coverage"]["weighted"] is False
     assert table["disagreement"]["weighted"] is False
     assert (table["disagreement"]["rows"], table["disagreement"]["coded"]) == (2, 2)
     assert (table["probability"]["rows"], table["probability"]["coded"]) == (1, 1)
-    assert usage.frame_rows(pd.DataFrame(), coded) == []
+    assert gold_estimates.frame_rows(pd.DataFrame(), coded) == []
 
 
 def test_the_gold_block_carries_the_frames_and_the_function_agreement() -> None:
     candidates = pd.DataFrame(
         {"occurrence_id": ["occ-000"], "sampling_frame": ["probability"]}
     )
-    block = usage.gold_block(
+    block = gold_estimates.gold_block(
         annotations(
             annotation("occ-000", "FM", function="accountability|commemoration"),
             annotation("occ-000", "JG", function="commemoration|accountability"),
@@ -1457,7 +1470,7 @@ def test_the_gold_block_carries_the_frames_and_the_function_agreement() -> None:
     assert block["human_function"]["n"] == 1
     assert block["human_function"]["jaccard"] == 1.0
     # Absent candidates leaves the list empty rather than guessing at frames.
-    assert usage.gold_block(
+    assert gold_estimates.gold_block(
         annotations(), rows(), sample_size=1, unique_occurrences=1
     )["frames"] == []
 
@@ -1478,11 +1491,11 @@ def prompt_library_at(tmp_path: Path, monkeypatch) -> Path:
     only its digest is under test.
     """
     directory = tmp_path / "genocide"
-    (directory / llm.ARCHIVE).mkdir(parents=True)
-    real = llm.load_prompt_library(ROOT / "model_annotations" / "genocide" / "PROMPT.md")
+    (directory / prompts.ARCHIVE).mkdir(parents=True)
+    real = prompts.load_prompt_library(ROOT / "model_annotations" / "genocide" / "PROMPT.md")
     v1 = next(pack for pack in real.packs if pack.version == 1)
     later = max(pack.version for pack in real.packs) + 1
-    (directory / llm.ARCHIVE / "v1.md").write_text(v1.text, encoding="utf-8", newline="")
+    (directory / prompts.ARCHIVE / "v1.md").write_text(v1.text, encoding="utf-8", newline="")
     (directory / "PROMPT.md").write_text(
         v1.text.replace("version: 1", f"version: {later}", 1),
         encoding="utf-8",
@@ -1508,7 +1521,7 @@ def test_the_paid_runs_and_a_v2_run_are_read_through_one_library(
     under the old one.
     """
     current = prompt_library_at(tmp_path, monkeypatch)
-    library = llm.load_prompt_library(current)
+    library = prompts.load_prompt_library(current)
     v1_text = next(pack for pack in library.packs if pack.version == 1).text
     later_text = library.current.text
     assert v1_text != later_text
@@ -1535,17 +1548,15 @@ def test_the_paid_runs_and_a_v2_run_are_read_through_one_library(
 
 
 def test_a_prompt_this_checkout_does_not_hold_is_refused_loudly(
-    tmp_path: Path, monkeypatch, capsys
+    tmp_path: Path, monkeypatch
 ) -> None:
     """The one failure left. It has to name every digest the checkout does hold,
     because the reader's next move is to find the file that is missing."""
     prompt_library_at(tmp_path, monkeypatch)
-    with pytest.raises(SystemExit):
+    with pytest.raises(console.Refusal) as refused:
         usage_refusals.resolve_prompt({"prompt_version": 3, "prompt_sha256": "b" * 64})
-    printed = capsys.readouterr()
-    message = printed.out + printed.err
-    assert "does not hold" in message
-    assert "prompts/v1.md" in message
+    assert "does not hold" in refused.value.message
+    assert any("prompts/v1.md" in problem for problem in refused.value.problems)
 
 
 def test_a_version_line_the_bytes_contradict_is_a_provenance_failure(
@@ -1555,7 +1566,7 @@ def test_a_version_line_the_bytes_contradict_is_a_provenance_failure(
     current = prompt_library_at(tmp_path, monkeypatch)
     with pytest.raises(SystemExit):
         usage_refusals.resolve_prompt(
-            {"prompt_version": 1, "prompt_sha256": llm.prompt_sha256(current)}
+            {"prompt_version": 1, "prompt_sha256": prompts.prompt_sha256(current)}
         )
 
 
@@ -1650,16 +1661,16 @@ def test_two_runs_on_either_side_of_a_rename_are_counted_in_one_column(tmp_path)
 
 def coded(occurrence: str, **labels: str) -> list[dict[str, object]]:
     """Two coders agreeing on every single-label field of one occurrence."""
-    base = dict.fromkeys(audit.ANNOTATION_FIELDS, "")
+    base = dict.fromkeys(schema.ANNOTATION_FIELDS, "")
     row = {**base, "occurrence_id": occurrence, "verdict": "true_positive",
            "concrete_case": "yes", "speaker_position": "asserts", **labels}
-    return [{**row, "coder": coder} for coder in usage.CODERS]
+    return [{**row, "coder": coder} for coder in gold_estimates.CODERS]
 
 
 def test_the_hajek_mean_weights_by_inverse_probability() -> None:
     import numpy as np
 
-    mean, error = usage._hajek(np.array([1.0, 0.0]), np.array([0.5, 0.25]))
+    mean, error = gold_estimates._hajek(np.array([1.0, 0.0]), np.array([0.5, 0.25]))
     # weights 2 and 4: (2 * 1 + 4 * 0) / 6
     assert mean == pytest.approx(1 / 3)
     assert error > 0
@@ -1691,7 +1702,7 @@ def test_a_corrected_share_removes_a_bias_the_gold_sample_measures() -> None:
         ]
     )
     design = pd.DataFrame({"occurrence_id": model["occurrence_id"], "pi_union": 0.4})
-    shares = {block["field"]: block for block in usage.corrected_shares(annotations, model, design)}
+    shares = {block["field"]: block for block in gold_estimates.corrected_shares(annotations, model, design)}
     position = {row["category"]: row for row in shares["speaker_position"]["categories"]}
     assert shares["speaker_position"]["state"] == "computed"
     assert position["rejects"]["model_share"] == pytest.approx(0.30)
@@ -1705,8 +1716,95 @@ def test_too_few_coded_units_leave_the_blocks_waiting() -> None:
     )
     annotations = pd.DataFrame(coded("o1"))
     design = pd.DataFrame({"occurrence_id": ["o1"], "pi_union": [0.1]})
-    assert all(block["state"] == "waiting" for block in usage.corrected_shares(annotations, model, design))
-    assert all(row["state"] == "waiting" for row in usage.weighted_accuracy(annotations, model, design))
+    assert all(block["state"] == "waiting" for block in gold_estimates.corrected_shares(annotations, model, design))
+    assert all(row["state"] == "waiting" for row in gold_estimates.weighted_accuracy(annotations, model, design))
+
+
+# --- Without the passages read before coding ---------------------------------
+
+
+def prior_review_fixture() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, set[str]]:
+    """Forty occurrences coded by both coders at one inclusion probability.
+
+    The model calls every one of them `asserts`. The coders agree on `asserts`
+    for the thirty-two that were not reviewed before coding; on the eight that
+    were, they code `rejects`, and on two of those eight JG writes `asserts`.
+    So the model is right on 32 of 40 coded occurrences and on 32 of 32 once
+    the reviewed ones are set aside, and the coders disagree only inside them.
+    """
+    identifiers = [f"o{number:02d}" for number in range(40)]
+    reviewed = set(identifiers[:8])
+    records = []
+    for number, occurrence in enumerate(identifiers):
+        position = "rejects" if occurrence in reviewed else "asserts"
+        for row in coded(occurrence, speaker_position=position):
+            if number < 2 and row["coder"] == "JG":
+                row = {**row, "speaker_position": "asserts"}
+            records.append(row)
+    model = pd.DataFrame(
+        {
+            "occurrence_id": identifiers,
+            "speaker_position": ["asserts"] * 40,
+            "concrete_case": ["yes"] * 40,
+        }
+    )
+    design = pd.DataFrame({"occurrence_id": identifiers, "pi_union": 0.5})
+    return pd.DataFrame(records), model, design, reviewed
+
+
+def test_every_gold_figure_is_reported_again_without_the_reviewed_passages() -> None:
+    annotations, model, design, reviewed = prior_review_fixture()
+    split = gold_estimates.without_prior_review(
+        annotations, model, reviewed=reviewed, design=design
+    )
+    every = gold_estimates.gold_block(
+        annotations, model, sample_size=40, unique_occurrences=40, design=design
+    )
+    assert (split["reviewed"], split["coded"], split["flagged_coded"]) == (8, 40, 8)
+
+    def position(block: list[dict[str, object]]) -> dict[str, object]:
+        return next(row for row in block if row["field"] == "speaker_position")
+
+    # The coders: 38 of 40 agree over every coded occurrence, all 32 without.
+    assert position(every["human_agreement"])["observed"] == pytest.approx(38 / 40)
+    assert position(split["human_agreement"])["n"] == 32
+    assert position(split["human_agreement"])["observed"] == 1.0
+    # The model against the reference: the two disputed occurrences have none,
+    # so it is scored on 38 with 32 right, and on 32 with all right.
+    assert position(every["model_vs_human"])["accuracy"] == pytest.approx(32 / 38)
+    assert position(split["model_vs_human"])["accuracy"] == 1.0
+    # Weighted to the corpus at one probability, the Hajek mean is the plain one.
+    assert position(every["weighted_accuracy"])["estimate"] == pytest.approx(32 / 38)
+    assert position(split["weighted_accuracy"])["estimate"] == 1.0
+    assert position(split["weighted_accuracy"])["units"] == 32
+    shares = {block["field"]: block for block in split["corrected_shares"]}
+    assert shares["speaker_position"]["state"] == "computed"
+    assert split["model_vs_human_comparison"] == []
+
+
+def test_the_split_is_the_gold_block_over_the_rows_left() -> None:
+    """Not a second computation: the same functions over fewer rows."""
+    annotations, model, design, reviewed = prior_review_fixture()
+    split = gold_estimates.without_prior_review(
+        annotations, model, reviewed=reviewed, comparison=model, design=design
+    )
+    kept = gold_estimates.without(annotations, reviewed)
+    block = gold_estimates.gold_block(
+        kept, model, sample_size=32, unique_occurrences=32, comparison=model, design=design
+    )
+    for name in gold_estimates.PRIOR_REVIEW_FIGURES:
+        assert split[name] == block[name], name
+    assert split["function_jaccard"] == gold_estimates.function_jaccard(kept, model)
+
+
+def test_nothing_coded_leaves_the_split_empty() -> None:
+    split = gold_estimates.without_prior_review(
+        annotations(), rows(), reviewed={"occ-000"}
+    )
+    assert (split["coded"], split["flagged_coded"]) == (0, 0)
+    assert split["human_agreement"] == split["model_vs_human"] == []
+    assert split["weighted_accuracy"] == split["corrected_shares"] == []
+    assert split["function_jaccard"] is None
 
 
 def test_coverage_inclusion_matches_what_the_sampler_records() -> None:
@@ -1719,15 +1817,15 @@ def test_coverage_inclusion_matches_what_the_sampler_records() -> None:
             "start": range(30),
         }
     )
-    drawn = audit.coverage_sample(frame, 8, 5)
-    everyone = audit.coverage_inclusion(frame, 8).set_axis(frame["occurrence_id"])
+    drawn = sampling.coverage_sample(frame, 8, 5)
+    everyone = sampling.coverage_inclusion(frame, 8).set_axis(frame["occurrence_id"])
     for row in drawn.itertuples():
         assert everyone[row.occurrence_id] == pytest.approx(row.inclusion_probability)
 
 
 def test_the_union_of_independent_frames() -> None:
     first, second = pd.Series([0.5, 0.0]), pd.Series([0.5, 0.2])
-    assert audit.union_inclusion(first, second).tolist() == pytest.approx([0.75, 0.2])
+    assert sampling.union_inclusion(first, second).tolist() == pytest.approx([0.75, 0.2])
 
 
 def test_a_delegation_is_exposed_from_the_first_debate_that_named_the_case() -> None:
@@ -1750,3 +1848,24 @@ def test_a_delegation_is_exposed_from_the_first_debate_that_named_the_case() -> 
         {"actor": "Rwanda", "date": "1994-05-01"},
     ]
     assert exposed["gaza"] == [{"actor": "Rwanda", "date": "1995-01-01"}]
+
+
+# --- A coverage gap -----------------------------------------------------------
+
+
+def test_the_resume_advice_names_only_flags_step_14_accepts() -> None:
+    """The advice once named `--poll`, a flag step 14 had dropped."""
+    import subprocess
+    import sys
+
+    with pytest.raises(console.Refusal) as refused:
+        usage_refusals.refuse_partial(9, 10, "", run_id="2026-09-08-qwen-131k")
+    advice = "\n".join(refused.value.problems)
+    assert "14_llm_annotate.py --run-id 2026-09-08-qwen-131k" in advice
+    usage_text = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "14_llm_annotate.py"), "--help"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    resume = advice.split("14_llm_annotate.py", 1)[1].split("\n", 1)[0]
+    for flag in re.findall(r"--[a-z][a-z-]+", resume):
+        assert flag in usage_text, flag

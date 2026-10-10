@@ -129,7 +129,7 @@
 				type: 'Feature',
 				geometry: { type: 'Point', coordinates: point.lngLat },
 				properties: {
-					key: point.speakers[0].speaker.country_org,
+					key: point.speakers[0]!.speaker.country_org,
 					shared: point.shared ? 1 : 0,
 					stacked: point.speakers.length
 				}
@@ -180,7 +180,7 @@
 
 		instance.on('click', LAYER, (event) => {
 			const key = event.features?.[0]?.properties?.key;
-			onselect(points.find((p) => p.speakers[0].speaker.country_org === key) ?? null);
+			onselect(points.find((p) => p.speakers[0]!.speaker.country_org === key) ?? null);
 		});
 		// A click on the basemap clears the selection: the reader has pointed at
 		// nothing, which is a choice and not a misfire.
@@ -203,7 +203,7 @@
 		instance.on('mousemove', LAYER, (event) => {
 			const feature = event.features?.[0];
 			const key = feature?.properties?.key;
-			const point = points.find((p) => p.speakers[0].speaker.country_org === key);
+			const point = points.find((p) => p.speakers[0]!.speaker.country_org === key);
 			if (!point) return;
 			instance.getCanvas().style.cursor = 'pointer';
 			const { heading, lines } = describe(point);
@@ -390,7 +390,11 @@
 	$effect(() => {
 		const data = collection();
 		if (map && ready) {
-			(map.getSource(SOURCE) as import('maplibre-gl').GeoJSONSource | undefined)?.setData(data);
+			// Settled by MapLibre's worker. A refusal there leaves the previous dots
+			// on the map, and every speaker it would show is in the table beside it.
+			void (map.getSource(SOURCE) as import('maplibre-gl').GeoJSONSource | undefined)?.setData(
+				data
+			);
 		}
 	});
 

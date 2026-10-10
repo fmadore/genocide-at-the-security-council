@@ -13,14 +13,14 @@ import re
 import subprocess
 from pathlib import Path
 
-from lib import lexicon
+from lib import lexicon_lock
 from lib.paths import EXPECTED_SPEECHES, EXPECTED_WORDS
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def committed_genocide() -> tuple[int, int, int]:
-    record = lexicon.load_counts()
+    record = lexicon_lock.load_counts()
     entry = record["terms"]["genocide"]
     return int(record["lexicon_version"]), int(entry["speeches"]), int(entry["occurrences"])
 
@@ -45,6 +45,18 @@ def test_the_corpus_guide_quotes_the_committed_counts() -> None:
     assert f"Lexicon v{version} finds" in corpus
     assert f"**{speeches:,} speeches**, with **{occurrences:,} occurrences**" in corpus
     assert f"| Project analytical words | {EXPECTED_WORDS:,} |" in corpus
+
+
+def test_the_step_table_lists_every_numbered_step() -> None:
+    """Steps 18, 19 and 20 ran for weeks without a row, 20 inside `make payload`."""
+    readme = (ROOT / "scripts" / "README.md").read_text(encoding="utf-8")
+    table = readme.split("## Steps", 1)[1].split("\n\n", 2)[1]
+    rows = re.findall(r"^\| (\d+|—) \| `([^`]+\.py)` \|", table, re.MULTILINE)
+    assert rows, "the step table lost its rows"
+    numbered = {script: number for number, script in rows if number != "—"}
+    steps = sorted(path.name for path in (ROOT / "scripts").glob("[0-9]*.py"))
+    assert [step for step in steps if step not in numbered] == []
+    assert {script: number for script, number in numbered.items() if not script.startswith(number)} == {}
 
 
 def test_no_code_names_a_speech_of_the_retired_corpus() -> None:

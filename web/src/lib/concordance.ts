@@ -167,7 +167,7 @@ export function filterConcordance(
 	lines: readonly KwicLine[],
 	state: ConcordanceState,
 	/**
-	 * Occurrence id → referent id, from `usage/occurrences.json`. Without it a
+	 * Occurrence id → referent id, from `usage/referents.json`. Without it a
 	 * referent filter keeps nothing rather than everything: a URL that asks for
 	 * Rwanda must never show the whole corpus under a heading that says Rwanda.
 	 */
@@ -202,8 +202,6 @@ export function filterConcordance(
 		return matcher ? matcher(line) : true;
 	});
 
-	const tail = (value: string) =>
-		[...value.toLowerCase().replace(/[^a-z ]/g, '')].reverse().join('');
 	/**
 	 * Every sort ends on the occurrence ID, because ties are the normal case here.
 	 *
@@ -215,17 +213,90 @@ export function filterConcordance(
 	 * whenever anything upstream changes. `actors.ts` states the standard this
 	 * meets: a table that reorders itself is a table a reader cannot cite. The ID
 	 * is the tiebreaker because it is the one key that is unique by construction.
+	 *
+	 * Each line's key is computed once, before the sort, rather than inside the
+	 * comparator. A comparison sort calls the comparator about n log n times, so
+	 * a key built per call would be built some thirty times per line on the
+	 * largest terms, and the reversed left context is a string rebuilt character
+	 * by character. This sort runs on every filter change and on every previous
+	 * or next in the reader.
 	 */
-	const then = (key: (line: KwicLine) => string) => (a: KwicLine, b: KwicLine) =>
-		key(a).localeCompare(key(b)) || a.id.localeCompare(b.id);
-	const by: Record<ConcordanceSort, (a: KwicLine, b: KwicLine) => number> = {
-		date: then((line) => line.date),
-		country: then((line) => shortCountry(line.country)),
-		agenda: then((line) => line.agenda),
-		left: then((line) => tail(line.left)),
-		right: then((line) => line.right.toLowerCase())
+	const key = SORT_KEYS[state.sort];
+	const keyed = rows.map((line) => ({ line, key: key(line) }));
+	keyed.sort((a, b) => COLLATOR.compare(a.key, b.key) || COLLATOR.compare(a.line.id, b.line.id));
+	return { lines: keyed.map((entry) => entry.line), badRegex };
+}
+
+/**
+ * The collation every concordance sort uses.
+ *
+ * One instance rather than `localeCompare` per comparison: with no arguments
+ * the two are defined to compare identically, and `localeCompare` constructs
+ * the equivalent collator on every call.
+ */
+const COLLATOR = new Intl.Collator();
+
+/** The left context read backwards, letters and spaces only, so lines group on the word before the match. */
+const tail = (value: string) => [...value.toLowerCase().replace(/[^a-z ]/g, '')].reverse().join('');
+
+/** What each sort orders a line by, before the ID breaks the tie. */
+const SORT_KEYS: Record<ConcordanceSort, (line: KwicLine) => string> = {
+	date: (line) => line.date,
+	country: (line) => shortCountry(line.country),
+	agenda: (line) => line.agenda,
+	left: (line) => tail(line.left),
+	right: (line) => line.right.toLowerCase()
+};
+
+/**
+ * The published run's referent for each occurrence it placed, as the referent
+ * filter reads it, from `usage/referents.json`. Occurrences the run left
+ * unplaced are not in the map, so a referent filter never keeps them; an empty
+ * placement is dropped for the same reason.
+ */
+export function referentMap(placements: Readonly<Record<string, string>>): Map<string, string> {
+	return new Map(Object.entries(placements).filter(([, referent]) => referent));
+}
+
+/** Where one occurrence stands in a filtered result, for previous and next. */
+export interface ResultPosition {
+	/** One-based. */
+	position: number;
+	total: number;
+	previous: string | null;
+	next: string | null;
+}
+
+/**
+ * One occurrence, and where it stands in the concordance it was opened from.
+ *
+ * The line is looked up by its id among all the term's lines rather than
+ * among the filtered ones. Quoting, keeping and citing an occurrence are about
+ * the occurrence, and a filter the reader cannot satisfy here — a referent
+ * whose placements did not load, a term the run did not annotate — must not
+ * take them away. Previous and next do walk the filtered order, so they are
+ * null when the occurrence is outside it.
+ */
+export function occurrenceInResult(
+	lines: readonly KwicLine[],
+	state: ConcordanceState,
+	id: string,
+	referents: ReadonlyMap<string, string> | null = null
+): { line: KwicLine | null; position: ResultPosition | null } {
+	const line = lines.find((entry) => entry.id === id) ?? null;
+	if (!line) return { line: null, position: null };
+	const ordered = filterConcordance(lines, state, referents).lines;
+	const index = ordered.findIndex((entry) => entry.id === id);
+	if (index < 0) return { line, position: null };
+	return {
+		line,
+		position: {
+			position: index + 1,
+			total: ordered.length,
+			previous: ordered[index - 1]?.id ?? null,
+			next: ordered[index + 1]?.id ?? null
+		}
 	};
-	return { lines: [...rows].sort(by[state.sort]), badRegex };
 }
 
 /**
@@ -621,6 +692,45 @@ export function filtersInForce(
 		});
 	}
 	return chips;
+}
+
+/**
+ * Every narrowing in force, as the exported file records it, then the sort.
+ *
+ * Built from `filtersInForce` so the file and the chips cannot disagree about
+ * which narrowings apply: a second list written by hand is a list that can
+ * leave one out, and a file that does not name a filter misstates how its
+ * rows were chosen. The wording is the file's own rather than the chips': the
+ * speaker and the meeting are written as the corpus writes them rather than
+ * shortened, and the years always as a range.
+ */
+export function exportFilters(
+	state: ConcordanceState,
+	names: { meeting: (spv: string) => string; referent: (id: string) => string }
+): string[] {
+	const lines = filtersInForce(state, names).map((chip) => {
+		switch (chip.key) {
+			case 'q':
+				return `search: ${chip.value}`;
+			case 'group':
+				return `group: ${chip.value}`;
+			case 'country':
+				return `speaker: ${state.country}`;
+			case 'type':
+				return `participant type: ${chip.value}`;
+			case 'agenda':
+				return `agenda: ${chip.value}`;
+			case 'spv':
+				return `meeting: ${state.spv}`;
+			case 'referent':
+				return `referent: ${chip.value}`;
+			case 'years':
+				return `years: ${state.from}–${state.to}`;
+			case 'month':
+				return describeMonth(state.month) ?? `month: ${chip.value}`;
+		}
+	});
+	return [...lines, `sorted by: ${describeSort(state.sort)}`];
 }
 
 /** The state with one narrowing cleared and everything else as it was. */

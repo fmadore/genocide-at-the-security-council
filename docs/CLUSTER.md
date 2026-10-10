@@ -121,6 +121,32 @@ unfinished array indices with the same base run ID, plan and model settings
 An incomplete batch retries unfinished speeches on resume, including rejected
 responses. A completed batch is immutable and must not be resubmitted.
 
+`retry_batches.sh` does that resubmission from the login node, with the checks
+built in. For the Gemma run:
+
+```bash
+bash scripts/cluster/retry_batches.sh --model gemma --gpus 2 \
+  --run-id 2026-09-09-gemma4 --plan data/interim/gemma-plan.json \
+  --indices 3,7 --smoke 2026-09-09-gemma4-smoke
+```
+
+It submits `submit_annotate.sh` as an array over the given indices, at most two
+at a time (`--concurrent`), with `--gres=gpu:h100:<gpus>`, the tensor-parallel
+size set to the same number, and `--mem-per-gpu=128G`. Before queueing anything
+it refuses an index outside the plan, a batch whose manifest already says
+`complete`, and, with `--smoke`, a smoke record that is not complete or that
+served a different model, card count, tensor-parallel size or context length,
+which is the comparison the smoke gate below says to make by hand. `--dry-run`
+runs the checks and prints the `sbatch` line. Every option also has an
+environment variable; `--help` lists them.
+
+The Gemma array and its retry of 24 September 2026 (job 782721) ran through a
+wrapper kept only in the cluster workspace, which `/workdir` purges after 60
+days without writes. It was recovered from the 7 October backup of that
+workspace: it hard-coded the run id, plan and profile, and checked only the
+smoke's `status`, inside each task. `retry_batches.sh` is that wrapper with the
+run passed in and the checks moved before submission.
+
 Check each batch manifest's `status`, not just Slurm's exit code: a pass can
 end normally while recording rejected speeches. After every batch completes,
 assemble a new run:
@@ -370,6 +396,14 @@ for days or starts at once. This also explains why the Qwen runs were scheduled
 without trouble — they asked for one card, so the default charged them a quarter
 of the node rather than a half.
 
+`submit_annotate.sh` and `serve_annotation.sh` now carry
+`#SBATCH --mem-per-gpu=128G` themselves, in place of the `--mem=96G` that the
+partition ignored, so every annotation command in this document gets it without
+saying so: `--gres=gpu:h100:2` on the sbatch line becomes 256 GiB by itself. To
+change the amount, pass `--mem-per-gpu` on the sbatch line, not `--mem`. Other
+jobs on `GPU` still need it said: `submit_embed.sh` asks for its one card with a
+plain `--mem`, which the partition turns into a quarter of the node.
+
 There is no lowercase `gpu` partition. The default model needs one card of any
 of these; `GPU` is requested in `submit_embed.sh` for speed, but an L40 on
 `normal` works and usually starts sooner.
@@ -444,6 +478,12 @@ manifest it wrote.
 ```bash
 bash scripts/cluster/push_code.sh
 ```
+
+Run it again after every change. It copies the working tree, then deletes on
+the cluster the files under `scripts/`, `tests/` and `tools/` that no longer
+exist here, so a removed module cannot linger there; nothing outside those
+three directories is ever deleted, so data, logs, notes and model runs written
+on the cluster are safe.
 
 Then on the cluster:
 
@@ -553,11 +593,21 @@ Run locally:
 bash scripts/cluster/fetch_results.sh
 bash scripts/cluster/fetch_results.sh --watch 643031   # wait for the job first
 bash scripts/cluster/fetch_results.sh --what topics
+bash scripts/cluster/fetch_results.sh --what run --run 2026-09-09-gemma4
 ```
 
-This pulls `data/derived/embeddings/`, `data/derived/topics/` and `notes/`.
-`/workdir` is not backed up and purges after 60 days, so pull once a run
-finishes rather than treating the cluster as storage.
+By default this pulls `data/derived/embeddings/`, `topics/`, `lemmas/` and
+`lexical_lemma/`, and `notes/`. `--what run` pulls one model-annotation run:
+`model_annotations/genocide/runs/<run id>` and its raw responses, probes and
+smoke record under `data/interim/`, for the id itself and for every
+`<run id>-batch-N`. A batch plan under `data/interim/` is named by whoever made
+it, so copy that by hand. `/workdir` is not backed up and purges after 60 days,
+so pull once a run finishes rather than treating the cluster as storage.
+
+`--watch` polls Slurm from the cluster side, over a single connection, however
+long the job runs; the login nodes ban an address for about ten minutes after a
+burst of connections, which the old one-connection-every-20-seconds loop risked.
+A dropped link is retried after five minutes.
 
 ## Choosing a model
 

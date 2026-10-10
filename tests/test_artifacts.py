@@ -206,17 +206,131 @@ def test_provenance_refuses_a_declared_input_that_is_missing(tmp_path):
     present = tmp_path / "present.txt"
     present.write_text("x", encoding="utf-8")
     with pytest.raises(FileNotFoundError, match=r"absent\.txt"):
-        artifacts.provenance(tmp_path, "step.py", inputs=[present, tmp_path / "absent.txt"])
+        artifacts.provenance(
+            tmp_path, "20_actor_year.py", inputs=[present, tmp_path / "absent.txt"]
+        )
 
 
 def test_provenance_records_an_optional_input_as_absent_rather_than_dropping_it(tmp_path):
     present = tmp_path / "present.txt"
     present.write_text("x", encoding="utf-8")
     meta = artifacts.provenance(
-        tmp_path, "step.py", inputs=[present], optional=[tmp_path / "second.txt"]
+        tmp_path, "20_actor_year.py", inputs=[present], optional=[tmp_path / "second.txt"]
     )
     assert [item["path"] for item in meta["inputs"]] == ["present.txt"]
     assert meta["absent_optional"] == ["second.txt"]
+
+
+# --- The code that ran -----------------------------------------------------
+#
+# Five steps used to list their own `lib` files in `configs`, and every list was
+# shorter than the step's imports. The closure is now read from the source.
+
+
+def test_provenance_records_the_script_and_every_module_it_can_execute(tmp_path):
+    code = {item["path"]: item for item in artifacts.provenance(tmp_path, "20_actor_year.py")["code"]}
+    # The three the hand list left out, and the module `council` reaches
+    # through a relative import of its own.
+    for name in ("actors", "council", "frames", "series", "paths", "artifacts"):
+        assert f"scripts/lib/{name}.py" in code
+    assert "scripts/lib/__init__.py" in code
+    script = artifacts.SCRIPTS / "20_actor_year.py"
+    assert code["scripts/20_actor_year.py"]["sha256"] == artifacts.sha256(script)
+
+
+def test_a_maintenance_tool_is_found_under_tools(tmp_path):
+    code = artifacts.provenance(tmp_path, "prepare_research_review.py")["code"]
+    assert code[0]["path"] == "tools/prepare_research_review.py"
+
+
+def test_provenance_refuses_a_script_that_does_not_exist(tmp_path):
+    with pytest.raises(FileNotFoundError, match=r"no_such_step\.py"):
+        artifacts.provenance(tmp_path, "no_such_step.py")
+
+
+def test_the_closure_follows_relative_imports_wherever_they_are(tmp_path):
+    script = tmp_path / "probe.py"
+    script.write_text(
+        "from lib import council\n\n\ndef late():\n    from lib.kwic import build\n",
+        encoding="utf-8",
+    )
+    names = {path.stem for path in artifacts.lib_closure(script)}
+    # `council` imports `paths`, which imports `artifacts`; the import inside a
+    # function body counts, because the step can execute it.
+    assert {"council", "paths", "artifacts", "kwic"} <= names
+    assert "usage" not in names
+
+
+def test_analysis_hash_ignores_the_code_that_computed_the_same_payload():
+    first = {"meta": {"script": "04_series.py", "code": [{"path": "s.py", "sha256": "a"}]}, "x": [1]}
+    edited = {**first, "meta": {**first["meta"], "code": [{"path": "s.py", "sha256": "b"}]}}
+    assert artifacts.analysis_hash(first) == artifacts.analysis_hash(edited)
+
+
+# --- A provenance block shared by many files -------------------------------
+
+SHARED = {
+    "script": "09_export_speeches.py",
+    "generated": "2026-10-09T00:00:00Z",
+    "git_commit": SHA,
+    "lexicon_version": 8,
+    "inputs": [{"path": "speeches_flagged.parquet", "sha256": "a"}],
+    "configs": [{"path": "lexicon.yml", "sha256": "b"}],
+    "code": [{"path": "s.py", "sha256": "c"}],
+}
+
+
+def test_a_file_sharing_its_provenance_keeps_what_cites_it_and_the_whole_hash(tmp_path):
+    """The cut file's hash is the uncut file's, so it identifies the same analysis."""
+    whole = {"meta": SHARED, "basename": "SC07000-01", "speeches": [{"id": "SC07000-01-001"}]}
+    cut = artifacts.shared_provenance(whole, ("script", "lexicon_version"), "meetings.json")
+
+    assert cut["meta"] == {
+        "script": "09_export_speeches.py",
+        "lexicon_version": 8,
+        "provenance": "meetings.json",
+        "analysis_hash": artifacts.analysis_hash(whole),
+    }
+    target = tmp_path / "SC07000-01.json.gz"
+    artifacts.atomic_write_json_gzip(target, cut, hashed=True)
+    written = artifacts.read_json(target)
+    assert written == cut
+    # Checked as the docstring says: the shared block put back, then hashed.
+    assert isinstance(written, dict)
+    restored = {**written, "meta": SHARED}
+    assert artifacts.analysis_hash(restored) == written["meta"]["analysis_hash"]
+
+
+def test_a_shared_hash_still_moves_with_the_shared_inputs():
+    """The block is out of the file, not out of the identity."""
+    body = {"basename": "SC07000-01"}
+    moved = {**SHARED, "inputs": [{"path": "speeches_flagged.parquet", "sha256": "z"}]}
+    first = artifacts.shared_provenance({"meta": SHARED, **body}, ("script",), "meetings.json")
+    second = artifacts.shared_provenance({"meta": moved, **body}, ("script",), "meetings.json")
+    assert first["meta"]["analysis_hash"] != second["meta"]["analysis_hash"]
+
+
+# --- One CSV writer --------------------------------------------------------
+
+
+def test_csv_artefacts_end_lines_with_a_newline_on_every_platform(tmp_path):
+    import pandas as pd
+
+    frame = pd.DataFrame({"word": ["a", "b"], "count": [1, 2]})
+    target = tmp_path / "table.csv"
+    artifacts.atomic_write_csv(target, frame)
+    assert target.read_bytes() == b"word,count\na,1\nb,2\n"
+    rows = [{"word": "a", "count": 1}, {"word": "b", "count": 2}]
+    artifacts.atomic_write_csv(target, rows)
+    assert target.read_bytes() == b"word,count\na,1\nb,2\n"
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_a_row_writer_takes_its_columns_from_the_first_row_or_from_the_caller():
+    rows = [{"b": 1, "a": "x,y"}]
+    assert artifacts.csv_text(rows) == 'b,a\n1,"x,y"\n'
+    assert artifacts.csv_text(rows, fieldnames=["a", "b"]) == 'a,b\n"x,y",1\n'
+    assert artifacts.csv_text([], fieldnames=["a"]) == "a\n"
 
 
 def test_a_gzipped_artefact_is_byte_identical_and_readable(tmp_path):

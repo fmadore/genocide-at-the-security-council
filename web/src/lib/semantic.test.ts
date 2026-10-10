@@ -23,7 +23,7 @@ describe('semantic data boundary', () => {
 		const map = validateMap(data());
 		const exported = semanticExport(map, map.points, ['year: 2000']);
 		expect(exported.rows).toHaveLength(2);
-		expect(exported.rows[0].slice(4, 6)).toEqual(['A', 'B']);
+		expect(exported.rows[0]!.slice(4, 6)).toEqual(['A', 'B']);
 		expect(exported.filters?.join(' ')).toContain('Qwen/test@');
 		expect(exported.scope).toContain('every table page');
 	});
@@ -31,10 +31,10 @@ describe('semantic data boundary', () => {
 		expect(validateMap(data()).points).toHaveLength(2));
 	it('rejects duplicate IDs and invalid categories', () => {
 		const bad = data();
-		bad.points[1][0] = bad.points[0][0];
+		bad.points[1]![0] = bad.points[0]![0]!;
 		expect(() => validateMap(bad)).toThrow();
 		const categories = data();
-		categories.points[0][4] = 2;
+		categories.points[0]![4] = 2;
 		expect(() => validateMap(categories)).toThrow();
 	});
 	it('rejects self, unknown and incorrectly ranked neighbours', () => {

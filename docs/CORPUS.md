@@ -2,7 +2,13 @@
 
 This project exclusively uses **Sakamoto & Matsuoka, _The UNSC Meetings and
 Speeches_, version 5.0**. The former Schoenfeld 1992–2023 corpus is no longer a
-pipeline input.
+pipeline input. It is Schoenfeld, Eckhard, Patz, van Meegdenburg and Pires, _The UN
+Security Council Debates_, on Harvard Dataverse at
+[doi:10.7910/DVN/KGVSYH](https://doi.org/10.7910/DVN/KGVSYH), where its codebook
+(`Codebook.pdf`) is distributed with the data; the accompanying paper is
+[arXiv:1906.10969](https://arxiv.org/abs/1906.10969). Copies of both used to sit in
+`docs/reference/` and were removed on 9 October 2026, because they belong to their
+authors.
 
 | Field | Value |
 |---|---|
@@ -114,18 +120,57 @@ Lexicon v8 finds `g[eé]nocid*` in **4,136 speeches**, with **7,787 occurrences*
 
 ## Limitations that must remain visible
 
-- The transcripts are in English. The language actually spoken cannot be
-  recovered from this distribution, so no delivery language is derived or
-  published, and a speech may reach the record through interpretation.
-- `source_word_count` differs slightly from the project's tokenisation. Project
-  rates use only `words`, computed once by `lib.lexical`.
+### What the record contains
+
+- **The English record, not the words spoken.** The transcripts are in English.
+  The language actually spoken cannot be recovered from this distribution, so no
+  delivery language is derived or published. Speakers who used French, Russian,
+  Chinese, Arabic or Spanish reach the English record through the UN's
+  interpreters and translators: for them, *genocide* in the record is the
+  translator's choice of word, not necessarily their own. This matters most when
+  delegations are compared or ranked, since part of a difference may lie in
+  translation. Checking a set of high-stakes passages against the
+  original-language records would measure the effect; this has not been done.
+- **Formal meetings only.** Informal consultations are not meetings of the
+  Council and leave no verbatim record, so nothing said in them is in the corpus.
+  Of the 10,294 meeting records in the source, 830 carry no speeches: 663 are
+  meetings the source marks as closed, and 167 are other meetings whose record
+  holds no speech (computed from `data/derived/meetings.parquet` on 9 October
+  2026). Only the 9,464 meetings with speeches enter any count.
 - `other` means “no source indicator,” not “civil society.”
 - Geographic fields are optional and incomplete enrichments, never an
   aggregation key.
+
+### How the counts are made
+
+- **Every count is a minimum.** Older records survive as printed documents, and
+  turning them into text involves optical character recognition (scanning), which
+  can damage a word. A damaged word is not counted. The tolerant pattern finds no
+  damaged spelling of `genocid*` that the main pattern misses
+  ([VALIDATION.md](VALIDATION.md), open check 1), but it looks only for the damage
+  it was written for. No measure of scanning quality by decade exists, so it is
+  not known whether the counts fall further short in some decades than in others.
+- **No lexicon term has a measured precision, and recall is not estimated.** The
+  human audit of the lexicon's matches has a drawn sample (VALIDATION.md, open
+  check 2), but `annotations/lexicon/annotations.csv` holds only its header row:
+  nobody has yet checked how many matches of each term are real uses. How many
+  real uses the patterns miss (recall) is not estimated at all.
+- **The keyness cut-off is a filter, not a test.** A word enters a keyword or
+  collocate table only if its G² is at least 10.83, which corresponds to
+  p < 0.001 for a single test (`scripts/lib/lexical.py`). Thousands of words are
+  tested at once and the cut-off is not adjusted for that, so some words clear
+  it by chance. It removes noise; the tables are then ranked by effect size, and
+  a word's presence in them is not evidence that it is significant on its own.
+- `source_word_count` differs slightly from the project's tokenisation. Project
+  rates use only `words`, computed once by `lib.lexical`.
+
+### Model labels
+
 - The LLM runs dated August 2026 were produced against the former corpus. They
   are archived and cannot be joined to the new `occurrence_id` values. The
   published pointer names the partial `2026-09-08-qwen-131k` preview, which has
-  no human validation yet.
+  no human validation yet; see [CLAIMS.md](CLAIMS.md) for what each figure rests
+  on.
 
 ## Government-change datasets: an evaluation, not an adoption
 
@@ -301,6 +346,10 @@ disambiguation first, and that is its own project, not a field on this corpus.
 > Sakamoto, T., & Matsuoka, T. (2023). _The UNSC Meetings and Speeches_
 > (Version 5.0) [Data set]. Harvard Dataverse.
 > https://doi.org/10.7910/DVN/CKPTRB
+
+The year follows Harvard Dataverse's own suggested citation: the year the dataset
+was first published, followed by the version. Version 5.0, the pinned version, was
+released on 31 March 2026.
 
 Associated article: Sakamoto, T., Matsuoka, T., & Ito, H. (2026), “The Security
 Council in its entirety: unveiling 80 years of deliberation through the UNSC

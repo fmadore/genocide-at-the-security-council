@@ -21,9 +21,9 @@ from .paths import rel
 
 
 def read(path: Path, columns: list[str] | None = None) -> pd.DataFrame:
-    """Read a parquet file, reporting its shape."""
+    """Read a parquet file, reporting its shape; a missing one is a `console.Refusal`."""
     if not path.exists():
-        console.fail(f"{rel(path)} is missing — run the earlier pipeline steps first")
+        raise console.Refusal(f"{rel(path)} is missing — run the earlier pipeline steps first")
     frame = pd.read_parquet(path, columns=columns)
     console.info(f"read {rel(path)}  {frame.shape[0]:,} x {frame.shape[1]}")
     return frame

@@ -26,7 +26,7 @@ const SEATED = ['P5', 'E10'];
 function row(name: string, counts: Partial<Record<string, number>>, period = 'all'): StandingRow {
 	const groups = Object.fromEntries(GROUPS.map((g) => [g, counts[g] ?? 0]));
 	const held = Object.values(groups).reduce((a, b) => a + b, 0);
-	const seated = SEATED.reduce((sum, g) => sum + groups[g], 0);
+	const seated = SEATED.reduce((sum, g) => sum + groups[g]!, 0);
 	return {
 		country_org: name,
 		period,
@@ -108,9 +108,9 @@ describe('a row is a composition', () => {
 			new Set(SEATED)
 		);
 		expect(bands).toHaveLength(2);
-		expect(bands[0].from).toBe(0);
-		expect(bands[bands.length - 1].to).toBe(100);
-		expect(bands[0].share).toBeCloseTo(1602 / 2055);
+		expect(bands[0]!.from).toBe(0);
+		expect(bands[bands.length - 1]!.to).toBe(100);
+		expect(bands[0]!.share).toBeCloseTo(1602 / 2055);
 	});
 
 	it('marks which bands are a seat, from the artefact’s own list', () => {
@@ -182,7 +182,7 @@ describe('the cut', () => {
 		];
 		const decade = plan({ data: corpus(mixed), period: 'all', category: 'all' });
 		expect(decade.rows).toHaveLength(1);
-		expect(decade.rows[0].row.held).toBe(120);
+		expect(decade.rows[0]!.row.held).toBe(120);
 	});
 });
 
@@ -216,8 +216,8 @@ describe('what leaves in a file', () => {
 		const exported = exportRows(corpus(rows));
 		expect(exported).toHaveLength(2);
 		// country, type, period, held, seated, share, record, then the five groups.
-		expect(exported[0].slice(-5)).toEqual([0, 1602, 453, 0, 0]);
-		expect(exported[0][6]).toBe('changed');
-		expect(exported[1][2]).toBe('2010-2019');
+		expect(exported[0]!.slice(-5)).toEqual([0, 1602, 453, 0, 0]);
+		expect(exported[0]![6]).toBe('changed');
+		expect(exported[1]![2]).toBe('2010-2019');
 	});
 });

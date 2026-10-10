@@ -12,11 +12,23 @@ Website: <https://fmadore.github.io/genocide-at-the-security-council/>
 
 ## Start here
 
-[Project focus and release gates](docs/PLAN.md) is the single roadmap: current
-priorities, implementation status, research decisions and verification evidence.
-The reference guides linked there cover corpus facts, validation and operations.
-The fixes and improvements from the review of 24 September 2026 are tracked item
-by item in [the review roadmap](docs/ROADMAP.md).
+The model labels on the site are an **unvalidated, partial preview**: the human
+gold sample is not yet coded. Read the claims guide before citing a figure.
+
+| If you want to know… | Read |
+|---|---|
+| where the project stands, what comes next, and the release gates | [Project focus and release gates](docs/PLAN.md) |
+| what each published figure rests on, and whether it is validated | [Claims and their status](docs/CLAIMS.md) |
+| what the derived data contain, and what each field means | [Data sheet](docs/DATASHEET.md) |
+| the source corpus, its schema and its limits | [Canonical corpus](docs/CORPUS.md) |
+| how the model labels will be checked (proposal for the two coders) | [Evaluation plan](docs/EVALUATION_PLAN.md) |
+| the proposed next version of the annotation instrument | [Instrument v4 proposal](docs/INSTRUMENT_V4_PROPOSAL.md) |
+| which checks have been made, and which need a person | [Validation register](docs/VALIDATION.md) |
+| the model runs and why the published one is partial | [Model annotations](model_annotations/README.md) |
+| how to cut a citable release | [Releasing](docs/RELEASING.md) |
+| what to do when the rebuild fails | [If the rebuild breaks](docs/RUNBOOK.md) |
+| the GPU cluster | [Cluster guide](docs/CLUSTER.md) |
+| open review items | [Review roadmap](docs/ROADMAP.md) and [the review of 8 October 2026](docs/REVIEW_2026-10-08.md) |
 
 ## Corpus
 
@@ -123,7 +135,8 @@ The four hosted 2026-08 runs under
 [`model_annotations/genocide/runs/`](model_annotations/genocide/runs/) remain
 versioned for provenance of the retired corpus. `current_run.txt` selects the
 `2026-09-08-qwen-131k` run as an explicitly partial preview;
-`comparison_run.txt` is empty. A run must cover every current occurrence (the
+`comparison_run.txt` is empty, because the comparison run is not yet merged or
+published. A run must cover every current occurrence (the
 population in `config/lexicon.counts.json`) unless its coverage gap is
 authorised in `allow_partial_run.txt`;
 see [`model_annotations/README.md`](model_annotations/README.md)
@@ -137,4 +150,6 @@ unused profile.
 
 The code is licensed under MIT. Derived artefacts are licensed under CC BY 4.0;
 the source corpus remains CC0. See [`LICENSE-DATA.md`](LICENSE-DATA.md) and
-[`CITATION.cff`](CITATION.cff).
+[`CITATION.cff`](CITATION.cff). No citable release has been made yet; the site
+changes with every push. [`docs/RELEASING.md`](docs/RELEASING.md) describes how
+the first one, "v0.1 — unvalidated preview", is to be cut.

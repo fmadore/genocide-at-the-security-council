@@ -75,7 +75,7 @@ import re
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Final
+from typing import Any, Final
 
 import pandas as pd
 
@@ -600,7 +600,7 @@ def slice_rows(
     wants the slice that carries the evidence at the top; ties break on the name,
     so the order is a function of the data and not of the group iteration.
     """
-    rows = []
+    rows: list[dict[str, Any]] = []
     for member, group in occurrences.groupby(by, sort=False):
         total = len(group)
         rows.append(
@@ -657,7 +657,7 @@ def period_label(year: int, first: int, span: int) -> str:
 
 def share_change_points(
     occurrences: pd.DataFrame,
-    annual: Mapping[str, object],
+    annual: Mapping[str, Any],
     *,
     minimum: int,
     trials: int,
@@ -716,11 +716,11 @@ def crosstab(
 ) -> dict[str, object]:
     """Frame by model label, over the occurrences both instruments reached.
 
-    `multi` splits a pipe-joined field, as `lib.usage` documents `function` to
-    be, so an occurrence carrying two functions contributes to two cells and the
-    row totals exceed the occurrence count. `row_total` says so, because a reader
-    who sums a row and gets more than the frame's size is entitled to know why
-    before deciding the table is broken.
+    `multi` splits a pipe-joined field, as `lib.usage_comparison` documents
+    `function` to be, so an occurrence carrying two functions contributes to two
+    cells and the row totals exceed the occurrence count. `row_total` says so,
+    because a reader who sums a row and gets more than the frame's size is
+    entitled to know why before deciding the table is broken.
 
     The counts come back as a list of `{label, occurrences}` rather than as an
     object keyed on the labels: the vocabulary is a model's, not this

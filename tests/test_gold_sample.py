@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from lib import audit, frames, lexicon, model_runs, occurrences
+from conftest import make_speeches
+from lib import audit, frames, lexicon, model_runs, occurrences, sampling
 from lib import gold_sample as gold
 
 DENSE = "S/PV.7155"  # one of the seven meetings of docs/CORPUS.md §8.6
@@ -141,17 +142,18 @@ def term() -> lexicon.Term:
 
 
 def corpus() -> tuple[pd.DataFrame, pd.Series]:
-    speeches = pd.DataFrame(
+    speeches = make_speeches(
         {
-            "filename": [f"speech-{number}.txt" for number in range(len(SPEECHES))],
-            "text": [ADDRESS + body for body, *_ in SPEECHES],
-            "body_start": [len(ADDRESS)] * len(SPEECHES),
-            "year": [year for _, year, *_ in SPEECHES],
-            "meeting_symbol": [symbol for *_, symbol, _ in SPEECHES],
-            "date": pd.to_datetime([f"{year}-04-07" for _, year, *_ in SPEECHES]),
-            "country_org": ["Rwanda"] * len(SPEECHES),
-            "agenda_item_manual": ["Rwanda"] * len(SPEECHES),
+            "filename": f"speech-{number}.txt",
+            "text": ADDRESS + body,
+            "body_start": len(ADDRESS),
+            "year": year,
+            "meeting_symbol": symbol,
+            "date": f"{year}-04-07",
+            "country_org": "Rwanda",
+            "agenda_item_manual": "Rwanda",
         }
+        for number, (body, year, symbol, _) in enumerate(SPEECHES)
     )
     return speeches, frames.body(speeches)
 
@@ -176,13 +178,13 @@ def test_candidates_carry_the_audit_columns_plus_the_cue_and_the_kwic_id() -> No
 def test_the_drawn_sample_satisfies_what_the_merge_requires() -> None:
     sample = gold.draw(built(), 3, 5, 21)
     assert set(sample.columns) >= audit.CANDIDATE_REQUIRED
-    assert set(sample["sampling_frame"]) == {audit.PROBABILITY, audit.COVERAGE}
+    assert set(sample["sampling_frame"]) == {sampling.PROBABILITY, sampling.COVERAGE}
 
 
 def test_the_coverage_frame_holds_every_period_cue_stratum() -> None:
     candidates = built()
     coverage = gold.draw(candidates, 3, 5, 21).pipe(
-        lambda sample: sample.loc[sample["sampling_frame"] == audit.COVERAGE]
+        lambda sample: sample.loc[sample["sampling_frame"] == sampling.COVERAGE]
     )
     assert set(zip(coverage["period"], coverage["cue"], strict=True)) == set(
         zip(candidates["period"], candidates["cue"], strict=True)
@@ -224,7 +226,7 @@ def test_an_occurrence_in_both_frames_keeps_one_row_in_each() -> None:
     for _, rows in sample.loc[sample["occurrence_id"].duplicated(keep=False)].groupby(
         "occurrence_id"
     ):
-        assert sorted(rows["sampling_frame"]) == sorted([audit.PROBABILITY, audit.COVERAGE])
+        assert sorted(rows["sampling_frame"]) == sorted([sampling.PROBABILITY, sampling.COVERAGE])
         assert rows["candidate_id"].nunique() == 2
 
 
@@ -332,7 +334,7 @@ def test_the_frame_records_a_probability_per_stratum_and_a_census_where_it_takes
             "",
         ]
     )
-    sample = audit.stratified_sample(
+    sample = sampling.stratified_sample(
         candidates,
         {"rejects": None, "other_referent": 2, "reports_without_position": 5},
         21,
@@ -359,15 +361,15 @@ def test_the_frame_records_a_probability_per_stratum_and_a_census_where_it_takes
 def test_the_stratified_draw_is_reproducible_from_its_seed() -> None:
     candidates = strata_frame().assign(stratum=["other_referent"] * 8)
     sizes = {"other_referent": 3}
-    first = audit.stratified_sample(candidates, sizes, 21, gold.DISAGREEMENT)
-    again = audit.stratified_sample(candidates, sizes, 21, gold.DISAGREEMENT)
-    shuffled = audit.stratified_sample(
+    first = sampling.stratified_sample(candidates, sizes, 21, gold.DISAGREEMENT)
+    again = sampling.stratified_sample(candidates, sizes, 21, gold.DISAGREEMENT)
+    shuffled = sampling.stratified_sample(
         candidates.sample(frac=1, random_state=5).reset_index(drop=True),
         sizes,
         21,
         gold.DISAGREEMENT,
     )
-    other_seed = audit.stratified_sample(candidates, sizes, 22, gold.DISAGREEMENT)
+    other_seed = sampling.stratified_sample(candidates, sizes, 22, gold.DISAGREEMENT)
     assert first["occurrence_id"].tolist() == again["occurrence_id"].tolist()
     assert set(first["occurrence_id"]) == set(shuffled["occurrence_id"])
     assert set(first["occurrence_id"]) != set(other_seed["occurrence_id"])
@@ -376,7 +378,7 @@ def test_the_stratified_draw_is_reproducible_from_its_seed() -> None:
 def test_a_repository_with_no_published_run_pair_draws_only_the_first_two_frames() -> None:
     candidates = strata_frame().assign(stratum="")
     sample = gold.draw(candidates, 3, 5, 21)
-    assert set(sample["sampling_frame"]) == {audit.PROBABILITY, audit.COVERAGE}
+    assert set(sample["sampling_frame"]) == {sampling.PROBABILITY, sampling.COVERAGE}
 
 
 def test_the_three_frames_keep_one_row_and_one_probability_each() -> None:
@@ -385,8 +387,8 @@ def test_the_three_frames_keep_one_row_and_one_probability_each() -> None:
     )
     sample = gold.draw(candidates, 8, 5, 21, sizes={"rejects": None})
     assert set(sample["sampling_frame"]) == {
-        audit.PROBABILITY,
-        audit.COVERAGE,
+        sampling.PROBABILITY,
+        sampling.COVERAGE,
         gold.DISAGREEMENT,
     }
     assert not sample["candidate_id"].duplicated().any()
@@ -458,10 +460,55 @@ def test_the_packet_order_is_seeded_and_mixes_the_frames() -> None:
     )["occurrence_id"].tolist()
 
 
+def test_the_prior_review_flag_marks_a_drawn_sample_and_moves_nothing() -> None:
+    """Set after the draw and appended last: every column the files already had
+    keeps its place and its values, so the sample stays as drawn."""
+    candidates = built()
+    sample = gold.draw(candidates, 3, 5, 21)
+    reviewed = {*sample["occurrence_id"].iloc[:2], "an-occurrence-the-sample-missed"}
+    flagged = gold.flag_prior_review(sample, reviewed)
+    assert list(flagged.columns) == [*sample.columns, model_runs.PRIOR_REVIEW_FLAG]
+    pd.testing.assert_frame_equal(flagged[list(sample.columns)], sample)
+    marked = flagged.loc[flagged[model_runs.PRIOR_REVIEW_FLAG], "occurrence_id"]
+    assert set(marked) == set(sample["occurrence_id"].iloc[:2])
+
+    design = gold.design(candidates, 3, 5, gold.MODEL_STRATA)
+    weighted = gold.flag_prior_review(design, reviewed)
+    pd.testing.assert_frame_equal(weighted[list(design.columns)], design)
+    assert int(weighted[model_runs.PRIOR_REVIEW_FLAG].sum()) == 2
+
+
+def test_the_packet_never_says_a_passage_was_read_before() -> None:
+    sample = gold.draw(built(), 3, 5, 21)
+    flagged = gold.flag_prior_review(sample, set(sample["occurrence_id"]))
+    packet = gold.packet(flagged, 21)
+    assert model_runs.PRIOR_REVIEW_FLAG not in packet.columns
+    pd.testing.assert_frame_equal(packet, gold.packet(sample, 21))
+
+
 def test_the_prompt_examples_are_the_committed_mapping() -> None:
     mapping = pd.read_csv(model_runs.PROMPT_EXAMPLES, dtype="string", keep_default_na=False)
     assert len(mapping) == 10 and mapping["occurrence_id"].is_unique
     assert set(mapping["example"]) == {str(number) for number in range(1, 11)}
+
+
+def test_the_prior_review_list_carries_identities_and_nothing_else() -> None:
+    """The 59 passages read against Qwen's labels on 10 September 2026: an
+    identity per passage, never a label, and the two whose ordinal lexicon 8
+    moved recorded under both line ids (docs/EVALUATION_PLAN.md §4)."""
+    listed = pd.read_csv(model_runs.PRIOR_REVIEW, dtype="string", keep_default_na=False)
+    assert list(listed.columns) == [
+        "occurrence_id", "line_id", "reviewed_line_id", "reviewed_on", "source",
+    ]
+    assert len(listed) == 59
+    assert listed["occurrence_id"].is_unique and listed["reviewed_line_id"].is_unique
+    assert (listed["occurrence_id"].str.fullmatch(r"[0-9a-f]{64}")).all()
+    assert set(listed["reviewed_on"]) == {"2026-09-10"}
+    moved = listed.loc[listed["line_id"] != listed["reviewed_line_id"]]
+    assert dict(zip(moved["reviewed_line_id"], moved["line_id"], strict=True)) == {
+        "SC04429-01-009#5": "SC04429-01-009#6",
+        "SC05697-01-040#1": "SC05697-01-040#2",
+    }
 
 
 def test_the_coding_page_offers_exactly_the_codebook_vocabularies() -> None:

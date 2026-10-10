@@ -18,6 +18,11 @@
  * shows. A downloaded table with no version is an orphan the moment a figure is
  * regenerated, and this project regenerates figures.
  *
+ * **A file made from model labels says how far they have been checked.** The
+ * caller passes a status line, built from what the payload says about the run
+ * (`runStatus` in `$lib/usage`); it is printed under the title of the CSV and
+ * of the image, and it is absent when the run is complete and checked.
+ *
  * **An image states its filters in the image.** Not in the filename, which
  * survives one rename. `captionSvg` draws the title, the filters and the
  * provenance into the picture itself, so a chart pasted into a slide still says
@@ -91,6 +96,13 @@ export interface ExportRequest {
 	 * the whole artefact — override only when that is not true.
 	 */
 	scope?: string;
+	/**
+	 * How far the rows can be trusted, where they rest on model labels nobody
+	 * has finished checking: `runStatus` in `$lib/usage`, read from the payload.
+	 * Null or absent for a computed figure, and for a model run that is complete
+	 * and checked, so the line disappears by itself when the payload says so.
+	 */
+	status?: string | null;
 }
 
 const SITE = 'Genocide at the Security Council';
@@ -120,9 +132,17 @@ export function provenanceLines(provenance: Provenance): string[] {
 	return lines;
 }
 
-/** The comment rows a CSV leads with. `#` is what pandas and R read as a comment. */
+/**
+ * The comment rows a CSV leads with. `#` is what pandas and R read as a comment.
+ *
+ * The status, where there is one, comes straight after the title: it is the
+ * line a file quoted out of context most needs to keep (review of 8 October
+ * 2026, A1), so it is not left to the end of a block of hashes.
+ */
 export function csvHeader(request: ExportRequest): string[] {
-	const lines = [SITE, `figure: ${request.title}`, ...provenanceLines(request.provenance)];
+	const lines = [SITE, `figure: ${request.title}`];
+	if (request.status) lines.push(`status: ${request.status}`);
+	lines.push(...provenanceLines(request.provenance));
 	if (request.filters?.length) lines.push(`on screen: ${request.filters.join('; ')}`);
 	lines.push(`rows: ${request.scope ?? DEFAULT_SCOPE}`);
 	lines.push(`licence: CC BY 4.0 — ${REPO}`);
@@ -142,8 +162,24 @@ export function csvField(value: string | number | boolean | null | undefined): s
 	return /[",\n\r]|^\s|\s$/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-/** The whole file: provenance comments, the header row, then the rows. */
+/**
+ * The whole file: provenance comments, the header row, then the rows.
+ *
+ * A row with more or fewer cells than there are columns is refused rather
+ * than written. Spreadsheets and pandas read such a file without complaint and
+ * shift every value after the gap into the next column's heading, so a table
+ * builder that dropped or added one cell would publish numbers under the wrong
+ * names.
+ */
 export function toCsv(request: ExportRequest): string {
+	const width = request.columns.length;
+	const ragged = request.rows.findIndex((row) => row.length !== width);
+	if (ragged >= 0) {
+		throw new Error(
+			`Row ${ragged + 1} of “${request.title}” has ${request.rows[ragged]!.length} cells ` +
+				`for ${width} columns, so the file was not written.`
+		);
+	}
 	const body = request.rows.map((row) => row.map(csvField).join(','));
 	return [...csvHeader(request), request.columns.map(csvField).join(','), ...body, ''].join('\r\n');
 }
@@ -185,7 +221,7 @@ const XML_ESCAPES: Record<string, string> = {
  * apart, rather than one that is subtly wrong in whichever place it is not.
  */
 export const escapeXml = (value: string): string =>
-	value.replace(/[&<>"']/g, (character) => XML_ESCAPES[character]);
+	value.replace(/[&<>"']/g, (character) => XML_ESCAPES[character]!);
 
 export interface CaptionRequest {
 	/** The chart's serialised `<svg>` markup. */
@@ -195,6 +231,8 @@ export interface CaptionRequest {
 	title: string;
 	filters?: string[];
 	provenance: Provenance;
+	/** The same status line the CSV carries, drawn first under the title. */
+	status?: string | null;
 	/** Resolved colours — the exported file has none of the page's CSS. */
 	colours: { ink: string; faint: string; paper: string; rule: string };
 	fontFamily?: string;
@@ -249,6 +287,7 @@ export function captionSvg(request: CaptionRequest): string {
 	const { svg, width, height, title, provenance, colours } = request;
 	const font = request.fontFamily ?? 'Hanken Grotesk, Helvetica Neue, Helvetica, Arial, sans-serif';
 	const lines = [
+		...(request.status ? [request.status] : []),
 		...(request.filters?.length ? [request.filters.join('  ·  ')] : []),
 		...provenanceLines(provenance)
 	];

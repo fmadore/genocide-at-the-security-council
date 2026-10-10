@@ -1,10 +1,10 @@
 <script lang="ts">
+	import ScrollRegion from '$lib/ScrollRegion.svelte';
 	import SearchSelect from '$lib/SearchSelect.svelte';
 	import { resolve } from '$app/paths';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
-	import { pushState, replaceState } from '$app/navigation';
-	import { onMount, tick } from 'svelte';
+	import { urlState } from '$lib/url-state.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Bookmark from '@lucide/svelte/icons/bookmark';
@@ -19,13 +19,13 @@
 		CORPUS_END_YEAR,
 		CORPUS_START_YEAR,
 		concordanceParams,
-		describeMonth,
-		describeSort,
+		exportFilters,
 		facetClick,
 		filterConcordance,
 		profileResult,
 		readConcordanceState,
 		readerQuery,
+		referentMap,
 		yearClick,
 		clearFilter,
 		concordanceQuery,
@@ -39,9 +39,10 @@
 		FacetDimension,
 		FilterKey
 	} from '$lib/concordance';
-	import { USAGE_TERM } from '$lib/usage';
+	import { USAGE_TERM, runStatus } from '$lib/usage';
 	import ResultProfile from '$lib/ResultProfile.svelte';
-	import { kwic, meetingOf, usage, usageOccurrences } from '$lib/data';
+	import { Resource } from '$lib/resource.svelte';
+	import { kwic, meetingOf, usage, usageReferents } from '$lib/data';
 	import { filename, provenanceOf, saveCsv, toCsv } from '$lib/export';
 	import type { ExportRequest } from '$lib/export';
 	import Figure from '$lib/Figure.svelte';
@@ -140,6 +141,9 @@
 	let referentOf = $state<Map<string, string> | null>(null);
 	const referentLabels = new SvelteMap<string, string>();
 	let referentsFailed = $state<string | null>(null);
+	/* What the payload says of the run those placements come from, for the file
+	   a referent-filtered list is downloaded as: `runStatus` in `$lib/usage`. */
+	let runLabel = $state<string | null>(null);
 	let from = $state(CORPUS_START_YEAR);
 	let to = $state(CORPUS_END_YEAR);
 	/* A month of the year, orthogonal to the year bounds above: `month = 6` with
@@ -149,21 +153,25 @@
 	let month = $state<number | null>(null);
 	let sort = $state<ConcordanceSort>('date');
 	let regex = $state(false);
-	let urlReady = $state(false);
-	let shown = $state(PAGE);
+	/* How many lines are on screen. Any change to the filter resets the
+	   window; "Show more" widens it until the next one. */
+	let shown = $derived.by(() => {
+		void [term, searched, group, country, participantType, agenda, spv, from, to, month, sort];
+		return PAGE;
+	});
 	let expanded = $state<string | null>(null);
 
-	let file = $state<KwicFile | null>(null);
-	/* True from the first paint, not from the first fetch.
+	/* Loading from the first paint, not from the first fetch.
 
-	   The effect below cannot start the fetch until `urlReady`, and a page that
-	   reported `loading = false` in the meantime painted "0 of 0 lines", an
-	   export of nothing and "No passages match" over a 6.2 MB file that was
-	   still on its way — a false zero that blamed the reader's filters for it.
-	   The state starts where the page actually is: nothing has arrived yet. */
-	let loading = $state(true);
-	let failure = $state<string | null>(null);
-	let retry = $state(0);
+	   The effect below cannot start the fetch until `url.ready`, and a page that
+	   reported `loading = false` in the meantime would paint "0 of 0 lines", an
+	   export of nothing and "No passages match" over a 6.2 MB file still on its
+	   way — a false zero that blames the reader's filters for it. The state
+	   starts where the page actually is: nothing has arrived yet. */
+	const kwicFile = new Resource<KwicFile>({ loading: true });
+	const file = $derived(kwicFile.value);
+	const loading = $derived(kwicFile.loading);
+	const failure = $derived(kwicFile.failure);
 
 	/* Not-yet-loaded and nothing-matched are different facts about the same
 	   empty list, and only one of them may be stated. `loaded` is the second:
@@ -189,22 +197,31 @@
 		regex = state.regex;
 	}
 
-	onMount(() => {
-		apply(readConcordanceState(page.url.searchParams));
-		// The first replaceState must wait until SvelteKit has assigned its root.
-		// Running it inside the initial mount callback reaches the client router
-		// before that assignment is complete.
-		void tick().then(() => {
-			urlReady = true;
-		});
-		/* Back and Forward between this page's own entries. They are shallow, so
-		   SvelteKit restores `page.state` and leaves `page.url` where the last
-		   real navigation put it: the address bar is the only thing that knows
-		   which narrowing the reader has stepped back to. */
-		const restore = () => apply(readConcordanceState(new URLSearchParams(location.search)));
-		window.addEventListener('popstate', restore);
-		return () => window.removeEventListener('popstate', restore);
+	/**
+	 * Keep the URL in step, so any view of the concordance is citable — and so
+	 * that Back undoes a narrowing, and Back and Forward between this page's
+	 * own entries restore the narrowing each one holds. Whether a change pushes
+	 * an entry or replaces one is `historyStep`'s decision; `step` only
+	 * supplies the facts.
+	 */
+	const url = urlState({
+		read: (params) => apply(readConcordanceState(params)),
+		/* The scope is layout state and this page owns everything else in the
+		   query, so it is merged back in here: a page that rebuilt its own URL
+		   from its own controls would silently drop the reader's reading set on
+		   the next keystroke. */
+		write: () => withScope(concordanceParams(currentState()), scope),
+		step: (next) => {
+			const current = concordanceQuery(new URLSearchParams(location.search));
+			const step = historyStep(next, current, { first: !written, typing: settling });
+			written = true;
+			settling = false;
+			return step;
+		},
+		restore: (search) => apply(readConcordanceState(new URLSearchParams(search)))
 	});
+	/** Whether the URL has been written once: the first write only canonicalises it. */
+	let written = false;
 
 	/** Long enough to cover typing, short enough not to feel like a wait. */
 	const SETTLE = 200;
@@ -255,45 +272,9 @@
 	}
 
 	$effect(() => {
-		if (!urlReady) return;
+		if (!url.ready) return;
 		const wanted = term;
-		void retry;
-		loading = true;
-		failure = null;
-		kwic(wanted)
-			.then((loaded) => {
-				if (wanted === term) file = loaded;
-			})
-			.catch((error: Error) => {
-				if (wanted === term) failure = error.message;
-			})
-			.finally(() => {
-				if (wanted === term) loading = false;
-			});
-	});
-
-	/**
-	 * Keep the URL in step, so any view of the concordance is citable — and so
-	 * that Back undoes a narrowing. Whether a change pushes an entry or replaces
-	 * one is `historyStep`'s decision; this effect only supplies the facts.
-	 */
-	let written = false;
-	$effect(() => {
-		if (!urlReady) return;
-		/* The scope is layout state and this page owns everything else in the
-		   query, so it is merged back in here: a page that rebuilt its own URL
-		   from its own controls would silently drop the reader's reading set on
-		   the next keystroke. */
-		const next = withScope(concordanceParams(currentState()), scope);
-		const current = concordanceQuery(new URLSearchParams(location.search));
-		const step = historyStep(next, current, { first: !written, typing: settling });
-		written = true;
-		settling = false;
-		if (step === 'none') return;
-		const search = next.toString();
-		const url = `${page.url.pathname}${search ? `?${search}` : ''}`;
-		if (step === 'push') pushState(url, page.state);
-		else replaceState(url, page.state);
+		void kwicFile.load(() => kwic(wanted));
 	});
 
 	const lines = $derived(file?.lines ?? []);
@@ -350,15 +331,12 @@
 	   the URL for any other term is dropped by the filter's own rule: without
 	   the map it keeps nothing, and the status line says so. */
 	$effect(() => {
-		if (!urlReady || !referentsOffered || referentOf) return;
-		Promise.all([usageOccurrences(), usage()])
-			.then(([occurrences, run]) => {
-				referentOf = new Map(
-					occurrences.occurrences
-						.filter((row) => row.referent)
-						.map((row) => [row.id, row.referent] as [string, string])
-				);
+		if (!url.ready || !referentsOffered || referentOf) return;
+		Promise.all([usageReferents(), usage()])
+			.then(([referents, run]) => {
+				referentOf = referentMap(referents.placements);
 				for (const r of run.referents) referentLabels.set(r.id, r.label);
+				runLabel = runStatus(run);
 			})
 			.catch((error: Error) => {
 				referentsFailed = error.message;
@@ -417,12 +395,6 @@
 		);
 	}
 
-	$effect(() => {
-		// Any change to the filter resets the page window.
-		void [term, searched, group, country, participantType, agenda, spv, from, to, month, sort];
-		shown = PAGE;
-	});
-
 	function reset() {
 		// Immediately, not after `SETTLE`: clearing every filter at once is not
 		// typing, and a reader who asked for the whole term should get it now.
@@ -480,7 +452,10 @@
 			// so its manifest is on `file` and not on `data`.
 			provenance: provenanceOf(file?.meta ?? data.index.meta, `kwic/${term}.json`),
 			filters,
-			scope
+			scope,
+			// The lines are the record's own, but under a referent filter which of
+			// them are in the file is the model's decision, and the file says so.
+			status: referentsOffered && referent && referentOf ? runLabel : null
 		};
 	}
 
@@ -496,19 +471,12 @@
 		apply(clearFilter(currentState(), key));
 	}
 
-	/** What the reader actually narrowed by, for the file's own record. */
+	/** What the reader actually narrowed by, for the file's own record: `exportFilters`. */
 	const applied = () =>
-		[
-			searched ? `search: ${searched}${regex ? ' (regex)' : ''}` : null,
-			group ? `group: ${group}` : null,
-			country ? `speaker: ${country}` : null,
-			participantType ? `participant type: ${participantType}` : null,
-			agenda ? `agenda: ${agenda}` : null,
-			spv ? `meeting: ${spv}` : null,
-			from !== CORPUS_START_YEAR || to !== CORPUS_END_YEAR ? `years: ${from}–${to}` : null,
-			describeMonth(month),
-			`sorted by: ${describeSort(sort)}`
-		].filter((line): line is string => line !== null);
+		exportFilters(currentState(), {
+			meeting: meetingLabel,
+			referent: (id) => referentLabels.get(id) ?? termLabel(id)
+		});
 
 	function download() {
 		saveCsv(
@@ -576,7 +544,7 @@
 	<Figure
 		title="Keyword in context"
 		question="What was actually said, each of the {count(entry?.count ?? 0)} times?"
-		source={`08_kwic.py → kwic/${term}.json${referentsOffered && referent && referentOf ? '; 15_usage.py → usage/occurrences.json' : ''}`}
+		source={`08_kwic.py → kwic/${term}.json${referentsOffered && referent && referentOf ? '; 15_usage.py → usage/referents.json' : ''}`}
 	>
 		{#snippet controls()}
 			<label>
@@ -730,7 +698,7 @@
 				<span>Loading {termLabel(term)} — {bytes(entry?.bytes ?? 0)}…</span>
 			{:else if failure}
 				<span class="error">{failure}</span>
-				<button class="ghost" onclick={() => (retry += 1)}>Try again</button>
+				<button class="ghost" onclick={() => kwicFile.retry()}>Try again</button>
 			{:else}
 				<span>
 					<strong>{count(filtered.length)}</strong> of {count(lines.length)} lines
@@ -875,8 +843,7 @@
 			single words and some short phrases. Each term is held in its own file, downloaded when you select
 			it.
 		</p>
-		<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
-		<div class="table-scroll" role="region" aria-label="Available terms table" tabindex="0">
+		<ScrollRegion label="Available terms table">
 			<table>
 				<thead>
 					<tr>
@@ -904,7 +871,7 @@
 					{/each}
 				</tbody>
 			</table>
-		</div>
+		</ScrollRegion>
 	</section>
 </article>
 
@@ -1512,11 +1479,6 @@
 		font-family: var(--sans);
 		font-size: var(--step--1);
 		color: var(--ink-2);
-	}
-
-	.table-scroll {
-		max-width: 100%;
-		overflow-x: auto;
 	}
 
 	/* The term on screen, marked in the table by weight and by an ink rule

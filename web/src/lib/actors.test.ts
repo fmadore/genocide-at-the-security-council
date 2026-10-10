@@ -95,7 +95,7 @@ describe('the headline the actor table opens on', () => {
 	/* Default counts use the full word family, including when both measures exist. */
 	it('opens on the full word family when the optional exclusion is also available', () => {
 		const data = corpus([speaker('Rwanda')], [row('Rwanda')]);
-		data.measures.term_subset = data.measures.genocide;
+		data.measures.term_subset = data.measures.genocide!;
 		expect(actorDefaults(data).measure).toBe('genocide');
 	});
 
@@ -199,8 +199,8 @@ describe('ordering', () => {
 		);
 		const byRate = plan({ data, measure: 'genocide', period: 'all', order: 'speech_rate' });
 		const byCount = plan({ data, measure: 'genocide', period: 'all', order: 'speeches' });
-		expect(byRate.rows[0].speaker.country_org).toBe('Alpha');
-		expect(byCount.rows[0].speaker.country_org).toBe('Bravo');
+		expect(byRate.rows[0]!.speaker.country_org).toBe('Alpha');
+		expect(byCount.rows[0]!.speaker.country_org).toBe('Bravo');
 	});
 
 	it('breaks ties by name so a table does not reorder between renders', () => {
@@ -238,14 +238,14 @@ describe('ISO3 collisions', () => {
 		// rows and knows it, which is what lets the interface say so.
 		const drawn = points(result.rows, ambiguous(data));
 		expect(drawn).toHaveLength(1);
-		expect(drawn[0].speakers).toHaveLength(2);
-		expect(drawn[0].shared).toBe(true);
+		expect(drawn[0]!.speakers).toHaveLength(2);
+		expect(drawn[0]!.shared).toBe(true);
 	});
 
 	it('leaves an unshared code unflagged', () => {
 		const data = corpus([speaker('Kenya', { iso3: 'KEN' })], [row('Kenya')], collisions);
 		const drawn = points(plan({ data, measure: 'genocide', period: 'all' }).rows, ambiguous(data));
-		expect(drawn[0].shared).toBe(false);
+		expect(drawn[0]!.shared).toBe(false);
 	});
 });
 
@@ -268,7 +268,7 @@ describe('what may be drawn on a map', () => {
 		);
 		const drawn = points(plan({ data, measure: 'genocide', period: 'all' }).rows, new Set());
 		expect(drawn).toHaveLength(1);
-		expect(drawn[0].speakers[0].speaker.country_org).toBe('Kenya');
+		expect(drawn[0]!.speakers[0]!.speaker.country_org).toBe('Kenya');
 	});
 
 	it('flips the artefact latitude/longitude into MapLibre order', () => {
@@ -280,7 +280,7 @@ describe('what may be drawn on a map', () => {
 			[row('Afghanistan')]
 		);
 		const drawn = points(plan({ data, measure: 'genocide', period: 'all' }).rows, new Set());
-		expect(drawn[0].lngLat).toEqual([66.5922, 34.134]);
+		expect(drawn[0]!.lngLat).toEqual([66.5922, 34.134]);
 	});
 
 	it('draws nothing for a speaker with no centroid', () => {
@@ -353,7 +353,7 @@ describe('figures a measure does not carry', () => {
 		]);
 		const result = plan({ data, measure: 'genocide', period: 'all', order: 'token_rate' });
 		expect(result.order).toBe('token_rate');
-		expect(result.rows[0].speaker.country_org).toBe('Kenya');
+		expect(result.rows[0]!.speaker.country_org).toBe('Kenya');
 	});
 });
 
@@ -393,7 +393,7 @@ describe('the link into the concordance', () => {
 			speeches_at_minimum: 20_223
 		});
 		const entry = plan({ data, measure: 'genocide', period: 'recent' }).rows[0];
-		const params = new URLSearchParams(occurrences(data, 'genocide', entry)!.query);
+		const params = new URLSearchParams(occurrences(data, 'genocide', entry!)!.query);
 		expect(params.get('from')).toBe('2020');
 		expect(params.get('to')).toBe('2023');
 	});
@@ -466,7 +466,7 @@ describe('every link the actor table offers names a concordance that exists', ()
 	it.each(['genocide', 'term_subset'])('%s opens lines the concordance has a file for', (name) => {
 		const data = published();
 		const entry = plan({ data, measure: name, period: 'all' }).rows[0];
-		const link = occurrences(data, name, entry)!;
+		const link = occurrences(data, name, entry!)!;
 		expect(HELD).toContain(link.term);
 		expect(HELD).toContain(new URLSearchParams(link.query).get('term'));
 	});
@@ -474,7 +474,7 @@ describe('every link the actor table offers names a concordance that exists', ()
 	it('resolves the derived measure to the term it subtracts from', () => {
 		const data = published();
 		const entry = plan({ data, measure: 'term_subset', period: 'all' }).rows[0];
-		const link = occurrences(data, 'term_subset', entry)!;
+		const link = occurrences(data, 'term_subset', entry!)!;
 		expect(link.term).toBe('genocide');
 		expect(new URLSearchParams(link.query).get('country')).toBe('Rwanda');
 	});

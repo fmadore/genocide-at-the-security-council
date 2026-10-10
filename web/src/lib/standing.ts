@@ -119,7 +119,7 @@ export function segments(row: StandingRow, groups: string[], seated: Set<string>
 	}
 	// Rounding can leave the last band a hair short of the full width, which
 	// reads as a sliver of background at the end of a complete row.
-	if (out.length) out[out.length - 1].to = 100;
+	if (out.length) out[out.length - 1]!.to = 100;
 	return out;
 }
 

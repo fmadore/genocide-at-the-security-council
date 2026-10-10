@@ -38,7 +38,7 @@ def meeting_influence(
     Eligibility is recomputed using the primary count and G² floors, but words
     are not reselected. No percentile here has a sampling interpretation.
     """
-    totals = [Counter(), Counter()]
+    totals: list[Counter[str]] = [Counter(), Counter()]
     blocks: dict[str, list[Counter]] = {}
     for arm, (documents, meetings) in enumerate(
         ((target_documents, target_meetings), (control_documents, control_meetings))

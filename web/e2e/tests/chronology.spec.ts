@@ -14,41 +14,46 @@
  * because a fixture that holds only one cannot catch the day two of them merge.
  */
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import { base } from '../../playwright.config';
 
-test('the chronology draws its six plates from the artefacts', async ({ page }) => {
-	const response = await page.goto(`${base}/chronology/`);
-	expect(response?.status()).toBe(200);
+test(
+	'the chronology draws its six plates from the artefacts',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		const response = await page.goto(`${base}/chronology/`);
+		expect(response?.status()).toBe(200);
 
-	await expect(page.getByRole('heading', { name: 'Chronology', level: 1 })).toBeVisible();
-	for (const plate of [
-		'The reading set, year by year',
-		'The word list over time',
-		'Testing for a change in the rate',
-		"The vocabulary's calendar",
-		'The same twelve months, pooled',
-		'Who says it, and in what debate'
-	]) {
-		await expect(page.getByRole('heading', { name: plate })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Chronology', level: 1 })).toBeVisible();
+		for (const plate of [
+			'The reading set, year by year',
+			'The word list over time',
+			'Testing for a change in the rate',
+			"The vocabulary's calendar",
+			'The same twelve months, pooled',
+			'Who says it, and in what debate'
+		]) {
+			await expect(page.getByRole('heading', { name: plate })).toBeVisible();
+		}
+		// The page's one citable result follows the word list it tests rather than
+		// sitting fifth of six (review of 19 September 2026): the running head lists
+		// the plates in the order the page prints them.
+		await expect(
+			page.getByRole('navigation', { name: 'Figures on this page' }).getByRole('link')
+		).toHaveText([
+			'The reading set, year by year',
+			'The word list over time',
+			'Testing for a change in the rate',
+			"The vocabulary's calendar",
+			'The same twelve months, pooled',
+			'Who says it, and in what debate'
+		]);
+
+		const { violations } = await new AxeBuilder({ page }).analyze();
+		expect(violations).toEqual([]);
 	}
-	// The page's one citable result follows the word list it tests rather than
-	// sitting fifth of six (review of 19 September 2026): the running head lists
-	// the plates in the order the page prints them.
-	await expect(
-		page.getByRole('navigation', { name: 'Figures on this page' }).getByRole('link')
-	).toHaveText([
-		'The reading set, year by year',
-		'The word list over time',
-		'Testing for a change in the rate',
-		"The vocabulary's calendar",
-		'The same twelve months, pooled',
-		'Who says it, and in what debate'
-	]);
-
-	const { violations } = await new AxeBuilder({ page }).analyze();
-	expect(violations).toEqual([]);
-});
+);
 
 test('a term the artefact does not carry is dropped, not fatal', async ({ page }) => {
 	// The page opens on four named terms and the fixture lexicon carries one.
@@ -121,6 +126,77 @@ test('the calendar tells a withheld month from one the Council did not sit in', 
 	expect(counts.key).toEqual([`no rate (${counts.withheld})`, `no sitting (${counts.unobserved})`]);
 });
 
+/**
+ * The chronology with a variant monthly artefact.
+ *
+ * Interception sees browser requests, and the first load of a page is answered
+ * by the server, so the variant is served on a client-side navigation from the
+ * concordance, where the page's load runs in the browser.
+ */
+async function chronologyWithMonthly(page: Page, change: (monthly: MonthlyFixture) => void) {
+	const monthly = JSON.parse(
+		await readFile(new URL('../fixtures/data/series/monthly.json', import.meta.url), 'utf8')
+	) as MonthlyFixture;
+	change(monthly);
+	await page.route('**/data/series/monthly.json', (route) => route.fulfill({ json: monthly }));
+	await page.goto(`${base}/concordance/`);
+	await expect(page.locator('.status')).toContainText('4 of 4 lines');
+	await page
+		.getByRole('navigation', { name: 'Sections' })
+		.getByRole('link', { name: /Chronology/ })
+		.click();
+	await expect(page.getByRole('heading', { name: 'Chronology', level: 1 })).toBeVisible();
+}
+
+interface MonthlyFixture {
+	sufficient: boolean[];
+	terms: Record<string, unknown>;
+	month_of_year: { measures: Record<string, unknown> };
+}
+
+const calendarOf = (page: Page) =>
+	page.locator('figure.figure').filter({
+		has: page.getByRole('heading', { name: "The vocabulary's calendar", level: 2 })
+	});
+
+test(
+	'a calendar with no month to draw offers the same measure by year',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		await chronologyWithMonthly(page, (monthly) => {
+			monthly.sufficient = monthly.sufficient.map(() => false);
+		});
+		const calendar = calendarOf(page);
+		await expect(calendar.locator('p.empty')).toContainText('No month reached 6 speeches.');
+		await expect(new AxeBuilder({ page }).analyze()).resolves.toMatchObject({ violations: [] });
+
+		// The way out goes to the word list, by year, with focus on the plate's
+		// own title rather than on its entry in the running head.
+		await calendar.getByRole('button', { name: 'Show genocide by year' }).click();
+		const title = page.locator('#the-word-list-over-time h2 a');
+		await expect(title).toBeFocused();
+		await expect(title).toBeInViewport();
+		await expect(page.getByRole('combobox', { name: 'Time interval' })).toHaveValue('year');
+		await expect(page.getByRole('button', { name: /^genocide/ }).first()).toHaveAttribute(
+			'aria-pressed',
+			'true'
+		);
+	}
+);
+
+test('a calendar with no measure in the data offers the yearly series instead', async ({
+	page
+}) => {
+	await chronologyWithMonthly(page, (monthly) => {
+		monthly.terms = {};
+		monthly.month_of_year.measures = {};
+	});
+	const calendar = calendarOf(page);
+	await expect(calendar.locator('p.empty')).toContainText('This measure is not in the data.');
+	await calendar.getByRole('button', { name: 'Show the word list by year' }).click();
+	await expect(page.locator('#the-word-list-over-time h2 a')).toBeFocused();
+});
+
 test('the calendar stays legible at a phone width', async ({ page }) => {
 	// The grid used to be drawn at a fixed 1,220 user units and scaled into its
 	// column, which at 390px rendered every label at 2.52 CSS pixels.
@@ -150,4 +226,22 @@ test('the calendar stays legible at a phone width', async ({ page }) => {
 
 	// And the page still does not scroll sideways at the reflow width.
 	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+test('the band is the meeting-clustered interval where the artefact carries one', async ({
+	page
+}) => {
+	// The fixture carries both intervals for 1994: Wilson 8.07%–41.62% and,
+	// from resampling whole meetings, 5.00%–45.00%. The chart's tooltip states
+	// the interval the band is drawn from, so it is the one to read back.
+	await page.goto(`${base}/chronology/`);
+	const figure = page.locator('figure.figure').filter({
+		has: page.getByRole('heading', { name: 'The word list over time', level: 2 })
+	});
+	const plot = figure.locator('.chart').first();
+	await expect(plot.locator('svg')).toBeVisible({ timeout: 15_000 });
+	// The middle of the plot is 1994, the middle of the three fixture years.
+	await plot.hover();
+	await expect(plot).toContainText('5.00%–45.00%');
+	await expect(plot).not.toContainText('8.07%–41.62%');
 });

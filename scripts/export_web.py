@@ -7,16 +7,22 @@ diffed and archived independently of whether a web application exists. This
 copies the parts the dashboard actually loads into `web/static/data/` and
 writes a manifest of what it took.
 
-    derived/series/*.json     → static/data/series/
-    derived/lexical/*.json    → static/data/lexical/
-    derived/kwic/*.json       → static/data/kwic/
-    derived/countries/*.json  → static/data/countries/
-    derived/usage/*.json      → static/data/usage/
-    derived/frames/*.json     → static/data/frames/
+    derived/series/*.json          → static/data/series/
+    derived/lexical/*.json         → static/data/lexical/
+    derived/kwic/*.json            → static/data/kwic/
+    derived/countries/*.json       → static/data/countries/
+    derived/speaker_keyness/*.json → static/data/countries/
+    derived/usage/*.json           → static/data/usage/  (+ referents.json, cut here)
+    derived/frames/frames.json     → static/data/frames/
+    derived/actor_year/            → static/data/actor_year/
+    derived/semantic/              → static/data/semantic/
 
 `09_export_speeches.py` is the one exception and writes its 425 MB straight to
 `web/static/data/speeches/`. Copying that twice to preserve a symmetry nobody
 benefits from would cost a gigabyte of disk.
+
+The payload is held to a size budget, in total and file by file, before the
+manifest marks it complete; see `TOTAL_BUDGET` and `FILE_BUDGETS`.
 
 Usage:
     python scripts/export_web.py
@@ -30,18 +36,21 @@ import shutil
 import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from fnmatch import fnmatch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import artifacts, console, contract, semantic_release
 from lib.paths import (
+    ACTOR_YEAR,
     CONTRACT,
     COUNTRIES,
-    DERIVED,
     FRAMES,
     KWIC,
     LEXICAL,
     ROOT,
+    SEMANTIC,
+    SEMANTIC_PIN,
     SERIES,
     SPEAKER_KEYNESS,
     SPEECHES_FLAGGED,
@@ -68,8 +77,8 @@ PARTS = [
     # keys its cache on that directory too.
     ((USAGE,), "usage", "15_usage.py"),
     ((FRAMES,), "frames", "17_frames.py"),
-    ((DERIVED / "actor_year",), "actor_year", "20_actor_year.py"),
-    ((DERIVED / "semantic",), "semantic", "21_semantic_map.py"),
+    ((ACTOR_YEAR,), "actor_year", "20_actor_year.py"),
+    ((SEMANTIC,), "semantic", "21_semantic_map.py"),
 ]
 
 #: Written by 09, not copied. Listed so the manifest describes the whole payload
@@ -78,6 +87,56 @@ IN_PLACE = [
     ("speeches", "09_export_speeches.py"),
     ("meetings.json", "09_export_speeches.py"),
     ("scopes.json", "09_export_speeches.py"),
+]
+
+#: Files a step writes beside what the dashboard reads, left out of the payload.
+#: 17's per-occurrence assignments are fetched by no view and offered as no
+#: download, and every visitor's deploy would carry their 1.4 MB. They stay in
+#: `data/derived/frames/`, and so in the derived tables a release deposits, for
+#: anyone checking the frames table row by row.
+NOT_SHIPPED: dict[str, tuple[str, ...]] = {"frames": ("occurrences.json",)}
+
+#: The referent filter's whole need from 15's rows: the referent of each
+#: occurrence the run placed on one, keyed by line id. The concordance and the
+#: reader read this rather than `usage/occurrences.json`, which carries every
+#: label, rationale and quotation and is twenty-five times the size; the usage
+#: view's drill-down still reads that file, so it ships too.
+PLACEMENTS = "referents.json"
+
+#: Keys of 15's provenance carried into the placements' own, so the map says
+#: which run and which lists its labels come from without a second fetch.
+PLACEMENT_META = ("lexicon_version", "run_id", "referents_version")
+
+#: What the whole payload may weigh on disk. The deploy's limit is GitHub Pages'
+#: 1 GB for the built site, and a payload that grows by a few megabytes a change
+#: is noticed by nobody until it is a problem; a ceiling makes each such change
+#: argue for itself in a diff. Measured at 329 MB on 9 October 2026 (214 MB as
+#: served gzipped); the headroom is for a few more terms and a fuller model run,
+#: not for a file nobody reads.
+TOTAL_BUDGET = 400_000_000
+
+#: What one file may weigh, by its path in the payload; the first pattern a path
+#: matches sets its ceiling. A reader's browser fetches each of these whole, so a
+#: file that doubles is a page that loads twice as slowly, whatever the total.
+#: Each ceiling is the largest file under its pattern on 9 October 2026, in the
+#: comment beside it, with about a third again of headroom. The last line is the
+#: ceiling for anything not listed, kept small so a new large file arrives with a
+#: line of its own.
+FILE_BUDGETS: list[tuple[str, int]] = [
+    ("speeches/*.json.gz", 250_000),  # 180,533: S/PV.8514, gzipped
+    ("kwic/*.json", 14_500_000),  # 10,757,221: impunity
+    ("semantic/neighbours/*", 250_000),  # 187,240
+    ("semantic/*", 12_000_000),  # 8,934,933: map.json
+    ("usage/occurrences.json", 9_500_000),  # 6,901,828, 7,694 of 7,787 occurrences annotated
+    ("usage/referents.json", 375_000),  # 271,258
+    ("usage/*", 1_200_000),  # 866,653: usage.json
+    ("actor_year/*", 6_250_000),  # 4,594,895: actor_year.csv
+    ("meetings.json", 4_250_000),  # 3,144,792
+    ("countries/*", 3_000_000),  # 2,242,639: speaker_keyness.json
+    ("series/*", 1_250_000),  # 904,475: monthly.json
+    ("lexical/*", 250_000),  # 183,207: collocates_sliced.json
+    ("frames/*", 175_000),  # 127,658: frames.json
+    ("*", 100_000),  # 55,917: scopes.json
 ]
 
 
@@ -92,33 +151,30 @@ def copy_part(sources: Sequence[Path], name: str, *, root: Path | None = None) -
     """
     destination = (root or WEB_DATA) / name
     if name == "semantic":
+        # The one part with rules of its own, all in `lib.semantic_release`: an
+        # explicit waiting state when no map exists, and otherwise a map that
+        # must describe this corpus, by its bytes or by what the pin vouches for.
         source = sources[0]
         if not source.exists():
             with artifacts.atomic_directory(destination) as staged:
-                artifacts.atomic_write_json(staged / "map.json", {"status": "pending", "schema": 1})
+                semantic_release.write_pending(staged)
             return artifacts.describe_tree(destination)
-        # The artifact records its original Parquet bytes. Arrow versions can
-        # serialize identical content differently. Only a pin bound to this
-        # exact manifest may authorize comparison by canonical speech content.
-        content_sha256 = geometry_sha256 = None
-        pin_path = ROOT / "config/semantic-release.json"
-        if pin_path.is_file():
-            pin = json.loads(pin_path.read_text(encoding="utf-8"))
-            if artifacts.sha256(source / "manifest.json") == pin.get("manifest_sha256"):
-                content_sha256 = pin.get("corpus_content_sha256")
-                geometry_sha256 = pin.get("corpus_geometry_sha256")
-        semantic_release.validate(
-            source,
-            SPEECHES_FLAGGED,
-            content_sha256=content_sha256,
-            geometry_sha256=geometry_sha256,
-        )
+        semantic_release.check_against_pin(source, SPEECHES_FLAGGED, SEMANTIC_PIN)
     for source in sources:
         if not source.exists():
             console.fail(f"{rel(source)} is missing — run the step that writes it first")
     with artifacts.atomic_directory(destination) as staged:
         for source in sources:
-            shutil.copytree(source, staged, dirs_exist_ok=True)
+            shutil.copytree(
+                source,
+                staged,
+                dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns(*NOT_SHIPPED.get(name, ())),
+            )
+        if name == "usage":
+            artifacts.atomic_write_json(
+                staged / PLACEMENTS, placements(sources[0] / "occurrences.json")
+            )
         if name == "semantic":
             # The geometry is the release's; the colours are this corpus's.
             display = semantic_release.rebind(staged, SPEECHES_FLAGGED)
@@ -127,6 +183,59 @@ def copy_part(sources: Sequence[Path], name: str, *, root: Path | None = None) -
                 f"{display['points_changed']:,} points differ from the release"
             )
     return artifacts.describe_tree(destination)
+
+
+def placements(source: Path) -> dict[str, object]:
+    """The occurrence → referent map, with provenance naming the rows it was cut from.
+
+    An occurrence the run left unplaced is not in the map, which is what makes a
+    referent filter keep none of them.
+    """
+    document = artifacts.read_json(source)
+    if not isinstance(document, dict):
+        console.fail(f"{rel(source)} is not an object")
+    rows, origin = document["occurrences"], document["meta"]
+    return {
+        "meta": artifacts.provenance(
+            ROOT,
+            "export_web.py",
+            inputs=[source],
+            extra={key: origin[key] for key in PLACEMENT_META if key in origin},
+        ),
+        "placements": {row["id"]: row["referent"] for row in rows if row["referent"]},
+    }
+
+
+def check_budget(root: Path) -> None:
+    """Refuse a payload heavier than its budget, in total or in any one file."""
+    weight, over = 0, []
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        relative = path.relative_to(root).as_posix()
+        size = path.stat().st_size
+        weight += size
+        pattern, ceiling = next(
+            ((pattern, ceiling) for pattern, ceiling in FILE_BUDGETS if fnmatch(relative, pattern)),
+            ("no pattern", 0),
+        )
+        if size > ceiling:
+            over.append(
+                f"{relative} is {size:,} bytes, over the {ceiling:,} allowed for {pattern}"
+            )
+    if weight > TOTAL_BUDGET:
+        over.insert(0, f"the payload is {weight:,} bytes, over the {TOTAL_BUDGET:,} allowed in all")
+    if over:
+        console.fail(
+            "the payload is over its size budget",
+            [
+                *over[:20],
+                *([f"... and {len(over) - 20} more"] if len(over) > 20 else []),
+                "If the growth is meant, raise the budget in export_web.py and say why "
+                "in the commit; if it is not, find what grew.",
+            ],
+        )
+    console.info(
+        f"{weight / 1e6:,.0f} MB of a {TOTAL_BUDGET / 1e6:,.0f} MB budget, and no file over its own"
+    )
 
 
 def measure(path: Path) -> dict[str, object]:
@@ -283,6 +392,7 @@ def assemble(destination: Path) -> None:
     console.step("Checking the payload against the shape the dashboard reads")
     check_contract(destination)
     check_no_aggregates(destination)
+    check_budget(destination)
 
     manifest = {
         "generated": generated,
@@ -313,6 +423,7 @@ def main() -> None:
     if args.check:
         check_contract()
         check_no_aggregates()
+        check_budget(WEB_DATA)
         manifest = json.loads((WEB_DATA / "manifest.json").read_text(encoding="utf-8"))
         for name, described in manifest["parts"].items():
             if name not in {part for _, part, _ in PARTS} | {part for part, _ in IN_PLACE}:
@@ -334,4 +445,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    console.main(main)

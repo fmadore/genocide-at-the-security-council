@@ -71,6 +71,25 @@ class TestDocumentTerms:
         assert spread["council"]["meetings"] is None
         assert matrix.dispersion([]) == {}
 
+    def test_the_whole_count_comes_back_in_the_order_05_counted_it(self):
+        """05's reference is read through the matrix; its order must not move."""
+        whole = keyness.build(CORPUS).counter(list(range(len(CORPUS))))
+        assert list(whole.items()) == list(lexical.vocabulary(CORPUS).items())
+
+    def test_each_row_is_the_counter_its_text_gives(self):
+        matrix = keyness.build(CORPUS)
+        rows = [3, 0, 5]
+        expected = lexical.document_vocabulary([CORPUS[i] for i in rows])
+        found = matrix.counters(rows)
+        assert [list(c.items()) for c in found] == [list(c.items()) for c in expected]
+
+    def test_another_tokenisation_counts_its_own_units(self):
+        """Lemma rows are counted through the same matrix, split their own way."""
+        rows = ["kill|kill|state", "state|council"]
+        matrix = lexical.document_terms(rows, tokens=lambda row: row.split("|"))
+        assert matrix.counter([0, 1]) == Counter({"kill": 2, "state": 2, "council": 1})
+        assert matrix.counters([1]) == [Counter({"state": 1, "council": 1})]
+
     def test_the_matrix_knows_its_own_shape(self):
         matrix = keyness.build(CORPUS)
         assert matrix.documents == len(CORPUS)
@@ -94,7 +113,7 @@ class TestStrata:
         )
         codes = keyness.strata(table)
         by_code = table.groupby(codes, sort=True).groups
-        by_columns = table.groupby(keyness.MATCH_ON, sort=True).groups
+        by_columns = table.groupby(lexical.MATCH_ON, sort=True).groups
         assert sorted(sorted(v) for v in by_code.values()) == sorted(
             sorted(v) for v in by_columns.values()
         )
@@ -112,6 +131,30 @@ class TestStrata:
     def test_it_says_which_column_is_missing(self):
         with pytest.raises(KeyError, match="speaker_group"):
             keyness.strata(pd.DataFrame({"year": [1994], "agenda_item_manual": ["x"]}))
+
+    def test_codes_are_numbered_in_order_of_first_appearance(self):
+        """The code seeds its stratum's draw, so its number is part of the result.
+
+        Numbered any other way — in sorted order, say — the same partition
+        would redraw every published control.
+        """
+        table = frame(
+            ["A", "B", "C", "D", "E"],
+            [2000, 1994, 2000, 1994, 1980],
+            ["Syria", "Rwanda", "Syria", None, "Rwanda"],
+        )
+        assert keyness.strata(table).tolist() == [0, 1, 0, 2, 3]
+
+    def test_values_are_compared_as_text(self):
+        """A year read as a number and as a string is one stratum, as it always was."""
+        table = pd.DataFrame(
+            {
+                "year": pd.Series([1994, "1994"], dtype=object),
+                "agenda_item_manual": ["Rwanda", "Rwanda"],
+                "speaker_group": ["E10", "E10"],
+            }
+        )
+        assert keyness.strata(table).nunique() == 1
 
 
 class TestSelfReference:
@@ -326,6 +369,27 @@ class TestSpeakerKeyness:
             min_coverage=0.0,
         )
         assert run()["keywords"] == run()["keywords"]
+
+    def test_strata_grouped_once_give_the_same_block(self, table):
+        """12 groups the frame once for every speaker; the tables must not move."""
+        matrix = self.matrix(table)
+        reference = matrix.counter(list(table.index))
+        strata = lexical.Strata.of(table, ["stratum"])
+        run = lambda **extra: keyness.speaker_keyness(  # noqa: E731
+            table,
+            matrix,
+            "A",
+            "stratum",
+            reference,
+            100,
+            frozenset(),
+            seed=7,
+            minimum=1,
+            min_coverage=0.0,
+            repetitions=3,
+            **extra,
+        )
+        assert run(strata=strata) == run()
 
 
 class TestAgendaComposition:

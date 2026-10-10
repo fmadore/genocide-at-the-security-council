@@ -5,6 +5,7 @@ import {
 	decomposition,
 	events,
 	monthly,
+	optional,
 	quarterly
 } from '$lib/data';
 import type { PageLoad } from './$types';
@@ -23,7 +24,9 @@ export const load: PageLoad = async ({ fetch }) => {
 		changePoints(fetch),
 		events(fetch),
 		// Optional: a payload built before the decomposition existed still draws.
-		decomposition(fetch).catch(() => null)
+		// A decomposition that is present and refused is not the same fact, and
+		// reaches the page as the refusal it is.
+		optional(decomposition(fetch))
 	]);
 	return { year, quarter, month, splits, breaks, overlay, parts };
 };

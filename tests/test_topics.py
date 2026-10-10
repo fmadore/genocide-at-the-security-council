@@ -13,16 +13,21 @@ a test.
 
 from __future__ import annotations
 
+import dataclasses
+import importlib.abc
 import importlib.util
-import inspect
 import json
 import math
+import sys
+import types
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 import pandas as pd
 import pytest
-from lib import topics
+from conftest import make_speeches
+from lib import projection, topics
 
 # --- Adjusted Rand index ---------------------------------------------------
 
@@ -150,7 +155,7 @@ def test_ctfidf_of_an_all_unassigned_run_is_empty() -> None:
 
 def frame(n: int = 400) -> pd.DataFrame:
     years = np.tile(np.arange(1992, 2024), n // 32 + 1)[:n]
-    return pd.DataFrame(
+    return make_speeches(
         {
             "row_id": [f"r{i:04d}" for i in range(n)],
             "year": years,
@@ -495,7 +500,7 @@ def test_digits_are_not_words() -> None:
 def test_a_point_is_never_its_own_neighbour() -> None:
     """The error that would silently add 1/k to every purity figure."""
     points = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0]])
-    found = topics.nearest_neighbours(points, 2)
+    found = projection.nearest_neighbours(points, 2)
     assert (found != np.arange(len(points))[:, None]).all()
 
 
@@ -503,27 +508,27 @@ def test_the_neighbours_are_the_near_ones_in_order() -> None:
     """Four points on a line at 0, 1, 4 and 9. The one at 4 is nearer the one at
     1 (distance 3) than the one at 0 (4) or at 9 (5), in that order."""
     points = np.array([[0.0], [1.0], [4.0], [9.0]])
-    assert topics.nearest_neighbours(points, 2).tolist() == [[1, 2], [0, 2], [1, 0], [2, 1]]
+    assert projection.nearest_neighbours(points, 2).tolist() == [[1, 2], [0, 2], [1, 0], [2, 1]]
 
 
 def test_asking_for_more_neighbours_than_exist_returns_the_rest() -> None:
     """A smoke run, a thin period and a test fixture all reach this before a real
     sample does; an IndexError hours into a job is a poor way to find out."""
     points = np.array([[0.0], [1.0], [2.0]])
-    found = topics.nearest_neighbours(points, 50)
+    found = projection.nearest_neighbours(points, 50)
     assert found.shape == (3, 2)
     assert sorted(found[0].tolist()) == [1, 2]
 
 
 def test_one_point_has_no_neighbours_and_that_is_not_an_error() -> None:
-    assert topics.nearest_neighbours(np.array([[0.0, 0.0]]), 3).shape == (1, 0)
+    assert projection.nearest_neighbours(np.array([[0.0, 0.0]]), 3).shape == (1, 0)
 
 
 def test_ties_are_broken_by_index_so_two_machines_agree() -> None:
     """Four points on a square: every neighbour distance ties, so the ordering is
     the sort's alone and must be the stable one."""
     square = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]])
-    assert topics.nearest_neighbours(square, 3)[0].tolist() == [1, 2, 3]
+    assert projection.nearest_neighbours(square, 3)[0].tolist() == [1, 2, 3]
 
 
 # --- Neighbourhood purity ---------------------------------------------------
@@ -531,13 +536,13 @@ def test_ties_are_broken_by_index_so_two_machines_agree() -> None:
 
 def test_purity_is_one_when_every_neighbour_shares_the_attribute() -> None:
     neighbours = np.array([[1, 2], [0, 2], [0, 1]])
-    result = topics.neighbourhood_purity(neighbours, ["France", "France", "France"])
+    result = projection.neighbourhood_purity(neighbours, ["France", "France", "France"])
     assert result["mean"] == pytest.approx(1.0)
 
 
 def test_purity_is_zero_when_no_neighbour_shares_the_attribute() -> None:
     neighbours = np.array([[2, 3], [2, 3], [0, 1], [0, 1]])
-    result = topics.neighbourhood_purity(neighbours, ["a", "a", "b", "b"])
+    result = projection.neighbourhood_purity(neighbours, ["a", "a", "b", "b"])
     assert result["mean"] == pytest.approx(0.0)
 
 
@@ -550,7 +555,7 @@ def test_purity_over_the_whole_corpus_is_exactly_the_base_rate() -> None:
     values = ["a"] * 7 + ["b"] * 5 + ["c"] * 3
     n = len(values)
     everyone = np.array([[j for j in range(n) if j != i] for i in range(n)])
-    result = topics.neighbourhood_purity(everyone, values)
+    result = projection.neighbourhood_purity(everyone, values)
     assert result["mean"] == pytest.approx(result["base_rate"], abs=1e-9)
     assert result["lift"] == pytest.approx(1.0)
 
@@ -564,7 +569,7 @@ def test_purity_worked_by_hand() -> None:
     Lift 0.5 / 0.4 = 1.25.
     """
     neighbours = np.array([[1, 2], [0, 3], [3, 4], [4, 0], [3, 0]])
-    result = topics.neighbourhood_purity(neighbours, ["a", "a", "a", "b", "b"])
+    result = projection.neighbourhood_purity(neighbours, ["a", "a", "a", "b", "b"])
     assert result["mean"] == pytest.approx(0.5)
     assert result["base_rate"] == pytest.approx(0.4)
     assert result["lift"] == pytest.approx(1.25)
@@ -574,8 +579,8 @@ def test_the_base_rate_falls_as_the_attribute_gets_finer() -> None:
     """Why the note reports lift and not the bare share: `period` has four values
     and `speaker` has thousands, and their raw purities are not comparable."""
     neighbours = np.array([[1, 2], [0, 2], [0, 1], [4, 5], [3, 5], [3, 4]])
-    coarse = topics.neighbourhood_purity(neighbours, ["x", "x", "x", "y", "y", "y"])
-    fine = topics.neighbourhood_purity(neighbours, list("abcdef"))
+    coarse = projection.neighbourhood_purity(neighbours, ["x", "x", "x", "y", "y", "y"])
+    fine = projection.neighbourhood_purity(neighbours, list("abcdef"))
     assert coarse["base_rate"] > fine["base_rate"]
     assert fine["base_rate"] == pytest.approx(0.0)
 
@@ -585,14 +590,14 @@ def test_a_missing_value_is_a_category_and_is_counted() -> None:
     rate's denominator without changing the purity, which is the one way to make
     this comparison lie."""
     neighbours = np.array([[1, 2], [0, 2], [0, 1]])
-    result = topics.neighbourhood_purity(neighbours, [None, None, "France"])
+    result = projection.neighbourhood_purity(neighbours, [None, None, "France"])
     assert result["missing"] == 2
     assert result["distinct_values"] == 2
 
 
 def test_purity_rejects_an_attribute_of_the_wrong_length() -> None:
     with pytest.raises(ValueError, match="different documents"):
-        topics.neighbourhood_purity(np.array([[1], [0]]), ["a", "b", "c"])
+        projection.neighbourhood_purity(np.array([[1], [0]]), ["a", "b", "c"])
 
 
 # --- Agreement between the picture and the space that was clustered ---------
@@ -600,19 +605,19 @@ def test_purity_rejects_an_attribute_of_the_wrong_length() -> None:
 
 def test_neighbour_loss_is_zero_when_the_neighbourhoods_match() -> None:
     same = np.array([[1, 2], [0, 2], [0, 1]])
-    assert topics.neighbour_loss(same, same.copy()) == pytest.approx(0.0)
+    assert projection.neighbour_loss(same, same.copy()) == pytest.approx(0.0)
 
 
 def test_neighbour_loss_is_one_when_they_share_nothing() -> None:
     clustered = np.array([[1, 2], [2, 3]])
     projected = np.array([[4, 5], [5, 6]])
-    assert topics.neighbour_loss(clustered, projected) == pytest.approx(1.0)
+    assert projection.neighbour_loss(clustered, projected) == pytest.approx(1.0)
 
 
 def test_neighbour_loss_ignores_the_order_within_a_neighbourhood() -> None:
     """Set membership only; rank order is what trustworthiness is for."""
     clustered = np.array([[1, 2, 3]])
-    assert topics.neighbour_loss(clustered, np.array([[3, 2, 1]])) == pytest.approx(0.0)
+    assert projection.neighbour_loss(clustered, np.array([[3, 2, 1]])) == pytest.approx(0.0)
 
 
 def test_neighbour_loss_worked_by_hand() -> None:
@@ -620,13 +625,13 @@ def test_neighbour_loss_worked_by_hand() -> None:
     the second: (2/3 + 1/3) / 2 = 0.5 lost."""
     clustered = np.array([[1, 2, 3], [4, 5, 6]])
     projected = np.array([[1, 7, 8], [4, 5, 9]])
-    assert topics.neighbour_loss(clustered, projected) == pytest.approx(0.5)
+    assert projection.neighbour_loss(clustered, projected) == pytest.approx(0.5)
 
 
 def test_a_projection_that_preserves_the_ordering_is_perfectly_trustworthy() -> None:
     rng = np.random.default_rng(11)
     space = rng.normal(size=(30, 4))
-    assert topics.trustworthiness(space, space.copy(), 5) == pytest.approx(1.0)
+    assert projection.trustworthiness(space, space.copy(), 5) == pytest.approx(1.0)
 
 
 def test_a_rescaled_projection_is_still_perfectly_trustworthy() -> None:
@@ -634,7 +639,7 @@ def test_a_rescaled_projection_is_still_perfectly_trustworthy() -> None:
     changes no neighbourhood and must change no score."""
     rng = np.random.default_rng(12)
     space = rng.normal(size=(30, 3))
-    assert topics.trustworthiness(space, space * 7.0, 5) == pytest.approx(1.0)
+    assert projection.trustworthiness(space, space * 7.0, 5) == pytest.approx(1.0)
 
 
 def test_a_scrambled_projection_scores_far_lower() -> None:
@@ -642,8 +647,8 @@ def test_a_scrambled_projection_scores_far_lower() -> None:
     each point's true neighbours across the picture."""
     high = np.array([[float(i)] for i in range(12)])
     low = np.array([[float((i * 5) % 12)] for i in range(12)])
-    assert topics.trustworthiness(high, low, 3) < 0.7
-    assert topics.trustworthiness(high, high.copy(), 3) == pytest.approx(1.0)
+    assert projection.trustworthiness(high, low, 3) < 0.7
+    assert projection.trustworthiness(high, high.copy(), 3) == pytest.approx(1.0)
 
 
 def test_trustworthiness_worked_by_hand() -> None:
@@ -656,7 +661,7 @@ def test_trustworthiness_worked_by_hand() -> None:
     """
     high = np.array([[0.0], [1.0], [3.0], [7.0], [15.0], [31.0]])
     low = np.array([[0.0], [56.0], [11.0], [41.0], [23.0], [33.0]])
-    assert topics.trustworthiness(high, low, 1) == pytest.approx(11 / 24, abs=1e-12)
+    assert projection.trustworthiness(high, low, 1) == pytest.approx(11 / 24, abs=1e-12)
 
 
 def test_trustworthiness_clamps_k_rather_than_dividing_by_zero() -> None:
@@ -664,12 +669,12 @@ def test_trustworthiness_clamps_k_rather_than_dividing_by_zero() -> None:
     for any sample under 38 points."""
     rng = np.random.default_rng(13)
     space = rng.normal(size=(6, 2))
-    assert 0.0 <= topics.trustworthiness(space, space + 0.5, 25) <= 1.0
+    assert 0.0 <= projection.trustworthiness(space, space + 0.5, 25) <= 1.0
 
 
 def test_trustworthiness_rejects_two_spaces_of_different_sizes() -> None:
     with pytest.raises(ValueError, match="different point counts"):
-        topics.trustworthiness(np.zeros((4, 2)), np.zeros((5, 2)), 2)
+        projection.trustworthiness(np.zeros((4, 2)), np.zeros((5, 2)), 2)
 
 
 def test_the_agreement_block_records_the_subsample_it_used() -> None:
@@ -678,7 +683,7 @@ def test_the_agreement_block_records_the_subsample_it_used() -> None:
     rng = np.random.default_rng(14)
     high = rng.normal(size=(60, 4))
     low = rng.normal(size=(60, 2))
-    block = topics.projection_agreement(high, low, seed=3, k=5, max_points=20)
+    block = projection.projection_agreement(high, low, seed=3, k=5, max_points=20)
     assert block["subsampled"] is True
     assert block["points"] == 20
     assert block["sample_points"] == 60
@@ -689,15 +694,15 @@ def test_the_agreement_block_records_the_subsample_it_used() -> None:
 def test_the_agreement_subsample_is_reproducible() -> None:
     rng = np.random.default_rng(15)
     high, low = rng.normal(size=(50, 3)), rng.normal(size=(50, 2))
-    first = topics.projection_agreement(high, low, seed=9, k=4, max_points=20)
-    second = topics.projection_agreement(high, low, seed=9, k=4, max_points=20)
+    first = projection.projection_agreement(high, low, seed=9, k=4, max_points=20)
+    second = projection.projection_agreement(high, low, seed=9, k=4, max_points=20)
     assert first == second
 
 
 def test_no_subsample_is_reported_when_none_was_taken() -> None:
     rng = np.random.default_rng(16)
     high, low = rng.normal(size=(20, 3)), rng.normal(size=(20, 2))
-    block = topics.projection_agreement(high, low, seed=9, k=4, max_points=500)
+    block = projection.projection_agreement(high, low, seed=9, k=4, max_points=500)
     assert block["subsampled"] is False
     assert block["subsample_seed"] is None
     assert block["points"] == 20
@@ -713,7 +718,7 @@ def projection_pair(n: int = 40) -> tuple[np.ndarray, np.ndarray]:
 
 def test_the_diagnostic_reports_every_attribute_it_was_given() -> None:
     low, high = projection_pair()
-    payload = topics.projection_diagnostic(
+    payload = projection.projection_diagnostic(
         low,
         high,
         {
@@ -736,7 +741,7 @@ def test_the_diagnostic_reports_statistics_not_coordinates() -> None:
     payload carrying 20,000 coordinates would be a map, whatever the note said.
     """
     low, high = projection_pair()
-    payload = topics.projection_diagnostic(
+    payload = projection.projection_diagnostic(
         low, high, {"country_org": ["France", "Rwanda"] * 20}, seed=5, k=6, max_points=40
     )
 
@@ -757,7 +762,7 @@ def test_the_diagnostic_carries_the_argument_it_belongs_to() -> None:
     """A file that travels away from the note must still say what it is for, and
     what it is evidence against."""
     low, high = projection_pair()
-    payload = topics.projection_diagnostic(low, high, {}, seed=5, k=6, max_points=40)
+    payload = projection.projection_diagnostic(low, high, {}, seed=5, k=6, max_points=40)
     assert payload["diagnostic"] is True
     assert payload["release_artefact"] is False
     assert payload["clustered_for_labels"] is False
@@ -767,77 +772,175 @@ def test_the_diagnostic_carries_the_argument_it_belongs_to() -> None:
 
 def test_the_diagnostic_rejects_two_spaces_of_different_sizes() -> None:
     with pytest.raises(ValueError, match="the projection has"):
-        topics.projection_diagnostic(np.zeros((4, 2)), np.zeros((5, 5)), {}, seed=1)
+        projection.projection_diagnostic(np.zeros((4, 2)), np.zeros((5, 5)), {}, seed=1)
 
 
 # --- The projection never reaches a labelling path --------------------------
+#
+# UMAP, HDBSCAN and matplotlib are cluster packages that CI does not install,
+# and `lib.topics` imports them inside the functions that use them. So these
+# tests put recording stand-ins in `sys.modules` and call the real functions:
+# what they check is what the code asks the libraries to do, not what its text
+# says.
 
 
-def body(function: object) -> str:
-    """A function's source with its docstring removed.
+class Libraries:
+    """Stand-ins for `umap`, `sklearn.cluster` and `matplotlib` that record calls."""
 
-    The guards below ask what the code does, and every one of these functions
-    explains in prose that it does not cluster or label. Searching the docstring
-    for the word would find the promise instead of the breach.
-    """
-    source = inspect.getsource(function)
-    doc = inspect.getdoc(function)
-    if doc:
-        for line in doc.splitlines():
-            source = source.replace(line.strip(), "")
-    return source
+    def __init__(self) -> None:
+        self.umap: list[dict[str, object]] = []
+        self.clustered: list[tuple[int, ...]] = []
+        self.events: list[str] = []
+
+    def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        library = self
+
+        class UMAP:
+            def __init__(self, **options: object) -> None:
+                self.options = options
+                library.umap.append(options)
+
+            def fit_transform(self, vectors: np.ndarray) -> np.ndarray:
+                # Deterministic and the right shape: the leading coordinates.
+                return np.asarray(vectors, dtype=np.float64)[:, : int(self.options["n_components"])]
+
+        class HDBSCAN:
+            def __init__(self, **options: object) -> None:
+                library.events.append("hdbscan")
+
+            def fit_predict(self, points: np.ndarray) -> np.ndarray:
+                library.clustered.append(np.asarray(points).shape)
+                return np.arange(len(points)) % 2
+
+        umap = types.ModuleType("umap")
+        umap.UMAP = UMAP
+        cluster = types.ModuleType("sklearn.cluster")
+        cluster.HDBSCAN = HDBSCAN
+        sklearn = types.ModuleType("sklearn")
+        sklearn.cluster = cluster
+
+        # matplotlib as a package whose `pyplot` is imported through a finder,
+        # so the order of `use("Agg")` and the pyplot import is observable.
+        matplotlib = types.ModuleType("matplotlib")
+        matplotlib.__path__ = []
+        matplotlib.use = lambda backend: library.events.append(f"use {backend}")
+        matplotlib.colormaps = mock.MagicMock()
+        pyplot = mock.MagicMock()
+        pyplot.subplots.return_value = (mock.MagicMock(), mock.MagicMock())
+
+        class Finder(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+            def find_spec(self, name, path=None, target=None):
+                if name == "matplotlib.pyplot":
+                    return importlib.util.spec_from_loader(name, self)
+                return None
+
+            def create_module(self, spec):
+                library.events.append("import pyplot")
+                return pyplot
+
+            def exec_module(self, module) -> None:
+                return None
+
+        for name, module in {
+            "umap": umap,
+            "sklearn": sklearn,
+            "sklearn.cluster": cluster,
+            "matplotlib": matplotlib,
+        }.items():
+            monkeypatch.setitem(sys.modules, name, module)
+        monkeypatch.delitem(sys.modules, "matplotlib.pyplot", raising=False)
+        monkeypatch.setattr(sys, "meta_path", [Finder(), *sys.meta_path])
 
 
-def test_the_helper_reads_the_code_and_not_the_promise() -> None:
-    """`body` is load-bearing for the two guards below, so it is checked too."""
-    assert "clustering in the space built for a picture" not in body(topics.fit_embedding)
-    assert "HDBSCAN(" in body(topics.fit_embedding)
+@pytest.fixture
+def libraries(monkeypatch: pytest.MonkeyPatch) -> Libraries:
+    recorded = Libraries()
+    recorded.install(monkeypatch)
+    return recorded
 
 
-def test_the_clustering_still_happens_in_five_dimensions() -> None:
+def vectors(n: int = 24, dimensions: int = 8) -> np.ndarray:
+    return np.random.default_rng(23).normal(size=(n, dimensions))
+
+
+def documents(n: int = 24) -> list[list[str]]:
+    return [["council", "peace"] if i % 2 else ["tribunal", "justice"] for i in range(n)]
+
+
+def test_the_clustering_still_happens_in_five_dimensions(libraries, monkeypatch) -> None:
     """docs/PLAN.md §4: clustering in the space built for a picture optimises for
     a picture. Adding the picture must not have quietly moved the clustering
     into it."""
-    signature = inspect.signature(topics.fit_embedding)
-    assert signature.parameters["components"].default == 5
-    source = body(topics.fit_embedding)
-    assert "n_components=components" in source
-    assert "project_2d" not in source
+
+    def no_picture(*args: object, **kwargs: object) -> None:
+        raise AssertionError("fit_embedding reached the 2D projection")
+
+    monkeypatch.setattr(topics, "project_2d", no_picture)
+    model = topics.fit_embedding(vectors(), documents(), seed=3)
+    assert [options["n_components"] for options in libraries.umap] == [5]
+    assert libraries.clustered == [(24, 5)]
+    assert model.reduced is not None and model.reduced.shape == (24, 5)
 
 
-def test_the_projection_is_fitted_in_two_dimensions_and_only_there() -> None:
-    source = body(topics.project_2d)
-    assert "n_components=2" in source
-    assert "HDBSCAN" not in source
+def test_the_projection_is_fitted_in_two_dimensions_and_only_there(libraries) -> None:
+    coordinates = projection.project_2d(vectors(), seed=3)
+    assert [options["n_components"] for options in libraries.umap] == [2]
+    assert coordinates.shape == (24, 2)
+    assert "hdbscan" not in libraries.events and not libraries.clustered
 
 
-def test_no_label_is_derived_from_the_projection() -> None:
+def test_no_label_is_derived_from_the_projection(libraries, monkeypatch) -> None:
     """No function that touches the 2D coordinates may reach a clusterer or the
     labelling that names a topic. This is the property the whole diagnostic
-    depends on, so it is asserted rather than left to the docstrings."""
-    forbidden = ("ctfidf", "HDBSCAN", "fit_predict", "TopicModel", "argmax")
-    for function in (
-        topics.project_2d,
-        topics.projection_diagnostic,
-        topics.projection_agreement,
-        topics.neighbourhood_purity,
-        topics.trustworthiness,
-        topics.draw_projection,
-        topics.group_others,
-    ):
-        source = body(function)
-        for name in forbidden:
-            assert name not in source, f"{function.__name__} reaches {name}"
+    depends on, so every such function is run with the labelling paths made to
+    fail if they are reached."""
+
+    def forbidden(name: str):
+        def reached(*args: object, **kwargs: object) -> None:
+            raise AssertionError(f"the projection reached {name}")
+
+        return reached
+
+    for name in ("ctfidf", "fit_embedding", "fit_nmf", "relabel", "TopicModel"):
+        monkeypatch.setattr(topics, name, forbidden(name))
+
+    projected = projection.project_2d(vectors(), seed=3)
+    clustered = vectors(dimensions=5)
+    values = ["France", "Rwanda", "Chile"] * 8
+    projection.projection_diagnostic(projected, clustered, {"country_org": values}, seed=1, k=4)
+    projection.projection_agreement(clustered, projected, seed=1, k=4)
+    projection.neighbourhood_purity(projection.nearest_neighbours(projected, 4), values)
+    projection.trustworthiness(clustered, projected, 4)
+    projection.group_others(values, 2)
+    projection.draw_projection(
+        projected, values, title="t", colour_label="speaker", categorical=True
+    )
+    projection.draw_projection(
+        projected, list(range(24)), title="t", colour_label="year", categorical=False
+    )
+    assert "hdbscan" not in libraries.events and not libraries.clustered
 
 
 def test_the_clustered_reduction_is_kept_but_never_labelled() -> None:
     """`TopicModel.reduced` exists so the diagnostic can compare the picture
     against the fit that produced the clusters. It must not become a second
-    source of labels."""
+    source of labels: re-thresholding keeps it untouched, and the labels come
+    out the same whatever it holds."""
     model = topics.TopicModel(name="embedding", labels=np.array([0, 1]), words={})
     assert model.reduced is None
-    source = inspect.getsource(topics.relabel)
-    assert "reduced=model.reduced" in source
+
+    weights = np.array([[0.9, 0.1], [0.2, 0.8], [0.5, 0.5]])
+    reduced = np.arange(15, dtype=np.float64).reshape(3, 5)
+    fitted = topics.TopicModel(
+        name="nmf", labels=np.array([0, 1, 0]), words={}, weights=weights, reduced=reduced
+    )
+    docs = [["a", "b"], ["c", "d"], ["a", "c"]]
+    relabelled = topics.relabel(fitted, docs, 0.6)
+    assert relabelled.reduced is reduced
+    elsewhere = topics.relabel(
+        dataclasses.replace(fitted, reduced=-reduced), docs, 0.6
+    )
+    assert relabelled.labels.tolist() == elsewhere.labels.tolist()
 
 
 # --- Figures ----------------------------------------------------------------
@@ -845,51 +948,53 @@ def test_the_clustered_reduction_is_kept_but_never_labelled() -> None:
 
 def test_group_others_keeps_the_most_frequent_and_folds_the_rest() -> None:
     values = ["a"] * 5 + ["b"] * 4 + ["c"] * 3 + ["d"] * 2 + ["e"]
-    grouped = topics.group_others(values, 2)
-    assert set(grouped) == {"a", "b", topics.OTHER_LABEL}
-    assert list(grouped).count(topics.OTHER_LABEL) == 6
+    grouped = projection.group_others(values, 2)
+    assert set(grouped) == {"a", "b", projection.OTHER_LABEL}
+    assert list(grouped).count(projection.OTHER_LABEL) == 6
 
 
 def test_group_others_breaks_ties_alphabetically_not_by_arrival() -> None:
     """A figure that changes because two delegations spoke equally often is a
     figure nobody can cite."""
     values = ["zulu", "zulu", "alpha", "alpha", "mike"]
-    assert set(topics.group_others(values, 1)) == {"alpha", topics.OTHER_LABEL}
+    assert set(projection.group_others(values, 1)) == {"alpha", projection.OTHER_LABEL}
 
 
 def test_group_others_keeps_everything_when_the_budget_is_large() -> None:
     values = ["a", "b", "c"]
-    assert set(topics.group_others(values, 10)) == {"a", "b", "c"}
+    assert set(projection.group_others(values, 10)) == {"a", "b", "c"}
 
 
 def test_group_others_names_a_missing_value_rather_than_dropping_it() -> None:
-    grouped = topics.group_others(["a", "a", None], 5)
+    grouped = projection.group_others(["a", "a", None], 5)
     assert len(grouped) == 3
-    assert topics.OTHER_LABEL in set(grouped)
+    assert projection.OTHER_LABEL in set(grouped)
 
 
 def test_the_figures_state_what_a_umap_axis_is_not() -> None:
     """docs/PLAN.md §7: the caveat travels with the image, because a PNG outlives
     the note it was pasted from."""
-    assert all("not a quantity" in label for label in topics.AXIS_LABELS)
-    assert "no topic label is derived" in topics.PROJECTION_CAVEAT
-    assert "not evidence of influence" in topics.PROJECTION_CAVEAT
+    assert all("not a quantity" in label for label in projection.AXIS_LABELS)
+    assert "no topic label is derived" in projection.PROJECTION_CAVEAT
+    assert "not evidence of influence" in projection.PROJECTION_CAVEAT
 
 
-def test_the_figures_are_drawn_without_a_display() -> None:
+def test_the_figures_are_drawn_without_a_display(libraries) -> None:
     """A backend that reaches for a window is a way to fail forty minutes into a
-    job on a headless compute node, after the expensive part is already done."""
-    source = inspect.getsource(topics.draw_projection)
-    assert 'matplotlib.use("Agg")' in source
-    assert source.index('matplotlib.use("Agg")') < source.index("import matplotlib.pyplot")
+    job on a headless compute node, after the expensive part is already done.
+    The Agg backend has to be chosen before pyplot is imported, or it is too late."""
+    projection.draw_projection(
+        np.zeros((3, 2)), ["a", "b", "a"], title="t", colour_label="c", categorical=True
+    )
+    assert libraries.events.index("use Agg") < libraries.events.index("import pyplot")
 
 
 def test_the_figures_are_deterministic_by_construction() -> None:
     """Fixed size and resolution, and no timestamp in the PNG: two runs over the
     same data must produce the same bytes."""
-    assert topics.FIGURE_SIZE == (8.0, 8.0)
-    assert topics.FIGURE_DPI == 150
-    assert topics.FIGURE_METADATA["Date"] is None
+    assert projection.FIGURE_SIZE == (8.0, 8.0)
+    assert projection.FIGURE_DPI == 150
+    assert projection.FIGURE_METADATA["Date"] is None
 
 
 # --- What 07 writes about the projection ------------------------------------
@@ -932,8 +1037,8 @@ def projection_payload(agenda: float = 0.19, agenda_base: float = 0.05) -> dict:
     return {
         "diagnostic": True,
         "release_artefact": False,
-        "purpose": topics.PROJECTION_PURPOSE,
-        "caveat": topics.PROJECTION_CAVEAT,
+        "purpose": projection.PROJECTION_PURPOSE,
+        "caveat": projection.PROJECTION_CAVEAT,
         "points": 20_000,
         "k": 25,
         "clustered_for_labels": False,

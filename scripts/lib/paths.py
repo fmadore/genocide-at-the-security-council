@@ -35,7 +35,6 @@ INTERIM = DATA / "interim"  # intermediate artefacts
 DERIVED = DATA / "derived"  # canonical parquet + analysis outputs
 
 CONFIG = ROOT / "config"
-DOCS = ROOT / "docs"
 NOTES = _root("GENOCIDE_NOTES_ROOT", ROOT / "notes")  # Markdown findings notes emitted by scripts
 WEB_DATA = _root("GENOCIDE_WEB_DATA_ROOT", ROOT / "web" / "static" / "data")  # dashboard payloads
 
@@ -56,6 +55,9 @@ SPEECHES_FLAGGED = DERIVED / "speeches_flagged.parquet"  # 03 — lexicon column
 # every later step treats it as read-only input, like the human file.
 ANNOTATIONS = ROOT / "annotations"
 MODEL_ANNOTATIONS = ROOT / "model_annotations"
+# The controlled list of cases and entities, shared by 03's lexicon audit and
+# the model layer (13, 14, 15, 17): one list for the project, not one per sample.
+REFERENTS = ANNOTATIONS / "lexicon" / "referents.csv"
 
 # --- Hand-checked analysis inputs -----------------------------------------
 # These are curated artefacts under version control, not computed outputs.
@@ -76,6 +78,9 @@ COUNTRY_ALIASES = CONFIG / "country_aliases.csv"
 COUNCIL_MEMBERSHIP = CONFIG / "council_membership.csv"
 EVENTS = CONFIG / "events.csv"
 STOPWORDS = CONFIG / "stopwords.txt"
+# The published semantic map a build restores instead of re-running GPU
+# inference, pinned by checksum; read through `lib.semantic_release.load_pin`.
+SEMANTIC_PIN = CONFIG / "semantic-release.json"
 
 # --- Analysis artefacts ---------------------------------------------------
 # One directory per step. These are the inputs the dashboard is assembled from;
@@ -85,8 +90,7 @@ SERIES = DERIVED / "series"      # 04
 LEXICAL = DERIVED / "lexical"    # 05
 # 06 before 07: the embedding-based half of the topic comparison reads the
 # vectors, so topics-then-embeddings would have made an earlier step depend on a
-# later one. These comments were the other way round when the directories were
-# only reserved names; nothing had been built against that order.
+# later one.
 EMBEDDINGS = DERIVED / "embeddings"  # 06 — GPU, see docs/CLUSTER.md
 TOPICS = DERIVED / "topics"      # 07 — evaluation only, not a release artefact
 LEMMAS = DERIVED / "lemmas"      # 10 — the lemma layer; feeds an optional re-run of 05
@@ -118,6 +122,10 @@ USAGE = DERIVED / "usage"          # 15
 # read a term at a time, while this is one term cut every way at once, and the
 # export copies a directory wholesale.
 FRAMES = DERIVED / "frames"        # 17
+ACTOR_YEAR = DERIVED / "actor_year"  # 20
+# 21 projects the embeddings into this; a build without a GPU restores the
+# pinned release here instead (`fetch_semantic.py`).
+SEMANTIC = DERIVED / "semantic"      # 21
 MANIFESTS = DERIVED / "manifests"  # machine-readable provenance, all stages
 
 # Harvard Dataverse
@@ -125,16 +133,30 @@ DOI = "doi:10.7910/DVN/CKPTRB"
 DATAVERSE = "https://dataverse.harvard.edu"
 DATASET_VERSION = "5.0"
 
+
+def _expected(variable: str, default: int) -> int:
+    """A corpus total the build asserts, overridable from the environment.
+
+    Like the roots above, only `tests/test_end_to_end.py` sets these: 11 and
+    12 refuse any corpus whose totals are not the codebook's, which is the
+    point of them, and the synthetic corpus the test runs them over is not
+    the codebook's. Everything else leaves them unset and gets the figures
+    below.
+    """
+    value = os.environ.get(variable)
+    return int(value) if value else default
+
+
 # Ground truth from the codebook, asserted by the build. `EXPECTED_TOKENS` is
 # quanteda's count over the full text of every speech, punctuation and numbers
 # included, and it is kept as provenance: reproducing it is what says the tar
 # and the TSV describe the same corpus. It is *not* the denominator of a rate —
 # see `EXPECTED_WORDS`.
-EXPECTED_SPEECHES = 167_642
+EXPECTED_SPEECHES = _expected("GENOCIDE_EXPECTED_SPEECHES", 167_642)
 # The source calls this field a word count. The legacy name remains in the
 # canonical table because downstream artefacts already carry `tokens`, but it
 # is provenance only and is never used as a lexical denominator.
-EXPECTED_TOKENS = 87_678_254
+EXPECTED_TOKENS = _expected("GENOCIDE_EXPECTED_TOKENS", 87_678_254)
 
 # Words in the speech bodies, counted with `lib.lexical.words` and asserted by
 # 02. This is the denominator every "per 100,000 words" figure divides by, and
@@ -144,7 +166,7 @@ EXPECTED_TOKENS = 87_678_254
 # 86,854,907 until 24 September 2026, when the tokenizer stopped cutting
 # accented words at the accent and started reading both apostrophes as one
 # (docs/ROADMAP.md, RV3): 42,333 fewer words, 0.05% of the denominator.
-EXPECTED_WORDS = 86_812_574
+EXPECTED_WORDS = _expected("GENOCIDE_EXPECTED_WORDS", 86_812_574)
 
 
 def ensure_dirs() -> None:

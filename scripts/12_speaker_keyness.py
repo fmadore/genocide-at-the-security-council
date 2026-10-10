@@ -122,7 +122,7 @@ def eligible(speeches: pd.DataFrame, minimum: int) -> pd.Series:
 
 def build_speakers(
     speeches: pd.DataFrame,
-    matrix: keyness.DocumentTerms,
+    matrix: lexical.DocumentTerms,
     stratum_column: str,
     reference,
     reference_total: int,
@@ -136,6 +136,9 @@ def build_speakers(
     min_coverage: float,
 ) -> list[dict[str, object]]:
     """One block per candidate speaker, in descending order of speeches given."""
+    # Grouped once: every speaker is paired against the same frame and strata,
+    # eleven times over with the stability draws.
+    strata = lexical.Strata.of(speeches, [stratum_column])
     rows: list[dict[str, object]] = []
     for position, (name, held) in enumerate(candidates.items(), start=1):
         block = keyness.speaker_keyness(
@@ -151,6 +154,7 @@ def build_speakers(
             repetitions=repetitions,
             minimum=minimum,
             min_coverage=min_coverage,
+            strata=strata,
         )
         block = {
             "country_org": str(name),
@@ -311,7 +315,7 @@ def run(
     speeches = speeches.assign(stratum=stratum)
     console.info(
         f"{stratum.nunique():,} distinct "
-        f"{' + '.join(keyness.MATCH_ON)} strata over {len(speeches):,} speeches"
+        f"{' + '.join(lexical.MATCH_ON)} strata over {len(speeches):,} speeches"
     )
 
     candidates = eligible(speeches, minimum)
@@ -343,7 +347,7 @@ def run(
 
     console.step("Writing")
     payload = {
-        "matched_on": keyness.MATCH_ON,
+        "matched_on": lexical.MATCH_ON,
         "minimum_pairs": minimum,
         "minimum_coverage": min_coverage,
         "minimum_coverage_rule": (
@@ -434,7 +438,7 @@ def run(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--seed", type=int, default=20_260_807, help="control-sampling seed")
+    parser.add_argument("--seed", type=int, default=lexical.SEED, help="control-sampling seed")
     parser.add_argument("--limit", type=int, default=keyness.LIMIT, help="rows per table")
     parser.add_argument(
         "--repetitions",

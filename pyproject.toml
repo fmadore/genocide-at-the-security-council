@@ -13,15 +13,82 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # The numbered scripts and tools insert scripts/ on sys.path before importing
-# lib, so their imports cannot sit at the top of the file. Fifteen copies of the
-# same four lines, and they stay: a module cannot be named `04_series`, so
-# `python -m` is not available, and every way of removing the duplication hides
-# what the scripts are doing to the path. A known cost, not an unexamined habit.
+# lib, so their imports cannot sit at the top of the file. Every script and tool
+# carries a copy of the same lines, and they stay: a module cannot be named
+# `04_series`, so `python -m` is not available, and every way of removing the
+# duplication hides what the scripts are doing to the path. A known cost, not
+# an unexamined habit.
 "scripts/[0-9]*.py" = ["E402"]
 "tools/*.py" = ["E402"]
 
+# Run with `python -m mypy`. scripts/lib only for now; the numbered scripts and
+# tools are the next step.
+[tool.mypy]
+python_version = "3.12"
+files = ["scripts/lib"]
+# The scripts import the library as `lib`, with scripts/ on the path.
+mypy_path = "scripts"
+explicit_package_bases = true
+# So a `# type: ignore` that no longer silences anything is reported, rather
+# than outliving the error it was written for.
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+# The GPU and topic-model packages live in requirements-cluster.txt, not in the
+# lock CI installs, and lib imports them inside the functions that use them.
+[[tool.mypy.overrides]]
+module = [
+    "huggingface_hub",
+    "huggingface_hub.*",
+    "matplotlib",
+    "matplotlib.*",
+    "sentence_transformers",
+    "sklearn.*",
+    "spacy",
+    "torch",
+    "umap",
+]
+ignore_missing_imports = true
+
+# pandas ships no type information of its own. It is read as untyped rather
+# than through pandas-stubs, which roughly doubles the errors on this code and
+# is a separate decision.
+[[tool.mypy.overrides]]
+module = ["pandas", "pandas.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
-filterwarnings = ["error::DeprecationWarning"]
-markers = ["slow: runs numbered scripts as subprocesses (tests/test_end_to_end.py)"]
+# Strict, so a misspelt marker or setting is an error rather than a test that
+# silently stops being selected or configured. Coverage is not on by default:
+# it makes a run about 1.7 times slower, so the Checks workflow asks for it
+# and reports it, never enforced (see [tool.coverage] below). Locally:
+#     python -m pytest --cov --cov-report=term:skip-covered
+#
+# CI runs everything. For a quick local loop, leave out the tests that run
+# numbered scripts as subprocesses or search with hypothesis:
+#     python -m pytest -m "not slow"
+addopts = "-q --strict-markers --strict-config"
+# A FutureWarning is pandas or numpy announcing that a result will change in a
+# coming release; in a pipeline whose output is numbers, that is a failure to
+# act on now, not a line to scroll past.
+filterwarnings = ["error::DeprecationWarning", "error::FutureWarning"]
+markers = [
+    "slow: takes seconds rather than milliseconds; the end-to-end runs of numbered scripts and the property-based search",
+]
+
+[tool.coverage.run]
+source = ["scripts", "tools"]
+branch = true
+# Under .pytest_cache/, which git ignores, rather than a `.coverage` file in the
+# repository root that it does not.
+data_file = ".pytest_cache/coverage/.coverage"
+# The numbered scripts the end-to-end tests run as subprocesses are measured
+# too: coverage starts in each child, and the data are combined at the end.
+patch = ["subprocess"]
+
+[tool.coverage.report]
+# Report only. There is deliberately no `fail_under`: a threshold rewards tests
+# written to touch lines rather than to check what the lines produce.
+show_missing = false
+skip_empty = true

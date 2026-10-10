@@ -30,7 +30,7 @@ set_threads
 cd "$REPO"
 echo "==> $(date '+%F %T') | node=$(hostname)"
 
-if [[ -z "$(ls -A "$REPO/data/raw" 2>/dev/null | grep -v '^\.gitkeep$' || true)" ]]; then
+if [[ -z "$(find "$REPO/data/raw" -mindepth 1 -maxdepth 1 ! -name .gitkeep -print -quit 2>/dev/null || true)" ]]; then
   echo "ERROR: data/raw is empty — run this on the login node first:" >&2
   echo "         python scripts/00_fetch_data.py" >&2
   exit 1

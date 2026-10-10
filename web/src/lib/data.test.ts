@@ -78,7 +78,7 @@ describe('the cache in front of the artefacts', () => {
 		const fetchers = Object.fromEntries(
 			['a', 'b', 'c', 'd'].map((term) => [term, responder(line(term))])
 		);
-		const load = (term: string) => kwic(term, fetchers[term].fetcher);
+		const load = (term: string) => kwic(term, fetchers[term]!.fetcher);
 
 		await load('a');
 		await load('b');
@@ -90,9 +90,28 @@ describe('the cache in front of the artefacts', () => {
 		await load('d');
 
 		await load('a');
-		expect(fetchers.a.calls.count, 'a was read most recently and should be held').toBe(1);
+		expect(fetchers.a!.calls.count, 'a was read most recently and should be held').toBe(1);
 		await load('b');
-		expect(fetchers.b.calls.count, 'b was the least recently read of four').toBe(2);
+		expect(fetchers.b!.calls.count, 'b was the least recently read of four').toBe(2);
+	});
+
+	it('goes through each page’s own fetch while prerendering', async () => {
+		// SvelteKit inlines into a prerendered page the responses that page's
+		// own `fetch` returned. A cache shared across pages would leave every
+		// page after the first without the files an earlier one had asked for.
+		vi.resetModules();
+		vi.doMock('$app/environment', () => ({ browser: false }));
+		try {
+			const { annual } = await import('./data');
+			const first = responder(annualPayload());
+			const second = responder(annualPayload());
+			await annual(first.fetcher);
+			await annual(second.fetcher);
+			expect(first.calls.count).toBe(1);
+			expect(second.calls.count).toBe(1);
+		} finally {
+			vi.doUnmock('$app/environment');
+		}
 	});
 
 	it('keeps every small artefact for the whole session', async () => {
@@ -166,6 +185,75 @@ describe('what a bad response is turned into', () => {
 		await expect(json('probe.json', fetcher)).rejects.toThrow(
 			/probe\.json is missing required field\(s\): meta/
 		);
+	});
+
+	it('marks every refusal as its own, with the status when the server answered', async () => {
+		const { DataError, annual, collocates } = await fresh();
+		// The page error hook passes these sentences to the reader and nothing
+		// else, so a refusal that left as a plain Error would reach the page as
+		// "Internal Error".
+		const missing = await collocates(responder(null, { ok: false, status: 404 }).fetcher).catch(
+			(error: unknown) => error
+		);
+		expect(missing).toBeInstanceOf(DataError);
+		expect((missing as InstanceType<typeof DataError>).status).toBe(404);
+
+		const offline = (() =>
+			Promise.reject(new TypeError('Failed to fetch'))) as unknown as typeof fetch;
+		const unreached = await collocates(offline).catch((error: unknown) => error);
+		expect(unreached).toBeInstanceOf(DataError);
+		expect((unreached as InstanceType<typeof DataError>).status).toBeNull();
+
+		const refused = await annual(responder({ meta, periods: [1992] }).fetcher).catch(
+			(error: unknown) => error
+		);
+		expect(refused).toBeInstanceOf(DataError);
+		expect((refused as Error).message).toMatch(/missing required field\(s\): corpus, terms/);
+		expect((refused as InstanceType<typeof DataError>).status).toBeNull();
+	});
+});
+
+describe('an artefact a page can draw without', () => {
+	it('stands in for a file this release does not carry', async () => {
+		const { decomposition, optional } = await fresh();
+		const absent = responder(null, { ok: false, status: 404 });
+		await expect(optional(decomposition(absent.fetcher))).resolves.toBeNull();
+	});
+
+	it('passes on a file that is present and refused', async () => {
+		const { decomposition, optional } = await fresh();
+		// The release carries the decomposition and it is wrong: that is a
+		// refusal for the page to show, not an absence for it to draw around.
+		const malformed = responder({ meta, term: 'genocide' });
+		await expect(optional(decomposition(malformed.fetcher))).rejects.toThrow(
+			/series\/decomposition\.json is missing required field\(s\): splits/
+		);
+	});
+
+	it('passes on a server error and a dead connection', async () => {
+		const { decomposition, optional } = await fresh();
+		const failing = responder(null, { ok: false, status: 503 });
+		await expect(optional(decomposition(failing.fetcher))).rejects.toThrow(/HTTP 503/);
+		const offline = (() =>
+			Promise.reject(new TypeError('Failed to fetch'))) as unknown as typeof fetch;
+		await expect(optional(decomposition(offline))).rejects.toThrow(/Could not reach/);
+	});
+});
+
+describe('the payload manifest behind the footer', () => {
+	it('hands over the manifest as it is, for `$lib/build` to read', async () => {
+		const { payloadManifest } = await fresh();
+		const manifest = { generated: '2026-09-14T08:58:33Z', git_commit: 'abc' };
+		await expect(payloadManifest(responder(manifest).fetcher)).resolves.toEqual(manifest);
+	});
+
+	it('is null, never a refusal, when there is none or it cannot be reached', async () => {
+		const { payloadManifest } = await fresh();
+		const absent = responder(null, { ok: false, status: 404 });
+		await expect(payloadManifest(absent.fetcher)).resolves.toBeNull();
+		const offline = (() =>
+			Promise.reject(new TypeError('Failed to fetch'))) as unknown as typeof fetch;
+		await expect(payloadManifest(offline)).resolves.toBeNull();
 	});
 });
 
@@ -421,6 +509,18 @@ describe('the validators that are about the research rather than the types', () 
 		await expect(third(partial.fetcher)).rejects.toThrow(
 			/is contested on speaker_position and its second reading says nothing there/
 		);
+	});
+
+	it('reads the referent map, and refuses a placement on no referent', async () => {
+		const { usageReferents } = await fresh();
+		const placed = responder({ meta, placements: { 'SC07000-01-001#1': 'rwanda_1994' } });
+		await expect(usageReferents(placed.fetcher)).resolves.toMatchObject({
+			placements: { 'SC07000-01-001#1': 'rwanda_1994' }
+		});
+
+		const { usageReferents: second } = await fresh();
+		const empty = responder({ meta, placements: { 'SC07000-01-001#1': '' } });
+		await expect(second(empty.fetcher)).rejects.toThrow(/places SC07000-01-001#1 on no referent/);
 	});
 
 	it('accepts an ordinary coverage', async () => {

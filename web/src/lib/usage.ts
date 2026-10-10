@@ -56,7 +56,7 @@
 
 import { CONCORDANCE_DEFAULTS, readerQuery } from './concordance';
 import { COMPARED_FIELDS, meetingOf } from './data';
-import { decimal, percent, termLabel } from './format';
+import { count, decimal, percent, termLabel } from './format';
 import { tone } from './theme';
 import type {
 	KwicLine,
@@ -433,6 +433,41 @@ export function orderReferents(referents: readonly UsageReferent[]): UsageRefere
 	return [...ranked.filter((r) => !notACase(r)), ...ranked.filter(notACase)];
 }
 
+/** The controlled list's version the run was coded against, or 1 where it cannot be read. */
+export const instrumentVersion = (data: Usage): number =>
+	Number.parseInt(data.model.referents_version, 10) || 1;
+
+/**
+ * Exactly the identifiers offered to this run, reconstructed from the list's
+ * `since` and `retired_in` bounds rather than silently showing today's
+ * vocabulary.
+ */
+export function instrumentReferents(data: Usage): UsageReferent[] {
+	const version = instrumentVersion(data);
+	return data.referents.filter(
+		(entry) => entry.since <= version && (entry.retired_in === null || entry.retired_in > version)
+	);
+}
+
+/**
+ * The occurrences now counted under an identifier the run was offered.
+ *
+ * A retired identifier hands its counts to what superseded it, so its own
+ * count is the successor's, followed to the end of the chain. A chain that
+ * loops or names an identifier the list does not carry stops where it breaks.
+ */
+export function instrumentOccurrences(data: Usage, entry: UsageReferent): number {
+	let current = entry;
+	const seen = [entry.id];
+	while (current.superseded_by && !seen.includes(current.superseded_by)) {
+		seen.push(current.superseded_by);
+		const successor = data.referents.find((row) => row.id === current.superseded_by);
+		if (!successor) break;
+		current = successor;
+	}
+	return current.occurrences;
+}
+
 /**
  * Which speaker said the word about which genocide, and how much of that is a
  * number the interface may print.
@@ -616,28 +651,22 @@ export interface PositionProfile {
 	total: number;
 	positions: PositionCounts;
 	segments: PositionSegment[];
-	shareRejects: number;
-	/** The count behind the share, which is a fact at every denominator. */
+	/** Occurrences labelled `rejects`: the count the rows are ordered by. */
 	rejects: number;
-	/** The 95% Wilson bounds, and how they are written. */
-	low: number | null;
-	high: number | null;
-	intervalText: string;
-	/** Whether the speaker rejects more than the rest of the Council (FDR 5%). */
-	separated: boolean;
 }
 
-export interface PositionRankingResult {
-	/** Speakers whose share may be published, most rejecting first. */
+export interface PositionProfilesResult {
+	/** Speakers at or over the minimum, each with its band, most rejections first. */
 	rows: PositionProfile[];
 	/**
-	 * Speakers under the minimum, unranked and counts only.
+	 * Speakers under the minimum: counts only, and no band.
 	 *
-	 * Never sorted into the ranking and never given a share: naming near-misses
-	 * beside a ranked table invites reading them as ranked, which is the same
-	 * objection `actors.ts` makes about its own `under` list.
+	 * A count is a fact at every denominator; a band is a set of shares, and
+	 * two occurrences out of two is not "100% of this delegation's uses". These
+	 * rows are listed apart, in the figure's full table, rather than among the
+	 * banded ones — the same objection `actors.ts` makes about its `under` list.
 	 */
-	withheld: { actor: string; eligible: number; positions: PositionCounts; total: number }[];
+	withheld: Omit<PositionProfile, 'segments'>[];
 	minimum: number;
 }
 
@@ -655,57 +684,48 @@ function segmentsOf(positions: PositionCounts, total: number): PositionSegment[]
 	return segments;
 }
 
+/** Most rejections first; the name settles every tie. */
+const byRejections = (a: { rejects: number; actor: string }, b: typeof a) =>
+	b.rejects - a.rejects || a.actor.localeCompare(b.actor);
+
 /**
- * Who rejects the word — separated from the corpus first, and then not ranked.
+ * Who rejects the word — plain counts, until the label has been checked.
  *
- * **The order is not the share.** At the minimum of twenty occurrences a
- * single rejection reads as 5%, and a table sorted on that puts one draw above
- * another draw from the same urn. What can be ordered is the rows the pipeline
- * flags `separated` — an exact test against the rest of the Council, read under
- * a 5% false discovery rate — and those come first, ordered among themselves by
- * share. Everything else follows by count, with its interval printed, and is
- * not a ranking of anything.
+ * **Counts only (FM, 9 October 2026).** The figure used to mark the
+ * delegations that reject more often than the rest of the Council, and to order
+ * them by their share of rejections. Both rested on the model's `rejects`
+ * label, which no person has yet checked, and a mark of "unusual" beside a
+ * named state is the output most likely to be quoted out of context. So every
+ * row is ordered by how many occurrences the run labelled `rejects`, then by
+ * name: a count, not a rate, and not a claim that one delegation rejects more
+ * often than another. The marks and the share ordering return only when
+ * `rejects` passes the human check in `docs/EVALUATION_PLAN.md`, section 9.
+ * The payload still carries the shares, intervals and test results; nothing
+ * here reads them.
  *
- * A speaker under the minimum is not sorted to the bottom; it is not sorted. A
- * null read through `?? 0` would put every rarely-heard delegation at the foot
- * of a ranking of rejection, which is a claim about them that nothing measured.
+ * The minimum still governs the band, which is a set of shares. A speaker
+ * under it keeps its counts, loses its band, and is listed apart.
  */
-export function positionRanking(data: Usage): PositionRankingResult {
+export function positionProfiles(data: Usage): PositionProfilesResult {
 	const rows: PositionProfile[] = [];
-	const withheld: PositionRankingResult['withheld'] = [];
+	const withheld: PositionProfilesResult['withheld'] = [];
 
 	for (const row of data.position_by_actor) {
 		const positions = { ...emptyPositions(), ...row.positions };
 		const total = sumPositions(positions);
-		if (row.sufficient && row.share_rejects !== null && Number.isFinite(row.share_rejects)) {
-			rows.push({
-				actor: row.actor,
-				eligible: row.eligible,
-				total,
-				positions,
-				segments: segmentsOf(positions, total),
-				shareRejects: row.share_rejects,
-				rejects: positions.rejects ?? 0,
-				low: row.share_low,
-				high: row.share_high,
-				intervalText:
-					row.share_low === null || row.share_high === null
-						? '—'
-						: `${percent(row.share_low)}\u2013${percent(row.share_high)}`,
-				separated: Boolean(row.separated)
-			});
-		} else {
-			withheld.push({ actor: row.actor, eligible: row.eligible, positions, total });
-		}
+		const counts = {
+			actor: row.actor,
+			eligible: row.eligible,
+			total,
+			positions,
+			rejects: positions.rejects ?? 0
+		};
+		if (row.sufficient) rows.push({ ...counts, segments: segmentsOf(positions, total) });
+		else withheld.push(counts);
 	}
 
-	rows.sort(
-		(a, b) =>
-			Number(b.separated) - Number(a.separated) ||
-			(a.separated ? b.shareRejects - a.shareRejects : b.rejects - a.rejects) ||
-			a.actor.localeCompare(b.actor)
-	);
-	withheld.sort((a, b) => b.eligible - a.eligible || a.actor.localeCompare(b.actor));
+	rows.sort(byRejections);
+	withheld.sort(byRejections);
 	return { rows, withheld, minimum: data.minimum_occurrences };
 }
 
@@ -1247,7 +1267,7 @@ function ticksFor(from: number, to: number, x: (at: number) => number): Diffusio
 	if (!Number.isFinite(from) || !Number.isFinite(to)) return [];
 	const first = new Date(from).getUTCFullYear();
 	const last = new Date(to).getUTCFullYear();
-	const widest = TICK_STEPS[TICK_STEPS.length - 1];
+	const widest = TICK_STEPS[TICK_STEPS.length - 1]!;
 	const step = TICK_STEPS.find((size) => (last - first) / size <= MAX_TICKS) ?? widest;
 	const ticks: DiffusionTick[] = [];
 	for (let year = Math.ceil(first / step) * step; year <= last; year += step) {
@@ -1274,7 +1294,8 @@ const sameCurve = (
 ) =>
 	a.length === b.length &&
 	a.every(
-		({ event }, index) => event.actor === b[index].event.actor && event.date === b[index].event.date
+		({ event }, index) =>
+			event.actor === b[index]!.event.actor && event.date === b[index]!.event.date
 	);
 
 const noTotals = (): Record<UsageMilestone, number> =>
@@ -1326,7 +1347,7 @@ export function diffusionPlan(data: Usage, state: UsageState): DiffusionPlan {
 		delegations: new Set(entry.events.map((event) => event.actor)).size
 	}));
 
-	const fallback = options.find((option) => option.kind === 'case') ?? options[0];
+	const fallback = options.find((option) => option.kind === 'case') ?? options[0]!;
 	const wanted = state.referent || fallback.id;
 	const chosen = carried.find((entry) => entry.id === wanted);
 	if (!chosen) {
@@ -1960,6 +1981,44 @@ export function goldProgress(data: Usage): GoldProgress {
 	};
 }
 
+const CHECKING: Partial<Record<UsageGold['state'], string>> = {
+	not_started: 'awaiting human checking',
+	in_progress: 'with human checking in progress'
+};
+
+/**
+ * The status line every download made from these labels carries.
+ *
+ * A file leaves the page and its apparatus behind; the run id and the model in
+ * its header say whose labels these are, but not that the run is partial or
+ * that nobody has checked it (review of 8 October 2026, A1). This sentence
+ * says so, from the payload rather than from a constant:
+ *
+ * - *partial* while the run annotated fewer occurrences than there are;
+ * - *unvalidated* while the gold sample is not complete, with whether the
+ *   checking has started;
+ * - nothing at all once the run is complete and the sample coded — a line a
+ *   later payload makes untrue should go without anyone remembering to
+ *   delete it.
+ *
+ * "Complete" is the gold block's own state, not a verdict on the labels: what a
+ * coded sample found belongs to the evaluation plan, and this line only says
+ * whether the finding exists yet.
+ */
+export function runStatus(data: Pick<Usage, 'model' | 'gold'>): string | null {
+	const { model, gold } = data;
+	const partial = model.occurrences_annotated < model.occurrences_total;
+	const unchecked = gold.state !== 'complete';
+	if (!partial && !unchecked) return null;
+	const kind = [partial && 'partial', unchecked && 'unvalidated'].filter(Boolean).join(', ');
+	const article = /^[aeiou]/.test(kind) ? 'an' : 'a';
+	const checking = unchecked && CHECKING[gold.state] ? ` ${CHECKING[gold.state]}` : '';
+	const coverage = partial
+		? `${count(model.occurrences_annotated)} of ${count(model.occurrences_total)} occurrences annotated`
+		: `all ${count(model.occurrences_total)} occurrences annotated`;
+	return `labels from ${article} ${kind} model run${checking} (run ${model.run_id}: ${coverage})`;
+}
+
 /**
  * The matrix as a file, in long form and at full width.
  *
@@ -2129,11 +2188,17 @@ export const POSITION_COLUMNS = [
 	'group',
 	'eligible',
 	'sufficient',
-	'share_rejects',
 	...POSITIONS.map((speaker_position) => `position_${speaker_position}`)
 ];
 
-/** Every speaker's speaker_position profile, including the ones whose share is withheld. */
+/**
+ * Every speaker's position counts, the ones under the minimum included.
+ *
+ * Counts only, as the figure is: the payload's rejection share, its interval
+ * and its test result stay out of the file until `rejects` has passed the human
+ * check. `sufficient` stays in, because it is what decides whether a row has a
+ * band, and a file should say why a delegation it lists was not drawn.
+ */
 export function positionExportRows(data: Usage): (string | number | boolean | null)[][] {
 	const actors = new Map(data.actors.map((actor) => [actor.country_org, actor]));
 	return data.position_by_actor.map((row) => {
@@ -2144,7 +2209,6 @@ export function positionExportRows(data: Usage): (string | number | boolean | nu
 			actor?.group ?? null,
 			row.eligible,
 			row.sufficient,
-			row.share_rejects,
 			...POSITIONS.map((speaker_position) => row.positions[speaker_position] ?? 0)
 		];
 	});

@@ -6,19 +6,45 @@
 		"lexicon_version": 2
 	},
 	"method": "fixture",
-	"parameters": {},
+	"parameters": {
+		"min_size": 1,
+		"alpha": 0.05,
+		"trials": 2000,
+		"seed": 20260807,
+		"max_breaks": 4
+	},
 	"caveat": "Fixture inference only.",
 	"series": {},
 	"inference": {
 		"method": "fixture",
+		"null": "meeting_block_permutation",
 		"familywise_alpha": 0.05,
 		"per_test_alpha": 0.025,
 		"correction": "Bonferroni",
 		"trials": 10,
 		"caveat": "Fixture inference only.",
 		"series": {
-			"genocide": { "speech_rate": null },
-			"atrocity_core": { "speech_rate": null }
+			"genocide": {
+				"speech_rate": {
+					"index": 1,
+					"label": "1994",
+					"family": "binomial",
+					"gain": 1.84,
+					"null": "meeting_block_permutation",
+					"blocks": 9,
+					"p_value": 0.31,
+					"p_value_independent": 0.12,
+					"alpha": 0.025,
+					"accepted": false,
+					"before": 0.1,
+					"before_ci95": [0.0179, 0.4042],
+					"after": 0.14,
+					"after_ci95": [0.0745, 0.2463],
+					"ratio": 1.4,
+					"counts": [1, 7],
+					"exposure": [10, 50]
+				}
+			}
 		}
 	}
 }

@@ -11,6 +11,8 @@ authors:
 repository-code: "https://github.com/fmadore/genocide-at-the-security-council"
 url: "https://fmadore.github.io/genocide-at-the-security-council/"
 license: MIT
+# A version, a release date and a DOI are added here when a release is cut;
+# see docs/RELEASING.md.
 abstract: >-
   Data pipeline, computational analysis and interactive dashboard studying the
   use of the word "genocide" and its semantic neighbourhood in United Nations
@@ -29,11 +31,17 @@ keywords:
   - international relations
   - reproducible research
 references:
+  # The corpus. The year follows Harvard Dataverse's own suggested citation,
+  # which gives the year the dataset was first published (2023) followed by
+  # the version; the pinned version 5.0 (config/dataset-pin.json) was released
+  # on 31 March 2026, which is what `date-released` records.
   - type: database
     title: "The UNSC Meetings and Speeches"
     version: "5.0"
-    doi: "10.7910/DVN/CKPTRB"
+    date-released: "2026-03-31"
     year: 2023
+    doi: "10.7910/DVN/CKPTRB"
+    url: "https://doi.org/10.7910/DVN/CKPTRB"
     publisher:
       name: "Harvard Dataverse"
     license: CC0-1.0
@@ -47,6 +55,7 @@ references:
     title: "The Security Council in its entirety: unveiling 80 years of deliberation through the UNSC Meetings and Speeches dataset"
     year: 2026
     doi: "10.1093/jopres/xjag018"
+    journal: "Journal of Peace Research"
     authors:
       - family-names: Sakamoto
         given-names: Takuto
@@ -54,3 +63,30 @@ references:
         given-names: Tomoyuki
       - family-names: Ito
         given-names: Hiroto
+  # The models. Each is pinned to an immutable Hugging Face revision, given as
+  # `commit`. The published annotation run records its revision in
+  # model_annotations/genocide/runs/2026-09-08-qwen-131k/manifest.json; the
+  # comparison model's revision is its profile in scripts/cluster/env.sh; the
+  # embedding model's is in config/embedding_models.yml.
+  - type: software
+    title: "Qwen3.8-27B"
+    notes: "Open-weights language model. The published instrument of the model annotation layer (run 2026-09-08-qwen-131k, prompt v3)."
+    repository: "https://huggingface.co/Qwen/Qwen3.8-27B"
+    commit: "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+    authors:
+      - name: "Qwen"
+  - type: software
+    title: "Gemma 4 31B IT"
+    notes: "Open-weights language model (google/gemma-4-31B-it). The comparison instrument of the model annotation layer, prompt v3; its run is not yet published."
+    repository: "https://huggingface.co/google/gemma-4-31B-it"
+    commit: "842da3794eaa0b77d5f08bae87a17459d91ff475"
+    authors:
+      - name: "Google"
+  - type: software
+    title: "Qwen3-Embedding-0.6B"
+    notes: "Text embedding model behind the experimental semantic map."
+    repository: "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B"
+    commit: "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3"
+    license: Apache-2.0
+    authors:
+      - name: "Qwen"

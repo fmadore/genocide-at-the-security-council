@@ -111,7 +111,7 @@ deactivate
 # /workdir (large, purgeable, re-creatable from Dataverse by 00_fetch_data.py).
 if [[ -L "$REPO/data" ]]; then
   echo "==> data/ already links to $(readlink "$REPO/data")"
-elif [[ -d "$REPO/data" ]] && [[ -n "$(ls -A "$REPO/data" 2>/dev/null | grep -v '^\.gitkeep$' || true)" ]]; then
+elif [[ -d "$REPO/data" ]] && [[ -n "$(find "$REPO/data" -mindepth 1 -maxdepth 1 ! -name .gitkeep -print -quit)" ]]; then
   echo "WARN: $REPO/data exists and is not empty — leaving it alone." >&2
   echo "      Move it aside and re-run if you want it on $DATA_STORE." >&2
 else

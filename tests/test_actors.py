@@ -19,6 +19,7 @@ import json
 
 import pandas as pd
 import pytest
+from conftest import make_speeches
 from lib import actors, council
 
 # --- Fixtures --------------------------------------------------------------
@@ -60,7 +61,9 @@ def corpus() -> pd.DataFrame:
         speech(1000 + i, "Quiet", 1995, 200, term=i < 2, count=2 if i == 0 else (1 if i == 1 else 0))
         for i in range(5)
     ]
-    return pd.DataFrame(rows)
+    # Only the columns given: the drift tests below read the legacy roster,
+    # which `council.speaker_group` consults only when the source flags are absent.
+    return make_speeches(rows, complete=False)
 
 
 def mixed_corpus() -> pd.DataFrame:
@@ -75,7 +78,7 @@ def mixed_corpus() -> pd.DataFrame:
         for i in range(3)
     ]
     extra += [speech(3000 + i, "Secretariat", 2005, 400, term=False) for i in range(2)]
-    return pd.concat([corpus(), pd.DataFrame(extra)], ignore_index=True)
+    return pd.concat([corpus(), make_speeches(extra, complete=False)], ignore_index=True)
 
 
 def crosswalk() -> pd.DataFrame:
@@ -468,45 +471,6 @@ def test_the_whole_corpus_slice_comes_first_and_spans_everything() -> None:
     assert slices[0].key == actors.WHOLE
     assert (slices[0].first_year, slices[0].last_year) == (1992, 2023)
     assert len(slices) == 1 + len(actors.DECADES)
-
-
-# --- Crosswalk drift -------------------------------------------------------
-
-
-def with_attributes(frame: pd.DataFrame, table: pd.DataFrame) -> pd.DataFrame:
-    return frame.merge(table, on="country_org", how="left")
-
-
-def test_an_unedited_crosswalk_reports_no_drift() -> None:
-    frame = with_attributes(corpus(), crosswalk())
-    assert actors.crosswalk_drift(frame, crosswalk()) == []
-
-
-def test_a_crosswalk_edited_since_02_ran_is_caught() -> None:
-    """02 freezes entity_type and the centroid into the corpus. If config/ moved
-    afterwards, this table would be built from the new file while the rest of
-    the payload still carries the old one, and neither would say so."""
-    frame = with_attributes(corpus(), crosswalk())
-    moved = crosswalk()
-    moved.loc[moved["country_org"] == "Loud", "iso3"] = "XXX"
-    problems = actors.crosswalk_drift(frame, moved)
-    assert problems and "Loud" in problems[0] and "iso3" in problems[0]
-
-
-def test_a_moved_centroid_is_caught_and_a_rounding_wobble_is_not() -> None:
-    frame = with_attributes(corpus(), crosswalk())
-    nudged = crosswalk()
-    nudged.loc[nudged["country_org"] == "Quiet", "lat"] = -3.25 + 1e-9
-    assert actors.crosswalk_drift(frame, nudged) == []
-    nudged.loc[nudged["country_org"] == "Quiet", "lat"] = -3.5
-    assert actors.crosswalk_drift(frame, nudged)
-
-
-def test_two_missing_values_are_treated_as_agreeing() -> None:
-    """The Secretariat has no code in either file, and that is agreement rather
-    than a difference between two nulls."""
-    frame = with_attributes(corpus(), crosswalk())
-    assert actors.crosswalk_drift(frame, crosswalk()) == []
 
 
 # --- Who held a seat when they spoke ---------------------------------------

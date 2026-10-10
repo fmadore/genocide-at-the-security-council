@@ -482,6 +482,11 @@ export interface Speech {
 }
 
 export interface Meeting {
+	/**
+	 * The short form of 09's provenance: what cites the file, with `provenance`
+	 * naming `meetings.json`, which holds the block every meeting file shares.
+	 * The analysis hash is taken with that block in place.
+	 */
 	meta: LexiconMeta;
 	basename: string;
 	spv: string;
@@ -1526,6 +1531,17 @@ export interface UsageOccurrence {
 export interface UsageOccurrences {
 	meta: BaseMeta;
 	occurrences: UsageOccurrence[];
+}
+
+/* --- export_web.py: usage/referents.json, cut from usage/occurrences.json --- */
+
+export interface UsageReferents {
+	meta: BaseMeta;
+	/**
+	 * Line id → referent id, for every occurrence the run placed on a referent.
+	 * An unplaced occurrence is absent, so a referent filter never keeps it.
+	 */
+	placements: Record<string, string>;
 }
 
 /* --- 04_series.py: series/decomposition.json ------------------------------ */

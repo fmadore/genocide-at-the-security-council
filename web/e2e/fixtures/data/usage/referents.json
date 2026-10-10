@@ -1,0 +1,22 @@
+{
+	"meta": {
+		"script": "export_web.py",
+		"generated": "2026-09-01T00:00:00Z",
+		"git_commit": "fixture",
+		"lexicon_version": 2,
+		"inputs": [
+			{
+				"path": "data/derived/usage/occurrences.json",
+				"sha256": "fixture-input"
+			}
+		],
+		"run_id": "fixture-run",
+		"referents_version": 1
+	},
+	"placements": {
+		"SC07000-01-001#1": "rwanda_1994",
+		"SC07000-01-001#2": "rwanda_1994",
+		"SC07481-01-007#1": "bosnia_srebrenica",
+		"SC07481-01-007#2": "bosnia_srebrenica"
+	}
+}

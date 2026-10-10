@@ -369,7 +369,7 @@ def build_neighbours(
     # vocabulary; if it is nearly always the same meeting, it has found the
     # agenda instead, which is a different and much less interesting result.
     top = flat[flat["rank"] == 1]
-    payload = {
+    payload: dict[str, object] = {
         "targets": len(targets),
         "k": k,
         "top1_also_genocide_bearing": round(float(top["neighbour_has_genocide"].mean()), 4),

@@ -1,121 +1,47 @@
 # Validation register
 
-## 24 September 2026 — review fixes: lexicon v8, tokenizer, gold design
+This register records the checks made on the corpus, the lexicon, the model runs
+and the website, and the checks that still need a person. It keeps
+approximations, human-review tasks and resolved discrepancies visible instead of
+silently absorbing them into the pipeline. Every automatic resolution — a
+relocated evidence quote, a repaired record, a tolerant match — is logged here,
+so that it can be checked against the original UN record.
 
-Item by item in [ROADMAP.md](ROADMAP.md). Measured on the pinned v5.0 corpus rebuilt in a
-scratch data root; the baseline is the same pipeline at commit `c981f8b`.
+"Mechanically reconciled" means code and source metadata agree; it does not mean
+a person has inspected the original PDF.
 
-- **Lexicon v8.** `genocide` is widened to `\bg[eé]nocid\w*`: 4,136 speeches and 7,787
-  occurrences, from 4,133 and 7,747. The 40 added occurrences are the accented
-  *génocidaires*; three speeches say the word no other way. Step 03 re-ran the v7 rule and
-  every one of its spans is still counted, so no occurrence identity moved. The anchor is
-  widened the same way and the seven anchored terms declare it; the `intensity` ladder is
-  removed. All counts are committed in `config/lexicon.counts.json`.
-- **Tokenizer.** Accented Latin, Greek and Cyrillic letters are word characters and both
-  apostrophes are one. 5,383 accented word types had been cut at the accent (*régime* was
-  `r` + `gime`, 1,892 times). The analytical word total is 86,812,574, 42,333 (0.05%) fewer.
-- **Rejection flag.** The published run's own rejection rate is 2.74%, not the retired
-  corpus's 1.74%. Of 98 speakers with a published share, 15 were flagged against the old
-  constant and 11 against the run's rate; Albania, Azerbaijan, Congo and Slovakia were
-  flagged by the constant alone. The flag is now an exact test against the rest of the
-  Council under a 5% false discovery rate.
-- **Delivery language.** v5.0 carries no `(spoke in …)` markers: every speech was
-  `Unknown`, and the reader printed "spoke in Unknown" beside each one. No language is
-  published now.
-- **Rate bands.** Annual and quarterly speech rates carry 95% intervals from resampling
-  whole meetings. For `genocide` in 1994 the band is 4.0–9.3% against Wilson's 5.4–7.8%.
-- **Composition and use.** By agenda item, the 1980s-to-1990s rise in the genocide speech
-  rate (+1.53 points) is more than all composition (+2.12, the Rwanda and Bosnia items)
-  while use within items fell (−0.59); from the 2010s to the 2020s the +0.60 splits +0.25
-  composition and +0.34 within. By speaker group the 1990s rise is within-group (+2.26).
-- **Semantic map.** The release is now bound to its embedded bodies
-  (`corpus_geometry_sha256`, computed from the corpus that matches its content fingerprint);
-  display attributes are re-derived at export, so v8's three flipped flags reach the map.
-- **Gold sample.** The prompt's ten worked examples are mapped to v5.0 occurrences and kept
-  out of every frame; the third frame is drawn from the published run's labels
-  (`model_strata`); the sample is 469 rows over 453 occurrences; coders get a blinded packet.
-- **Matched controls.** Rebuilding with v8's three extra target speeches replaced 33 of
-  the published top-100 matched keywords, because one seeded generator drew the controls of
-  every stratum in turn: 52.9% of the 3,950 controls changed. Controls are now drawn per
-  stratum (0.1% change under the same widening). The matched tables of 05 and 12 are
-  redrawn once by this; their 20-draw stability block still carries the draw-to-draw range.
-- **Frame examples.** The seventeen example lines of `lib/node_frames.py` cited retired
-  corpus identifiers; fifteen are mapped to v5.0, and two taken from 2020–2021 VTC letters
-  the corpus does not carry are replaced by attested examples each frame classifies.
+**How it is organised.**
 
-## 12 September 2026 — lexicon v7: one genocide word-family measure
-
-The separate `genocidaires` term and `genocide_qualification` subtraction are retired. Counts, change-point tests and actor summaries now use the unchanged full `genocid*` pattern: 7,747 occurrences in 4,133 speeches. The removed subtraction had excluded 18 occurrences and three speeches. Word-form tables retain the original strings and group the borrowed forms with other nouns. Occurrence identifiers and existing annotations remain valid.
-
-The full corpus rebuild preserved all 28 retained annual term series and all 7,747 genocide concordance rows exactly. All 9,464 meeting files were checked for retired highlighting keys. The rebuilt payload passed all 20 dashboard contracts; the pinned semantic map remained compatible. Python tests passed (1,220 passed, six skipped), as did 544 web unit tests and 45 browser tests.
-
-Earlier sections record the previous approach and are retained as historical validation records; they do not describe the current measure.
-
-## 7 September 2026 — lexicon v6 and integrity repairs
-
-The isolated corpus rebuild recorded in [the project plan](PLAN.md)
-enumerates `crime(s) of aggression`: **330 mentions in 249 speeches**, comprising
-256 singular and 74 plural spans. Attested examples include `SC00805-01-001#1`
-(S/PV.805, India, 21 November 1957) and `SC01325-01-003#1` (S/PV.1325, plural).
-Standalone *aggression* and *war(s) of aggression* do not match. This is a
-measurement of explicit vocabulary, not a determination that a crime occurred.
-
-Every pre-existing annual term series is identical to v5. All 7,747 genocide
-concordance rows, including identities and context, are identical. The full
-concordance and speech export both reconcile **83,341 offsets** over **167,642
-speeches**. The lexicon precision sample now has 196 term/period coverage strata;
-its 296 candidate rows are unscored. No precision claim follows from enumeration.
-
-The [project plan](PLAN.md) records test results,
-payload checks and the remaining human/GPU gates. Historical sections below
-retain their original corpus dates and measurements. Their references to dated
-reviews identify historical documents available in Git history, not additional
-current plans.
-
-> **Corpus migration, 3 September 2026.** The canonical input is now
-> Sakamoto–Matsuoka v5 (1946–2024). Schoenfeld-era checks and examples retained
-> below are historical records, not current population totals. Current
-> invariants are documented in `docs/CORPUS.md` and manifests 01–03.
-
-The corpus is OCR-derived from two-column `S/PV.*` verbatim records. This register keeps
-approximations, human-review tasks and resolved discrepancies visible instead of silently
-absorbing them into the pipeline.
-
-Status: 11 August 2026 — every count below re-checked against the current artefacts on that
-date; the open human checks are unchanged, because none of them is work a re-run can do.
-“Mechanically reconciled” means code and source metadata agree; it does not mean a person
-has inspected the original PDF. Amended 28 August 2026: checks 6 and 7 added for Phase L
-(the genocide gold sample and the model-run register), and check 2 updated for the seeded
-referent list. Amended 30 August 2026: the first two model runs registered in §7. Amended 1 September 2026: lexicon v3 registered below, with
-the two counting corrections it carries and the re-count it still owes. Amended 2 September
-2026: the rate change-point test's meeting-block null and the Wilson intervals registered
-below, with the re-calibration they owe; and, the same day, the lexical tables' floor,
-effect ranking and dispersion, with the re-run and the lemma layer they owe. Amended 2
-September 2026, later: the corpus run landed with the merge (deploy run 59 ran every step
-through `15_usage.py` before `export_web.py` refused a hand-edited contract, corrected in
-PR #6; run 61, on the push that followed, published the result); the re-count, the
-re-calibration and the vocabulary
-counts below are read from that run's console output, and what a log cannot show is left
-open. Amended 2 September 2026, later still: lexicon v4 and the word denominator
-registered below. Their effect is measured on the corpus rather than owed — both were
-applied to `speeches_norm.parquet` read-only before the change was committed — and what
-remains owed is the pipeline run that puts those numbers into the artefacts. The headline
-figure is a derived measure, `genocide` minus `genocidaires`, rather than a narrowed
-pattern: `genocide` itself is untouched at v4, so the gold sample and the four committed
-model runs stay valid and 15 goes on aggregating them. Amended the same day: the
-grammatical frames of the node registered below, read from a run of `17_frames.py` over
-the corpus, with the human reading of the codebook left open.
+1. How to inspect an original record.
+2. Open human checks: work only a person can do.
+3. Dated records on the current corpus (Sakamoto–Matsuoka v5.0, the pipeline's
+   input since 3 September 2026), newest first.
+4. Mechanically reconciled checks on the current corpus.
+5. Self-hosted model run gates.
+6. Website checks.
+7. Appendix: the retired corpus. Checks made on the Schoenfeld 1992–2023 corpus
+   before the migration. Their figures are not current. They are kept because
+   the rules they record (lexicon versions, the word denominator, the frames
+   codebook) still apply, and because their evidence and OCR records may still
+   need checking against the PDFs.
 
 ## How to inspect an original record
 
-Records are addressed by `meeting_symbol` (`S/PV.3137`). Resumptions carry a corpus suffix
-such as `S/PV.3745Resumption1`, rendered by the UN as `S/PV.3745 (Resumption 1)`.
+Records are addressed by `meeting_symbol` (`S/PV.3137`). Resumptions, parts and
+corrections carry a suffix such as `S/PV.3336(Resumption2)` or `S/PV.2970(PartII)`,
+rendered by the UN as `S/PV.3336 (Resumption 2)`. The source gives a link to each
+record in the `record_url` column of `meetings.tsv`.
 
 - UN Digital Library: <https://digitallibrary.un.org/search?ln=en&p=S%2FPV.3137>
 - Security Council records index: <https://research.un.org/en/docs/sc/quick/meetings/>
 
-The `filename` identifies the speech (`UNSC_1992_SPV.3137_spch0009.txt` is the ninth
-speech record in that document).
+A speech is identified by the source's `speech_id`, such as `SC00805-01-001`
+(S/PV.805, 21 November 1957): the meeting record `SC00805-01` and the speech's
+position in it. One meeting can have several records, numbered `-01`, `-02` and
+so on, for resumptions, parts and corrections. An occurrence adds `#` and its
+ordinal in the speech: `SC00805-01-001#1`. Identifiers such as
+`UNSC_1992_SPV.3137_spch0009` belong to the retired corpus and resolve to
+nothing in this one.
 
 ## Open human checks
 
@@ -196,8 +122,11 @@ examples, in three frames:
 | coverage | 80 | one occurrence per decade × usage-cue stratum, then a random fill |
 | model_strata | 269 | the published run's rare labels: 100 `rejects`, all 9 pre-onset referents, 40 `other`, 60 `reports_without_position`, 60 `conditional` |
 
-Once a comparison run exists the third frame becomes the disagreement frame over the two
-runs. Every frame is reported alone, and `genocide_gold_design.csv` records each
+Once a comparison run is named in `comparison_run.txt`, step 13 draws the disagreement frame
+over the two runs in place of `model_strata`, which redraws the sample; it must therefore be
+frozen before coding starts ([EVALUATION_PLAN.md](EVALUATION_PLAN.md), section 3). The 59
+passages read against Qwen's labels on 10 September 2026 are flagged wherever they fall in
+the sample (decided by FM, 9 October 2026; same plan, section 4). Every frame is reported alone, and `genocide_gold_design.csv` records each
 occurrence's probability under each frame and under their union, so every coded unit can
 also be weighted back to the corpus (15's `weighted_accuracy` and `corrected_shares`, from
 30 units with a reference label).
@@ -219,6 +148,630 @@ and `note` columns. A first is a minimum over dates, so one mislabelled early oc
 moves it; the list is short enough to read whole. Priority: medium.
 
 ### 7. Model annotation runs
+
+Every run of `scripts/14_llm_annotate.py` is committed under
+[`model_annotations/genocide/runs/`](../model_annotations/genocide/) with its
+manifest — model id and revision, prompt version and hash, coverage, parse
+failures, invalid evidence quotes, token usage and runtime — and the run the
+dashboard reads is named in `current_run.txt` as a reviewed diff. Register of
+runs on the current corpus:
+
+| Run | Model | Prompt | Coverage | Parse failures | Evidence invalid | State |
+|---|---|---|---|---:|---:|---|
+| `2026-09-08-qwen-131k` | `Qwen/Qwen3.8-27B` at revision `1d4bf0f2ff60`, effort xhigh | v3 `3772c44d400f` | 4,097 of 4,133 speeches, 7,694 of 7,747 occurrences (lexicon 6) | 36 | 24 (3 relocated) | stopped partial run, published as a preview |
+| Gemma corpus run (batches) | `google/gemma-4-31B-it` at revision `842da3794eaa`, thinking on | v3 | 4,129 of 4,133 speeches on 8 October 2026 | — | — | four speeches (two truncations, two validation failures) block the merge; not fetched or committed |
+
+Of the Qwen run's 36 speeches without an accepted response, 34 carry a display
+name where a referent identifier was required and 2 were cut off at the output
+limit. Its `failures.jsonl` records every refused response, 77 over 72 speeches,
+including the 36 speeches a later pass recovered. Its 24 unlocated evidence quotes are flagged
+`evidence_valid=false` and excluded from every discourse figure; nothing was
+repaired. Why its manifest still reads `in_progress` and why its commit ends in
+`-dirty` is explained in [`model_annotations/README.md`](../model_annotations/README.md).
+No human has checked either run (check 6).
+
+The records of the four hosted runs made on the retired corpus in August 2026 —
+their register, the recount of the Gemini manifest, the `cost_usd` check, the
+unlocated quotes and the agreement tables — are in the appendix, under "Model
+runs on the retired corpus".
+
+When a run is added, record it here and re-check the artefact counts on the Methods page
+against its manifest. Automatic resolutions (a relocated evidence quote, a normalised
+whitespace match) are counted in the manifest, never silently absorbed.
+
+## Dated records on the current corpus
+
+### 24 September 2026 — review fixes: lexicon v8, tokenizer, gold design
+
+Item by item in [ROADMAP.md](ROADMAP.md). Measured on the pinned v5.0 corpus rebuilt in a
+scratch data root; the baseline is the same pipeline at commit `c981f8b`.
+
+- **Lexicon v8.** `genocide` is widened to `\bg[eé]nocid\w*`: 4,136 speeches and 7,787
+  occurrences, from 4,133 and 7,747. The 40 added occurrences are the accented
+  *génocidaires*; three speeches say the word no other way. Step 03 re-ran the v7 rule and
+  every one of its spans is still counted, so no occurrence identity moved. The anchor is
+  widened the same way and the seven anchored terms declare it; the `intensity` ladder is
+  removed. All counts are committed in `config/lexicon.counts.json`.
+- **Tokenizer.** Accented Latin, Greek and Cyrillic letters are word characters and both
+  apostrophes are one. 5,383 accented word types had been cut at the accent (*régime* was
+  `r` + `gime`, 1,892 times). The analytical word total is 86,812,574, 42,333 (0.05%) fewer.
+- **Rejection flag.** The published run's own rejection rate is 2.74%, not the retired
+  corpus's 1.74%. Of 98 speakers with a published share, 15 were flagged against the old
+  constant and 11 against the run's rate; Albania, Azerbaijan, Congo and Slovakia were
+  flagged by the constant alone. The flag is now an exact test against the rest of the
+  Council under a 5% false discovery rate.
+- **Delivery language.** v5.0 carries no `(spoke in …)` markers: every speech was
+  `Unknown`, and the reader printed "spoke in Unknown" beside each one. No language is
+  published now.
+- **Rate bands.** Annual and quarterly speech rates carry 95% intervals from resampling
+  whole meetings. For `genocide` in 1994 the band is 4.0–9.3% against Wilson's 5.4–7.8%.
+- **Composition and use.** By agenda item, the 1980s-to-1990s rise in the genocide speech
+  rate (+1.53 points) is more than all composition (+2.12, the Rwanda and Bosnia items)
+  while use within items fell (−0.59); from the 2010s to the 2020s the +0.60 splits +0.25
+  composition and +0.34 within. By speaker group the 1990s rise is within-group (+2.26).
+- **Semantic map.** The release is now bound to its embedded bodies
+  (`corpus_geometry_sha256`, computed from the corpus that matches its content fingerprint);
+  display attributes are re-derived at export, so v8's three flipped flags reach the map.
+- **Gold sample.** The prompt's ten worked examples are mapped to v5.0 occurrences and kept
+  out of every frame; the third frame is drawn from the published run's labels
+  (`model_strata`); the sample is 469 rows over 453 occurrences; coders get a blinded packet.
+- **Matched controls.** Rebuilding with v8's three extra target speeches replaced 33 of
+  the published top-100 matched keywords, because one seeded generator drew the controls of
+  every stratum in turn: 52.9% of the 3,950 controls changed. Controls are now drawn per
+  stratum (0.1% change under the same widening). The matched tables of 05 and 12 are
+  redrawn once by this; their 20-draw stability block still carries the draw-to-draw range.
+- **Frame examples.** The seventeen example lines of `lib/node_frames.py` cited retired
+  corpus identifiers; fifteen are mapped to v5.0, and two taken from 2020–2021 VTC letters
+  the corpus does not carry are replaced by attested examples each frame classifies.
+
+### 12 September 2026 — lexicon v7: one genocide word-family measure
+
+The separate `genocidaires` term and `genocide_qualification` subtraction are retired. Counts, change-point tests and actor summaries now use the unchanged full `genocid*` pattern: 7,747 occurrences in 4,133 speeches. The removed subtraction had excluded 18 occurrences and three speeches. Word-form tables retain the original strings and group the borrowed forms with other nouns. Occurrence identifiers and existing annotations remain valid.
+
+The full corpus rebuild preserved all 28 retained annual term series and all 7,747 genocide concordance rows exactly. All 9,464 meeting files were checked for retired highlighting keys. The rebuilt payload passed all 20 dashboard contracts; the pinned semantic map remained compatible. Python tests passed (1,220 passed, six skipped), as did 544 web unit tests and 45 browser tests.
+
+The records in the appendix describe the approach before the migration and the
+retired corpus; they do not describe the current measure.
+
+### 7 September 2026 — lexicon v6 and integrity repairs
+
+The isolated corpus rebuild recorded in the project plan of that date
+enumerates `crime(s) of aggression`: **330 mentions in 249 speeches**, comprising
+256 singular and 74 plural spans. Attested examples include `SC00805-01-001#1`
+(S/PV.805, India, 21 November 1957) and `SC01325-01-003#1` (S/PV.1325, plural).
+Standalone *aggression* and *war(s) of aggression* do not match. This is a
+measurement of explicit vocabulary, not a determination that a crime occurred.
+
+Every pre-existing annual term series is identical to v5. All 7,747 genocide
+concordance rows, including identities and context, are identical. The full
+concordance and speech export both reconcile **83,341 offsets** over **167,642
+speeches**. The lexicon precision sample now has 196 term/period coverage strata;
+its 296 candidate rows are unscored. No precision claim follows from enumeration.
+
+The test results and payload checks of this rebuild were recorded in the project
+plan of that date (git history). References in this register to dated reviews
+identify documents available in git history, not current plans.
+
+## Mechanically reconciled
+
+Checks on the current corpus where code and source metadata agree. The
+lexicon v2 to v4, denominator, rate-test, lexical-table, frames and
+document-count entries of the same heading were made on the retired corpus
+and are in the appendix.
+
+### Primary-source chronology overlay
+
+All 43 entries in `config/events.csv` now have a non-empty `source` and an HTTPS
+`source_url` pointing to the relevant UN, ICC, ICJ, ICTY/ICTR, OHCHR or archived government
+record. The config loader rejects missing source URLs, and the dashboard links directly to
+them. These dates are contextual annotations only; the models do not use them and the
+interface does not imply causal attribution.
+
+**Open check: eight legal milestones added on 2 September 2026** (review §3.5, item 15):
+Akayesu (1998-09-02), Krstić (2001-08-02), the Darfur Commission report S/2005/60
+(dated 2005-02-01 as transmitted), *Bosnia v. Serbia* (2007-02-26), the first al-Bashir
+warrant (2009-03-04), S/PV.7155 (2014-04-16, kind `council`), Karadžić (2016-03-24) and
+Mladić (2017-11-22). Dates and labels were written from the review and from memory of the
+judgments; each `source_url` is the tribunal's, the Court's or the UN's own page for the
+case or document, and the date should be read off that page before any of these is cited
+from the chart. The rail under the chronology draws them by kind, with a kind filter, in
+place of the full-height rules.
+
+### Lexicon v5: the roll-ups go, and a legal ladder arrives
+
+Lexicon v5 (7 September 2026) is item R7 of the roadmap. **No pattern and no anchor
+changes**, so no occurrence identity moves, the gold sample and the four committed model
+runs stand, and `15_usage.py` keeps aggregating them; `pattern_since` is untouched on every
+one of the 29 terms and `config/lexicon.lock.json` differs from v4 by its version line
+alone. What changes is what the pipeline is willing to add together.
+
+**What was withdrawn.** `lib/lexicon.apply` no longer writes `n_register_*`,
+`has_register_*`, `has_set_*`, `n_lexicon_total` or `n_lexicon_terms`, and the `sets:` block
+has left `config/lexicon.yml` — `core`, `atrocity_core`, `rome_triad`, `r2p_quartet` and
+`qualification` with it. That is 21 columns: seven registers with a count and a flag each,
+five set flags, and the two lexicon totals. `03_lexicon.py` now writes 58 lexicon columns
+into a `speeches_flagged.parquet` of 167,642 × 115, and `04_series.py` publishes 29 measures
+a year rather than 41.
+
+**Nothing a term measured moved.** The rebuilt annual artefact was compared term by term
+against the payload published on 3 September: all 29 term series are identical in speeches
+and in occurrences, and the `corpora` block R8 added is byte-identical. `03` reports 14 of
+14 terms reproducing `docs/CORPUS.md` §8 exactly, `genocide` at 4,133 speeches and 7,747
+occurrences as at v4.
+
+**What the withdrawn series held, at the last version that published them.** Recorded so
+that a reader of an archived payload can see what was taken away rather than infer it.
+Speeches / occurrences over 1946–2024:
+
+| Withdrawn series | Speeches | Occurrences |
+|---|---:|---:|
+| `register_accountability` | 16,014 | 42,305 |
+| `register_legal` | 10,861 | 21,536 |
+| `register_core` | 4,133 | 7,747 |
+| `register_descriptive` | 3,019 | 4,807 |
+| `register_preventive` | 2,945 | 4,006 |
+| `register_commemorative` | 937 | 1,294 |
+| `register_contentious` | 264 | 486 |
+| `set_atrocity_core` | 9,146 | — (a union has none) |
+
+**One published number moved, and it is a threshold rather than a count.** The change-point
+pass ran three rate models — `genocide_qualification` and `atrocity_core` on the speech rate,
+`genocide_qualification` on the token rate — and corrected its alpha for three. It now runs
+two, so the per-test threshold is 0.025 where it was 0.0166. Both surviving results are
+unchanged and neither is near the threshold: the speech rate splits at **1978** and the token
+rate at **1992**, each at p = 0.0005 under the meeting-block null. `atrocity_core`'s own
+split is no longer computed or published.
+
+**The intensity ordinal.** Five terms gain a rung on a ladder built on legal standing:
+`genocide` 5, `war_crimes` 4, `crimes_against_humanity` 3, `ethnic_cleansing` 2, `atrocity`
+1. The loader refuses a scale that is not a total order over the terms carrying one — a
+repeated rung or a gap — because a ladder with two terms on a step cannot answer the question
+it exists for. It is hand-assigned from the instruments and reviewed by both coders, so any
+figure drawn from it is **mixed** under R3 and never computed. **No view draws on it yet**;
+that is an open item, not a silent one.
+
+**What is owed.** Nothing to a human check. `03`, `04`, `05`, `08`, `09`, `11`, `12` and
+`export_web.py` were re-executed on the pinned corpus for this change, and the export seam
+now refuses a payload carrying a measure summed over more than one term.
+
+*Later change:* lexicon v8 removed the intensity ordinal, which no view had
+drawn (ROADMAP RV22).
+
+### Atrocity vocabulary without `genocid*`
+
+Step 04 now names a comparison corpus by a row-level predicate rather than by summing term
+series: a speech uses `ethnic_cleansing`, `crimes_against_humanity` or `war_crimes`, and its
+`has_genocide` flag is false. Applied to the 1946–2024 flagged corpus on 4 September 2026,
+the union contains **4,716 speeches**. A speech carrying two member phrases enters once; a
+speech carrying one of them and `genocid*` enters neither this corpus nor its denominator by
+accident—it is excluded explicitly. The annual, quarterly and monthly blocks carry the
+predicate's members, exclusion, counts, rates and Wilson bounds; the end-to-end golden fixes
+the arithmetic on a constructed overlap and the unit test refuses a missing membership flag.
+
+This is an overview population, not a claim that the three phrases are interchangeable. The
+chronology publishes them as three separate selectable lines beside `genocide_qualification`.
+No model label from the genocide occurrence layer is joined to this population.
+
+### Meeting scopes and reconciliation
+
+Step 09 defines R9's reading sets from the same flags as step 04 and publishes them beside a
+separate, fixed corpus denominator. On the pinned 1946–2024 corpus the index records 167,642
+speeches in 9,464 meetings; *the word* holds 4,133 speeches in 1,556 meetings, *the
+vocabulary* 8,849 speeches in 2,629 meetings, and *the debate* all 50,735 speeches in those
+1,556 word-bearing meetings. The export run of 4 September 2026 reconciled all 167,642
+speeches and 83,011 occurrence offsets to `speeches_flagged.parquet` before atomically
+replacing its 9,464 meeting files.
+
+Each meeting file now lists the delegations present, the number of speeches each made, and
+the terms each used. Its `scope_counts` counts speeches, not occurrences; the debate count is
+the meeting's full speech count when any speech says `genocid*`, otherwise zero. Unit tests
+fix the overlap rule and missing-column refusal, while the web boundary refuses a scope that
+exceeds the fixed corpus denominator.
+
+The shared layout reads the same totals from `scopes.json`, a 1.3 kB projection rather than
+the 3.1 MB meeting index. Both are written from one in-memory object in step 09, and both are
+covered by the payload contract; the compact projection cannot drift into a second predicate.
+
+## Self-hosted model run gates
+
+**Implemented gate; execution open: reasoning ladder.** `scripts/probe_reasoning.py` probes
+the same bounded set of speeches at every profile level and retains latency and reported
+reasoning-token counts in `data/interim/model_annotation_probes/<run-id>/probe.json`. A flat
+ladder blocks the run in words; the first cluster smoke still owes the actual probe artefact.
+
+**Open check: truncation.** Step 14 records a response stopped at `max_output_tokens` as a
+truncation failure, not as an abstention, and publishes `truncation_count` in the manifest.
+The first smoke must demonstrate the distinction with the pinned vLLM version and the corpus
+run must finish at zero truncations or document every affected speech.
+
+**Open check: paired abstention and refusal.** Before an agreement figure from the new pair
+is published, step 15 must report per-referent abstention, transport refusal and validation
+failure for each instrument with their denominators and withholding floor. Agreement remains
+stability across instruments, never validation.
+
+*Status, 8 October 2026:* the published Qwen run passed its reasoning probe (`probe.json` is
+committed with the run). Its `failures.jsonl` records four truncated responses; two of
+those speeches were recovered by the second pass and two remain without a response. The
+paired check waits on the Gemma run, which is not yet merged.
+
+## Website checks
+
+### Design replacement, 14 September 2026
+
+The site's visual world was replaced ("The Programme Grid", see
+`DESIGN.md`; the design roadmap that planned it was retired on 8 October 2026
+and is in git history). Nothing analytical changed: no
+number, no copy, no data contract. What was checked, and how:
+
+| Check | Result |
+|---|---|
+| `npm run lint` (prettier, eslint, word budgets, figure provenance) | pass, 24 figures within budget |
+| `npm run check` | 0 errors, 0 warnings |
+| `npm run test` | 553 passed |
+| `npm run test:e2e` (Playwright, axe on every journey) | 46 passed |
+| Impeccable detector over `web/src` | no findings |
+| Finish review (Opus, two passes) | ship |
+
+Two visual encodings changed and are recorded here so a reader of an older
+figure export is not surprised: the sequential ramp on the calendar and the
+term matrix runs from the page colour to ink instead of to amber; lines within
+one register on the Chronology are now told apart by three lightness steps
+crossed with solid, dashed and dotted strokes, keyed to the term's position in
+its register, so the same term always draws the same stroke. One sentence of
+copy changed on the semantic map, "a black diamond" to "a diamond", because
+the diamond is drawn in the page's ink and is white in the dark theme.
+
+### Design hardening and payload, 19 September 2026
+
+Phases 5 and 6 of the design roadmap (retired 8 October 2026, in git history).
+Nothing analytical changed: no
+number, no copy, no data contract, no figure's geometry. What changed is what
+the site does when the reader is not the reader it was built for — a 320px
+window, a forced-colour display, a dead connection — and what it downloads
+before it is asked to.
+
+#### What was measured
+
+| Check | Result |
+|---|---|
+| `npm run lint` (prettier, eslint, word budgets, figure provenance) | pass, 24 figures within budget |
+| `npm run check` | 0 errors, 0 warnings |
+| `npm run test` | 556 passed (one added: the offline sentence) |
+| `npm run test:e2e` (Playwright, axe on every journey) | 46 passed |
+| `npm run test:e2e:sw` (offline service worker) | 1 passed |
+| Impeccable detector over `web/src` | no findings |
+| Impeccable audit, five dimensions | 19/20, up from 15/20 on 14 September |
+
+#### Reflow: three routes scrolled sideways at 320px
+
+320 CSS pixels is the width WCAG 2.2 SC 1.4.10 measures reflow at, and what
+400% zoom leaves of a 1280px window. It had never been tested. Every route
+walked at 320, 390, 720 and 1440px, counting elements whose right edge passes
+the document's client width and that sit inside no scroll container:
+
+| Route | before | after |
+|---|---|---|
+| Overview, Chronology, Words in context, Actors, Concordance, Reader | document 367px wide in a 320px window | none |
+| Usage | document 454px wide | none |
+| Semantic map, Methods | none | none |
+
+Three causes. The reading set's three cells could not fit one line and now turn
+into a column below 30rem, each name opposite its count. A `<select>` in a
+figure's control bar was as wide as its longest option and the bar could not
+shrink it. The controlled referent list on Usage carried a `table-scroll` class
+that no rule in that file defined, so the table pushed the page instead of
+scrolling inside its own box; it now scrolls, and is focusable from the
+keyboard like the three tables that already did.
+
+#### Forced colours: the state marks were invisible
+
+A forced-colour display (Windows High Contrast and its kin) replaces every
+authored colour and paints no `box-shadow` at all. The Programme Grid draws
+seven state marks as inset shadows, so in that mode the current section, the
+current contents entry, the pressed cell of a segmented group, the chosen
+reading set, the chosen delegation, a marked word's register, the reader's own
+query hit and a contested reading all simply disappeared. Each now has a twin
+declared under `@media (forced-colors: active)`: an underline, a border, or the
+system's own `Highlight`/`HighlightText` pair. The unit field's counted squares
+and their key, which were a background and would have flattened to an empty
+grid, fill with `CanvasText`.
+
+Nothing opts out with `forced-color-adjust`, the figures included. A reader who
+asked the system for two colours is not answered with six; the registers
+survive as the word, its title and the table under each figure, and a chart
+series survives as its dash, which is geometry rather than colour. `DESIGN.md`
+records this as the Two Colours Rule and the Shadow Has A Twin Rule.
+
+#### A dead connection now says so
+
+`data.ts` turned an HTTP status into a sentence a reader could act on, but a
+rejected fetch — offline, a dropped connection, a file the service worker never
+cached — went to the page as the browser's own "Failed to fetch", which names
+neither the problem nor the recovery. Three views print that string to the
+reader. There is now one exported sentence for it, distinct from the status
+sentence because the recoveries differ: a 404 says the file is not in this
+release, this says the file is probably there and we could not reach it. The
+semantic map, which fetches its 8.7 MB artefact outside that cache, uses the
+same sentence rather than a second wording of the same failure.
+
+#### The Actors route no longer pays for a map it may never reach
+
+MapLibre was imported when the page mounted, for a plate that is the third on
+the route and roughly 3,000px below the fold. It now arrives when its plate
+does, watched by an intersection observer with a passive scroll listener beside
+it — the observer for content that shifts, the listener for the reader who
+jumps straight past on a deep link, where the observer's ratio never leaves
+zero and no second callback is delivered.
+
+Measured on the same Playwright profile as `web/scripts/profile-payload.mjs`
+(Chromium, service workers blocked, cache disabled, 1440x1000, unthrottled),
+on two builds differing only in `CountryMap.svelte`:
+
+| /actors, at rest before the map plate is reached | before | after |
+|---|---|---|
+| Transfer, total | 600.5 kB | 201.2 kB |
+| Transfer, script | 480.0 kB | 90.9 kB |
+| Transfer, stylesheet | 20.3 kB | 10.1 kB |
+| Requests | 39 | 32 |
+
+On the 1.6 Mbps profile the same script uses, the 399 kB that no longer arrives
+is about two seconds of transfer. Reaching the map costs it back, and only
+then. Overview LCP (232ms to 184ms) and the concordance filter interaction
+(70/50/50ms to 81/49/50ms) are unchanged within run-to-run noise, as expected:
+nothing on those paths was touched.
+
+The e2e spec that asserts the actor table survives a failed basemap now scrolls
+to the map plate before asserting, because that is what a reader does and
+because without it the blocked basemap is never requested. No assertion was
+removed.
+
+#### What the re-run critiques found, and what was repaired
+
+Phase 6.6 re-ran the three 14 September critiques as isolated dual-agent passes.
+The design-specificity verdict moved from "the scaffold is interchangeable" to
+**partly grounded** on all three. Scores: Overview 25/36 → 26/36, Chronology
+27/40 → 28/40, Concordance 25/40 → 22/40 (the Concordance fell: Phases 3 and 4
+delivered width and identity, and this route's losses are in control surface and
+browser history, which neither phase touched). Full records are under
+`.impeccable/critique/`.
+
+They found defects the five-dimension audit did not. Six were repaired here,
+each confirmed by measurement before and after:
+
+- **A false number on 9,464 pages.** Every speech in the corpus carries
+  `language: "Unknown"` — 9,634 sampled across 526 meetings, one distinct value.
+  The Reader read that as "a language, and not English", so the apparatus
+  published "N speeches carry a non-English language label" with N as the whole
+  meeting, and every speaker line printed "· spoke in Unknown". A sentinel is an
+  absent value wearing a name; it is now treated as absent, by a predicate in
+  `$lib/format.ts` shared by the two sentences that read the field, with seven
+  unit tests. No copy was rewritten — the conditional clause simply stops firing.
+  It survived because the e2e fixture carries one speech labelled `French`, so
+  the suite exercises the real-language path and never the sentinel.
+- **Two contrast failures.** The `<mark>` in the standfirst measured 4.14:1 in
+  the dark theme: the ochre's budget is written against `--ink` and the mark
+  inherited `--ink-2` from the prose around it. It now takes ink, as the budget
+  always assumed; all marks measure 6.45:1. And the concordance's query-hit rule
+  — the only code the reader's own search term carries — was `--blue-flag` at
+  3.14:1 on paper and 2.80:1 on the zebra row, under the 3:1 floor for a
+  non-text indicator, and doubled as the focus-ring colour. It is now `--blue`
+  at 7.0:1; the ring keeps the flag to itself.
+- **Off-palette colour inside every Chronology SVG download.** The Wilson
+  interval bands set `lineStyle: { opacity: 0 }` with no colour, so ECharts
+  assigned its stock palette: `#5070dd`, `#b6d634`, `#505372`, `#ff994d`,
+  invisible at zero opacity but present in the file, in figures governed by
+  "blue is never a datum". The bands now carry their own colour.
+- **Two axis overrides that dropped the design system.** Adding a percentage
+  formatter by replacing the whole `axisLabel` object also discarded the
+  system's quiet ink and its font family, so the numbers a reader takes off
+  those axes were set in faint ink in ECharts' default face. The formatter is
+  now added to the system's object rather than instead of it.
+- **A deep link landing behind its own toolbar.** At 390px the Reader's sticky
+  toolbar is 400px tall — 51% of the window — and a link to a specific
+  occurrence parked the marked word 7.4px behind it. The programme allows two
+  sticky bands, the masthead and the contents; this was a third. Below 48rem it
+  now scrolls away with the page, and the measurement that publishes its height
+  reports zero when it is not stuck. Re-measured: clear at 390 and at 1440.
+- **Download formats offered for a figure that does not exist.** The Chronology's
+  last plate arrives empty by default while CSV, SVG and PNG were all enabled;
+  the image formats failed into "The figure is still loading", blaming a load
+  for a state the reader chose. The buttons now ask whether there is a drawing,
+  not whether an accessor was supplied.
+
+One claim was **refuted** and no change was made: the Overview's year drill was
+reported to have no pointer affordance. A control run with the proposed fix
+removed measured `cursor: pointer` on hover regardless — ECharts' default was
+already right, and the original reading came from unhovered shapes. The rest of
+that finding stands (no hover emphasis, no focus target, no keyboard route).
+
+**A caveat on every "detector clean" line in this record.** The Impeccable
+detector routes any file outside `.html`/`.htm` to a text-only path that runs a
+subset of its rules. Probed with identical content: as `.svelte`, one finding;
+as `.html`, four. An empty scan of `web/src` therefore means no findings from
+the rules that survive the text path, not a clean markup audit. The contrast and
+target measurements it would have missed were taken in the browser instead.
+
+### The calendar, 19 September 2026
+
+The P0 and one P1 from the re-run critiques, both in the month-by-year grid on
+the Chronology.
+
+**The drawing is now built to the width it is given.** The grid was drawn at a
+fixed 1,220 user units and left to a `viewBox` to fit whatever column it landed
+in. On a desk that scaled up. On a phone it scaled to 342px — a factor of 0.28 —
+and took every label with it: the year, the month initial and the key rendered
+at **2.52 CSS pixels**, and a cell at 26.9 by 4.5. The figure was not small
+there, it was unreadable, and the only legible form of it was a table inside a
+closed disclosure that does not say so.
+
+The cell width now follows the column instead of the column following the cell,
+so the scale stays at 1 and the type can be stated in the size it is read at.
+Measured after the change, with the label size raised from 9 to the 12px the
+rest of the site's chart labels use:
+
+| Viewport | Drawn scale | Label, as rendered | Cell |
+|---|---|---|---|
+| 320px | 1.02 | 12.3px (was 2.1) | 17.4 × 16.4 |
+| 390px | 1.01 | 12.1px (was 2.5) | 23.3 × 16.2 |
+| 768px | 1.01 | 12.1px (was 5.0) | 54.3 × 16.1 |
+| 1440px | 1.13 | 13.5px (was 10.0) | 108.3 × 18.0 |
+
+No two labels overlap at any of those widths, and no route gains a horizontal
+scrollbar.
+
+**A second encoding changed, and a reader of an older export should know.** The
+grid drew two different refusals with one hatch: a month whose rate is withheld
+under the 125-speech minimum, and a month in which the Council held no speeches
+at all. Its key counted only the first. Checked against
+`series/monthly.json`: of 948 months, **475 are drawn, 387 withheld and 86 held
+no speeches** — so 86 hatched squares were never counted by the key that
+explains the hatch, and the two facts were indistinguishable in the figure even
+though the corpus, the tooltip and the table had always told them apart.
+
+A month with no sitting is now an empty cell carrying a small mark at its
+centre, and the key names both refusals: "no rate (387)" and "no sitting (86)".
+The mark rather than a tint because the two things it must not be confused with
+are a hatched cell and a pale drawn cell, and because a mark survives greyscale
+and print. Re-measured: 387 hatched cells against a key reading 387, and 86
+marked cells against a key reading 86. The visible consequence is that the
+months in 2020 and 2021 when the Council did not sit now read as such instead of
+as months whose rate was withheld.
+
+`$lib/heatmap.ts` carried a docblock asserting that the no-sitting state was
+"unreachable today" in this corpus. It was wrong, and it is corrected: that
+claim is why one hatch stood for two facts.
+
+**One sentence of copy is now incomplete and was not touched.** The plate's note
+reads "A hatched square has no rate; it is not a zero." That is still true and no
+longer complete, because there is a second refusal on the figure. It is the
+author's to extend.
+
+### Evidence from the flagship plate, 19 September 2026
+
+The Chronology's word-list chart offers a passage on a click: select a point and
+the concordance opens on that term in that year. Its own data table rendered
+those numbers as plain text, so the click was the only way to them — on a page
+where the grid, the pooled months and the split all carry links in their tables.
+The plate a reader arrives at was the one whose evidence a keyboard could not
+reach.
+
+Every plotted value is now a link to the same destination the click reaches,
+built from the same two facts. Measured: 316 links at the default four terms,
+each of the form `concordance?term=<term>&from=<year>&to=<year>`, identical to
+what `drillChronology` produces; inert while the disclosure is closed, so the
+page's tab-stop count is unchanged; and reached by focus and Enter the link
+lands on the filtered concordance with its lines drawn.
+
+**A gap this turned up, and what closing it found.** No Playwright journey
+covered the Chronology, because the route answered 500 under the fixture set:
+`series/quarterly.json`, `series/monthly.json` and `series/breakdowns.json` were
+absent from `web/e2e/fixtures/`. The densest page on the site — six plates, the
+calendar, the change-point test — had no browser coverage at all.
+
+The three fixtures are now committed, and building them turned up the reason the
+route was failing, which was not the missing files alone. The page opens on four
+named terms, and the fixture lexicon carries one. The **chart** had always
+filtered its selection on three conditions — selected, present in the artefact,
+drawable in the chosen unit — but the **table** filtered on two, because
+`unavailable` answers "can this unit show the term" and never the prior question
+of whether the payload carries it at all. An absent term therefore reached
+`allMeasures[name][unit]` on an undefined measure and took the whole route down:
+no figures, no apparatus, no table, and nothing on the page to say what had
+happened. The guard is now derived once and both readers use it, so a release
+whose lexicon drops one of the four opening terms loses a line rather than a
+page.
+
+The fixtures carry all three states the calendar can draw — 25 months divided
+by, 8 too thin to divide by, 3 the Council did not sit in — because a fixture
+holding only one cannot catch the day two of them merge. Five journeys now cover
+the route: that it draws its six plates and passes axe, that a term the artefact
+does not carry is dropped rather than fatal, that every plotted value opens its
+passages and can be reached by keyboard, that the hatch marks exactly what the
+key counts, and that no label on the calendar falls below 10 CSS pixels at
+390px. The suite goes from 46 journeys to 51.
+
+#### What was left open, and why
+
+Written before the calendar repair recorded above under "The calendar, 19
+September 2026": the two calendar items in this list (legibility at 390px and
+the single hatch for two refusals) were fixed that day.
+
+- A marked word's *register* is still told only by the hue of its underline.
+  The key above the record names each register beside its swatch, so the
+  information is on the page, but for one mark in a speech the hue is the only
+  code. Giving the underline a second code — a stroke pattern per register, the
+  way the Chronology's lines already cross hue with dash — is a decision about
+  the record's texture, and was not made under a hardening pass.
+- The Reader's "Back to the concordance" still discards the query.
+- The reading set is still shown on the Concordance, where the page states it
+  governs nothing.
+- The calendar heatmap is illegible at 390px: the SVG scales a 1220-unit
+  viewBox to 342px, so 9px labels render at 2.52 CSS px. The readable form, the
+  table beneath it, is closed and its summary does not say so.
+- Within a register shelf the Chronology's lines are told apart by lightness at
+  1.56–2.69:1, under the 3:1 floor, and above eight series the end labels give
+  way to a legend.
+- The calendar's hatch draws "withheld under the minimum" and "the Council held
+  no speeches" identically, and its key counts 387 of the 473 hatched cells.
+- The concordance promises 150 characters of context and draws 87–90 at 1440 and
+  20 at 390, and says the search is confined to what is displayed when it is
+  not. Copy, so the author's.
+- Back does not undo a filter on the concordance: nine narrowings use
+  `replaceState` while the reading set uses `goto`.
+- `.impeccable/config.json` carries a stale `ignoreValues` entry for rule
+  `side-tab` on the Chronology, whose stated reason — a 3px left border — no
+  longer exists in that file.
+- `.impeccable/config.json` records no `buildPath`. The roadmap's log settles
+  it in words (code-led, because this harness has no image generation); the key
+  is unset, so the drift report will keep raising it until someone writes
+  `"buildPath": "code"`.
+
+## Appendix: the retired corpus
+
+> **Corpus migration, 3 September 2026.** The canonical input is now
+> Sakamoto–Matsuoka v5 (1946–2024). The records below were made on the
+> Schoenfeld 1992–2023 corpus and are historical: their counts (for example
+> 6,092 occurrences of `genocid*` in 3,273 speeches) and identifiers (for example
+> `UNSC_2022_SPV.9062_spch0012`) are not current. Current invariants are
+> documented in [CORPUS.md](CORPUS.md) and in the manifests of steps 01–03.
+
+They are kept for three reasons: the rules they introduced still govern the
+pipeline; the open checks they record may still apply to the same records in the
+new corpus; and their evidence and OCR resolutions are what a reader needs to
+check a reading against the original PDF.
+
+### The register's status notes before the migration
+
+The corpus is OCR-derived from two-column `S/PV.*` verbatim records. This register keeps
+approximations, human-review tasks and resolved discrepancies visible instead of silently
+absorbing them into the pipeline.
+
+Status: 11 August 2026 — every count below re-checked against the current artefacts on that
+date; the open human checks are unchanged, because none of them is work a re-run can do.
+“Mechanically reconciled” means code and source metadata agree; it does not mean a person
+has inspected the original PDF. Amended 28 August 2026: checks 6 and 7 added for Phase L
+(the genocide gold sample and the model-run register), and check 2 updated for the seeded
+referent list. Amended 30 August 2026: the first two model runs registered in §7. Amended 1 September 2026: lexicon v3 registered below, with
+the two counting corrections it carries and the re-count it still owes. Amended 2 September
+2026: the rate change-point test's meeting-block null and the Wilson intervals registered
+below, with the re-calibration they owe; and, the same day, the lexical tables' floor,
+effect ranking and dispersion, with the re-run and the lemma layer they owe. Amended 2
+September 2026, later: the corpus run landed with the merge (deploy run 59 ran every step
+through `15_usage.py` before `export_web.py` refused a hand-edited contract, corrected in
+PR #6; run 61, on the push that followed, published the result); the re-count, the
+re-calibration and the vocabulary
+counts below are read from that run's console output, and what a log cannot show is left
+open. Amended 2 September 2026, later still: lexicon v4 and the word denominator
+registered below. Their effect is measured on the corpus rather than owed — both were
+applied to `speeches_norm.parquet` read-only before the change was committed — and what
+remains owed is the pipeline run that puts those numbers into the artefacts. The headline
+figure is a derived measure, `genocide` minus `genocidaires`, rather than a narrowed
+pattern: `genocide` itself is untouched at v4, so the gold sample and the four committed
+model runs stay valid and 15 goes on aggregating them. Amended the same day: the
+grammatical frames of the node registered below, read from a run of `17_frames.py` over
+the corpus, with the human reading of the codebook left open.
+
+### Model runs on the retired corpus
 
 Every run of `scripts/14_llm_annotate.py` (and of the retired hosted-provider
 counter-instrument, removed with the corpus migration) is committed under
@@ -348,10 +901,6 @@ instrument-dependent wherever they appear.
 The whole table measures stability across two instruments and never accuracy. Both models
 can be confidently wrong together, and the human gold sample — still 0 of 688 coded —
 remains the only calibration either run has.
-
-When a run is added, record it here and re-check the artefact counts on the Methods page
-against its manifest. Automatic resolutions (a relocated evidence quote, a normalised
-whitespace match) are counted in the manifest, never silently absorbed.
 
 #### Referent list v2, and what it would absorb
 
@@ -528,26 +1077,6 @@ batch rates — beside the runs. Given that table, the arithmetic is one multipl
 **The gate.** The pilot needs the author's decision and the author's money; nothing in the
 repository can make it. Until it is run, prompt v2 is a committed instrument that has never
 been used, and every figure on `/usage` is a v1 figure.
-
-## Mechanically reconciled
-
-### Primary-source chronology overlay
-
-All 43 entries in `config/events.csv` now have a non-empty `source` and an HTTPS
-`source_url` pointing to the relevant UN, ICC, ICJ, ICTY/ICTR, OHCHR or archived government
-record. The config loader rejects missing source URLs, and the dashboard links directly to
-them. These dates are contextual annotations only; the models do not use them and the
-interface does not imply causal attribution.
-
-**Open check: eight legal milestones added on 2 September 2026** (review §3.5, item 15):
-Akayesu (1998-09-02), Krstić (2001-08-02), the Darfur Commission report S/2005/60
-(dated 2005-02-01 as transmitted), *Bosnia v. Serbia* (2007-02-26), the first al-Bashir
-warrant (2009-03-04), S/PV.7155 (2014-04-16, kind `council`), Karadžić (2016-03-24) and
-Mladić (2017-11-22). Dates and labels were written from the review and from memory of the
-judgments; each `source_url` is the tribunal's, the Court's or the UN's own page for the
-case or document, and the date should be read off that page before any of these is cited
-from the chart. The rail under the chronology draws them by kind, with a kind filter, in
-place of the full-height rules.
 
 ### Lexicon v2 replaces reconnaissance counts
 
@@ -812,63 +1341,6 @@ re-executed, so `data/derived/` and the published site still carry v3 counts ove
 codebook denominator. Nothing else is owed by this change — no new human check, and no
 figure whose value could not be read off the corpus in advance.
 
-### Lexicon v5: the roll-ups go, and a legal ladder arrives
-
-Lexicon v5 (7 September 2026) is item R7 of the roadmap. **No pattern and no anchor
-changes**, so no occurrence identity moves, the gold sample and the four committed model
-runs stand, and `15_usage.py` keeps aggregating them; `pattern_since` is untouched on every
-one of the 29 terms and `config/lexicon.lock.json` differs from v4 by its version line
-alone. What changes is what the pipeline is willing to add together.
-
-**What was withdrawn.** `lib/lexicon.apply` no longer writes `n_register_*`,
-`has_register_*`, `has_set_*`, `n_lexicon_total` or `n_lexicon_terms`, and the `sets:` block
-has left `config/lexicon.yml` — `core`, `atrocity_core`, `rome_triad`, `r2p_quartet` and
-`qualification` with it. That is 21 columns: seven registers with a count and a flag each,
-five set flags, and the two lexicon totals. `03_lexicon.py` now writes 58 lexicon columns
-into a `speeches_flagged.parquet` of 167,642 × 115, and `04_series.py` publishes 29 measures
-a year rather than 41.
-
-**Nothing a term measured moved.** The rebuilt annual artefact was compared term by term
-against the payload published on 3 September: all 29 term series are identical in speeches
-and in occurrences, and the `corpora` block R8 added is byte-identical. `03` reports 14 of
-14 terms reproducing `docs/CORPUS.md` §8 exactly, `genocide` at 4,133 speeches and 7,747
-occurrences as at v4.
-
-**What the withdrawn series held, at the last version that published them.** Recorded so
-that a reader of an archived payload can see what was taken away rather than infer it.
-Speeches / occurrences over 1946–2024:
-
-| Withdrawn series | Speeches | Occurrences |
-|---|---:|---:|
-| `register_accountability` | 16,014 | 42,305 |
-| `register_legal` | 10,861 | 21,536 |
-| `register_core` | 4,133 | 7,747 |
-| `register_descriptive` | 3,019 | 4,807 |
-| `register_preventive` | 2,945 | 4,006 |
-| `register_commemorative` | 937 | 1,294 |
-| `register_contentious` | 264 | 486 |
-| `set_atrocity_core` | 9,146 | — (a union has none) |
-
-**One published number moved, and it is a threshold rather than a count.** The change-point
-pass ran three rate models — `genocide_qualification` and `atrocity_core` on the speech rate,
-`genocide_qualification` on the token rate — and corrected its alpha for three. It now runs
-two, so the per-test threshold is 0.025 where it was 0.0166. Both surviving results are
-unchanged and neither is near the threshold: the speech rate splits at **1978** and the token
-rate at **1992**, each at p = 0.0005 under the meeting-block null. `atrocity_core`'s own
-split is no longer computed or published.
-
-**The intensity ordinal.** Five terms gain a rung on a ladder built on legal standing:
-`genocide` 5, `war_crimes` 4, `crimes_against_humanity` 3, `ethnic_cleansing` 2, `atrocity`
-1. The loader refuses a scale that is not a total order over the terms carrying one — a
-repeated rung or a gap — because a ladder with two terms on a step cannot answer the question
-it exists for. It is hand-assigned from the instruments and reviewed by both coders, so any
-figure drawn from it is **mixed** under R3 and never computed. **No view draws on it yet**;
-that is an open item, not a silent one.
-
-**What is owed.** Nothing to a human check. `03`, `04`, `05`, `08`, `09`, `11`, `12` and
-`export_web.py` were re-executed on the pinned corpus for this change, and the export seam
-now refuses a payload carrying a measure summed over more than one term.
-
 ### The rate tests under a meeting-block null
 
 Registered 2 September 2026 (roadmap S1, first slice; review §3.1, §3.3, §5.2). Two
@@ -1083,381 +1555,3 @@ or genuinely nothing.
 The source distribution contains 6,595 document records but 6,582 distinct
 `meeting_symbol` values. The web reader therefore exports 6,595 files; aggregate Council
 statistics use 6,582 distinct symbols. Documentation and UI must name the relevant unit.
-
-### Atrocity vocabulary without `genocid*`
-
-Step 04 now names a comparison corpus by a row-level predicate rather than by summing term
-series: a speech uses `ethnic_cleansing`, `crimes_against_humanity` or `war_crimes`, and its
-`has_genocide` flag is false. Applied to the 1946–2024 flagged corpus on 4 September 2026,
-the union contains **4,716 speeches**. A speech carrying two member phrases enters once; a
-speech carrying one of them and `genocid*` enters neither this corpus nor its denominator by
-accident—it is excluded explicitly. The annual, quarterly and monthly blocks carry the
-predicate's members, exclusion, counts, rates and Wilson bounds; the end-to-end golden fixes
-the arithmetic on a constructed overlap and the unit test refuses a missing membership flag.
-
-This is an overview population, not a claim that the three phrases are interchangeable. The
-chronology publishes them as three separate selectable lines beside `genocide_qualification`.
-No model label from the genocide occurrence layer is joined to this population.
-
-### Meeting scopes and reconciliation
-
-Step 09 defines R9's reading sets from the same flags as step 04 and publishes them beside a
-separate, fixed corpus denominator. On the pinned 1946–2024 corpus the index records 167,642
-speeches in 9,464 meetings; *the word* holds 4,133 speeches in 1,556 meetings, *the
-vocabulary* 8,849 speeches in 2,629 meetings, and *the debate* all 50,735 speeches in those
-1,556 word-bearing meetings. The export run of 4 September 2026 reconciled all 167,642
-speeches and 83,011 occurrence offsets to `speeches_flagged.parquet` before atomically
-replacing its 9,464 meeting files.
-
-Each meeting file now lists the delegations present, the number of speeches each made, and
-the terms each used. Its `scope_counts` counts speeches, not occurrences; the debate count is
-the meeting's full speech count when any speech says `genocid*`, otherwise zero. Unit tests
-fix the overlap rule and missing-column refusal, while the web boundary refuses a scope that
-exceeds the fixed corpus denominator.
-
-The shared layout reads the same totals from `scopes.json`, a 1.3 kB projection rather than
-the 3.1 MB meeting index. Both are written from one in-memory object in step 09, and both are
-covered by the payload contract; the compact projection cannot drift into a second predicate.
-
-## Self-hosted model run gates
-
-**Implemented gate; execution open: reasoning ladder.** `scripts/probe_reasoning.py` probes
-the same bounded set of speeches at every profile level and retains latency and reported
-reasoning-token counts in `data/interim/model_annotation_probes/<run-id>/probe.json`. A flat
-ladder blocks the run in words; the first cluster smoke still owes the actual probe artefact.
-
-**Open check: truncation.** Step 14 records a response stopped at `max_output_tokens` as a
-truncation failure, not as an abstention, and publishes `truncation_count` in the manifest.
-The first smoke must demonstrate the distinction with the pinned vLLM version and the corpus
-run must finish at zero truncations or document every affected speech.
-
-**Open check: paired abstention and refusal.** Before an agreement figure from the new pair
-is published, step 15 must report per-referent abstention, transport refusal and validation
-failure for each instrument with their denominators and withholding floor. Agreement remains
-stability across instruments, never validation.
-
-## Design replacement, 14 September 2026
-
-The site's visual world was replaced ("The Programme Grid", see
-`DESIGN.md`; the design roadmap that planned it was retired on 8 October 2026
-and is in git history). Nothing analytical changed: no
-number, no copy, no data contract. What was checked, and how:
-
-| Check | Result |
-|---|---|
-| `npm run lint` (prettier, eslint, word budgets, figure provenance) | pass, 24 figures within budget |
-| `npm run check` | 0 errors, 0 warnings |
-| `npm run test` | 553 passed |
-| `npm run test:e2e` (Playwright, axe on every journey) | 46 passed |
-| Impeccable detector over `web/src` | no findings |
-| Finish review (Opus, two passes) | ship |
-
-Two visual encodings changed and are recorded here so a reader of an older
-figure export is not surprised: the sequential ramp on the calendar and the
-term matrix runs from the page colour to ink instead of to amber; lines within
-one register on the Chronology are now told apart by three lightness steps
-crossed with solid, dashed and dotted strokes, keyed to the term's position in
-its register, so the same term always draws the same stroke. One sentence of
-copy changed on the semantic map, "a black diamond" to "a diamond", because
-the diamond is drawn in the page's ink and is white in the dark theme.
-
-## Design hardening and payload, 19 September 2026
-
-Phases 5 and 6 of the design roadmap (retired 8 October 2026, in git history).
-Nothing analytical changed: no
-number, no copy, no data contract, no figure's geometry. What changed is what
-the site does when the reader is not the reader it was built for — a 320px
-window, a forced-colour display, a dead connection — and what it downloads
-before it is asked to.
-
-### What was measured
-
-| Check | Result |
-|---|---|
-| `npm run lint` (prettier, eslint, word budgets, figure provenance) | pass, 24 figures within budget |
-| `npm run check` | 0 errors, 0 warnings |
-| `npm run test` | 556 passed (one added: the offline sentence) |
-| `npm run test:e2e` (Playwright, axe on every journey) | 46 passed |
-| `npm run test:e2e:sw` (offline service worker) | 1 passed |
-| Impeccable detector over `web/src` | no findings |
-| Impeccable audit, five dimensions | 19/20, up from 15/20 on 14 September |
-
-### Reflow: three routes scrolled sideways at 320px
-
-320 CSS pixels is the width WCAG 2.2 SC 1.4.10 measures reflow at, and what
-400% zoom leaves of a 1280px window. It had never been tested. Every route
-walked at 320, 390, 720 and 1440px, counting elements whose right edge passes
-the document's client width and that sit inside no scroll container:
-
-| Route | before | after |
-|---|---|---|
-| Overview, Chronology, Words in context, Actors, Concordance, Reader | document 367px wide in a 320px window | none |
-| Usage | document 454px wide | none |
-| Semantic map, Methods | none | none |
-
-Three causes. The reading set's three cells could not fit one line and now turn
-into a column below 30rem, each name opposite its count. A `<select>` in a
-figure's control bar was as wide as its longest option and the bar could not
-shrink it. The controlled referent list on Usage carried a `table-scroll` class
-that no rule in that file defined, so the table pushed the page instead of
-scrolling inside its own box; it now scrolls, and is focusable from the
-keyboard like the three tables that already did.
-
-### Forced colours: the state marks were invisible
-
-A forced-colour display (Windows High Contrast and its kin) replaces every
-authored colour and paints no `box-shadow` at all. The Programme Grid draws
-seven state marks as inset shadows, so in that mode the current section, the
-current contents entry, the pressed cell of a segmented group, the chosen
-reading set, the chosen delegation, a marked word's register, the reader's own
-query hit and a contested reading all simply disappeared. Each now has a twin
-declared under `@media (forced-colors: active)`: an underline, a border, or the
-system's own `Highlight`/`HighlightText` pair. The unit field's counted squares
-and their key, which were a background and would have flattened to an empty
-grid, fill with `CanvasText`.
-
-Nothing opts out with `forced-color-adjust`, the figures included. A reader who
-asked the system for two colours is not answered with six; the registers
-survive as the word, its title and the table under each figure, and a chart
-series survives as its dash, which is geometry rather than colour. `DESIGN.md`
-records this as the Two Colours Rule and the Shadow Has A Twin Rule.
-
-### A dead connection now says so
-
-`data.ts` turned an HTTP status into a sentence a reader could act on, but a
-rejected fetch — offline, a dropped connection, a file the service worker never
-cached — went to the page as the browser's own "Failed to fetch", which names
-neither the problem nor the recovery. Three views print that string to the
-reader. There is now one exported sentence for it, distinct from the status
-sentence because the recoveries differ: a 404 says the file is not in this
-release, this says the file is probably there and we could not reach it. The
-semantic map, which fetches its 8.7 MB artefact outside that cache, uses the
-same sentence rather than a second wording of the same failure.
-
-### The Actors route no longer pays for a map it may never reach
-
-MapLibre was imported when the page mounted, for a plate that is the third on
-the route and roughly 3,000px below the fold. It now arrives when its plate
-does, watched by an intersection observer with a passive scroll listener beside
-it — the observer for content that shifts, the listener for the reader who
-jumps straight past on a deep link, where the observer's ratio never leaves
-zero and no second callback is delivered.
-
-Measured on the same Playwright profile as `web/scripts/profile-payload.mjs`
-(Chromium, service workers blocked, cache disabled, 1440x1000, unthrottled),
-on two builds differing only in `CountryMap.svelte`:
-
-| /actors, at rest before the map plate is reached | before | after |
-|---|---|---|
-| Transfer, total | 600.5 kB | 201.2 kB |
-| Transfer, script | 480.0 kB | 90.9 kB |
-| Transfer, stylesheet | 20.3 kB | 10.1 kB |
-| Requests | 39 | 32 |
-
-On the 1.6 Mbps profile the same script uses, the 399 kB that no longer arrives
-is about two seconds of transfer. Reaching the map costs it back, and only
-then. Overview LCP (232ms to 184ms) and the concordance filter interaction
-(70/50/50ms to 81/49/50ms) are unchanged within run-to-run noise, as expected:
-nothing on those paths was touched.
-
-The e2e spec that asserts the actor table survives a failed basemap now scrolls
-to the map plate before asserting, because that is what a reader does and
-because without it the blocked basemap is never requested. No assertion was
-removed.
-
-### What the re-run critiques found, and what was repaired
-
-Phase 6.6 re-ran the three 14 September critiques as isolated dual-agent passes.
-The design-specificity verdict moved from "the scaffold is interchangeable" to
-**partly grounded** on all three. Scores: Overview 25/36 → 26/36, Chronology
-27/40 → 28/40, Concordance 25/40 → 22/40 (the Concordance fell: Phases 3 and 4
-delivered width and identity, and this route's losses are in control surface and
-browser history, which neither phase touched). Full records are under
-`.impeccable/critique/`.
-
-They found defects the five-dimension audit did not. Six were repaired here,
-each confirmed by measurement before and after:
-
-- **A false number on 9,464 pages.** Every speech in the corpus carries
-  `language: "Unknown"` — 9,634 sampled across 526 meetings, one distinct value.
-  The Reader read that as "a language, and not English", so the apparatus
-  published "N speeches carry a non-English language label" with N as the whole
-  meeting, and every speaker line printed "· spoke in Unknown". A sentinel is an
-  absent value wearing a name; it is now treated as absent, by a predicate in
-  `$lib/format.ts` shared by the two sentences that read the field, with seven
-  unit tests. No copy was rewritten — the conditional clause simply stops firing.
-  It survived because the e2e fixture carries one speech labelled `French`, so
-  the suite exercises the real-language path and never the sentinel.
-- **Two contrast failures.** The `<mark>` in the standfirst measured 4.14:1 in
-  the dark theme: the ochre's budget is written against `--ink` and the mark
-  inherited `--ink-2` from the prose around it. It now takes ink, as the budget
-  always assumed; all marks measure 6.45:1. And the concordance's query-hit rule
-  — the only code the reader's own search term carries — was `--blue-flag` at
-  3.14:1 on paper and 2.80:1 on the zebra row, under the 3:1 floor for a
-  non-text indicator, and doubled as the focus-ring colour. It is now `--blue`
-  at 7.0:1; the ring keeps the flag to itself.
-- **Off-palette colour inside every Chronology SVG download.** The Wilson
-  interval bands set `lineStyle: { opacity: 0 }` with no colour, so ECharts
-  assigned its stock palette: `#5070dd`, `#b6d634`, `#505372`, `#ff994d`,
-  invisible at zero opacity but present in the file, in figures governed by
-  "blue is never a datum". The bands now carry their own colour.
-- **Two axis overrides that dropped the design system.** Adding a percentage
-  formatter by replacing the whole `axisLabel` object also discarded the
-  system's quiet ink and its font family, so the numbers a reader takes off
-  those axes were set in faint ink in ECharts' default face. The formatter is
-  now added to the system's object rather than instead of it.
-- **A deep link landing behind its own toolbar.** At 390px the Reader's sticky
-  toolbar is 400px tall — 51% of the window — and a link to a specific
-  occurrence parked the marked word 7.4px behind it. The programme allows two
-  sticky bands, the masthead and the contents; this was a third. Below 48rem it
-  now scrolls away with the page, and the measurement that publishes its height
-  reports zero when it is not stuck. Re-measured: clear at 390 and at 1440.
-- **Download formats offered for a figure that does not exist.** The Chronology's
-  last plate arrives empty by default while CSV, SVG and PNG were all enabled;
-  the image formats failed into "The figure is still loading", blaming a load
-  for a state the reader chose. The buttons now ask whether there is a drawing,
-  not whether an accessor was supplied.
-
-One claim was **refuted** and no change was made: the Overview's year drill was
-reported to have no pointer affordance. A control run with the proposed fix
-removed measured `cursor: pointer` on hover regardless — ECharts' default was
-already right, and the original reading came from unhovered shapes. The rest of
-that finding stands (no hover emphasis, no focus target, no keyboard route).
-
-**A caveat on every "detector clean" line in this record.** The Impeccable
-detector routes any file outside `.html`/`.htm` to a text-only path that runs a
-subset of its rules. Probed with identical content: as `.svelte`, one finding;
-as `.html`, four. An empty scan of `web/src` therefore means no findings from
-the rules that survive the text path, not a clean markup audit. The contrast and
-target measurements it would have missed were taken in the browser instead.
-
-## The calendar, 19 September 2026
-
-The P0 and one P1 from the re-run critiques, both in the month-by-year grid on
-the Chronology.
-
-**The drawing is now built to the width it is given.** The grid was drawn at a
-fixed 1,220 user units and left to a `viewBox` to fit whatever column it landed
-in. On a desk that scaled up. On a phone it scaled to 342px — a factor of 0.28 —
-and took every label with it: the year, the month initial and the key rendered
-at **2.52 CSS pixels**, and a cell at 26.9 by 4.5. The figure was not small
-there, it was unreadable, and the only legible form of it was a table inside a
-closed disclosure that does not say so.
-
-The cell width now follows the column instead of the column following the cell,
-so the scale stays at 1 and the type can be stated in the size it is read at.
-Measured after the change, with the label size raised from 9 to the 12px the
-rest of the site's chart labels use:
-
-| Viewport | Drawn scale | Label, as rendered | Cell |
-|---|---|---|---|
-| 320px | 1.02 | 12.3px (was 2.1) | 17.4 × 16.4 |
-| 390px | 1.01 | 12.1px (was 2.5) | 23.3 × 16.2 |
-| 768px | 1.01 | 12.1px (was 5.0) | 54.3 × 16.1 |
-| 1440px | 1.13 | 13.5px (was 10.0) | 108.3 × 18.0 |
-
-No two labels overlap at any of those widths, and no route gains a horizontal
-scrollbar.
-
-**A second encoding changed, and a reader of an older export should know.** The
-grid drew two different refusals with one hatch: a month whose rate is withheld
-under the 125-speech minimum, and a month in which the Council held no speeches
-at all. Its key counted only the first. Checked against
-`series/monthly.json`: of 948 months, **475 are drawn, 387 withheld and 86 held
-no speeches** — so 86 hatched squares were never counted by the key that
-explains the hatch, and the two facts were indistinguishable in the figure even
-though the corpus, the tooltip and the table had always told them apart.
-
-A month with no sitting is now an empty cell carrying a small mark at its
-centre, and the key names both refusals: "no rate (387)" and "no sitting (86)".
-The mark rather than a tint because the two things it must not be confused with
-are a hatched cell and a pale drawn cell, and because a mark survives greyscale
-and print. Re-measured: 387 hatched cells against a key reading 387, and 86
-marked cells against a key reading 86. The visible consequence is that the
-months in 2020 and 2021 when the Council did not sit now read as such instead of
-as months whose rate was withheld.
-
-`$lib/heatmap.ts` carried a docblock asserting that the no-sitting state was
-"unreachable today" in this corpus. It was wrong, and it is corrected: that
-claim is why one hatch stood for two facts.
-
-**One sentence of copy is now incomplete and was not touched.** The plate's note
-reads "A hatched square has no rate; it is not a zero." That is still true and no
-longer complete, because there is a second refusal on the figure. It is the
-author's to extend.
-
-## Evidence from the flagship plate, 19 September 2026
-
-The Chronology's word-list chart offers a passage on a click: select a point and
-the concordance opens on that term in that year. Its own data table rendered
-those numbers as plain text, so the click was the only way to them — on a page
-where the grid, the pooled months and the split all carry links in their tables.
-The plate a reader arrives at was the one whose evidence a keyboard could not
-reach.
-
-Every plotted value is now a link to the same destination the click reaches,
-built from the same two facts. Measured: 316 links at the default four terms,
-each of the form `concordance?term=<term>&from=<year>&to=<year>`, identical to
-what `drillChronology` produces; inert while the disclosure is closed, so the
-page's tab-stop count is unchanged; and reached by focus and Enter the link
-lands on the filtered concordance with its lines drawn.
-
-**A gap this turned up, and what closing it found.** No Playwright journey
-covered the Chronology, because the route answered 500 under the fixture set:
-`series/quarterly.json`, `series/monthly.json` and `series/breakdowns.json` were
-absent from `web/e2e/fixtures/`. The densest page on the site — six plates, the
-calendar, the change-point test — had no browser coverage at all.
-
-The three fixtures are now committed, and building them turned up the reason the
-route was failing, which was not the missing files alone. The page opens on four
-named terms, and the fixture lexicon carries one. The **chart** had always
-filtered its selection on three conditions — selected, present in the artefact,
-drawable in the chosen unit — but the **table** filtered on two, because
-`unavailable` answers "can this unit show the term" and never the prior question
-of whether the payload carries it at all. An absent term therefore reached
-`allMeasures[name][unit]` on an undefined measure and took the whole route down:
-no figures, no apparatus, no table, and nothing on the page to say what had
-happened. The guard is now derived once and both readers use it, so a release
-whose lexicon drops one of the four opening terms loses a line rather than a
-page.
-
-The fixtures carry all three states the calendar can draw — 25 months divided
-by, 8 too thin to divide by, 3 the Council did not sit in — because a fixture
-holding only one cannot catch the day two of them merge. Five journeys now cover
-the route: that it draws its six plates and passes axe, that a term the artefact
-does not carry is dropped rather than fatal, that every plotted value opens its
-passages and can be reached by keyboard, that the hatch marks exactly what the
-key counts, and that no label on the calendar falls below 10 CSS pixels at
-390px. The suite goes from 46 journeys to 51.
-
-### What was left open, and why
-
-- A marked word's *register* is still told only by the hue of its underline.
-  The key above the record names each register beside its swatch, so the
-  information is on the page, but for one mark in a speech the hue is the only
-  code. Giving the underline a second code — a stroke pattern per register, the
-  way the Chronology's lines already cross hue with dash — is a decision about
-  the record's texture, and was not made under a hardening pass.
-- The Reader's "Back to the concordance" still discards the query.
-- The reading set is still shown on the Concordance, where the page states it
-  governs nothing.
-- The calendar heatmap is illegible at 390px: the SVG scales a 1220-unit
-  viewBox to 342px, so 9px labels render at 2.52 CSS px. The readable form, the
-  table beneath it, is closed and its summary does not say so.
-- Within a register shelf the Chronology's lines are told apart by lightness at
-  1.56–2.69:1, under the 3:1 floor, and above eight series the end labels give
-  way to a legend.
-- The calendar's hatch draws "withheld under the minimum" and "the Council held
-  no speeches" identically, and its key counts 387 of the 473 hatched cells.
-- The concordance promises 150 characters of context and draws 87–90 at 1440 and
-  20 at 390, and says the search is confined to what is displayed when it is
-  not. Copy, so the author's.
-- Back does not undo a filter on the concordance: nine narrowings use
-  `replaceState` while the reading set uses `goto`.
-- `.impeccable/config.json` carries a stale `ignoreValues` entry for rule
-  `side-tab` on the Chronology, whose stated reason — a 3px left border — no
-  longer exists in that file.
-- `.impeccable/config.json` records no `buildPath`. The roadmap's log settles
-  it in words (code-led, because this harness has no image generation); the key
-  is unset, so the drift report will keep raising it until someone writes
-  `"buildPath": "code"`.
