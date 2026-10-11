@@ -2679,9 +2679,11 @@
   "occurrences": [
    {
     "accused_actor": "str",
-    "alt": "null",
+    "alt": "null|object",
     "concrete_case": "str",
-    "contested": [],
+    "contested": [
+     "str"
+    ],
     "evidence_quote": "str",
     "evidence_valid": "bool",
     "function": "str",
@@ -2754,17 +2756,47 @@
    },
    "contested_any": "int",
    "evidence_invalid": "int",
-   "fields": [],
-   "function_alpha_masi": "null",
+   "fields": [
+    {
+     "contested": "int",
+     "field": "str",
+     "kappa": "float|null",
+     "kappa_withheld": "bool",
+     "minority_share": "float",
+     "n": "int",
+     "observed": "float",
+     "pabak": "float"
+    }
+   ],
+   "function_alpha_masi": "float|null",
    "function_contested": "int",
-   "function_jaccard": "null",
-   "function_labels": [],
+   "function_jaccard": "float|null",
+   "function_labels": [
+    {
+     "kappa": "float",
+     "label": "str",
+     "left": "int",
+     "observed": "float",
+     "right": "int"
+    }
+   ],
    "model": "str",
    "occurrences_annotated": "int",
    "overlap": "int",
    "prompt_sha256": "str",
    "reasoning_effort": "str",
-   "referents": [],
+   "referents": [
+    {
+     "correct": "int",
+     "f1": "float|null",
+     "label": "str",
+     "measurable": "bool",
+     "precision": "float|null",
+     "predicted": "int",
+     "recall": "float|null",
+     "support": "int"
+    }
+   ],
    "run_date": "str",
    "run_id": "str",
    "state": "str"
