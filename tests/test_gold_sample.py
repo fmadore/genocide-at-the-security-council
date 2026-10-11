@@ -441,6 +441,34 @@ def test_the_single_run_frame_is_named_for_what_it_is() -> None:
     assert (third["strategy"] == "label strata over the published model run").all()
 
 
+def test_publishing_a_second_opinion_does_not_redraw_the_sample(tmp_path, monkeypatch) -> None:
+    """13 takes its second run from `gold_comparison_run.txt`, never from the
+    `comparison_run.txt` the usage view reads (decided by FM, 11 October 2026)."""
+    spec = importlib.util.spec_from_file_location(
+        "gold_sample_step", Path(__file__).resolve().parents[1] / "scripts" / "13_gold_sample.py"
+    )
+    step = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(step)
+    pointers = {name: tmp_path / f"{name}.txt" for name in ("current", "comparison", "gold")}
+    pointers["current"].write_text("published\n", encoding="utf-8")
+    pointers["comparison"].write_text("second\n", encoding="utf-8")
+    pointers["gold"].write_text("", encoding="utf-8")
+    monkeypatch.setattr(step, "CURRENT_RUN", pointers["current"])
+    monkeypatch.setattr(step, "GOLD_COMPARISON_RUN", pointers["gold"])
+    monkeypatch.setattr(model_runs, "COMPARISON_RUN", pointers["comparison"])
+    runs = {"published": PUBLISHED, "second": COMPARISON}
+    monkeypatch.setattr(step, "read_run", lambda run_id: runs.get(run_id, {}))
+    monkeypatch.setattr(step.gold_sample, "onset_years", lambda _referents: ONSETS)
+
+    def contested() -> tuple[str, str]:
+        candidates, _, second = step.stratify(strata_frame(), [])
+        return second, candidates.set_index("occurrence_id").loc["occ-contested", "stratum"]
+
+    assert contested() == ("", ""), "the usage view's comparison reached the sample"
+    pointers["gold"].write_text("second\n", encoding="utf-8")
+    assert contested() == ("second", "contested_speaker_position_or_referent")
+
+
 def test_the_packet_carries_no_reason_an_occurrence_was_drawn() -> None:
     sample = gold.draw(built(), 3, 5, 21)
     packet = gold.packet(sample, 21)

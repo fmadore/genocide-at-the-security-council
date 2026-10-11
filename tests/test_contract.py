@@ -240,8 +240,8 @@ class TestCommittedContract:
         `15_usage.py` writes the block whether or not a comparison run was
         selected, and the committed shape is regenerated from the synthetic pair,
         where one was. The empty block is therefore the state the contract is
-        never generated from and the state this repository is normally in —
-        `model_annotations/genocide/comparison_run.txt` ships empty — so the one
+        never generated from and the state any build without a second opinion is
+        in — `model_annotations/genocide/comparison_run.txt` empty — so the one
         leaf that differs between them, `function_jaccard`, is declared as
         `float|null` by hand. Regenerating the contract from a computed payload
         narrows it back to `float`, and the next build against the ordinary state

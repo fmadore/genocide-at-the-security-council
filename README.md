@@ -135,8 +135,8 @@ The four hosted 2026-08 runs under
 [`model_annotations/genocide/runs/`](model_annotations/genocide/runs/) remain
 versioned for provenance of the retired corpus. `current_run.txt` selects the
 `2026-09-08-qwen-131k` run as an explicitly partial preview;
-`comparison_run.txt` is empty, because the comparison run is not yet merged or
-published. A run must cover every current occurrence (the
+`comparison_run.txt` names the Gemma run `2026-09-09-gemma4`, published as a
+second opinion since 11 October 2026. A run must cover every current occurrence (the
 population in `config/lexicon.counts.json`) unless its coverage gap is
 authorised in `allow_partial_run.txt`;
 see [`model_annotations/README.md`](model_annotations/README.md)

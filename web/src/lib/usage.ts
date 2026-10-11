@@ -1682,7 +1682,9 @@ const fieldRow = (row: UsageComparisonField): ComparisonFieldRow => ({
  */
 export function comparisonApparatus(data: Usage): ComparisonApparatus {
 	const block = data.comparison;
-	const total = data.model.occurrences_annotated;
+	// The corpus, not the published run: against a partial run, the published
+	// run's own count put the comparison above 100 per cent.
+	const total = data.model.occurrences_total;
 	const abstention = block.abstention;
 	return {
 		computed: block.state === 'computed',

@@ -1629,7 +1629,7 @@ def main() -> None:
     second.add_argument(
         "--comparison-run",
         help=f"run id under {rel(RUNS)} to read the published run against; defaults "
-        "to the one named in comparison_run.txt, which is empty",
+        "to the one named in comparison_run.txt",
     )
     second.add_argument(
         "--comparison-run-dir",

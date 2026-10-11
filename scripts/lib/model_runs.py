@@ -37,6 +37,10 @@ RUNS = STORE / "runs"
 CURRENT_RUN = STORE / "current_run.txt"
 COMPARISON_RUN = STORE / "comparison_run.txt"
 ALLOW_PARTIAL_RUN = STORE / "allow_partial_run.txt"
+#: The second run 13 cuts the gold sample's disagreement frame from, or empty for
+#: the frame cut from `CURRENT_RUN` alone. Kept apart from `COMPARISON_RUN` so
+#: that publishing a second opinion does not redraw the sample under the coders.
+GOLD_COMPARISON_RUN = STORE / "gold_comparison_run.txt"
 
 # `REFERENTS`, the controlled list, is shared with 03's audit and so lives in
 # `lib.paths`; it is imported above and read here as `model_runs.REFERENTS`.

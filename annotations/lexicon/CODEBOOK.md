@@ -305,7 +305,7 @@ to be measured. The draw of 24 September 2026 holds 120, 80 and 269 rows, 469 in
 distinct occurrences; the ten occurrences behind the prompt's worked examples are outside every
 frame.
 
-Once a comparison run is named in `model_annotations/genocide/comparison_run.txt`, step 13
+Once a second run is named in `model_annotations/genocide/gold_comparison_run.txt`, step 13
 draws a `disagreement` frame in place of `model_strata`: the same idea, cut from where the two
 runs read an occurrence differently. That would change the sample, which is why the sample
 must be frozen before coding starts ([`docs/EVALUATION_PLAN.md`](../../docs/EVALUATION_PLAN.md)).
