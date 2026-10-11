@@ -33,7 +33,8 @@ function sources(path, seen = new Set()) {
 		steps.push(expression);
 	}
 	for (const match of source.matchAll(/import\s+\w+\s+from\s+['"]([^'"]+\.svelte)['"]/g)) {
-		const child = match[1].startsWith('$lib/')
+		// `#lib/` is the subpath import package.json declares for src/lib (SvelteKit 3).
+		const child = match[1].startsWith('#lib/')
 			? join(root, 'lib', match[1].slice(5))
 			: join(dirname(path), match[1]);
 		if (child.endsWith('Figure.svelte')) continue;

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import ScrollRegion from '$lib/ScrollRegion.svelte';
-	import SearchSelect from '$lib/SearchSelect.svelte';
+	import ScrollRegion from '#lib/ScrollRegion.svelte';
+	import SearchSelect from '#lib/SearchSelect.svelte';
 	import { resolve } from '$app/paths';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { page } from '$app/state';
-	import { urlState } from '$lib/url-state.svelte';
+	import { urlState } from '#lib/url-state.svelte.js';
 	import { SvelteMap } from 'svelte/reactivity';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import Bookmark from '@lucide/svelte/icons/bookmark';
@@ -12,8 +12,8 @@
 	import Download from '@lucide/svelte/icons/download';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import X from '@lucide/svelte/icons/x';
-	import { basket } from '$lib/basket.svelte';
-	import { occurrenceItem } from '$lib/basket';
+	import { basket } from '#lib/basket.svelte.js';
+	import { occurrenceItem } from '#lib/basket.js';
 	import {
 		CONCORDANCE_DEFAULTS,
 		CORPUS_END_YEAR,
@@ -32,22 +32,22 @@
 		filtersInForce,
 		historyStep,
 		hitsBeyond
-	} from '$lib/concordance';
+	} from '#lib/concordance.js';
 	import type {
 		ConcordanceSort,
 		ConcordanceState,
 		FacetDimension,
 		FilterKey
-	} from '$lib/concordance';
-	import { USAGE_TERM, runStatus } from '$lib/usage';
-	import ResultProfile from '$lib/ResultProfile.svelte';
-	import { Resource } from '$lib/resource.svelte';
-	import { kwic, meetingOf, usage, usageReferents } from '$lib/data';
-	import { filename, provenanceOf, saveCsv, toCsv } from '$lib/export';
-	import type { ExportRequest } from '$lib/export';
-	import Figure from '$lib/Figure.svelte';
-	import Icon from '$lib/Icon.svelte';
-	import PageMeta from '$lib/PageMeta.svelte';
+	} from '#lib/concordance.js';
+	import { USAGE_TERM, runStatus } from '#lib/usage.js';
+	import ResultProfile from '#lib/ResultProfile.svelte';
+	import { Resource } from '#lib/resource.svelte.js';
+	import { kwic, meetingOf, usage, usageReferents } from '#lib/data.js';
+	import { filename, provenanceOf, saveCsv, toCsv } from '#lib/export.js';
+	import type { ExportRequest } from '#lib/export.js';
+	import Figure from '#lib/Figure.svelte';
+	import Icon from '#lib/Icon.svelte';
+	import PageMeta from '#lib/PageMeta.svelte';
 	import {
 		MONTH_NAMES,
 		bytes,
@@ -57,11 +57,11 @@
 		shortCountry,
 		termLabel,
 		unSearch
-	} from '$lib/format';
-	import { DEFAULT_SCOPE, reading, readScope, scopeOf, withScope } from '$lib/scope';
-	import { segments } from '$lib/highlight';
-	import { PAGE_METADATA } from '$lib/seo';
-	import type { KwicFile, KwicLine } from '$lib/types';
+	} from '#lib/format.js';
+	import { DEFAULT_SCOPE, reading, readScope, scopeOf, withScope } from '#lib/scope.js';
+	import { segments } from '#lib/highlight.js';
+	import { PAGE_METADATA } from '#lib/seo.js';
+	import type { KwicFile, KwicLine } from '#lib/types.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -142,14 +142,14 @@
 	const referentLabels = new SvelteMap<string, string>();
 	let referentsFailed = $state<string | null>(null);
 	/* What the payload says of the run those placements come from, for the file
-	   a referent-filtered list is downloaded as: `runStatus` in `$lib/usage`. */
+	   a referent-filtered list is downloaded as: `runStatus` in `#lib/usage`. */
 	let runLabel = $state<string | null>(null);
 	let from = $state(CORPUS_START_YEAR);
 	let to = $state(CORPUS_END_YEAR);
 	/* A month of the year, orthogonal to the year bounds above: `month = 6` with
 	   from = to = 2014 is one square of the heatmap, and the same month with the
 	   years left alone is one row of the calendar beside it. What the parameter
-	   means, and what an unreadable one does, is `$lib/concordance`. */
+	   means, and what an unreadable one does, is `#lib/concordance`. */
 	let month = $state<number | null>(null);
 	let sort = $state<ConcordanceSort>('date');
 	let regex = $state(false);
@@ -263,7 +263,7 @@
 		sort
 	});
 
-	/* The query is built in `$lib/concordance` rather than here: the usage view
+	/* The query is built in `#lib/concordance` rather than here: the usage view
 	   links into the reader from its own quotations, and two copies of this
 	   would be two links free to disagree about what the reader receives. */
 	function readerHref(line: KwicLine): string {

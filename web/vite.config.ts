@@ -7,7 +7,7 @@ import { defineConfig } from 'vite';
 
 // Project Pages are served from a subpath. Override with BASE_PATH='' to serve
 // from a domain root, or to preview the build locally.
-const base = process.env.BASE_PATH ?? '/genocide-at-the-security-council';
+const base = basePath(process.env.BASE_PATH ?? '/genocide-at-the-security-council');
 const fixtureMode = process.env.E2E_FIXTURES === '1';
 // Browser tests serve a tiny committed payload through the real routes.
 // Production and ordinary development continue to use `static/`.
@@ -28,7 +28,8 @@ const assets = fixtureMode ? 'e2e/fixtures' : 'static';
  * option, and the `assets` its `$app/manifest` offers instead lists every
  * static file, so importing it would write all of `data/` into
  * `service-worker.js` itself. The list is made here and handed to the worker
- * as the constant `__PRECACHE__`.
+ * as the constant `__PRECACHE__`, beside `__BASE__`, which `$service-worker`
+ * also supplied.
  */
 function precache(directory: string): string[] {
 	return readdirSync(directory, { recursive: true, withFileTypes: true })
@@ -39,7 +40,13 @@ function precache(directory: string): string[] {
 		.map((path) => `${base}/${path}`);
 }
 
-export default defineConfig({
+/** SvelteKit 3 types `paths.base` as empty or rooted; say so before it does. */
+function basePath(value: string): '' | `/${string}` {
+	if (value === '' || value.startsWith('/')) return value as '' | `/${string}`;
+	throw new Error(`BASE_PATH must be empty or start with "/", not "${value}"`);
+}
+
+export default defineConfig(({ command }) => ({
 	plugins: [
 		sveltekit({
 			preprocess: vitePreprocess(),
@@ -47,7 +54,12 @@ export default defineConfig({
 			// `fallback` makes the reader an SPA route. Prerendering it would mean
 			// generating 9,464 document pages to display text already fetched as JSON.
 			adapter: adapter({ fallback: '404.html', strict: true }),
-			paths: { base },
+			// Absolute paths, as SvelteKit 2 rendered them. SvelteKit 3 renders
+			// `resolve()` and `asset()` relative to the page when this is true (the
+			// default), and hydration keeps what was rendered, so links such as a
+			// chronology value's way into the concordance read `../concordance?...`.
+			// The base is fixed at build time, so portable HTML buys nothing here.
+			paths: { base, relative: false },
 			prerender: {
 				// A fixture build needs only the routes its browser tests visit. Normal
 				// releases retain SvelteKit's all-route discovery.
@@ -62,12 +74,37 @@ export default defineConfig({
 			// `updated.current`. Nothing here reads it, and the service worker already
 			// handles a deployment without prompting anyone (see its comment on
 			// `skipWaiting`), so the polling would be requests for nothing.
-			version: { pollInterval: 0 }
+			version: { pollInterval: 0 },
+			// The service worker runs in a built site only: its own comment explains
+			// that its cache is safe to keep simple because nothing of it runs while
+			// developing. SvelteKit 3 registers it under `vite dev` as well, and there
+			// it cannot receive the constants it is built with (Vite supplies `define`
+			// in development through a module only pages load).
+			serviceWorker: { register: command === 'build' }
 		})
 	],
 	environments: {
+		// ECharts is the only heavy dependency; keeping it in its own chunk means
+		// a page that shows no chart does not pay for it. Set on the browser build
+		// alone: SvelteKit 3 builds the service worker as an environment of this
+		// configuration too, as a single file, and the setting failed that build.
+		// A `codeSplitting` group rather than `manualChunks`, which Rolldown ignores
+		// once SvelteKit sets groups of its own; Vite merges the two lists.
+		client: {
+			build: {
+				rolldownOptions: {
+					output: {
+						codeSplitting: { groups: [{ name: 'echarts', test: /echarts|zrender/ }] }
+					}
+				}
+			}
+		},
+		// For the service worker; see `precache` above.
 		serviceWorker: {
-			define: { __PRECACHE__: JSON.stringify(precache(assets)) }
+			define: {
+				__BASE__: JSON.stringify(base),
+				__PRECACHE__: JSON.stringify(precache(assets))
+			}
 		}
 	},
 	ssr: {
@@ -75,15 +112,5 @@ export default defineConfig({
 		// ESM loader has no opinion about that extension, so the icons have to be
 		// bundled for SSR rather than required at runtime.
 		noExternal: ['@lucide/svelte']
-	},
-	build: {
-		// ECharts is the only heavy dependency; keeping it in its own chunk means
-		// a page that shows no chart does not pay for it.
-		rollupOptions: {
-			output: {
-				manualChunks: (id) =>
-					id.includes('echarts') || id.includes('zrender') ? 'echarts' : undefined
-			}
-		}
 	}
-});
+}));

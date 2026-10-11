@@ -9,8 +9,9 @@
  * all of them.
  */
 
-import { browser } from '$app/environment';
-import { base } from '$app/paths';
+import { browser } from '$app/env';
+import { asset } from '$app/paths';
+import type { AssetPath } from '$app/types';
 import { offlineCeilings } from './offline';
 import type {
 	AnnualSeries,
@@ -873,13 +874,26 @@ function request<T>(
  * hydration. On the server every call goes through the page's own `fetch`, so
  * every page inlines all of its data.
  */
+/**
+ * The URL of a payload file under the deployment's base path.
+ *
+ * `asset` takes an `AssetPath`, a union SvelteKit generates from the files in
+ * `static/` when it syncs. The payload is not among them where the checks run,
+ * because the deploy builds `static/data/` after them, and its paths are only
+ * known at run time, so the name is asserted here once rather than at each
+ * call.
+ */
+export function dataUrl(path: string): string {
+	return asset(`data/${path}` as AssetPath);
+}
+
 export function json<T>(
 	path: string,
 	fetcher: typeof fetch = fetch,
 	shape: Shape = { meta: 'object' },
 	validate?: Validator
 ): Promise<T> {
-	const url = `${base}/data/${path}`;
+	const url = dataUrl(path);
 	if (!browser) return request<T>(path, url, fetcher, shape, validate);
 	evict(path, url);
 	if (!cache.has(url)) {
@@ -1062,11 +1076,11 @@ export const scopeIndex = at<ScopeIndex>('scopes.json', validateScopeIndex);
  * was built and from which commit, and the only thing drawn from it is the
  * footer's build line. A payload without one (a development tree, an older
  * build) loses that line and nothing else, so every failure here is a null
- * rather than a refusal. `readBuild` in `$lib/build` decides what of it to use.
+ * rather than a refusal. `readBuild` in `#lib/build` decides what of it to use.
  */
 export async function payloadManifest(fetcher: typeof fetch = fetch): Promise<unknown> {
 	try {
-		const response = await fetcher(`${base}/data/manifest.json`);
+		const response = await fetcher(dataUrl('manifest.json'));
 		return response.ok ? ((await response.json()) as unknown) : null;
 	} catch {
 		return null;

@@ -13,6 +13,7 @@
 	// SvelteKit 3 writes the base configuration to `$app/tsconfig` (in
 	// node_modules), which carries the module and resolution options this file
 	// used to set itself. It sets no `include`, so this file names what is checked.
+	// The configuration files run in Node and are checked by `tsconfig.node.json`.
 	// The service worker is a separate project with web-worker types
 	// (`src/service-worker/tsconfig.json`), so it is excluded here.
 	//
@@ -25,6 +26,6 @@
 		"strict": true,
 		"noUncheckedIndexedAccess": true
 	},
-	"include": ["src", "vite.config.ts", "playwright.config.ts", "test"],
+	"include": ["src", "test"],
 	"exclude": ["src/service-worker"]
 }

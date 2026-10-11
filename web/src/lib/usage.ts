@@ -54,6 +54,7 @@
  * sentence that says what the shape is not belongs to the figure's caveat.
  */
 
+import type { ReadonlyURLSearchParams } from '$app/state';
 import { CONCORDANCE_DEFAULTS, readerQuery } from './concordance';
 import { COMPARED_FIELDS, meetingOf } from './data';
 import { count, decimal, percent, termLabel } from './format';
@@ -210,7 +211,7 @@ const SORTS = new Set<UsageSort>(['assigned', 'occurrences', 'name']);
  * is dropped rather than kept: it would open a drill-down that can never fill,
  * and the reader would have no way to tell a stale link from an empty cell.
  */
-export function readUsageState(params: URLSearchParams, data: Usage): UsageState {
+export function readUsageState(params: ReadonlyURLSearchParams, data: Usage): UsageState {
 	const askedActor = params.get('actor');
 	const askedReferent = params.get('referent');
 	const askedSort = params.get('sort') as UsageSort | null;

@@ -1,18 +1,17 @@
-import type { HandleClientError } from '@sveltejs/kit';
-import { DataError } from '$lib/data';
+import type { HandleClientError } from '@sveltejs/kit/hooks';
+import { DataError } from '#lib/data.js';
 
 /**
  * What a reader is told when a page cannot be built in the browser.
  *
  * SvelteKit replaces the message of any error it did not raise itself with
  * "Internal Error", because an unexpected error may carry something private.
- * The refusals `$lib/data` writes are the opposite case: each one names the
+ * The refusals `#lib/data` writes are the opposite case: each one names the
  * file and the way out — no connection and not in the offline cache, not in
  * this release, or present and refused by the boundary — and is the only
  * thing on the page a reader offline can act on. Those pass through as they
  * were written. Anything else, a not-found route included, keeps SvelteKit's
- * own wording.
+ * own wording, which is what returning nothing asks for.
  */
-export const handleError: HandleClientError = ({ error, message }) => ({
-	message: error instanceof DataError ? error.message : message
-});
+export const handleError: HandleClientError = ({ error }) =>
+	error instanceof DataError ? { message: error.message } : undefined;

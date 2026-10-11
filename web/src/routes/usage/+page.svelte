@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ScrollRegion from '$lib/ScrollRegion.svelte';
+	import ScrollRegion from '#lib/ScrollRegion.svelte';
 	/**
 	 * The experimental layer: which genocide a delegation meant, and what it was
 	 * doing with the word.
@@ -7,25 +7,25 @@
 	 * Every reading on this page is a model's, and the page is arranged around
 	 * saying so before it says anything else — the apparatus block is the first
 	 * thing under the standfirst, not a footnote at the bottom. Nothing here
-	 * decides anything: `$lib/usage` settles what is drawn, what is withheld and
-	 * what a key press does, and `$lib/data` refuses a payload that would let this
+	 * decides anything: `#lib/usage` settles what is drawn, what is withheld and
+	 * what a key press does, and `#lib/data` refuses a payload that would let this
 	 * page publish something the model did not say.
 	 */
 	import { resolve } from '$app/paths';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import DiffusionChart from '$lib/DiffusionChart.svelte';
-	import Figure from '$lib/Figure.svelte';
-	import Contents from '$lib/Contents.svelte';
-	import Icon from '$lib/Icon.svelte';
-	import PageMeta from '$lib/PageMeta.svelte';
-	import UsageMatrix from '$lib/UsageMatrix.svelte';
-	import { kwic, usageOccurrences } from '$lib/data';
-	import { provenanceOf } from '$lib/export';
-	import type { ExportRequest } from '$lib/export';
-	import { count, decimal, isoDate, percent, shortCountry, termLabel } from '$lib/format';
-	import { segments } from '$lib/highlight';
-	import { PAGE_METADATA, REPOSITORY } from '$lib/seo';
+	import DiffusionChart from '#lib/DiffusionChart.svelte';
+	import Figure from '#lib/Figure.svelte';
+	import Contents from '#lib/Contents.svelte';
+	import Icon from '#lib/Icon.svelte';
+	import PageMeta from '#lib/PageMeta.svelte';
+	import UsageMatrix from '#lib/UsageMatrix.svelte';
+	import { kwic, usageOccurrences } from '#lib/data.js';
+	import { provenanceOf } from '#lib/export.js';
+	import type { ExportRequest } from '#lib/export.js';
+	import { count, decimal, isoDate, percent, shortCountry, termLabel } from '#lib/format.js';
+	import { segments } from '#lib/highlight.js';
+	import { PAGE_METADATA, REPOSITORY } from '#lib/seo.js';
 	import {
 		CONTESTED_COLUMNS,
 		DIFFUSION_COLUMNS,
@@ -55,7 +55,7 @@
 		positionProfiles,
 		runStatus,
 		usageParams
-	} from '$lib/usage';
+	} from '#lib/usage.js';
 	import type {
 		DiffusionPoint,
 		DiffusionSeries,
@@ -64,7 +64,7 @@
 		UsageSort,
 		UsageState,
 		UsageUnit
-	} from '$lib/usage';
+	} from '#lib/usage.js';
 	import type {
 		KwicFile,
 		KwicLine,
@@ -72,9 +72,9 @@
 		UsageActor,
 		UsageOccurrences,
 		UsageReferent
-	} from '$lib/types';
-	import { urlState } from '$lib/url-state.svelte';
-	import { Resource } from '$lib/resource.svelte';
+	} from '#lib/types.js';
+	import { urlState } from '#lib/url-state.svelte.js';
+	import { Resource } from '#lib/resource.svelte.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -131,7 +131,7 @@
 		run.fields.find((row) => row.field === field)?.observedText ?? '—';
 	const referentLabel = (id: string) =>
 		artefact.referents.find((entry) => entry.id === id)?.label ?? termLabel(id);
-	/* The controlled list as this run was offered it: `$lib/usage`. */
+	/* The controlled list as this run was offered it: `#lib/usage`. */
 	const listVersion = $derived(instrumentVersion(artefact));
 	const offered = $derived(instrumentReferents(artefact));
 

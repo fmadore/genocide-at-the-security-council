@@ -1,4 +1,4 @@
-import { robotsText } from '$lib/seo';
+import { robotsText } from '#lib/seo.js';
 
 export const prerender = true;
 

@@ -2,21 +2,21 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import Chart from '$lib/Chart.svelte';
-	import Contents from '$lib/Contents.svelte';
-	import Figure from '$lib/Figure.svelte';
-	import Icon from '$lib/Icon.svelte';
-	import PageMeta from '$lib/PageMeta.svelte';
-	import SmallMultiples from '$lib/SmallMultiples.svelte';
-	import UnitField from '$lib/UnitField.svelte';
-	import { provenanceOf } from '$lib/export';
-	import type { ExportRequest } from '$lib/export';
-	import { count, decimal, isoDate, measureLabel, percent } from '$lib/format';
-	import { headlineMeasure } from '$lib/headline';
-	import { densest as densestYear, loudest as loudestYear, overviewTotals } from '$lib/overview';
-	import { PAGE_METADATA, STRUCTURED_DATA_JSON } from '$lib/seo';
-	import { axisX, axisY, colours, grid, textStyle, tooltip } from '$lib/theme';
-	import type { Measure } from '$lib/types';
+	import Chart from '#lib/Chart.svelte';
+	import Contents from '#lib/Contents.svelte';
+	import Figure from '#lib/Figure.svelte';
+	import Icon from '#lib/Icon.svelte';
+	import PageMeta from '#lib/PageMeta.svelte';
+	import SmallMultiples from '#lib/SmallMultiples.svelte';
+	import UnitField from '#lib/UnitField.svelte';
+	import { provenanceOf } from '#lib/export.js';
+	import type { ExportRequest } from '#lib/export.js';
+	import { count, decimal, isoDate, measureLabel, percent } from '#lib/format.js';
+	import { headlineMeasure } from '#lib/headline.js';
+	import { densest as densestYear, loudest as loudestYear, overviewTotals } from '#lib/overview.js';
+	import { PAGE_METADATA, STRUCTURED_DATA_JSON } from '#lib/seo.js';
+	import { axisX, axisY, colours, grid, textStyle, tooltip } from '#lib/theme.js';
+	import type { Measure } from '#lib/types.js';
 	import type { EChartsOption } from 'echarts';
 	import type { PageData } from './$types';
 
@@ -78,7 +78,7 @@
 
 	const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
-	/* The headline figures, and the two years the page names: `$lib/overview`. */
+	/* The headline figures, and the two years the page names: `#lib/overview`. */
 	const totals = $derived(overviewTotals(data.series, genocide));
 
 	/* The two titles, written once: the figures carry them and so does the

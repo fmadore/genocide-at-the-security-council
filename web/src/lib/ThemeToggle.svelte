@@ -8,7 +8,7 @@
 	 * other theme.
 	 *
 	 * Nothing else has to be told. `app.css` hangs the dark tokens off the same
-	 * attribute, and `colourScheme` in `$lib/theme` observes it, so the ECharts
+	 * attribute, and `colourScheme` in `#lib/theme` observes it, so the ECharts
 	 * figures redraw themselves.
 	 *
 	 * The button names the theme it will switch *to*, which is also why the
@@ -16,8 +16,8 @@
 	 */
 	import Moon from '@lucide/svelte/icons/moon';
 	import Sun from '@lucide/svelte/icons/sun';
-	import Icon from '$lib/Icon.svelte';
-	import { colourScheme } from '$lib/theme';
+	import Icon from '#lib/Icon.svelte';
+	import { colourScheme } from '#lib/theme.js';
 
 	const next = $derived($colourScheme === 'dark' ? 'light' : 'dark');
 

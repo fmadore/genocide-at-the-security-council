@@ -1,4 +1,4 @@
-import { kwicIndex } from '$lib/data';
+import { kwicIndex } from '#lib/data.js';
 import type { PageLoad } from './$types';
 
 // Only the index is loaded up front. The lines themselves are up to 10 MB per

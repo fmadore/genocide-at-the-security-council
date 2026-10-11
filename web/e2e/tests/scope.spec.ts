@@ -19,7 +19,11 @@ test('a URL carrying no scope renders the site the way it rendered before R9', a
 });
 
 test('choosing a reading set is carried in the URL and drawn by the page', async ({ page }) => {
-	await page.goto(`${base}/concordance/`);
+	// Until the page has hydrated, the radio is plain HTML: a click checks it and
+	// starts nothing, and hydration then puts the reading set back. Under
+	// SvelteKit 3's dev server hydration can finish after the `load` event that
+	// `goto` waits for, so the test waits for the page's modules to arrive too.
+	await page.goto(`${base}/concordance/`, { waitUntil: 'networkidle' });
 
 	await page.getByRole('radio', { name: /The debate/ }).check();
 	await expect(page).toHaveURL(/\?scope=debate$/);

@@ -22,7 +22,7 @@
  * at that moment, and a write from another tab is followed as it happens.
  */
 
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import {
 	BASKET_KEY,
 	addItem,

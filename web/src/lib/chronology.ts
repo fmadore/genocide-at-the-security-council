@@ -1,3 +1,4 @@
+import type { ReadonlyURLSearchParams } from '$app/state';
 import type { LineSeriesOption } from 'echarts';
 import { headlineMeasure } from './headline';
 import {
@@ -62,7 +63,7 @@ export const ATROCITY_COMPARISON = [
 ] as const;
 
 /* The headline rule is shared with the home page and the actor table; see
-   `$lib/headline`. Falling back through the raw term keeps an older artefact
+   `#lib/headline`. Falling back through the raw term keeps an older artefact
    drawable rather than opening on whatever sorts first. */
 const defaultSeries = (choices: ChronologyChoices, grain: ChronologyGrain) => {
 	const available = choices.series[grain];
@@ -90,7 +91,7 @@ export function chronologyDefaults(choices: ChronologyChoices): ChronologyState 
 
 /** Parse a copied chronology URL, dropping unknown values and restoring documented defaults. */
 export function readChronologyState(
-	params: URLSearchParams,
+	params: ReadonlyURLSearchParams,
 	choices: ChronologyChoices
 ): ChronologyState {
 	const defaults = chronologyDefaults(choices);

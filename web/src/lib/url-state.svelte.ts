@@ -7,7 +7,7 @@
  * wait a tick, then rewrite the address whenever a control moves. This is
  * that pattern once.
  *
- * The tick is not decoration. The first `replaceState` has to wait until
+ * The tick is not decoration. The first shallow write has to wait until
  * SvelteKit has assigned its root; called inside the initial mount callback it
  * reaches the client router before that assignment is complete.
  *
@@ -15,14 +15,15 @@
  * `onMount` and `$effect` itself: it registers both, in that order.
  */
 
+import type { ReadonlyURLSearchParams } from '$app/state';
 import { pushState, replaceState } from '$app/navigation';
 import { page } from '$app/state';
-import { onMount, tick } from 'svelte';
+import { onMount, tick, untrack } from 'svelte';
 import type { HistoryStep } from './concordance';
 
 export interface UrlStateOptions {
 	/** Put the state the address carries into the controls. Runs once, on mount. */
-	read: (params: URLSearchParams) => void;
+	read: (params: ReadonlyURLSearchParams) => void;
 	/**
 	 * The query the controls stand for now. Read inside an effect, so every
 	 * control it touches is followed.
@@ -67,9 +68,22 @@ export function urlState(options: UrlStateOptions): { readonly ready: boolean } 
 		const step = options.step ? options.step(next) : 'replace';
 		if (step === 'none') return;
 		const search = next.toString();
-		const url = `${page.url.pathname}${search ? `?${search}` : ''}`;
-		if (step === 'push') pushState(url, page.state);
-		else replaceState(url, page.state);
+		// The page is read without being followed. This effect follows the
+		// controls alone, and writing the address replaces `page.state` (SvelteKit 3
+		// hands back a fresh copy on every shallow write), so following the page
+		// re-ran the effect after each write, and the write after that, without end.
+		//
+		// `pushState` and `replaceState` rather than the `goto(url, { shallow })`
+		// SvelteKit 3 prefers: a shallow `goto` is a navigation, and it cancels one
+		// already in flight. The first write lands just after the page mounts, so
+		// it cancelled a reading set chosen at that moment, and the address never
+		// took it. The two older calls are deprecated but kept by SvelteKit 3 for
+		// exactly this: they write the address without navigating.
+		untrack(() => {
+			const url = `${page.url.pathname}${search ? `?${search}` : ''}`;
+			if (step === 'push') void pushState(url, page.state);
+			else void replaceState(url, page.state);
+		});
 	});
 
 	return {

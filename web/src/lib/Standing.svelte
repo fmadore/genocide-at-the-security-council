@@ -2,7 +2,7 @@
 	/**
 	 * Who held a seat when they spoke.
 	 *
-	 * A renderer over `$lib/standing`, which settles what is drawn and why. The
+	 * A renderer over `#lib/standing`, which settles what is drawn and why. The
 	 * one drawing decision here is the one §3 forced: **the bar is the table**.
 	 * Each row's composition is painted in the row's own background as a
 	 * multi-stop gradient, so the figure and the numbers are a single element and
@@ -26,14 +26,14 @@
 	 * at every denominator.
 	 */
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import Figure from '$lib/Figure.svelte';
-	import Icon from '$lib/Icon.svelte';
-	import { provenanceOf } from '$lib/export';
-	import type { ExportRequest } from '$lib/export';
-	import { count, percent, shortCountry } from '$lib/format';
-	import { EXPORT_COLUMNS, exemplar, exportRows, plan } from '$lib/standing';
-	import type { Category, Ordering, Segment } from '$lib/standing';
-	import type { Countries } from '$lib/types';
+	import Figure from '#lib/Figure.svelte';
+	import Icon from '#lib/Icon.svelte';
+	import { provenanceOf } from '#lib/export.js';
+	import type { ExportRequest } from '#lib/export.js';
+	import { count, percent, shortCountry } from '#lib/format.js';
+	import { EXPORT_COLUMNS, exemplar, exportRows, plan } from '#lib/standing.js';
+	import type { Category, Ordering, Segment } from '#lib/standing.js';
+	import type { Countries } from '#lib/types.js';
 
 	let { data }: { data: Countries } = $props();
 

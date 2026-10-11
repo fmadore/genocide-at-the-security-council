@@ -7,7 +7,7 @@ import {
 	monthly,
 	optional,
 	quarterly
-} from '$lib/data';
+} from '#lib/data.js';
 import type { PageLoad } from './$types';
 
 // Six independent files, requested together. Awaited one after another they

@@ -31,7 +31,7 @@ export default defineConfig({
 			// Aliased once here rather than mocked in each spec, so the next person
 			// to add a test does not have to rediscover why it fails to resolve.
 			'$app/paths': fileURLToPath(new URL('./test/app-paths.ts', import.meta.url)),
-			'$app/environment': fileURLToPath(new URL('./test/app-environment.ts', import.meta.url))
+			'$app/env': fileURLToPath(new URL('./test/app-environment.ts', import.meta.url))
 		}
 	}
 });

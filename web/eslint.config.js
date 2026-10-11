@@ -30,7 +30,7 @@ export default ts.config(
 		// One program built from `tsconfig.json` rather than the project service,
 		// which makes the same pass about three times slower on this tree.
 		files: ['src/**/*.ts', 'src/**/*.svelte', 'test/**/*.ts'],
-		ignores: ['src/service-worker.ts'],
+		ignores: ['src/service-worker/**'],
 		languageOptions: {
 			parserOptions: {
 				project: './tsconfig.json',

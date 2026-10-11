@@ -1,4 +1,4 @@
-import { annual, changePoints, keyness, kwicIndex } from '$lib/data';
+import { annual, changePoints, keyness, kwicIndex } from '#lib/data.js';
 import type { PageLoad } from './$types';
 
 // Four artefacts from three different steps, read here only for the version

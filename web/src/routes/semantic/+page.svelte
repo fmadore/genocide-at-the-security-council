@@ -1,25 +1,25 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { base, resolve } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import type { EChartsOption } from 'echarts';
-	import Chart from '$lib/Chart.svelte';
-	import Figure from '$lib/Figure.svelte';
-	import SearchSelect from '$lib/SearchSelect.svelte';
-	import PageMeta from '$lib/PageMeta.svelte';
-	import { PAGE_METADATA } from '$lib/seo';
-	import { unreachable } from '$lib/data';
-	import { Resource } from '$lib/resource.svelte';
+	import Chart from '#lib/Chart.svelte';
+	import Figure from '#lib/Figure.svelte';
+	import SearchSelect from '#lib/SearchSelect.svelte';
+	import PageMeta from '#lib/PageMeta.svelte';
+	import { PAGE_METADATA } from '#lib/seo.js';
+	import { dataUrl, unreachable } from '#lib/data.js';
+	import { Resource } from '#lib/resource.svelte.js';
 	import {
 		validateMap,
 		validateNeighbours,
 		semanticExport,
 		type SemanticMap,
 		type Point
-	} from '$lib/semantic';
-	import { categoricalData, colours, dataZoom, neutral } from '$lib/theme';
+	} from '#lib/semantic.js';
+	import { categoricalData, colours, dataZoom, neutral } from '#lib/theme.js';
 	/* The map, or null for a release that does not carry it: a 404, or the
 	   pipeline's own placeholder while the map is still being made. */
 	const semanticMap = new Resource<SemanticMap | null>({ loading: true });
@@ -180,7 +180,7 @@
 		if (value) url.searchParams.set(key, value);
 		else url.searchParams.delete(key);
 		if (key !== 'p' && key !== 'speech') url.searchParams.delete('p');
-		replaceState(url, page.state);
+		void replaceState(url, page.state);
 		query = url.search;
 	}
 	function href(id: string) {
@@ -193,7 +193,7 @@
 		restore();
 		window.addEventListener('popstate', restore);
 		void semanticMap.load((signal) =>
-			fetch(`${base}/data/semantic/map.json`, { signal })
+			fetch(dataUrl('semantic/map.json'), { signal })
 				.then(async (response) => {
 					if (response.status === 404) return null;
 					if (!response.ok) throw new Error('Could not load the semantic map. Reload to retry.');
@@ -223,7 +223,7 @@
 		const shard = `semantic/neighbours/${position % 256}.json`;
 		void neighbours.load(
 			(signal) =>
-				fetch(`${base}/data/${shard}`, { signal })
+				fetch(dataUrl(shard), { signal })
 					.then(async (response) => {
 						if (!response.ok)
 							throw new Error('Related speeches could not be loaded. Reload the page to retry.');

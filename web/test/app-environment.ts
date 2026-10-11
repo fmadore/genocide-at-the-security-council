@@ -1,5 +1,5 @@
 /**
- * Stands in for `$app/environment` while the tests run.
+ * Stands in for `$app/env` while the tests run.
  *
  * A SvelteKit virtual module, like `$app/paths` beside it. The modules under
  * test run in the browser, so that is what this says; a test about the

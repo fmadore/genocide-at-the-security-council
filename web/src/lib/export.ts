@@ -20,7 +20,7 @@
  *
  * **A file made from model labels says how far they have been checked.** The
  * caller passes a status line, built from what the payload says about the run
- * (`runStatus` in `$lib/usage`); it is printed under the title of the CSV and
+ * (`runStatus` in `#lib/usage`); it is printed under the title of the CSV and
  * of the image, and it is absent when the run is complete and checked.
  *
  * **An image states its filters in the image.** Not in the filename, which
@@ -98,7 +98,7 @@ export interface ExportRequest {
 	scope?: string;
 	/**
 	 * How far the rows can be trusted, where they rest on model labels nobody
-	 * has finished checking: `runStatus` in `$lib/usage`, read from the payload.
+	 * has finished checking: `runStatus` in `#lib/usage`, read from the payload.
 	 * Null or absent for a computed figure, and for a model run that is complete
 	 * and checked, so the line disappears by itself when the payload says so.
 	 */

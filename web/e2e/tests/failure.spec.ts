@@ -3,7 +3,7 @@
  *
  * Every route loads its artefacts in `+page.ts`, and SvelteKit replaces the
  * message of an error it did not raise with "Internal Error". The sentences
- * `$lib/data` writes — no connection, not in this release, refused by the
+ * `#lib/data` writes — no connection, not in this release, refused by the
  * boundary — are the ones a reader offline most needs on a page load, so the
  * hook in `hooks.client.ts` passes them through.
  *

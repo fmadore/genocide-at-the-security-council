@@ -2,14 +2,14 @@
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import Chart from '$lib/Chart.svelte';
-	import Contents from '$lib/Contents.svelte';
-	import Figure from '$lib/Figure.svelte';
-	import Icon from '$lib/Icon.svelte';
-	import PageMeta from '$lib/PageMeta.svelte';
-	import DotPlot from '$lib/DotPlot.svelte';
-	import FrameProfile from '$lib/FrameProfile.svelte';
-	import TermMatrix from '$lib/TermMatrix.svelte';
+	import Chart from '#lib/Chart.svelte';
+	import Contents from '#lib/Contents.svelte';
+	import Figure from '#lib/Figure.svelte';
+	import Icon from '#lib/Icon.svelte';
+	import PageMeta from '#lib/PageMeta.svelte';
+	import DotPlot from '#lib/DotPlot.svelte';
+	import FrameProfile from '#lib/FrameProfile.svelte';
+	import TermMatrix from '#lib/TermMatrix.svelte';
 	import {
 		facetLabel,
 		frameLabel,
@@ -20,7 +20,7 @@
 		morphology,
 		movers,
 		profile as frameProfile
-	} from '$lib/nodeframes';
+	} from '#lib/nodeframes.js';
 	import {
 		alignedRows,
 		compareTop,
@@ -35,9 +35,9 @@
 		type LanguageChoices,
 		type ProfileFacet,
 		type SliceKind
-	} from '$lib/language';
-	import { provenanceOf } from '$lib/export';
-	import type { ExportRequest } from '$lib/export';
+	} from '#lib/language.js';
+	import { provenanceOf } from '#lib/export.js';
+	import type { ExportRequest } from '#lib/export.js';
 	import {
 		count,
 		decimal,
@@ -47,13 +47,13 @@
 		shortCountry,
 		signed,
 		termLabel
-	} from '$lib/format';
-	import { axisX, axisY, colours, grid, textStyle, tooltip } from '$lib/theme';
-	import { PAGE_METADATA } from '$lib/seo';
-	import type { CollocateBlock } from '$lib/types';
+	} from '#lib/format.js';
+	import { axisX, axisY, colours, grid, textStyle, tooltip } from '#lib/theme.js';
+	import { PAGE_METADATA } from '#lib/seo.js';
+	import type { CollocateBlock } from '#lib/types.js';
 	import type { EChartsOption } from 'echarts';
 	import { untrack } from 'svelte';
-	import { urlState } from '$lib/url-state.svelte';
+	import { urlState } from '#lib/url-state.svelte.js';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
 
@@ -509,7 +509,7 @@
 
 	const periods = $derived(['whole', ...Object.keys(data.network.by_period)]);
 
-	/* The matrix's rows and cells for the chosen period: `$lib/language`. */
+	/* The matrix's rows and cells for the chosen period: `#lib/language`. */
 	const termsInMatrix = $derived(matrixTerms(data.network, period));
 	const edgesInMatrix = $derived(matrixEdges(data.network, period));
 
@@ -581,7 +581,7 @@
 			)
 	});
 
-	/* The aligned rows and the one scale both columns share: `$lib/language`. */
+	/* The aligned rows and the one scale both columns share: `#lib/language`. */
 	const aligned = $derived(alignedRows(blockA, blockB));
 	const scaleTop = $derived(compareTop(align, blockA, blockB));
 
