@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import math
+from collections.abc import Sequence
 from pathlib import Path
 
 from . import artifacts, model_runs, run_store
@@ -38,15 +40,51 @@ def select(document: dict, speeches, index: int):
     return [actual[identifier] for identifier in batches[index]]
 
 
-def merge(document: dict, speeches, sources: list[Path], output: Path) -> dict:
-    """Require every complete shard; never silently publish a partial union."""
+def within(document: dict, speeches, *, widened: bool):
+    """The current enumeration, cut back to the population a plan was drawn from.
+
+    A declared lexicon widening adds occurrences and moves none, so a plan drawn
+    before it still names occurrences that exist, and the ones the widening
+    added were never part of the run. `widened` says the lexicon declares such a
+    widening since the run's version. Anything else that separates the plan from
+    the corpus — an occurrence that moved or vanished — still refuses.
+    """
+    planned = set(document["population"])
+    current = {o.occurrence_id for s in speeches for o in s.occurrences}
+    if current == planned:
+        return list(speeches)
+    if not widened or not planned <= current:
+        raise ValueError("Batch plan does not match the current enumeration")
+    kept = []
+    for speech in speeches:
+        occurrences = [o for o in speech.occurrences if o.occurrence_id in planned]
+        if occurrences:
+            kept.append(dataclasses.replace(speech, occurrences=occurrences))
+    return kept
+
+
+def merge(document: dict, speeches, sources: list[Path], output: Path,
+          gaps: Sequence[str] = ()) -> dict:
+    """Require every shard to be complete, apart from the gaps the caller names.
+
+    A gap is a speech its batch asked about and never got an acceptable answer
+    for. Each one must be named, must still be outstanding in its batch and must
+    have a recorded failure, which the merged manifest repeats beside it. A
+    batch with any other speech outstanding is refused, so a partial union is
+    never published silently.
+    """
     if output.exists():
         raise ValueError("Merge output already exists; use a fresh run id")
     if len(sources) != len(document["batches"]):
         raise ValueError("Missing or extra batch directories")
+    wanted = set(gaps)
+    if len(wanted) != len(gaps):
+        raise ValueError("A gap is named twice")
     records: list[dict] = []
     manifests: list[dict] = []
     provenance: list[dict] = []
+    accepted: list[dict] = []
+    absent: set[str] = set()
     seen_batches: set = set()
     common = None
     for directory in sources:
@@ -62,16 +100,31 @@ def merge(document: dict, speeches, sources: list[Path], output: Path) -> dict:
         if batch.get("plan_sha256") != run_store.digest(document) or index in seen_batches:
             raise ValueError("Wrong plan or duplicate batch")
         selected = select(document, speeches, index)
+        missing = [s for s in selected if s.custom_id in wanted]
         expected = {o.occurrence_id for s in selected for o in s.occurrences}
-        if (manifest["status"] != "complete" or manifest["parse_failures"]
-                or {r["occurrence_id"] for r in rows} != expected
+        unanswered = {o.occurrence_id for s in missing for o in s.occurrences}
+        if (manifest["status"] != ("in_progress" if missing else "complete")
+                or manifest["parse_failures"] != len(missing)
+                or {r["occurrence_id"] for r in rows} != expected - unanswered
                 or identity["selected_speeches"] != sorted(s.custom_id for s in selected)
                 or identity["population"] != document["population"]
                 or manifest["occurrences"]["written"] != len(rows)
                 or manifest["occurrences"]["planned"] != len(expected)
-                or manifest["requests"]["complete"] != len(selected)
+                or manifest["requests"]["complete"] != len(selected) - len(missing)
                 or manifest["requests"]["planned"] != len(selected)):
             raise ValueError("Batch is incomplete or coverage disagrees")
+        # The last failure recorded for a speech is the reason it is still a gap.
+        failures = {str(row.get("custom_id", "")): row
+                    for row in model_runs.read_rows(directory / "failures.jsonl")}
+        for speech in missing:
+            failure = failures.get(speech.custom_id)
+            if failure is None:
+                raise ValueError(f"Gap {speech.custom_id} has no recorded failure")
+            accepted.append({"custom_id": speech.custom_id, "batch": directory.name,
+                             "occurrence_ids": sorted(o.occurrence_id for o in speech.occurrences),
+                             "kind": failure.get("kind", ""), "reason": failure.get("reason", ""),
+                             "recorded_at": failure.get("recorded_at", "")})
+        absent |= unanswered
         fields = ("model", "prompt_sha256", "prompt_version", "referents_sha256",
                   "referents_version", "schema_version", "lexicon_version", "runtime",
                   "reasoning_effort", "term")
@@ -86,14 +139,21 @@ def merge(document: dict, speeches, sources: list[Path], output: Path) -> dict:
                            "manifest_sha256": artifacts.sha256(directory / "manifest.json"),
                            "annotations_sha256": artifacts.sha256(directory / "annotations.jsonl"),
                            "probe_sha256": manifest["probe_sha256"]})
-    if {r["occurrence_id"] for r in records} != set(document["population"]):
+    if stray := wanted - {gap["custom_id"] for gap in accepted}:
+        raise ValueError(f"Named gaps outside every batch: {', '.join(sorted(stray))}")
+    if {r["occurrence_id"] for r in records} != set(document["population"]) - absent:
         raise ValueError("Merged population mismatch")
+    # A batch left with a gap never records `completed`; its last pass ended it.
+    ended = [m["completed"] or max(str(p["at"]) for p in m["passes"]) for m in manifests]
     merged = {**manifests[0], "run_id": output.name, "limit": None,
+              "status": "partial" if accepted else "complete",
               "created": min(m["created"] for m in manifests),
-              "completed": max(m["completed"] for m in manifests),
+              "completed": max(ended),
               "requests": {key: sum(m["requests"][key] for m in manifests)
                            for key in ("planned", "sent", "returned", "complete")},
-              "occurrences": {"planned": len(records), "written": len(records)},
+              "occurrences": {"planned": len(document["population"]), "written": len(records)},
+              "parse_failures": len(accepted),
+              "gaps": sorted(accepted, key=lambda gap: gap["custom_id"]),
               "usage": {key: sum(m["usage"][key] for m in manifests) for key in manifests[0]["usage"]},
               "passes": [p for m in manifests for p in m["passes"]],
               "assembly": {"plan_sha256": run_store.digest(document), "sources": provenance}}

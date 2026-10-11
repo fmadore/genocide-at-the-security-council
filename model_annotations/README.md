@@ -44,15 +44,19 @@ model revision, the vLLM version, the hardware and the sampling settings
 workspace has been pushed from a clean tree since 18 September 2026, so later
 runs cite a commit that exists.
 
-The comparison run (Gemma 4 31B IT, same prompt) is not published:
-`comparison_run.txt` is empty. The four hosted runs of August 2026 remain
+The comparison run, `2026-09-09-gemma4` (Gemma 4 31B IT, same prompt), is
+committed but not published: `comparison_run.txt` is empty. It covers 4,130 of
+4,133 speeches. Its manifest reads `status: partial` and lists the three it
+leaves out under `gaps`, each with the failure its batch last recorded; why they
+were left out is in `docs/VALIDATION.md` §7. The four hosted runs of August 2026 remain
 historical provenance for the retired corpus and must not be joined to v5.
 
 Files below this directory are durable, version-controlled research inputs, exactly as the
 ones under `annotations/` are. The difference is who wrote them: `scripts/14_llm_annotate.py`
 writes a run through a pinned open-weights model on university hardware.
 `scripts/annotation_batches.py merge` can assemble complete independent batches
-into a new run, retaining their hashes and leaving the originals untouched. Every later step
+into a new run, retaining their hashes and leaving the originals untouched. A
+speech no pass could answer is left out only if it is named with `--accept-gap`. Every later step
 reads it. Nothing rebuilds it — not a pipeline re-run, not CI, not the deploy.
 
 That is a constraint, not a filing preference. The GitHub Pages deploy rebuilds all derived
