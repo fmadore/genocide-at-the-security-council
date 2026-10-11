@@ -12,7 +12,7 @@ export default {
 	kit: {
 		// Browser tests serve a tiny committed payload through the real routes.
 		// Production and ordinary development continue to use `static/`.
-		files: fixtureMode ? { assets: 'e2e/fixtures' } : undefined,
+		files: { assets: fixtureMode ? 'e2e/fixtures' : 'static' },
 		// `fallback` makes the reader an SPA route. Prerendering it would mean
 		// generating 9,464 document pages to display text already fetched as JSON.
 		adapter: adapter({ fallback: '404.html', strict: true }),
