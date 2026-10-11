@@ -159,7 +159,7 @@ runs on the current corpus:
 | Run | Model | Prompt | Coverage | Parse failures | Evidence invalid | State |
 |---|---|---|---|---:|---:|---|
 | `2026-09-08-qwen-131k` | `Qwen/Qwen3.8-27B` at revision `1d4bf0f2ff60`, effort xhigh | v3 `3772c44d400f` | 4,097 of 4,133 speeches, 7,694 of 7,747 occurrences (lexicon 6) | 36 | 24 (3 relocated) | stopped partial run, published as a preview |
-| Gemma corpus run (batches) | `google/gemma-4-31B-it` at revision `842da3794eaa`, thinking on | v3 | 4,129 of 4,133 speeches on 8 October 2026 | — | — | four speeches (two truncations, two validation failures) block the merge; not fetched or committed |
+| `2026-09-09-gemma4` | `google/gemma-4-31B-it` at revision `842da3794eaa`, thinking on | v3 `3772c44d400f` | 4,130 of 4,133 speeches, 7,725 of 7,747 occurrences (lexicon 7) | 3 | 30 (5 relocated) | merged from 17 batches on 11 October 2026 with three documented gaps; committed, not published (`comparison_run.txt` is empty) |
 
 Of the Qwen run's 36 speeches without an accepted response, 34 carry a display
 name where a referent identifier was required and 2 were cut off at the output
@@ -169,6 +169,26 @@ including the 36 speeches a later pass recovered. Its 24 unlocated evidence quot
 repaired. Why its manifest still reads `in_progress` and why its commit ends in
 `-dirty` is explained in [`model_annotations/README.md`](../model_annotations/README.md).
 No human has checked either run (check 6).
+
+The Gemma run leaves out three speeches, 22 occurrences in all. Each failed the
+same way on all four of its batch's passes, the last on 10 October 2026. They are
+named in the merge command and listed in the manifest's `gaps`:
+
+| Speech | Batch | Occurrences | Last failure |
+|---|---:|---:|---|
+| SC03203-01-007 | 15 | 2 | cut off at the output limit |
+| SC07155-01-013 | 5 | 16 | contradicts itself: no concrete case, yet a `conditional` speaker position, which only a concrete case can carry |
+| SC09241-02-044 | 11 | 4 | names a referent that is not on the list ("genocide in general") |
+
+They were not retried further. At temperature 0 the model gives nearly the same
+answer each time, and the only ways to force one change the instrument: a larger
+output allowance, or looser validation, neither of which the Qwen run had.
+Nothing was repaired. Its `failures.jsonl` keeps every refused response, 79 over
+58 speeches (71 cut off, 8 invalid), including the 55 speeches a later pass
+recovered. Its 30 unlocated evidence
+quotes are flagged `evidence_valid=false`, as Qwen's are. The run was asked under
+lexicon 7 and so does not cover the 40 occurrences lexicon 8 added
+(`docs/CLUSTER.md`, "A run older than the lexicon").
 
 The records of the four hosted runs made on the retired corpus in August 2026 —
 their register, the recount of the Gemini manifest, the `cost_usd` check, the
@@ -391,8 +411,12 @@ stability across instruments, never validation.
 
 *Status, 8 October 2026:* the published Qwen run passed its reasoning probe (`probe.json` is
 committed with the run). Its `failures.jsonl` records four truncated responses; two of
-those speeches were recovered by the second pass and two remain without a response. The
-paired check waits on the Gemma run, which is not yet merged.
+those speeches were recovered by the second pass and two remain without a response.
+
+*Status, 11 October 2026:* the Gemma run recorded 71 cut-off responses over its four
+passes. All but one of those speeches were answered on a later pass; SC03203-01-007 is
+documented above as a gap. Every batch passed its reasoning probe before annotating. The
+run is merged, so the paired check can now be made; it has not been.
 
 ## Website checks
 

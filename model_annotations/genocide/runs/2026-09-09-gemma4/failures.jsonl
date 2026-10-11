@@ -1,0 +1,79 @@
+{"custom_id": "SC03656-01-003", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-0", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09443-01-039", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-0", "recorded_at": "2026-09-18"}
+{"custom_id": "SC02394-01-007", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-1", "recorded_at": "2026-09-18"}
+{"custom_id": "SC03566-01-006", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-1", "recorded_at": "2026-09-18"}
+{"custom_id": "SC07155-01-009", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-1", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09298-01-018", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-1", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09651-01-013", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-1", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09760-01-007", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-1", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09760-01-007", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-1", "recorded_at": "2026-09-24"}
+{"custom_id": "SC03492-02-005", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-10", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09451-02-018", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-10", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09241-02-044", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-09-gemma4-batch-11", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09241-02-044", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-09-gemma4-batch-11", "recorded_at": "2026-09-24"}
+{"custom_id": "SC09241-02-044", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-09-gemma4-batch-11", "recorded_at": "2026-10-08"}
+{"custom_id": "SC09241-02-044", "kind": "validation_failure", "reason": "ValueError: Unknown referent: genocide in general", "run_id": "2026-09-09-gemma4-batch-11", "recorded_at": "2026-10-10"}
+{"custom_id": "SC07419-01-053", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-12", "recorded_at": "2026-09-22"}
+{"custom_id": "SC08953-02-046", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-12", "recorded_at": "2026-09-22"}
+{"custom_id": "SC08953-02-046", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-12", "recorded_at": "2026-09-24"}
+{"custom_id": "SC02600-01-025", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-13", "recorded_at": "2026-09-22"}
+{"custom_id": "SC07155-01-021", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-13", "recorded_at": "2026-09-22"}
+{"custom_id": "SC09687-02-057", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-13", "recorded_at": "2026-09-22"}
+{"custom_id": "SC02600-01-025", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-13", "recorded_at": "2026-09-24"}
+{"custom_id": "SC01030-01-002", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-14", "recorded_at": "2026-09-22"}
+{"custom_id": "SC07419-01-002", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-14", "recorded_at": "2026-09-22"}
+{"custom_id": "SC01383-01-006", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-15", "recorded_at": "2026-09-22"}
+{"custom_id": "SC03203-01-007", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-15", "recorded_at": "2026-09-22"}
+{"custom_id": "SC05834-02-078", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-15", "recorded_at": "2026-09-22"}
+{"custom_id": "SC09443-01-031", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-15", "recorded_at": "2026-09-22"}
+{"custom_id": "SC03203-01-007", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-15", "recorded_at": "2026-09-24"}
+{"custom_id": "SC03203-01-007", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-15", "recorded_at": "2026-10-08"}
+{"custom_id": "SC03203-01-007", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-15", "recorded_at": "2026-10-10"}
+{"custom_id": "SC01383-01-014", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-16", "recorded_at": "2026-09-22"}
+{"custom_id": "SC05594-01-021", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-16", "recorded_at": "2026-09-22"}
+{"custom_id": "SC07155-01-007", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-16", "recorded_at": "2026-09-22"}
+{"custom_id": "SC01383-01-014", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-16", "recorded_at": "2026-09-24"}
+{"custom_id": "SC04883-01-005", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-2", "recorded_at": "2026-09-18"}
+{"custom_id": "SC05594-01-028", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-2", "recorded_at": "2026-09-18"}
+{"custom_id": "SC05086-02-040", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-3", "recorded_at": "2026-09-18"}
+{"custom_id": "SC07814-01-004", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-3", "recorded_at": "2026-09-18"}
+{"custom_id": "SC08790-01-025", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-3", "recorded_at": "2026-09-18"}
+{"custom_id": "SC08880-01-025", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-3", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09704-01-027", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-3", "recorded_at": "2026-09-18"}
+{"custom_id": "SC07814-01-004", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-3", "recorded_at": "2026-09-24"}
+{"custom_id": "SC02420-01-006", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-4", "recorded_at": "2026-09-18"}
+{"custom_id": "SC07192-01-018", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-4", "recorded_at": "2026-09-18"}
+{"custom_id": "SC02420-01-006", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-4", "recorded_at": "2026-09-24"}
+{"custom_id": "SC02459-01-014", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-5", "recorded_at": "2026-09-18"}
+{"custom_id": "SC05096-01-023", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-5", "recorded_at": "2026-09-18"}
+{"custom_id": "SC07155-01-013", "kind": "validation_failure", "reason": "ValueError: concrete_case 'no' and speaker_position 'no_position' are one decision: got 'no' and 'conditional'.", "run_id": "2026-09-09-gemma4-batch-5", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09453-01-025", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-5", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09681-01-020", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-5", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09615-01-022", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-5", "recorded_at": "2026-09-18"}
+{"custom_id": "SC07155-01-013", "kind": "validation_failure", "reason": "ValueError: concrete_case 'no' and speaker_position 'no_position' are one decision: got 'no' and 'conditional'.", "run_id": "2026-09-09-gemma4-batch-5", "recorded_at": "2026-09-24"}
+{"custom_id": "SC09681-01-020", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-5", "recorded_at": "2026-09-24"}
+{"custom_id": "SC07155-01-013", "kind": "validation_failure", "reason": "ValueError: concrete_case 'no' and speaker_position 'no_position' are one decision: got 'no' and 'conditional'.", "run_id": "2026-09-09-gemma4-batch-5", "recorded_at": "2026-10-08"}
+{"custom_id": "SC07155-01-013", "kind": "validation_failure", "reason": "ValueError: concrete_case 'no' and speaker_position 'no_position' are one decision: got 'no' and 'conditional'.", "run_id": "2026-09-09-gemma4-batch-5", "recorded_at": "2026-10-10"}
+{"custom_id": "SC01075-01-006", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-6", "recorded_at": "2026-09-18"}
+{"custom_id": "SC07137-01-004", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-6", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09241-01-015", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-6", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09651-01-021", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-6", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09659-01-006", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-6", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09241-01-015", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-6", "recorded_at": "2026-09-24"}
+{"custom_id": "SC09651-01-021", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-6", "recorded_at": "2026-09-24"}
+{"custom_id": "SC09659-01-006", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-6", "recorded_at": "2026-09-24"}
+{"custom_id": "SC09659-01-006", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-6", "recorded_at": "2026-10-08"}
+{"custom_id": "SC03542-01-012", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-7", "recorded_at": "2026-09-18"}
+{"custom_id": "SC03870-01-009", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-7", "recorded_at": "2026-09-18"}
+{"custom_id": "SC07192-01-023", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-7", "recorded_at": "2026-09-18"}
+{"custom_id": "SC08262-01-006", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-7", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09427-01-025", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-7", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09427-01-025", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-7", "recorded_at": "2026-09-24"}
+{"custom_id": "SC01751-01-034", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-8", "recorded_at": "2026-09-18"}
+{"custom_id": "SC07105-01-093", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-8", "recorded_at": "2026-09-18"}
+{"custom_id": "SC07073-01-004", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-8", "recorded_at": "2026-09-18"}
+{"custom_id": "SC07533-02-050", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-8", "recorded_at": "2026-09-18"}
+{"custom_id": "SC09621-01-002", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-8", "recorded_at": "2026-09-18"}
+{"custom_id": "SC00791-01-003", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-9", "recorded_at": "2026-09-18"}
+{"custom_id": "SC04092-01-025", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-9", "recorded_at": "2026-09-18"}
+{"custom_id": "SC08576-01-006", "kind": "truncation", "reason": "truncated: response incomplete (max_output_tokens)", "run_id": "2026-09-09-gemma4-batch-9", "recorded_at": "2026-09-18"}
