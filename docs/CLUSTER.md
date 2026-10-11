@@ -165,6 +165,34 @@ validation counters and probe hashes. The assembled run is for downstream
 review, not for resuming inference. Publication still requires explicit run
 selection and research review.
 
+**A speech that never gets an acceptable answer.** Some speeches fail the same
+way on every pass. At temperature 0 the model gives nearly the same answer each
+time, so another retry only spends GPU time, and forcing an answer would change
+the instrument: a larger output allowance, or looser validation. Such a speech
+can be left out, but only by naming it:
+
+```bash
+python scripts/annotation_batches.py merge \
+  --plan data/interim/gemma-plan.json \
+  --output model_annotations/genocide/runs/2026-09-09-gemma4 \
+  --accept-gap SC07155-01-013 --accept-gap SC09241-02-044 --accept-gap SC03203-01-007 \
+  <batch directories>/2026-09-09-gemma4-batch-*
+```
+
+A named speech must still be unanswered in its batch, and the batch must have
+recorded a failure for it. A batch with any other speech outstanding is still
+refused, and so is a named speech that was in fact answered. The merged manifest
+reads `status: partial`, counts the gaps in `parse_failures` and lists each in
+`gaps`, with its batch, its occurrences and the last failure recorded for it.
+Every gap is also recorded by hand in `docs/VALIDATION.md` §7.
+
+**A run older than the lexicon.** The merge reads the current corpus. When the
+lexicon has since declared a widening of the term (`widened_since`), the plan's
+population is a subset of today's, and the run is merged over the population it
+was asked about. The occurrences the widening added are a known gap, which step
+15 reports. An occurrence the plan names that no longer exists still refuses the
+merge. The Gemma run was asked under lexicon 7 and merged under lexicon 8.
+
 The server binds `127.0.0.1`, uses weights prefetched at an immutable Hugging
 Face revision, and runs offline on the compute node. No API key is involved.
 

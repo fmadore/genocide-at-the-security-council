@@ -1,4 +1,5 @@
 import copy
+import dataclasses
 import json
 from types import SimpleNamespace
 
@@ -94,3 +95,79 @@ def test_merge_refuses_bad_shards_without_writing_output(tmp_path, fault):
     with pytest.raises(ValueError):
         batches.merge(document, speeches, paths, tmp_path / "assembled")
     assert not (tmp_path / "assembled").exists()
+
+
+def leave_gap(path, speech_id, failure=True):
+    """Turn one batch into a run that never answered `speech_id`."""
+    rows = [json.loads(line) for line in (path / "annotations.jsonl").read_text(encoding="utf-8").splitlines()]
+    kept = [row for row in rows if row["occurrence_id"] != "o" + speech_id[1:]]
+    (path / "annotations.jsonl").write_text("".join(json.dumps(r) + "\n" for r in kept))
+    manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
+    manifest.update(status="in_progress", parse_failures=1, completed=None,
+                    passes=[{"at": "2026-10-10T07:13:57Z"}])
+    manifest["requests"]["complete"] -= 1
+    manifest["occurrences"]["written"] -= 1
+    (path / "manifest.json").write_text(json.dumps(manifest))
+    if failure:
+        (path / "failures.jsonl").write_text("".join(json.dumps(r) + "\n" for r in (
+            {"custom_id": speech_id, "kind": "truncation", "reason": "first", "recorded_at": "2026-09-24"},
+            {"custom_id": speech_id, "kind": "validation_failure", "reason": "last", "recorded_at": "2026-10-10"},
+        )))
+
+
+def test_merge_keeps_a_named_gap_with_its_last_recorded_failure(tmp_path):
+    document, speeches, paths = shards(tmp_path)
+    leave_gap(paths[0], "s0")
+    merged = batches.merge(document, speeches, paths, tmp_path / "assembled", ["s0"])
+    assert merged["status"] == "partial"
+    assert merged["parse_failures"] == 1
+    assert merged["requests"]["complete"] == 6
+    assert merged["occurrences"] == {"planned": 7, "written": 6}
+    assert merged["completed"] == "2026-10-10T07:13:57Z"
+    [gap] = merged["gaps"]
+    assert gap == {"custom_id": "s0", "batch": "batch-0", "occurrence_ids": ["o0"],
+                   "kind": "validation_failure", "reason": "last", "recorded_at": "2026-10-10"}
+    written = (tmp_path / "assembled" / "annotations.jsonl").read_text(encoding="utf-8")
+    assert '"o0"' not in written
+
+
+def test_a_complete_merge_lists_no_gaps(tmp_path):
+    document, speeches, paths = shards(tmp_path)
+    merged = batches.merge(document, speeches, paths, tmp_path / "assembled")
+    assert merged["status"] == "complete"
+    assert merged["gaps"] == []
+
+
+@pytest.mark.parametrize("fault", ["unnamed", "answered", "stranger", "twice", "unrecorded"])
+def test_merge_refuses_a_gap_that_is_not_named_outstanding_and_recorded(tmp_path, fault):
+    document, speeches, paths = shards(tmp_path)
+    leave_gap(paths[0], "s0", failure=fault != "unrecorded")
+    gaps = {"unnamed": [], "answered": ["s0", "s1"], "stranger": ["s0", "s99"],
+            "twice": ["s0", "s0"], "unrecorded": ["s0"]}[fault]
+    with pytest.raises(ValueError):
+        batches.merge(document, speeches, paths, tmp_path / "assembled", gaps)
+    assert not (tmp_path / "assembled").exists()
+
+
+@dataclasses.dataclass(frozen=True)
+class Speech:
+    custom_id: str
+    occurrences: list
+
+
+def test_within_drops_only_what_a_declared_widening_added():
+    occurrence = lambda name: SimpleNamespace(occurrence_id=name)  # noqa: E731
+    before = [Speech("s0", [occurrence("o0")]), Speech("s1", [occurrence("o1")])]
+    document = batches.plan(before, 1)
+    after = [Speech("s0", [occurrence("o0"), occurrence("o0b")]), Speech("s1", [occurrence("o1")]),
+             Speech("s2", [occurrence("o2")])]
+    assert batches.within(document, before, widened=False) == before
+    with pytest.raises(ValueError, match="current enumeration"):
+        batches.within(document, after, widened=False)
+    cut = batches.within(document, after, widened=True)
+    assert [(s.custom_id, [o.occurrence_id for o in s.occurrences]) for s in cut] == [
+        ("s0", ["o0"]), ("s1", ["o1"])]
+    assert batches.select(document, cut, 0)[0].custom_id == "s0"
+    moved = [Speech("s0", [occurrence("o0x")]), Speech("s1", [occurrence("o1")])]
+    with pytest.raises(ValueError, match="current enumeration"):
+        batches.within(document, moved, widened=True)
