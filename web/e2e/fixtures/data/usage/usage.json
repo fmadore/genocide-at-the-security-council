@@ -399,6 +399,9 @@
 				"n": 4,
 				"observed": 1.0,
 				"kappa": null,
+				"kappa_withheld": true,
+				"minority_share": 0.0,
+				"pabak": 1.0,
 				"contested": 0
 			},
 			{
@@ -406,6 +409,9 @@
 				"n": 4,
 				"observed": 1.0,
 				"kappa": 1.0,
+				"kappa_withheld": false,
+				"minority_share": 0.5,
+				"pabak": 1.0,
 				"contested": 0
 			},
 			{
@@ -413,6 +419,9 @@
 				"n": 4,
 				"observed": 0.5,
 				"kappa": 0.2,
+				"kappa_withheld": false,
+				"minority_share": 0.25,
+				"pabak": 0.0,
 				"contested": 2
 			},
 			{
@@ -420,6 +429,9 @@
 				"n": 4,
 				"observed": 0.75,
 				"kappa": 0.6,
+				"kappa_withheld": false,
+				"minority_share": 0.25,
+				"pabak": 0.5,
 				"contested": 1
 			}
 		],
