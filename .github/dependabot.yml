@@ -17,6 +17,13 @@ updates:
     groups:
       web:
         patterns: ['*']
+    ignore:
+      # TypeScript 7 cannot be installed beside the toolchain yet: on 11 October
+      # 2026 svelte-check 4.7.6 and SvelteKit 3.0.1 accept TypeScript ^5 or ^6,
+      # and typescript-eslint 8.71.1 accepts <6.1, so `npm ci` stops on a peer
+      # conflict and none of the checks run. Remove this once all three accept 7.
+      - dependency-name: typescript
+        versions: ['>=7']
   - package-ecosystem: github-actions
     directory: /
     schedule:
