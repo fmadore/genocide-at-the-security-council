@@ -31,7 +31,7 @@ what the model's scores are read against, so a case coded once is not yet gold.
 **Three frames, and one design over them.** There are 120 occurrences drawn with equal
 probability, 80 more that cover every period and usage-cue stratum, and a third frame of 269
 cut from the published model run's labels (`model_strata`), so that the rare positions are
-measurable at all. Once a second run is named in `comparison_run.txt`, step 13 cuts the third
+measurable at all. Once a second run is named in `gold_comparison_run.txt`, step 13 cuts the third
 frame from where the two runs disagree instead, which changes the sample: freeze it before
 coding starts ([`docs/EVALUATION_PLAN.md`](../docs/EVALUATION_PLAN.md)). The frames are reported one by one, and
 `genocide_gold_design.csv` gives every occurrence its probability under each frame and under

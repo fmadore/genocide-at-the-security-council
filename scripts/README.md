@@ -178,8 +178,10 @@ computed, never merged: `current_run.txt` still names the only run the matrix, p
 diffusion figures are drawn from, and agreement between two models is stability across
 instruments, never accuracy.
 
-**Run 13 again once both runs are committed.** Its third sampling frame is cut from the
-pair named in `current_run.txt` and `comparison_run.txt`, and is empty without them. The
+**The gold sample has its own pointer.** 13's third sampling frame is cut from the pair
+named in `current_run.txt` and `gold_comparison_run.txt`; with the second empty, it is cut
+from the published run alone. Publishing a comparison in `comparison_run.txt` does not touch
+the sample. The
 frames are written to one file each under `data/interim/`, and nothing under `annotations/`
 is touched by any of it.
 

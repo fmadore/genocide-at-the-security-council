@@ -122,9 +122,10 @@ examples, in three frames:
 | coverage | 80 | one occurrence per decade × usage-cue stratum, then a random fill |
 | model_strata | 269 | the published run's rare labels: 100 `rejects`, all 9 pre-onset referents, 40 `other`, 60 `reports_without_position`, 60 `conditional` |
 
-Once a comparison run is named in `comparison_run.txt`, step 13 draws the disagreement frame
+Once a second run is named in `gold_comparison_run.txt`, step 13 draws the disagreement frame
 over the two runs in place of `model_strata`, which redraws the sample; it must therefore be
-frozen before coding starts ([EVALUATION_PLAN.md](EVALUATION_PLAN.md), section 3). The 59
+frozen before coding starts. Naming a run in `comparison_run.txt`, which only the usage view
+reads, leaves the sample alone (decided by FM, 11 October 2026) ([EVALUATION_PLAN.md](EVALUATION_PLAN.md), section 3). The 59
 passages read against Qwen's labels on 10 September 2026 are flagged wherever they fall in
 the sample (decided by FM, 9 October 2026; same plan, section 4). Every frame is reported alone, and `genocide_gold_design.csv` records each
 occurrence's probability under each frame and under their union, so every coded unit can
@@ -159,7 +160,7 @@ runs on the current corpus:
 | Run | Model | Prompt | Coverage | Parse failures | Evidence invalid | State |
 |---|---|---|---|---:|---:|---|
 | `2026-09-08-qwen-131k` | `Qwen/Qwen3.8-27B` at revision `1d4bf0f2ff60`, effort xhigh | v3 `3772c44d400f` | 4,097 of 4,133 speeches, 7,694 of 7,747 occurrences (lexicon 6) | 36 | 24 (3 relocated) | stopped partial run, published as a preview |
-| `2026-09-09-gemma4` | `google/gemma-4-31B-it` at revision `842da3794eaa`, thinking on | v3 `3772c44d400f` | 4,130 of 4,133 speeches, 7,725 of 7,747 occurrences (lexicon 7) | 3 | 30 (5 relocated) | merged from 17 batches on 11 October 2026 with three documented gaps; committed, not published (`comparison_run.txt` is empty) |
+| `2026-09-09-gemma4` | `google/gemma-4-31B-it` at revision `842da3794eaa`, thinking on | v3 `3772c44d400f` | 4,130 of 4,133 speeches, 7,725 of 7,747 occurrences (lexicon 7) | 3 | 30 (5 relocated) | merged from 17 batches on 11 October 2026 with three documented gaps; published the same day as the second opinion (`comparison_run.txt`), not used by the gold sample |
 
 Of the Qwen run's 36 speeches without an accepted response, 34 carry a display
 name where a referent identifier was required and 2 were cut off at the output
@@ -844,7 +845,7 @@ every one of the 91 evidence quotes was located as an exact substring of its spe
 Per-field observed agreement against `2026-08-30-luna-pilot` is verdict 91/91,
 quotation 86/91, referent 86/91, stance 81/91, function 69/91 by set equality. This is
 stability across instruments and not accuracy; the gold sample remains the only
-calibration. No Gemini run is published: `comparison_run.txt` is still empty.
+calibration. No Gemini run is published.
 
 `2026-08-31-gemini-v1` is the counter-instrument over the whole corpus. It annotates the
 same 6,092 occurrences as `2026-08-30-luna-v1` — every occurrence id is present in both

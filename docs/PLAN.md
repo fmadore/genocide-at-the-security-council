@@ -16,7 +16,7 @@ The section numbers (§1.1, §3, §4, §5, §6, §7, §7.3, §7.5) and the item 
 |---|---|
 | Corpus | Sakamoto and Matsuoka v5.0, 1946–2024, pinned by checksum ([CORPUS.md](CORPUS.md)). Lexicon v8 finds `g[eé]nocid*` in 4,136 speeches, 7,787 occurrences. |
 | Published model layer | A **partial, unvalidated preview**: Qwen3.8-27B run `2026-09-08-qwen-131k`, prompt v3, 4,097 of 4,133 speeches and 7,694 of 7,747 occurrences (7,694 of 7,787 since lexicon v8). See [model_annotations/README.md](../model_annotations/README.md). |
-| Comparison run | Gemma 4 31B IT, prompt v3, run `2026-09-09-gemma4`: 4,130 of 4,133 speeches and 7,725 of 7,747 occurrences, merged from its 17 batches on 11 October 2026. Three speeches that failed on every pass (one truncation, two validation failures) are documented gaps ([VALIDATION.md](VALIDATION.md) §7). Committed, not published; `comparison_run.txt` is empty. |
+| Comparison run | Gemma 4 31B IT, prompt v3, run `2026-09-09-gemma4`: 4,130 of 4,133 speeches and 7,725 of 7,747 occurrences, merged from its 17 batches on 11 October 2026. Three speeches that failed on every pass (one truncation, two validation failures) are documented gaps ([VALIDATION.md](VALIDATION.md) §7). Published as the second opinion on 11 October 2026 (`comparison_run.txt`); the gold sample does not follow it (`gold_comparison_run.txt` is empty). |
 | Gold sample | Drawn on 24 September 2026: 469 rows over 453 occurrences, in three frames. **0 of 469 rows coded.** The evaluation rules are a proposal ([EVALUATION_PLAN.md](EVALUATION_PLAN.md)). |
 | Semantic map | Experimental. Restored at every build from the pinned release `semantic-2026-09-11` (§4). |
 | Citable release | None yet. [RELEASING.md](RELEASING.md) explains how to cut one. |
@@ -31,7 +31,7 @@ figure resting on model labels is validated.
 |---|---|---|
 | 1 | Decide the evaluation plan, starting with instrument v3 or v4 (R1; ROADMAP open item 2) | FM and JG have settled the open points in [EVALUATION_PLAN.md](EVALUATION_PLAN.md), the plan is committed with its date, and the sample is frozen. |
 | 2 | Code and adjudicate the gold sample (H1–H2, ROADMAP open item 1) | Every row double-coded, disagreements adjudicated, results reported as the plan requires. No automated replacement for human verdicts. |
-| 3 | Finish the Gemma comparison run | Merged and committed on 11 October 2026 with three documented gaps. Still to do: the run is inspected, and a decision on publishing it is recorded. Naming it in `comparison_run.txt` redraws the gold sample's third frame, so it waits until the sample is frozen. |
+| 3 | Finish the Gemma comparison run | Merged and committed on 11 October 2026 with three documented gaps, and published as the second opinion the same day (decided by FM). Step 13 now reads its second run from `gold_comparison_run.txt`, which stays empty, so the sample is unchanged. Still to do: the run is inspected. Whether the sample's third frame becomes the disagreement frame is part of priority 1. |
 | 4 | Cut a citable preview, "v0.1 — unvalidated preview", if FM chooses | Released and archived as [RELEASING.md](RELEASING.md) describes. It does not close the release gate (§1.3). |
 | 5 | Human checks outside the gold sample | First events on the diffusion curves (ROADMAP open item 3), the source checks and lexicon audit in [VALIDATION.md](VALIDATION.md). |
 | 6 | R2 / R8 / R10: interpretive extensions | Wait for reviewed, validated role and referent evidence. |
@@ -386,7 +386,7 @@ Stable IDs are kept for code references; they are not separate planning files.
 | I1–I4, A1–A3 | Integrity metadata and contracts, separate candidate stores, identities and annotation machinery implemented. A4 and H1–H2 wait on the coders. |
 | U1–U10 | Evidence navigation, URL state, basket, result profiles, page metadata, contents and word budgets implemented; maintain browser coverage. |
 | M1–M5 | Shared boundaries, payload measurements, build-graph, cache and export repairs and lexicon-edit instructions implemented; further optimisation is evidence-driven. |
-| L1–L8 / C1–C7 | Local model machinery and the cluster safeguards exist. The Qwen preview is published; the Gemma run is merged but not published; human validation is pending. Historical model runs are not current results. |
+| L1–L8 / C1–C7 | Local model machinery and the cluster safeguards exist. The Qwen preview is published, with the Gemma run as its second opinion; human validation is pending. Historical model runs are not current results. |
 | R3–R7, R9, R11, R14 | Provenance, confidence removal, fullscreen, published referents, term-only lexicon, scope control, aggression phrase and navigation implemented. |
 | R8 | Computed first stage exists; model-dependent interpretation remains gated. |
 | R1, R2, R10, R12, R13, R15 | Prepared or awaiting evidence or author decisions, detailed below. |

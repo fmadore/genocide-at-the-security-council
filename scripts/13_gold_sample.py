@@ -46,8 +46,11 @@ Three properties it is built for:
   other's work.
 
 The disagreement frame reads `model_annotations/genocide/` — the run named in
-`current_run.txt` and the counter-instrument named in `comparison_run.txt` — and
-reads nothing else from them. **A model label is a sampling stratum here in
+`current_run.txt` and the second run named in `gold_comparison_run.txt` — and
+reads nothing else from them. That second pointer is the sample's own, apart
+from the `comparison_run.txt` the usage view reads, so that publishing a second
+opinion on the site does not redraw the sample under the coders (decided by FM,
+11 October 2026). **A model label is a sampling stratum here in
 exactly the sense the cue is**: it says this occurrence is worth a coder's time,
 never what the coder should write. Where only the published run exists, the
 third frame is the *model-stratified* one instead: the same strata read off one
@@ -156,9 +159,10 @@ REFERENTS = model_runs.REFERENTS
 # --- The disagreement-stratified frame ---------------------------------------
 
 #: The committed model runs the second frame is cut from, named the way
-#: `15_usage.py` names them: one file holding one run id, or empty.
+#: `15_usage.py` names them: one file holding one run id, or empty. The second
+#: is the sample's own pointer, not the usage view's `comparison_run.txt`.
 CURRENT_RUN = model_runs.CURRENT_RUN
-COMPARISON_RUN = model_runs.COMPARISON_RUN
+GOLD_COMPARISON_RUN = model_runs.GOLD_COMPARISON_RUN
 RUNS = model_runs.RUNS
 
 GOLD_DISAGREEMENT = INTERIM / "genocide_gold_disagreement.csv"
@@ -203,7 +207,7 @@ def stratify(
     after `data/` is rebuilt: the disagreement frame is then empty, the
     probability and coverage frames are unaffected, and the note says as much.
     """
-    published_id, comparison_id = named_run(CURRENT_RUN), named_run(COMPARISON_RUN)
+    published_id, comparison_id = named_run(CURRENT_RUN), named_run(GOLD_COMPARISON_RUN)
     published, comparison = read_run(published_id), read_run(comparison_id)
     population = set(candidates["occurrence_id"].astype(str))
     candidates.attrs["model_overlap"] = {
@@ -274,7 +278,7 @@ def stratum_rows(candidates: pd.DataFrame, sample: pd.DataFrame) -> list[str]:
     if drawn.empty:
         return [
             "No committed run pair, so no disagreement frame. `current_run.txt` and",
-            "`comparison_run.txt` name the two runs it is cut from; both must exist.",
+            "`gold_comparison_run.txt` name the two runs it is cut from; both must exist.",
         ]
     rows = [
         "| Stratum | In the corpus | Drawn | Inclusion probability |",
@@ -522,7 +526,7 @@ def run(probability: int, coverage: int, seed: int) -> None:
     manifest = artifacts.provenance(
         ROOT,
         "13_gold_sample.py",
-        inputs=[SPEECHES_NORM, CURRENT_RUN, COMPARISON_RUN,
+        inputs=[SPEECHES_NORM, CURRENT_RUN, GOLD_COMPARISON_RUN,
                 *(path for name in (published_run, comparison_run) if name
                   for path in model_runs.files(RUNS / name))],
         configs=[LEXICON, GOLD_ANNOTATIONS, REFERENTS, PROMPT_EXAMPLES, PRIOR_REVIEW,

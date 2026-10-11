@@ -119,12 +119,16 @@ the codebook requires.
 The sample is not stored in the repository. Step 13 redraws it on every build,
 deterministically, from three inputs: the occurrence population (the lexicon),
 the run named in `model_annotations/genocide/current_run.txt`, and the run named
-in `comparison_run.txt`. Two foreseeable changes would redraw a different sample
+in `gold_comparison_run.txt`. Two foreseeable changes would redraw a different sample
 under the coders:
 
-- Naming the Gemma run in `comparison_run.txt` makes step 13 replace the
+- Naming the Gemma run in `gold_comparison_run.txt` makes step 13 replace the
   `model_strata` frame with a `disagreement` frame cut from where the two runs
-  differ.
+  differ. That frame takes every occurrence either run calls `rejects`, and the
+  sample grows from 469 to 799 rows over 775 occurrences. The file is empty.
+  Until 11 October 2026 step 13 read `comparison_run.txt` instead; it was split
+  off so that the Gemma run could be published on the site without redrawing the
+  sample (decided by FM).
 - A change to the `genocide` pattern changes the population.
 
 **Proposal.** Before the first scored row:
@@ -137,7 +141,7 @@ under the coders:
    the first release ([RELEASING.md](RELEASING.md)), or commit a copy to the
    repository by hand under a new folder outside `data/`.
 3. Until coding and adjudication are complete, do not change
-   `comparison_run.txt` or the `genocide` pattern; or, if one must change, check
+   `gold_comparison_run.txt` or the `genocide` pattern; or, if one must change, check
    that step 13 still reproduces the recorded checksums before coding continues.
 
 ## 4. The 59 passages already reviewed

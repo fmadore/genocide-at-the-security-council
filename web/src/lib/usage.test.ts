@@ -1355,6 +1355,15 @@ describe('the second opinion, as the apparatus states it', () => {
 		expect(apparatus.abstained).toBe(21);
 	});
 
+	it('reads the second opinion against the corpus when the published run is partial', () => {
+		const partial = { ...model, occurrences_total: 7787, occurrences_annotated: 7694 };
+		const apparatus = comparisonApparatus(
+			corpus({ model: partial, comparison: { ...comparison(), occurrences_annotated: 7725 } })
+		);
+		expect(apparatus.total).toBe(7787);
+		expect(apparatus.coverage).toBeCloseTo(7725 / 7787, 12);
+	});
+
 	it('writes a statistic that could not be computed as a dash, never as a zero', () => {
 		const apparatus = comparisonApparatus(corpus({ comparison: comparison() }));
 		expect(apparatus.fields.map((row) => row.field)).toEqual([

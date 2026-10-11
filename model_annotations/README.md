@@ -45,7 +45,8 @@ workspace has been pushed from a clean tree since 18 September 2026, so later
 runs cite a commit that exists.
 
 The comparison run, `2026-09-09-gemma4` (Gemma 4 31B IT, same prompt), is
-committed but not published: `comparison_run.txt` is empty. It covers 4,130 of
+published as the second opinion: `comparison_run.txt` names it since 11 October
+2026. The gold sample does not follow it (see `gold_comparison_run.txt` below). It covers 4,130 of
 4,133 speeches. Its manifest reads `status: partial` and lists the three it
 leaves out under `gaps`, each with the failure its batch last recorded; why they
 were left out is in `docs/VALIDATION.md` §7. The four hosted runs of August 2026 remain
@@ -82,6 +83,7 @@ genocide/
   prompts/v<n>.md              the superseded prompts, kept so their runs stay readable
   current_run.txt              the run id the dashboard shows, or empty for none
   comparison_run.txt           the run id read against it as a second opinion, or empty
+  gold_comparison_run.txt      the second run the gold sample's third frame is cut from, or empty
   runs/<run_id>/
     manifest.json              weights revision, runtime, prompt, counts, usage, status
     identity.json              checksums of everything that defines the instrument
@@ -159,8 +161,20 @@ questions cannot be told apart from a disagreement about one. The prompt archive
 loosen this: it lets a v1 run and a v2 run each be published, one aggregation at a time,
 under the wording each was made with, and never lets one be laid over the other.
 
-What agreement here means is narrow, and it is the reason the file is empty by default.
+What agreement here means is narrow, and it is the reason the file is empty by default
+and was filled only by a recorded decision (FM, 11 October 2026, for `2026-09-09-gemma4`).
 Two models agreeing shows that a label is **stable across instruments** — the same
 questionnaire, answered twice, by two machines with overlapping training and the same blind
 spots. It is not validation and not accuracy. The human gold sample under `annotations/` is
 the only calibration this project has, and a second model does not become one by agreeing.
+
+## `gold_comparison_run.txt`
+
+The second run `scripts/13_gold_sample.py` cuts the gold sample's third frame from. Empty, the
+frame is `model_strata`, read off the run in `current_run.txt` alone; naming a run there makes
+it the `disagreement` frame, cut from where the two runs differ. It is kept apart from
+`comparison_run.txt` so that publishing a second opinion on the site does not redraw the sample
+under the coders (decided by FM, 11 October 2026). With Gemma named, the disagreement frame
+would take every occurrence either run calls `rejects` and grow the sample from 469 to 799 rows.
+Changing this file redraws the sample; see
+[`docs/EVALUATION_PLAN.md`](../docs/EVALUATION_PLAN.md), section 3.
