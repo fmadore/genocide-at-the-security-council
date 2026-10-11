@@ -10,6 +10,15 @@ updates:
     groups:
       python:
         patterns: ['*']
+    ignore:
+      # sentence-transformers 6.1.0 requires huggingface_hub<2, so a range of 2 or
+      # more in requirements-cluster.txt cannot install. CI does not install that
+      # file and would pass anyway; the failure would surface only in
+      # setup_env.sh on the cluster. Remove this once sentence-transformers
+      # accepts huggingface_hub 2.
+      # Dependabot names it in normalised form, as its pull requests do.
+      - dependency-name: huggingface-hub
+        versions: ['>=2']
   - package-ecosystem: npm
     directory: /web
     schedule:

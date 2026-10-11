@@ -18,20 +18,24 @@
 # Ranges verified against PyPI on 3 September 2026. The lower bound of each is the
 # current release at the time it was last set, so a fresh install gets a recent
 # one and a rebuild a year from now does not silently jump a major.
-# sentence-transformers is the one held back on purpose; see the note below it.
+# huggingface_hub is the one held back on purpose; see the note below it.
 
 # --- Embedding (step 06) ---------------------------------------------------
 torch>=2.13,<3
 transformers>=5.16.1,<6
-# Held below 6 until a run has confirmed the vectors are unchanged. 6.0 fixes, in
-# its own words, a class of silent scoring bugs caused by half precision, and 06
-# encodes in bfloat16 — so the major can move the embeddings themselves, which is
-# a change to the artefact rather than to the build. The surface 06 uses
-# (`processor_kwargs`, `get_embedding_dimension`) is unchanged in 6.x, so lifting
-# the cap is a one-line edit once a comparison run has been read.
-sentence-transformers>=5.7,<6
+# 6.0 fixes, in its own words, a class of silent scoring bugs caused by half
+# precision, and 06 encodes in bfloat16, so the major was held below 6 until a run
+# showed whether it moves the vectors. It does not. Slurm job 824308 (11 October
+# 2026, one L40 on `dev`) encoded the first 2,000 speeches three times with the
+# environment that made the published embeddings: twice with 5.7.0, then with
+# 6.1.0 as the only change (torch 2.13.0, transformers 5.14.1). All 2,000 vectors
+# came out bit-identical in each comparison, so their nearest neighbours were too.
+# The sample is short early speeches, and only one of them needed chunking.
+sentence-transformers>=6.1.0,<7
 accelerate>=1.14,<2
 # Used directly by scripts/lib/download_models.py, not only via transformers.
+# Held below 2: sentence-transformers 6.1.0, the latest on 11 October 2026,
+# requires huggingface_hub<2. Lift it when sentence-transformers allows 2.
 huggingface_hub>=1.29.0,<2
 
 # --- Topics (step 07) ------------------------------------------------------
