@@ -21,8 +21,8 @@
 # huggingface_hub is the one held back on purpose; see the note below it.
 
 # --- Embedding (step 06) ---------------------------------------------------
-torch>=2.13,<3
-transformers>=5.16.1,<6
+torch>=2.14.1,<3
+transformers>=5.19.0,<6
 # 6.0 fixes, in its own words, a class of silent scoring bugs caused by half
 # precision, and 06 encodes in bfloat16, so the major was held below 6 until a run
 # showed whether it moves the vectors. It does not. Slurm job 824308 (11 October
@@ -32,11 +32,11 @@ transformers>=5.16.1,<6
 # came out bit-identical in each comparison, so their nearest neighbours were too.
 # The sample is short early speeches, and only one of them needed chunking.
 sentence-transformers>=6.1.0,<7
-accelerate>=1.14,<2
+accelerate>=1.15.0,<2
 # Used directly by scripts/lib/download_models.py, not only via transformers.
 # Held below 2: sentence-transformers 6.1.0, the latest on 11 October 2026,
 # requires huggingface_hub<2. Lift it when sentence-transformers allows 2.
-huggingface_hub>=1.29.0,<2
+huggingface_hub>=1.33.0,<2
 
 # --- Topics (step 07) ------------------------------------------------------
 # scikit-learn provides NMF, TF-IDF and — since 1.3 — HDBSCAN, so the separate
