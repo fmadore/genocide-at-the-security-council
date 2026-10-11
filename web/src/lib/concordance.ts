@@ -34,6 +34,7 @@
  * contract that fails for the most obvious way to use it.
  */
 
+import type { ReadonlyURLSearchParams } from '$app/state';
 import { speechOf } from './data';
 import { MONTH_NAMES, shortCountry } from './format';
 import { readScope, withScope } from './scope';
@@ -94,7 +95,7 @@ const year = (value: string | null, fallback: number): number => {
 };
 
 /** Read the complete analytical state from a URL, with explicit safe defaults. */
-export function readConcordanceState(params: URLSearchParams): ConcordanceState {
+export function readConcordanceState(params: ReadonlyURLSearchParams): ConcordanceState {
 	const askedSort = params.get('sort') as ConcordanceSort | null;
 	return {
 		term: params.get('term') || CONCORDANCE_DEFAULTS.term,
@@ -590,7 +591,7 @@ export function chronologyEscape(term: string): EvidenceQuery {
  * reader URL — which carries the same state plus the speech and occurrence —
  * gives back exactly the concordance it was opened from.
  */
-export function concordanceQuery(params: URLSearchParams): URLSearchParams {
+export function concordanceQuery(params: ReadonlyURLSearchParams): URLSearchParams {
 	return withScope(concordanceParams(readConcordanceState(params)), readScope(params));
 }
 

@@ -80,7 +80,7 @@ export function languageDefaults(choices: LanguageChoices): LanguageState {
 
 /** Parse every control that changes a Language figure's analytical reading. */
 export function readLanguageState(
-	params: URLSearchParams,
+	params: ReadonlyURLSearchParams,
 	choices: LanguageChoices
 ): LanguageState {
 	const defaults = languageDefaults(choices);
@@ -178,6 +178,7 @@ export function languageParams(state: LanguageState, choices: LanguageChoices): 
    with the word cloud; the cloud went (review of 1 September 2026, §5.2) and
    the decision stayed, because it was never about the drawing. */
 
+import type { ReadonlyURLSearchParams } from '$app/state';
 import type { CollocateBlock, Network, Word } from './types';
 
 /**

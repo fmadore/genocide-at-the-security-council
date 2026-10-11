@@ -1,4 +1,4 @@
-import { sitemapXml } from '$lib/seo';
+import { sitemapXml } from '#lib/seo.js';
 
 export const prerender = true;
 

@@ -14,12 +14,12 @@
 	 * It appears only on the views that obey it. Offering it on `/usage`, where
 	 * nothing reads it, would be a promise the page does not keep.
 	 */
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { count } from '$lib/format';
-	import { DEFAULT_SCOPE, SCOPE_PARAM, readScope, withScope, type ScopeId } from '$lib/scope';
-	import type { ScopeIndex } from '$lib/types';
+	import { count } from '#lib/format.js';
+	import { DEFAULT_SCOPE, SCOPE_PARAM, readScope, withScope, type ScopeId } from '#lib/scope.js';
+	import type { ScopeIndex } from '#lib/types.js';
 
 	let { index }: { index: ScopeIndex } = $props();
 
@@ -34,10 +34,7 @@
 		const search = withScope(page.url.searchParams, id).toString();
 		// A push rather than a replace: the scope is analytical state, and Back
 		// should return a reader to the population they were reading.
-		void goto(`${page.url.pathname}${search ? `?${search}` : ''}`, {
-			keepFocus: true,
-			noScroll: true
-		});
+		void goto(`${page.url.pathname}${search ? `?${search}` : ''}`, { reset: false });
 	}
 </script>
 

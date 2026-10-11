@@ -4,7 +4,7 @@
 	 *
 	 * This component decides nothing. Which referent is on screen, which curves
 	 * are worth their ink, where every step falls and what the years on the axis
-	 * are, are all settled in `$lib/usage` by the same call that fills the
+	 * are, are all settled in `#lib/usage` by the same call that fills the
 	 * chronology underneath and the CSV beside it.
 	 *
 	 * Three things about the drawing itself.

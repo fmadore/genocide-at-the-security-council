@@ -1,4 +1,4 @@
-import { collocates, keyness, network, nodeFrames, slicedCollocates } from '$lib/data';
+import { collocates, keyness, network, nodeFrames, slicedCollocates } from '#lib/data.js';
 import type { PageLoad } from './$types';
 
 // Four artefacts from 05 and one from 17, all independent of each other. See

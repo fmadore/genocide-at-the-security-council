@@ -5,7 +5,7 @@
 	 * This component decides nothing. Which speakers are rows, which referents
 	 * are columns and in what order, which cells may be shaded and which are
 	 * hatched because their denominator is too small, and where a key press moves
-	 * the focus, are all settled in `$lib/usage` by the same call that feeds the
+	 * the focus, are all settled in `#lib/usage` by the same call that feeds the
 	 * download beside the figure.
 	 *
 	 * Three things about the drawing itself.

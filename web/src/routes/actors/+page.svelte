@@ -1,15 +1,16 @@
 <script lang="ts">
-	import { base, resolve } from '$app/paths';
-	import { browser } from '$app/environment';
+	import { resolve } from '$app/paths';
+	import { dataUrl } from '#lib/data.js';
+	import { browser } from '$app/env';
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import Contents from '$lib/Contents.svelte';
-	import CountryMap from '$lib/CountryMap.svelte';
-	import Figure from '$lib/Figure.svelte';
-	import Icon from '$lib/Icon.svelte';
-	import PageMeta from '$lib/PageMeta.svelte';
-	import SpeakerKeyness from '$lib/SpeakerKeyness.svelte';
-	import Standing from '$lib/Standing.svelte';
+	import Contents from '#lib/Contents.svelte';
+	import CountryMap from '#lib/CountryMap.svelte';
+	import Figure from '#lib/Figure.svelte';
+	import Icon from '#lib/Icon.svelte';
+	import PageMeta from '#lib/PageMeta.svelte';
+	import SpeakerKeyness from '#lib/SpeakerKeyness.svelte';
+	import Standing from '#lib/Standing.svelte';
 	import {
 		actorParams,
 		ambiguous,
@@ -19,12 +20,12 @@
 		plan,
 		points,
 		readActorState
-	} from '$lib/actors';
-	import type { MapPoint, Ordering } from '$lib/actors';
-	import type { CountryMeasureRow } from '$lib/types';
-	import { provenanceOf } from '$lib/export';
-	import type { ExportRequest } from '$lib/export';
-	import { count, decimal, entityType, measureLabel, percent, shortCountry } from '$lib/format';
+	} from '#lib/actors.js';
+	import type { MapPoint, Ordering } from '#lib/actors.js';
+	import type { CountryMeasureRow } from '#lib/types.js';
+	import { provenanceOf } from '#lib/export.js';
+	import type { ExportRequest } from '#lib/export.js';
+	import { count, decimal, entityType, measureLabel, percent, shortCountry } from '#lib/format.js';
 	import {
 		DEFAULT_SCOPE,
 		SCOPE_IDS,
@@ -32,10 +33,10 @@
 		readScope,
 		scopeOf,
 		withScope
-	} from '$lib/scope';
-	import { PAGE_METADATA } from '$lib/seo';
+	} from '#lib/scope.js';
+	import { PAGE_METADATA } from '#lib/seo.js';
 	import type { PageData } from './$types';
-	import { urlState } from '$lib/url-state.svelte';
+	import { urlState } from '#lib/url-state.svelte.js';
 
 	let { data }: { data: PageData } = $props();
 	const artefact = $derived(data.countries);
@@ -353,7 +354,7 @@
 		{/snippet}
 		{#snippet more()}
 			<p>
-				<a href={`${base}/data/actor_year/actor_year.csv`} download
+				<a href={dataUrl('actor_year/actor_year.csv')} download
 					>Download annual speaker counts and rates</a
 				>. Each affiliation keeps its own annual denominator. Rates below 125 speeches are withheld;
 				the CSV retains counts and labels its Wilson intervals.

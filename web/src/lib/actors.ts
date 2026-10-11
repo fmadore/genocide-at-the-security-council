@@ -29,6 +29,7 @@
  * marker that stands for more than one speaker can say how many.
  */
 
+import type { ReadonlyURLSearchParams } from '$app/state';
 import { evidenceTerm } from './concordance';
 import { headlineMeasure } from './headline';
 import type { Countries, CountryMeasure, CountryMeasureRow, CountryPeriod, Speaker } from './types';
@@ -70,7 +71,7 @@ export function actorDefaults(data: Countries): ActorState {
 }
 
 /** Parse and normalize the analytical actor controls from a copied URL. */
-export function readActorState(params: URLSearchParams, data: Countries): ActorState {
+export function readActorState(params: ReadonlyURLSearchParams, data: Countries): ActorState {
 	const defaults = actorDefaults(data);
 	const askedMeasure = params.get('measure');
 	const measure = askedMeasure && data.measures[askedMeasure] ? askedMeasure : defaults.measure;

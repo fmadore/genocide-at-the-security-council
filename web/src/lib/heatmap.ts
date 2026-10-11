@@ -38,10 +38,10 @@
  * **A cell opens its own evidence.** This figure shipped unable to: the
  * concordance filtered lines by year, so a square could offer only the twelve
  * months around itself, and the interface said so rather than pretending
- * otherwise. `$lib/concordance` now owns a month parameter, and `evidence()`
+ * otherwise. `#lib/concordance` now owns a month parameter, and `evidence()`
  * below is where a cell uses it. The link is still one term at a time, because
  * the concordance shows one — a set measure is drawn here and read there term
- * by term, the same rule `$lib/actors` states for a speaker's quotations. The
+ * by term, the same rule `#lib/actors` states for a speaker's quotations. The
  * measure this figure opens on is a subtraction and has no concordance of its
  * own; it opens the term it subtracts from, and `widening()` is how the figure
  * says whose lines those are.
@@ -90,7 +90,7 @@ export interface Cell {
 	weight: number;
 	/**
 	 * Where the cell sits on the ramp, which is not `weight`. See `tone` in
-	 * `$lib/theme`.
+	 * `#lib/theme`.
 	 * A length must never use this; a length is read as a proportion.
 	 */
 	tone: number;
@@ -274,7 +274,7 @@ export function widening(data: MonthlySeries, measure: string): Widening | null 
  * **A cell with nothing in it does not link.** The test is the measure's own
  * term-bearing speech count, not the occurrence count, because a set has no
  * occurrence count at all — `undefined < 1` is false, so the obvious guard would
- * let every set through while appearing to check. That trap is `$lib/actors`'s,
+ * let every set through while appearing to check. That trap is `#lib/actors`'s,
  * met again here for the same reason.
  */
 export function evidence(data: MonthlySeries, measure: string, cell: Cell): EvidenceLink[] {

@@ -13,13 +13,13 @@
 // it one file per meeting record, 9,464 of them — and precaching that is not a
 // heavy version of the right idea, it is the wrong idea: a reader who opens the
 // Overview would spend their month's data on thousands of meetings they will
-// never read. `svelte.config.js` keeps
-// that directory out of `$service-worker.files` so it cannot arrive here by
-// accident, and the strategies below are chosen around the same fact.
+// never read. `vite.config.ts` keeps
+// that directory out of the precache list it hands this worker, so it cannot
+// arrive here by accident, and the strategies below are chosen around the same fact.
 //
 // **The three strategies.**
 //
-// - *Precached on install*: `files`, minus the data payload — the icons, the
+// - *Precached on install*: `files`, the static files minus the data payload — the icons, the
 //   manifest, and the country polygons the actor map draws. About 170 KB, all of
 //   it needed by a page that draws anything at all.
 // - *Cache-first, filled as it is used*: `build`, the Vite output. Every name in
@@ -30,7 +30,7 @@
 //   and the speech and series JSON. The record is the truth and it is small per
 //   request; the cache is what is left when the network is gone. The families
 //   of data that grow with the reading — concordances, meetings, neighbour
-//   shards — keep only their most recently fetched files (`$lib/offline`), so
+//   shards — keep only their most recently fetched files (`#lib/offline`), so
 //   an afternoon in the reader does not leave the corpus on disk.
 //
 // **Why nothing calls `skipWaiting()`.** A deployment changes the hashed names
@@ -40,10 +40,23 @@
 // entirely. It also means no "a new version is available" prompt, which is the
 // second-most annoying thing a page can do after asking to be installed.
 
-import { base, build, files, version } from '$service-worker';
-import { OFFLINE_KEEP, overflow } from '$lib/offline';
+import { version } from '$app/env';
+import { immutable } from '$app/manifest';
+import { OFFLINE_KEEP, overflow } from '#lib/offline.js';
 
 const worker = self as unknown as ServiceWorkerGlobalScope;
+
+// Handed over by `vite.config.ts`, which holds the configuration both come from.
+// SvelteKit 2 supplied `base`, `files` and `build` from its `$service-worker`
+// module. SvelteKit 3 removed it, and the `assets` its `$app/manifest` offers in
+// place of `files` lists every static file, the data payload included.
+declare const __BASE__: string;
+declare const __PRECACHE__: string[];
+const base = __BASE__;
+// The static files to precache, as URLs.
+const files = __PRECACHE__;
+// Vite's output, as URLs. `$app/manifest` gives each path relative to the base.
+const build = immutable.map(({ path }) => `${base}/${path}`);
 
 // Keyed on the build, so a deployment starts clean and `activate` can drop every
 // obsolete cache owned by this app, leaving other projects on the origin alone.
@@ -52,7 +65,7 @@ const CACHE = `${CACHE_PREFIX}${version}`;
 
 // The SPA shell adapter-static writes for routes that are not prerendered — the
 // reader, which has 9,464 possible URLs and is a route rather than 9,464 pages.
-// It belongs to no `$service-worker` array: `build` is Vite's output, `files` is
+// It belongs to neither list: `build` is Vite's output, `files` is
 // `static/`, and this is the adapter's own. Hence the literal.
 const FALLBACK = `${base}/404.html`;
 

@@ -1,4 +1,4 @@
-import { usage } from '$lib/data';
+import { usage } from '#lib/data.js';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {

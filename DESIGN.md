@@ -459,7 +459,7 @@ would sit, over the hairline baseline the plot will draw on — nothing moves.
 - **Do** give every state drawn as an inset shadow a twin under `forced-colors: active`, and hold every route to 320px without a horizontal scrollbar.
 - **Do** put a colour key in a 0.625rem square before the words, so the words stay ink.
 - **Do** keep hierarchy in weight and position: sentence case at 600 for every label.
-- **Do** give every figure all three exports, CSV, SVG and PNG — a plate drawn in markup rather than by ECharts leaves as a second drawing with its colours resolved to literals (`$lib/multiples`).
+- **Do** give every figure all three exports, CSV, SVG and PNG — a plate drawn in markup rather than by ECharts leaves as a second drawing with its colours resolved to literals (`#lib/multiples`).
 - **Do** let Back undo a narrowing: a filter, a sort or a reset pushes a history entry; typing in a search box replaces one.
 
 ### Don't:

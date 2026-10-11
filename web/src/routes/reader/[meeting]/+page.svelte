@@ -3,8 +3,8 @@
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
-	import Icon from '$lib/Icon.svelte';
-	import PageMeta from '$lib/PageMeta.svelte';
+	import Icon from '#lib/Icon.svelte';
+	import PageMeta from '#lib/PageMeta.svelte';
 	import {
 		kwic,
 		kwicIndex,
@@ -12,21 +12,21 @@
 		meetingOf,
 		speechOf,
 		usageReferents
-	} from '$lib/data';
+	} from '#lib/data.js';
 	import {
 		concordanceQuery,
 		occurrenceInResult,
 		readConcordanceState,
 		referentMap
-	} from '$lib/concordance';
-	import { USAGE_TERM } from '$lib/usage';
-	import { visible } from '$lib/reader';
-	import { Resource } from '$lib/resource.svelte';
-	import { readScope, speechInScope } from '$lib/scope';
-	import { occurrenceItem, speechItem } from '$lib/basket';
-	import { basket } from '$lib/basket.svelte';
-	import { citationOf, occurrenceQuotation, toBibtex, toCslJson, toRis } from '$lib/citation';
-	import { filename, save } from '$lib/export';
+	} from '#lib/concordance.js';
+	import { USAGE_TERM } from '#lib/usage.js';
+	import { visible } from '#lib/reader.js';
+	import { Resource } from '#lib/resource.svelte.js';
+	import { readScope, speechInScope } from '#lib/scope.js';
+	import { occurrenceItem, speechItem } from '#lib/basket.js';
+	import { basket } from '#lib/basket.svelte.js';
+	import { citationOf, occurrenceQuotation, toBibtex, toCslJson, toRis } from '#lib/citation.js';
+	import { filename, save } from '#lib/export.js';
 	import {
 		count,
 		interpretedFrom,
@@ -36,9 +36,9 @@
 		shortCountry,
 		termLabel,
 		unSearch
-	} from '$lib/format';
-	import { SITE_NAME, type PageMetadata } from '$lib/seo';
-	import type { KwicLine, Meeting, Speech } from '$lib/types';
+	} from '#lib/format.js';
+	import { SITE_NAME, type PageMetadata } from '#lib/seo.js';
+	import type { KwicLine, Meeting, Speech } from '#lib/types.js';
 	import { tick } from 'svelte';
 	import { SvelteSet, SvelteURLSearchParams } from 'svelte/reactivity';
 
@@ -134,7 +134,7 @@
 	// the select below.
 	let filterTerm = $derived(wantedTerm);
 
-	/* The occurrence the URL names, which `$lib/reader` marks as the exact one. */
+	/* The occurrence the URL names, which `#lib/reader` marks as the exact one. */
 	const selection = $derived({ occurrence: wantedOccurrence, term: wantedTerm });
 
 	const termsHere = $derived(
@@ -248,7 +248,7 @@
 	}
 
 	function occurrenceHref(id: string): string {
-		const params = new SvelteURLSearchParams(page.url.searchParams);
+		const params = new SvelteURLSearchParams(page.url.searchParams.toString());
 		params.set('speech', speechOf(id));
 		params.set('occurrence', id);
 		return `${resolve('/reader/[meeting]', { meeting: meetingOf(id) })}?${params}`;

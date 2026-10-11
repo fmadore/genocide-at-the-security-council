@@ -1,5 +1,5 @@
-import { readBuild } from '$lib/build';
-import { payloadManifest, scopeIndex } from '$lib/data';
+import { readBuild } from '#lib/build.js';
+import { payloadManifest, scopeIndex } from '#lib/data.js';
 import type { LayoutLoad } from './$types';
 
 // Every page is a static file. The reader route opts out below, because

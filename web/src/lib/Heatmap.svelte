@@ -3,7 +3,7 @@
 	 * A year x month grid drawn in SVG, from the table it depicts.
 	 *
 	 * This component decides nothing. Which cells may be drawn, what the top of
-	 * the ramp is, and why 53 of them carry no number is settled in `$lib/heatmap`
+	 * the ramp is, and why 53 of them carry no number is settled in `#lib/heatmap`
 	 * by the same call that feeds the table below the figure.
 	 *
 	 * Three things about the drawing itself.
@@ -30,8 +30,8 @@
 	 * leave. What is navigable is the table under the figure, which carries the
 	 * same numbers and the links.
 	 */
-	import { colours, sequential, tone, FONT } from '$lib/theme';
-	import type { Cell, HeatmapPlan } from '$lib/heatmap';
+	import { colours, sequential, tone, FONT } from '#lib/theme.js';
+	import type { Cell, HeatmapPlan } from '#lib/heatmap.js';
 
 	interface Props {
 		plan: HeatmapPlan;

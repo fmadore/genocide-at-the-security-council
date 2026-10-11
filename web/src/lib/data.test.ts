@@ -100,7 +100,7 @@ describe('the cache in front of the artefacts', () => {
 		// own `fetch` returned. A cache shared across pages would leave every
 		// page after the first without the files an earlier one had asked for.
 		vi.resetModules();
-		vi.doMock('$app/environment', () => ({ browser: false }));
+		vi.doMock('$app/env', () => ({ browser: false }));
 		try {
 			const { annual } = await import('./data');
 			const first = responder(annualPayload());
@@ -110,7 +110,7 @@ describe('the cache in front of the artefacts', () => {
 			expect(first.calls.count).toBe(1);
 			expect(second.calls.count).toBe(1);
 		} finally {
-			vi.doUnmock('$app/environment');
+			vi.doUnmock('$app/env');
 		}
 	});
 
@@ -241,7 +241,7 @@ describe('an artefact a page can draw without', () => {
 });
 
 describe('the payload manifest behind the footer', () => {
-	it('hands over the manifest as it is, for `$lib/build` to read', async () => {
+	it('hands over the manifest as it is, for `#lib/build` to read', async () => {
 		const { payloadManifest } = await fresh();
 		const manifest = { generated: '2026-09-14T08:58:33Z', git_commit: 'abc' };
 		await expect(payloadManifest(responder(manifest).fetcher)).resolves.toEqual(manifest);

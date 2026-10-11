@@ -1,0 +1,24 @@
+{
+	// The configuration files run in Node, not in the browser, so they are checked
+	// apart from the app (tsconfig.json), whose base, `$app/tsconfig`, loads the
+	// browser's types and no others. `@types/node` follows the major version CI
+	// and the deploy run on (24).
+	"compilerOptions": {
+		"target": "esnext",
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"lib": ["ESNext"],
+		"types": ["node"],
+		"strict": true,
+		"verbatimModuleSyntax": true,
+		"isolatedModules": true,
+		"skipLibCheck": true,
+		"noEmit": true
+	},
+	"include": [
+		"vite.config.ts",
+		"vitest.config.ts",
+		"playwright.config.ts",
+		"playwright.sw.config.ts"
+	]
+}

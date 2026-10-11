@@ -24,7 +24,7 @@ export interface Family {
 	keep: number;
 	/**
 	 * What a reader calls these files, for the sentence that says what is kept
-	 * offline (`unreachable` in `$lib/data`), so the ceiling and the copy that
+	 * offline (`unreachable` in `#lib/data`), so the ceiling and the copy that
 	 * states it cannot drift apart.
 	 */
 	noun?: string;

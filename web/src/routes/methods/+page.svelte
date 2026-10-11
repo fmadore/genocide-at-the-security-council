@@ -1,9 +1,9 @@
 <script lang="ts">
-	import ScrollRegion from '$lib/ScrollRegion.svelte';
+	import ScrollRegion from '#lib/ScrollRegion.svelte';
 	import { resolve } from '$app/paths';
-	import { count, matchedOn, percent } from '$lib/format';
-	import PageMeta from '$lib/PageMeta.svelte';
-	import { PAGE_METADATA } from '$lib/seo';
+	import { count, matchedOn, percent } from '#lib/format.js';
+	import PageMeta from '#lib/PageMeta.svelte';
+	import { PAGE_METADATA } from '#lib/seo.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -322,7 +322,7 @@
 	</p>
 	<!-- Two methods, named figure by figure, so that this page and the
 	     Chronology say the same thing about the band (review of 8 October
-	     2026, A4). The band follows `bandBounds` in `$lib/chronology`. -->
+	     2026, A4). The band follows `bandBounds` in `#lib/chronology`. -->
 	<p>
 		Two kinds of 95% interval accompany shares on this site. On the Chronology, the
 		share-of-speeches lines in <em>The word list over time</em> sit in a band from

@@ -97,7 +97,7 @@ export function matchedOn(fields: string[]): string {
 /**
  * The twelve months, here rather than in the figure that first needed them.
  *
- * `$lib/heatmap` owned these while the grid was the only thing that counted in
+ * `#lib/heatmap` owned these while the grid was the only thing that counted in
  * months. The concordance now filters by month too, and a second copy of the
  * list in the module that reads the filter is how a figure and the evidence
  * behind it start disagreeing about what June is called.

@@ -3,14 +3,14 @@
 	import textFace from '../fonts/HankenGrotesk-Variable.woff2?url';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import BackToTop from '$lib/BackToTop.svelte';
-	import BasketDrawer from '$lib/BasketDrawer.svelte';
-	import ScopeControl from '$lib/ScopeControl.svelte';
-	import ThemeToggle from '$lib/ThemeToggle.svelte';
-	import pageProvenance from '$lib/page-provenance.json';
-	import { PROVENANCE_LABELS, type ProvenanceKind } from '$lib/figures';
-	import { basket } from '$lib/basket.svelte';
-	import { buildLine } from '$lib/build';
+	import BackToTop from '#lib/BackToTop.svelte';
+	import BasketDrawer from '#lib/BasketDrawer.svelte';
+	import ScopeControl from '#lib/ScopeControl.svelte';
+	import ThemeToggle from '#lib/ThemeToggle.svelte';
+	import pageProvenance from '#lib/page-provenance.json';
+	import { PROVENANCE_LABELS, type ProvenanceKind } from '#lib/figures.js';
+	import { basket } from '#lib/basket.svelte.js';
+	import { buildLine } from '#lib/build.js';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
@@ -251,7 +251,7 @@
 		</p>
 		<!-- Which build of the data a reader is looking at: the payload manifest's
 		     date and commit, and the lexicon the counts were made with. A release
-		     name leads the line once one exists (`$lib/build`). -->
+		     name leads the line once one exists (`#lib/build`). -->
 		{#if build}
 			<p class="quiet" id="build">
 				{build.before}{#if build.commit}{#if build.commit.href}<a href={build.commit.href}

@@ -1,17 +1,17 @@
 <script lang="ts">
-	import ScrollRegion from '$lib/ScrollRegion.svelte';
+	import ScrollRegion from '#lib/ScrollRegion.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { page } from '$app/state';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
-	import Chart from '$lib/Chart.svelte';
-	import Contents from '$lib/Contents.svelte';
-	import Figure from '$lib/Figure.svelte';
-	import Heatmap from '$lib/Heatmap.svelte';
-	import Icon from '$lib/Icon.svelte';
-	import { figureId } from '$lib/figures';
-	import PageMeta from '$lib/PageMeta.svelte';
+	import Chart from '#lib/Chart.svelte';
+	import Contents from '#lib/Contents.svelte';
+	import Figure from '#lib/Figure.svelte';
+	import Heatmap from '#lib/Heatmap.svelte';
+	import Icon from '#lib/Icon.svelte';
+	import { figureId } from '#lib/figures.js';
+	import PageMeta from '#lib/PageMeta.svelte';
 	import {
 		chronologyParams,
 		readChronologyState,
@@ -28,11 +28,11 @@
 		termStrokes,
 		TERM_STROKE_WIDTH,
 		type TermStroke
-	} from '$lib/chronology';
-	import { evidenceTerm } from '$lib/concordance';
-	import { provenanceOf } from '$lib/export';
-	import { DEFAULT_SCOPE, SCOPE_IDS, reading, readScope, scopeOf, withScope } from '$lib/scope';
-	import type { ExportRequest } from '$lib/export';
+	} from '#lib/chronology.js';
+	import { evidenceTerm } from '#lib/concordance.js';
+	import { provenanceOf } from '#lib/export.js';
+	import { DEFAULT_SCOPE, SCOPE_IDS, reading, readScope, scopeOf, withScope } from '#lib/scope.js';
+	import type { ExportRequest } from '#lib/export.js';
 	import {
 		CALENDAR_COLUMNS,
 		GRID_COLUMNS,
@@ -45,8 +45,8 @@
 		pooledEvidence,
 		termsOf,
 		units as monthlyUnits
-	} from '$lib/heatmap';
-	import type { CalendarRow, Cell, Unit as GridUnit } from '$lib/heatmap';
+	} from '#lib/heatmap.js';
+	import type { CalendarRow, Cell, Unit as GridUnit } from '#lib/heatmap.js';
 	import {
 		count,
 		decimal,
@@ -56,8 +56,8 @@
 		monthLabel,
 		percent,
 		points
-	} from '$lib/format';
-	import { PAGE_METADATA } from '$lib/seo';
+	} from '#lib/format.js';
+	import { PAGE_METADATA } from '#lib/seo.js';
 	import {
 		REGISTER_ORDER,
 		axisX,
@@ -73,10 +73,10 @@
 		textStyle,
 		tooltip,
 		type Palette
-	} from '$lib/theme';
-	import type { BreakdownRow, CouncilEvent, Measure } from '$lib/types';
+	} from '#lib/theme.js';
+	import type { BreakdownRow, CouncilEvent, Measure } from '#lib/types.js';
 	import type { EChartsOption, LineSeriesOption } from 'echarts';
-	import { urlState } from '$lib/url-state.svelte';
+	import { urlState } from '#lib/url-state.svelte.js';
 	import { tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { PageData } from './$types';
@@ -261,7 +261,7 @@
 
 	/* --- When the calendar refuses ----------------------------------------
 	   Each refusal offers the nearest figure that can be drawn rather than only
-	   saying why this one cannot: `calendarRecovery` in `$lib/chronology`. */
+	   saying why this one cannot: `calendarRecovery` in `#lib/chronology`. */
 	const recovery = $derived(
 		calendarRecovery(heat.refusal, gridMeasure, gridMeasures, Object.keys(data.year.terms))
 	);

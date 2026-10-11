@@ -15,7 +15,7 @@
 	 * Plain SVG rather than a chart library: colour comes from the CSS custom
 	 * properties, so the theme switch needs no redraw, and the whole thing is a
 	 * few hundred bytes of markup that prints. The download is a second drawing
-	 * of the same rows with the colours resolved, in `$lib/multiples`.
+	 * of the same rows with the colours resolved, in `#lib/multiples`.
 	 */
 	import { multiplesKey, multiplesPoints, multiplesSvg } from './multiples';
 	import { FONT, palette } from './theme';

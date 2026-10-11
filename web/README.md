@@ -1,6 +1,6 @@
 # Dashboard
 
-SvelteKit 2 / Svelte 5 (runes), ECharts 6, MapLibre 6, `adapter-static`. No backend and no
+SvelteKit 3 / Svelte 5 (runes), ECharts 6, MapLibre 6, `adapter-static`. No backend and no
 database: every view reads static JSON written by the pipeline.
 
 ```bash
@@ -77,7 +77,7 @@ state stay local to the browser session.
 ## Installable, and it never asks
 
 The site is a PWA: [`static/manifest.webmanifest`](static/manifest.webmanifest) plus
-[`src/service-worker.ts`](src/service-worker.ts). Nothing prompts anyone to install it. A
+[`src/service-worker/index.ts`](src/service-worker/index.ts). Nothing prompts anyone to install it. A
 listener in `app.html` cancels Chromium's `beforeinstallprompt`, which is the event that
 produces the install banner, and no custom button replaces it — a reader who wants an app
 knows where their browser keeps Install, and the entry stays there either way.
@@ -94,8 +94,8 @@ is citable should keep the address of the thing being cited on screen.
 
 **The service worker is built around one fact: `static/data/` holds one file per meeting
 record, 9,464 of them, and runs to hundreds of megabytes.** Precaching it — the default shape
-of a service worker, and what `$service-worker` would hand over unfiltered — would spend a
-reader's data on thousands of meetings they will never open. So `svelte.config.js` filters that directory out of `serviceWorker.files`, and the
+of a service worker, and what SvelteKit's `$app/manifest` would hand over unfiltered — would spend a
+reader's data on thousands of meetings they will never open. So `vite.config.ts` leaves that directory out of the precache list it hands the worker, and the
 three strategies follow from the same fact:
 
 | What                                  | Strategy                         | Why                                                                                                                                                                               |
@@ -122,7 +122,7 @@ Rebuild the icons with `python tools/build_icons.py`; they are committed, like
 src/
 ├── app.css              Design tokens. Charts read the palette from here too.
 ├── app.html             Theme resolved before first paint; the install prompt cancelled
-├── service-worker.ts    The offline layer. Never precaches the data payload.
+├── service-worker/      The offline layer (`index.ts`). Never precaches the data payload.
 ├── lib/
 │   ├── types.ts         The shapes the pipeline writes — checked against tests/contract/
 │   ├── data.ts          Fetch, cache and refuse: one shape per artefact, one function each

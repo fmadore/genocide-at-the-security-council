@@ -141,7 +141,7 @@ describe('the shape of the blocks a figure would silently mis-draw', () => {
 
 	it('keeps the nullable rates nullable', () => {
 		// `speech_rate` is null wherever a speaker is under the minimum, and the
-		// whole `?? 0` argument in `$lib/actors` rests on that null surviving the
+		// whole `?? 0` argument in `#lib/actors` rests on that null surviving the
 		// pipeline. If it ever arrives as a plain number the withheld rows become
 		// measured zeros and the ranking gains 468 speakers that said nothing.
 		const rows = (contract['countries/countries.json']!.measures as Record<string, never>)['*'];
@@ -297,7 +297,7 @@ async function speechFixture(): Promise<unknown> {
  * The payload manifest is not a contracted artefact: `export_web.py` writes it
  * after the contract check, to describe the payload rather than to be part of
  * it, and the dashboard reads only the footer's build line from it, leniently
- * (`$lib/build`). Its fixture is held instead to the keys `assemble()` writes,
+ * (`#lib/build`). Its fixture is held instead to the keys `assemble()` writes,
  * so it cannot drift into a shape no build produces.
  */
 const MANIFEST = 'manifest.json';

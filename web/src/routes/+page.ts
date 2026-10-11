@@ -1,4 +1,4 @@
-import { annual, changePoints, events } from '$lib/data';
+import { annual, changePoints, events } from '#lib/data.js';
 import type { PageLoad } from './$types';
 
 // Together rather than in sequence: three independent files, and this is the
