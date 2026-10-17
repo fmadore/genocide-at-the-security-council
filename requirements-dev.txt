@@ -2,9 +2,9 @@
 -r requirements.txt
 
 pytest>=9.1.1,<10
-ruff>=0.16.10,<0.17
+ruff>=0.17.0,<0.18
 # Property-based tests (tests/test_properties.py).
-hypothesis>=6.168.5,<7
+hypothesis>=6.169.0,<7
 # Coverage, reported on every pytest run and never enforced (pyproject.toml).
 # coverage itself is named because the config uses `patch = ["subprocess"]`,
 # which older releases do not have.
