@@ -818,7 +818,7 @@ def timeline_block(
     referent_rank = {name: position for position, name in enumerate(referent_order)}
     named = assigned_mask(rows).loc[kept.index]
     assigned = kept.loc[named].assign(_year=years.loc[named])
-    cells: list[dict[str, object]] = []
+    cells: list[dict[str, Any]] = []
     for (year, referent), group in assigned.groupby(
         [assigned["_year"], assigned["referent"].map(_text)], sort=False
     ):
