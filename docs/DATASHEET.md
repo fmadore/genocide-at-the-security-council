@@ -41,11 +41,11 @@ lexicon term in a speech.
 
 | | |
 |---|---|
-| Speeches | 167,642 |
-| Meetings with speeches | 9,464 |
-| Analytical words | 86,812,574 |
+| Speeches | 167,632 |
+| Meetings with speeches | 9,463 |
+| Analytical words | 86,804,438 |
 | Lexicon terms counted | 28 (lexicon v8) |
-| Occurrences of `g[eé]nocid*` | 7,787, in 4,136 speeches |
+| Occurrences of `g[eé]nocid*` | 7,786, in 4,135 speeches |
 
 The committed count of every term is in
 [`config/lexicon.counts.json`](../config/lexicon.counts.json).
@@ -191,7 +191,7 @@ series files run parallel to `periods`.
 
 ### 9.1 Concordance lines: `kwic/<term>.json` and its CSV download
 
-One line per occurrence of one term (`kwic/genocide.json` holds the 7,787 of
+One line per occurrence of one term (`kwic/genocide.json` holds the 7,786 of
 *genocide*). Written by step 08 (`scripts/lib/kwic.py`).
 
 | JSON field | CSV column | Meaning |

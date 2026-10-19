@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import artifacts, frames, sakamoto
@@ -28,6 +29,9 @@ from lib.paths import (
     MEETINGS,
     RAW,
     ROOT,
+    SOURCE_REPAIRS,
+    SOURCE_SPEECHES,
+    SOURCE_TOKENS,
     SPEECHES,
     ensure_dirs,
     write_note,
@@ -88,6 +92,20 @@ MEETING_REQUIRED = {
     "PRST_url",
 }
 
+def describe_repair(entry: dict) -> str:
+    """One line for the log and the note: what a source repair did."""
+    if entry["repair"] == "drop_record":
+        return (
+            f"dropped {entry['record_id']} ({len(entry['speech_ids'])} speeches, "
+            f"{entry['source_words']:,} source words), a copy of {entry['duplicate_of']}"
+        )
+    kept, new = entry["source_words"]
+    return (
+        f"split {entry['speech_id']} at character {entry['at']:,} into "
+        f"{entry['speech_id']} ({kept:,} source words) and {entry['new_speech_id']} ({new:,})"
+    )
+
+
 def read_source(path: Path, required: set[str]) -> pd.DataFrame:
     """Read a source TSV, including quoted speech fields with embedded newlines."""
     frame = pd.read_csv(
@@ -108,7 +126,19 @@ def read_source(path: Path, required: set[str]) -> pd.DataFrame:
     return frame
 
 
+def validate_source(source: pd.DataFrame) -> list[str]:
+    """The source as published, before any repair, against its codebook."""
+    problems: list[str] = []
+    if len(source) != SOURCE_SPEECHES:
+        problems.append(f"source row count {len(source):,} != {SOURCE_SPEECHES:,}")
+    words = int(pd.to_numeric(source["count"]).sum())
+    if words != SOURCE_TOKENS:
+        problems.append(f"source word sum {words:,} != {SOURCE_TOKENS:,}")
+    return problems
+
+
 def validate(speeches: pd.DataFrame, meetings: pd.DataFrame) -> list[str]:
+    """The repaired corpus every later step reads."""
     problems: list[str] = []
     if EXPECTED_SPEECHES and len(speeches) != EXPECTED_SPEECHES:
         problems.append(f"row count {len(speeches):,} != {EXPECTED_SPEECHES:,}")
@@ -139,7 +169,18 @@ def build() -> None:
     print("Reading meetings.tsv ...")
     meetings = sakamoto.adapt_meetings(read_source(MEETING_FILE, MEETING_REQUIRED))
     print("Reading speeches.tsv ...")
-    speeches = sakamoto.adapt_speeches(read_source(SPEECH_FILE, SPEECH_REQUIRED), meetings)
+    source = read_source(SPEECH_FILE, SPEECH_REQUIRED)
+    if problems := validate_source(source):
+        print("\nSOURCE VALIDATION FAILED:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        sys.exit(1)
+    repaired, repairs = sakamoto.apply_repairs(
+        source, yaml.safe_load(SOURCE_REPAIRS.read_text(encoding="utf-8"))
+    )
+    for entry in repairs:
+        print(f"Source repair: {describe_repair(entry)}")
+    speeches = sakamoto.adapt_speeches(repaired, meetings)
 
     counts = speeches.groupby("record_id").size()
     meetings["num_speeches"] = meetings["record_id"].map(counts).fillna(0).astype("int32")
@@ -173,13 +214,17 @@ def build() -> None:
         "- Source: Sakamoto-Matsuoka, *The UNSC Meetings and Speeches*, v5.0.\n"
         "- The source English transcript starts at the speech body; no form of address "
         "was reconstructed.\n"
-        "- `tokens` preserves the source's reported word count for compatibility; "
+        + "".join(
+            f"- Source repair (`config/source_repairs.yml`): {describe_repair(entry)}.\n"
+            for entry in repairs
+        )
+        + "- `tokens` preserves the source's reported word count for compatibility; "
         "step 02 computes the analytical word denominator independently.\n",
     )
     manifest = artifacts.provenance(
         ROOT,
         "01_build_parquet.py",
-        inputs=[SPEECH_FILE, MEETING_FILE],
+        inputs=[SPEECH_FILE, MEETING_FILE, SOURCE_REPAIRS],
         extra={
             "source": "Sakamoto-Matsuoka v5.0",
             "outputs": [
@@ -190,6 +235,7 @@ def build() -> None:
             "meetings": len(meetings),
             "meetings_with_speeches": int((meetings["num_speeches"] > 0).sum()),
             "source_words": int(speeches["tokens"].sum()),
+            "source_repairs": repairs,
         },
     )
     artifacts.atomic_write_json(MANIFESTS / "01_build_parquet.json", manifest, indent=1)

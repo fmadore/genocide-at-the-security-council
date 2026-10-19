@@ -10,6 +10,10 @@ before anything is written.
 
 from __future__ import annotations
 
+import hashlib
+from collections.abc import Mapping
+from typing import Any
+
 import pandas as pd
 
 INTEGER_COLUMNS = ("year", "month", "day", "meeting_num")
@@ -62,6 +66,137 @@ def participant_type(frame: pd.DataFrame) -> pd.Series:
     result.loc[frame["president"] & ~frame["procedural"]] = "Council President"
     result.loc[frame["procedural"]] = "Procedural"
     return result
+
+
+class RepairError(ValueError):
+    """The source does not look the way a repair says it should."""
+
+
+#: The speaker's own columns, copied from `attributes_from` onto a split-off row.
+SPEAKER_COLUMNS = (
+    "speaker",
+    "affiliation",
+    "position",
+    "secretary_general",
+    "affiliation_cow",
+    "cow_ccode",
+    "permanent_member",
+    "elected_member",
+    "state",
+    "igo",
+    "un_org",
+    "ngo",
+)
+
+
+def _one(raw: pd.DataFrame, speech_id: str) -> int:
+    matches = raw.index[raw["speech_id"] == speech_id]
+    if len(matches) != 1:
+        raise RepairError(f"{speech_id}: expected one source row, found {len(matches)}")
+    return int(matches[0])
+
+
+def _words(text: str) -> int:
+    return len(text.split())
+
+
+def drop_duplicate_record(raw: pd.DataFrame, repair: Mapping[str, Any]) -> tuple[pd.DataFrame, dict]:
+    """Drop a record whose speeches are, word for word and in order, another's."""
+    record, original = str(repair["record_id"]), str(repair["duplicate_of"])
+    copy = raw[raw["record_id"] == record].sort_values("order", key=lambda v: v.astype(int))
+    kept = raw[raw["record_id"] == original].sort_values("order", key=lambda v: v.astype(int))
+    if len(copy) != int(repair["speeches"]):
+        raise RepairError(f"{record}: expected {repair['speeches']} speeches, found {len(copy)}")
+    if copy["speech"].tolist() != kept["speech"].tolist():
+        raise RepairError(f"{record}: its speeches are not a copy of {original}'s")
+    return raw.drop(index=copy.index), {
+        "repair": "drop_record",
+        "record_id": record,
+        "duplicate_of": original,
+        "speech_ids": copy["speech_id"].tolist(),
+        "source_words": int(copy["count"].astype(int).sum()),
+    }
+
+
+def split_speech(raw: pd.DataFrame, repair: Mapping[str, Any]) -> tuple[pd.DataFrame, dict]:
+    """Cut a speech where the source missed a turn marker, into two rows.
+
+    The text before `at` stays with the source row. The text after the turn's
+    `label` becomes a new row, with the speaker attributes of `attributes_from`.
+    The source's word count is shared between the two in proportion to their
+    whitespace words, so the corpus total stays the source's.
+    """
+    speech_id = str(repair["speech_id"])
+    row = _one(raw, speech_id)
+    text = str(raw.at[row, "speech"])
+    if hashlib.sha256(text.encode("utf-8")).hexdigest() != repair["source_sha256"]:
+        raise RepairError(f"{speech_id}: the source text is not the one the repair was written for")
+    at, label = int(repair["at"]), str(repair["label"])
+    if not text.startswith(label, at):
+        raise RepairError(f"{speech_id}: no {label!r} at character {at}")
+    # The new body starts right after the label, so an offset in it is the old
+    # offset minus `at + len(label)`: tools/remap_run_rows.py relies on that.
+    head, tail = text[:at].rstrip(), text[at + len(label):].rstrip()
+    if not tail or tail[0].isspace():
+        raise RepairError(f"{speech_id}: the text after {label!r} must start straight away")
+
+    new = repair["new"]
+    if (raw["speech_id"] == new["speech_id"]).any():
+        raise RepairError(f"{new['speech_id']} already exists in the source")
+    donor = _one(raw, str(new["attributes_from"]))
+    if raw.at[donor, "record_id"] != raw.at[row, "record_id"]:
+        raise RepairError(f"{new['attributes_from']} is not in {speech_id}'s meeting")
+
+    total = int(raw.at[row, "count"])
+    tail_count = round(total * _words(tail) / (_words(head) + _words(tail)))
+    added = raw.loc[[row]].copy()
+    added.index = [raw.index.max() + 1]
+    for column in SPEAKER_COLUMNS:
+        added[column] = raw.at[donor, column]
+    added["speech_id"] = str(new["speech_id"])
+    added["president"] = str(bool(new["president"]))
+    added["procedural"] = str(bool(new["procedural"]))
+    added["speech"] = tail
+    added["count"] = str(tail_count)
+
+    out = raw.copy()
+    out.at[row, "speech"] = head
+    out.at[row, "count"] = str(total - tail_count)
+    out = pd.concat([out, added])
+    for moved, order in repair.get("reorder", {}).items():
+        out.at[_one(out, str(moved)), "order"] = str(int(order))
+    return out, {
+        "repair": "split_speech",
+        "speech_id": speech_id,
+        "new_speech_id": str(new["speech_id"]),
+        "at": at,
+        "source_words": [total - tail_count, tail_count],
+    }
+
+
+def apply_repairs(raw: pd.DataFrame, repairs: Mapping[str, Any]) -> tuple[pd.DataFrame, list[dict]]:
+    """Apply `config/source_repairs.yml` to the source speeches, before adapting.
+
+    Every repair checks that the source is the one it was written for and
+    raises :class:`RepairError` if not. Returns the repaired frame, in source
+    row order with split-off rows after their meeting's last row, and a log of
+    what was done for the step's manifest.
+    """
+    if repairs.get("schema") != 1:
+        raise RepairError("unsupported source_repairs schema")
+    log: list[dict] = []
+    out = raw.reset_index(drop=True)
+    for repair in repairs.get("drop_records") or []:
+        out, entry = drop_duplicate_record(out, repair)
+        log.append(entry)
+    for repair in repairs.get("split_speeches") or []:
+        out, entry = split_speech(out, repair)
+        log.append(entry)
+    position = {speech_id: index for index, speech_id in enumerate(raw["speech_id"])}
+    record_end = {record: position[ids.iloc[-1]] for record, ids in raw.groupby("record_id", sort=False)["speech_id"]}
+    key = [position.get(s, record_end.get(r, len(position)) + 0.5) for s, r in zip(out["speech_id"], out["record_id"], strict=True)]
+    out = out.assign(_key=key).sort_values("_key", kind="stable").drop(columns="_key")
+    return out.reset_index(drop=True), log
 
 
 def adapt_meetings(raw: pd.DataFrame) -> pd.DataFrame:

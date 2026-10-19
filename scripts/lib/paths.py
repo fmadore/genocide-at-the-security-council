@@ -81,6 +81,9 @@ STOPWORDS = CONFIG / "stopwords.txt"
 # The published semantic map a build restores instead of re-running GPU
 # inference, pinned by checksum; read through `lib.semantic_release.load_pin`.
 SEMANTIC_PIN = CONFIG / "semantic-release.json"
+# Repairs to the pinned source, each checked against the original UN record and
+# applied by 01 to the frame it reads; data/raw/ itself is never edited.
+SOURCE_REPAIRS = CONFIG / "source_repairs.yml"
 
 # --- Analysis artefacts ---------------------------------------------------
 # One directory per step. These are the inputs the dashboard is assembled from;
@@ -152,11 +155,18 @@ def _expected(variable: str, default: int) -> int:
 # included, and it is kept as provenance: reproducing it is what says the tar
 # and the TSV describe the same corpus. It is *not* the denominator of a rate —
 # see `EXPECTED_WORDS`.
-EXPECTED_SPEECHES = _expected("GENOCIDE_EXPECTED_SPEECHES", 167_642)
+#
+# Two pairs: the source as published, which 01 checks before it applies
+# `config/source_repairs.yml`, and the repaired corpus every step from 01 on
+# asserts. The repairs drop the 11 speeches of a duplicated record (8,156 source
+# words) and split one speech in two, so the corpus holds ten fewer speeches.
+SOURCE_SPEECHES = 167_642
+SOURCE_TOKENS = 87_678_254
+EXPECTED_SPEECHES = _expected("GENOCIDE_EXPECTED_SPEECHES", 167_632)
 # The source calls this field a word count. The legacy name remains in the
 # canonical table because downstream artefacts already carry `tokens`, but it
 # is provenance only and is never used as a lexical denominator.
-EXPECTED_TOKENS = _expected("GENOCIDE_EXPECTED_TOKENS", 87_678_254)
+EXPECTED_TOKENS = _expected("GENOCIDE_EXPECTED_TOKENS", 87_670_098)
 
 # Words in the speech bodies, counted with `lib.lexical.words` and asserted by
 # 02. This is the denominator every "per 100,000 words" figure divides by, and
@@ -166,7 +176,9 @@ EXPECTED_TOKENS = _expected("GENOCIDE_EXPECTED_TOKENS", 87_678_254)
 # 86,854,907 until 24 September 2026, when the tokenizer stopped cutting
 # accented words at the accent and started reading both apostrophes as one
 # (docs/ROADMAP.md, RV3): 42,333 fewer words, 0.05% of the denominator.
-EXPECTED_WORDS = _expected("GENOCIDE_EXPECTED_WORDS", 86_812_574)
+# 86,812,574 until 19 October 2026, when the source repairs dropped a
+# duplicated record and the turn label inside a split speech: 8,136 fewer.
+EXPECTED_WORDS = _expected("GENOCIDE_EXPECTED_WORDS", 86_804_438)
 
 
 def ensure_dirs() -> None:

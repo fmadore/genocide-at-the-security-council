@@ -200,13 +200,15 @@ When a run is added, record it here and re-check the artefact counts on the Meth
 against its manifest. Automatic resolutions (a relocated evidence quote, a normalised
 whitespace match) are counted in the manifest, never silently absorbed.
 
-### 8. Two source errors — not corrected
+### 8. Two source errors — corrected 19 October 2026
 
-S/PV.1379 files Mali's statement, and its genocide passage, under Israel; S/PV.869 carries a
-copy of S/PV.903 dated 28 June 1960, which gives Ecuador a false first on the DRC chronology.
-Both are confirmed against the PDFs and described under "19 October 2026" below, with what
-correcting each would involve. Whether and how to repair them is a decision for FM.
-Priority: high for S/PV.869 (it moves a published first), medium for S/PV.1379.
+S/PV.1379 filed Mali's statement, and its genocide passage, under Israel; S/PV.869 carried a
+copy of S/PV.903 dated 28 June 1960, which gave Ecuador a false first on the DRC chronology.
+Both are confirmed against the PDFs and repaired by `config/source_repairs.yml`, applied by
+step 01 (decided by FM, 19 October 2026); the evidence and the repair are under
+"19 October 2026" below. Still open: a coder should re-read `SC01379-01-010#1` as Mali's, and
+the two semantic-map rows of S/PV.1379 return only with the next embedding run. Priority:
+low.
 
 ## Dated records on the current corpus
 
@@ -217,7 +219,8 @@ Both are confirmed below against the corpus (`data/raw/speeches.tsv`, v5.0, md5
 `5851f124…`; `data/derived/speeches.parquet`), the published files (`web/static/data/`,
 generated 19 October 2026) and the original UN records, downloaded from
 `documents.un.org`. Both errors are already in the source TSV; the pipeline did not
-introduce them. **Nothing has been corrected**: the data and the site still carry both.
+introduce them. Both are now repaired in the build, never in `data/raw/`: see "The repair"
+at the end of this entry.
 
 **1. S/PV.1379 (16 November 1967): Mali's statement is filed under Israel.** Confirmed.
 
@@ -342,6 +345,41 @@ How common this is: the same hash check over the whole corpus, kept to speeches 
 1985, are identical, under a Middle East and a South Africa agenda), and S/PV.873 and
 S/PV.906 (2 of 70 and 60 speeches). Neither of the last two pairs contains `genocid*`; they
 have not been checked against the PDFs.
+
+**The repair (decided by FM, 19 October 2026).** `config/source_repairs.yml` names both
+repairs and what each expects to find, and step 01 applies them to the frame it reads;
+`data/raw/` is unchanged. Step 01 checks the source against its codebook first (167,642
+speeches, 87,678,254 source words), then the repaired corpus against `lib.paths`.
+
+- **S/PV.869.** The 11 speeches of `SC00869-01` are dropped, after a check that each is word
+  for word the matching speech of `SC00903-01`. Ecuador's Congo speech now counts once, and
+  the first DRC event on the diffusion figure is `SC00896-01-028#1` (9 September 1960).
+- **S/PV.1379.** `SC01379-01-007` is cut at character 1,463, after a check of its SHA-256 and
+  of the turn label there. Eban keeps the first 241 source words; the remaining 1,695 become
+  `SC01379-01-010`, Mr. Kante for Mali, elected member, not procedural, read eighth in the
+  meeting; `-008` and `-009` keep their identifiers. The label itself, five words, is dropped.
+- **Model runs.** The run files are not edited. `model_annotations/genocide/source_repairs.json`,
+  written by `tools/remap_run_rows.py`, drops `SC00869-01-002#1` and re-points
+  `SC01379-01-007#1` at `SC01379-01-010#1` (body offset 6,834, evidence offsets shifted by
+  1,503); `lib.model_runs.read` applies it to every run. The labels are the run's own.
+- **Semantic map.** No vector exists for the two halves of the split speech, and the GPU
+  run is not repeated for them. Both are left off the map and out of the neighbour index
+  until the next embedding run (167,630 points; 136 neighbour links removed). The geometry
+  digest recomputed without the three repaired ids equals the old corpus's over the same
+  rows, so every other point keeps the vector of its own text; `config/semantic-release.json`
+  records it with the checksum of the repairs it was measured against.
+
+Totals after the rebuild: 167,632 speeches, 9,463 meetings with speeches, 87,670,098 source
+words, 86,804,438 analytical words (8,131 in the duplicate and the five-word label: 8,136
+fewer). `genocide`: 4,135 speeches and 7,786 occurrences, from 4,136 and 7,787; `massacre`:
+2,868 and 4,578, from 2,870 and 4,580. Israel, 1960–1969: 11 of 228 speeches with the word,
+13 occurrences. Mali: 5 of 170, 6 occurrences. Israel's first Holocaust mention and
+assertion move to `SC01401-01-006#1` (21 March 1968). The gold sample was redrawn from the
+repaired population before any coding began (decided by FM): 454 distinct occurrences in
+the packet, from 453. The lexicon audit sample was redrawn too, with no annotations lost.
+
+Not done: a report upstream to Sakamoto and Matsuoka (drafted in PR #39, not sent), and the
+PDF check of S/PV.2622/2623 and S/PV.873/906.
 
 ### 24 September 2026 — review fixes: lexicon v8, tokenizer, gold design
 

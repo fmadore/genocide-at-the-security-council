@@ -41,6 +41,11 @@ ALLOW_PARTIAL_RUN = STORE / "allow_partial_run.txt"
 #: the frame cut from `CURRENT_RUN` alone. Kept apart from `COMPARISON_RUN` so
 #: that publishing a second opinion does not redraw the sample under the coders.
 GOLD_COMPARISON_RUN = STORE / "gold_comparison_run.txt"
+#: Run rows that point into a speech `config/source_repairs.yml` changed:
+#: dropped with a dropped record, or re-pointed at the speech a split moved
+#: their passage into. Written by `tools/remap_run_rows.py` and applied by
+#: :func:`read`, so that the run files themselves are never edited.
+RUN_REPAIRS = STORE / "source_repairs.json"
 
 # `REFERENTS`, the controlled list, is shared with 03's audit and so lives in
 # `lib.paths`; it is imported above and read here as `model_runs.REFERENTS`.
@@ -116,11 +121,38 @@ def read(directory: Path) -> tuple[dict, list[dict]]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("run_id") != directory.name:
         raise ValueError("Run directory and manifest identity disagree")
-    rows = read_rows(rows_path)
+    rows = repaired(read_rows(rows_path))
     if not rows:
         raise ValueError("Run contains no annotations")
     validate(manifest, rows)
     return manifest, rows
+
+
+def repaired(rows: list[dict], table_path: Path | None = None) -> list[dict]:
+    """A run's rows after the source repairs: some dropped, some re-pointed.
+
+    Only identities and offsets change; every label is the run's own.
+    """
+    path = table_path or RUN_REPAIRS
+    if not path.is_file():
+        return rows
+    table = json.loads(path.read_text(encoding="utf-8"))
+    if table.get("schema") != 1:
+        raise ValueError(f"unsupported {path.name} schema")
+    drop, remap = set(table["drop"]), table["remap"]
+    out = []
+    for row in rows:
+        identifier = str(row.get("occurrence_id", ""))
+        if identifier in drop:
+            continue
+        if identifier in remap:
+            change = remap[identifier]
+            row = {**row, **change["to"]}
+            for field in ("evidence_start", "evidence_end"):
+                if isinstance(row.get(field), int):
+                    row[field] = row[field] + int(change["evidence_shift"])
+        out.append(row)
+    return out
 
 
 def validate(manifest: dict, rows: list[dict]) -> None:

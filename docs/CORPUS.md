@@ -17,11 +17,18 @@ authors.
 | Source licence | CC0 1.0 |
 | Consumed files | `speeches.tsv`, `meetings.tsv` |
 | Observed coverage | 17 January 1946 to 30 December 2024 |
-| Speeches | 167,642 |
-| Meetings with speeches | 9,464 |
+| Speeches | 167,632 (167,642 in the source) |
+| Meetings with speeches | 9,463 |
 | Meeting records | 10,294 |
-| Source-reported words | 87,678,254 |
-| Project analytical words | 86,812,574 |
+| Source-reported words | 87,670,098 (87,678,254 in the source) |
+| Project analytical words | 86,804,438 |
+
+Step 01 applies two repairs to the source, listed in
+[`config/source_repairs.yml`](../config/source_repairs.yml) and documented in
+[VALIDATION.md](VALIDATION.md) (19 October 2026): it drops the 11 speeches of
+S/PV.869, a copy of S/PV.903, and splits one S/PV.1379 speech that ran on into
+Mali's statement. The breakdowns further down were computed on 7 September 2026,
+before the repairs, and differ from the repaired corpus by at most eleven speeches.
 
 The complete pin—Dataverse file identifiers, sizes, and MD5 checksums—is in
 [`config/dataset-pin.json`](../config/dataset-pin.json).
@@ -113,9 +120,9 @@ After normalisation:
 | Non-state | 7,323 |
 | UN | 1,716 |
 
-Lexicon v8 finds `g[eé]nocid*` in **4,136 speeches**, with **7,787 occurrences**
-(v4 to v7 found 4,133 and 7,747 with `genocid*`; v8 adds the accented
-*génocidaires*). Every annotation-stage population check reads these from
+Lexicon v8 finds `g[eé]nocid*` in **4,135 speeches**, with **7,786 occurrences**
+(4,136 and 7,787 before the source repairs of 19 October 2026; v4 to v7 found
+4,133 and 7,747 with `genocid*`; v8 adds the accented *génocidaires*). Every annotation-stage population check reads these from
 `config/lexicon.counts.json`.
 
 ## Limitations that must remain visible

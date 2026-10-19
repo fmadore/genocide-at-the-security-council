@@ -177,7 +177,9 @@ def copy_part(sources: Sequence[Path], name: str, *, root: Path | None = None) -
             )
         if name == "semantic":
             # The geometry is the release's; the colours are this corpus's.
-            display = semantic_release.rebind(staged, SPEECHES_FLAGGED)
+            display = semantic_release.rebind(
+                staged, SPEECHES_FLAGGED, semantic_release.pinned_exclusions(SEMANTIC_PIN)
+            )
             console.info(
                 f"semantic   display attributes re-derived from the corpus: "
                 f"{display['points_changed']:,} points differ from the release"

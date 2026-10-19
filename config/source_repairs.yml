@@ -1,0 +1,59 @@
+# Repairs to the Sakamoto-Matsuoka v5.0 source, applied by step 01.
+#
+# data/raw/ is never edited: step 01 reads the pinned TSVs and applies these
+# repairs to the frame before anything else sees it. Each repair names what it
+# expects to find (a duplicate record word for word, a text checksum, a label at
+# an offset) and step 01 stops if the source does not match, so a new source
+# release cannot be "repaired" by a rule written for another one.
+#
+# Each repair was checked against the original UN record. The evidence, and
+# what each one changes on the site, is in docs/VALIDATION.md, under
+# "19 October 2026".
+
+schema: 1
+source: Sakamoto-Matsuoka v5.0
+
+# A meeting record whose every speech is a copy of another record's.
+drop_records:
+  - record_id: SC00869-01
+    # Every speech text must equal the duplicate's, in the same order.
+    duplicate_of: SC00903-01
+    speeches: 11
+    reason: >-
+      S/PV.869 (28 June 1960) carries the 11 speeches of S/PV.903 (15 September
+      1960), on the Congo. The real S/PV.869, on the admission of the Federation
+      of Mali, is not in the source.
+    checked: S/PV.869 and S/PV.903, UN Official Document System, 19 October 2026
+
+# A speech that runs on into the next speaker's turn, because the source missed
+# the turn marker. The text before `at` stays with the source row; the text
+# after `label` becomes a new row.
+split_speeches:
+  - speech_id: SC01379-01-007
+    # SHA-256 of the source text, UTF-8.
+    source_sha256: 401deee827b559e82c65c145fd700513f490274012a95d1fb566446feb80c117
+    at: 1463
+    # The OCR read the closing bracket as "/".
+    label: "The President (translated from French/: "
+    reason: >-
+      S/PV.1379 (16 November 1967): Mr. Eban (Israel) speaks in paragraphs
+      30-34. Paragraph 35 opens "The PRESIDENT (translated from French): ... I
+      should like to address the Council as the representative of MALI", and
+      the rest of the row, paragraphs 35-58, is Mali's statement.
+    checked: S/PV.1379, UN Official Document System, 19 October 2026
+    new:
+      # The first number the source leaves free in the record, so that -008
+      # and -009 keep their identifiers.
+      speech_id: SC01379-01-010
+      # The speaker's attributes (name, affiliation, membership, state) come
+      # from this row of the same meeting.
+      attributes_from: SC01379-01-006
+      # The President speaking for his country: the source's own coding for a
+      # President's national statement.
+      president: true
+      procedural: false
+    # The order the meeting is read in. Identifiers do not change.
+    reorder:
+      SC01379-01-010: 8
+      SC01379-01-008: 9
+      SC01379-01-009: 10
