@@ -271,18 +271,30 @@
 		);
 	}
 
-	/* One hue per speaker_position, tinted toward the page so the numbers can be read on
-	   top of them. `--blue` appears nowhere: it belongs to what a reader can act
-	   on, never to a datum. Rejection is the strongest weight because it is the
-	   question the figure is ordered by. */
+	/* The order a profile bar is drawn and keyed in: heaviest ink first, so every
+	   bar starts with its rejections at the same left edge and the rows can be
+	   compared on the one band the figure is about. `no_position` is drawn last
+	   and empty, because there is no position to weigh. */
+	const PROFILE_ORDER: readonly string[] = [
+		'rejects',
+		'reports_without_position',
+		'conditional',
+		'asserts',
+		'unclear',
+		'not_applicable',
+		'no_position'
+	];
 	const slug = (speaker_position: string) => speaker_position.replace(/_/g, '-');
-	const bands = (parts: PositionSegment[]) =>
+	const profileKey = $derived(
+		[...POSITIONS].sort((a, b) => PROFILE_ORDER.indexOf(a) - PROFILE_ORDER.indexOf(b))
+	);
+	const profileParts = (parts: PositionSegment[]) =>
 		parts
-			.map(
-				(band) =>
-					`var(--speaker_position-${slug(band.speaker_position)}) ${band.from.toFixed(3)}% ${band.to.toFixed(3)}%`
-			)
-			.join(', ');
+			.filter((part) => part.count > 0)
+			.sort(
+				(a, b) =>
+					PROFILE_ORDER.indexOf(a.speaker_position) - PROFILE_ORDER.indexOf(b.speaker_position)
+			);
 
 	const sha = $derived(artefact.model.prompt_sha256);
 	const shortSha = $derived(`${sha.slice(0, 12)}…`);
@@ -1222,9 +1234,9 @@
 		{/snippet}
 
 		<div class="key">
-			{#each POSITIONS as speaker_position (speaker_position)}
+			{#each profileKey as speaker_position (speaker_position)}
 				<span class="swatch"
-					><i style:--band="var(--speaker_position-{slug(speaker_position)})"></i>{positionLabel(
+					><i style:--band="var(--position-{slug(speaker_position)})"></i>{positionLabel(
 						speaker_position
 					)}{#if isInstrumentDependent(speaker_position)}<abbr
 							title="Model-sensitive category: reporting a claim can be classified differently from asserting it."
@@ -1256,11 +1268,12 @@
 							<th scope="col">Delegation</th>
 							<th scope="col" class="num">Eligible</th>
 							<th scope="col" class="num">Rejects</th>
+							<th scope="col" class="profile">Positions</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each profiles.rows as row (row.actor)}
-							<tr class="band" style:--bands="linear-gradient(to right, {bands(row.segments)})">
+							<tr>
 								<!-- Counts without their shares: a denominator of 0 leaves them out,
 								     as the figure itself does until the label has been checked. -->
 								<th scope="row" title={describePositions(row.positions, 0)}>
@@ -1268,6 +1281,20 @@
 								</th>
 								<td class="num">{count(row.eligible)}</td>
 								<td class="num">{count(row.rejects)}</td>
+								<!-- The bar sits in a cell of its own, never under the whole row:
+								     the name and the counts stay on plain ground. -->
+								<td class="profile">
+									<span class="bar" aria-hidden="true">
+										{#each profileParts(row.segments) as part (part.speaker_position)}
+											<i
+												style:flex-grow={part.count}
+												style:background="var(--position-{slug(part.speaker_position)})"
+												title="{positionLabel(part.speaker_position)}: {count(part.count)}"
+											></i>
+										{/each}
+									</span>
+									<span class="sr-only">{describePositions(row.positions, 0)}</span>
+								</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -1280,7 +1307,7 @@
 				><Icon icon={ChevronRight} />All position counts, withheld delegations included</summary
 			>
 			<ScrollRegion label="All position counts" tall>
-				<table>
+				<table class="counts">
 					<thead>
 						<tr>
 							<th scope="col">Delegation</th>
@@ -2120,40 +2147,22 @@
 
 	/* ---- the speaker_position profile ------------------------------------------------ */
 
-	/* One hue per speaker_position, tinted toward the page so the numbers stay readable on
-	   top of them — the ceiling `Standing.svelte` settled on, for the same
-	   reason. Rejection carries ink, the strongest weight available, because it
-	   is the band the figure is ordered by. `--blue` appears nowhere. */
+	/* Seven positions, seven weights of ink: not a register, so no hue, and
+	   `--blue` appears nowhere. One ramp from paper to ink, opaque so the zebra
+	   stripe cannot show through, with rejection at full ink because it is the
+	   band the figure is about. The names follow the codebook's identifiers
+	   (`slug` turns `no_position` into `no-position`); a name that matches no
+	   identifier is an undefined variable, and an undefined variable empties the
+	   whole bar rather than one band. */
 	.key,
 	.positions {
-		--tint: 32%;
-		--speaker_position-asserts: color-mix(in oklab, var(--ink) var(--tint), transparent);
-		--speaker_position-attributes-or-reports: color-mix(
-			in oklab,
-			var(--ink-2) var(--tint),
-			transparent
-		);
-		--speaker_position-rejects-or-denies: color-mix(in oklab, var(--ink) var(--tint), transparent);
-		--speaker_position-hypothetical-or-conditional: color-mix(
-			in oklab,
-			var(--ink-3) var(--tint),
-			transparent
-		);
-		--speaker_position-neutral-legal-reference: color-mix(
-			in oklab,
-			var(--rule-strong) var(--tint),
-			transparent
-		);
-		--speaker_position-unclear: color-mix(
-			in oklab,
-			var(--ink-3) calc(var(--tint) / 2),
-			transparent
-		);
-		--speaker_position-not-applicable: color-mix(
-			in oklab,
-			var(--rule-strong) var(--tint),
-			transparent
-		);
+		--position-rejects: var(--ink);
+		--position-reports-without-position: color-mix(in oklab, var(--ink) 62%, var(--paper));
+		--position-conditional: color-mix(in oklab, var(--ink) 40%, var(--paper));
+		--position-asserts: color-mix(in oklab, var(--ink) 22%, var(--paper));
+		--position-unclear: color-mix(in oklab, var(--ink) 11%, var(--paper));
+		--position-not-applicable: color-mix(in oklab, var(--ink) 5%, var(--paper));
+		--position-no-position: var(--paper);
 	}
 
 	.key {
@@ -2172,10 +2181,14 @@
 		gap: var(--sp-1);
 	}
 
+	/* The site's key: a 0.625rem square before the words, drawn by the same ink
+	   hairline as the bar it keys, so the empty `no position` square is still a
+	   square. */
 	.swatch i {
-		width: 1.4rem;
-		height: 0.55rem;
+		width: 0.625rem;
+		height: 0.625rem;
 		background: var(--band);
+		border: var(--hair) solid var(--ink);
 		display: inline-block;
 	}
 
@@ -2200,14 +2213,44 @@
 		color: var(--ink);
 	}
 
-	/* The profile painted behind the row it describes: one gradient with hard
-	   stops, because a band is a range of the row rather than a box inside it.
-	   The zebra striping is switched off for these rows — the bands are 32%
-	   opaque, so a stripe underneath would draw the same speaker_position in two colours
-	   down the column. */
-	tbody tr.band {
-		background-color: transparent;
-		background-image: var(--bands);
+	/* A delegation's name wraps rather than widening its column: the corpus
+	   holds a tribunal whose affiliation runs to 229 characters, and kept on one
+	   line it pushed the counts out of the table. */
+	.positions tbody th,
+	.counts tbody th {
+		white-space: normal;
+		overflow-wrap: anywhere;
+		min-width: 7rem;
+		max-width: 20rem;
+	}
+
+	/* The profile, in the cell of its own the site's tables give a magnitude
+	   bar: one hairline rectangle divided by paper rules, each band as wide as
+	   its share of the row's eligible mentions. */
+	.positions th.profile,
+	.positions td.profile {
+		width: 55%;
+		min-width: 6rem;
+	}
+
+	.positions td.profile {
+		vertical-align: middle;
+	}
+
+	.bar {
+		display: flex;
+		height: 0.75rem;
+		background: var(--paper);
+		border: var(--hair) solid var(--ink);
+	}
+
+	.bar i {
+		flex-basis: 0;
+		min-width: 1px;
+	}
+
+	.bar i + i {
+		border-inline-start: var(--hair) solid var(--paper);
 	}
 
 	/* A row or a cell whose figure is present but must not be ordered or quoted:

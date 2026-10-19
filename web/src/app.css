@@ -555,6 +555,13 @@ th {
 	white-space: nowrap;
 }
 
+/* A row's own header is a cell of that row: it sits over the same grey rule as
+   the numbers beside it. The ink rule belongs to the column headings alone, so a
+   row's line does not change weight halfway across. */
+tbody th {
+	border-bottom-color: var(--rule);
+}
+
 td.num,
 th.num {
 	text-align: right;

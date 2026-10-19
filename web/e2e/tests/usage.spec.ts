@@ -301,11 +301,26 @@ test(
 		const figure = rejectsOf(page);
 		const table = figure.locator('table.positions');
 
-		await expect(table.locator('thead th')).toHaveText(['Delegation', 'Eligible', 'Rejects']);
+		await expect(table.locator('thead th')).toHaveText([
+			'Delegation',
+			'Eligible',
+			'Rejects',
+			'Positions'
+		]);
 		// Rwanda has one rejection and France none, so Rwanda first; the European
 		// Union is under the minimum of three and has no band.
 		await expect(table.locator('tbody th[scope="row"]')).toHaveText(['Rwanda', 'France']);
-		await expect(table.locator('tbody tr').first().locator('td')).toHaveText(['5', '1']);
+		await expect(table.locator('tbody tr').first().locator('td.num')).toHaveText(['5', '1']);
+		// The bar starts with the rejection, and every band resolves to a colour: a
+		// band named after a position the stylesheet does not declare is
+		// transparent, which is how this plate once drew no bars at all.
+		const bands = table.locator('tbody tr').first().locator('.bar i');
+		await expect(bands.first()).toHaveAttribute('title', 'Rejects: 1');
+		const fills = await bands.evaluateAll((parts) =>
+			parts.map((part) => getComputedStyle(part).backgroundColor)
+		);
+		expect(fills.length).toBeGreaterThan(1);
+		expect(fills).not.toContain('rgba(0, 0, 0, 0)');
 		await expect(table.locator('abbr')).toHaveCount(0);
 		await expect(figure).not.toContainText('95% interval');
 		await expect(figure).toContainText('No delegation is marked as unusual');
