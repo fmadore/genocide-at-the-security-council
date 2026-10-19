@@ -412,7 +412,7 @@ textarea {
 	max-width: 100%;
 	transition:
 		border-color var(--dur) var(--ease),
-		background var(--dur) var(--ease),
+		background-color var(--dur) var(--ease),
 		color var(--dur) var(--ease);
 }
 
@@ -420,9 +420,11 @@ button {
 	cursor: pointer;
 }
 
+/* The colour alone: the `background` shorthand would also reset the select's
+   drawn chevron, and the transition would slide it out of the box. */
 button:hover,
 select:hover {
-	background: var(--paper-sunk);
+	background-color: var(--paper-sunk);
 }
 
 button:disabled {

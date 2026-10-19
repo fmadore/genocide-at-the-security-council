@@ -1,10 +1,14 @@
 <script lang="ts">
 	import '../app.css';
 	import textFace from '../fonts/HankenGrotesk-Variable.woff2?url';
+	import { afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import Menu from '@lucide/svelte/icons/menu';
+	import X from '@lucide/svelte/icons/x';
 	import BackToTop from '#lib/BackToTop.svelte';
 	import BasketDrawer from '#lib/BasketDrawer.svelte';
+	import Icon from '#lib/Icon.svelte';
 	import ScopeControl from '#lib/ScopeControl.svelte';
 	import ThemeToggle from '#lib/ThemeToggle.svelte';
 	import pageProvenance from '#lib/page-provenance.json';
@@ -79,25 +83,38 @@
 	const isScoped = $derived(isReader || SCOPED.some((href) => isCurrent(href)));
 
 	/* The masthead's height, published for whatever else has to stick under it.
-	   It is measured rather than declared because the row wraps: seven sections,
-	   a basket and a theme toggle are one line at 82rem and four at 375px, and a
+	   It is measured rather than declared because the row wraps: eight sections,
+	   a basket and a theme toggle are one line at 82rem and two at 50rem, and a
 	   contents band told the wrong number covers the page or floats over it. */
 	let masthead = $state.raw<HTMLElement>();
-	let sectionStrip = $state.raw<HTMLElement>();
 
-	/* Below 48rem the sections are one row that scrolls sideways, and the one a
-	   reader is on may start out of sight. Bring it in along the row's own axis
-	   only, as the contents band does with its entries: `scrollIntoView` would
-	   also be entitled to scroll the page. Nothing moves where the row fits. */
+	/* Below 48rem the sections sit behind one button and open as a list laid
+	   over the page, not pushed into it: the masthead keeps its height, so the
+	   bands measured from it stay where they are. Choosing a page, Escape, or a
+	   press anywhere outside the masthead closes it. */
+	let menuOpen = $state(false);
+	let menuButton = $state.raw<HTMLButtonElement>();
+
+	afterNavigate(() => {
+		menuOpen = false;
+	});
+
 	$effect(() => {
-		void here;
-		if (!sectionStrip) return;
-		const link = sectionStrip.querySelector<HTMLElement>('a.active');
-		if (!link) return;
-		const item = link.getBoundingClientRect();
-		const box = sectionStrip.getBoundingClientRect();
-		if (item.left >= box.left && item.right <= box.right) return;
-		sectionStrip.scrollLeft += item.left - box.left - 16;
+		if (!menuOpen) return;
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key !== 'Escape') return;
+			menuOpen = false;
+			menuButton?.focus();
+		};
+		const onPointer = (event: PointerEvent) => {
+			if (!masthead?.contains(event.target as Node)) menuOpen = false;
+		};
+		window.addEventListener('keydown', onKey);
+		window.addEventListener('pointerdown', onPointer);
+		return () => {
+			window.removeEventListener('keydown', onKey);
+			window.removeEventListener('pointerdown', onPointer);
+		};
 	});
 
 	$effect(() => {
@@ -179,8 +196,21 @@
 			<strong><mark>Genocide</mark> at the Security Council</strong>
 			<span class="symbol">1946&ndash;2024</span>
 		</a>
-		<nav aria-label="Sections">
-			<ul bind:this={sectionStrip}>
+		<!-- Before the list it opens, so the next Tab from it walks into the
+		     sections. Only drawn below 48rem; the word is for assistive
+		     technology, the icon for the eye. -->
+		<button
+			type="button"
+			class="menu-toggle no-print"
+			aria-expanded={menuOpen}
+			aria-controls="sections"
+			bind:this={menuButton}
+			onclick={() => (menuOpen = !menuOpen)}
+		>
+			<Icon icon={menuOpen ? X : Menu} /><span class="word">Sections</span>
+		</button>
+		<nav id="sections" aria-label="Sections" class:open={menuOpen}>
+			<ul>
 				{#each sections as section (section.href)}
 					<li>
 						<a
@@ -189,7 +219,8 @@
 							aria-current={isCurrent(section.href) ? 'page' : undefined}
 							class:active={isCurrent(section.href) ||
 								(isReader && section.href === '/concordance')}
-							>{section.label}{#if originOf(section.href)}<small
+							onclick={() => (menuOpen = false)}
+							><span class="name">{section.label}</span>{#if originOf(section.href)}<small
 									class="nav-origin"
 									data-provenance={originOf(section.href)}
 									aria-hidden="true"
@@ -207,7 +238,7 @@
 		<!-- Beside the sections rather than among them: they open something or
 		     change the page, and go nowhere, so they are not navigation. Kept out
 		     of the list so that, on a narrow screen, they stay on the wordmark's
-		     line while the sections scroll sideways beneath it. -->
+		     line while the sections fold behind their button. -->
 		<div class="tools no-print">
 			<button type="button" class="basket" onclick={() => (basketOpen = true)}>
 				Basket{#if basket.count}<span class="n">{basket.count}</span>{/if}
@@ -383,18 +414,21 @@
 		gap: var(--sp-5);
 	}
 
+	.menu-toggle {
+		display: none;
+	}
+
 	/* The review of 19 September 2026 measured the masthead at 210px of an
 	   844px phone and 241px at 320px: eight sections wrapping to four rows, each
-	   taller for its provenance word, under a band that stays on screen. Below
-	   48rem it is two lines instead. The wordmark shares the first with the
-	   basket and the theme; the sections take the second as one row that
-	   scrolls sideways, which is what the contents band beneath it already
-	   does, so the page's two sticky bands work the same way. */
+	   taller for its provenance word, under a band that stays on screen. A row
+	   scrolling sideways fixed the height and left a scrollbar under the
+	   wordmark. Below 48rem the masthead is one line instead — the wordmark, the
+	   basket, the theme, and the button the sections fold behind. */
 	@media (max-width: 48rem) {
 		.masthead .inner {
 			display: grid;
-			grid-template-columns: minmax(0, 1fr) auto;
-			grid-template-areas: 'wordmark tools' 'nav nav';
+			grid-template-columns: minmax(0, 1fr) auto auto;
+			grid-template-areas: 'wordmark tools menu';
 			gap: 0 var(--sp-4);
 		}
 
@@ -416,27 +450,111 @@
 			gap: var(--sp-4);
 		}
 
+		/* The theme toggle's box: a hairline square on the 2rem line. Open, it
+		   is filled in ink, as a pressed cell of a segmented group is. */
+		.menu-toggle {
+			grid-area: menu;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-height: 2rem;
+			min-width: 2rem;
+			padding: 0;
+			color: var(--ink-2);
+			background: none;
+		}
+
+		.menu-toggle:hover {
+			color: var(--ink);
+			background-color: var(--paper-sunk);
+		}
+
+		.menu-toggle[aria-expanded='true'] {
+			color: var(--paper);
+			background-color: var(--ink);
+		}
+
+		.menu-toggle .word {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+
+		/* Laid over the page under the masthead's own rule and closed by the
+		   heavy one, the rule that opens the page and each plate: a sheet of the
+		   programme, not a floating card. It scrolls on its own if a short
+		   landscape window cannot hold all eight rows. */
 		nav {
-			grid-area: nav;
-			min-width: 0;
+			display: none;
+			position: absolute;
+			top: calc(100% + var(--hair));
+			left: 0;
+			right: 0;
+			max-height: calc(100dvh - var(--masthead-h, 4rem));
+			overflow-y: auto;
+			overscroll-behavior: contain;
+			background: var(--paper);
+			border-bottom: var(--heavy) solid var(--ink);
+			clip-path: inset(0 0 100% 0);
+			transition:
+				clip-path var(--dur) var(--ease),
+				display var(--dur) allow-discrete;
+		}
+
+		nav.open {
+			display: block;
+			clip-path: inset(0);
+		}
+
+		@starting-style {
+			nav.open {
+				clip-path: inset(0 0 100% 0);
+			}
 		}
 
 		nav ul {
+			flex-direction: column;
 			flex-wrap: nowrap;
-			overflow-x: auto;
-			scrollbar-width: thin;
+			gap: 0;
+			max-width: var(--page);
+			margin: 0 auto;
+			padding: var(--sp-1) var(--gutter) var(--sp-3);
 		}
 
-		nav li {
-			flex: none;
-			white-space: nowrap;
+		nav li + li {
+			border-top: var(--hair) solid var(--rule);
+		}
+
+		/* One row per page: its name on the left, its provenance on the right,
+		   at reading size because a thumb, not a pointer, is choosing. */
+		.masthead nav a {
+			flex: 1;
+			flex-direction: row;
+			align-items: center;
+			justify-content: space-between;
+			gap: var(--sp-4);
+			min-height: 3rem;
+			font-size: var(--step-0);
+		}
+
+		/* The current page keeps the heavy inset rule, under its name only: a
+		   rule the width of the row would read as one more separator. */
+		.masthead nav a.active {
+			box-shadow: none;
+		}
+
+		.masthead nav a.active .name {
+			padding-block: 0.3em;
+			box-shadow: inset 0 calc(-1 * var(--heavy)) 0 var(--ink);
 		}
 	}
 
-	@media print {
-		nav ul {
-			flex-wrap: wrap;
-			overflow-x: visible;
+	@media (max-width: 48rem) and (prefers-reduced-motion: reduce) {
+		nav {
+			transition: none;
 		}
 	}
 
