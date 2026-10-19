@@ -64,6 +64,9 @@ SPEECH_DEFAULTS: dict[str, object] = {
     "source_ngo": None,
     "source_permanent_member": None,
     "source_elected_member": None,
+    # The source's flag for a presidency's procedural turn, read by 11 so that
+    # agenda titles read aloud do not count as a speaker using the word.
+    "source_procedural": False,
 }
 
 #: Which source flags each entity type stands for. The source files `un_org` as

@@ -315,6 +315,136 @@ def standing_as_rows(
     ]
 
 
+# --- Who stays silent when others say it -----------------------------------
+
+#: Meetings a speaker must have attended, while another speaker used the word,
+#: before its share of them is published. The argument is :data:`MIN_SPEECHES`'s,
+#: on a different denominator: across the corpus a speaker in such a meeting uses
+#: the word itself in about 11.5% of them, and seeing it do so in none of n
+#: meetings only puts its rate below that once n reaches about 25
+#: (:func:`informative_zero_minimum`). Thirty is the round number above it.
+#: `11_countries.py` recomputes the requirement and says so if 30 stops meeting it.
+MIN_EXPOSED_MEETINGS = 30
+
+#: Columns :func:`exposure` reads, beyond the term's own presence column.
+EXPOSURE_COLUMNS = ("meeting_symbol", "country_org", "source_procedural")
+
+
+def procedural_mask(values: pd.Series) -> pd.Series:
+    """The source's procedural flag as booleans, whether read as bool or as text."""
+    return values.map(lambda value: str(value) == "True")
+
+
+def exposure(speeches: pd.DataFrame, has_column: str) -> pd.DataFrame:
+    """Per speaker: the meetings where someone else used the term, and how many it joined.
+
+    Silence means something only where the word was available. A delegation that
+    never says *genocide* in debates about fisheries has avoided nothing; one that
+    takes the floor in a meeting where another delegation has just used the word,
+    and does not use it, has made a choice the record can show. So the
+    denominator is a speaker's **exposed meetings**: meetings in which it gave at
+    least one substantive speech and at least one *other* speaker used the term.
+    The numerator, `joined`, is the exposed meetings in which it used the term
+    too. A meeting in which the speaker was the only one to use the word is in
+    neither: nobody else made the word available, so there was nothing to join.
+
+    Procedural speeches are left out on both sides. The presidency's procedural
+    turns read agenda titles aloud, and some titles contain the word (the Rwanda
+    tribunal's full name does), so counting them would make every such meeting
+    an exposure and every presidency a user.
+
+    `share` is `joined / exposed`, with its Wilson interval. It describes the
+    record, not intent: for speakers of other languages the word is the UN
+    translator's, and a delegation may have spoken to another point of the same
+    meeting.
+    """
+    missing = [column for column in (*EXPOSURE_COLUMNS, has_column) if column not in speeches.columns]
+    if missing:
+        raise KeyError(f"exposure needs {', '.join(missing)}")
+
+    substantive = speeches.loc[~procedural_mask(speeches["source_procedural"])]
+    attended = (
+        substantive.assign(used=substantive[has_column].astype(bool))
+        .groupby(["meeting_symbol", "country_org"], observed=True, sort=True)["used"]
+        .any()
+        .to_frame()
+    )
+    users = attended["used"].groupby(level="meeting_symbol").sum()
+    meetings = attended.index.get_level_values("meeting_symbol")
+    others = users.reindex(meetings).to_numpy() - attended["used"].astype(int).to_numpy()
+    exposed = attended.loc[others > 0]
+
+    out = exposed.groupby(level="country_org").agg(
+        exposed=("used", "size"), joined=("used", "sum")
+    )
+    out = out.astype({"exposed": "int64", "joined": "int64"})
+    out["share"] = out["joined"] / out["exposed"]
+    low, high = series.wilson_interval(out["joined"].to_numpy(), out["exposed"].to_numpy())
+    out["share_low"] = low
+    out["share_high"] = high
+    return out
+
+
+def reconcile_exposure(
+    frame: pd.DataFrame, speeches: pd.DataFrame, has_column: str, where: str
+) -> list[str]:
+    """Rebuild both totals meeting by meeting and compare.
+
+    :func:`exposure` counts per speaker; this counts per meeting, by a different
+    path. In a meeting with `n` substantive speakers of whom `u` used the term,
+    every speaker is exposed when `u >= 2` and all `u` joined; when `u == 1` the
+    other `n - 1` are exposed and none joined; when `u == 0` nobody is exposed.
+    """
+    substantive = speeches.loc[~procedural_mask(speeches["source_procedural"])]
+    used = substantive[has_column].astype(bool)
+    per_meeting = pd.DataFrame(
+        {
+            "present": substantive.groupby("meeting_symbol")["country_org"].nunique(),
+            "users": substantive.loc[used].groupby("meeting_symbol")["country_org"].nunique(),
+        }
+    ).fillna(0).astype(int)
+    one = per_meeting["users"] == 1
+    several = per_meeting["users"] >= 2
+    want_exposed = int((per_meeting.loc[one, "present"] - 1).sum() + per_meeting.loc[several, "present"].sum())
+    want_joined = int(per_meeting.loc[several, "users"].sum())
+    got_exposed = int(frame["exposed"].sum()) if not frame.empty else 0
+    got_joined = int(frame["joined"].sum()) if not frame.empty else 0
+    return [
+        f"{where}: {label} sum to {got:,} by speaker and {want:,} by meeting ({got - want:+,})"
+        for label, got, want in (
+            ("exposed meetings", got_exposed, want_exposed),
+            ("joined meetings", got_joined, want_joined),
+        )
+        if got != want
+    ]
+
+
+def withhold_exposure(frame: pd.DataFrame, minimum: int = MIN_EXPOSED_MEETINGS) -> pd.DataFrame:
+    """Blank the shares too few exposed meetings can support; keep the counts."""
+    out = frame.copy()
+    out["sufficient"] = out["exposed"] >= minimum
+    for column in ("share", "share_low", "share_high"):
+        out.loc[~out["sufficient"], column] = float("nan")
+    return out
+
+
+def exposure_as_rows(frame: pd.DataFrame, period_key: str) -> list[dict[str, object]]:
+    """Long form, one row per (speaker, period), matching :func:`as_rows`."""
+    return [
+        {
+            "country_org": str(name),
+            "period": period_key,
+            "exposed": int(row["exposed"]),
+            "joined": int(row["joined"]),
+            "share": _rate(row["share"], 6),
+            "share_low": _rate(row["share_low"], 6),
+            "share_high": _rate(row["share_high"], 6),
+            "sufficient": bool(row["sufficient"]),
+        }
+        for name, row in frame.iterrows()
+    ]
+
+
 # --- What a map would get wrong -------------------------------------------
 
 
@@ -589,6 +719,8 @@ COLUMNS = [
     "source_ngo",
     "source_permanent_member",
     "source_elected_member",
+    # Read by :func:`exposure` only: procedural turns are left out of who said what.
+    "source_procedural",
 ]
 
 

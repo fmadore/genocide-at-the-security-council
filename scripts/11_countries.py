@@ -198,6 +198,91 @@ def build_standing(
     return payload, frames_by_period
 
 
+def build_silence(
+    speeches: pd.DataFrame, slices: list[actors.Period]
+) -> tuple[dict[str, object], dict[str, pd.DataFrame]]:
+    """Who uses the word when another speaker in the same meeting has used it.
+
+    The measure is `lib.actors.exposure`'s, cut on the same periods as the rates.
+    Each period is reconciled meeting by meeting before it is kept, and the
+    periods must add back up to the whole corpus: a meeting falls in one year, so
+    unlike the speakers' rates these counts do partition.
+    """
+    has_column, _ = series.columns_for("terms", HEADLINE)
+    rows: list[dict[str, object]] = []
+    summaries: list[dict[str, object]] = []
+    frames_by_period: dict[str, pd.DataFrame] = {}
+    minimum = actors.MIN_EXPOSED_MEETINGS
+
+    for window in slices:
+        subset = speeches[window.mask(speeches["year"])]
+        frame = actors.exposure(subset, has_column)
+        if problems := actors.reconcile_exposure(frame, subset, has_column, window.key):
+            console.fail("the exposure counts do not reconcile", problems)
+        frame = actors.withhold_exposure(frame, minimum)
+        frames_by_period[window.key] = frame
+        rows += actors.exposure_as_rows(frame, window.key)
+
+        substantive = subset.loc[~actors.procedural_mask(subset["source_procedural"])]
+        exposed, joined = int(frame["exposed"].sum()), int(frame["joined"].sum())
+        summaries.append(
+            {
+                "period": window.key,
+                "meetings": int(
+                    substantive.loc[substantive[has_column].astype(bool), "meeting_symbol"].nunique()
+                ),
+                "exposed": exposed,
+                "joined": joined,
+                "room_share": round(joined / exposed, 6) if exposed else None,
+                "speakers_at_minimum": int(frame["sufficient"].sum()),
+            }
+        )
+
+    whole = next(s for s in summaries if s["period"] == actors.WHOLE)
+    parts = [s for s in summaries if s["period"] != actors.WHOLE]
+    for column in ("meetings", "exposed", "joined"):
+        got, want = sum(int(s[column]) for s in parts), int(whole[column])
+        if got != want:
+            console.fail(
+                "the exposure periods do not add up to the whole corpus",
+                [f"{column}: the periods hold {got:,}, the whole corpus {want:,}"],
+            )
+
+    room = float(whole["room_share"] or 0.0)
+    required = actors.informative_zero_minimum(room) if 0 < room < 1 else minimum
+    if minimum < required:
+        console.warn(
+            f"the declared exposure minimum {minimum} is below the {required} meetings the "
+            "corpus now requires for a zero to mean anything; re-declare "
+            "actors.MIN_EXPOSED_MEETINGS"
+        )
+    console.info(
+        f"silence         {whole['meetings']:,} meetings use the word; speakers joined "
+        f"{whole['joined']:,} of {whole['exposed']:,} exposed attendances ({room:.1%}); "
+        f"{whole['speakers_at_minimum']:,} speakers have {minimum} or more"
+    )
+
+    payload = {
+        "measure": HEADLINE,
+        "minimum_meetings": minimum,
+        "informative_zero_minimum": required,
+        "rule": (
+            "A meeting counts for a speaker when the speaker took the floor in it and at "
+            "least one other speaker used the word. The share is the part of those "
+            "meetings in which the speaker used the word too. Procedural turns by the "
+            "presidency are left out on both sides, because they read agenda titles "
+            "aloud and some titles contain the word. A meeting in which the speaker was "
+            "the only one to use the word does not count: nobody else had made the word "
+            f"available. No share is given below {minimum} meetings; across the corpus "
+            f"speakers join in {room:.1%} of such meetings, and seeing none in fewer than "
+            f"{required} meetings is what that average would predict."
+        ),
+        "periods": summaries,
+        "rows": rows,
+    }
+    return payload, frames_by_period
+
+
 def build_note(
     speeches: pd.DataFrame,
     payload: dict,
@@ -207,8 +292,28 @@ def build_note(
     minimum: int,
     required: int,
     prevalence: float,
+    silence_frames: dict[str, pd.DataFrame],
 ) -> str:
     whole = computed[HEADLINE][actors.WHOLE]
+    quiet_whole = silence_frames[actors.WHOLE]
+    quiet_summary = next(s for s in payload["silence"]["periods"] if s["period"] == actors.WHOLE)
+    quiet_cleared = quiet_whole[quiet_whole["sufficient"]].sort_values("share")
+    permanent = [
+        name
+        for name in ("China", "France", "Russia", "United Kingdom", "United States of America")
+        if name in quiet_whole.index
+    ]
+
+    def quiet_rows(frame: pd.DataFrame) -> list[list[object]]:
+        return [
+            [
+                name,
+                f"{int(row.exposed):,}",
+                f"{int(row.joined):,}",
+                "—" if pd.isna(row.share) else f"{row.share:.1%}",
+            ]
+            for name, row in frame.iterrows()
+        ]
     cleared = whole[whole["sufficient"]].sort_values("speech_rate", ascending=False)
     types = pd.Series({s["country_org"]: s["entity_type"] for s in speakers})
     groups = pd.Series({s["country_org"]: s["un_regional_group"] or "—" for s in speakers})
@@ -422,6 +527,37 @@ def build_note(
             "latent propensity from a sample of twelve. The minimum guards the second and "
             "has nothing to say about the first.",
             "",
+            "## Who stays silent when others say it",
+            "",
+            f"In {quiet_summary['meetings']:,} meetings at least one substantive speech uses "
+            "the word. A speaker is *exposed* in such a meeting when it took the floor and "
+            "someone else used the word; it *joined* when it used the word too. Across the "
+            f"corpus speakers joined in **{quiet_summary['joined']:,} of "
+            f"{quiet_summary['exposed']:,}** exposed attendances "
+            f"({(quiet_summary['room_share'] or 0):.1%}). Shares are withheld below "
+            f"{actors.MIN_EXPOSED_MEETINGS} exposed meetings; "
+            f"{quiet_summary['speakers_at_minimum']:,} speakers clear that over the whole corpus.",
+            "",
+            "The permanent members:",
+            "",
+            *notes.table(
+                ["Speaker", "Exposed meetings", "Joined", "Share"],
+                quiet_rows(quiet_whole.loc[permanent]),
+                "lrrr",
+            ),
+            "",
+            "The quietest and the most outspoken among speakers at the minimum:",
+            "",
+            *notes.table(
+                ["Speaker", "Exposed meetings", "Joined", "Share"],
+                quiet_rows(pd.concat([quiet_cleared.head(6), quiet_cleared.tail(6)])),
+                "lrrr",
+            ),
+            "",
+            "Not using the word is a fact about the record, not about intent. For speakers "
+            "of other languages the word is the UN translator's, and a delegation may have "
+            "spoken to a different point of the same meeting.",
+            "",
             "## Non-state speakers",
             "",
             f"{len(speakers) - len(states):,} of {len(speakers):,} speakers are not states: "
@@ -553,6 +689,9 @@ def run(minimum: int) -> None:
     console.step("Reading who held a seat")
     standing, standing_frames = build_standing(speeches, slices, computed)
 
+    console.step("Reading who stays silent when others say it")
+    silence, silence_frames = build_silence(speeches, slices)
+
     console.step("Summarising periods")
     period_totals = actors.build_periods(speeches, slices, computed, minimum)
 
@@ -604,6 +743,7 @@ def run(minimum: int) -> None:
         "periods": period_totals,
         "countries": speakers,
         "standing": standing,
+        "silence": silence,
         "measures": measures,
     }
 
@@ -623,6 +763,7 @@ def run(minimum: int) -> None:
             minimum,
             required,
             prevalence,
+            silence_frames,
         ),
     )
     console.info(f"wrote {note.name}")

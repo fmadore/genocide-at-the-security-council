@@ -80,6 +80,14 @@ function corpus(rows: StandingRow[], speakers?: Speaker[]): Countries {
 		],
 		countries: speakers ?? [...new Set(rows.map((r) => r.country_org))].map((n) => speaker(n)),
 		standing,
+		silence: {
+			measure: 'genocide',
+			minimum_meetings: 30,
+			informative_zero_minimum: 25,
+			rule: 'A meeting counts when another speaker used the word.',
+			periods: [],
+			rows: []
+		},
 		measures: {}
 	};
 }

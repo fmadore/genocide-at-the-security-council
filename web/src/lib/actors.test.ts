@@ -88,6 +88,15 @@ const corpus = (speakers: Speaker[], rows: CountryMeasureRow[], collisions = {})
 		membership_rule: 'Membership is a property of a speech, not of a country.',
 		rows: []
 	},
+	// Likewise the silence block, exercised in `silence.test.ts`.
+	silence: {
+		measure: 'genocide',
+		minimum_meetings: 30,
+		informative_zero_minimum: 25,
+		rule: 'A meeting counts when another speaker used the word.',
+		periods: [],
+		rows: []
+	},
 	measures: { genocide: { kind: 'terms', tier: 'core', register: 'core', rows } }
 });
 

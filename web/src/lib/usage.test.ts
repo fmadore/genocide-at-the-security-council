@@ -297,6 +297,8 @@ const corpus = (overrides: Partial<Usage> = {}): Usage => ({
 		}
 	],
 	diffusion,
+	// Exercised in `timeline.test.ts`; present because the payload carries it.
+	timeline: { answers: ['yes', 'no', 'unclear'], years: [], cells: [] },
 	comparison: noComparison,
 	retest: [],
 	gold,

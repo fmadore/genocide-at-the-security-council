@@ -701,3 +701,82 @@ def test_the_declared_minimum_is_a_plain_integer() -> None:
     and admit every speaker in the corpus."""
     assert isinstance(actors.MIN_SPEECHES, int)
     assert not isinstance(actors.MIN_SPEECHES, bool)
+
+
+# --- Who stays silent when others say it ------------------------------------
+#
+# Three meetings, worked by hand:
+#
+#   S/PV.1  Loud uses the word, Quiet and Mute speak without it  -> Quiet, Mute exposed; Loud is
+#           the only user, so nobody made the word available to it: not exposed.
+#   S/PV.2  Loud and Quiet both use it, Mute does not             -> all three exposed; Loud and
+#           Quiet joined.
+#   S/PV.3  Nobody uses it                                         -> nobody exposed.
+#
+# The presidency (Chair) reads an agenda title containing the word in S/PV.3: a
+# procedural turn, so it neither exposes anybody nor counts as Chair joining.
+
+
+def meeting_speech(symbol: str, country: str, *, term: bool, procedural: bool = False) -> dict[str, object]:
+    return {
+        "meeting_symbol": symbol,
+        "country_org": country,
+        "source_procedural": procedural,
+        "has_genocide": term,
+    }
+
+
+def exposure_corpus() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            meeting_speech("S/PV.1", "Loud", term=True),
+            meeting_speech("S/PV.1", "Quiet", term=False),
+            meeting_speech("S/PV.1", "Mute", term=False),
+            meeting_speech("S/PV.2", "Loud", term=True),
+            meeting_speech("S/PV.2", "Quiet", term=True),
+            meeting_speech("S/PV.2", "Quiet", term=False),
+            meeting_speech("S/PV.2", "Mute", term=False),
+            meeting_speech("S/PV.3", "Chair", term=True, procedural=True),
+            meeting_speech("S/PV.3", "Loud", term=False),
+            meeting_speech("S/PV.3", "Mute", term=False),
+        ]
+    )
+
+
+def test_exposure_counts_only_meetings_where_someone_else_used_the_word() -> None:
+    frame = actors.exposure(exposure_corpus(), "has_genocide")
+    assert frame.loc["Loud", ["exposed", "joined"]].tolist() == [1, 1]
+    assert frame.loc["Quiet", ["exposed", "joined"]].tolist() == [2, 1]
+    assert frame.loc["Mute", ["exposed", "joined"]].tolist() == [2, 0]
+    assert frame.loc["Quiet", "share"] == pytest.approx(0.5)
+
+
+def test_a_procedural_turn_neither_exposes_nor_joins() -> None:
+    frame = actors.exposure(exposure_corpus(), "has_genocide")
+    assert "Chair" not in frame.index
+    # S/PV.3 would expose Loud and Mute if the Chair's agenda title counted.
+    assert int(frame["exposed"].sum()) == 5
+
+
+def test_exposure_reconciles_meeting_by_meeting() -> None:
+    corpus = exposure_corpus()
+    frame = actors.exposure(corpus, "has_genocide")
+    assert actors.reconcile_exposure(frame, corpus, "has_genocide", "all") == []
+    short = frame.drop(index="Mute")
+    problems = actors.reconcile_exposure(short, corpus, "has_genocide", "all")
+    assert problems and "exposed meetings" in problems[0]
+
+
+def test_an_exposure_share_below_the_minimum_is_withheld_and_its_counts_kept() -> None:
+    frame = actors.withhold_exposure(actors.exposure(exposure_corpus(), "has_genocide"), minimum=2)
+    loud, quiet = frame.loc["Loud"], frame.loc["Quiet"]
+    assert not loud["sufficient"] and pd.isna(loud["share"]) and pd.isna(loud["share_low"])
+    assert int(loud["exposed"]) == 1 and int(loud["joined"]) == 1
+    assert quiet["sufficient"] and quiet["share"] == pytest.approx(0.5)
+    assert 0 < quiet["share_low"] < 0.5 < quiet["share_high"] < 1
+
+
+def test_the_exposure_minimum_is_where_a_zero_starts_to_mean_something() -> None:
+    # About 11.5% of exposed attendances join in; a zero over n meetings is only
+    # evidence of running below that from 25 meetings, and 30 is declared.
+    assert actors.informative_zero_minimum(0.115) <= actors.MIN_EXPOSED_MEETINGS

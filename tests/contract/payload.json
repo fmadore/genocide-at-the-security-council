@@ -97,6 +97,34 @@
    }
   ],
   "rate_per_tokens": "int",
+  "silence": {
+   "informative_zero_minimum": "int",
+   "measure": "str",
+   "minimum_meetings": "int",
+   "periods": [
+    {
+     "exposed": "int",
+     "joined": "int",
+     "meetings": "int",
+     "period": "str",
+     "room_share": "float|null",
+     "speakers_at_minimum": "int"
+    }
+   ],
+   "rows": [
+    {
+     "country_org": "str",
+     "exposed": "int",
+     "joined": "int",
+     "period": "str",
+     "share": "float|null",
+     "share_high": "float|null",
+     "share_low": "float|null",
+     "sufficient": "bool"
+    }
+   ],
+   "rule": "str"
+  },
   "standing": {
    "groups": [
     "str"
@@ -3038,6 +3066,30 @@
     "years": "str"
    }
   ],
-  "retest": []
+  "retest": [],
+  "timeline": {
+   "answers": [
+    "str"
+   ],
+   "cells": [
+    {
+     "contested": "int",
+     "count": "int",
+     "referent": "str",
+     "year": "int"
+    }
+   ],
+   "years": [
+    {
+     "concrete_case": {
+      "no": "int",
+      "unclear": "int",
+      "yes": "int"
+     },
+     "eligible": "int",
+     "year": "int"
+    }
+   ]
+  }
  }
 }

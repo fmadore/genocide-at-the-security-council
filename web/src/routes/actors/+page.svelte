@@ -10,6 +10,7 @@
 	import Icon from '#lib/Icon.svelte';
 	import PageMeta from '#lib/PageMeta.svelte';
 	import SpeakerKeyness from '#lib/SpeakerKeyness.svelte';
+	import Silence from '#lib/Silence.svelte';
 	import Standing from '#lib/Standing.svelte';
 	import {
 		actorParams,
@@ -326,6 +327,7 @@
 			{ title: 'The reading set, by delegation' },
 			{ title: 'Speakers by rate' },
 			{ title: 'Who held a seat when they spoke' },
+			{ title: 'Who stays silent when others say it' },
 			{ title: 'What a delegation says that the room does not' }
 		]}
 	/>
@@ -651,6 +653,11 @@
 	     position it held when it spoke at all. It reads `countries.json`'s
 	     `standing` block and none of the measures beside it. -->
 	<Standing data={artefact} />
+
+	<!-- The same artefact's `silence` block, and a third question: not how often a
+	     delegation used the word, but whether it used it when another speaker in
+	     the same meeting just had. -->
+	<Silence data={artefact} />
 
 	<!-- A second question over a second artefact, on the same page because it is
 	     the same object: what a delegation said, rather than how often it said

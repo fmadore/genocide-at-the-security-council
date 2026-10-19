@@ -14,6 +14,7 @@
 	import { resolve } from '$app/paths';
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import CasesOverTime from '#lib/CasesOverTime.svelte';
 	import DiffusionChart from '#lib/DiffusionChart.svelte';
 	import Figure from '#lib/Figure.svelte';
 	import Contents from '#lib/Contents.svelte';
@@ -663,6 +664,7 @@
 		figures={[
 			{ title: 'Which genocide each delegation means' },
 			{ title: 'When each delegation first said it' },
+			{ title: 'Cases over time' },
 			{ title: 'Who rejects the word' }
 		]}
 	/>
@@ -1059,6 +1061,10 @@
 			</ScrollRegion>
 		{/if}
 	</Figure>
+
+	<!-- The cases by year, from the artefact's `timeline` block: the diffusion
+	     curves above say who first named a case, this says when it was named. -->
+	<CasesOverTime data={artefact} {status} />
 
 	<!-- The reading list, and only where there is a second run to disagree with.
 	     On a build with no comparison the figure is absent rather than empty: an
