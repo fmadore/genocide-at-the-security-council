@@ -38,9 +38,9 @@ gold sample is not yet coded. Read the claims guide before citing a figure.
 | Version | 5.0, pinned by file identifiers, sizes, and MD5 checksums |
 | Source licence | CC0 1.0 |
 | Coverage | 1946-01-17 to 2024-12-30 |
-| Speeches | 167,632, after two source repairs ([VALIDATION.md](docs/VALIDATION.md)) |
-| Meetings with speeches | 9,463 |
-| Analytical words | 86,804,438 |
+| Speeches | 167,600, after four source repairs ([VALIDATION.md](docs/VALIDATION.md)) |
+| Meetings with speeches | 9,462 |
+| Analytical words | 86,798,095 |
 | `g[eé]nocid*` (lexicon v8) | 4,135 speeches · 7,786 occurrences |
 
 Every term's committed counts are in

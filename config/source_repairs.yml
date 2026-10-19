@@ -24,6 +24,68 @@ drop_records:
       1960), on the Congo. The real S/PV.869, on the admission of the Federation
       of Mali, is not in the source.
     checked: S/PV.869 and S/PV.903, UN Official Document System, 19 October 2026
+  - record_id: SC02622-01
+    duplicate_of: SC02623-01
+    speeches: 14
+    reason: >-
+      S/PV.2622 (11 October 1985) carries the 14 speeches of S/PV.2623 (17
+      October 1985, UNIFIL; resolution 575). The Official Document System serves
+      the S/PV.2623 PDF under the English symbol S/PV.2622. The real S/PV.2622,
+      on the Middle East problem including the Palestinian question, is not in
+      the source; its French and Spanish records show a genocide passage in the
+      PLO's statement (paragraph 96).
+    checked: S/PV.2622 (French, Spanish) and S/PV.2623, UN Official Document System, 19 October 2026
+
+# Speeches that repeat, one for one, speeches of another record. Each pair must
+# be word for word, except a copy listed under `variants`, whose OCR differs by
+# a word: its text must have the SHA-256 given there.
+drop_speeches:
+  - record_id: SC00906-01
+    speeches: 18
+    pairs:
+      SC00906-01-043: SC00873-01-053
+      SC00906-01-044: SC00873-01-054
+      SC00906-01-045: SC00873-01-055
+      SC00906-01-046: SC00873-01-056
+      SC00906-01-047: SC00873-01-057
+      SC00906-01-048: SC00873-01-058
+      SC00906-01-049: SC00873-01-059
+      SC00906-01-050: SC00873-01-060
+      SC00906-01-051: SC00873-01-061
+      SC00906-01-052: SC00873-01-062
+      SC00906-01-053: SC00873-01-063
+      SC00906-01-054: SC00873-01-064
+      SC00906-01-055: SC00873-01-065
+      SC00906-01-056: SC00873-01-066
+      SC00906-01-057: SC00873-01-067
+      SC00906-01-058: SC00873-01-068
+      SC00906-01-059: SC00873-01-069
+      SC00906-01-060: SC00873-01-070
+    variants:
+      # "unconditioned" for 873's "unconditional".
+      SC00906-01-055: 2256e5b6b79fb83e3586b2d606b64fbed1c1f2cc5c8404e0d318e89bb22a6e92
+      # "territory" for 873's "territoiy".
+      SC00906-01-058: 4b2f174c1c456ee6af1dcddc925a74694b2d553d0deef7a89b5238859a3ace89
+    reason: >-
+      The source's S/PV.906 (16-17 September 1960) runs on past the record's
+      colophon (paragraph 205, printed page 38) with paragraphs 223-249 of
+      S/PV.873 (13-14 July 1960): the vote on resolution 143 and its
+      explanations of vote, by the July delegates, with every President's turn
+      given to Mr. Ortona. None of it is in the S/PV.906 PDF.
+    checked: S/PV.873 and S/PV.906, UN Official Document System, 19 October 2026
+
+# A speech whose text runs on past the end of its record. The text before `at`
+# stays; what follows must start with `expect_after`.
+trim_speeches:
+  - speech_id: SC00906-01-042
+    source_sha256: 66b1453aa1e1d6350b5c57bc8664fced04d9076d87aebe6e036bc149a5a4b723
+    at: 399
+    expect_after: "\nLitho in U.N."
+    reason: >-
+      After "notwithstanding all our efforts." the row carries the S/PV.906
+      printer's colophon and then a line of S/PV.873, "The amendment was
+      rejected by 7 votes to 2, with 2 abstentions."
+    checked: S/PV.906, UN Official Document System, 19 October 2026
 
 # A speech that runs on into the next speaker's turn, because the source missed
 # the turn marker. The text before `at` stays with the source row; the text

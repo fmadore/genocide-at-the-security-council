@@ -17,18 +17,20 @@ authors.
 | Source licence | CC0 1.0 |
 | Consumed files | `speeches.tsv`, `meetings.tsv` |
 | Observed coverage | 17 January 1946 to 30 December 2024 |
-| Speeches | 167,632 (167,642 in the source) |
-| Meetings with speeches | 9,463 |
+| Speeches | 167,600 (167,642 in the source) |
+| Meetings with speeches | 9,462 |
 | Meeting records | 10,294 |
-| Source-reported words | 87,670,098 (87,678,254 in the source) |
-| Project analytical words | 86,804,438 |
+| Source-reported words | 87,663,706 (87,678,254 in the source) |
+| Project analytical words | 86,798,095 |
 
-Step 01 applies two repairs to the source, listed in
+Step 01 applies repairs to the source, listed in
 [`config/source_repairs.yml`](../config/source_repairs.yml) and documented in
-[VALIDATION.md](VALIDATION.md) (19 October 2026): it drops the 11 speeches of
-S/PV.869, a copy of S/PV.903, and splits one S/PV.1379 speech that ran on into
-Mali's statement. The breakdowns further down were computed on 7 September 2026,
-before the repairs, and differ from the repaired corpus by at most eleven speeches.
+[VALIDATION.md](VALIDATION.md) (19 October 2026). It drops two records that copy
+another meeting (S/PV.869, a copy of S/PV.903; S/PV.2622, a copy of S/PV.2623) and
+the 18 speeches of S/PV.873 that the source appends to S/PV.906, trims the colophon
+off S/PV.906's last speech, and splits one S/PV.1379 speech that ran on into Mali's
+statement. The breakdowns further down were computed on 7 September 2026, before
+the repairs, and differ from the repaired corpus by at most 43 speeches.
 
 The complete pin—Dataverse file identifiers, sizes, and MD5 checksums—is in
 [`config/dataset-pin.json`](../config/dataset-pin.json).

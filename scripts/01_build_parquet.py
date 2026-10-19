@@ -99,6 +99,17 @@ def describe_repair(entry: dict) -> str:
             f"dropped {entry['record_id']} ({len(entry['speech_ids'])} speeches, "
             f"{entry['source_words']:,} source words), a copy of {entry['duplicate_of']}"
         )
+    if entry["repair"] == "drop_speeches":
+        return (
+            f"dropped {len(entry['speech_ids'])} speeches of {entry['record_id']} "
+            f"({entry['source_words']:,} source words), copies from {entry['duplicate_of']}"
+        )
+    if entry["repair"] == "trim_speech":
+        kept, cut = entry["source_words"]
+        return (
+            f"trimmed {entry['speech_id']} at character {entry['at']:,} "
+            f"({kept:,} source words kept, {cut:,} cut)"
+        )
     kept, new = entry["source_words"]
     return (
         f"split {entry['speech_id']} at character {entry['at']:,} into "

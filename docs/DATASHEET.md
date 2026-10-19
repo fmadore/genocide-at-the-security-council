@@ -41,9 +41,9 @@ lexicon term in a speech.
 
 | | |
 |---|---|
-| Speeches | 167,632 |
-| Meetings with speeches | 9,463 |
-| Analytical words | 86,804,438 |
+| Speeches | 167,600 |
+| Meetings with speeches | 9,462 |
+| Analytical words | 86,798,095 |
 | Lexicon terms counted | 28 (lexicon v8) |
 | Occurrences of `g[eé]nocid*` | 7,786, in 4,135 speeches |
 

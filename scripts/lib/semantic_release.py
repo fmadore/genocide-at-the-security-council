@@ -61,8 +61,9 @@ def corpus_fingerprint(path: Path) -> str:
 def repair_exclusions(path: Path = SOURCE_REPAIRS) -> frozenset[str]:
     """Speech ids and record ids the source repairs took off the map.
 
-    A dropped record's speeches have no row in the corpus, and both halves of a
-    split speech have bodies no vector was computed for. Until the next
+    Dropped records and speeches have no row in the corpus, and a trimmed
+    speech and both halves of a split one have bodies no vector was computed
+    for. Until the next
     embedding run they are kept out of the map and the neighbour index rather
     than shown with a vector of some other text. A speech is excluded when its
     id, or its record's id, is in the set.
@@ -71,6 +72,9 @@ def repair_exclusions(path: Path = SOURCE_REPAIRS) -> frozenset[str]:
         return frozenset()
     repairs = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     excluded = {str(item["record_id"]) for item in repairs.get("drop_records") or []}
+    for item in repairs.get("drop_speeches") or []:
+        excluded |= {str(speech) for speech in item["pairs"]}
+    excluded |= {str(item["speech_id"]) for item in repairs.get("trim_speeches") or []}
     for item in repairs.get("split_speeches") or []:
         excluded |= {str(item["speech_id"]), str(item["new"]["speech_id"])}
     return frozenset(excluded)

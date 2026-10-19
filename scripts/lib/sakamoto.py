@@ -118,6 +118,72 @@ def drop_duplicate_record(raw: pd.DataFrame, repair: Mapping[str, Any]) -> tuple
     }
 
 
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def drop_copied_speeches(raw: pd.DataFrame, repair: Mapping[str, Any]) -> tuple[pd.DataFrame, dict]:
+    """Drop speeches that repeat, one for one, speeches of another record.
+
+    `pairs` maps each dropped speech to the speech it copies. The two texts must
+    be equal, except for a copy listed in `variants`, whose OCR differs by a word
+    or two: its text must have the SHA-256 given there instead.
+    """
+    pairs = {str(copy): str(original) for copy, original in repair["pairs"].items()}
+    variants = {str(key): str(value) for key, value in (repair.get("variants") or {}).items()}
+    if len(pairs) != int(repair["speeches"]):
+        raise RepairError(f"{repair['record_id']}: {len(pairs)} pairs listed, {repair['speeches']} expected")
+    if unknown := sorted(set(variants) - set(pairs)):
+        raise RepairError(f"variants name speeches that are not dropped: {unknown}")
+    rows = []
+    for copy, original in pairs.items():
+        at, source = _one(raw, copy), _one(raw, original)
+        if raw.at[at, "record_id"] != repair["record_id"]:
+            raise RepairError(f"{copy} is not in {repair['record_id']}")
+        text = str(raw.at[at, "speech"])
+        if copy in variants:
+            if _sha256(text) != variants[copy]:
+                raise RepairError(f"{copy}: the text is not the variant the repair was written for")
+        elif text != str(raw.at[source, "speech"]):
+            raise RepairError(f"{copy} is not a copy of {original}")
+        rows.append(at)
+    return raw.drop(index=rows), {
+        "repair": "drop_speeches",
+        "record_id": str(repair["record_id"]),
+        "duplicate_of": sorted({original.rsplit("-", 1)[0] for original in pairs.values()})[0],
+        "speech_ids": list(pairs),
+        "source_words": int(raw.loc[rows, "count"].astype(int).sum()),
+    }
+
+
+def trim_speech(raw: pd.DataFrame, repair: Mapping[str, Any]) -> tuple[pd.DataFrame, dict]:
+    """Cut the end off a speech that runs on past its record's last page.
+
+    The text from `at` on must start with `expect_after`. The source's word
+    count is shared in proportion to whitespace words, as a split shares it.
+    """
+    speech_id = str(repair["speech_id"])
+    row = _one(raw, speech_id)
+    text = str(raw.at[row, "speech"])
+    if _sha256(text) != repair["source_sha256"]:
+        raise RepairError(f"{speech_id}: the source text is not the one the repair was written for")
+    at, expect = int(repair["at"]), str(repair["expect_after"])
+    if not text.startswith(expect, at):
+        raise RepairError(f"{speech_id}: no {expect!r} at character {at}")
+    head = text[:at].rstrip()
+    total = int(raw.at[row, "count"])
+    kept = round(total * _words(head) / _words(text))
+    out = raw.copy()
+    out.at[row, "speech"] = head
+    out.at[row, "count"] = str(kept)
+    return out, {
+        "repair": "trim_speech",
+        "speech_id": speech_id,
+        "at": at,
+        "source_words": [kept, total - kept],
+    }
+
+
 def split_speech(raw: pd.DataFrame, repair: Mapping[str, Any]) -> tuple[pd.DataFrame, dict]:
     """Cut a speech where the source missed a turn marker, into two rows.
 
@@ -188,6 +254,12 @@ def apply_repairs(raw: pd.DataFrame, repairs: Mapping[str, Any]) -> tuple[pd.Dat
     out = raw.reset_index(drop=True)
     for repair in repairs.get("drop_records") or []:
         out, entry = drop_duplicate_record(out, repair)
+        log.append(entry)
+    for repair in repairs.get("drop_speeches") or []:
+        out, entry = drop_copied_speeches(out, repair)
+        log.append(entry)
+    for repair in repairs.get("trim_speeches") or []:
+        out, entry = trim_speech(out, repair)
         log.append(entry)
     for repair in repairs.get("split_speeches") or []:
         out, entry = split_speech(out, repair)

@@ -50,10 +50,18 @@ def build() -> str:
     repairs = yaml.safe_load(SOURCE_REPAIRS.read_text(encoding="utf-8"))
     dropped = {str(item["record_id"]): str(item["duplicate_of"]) for item in repairs.get("drop_records") or []}
     splits = {f"{item['speech_id']}.txt": item for item in repairs.get("split_speeches") or []}
+    copied = {
+        str(speech): str(original)
+        for item in repairs.get("drop_speeches") or []
+        for speech, original in item["pairs"].items()
+    }
+    trimmed = {f"{item['speech_id']}.txt": int(item["at"]) for item in repairs.get("trim_speeches") or []}
 
     wanted = set(splits) | {f"{item['new']['speech_id']}.txt" for item in splits.values()}
     speeches = frames.read(SPEECHES_NORM, columns=["filename", "body_start", "text"])
-    if leftover := sorted(name for name in speeches["filename"] if record(name) in dropped):
+    if leftover := sorted(
+        name for name in speeches["filename"] if record(name) in dropped or stem(name) in copied
+    ):
         console.fail(f"{SPEECHES_NORM.name} still holds dropped speeches", leftover[:3])
     speeches = speeches[speeches["filename"].isin(wanted)]
     if set(speeches["filename"]) != wanted:
@@ -73,6 +81,18 @@ def build() -> str:
                 drop[identifier] = {
                     "line_id": str(row["line_id"]),
                     "because": f"{record(filename)} is dropped as a copy of {dropped[record(filename)]}",
+                }
+                continue
+            if stem(filename) in copied:
+                drop[identifier] = {
+                    "line_id": str(row["line_id"]),
+                    "because": f"{stem(filename)} is dropped as a copy of {copied[stem(filename)]}",
+                }
+                continue
+            if filename in trimmed and int(row["start"]) >= trimmed[filename]:
+                drop[identifier] = {
+                    "line_id": str(row["line_id"]),
+                    "because": f"{stem(filename)} is trimmed at character {trimmed[filename]:,}",
                 }
                 continue
             split = splits.get(filename)

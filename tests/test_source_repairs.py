@@ -1,7 +1,8 @@
 """The source repairs: what 01 does to the frame, and what follows from it.
 
-`config/source_repairs.yml` drops a duplicated record and splits a speech that
-ran on into the next turn. These tests hold the frame-level repair to the
+`config/source_repairs.yml` drops duplicated records and copied speeches, trims
+a speech that runs on past its record, and splits one that ran on into the next
+turn. These tests hold the frame-level repair to the
 checks it promises (a copy is a copy, a text is the one the rule was written
 for), the run-row table to changing identities and never labels, and the
 semantic map to leaving the repaired speeches out without moving anyone's
@@ -87,7 +88,12 @@ def repairs(**changes: object) -> dict:
 def test_the_committed_repairs_name_what_they_expect():
     committed = yaml.safe_load(SOURCE_REPAIRS.read_text(encoding="utf-8"))
     assert committed["schema"] == 1
-    assert [item["record_id"] for item in committed["drop_records"]] == ["SC00869-01"]
+    assert [item["record_id"] for item in committed["drop_records"]] == ["SC00869-01", "SC02622-01"]
+    copied = committed["drop_speeches"][0]
+    assert copied["record_id"] == "SC00906-01"
+    assert len(copied["pairs"]) == copied["speeches"] == 18
+    assert set(copied["variants"]) <= set(copied["pairs"])
+    assert committed["trim_speeches"][0]["speech_id"] == "SC00906-01-042"
     split = committed["split_speeches"][0]
     assert split["speech_id"] == "SC01379-01-007"
     assert split["new"]["speech_id"] == "SC01379-01-010"
@@ -135,6 +141,77 @@ def test_a_split_keeps_identifiers_and_reorders_the_meeting():
     assert order == {"SC00003-01-001": 1, "SC00003-01-002": 2, "SC00003-01-004": 3, "SC00003-01-003": 4}
     # Rows of later meetings stay where they were.
     assert out["speech_id"].iloc[-1] == "SC00009-01-002"
+
+
+COLOPHON = "\nLitho in U.N.\nPrice: 0.50"
+JULY = "The amendment was rejected."
+
+
+def partial_copy() -> pd.DataFrame:
+    """A September record whose end repeats a July record's last speeches."""
+    return pd.DataFrame(
+        [
+            row("SC00004-01-001", 1, "July opening."),
+            row("SC00004-01-002", 2, JULY),
+            row("SC00004-01-003", 3, "The resolution is adopted."),
+            row("SC00005-01-001", 1, "September opening."),
+            row("SC00005-01-002", 2, f"We thank you all.{COLOPHON}\n{JULY}"),
+            row("SC00005-01-003", 3, "The resolution is adopted."),
+            row("SC00005-01-004", 4, "The resolutoin is adopted."),
+        ]
+    )
+
+
+def copy_repairs(**changes: object) -> dict:
+    copied = {
+        "record_id": "SC00005-01",
+        "speeches": 2,
+        "pairs": {"SC00005-01-003": "SC00004-01-003", "SC00005-01-004": "SC00004-01-003"},
+        "variants": {"SC00005-01-004": hashlib.sha256(b"The resolutoin is adopted.").hexdigest()},
+    }
+    copied.update(changes)
+    text = f"We thank you all.{COLOPHON}\n{JULY}"
+    trim = {
+        "speech_id": "SC00005-01-002",
+        "source_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        "at": len("We thank you all."),
+        "expect_after": "\nLitho in U.N.",
+    }
+    return {"schema": 1, "drop_speeches": [copied], "trim_speeches": [trim]}
+
+
+def test_copied_speeches_go_and_the_record_keeps_its_own():
+    out, log = sakamoto.apply_repairs(partial_copy(), copy_repairs())
+    september = out[out["record_id"] == "SC00005-01"].set_index("speech_id")
+
+    assert september.index.tolist() == ["SC00005-01-001", "SC00005-01-002"]
+    assert september.at["SC00005-01-002", "speech"] == "We thank you all."
+    assert out["record_id"].eq("SC00004-01").sum() == 3
+    assert [entry["repair"] for entry in log] == ["drop_speeches", "trim_speech"]
+    assert log[0]["duplicate_of"] == "SC00004-01"
+    kept, cut = log[1]["source_words"]
+    assert kept + cut == len(f"We thank you all.{COLOPHON}\n{JULY}".split())
+
+
+@pytest.mark.parametrize(
+    ("change", "match"),
+    [
+        ({"variants": {}}, "not a copy"),
+        ({"variants": {"SC00005-01-004": "0" * 64}}, "not the variant"),
+        ({"speeches": 3}, "3 expected"),
+        ({"pairs": {"SC00004-01-001": "SC00004-01-001"}, "speeches": 1, "variants": {}}, "is not in SC00005-01"),
+    ],
+)
+def test_a_partial_copy_is_refused_unless_it_is_one(change, match):
+    with pytest.raises(sakamoto.RepairError, match=match):
+        sakamoto.apply_repairs(partial_copy(), copy_repairs(**change))
+
+
+def test_a_trim_needs_the_colophon_where_it_says():
+    repairs_ = copy_repairs()
+    repairs_["trim_speeches"][0]["at"] = 3
+    with pytest.raises(sakamoto.RepairError, match=r"no '\\nLitho in U\.N\.' at character 3"):
+        sakamoto.apply_repairs(partial_copy(), repairs_)
 
 
 @pytest.mark.parametrize(
