@@ -478,5 +478,48 @@
 		"weighted_accuracy": [],
 		"corrected_shares": [],
 		"state": "not_started"
+	},
+	"timeline": {
+		"answers": ["yes", "no", "unclear"],
+		"years": [
+			{
+				"year": 1994,
+				"eligible": 3,
+				"concrete_case": {
+					"yes": 2,
+					"no": 1,
+					"unclear": 0
+				}
+			},
+			{
+				"year": 1995,
+				"eligible": 1,
+				"concrete_case": {
+					"yes": 1,
+					"no": 0,
+					"unclear": 0
+				}
+			}
+		],
+		"cells": [
+			{
+				"year": 1994,
+				"referent": "rwanda_1994",
+				"count": 2,
+				"contested": 0
+			},
+			{
+				"year": 1994,
+				"referent": "genocide_convention_law",
+				"count": 1,
+				"contested": 0
+			},
+			{
+				"year": 1995,
+				"referent": "bosnia_srebrenica",
+				"count": 1,
+				"contested": 0
+			}
+		]
 	}
 }

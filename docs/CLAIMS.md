@@ -61,6 +61,7 @@ Details: [CORPUS.md](CORPUS.md#limitations-that-must-remain-visible).
 | Speakers by rate | Each affiliation's rate against its own speeches; rates withheld below 125 speeches (step 11). The map is navigation only. | Computed |
 | What a delegation says that the room does not | Keyness of a delegation's speeches against matched speeches by others (step 12) | Computed. Translation affects delegations that did not speak English. |
 | Who held a seat when they spoke | The source's permanent and elected member flags, per speech | Computed |
+| Who stays silent when others say it | For each delegation, the meetings in which it took the floor while another speaker used the word, and the share of them in which it used the word too; procedural turns by the presidency left out on both sides; Wilson intervals; shares withheld below 30 such meetings (step 11) | Computed. Not using the word is a fact about the record, not about intent: for speakers of other languages the word is the UN translator's, and a delegation may have spoken to another point of the same meeting. |
 
 ### Concordance and Reader
 
@@ -80,7 +81,8 @@ human check.
 | Which genocide each delegation means | The model's `referent` for each occurrence, counted per delegation; only occurrences the model called a use of the word, with a located evidence quote | Model-derived, unvalidated |
 | When each delegation first said it | The earliest dated occurrence per delegation and referent for three milestones: first use, first assertion, first rejection. Once a comparison run is published, referents whose labels are unstable between the two models are withheld. | Model-derived, unvalidated. A first is a minimum over dates, so one wrong label moves it; the list of firsts has not been checked ([VALIDATION.md](VALIDATION.md), check 6a). |
 | Who rejects the word | The model's `speaker_position: rejects`, counted per delegation | Model-derived, unvalidated. **Decided by FM, 9 October 2026:** until the gold sample measures how often `rejects` is right, the figure shows plain counts per delegation, without the "unusual" markers and without ordering by rejection share. The markers return only when `rejects` passes the threshold in [EVALUATION_PLAN.md](EVALUATION_PLAN.md). The prompt's rule that sends "allegations of genocide" to `rejects` is itself under review ([INSTRUMENT_V4_PROPOSAL.md](INSTRUMENT_V4_PROPOSAL.md)). |
-| The contested passages | Where a second model labels an occurrence differently | Not shown: no comparison run is published. When shown, it measures stability between two models, never accuracy. |
+| Cases over time | Per year, the model's `referent` for each occurrence it called a use of the word, with a located evidence quote; beside it, the share of those occurrences it applied to no case (`concrete_case: no`: a legal category, a title or mandate, a general formula). Each cell counts how many of its occurrences the second model labelled differently. | Model-derived, unvalidated. Years before 1992 rest on few occurrences. |
+| The contested passages | Where the second model (Gemma 4 31B, the same prompt) labels an occurrence differently | Model-derived. Published since 11 October 2026. It measures stability between two models, never accuracy. |
 | Agreement and accuracy tables | The coded gold sample | Waiting: nothing coded |
 
 ### Similar speeches (semantic map)
@@ -93,9 +95,10 @@ human check.
 
 Every CSV download and image carries its provenance: the step that produced it,
 the analysis hash, the commit and the input checksums. Downloads of model-derived
-figures name the model and run, but do not yet state that the labels are
-unvalidated and the run partial (review of 8 October 2026, A1). Anyone quoting
-such a download should quote its status with it.
+figures name the model and run, and carry a status line straight after the title,
+on the CSV and on the image alike, saying that the labels are unvalidated and the
+run partial (review of 8 October 2026, A1). Anyone quoting such a download should
+quote its status with it.
 
 ## When this guide changes
 

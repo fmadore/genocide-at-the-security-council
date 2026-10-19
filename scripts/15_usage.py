@@ -1122,6 +1122,7 @@ def run_without_model() -> None:
         "matrix": [],
         "position_by_actor": [],
         "diffusion": {"milestones": list(usage.MILESTONES), "referents": []},
+        "timeline": {"answers": list(usage.CASE_ANSWERS), "years": [], "cells": []},
         "comparison": usage_comparison.comparison_block([], []),
         "retest": [],
         "gold": gold_estimates.gold_block(
@@ -1387,6 +1388,14 @@ def run(args: argparse.Namespace) -> None:
     )
     write_first_events(diffusion, rows)
     events = sum(len(entry["events"]) for entry in diffusion["referents"])
+    try:
+        timeline = usage.timeline_block(
+            rows,
+            [str(row["id"]) for row in blocks["referents"]],
+            contested=frozenset(key for key, (fields, _) in contested.items() if fields),
+        )
+    except ValueError as error:
+        console.fail("the run cannot be counted by year", [str(error)])
     console.table(
         [
             ("annotated", f"{counts['annotated']:,}"),
@@ -1538,6 +1547,7 @@ def run(args: argparse.Namespace) -> None:
         "matrix": blocks["matrix"],
         "position_by_actor": blocks["position_by_actor"],
         "diffusion": diffusion,
+        "timeline": timeline,
         "comparison": comparison,
         "retest": retest,
         "gold": gold,

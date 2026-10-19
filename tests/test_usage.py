@@ -1869,3 +1869,65 @@ def test_the_resume_advice_names_only_flags_step_14_accepts() -> None:
     resume = advice.split("14_llm_annotate.py", 1)[1].split("\n", 1)[0]
     for flag in re.findall(r"--[a-z][a-z-]+", resume):
         assert flag in usage_text, flag
+
+
+# --- The timeline -----------------------------------------------------------
+
+
+def test_the_timeline_counts_each_year_and_fills_the_gaps_with_zeros() -> None:
+    frame = rows(
+        {"date": "1994-04-30"},
+        {"date": "1994-05-17", "concrete_case": "no", "referent": "other"},
+        {"date": "1996-01-10", "referent": "gaza"},
+        {"date": "1996-02-01", "concrete_case": "unclear"},
+        false_positive(date="1995-01-01"),
+    )
+    block = usage.timeline_block(frame, ["rwanda_1994", "gaza", "other"])
+
+    # 1994: two eligible, one applied to a case and one to none; 1995 holds only
+    # a false positive, which is not eligible, so the year is written as zeros.
+    assert block["answers"] == ["yes", "no", "unclear"]
+    assert [(y["year"], y["eligible"], y["concrete_case"]) for y in block["years"]] == [
+        (1994, 2, {"yes": 1, "no": 1, "unclear": 0}),
+        (1995, 0, {"yes": 0, "no": 0, "unclear": 0}),
+        (1996, 2, {"yes": 1, "no": 0, "unclear": 1}),
+    ]
+
+
+def test_the_timeline_cells_follow_the_referent_order_within_a_year() -> None:
+    frame = rows(
+        {"date": "1996-01-10", "referent": "gaza"},
+        {"date": "1996-03-10"},
+        {"date": "1996-04-10"},
+        {"date": "1996-05-10", "referent": "unclear"},
+        {"date": "1996-06-10", "evidence_valid": False},
+    )
+    block = usage.timeline_block(frame, ["rwanda_1994", "gaza"])
+
+    # The unclear referent and the unlocated evidence are not assigned, so they
+    # count among the year's eligible rows (one of them) and in no cell.
+    assert block["cells"] == [
+        {"year": 1996, "referent": "rwanda_1994", "count": 2, "contested": 0},
+        {"year": 1996, "referent": "gaza", "count": 1, "contested": 0},
+    ]
+    assert block["years"][0]["eligible"] == 4
+
+
+def test_a_timeline_cell_says_how_much_of_it_a_second_model_disputed() -> None:
+    frame = rows({"date": "1994-04-30"}, {"date": "1994-05-30"})
+    block = usage.timeline_block(frame, ["rwanda_1994"], contested=frozenset({"occ-001"}))
+    assert block["cells"] == [{"year": 1994, "referent": "rwanda_1994", "count": 2, "contested": 1}]
+
+
+def test_an_undated_eligible_row_stops_the_timeline() -> None:
+    with pytest.raises(ValueError, match="occ-000"):
+        usage.timeline_block(rows({"date": ""}), ["rwanda_1994"])
+
+
+def test_an_empty_run_writes_an_empty_timeline() -> None:
+    frame = rows({"date": "1994-04-30"}).iloc[0:0]
+    assert usage.timeline_block(frame, []) == {
+        "answers": ["yes", "no", "unclear"],
+        "years": [],
+        "cells": [],
+    }

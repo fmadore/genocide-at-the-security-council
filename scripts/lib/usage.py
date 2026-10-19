@@ -762,6 +762,86 @@ def exposure_rows(
     return out
 
 
+#: The `concrete_case` answers the timeline counts separately. Anything else an
+#: eligible row carries is counted as `unclear`, so the three always sum to the
+#: year's eligible occurrences.
+CASE_ANSWERS: Final[tuple[str, ...]] = ("yes", "no", "unclear")
+
+
+def timeline_block(
+    rows: pd.DataFrame,
+    referent_order: Sequence[str],
+    contested: frozenset[str] = frozenset(),
+) -> dict[str, object]:
+    """Which cases the word is applied to, year by year, and how often to none.
+
+    Two parts. `years` has one entry for every year from the first eligible
+    occurrence to the last, zero-filled, with the eligible occurrences split by
+    the model's `concrete_case` answer: the `no` count is the word used as a legal
+    category, inside a title or a mandate, or in a general formula, and its
+    share is what changes when the tribunals and the Special Adviser arrive.
+    `cells` is sparse, one per (year, referent) over *assigned* rows as the
+    matrix is, with how many of the cell's occurrences a second model labelled
+    differently. Ordered by year and then by the referent block's own order, so
+    a consumer never sorts it again.
+
+    Raises `ValueError` on an eligible row with no date, as
+    :func:`diffusion_rows` does: a count placed in an invented year is worse
+    than no count.
+    """
+    if missing := sorted((set(REQUIRED_COLUMNS) | {"date"}) - set(rows.columns)):
+        raise KeyError(f"timeline_block() needs columns: {', '.join(missing)}")
+    if rows.empty:
+        return {"answers": list(CASE_ANSWERS), "years": [], "cells": []}
+
+    kept = rows.loc[eligible_mask(rows)]
+    if kept.empty:
+        return {"answers": list(CASE_ANSWERS), "years": [], "cells": []}
+    dates = kept["date"].map(_date)
+    if undated := sorted(_text(value) for value in kept.loc[dates == "", "occurrence_id"]):
+        raise ValueError(
+            "a timeline count needs a date, and these eligible rows carry none: "
+            + ", ".join(undated[:8])
+            + (f", and {len(undated) - 8} more" if len(undated) > 8 else "")
+        )
+    years = dates.str.slice(0, 4).astype(int)
+    answers = kept["concrete_case"].map(_text).where(
+        kept["concrete_case"].map(_text).isin(CASE_ANSWERS[:2]), "unclear"
+    )
+
+    year_rows: list[dict[str, object]] = []
+    for year in range(int(years.min()), int(years.max()) + 1):
+        here = answers.loc[years == year]
+        counts = {answer: int((here == answer).sum()) for answer in CASE_ANSWERS}
+        year_rows.append({"year": year, "eligible": len(here), "concrete_case": counts})
+
+    referent_rank = {name: position for position, name in enumerate(referent_order)}
+    named = assigned_mask(rows).loc[kept.index]
+    assigned = kept.loc[named].assign(_year=years.loc[named])
+    cells: list[dict[str, object]] = []
+    for (year, referent), group in assigned.groupby(
+        [assigned["_year"], assigned["referent"].map(_text)], sort=False
+    ):
+        cells.append(
+            {
+                "year": int(year),
+                "referent": str(referent),
+                "count": len(group),
+                "contested": (
+                    int(group["occurrence_id"].map(_text).isin(contested).sum()) if contested else 0
+                ),
+            }
+        )
+    cells.sort(
+        key=lambda cell: (
+            int(cell["year"]),
+            referent_rank.get(str(cell["referent"]), len(referent_rank)),
+            str(cell["referent"]),
+        )
+    )
+    return {"answers": list(CASE_ANSWERS), "years": year_rows, "cells": cells}
+
+
 def aggregate(
     rows: pd.DataFrame,
     referents: Sequence[Mapping[str, object]],

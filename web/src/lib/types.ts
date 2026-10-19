@@ -787,6 +787,47 @@ export interface Standing {
 	rows: StandingRow[];
 }
 
+/**
+ * Who stays silent when others say it. A speaker's denominator here is its
+ * *exposed meetings*: meetings in which it took the floor while another speaker
+ * used the word. `joined` counts those in which it used the word too. Procedural
+ * turns are left out on both sides upstream, so an agenda title read aloud
+ * neither exposes anybody nor counts as the presidency joining.
+ */
+export interface SilenceRow {
+	country_org: string;
+	period: string;
+	exposed: number;
+	joined: number;
+	/** Null whenever `sufficient` is false, as a withheld rate is. */
+	share: number | null;
+	/** Wilson 95% bounds of `share`; null exactly when the share is. */
+	share_low: number | null;
+	share_high: number | null;
+	sufficient: boolean;
+}
+
+export interface SilencePeriod {
+	period: string;
+	/** Meetings in which at least one substantive speech used the word. */
+	meetings: number;
+	exposed: number;
+	joined: number;
+	/** `joined / exposed` over every speaker: the room's own average. */
+	room_share: number | null;
+	speakers_at_minimum: number;
+}
+
+export interface Silence {
+	measure: string;
+	/** Below this many exposed meetings in a period, a speaker's share is withheld. */
+	minimum_meetings: number;
+	informative_zero_minimum: number;
+	rule: string;
+	periods: SilencePeriod[];
+	rows: SilenceRow[];
+}
+
 export interface Countries {
 	meta: LexiconMeta;
 	/** Below this many speeches in a period, a speaker's rates are withheld. */
@@ -799,6 +840,7 @@ export interface Countries {
 	periods: CountryPeriod[];
 	countries: Speaker[];
 	standing: Standing;
+	silence: Silence;
 	measures: Record<string, CountryMeasure>;
 }
 
@@ -1182,6 +1224,36 @@ export interface UsageDiffusion {
 }
 
 /**
+ * One year of the timeline: the eligible occurrences, divided by the model's
+ * `concrete_case` answer. `no` is the word used as a legal category, inside a
+ * title or a mandate, or in a general formula. The three answers sum to
+ * `eligible`; a year with no occurrence is written as zeros, not left out.
+ */
+export interface UsageTimelineYear {
+	year: number;
+	eligible: number;
+	concrete_case: Record<string, number>;
+}
+
+/** One (year, referent) count over assigned occurrences, as a matrix cell is. */
+export interface UsageTimelineCell {
+	year: number;
+	referent: string;
+	count: number;
+	/** How many of `count` the comparison run labelled differently; 0 without one. */
+	contested: number;
+}
+
+/** Which cases the word is applied to, year by year, and how often to none. */
+export interface UsageTimeline {
+	/** The `concrete_case` answers counted, in the artefact's order. */
+	answers: string[];
+	years: UsageTimelineYear[];
+	/** Sparse; ordered by year, then by the referent block's own order. */
+	cells: UsageTimelineCell[];
+}
+
+/**
  * One field two runs were compared on, over the occurrences both of them read.
  *
  * `observed` and `kappa` are the statistics `UsageAgreement` carries between the
@@ -1447,6 +1519,7 @@ export interface Usage {
 	matrix: UsageMatrixCell[];
 	position_by_actor: UsagePositionRow[];
 	diffusion: UsageDiffusion;
+	timeline: UsageTimeline;
 	/** A second model over the same occurrences, or the block that says none was run. */
 	comparison: UsageComparison;
 	/** Each model against another run of itself. Empty where no sibling run exists. */

@@ -270,6 +270,23 @@ const validateCountries: Validator = (record, path) => {
 			);
 		}
 	}
+	// The silence block divides by exposed meetings, and `joined` is a subset of
+	// them; a share drawn for a row that claims sufficiency without one would be
+	// drawn as a zero, which on this figure reads as a delegation that never
+	// joined in.
+	const silence = recordAt(record, 'silence');
+	for (const [index, row] of requireArray(silence, 'rows', `${path}.silence`).entries()) {
+		if (!isRecord(row)) throw new Error(`${path}.silence.rows[${index}] must be an object.`);
+		if (Number(row.joined) > Number(row.exposed)) {
+			throw new Error(
+				`${path}.silence.rows[${index}] (${row.country_org}, ${row.period}) joined more ` +
+					`meetings than it was exposed to.`
+			);
+		}
+		if (row.sufficient === true && !Number.isFinite(row.share)) {
+			throw new Error(`${path}.silence.rows[${index}] claims to be sufficient without a share.`);
+		}
+	}
 	// Substantive, not structural: the interface draws exactly the rows that
 	// claim to be sufficient, so a sufficient row without a rate would reach a
 	// chart as a null and be drawn as a zero.
@@ -610,6 +627,33 @@ const validateUsage: Validator = (record, path) => {
 			if (typeof event.id !== 'string' || !event.id) {
 				throw new Error(`${where} carries no line id, so nothing can be read back from it.`);
 			}
+		}
+	}
+
+	// The timeline: a year's three case answers are its eligible occurrences
+	// divided, and a cell's referent must be one the list can name. Short is not
+	// tolerated here as it is in the matrix: the answers are a partition, and the
+	// figure prints the no-case share as one part of the year's whole.
+	const timeline = recordAt(record, 'timeline');
+	for (const [index, year] of requireArray(timeline, 'years', `${path}.timeline`).entries()) {
+		const at = `${path}.timeline.years[${index}]`;
+		if (!isRecord(year)) throw new Error(`${at} must be an object.`);
+		const answers = requireRecord(year, 'concrete_case', at);
+		const total = Object.values(answers).reduce<number>((sum, value) => sum + Number(value), 0);
+		if (total !== Number(year.eligible)) {
+			throw new Error(
+				`${at} (${year.year}) divides ${year.eligible} eligible occurrences into ${total} answers.`
+			);
+		}
+	}
+	for (const [index, cell] of requireArray(timeline, 'cells', `${path}.timeline`).entries()) {
+		const at = `${path}.timeline.cells[${index}]`;
+		if (!isRecord(cell)) throw new Error(`${at} must be an object.`);
+		if (!referents.has(String(cell.referent))) {
+			throw new Error(`${at} names the referent ${cell.referent}, which is not on the list.`);
+		}
+		if (Number(cell.contested) > Number(cell.count)) {
+			throw new Error(`${at} contests ${cell.contested} of ${cell.count} occurrences.`);
 		}
 	}
 
@@ -968,6 +1012,7 @@ export const REQUIRED = {
 		periods: 'array',
 		measures: 'object',
 		standing: 'object',
+		silence: 'object',
 		minimum_speeches: 'number',
 		iso3_collisions: 'object'
 	},
@@ -987,6 +1032,7 @@ export const REQUIRED = {
 		matrix: 'array',
 		position_by_actor: 'array',
 		diffusion: 'object',
+		timeline: 'object',
 		comparison: 'object',
 		gold: 'object'
 	},

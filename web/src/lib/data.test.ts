@@ -366,6 +366,7 @@ describe('the validators that are about the research rather than the types', () 
 		matrix: [],
 		position_by_actor: [],
 		diffusion: { milestones: ['mention'], referents: [] },
+		timeline: { answers: ['yes', 'no', 'unclear'], years: [], cells: [] },
 		comparison: { state: 'none', model: '', overlap: 0, contested_any: 0, fields: [] },
 		gold: { state: 'not_started' },
 		...overrides
@@ -432,6 +433,32 @@ describe('the validators that are about the research rather than the types', () 
 		await expect(usage(fetcher)).rejects.toThrow(
 			/comparison says no second opinion was run and reports 1 agreement rows over 12/
 		);
+	});
+
+	it('refuses a timeline year whose case answers do not add up, and a cell off the list', async () => {
+		const { usage } = await fresh();
+		const short = responder(
+			usagePayload({
+				timeline: {
+					answers: ['yes', 'no', 'unclear'],
+					years: [{ year: 1994, eligible: 5, concrete_case: { yes: 3, no: 1, unclear: 0 } }],
+					cells: []
+				}
+			})
+		);
+		await expect(usage(short.fetcher)).rejects.toThrow(/divides 5 eligible occurrences into 4/);
+
+		const { usage: second } = await fresh();
+		const stray = responder(
+			usagePayload({
+				timeline: {
+					answers: ['yes', 'no', 'unclear'],
+					years: [],
+					cells: [{ year: 1994, referent: 'atlantis', count: 1, contested: 0 }]
+				}
+			})
+		);
+		await expect(second(stray.fetcher)).rejects.toThrow(/names the referent atlantis/);
 	});
 
 	it('accepts complete self-hosted provenance and refuses an incomplete runtime block', async () => {
