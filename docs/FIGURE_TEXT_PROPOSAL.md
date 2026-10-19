@@ -247,20 +247,21 @@ These came up while matching the figures to the draft. None is a site change.
    same years is 0.50%, so the resemblance to Chinese usage does not hold either.
    The counts say nothing about party incentives. Figures recomputed from
    `web/static/data/actor_year/actor_year.csv` on 19 October 2026.
-5. **Counts.** The current data give 7,787 occurrences in 4,136 of 167,642 speeches
-   (2.47%), 1946–2024. The draft's 7,747 and 4,130 come from an earlier pattern, and
-   the draft's end year of 2025 is wrong. Freeze the figures at a release before
+5. **Counts.** After the source repairs of 19 October 2026, the data give 7,786
+   occurrences in 4,135 of 167,632 speeches (2.47%), 1946–2024. Before them: 7,787 in
+   4,136 of 167,642. The draft's 7,747 and 4,130 come from an earlier pattern, and the
+   draft's end year of 2025 is wrong. Freeze the figures at a release before
    submission.
 6. **Source errors.** Two errors an external review reported are confirmed against
-   the UN PDFs and logged in `docs/VALIDATION.md`
-   ([PR #39](https://github.com/fmadore/genocide-at-the-security-council/pull/39)).
-   Neither is corrected yet.
-   - In S/PV.1379 (16 November 1967), Mali's statement and its genocide passage are
-     filed under Israel. Israel's first Holocaust mention on the site would move to
-     March 1968.
-   - The record of S/PV.903 (15 September 1960) is copied under S/PV.869 (28 June
-     1960). This makes Ecuador the first delegation to call the Congo a genocide,
-     two days before independence. The real first is in September 1960.
+   the UN PDFs and repaired in the build
+   ([PR #39](https://github.com/fmadore/genocide-at-the-security-council/pull/39);
+   `docs/VALIDATION.md`, 19 October 2026).
+   - In S/PV.1379 (16 November 1967), Mali's statement and its genocide passage were
+     filed under Israel. Israel's first Holocaust mention on the site is now
+     21 March 1968.
+   - The record of S/PV.903 (15 September 1960) was copied under S/PV.869 (28 June
+     1960), which made Ecuador the first delegation to call the Congo a genocide, two
+     days before independence. The first is now S/PV.896, 9 September 1960.
 
    First-use and country claims in the article need a check against the original
    record.
