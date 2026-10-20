@@ -18,7 +18,7 @@ The section numbers (§1.1, §3, §4, §5, §6, §7, §7.3, §7.5) and the item 
 | Published model layer | A **partial, unvalidated preview**: Qwen3.8-27B run `2026-09-08-qwen-131k`, prompt v3, 4,097 of 4,133 speeches and 7,694 of 7,747 occurrences (7,694 of 7,787 since lexicon v8). See [model_annotations/README.md](../model_annotations/README.md). |
 | Comparison run | Gemma 4 31B IT, prompt v3, run `2026-09-09-gemma4`: 4,130 of 4,133 speeches and 7,725 of 7,747 occurrences, merged from its 17 batches on 11 October 2026. Three speeches that failed on every pass (one truncation, two validation failures) are documented gaps ([VALIDATION.md](VALIDATION.md) §7). Published as the second opinion on 11 October 2026 (`comparison_run.txt`); the gold sample does not follow it (`gold_comparison_run.txt` is empty). |
 | Gold sample | Drawn on 24 September 2026: 469 rows over 453 occurrences, in three frames. **0 of 469 rows coded.** The evaluation rules are a proposal ([EVALUATION_PLAN.md](EVALUATION_PLAN.md)). |
-| Semantic map | Experimental. Restored at every build from the pinned release `semantic-2026-09-11` (§4). |
+| Semantic map | Experimental. Restored at every build from the pinned release `semantic-2026-10-20` (§4). |
 | Citable release | None yet. [RELEASING.md](RELEASING.md) explains how to cut one. |
 | Reviews | All code from the reviews of 19 and 24 September 2026 is in ([ROADMAP.md](ROADMAP.md)); what remains waits on a person or the cluster. The review of 8 October 2026 is being worked through ([REVIEW_2026-10-08.md](REVIEW_2026-10-08.md)). |
 

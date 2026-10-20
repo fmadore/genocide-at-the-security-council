@@ -1,12 +1,10 @@
 {
   "schema": 1,
-  "url": "https://github.com/fmadore/genocide-at-the-security-council/releases/download/semantic-2026-09-11/semantic-775870.zip",
-  "sha256": "82c01515ab75e57913331e514fe910c26aeca6b4cb876510ab98eab742277d0c",
-  "manifest_sha256": "7a9f3786732b03c190389e37a1784ccf2e2dd6a269567159b7c9f0db52f014b3",
-  "corpus_sha256": "5b28839e8df28eb995baf044e7d6d5c2e0c229b9adf2571c46a454510af165b7",
-  "projection_note": "UMAP spectral initialization fell back to seeded random initialization; see release notes.",
-  "corpus_content_sha256": "956bc011e72a2b6b791bf2c63dc161b7f4d9445df116a4e23ecc0cda03d56813",
-  "corpus_geometry_sha256": "b93fa6d2efdb12cbf54fc8111e402dacc4ab2b5fa5ce7a96d07900be434be6e9",
-  "geometry_note": "Computed 2026-09-24 from the corpus whose content fingerprint matches corpus_content_sha256; binds row ids and embedded bodies only. Display attributes are re-derived at export (docs/ROADMAP.md, RV6). Recomputed 2026-10-19 without the rows config/source_repairs.yml changes: the digest equals the old corpus's over the same rows, so every remaining vector is still the vector of its text. The excluded rows return with the next embedding run.",
-  "source_repairs_sha256": "75b62e8b1de34846266ce6004bb2fb1f6d39c2beebe12f786a8dd6aebe543355"
+  "url": "https://github.com/fmadore/genocide-at-the-security-council/releases/download/semantic-2026-10-20/semantic-832092.zip",
+  "sha256": "3897e40f781549391bd973529206cc57428e14cdda449c3261135a0cb380e97a",
+  "manifest_sha256": "34dc39e120c05b62819ddaa9d29c0cc7ec9e34783e9319e1f62a2be056b40735",
+  "corpus_sha256": "85922af1ac7357d9cee67bd16d55acc0627da9d1482d31e82bc8c19073a9a266",
+  "corpus_content_sha256": "7da982437035ca495c501e0002c733ff677a3fae619840cebb27a6349e9e798b",
+  "corpus_geometry_sha256": "c4e974ab5bd7d7c1d6a68c1c915b9ee4b932736d42ef286813a35767605c3e68",
+  "geometry_note": "Computed 2026-10-20 from the corpus whose content fingerprint matches corpus_content_sha256, after the source repairs of 19 October 2026; binds row ids and embedded bodies only. Display attributes are re-derived at export (docs/ROADMAP.md, RV6)."
 }
