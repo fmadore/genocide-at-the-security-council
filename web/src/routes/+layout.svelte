@@ -90,8 +90,9 @@
 
 	/* Below 48rem the sections sit behind one button and open as a list laid
 	   over the page, not pushed into it: the masthead keeps its height, so the
-	   bands measured from it stay where they are. Choosing a page, Escape, or a
-	   press anywhere outside the masthead closes it. */
+	   bands measured from it stay where they are. Choosing a page, Escape, a
+	   press anywhere outside the masthead, or keyboard focus leaving it closes
+	   it: left open, the list covered the links Tab had moved on to. */
 	let menuOpen = $state(false);
 	let menuButton = $state.raw<HTMLButtonElement>();
 
@@ -106,14 +107,16 @@
 			menuOpen = false;
 			menuButton?.focus();
 		};
-		const onPointer = (event: PointerEvent) => {
+		const onOutside = (event: Event) => {
 			if (!masthead?.contains(event.target as Node)) menuOpen = false;
 		};
 		window.addEventListener('keydown', onKey);
-		window.addEventListener('pointerdown', onPointer);
+		window.addEventListener('pointerdown', onOutside);
+		window.addEventListener('focusin', onOutside);
 		return () => {
 			window.removeEventListener('keydown', onKey);
-			window.removeEventListener('pointerdown', onPointer);
+			window.removeEventListener('pointerdown', onOutside);
+			window.removeEventListener('focusin', onOutside);
 		};
 	});
 

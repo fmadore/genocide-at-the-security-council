@@ -89,8 +89,11 @@
 		autocomplete="off"
 	/>
 	{#if open}
+		<!-- tabindex -1 on the list: a scrolling box is a Tab stop in Chrome, so
+		     Tab from the input landed on the list, the blur below unmounted it and
+		     focus fell to the body. The options are reached by the arrow keys. -->
 		<div class="choices">
-			<ul id={`${id}-list`} role="listbox" aria-label={label}>
+			<ul id={`${id}-list`} role="listbox" aria-label={label} tabindex="-1">
 				{#each matches as option, index (option.value)}
 					<li role="presentation">
 						<button

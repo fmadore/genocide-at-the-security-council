@@ -628,11 +628,25 @@
 				options={agendas.map((a) => ({ value: a, label: a }))}
 				bind:value={agenda}
 			/>
+			<!-- A label names only the first control inside it, so each box carries
+			     its own name; without it the second was an unnamed spin button. -->
 			<label>
 				Years
-				<input type="number" min={CORPUS_START_YEAR} max={CORPUS_END_YEAR} bind:value={from} />
+				<input
+					type="number"
+					min={CORPUS_START_YEAR}
+					max={CORPUS_END_YEAR}
+					aria-label="Years from"
+					bind:value={from}
+				/>
 				<span>&ndash;</span>
-				<input type="number" min={CORPUS_START_YEAR} max={CORPUS_END_YEAR} bind:value={to} />
+				<input
+					type="number"
+					min={CORPUS_START_YEAR}
+					max={CORPUS_END_YEAR}
+					aria-label="Years to"
+					bind:value={to}
+				/>
 			</label>
 			<!-- The month of the year, not a month of one year: with the years above
 			     left alone this is every June in the corpus, which is the row the

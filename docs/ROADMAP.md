@@ -1,12 +1,14 @@
 # Review roadmap
 
 What is still open from the repository reviews of 24 September and
-8 October 2026 and the design critiques of 19 September, followed by a
+8 October 2026, the design critiques of 19 September and the design review of
+20 October, followed by a
 one-line index of every finished review item. [PLAN.md](PLAN.md) remains the
 project's priorities and release gates.
 
-All the code the reviews asked for is in. What is left waits on a person or on
-the cluster. The code cites finished items by number ("ROADMAP RV18"); the index
+All the code the reviews up to 8 October asked for is in; what is left of
+those waits on a person or on the cluster. The review of 20 October left code
+to do (items 12 to 14). The code cites finished items by number ("ROADMAP RV18"); the index
 below keeps those numbers resolvable. The measurements behind RV1–RV32 are in
 [VALIDATION.md](VALIDATION.md), "24 September 2026 — review fixes", and the
 full ledger with its evidence column is in git history (this file before
@@ -66,6 +68,44 @@ beside each item it produced, and the commit messages carry the measurements.
    list of code that wrote it (RV44), so an edit to a module 08 imports changes
    the sizes and the hash although no line of the concordance changed. Record
    the size of the lines alone, or leave the size out of the hashed part.
+
+### From the design review of 20 October
+
+Critiques of the Usage page (26/40) and the Semantic map (24/40), and a
+site-wide audit (16/20, down from 19/20 mostly through closer measurement):
+`.impeccable/critique/2026-10-20T07-3*` and
+[`.impeccable/audit/2026-10-20-web-src.md`](../.impeccable/audit/2026-10-20-web-src.md).
+The access faults it found are fixed: focus lost after the search boxes, the
+unnamed "to" year, the Semantic map stopping the page from scrolling, three
+Words in context plates drawn at under 5px on a phone, and the phone menu
+staying open when focus left it. Still open:
+
+10. **Two questions about what the pages claim**, for FM. Should the Semantic
+    map's related-speech list, which uses the full vectors, lead, and the flat
+    map, which loses 68% of close neighbours by the page's own check, come
+    second? Should "Who rejects the word" rank delegations while `rejects` is
+    unmeasured?
+11. **Wording to draft and approve.** The Usage reading notes call the matrix
+    shading and the asserts curve "amber"; neither is. The Semantic map's
+    68% caveat sits in small type below a reading note that says nearby points
+    are similar, and its axis sentence exists only in the CSV export.
+12. **Usage page.** The second-opinion statistics sit inside the marking block,
+    ahead of every plate (the comments there predate Gemma's publication); the
+    Contents list omits "The contested passages", so the last plate prints as
+    Plate 5 against four entries; the matrix shades by a register hue and the
+    asserts curve is drawn in one, against DESIGN.md's paper-to-ink rule; four
+    of five plates export CSV only; a matrix click lists results off-screen
+    without saying so.
+13. **Semantic map.** The selected speech carries no meeting symbol, speaker or
+    date and cannot go to the basket; selecting from the table is not announced
+    and pushes the row off-screen; Back does not undo a filter (`replaceState`);
+    decades are coloured as categories; `map.json` is 1.9 MB gzipped for a
+    default view of 2.5% of its points; the table needs sideways scrolling on a
+    phone.
+14. **Site-wide.** `/actors` carries 4.5 MB of data in its HTML; the five
+    "Model-derived · experimental" plate links are 21px tall; an `h4` under an
+    `h2` on Actors; `browsing.spec.ts:104` is flaky; a few spacing values and
+    2px rules off the scales.
 
 ### Considered in the review of 8 October and not done
 

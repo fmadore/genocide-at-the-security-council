@@ -72,75 +72,87 @@
 	};
 </script>
 
-<svg
-	bind:this={element}
-	viewBox="0 0 {width} {height}"
-	width="100%"
-	role="group"
-	aria-label={description}
-	style:font-family="var(--sans)"
-	class="matrix"
->
-	<defs>
-		<pattern
-			id={hatchId}
-			width="5"
-			height="5"
-			patternUnits="userSpaceOnUse"
-			patternTransform="rotate(45)"
-		>
-			<line x1="0" y1="0" x2="0" y2="5" stroke={$colours.rule} stroke-width="0.8" />
-		</pattern>
-	</defs>
-	{#each ordered as term, i (term.name)}
-		<a href={href(term.name)}>
-			<text
-				x={LABEL - 8}
-				y={TOP + i * CELL + CELL / 2 + 4}
-				text-anchor="end"
-				font-size="11"
-				fill={registerColour(term.register, $colours)}>{termLabel(term.name)}</text
+<!-- A square grid cannot reflow, so it is never drawn smaller than its own
+     cells: below that width the plate scrolls sideways instead of shrinking
+     the matrix to 0.4 of itself, which set its terms at under 5px on a phone
+     and left 56 links 8px tall. Every term inside is a link, so the keyboard
+     scrolls it by moving through them. -->
+<div class="frame">
+	<svg
+		bind:this={element}
+		viewBox="0 0 {width} {height}"
+		width="100%"
+		style:min-width="{width}px"
+		role="group"
+		aria-label={description}
+		style:font-family="var(--sans)"
+		class="matrix"
+	>
+		<defs>
+			<pattern
+				id={hatchId}
+				width="5"
+				height="5"
+				patternUnits="userSpaceOnUse"
+				patternTransform="rotate(45)"
 			>
-		</a>
-		<a href={href(term.name)}>
-			<text
-				transform="rotate(-60 {LABEL + i * CELL + CELL / 2} {TOP - 8})"
-				x={LABEL + i * CELL + CELL / 2}
-				y={TOP - 8}
-				font-size="11"
-				fill={registerColour(term.register, $colours)}>{termLabel(term.name)}</text
-			>
-		</a>
-	{/each}
-	{#each cells as cell (cell.row + ' ' + cell.col)}
-		{@const cx = LABEL + (index.get(cell.col) ?? 0) * CELL}
-		{@const cy = TOP + (index.get(cell.row) ?? 0) * CELL}
-		<g>
-			<title>{explain(cell)}</title>
-			<rect
-				x={cx + 0.5}
-				y={cy + 0.5}
-				width={CELL - 1}
-				height={CELL - 1}
-				fill={fill(cell)}
-				fill-opacity={cell.state === 'self' ? 0.35 : 1}
-				stroke={$colours.ruleSoft}
-				stroke-width="0.5"
-			/>
-			{#if cell.state === 'definitional' || cell.state === 'negative'}
+				<line x1="0" y1="0" x2="0" y2="5" stroke={$colours.rule} stroke-width="0.8" />
+			</pattern>
+		</defs>
+		{#each ordered as term, i (term.name)}
+			<a href={href(term.name)}>
 				<text
-					x={cx + CELL / 2}
-					y={cy + CELL / 2 + 4}
-					text-anchor="middle"
-					font-size="12"
-					fill={$colours.inkFaint}>{cell.state === 'definitional' ? 'x' : '-'}</text
+					x={LABEL - 8}
+					y={TOP + i * CELL + CELL / 2 + 4}
+					text-anchor="end"
+					font-size="11"
+					fill={registerColour(term.register, $colours)}>{termLabel(term.name)}</text
 				>
-			{/if}
-		</g>
-	{/each}
-</svg>
+			</a>
+			<a href={href(term.name)}>
+				<text
+					transform="rotate(-60 {LABEL + i * CELL + CELL / 2} {TOP - 8})"
+					x={LABEL + i * CELL + CELL / 2}
+					y={TOP - 8}
+					font-size="11"
+					fill={registerColour(term.register, $colours)}>{termLabel(term.name)}</text
+				>
+			</a>
+		{/each}
+		{#each cells as cell (cell.row + ' ' + cell.col)}
+			{@const cx = LABEL + (index.get(cell.col) ?? 0) * CELL}
+			{@const cy = TOP + (index.get(cell.row) ?? 0) * CELL}
+			<g>
+				<title>{explain(cell)}</title>
+				<rect
+					x={cx + 0.5}
+					y={cy + 0.5}
+					width={CELL - 1}
+					height={CELL - 1}
+					fill={fill(cell)}
+					fill-opacity={cell.state === 'self' ? 0.35 : 1}
+					stroke={$colours.ruleSoft}
+					stroke-width="0.5"
+				/>
+				{#if cell.state === 'definitional' || cell.state === 'negative'}
+					<text
+						x={cx + CELL / 2}
+						y={cy + CELL / 2 + 4}
+						text-anchor="middle"
+						font-size="12"
+						fill={$colours.inkFaint}>{cell.state === 'definitional' ? 'x' : '-'}</text
+					>
+				{/if}
+			</g>
+		{/each}
+	</svg>
+</div>
 
 <style>
+	.frame {
+		overflow-x: auto;
+	}
+
 	.matrix {
 		display: block;
 		max-width: 100%;
