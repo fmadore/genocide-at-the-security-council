@@ -4,9 +4,9 @@ The website is rebuilt on every push to `main`, so a link to it points at whatev
 was built last. A citation needs something that does not move: a numbered release
 whose files are archived with a DOI. This guide explains how to make one.
 
-Nothing has been released yet. The only git tag, `semantic-2026-09-11`, carries a
-data file the build downloads (`config/semantic-release.json`); it is not a
-version of the study.
+Nothing has been released yet. The two git tags, `semantic-2026-09-11` and
+`semantic-2026-10-20`, carry data files the build downloads (the second is the one
+`config/semantic-release.json` pins); neither is a version of the study.
 
 ## What the first release is
 

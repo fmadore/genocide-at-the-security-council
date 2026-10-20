@@ -207,9 +207,8 @@ copy of S/PV.903 dated 28 June 1960, which gave Ecuador a false first on the DRC
 S/PV.2622 is a copy of S/PV.2623; and S/PV.906 runs on into 18 speeches of S/PV.873. All
 four are confirmed against the PDFs and repaired by `config/source_repairs.yml`, applied by
 step 01 (decided by FM, 19 October 2026); the evidence and the repair are under
-"19 October 2026" below. Still open: a coder should re-read `SC01379-01-010#1` as Mali's;
-the repaired rows return to the semantic map only with the next embedding run; and the real
-S/PV.2622, with one genocide passage, is not in the source. Priority: low.
+"19 October 2026" below. Still open: a coder should re-read `SC01379-01-010#1` as Mali's, and the real S/PV.2622,
+with one genocide passage, is not in the source. Priority: low.
 
 ## Dated records on the current corpus
 
@@ -393,12 +392,14 @@ speeches, 87,678,254 source words), then the repaired corpus against `lib.paths`
   `SC01379-01-007#1` at `SC01379-01-010#1` (body offset 6,834, evidence offsets shifted by
   1,503); `lib.model_runs.read` applies it to every run. The labels are the run's own. The
   S/PV.2622 and S/PV.906 repairs touch no annotated occurrence.
-- **Semantic map.** Until the new embedding run is published, the map leaves out every
-  repaired row: the dropped records and speeches, the trimmed speech and both halves of the
-  split one (167,597 points; 584 neighbour links removed). The geometry digest
-  recomputed without them equals the old corpus's over the same rows, so every other point
-  keeps the vector of its own text; `config/semantic-release.json` records it with the
-  checksum of the repairs it was measured against.
+- **Semantic map.** Between the repair and the new map, the old map left out every
+  repaired row (167,597 points; 584 neighbour links removed), after a check that every other
+  point kept the vector of its own text. On 20 October 2026 Festus re-embedded the repaired
+  corpus (job 832091, an L40 on `dev`, 54 minutes; same model and revision) and rebuilt the
+  map (job 832092): 167,600 points, 1,676,000 neighbour links, recall@10 0.9742,
+  trustworthiness 0.8179 (0.8000 before) and neighbour loss 0.6814 (0.6981). Its content
+  fingerprint equals the local corpus's, and `config/semantic-release.json` pins the release
+  `semantic-2026-10-20`, so no row is excluded any more.
 
 Totals after the rebuild: 167,600 speeches, 9,462 meetings with speeches, 87,663,706 source
 words (14,548 fewer), 86,798,095 analytical words (14,479 fewer: 8,131 in S/PV.869, 4,538 in
