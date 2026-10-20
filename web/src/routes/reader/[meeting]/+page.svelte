@@ -1035,8 +1035,22 @@
 			margin-bottom: 0;
 		}
 
+		/* One column, not twelve: every note spans the whole sidebar anyway,
+		   and eleven column gaps at 1.5rem are 264px, wider than the sidebar
+		   at 1024px, which then scrolled sideways. */
+		.apparatus {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
 		.apparatus .note {
-			grid-column: span 12;
+			grid-column: 1;
+		}
+
+		/* The sidebar already scrolls, so the roll does not scroll inside it:
+		   two scrollbars, the inner one floating mid-column at the roll's 22rem. */
+		.apparatus .roll {
+			max-height: none;
+			overflow-y: visible;
 		}
 	}
 
