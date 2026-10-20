@@ -48,6 +48,8 @@ test(
 		expect(csv).toContain('Qwen/test@');
 		await page.getByRole('button', { name: 'SC00001-01-021', exact: true }).click();
 		const selected = page.getByRole('complementary', { name: 'Selected speech' });
+		// The speech leads the page, so choosing one takes focus to it.
+		await expect(selected.getByRole('heading', { name: 'A · 2000' })).toBeFocused();
 		await expect(selected.getByRole('link', { name: /A · 2000/ })).toHaveAttribute(
 			'href',
 			/reader\/SC00001-01\?speech=SC00001-01-001/

@@ -80,15 +80,19 @@ unnamed "to" year, the Semantic map stopping the page from scrolling, three
 Words in context plates drawn at under 5px on a phone, and the phone menu
 staying open when focus left it. Still open:
 
-10. **Two questions about what the pages claim**, for FM. Should the Semantic
-    map's related-speech list, which uses the full vectors, lead, and the flat
-    map, which loses 68% of close neighbours by the page's own check, come
-    second? Should "Who rejects the word" rank delegations while `rejects` is
-    unmeasured?
+10. **Decided by FM on 20 October.** The Semantic map page now leads with the
+    chosen speech and its related list, read from the full vectors, and the
+    flat map follows as an overview. "Who rejects the word" keeps its ranking,
+    with the caveat it already carries. Wording written for the reordered page
+    is in item 11.
 11. **Wording to draft and approve.** The Usage reading notes call the matrix
     shading and the asserts curve "amber"; neither is. The Semantic map's
     68% caveat sits in small type below a reading note that says nearby points
-    are similar, and its axis sentence exists only in the CSV export.
+    are similar, and its axis sentence exists only in the CSV export. The
+    reorder (item 10) added three sentences, quoted in its "Wording:" commit:
+    the map's new question, the prompt shown before a speech is chosen, and
+    the map's screen-reader description, which now points to the table above
+    it.
 12. **Usage page.** The second-opinion statistics sit inside the marking block,
     ahead of every plate (the comments there predate Gemma's publication); the
     Contents list omits "The contested passages", so the last plate prints as
@@ -97,8 +101,7 @@ staying open when focus left it. Still open:
     of five plates export CSV only; a matrix click lists results off-screen
     without saying so.
 13. **Semantic map.** The selected speech carries no meeting symbol, speaker or
-    date and cannot go to the basket; selecting from the table is not announced
-    and pushes the row off-screen; Back does not undo a filter (`replaceState`);
+    date and cannot go to the basket; Back does not undo a filter (`replaceState`);
     decades are coloured as categories; `map.json` is 1.9 MB gzipped for a
     default view of 2.5% of its points; the table needs sideways scrolling on a
     phone.

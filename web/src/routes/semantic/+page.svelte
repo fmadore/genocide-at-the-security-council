@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -200,6 +200,16 @@
 		void replaceState(url, page.state);
 		query = url.search;
 	}
+	/* Choosing a speech, from the table or the map, takes focus to the speech
+	   itself: it is drawn above the table on a phone and in the plate above the
+	   map, so without this the result arrived where the reader was not, and a
+	   screen reader heard nothing. */
+	let heading = $state<HTMLHeadingElement | null>(null);
+	async function choose(id: string) {
+		update('speech', id);
+		await tick();
+		heading?.focus();
+	}
 	function href(id: string) {
 		return `${resolve('/reader/[meeting]', { meeting: id.split('-').slice(0, 2).join('-') })}?speech=${encodeURIComponent(id)}`;
 	}
@@ -264,38 +274,26 @@
 		a list of numbers, called a <strong>semantic embedding</strong>, so speeches can be compared
 		even when they use different words. Select a speech to read it alongside related speeches.
 	</p>
+	<!-- The speech leads and the map follows: the related-speech list is read
+	     from the original embeddings, while the flat map, by its own check
+	     below, loses most of each speech's close neighbours. FM's decision of
+	     20 October 2026, after the design review of that day. -->
 	<Figure
-		title="Semantic map"
+		title="Related speeches"
 		question="Which speeches does the model identify as similar?"
-		source="06_embed.py + 21_semantic_map.py → semantic/map.json"
-		download={map
-			? {
-					name: ['semantic-map'],
-					table: () =>
-						semanticExport(map!, rows, [
-							`corpus: ${all ? 'all' : 'mentions genocide'}`,
-							`affiliation: ${country || 'all'}`,
-							`agenda: ${agenda || 'all'}`,
-							`year: ${year || 'all'}`,
-							`colour: ${colour}`
-						])
-				}
-			: undefined}
+		source="06_embed.py + 21_semantic_map.py → semantic/neighbours/*.json"
 	>
 		{#snippet reading()}
 			<p>
-				Each point is a speech. Nearby points suggest similar wording or subject matter. Colour
-				shows affiliation, agenda category or decade. Filters hide points without moving the others.
-				Select a point or a speech identifier in the table to see related speeches.
+				These results search all speeches, including those outside your filters. The similarity
+				score (cosine) ranges from −1 to 1; higher values mean more similar embeddings. It is not a
+				percentage of shared meaning.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				Fitting the comparisons onto a flat map distorts distances. The related-speech list uses the
-				original embeddings. Similarity can reflect shared topics or diplomatic formulas; it does
-				not establish agreement or influence. <a href="{resolve('/methods')}#embeddings"
-					>How the map is made</a
-				>.
+				Similarity can reflect shared topics or diplomatic formulas; it does not establish agreement
+				or influence.
 			</p>
 		{/snippet}
 		<!-- Always in the document, with only its words changing, so a screen
@@ -303,15 +301,6 @@
 		<p role="status" class:quiet={!status}>{status}</p>
 		{#if map}
 			<div class="filters">
-				<label
-					>Colour by <select
-						value={colour}
-						onchange={(e) => update('colour', e.currentTarget.value)}
-						><option value="country">Affiliation</option><option value="agenda"
-							>Meeting agenda</option
-						><option value="year">Decade</option></select
-					></label
-				>
 				<label
 					>Speeches <select
 						value={all ? 'all' : ''}
@@ -341,6 +330,112 @@
 					></label
 				>
 			</div>
+			<!-- The chosen speech first, the list it is chosen from beside it: from
+			     64rem the two stand side by side and the speech stays in view while
+			     the table is paged; on a phone the speech comes first. -->
+			<div class="pair">
+				<div class="speech">
+					{#if selectedPoint}
+						<aside aria-label="Selected speech">
+							<h3 bind:this={heading} tabindex="-1">
+								{map.countries[selectedPoint[4]]} · {selectedPoint[3]}
+							</h3>
+							{#if !selectionVisible}<p>This selection is outside the current filters.</p>{/if}
+							<p>
+								{map.agendas[selectedPoint[5]]} ·
+								<a href={href(selected)}>Read speech {selected}</a>
+							</p>
+							<p role="status" class:quiet={!neighbourStatus}>{neighbourStatus}</p>
+							<ol aria-label="Related speeches in the full corpus">
+								{#each related as [id, score] (id)}{@const p = map.points[positions.get(id)!]!}
+									<li>
+										<a href={href(id)}>{map.countries[p[4]]} · {p[3]} · {id}</a> · similarity {score.toFixed(
+											3
+										)}
+									</li>{/each}
+							</ol>
+						</aside>
+					{:else}
+						<p class="prompt">
+							Choose a speech from the table or the map to see the speeches most similar to it.
+						</p>
+					{/if}
+				</div>
+				<div class="finder">
+					<div class="table-wrap">
+						<table>
+							<caption
+								>Plotted speeches · page {offset + 1} of {Math.max(
+									1,
+									Math.ceil(rows.length / 20)
+								)}</caption
+							><thead
+								><tr><th>Speech</th><th>Affiliation</th><th>Year</th><th>Agenda</th></tr></thead
+							><tbody
+								>{#each visible as p (p[0])}<tr
+										><td
+											><button onclick={() => void choose(p[0])} aria-pressed={selected === p[0]}
+												>{p[0]}</button
+											></td
+										><td>{map.countries[p[4]]}</td><td>{p[3]}</td><td>{map.agendas[p[5]]}</td></tr
+									>{/each}</tbody
+							>
+						</table>
+					</div>
+					<nav aria-label="Speech table pages">
+						<button disabled={offset === 0} onclick={() => update('p', String(offset - 1))}
+							>Previous</button
+						><button
+							disabled={(offset + 1) * 20 >= rows.length}
+							onclick={() => update('p', String(offset + 1))}>Next</button
+						>
+					</nav>
+				</div>
+			</div>
+		{/if}
+	</Figure>
+	{#if map}
+		<Figure
+			title="Semantic map"
+			question="How do the speeches spread out when their comparisons are flattened onto a map?"
+			source="06_embed.py + 21_semantic_map.py → semantic/map.json"
+			download={{
+				name: ['semantic-map'],
+				table: () =>
+					semanticExport(map!, rows, [
+						`corpus: ${all ? 'all' : 'mentions genocide'}`,
+						`affiliation: ${country || 'all'}`,
+						`agenda: ${agenda || 'all'}`,
+						`year: ${year || 'all'}`,
+						`colour: ${colour}`
+					])
+			}}
+		>
+			{#snippet reading()}
+				<p>
+					Each point is a speech. Nearby points suggest similar wording or subject matter. Colour
+					shows affiliation, agenda category or decade. Filters hide points without moving the
+					others. Select a point or a speech identifier in the table to see related speeches.
+				</p>
+			{/snippet}
+			{#snippet caveat()}
+				<p>
+					Fitting the comparisons onto a flat map distorts distances. The related-speech list uses
+					the original embeddings. <a href="{resolve('/methods')}#embeddings">How the map is made</a
+					>.
+				</p>
+			{/snippet}
+			{#snippet controls()}
+				<label
+					>Colour by <select
+						value={colour}
+						onchange={(e) => update('colour', e.currentTarget.value)}
+						><option value="country">Affiliation</option><option value="agenda"
+							>Meeting agenda</option
+						><option value="year">Decade</option></select
+					></label
+				>
+			{/snippet}
 			<p aria-live="polite">
 				{rows.length.toLocaleString()} speeches shown. Colours stay fixed when affiliation, agenda or
 				year filters change; groups outside the eight largest share grey. A selected speech appears as
@@ -365,10 +460,10 @@
 						renderer="canvas"
 						preserveZoom
 						height="clamp(320px, 62vw, 74vh)"
-						description="Interactive semantic speech map; the following table provides keyboard access to every plotted speech."
+						description="Interactive semantic speech map; the table of speeches above provides keyboard access to every plotted speech."
 						onclick={(event) => {
 							const value = event.value;
-							if (Array.isArray(value) && typeof value[2] === 'string') update('speech', value[2]);
+							if (Array.isArray(value) && typeof value[2] === 'string') void choose(value[2]);
 						}}
 					/>
 				</div>{:else}<p>
@@ -382,59 +477,8 @@
 				the ten closest speeches found by an exact search. These checks assess the calculations, not
 				the quality of the model's interpretation. Model: {map.meta.model_repo}.
 			</p>
-			{#if selectedPoint}
-				<aside aria-label="Selected speech">
-					<h3>{map.countries[selectedPoint[4]]} · {selectedPoint[3]}</h3>
-					{#if !selectionVisible}<p>This selection is outside the current filters.</p>{/if}
-					<p>
-						{map.agendas[selectedPoint[5]]} · <a href={href(selected)}>Read speech {selected}</a>
-					</p>
-					<h4>Related speeches in the full corpus</h4>
-					<p>
-						These results search all speeches, including those outside your filters. The similarity
-						score (cosine) ranges from −1 to 1; higher values mean more similar embeddings. It is
-						not a percentage of shared meaning.
-					</p>
-					<p role="status" class:quiet={!neighbourStatus}>{neighbourStatus}</p>
-					<ol>
-						{#each related as [id, score] (id)}{@const p = map.points[positions.get(id)!]!}
-							<li>
-								<a href={href(id)}>{map.countries[p[4]]} · {p[3]} · {id}</a> · similarity {score.toFixed(
-									3
-								)}
-							</li>{/each}
-					</ol>
-				</aside>
-			{/if}
-			<div class="table-wrap">
-				<table>
-					<caption
-						>Plotted speeches · page {offset + 1} of {Math.max(
-							1,
-							Math.ceil(rows.length / 20)
-						)}</caption
-					><thead><tr><th>Speech</th><th>Affiliation</th><th>Year</th><th>Agenda</th></tr></thead
-					><tbody
-						>{#each visible as p (p[0])}<tr
-								><td
-									><button onclick={() => update('speech', p[0])} aria-pressed={selected === p[0]}
-										>{p[0]}</button
-									></td
-								><td>{map.countries[p[4]]}</td><td>{p[3]}</td><td>{map.agendas[p[5]]}</td></tr
-							>{/each}</tbody
-					>
-				</table>
-			</div>
-			<nav aria-label="Speech table pages">
-				<button disabled={offset === 0} onclick={() => update('p', String(offset - 1))}
-					>Previous</button
-				><button
-					disabled={(offset + 1) * 20 >= rows.length}
-					onclick={() => update('p', String(offset + 1))}>Next</button
-				>
-			</nav>
-		{/if}
-	</Figure>
+		</Figure>
+	{/if}
 </article>
 
 <style>
@@ -480,10 +524,33 @@
 		color: var(--ink-2);
 		font-size: var(--step--1);
 	}
+	.pair {
+		display: grid;
+		gap: var(--sp-5);
+		margin-top: var(--sp-4);
+	}
+	@media (min-width: 64rem) {
+		.pair {
+			grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+		}
+		.speech {
+			position: sticky;
+			top: calc(var(--masthead-h, 0px) + var(--sp-3));
+			align-self: start;
+		}
+	}
 	aside {
 		border-block: 1px solid var(--rule);
 		padding-block: var(--sp-3);
-		margin-block: var(--sp-4);
+	}
+	/* Focus is moved here by script, not by the reader, so only a keyboard
+	   arrival draws the ring. */
+	aside h3:focus:not(:focus-visible) {
+		outline: none;
+	}
+	.prompt {
+		color: var(--ink-2);
+		max-width: var(--measure);
 	}
 	.table-wrap {
 		overflow-x: auto;
