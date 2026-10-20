@@ -322,6 +322,14 @@
 	.nav-origin[data-provenance='model']::before {
 		background: var(--state-bad);
 	}
+	/* Methods has no provenance word. Centred alone in its link, its name sat
+	   7px below every other name on the row; an empty line the provenance
+	   word's height keeps it on theirs. */
+	nav a:not(:has(.nav-origin))::after {
+		content: '\00a0';
+		font-size: var(--step--2);
+		line-height: 1.2;
+	}
 	#top {
 		display: block;
 		height: 0;
@@ -538,6 +546,10 @@
 			gap: var(--sp-4);
 			min-height: 3rem;
 			font-size: var(--step-0);
+		}
+
+		nav a:not(:has(.nav-origin))::after {
+			content: none;
 		}
 
 		/* The current page keeps the heavy inset rule, under its name only: a

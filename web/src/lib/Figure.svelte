@@ -552,7 +552,10 @@
 	.src {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: center;
+		/* One baseline for the label, the mono path and the download group.
+		   Centred, the three boxes differed in height and face, and each word
+		   landed 2 to 5px off the next. */
+		align-items: baseline;
 		gap: var(--sp-2) var(--sp-4);
 		margin-top: var(--sp-4);
 		padding-top: var(--sp-3);

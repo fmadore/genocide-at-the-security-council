@@ -167,7 +167,12 @@
 	.download {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: baseline;
+		/* Centred, not baseline: the CSV button opens on its icon, and an icon
+		   has no baseline, so the browser took the icon's bottom edge for one
+		   and dropped the label below the buttons' words. The label and the
+		   button text share a face and size, so centring them lines them up,
+		   and the label's baseline is the one the source strip aligns to. */
+		align-items: center;
 		gap: var(--sp-2) var(--sp-3);
 	}
 
