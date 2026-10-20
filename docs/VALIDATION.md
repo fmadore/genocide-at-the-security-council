@@ -207,8 +207,8 @@ copy of S/PV.903 dated 28 June 1960, which gave Ecuador a false first on the DRC
 S/PV.2622 is a copy of S/PV.2623; and S/PV.906 runs on into 18 speeches of S/PV.873. All
 four are confirmed against the PDFs and repaired by `config/source_repairs.yml`, applied by
 step 01 (decided by FM, 19 October 2026); the evidence and the repair are under
-"19 October 2026" below. Still open: a coder should re-read `SC01379-01-010#1` as Mali's, and the real S/PV.2622,
-with one genocide passage, is not in the source. Priority: low.
+"19 October 2026" below. Still open: the real S/PV.2622, with one genocide passage, is not in the source.
+Priority: low.
 
 ## Dated records on the current corpus
 
@@ -270,7 +270,8 @@ What it affects on the site:
   referent (`SC01284-01-003#1`, 20 May 1966) is earlier and does not change.
 - **Model coding.** The published run coded the passage `asserts`, `holocaust`,
   `accusation_or_qualification`, with the speaker taken to be Israel. The labels may still
-  hold for Mali; a coder should re-read it as Mali's.
+  hold for Mali; a coder should re-read it as Mali's. (Done on 20 October 2026: see "Not
+  done" below.)
 - The meeting page credits the word to Israel, and the merged speech's single embedding
   sits on the semantic map as one Israeli speech.
 
@@ -414,7 +415,14 @@ no annotations lost.
 
 Not done: a report upstream to Sakamoto and Matsuoka (drafted in PR #39, not sent); the
 English text of S/PV.2622, which v5.0 lacks and ODS does not serve, so its genocide passage
-stays out of the counts; and a coder's re-reading of `SC01379-01-010#1` as Mali's.
+stays out of the counts.
+
+**`SC01379-01-010#1` re-read as Mali's (FM, 20 October 2026).** Both committed runs label
+the passage `asserts`, `holocaust` and `accusation_or_qualification`; for `own_state_accused`
+Gemma answers `no` and Qwen `not_applicable`. The model input named Israel as the speaker,
+but `own_state_accused` is the only field that depends on who speaks, and Mali is not the
+State accused ("the Europe of a past era" is). FM read the passage as Mali's and confirmed
+the labels, so neither run is repeated. The occurrence is not in the gold sample.
 
 ### 24 September 2026 — review fixes: lexicon v8, tokenizer, gold design
 
