@@ -147,6 +147,8 @@
 			data: group.rows.map((p) => [p[1], p[2], p[0]])
 		}))
 	);
+	/* Read once on mount: a coarse primary pointer is a finger. */
+	let touch = $state(false);
 	const option: EChartsOption = $derived({
 		animation: false,
 		color: fills,
@@ -154,9 +156,17 @@
 		grid: { left: 6, right: 6, top: 6, bottom: 26 },
 		xAxis: { type: 'value', show: false, min: bounds[0], max: bounds[1] },
 		yAxis: { type: 'value', show: false, min: bounds[2], max: bounds[3] },
+		/* The map must not take the page's own scrolling. On a touch screen the
+		   plot takes no gestures at all, so a swipe over it scrolls the page and
+		   the slider beneath is the zoom. On a desk a drag pans, and the wheel
+		   reaches the plot only with Ctrl held: see `wheel` below. */
 		dataZoom: [
-			{ type: 'inside', xAxisIndex: 0 },
-			{ type: 'inside', yAxisIndex: 0 },
+			...(touch
+				? []
+				: [
+						{ type: 'inside' as const, xAxisIndex: 0 },
+						{ type: 'inside' as const, yAxisIndex: 0 }
+					]),
 			{ ...dataZoom($colours), xAxisIndex: 0 }
 		],
 		series: [
@@ -175,6 +185,13 @@
 			}
 		]
 	});
+	/* ECharts' inside zoom cancels every wheel event over the plot, whatever its
+	   `zoomOnMouseWheel` says, so a reader scrolling down the page stopped dead
+	   on the map. A plain wheel is stopped here, before the chart sees it, and
+	   scrolls the page; Ctrl with the wheel goes through and zooms. */
+	function wheel(event: WheelEvent) {
+		if (!event.ctrlKey) event.stopPropagation();
+	}
 	function update(key: string, value: string) {
 		const url = new URL(window.location.href);
 		if (value) url.searchParams.set(key, value);
@@ -187,6 +204,7 @@
 		return `${resolve('/reader/[meeting]', { meeting: id.split('-').slice(0, 2).join('-') })}?speech=${encodeURIComponent(id)}`;
 	}
 	onMount(() => {
+		touch = window.matchMedia('(pointer: coarse)').matches;
 		const restore = () => {
 			query = window.location.search;
 		};
@@ -341,17 +359,21 @@
 			     made square and fill the width and stay inside a screen at once, so
 			     the box tracks the width and the caveat keeps saying that the flat
 			     map distorts distances. -->
-			{#if rows.length}<Chart
-					{option}
-					renderer="canvas"
-					preserveZoom
-					height="clamp(320px, 62vw, 74vh)"
-					description="Interactive semantic speech map; the following table provides keyboard access to every plotted speech."
-					onclick={(event) => {
-						const value = event.value;
-						if (Array.isArray(value) && typeof value[2] === 'string') update('speech', value[2]);
-					}}
-				/>{:else}<p>No speeches match these filters. Clear a filter or choose All years.</p>{/if}
+			{#if rows.length}<div onwheelcapture={wheel}>
+					<Chart
+						{option}
+						renderer="canvas"
+						preserveZoom
+						height="clamp(320px, 62vw, 74vh)"
+						description="Interactive semantic speech map; the following table provides keyboard access to every plotted speech."
+						onclick={(event) => {
+							const value = event.value;
+							if (Array.isArray(value) && typeof value[2] === 'string') update('speech', value[2]);
+						}}
+					/>
+				</div>{:else}<p>
+					No speeches match these filters. Clear a filter or choose All years.
+				</p>{/if}
 			<p class="diagnostic">
 				In a test using {map.meta.evaluation.points.toLocaleString()} speeches, the flat map lost {(
 					100 * map.meta.evaluation.neighbours_lost_share
