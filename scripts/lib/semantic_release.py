@@ -17,8 +17,10 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+import yaml
+
 from . import artifacts
-from .paths import SEMANTIC_PIN
+from .paths import SEMANTIC_PIN, SOURCE_REPAIRS
 
 FILES = {"map.json", *[f"neighbours/{i}.json" for i in range(256)]}
 MAX_BYTES = 512 * 1024 * 1024
@@ -56,20 +58,49 @@ def corpus_fingerprint(path: Path) -> str:
     return digest.hexdigest()
 
 
-def geometry_fingerprint(path: Path) -> str:
+def repair_exclusions(path: Path = SOURCE_REPAIRS) -> frozenset[str]:
+    """Speech ids and record ids the source repairs took off the map.
+
+    Dropped records and speeches have no row in the corpus, and a trimmed
+    speech and both halves of a split one have bodies no vector was computed
+    for. Until the next
+    embedding run they are kept out of the map and the neighbour index rather
+    than shown with a vector of some other text. A speech is excluded when its
+    id, or its record's id, is in the set.
+    """
+    if not path.is_file():
+        return frozenset()
+    repairs = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    excluded = {str(item["record_id"]) for item in repairs.get("drop_records") or []}
+    for item in repairs.get("drop_speeches") or []:
+        excluded |= {str(speech) for speech in item["pairs"]}
+    excluded |= {str(item["speech_id"]) for item in repairs.get("trim_speeches") or []}
+    for item in repairs.get("split_speeches") or []:
+        excluded |= {str(item["speech_id"]), str(item["new"]["speech_id"])}
+    return frozenset(excluded)
+
+
+def is_excluded(row_id: str, excluded: frozenset[str]) -> bool:
+    return row_id in excluded or row_id.rsplit("-", 1)[0] in excluded
+
+
+def geometry_fingerprint(path: Path, excluded: frozenset[str] = frozenset()) -> str:
     """What the map's geometry depends on: which speeches, and their exact bodies.
 
     The projection and the neighbours are functions of the embedded texts and
     of nothing else. Years, affiliations, agendas and the lexical flag are
     display attributes the export re-derives from the current corpus, so a
     lexicon release or a relabelled affiliation no longer invalidates a map
-    whose every vector is still the vector of the text it shows.
+    whose every vector is still the vector of the text it shows. Rows in
+    `excluded` (:func:`repair_exclusions`) are left out of the digest.
     """
     import pandas as pd
 
     frame = pd.read_parquet(path, columns=["row_id", "text", "body_start"])
     if frame.row_id.isna().any() or frame.row_id.duplicated().any():
         raise ValueError("semantic corpus IDs must be unique and present")
+    if excluded:
+        frame = frame[[not is_excluded(str(row_id), excluded) for row_id in frame.row_id]]
     digest = hashlib.sha256(b"semantic-geometry-v1\n")
     for row_id, text, start in frame.sort_values("row_id").itertuples(index=False, name=None):
         body = hashlib.sha256(text[int(start):].encode("utf-8")).hexdigest()
@@ -83,6 +114,7 @@ def validate(
     *,
     content_sha256: str | None = None,
     geometry_sha256: str | None = None,
+    excluded: frozenset[str] = frozenset(),
 ) -> dict:
     """Check a semantic artifact's files, then that it describes this corpus.
 
@@ -91,7 +123,8 @@ def validate(
     which survives Arrow re-serialisation; or a pinned fingerprint of the
     geometry's inputs alone, which survives any change to the display
     attributes the export re-derives anyway. The two fingerprints are only
-    accepted from a pin bound to this exact manifest.
+    accepted from a pin bound to this exact manifest. The geometry is compared
+    without the `excluded` rows, which the export then takes off the map.
     """
     meta = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
     files = meta.get("files", {})
@@ -104,9 +137,26 @@ def validate(
         return meta
     if corpus_path and content_sha256 and corpus_fingerprint(corpus_path) == content_sha256:
         return meta
-    if corpus_path and geometry_sha256 and geometry_fingerprint(corpus_path) == geometry_sha256:
+    if (corpus_path and geometry_sha256
+            and geometry_fingerprint(corpus_path, excluded) == geometry_sha256):
         return meta
     raise ValueError("semantic map was built from a different corpus")
+
+
+def pinned_exclusions(pin_path: Path = SEMANTIC_PIN, repairs: Path = SOURCE_REPAIRS) -> frozenset[str]:
+    """The rows the pin's geometry digest leaves out, or none.
+
+    The pin records the checksum of the source repairs its digest was computed
+    without. A repair added or changed since then voids the exclusions, and the
+    geometry check fails until the digest is recomputed and reviewed: the map is
+    never quietly trimmed by a repair nobody measured it against.
+    """
+    if not pin_path.is_file():
+        return frozenset()
+    recorded = load_pin(pin_path).get("source_repairs_sha256")
+    if not recorded or not repairs.is_file() or artifacts.sha256(repairs) != recorded:
+        return frozenset()
+    return repair_exclusions(repairs)
 
 
 def check_against_pin(directory: Path, corpus: Path, pin_path: Path = SEMANTIC_PIN) -> dict:
@@ -118,13 +168,19 @@ def check_against_pin(directory: Path, corpus: Path, pin_path: Path = SEMANTIC_P
     geometry; any other artifact must match the corpus byte for byte.
     """
     content_sha256 = geometry_sha256 = None
+    excluded: frozenset[str] = frozenset()
     if pin_path.is_file():
         pin = load_pin(pin_path)
         if artifacts.sha256(directory / "manifest.json") == pin.get("manifest_sha256"):
             content_sha256 = pin.get("corpus_content_sha256")
             geometry_sha256 = pin.get("corpus_geometry_sha256")
+            excluded = pinned_exclusions(pin_path)
     return validate(
-        directory, corpus, content_sha256=content_sha256, geometry_sha256=geometry_sha256
+        directory,
+        corpus,
+        content_sha256=content_sha256,
+        geometry_sha256=geometry_sha256,
+        excluded=excluded,
     )
 
 
@@ -133,14 +189,39 @@ def write_pending(directory: Path) -> None:
     artifacts.atomic_write_json(directory / "map.json", {"status": "pending", "schema": 1})
 
 
-def rebind(staged: Path, corpus: Path) -> dict[str, object]:
+def reshard(staged: Path, order: list[str], excluded: frozenset[str]) -> int:
+    """Rewrite the neighbour shards for a map whose points are now `order`.
+
+    The dashboard finds a speech's neighbours in shard `position % 256`, by its
+    position in `map.json`, so taking points off the map moves every later
+    speech to another shard. Excluded speeches lose their entry, and every other
+    speech loses the links that pointed to one; the rest keep their ranks.
+    Returns how many links were removed.
+    """
+    records: dict[str, list] = {}
+    for number in range(256):
+        records.update(json.loads((staged / "neighbours" / f"{number}.json").read_text(encoding="utf-8")))
+    removed = 0
+    shards: list[dict[str, list]] = [{} for _ in range(256)]
+    for position, row_id in enumerate(order):
+        links = records[row_id]
+        kept = [link for link in links if not is_excluded(str(link[0]), excluded)]
+        removed += len(links) - len(kept)
+        shards[position % 256][row_id] = kept
+    for number, shard in enumerate(shards):
+        artifacts.atomic_write_json(staged / "neighbours" / f"{number}.json", shard)
+    return removed
+
+
+def rebind(staged: Path, corpus: Path, excluded: frozenset[str] = frozenset()) -> dict[str, object]:
     """Re-derive the display attributes of a copied map from `corpus`.
 
     Keeps every point's projected coordinates and replaces its year,
     affiliation, agenda and lexical flag with what the corpus now says, then
     rewrites the copied manifest's checksum for `map.json` and records what was
     done, so the payload never carries a manifest its own files contradict.
-    Returns what changed, for the export's log.
+    Speeches in `excluded` (:func:`pinned_exclusions`) are taken off the map and
+    out of the neighbour index. Returns what changed, for the export's log.
     """
     import pandas as pd
 
@@ -149,10 +230,16 @@ def rebind(staged: Path, corpus: Path) -> dict[str, object]:
     path = staged / "map.json"
     published = json.loads(path.read_text(encoding="utf-8"))
     released_sha256 = artifacts.sha256(path)
-    coordinates = {str(point[0]): (point[1], point[2]) for point in published["points"]}
+    coordinates = {
+        str(point[0]): (point[1], point[2])
+        for point in published["points"]
+        if not is_excluded(str(point[0]), excluded)
+    }
     speeches = pd.read_parquet(
         corpus, columns=["row_id", "year", "country_org", "agenda_item_manual", "has_genocide"]
     )
+    if excluded:
+        speeches = speeches[[not is_excluded(str(row_id), excluded) for row_id in speeches.row_id]]
     countries, agendas, points = semantic.display_points(speeches, coordinates)
     before = {str(point[0]): point for point in published["points"]}
     changed = sum(
@@ -173,11 +260,23 @@ def rebind(staged: Path, corpus: Path) -> dict[str, object]:
         "columns": semantic.POINT_COLUMNS[3:],
     }
     meta = {**published["meta"], "display": display}
+    manifest_path = staged / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if excluded:
+        dropped = sorted(row for row in before if row not in coordinates)
+        links = reshard(staged, [str(point[0]) for point in points], excluded)
+        display["excluded"] = {
+            "why": "changed by config/source_repairs.yml; no vector until the next embedding run",
+            "speeches": dropped,
+            "links_removed": links,
+        }
+        meta["speeches"] = len(points)
+        for number in range(256):
+            name = f"neighbours/{number}.json"
+            manifest["files"][name] = artifacts.sha256(staged / name)
     artifacts.atomic_write_json(
         path, {"meta": meta, "countries": countries, "agendas": agendas, "points": points}
     )
-    manifest_path = staged / "manifest.json"
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["files"]["map.json"] = artifacts.sha256(path)
     manifest["display"] = display
     artifacts.atomic_write_json(manifest_path, manifest, indent=2)

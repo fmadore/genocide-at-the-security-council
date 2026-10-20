@@ -42,7 +42,7 @@ endif
 # corpus from 01.
 include scripts/deps.mk
 REFERENTS := annotations/lexicon/referents.csv
-MODEL_INPUTS := $(wildcard model_annotations/genocide/*.md model_annotations/genocide/*.txt model_annotations/genocide/runs/*/* model_annotations/genocide/prompts/*.md)
+MODEL_INPUTS := $(wildcard model_annotations/genocide/*.md model_annotations/genocide/*.txt model_annotations/genocide/source_repairs.json model_annotations/genocide/runs/*/* model_annotations/genocide/prompts/*.md)
 
 RAW_FILES := data/raw/speeches.tsv data/raw/meetings.tsv
 SPEECHES  := data/derived/speeches.parquet
@@ -83,7 +83,7 @@ $(RAW_FILES): | raw
 MEETINGS  := data/derived/meetings.parquet
 
 # One run writes both; `&:` (GNU make 4.3) says so, where two rules would run 01 twice.
-$(SPEECHES) $(MEETINGS) &: $(RAW_FILES) scripts/01_build_parquet.py $(LIB_01_BUILD_PARQUET) config/dataset-pin.json
+$(SPEECHES) $(MEETINGS) &: $(RAW_FILES) scripts/01_build_parquet.py $(LIB_01_BUILD_PARQUET) config/dataset-pin.json config/source_repairs.yml
 	$(PY) scripts/01_build_parquet.py
 
 $(NORM): $(SPEECHES) scripts/02_normalise.py $(LIB_02_NORMALISE)
@@ -135,7 +135,7 @@ $(ACTOR_YEAR): $(FLAGGED) scripts/20_actor_year.py $(LIB_20_ACTOR_YEAR)
 derived: $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(GOLD) $(USAGE) $(NODE_FRAMES) $(ACTOR_YEAR)
 
 # --- The site's payload -------------------------------------------------------
-$(PAYLOAD): $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(USAGE) $(NODE_FRAMES) scripts/export_web.py $(LIB_EXPORT_WEB) tests/contract/payload.json config/semantic-release.json $(ACTOR_YEAR) $(wildcard data/derived/semantic/manifest.json)
+$(PAYLOAD): $(SERIES) $(LEXICAL) $(KWIC) $(SPEECHES_WEB) $(SCOPES_WEB) $(COUNTRIES) $(SPEAKER_KEYNESS) $(USAGE) $(NODE_FRAMES) scripts/export_web.py $(LIB_EXPORT_WEB) tests/contract/payload.json config/semantic-release.json config/source_repairs.yml $(ACTOR_YEAR) $(wildcard data/derived/semantic/manifest.json)
 	$(PY) scripts/export_web.py
 
 payload: $(PAYLOAD)

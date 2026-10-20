@@ -200,7 +200,220 @@ When a run is added, record it here and re-check the artefact counts on the Meth
 against its manifest. Automatic resolutions (a relocated evidence quote, a normalised
 whitespace match) are counted in the manifest, never silently absorbed.
 
+### 8. Four source errors — corrected 19 October 2026
+
+S/PV.1379 filed Mali's statement, and its genocide passage, under Israel; S/PV.869 carried a
+copy of S/PV.903 dated 28 June 1960, which gave Ecuador a false first on the DRC chronology;
+S/PV.2622 is a copy of S/PV.2623; and S/PV.906 runs on into 18 speeches of S/PV.873. All
+four are confirmed against the PDFs and repaired by `config/source_repairs.yml`, applied by
+step 01 (decided by FM, 19 October 2026); the evidence and the repair are under
+"19 October 2026" below. Still open: a coder should re-read `SC01379-01-010#1` as Mali's;
+the repaired rows return to the semantic map only with the next embedding run; and the real
+S/PV.2622, with one genocide passage, is not in the source. Priority: low.
+
 ## Dated records on the current corpus
+
+### 19 October 2026 — four source errors, two from an external review
+
+An external review of the corpus reported two errors in the source and gave no error rate.
+Both are confirmed below against the corpus (`data/raw/speeches.tsv`, v5.0, md5
+`5851f124…`; `data/derived/speeches.parquet`), the published files (`web/static/data/`,
+generated 19 October 2026) and the original UN records, downloaded from
+`documents.un.org`. Both errors are already in the source TSV; the pipeline did not
+introduce them. Both are now repaired in the build, never in `data/raw/`: see "The repair"
+at the end of this entry.
+
+**1. S/PV.1379 (16 November 1967): Mali's statement is filed under Israel.** Confirmed.
+
+The source splits the meeting into nine speeches. `SC01379-01-007` is attributed to
+Mr. EBAN (Israel) and is 11,456 characters long (1,933 words on the site). Only its first
+1,463 characters are Eban's. At that point the text reads:
+
+> The President (translated from French/: As the list of speakers is now exhausted and no
+> delegation has asked to speak, I should like to address the Council as the
+> representative of MALI.
+
+The OCR turned the closing bracket into `/`, and the source did not split the speech
+there. Everything after it — about 1,700 words — is the statement of Mr. Mamadou Boucabar
+KANTE, President of the Council, speaking for Mali. It ends with "Speaking now as
+PRESIDENT, I call upon the representative of Canada on a point of order", after which
+`SC01379-01-008` (Canada) begins correctly. The passage with the word, at characters
+8,337–8,345 (`SC01379-01-007#1`):
+
+> If the Europe of a past era could find no better way of saving its conscience for the
+> genocide perpetrated against the Jewish people in the course of history than by
+> establishing a Jewish national home in Palestine, thus fulfilling the dreams of people
+> like Theodor Herzl, we today find it intolerable that the bloodshed and suffering of that
+> people should be paid for by reducing millions of other human beings to want, ruin and
+> misery.
+
+In the original record (S/PV.1379, printed pages 3–5), Eban speaks in paragraphs 30–34;
+paragraph 35 is the President's announcement above; the passage is paragraph 49, in a
+statement that says "The delegation of Mali considers…" and speaks of "the draft
+resolution which has been submitted to you by India, Nigeria and Mali". The speaker is
+Mali's representative, not Israel's.
+
+What it affects on the site:
+
+- **Concordance.** The `genocide` line `SC01379-01-007#1` is shown as Israel, non-member
+  guest. It should read Mali, elected member.
+- **Country rates** (`countries.json`, `genocide`). Israel, 1960–1969: 12 of 228 speeches
+  with the word (5.26%), 14 occurrences, 266,465 words. Corrected: 11 of 228 (4.82%), 13
+  occurrences, about 1,700 fewer words. Mali, 1960–1969: 4 of 169 (2.37%), 5 occurrences,
+  67,316 words. Corrected: 5 of 170 (2.94%), 6 occurrences, about 1,700 more words — the
+  split adds one speech to Mali. The 1946–2024 rows move by the same amounts (Israel 79 of
+  1,290 speeches; Mali 8 of 571). Mali's 1960s speeches are mostly presidential procedure
+  (110 of 169), so this one substantive statement weighs on its rate.
+- **"When each delegation first said it".** On the Holocaust referent, Israel's first
+  mention and first assertion are both dated 16 November 1967 from this passage. Israel's
+  next occurrence coded to that referent is `SC01401-01-006#1` (S/PV.1401, 21 March 1968,
+  also coded `asserts`), so both firsts would move four months later. Mali's first on that
+  referent (`SC01284-01-003#1`, 20 May 1966) is earlier and does not change.
+- **Model coding.** The published run coded the passage `asserts`, `holocaust`,
+  `accusation_or_qualification`, with the speaker taken to be Israel. The labels may still
+  hold for Mali; a coder should re-read it as Mali's.
+- The meeting page credits the word to Israel, and the merged speech's single embedding
+  sits on the semantic map as one Israeli speech.
+
+What correcting it would involve: a documented repair in the pipeline, logged here as the
+`S/PV.5225` repair is, that splits `SC01379-01-007` at character 1,463 — the first part
+stays Eban's, the second becomes a Mali speech that is not procedural — and keeps the
+source's identifiers readable (the new speech needs an identifier that does not renumber
+`-008` and `-009`). Then a rebuild of the concordance, rates and usage files, a remapping of
+the annotation `SC01379-01-007#1` in both committed runs, a new embedding for the two
+speeches, and a report upstream to Sakamoto and Matsuoka.
+
+How common this is: a scan for a `The President (…):` turn line *inside* a speech finds 76
+speeches (1947–1983), 55 of them attributed to a speaker who is not the President. Three
+contain `genocid*`. In `SC01344-01-008` (Syria) and `SC01674-01-010` (MPLA) the stray turn
+is a closing call to the next speaker, after every occurrence, so the word stays with the
+right speaker. S/PV.1379 is the only one where a genocide passage changes hands. The scan
+only catches turns whose marker sits at the start of a line; it is a floor, not a rate.
+
+**2. Ecuador's Congo speech appears twice, under S/PV.869 and S/PV.903.** Confirmed, and
+wider than one speech.
+
+Hashing every Ecuador speech text (SHA-256, exact) finds one substantive text under two
+dates (the other 40 cross-date matches are one-line procedural formulas of 8–11 words):
+
+| Speech | Meeting | Date | Topic in the source |
+|---|---|---|---|
+| `SC00869-01-002` | S/PV.869 | 28 June 1960 | Admission of new Members to the United Nations |
+| `SC00903-01-002` | S/PV.903 | 15 September 1960 | Situation in the Republic of the Congo |
+
+Text hash `3b8ceab6479896442945fa3128d2a53e8f2da5eb2fdf2e4fd54d0e7d99ecae43`, 10,627
+characters, 1,727 words, opening "The situation in the Congo, which in mid-July was a cause
+of anxiety to world opinion … remains so two months later". It cannot date from 28 June:
+the Congo became independent on 30 June 1960. The original S/PV.903 has it as
+paragraphs 2 onwards of Mr. CORREA (Ecuador), the word in paragraph 7. The original S/PV.869
+is the debate on admitting the Federation of Mali, where Correa spoke briefly in its
+support (paragraphs 48 and 89) and said nothing about the Congo.
+
+The whole record is copied, not one speech. All 11 speeches of `SC00869-01` repeat the 11
+of `SC00903-01` word for word and in the same order (8,156 words). Only the President's
+procedural lines differ in their attribution: China (Tsiang, June's President) in one,
+Italy (Ortona, September's) in the other. The real S/PV.869 debate is missing from the
+corpus.
+
+What it affects on the site:
+
+- **"When each delegation first said it" — most serious.** The published run coded the two
+  identical copies differently: `SC00869-01-002#1` to the referent `drc`,
+  `SC00903-01-002#1` to `other`. On the DRC chronology, the copy dated 28 June 1960 is the
+  **first event of all**: Ecuador appears as the first delegation to say "genocide" about
+  the Congo, two days before independence. Without it, the first DRC event is
+  `SC00896-01-028#1` (United Nations, 9 September 1960). The same false date counts China,
+  Ecuador, France, Russia and the United Kingdom as "exposed" to the word on that referent
+  (they spoke in a meeting where it was used) from 28 June 1960, not from September.
+- **Concordance.** The `genocide` line appears twice, once under each meeting.
+- **Country rates.** The word, the speech and its 1,727 words count twice for Ecuador in
+  1960–1969 and 1946–2024, and the other ten speeches count twice for China, France, Russia
+  and the United Kingdom.
+- **Meeting pages.** S/PV.869 shows a Congo debate under an agenda on admitting new
+  Members.
+- **Model coding.** Two codings of one passage disagree (`drc` against `other`). It is a
+  free check on the run's consistency, and one more reason the gold sample comes first.
+
+What correcting it would involve: drop the 11 speeches of `SC00869-01` as a documented
+duplicate (the real S/PV.869 text is not in the source, so it cannot be restored from v5.0),
+rebuild, remove `SC00869-01-002#1` from both committed runs' joins, and report upstream.
+The DRC first would then come from S/PV.896. Whether `SC00903-01-002#1` should be `drc`
+rather than `other` is a coding question for the gold sample.
+
+How common this is: the same hash check over the whole corpus, kept to speeches of at least
+200 words, finds three pairs of meetings sharing text across dates: S/PV.869 and S/PV.903,
+S/PV.2622 and S/PV.2623, and S/PV.873 and S/PV.906. The last two were checked against the
+PDFs on the same day, and both are source errors.
+
+**3. S/PV.2622 (11 October 1985) is a copy of S/PV.2623 (17 October 1985).** Confirmed.
+All 14 speeches of `SC02622-01` repeat those of `SC02623-01` word for word and in order
+(4,566 source words); only the President's speaker field differs ("Mr. Vernon A. WALTERS"
+against "n.a."). The Official Document System serves the same English PDF under both
+symbols (SHA-256 `dab92e15…`, 8 pages): the 2623rd meeting, on UNIFIL, with the vote on
+resolution 575 (1985). The corpus speeches are its paragraphs 2 onwards, Liang (para. 6) to
+Netanyahu (para. 59). The real S/PV.2622 survives on ODS only in French and Spanish: a
+Middle East debate continuing meetings 2619–2621, with Bangladesh, the GDR, the USSR,
+Maksoud, Pakistan, the PLO, Jordan and Israel, none of whom appears in the corpus for that
+day. Its paragraph 96, in the PLO's statement, uses the word ("le génocide"; "el
+genocidio"), so the corpus misses one occurrence it cannot recover from v5.0. The source
+also gives `SC02623-01` only the first of its two agenda items, the South African one; the
+President's statement on Benjamin Moloise (para. 1) is missing, and the speeches belong to
+the second, the Middle East.
+
+**4. S/PV.906 (16–17 September 1960) runs on into S/PV.873 (13–14 July 1960).** Confirmed,
+and larger than the hash check showed. Rows `SC00906-01-043` to `-060` (18 speeches, 1,801
+source words) repeat `SC00873-01-053` to `-070` in order: 16 exactly, two with one OCR
+word changed ("unconditioned" for "unconditional", "territory" for "territoiy"). The copied
+text is S/PV.873 paragraphs 223–249: the vote on resolution 143 (8-0-3) and its explanations
+of vote, by the July delegates (Lodge, Beeley, Sobolev), with every President's turn
+re-attributed to Mr. Ortona, the September President. The S/PV.906 PDF ends at paragraph
+205 ("we have reached the end of our deliberations"), and its colophon, "Litho in U.N.",
+sits inside `SC00906-01-042` at character 399, followed by a line of S/PV.873. Nothing of
+S/PV.906's own text is missing. Neither record contains `genocid*`.
+
+**The repair (decided by FM, 19 October 2026).** `config/source_repairs.yml` names every
+repair and what it expects to find, and step 01 applies them to the frame it reads;
+`data/raw/` is unchanged. Step 01 checks the source against its codebook first (167,642
+speeches, 87,678,254 source words), then the repaired corpus against `lib.paths`.
+
+- **S/PV.869 and S/PV.2622.** Both records are dropped, after a check that each speech is
+  word for word the matching speech of `SC00903-01` and `SC02623-01`. Ecuador's Congo speech
+  now counts once, and the first DRC event on the diffusion figure is `SC00896-01-028#1`
+  (9 September 1960).
+- **S/PV.906.** The 18 copied speeches are dropped, each checked against its S/PV.873
+  original or, for the two OCR variants, against its own SHA-256. `SC00906-01-042` is cut
+  before the colophon, after a check of its SHA-256 and of the text there; it keeps 63 of
+  its 88 source words.
+- **S/PV.1379.** `SC01379-01-007` is cut at character 1,463, after a check of its SHA-256 and
+  of the turn label there. Eban keeps the first 241 source words; the remaining 1,695 become
+  `SC01379-01-010`, Mr. Kante for Mali, elected member, not procedural, read eighth in the
+  meeting; `-008` and `-009` keep their identifiers. The label itself, five words, is dropped.
+- **Model runs.** The run files are not edited. `model_annotations/genocide/source_repairs.json`,
+  written by `tools/remap_run_rows.py`, drops `SC00869-01-002#1` and re-points
+  `SC01379-01-007#1` at `SC01379-01-010#1` (body offset 6,834, evidence offsets shifted by
+  1,503); `lib.model_runs.read` applies it to every run. The labels are the run's own. The
+  S/PV.2622 and S/PV.906 repairs touch no annotated occurrence.
+- **Semantic map.** Until the new embedding run is published, the map leaves out every
+  repaired row: the dropped records and speeches, the trimmed speech and both halves of the
+  split one (167,597 points; 584 neighbour links removed). The geometry digest
+  recomputed without them equals the old corpus's over the same rows, so every other point
+  keeps the vector of its own text; `config/semantic-release.json` records it with the
+  checksum of the repairs it was measured against.
+
+Totals after the rebuild: 167,600 speeches, 9,462 meetings with speeches, 87,663,706 source
+words (14,548 fewer), 86,798,095 analytical words (14,479 fewer: 8,131 in S/PV.869, 4,538 in
+S/PV.2622, 1,785 in the S/PV.906 copies, 20 in its colophon and five in the S/PV.1379
+label). `genocide`: 4,135 speeches and 7,786 occurrences, from 4,136 and 7,787; `massacre`:
+2,868 and 4,578, from 2,870 and 4,580; no other lexicon count moves. Israel, 1960–1969: 11
+of 228 speeches with the word, 13 occurrences. Mali: 5 of 170, 6 occurrences. Israel's first
+Holocaust mention and assertion move to `SC01401-01-006#1` (21 March 1968). The gold sample
+was redrawn from the repaired population before any coding began (decided by FM): 454
+distinct occurrences in the packet, from 453. The lexicon audit sample was redrawn too, with
+no annotations lost.
+
+Not done: a report upstream to Sakamoto and Matsuoka (drafted in PR #39, not sent); the
+English text of S/PV.2622, which v5.0 lacks and ODS does not serve, so its genocide passage
+stays out of the counts; and a coder's re-reading of `SC01379-01-010#1` as Mali's.
 
 ### 24 September 2026 — review fixes: lexicon v8, tokenizer, gold design
 

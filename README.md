@@ -38,10 +38,10 @@ gold sample is not yet coded. Read the claims guide before citing a figure.
 | Version | 5.0, pinned by file identifiers, sizes, and MD5 checksums |
 | Source licence | CC0 1.0 |
 | Coverage | 1946-01-17 to 2024-12-30 |
-| Speeches | 167,642 |
-| Meetings with speeches | 9,464 |
-| Analytical words | 86,812,574 |
-| `g[eé]nocid*` (lexicon v8) | 4,136 speeches · 7,787 occurrences |
+| Speeches | 167,600, after four source repairs ([VALIDATION.md](docs/VALIDATION.md)) |
+| Meetings with speeches | 9,462 |
+| Analytical words | 86,798,095 |
+| `g[eé]nocid*` (lexicon v8) | 4,135 speeches · 7,786 occurrences |
 
 Every term's committed counts are in
 [`config/lexicon.counts.json`](config/lexicon.counts.json); step 03 fails if the

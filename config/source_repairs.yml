@@ -1,0 +1,121 @@
+# Repairs to the Sakamoto-Matsuoka v5.0 source, applied by step 01.
+#
+# data/raw/ is never edited: step 01 reads the pinned TSVs and applies these
+# repairs to the frame before anything else sees it. Each repair names what it
+# expects to find (a duplicate record word for word, a text checksum, a label at
+# an offset) and step 01 stops if the source does not match, so a new source
+# release cannot be "repaired" by a rule written for another one.
+#
+# Each repair was checked against the original UN record. The evidence, and
+# what each one changes on the site, is in docs/VALIDATION.md, under
+# "19 October 2026".
+
+schema: 1
+source: Sakamoto-Matsuoka v5.0
+
+# A meeting record whose every speech is a copy of another record's.
+drop_records:
+  - record_id: SC00869-01
+    # Every speech text must equal the duplicate's, in the same order.
+    duplicate_of: SC00903-01
+    speeches: 11
+    reason: >-
+      S/PV.869 (28 June 1960) carries the 11 speeches of S/PV.903 (15 September
+      1960), on the Congo. The real S/PV.869, on the admission of the Federation
+      of Mali, is not in the source.
+    checked: S/PV.869 and S/PV.903, UN Official Document System, 19 October 2026
+  - record_id: SC02622-01
+    duplicate_of: SC02623-01
+    speeches: 14
+    reason: >-
+      S/PV.2622 (11 October 1985) carries the 14 speeches of S/PV.2623 (17
+      October 1985, UNIFIL; resolution 575). The Official Document System serves
+      the S/PV.2623 PDF under the English symbol S/PV.2622. The real S/PV.2622,
+      on the Middle East problem including the Palestinian question, is not in
+      the source; its French and Spanish records show a genocide passage in the
+      PLO's statement (paragraph 96).
+    checked: S/PV.2622 (French, Spanish) and S/PV.2623, UN Official Document System, 19 October 2026
+
+# Speeches that repeat, one for one, speeches of another record. Each pair must
+# be word for word, except a copy listed under `variants`, whose OCR differs by
+# a word: its text must have the SHA-256 given there.
+drop_speeches:
+  - record_id: SC00906-01
+    speeches: 18
+    pairs:
+      SC00906-01-043: SC00873-01-053
+      SC00906-01-044: SC00873-01-054
+      SC00906-01-045: SC00873-01-055
+      SC00906-01-046: SC00873-01-056
+      SC00906-01-047: SC00873-01-057
+      SC00906-01-048: SC00873-01-058
+      SC00906-01-049: SC00873-01-059
+      SC00906-01-050: SC00873-01-060
+      SC00906-01-051: SC00873-01-061
+      SC00906-01-052: SC00873-01-062
+      SC00906-01-053: SC00873-01-063
+      SC00906-01-054: SC00873-01-064
+      SC00906-01-055: SC00873-01-065
+      SC00906-01-056: SC00873-01-066
+      SC00906-01-057: SC00873-01-067
+      SC00906-01-058: SC00873-01-068
+      SC00906-01-059: SC00873-01-069
+      SC00906-01-060: SC00873-01-070
+    variants:
+      # "unconditioned" for 873's "unconditional".
+      SC00906-01-055: 2256e5b6b79fb83e3586b2d606b64fbed1c1f2cc5c8404e0d318e89bb22a6e92
+      # "territory" for 873's "territoiy".
+      SC00906-01-058: 4b2f174c1c456ee6af1dcddc925a74694b2d553d0deef7a89b5238859a3ace89
+    reason: >-
+      The source's S/PV.906 (16-17 September 1960) runs on past the record's
+      colophon (paragraph 205, printed page 38) with paragraphs 223-249 of
+      S/PV.873 (13-14 July 1960): the vote on resolution 143 and its
+      explanations of vote, by the July delegates, with every President's turn
+      given to Mr. Ortona. None of it is in the S/PV.906 PDF.
+    checked: S/PV.873 and S/PV.906, UN Official Document System, 19 October 2026
+
+# A speech whose text runs on past the end of its record. The text before `at`
+# stays; what follows must start with `expect_after`.
+trim_speeches:
+  - speech_id: SC00906-01-042
+    source_sha256: 66b1453aa1e1d6350b5c57bc8664fced04d9076d87aebe6e036bc149a5a4b723
+    at: 399
+    expect_after: "\nLitho in U.N."
+    reason: >-
+      After "notwithstanding all our efforts." the row carries the S/PV.906
+      printer's colophon and then a line of S/PV.873, "The amendment was
+      rejected by 7 votes to 2, with 2 abstentions."
+    checked: S/PV.906, UN Official Document System, 19 October 2026
+
+# A speech that runs on into the next speaker's turn, because the source missed
+# the turn marker. The text before `at` stays with the source row; the text
+# after `label` becomes a new row.
+split_speeches:
+  - speech_id: SC01379-01-007
+    # SHA-256 of the source text, UTF-8.
+    source_sha256: 401deee827b559e82c65c145fd700513f490274012a95d1fb566446feb80c117
+    at: 1463
+    # The OCR read the closing bracket as "/".
+    label: "The President (translated from French/: "
+    reason: >-
+      S/PV.1379 (16 November 1967): Mr. Eban (Israel) speaks in paragraphs
+      30-34. Paragraph 35 opens "The PRESIDENT (translated from French): ... I
+      should like to address the Council as the representative of MALI", and
+      the rest of the row, paragraphs 35-58, is Mali's statement.
+    checked: S/PV.1379, UN Official Document System, 19 October 2026
+    new:
+      # The first number the source leaves free in the record, so that -008
+      # and -009 keep their identifiers.
+      speech_id: SC01379-01-010
+      # The speaker's attributes (name, affiliation, membership, state) come
+      # from this row of the same meeting.
+      attributes_from: SC01379-01-006
+      # The President speaking for his country: the source's own coding for a
+      # President's national statement.
+      president: true
+      procedural: false
+    # The order the meeting is read in. Identifiers do not change.
+    reorder:
+      SC01379-01-010: 8
+      SC01379-01-008: 9
+      SC01379-01-009: 10

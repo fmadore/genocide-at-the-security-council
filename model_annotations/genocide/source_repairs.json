@@ -1,0 +1,25 @@
+{
+ "schema": 1,
+ "written_by": "tools/remap_run_rows.py",
+ "source_repairs_sha256": "75b62e8b1de34846266ce6004bb2fb1f6d39c2beebe12f786a8dd6aebe543355",
+ "drop": {
+  "bf7c5559cf9cc76fd98b0294d705b82ea3a1e42ddcb2ae130136bc85b997e227": {
+   "line_id": "SC00869-01-002#1",
+   "because": "SC00869-01 is dropped as a copy of SC00903-01"
+  }
+ },
+ "remap": {
+  "c50b2c6108387d087f3a072c04f65d902b87794a05ff97f9ed85c8cf47b883ed": {
+   "line_id_was": "SC01379-01-007#1",
+   "to": {
+    "occurrence_id": "1c77d971f21812203d686e7dc24b2cc607b66bf373b065359e0dd71e09ac583c",
+    "line_id": "SC01379-01-010#1",
+    "filename": "SC01379-01-010.txt",
+    "start": 6834,
+    "end": 6842,
+    "source_sha256": "961bfc5689744b4a6abdbf3637d6d83fe010e0dda1e1f88d15116fb450c76a57"
+   },
+   "evidence_shift": -1503
+  }
+ }
+}

@@ -6,6 +6,7 @@
   "corpus_sha256": "5b28839e8df28eb995baf044e7d6d5c2e0c229b9adf2571c46a454510af165b7",
   "projection_note": "UMAP spectral initialization fell back to seeded random initialization; see release notes.",
   "corpus_content_sha256": "956bc011e72a2b6b791bf2c63dc161b7f4d9445df116a4e23ecc0cda03d56813",
-  "corpus_geometry_sha256": "8ad8e27c3fecb0dfc16d279d420af64cae187b7b9ce827bb1d94abd732eb3261",
-  "geometry_note": "Computed 2026-09-24 from the corpus whose content fingerprint matches corpus_content_sha256; binds row ids and embedded bodies only. Display attributes are re-derived at export (docs/ROADMAP.md, RV6)."
+  "corpus_geometry_sha256": "b93fa6d2efdb12cbf54fc8111e402dacc4ab2b5fa5ce7a96d07900be434be6e9",
+  "geometry_note": "Computed 2026-09-24 from the corpus whose content fingerprint matches corpus_content_sha256; binds row ids and embedded bodies only. Display attributes are re-derived at export (docs/ROADMAP.md, RV6). Recomputed 2026-10-19 without the rows config/source_repairs.yml changes: the digest equals the old corpus's over the same rows, so every remaining vector is still the vector of its text. The excluded rows return with the next embedding run.",
+  "source_repairs_sha256": "75b62e8b1de34846266ce6004bb2fb1f6d39c2beebe12f786a8dd6aebe543355"
 }

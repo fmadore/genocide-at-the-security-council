@@ -1,6 +1,6 @@
 {
   "lexicon_version": 8,
-  "speeches": 167642,
+  "speeches": 167600,
   "terms": {
     "aggression": {
       "speeches": 249,
@@ -43,8 +43,8 @@
       "occurrences": 49
     },
     "genocide": {
-      "speeches": 4136,
-      "occurrences": 7787
+      "speeches": 4135,
+      "occurrences": 7786
     },
     "genocide_convention": {
       "speeches": 228,
@@ -87,8 +87,8 @@
       "occurrences": 227
     },
     "massacre": {
-      "speeches": 2870,
-      "occurrences": 4580
+      "speeches": 2868,
+      "occurrences": 4578
     },
     "never_again": {
       "speeches": 371,
