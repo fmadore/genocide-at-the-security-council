@@ -291,7 +291,7 @@ twelve from 64rem.
 
 Breakpoints observed: 30rem (the reading set turns on its side), 40rem (type
 and unit-field row length), 44rem (the exit index collapses to one column),
-48rem (apparatus pairs; the running head drops its label; the masthead's
+48rem (apparatus pairs; the Language page's two profiles face each other; the running head drops its label; the masthead's
 sections become one sideways row below it), 64rem (gutter, apparatus fives, 48
 squares to a row; the Reader's notes move beside the record). The floor the page is held to is 320px:
 nothing on any route may put a horizontal scrollbar on the document there,

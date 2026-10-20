@@ -1497,7 +1497,7 @@
 		padding-top: var(--sp-4);
 	}
 
-	@media (min-width: 46rem) {
+	@media (min-width: 48rem) {
 		.compare {
 			grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
 			gap: 0;
@@ -1517,7 +1517,7 @@
 		background: var(--rule-strong);
 	}
 
-	@media (min-width: 46rem) {
+	@media (min-width: 48rem) {
 		.gutter {
 			display: block;
 		}
@@ -1666,7 +1666,7 @@
 		text-decoration: underline;
 	}
 
-	@media (max-width: 46rem) {
+	@media (max-width: 48rem) {
 		.prow {
 			grid-template-columns: 3rem minmax(0, 1fr) 7rem minmax(0, 1fr) 3rem;
 			gap: var(--sp-1);
