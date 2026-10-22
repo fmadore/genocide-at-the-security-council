@@ -424,9 +424,11 @@ the site that turns (90°, 160ms, disabled under reduced motion).
 ### Charts
 ECharts reads its colours from the CSS tokens at runtime in both themes. Axes
 are a hairline of ink with quiet-ink 12px labels in Hanken Grotesk; reference
-lines and change points are faint ink, dashed, never the accent. Categorical
-series that are not registers are told apart by weight of ink crossed with
-three dashes; register series use the register hue crossed with two tones (34%
+lines and change points are faint ink, dashed, never the accent. Event kinds
+are told apart by weight of ink; the lines of a categorical split that is not a
+register (speaker group, agenda region) take the semantic map's eight fills,
+each one step off a register hue, crossed with three dashes, because five greys
+in five grey bands could not be told apart (22 October 2026); register series use the register hue crossed with two tones (34%
 towards ink, 26% towards paper) and three dashes, and each tone carries its own
 marker — circle, triangle, diamond — so two lines sharing a dash never differ by
 lightness alone (the three tones measure 1.56–2.69:1 against each other). Lines

@@ -196,9 +196,9 @@ export interface NeutralStroke {
 }
 
 /**
- * Series that carry a category but not a register — speaker groups, agenda
- * regions, participant types — told apart by weight of ink and by dash rather
- * than by hue. Six weights by three dashes is eighteen strokes before any
+ * Series that carry a category but not a register — the event kinds on the
+ * Chronology — told apart by weight of ink and by dash rather than by hue.
+ * The lines of a split take `categoricalDataStrokes` instead. Six weights by three dashes is eighteen strokes before any
  * repeats; a figure that needs more should be asking whether it needs a
  * legend at all. Greys survive greyscale and print, which a hue key does not,
  * and they leave the register hues meaning one thing on the whole site.
@@ -211,6 +211,27 @@ export function categoricalNeutral(p = palette()): NeutralStroke[] {
 		for (const weight of weights) out.push({ color: mix(p.paper, p.ink, weight), dash });
 	}
 	return out;
+}
+
+/**
+ * Strokes for the lines of a categorical split that is not a register: the
+ * `categoricalData` fills crossed with the three dashes.
+ *
+ * `categoricalNeutral` was the first answer for these lines until the review
+ * of 22 October 2026: on the Chronology's split plate, five weights of grey
+ * each inside its own grey Wilson band read as one smear, and the author could
+ * not tell the speaker groups apart. The fills are the ones the semantic map
+ * already uses, one step off a register hue, so no register's meaning is
+ * borrowed. Hue turns every line and dash every line, and since three and
+ * eight share no factor the pair does not repeat before the twenty-fourth
+ * category; colour is never the only code, and the dash survives print.
+ */
+export function categoricalDataStrokes(count: number, p = palette()): NeutralStroke[] {
+	const fills = categoricalData(p);
+	return Array.from({ length: Math.max(0, count) }, (_, i) => ({
+		color: fills[i % fills.length]!,
+		dash: REGISTER_DASHES[i % REGISTER_DASHES.length]!
+	}));
 }
 
 /** The dashes a register's strokes cycle through, in order. */

@@ -63,6 +63,7 @@
 		axisX,
 		axisY,
 		categoricalNeutral,
+		categoricalDataStrokes,
 		colours,
 		dataZoom,
 		endLabel,
@@ -122,7 +123,7 @@
 	};
 	const kindStroke = (kind: string, p = $colours) =>
 		categoricalNeutral(p)[EVENT_KINDS.indexOf(kind) % 6]!.color;
-	let split = $state<string>('none');
+	let split = $state<string>('speaker_group');
 
 	const source = $derived(grain === 'year' ? data.year : data.quarter);
 	const periods = $derived(source.periods.map(String));
@@ -805,9 +806,10 @@
 		};
 	});
 
-	/* One measure split by a categorical column — every line its own denominator. */
+	/* One measure split by a categorical column — every line its own denominator.
+	   There is no "no split": the unsplit series is the first plate, and an
+	   empty plate asking the reader to choose showed nothing until they did. */
 	const SPLITS = [
-		{ id: 'none', label: 'No split' },
 		{ id: 'speaker_group', label: 'Speaker group' },
 		{ id: 'entity_type', label: 'Kind of speaker' },
 		{ id: 'participanttype', label: 'Participant type' },
@@ -866,7 +868,7 @@
 		const block = splitBlock;
 		if (!block) return null;
 		const p = $colours;
-		const strokes = categoricalNeutral(p);
+		const strokes = categoricalDataStrokes(block.categories.length, p);
 		const years = [...new Set(block.rows.map((r) => String(r.period)))].sort();
 		const cell = (category: string, year: string) =>
 			block.rows.find(
@@ -909,6 +911,11 @@
 			yAxis: {
 				...axisY(p),
 				type: 'value',
+				/* Scaled to the lines, not the bands: the band of a group with a
+				   handful of speeches in a year reaches 80%, and an axis drawn to
+				   hold it pressed every line into the bottom fifth. A band that
+				   runs off the top is still read as a wide one. */
+				max: Math.min(1, Math.ceil(Math.max(0, ...block.rows.map((r) => r.speech_rate)) * 10) / 10),
 				axisLabel: { ...axisY(p).axisLabel, formatter: (v: number) => `${(v * 100).toFixed(0)}%` }
 			},
 			series: [
@@ -917,8 +924,17 @@
 						category,
 						strokes[i % strokes.length]!.color,
 						years.map((y) => cell(category, y)?.speech_rate_low ?? null),
-						years.map((y) => cell(category, y)?.speech_rate_high ?? null)
-					)
+						years.map((y) => cell(category, y)?.speech_rate_high ?? null),
+						/* Five or more bands overlap on most years; at the default
+						   opacity they stack into one ground and hide the lines. */
+						0.07
+						/* Nor do the bands take the chart's accessibility hatching:
+						   five hatched bands crossing each other read as one grey
+						   texture, and a band codes no category the line does not. */
+					).map((band) => ({
+						...band,
+						itemStyle: { color: strokes[i % strokes.length]!.color, decal: { symbol: 'none' } }
+					}))
 				),
 				...block.categories.map((category, i): LineSeriesOption => ({
 					name: category,
