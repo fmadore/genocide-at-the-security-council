@@ -183,6 +183,15 @@ export interface UsageState {
 	unit: UsageUnit;
 	sort: UsageSort;
 	/**
+	 * The delegation the columns are ordered by, highest count first, or `''`
+	 * for the default order by weight.
+	 *
+	 * Apart from `actor`, though a row heading sets both: clicking a cell selects
+	 * its delegation too, and a column order tied to the selection would move the
+	 * cell out from under the pointer that had just clicked it.
+	 */
+	columns: string;
+	/**
 	 * Narrow the drill-down to the occurrences two models read differently.
 	 *
 	 * A filter on the quotations and on nothing else: the matrix, the speaker_position
@@ -199,6 +208,7 @@ export const USAGE_DEFAULTS: UsageState = {
 	// published for every speaker, where a share is withheld under the minimum.
 	unit: 'count',
 	sort: 'assigned',
+	columns: '',
 	contested: false
 };
 
@@ -215,6 +225,7 @@ export function readUsageState(params: ReadonlyURLSearchParams, data: Usage): Us
 	const askedActor = params.get('actor');
 	const askedReferent = params.get('referent');
 	const askedSort = params.get('sort') as UsageSort | null;
+	const askedColumns = params.get('columns');
 	return {
 		actor:
 			askedActor && data.actors.some((actor) => actor.country_org === askedActor)
@@ -232,6 +243,10 @@ export function readUsageState(params: ReadonlyURLSearchParams, data: Usage): Us
 					orderReferents(data.referents).some((r) => r.id === askedSort.slice(9))))
 				? askedSort
 				: USAGE_DEFAULTS.sort,
+		columns:
+			askedColumns && data.actors.some((actor) => actor.country_org === askedColumns)
+				? askedColumns
+				: USAGE_DEFAULTS.columns,
 		// Dropped on a build with no second opinion, for the reason a referent this
 		// artefact does not carry is dropped: the control it belongs to is not on
 		// the page, so the filter would narrow a list to nothing with nothing on
@@ -247,6 +262,7 @@ export function usageParams(state: UsageState): URLSearchParams {
 	if (state.referent !== USAGE_DEFAULTS.referent) params.set('referent', state.referent);
 	if (state.unit !== USAGE_DEFAULTS.unit) params.set('unit', state.unit);
 	if (state.sort !== USAGE_DEFAULTS.sort) params.set('sort', state.sort);
+	if (state.columns !== USAGE_DEFAULTS.columns) params.set('columns', state.columns);
 	if (state.contested !== USAGE_DEFAULTS.contested) params.set('contested', '1');
 	return params;
 }
@@ -359,6 +375,8 @@ export interface MatrixPlan {
 	groupedFrom: number;
 	unit: UsageUnit;
 	sort: UsageSort;
+	/** The delegation the columns are ordered by, or `''` for the default order. */
+	columnSort: string;
 	/** The top of the ramp, in the unit in force. The bottom is zero. */
 	high: number;
 	minimum: number;
@@ -470,6 +488,16 @@ export function instrumentOccurrences(data: Usage, entry: UsageReferent): number
 }
 
 /**
+ * Where the rule before the columns that are not cases goes, or -1 for none:
+ * ordered by one delegation, a meta column can come before the cases and there
+ * is no single place left to draw it.
+ */
+function groupedFrom(columns: readonly MatrixColumn[]): number {
+	const first = columns.findIndex((column) => column.grouped);
+	return first >= 0 && columns.slice(first).every((column) => column.grouped) ? first : -1;
+}
+
+/**
  * Which speaker said the word about which genocide, and how much of that is a
  * number the interface may print.
  */
@@ -490,7 +518,15 @@ export function matrixPlan(data: Usage, state: UsageState): MatrixPlan {
 	const shown = ordered.slice(0, ROW_CAP);
 	const hidden = ordered.slice(ROW_CAP);
 
-	const columns: MatrixColumn[] = orderReferents(data.referents).map((referent) => ({
+	// Ordered by one delegation's counts, the default order breaks the ties, so
+	// its empty columns keep their usual places after the ones it filled.
+	const byActor = cells.get(state.columns);
+	const referents = orderReferents(data.referents);
+	if (state.columns) {
+		const weight = (referent: UsageReferent) => byActor?.get(referent.id)?.count ?? 0;
+		referents.sort((a, b) => weight(b) - weight(a));
+	}
+	const columns: MatrixColumn[] = referents.map((referent) => ({
 		referent,
 		grouped: notACase(referent),
 		drawn: 0,
@@ -566,9 +602,10 @@ export function matrixPlan(data: Usage, state: UsageState): MatrixPlan {
 	return {
 		rows,
 		columns,
-		groupedFrom: columns.findIndex((column) => column.grouped),
+		groupedFrom: groupedFrom(columns),
 		unit,
 		sort,
+		columnSort: state.columns,
 		high,
 		minimum: data.minimum_occurrences,
 		cap: ROW_CAP,

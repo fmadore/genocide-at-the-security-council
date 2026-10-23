@@ -150,7 +150,11 @@
 		<tbody>
 			{#each plan.rows as row, r (row.actor.country_org)}
 				<tr class:selected={row.selected}>
-					<th scope="row" class="who">
+					<th
+						scope="row"
+						class="who"
+						aria-sort={plan.columnSort === row.actor.country_org ? 'descending' : undefined}
+					>
 						<button
 							type="button"
 							class="head"
@@ -159,7 +163,9 @@
 							tabindex={isAt(r, -1) ? 0 : -1}
 							aria-pressed={row.selected}
 							title="{row.actor.country_org} — {row.actor.assigned} placed occurrences of {row.actor
-								.eligible} eligible{row.actor.sufficient ? '' : '; shares withheld'}"
+								.eligible} eligible{row.actor.sufficient
+								? ''
+								: '; shares withheld'}; sort referents by highest occurrence count"
 							onclick={() => pick(r, -1, row.actor.country_org, '')}
 						>
 							{name(row.actor)}

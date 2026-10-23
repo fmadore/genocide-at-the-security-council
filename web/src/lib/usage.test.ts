@@ -354,6 +354,7 @@ describe('usage URL state', () => {
 			referent: 'rwanda_1994',
 			unit: 'share',
 			sort: 'name',
+			columns: 'Bravo',
 			contested: true
 		});
 		expect(readUsageState(usageParams(wanted), data)).toEqual(wanted);
@@ -392,7 +393,9 @@ describe('usage URL state', () => {
 		// open a drill-down that can never fill, and a reader would have no way to
 		// tell that from an empty cell.
 		const read = readUsageState(
-			new URLSearchParams('actor=Atlantis&referent=narnia&unit=furlongs&sort=vibes'),
+			new URLSearchParams(
+				'actor=Atlantis&referent=narnia&unit=furlongs&sort=vibes&columns=Atlantis'
+			),
 			data
 		);
 		expect(read).toEqual(USAGE_DEFAULTS);
@@ -581,6 +584,32 @@ describe('the matrix', () => {
 		expect(
 			matrixPlan(data, state({ sort: 'name' })).rows.map((row) => row.actor.country_org)
 		).toEqual(['Alpha', 'Bravo', 'Charlie']);
+	});
+
+	it('orders the columns by one delegation, its empty columns keeping their usual places', () => {
+		// Bravo filled Rwanda and the Convention only, one each: those two lead in
+		// the default order, and Bosnia and the Holocaust follow as they were.
+		const plan = matrixPlan(corpus(), state({ columns: 'Bravo' }));
+		expect(plan.columns.map((column) => column.referent.id)).toEqual([
+			'rwanda_1994',
+			'convention',
+			'bosnia',
+			'holocaust'
+		]);
+		expect(plan.columnSort).toBe('Bravo');
+		// The meta column now sits among the cases, so there is no one place for
+		// the rule; the cells still follow their columns.
+		expect(plan.groupedFrom).toBe(-1);
+		expect(plan.rows[0]!.cells.map((c) => c.referent)).toEqual([
+			'rwanda_1994',
+			'convention',
+			'bosnia',
+			'holocaust'
+		]);
+		// A tie between two filled columns keeps the default order too.
+		expect(
+			matrixPlan(corpus(), state({ columns: 'Alpha' })).columns.map((c) => c.referent.id)
+		).toEqual(['rwanda_1994', 'bosnia', 'convention', 'holocaust']);
 	});
 
 	it('counts a sparse payload’s missing cells as empty rather than as zero data', () => {

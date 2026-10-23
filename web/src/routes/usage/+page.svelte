@@ -86,6 +86,7 @@
 	let referent = $state('');
 	let unit = $state<UsageUnit>('count');
 	let sort = $state<UsageSort>('assigned');
+	let columns = $state('');
 	let contested = $state(false);
 	/**
 	 * How many quotations of the drill-down are on screen. Presentation only:
@@ -96,7 +97,7 @@
 		return 20;
 	});
 
-	const current = (): UsageState => ({ actor, referent, unit, sort, contested });
+	const current = (): UsageState => ({ actor, referent, unit, sort, columns, contested });
 
 	/** Keep the URL in step, so any reading of this matrix is citable. */
 	urlState({
@@ -106,6 +107,7 @@
 			referent = state.referent;
 			unit = state.unit;
 			sort = state.sort;
+			columns = state.columns;
 			contested = state.contested;
 		},
 		write: () => usageParams(current())
@@ -311,6 +313,7 @@
 	const onScreen = () => [
 		`unit: ${unit === 'share' ? "share of the delegation's placed occurrences" : 'occurrences'}`,
 		`rows: ${plan.rows.length} of ${plan.disclosure.speakers} speakers with anything placed, ordered by ${SORT_LABELS[sort] ?? `${referentLabel(sort.slice(9))} occurrences, highest first`}`,
+		`columns: ${columns ? `${columns}'s occurrences, highest first` : 'occurrences placed, highest first'}`,
 		`minimum for a share: ${artefact.minimum_occurrences} eligible occurrences`,
 		`labels: ${artefact.model.id}, run ${artefact.model.run_id}, prompt v${artefact.model.prompt_version} sha256:${sha}`
 	];
@@ -727,6 +730,15 @@
 					<option value="name">Name</option>
 				</select>
 			</label>
+			<label>
+				Column order
+				<select bind:value={columns}>
+					{#if columns}
+						<option value={columns}>{shortCountry(columns)}: highest count first</option>
+					{/if}
+					<option value="">Occurrences placed</option>
+				</select>
+			</label>
 			{#if selected}
 				<button type="button" class="ghost" onclick={() => pick(actor, referent)}>
 					Clear the selection
@@ -737,9 +749,11 @@
 		{#snippet reading()}
 			<p>
 				Rows are affiliations; columns are cases or concepts. Darker amber means more assigned
-				mentions or a larger share, depending on the unit. Column labels sort highest counts first;
-				cells open passages. The final columns cover general or legal discussion. Shares are
-				withheld below {count(artefact.minimum_occurrences)} eligible occurrences.
+				mentions or a larger share, depending on the unit. Column labels sort the rows highest
+				counts first, and row labels sort the columns the same way; cells open passages. The final
+				columns cover general or legal discussion. Shares are withheld below {count(
+					artefact.minimum_occurrences
+				)} eligible occurrences.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -782,6 +796,7 @@
 				description="Delegations down the side, referents across the top; each cell holds the occurrences that delegation placed on that referent."
 				onselect={(nextActor, nextReferent) => {
 					if (!nextActor && nextReferent) sort = `referent:${nextReferent}`;
+					if (nextActor && !nextReferent) columns = nextActor;
 					pick(nextActor, nextReferent);
 				}}
 			/>

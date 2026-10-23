@@ -210,6 +210,13 @@
 		await tick();
 		heading?.focus();
 	}
+	/* The table scrolls in its own box on a wide screen, so a new page or a new
+	   filter starts it again at the top rather than where the last page was left. */
+	let tableBox = $state<HTMLDivElement | null>(null);
+	$effect(() => {
+		void [offset, rows];
+		if (tableBox) tableBox.scrollTop = 0;
+	});
 	function href(id: string) {
 		return `${resolve('/reader/[meeting]', { meeting: id.split('-').slice(0, 2).join('-') })}?speech=${encodeURIComponent(id)}`;
 	}
@@ -331,8 +338,10 @@
 				>
 			</div>
 			<!-- The chosen speech first, the list it is chosen from beside it: from
-			     64rem the two stand side by side and the speech stays in view while
-			     the table is paged; on a phone the speech comes first. -->
+			     64rem the two stand side by side, the speech sets the height and the
+			     table scrolls inside it, so twenty tall rows no longer leave a screen
+			     of empty paper under the speech before the map. On a phone the speech
+			     comes first and the table runs at its full length. -->
 			<div class="pair">
 				<div class="speech">
 					{#if selectedPoint}
@@ -362,7 +371,14 @@
 					{/if}
 				</div>
 				<div class="finder">
-					<div class="table-wrap">
+					<!-- svelte-ignore a11y_no_noninteractive_tabindex (A keyboard-focusable scroll region is intentional.) -->
+					<div
+						class="table-wrap"
+						role="region"
+						aria-label="Plotted speeches"
+						tabindex="0"
+						bind:this={tableBox}
+					>
 						<table>
 							<caption
 								>Plotted speeches · page {offset + 1} of {Math.max(
@@ -529,14 +545,37 @@
 		gap: var(--sp-5);
 		margin-top: var(--sp-4);
 	}
+	/* The finder is taken out of the flow, so the row is as tall as the speech
+	   (or the floor below, before one is chosen) and the table scrolls within
+	   it rather than setting the height itself. */
 	@media (min-width: 64rem) {
 		.pair {
 			grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+			grid-template-rows: minmax(26rem, auto);
 		}
-		.speech {
+		.finder {
+			position: relative;
+		}
+		.finder > * {
+			position: absolute;
+			inset-inline: 0;
+		}
+		.table-wrap {
+			top: 0;
+			bottom: calc(2.75rem + var(--sp-3));
+			overflow-y: auto;
+			border-bottom: 1px solid var(--rule);
+		}
+		.finder nav {
+			bottom: 0;
+			margin: 0;
+		}
+		thead th {
 			position: sticky;
-			top: calc(var(--masthead-h, 0px) + var(--sp-3));
-			align-self: start;
+			top: 0;
+			z-index: 1;
+			background: var(--paper);
+			box-shadow: inset 0 -1px 0 var(--rule);
 		}
 	}
 	aside {
