@@ -883,6 +883,21 @@ export interface EvidenceRow {
 }
 
 /**
+ * The model's victim group as it wrote it, and the group the checked table
+ * counts it under where that says something the label does not.
+ *
+ * The label stays first and whole: the group is a reading of it, made by
+ * `annotations/lexicon/victim_groups.csv`, and a reader is owed both.
+ */
+export function victimGroup(occurrence: UsageOccurrence): string {
+	const label = occurrence.victim_group;
+	const grouped = occurrence.victim_group_grouped;
+	if (!label || !grouped) return label;
+	const same = flatten(label).replace(/^the /, '') === flatten(grouped);
+	return same ? label : `${label} — grouped as ${grouped}`;
+}
+
+/**
  * The schema-3 fields this occurrence actually carries, in reading order.
  *
  * Empty on a run coded against schema 2, which answered none of them: the six
@@ -894,7 +909,7 @@ export function schemaThreeFields(occurrence: UsageOccurrence): { label: string;
 	const declared: [string, string | undefined][] = [
 		['Referent read from', occurrence.referent_source],
 		['Accused', occurrence.accused_actor],
-		['Victim group', occurrence.victim_group],
+		['Victim group', victimGroup(occurrence)],
 		['Speaker’s own State accused', occurrence.own_state_accused],
 		['Salience', occurrence.salience],
 		['Rationale', occurrence.rationale]

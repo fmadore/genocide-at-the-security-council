@@ -2726,7 +2726,8 @@
     "salience": "str",
     "speaker_position": "str",
     "verdict": "str",
-    "victim_group": "str"
+    "victim_group": "str",
+    "victim_group_grouped": "str"
    }
   ]
  },

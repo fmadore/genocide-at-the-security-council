@@ -177,6 +177,10 @@ test(
 			'Rationale'
 		]);
 		await expect(answered.locator('dd').first()).toHaveText('passage');
+		// The label as the model wrote it, then the group the checked table counts it under.
+		await expect(answered.locator('dd').nth(2)).toHaveText(
+			'the Tutsi in Rwanda — grouped as Tutsi'
+		);
 		await expect(
 			evidence.locator('ol.quotations li').nth(1).locator('dl.schema-fields')
 		).toHaveCount(0);

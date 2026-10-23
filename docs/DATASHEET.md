@@ -233,6 +233,7 @@ that does not apply, as for a false positive.
 | `proposed_referent` | The model's free-text proposal where `referent` is `other`. |
 | `referent_source` | Where the referent was found: `passage`, `speech`, `header`. |
 | `accused_actor`, `victim_group` | Free text, as the passage names them; empty if it names none. |
+| `victim_group_grouped` | The group `annotations/lexicon/victim_groups.csv` counts `victim_group` under, so spellings of one people count together; empty where the table lists no group. Not yet checked by a person (`docs/VALIDATION.md`, check 6b). |
 | `own_state_accused` | Whether the speaker's own state or organisation is the one accused. |
 | `salience` | `passing` or `substantive`. |
 | `evidence_quote` | The passage the model quoted in support. |

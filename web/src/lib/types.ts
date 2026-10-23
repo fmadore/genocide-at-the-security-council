@@ -1579,6 +1579,12 @@ export interface UsageOccurrence {
 	referent_source: string;
 	accused_actor: string;
 	victim_group: string;
+	/**
+	 * The group `annotations/lexicon/victim_groups.csv` counts `victim_group`
+	 * under, so "the Jewish people" and "Jews" count together; empty where the
+	 * label is empty or the table does not list it. Never a rewrite of the label.
+	 */
+	victim_group_grouped: string;
 	own_state_accused: string;
 	salience: string;
 	/** One sentence on why the position and the case decision are what they are. */

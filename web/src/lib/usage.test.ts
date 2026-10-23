@@ -50,7 +50,8 @@ import {
 	positionLabel,
 	positionProfiles,
 	stepFocus,
-	usageParams
+	usageParams,
+	victimGroup
 } from './usage';
 import type { UsageState } from './usage';
 import type {
@@ -848,6 +849,7 @@ describe('the quotations behind a cell', () => {
 		referent_source: '',
 		accused_actor: '',
 		victim_group: '',
+		victim_group_grouped: '',
 		own_state_accused: '',
 		salience: '',
 		rationale: '',
@@ -1433,6 +1435,7 @@ describe('the contested passages', () => {
 		referent_source: 'passage',
 		accused_actor: '',
 		victim_group: '',
+		victim_group_grouped: '',
 		own_state_accused: 'no',
 		salience: 'substantive',
 		rationale: 'The speaker applies the word in their own voice.',
@@ -1925,5 +1928,22 @@ describe('column occurrence sorting', () => {
 		expect(readUsageState(new URLSearchParams('sort=referent:unknown'), data).sort).toBe(
 			'assigned'
 		);
+	});
+});
+
+describe('the victim group a passage names', () => {
+	const named = (victim_group: string, victim_group_grouped: string) =>
+		({ victim_group, victim_group_grouped }) as UsageOccurrence;
+
+	it('keeps the model’s label first and adds the group the table counts it under', () => {
+		expect(victimGroup(named('the Tutsi in Rwanda', 'Tutsi'))).toBe(
+			'the Tutsi in Rwanda — grouped as Tutsi'
+		);
+	});
+
+	it('says nothing more where the group only repeats the label, or there is none', () => {
+		expect(victimGroup(named('the Yazidis', 'Yazidis'))).toBe('the Yazidis');
+		expect(victimGroup(named('an authentic civilization', ''))).toBe('an authentic civilization');
+		expect(victimGroup(named('', ''))).toBe('');
 	});
 });

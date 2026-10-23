@@ -1,0 +1,684 @@
+# Victim groups: the model's free-text `victim_group`, grouped for counting.
+#
+# The model writes the group a passage names in its own words, so one people
+# arrives under many spellings: "the Palestinian people", "Palestinians", "the
+# people of Palestine". scripts/15_usage.py publishes the label as written and,
+# beside it, the group this table gives it. Nothing here changes a label.
+#
+# How a label is matched: lower-cased, a leading "the" dropped, spaces
+# collapsed, then looked up as written below. A row with a `referent` applies
+# only to occurrences the model placed on that referent, and wins over the row
+# without one: "Muslims" is Muslims in India in 1948, Bosniaks in 1993 and the
+# Rohingya in 2018, and the passage's referent already says which. A label not
+# listed here is published with an empty group, never guessed.
+#
+# Decisions taken in the first draft, all open to review:
+# - A group is a people, not a place: "Palestinians in Gaza" and "the people of
+#   Gaza" are Palestinians. The place stays in the published label.
+# - Bosniaks (Bosnian Muslims) and People of Bosnia and Herzegovina are kept
+#   apart: the first names an identity group, the second the country's
+#   population, and speakers chose between them.
+# - Tutsi and Rwandans are kept apart for the same reason: whether a speaker
+#   names the Tutsi or "the Rwandan people" is itself something to count.
+# - People of Donbas is kept apart from Ukrainians: it is the population on
+#   whose behalf Russia claims a genocide, not the group Ukraine names.
+# - A list of several groups goes to a combined group where one recurs
+#   (Lebanese and Palestinians), otherwise to the group named first.
+# - Labels that name no particular people go to four "(unspecified)" groups:
+#   civilians and populations; women, children and men; victims and survivors;
+#   the speaker's own people ("our people"), which only the speaker resolves.
+#
+# `checked` is "no" until a person has read the row; the first draft was made
+# by Claude on 23 October 2026 from the run's labels and passage referents, and
+# every automatic decision in it is listed in docs/VALIDATION.md.
+label,referent,group,checked
+civilian population of the shamali plains,,Afghans,no
+people of afghanistan,,Afghans,no
+4 million africans,,Africans,no
+a small african people,,Africans,no
+african elite and cadres,,Africans,no
+african families,,Africans,no
+african patriots,,Africans,no
+african people,,Africans,no
+african people in those territories,,Africans,no
+african peoples,,Africans,no
+african peoples struggling for freedom,,Africans,no
+african peoples under their domination,,Africans,no
+african populace,,Africans,no
+african population,,Africans,no
+african race,,Africans,no
+africans,,Africans,no
+africans in their own land,,Africans,no
+black africans,,Africans,no
+civilian african population inside the country and refugees in the neighbouring countries,,Africans,no
+defenceless africans,,Africans,no
+defenceless civilians in neighbouring african states,,Africans,no
+all arabs,,Arabs,no
+arab,,Arabs,no
+arab peoples,,Arabs,no
+arab population,,Arabs,no
+arabs,,Arabs,no
+inhabitants of the occupied arab lands,,Arabs,no
+inhabitants of the occupied arab territories,,Arabs,no
+local arab population,,Arabs,no
+non-arab populations,,Arabs,no
+peaceful arab inhabitants,,Arabs,no
+population in the occupied arab territories,,Arabs,no
+armenian,,Armenians,no
+armenian nation,,Armenians,no
+armenians,,Armenians,no
+armenians in 1915,,Armenians,no
+armenians of nagorno karabakh,,Armenians,no
+entire population of nagorno-karabakh,,Armenians,no
+indigenous population of nagorno-karabakh,,Armenians,no
+people of nagorno-karabakh,,Armenians,no
+this group of armenians,,Armenians,no
+victims of the armenian genocide,,Armenians,no
+azerbaijani civilians,,Azerbaijanis,no
+azerbaijani people,,Azerbaijanis,no
+azerbaijanis,,Azerbaijanis,no
+"azerbaijanis and civilians, including children",,Azerbaijanis,no
+people of lesotho,,Basotho,no
+bangladeshi people,,Bengalis (East Pakistan),no
+east pakistan,,Bengalis (East Pakistan),no
+"men, women and children in east pakistan",,Bengalis (East Pakistan),no
+people of bangla desh,,Bengalis (East Pakistan),no
+people of east pakistan,,Bengalis (East Pakistan),no
+population of what was then east pakistan,,Bengalis (East Pakistan),no
+"refugees from bangladesh, then east pakistan",,Bengalis (East Pakistan),no
+black majority,,Black South Africans,no
+black people,,Black South Africans,no
+black people of south africa,,Black South Africans,no
+black population,,Black South Africans,no
+black population in south africa,,Black South Africans,no
+black population of azania,,Black South Africans,no
+black population of south africa,,Black South Africans,no
+black south africans,,Black South Africans,no
+defenceless african inhabitants of sharpeville,,Black South Africans,no
+defenceless population of south africa,,Black South Africans,no
+majority in south africa,,Black South Africans,no
+south african black majority,,Black South Africans,no
+south african blacks,,Black South Africans,no
+south african people,,Black South Africans,no
+bosniacs in srebrenica,,Bosniaks (Bosnian Muslims),no
+bosniaks,,Bosniaks (Bosnian Muslims),no
+bosniaks from srebrenica,,Bosniaks (Bosnian Muslims),no
+bosniaks in and around srebrenica,,Bosniaks (Bosnian Muslims),no
+bosniaks in srebrenica,,Bosniaks (Bosnian Muslims),no
+bosnian muslim men and boys,,Bosniaks (Bosnian Muslims),no
+bosnian muslim men at srebrenica,,Bosniaks (Bosnian Muslims),no
+bosnian muslim population,,Bosniaks (Bosnian Muslims),no
+bosnian muslims,,Bosniaks (Bosnian Muslims),no
+children in srebrenica,,Bosniaks (Bosnian Muslims),no
+citizens of srebrenica,,Bosniaks (Bosnian Muslims),no
+civilians who were slaughtered in srebrenica,,Bosniaks (Bosnian Muslims),no
+group of the muslims of bosnia and herzegovina,,Bosniaks (Bosnian Muslims),no
+innocent muslims of bosnia and herzegovina,,Bosniaks (Bosnian Muslims),no
+"more than 8,000 adults and children",,Bosniaks (Bosnian Muslims),no
+"more than 8,000 boys and men",,Bosniaks (Bosnian Muslims),no
+"more than 8,000 people and more 25,000 women and girls",,Bosniaks (Bosnian Muslims),no
+muslim bosnian people,,Bosniaks (Bosnian Muslims),no
+muslim men and adolescents,,Bosniaks (Bosnian Muslims),no
+muslim men and boys,,Bosniaks (Bosnian Muslims),no
+muslim men and boys in srebrenica,,Bosniaks (Bosnian Muslims),no
+muslim men forced to flee srebrenica,,Bosniaks (Bosnian Muslims),no
+muslim people of bosnia and herzegovina,,Bosniaks (Bosnian Muslims),no
+muslim population of bosnia and herzegovina,,Bosniaks (Bosnian Muslims),no
+muslim population of that country,,Bosniaks (Bosnian Muslims),no
+muslim population of the republic of bosnia and herzegovina,,Bosniaks (Bosnian Muslims),no
+muslims,bosnia_srebrenica,Bosniaks (Bosnian Muslims),no
+muslims in bosnia and herzegovina,,Bosniaks (Bosnian Muslims),no
+muslims of bosnia and herzegovina,,Bosniaks (Bosnian Muslims),no
+"non-serbs, a majority of whom were bosnian muslims",,Bosniaks (Bosnian Muslims),no
+people of srebrenica,,Bosniaks (Bosnian Muslims),no
+people taking refuge in srebrenica,,Bosniaks (Bosnian Muslims),no
+srebrenica survivors,,Bosniaks (Bosnian Muslims),no
+those five sons,,Bosniaks (Bosnian Muslims),no
+those of srebrenica,,Bosniaks (Bosnian Muslims),no
+those who lost their lives at srebrenica,,Bosniaks (Bosnian Muslims),no
+thousands of victims of the srebrenica genocide,,Bosniaks (Bosnian Muslims),no
+victims of the 1995 srebrenica genocide,,Bosniaks (Bosnian Muslims),no
+victims of the genocide in srebrenica,,Bosniaks (Bosnian Muslims),no
+victims of the genocide perpetrated in srebrenica,,Bosniaks (Bosnian Muslims),no
+victims of the serbian genocide,,Bosniaks (Bosnian Muslims),no
+victims of the srebrenica genocide,,Bosniaks (Bosnian Muslims),no
+people of burundi,,Burundians,no
+cambodian people,,Cambodians,no
+kampucheans,,Cambodians,no
+people of kampuchea,,Cambodians,no
+central africans,,Central Africans,no
+"central africans, be they muslim, christian or animist",,Central Africans,no
+certain peoples in chad,,Chadians,no
+chad,,Chadians,no
+chadian civilians,,Chadians,no
+chadians in the occupied zone,,Chadians,no
+defenceless chadian population in the occupied zone,,Chadians,no
+defenceless civilians in occupied borkou-ennedi-tibesti,,Chadians,no
+martyred people of chad,,Chadians,no
+people of chad,,Chadians,no
+population of the occupied zone,,Chadians,no
+"200,000 refugees",,Civilians and populations (unspecified),no
+"7,000 to 10,000 people, mainly civilians",,Civilians and populations (unspecified),no
+a defenceless population,,Civilians and populations (unspecified),no
+a part of the population,,Civilians and populations (unspecified),no
+a people,,Civilians and populations (unspecified),no
+an eighth of its population,,Civilians and populations (unspecified),no
+an entire people,,Civilians and populations (unspecified),no
+an entire population,,Civilians and populations (unspecified),no
+civilian population,,Civilians and populations (unspecified),no
+civilian populations,,Civilians and populations (unspecified),no
+civilians,,Civilians and populations (unspecified),no
+defenceless civilians,,Civilians and populations (unspecified),no
+displaced persons and refugees,,Civilians and populations (unspecified),no
+hundreds of thousands of innocent civilians,,Civilians and populations (unspecified),no
+"hundreds of unprotected, innocent people",,Civilians and populations (unspecified),no
+innocent civilians,,Civilians and populations (unspecified),no
+innocent people,,Civilians and populations (unspecified),no
+its entire population,,Civilians and populations (unspecified),no
+its human population,,Civilians and populations (unspecified),no
+its population,,Civilians and populations (unspecified),no
+minority population,,Civilians and populations (unspecified),no
+more than 1 million innocent people,,Civilians and populations (unspecified),no
+more than a million innocent people,,Civilians and populations (unspecified),no
+"more than two million people, most of them civilians",,Civilians and populations (unspecified),no
+one eighth of its population,,Civilians and populations (unspecified),no
+our civilian population,,Civilians and populations (unspecified),no
+our civilian population and people,,Civilians and populations (unspecified),no
+people,,Civilians and populations (unspecified),no
+population,,Civilians and populations (unspecified),no
+populations of the territories thus acquired,,Civilians and populations (unspecified),no
+refugees,,Civilians and populations (unspecified),no
+thousands of civilians,,Civilians and populations (unspecified),no
+unarmed civilians,,Civilians and populations (unspecified),no
+children and women in the eastern democratic republic of the congo,,Congolese,no
+civilians in ituri,,Congolese,no
+kinyarwanda-speaking congolese,,Congolese,no
+"women, young people and children of the democratic republic of the congo",,Congolese,no
+young congolese girls and women,,Congolese,no
+dominican people,,Dominicans,no
+us dominicans,,Dominicans,no
+citizens of west darfur,,"Fur, Masalit and Zaghawa (Darfur)",no
+civilians in darfur and other regions,,"Fur, Masalit and Zaghawa (Darfur)",no
+civilians in el fasher,,"Fur, Masalit and Zaghawa (Darfur)",no
+"civilians in el geneina, west darfur",,"Fur, Masalit and Zaghawa (Darfur)",no
+darfur victims,,"Fur, Masalit and Zaghawa (Darfur)",no
+"fur, masalit and zaghawa ethnic groups",,"Fur, Masalit and Zaghawa (Darfur)",no
+"fur, masalit and zaghawa groups",,"Fur, Masalit and Zaghawa (Darfur)",no
+"fur, masalit and zaghawa populations",,"Fur, Masalit and Zaghawa (Darfur)",no
+"fur, massalit and zaghawa",,"Fur, Masalit and Zaghawa (Darfur)",no
+"fur, zaghawa and massalit",,"Fur, Masalit and Zaghawa (Darfur)",no
+masalit and other tribes,,"Fur, Masalit and Zaghawa (Darfur)",no
+masalit community,,"Fur, Masalit and Zaghawa (Darfur)",no
+masalit tribe,,"Fur, Masalit and Zaghawa (Darfur)",no
+massalit and other native african tribes,,"Fur, Masalit and Zaghawa (Darfur)",no
+people of darfur,,"Fur, Masalit and Zaghawa (Darfur)",no
+victims of darfur,,"Fur, Masalit and Zaghawa (Darfur)",no
+victims of genocide and atrocities in darfur,,"Fur, Masalit and Zaghawa (Darfur)",no
+victims of the genocide in darfur,,"Fur, Masalit and Zaghawa (Darfur)",no
+greeks in turkey,,Greeks,no
+hazaras,,Hazaras,no
+indigenous inhabitants,,Indigenous peoples,no
+indigenous people of russia,,Indigenous peoples,no
+indigenous peoples,,Indigenous peoples,no
+indigenous population,,Indigenous peoples,no
+native,,Indigenous peoples,no
+native peoples,,Indigenous peoples,no
+affected communities in iraq,,Iraqis,no
+brotherly iraqi people,,Iraqis,no
+certain categories of both iraqi and syrian society,,Iraqis,no
+children of iraq,,Iraqis,no
+innocent iraqis,,Iraqis,no
+iraq and its children,,Iraqis,no
+iraqi children,,Iraqis,no
+iraqi civilians,,Iraqis,no
+iraqi minorities,,Iraqis,no
+iraqi people,,Iraqis,no
+iraqi population,,Iraqis,no
+iraqi shiites in the south,,Iraqis,no
+people of iraq,,Iraqis,no
+people of iraq and syria,,Iraqis,no
+populations of iraq and other states,,Iraqis,no
+religious and ethnic minorities in iraq and syria,,Iraqis,no
+segments of the iraqi population,,Iraqis,no
+various communities in iraq,,Iraqis,no
+israel,,Israelis,no
+israel's citizens,,Israelis,no
+israeli citizens,,Israelis,no
+israeli civilians,,Israelis,no
+israelis,,Israelis,no
+jewish state,,Israelis,no
+people of israel,,Israelis,no
+state of israel,,Israelis,no
+israeli and palestinian civilians,,Israelis and Palestinians,no
+"ivorians of dioula and baoulé ethnicities, nationals from other ecowas states living in côte d'ivoire, and africans of the muslim faith",,Ivorians,no
+6 million jews,,Jews,no
+entire jewish people,,Jews,no
+gentiles and jews,,Jews,no
+israel and jews,,Jews,no
+jewish people,,Jews,no
+jewish refugees,,Jews,no
+jewish survivors and descendants of survivors and victims,,Jews,no
+jews,,Jews,no
+jews in germany,,Jews,no
+jews in nazi germany,,Jews,no
+jews in the warsaw ghetto,,Jews,no
+jews of europe,,Jews,no
+jews worldwide,,Jews,no
+civilians in jordan,,Jordanians,no
+jordanian civilians,,Jordanians,no
+albanian kosovars,,Kosovo Albanians,no
+albanian people of kosovo,,Kosovo Albanians,no
+albanian population,,Kosovo Albanians,no
+albanians,,Kosovo Albanians,no
+albanians from kosovo,,Kosovo Albanians,no
+albanians of kosovo,,Kosovo Albanians,no
+albanians of kosovo and other peoples,,Kosovo Albanians,no
+entire albanian population of kosovo,,Kosovo Albanians,no
+ethnic albanian refuges from kosovo,,Kosovo Albanians,no
+ethnic albanians,,Kosovo Albanians,no
+kosova,,Kosovo Albanians,no
+kosovar albanians,,Kosovo Albanians,no
+kosovar women,,Kosovo Albanians,no
+kosovars,,Kosovo Albanians,no
+kosovo,,Kosovo Albanians,no
+people of kosovo,,Kosovo Albanians,no
+iraqi kurds,,Kurds,no
+kurdish minority and other parts of the iraqi population,,Kurds,no
+civilian inhabitants in west beirut and elsewhere,,Lebanese,no
+civilian population in southern lebanon,,Lebanese,no
+civilian population of beirut,,Lebanese,no
+civilians in beirut,,Lebanese,no
+innocent people in lebanon,,Lebanese,no
+lebanese civilians,,Lebanese,no
+population of beirut,,Lebanese,no
+civilians in both gaza and lebanon,,Lebanese and Palestinians,no
+innocent lebanese and palestinian people,,Lebanese and Palestinians,no
+innocent lebanese and palestinian peoples,,Lebanese and Palestinians,no
+lebanese and palestinian civilians,,Lebanese and Palestinians,no
+lebanese and palestinian peoples,,Lebanese and Palestinians,no
+lebanese and palestinian populations,,Lebanese and Palestinians,no
+lebanese and palestinian refugee guests,,Lebanese and Palestinians,no
+lebanese and palestinian victims,,Lebanese and Palestinians,no
+lebanese and palestinians,,Lebanese and Palestinians,no
+lebanese and the palestinian peoples,,Lebanese and Palestinians,no
+lebanese people and palestinian refugees,,Lebanese and Palestinians,no
+lebanon and the palestinian refugees,,Lebanese and Palestinians,no
+palestinian and lebanese civilian casualties,,Lebanese and Palestinians,no
+palestinian and lebanese peoples,,Lebanese and Palestinians,no
+palestinian people and the innocent lebanese people,,Lebanese and Palestinians,no
+palestinian people and the lebanese republic,,Lebanese and Palestinians,no
+palestinian refugees and lebanese,,Lebanese and Palestinians,no
+palestinians and lebanese civilians,,Lebanese and Palestinians,no
+palestinians and the lebanese,,Lebanese and Palestinians,no
+palestinians and the people of lebanon,,Lebanese and Palestinians,no
+palestinians in the refugee camps in lebanon,,Lebanese and Palestinians,no
+palestinians or the lebanese,,Lebanese and Palestinians,no
+"palestinians, syrians, lebanese, egyptians, jordanians and nationals of other countries",,Lebanese and Palestinians,no
+"palestinians, the syrians, the lebanese, the egyptians, the jordanians and others",,Lebanese and Palestinians,no
+people of lebanon and palestine,,Lebanese and Palestinians,no
+people of palestine and lebanon,,Lebanese and Palestinians,no
+defenseless muslims,,Muslims (unspecified),no
+muslim people,,Muslims (unspecified),no
+muslim population,,Muslims (unspecified),no
+muslim refugees,,Muslims (unspecified),no
+muslims,,Muslims (unspecified),no
+muslims and others,,Muslims (unspecified),no
+muslim population in india,,Muslims in India,no
+muslim population of east punjab,,Muslims in India,no
+muslim population of the east punjab districts and states,,Muslims in India,no
+muslim residents of the indian union,,Muslims in India,no
+muslims,india_muslims,Muslims in India,no
+muslims in india,,Muslims in India,no
+muslims of india,,Muslims in India,no
+muslim majority in the state,,Muslims of Jammu and Kashmir,no
+muslim population of the state,,Muslims of Jammu and Kashmir,no
+muslim subjects,,Muslims of Jammu and Kashmir,no
+black namibian women,,Namibians,no
+communities in namibia,,Namibians,no
+indigenous peoples—the hereros and the ovambos,,Namibians,no
+namibia,,Namibians,no
+namibian people,,Namibians,no
+namibian refugees,,Namibians,no
+people of namibia,,Namibians,no
+3 million or more palestinians,,Palestinians,no
+"37,000 innocent people in the gaza strip",,Palestinians,no
+"400,000 palestinians",,Palestinians,no
+arab people of palestine,,Palestinians,no
+"arab peoples, in particular the palestinian people",,Palestinians,no
+brotherly palestinian people,,Palestinians,no
+brotherly palestinian people in the gaza strip,,Palestinians,no
+civilian palestinian population,,Palestinians,no
+civilian population in gaza,,Palestinians,no
+civilian population in the gaza strip,,Palestinians,no
+civilian population of gaza,,Palestinians,no
+civilian population of the gaza strip,,Palestinians,no
+civilians in gaza,,Palestinians,no
+civilians in the gaza strip,,Palestinians,no
+defenceless palestinian civilians,,Palestinians,no
+defenceless palestinian people,,Palestinians,no
+defenceless palestinian population,,Palestinians,no
+defenceless people of gaza,,Palestinians,no
+entire population of gaza,,Palestinians,no
+every palestinian,,Palestinians,no
+every palestinian in gaza,,Palestinians,no
+future generations of the palestinian people,,Palestinians,no
+gaza's children,,Palestinians,no
+gaza's people,,Palestinians,no
+innocent palestinian people in the gaza strip,,Palestinians,no
+innocent palestinians,,Palestinians,no
+innocent palestinians in the gaza strip and the west bank,,Palestinians,no
+"innocent people in the camps, particularly in jenin",,Palestinians,no
+its civilian population and its palestinian refugee guests,,Palestinians,no
+more than 750 palestinians,,Palestinians,no
+oppressed people of palestine,,Palestinians,no
+our brother palestinian people,,Palestinians,no
+our brothers in occupied palestine,,Palestinians,no
+our people in palestine,,Palestinians,no
+our people in the gaza strip,,Palestinians,no
+palestine people,,Palestinians,no
+palestinian,,Palestinians,no
+palestinian arab people,,Palestinians,no
+palestinian arabs,,Palestinians,no
+palestinian children and men and women,,Palestinians,no
+palestinian children under the age of 10,,Palestinians,no
+"palestinian children, women and men",,Palestinians,no
+palestinian citizens,,Palestinians,no
+palestinian civilian population,,Palestinians,no
+palestinian civilian population in gaza,,Palestinians,no
+palestinian civilians,,Palestinians,no
+palestinian civilians in gaza,,Palestinians,no
+palestinian fighters,,Palestinians,no
+palestinian humanitarian workers,,Palestinians,no
+palestinian inhabitants,,Palestinians,no
+palestinian leadership and the palestinian people,,Palestinians,no
+palestinian people,,Palestinians,no
+palestinian people and all those who resist israeli aggressive and expansionist policies in the other arab states,,Palestinians,no
+palestinian people in gaza,,Palestinians,no
+palestinian people in gaza and other occupied palestinian territories,,Palestinians,no
+palestinian people in the gaza strip,,Palestinians,no
+palestinian people of the gaza strip,,Palestinians,no
+palestinian population in gaza,,Palestinians,no
+palestinian refugees,,Palestinians,no
+palestinian refugees and palestinian civilian population in gaza,,Palestinians,no
+palestinian refugees and the civilian population of beirut,,Palestinians,no
+palestinian residents,,Palestinians,no
+palestinian women,,Palestinians,no
+palestinians,,Palestinians,no
+palestinians in gaza,,Palestinians,no
+palestinians in gaza and the west bank,,Palestinians,no
+palestinians in the gaza strip,,Palestinians,no
+palestinians living there,,Palestinians,no
+palestinians throughout gaza,,Palestinians,no
+people in gaza,,Palestinians,no
+people of gaza,,Palestinians,no
+people of palestine,,Palestinians,no
+peoples of palestine and of the occupied arab territories,,Palestinians,no
+population in gaza,,Palestinians,no
+population of gaza,,Palestinians,no
+population of the gaza strip,,Palestinians,no
+their palestinian brethren,,Palestinians,no
+those palestinians still remaining on their own land,,Palestinians,no
+tire palestinian nation,,Palestinians,no
+unarmed civilians in the gaza strip,,Palestinians,no
+unarmed palestinian civilians in the camps of sabra and shatila,,Palestinians,no
+unarmed palestinian population,,Palestinians,no
+uprooted palestinian people,,Palestinians,no
+women in the occupied palestinian territories,,Palestinians,no
+bosnia and herzegovina,,People of Bosnia and Herzegovina,no
+bosnia and herzegovina and its people,,People of Bosnia and Herzegovina,no
+bosniacs and croats,,People of Bosnia and Herzegovina,no
+bosniaks and croats,,People of Bosnia and Herzegovina,no
+bosnian brothers and sisters,,People of Bosnia and Herzegovina,no
+bosnian civilians,,People of Bosnia and Herzegovina,no
+"bosnian civilians, particularly the muslims",,People of Bosnia and Herzegovina,no
+bosnian muslims and bosnian croats,,People of Bosnia and Herzegovina,no
+bosnian nation,,People of Bosnia and Herzegovina,no
+bosnian people,,People of Bosnia and Herzegovina,no
+bosnian people living in srebrenica,,People of Bosnia and Herzegovina,no
+bosnian population of srebrenica,,People of Bosnia and Herzegovina,no
+bosnian society,,People of Bosnia and Herzegovina,no
+bosnians,,People of Bosnia and Herzegovina,no
+bosnians in srebrenica,,People of Bosnia and Herzegovina,no
+croats in bosnia and herzegovina,,People of Bosnia and Herzegovina,no
+defenceless bosnian civilians,,People of Bosnia and Herzegovina,no
+defenceless people of bosnia,,People of Bosnia and Herzegovina,no
+defenceless people of bosnia and herzegovina,,People of Bosnia and Herzegovina,no
+"mainly muslim, but also croat and other non-serb victims in bosnia and herzegovina",,People of Bosnia and Herzegovina,no
+majority of the people of bosnia and herzegovina,,People of Bosnia and Herzegovina,no
+"muslims, croats and others",,People of Bosnia and Herzegovina,no
+people of bosnia and herzegovina,,People of Bosnia and Herzegovina,no
+"people of the multi-ethnic, multi-religious, pluralistic republic of bosnia and herzegovina",,People of Bosnia and Herzegovina,no
+people of the republic of bosnia and herzegovina,,People of Bosnia and Herzegovina,no
+population of bihac,,People of Bosnia and Herzegovina,no
+republic of bosnia and herzegovina,,People of Bosnia and Herzegovina,no
+stricken people of bosnia,,People of Bosnia and Herzegovina,no
+civilian population in russia- backed separatist regions,,People of Donbas,no
+civilian population in russian-backed separatist-controlled areas,,People of Donbas,no
+people in donbas,,People of Donbas,no
+people of donbas,,People of Donbas,no
+population in russian- backed separatist-controlled areas,,People of Donbas,no
+angolan and cabindan brothers,,"Peoples of Angola, Mozambique and Guinea",no
+angolan civilian population,,"Peoples of Angola, Mozambique and Guinea",no
+angolan people,,"Peoples of Angola, Mozambique and Guinea",no
+angolans,,"Peoples of Angola, Mozambique and Guinea",no
+children in angola and mozambique,,"Peoples of Angola, Mozambique and Guinea",no
+innocent and unarmed africans of mozambique,,"Peoples of Angola, Mozambique and Guinea",no
+"our people and the people of the neighbouring peace-loving countries of zambia, botswana and mozambique",,"Peoples of Angola, Mozambique and Guinea",no
+our people in angola and zambia,,"Peoples of Angola, Mozambique and Guinea",no
+"over 15 million people of angola, mozambique and guinea",,"Peoples of Angola, Mozambique and Guinea",no
+peace-loving people of angola,,"Peoples of Angola, Mozambique and Guinea",no
+peace-loving peoples of southern angola,,"Peoples of Angola, Mozambique and Guinea",no
+people of angola,,"Peoples of Angola, Mozambique and Guinea",no
+"people of angola, mozambique, guinea and cape verde",,"Peoples of Angola, Mozambique and Guinea",no
+people of cabinda,,"Peoples of Angola, Mozambique and Guinea",no
+"peoples of angola, mozambique and guinea",,"Peoples of Angola, Mozambique and Guinea",no
+peoples of yugoslavia,,Peoples of Yugoslavia,no
+muslims,myanmar_rohingya,Rohingya,no
+rohingya,,Rohingya,no
+rohingya community,,Rohingya,no
+rohingya in rakhine state,,Rohingya,no
+rohingya minority,,Rohingya,no
+rohingya minority in myanmar,,Rohingya,no
+rohingya people,,Rohingya,no
+rohingya population,,Rohingya,no
+rohingya population and other groups in rakhine state,,Rohingya,no
+rohingya refugees,,Rohingya,no
+"800,000 entirely innocent people in rwanda",,Rwandans,no
+hundreds of thousands of victims of the genocide in rwanda,,Rwandans,no
+nearly 1 million rwandans,,Rwandans,no
+people of rwanda,,Rwandans,no
+people slaughtered in rwanda,,Rwandans,no
+population of rwanda,,Rwandans,no
+rwanda,,Rwandans,no
+rwanda as a whole,,Rwandans,no
+rwanda genocide survivors,,Rwandans,no
+rwandan people,,Rwandans,no
+rwandan victims,,Rwandans,no
+rwandan women,,Rwandans,no
+rwandans,,Rwandans,no
+rwandans of all different ethnic groups,,Rwandans,no
+survivors of genocide in rwanda,,Rwandans,no
+survivors of the rwanda genocide,,Rwandans,no
+their fellow rwandans,,Rwandans,no
+their rwandan brothers,,Rwandans,no
+thousands of rwandans,,Rwandans,no
+victims and survivors of the 1994 genocide in rwanda,,Rwandans,no
+victims of genocide in rwanda,,Rwandans,no
+victims of the genocide in rwanda,,Rwandans,no
+victims of the rwandan genocide,,Rwandans,no
+women of rwanda,,Rwandans,no
+krajina serbs,,Serbs,no
+serbian people,,Serbs,no
+serbs,,Serbs,no
+ethnic ossetians,,South Ossetians,no
+ossetians,,South Ossetians,no
+people of south ossetia,,South Ossetians,no
+his own citizens in the south of sudan,,South Sudanese,no
+population of south sudan,,South Sudanese,no
+populations of south sudan,,South Sudanese,no
+his people,,Speaker's own people (unspecified),no
+its own people,,Speaker's own people (unspecified),no
+our people,,Speaker's own people (unspecified),no
+2.5 million sudanese citizens in the camps,,Sudanese,no
+people of the sudan,,Sudanese,no
+sudanese people,,Sudanese,no
+civilians in syria,,Syrians,no
+syrian people,,Syrians,no
+defenceless turkish community,,Turkish Cypriots,no
+innocent turks of cyprus,,Turkish Cypriots,no
+turkish cypriot people,,Turkish Cypriots,no
+turkish race,,Turkish Cypriots,no
+turks,,Turkish Cypriots,no
+a targeted group,,Tutsi,no
+"approximately 2,000 tutsi refugees",,Tutsi,no
+communities and families belonging to a particular ethnic group in rwanda,,Tutsi,no
+congolese tutsi,,Tutsi,no
+congolese tutsi and rwandophones,,Tutsi,no
+congolese tutsi communities,,Tutsi,no
+congolese tutsi community,,Tutsi,no
+"majority tutsi, but also hutu and others",,Tutsi,no
+more than 1 million tutsi,,Tutsi,no
+rwandan tutsis,,Tutsi,no
+tutsi,,Tutsi,no
+tutsi and moderate hutu,,Tutsi,no
+tutsi and more than one million rwandans,,Tutsi,no
+tutsi and rwandaphones,,Tutsi,no
+tutsi as a group,,Tutsi,no
+tutsi community,,Tutsi,no
+tutsi ethnic group,,Tutsi,no
+tutsi ethnic group in rwanda,,Tutsi,no
+tutsi ethnic population,,Tutsi,no
+tutsi friends,,Tutsi,no
+tutsi in rwanda,,Tutsi,no
+tutsi in the democratic republic of the congo,,Tutsi,no
+tutsi in the parish of cyahinda in butare,,Tutsi,no
+"tutsi men, women and children",,Tutsi,no
+tutsi national community and numerous hutus,,Tutsi,no
+tutsi neighbours,,Tutsi,no
+tutsi of our country,,Tutsi,no
+tutsi people in rwanda,,Tutsi,no
+tutsi population,,Tutsi,no
+tutsi population of rwanda,,Tutsi,no
+"tutsi population of the country, moderate hutus",,Tutsi,no
+tutsi victims,,Tutsi,no
+tutsis,,Tutsi,no
+tutsis and moderate hutus,,Tutsi,no
+tutsis and numerous hutu members of the opposition,,Tutsi,no
+tutsis in rwanda,,Tutsi,no
+tutsis or moderate hutus,,Tutsi,no
+"civilians, including ukrainian children",,Ukrainians,no
+ukraine,,Ukrainians,no
+ukraine's civilian population,,Ukrainians,no
+ukraine's population,,Ukrainians,no
+ukrainian children,,Ukrainians,no
+ukrainian nation,,Ukrainians,no
+ukrainian people,,Ukrainians,no
+ukrainians,,Ukrainians,no
+"10,000 and more living victims of genocide",,Victims and survivors (unspecified),no
+all the victims,,Victims and survivors (unspecified),no
+all victims of the genocide,,Victims and survivors (unspecified),no
+civilian victims,,Victims and survivors (unspecified),no
+descendants of those victims,,Victims and survivors (unspecified),no
+female survivors,,Victims and survivors (unspecified),no
+genocide survivor community,,Victims and survivors (unspecified),no
+genocide survivor groups,,Victims and survivors (unspecified),no
+genocide survivors,,Victims and survivors (unspecified),no
+"genocide survivors, particularly the orphans, widows and victims of sexual violence",,Victims and survivors (unspecified),no
+genocide victims,,Victims and survivors (unspecified),no
+genocide's 1 million victims,,Victims and survivors (unspecified),no
+its victims,,Victims and survivors (unspecified),no
+millions of victims,,Victims and survivors (unspecified),no
+more than 1 million victims,,Victims and survivors (unspecified),no
+one million victims of the genocide,,Victims and survivors (unspecified),no
+people who had been victimized,,Victims and survivors (unspecified),no
+rape victims,,Victims and survivors (unspecified),no
+survivors,,Victims and survivors (unspecified),no
+survivors and victims of genocide and war crimes,,Victims and survivors (unspecified),no
+survivors of the 1994 genocide,,Victims and survivors (unspecified),no
+survivors of the genocide,,Victims and survivors (unspecified),no
+"survivors, returning refugees and other groups affected by the genocide",,Victims and survivors (unspecified),no
+these victims,,Victims and survivors (unspecified),no
+those who survive,,Victims and survivors (unspecified),no
+those who survived the genocide,,Victims and survivors (unspecified),no
+victim,,Victims and survivors (unspecified),no
+victims,,Victims and survivors (unspecified),no
+victims and survivors,,Victims and survivors (unspecified),no
+victims and survivors of genocide,,Victims and survivors (unspecified),no
+victims and survivors of the 1994 genocide,,Victims and survivors (unspecified),no
+victims and the survivors,,Victims and survivors (unspecified),no
+victims and their families,,Victims and survivors (unspecified),no
+victims of atrocity crimes,,Victims and survivors (unspecified),no
+victims of genocide,,Victims and survivors (unspecified),no
+victims of genocide and their families,,Victims and survivors (unspecified),no
+"victims of genocide, including the bitterest, most desperate survivors",,Victims and survivors (unspecified),no
+victims of the 1994 genocide,,Victims and survivors (unspecified),no
+victims of the genocide,,Victims and survivors (unspecified),no
+victims of violence and genocide,,Victims and survivors (unspecified),no
+"victims of war crimes, genocide and ethnic cleansing",,Victims and survivors (unspecified),no
+victims who survived the genocide,,Victims and survivors (unspecified),no
+women raped during the genocide,,Victims and survivors (unspecified),no
+women victims of rape,,Victims and survivors (unspecified),no
+"1,500 helpless civilians, mostly women and children",,"Women, children and men (unspecified)",no
+"1,601 children",,"Women, children and men (unspecified)",no
+"african people, including schoolchildren and students",,"Women, children and men (unspecified)",no
+babies,,"Women, children and men (unspecified)",no
+"black babies, school children, men, women and children",,"Women, children and men (unspecified)",no
+children,,"Women, children and men (unspecified)",no
+children in armed conflict,,"Women, children and men (unspecified)",no
+"children, men, women, aged and infants",,"Women, children and men (unspecified)",no
+"children, women and elderly people",,"Women, children and men (unspecified)",no
+"civilians, including 106 women",,"Women, children and men (unspecified)",no
+"hundreds of thousands of men, women and children",,"Women, children and men (unspecified)",no
+"innocent men, women and children",,"Women, children and men (unspecified)",no
+"innocent women, children, academics and intellectuals",,"Women, children and men (unspecified)",no
+"men, women and children",,"Women, children and men (unspecified)",no
+"men, women and children from all ethnic and religious groups",,"Women, children and men (unspecified)",no
+"men, women and children in tripoli and benghazi",,"Women, children and men (unspecified)",no
+our children and all our civilians,,"Women, children and men (unspecified)",no
+our women,,"Women, children and men (unspecified)",no
+women,,"Women, children and men (unspecified)",no
+women and children,,"Women, children and men (unspecified)",no
+women and girls,,"Women, children and men (unspecified)",no
+women under foreign occupation,,"Women, children and men (unspecified)",no
+a yazidi victim,,Yazidis,no
+"ancient christian communities, the yazidis and other religious and ethnic minority groups in mesopotamia",,Yazidis,no
+"christian, yazidi and other religious and ethnic communities in iraq and syria",,Yazidis,no
+"christians, yazidis and other communities",,Yazidis,no
+"christians, yazidis and other religious minorities",,Yazidis,no
+"christians, yazidis, kurds, turkmen, shabaks, sunnis, shiites and others",,Yazidis,no
+iraq's yazidi community,,Yazidis,no
+"iraqi people, in particular the yazidi communities",,Yazidis,no
+"iraqi people, whether shiite, sunni, christian, turkmen, shabak or yazidi",,Yazidis,no
+"iraqis — muslims, yazidis and christians",,Yazidis,no
+"religious minorities, most notably the yazidi people",,Yazidis,no
+yazidi,,Yazidis,no
+yazidi communities,,Yazidis,no
+yazidi community,,Yazidis,no
+yazidi community in iraq,,Yazidis,no
+yazidi community in sinjar,,Yazidis,no
+yazidi female survivors,,Yazidis,no
+yazidi minority,,Yazidis,no
+yazidi people,,Yazidis,no
+yazidi people in iraq,,Yazidis,no
+yazidi society,,Yazidis,no
+yazidi survivors,,Yazidis,no
+yazidi women,,Yazidis,no
+yazidi women and girls,,Yazidis,no
+yazidis,,Yazidis,no
+yazidis and christians,,Yazidis,no
+yazidis and the christians,,Yazidis,no
+yazidis of sinjar,,Yazidis,no
+"yazidis, christians and other minorities",,Yazidis,no
+"yazidis, christians and shia muslims",,Yazidis,no
+"yazidis, christians and shiite muslims",,Yazidis,no
+"yazidis, christians, kurds, shia muslims and other minorities, as well as some sunni muslims",,Yazidis,no
+"yazidis, christians, shia and sunni muslims",,Yazidis,no
+"yazidis, christians, turkmen, kurds and shiites",,Yazidis,no
+yezidi women,,Yazidis,no
+yezidis,,Yazidis,no
+young yazidi girls,,Yazidis,no
+young yazidi women,,Yazidis,no
+black people of zimbabwe,,Zimbabweans,no
+black population of zimbabwe,,Zimbabweans,no
+people of zimbabwe,,Zimbabweans,no
+people of zimbabwe and namibia,,Zimbabweans,no
