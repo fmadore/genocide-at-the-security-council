@@ -83,6 +83,7 @@ from lib import (
     usage,
     usage_comparison,
     usage_refusals,
+    victim_groups,
 )
 from lib import occurrences as occurrences_lib
 from lib import referents as referents_lib
@@ -117,6 +118,10 @@ CURRENT_RUN = model_runs.CURRENT_RUN
 COMPARISON_RUN = model_runs.COMPARISON_RUN
 
 REFERENTS = model_runs.REFERENTS
+#: The person-checked grouping of the model's free-text `victim_group`, read by
+#: `lib.victim_groups`, and the list of every label with its count for a coder.
+VICTIM_GROUPS = REFERENTS.parent / "victim_groups.csv"
+VICTIM_GROUP_REVIEW = INTERIM / "victim_groups_review.csv"
 GOLD_ANNOTATIONS = model_runs.GOLD_ANNOTATIONS
 GOLD_CANDIDATES = model_runs.GOLD_CANDIDATES
 GOLD_DESIGN = model_runs.GOLD_DESIGN
@@ -438,6 +443,7 @@ def retest_block(
 def occurrence_rows(
     rows: pd.DataFrame,
     contested: dict[str, tuple[list[str], dict[str, str] | None]],
+    groups: victim_groups.VictimGroups | None = None,
 ) -> list[dict[str, object]]:
     """One row per annotated occurrence, in corpus order.
 
@@ -459,6 +465,9 @@ def occurrence_rows(
     occurrence, and a comparison run that agreed. Distinguishing them at the row
     level would put the state of the whole run into 6,092 rows; the `comparison`
     block in `usage.json` carries it once.
+
+    `victim_group_grouped` follows `victim_group`: the group `groups` gives the
+    label, or `""` where the table lists none. The label itself is never changed.
     """
     out: list[dict[str, object]] = []
     for row in rows.to_dict(orient="records"):
@@ -469,11 +478,42 @@ def occurrence_rows(
         for field in ROW_FIELDS:
             value = row.get(field, "")
             entry[field] = bool(value) if field == "evidence_valid" else str(value or "")
+            if field == "victim_group":
+                entry["victim_group_grouped"] = (
+                    groups.group(str(value or ""), str(row.get("referent", "") or ""))
+                    if groups is not None
+                    else ""
+                )
         fields, alternative = contested.get(str(row["occurrence_id"]), ([], None))
         entry["contested"] = fields
         entry["alt"] = alternative
         out.append(entry)
     return out
+
+
+def read_victim_groups(path: Path) -> victim_groups.VictimGroups:
+    """The grouping table, or the step stops with the rule the table broke."""
+    try:
+        return victim_groups.read(path)
+    except (OSError, ValueError) as error:
+        console.fail(
+            "the victim-group table cannot be read",
+            [str(error), "every label is published as written; the table only groups them"],
+        )
+
+
+def write_victim_group_review(groups: victim_groups.VictimGroups, rows: pd.DataFrame) -> None:
+    """Every distinct label with its count and group, for a coder to extend the table."""
+    labels = rows["victim_group"].fillna("").astype(str)
+    referents = rows["referent"].fillna("").astype(str)
+    records = victim_groups.review_rows(groups, zip(labels, referents, strict=True))
+    artifacts.atomic_write_csv(VICTIM_GROUP_REVIEW, pd.DataFrame(records))
+    filled = sum(int(str(record["occurrences"])) for record in records)
+    grouped = sum(int(str(record["grouped"])) for record in records)
+    console.info(
+        f"wrote {rel(VICTIM_GROUP_REVIEW)}: {len(records):,} labels; {grouped:,} of "
+        f"{filled:,} filled victim groups grouped"
+    )
 
 
 def diffusion_block(
@@ -1088,7 +1128,7 @@ def run_without_model() -> None:
         ROOT,
         "15_usage.py",
         inputs=[SPEECHES_NORM, GOLD_CANDIDATES],
-        configs=[LEXICON, REFERENTS, PROMPT, GOLD_ANNOTATIONS],
+        configs=[LEXICON, REFERENTS, VICTIM_GROUPS, PROMPT, GOLD_ANNOTATIONS],
         extra={
             "state": "awaiting_new_model_run",
             "occurrences_total": len(found),
@@ -1123,6 +1163,13 @@ def run_without_model() -> None:
         "position_by_actor": [],
         "diffusion": {"milestones": list(usage.MILESTONES), "referents": []},
         "timeline": {"answers": list(usage.CASE_ANSWERS), "years": [], "cells": []},
+        "victims": {
+            "table": {"rows": 0, "checked": 0},
+            "groups": [],
+            "decades": [],
+            "cells": [],
+            "by_actor": [],
+        },
         "comparison": usage_comparison.comparison_block([], []),
         "retest": [],
         "gold": gold_estimates.gold_block(
@@ -1150,7 +1197,7 @@ def run_without_model() -> None:
             ROOT,
             "15_usage.py",
             inputs=[SPEECHES_NORM, GOLD_CANDIDATES],
-            configs=[LEXICON, REFERENTS, PROMPT, GOLD_ANNOTATIONS],
+            configs=[LEXICON, REFERENTS, VICTIM_GROUPS, PROMPT, GOLD_ANNOTATIONS],
             extra={
                 "state": "awaiting_new_model_run",
                 "occurrences_total": len(found),
@@ -1387,6 +1434,8 @@ def run(args: argparse.Namespace) -> None:
         speeches[["filename", "meeting_symbol", "country_org", "date"]],
     )
     write_first_events(diffusion, rows)
+    groups = read_victim_groups(VICTIM_GROUPS)
+    write_victim_group_review(groups, rows)
     events = sum(len(entry["events"]) for entry in diffusion["referents"])
     try:
         timeline = usage.timeline_block(
@@ -1396,6 +1445,10 @@ def run(args: argparse.Namespace) -> None:
         )
     except ValueError as error:
         console.fail("the run cannot be counted by year", [str(error)])
+    try:
+        victims = victim_groups.victims_block(rows, groups)
+    except ValueError as error:
+        console.fail("the run's victim groups cannot be counted", [str(error)])
     console.table(
         [
             ("annotated", f"{counts['annotated']:,}"),
@@ -1493,7 +1546,7 @@ def run(args: argparse.Namespace) -> None:
             *([] if comparison_dir is None else [comparison_dir / "manifest.json"]),
             *([] if comparison_dir is None else [comparison_dir / "annotations.jsonl"]),
         ],
-        configs=[LEXICON, REFERENTS, PROMPT, GOLD_ANNOTATIONS],
+        configs=[LEXICON, REFERENTS, VICTIM_GROUPS, PROMPT, GOLD_ANNOTATIONS],
         extra={
             "lexicon_version": lex.version,
             # Both: the list the counts were cut on, and the list the run was
@@ -1548,6 +1601,7 @@ def run(args: argparse.Namespace) -> None:
         "position_by_actor": blocks["position_by_actor"],
         "diffusion": diffusion,
         "timeline": timeline,
+        "victims": victims,
         "comparison": comparison,
         "retest": retest,
         "gold": gold,
@@ -1557,7 +1611,7 @@ def run(args: argparse.Namespace) -> None:
         artifacts.atomic_write_json(staged / "usage.json", payload)
         artifacts.atomic_write_json(
             staged / "occurrences.json",
-            {"meta": meta, "occurrences": occurrence_rows(rows, contested)},
+            {"meta": meta, "occurrences": occurrence_rows(rows, contested, groups)},
         )
         for name in ("usage.json", "occurrences.json"):
             size = (staged / name).stat().st_size / 1e3
@@ -1586,7 +1640,7 @@ def run(args: argparse.Namespace) -> None:
                 directory / "annotations.jsonl",
                 *([] if comparison_dir is None else [comparison_dir / "annotations.jsonl"]),
             ],
-            configs=[LEXICON, REFERENTS, PROMPT, GOLD_ANNOTATIONS],
+            configs=[LEXICON, REFERENTS, VICTIM_GROUPS, PROMPT, GOLD_ANNOTATIONS],
             extra={
                 "run_id": run_id,
                 "run_dir": rel(directory),

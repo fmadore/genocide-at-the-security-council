@@ -657,6 +657,30 @@ const validateUsage: Validator = (record, path) => {
 		}
 	}
 
+	// The victims: a decade's four kinds are its eligible occurrences divided, as
+	// the timeline's answers are, and a speaker must be one the actor table holds.
+	const victims = recordAt(record, 'victims');
+	for (const [index, decade] of requireArray(victims, 'decades', `${path}.victims`).entries()) {
+		const at = `${path}.victims.decades[${index}]`;
+		if (!isRecord(decade)) throw new Error(`${at} must be an object.`);
+		const total = ['people', 'unspecified', 'ungrouped', 'none'].reduce(
+			(sum, kind) => sum + Number(decade[kind]),
+			0
+		);
+		if (total !== Number(decade.eligible)) {
+			throw new Error(
+				`${at} (${decade.decade}s) divides ${decade.eligible} eligible occurrences into ${total}.`
+			);
+		}
+	}
+	for (const [index, cell] of requireArray(victims, 'by_actor', `${path}.victims`).entries()) {
+		if (!isRecord(cell) || !actors.has(String(cell.actor))) {
+			throw new Error(
+				`${path}.victims.by_actor[${index}] names a speaker who is not in the actor table.`
+			);
+		}
+	}
+
 	validateUsageComparison(record, path);
 };
 
@@ -1033,6 +1057,7 @@ export const REQUIRED = {
 		position_by_actor: 'array',
 		diffusion: 'object',
 		timeline: 'object',
+		victims: 'object',
 		comparison: 'object',
 		gold: 'object'
 	},

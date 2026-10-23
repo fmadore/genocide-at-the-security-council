@@ -1254,6 +1254,35 @@ export interface UsageTimeline {
 }
 
 /**
+ * Who the eligible occurrences name as the victim, read from the model's
+ * `victim_group` and grouped by `annotations/lexicon/victim_groups.csv`.
+ *
+ * Every eligible occurrence is one of four kinds, so a decade's four counts sum
+ * to its eligible occurrences: `people` names a particular people, `unspecified`
+ * a group that names none (civilians, victims), `ungrouped` a label the table
+ * does not list yet, and `none` no victim at all.
+ */
+export interface UsageVictims {
+	/** How many rows the grouping table holds, and how many a person has checked. */
+	table: { rows: number; checked: number };
+	/** Sorted by count, descending. */
+	groups: { group: string; unspecified: boolean; count: number; actors: number }[];
+	/** Every decade from the first eligible occurrence to the last, zero-filled. */
+	decades: {
+		decade: number;
+		eligible: number;
+		people: number;
+		unspecified: number;
+		ungrouped: number;
+		none: number;
+	}[];
+	/** Sparse (group, decade) counts over `people` and `unspecified` occurrences. */
+	cells: { group: string; decade: number; count: number }[];
+	/** Sparse (group, speaker) counts over the same occurrences. */
+	by_actor: { group: string; actor: string; count: number }[];
+}
+
+/**
  * One field two runs were compared on, over the occurrences both of them read.
  *
  * `observed` and `kappa` are the statistics `UsageAgreement` carries between the
@@ -1520,6 +1549,7 @@ export interface Usage {
 	position_by_actor: UsagePositionRow[];
 	diffusion: UsageDiffusion;
 	timeline: UsageTimeline;
+	victims: UsageVictims;
 	/** A second model over the same occurrences, or the block that says none was run. */
 	comparison: UsageComparison;
 	/** Each model against another run of itself. Empty where no sibling run exists. */
@@ -1579,6 +1609,12 @@ export interface UsageOccurrence {
 	referent_source: string;
 	accused_actor: string;
 	victim_group: string;
+	/**
+	 * The group `annotations/lexicon/victim_groups.csv` counts `victim_group`
+	 * under, so "the Jewish people" and "Jews" count together; empty where the
+	 * label is empty or the table does not list it. Never a rewrite of the label.
+	 */
+	victim_group_grouped: string;
 	own_state_accused: string;
 	salience: string;
 	/** One sentence on why the position and the case decision are what they are. */

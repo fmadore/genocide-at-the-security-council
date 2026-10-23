@@ -177,6 +177,10 @@ test(
 			'Rationale'
 		]);
 		await expect(answered.locator('dd').first()).toHaveText('passage');
+		// The label as the model wrote it, then the group the checked table counts it under.
+		await expect(answered.locator('dd').nth(2)).toHaveText(
+			'the Tutsi in Rwanda — grouped as Tutsi'
+		);
 		await expect(
 			evidence.locator('ol.quotations li').nth(1).locator('dl.schema-fields')
 		).toHaveCount(0);
@@ -628,6 +632,47 @@ test('column labels sort highest occurrence counts first and retain the order af
 	await expect(matrix.getByLabel('Ordered by')).toHaveValue('referent:bosnia_srebrenica');
 });
 
+test(
+	'the victim figures say they are model-derived and that the grouping is an unchecked AI draft',
+	{ tag: '@a11y' },
+	async ({ page }) => {
+		await openUsage(page);
+		const figureOf = (name: string) =>
+			page.locator('figure.figure').filter({ has: page.getByRole('heading', { name, level: 2 }) });
+
+		const byDecade = figureOf('Who is named as the victim');
+		await expect(byDecade.locator('.provenance')).toHaveText('Model-derived · experimental');
+		// The peoples first, the group that names none under the rule.
+		await expect(byDecade.locator('tbody th')).toHaveText([
+			'Bosniaks (Bosnian Muslims)',
+			'Tutsi',
+			'Victims and survivors (unspecified)'
+		]);
+		await expect(byDecade.locator('thead th').nth(1)).toHaveText('1990s');
+		await expect(byDecade).toContainText(
+			'The 650 rows of the grouping table were drafted by AI and none has yet been checked by a person.'
+		);
+
+		const naming = figureOf('Naming a people, or not');
+		await expect(naming.locator('.provenance')).toHaveText('Model-derived · experimental');
+		await expect(naming).toContainText('drafted by AI');
+
+		const byActor = figureOf('Which delegations name which people');
+		await expect(byActor.locator('.provenance')).toHaveText('Model-derived · experimental');
+		// Rwanda's unspecified victims do not count towards its rank; the name breaks the tie.
+		await expect(byActor.locator('tbody th')).toHaveText(['France', 'Rwanda']);
+		await expect(byActor.locator('thead th')).toHaveText([
+			'Delegation',
+			'Bosniaks (Bosnian Muslims)',
+			'Tutsi',
+			'All'
+		]);
+
+		await byActor.scrollIntoViewIfNeeded();
+		await expectNoAxeViolations(page);
+	}
+);
+
 test('row labels sort the referents by that delegation’s counts and retain the order after reload', async ({
 	page
 }) => {
@@ -650,6 +695,10 @@ test('row labels sort the referents by that delegation’s counts and retain the
 	]);
 	await expect(page).toHaveURL(/columns=France/);
 	await page.reload();
-	await expect(matrix.locator('tbody th[aria-sort="descending"]')).toContainText('France');
+	// The order is read back from the URL once the page has hydrated, which under
+	// the load of the whole suite can take longer than the default five seconds.
+	await expect(matrix.locator('tbody th[aria-sort="descending"]')).toContainText('France', {
+		timeout: 15_000
+	});
 	expect((await heads())[0]).toBe('Bosnia and Srebrenica');
 });

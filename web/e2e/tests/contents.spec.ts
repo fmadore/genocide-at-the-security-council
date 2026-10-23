@@ -84,7 +84,7 @@ test(
 
 		await expect(band).toBeInViewport();
 		await expect(marked).toHaveCount(1);
-		await expect(marked).toHaveText('Who rejects the word');
+		await expect(marked).toHaveText('Which delegations name which people');
 
 		const { violations } = await new AxeBuilder({ page }).analyze();
 		expect(violations).toEqual([]);

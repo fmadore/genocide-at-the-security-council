@@ -2726,7 +2726,8 @@
     "salience": "str",
     "speaker_position": "str",
     "verdict": "str",
-    "victim_group": "str"
+    "victim_group": "str",
+    "victim_group_grouped": "str"
    }
   ]
  },
@@ -3090,6 +3091,44 @@
      "year": "int"
     }
    ]
+  },
+  "victims": {
+   "by_actor": [
+    {
+     "actor": "str",
+     "count": "int",
+     "group": "str"
+    }
+   ],
+   "cells": [
+    {
+     "count": "int",
+     "decade": "int",
+     "group": "str"
+    }
+   ],
+   "decades": [
+    {
+     "decade": "int",
+     "eligible": "int",
+     "none": "int",
+     "people": "int",
+     "ungrouped": "int",
+     "unspecified": "int"
+    }
+   ],
+   "groups": [
+    {
+     "actors": "int",
+     "count": "int",
+     "group": "str",
+     "unspecified": "bool"
+    }
+   ],
+   "table": {
+    "checked": "int",
+    "rows": "int"
+   }
   }
  }
 }

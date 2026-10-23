@@ -148,6 +148,50 @@ Step 15 writes every dated first the diffusion figure draws to
 and `note` columns. A first is a minimum over dates, so one mislabelled early occurrence
 moves it; the list is short enough to read whole. Priority: medium.
 
+### 6b. Victim groups, grouped — 650 rows, none checked
+
+The model writes `victim_group` in its own words: in the published Qwen run, 2,070 filled
+labels in 889 spellings, 675 of them used once, so "the Jewish people" and "Jews" were
+counted apart (raised by FM, 23 October 2026). Step 15 now publishes each label unchanged
+and, beside it, `victim_group_grouped`: the group
+[`annotations/lexicon/victim_groups.csv`](../annotations/lexicon/victim_groups.csv) gives it,
+or nothing. The only mechanical step is the lookup form (lower case, no leading "the",
+spaces collapsed); every other merge is a row in the table.
+
+The first draft of the table was made by Claude on 23 October 2026, from keyword rules over
+the labels and a reading of each rule's output; every row carries `checked=no`. It groups
+1,883 of the 2,070 labels into 54 groups. The other 187, mostly labels used once, have no
+group, and step 15 lists every label with its count in `data/interim/victim_groups_review.csv`.
+Decisions in the draft that a reader should check first:
+
+- **A people, not a place.** "Palestinians in Gaza", "the people of Gaza" and "the Palestinian
+  people" are all Palestinians (501 labels).
+- **Kept apart on purpose.** Bosniaks (Bosnian Muslims) from People of Bosnia and Herzegovina;
+  Tutsi from Rwandans ("the victims of the genocide in Rwanda" is Rwandans, as written); People
+  of Donbas, the population Russia speaks for, from Ukrainians.
+- **Resolved by the passage's referent.** "Muslims" is Muslims in India under `india_muslims`,
+  Bosniaks under `bosnia_srebrenica` and the Rohingya under `myanmar_rohingya`. Three Kashmir
+  labels of 1948 ("his Muslim subjects", "the Muslim population of the State") are Muslims of
+  Jammu and Kashmir.
+- **Read from the quotation.** "The population of the occupied zone" is Chadians (S/PV.2721
+  speaks of Libya's Islamic Legion); "those five sons" and "victims of the Serbian genocide"
+  are Bosniaks; "a targeted group" (the ICTR's rape finding) is Tutsi; "Turks" and "the Turkish
+  race" in the Cyprus debates are Turkish Cypriots.
+- **Four groups name no particular people:** civilians and populations; women, children and
+  men; victims and survivors; and the speaker's own people. "Our people" (32 labels) is resolved
+  only by who speaks — 16 of them on Gaza or Israel and Palestine — and is left for a person.
+- **Lists of groups** go to a combined group where one recurs (Lebanese and Palestinians,
+  24 spellings), otherwise to the group named first.
+- **Left without a group:** "the Palestine Liberation Organization", "Portuguese nationals in
+  Angola", "victims of Nazi genocide", "this Western Christian nation" (a quotation of South
+  Africa's ambassador), and lists with no leading group.
+
+To check: read the rows from the top of the review list down, set `checked=yes` on each row
+accepted, and change the group where it is wrong. Three figures on the Usage page count these
+groups (published at FM's request, 23 October 2026): each is marked model-derived and says, from
+the table itself, how many of its rows a person has checked. Priority: high while they are
+published unchecked; start with the rows behind the largest groups.
+
 ### 7. Model annotation runs
 
 Every run of `scripts/14_llm_annotate.py` is committed under
@@ -208,6 +252,10 @@ S/PV.2622 is a copy of S/PV.2623; and S/PV.906 runs on into 18 speeches of S/PV.
 four are confirmed against the PDFs and repaired by `config/source_repairs.yml`, applied by
 step 01 (decided by FM, 19 October 2026); the evidence and the repair are under
 "19 October 2026" below. Still open: the real S/PV.2622, with one genocide passage, is not in the source.
+FM reported the errors to the dataset's authors, who replied that a future release will correct
+them (recorded 23 October 2026). Until then the repairs stay. When that release is pinned, step 01
+will stop on any repair whose source no longer matches; each such repair should then be checked
+against the new release and removed from `config/source_repairs.yml`, not rewritten.
 Priority: low.
 
 ## Dated records on the current corpus

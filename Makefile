@@ -118,7 +118,7 @@ $(SPEAKER_KEYNESS): $(FLAGGED) scripts/12_speaker_keyness.py $(LIB_12_SPEAKER_KE
 $(GOLD) &: $(NORM) scripts/13_gold_sample.py $(LIB_13_GOLD_SAMPLE) config/lexicon.yml config/lexicon.counts.json $(wildcard annotations/genocide/*) $(REFERENTS) $(MODEL_INPUTS)
 	$(PY) scripts/13_gold_sample.py
 
-$(USAGE) &: $(NORM) $(GOLD) scripts/15_usage.py $(LIB_15_USAGE) config/lexicon.yml config/lexicon.counts.json $(MODEL_INPUTS) $(wildcard annotations/genocide/*) $(REFERENTS)
+$(USAGE) &: $(NORM) $(GOLD) scripts/15_usage.py $(LIB_15_USAGE) config/lexicon.yml config/lexicon.counts.json $(MODEL_INPUTS) $(wildcard annotations/genocide/*) $(REFERENTS) annotations/lexicon/victim_groups.csv
 	$(PY) scripts/15_usage.py $(USAGE_FLAGS)
 
 # 17 classifies the same occurrences 08 writes lines for, from the same corpus,
