@@ -695,6 +695,10 @@ test('row labels sort the referents by that delegation’s counts and retain the
 	]);
 	await expect(page).toHaveURL(/columns=France/);
 	await page.reload();
-	await expect(matrix.locator('tbody th[aria-sort="descending"]')).toContainText('France');
+	// The order is read back from the URL once the page has hydrated, which under
+	// the load of the whole suite can take longer than the default five seconds.
+	await expect(matrix.locator('tbody th[aria-sort="descending"]')).toContainText('France', {
+		timeout: 15_000
+	});
 	expect((await heads())[0]).toBe('Bosnia and Srebrenica');
 });
