@@ -627,3 +627,29 @@ test('column labels sort highest occurrence counts first and retain the order af
 	await expect(matrix.locator('th[aria-sort="descending"]')).toContainText('Bosnia and Srebrenica');
 	await expect(matrix.getByLabel('Ordered by')).toHaveValue('referent:bosnia_srebrenica');
 });
+
+test('row labels sort the referents by that delegation’s counts and retain the order after reload', async ({
+	page
+}) => {
+	await openUsage(page);
+	const matrix = matrixOf(page);
+	const heads = () =>
+		matrix
+			.locator('thead th button')
+			.evaluateAll((buttons) => buttons.map((button) => button.textContent?.trim()));
+	await matrix
+		.locator('tbody th')
+		.getByRole('button', { name: /^France/ })
+		.click();
+	await expect(matrix.locator('tbody th[aria-sort="descending"]')).toContainText('France');
+	await expect(page.getByLabel('Column order')).toHaveValue('France');
+	// France placed Bosnia twice and the Convention once, so those two lead.
+	expect((await heads()).slice(0, 2)).toEqual([
+		'Bosnia and Srebrenica',
+		'Genocide Convention and legal definition'
+	]);
+	await expect(page).toHaveURL(/columns=France/);
+	await page.reload();
+	await expect(matrix.locator('tbody th[aria-sort="descending"]')).toContainText('France');
+	expect((await heads())[0]).toBe('Bosnia and Srebrenica');
+});
