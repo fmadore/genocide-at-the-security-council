@@ -300,6 +300,14 @@ const corpus = (overrides: Partial<Usage> = {}): Usage => ({
 	diffusion,
 	// Exercised in `timeline.test.ts`; present because the payload carries it.
 	timeline: { answers: ['yes', 'no', 'unclear'], years: [], cells: [] },
+	// Exercised in `victims.test.ts`.
+	victims: {
+		table: { rows: 0, checked: 0 },
+		groups: [],
+		decades: [],
+		cells: [],
+		by_actor: []
+	},
 	comparison: noComparison,
 	retest: [],
 	gold,

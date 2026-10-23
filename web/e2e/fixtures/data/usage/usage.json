@@ -521,5 +521,75 @@
 				"contested": 0
 			}
 		]
+	},
+	"victims": {
+		"table": {
+			"rows": 650,
+			"checked": 0
+		},
+		"groups": [
+			{
+				"group": "Bosniaks (Bosnian Muslims)",
+				"unspecified": false,
+				"count": 1,
+				"actors": 1
+			},
+			{
+				"group": "Tutsi",
+				"unspecified": false,
+				"count": 1,
+				"actors": 1
+			},
+			{
+				"group": "Victims and survivors (unspecified)",
+				"unspecified": true,
+				"count": 1,
+				"actors": 1
+			}
+		],
+		"decades": [
+			{
+				"decade": 1990,
+				"eligible": 4,
+				"people": 2,
+				"unspecified": 1,
+				"ungrouped": 0,
+				"none": 1
+			}
+		],
+		"cells": [
+			{
+				"group": "Bosniaks (Bosnian Muslims)",
+				"decade": 1990,
+				"count": 1
+			},
+			{
+				"group": "Tutsi",
+				"decade": 1990,
+				"count": 1
+			},
+			{
+				"group": "Victims and survivors (unspecified)",
+				"decade": 1990,
+				"count": 1
+			}
+		],
+		"by_actor": [
+			{
+				"group": "Bosniaks (Bosnian Muslims)",
+				"actor": "France",
+				"count": 1
+			},
+			{
+				"group": "Tutsi",
+				"actor": "Rwanda",
+				"count": 1
+			},
+			{
+				"group": "Victims and survivors (unspecified)",
+				"actor": "Rwanda",
+				"count": 1
+			}
+		]
 	}
 }

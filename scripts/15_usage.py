@@ -1163,6 +1163,13 @@ def run_without_model() -> None:
         "position_by_actor": [],
         "diffusion": {"milestones": list(usage.MILESTONES), "referents": []},
         "timeline": {"answers": list(usage.CASE_ANSWERS), "years": [], "cells": []},
+        "victims": {
+            "table": {"rows": 0, "checked": 0},
+            "groups": [],
+            "decades": [],
+            "cells": [],
+            "by_actor": [],
+        },
         "comparison": usage_comparison.comparison_block([], []),
         "retest": [],
         "gold": gold_estimates.gold_block(
@@ -1438,6 +1445,10 @@ def run(args: argparse.Namespace) -> None:
         )
     except ValueError as error:
         console.fail("the run cannot be counted by year", [str(error)])
+    try:
+        victims = victim_groups.victims_block(rows, groups)
+    except ValueError as error:
+        console.fail("the run's victim groups cannot be counted", [str(error)])
     console.table(
         [
             ("annotated", f"{counts['annotated']:,}"),
@@ -1590,6 +1601,7 @@ def run(args: argparse.Namespace) -> None:
         "position_by_actor": blocks["position_by_actor"],
         "diffusion": diffusion,
         "timeline": timeline,
+        "victims": victims,
         "comparison": comparison,
         "retest": retest,
         "gold": gold,

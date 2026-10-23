@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from lib import referents, victim_groups
 from lib.paths import REFERENTS
@@ -88,3 +89,86 @@ def test_the_committed_table_reads_and_names_only_referents_the_list_holds() -> 
     assert named <= known
     # The pair FM raised on 23 October 2026.
     assert table.group("the Jewish people") == table.group("Jews")
+
+
+def occurrences(*rows: tuple[str, str, str, str, bool]) -> pd.DataFrame:
+    """(victim_group, referent, speaker, date, eligible) per occurrence."""
+    columns = ["victim_group", "referent", "country_org", "date", "verdict", "evidence_valid"]
+    return pd.DataFrame(
+        [
+            {
+                "victim_group": label,
+                "referent": referent,
+                "country_org": speaker,
+                "date": date,
+                "verdict": "true_positive" if eligible else "false_positive",
+                "evidence_valid": True,
+            }
+            for label, referent, speaker, date, eligible in rows
+        ],
+        columns=columns,
+    )
+
+
+def test_the_victims_block_puts_every_eligible_row_in_one_of_four_classes(
+    tmp_path: Path,
+) -> None:
+    table = victim_groups.read(
+        write(
+            tmp_path,
+            "jews,,Jews,yes\njewish people,,Jews,no\ncivilians,,Civilians (unspecified),no\n",
+        )
+    )
+    block = victim_groups.victims_block(
+        occurrences(
+            ("Jews", "holocaust", "Israel", "1948-05-01", True),
+            ("the Jewish people", "holocaust", "Israel", "1951-02-01", True),
+            ("civilians", "gaza", "Algeria", "2023-11-01", True),
+            ("an authentic civilization", "other", "Jordan", "1957-01-01", True),
+            ("", "genocide_convention_law", "France", "2023-01-01", True),
+            # A false positive names no victim and is not counted at all.
+            ("Jews", "holocaust", "Israel", "1948-05-01", False),
+        ),
+        table,
+    )
+    assert block["table"] == {"rows": 3, "checked": 1}
+    assert block["groups"] == [
+        {"group": "Jews", "unspecified": False, "count": 2, "actors": 1},
+        {"group": "Civilians (unspecified)", "unspecified": True, "count": 1, "actors": 1},
+    ]
+    decades = {row["decade"]: row for row in block["decades"]}  # type: ignore[index]
+    assert decades[1940] == {
+        "decade": 1940,
+        "eligible": 1,
+        "people": 1,
+        "unspecified": 0,
+        "ungrouped": 0,
+        "none": 0,
+    }
+    assert decades[1950]["ungrouped"] == 1 and decades[1950]["people"] == 1
+    # Every decade from the first to the last, zero-filled.
+    assert sorted(decades) == [1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020]
+    assert decades[1980]["eligible"] == 0
+    assert decades[2020] == {
+        "decade": 2020,
+        "eligible": 2,
+        "people": 0,
+        "unspecified": 1,
+        "ungrouped": 0,
+        "none": 1,
+    }
+    assert block["cells"] == [
+        {"group": "Jews", "decade": 1940, "count": 1},
+        {"group": "Jews", "decade": 1950, "count": 1},
+        {"group": "Civilians (unspecified)", "decade": 2020, "count": 1},
+    ]
+    assert block["by_actor"] == [
+        {"group": "Civilians (unspecified)", "actor": "Algeria", "count": 1},
+        {"group": "Jews", "actor": "Israel", "count": 2},
+    ]
+
+
+def test_an_empty_run_writes_an_empty_victims_block(tmp_path: Path) -> None:
+    table = victim_groups.read(write(tmp_path, "jews,,Jews,no\n"))
+    block = victim_groups.victims_block(occurrences(), table)
+    assert block["groups"] == block["decades"] == block["cells"] == block["by_actor"] == []

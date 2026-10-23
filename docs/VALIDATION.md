@@ -187,8 +187,10 @@ Decisions in the draft that a reader should check first:
   Africa's ambassador), and lists with no leading group.
 
 To check: read the rows from the top of the review list down, set `checked=yes` on each row
-accepted, and change the group where it is wrong. Priority: medium, before any figure counts
-groups.
+accepted, and change the group where it is wrong. Three figures on the Usage page count these
+groups (published at FM's request, 23 October 2026): each is marked model-derived and says, from
+the table itself, how many of its rows a person has checked. Priority: high while they are
+published unchecked; start with the rows behind the largest groups.
 
 ### 7. Model annotation runs
 
@@ -250,6 +252,10 @@ S/PV.2622 is a copy of S/PV.2623; and S/PV.906 runs on into 18 speeches of S/PV.
 four are confirmed against the PDFs and repaired by `config/source_repairs.yml`, applied by
 step 01 (decided by FM, 19 October 2026); the evidence and the repair are under
 "19 October 2026" below. Still open: the real S/PV.2622, with one genocide passage, is not in the source.
+FM reported the errors to the dataset's authors, who replied that a future release will correct
+them (recorded 23 October 2026). Until then the repairs stay. When that release is pinned, step 01
+will stop on any repair whose source no longer matches; each such repair should then be checked
+against the new release and removed from `config/source_repairs.yml`, not rewritten.
 Priority: low.
 
 ## Dated records on the current corpus

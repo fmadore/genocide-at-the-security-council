@@ -367,6 +367,13 @@ describe('the validators that are about the research rather than the types', () 
 		position_by_actor: [],
 		diffusion: { milestones: ['mention'], referents: [] },
 		timeline: { answers: ['yes', 'no', 'unclear'], years: [], cells: [] },
+		victims: {
+			table: { rows: 0, checked: 0 },
+			groups: [],
+			decades: [],
+			cells: [],
+			by_actor: []
+		},
 		comparison: { state: 'none', model: '', overlap: 0, contested_any: 0, fields: [] },
 		gold: { state: 'not_started' },
 		...overrides
@@ -459,6 +466,34 @@ describe('the validators that are about the research rather than the types', () 
 			})
 		);
 		await expect(second(stray.fetcher)).rejects.toThrow(/names the referent atlantis/);
+	});
+
+	it('refuses a victims decade whose four kinds do not add up, and a speaker off the table', async () => {
+		const empty = {
+			table: { rows: 0, checked: 0 },
+			groups: [],
+			decades: [],
+			cells: [],
+			by_actor: []
+		};
+		const { usage } = await fresh();
+		const short = responder(
+			usagePayload({
+				victims: {
+					...empty,
+					decades: [{ decade: 1990, eligible: 5, people: 1, unspecified: 1, ungrouped: 0, none: 2 }]
+				}
+			})
+		);
+		await expect(usage(short.fetcher)).rejects.toThrow(/divides 5 eligible occurrences into 4/);
+
+		const { usage: second } = await fresh();
+		const stray = responder(
+			usagePayload({
+				victims: { ...empty, by_actor: [{ group: 'Tutsi', actor: 'Atlantis', count: 1 }] }
+			})
+		);
+		await expect(second(stray.fetcher)).rejects.toThrow(/not in the actor table/);
 	});
 
 	it('accepts complete self-hosted provenance and refuses an incomplete runtime block', async () => {

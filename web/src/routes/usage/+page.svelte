@@ -15,6 +15,7 @@
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import CasesOverTime from '#lib/CasesOverTime.svelte';
+	import VictimFigures from '#lib/VictimFigures.svelte';
 	import DiffusionChart from '#lib/DiffusionChart.svelte';
 	import Figure from '#lib/Figure.svelte';
 	import Contents from '#lib/Contents.svelte';
@@ -677,7 +678,10 @@
 			{ title: 'Which genocide each delegation means' },
 			{ title: 'When each delegation first said it' },
 			{ title: 'Cases over time' },
-			{ title: 'Who rejects the word' }
+			{ title: 'Who rejects the word' },
+			{ title: 'Who is named as the victim' },
+			{ title: 'Naming a people, or not' },
+			{ title: 'Which delegations name which people' }
 		]}
 	/>
 
@@ -1352,6 +1356,8 @@
 			</ScrollRegion>
 		</details>
 	</Figure>
+
+	<VictimFigures data={artefact} {status} name={shortCountry} />
 
 	<section class="prompt-block">
 		<h2>Instructions and categories</h2>
