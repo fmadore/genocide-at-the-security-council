@@ -233,9 +233,7 @@
 		{#if lowest?.shares && latest?.shares}<p>
 				The share naming a people is lowest in the {lowest.label}, at {percent(
 					lowest.shares.people
-				)}, when most uses cite the tribunals and the Convention; in the {latest.label} it is {percent(
-					latest.shares.people
-				)}.
+				)}; in the {latest.label} it is {percent(latest.shares.people)}.
 			</p>{/if}
 	{/snippet}
 
