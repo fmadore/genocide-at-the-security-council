@@ -75,6 +75,8 @@ LEXICON_LOCK = CONFIG / "lexicon.lock.json"
 LEXICON_COUNTS = CONFIG / "lexicon.counts.json"
 ENTITIES = CONFIG / "entities.csv"
 COUNTRY_ALIASES = CONFIG / "country_aliases.csv"
+COW_NAMES = CONFIG / "cow_names.csv"  # COW code -> state name, for 01
+SOURCE_STATES = CONFIG / "source_states.csv"  # states the source does not code as such
 COUNCIL_MEMBERSHIP = CONFIG / "council_membership.csv"
 EVENTS = CONFIG / "events.csv"
 STOPWORDS = CONFIG / "stopwords.txt"
@@ -134,7 +136,7 @@ MANIFESTS = DERIVED / "manifests"  # machine-readable provenance, all stages
 # Harvard Dataverse
 DOI = "doi:10.7910/DVN/CKPTRB"
 DATAVERSE = "https://dataverse.harvard.edu"
-DATASET_VERSION = "5.0"
+DATASET_VERSION = "6.0"
 
 
 def _expected(variable: str, default: int) -> int:
@@ -158,16 +160,15 @@ def _expected(variable: str, default: int) -> int:
 #
 # Two pairs: the source as published, which 01 checks before it applies
 # `config/source_repairs.yml`, and the repaired corpus every step from 01 on
-# asserts. The repairs drop two duplicated records (25 speeches) and 18 copied
-# speeches of a third, trim one speech and split another in two: 42 speeches and
-# 14,548 source words fewer.
-SOURCE_SPEECHES = 167_642
-SOURCE_TOKENS = 87_678_254
-EXPECTED_SPEECHES = _expected("GENOCIDE_EXPECTED_SPEECHES", 167_600)
+# asserts. v6.0 needs no repair, so the two pairs are equal; under v5.0 the
+# repairs took 42 speeches and 14,548 source words off 167,642 and 87,678,254.
+SOURCE_SPEECHES = 182_684
+SOURCE_TOKENS = 93_468_373
+EXPECTED_SPEECHES = _expected("GENOCIDE_EXPECTED_SPEECHES", 182_684)
 # The source calls this field a word count. The legacy name remains in the
 # canonical table because downstream artefacts already carry `tokens`, but it
 # is provenance only and is never used as a lexical denominator.
-EXPECTED_TOKENS = _expected("GENOCIDE_EXPECTED_TOKENS", 87_663_706)
+EXPECTED_TOKENS = _expected("GENOCIDE_EXPECTED_TOKENS", 93_468_373)
 
 # Words in the speech bodies, counted with `lib.lexical.words` and asserted by
 # 02. This is the denominator every "per 100,000 words" figure divides by, and
@@ -179,8 +180,10 @@ EXPECTED_TOKENS = _expected("GENOCIDE_EXPECTED_TOKENS", 87_663_706)
 # (docs/ROADMAP.md, RV3): 42,333 fewer words, 0.05% of the denominator.
 # 86,812,574 until 19 October 2026, when the source repairs dropped the copied
 # records and speeches, the trimmed colophon and the turn label inside a split
-# speech: 14,479 fewer.
-EXPECTED_WORDS = _expected("GENOCIDE_EXPECTED_WORDS", 86_798_095)
+# speech: 14,479 fewer. 86,798,095 until 2 November 2026, when the corpus moved
+# to Sakamoto-Matsuoka v6.0: corrected OCR, restored meetings and the meetings
+# of January 2025 to June 2026.
+EXPECTED_WORDS = _expected("GENOCIDE_EXPECTED_WORDS", 92_547_139)
 
 
 def ensure_dirs() -> None:

@@ -209,10 +209,10 @@
 	<h2>The speech collection</h2>
 	<p>
 		The source is <a href="https://doi.org/10.7910/DVN/CKPTRB">The UNSC Meetings and Speeches</a> by
-		Sakamoto and Matsuoka, Harvard Dataverse v5.0. The working collection contains {count(
+		Sakamoto and Matsuoka, Harvard Dataverse v6.0. The working collection contains {count(
 			totals.speeches
 		)} speeches from {count(totals.meetings)} meeting records and {count(totals.words)} words. The source
-		covers 17 January 1946 to 30 December 2024. Here, <em>corpus</em> means this collection of texts.
+		covers 17 January 1946 to 23 June 2026. Here, <em>corpus</em> means this collection of texts.
 	</p>
 	<p>
 		The transcripts are in English, including translations. The dataset does not reliably identify

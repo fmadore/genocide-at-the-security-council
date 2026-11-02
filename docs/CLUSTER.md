@@ -98,11 +98,11 @@ Each task still runs its model-specific reasoning probe before annotation.
 
 ```bash
 python scripts/annotation_batches.py plan --size 250 --output data/interim/second-model-plan.json
-# For the current 4,135-speech population the command prints indices 0-16.
+# For the current 4,576-speech population the command prints indices 0-18.
 # Qwen example: at most two single-H100 tasks concurrently.
 UNSC_ANNOTATION_MODEL=qwen UNSC_RUN_ID=second-model-v3 \
   UNSC_BATCH_PLAN=data/interim/second-model-plan.json \
-  sbatch --array=0-16%2 --partition=GPU --gres=gpu:h100:1 \
+  sbatch --array=0-18%2 --partition=GPU --gres=gpu:h100:1 \
   scripts/cluster/submit_annotate.sh
 ```
 
@@ -192,6 +192,50 @@ population is a subset of today's, and the run is merged over the population it
 was asked about. The occurrences the widening added are a known gap, which step
 15 reports. An occurrence the plan names that no longer exists still refuses the
 merge. The Gemma run was asked under lexicon 7 and merged under lexicon 8.
+
+### Topping up a run carried over from v5.0
+
+The committed Qwen and Gemma runs were asked about corpus v5.0.
+`tools/carry_over_runs.py` carries their labels to v6.0 where the text around
+each occurrence is unchanged (`model_annotations/genocide/carry_over.json`):
+3,764 of the 4,576 speeches keep Qwen's labels, 3,795 keep Gemma's. The other
+speeches, 812 and 781, are asked again in a top-up: a plan over only the
+speeches the run does not cover in full.
+
+```bash
+python scripts/annotation_batches.py plan --size 250 \
+  --top-up 2026-09-08-qwen-131k --output data/interim/qwen-topup-plan.json
+# Prints how many speeches the run covers in full, then the batches:
+# 812 speeches make four, indices 0-3.
+UNSC_ANNOTATION_MODEL=qwen UNSC_RUN_ID=qwen-v3-topup \
+  UNSC_BATCH_PLAN=data/interim/qwen-topup-plan.json \
+  sbatch --array=0-3%2 --partition=GPU --gres=gpu:h100:1 \
+  scripts/cluster/submit_annotate.sh
+```
+
+The plan records the checksums of the run's `annotations.jsonl` and of the
+carry-over table, so that it cannot be read against a different run. Gemma is
+topped up the same way, with `--top-up 2026-09-09-gemma4` and its own profile
+and cards; `retry_batches.sh` takes a top-up plan like any other. When every
+batch is complete, merge them with the run they complete:
+
+```bash
+python scripts/annotation_batches.py merge \
+  --plan data/interim/qwen-topup-plan.json \
+  --carry model_annotations/genocide/runs/2026-09-08-qwen-131k \
+  --output model_annotations/genocide/runs/<new run id> \
+  model_annotations/genocide/runs/qwen-v3-topup-batch-*
+```
+
+The carried run's rows stand for every speech outside the plan, and must cover
+each of them in full; its rows for speeches inside the plan are superseded by the
+batches'. The merge refuses a carried run that asked a different instrument
+(model, prompt, referent list, schema or reasoning effort) or served the model
+differently (revision, quantisation, sampling, reasoning settings, output limit,
+context length or reasoning parser); the vLLM version and the hardware may
+differ. `--accept-gap` works as above. The merged manifest names the carried run,
+its checksums and the rows taken from it under `carried`; its `requests`, `usage`
+and `passes` are the batches' alone.
 
 The server binds `127.0.0.1`, uses weights prefetched at an immutable Hugging
 Face revision, and runs offline on the compute node. No API key is involved.

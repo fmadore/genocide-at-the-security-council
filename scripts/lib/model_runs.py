@@ -41,11 +41,11 @@ ALLOW_PARTIAL_RUN = STORE / "allow_partial_run.txt"
 #: the frame cut from `CURRENT_RUN` alone. Kept apart from `COMPARISON_RUN` so
 #: that publishing a second opinion does not redraw the sample under the coders.
 GOLD_COMPARISON_RUN = STORE / "gold_comparison_run.txt"
-#: Run rows that point into a speech `config/source_repairs.yml` changed:
-#: dropped with a dropped record, or re-pointed at the speech a split moved
-#: their passage into. Written by `tools/remap_run_rows.py` and applied by
-#: :func:`read`, so that the run files themselves are never edited.
-RUN_REPAIRS = STORE / "source_repairs.json"
+#: Run rows asked about the v5.0 corpus, carried to v6.0: re-pointed at the
+#: same passage where its text did not change, dropped where it did. Written by
+#: `tools/carry_over_runs.py` and applied by :func:`read`, so that the run files
+#: themselves are never edited.
+RUN_CARRY_OVER = STORE / "carry_over.json"
 
 # `REFERENTS`, the controlled list, is shared with 03's audit and so lives in
 # `lib.paths`; it is imported above and read here as `model_runs.REFERENTS`.
@@ -121,24 +121,28 @@ def read(directory: Path) -> tuple[dict, list[dict]]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("run_id") != directory.name:
         raise ValueError("Run directory and manifest identity disagree")
-    rows = repaired(read_rows(rows_path))
+    rows = carried(read_rows(rows_path), run_id=directory.name)
     if not rows:
         raise ValueError("Run contains no annotations")
     validate(manifest, rows)
     return manifest, rows
 
 
-def repaired(rows: list[dict], table_path: Path | None = None) -> list[dict]:
-    """A run's rows after the source repairs: some dropped, some re-pointed.
+def carried(rows: list[dict], table_path: Path | None = None, run_id: str | None = None) -> list[dict]:
+    """A run's rows read against the current corpus: some dropped, some re-pointed.
 
-    Only identities and offsets change; every label is the run's own.
+    Only identities and offsets change; every label is the run's own. A table
+    that lists its `runs` applies to those runs alone, so a run asked about
+    the current corpus is read as written.
     """
-    path = table_path or RUN_REPAIRS
+    path = table_path or RUN_CARRY_OVER
     if not path.is_file():
         return rows
     table = json.loads(path.read_text(encoding="utf-8"))
     if table.get("schema") != 1:
         raise ValueError(f"unsupported {path.name} schema")
+    if "runs" in table and run_id not in table["runs"]:
+        return rows
     drop, remap = set(table["drop"]), table["remap"]
     out = []
     for row in rows:

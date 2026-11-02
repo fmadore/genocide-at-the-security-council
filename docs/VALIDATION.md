@@ -14,8 +14,9 @@ a person has inspected the original PDF.
 
 1. How to inspect an original record.
 2. Open human checks: work only a person can do.
-3. Dated records on the current corpus (Sakamoto–Matsuoka v5.0, the pipeline's
-   input since 3 September 2026), newest first.
+3. Dated records on the current corpus, newest first: Sakamoto–Matsuoka v6.0, the
+   pipeline's input since 2 November 2026, and before it v5.0, its input from
+   3 September 2026. Each record names the release it was made on.
 4. Mechanically reconciled checks on the current corpus.
 5. Self-hosted model run gates.
 6. Website checks.
@@ -45,10 +46,10 @@ nothing in this one.
 
 ## Open human checks
 
-### 1. OCR variant of `genocid*` — none in v5.0
+### 1. OCR variant of `genocid*` — none in v6.0
 
 The disabled tolerant pattern (`gen[eo]cid|senocid|qenocid`) finds no speech the headline
-pattern misses in the v5.0 corpus. The retired corpus's one case (`S/PV.3137`, *genecide*)
+pattern misses in the v6.0 corpus (4,572 speeches, 2 November 2026), nor did it in v5.0. The retired corpus's one case (`S/PV.3137`, *genecide*)
 is spelled correctly here. The check is closed; the tolerant pattern still runs in 03 and
 reports any future delta.
 
@@ -85,23 +86,22 @@ Report precision separately for the core term and extended lexicon, with denomin
 uncertain cases. Any regex change invalidates the verdicts for that term and requires a new
 lexicon version.
 
-### 3. Delivery language — not recoverable from v5.0
+### 3. Delivery language — not recoverable from the source
 
 The retired corpus carried `(spoke in French)` markers for about 40% of its speeches. The
 Sakamoto–Matsuoka transcripts carry none, so no delivery language is derived or published
 (24 September 2026). Language-based claims would need the PV records themselves.
 
-### 4. Trimmed openings — 24 speeches
+### 4. Trimmed openings — 16 speeches
 
-v5.0 bodies open straight into the speech. The form-of-address rule written for the retired
-corpus still matches 24 opening salutations (1,136 characters, none containing `genocid*`)
-and trims them from the body: SC00024-01-006, SC00104-01-007, SC00104-01-046,
-SC00104-01-060, SC00527-01-004, SC00641-01-009, SC01027-01-008, SC01051-01-006,
-SC01601-01-022, SC01909-01-010, SC01932-01-039, SC01940-01-006, SC02656-01-007,
-SC02740-01-007, SC02755-01-007, SC02759-01-024, SC02796-01-015, SC03011-01-003,
-SC03046-01-002, SC04772-01-031, SC06642-01-006, SC08291-01-023, SC09276-02-077 and
-SC09702-01-004. Correcting it changes 24 embedded bodies, so it is done together with the
-next embedding run and a new semantic release (ROADMAP RV2).
+Source bodies open straight into the speech. The form-of-address rule written for the retired
+corpus still matches 16 opening salutations in v6.0 (776 characters, none containing
+`genocid*`; 24 in v5.0) and trims them from the body: SC00024-01-006, SC00104-01-007,
+SC00104-01-046, SC00104-01-061, SC00527-01-004, SC00641-01-009, SC01027-01-008,
+SC01051-01-006, SC01601-01-025, SC01909-01-010, SC01932-01-039, SC01940-01-006,
+SC03011-01-005, SC03046-01-002, SC04772-01-031 and SC08291-01-023. Correcting it changes
+16 embedded bodies, so it is done together with the next embedding run and a new semantic
+release (ROADMAP RV2).
 
 ### 5. Repaired rows in `S/PV.5225` — 36 speeches
 
@@ -112,9 +112,11 @@ document contains 36 corpus speech records. Priority: low.
 
 ### 6. Genocide gold sample — 0 of 469 rows coded
 
-`scripts/13_gold_sample.py` draws 469 candidates over 453 distinct `genocide` occurrences
-(24 September 2026), from every occurrence except the ten behind the prompt's worked
-examples, in three frames:
+`scripts/13_gold_sample.py` draws 469 candidates over 458 distinct `genocide` occurrences
+(redrawn on v6.0, 2 November 2026; 453 under v5.0), from every occurrence except the ten
+behind the prompt's worked examples, in three frames. The `model_strata` frame is cut from the
+published run, so the top-ups due on Festus (check 7) redraw it once more when the merged runs
+are published: the sample must not be coded before then.
 
 | Frame | Rows | Read as |
 |---|---:|---|
@@ -235,6 +237,11 @@ quotes are flagged `evidence_valid=false`, as Qwen's are. The run was asked unde
 lexicon 7 and so does not cover the 40 occurrences lexicon 8 added
 (`docs/CLUSTER.md`, "A run older than the lexicon").
 
+Both runs were asked about v5.0. Since 2 November 2026 they are read through
+`model_annotations/genocide/carry_over.json`: Qwen keeps 6,884 of its rows on v6.0 and
+Gemma 6,912, and 812 and 781 speeches await top-up runs on Festus. The rule and the counts
+are under "2 November 2026" below.
+
 The records of the four hosted runs made on the retired corpus in August 2026 —
 their register, the recount of the Gemini manifest, the `cost_usd` check, the
 unlocated quotes and the agreement tables — are in the appendix, under "Model
@@ -244,21 +251,103 @@ When a run is added, record it here and re-check the artefact counts on the Meth
 against its manifest. Automatic resolutions (a relocated evidence quote, a normalised
 whitespace match) are counted in the manifest, never silently absorbed.
 
-### 8. Four source errors — corrected 19 October 2026
+### 8. Four source errors — fixed upstream in v6.0
 
 S/PV.1379 filed Mali's statement, and its genocide passage, under Israel; S/PV.869 carried a
 copy of S/PV.903 dated 28 June 1960, which gave Ecuador a false first on the DRC chronology;
-S/PV.2622 is a copy of S/PV.2623; and S/PV.906 runs on into 18 speeches of S/PV.873. All
-four are confirmed against the PDFs and repaired by `config/source_repairs.yml`, applied by
-step 01 (decided by FM, 19 October 2026); the evidence and the repair are under
-"19 October 2026" below. Still open: the real S/PV.2622, with one genocide passage, is not in the source.
-FM reported the errors to the dataset's authors, who replied that a future release will correct
-them (recorded 23 October 2026). Until then the repairs stay. When that release is pinned, step 01
-will stop on any repair whose source no longer matches; each such repair should then be checked
-against the new release and removed from `config/source_repairs.yml`, not rewritten.
-Priority: low.
+S/PV.2622 was a copy of S/PV.2623; and S/PV.906 ran on into 18 speeches of S/PV.873. All
+four were confirmed against the PDFs and repaired by `config/source_repairs.yml` on
+19 October 2026 (the evidence is under that date below). FM reported them to the dataset's
+authors, who fixed all four in v6.0, released on 31 October 2026 (Tomoyuki Matsuoka to FM,
+received 2 November 2026). v6.0 is pinned and the repairs are removed; what was checked in
+v6.0, including the real S/PV.2622 the repair could not supply, is under "2 November 2026"
+below. Closed.
 
 ## Dated records on the current corpus
+
+### 2 November 2026 — Sakamoto–Matsuoka v6.0
+
+**The release.** v6.0 (DOI 10.7910/DVN/CKPTRB, released 31 October 2026) runs from S/PV.1
+to S/PV.10181, 17 January 1946 to 23 June 2026. `config/dataset-pin.json` records Harvard's
+file ids and MD5s (`speeches.tsv` `15ddd10d…`, 631,859,757 bytes; `meetings.tsv`
+`e0c045a2…`), read from the published API record on 2 November 2026. Measured against v5.0
+before anything was changed:
+
+- 182,684 speeches against 167,642; 10,636 meeting records against 10,294. 10,861 speeches
+  are from 2025 and 2026, and 4,425 earlier ones are rows v5.0 did not have; 244 of v5.0's
+  rows are gone, most where v6.0 cut a record into several, as `SC02977-01` into `-02` to
+  `-07`.
+- The text of 45,803 speeches that both releases carry under the same identifier changed,
+  in every decade: corrected OCR, mostly. 1,439 of them hold `genocid*`.
+- Speaker coding changed on the shared rows too: `president` on 10,569, `procedural` on
+  10,418, `affiliation` on 17,715, and `position` almost everywhere.
+- The columns `affiliation_cow` and `state` are gone and `cow_state` is new: v6.0 codes state
+  membership strictly by the Correlates of War State System.
+
+**The four repairs (check 8).** Each was checked in v6.0 before it was removed. S/PV.1379:
+`SC01379-01-007` is Mr. Eban's turn alone (1,462 characters) and Mali's statement, with the
+genocide passage, is `SC01379-01-008`; the former `-008` and `-009` are now `-009` and
+`-010`. S/PV.869: 18 speeches, opening on the Federation of Mali's application for
+membership, none of them S/PV.903's. S/PV.2622: the 17 speeches of the real meeting, from the
+English record the UN Digital Library serves (record 107856), one of them with the PLO's
+genocide passage, now counted; S/PV.2623 opens with the President's statement, which v5.0
+lacked. S/PV.906 ends at `SC00906-01-042`. `config/source_repairs.yml` keeps its four lists,
+empty, and the mechanism stays tested, so the next error found can be repaired the same way.
+
+**What the pipeline had to change.**
+
+- *State names.* v5.0's `affiliation_cow` was the name `country_org` took for a state, and
+  `config/country_aliases.csv` and `config/entities.csv` are keyed on those names. v6.0
+  keeps only `cow_ccode`, so `config/cow_names.csv` records v5.0's pairing of code and name
+  (200 codes, each with exactly one name across v5.0's rows) and step 01 names states from it.
+  Kosovo, coded 347 and as a state for the first time, takes the COW name `Kosovo`.
+- *Two Soviet republics.* v6.0 does not code the Ukrainian and Byelorussian SSRs as states
+  (COW does not list them), but both held UN seats from 1945 and sat on the Council, and
+  `lib.council` refuses a Council member that is not a state: 528 speeches. v5.0 coded them as
+  states under the codes of Ukraine and Belarus. `config/source_states.csv` keeps that coding
+  (decided by Claude on 2 November 2026, for FM to confirm), so they keep the labels Ukraine
+  and Belarus.
+- *Periods.* The last slice of the lexical and actor tables runs to 2026: `2020-2026`, was
+  `2020-2024`.
+
+**Totals after the rebuild.** 182,684 speeches, 9,919 meetings with speeches, 93,468,373
+source words and 92,547,139 analytical words. `genocide`: 4,576 speeches and 8,611
+occurrences (from 4,135 and 7,786). Every lexicon count moves, and
+`config/lexicon.counts.json` is rewritten.
+
+**The model runs (check 7).** The run files were asked about v5.0 and are not edited.
+`tools/carry_over_runs.py`, which replaces `tools/remap_run_rows.py`, writes
+`model_annotations/genocide/carry_over.json`, which replaces `source_repairs.json` and which
+`lib.model_runs.read` applies to the two runs made on v5.0. A speech's labels carry over
+together or not at all, since the model read the speech in one request. They carry when the
+speech is in v6.0 word for word, under any identifier in the same meeting, or when each of its
+occurrences is found exactly once in one v6.0 speech of that meeting with 500 unchanged
+characters on either side of it and of every evidence span a run quoted for it, and that
+speech holds no other occurrence. The 500 characters, about two sentences, are a judgement
+(Claude, 2 November 2026, for FM to confirm): the model read the whole speech, so a correction
+further away could in principle have changed an answer.
+
+| Run | Rows | Carried as written | Re-pointed | Dropped |
+|---|---:|---:|---:|---:|
+| `2026-09-08-qwen-131k` | 7,694 | 5,218 | 1,666 | 810 |
+| `2026-09-09-gemma4` | 7,725 | 5,233 | 1,679 | 813 |
+
+Of the 4,576 speeches with the word, 3,764 keep every one of Qwen's labels and 3,795 every one
+of Gemma's. The rest, 812 and 781 speeches with 1,821 and 1,793 occurrences, are new in v6.0,
+changed near the word, or were never answered. They are to be asked again on Festus as top-up
+runs, with the same model, prompt and settings (`scripts/annotation_batches.py plan --top-up`,
+then `merge --carry`, which refuses a run that answered with other weights or settings;
+docs/CLUSTER.md). Both runs are published as partial runs until then. The August 2026 runs on
+the retired corpus name no v5.0 occurrence and are left as they are. The S/PV.1379 passage,
+re-read as Mali's on 20 October, now carries over to `SC01379-01-008#1`.
+
+**The September spot review.** `tools/prior_review.py` resolves the 59 reviewed passages to
+v6.0. Four have moved to the next row of their meeting (`SC00232-01-005#1`–`#3` to
+`SC00232-01-006`, `SC01174-01-002#1` to `SC01174-01-003#1`), and two are resolved by a close
+context, 0.999 alike, where v6.0 corrected the OCR inside the window (`SC06028-01-006#1`,
+`SC06880-01-031#10`). The tool now looks in the whole meeting when the named speech does not
+carry the context, and accepts a close context of at least 0.95 that no other comes within
+0.05 of, printing each such resolution.
 
 ### 19 October 2026 — four source errors, two from an external review
 

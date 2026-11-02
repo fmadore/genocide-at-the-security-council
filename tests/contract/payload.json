@@ -14,11 +14,7 @@
     "un_regional_group": "null|str"
    }
   ],
-  "iso3_collisions": {
-   "*": [
-    "str"
-   ]
-  },
+  "iso3_collisions": {},
   "measures": {
    "*": {
     "kind": "str",
@@ -1117,7 +1113,7 @@
     "speeches": "int",
     "window_tokens": "int"
    },
-   "Russia": {
+   "Pakistan": {
     "collocates": [
      {
       "documents": "int",

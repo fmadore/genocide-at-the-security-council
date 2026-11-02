@@ -503,7 +503,7 @@
     "country_org": "China",
     "held": 27,
     "occurrences": 2,
-    "period": "2020-2024",
+    "period": "2020-2026",
     "speech_rate": null,
     "speech_rate_high": null,
     "speech_rate_low": null,
@@ -516,7 +516,7 @@
     "country_org": "France",
     "held": 31,
     "occurrences": 1,
-    "period": "2020-2024",
+    "period": "2020-2026",
     "speech_rate": null,
     "speech_rate_high": null,
     "speech_rate_low": null,
@@ -529,7 +529,7 @@
     "country_org": "Nigeria",
     "held": 30,
     "occurrences": 1,
-    "period": "2020-2024",
+    "period": "2020-2026",
     "speech_rate": null,
     "speech_rate_high": null,
     "speech_rate_low": null,
@@ -542,7 +542,7 @@
     "country_org": "Rwanda",
     "held": 29,
     "occurrences": 3,
-    "period": "2020-2024",
+    "period": "2020-2026",
     "speech_rate": null,
     "speech_rate_high": null,
     "speech_rate_low": null,
@@ -654,9 +654,9 @@
    },
    {
     "first_year": 2020,
-    "key": "2020-2024",
-    "label": "2020-2024",
-    "last_year": 2024,
+    "key": "2020-2026",
+    "label": "2020-2026",
+    "last_year": 2026,
     "speakers": 4,
     "speakers_at_minimum": 0,
     "speeches": 117,
@@ -1179,7 +1179,7 @@
      "UN": 0
     },
     "held": 27,
-    "period": "2020-2024",
+    "period": "2020-2026",
     "seated": 16,
     "seated_share": 0.592593
    },
@@ -1193,7 +1193,7 @@
      "UN": 0
     },
     "held": 31,
-    "period": "2020-2024",
+    "period": "2020-2026",
     "seated": 19,
     "seated_share": 0.612903
    },
@@ -1207,7 +1207,7 @@
      "UN": 0
     },
     "held": 30,
-    "period": "2020-2024",
+    "period": "2020-2026",
     "seated": 23,
     "seated_share": 0.766667
    },
@@ -1221,7 +1221,7 @@
      "UN": 0
     },
     "held": 29,
-    "period": "2020-2024",
+    "period": "2020-2026",
     "seated": 23,
     "seated_share": 0.793103
    }
@@ -1443,7 +1443,7 @@
     "1990-1999": [],
     "2000-2009": [],
     "2010-2019": [],
-    "2020-2024": []
+    "2020-2026": []
    },
    "edges": [],
    "speeches": {
@@ -1697,7 +1697,7 @@
      "speeches": 14,
      "window_tokens": 224
     },
-    "2020-2024": {
+    "2020-2026": {
      "collocates": [
       {
        "documents": 7,

@@ -7,7 +7,7 @@ each field in the main tables means. It follows the questions of Gebru et al.,
 [CORPUS.md](CORPUS.md); for the status of each published figure, see
 [CLAIMS.md](CLAIMS.md).
 
-Figures below describe the state of 8 October 2026: corpus v5.0, lexicon v8.
+Figures below describe the state of 2 November 2026: corpus v6.0, lexicon v8.
 
 ## Contents
 
@@ -25,7 +25,7 @@ Figures below describe the state of 8 October 2026: corpus v5.0, lexicon v8.
 
 The dataset exists to study how the word *genocide* and its neighbouring
 vocabulary are used in the public meetings of the UN Security Council from 1946
-to 2024: when the word is said, by whom, about which situations, and to what end.
+to 2026: when the word is said, by whom, about which situations, and to what end.
 It was built by Frédérick Madore (University of Bayreuth) for a historical study
 and a public website, "Genocide at the Security Council". The model-annotation
 runs used the Bayreuth Centre for High Performance Computing; see
@@ -41,11 +41,11 @@ lexicon term in a speech.
 
 | | |
 |---|---|
-| Speeches | 167,600 |
-| Meetings with speeches | 9,462 |
-| Analytical words | 86,798,095 |
+| Speeches | 182,684 |
+| Meetings with speeches | 9,919 |
+| Analytical words | 92,547,139 |
 | Lexicon terms counted | 28 (lexicon v8) |
-| Occurrences of `g[eé]nocid*` | 7,786, in 4,135 speeches |
+| Occurrences of `g[eé]nocid*` | 8,611, in 4,576 speeches |
 
 The committed count of every term is in
 [`config/lexicon.counts.json`](../config/lexicon.counts.json).
@@ -63,12 +63,14 @@ The committed count of every term is in
 **What is missing.**
 
 - Speech outside formal meetings: informal consultations leave no verbatim
-  record. Of 10,294 meeting records, 830 carry no speeches.
+  record. Of 10,636 meeting records, 717 carry no speeches.
 - The language actually spoken: the text is the English record, and for speakers
   of other languages it is a UN translation.
 - Words damaged by scanning, which are not counted: every count is a minimum.
-- 36 of the 4,133 speeches the model run was asked to annotate have no labels,
-  and the 40 accented *génocidaires* added by lexicon v8 postdate the run.
+- 812 of the 4,576 speeches carrying `g[eé]nocid*` have no labels from the
+  published model run: it was asked about corpus v5.0, and its labels carry to
+  v6.0 only where the text around each occurrence is unchanged. The rest await a
+  top-up run.
 
 The full list of limitations is in [CORPUS.md](CORPUS.md#limitations-that-must-remain-visible).
 
@@ -77,7 +79,7 @@ The full list of limitations is in [CORPUS.md](CORPUS.md#limitations-that-must-r
 The project collects nothing itself. It reads two files from the source dataset:
 
 > Sakamoto, T., & Matsuoka, T. (2023). *The UNSC Meetings and Speeches*
-> (Version 5.0) [Data set]. Harvard Dataverse.
+> (Version 6.0) [Data set]. Harvard Dataverse.
 > <https://doi.org/10.7910/DVN/CKPTRB> (CC0 1.0).
 
 `speeches.tsv` holds the speech transcripts and their metadata; `meetings.tsv`
@@ -191,7 +193,7 @@ series files run parallel to `periods`.
 
 ### 9.1 Concordance lines: `kwic/<term>.json` and its CSV download
 
-One line per occurrence of one term (`kwic/genocide.json` holds the 7,786 of
+One line per occurrence of one term (`kwic/genocide.json` holds the 8,611 of
 *genocide*). Written by step 08 (`scripts/lib/kwic.py`).
 
 | JSON field | CSV column | Meaning |
@@ -248,7 +250,7 @@ many occurrences it covers (`occurrences_annotated` of `occurrences_total`).
 
 ### 9.3 Annual series: `series/annual.json` and the CSV "The word list over time"
 
-One value per year, 1946–2024, for every term. Written by step 04
+One value per year, 1946–2026, for every term. Written by step 04
 (`scripts/lib/series.py`). `series/quarterly.json` has the same shape by quarter.
 
 | JSON field | CSV column | Meaning |
@@ -300,7 +302,7 @@ package versions, and `analysis_hash`, a checksum of the file's content that
 ignores the timestamp and commit. Two files with the same `analysis_hash` hold the
 same analysis.
 
-The 9,464 meeting files under `speeches/` share one such block, which is written
+The 9,919 meeting files under `speeches/` share one such block, which is written
 once, in `meetings.json`. Each keeps the script, `generated`, `git_commit`, the
 lexicon version and its `analysis_hash`, and a `provenance` field naming
 `meetings.json`. Its `analysis_hash` is taken with the shared block in place, so

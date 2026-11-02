@@ -25,7 +25,7 @@ from lib.paths import (
 )
 
 CORPUS_FIRST_YEAR = 1946
-CORPUS_LAST_YEAR = 2024
+CORPUS_LAST_YEAR = 2026
 LEGACY_MEMBERSHIP_FIRST_YEAR = 1992
 LEGACY_MEMBERSHIP_LAST_YEAR = 2023
 
@@ -171,7 +171,7 @@ class TestEvents:
         assert len(events) > 0
 
     def test_every_event_falls_inside_the_corpus_period(self, events):
-        """An annotation outside 1946-2024 would be drawn off the end of every
+        """An annotation outside 1946-2026 would be drawn off the end of every
         axis in the dashboard, or silently dropped."""
         assert events["year"].between(CORPUS_FIRST_YEAR, CORPUS_LAST_YEAR).all()
 

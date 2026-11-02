@@ -5,7 +5,7 @@ United Nations Security Council: when it is invoked, by whom, about what, and
 with which discursive function.
 
 The canonical corpus is now **Sakamoto & Matsuoka, _The UNSC Meetings and
-Speeches_, v5.0**, covering 1946–2024. The former Schoenfeld 1992–2023 corpus has
+Speeches_, v6.0**, covering 1946–2026. The former Schoenfeld 1992–2023 corpus has
 been fully removed from the pipeline inputs.
 
 Website: <https://fmadore.github.io/genocide-at-the-security-council/>
@@ -35,13 +35,13 @@ gold sample is not yet coded. Read the claims guide before citing a figure.
 | | |
 |---|---|
 | Source | [Sakamoto & Matsuoka, Harvard Dataverse](https://doi.org/10.7910/DVN/CKPTRB) |
-| Version | 5.0, pinned by file identifiers, sizes, and MD5 checksums |
+| Version | 6.0, pinned by file identifiers, sizes, and MD5 checksums |
 | Source licence | CC0 1.0 |
-| Coverage | 1946-01-17 to 2024-12-30 |
-| Speeches | 167,600, after four source repairs ([VALIDATION.md](docs/VALIDATION.md)) |
-| Meetings with speeches | 9,462 |
-| Analytical words | 86,798,095 |
-| `g[eé]nocid*` (lexicon v8) | 4,135 speeches · 7,786 occurrences |
+| Coverage | 1946-01-17 to 2026-06-23 |
+| Speeches | 182,684 |
+| Meetings with speeches | 9,919 |
+| Analytical words | 92,547,139 |
+| `g[eé]nocid*` (lexicon v8) | 4,576 speeches · 8,611 occurrences |
 
 Every term's committed counts are in
 [`config/lexicon.counts.json`](config/lexicon.counts.json); step 03 fails if the
@@ -53,7 +53,7 @@ Detailed documentation of the schema, source categories, and limitations is in
 ## Migration principles
 
 - One source covers the entire period, with no artificial splice in 1992.
-- Text, segmentation, identifiers, and affiliations come from dataset v5.0.
+- Text, segmentation, identifiers, and affiliations come from dataset v6.0.
 - The `state`, `un`, `igo`, `ngo`, and `other` types come from the dataset's
   row-level indicators.
 - P5 and E10 status comes from the dataset's membership indicators, rather than
@@ -79,7 +79,7 @@ The deterministic pipeline is declared in [`Makefile`](Makefile):
 01_build_parquet.py    adapts the source to the canonical schema
 02_normalise.py        counts words and attaches source categories
 03_lexicon.py          applies the lexicon
-04_series.py           rebuilds the 1946–2024 series
+04_series.py           rebuilds the 1946–2026 series
 05_lexical.py          computes collocations, keyness, and the lexical network
 08_kwic.py             builds the concordance
 09_export_speeches.py  exports meeting-level reading files
@@ -106,7 +106,7 @@ map in a clean local build, run `python scripts/fetch_semantic.py` before
 Raw and derived data are gitignored and reproducible:
 
 ```text
-data/raw/                         unchanged v5.0 TSV files
+data/raw/                         unchanged v6.0 TSV files
 data/derived/speeches.parquet     canonical source adaptation
 data/derived/speeches_norm.parquet
 data/derived/speeches_flagged.parquet
@@ -136,7 +136,10 @@ The four hosted 2026-08 runs under
 versioned for provenance of the retired corpus. `current_run.txt` selects the
 `2026-09-08-qwen-131k` run as an explicitly partial preview;
 `comparison_run.txt` names the Gemma run `2026-09-09-gemma4`, published as a
-second opinion since 11 October 2026. A run must cover every current occurrence (the
+second opinion since 11 October 2026. Both were asked about v5.0;
+[`tools/carry_over_runs.py`](tools/carry_over_runs.py) carries their labels to
+v6.0 where the text around each occurrence is unchanged, and the remaining
+speeches are to be asked again in a top-up run. A run must cover every current occurrence (the
 population in `config/lexicon.counts.json`) unless its coverage gap is
 authorised in `allow_partial_run.txt`;
 see [`model_annotations/README.md`](model_annotations/README.md)

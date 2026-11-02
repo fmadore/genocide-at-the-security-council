@@ -467,7 +467,12 @@ def _run(args: argparse.Namespace) -> None:
         "referents_sha256": referents_sha256,
         "schema_version": llm.SCHEMA_VERSION,
         "lexicon_version": lexicon_version,
-        "population": sorted(item.occurrence_id for item in enumerated),
+        # A top-up plan asks about part of the corpus, and its batches are
+        # merged over the population it planned; any other run, the corpus's.
+        "population": (
+            document["population"] if batch_identity is not None and "top_up" in document
+            else sorted(item.occurrence_id for item in enumerated)
+        ),
         "selected_speeches": sorted(scope),
         "requests_sha256": run_store.digest([
             llm.request_body(

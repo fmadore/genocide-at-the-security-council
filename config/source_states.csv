@@ -1,0 +1,14 @@
+# Speakers this project counts as states where Sakamoto-Matsuoka v6.0 does not.
+#
+# v6.0 codes `cow_state` and `cow_ccode` strictly by the Correlates of War State
+# System, which does not list the two Soviet republics that held their own UN
+# seats from 1945: both are `cow_state` 0 with no code. v5.0 coded them as states,
+# under the codes of their successors, and the analysis needs them so: each sat
+# on the Council (Ukrainian SSR 1948-49 and 1984-85, Byelorussian SSR 1974-75),
+# and lib.council refuses a Council member that is not a state. Step 01 sets
+# `cow_state` and `cow_ccode` from this table for these affiliations, before
+# config/cow_names.csv names them, so they keep v5.0's labels Ukraine and Belarus.
+affiliation,cow_ccode
+Byelorussian Soviet Socialist Republic,370
+Ukrainian Soviet Socialist Republic,369
+Ukrainian SSR,369

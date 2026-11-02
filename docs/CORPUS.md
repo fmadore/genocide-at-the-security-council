@@ -1,7 +1,7 @@
 # Canonical corpus
 
 This project exclusively uses **Sakamoto & Matsuoka, _The UNSC Meetings and
-Speeches_, version 5.0**. The former Schoenfeld 1992–2023 corpus is no longer a
+Speeches_, version 6.0**. The former Schoenfeld 1992–2023 corpus is no longer a
 pipeline input. It is Schoenfeld, Eckhard, Patz, van Meegdenburg and Pires, _The UN
 Security Council Debates_, on Harvard Dataverse at
 [doi:10.7910/DVN/KGVSYH](https://doi.org/10.7910/DVN/KGVSYH), where its codebook
@@ -13,24 +13,23 @@ authors.
 | Field | Value |
 |---|---|
 | DOI | [10.7910/DVN/CKPTRB](https://doi.org/10.7910/DVN/CKPTRB) |
-| Pinned version | 5.0, published 31 March 2026 |
+| Pinned version | 6.0, published 31 October 2026 |
 | Source licence | CC0 1.0 |
 | Consumed files | `speeches.tsv`, `meetings.tsv` |
-| Observed coverage | 17 January 1946 to 30 December 2024 |
-| Speeches | 167,600 (167,642 in the source) |
-| Meetings with speeches | 9,462 |
-| Meeting records | 10,294 |
-| Source-reported words | 87,663,706 (87,678,254 in the source) |
-| Project analytical words | 86,798,095 |
+| Observed coverage | 17 January 1946 to 23 June 2026 (S/PV.1 to S/PV.10181) |
+| Speeches | 182,684 |
+| Meetings with speeches | 9,919 |
+| Meeting records | 10,636 |
+| Source-reported words | 93,468,373 |
+| Project analytical words | 92,547,139 |
 
-Step 01 applies repairs to the source, listed in
+Step 01 can apply repairs to the source, listed in
 [`config/source_repairs.yml`](../config/source_repairs.yml) and documented in
-[VALIDATION.md](VALIDATION.md) (19 October 2026). It drops two records that copy
-another meeting (S/PV.869, a copy of S/PV.903; S/PV.2622, a copy of S/PV.2623) and
-the 18 speeches of S/PV.873 that the source appends to S/PV.906, trims the colophon
-off S/PV.906's last speech, and splits one S/PV.1379 speech that ran on into Mali's
-statement. The breakdowns further down were computed on 7 September 2026, before
-the repairs, and differ from the repaired corpus by at most 43 speeches.
+[VALIDATION.md](VALIDATION.md). Version 6.0 needs none, and the file is empty. The
+four errors this project repaired in version 5.0 (S/PV.869 and S/PV.2622, records
+that copied another meeting; the 18 speeches of S/PV.873 appended to S/PV.906, with
+a colophon; one S/PV.1379 speech that ran on into Mali's statement) were reported
+to the dataset's authors and fixed in version 6.0.
 
 The complete pin—Dataverse file identifiers, sizes, and MD5 checksums—is in
 [`config/dataset-pin.json`](../config/dataset-pin.json).
@@ -38,7 +37,7 @@ The complete pin—Dataverse file identifiers, sizes, and MD5 checksums—is in
 
 ## Why a single corpus
 
-Using the same source throughout 1946–2024 avoids an artificial break in 1992
+Using the same source throughout 1946–2026 avoids an artificial break in 1992
 in OCR, speech segmentation, identifiers, affiliations, and speaker categories.
 This makes longitudinal comparisons more coherent than joining two corpora
 produced with different methods.
@@ -57,8 +56,14 @@ content:
 - `meeting_symbol` uses the source-provided `S/PV` symbol;
 - `text` contains the complete speech transcript;
 - `source_affiliation` preserves the raw affiliation;
-- `country_org` uses `affiliation_cow` for states when available, and the raw
-  affiliation otherwise;
+- `country_org` uses the Correlates of War state name for states with a
+  `cow_ccode`, looked up in [`config/cow_names.csv`](../config/cow_names.csv)
+  (version 5.0's code-to-name pairing; version 6.0 dropped `affiliation_cow`),
+  and the raw affiliation otherwise;
+- the source's `cow_state` becomes `source_state`; the Ukrainian and Byelorussian
+  SSRs, which version 6.0 does not code as states, are counted as states under
+  the codes in [`config/source_states.csv`](../config/source_states.csv), as
+  version 5.0 coded them;
 - every original indicator is retained under a `source_*` name.
 
 The canonical raw Parquet file is `data/derived/speeches.parquet`. The normalised
@@ -108,23 +113,23 @@ After normalisation:
 
 | Source category | Speeches |
 |---|---:|
-| State | 158,603 |
-| UN | 1,716 |
-| Other IGO | 445 |
-| NGO | 376 |
-| Other / unspecified | 6,502 |
+| State | 173,116 |
+| UN | 6,150 |
+| Other IGO | 1,484 |
+| NGO | 550 |
+| Other / unspecified | 1,384 |
 
 | Status at the time of the speech | Speeches |
 |---|---:|
-| E10 | 83,464 |
-| P5 | 47,363 |
-| Non-member state | 27,776 |
-| Non-state | 7,323 |
-| UN | 1,716 |
+| E10 | 90,863 |
+| P5 | 51,108 |
+| Non-member state | 31,145 |
+| Non-state | 3,418 |
+| UN | 6,150 |
 
-Lexicon v8 finds `g[eé]nocid*` in **4,135 speeches**, with **7,786 occurrences**
-(4,136 and 7,787 before the source repairs of 19 October 2026; v4 to v7 found
-4,133 and 7,747 with `genocid*`; v8 adds the accented *génocidaires*). Every annotation-stage population check reads these from
+Lexicon v8 finds `g[eé]nocid*` in **4,576 speeches**, with **8,611 occurrences**
+(in version 5.0 of the corpus, after its source repairs: 4,135 and 7,786; v4 to v7
+found 4,133 and 7,747 there with `genocid*`; v8 adds the accented *génocidaires*). Every annotation-stage population check reads these from
 `config/lexicon.counts.json`.
 
 ## Limitations that must remain visible
@@ -142,10 +147,10 @@ Lexicon v8 finds `g[eé]nocid*` in **4,135 speeches**, with **7,786 occurrences*
   original-language records would measure the effect; this has not been done.
 - **Formal meetings only.** Informal consultations are not meetings of the
   Council and leave no verbatim record, so nothing said in them is in the corpus.
-  Of the 10,294 meeting records in the source, 830 carry no speeches: 663 are
-  meetings the source marks as closed, and 167 are other meetings whose record
-  holds no speech (computed from `data/derived/meetings.parquet` on 9 October
-  2026). Only the 9,464 meetings with speeches enter any count.
+  Of the 10,636 meeting records in the source, 717 carry no speeches: 690 are
+  meetings the source marks as closed, and 27 are other meetings whose record
+  holds no speech (computed from `data/derived/meetings.parquet` on 2 November
+  2026). Only the 9,919 meetings with speeches enter any count.
 - `other` means “no source indicator,” not “civil society.”
 - Geographic fields are optional and incomplete enrichments, never an
   aggregation key.
@@ -179,7 +184,9 @@ Lexicon v8 finds `g[eé]nocid*` in **4,135 speeches**, with **7,786 occurrences*
   are archived and cannot be joined to the new `occurrence_id` values. The
   published pointer names the partial `2026-09-08-qwen-131k` preview, which has
   no human validation yet; see [CLAIMS.md](CLAIMS.md) for what each figure rests
-  on.
+  on. It and the Gemma comparison run were asked about version 5.0; their labels
+  are carried to version 6.0 only where the text around each occurrence is
+  unchanged ([model_annotations/README.md](../model_annotations/README.md)).
 
 ## Government-change datasets: an evaluation, not an adoption
 
@@ -230,12 +237,15 @@ State of Cyprus and of Kibris (10), five rows labelled `USA`, four labelled
 elsewhere.
 
 Every figure in this section that concerns the corpus was computed with pandas
-over `data/derived/speeches_flagged.parquet`; upstream facts about each candidate
-were read from that project's own pages on 7 September 2026 and are cited below.
+over `data/derived/speeches_flagged.parquet` of version 5.0 of the corpus; upstream
+facts about each candidate were read from that project's own pages on 7 September
+2026 and are cited below. Version 6.0 extends the corpus to 23 June 2026, past the
+end of every candidate's coverage, V-Dem's and WhoGov's included; the figures have
+not been recomputed for it.
 
 ### The five candidates
 
-Coverage is measured against the corpus's observed span, 17 January 1946 to 30
+Coverage is measured against version 5.0's observed span, 17 January 1946 to 30
 December 2024. A blanked share is the number of corpus speeches falling outside
 a dataset's coverage, over the corpus denominator of 167,642.
 
@@ -353,12 +363,12 @@ disambiguation first, and that is its own project, not a field on this corpus.
 ## Citation
 
 > Sakamoto, T., & Matsuoka, T. (2023). _The UNSC Meetings and Speeches_
-> (Version 5.0) [Data set]. Harvard Dataverse.
+> (Version 6.0) [Data set]. Harvard Dataverse.
 > https://doi.org/10.7910/DVN/CKPTRB
 
 The year follows Harvard Dataverse's own suggested citation: the year the dataset
-was first published, followed by the version. Version 5.0, the pinned version, was
-released on 31 March 2026.
+was first published, followed by the version. Version 6.0, the pinned version, was
+released on 31 October 2026.
 
 Associated article: Sakamoto, T., Matsuoka, T., & Ito, H. (2026), “The Security
 Council in its entirety: unveiling 80 years of deliberation through the UNSC

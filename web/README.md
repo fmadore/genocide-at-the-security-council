@@ -71,7 +71,7 @@ comparisons and filters. Hover, chart zoom, map-row focus and other transient pr
 state stay local to the browser session.
 
 `/reader/[meeting]` is the only client-only route: prerendering it would mean generating
-9,464 pages to display text that is already fetched as JSON. The static adapter's
+9,919 pages to display text that is already fetched as JSON. The static adapter's
 `404.html` fallback serves it.
 
 ## Installable, and it never asks
@@ -93,7 +93,7 @@ shared with every other project hosted there. Omitted, it defaults to the resolv
 is citable should keep the address of the thing being cited on screen.
 
 **The service worker is built around one fact: `static/data/` holds one file per meeting
-record, 9,464 of them, and runs to hundreds of megabytes.** Precaching it — the default shape
+record, 9,919 of them, and runs to hundreds of megabytes.** Precaching it — the default shape
 of a service worker, and what SvelteKit's `$app/manifest` would hand over unfiltered — would spend a
 reader's data on thousands of meetings they will never open. So `vite.config.ts` leaves that directory out of the precache list it hands the worker, and the
 three strategies follow from the same fact:

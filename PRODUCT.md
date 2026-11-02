@@ -22,7 +22,7 @@ as a separate audience with separate needs.
 ## Product Purpose
 
 A corpus study of the word *genocide* and its semantic neighbourhood in Security
-Council debates, 1946 to 2024: when it is invoked, by whom, about what, and with
+Council debates, 1946 to 2026: when it is invoked, by whom, about what, and with
 which discursive function. The site publishes the study's figures and lets the
 visitor open every count onto the speeches behind it. Success is a visitor who
 leaves with a citable figure or passage and a correct understanding of what that
@@ -38,7 +38,7 @@ of its numbers can be walked back to a meeting symbol and a script.
 
 ## Operating Context
 
-- The record is Sakamoto & Matsuoka, *The UNSC Meetings and Speeches*, v5.0
+- The record is Sakamoto & Matsuoka, *The UNSC Meetings and Speeches*, v6.0
   (Harvard Dataverse, CC0), pinned by checksum. One corpus for the whole span;
   no splice in 1992.
 - A deterministic Python pipeline (`Makefile`, `scripts/00_*` to `export_web.py`)

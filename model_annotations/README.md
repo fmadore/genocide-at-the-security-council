@@ -8,8 +8,13 @@ human has checked its labels: the gold sample is uncoded.
 
 - **Coverage.** Qwen3.8-27B (prompt v3) annotated 4,097 of the 4,133 speeches and
   7,694 of the 7,747 occurrences of the population it was made against (lexicon
-  v6). Lexicon v8 later added the 40 accented *génocidaires*, which the run
-  predates, so it now covers 7,694 of 7,787 occurrences.
+  v6, corpus v5.0). Lexicon v8 later added the 40 accented *génocidaires*, which
+  the run predates. Corpus v6.0 corrected the text of many speeches and added the
+  meetings of January 2025 to June 2026; the run's labels carry over to it only
+  where the text around each occurrence is unchanged (`carry_over.json`, below),
+  so it now covers 3,764 of the 4,576 speeches. The other 812 are to be asked
+  again in a top-up run ([docs/CLUSTER.md](../docs/CLUSTER.md)), merged with this
+  one into a new run.
 - **What is missing.** 36 speeches have no accepted response: 34 because the
   model wrote a display name where an identifier from the referent list was
   required, 2 because the response was cut off at the output limit. The
@@ -47,10 +52,10 @@ runs cite a commit that exists.
 The comparison run, `2026-09-09-gemma4` (Gemma 4 31B IT, same prompt), is
 published as the second opinion: `comparison_run.txt` names it since 11 October
 2026. The gold sample does not follow it (see `gold_comparison_run.txt` below). It covers 4,130 of
-4,133 speeches. Its manifest reads `status: partial` and lists the three it
+the 4,133 speeches of corpus v5.0, and 3,795 of 4,576 once carried over to v6.0. Its manifest reads `status: partial` and lists the three it
 leaves out under `gaps`, each with the failure its batch last recorded; why they
 were left out is in `docs/VALIDATION.md` §7. The four hosted runs of August 2026 remain
-historical provenance for the retired corpus and must not be joined to v5.
+historical provenance for the retired corpus and must not be joined to the current one.
 
 Files below this directory are durable, version-controlled research inputs, exactly as the
 ones under `annotations/` are. The difference is who wrote them: `scripts/14_llm_annotate.py`
@@ -84,6 +89,7 @@ genocide/
   current_run.txt              the run id the dashboard shows, or empty for none
   comparison_run.txt           the run id read against it as a second opinion, or empty
   gold_comparison_run.txt      the second run the gold sample's third frame is cut from, or empty
+  carry_over.json              how the runs asked about corpus v5.0 are read against v6.0
   runs/<run_id>/
     manifest.json              weights revision, runtime, prompt, counts, usage, status
     identity.json              checksums of everything that defines the instrument
@@ -178,3 +184,13 @@ under the coders (decided by FM, 11 October 2026). With Gemma named, the disagre
 would take every occurrence either run calls `rejects` and grow the sample from 469 to 799 rows.
 Changing this file redraws the sample; see
 [`docs/EVALUATION_PLAN.md`](../docs/EVALUATION_PLAN.md), section 3.
+
+## `carry_over.json`
+
+The Qwen and Gemma runs were asked about corpus v5.0. Their files are never edited, so the
+move to v6.0 lives in this table, written by `tools/carry_over_runs.py` and applied by
+`lib.model_runs.read` to the runs it lists. A row whose speech is unchanged is read as
+written; a row whose passage is found unchanged in v6.0 is re-pointed at it; every row of a
+speech whose text near an occurrence changed is dropped, and that speech is left to a top-up
+run. Labels are never touched. Run without `--write`, the tool checks that every row of every
+committed run, read through the table, names an occurrence of the current corpus once.

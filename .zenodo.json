@@ -1,7 +1,7 @@
 {
   "title": "Genocide at the Security Council",
   "upload_type": "software",
-  "description": "<p>Data pipeline, computational analysis and interactive dashboard studying the use of the word <em>genocide</em> and its semantic neighbourhood in United Nations Security Council speeches, 1946–2024. The corpus is Sakamoto and Matsuoka, <em>The UNSC Meetings and Speeches</em>, version 5.0 (Harvard Dataverse, CC0).</p><p>The model-derived labels in this repository are unvalidated: the human gold sample has not yet been coded. See docs/CLAIMS.md for the status of each kind of figure.</p>",
+  "description": "<p>Data pipeline, computational analysis and interactive dashboard studying the use of the word <em>genocide</em> and its semantic neighbourhood in United Nations Security Council speeches, 1946–2026. The corpus is Sakamoto and Matsuoka, <em>The UNSC Meetings and Speeches</em>, version 6.0 (Harvard Dataverse, CC0).</p><p>The model-derived labels in this repository are unvalidated: the human gold sample has not yet been coded. See docs/CLAIMS.md for the status of each kind of figure.</p>",
   "creators": [
     {
       "name": "Madore, Frédérick",

@@ -1,0 +1,210 @@
+# Correlates of War state names, by COW country code.
+#
+# Sakamoto-Matsuoka v5.0 gave every state speaker a standardised name in
+# `affiliation_cow`; v6.0 dropped that column and kept only `cow_ccode`.
+# This table is v5.0's code-to-name pairing, read off the 167,642 v5.0 rows
+# (each code carried one name), so that `country_org` keeps the labels
+# config/country_aliases.csv and config/entities.csv are keyed on. Code 347,
+# Kosovo, is new in v6.0 and takes the COW State System's own name.
+cow_ccode,name
+2,United States of America
+20,Canada
+31,Bahamas
+40,Cuba
+41,Haiti
+42,Dominican Republic
+51,Jamaica
+52,Trinidad and Tobago
+53,Barbados
+54,Dominica
+55,Grenada
+56,St. Lucia
+57,St. Vincent and the Grenadines
+58,Antigua & Barbuda
+60,St. Kitts and Nevis
+70,Mexico
+80,Belize
+90,Guatemala
+91,Honduras
+92,El Salvador
+93,Nicaragua
+94,Costa Rica
+95,Panama
+100,Colombia
+101,Venezuela
+110,Guyana
+115,Suriname
+130,Ecuador
+135,Peru
+140,Brazil
+145,Bolivia
+150,Paraguay
+155,Chile
+160,Argentina
+165,Uruguay
+200,United Kingdom
+205,Ireland
+210,Netherlands
+211,Belgium
+212,Luxembourg
+220,France
+221,Monaco
+223,Liechtenstein
+225,Switzerland
+230,Spain
+232,Andorra
+235,Portugal
+255,Germany
+260,German Federal Republic
+265,German Democratic Republic
+290,Poland
+305,Austria
+310,Hungary
+315,Czechoslovakia
+316,Czech Republic
+317,Slovakia
+325,Italy
+331,San Marino
+338,Malta
+339,Albania
+341,Montenegro
+343,Macedonia
+344,Croatia
+345,Yugoslavia
+346,Bosnia and Herzegovina
+347,Kosovo
+349,Slovenia
+350,Greece
+352,Cyprus
+355,Bulgaria
+359,Moldova
+360,Romania
+365,Russia
+366,Estonia
+367,Latvia
+368,Lithuania
+369,Ukraine
+370,Belarus
+371,Armenia
+372,Georgia
+373,Azerbaijan
+375,Finland
+380,Sweden
+385,Norway
+390,Denmark
+395,Iceland
+402,Cape Verde
+403,Sao Tome and Principe
+404,Guinea-Bissau
+411,Equatorial Guinea
+420,Gambia
+432,Mali
+433,Senegal
+434,Benin
+435,Mauritania
+436,Niger
+437,Ivory Coast
+438,Guinea
+439,Burkina Faso
+450,Liberia
+451,Sierra Leone
+452,Ghana
+461,Togo
+471,Cameroon
+475,Nigeria
+481,Gabon
+482,Central African Republic
+483,Chad
+484,Congo
+490,Democratic Republic of the Congo
+500,Uganda
+501,Kenya
+510,Tanzania
+516,Burundi
+517,Rwanda
+520,Somalia
+522,Djibouti
+530,Ethiopia
+531,Eritrea
+540,Angola
+541,Mozambique
+551,Zambia
+552,Zimbabwe
+553,Malawi
+560,South Africa
+565,Namibia
+570,Lesotho
+571,Botswana
+572,Swaziland
+580,Madagascar
+581,Comoros
+590,Mauritius
+591,Seychelles
+600,Morocco
+615,Algeria
+616,Tunisia
+620,Libya
+625,Sudan
+626,South Sudan
+630,Iran
+640,Turkey
+645,Iraq
+651,Egypt
+652,Syria
+660,Lebanon
+663,Jordan
+666,Israel
+670,Saudi Arabia
+678,Yemen Arab Republic
+679,Yemen
+680,Yemen People's Republic
+690,Kuwait
+692,Bahrain
+694,Qatar
+696,United Arab Emirates
+698,Oman
+700,Afghanistan
+701,Turkmenistan
+702,Tajikistan
+703,Kyrgyzstan
+704,Uzbekistan
+705,Kazakhstan
+710,China
+712,Mongolia
+713,China
+731,North Korea
+732,South Korea
+740,Japan
+750,India
+760,Bhutan
+770,Pakistan
+771,Bangladesh
+775,Myanmar
+780,Sri Lanka
+781,Maldives
+790,Nepal
+800,Thailand
+811,Cambodia
+812,Laos
+816,Vietnam
+817,Republic of Vietnam
+820,Malaysia
+830,Singapore
+835,Brunei
+840,Philippines
+850,Indonesia
+860,East Timor
+900,Australia
+910,Papua New Guinea
+920,New Zealand
+935,Vanuatu
+940,Solomon Islands
+946,Kiribati
+947,Tuvalu
+950,Fiji
+955,Tonga
+970,Nauru
+983,Marshall Islands
+986,Palau
+987,Federated States of Micronesia
+990,Samoa

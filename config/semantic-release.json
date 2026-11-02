@@ -1,10 +1,10 @@
 {
   "schema": 1,
-  "url": "https://github.com/fmadore/genocide-at-the-security-council/releases/download/semantic-2026-10-20/semantic-832092.zip",
-  "sha256": "3897e40f781549391bd973529206cc57428e14cdda449c3261135a0cb380e97a",
-  "manifest_sha256": "34dc39e120c05b62819ddaa9d29c0cc7ec9e34783e9319e1f62a2be056b40735",
-  "corpus_sha256": "85922af1ac7357d9cee67bd16d55acc0627da9d1482d31e82bc8c19073a9a266",
-  "corpus_content_sha256": "7da982437035ca495c501e0002c733ff677a3fae619840cebb27a6349e9e798b",
-  "corpus_geometry_sha256": "c4e974ab5bd7d7c1d6a68c1c915b9ee4b932736d42ef286813a35767605c3e68",
-  "geometry_note": "Computed 2026-10-20 from the corpus whose content fingerprint matches corpus_content_sha256, after the source repairs of 19 October 2026; binds row ids and embedded bodies only. Display attributes are re-derived at export (docs/ROADMAP.md, RV6)."
+  "pending": "The corpus moved to Sakamoto-Matsuoka v6.0 on 2 November 2026. The last release, semantic-2026-10-20, was built from v5.0, whose text differs in some 45,800 speeches, and v6.0 adds 15,000 more; a map of v6.0 needs a new embedding run on the cluster and a new release (docs/VALIDATION.md, 2 November 2026).",
+  "previous": {
+    "url": "https://github.com/fmadore/genocide-at-the-security-council/releases/download/semantic-2026-10-20/semantic-832092.zip",
+    "sha256": "3897e40f781549391bd973529206cc57428e14cdda449c3261135a0cb380e97a",
+    "manifest_sha256": "34dc39e120c05b62819ddaa9d29c0cc7ec9e34783e9319e1f62a2be056b40735",
+    "corpus_sha256": "85922af1ac7357d9cee67bd16d55acc0627da9d1482d31e82bc8c19073a9a266"
+  }
 }

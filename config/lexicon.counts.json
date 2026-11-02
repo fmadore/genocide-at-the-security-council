@@ -1,118 +1,118 @@
 {
   "lexicon_version": 8,
-  "speeches": 167600,
+  "speeches": 182684,
   "terms": {
     "aggression": {
-      "speeches": 249,
-      "occurrences": 330
+      "speeches": 307,
+      "occurrences": 406
     },
     "atrocity": {
-      "speeches": 5156,
-      "occurrences": 7476
+      "speeches": 5692,
+      "occurrences": 8239
     },
     "commemoration": {
-      "speeches": 208,
-      "occurrences": 319
+      "speeches": 226,
+      "occurrences": 347
     },
     "crimes_against_humanity": {
-      "speeches": 3725,
-      "occurrences": 4434
+      "speeches": 4008,
+      "occurrences": 4776
     },
     "denial": {
-      "speeches": 214,
-      "occurrences": 313
+      "speeches": 240,
+      "occurrences": 339
     },
     "early_warning": {
-      "speeches": 1537,
-      "occurrences": 1880
+      "speeches": 1792,
+      "occurrences": 2169
     },
     "ethnic_cleansing": {
-      "speeches": 1280,
-      "occurrences": 1780
+      "speeches": 1360,
+      "occurrences": 1838
     },
     "ethnic_violence": {
       "speeches": 16,
       "occurrences": 16
     },
     "extermination": {
-      "speeches": 582,
-      "occurrences": 790
+      "speeches": 614,
+      "occurrences": 820
     },
     "genocidal_ideology": {
-      "speeches": 37,
-      "occurrences": 49
+      "speeches": 40,
+      "occurrences": 53
     },
     "genocide": {
-      "speeches": 4135,
-      "occurrences": 7786
+      "speeches": 4576,
+      "occurrences": 8611
     },
     "genocide_convention": {
-      "speeches": 228,
-      "occurrences": 269
+      "speeches": 264,
+      "occurrences": 315
     },
     "glorification": {
-      "speeches": 98,
-      "occurrences": 112
+      "speeches": 108,
+      "occurrences": 122
     },
     "holocaust": {
-      "speeches": 358,
-      "occurrences": 465
+      "speeches": 401,
+      "occurrences": 531
     },
     "icc": {
-      "speeches": 4794,
-      "occurrences": 11000
+      "speeches": 5133,
+      "occurrences": 11880
     },
     "icj": {
-      "speeches": 3044,
-      "occurrences": 4992
+      "speeches": 3608,
+      "occurrences": 5741
     },
     "impunity": {
-      "speeches": 10260,
-      "occurrences": 14285
+      "speeches": 11211,
+      "occurrences": 15547
     },
     "incitement": {
-      "speeches": 62,
-      "occurrences": 65
+      "speeches": 67,
+      "occurrences": 71
     },
     "intent_to_destroy": {
-      "speeches": 17,
-      "occurrences": 26
+      "speeches": 20,
+      "occurrences": 29
     },
     "mass_atrocity": {
-      "speeches": 651,
-      "occurrences": 812
+      "speeches": 710,
+      "occurrences": 875
     },
     "mass_killing": {
-      "speeches": 204,
-      "occurrences": 227
+      "speeches": 259,
+      "occurrences": 287
     },
     "massacre": {
-      "speeches": 2868,
-      "occurrences": 4578
+      "speeches": 3081,
+      "occurrences": 4847
     },
     "never_again": {
-      "speeches": 371,
-      "occurrences": 408
+      "speeches": 424,
+      "occurrences": 465
     },
     "prevention_of_genocide": {
-      "speeches": 233,
-      "occurrences": 261
+      "speeches": 234,
+      "occurrences": 262
     },
     "responsibility_to_protect": {
-      "speeches": 1365,
-      "occurrences": 1800
+      "speeches": 1429,
+      "occurrences": 1869
     },
     "survivors": {
-      "speeches": 69,
-      "occurrences": 103
+      "speeches": 81,
+      "occurrences": 115
     },
     "tribunals": {
-      "speeches": 2726,
-      "occurrences": 12028
+      "speeches": 2816,
+      "occurrences": 12325
     },
     "war_crimes": {
-      "speeches": 4820,
-      "occurrences": 6761
+      "speeches": 5310,
+      "occurrences": 7366
     }
   }
 }

@@ -1,4 +1,11 @@
-"""Immutable speech assignments and strict assembly of independent model runs."""
+"""Immutable speech assignments and strict assembly of independent model runs.
+
+A plan partitions every genocide-bearing speech, or, as a top-up, only the
+speeches a committed run does not cover in full: the speeches whose text v6.0
+changed under the run's labels (`tools/carry_over_runs.py`), those it added,
+and those the run never answered. A top-up's batches are merged with the run
+they top up, whose rows stand for every other speech.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +18,8 @@ from pathlib import Path
 from . import artifacts, model_runs, run_store
 
 
-def plan(speeches, size: int) -> dict:
+def plan(speeches, size: int, top_up: dict | None = None) -> dict:
+    """Batches of `speeches`; with `top_up`, the record of the run they complete."""
     if size < 1 or not speeches:
         raise ValueError("Batch size and population must be positive")
     # Round-robin by corpus order spreads early/late speeches across batches.
@@ -19,14 +27,32 @@ def plan(speeches, size: int) -> dict:
     ids = [speech.custom_id for speech in speeches]
     if len(set(ids)) != len(ids):
         raise ValueError("Duplicate speech identifiers")
-    return {
+    document = {
         "version": 1,
         "population": sorted(o.occurrence_id for s in speeches for o in s.occurrences),
         "batches": [ids[index::count] for index in range(count)],
     }
+    if top_up is not None:
+        document["top_up"] = top_up
+    return document
+
+
+def uncovered(speeches, rows) -> list:
+    """The speeches some occurrence of which has no row."""
+    have = {str(row["occurrence_id"]) for row in rows}
+    return [s for s in speeches if not {o.occurrence_id for o in s.occurrences} <= have]
+
+
+def scoped(document: dict, speeches) -> list:
+    """The speeches a plan partitions: every one, or a top-up's own."""
+    if "top_up" not in document:
+        return list(speeches)
+    wanted = {identifier for batch in document["batches"] for identifier in batch}
+    return [s for s in speeches if s.custom_id in wanted]
 
 
 def select(document: dict, speeches, index: int):
+    speeches = scoped(document, speeches)
     batches = document["batches"]
     ids = [identifier for batch in batches for identifier in batch]
     actual = {s.custom_id: s for s in speeches}
@@ -63,8 +89,24 @@ def within(document: dict, speeches, *, widened: bool):
     return kept
 
 
+#: What a carried run's serving runtime must share with a top-up's: the
+#: weights, how they are asked and how long they may answer. The vLLM version,
+#: the hardware and the batching may differ.
+ANSWERING = ("served_model", "model_revision", "quantization", "sampling", "reasoning",
+             "max_output_tokens")
+
+
+def answering(runtime: dict | None) -> dict:
+    """The part of a runtime that decides an answer, as `ANSWERING` names it."""
+    runtime = runtime or {}
+    serving = runtime.get("serving") or {}
+    return {**{key: runtime.get(key) for key in ANSWERING},
+            "max_model_len": serving.get("max_model_len"),
+            "reasoning_parser": serving.get("reasoning_parser")}
+
+
 def merge(document: dict, speeches, sources: list[Path], output: Path,
-          gaps: Sequence[str] = ()) -> dict:
+          gaps: Sequence[str] = (), carry: Path | None = None) -> dict:
     """Require every shard to be complete, apart from the gaps the caller names.
 
     A gap is a speech its batch asked about and never got an acceptable answer
@@ -72,9 +114,23 @@ def merge(document: dict, speeches, sources: list[Path], output: Path,
     have a recorded failure, which the merged manifest repeats beside it. A
     batch with any other speech outstanding is refused, so a partial union is
     never published silently.
+
+    A top-up plan is merged with `carry`, the run it tops up, read as
+    `model_runs.read` reads it. Its rows stand for every speech outside the
+    plan and must cover each of those in full; its rows inside the plan are
+    superseded. It must have asked the same model with the same prompt, referent
+    list, schema and reasoning effort as the batches, and its runtime must agree
+    with theirs in what `ANSWERING` names. The rest of its runtime and the
+    lexicon version it enumerated under may differ, and the merged manifest
+    records both under `carried`; its rows take the merged run's lexicon
+    version, the enumeration they now belong to.
     """
     if output.exists():
         raise ValueError("Merge output already exists; use a fresh run id")
+    if ("top_up" in document) != (carry is not None):
+        raise ValueError("A top-up plan is merged with the run it tops up, and only then")
+    if carry is not None and carry.name != document["top_up"]["run_id"]:
+        raise ValueError(f"The plan tops up {document['top_up']['run_id']}, not {carry.name}")
     if len(sources) != len(document["batches"]):
         raise ValueError("Missing or extra batch directories")
     wanted = set(gaps)
@@ -141,7 +197,36 @@ def merge(document: dict, speeches, sources: list[Path], output: Path,
                            "probe_sha256": manifest["probe_sha256"]})
     if stray := wanted - {gap["custom_id"] for gap in accepted}:
         raise ValueError(f"Named gaps outside every batch: {', '.join(sorted(stray))}")
-    if {r["occurrence_id"] for r in records} != set(document["population"]) - absent:
+    population = set(document["population"])
+    carried = None
+    if carry is not None:
+        carried_manifest, carried_rows = model_runs.read(carry)
+        planned = {s.custom_id for s in scoped(document, speeches)}
+        owner = {o.occurrence_id: s.custom_id for s in speeches for o in s.occurrences}
+        if any(str(row["occurrence_id"]) not in owner for row in carried_rows):
+            raise ValueError(f"{carry.name} names an occurrence the corpus does not have")
+        outside = {o.occurrence_id for s in speeches if s.custom_id not in planned for o in s.occurrences}
+        kept = [row for row in carried_rows if owner[str(row["occurrence_id"])] not in planned]
+        if {str(row["occurrence_id"]) for row in kept} != outside:
+            raise ValueError(f"{carry.name} does not cover every speech outside the top-up plan")
+        instrument = ("model", "prompt_sha256", "prompt_version", "referents_sha256",
+                      "referents_version", "schema_version", "reasoning_effort", "term")
+        if common is None or any(carried_manifest.get(key) != common[key] for key in instrument):
+            raise ValueError(f"{carry.name} asked a different instrument than the batches")
+        if answering(carried_manifest.get("runtime")) != answering(common["runtime"]):
+            raise ValueError(f"{carry.name} served the model differently than the batches")
+        records.extend({**row, "run_id": output.name, "lexicon_version": common["lexicon_version"]}
+                       for row in kept)
+        population |= outside
+        carried = {"run_id": carry.name, "rows": len(kept), "superseded": len(carried_rows) - len(kept),
+                   "created": carried_manifest["created"],
+                   "lexicon_version": carried_manifest["lexicon_version"],
+                   "runtime": carried_manifest.get("runtime"),
+                   "manifest_sha256": artifacts.sha256(carry / "manifest.json"),
+                   "annotations_sha256": artifacts.sha256(carry / "annotations.jsonl"),
+                   "carry_over_sha256": (artifacts.sha256(model_runs.RUN_CARRY_OVER)
+                                         if model_runs.RUN_CARRY_OVER.is_file() else None)}
+    if {r["occurrence_id"] for r in records} != population - absent:
         raise ValueError("Merged population mismatch")
     # A batch left with a gap never records `completed`; its last pass ended it.
     ended = [m["completed"] or max(str(p["at"]) for p in m["passes"]) for m in manifests]
@@ -151,12 +236,17 @@ def merge(document: dict, speeches, sources: list[Path], output: Path,
               "completed": max(ended),
               "requests": {key: sum(m["requests"][key] for m in manifests)
                            for key in ("planned", "sent", "returned", "complete")},
-              "occurrences": {"planned": len(document["population"]), "written": len(records)},
+              "occurrences": {"planned": len(population), "written": len(records)},
               "parse_failures": len(accepted),
               "gaps": sorted(accepted, key=lambda gap: gap["custom_id"]),
               "usage": {key: sum(m["usage"][key] for m in manifests) for key in manifests[0]["usage"]},
               "passes": [p for m in manifests for p in m["passes"]],
               "assembly": {"plan_sha256": run_store.digest(document), "sources": provenance}}
+    if carried is not None:
+        # `requests`, `usage` and `passes` stay the batches': the carried rows
+        # were paid for by the run they came from, which `carried` names.
+        merged["carried"] = carried
+        merged["created"] = min(merged["created"], carried["created"])
     for key in ("evidence_invalid", "evidence_relocated", "truncation_count"):
         merged[key] = sum(m[key] for m in manifests)
     # An assembly is a derived immutable run, not a live resumable writer.

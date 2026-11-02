@@ -8,7 +8,7 @@ licence.
 
 | Layer | What | Licence |
 |---|---|---|
-| Source corpus | Sakamoto & Matsuoka, *The UNSC Meetings and Speeches*, Harvard Dataverse v5.0, DOI [10.7910/DVN/CKPTRB](https://doi.org/10.7910/DVN/CKPTRB) | CC0 1.0, by its depositors |
+| Source corpus | Sakamoto & Matsuoka, *The UNSC Meetings and Speeches*, Harvard Dataverse v6.0, DOI [10.7910/DVN/CKPTRB](https://doi.org/10.7910/DVN/CKPTRB) | CC0 1.0, by its depositors |
 | Code | Everything under `scripts/`, `web/`, `tests/`, `tools/`, `config/` | MIT |
 | Derived artefacts | Everything under `data/derived/` and `notes/`, plus the figures, tables and prose of the dashboard and the project's own prose in `docs/` | **CC BY 4.0** |
 
@@ -32,11 +32,11 @@ worth nothing without the record it came from — the source corpus as well:
 
 > Madore, F. (2026). *Genocide at the Security Council*.
 > <https://github.com/fmadore/genocide-at-the-security-council>. Derived from Sakamoto, T.,
-> & Matsuoka, T. (2026), *The UNSC Meetings and Speeches* (Version 5.0) [Data set], Harvard
+> & Matsuoka, T. (2026), *The UNSC Meetings and Speeches* (Version 6.0) [Data set], Harvard
 > Dataverse, <https://doi.org/10.7910/DVN/CKPTRB> (CC0).
 
 Harvard Dataverse's own suggested citation for the corpus gives the year it was first
-published, 2023, followed by "V5"; either form identifies the same pinned version.
+published, 2023, followed by "V6"; either form identifies the same pinned version.
 
 See [`CITATION.cff`](CITATION.cff) for machine-readable metadata.
 

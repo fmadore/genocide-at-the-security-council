@@ -10,7 +10,7 @@
 //
 // **What it does not do.** It does not try to make the site work offline before
 // it has been used. `web/static/data/` runs to hundreds of megabytes, most of
-// it one file per meeting record, 9,464 of them — and precaching that is not a
+// it one file per meeting record, 9,919 of them — and precaching that is not a
 // heavy version of the right idea, it is the wrong idea: a reader who opens the
 // Overview would spend their month's data on thousands of meetings they will
 // never read. `vite.config.ts` keeps
@@ -64,7 +64,7 @@ const CACHE_PREFIX = `unsc:${encodeURIComponent(base || '/')}:`;
 const CACHE = `${CACHE_PREFIX}${version}`;
 
 // The SPA shell adapter-static writes for routes that are not prerendered — the
-// reader, which has 9,464 possible URLs and is a route rather than 9,464 pages.
+// reader, which has 9,919 possible URLs and is a route rather than 9,919 pages.
 // It belongs to neither list: `build` is Vite's output, `files` is
 // `static/`, and this is the adapter's own. Hence the literal.
 const FALLBACK = `${base}/404.html`;

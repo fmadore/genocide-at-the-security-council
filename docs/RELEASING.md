@@ -110,10 +110,11 @@ recreate, such as the cluster embeddings (review item B10).
    GitHub refuses a release file of 2 GiB or more; split a larger zip.
 6. **Write the release notes** (`release-notes.md`) in plain words:
    - what the release is, and that its model labels are unvalidated;
-   - the corpus: Sakamoto and Matsuoka v5.0, DOI 10.7910/DVN/CKPTRB, pinned by
+   - the corpus: Sakamoto and Matsuoka v6.0, DOI 10.7910/DVN/CKPTRB, pinned by
      the checksums in `config/dataset-pin.json`;
-   - the model run shown: `2026-09-08-qwen-131k`, partial (4,097 of 4,133
-     speeches), prompt v3, and that the Gemma comparison is not included unless
+   - the model run shown: `2026-09-08-qwen-131k`, partial (3,764 of 4,576
+     speeches carried over from corpus v5.0, until a top-up run completes it),
+     prompt v3, and that the Gemma comparison is not included unless
      it has been published by then;
    - the gold sample's state (on 8 October 2026: 0 of 469 rows coded);
    - the commit, and the `analysis_hash` of the main artefacts, read from the

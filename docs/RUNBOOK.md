@@ -77,7 +77,7 @@ does not match the code.
 **What to do:** delete the derived cache and re-run, so that the data are rebuilt
 from scratch. The caches are listed under Actions → Caches; with the GitHub
 command-line tool, `gh cache list` and `gh cache delete <key>`. The derived
-cache's key starts with `derived-v5.0-`, the raw cache's is `raw-v5.0`.
+cache's key starts with `derived-v6.0-`, the raw cache's is `raw-v6.0`.
 
 ## The semantic map cannot be restored
 

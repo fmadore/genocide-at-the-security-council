@@ -533,7 +533,12 @@ def test_the_prior_review_list_carries_identities_and_nothing_else() -> None:
     assert (listed["occurrence_id"].str.fullmatch(r"[0-9a-f]{64}")).all()
     assert set(listed["reviewed_on"]) == {"2026-09-10"}
     moved = listed.loc[listed["line_id"] != listed["reviewed_line_id"]]
+    # Lexicon 8's ordinals, and v6.0's new cut of two meetings into speeches.
     assert dict(zip(moved["reviewed_line_id"], moved["line_id"], strict=True)) == {
+        "SC00232-01-005#1": "SC00232-01-006#1",
+        "SC00232-01-005#2": "SC00232-01-006#2",
+        "SC00232-01-005#3": "SC00232-01-006#3",
+        "SC01174-01-002#1": "SC01174-01-003#1",
         "SC04429-01-009#5": "SC04429-01-009#6",
         "SC05697-01-040#1": "SC05697-01-040#2",
     }

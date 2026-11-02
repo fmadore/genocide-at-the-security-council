@@ -16,7 +16,7 @@ license: MIT
 abstract: >-
   Data pipeline, computational analysis and interactive dashboard studying the
   use of the word "genocide" and its semantic neighbourhood in United Nations
-  Security Council debates, 1946-2024.
+  Security Council debates, 1946-2026.
 keywords:
   - United Nations Security Council
   - genocide
@@ -33,12 +33,12 @@ keywords:
 references:
   # The corpus. The year follows Harvard Dataverse's own suggested citation,
   # which gives the year the dataset was first published (2023) followed by
-  # the version; the pinned version 5.0 (config/dataset-pin.json) was released
-  # on 31 March 2026, which is what `date-released` records.
+  # the version; the pinned version 6.0 (config/dataset-pin.json) was released
+  # on 31 October 2026, which is what `date-released` records.
   - type: database
     title: "The UNSC Meetings and Speeches"
-    version: "5.0"
-    date-released: "2026-03-31"
+    version: "6.0"
+    date-released: "2026-10-31"
     year: 2023
     doi: "10.7910/DVN/CKPTRB"
     url: "https://doi.org/10.7910/DVN/CKPTRB"
