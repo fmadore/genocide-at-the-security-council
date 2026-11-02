@@ -305,7 +305,7 @@ empty, and the mechanism stays tested, so the next error found can be repaired t
   (COW does not list them), but both held UN seats from 1945 and sat on the Council, and
   `lib.council` refuses a Council member that is not a state: 528 speeches. v5.0 coded them as
   states under the codes of Ukraine and Belarus. `config/source_states.csv` keeps that coding
-  (decided by Claude on 2 November 2026, for FM to confirm), so they keep the labels Ukraine
+  (proposed by Claude and confirmed by FM, 2 November 2026), so they keep the labels Ukraine
   and Belarus.
 - *Periods.* The last slice of the lexical and actor tables runs to 2026: `2020-2026`, was
   `2020-2024`.
@@ -324,7 +324,7 @@ speech is in v6.0 word for word, under any identifier in the same meeting, or wh
 occurrences is found exactly once in one v6.0 speech of that meeting with 500 unchanged
 characters on either side of it and of every evidence span a run quoted for it, and that
 speech holds no other occurrence. The 500 characters, about two sentences, are a judgement
-(Claude, 2 November 2026, for FM to confirm): the model read the whole speech, so a correction
+(proposed by Claude and confirmed by FM, 2 November 2026): the model read the whole speech, so a correction
 further away could in principle have changed an answer.
 
 | Run | Rows | Carried as written | Re-pointed | Dropped |
