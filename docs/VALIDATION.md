@@ -341,6 +341,19 @@ docs/CLUSTER.md). Both runs are published as partial runs until then. The August
 the retired corpus name no v5.0 occurrence and are left as they are. The S/PV.1379 passage,
 re-read as Mali's on 20 October, now carries over to `SC01379-01-008#1`.
 
+**The reasoning probe skips a speech that is cut off (decided by FM, 2 November 2026).** The
+first top-up submission failed on Festus before annotating anything. Qwen's weights had been
+purged from `/workdir` and were downloaded again at the pinned revision. Gemma's tasks
+(jobs 846927 and 846932) failed in the reasoning probe, which asks the first three
+genocide-bearing speeches at every level: with thinking on, Gemma reasoned on `SC00211-01-007`
+until the output limit. v6.0 removed one garbled footnote line from that speech ("See Official
+Records of the second session of the Gen- er$l-dumbly, Resolutions"); Gemma had answered the
+v5.0 text in September. The probe now draws from a pool of the first three speeches and two
+spares, skips a speech cut off at any level, records it under `skipped`, and refuses to pass
+with fewer than three answered; step 14 binds the whole pool. Any other invalid answer still
+stops the probe. `SC00211-01-007` is in Gemma's top-up and may end as a named gap, like the
+three of September.
+
 **The September spot review.** `tools/prior_review.py` resolves the 59 reviewed passages to
 v6.0. Four have moved to the next row of their meeting (`SC00232-01-005#1`–`#3` to
 `SC00232-01-006`, `SC01174-01-002#1` to `SC01174-01-003#1`), and two are resolved by a close

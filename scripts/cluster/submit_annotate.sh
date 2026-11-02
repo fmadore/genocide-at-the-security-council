@@ -118,6 +118,7 @@ python scripts/probe_reasoning.py \
   --reasoning-location "$VLLM_REASONING_LOCATION" \
   --levels "$VLLM_REASONING_LEVELS" \
   --speeches "${UNSC_REASONING_PROBE_SPEECHES:-3}" \
+  --spares "${UNSC_REASONING_PROBE_SPARES:-2}" \
   --temperature "$VLLM_TEMPERATURE" \
   --top-p "$VLLM_TOP_P"
 

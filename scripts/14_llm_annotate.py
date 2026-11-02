@@ -457,7 +457,8 @@ def _run(args: argparse.Namespace) -> None:
             temperature=args.temperature, top_p=args.top_p,
         )
         for level in probe.get("levels_requested", [])
-        for speech in everything[:int(probe.get("speeches_per_level", 0))]
+        # The probe's whole pool, spares included, as its identity binds it.
+        for speech in everything[:int(probe.get("candidates", probe.get("speeches_per_level", 0)))]
     ]
     if not probe_requests or run_store.digest(probe_requests) != probe.get("requests_sha256"):
         console.fail("Probe speech inputs changed; run the reasoning probe again")
