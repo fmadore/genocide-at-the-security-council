@@ -100,8 +100,8 @@ corpus still matches 16 opening salutations in v6.0 (776 characters, none contai
 SC00104-01-046, SC00104-01-061, SC00527-01-004, SC00641-01-009, SC01027-01-008,
 SC01051-01-006, SC01601-01-025, SC01909-01-010, SC01932-01-039, SC01940-01-006,
 SC03011-01-005, SC03046-01-002, SC04772-01-031 and SC08291-01-023. Correcting it changes
-16 embedded bodies, so it is done together with the next embedding run and a new semantic
-release (ROADMAP RV2).
+16 embedded bodies, so it is done together with an embedding run and a new semantic
+release (ROADMAP RV2). The v6.0 map of 3 November 2026 did not take it up.
 
 ### 5. Repaired rows in `S/PV.5225` — 36 speeches
 
@@ -408,6 +408,19 @@ context, 0.999 alike, where v6.0 corrected the OCR inside the window (`SC06028-0
 `SC06880-01-031#10`). The tool now looks in the whole meeting when the named speech does not
 carry the context, and accepts a close context of at least 0.95 that no other comes within
 0.05 of, printing each such resolution.
+
+**The semantic map (3 November 2026).** Festus embedded all 182,684 speeches of v6.0 again
+(job 846919, 28 minutes; `Qwen/Qwen3-Embedding-0.6B` at revision `97b0c614be4d`, the same
+model as before, 1,024 dimensions) and step 21 projected them (job 846921, from commit
+`6732320`): UMAP, cosine, 30 neighbours, min_dist 0.1, seed 20260910. Retrieval recall@10 is
+0.9641; on a 1,000-speech subsample (k=25) trustworthiness is 0.7907 and neighbour loss 0.69
+(0.8179 and 0.6814 for the v5.0 map). The map's Parquet input differs byte for byte from the
+local build, as Arrow versions do, but its content fingerprint (`199c1d5a…`) and geometry
+fingerprint (`de8239c7…`) are the same computed on Festus and locally. It is published as
+`semantic-2026-11-03` (`semantic-846921.zip`), and `config/semantic-release.json` pins it in
+place of the pending state; the archive passed a test install against the pin before upload.
+The 16 trimmed openings of check 4 are still embedded as trimmed: this run did not take up
+RV2.
 
 ### 19 October 2026 — four source errors, two from an external review
 

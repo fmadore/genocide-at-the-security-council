@@ -84,11 +84,11 @@ cache's key starts with `derived-v6.0-`, the raw cache's is `raw-v6.0`.
 **Symptom:** the step "Restore the pinned semantic release" fails.
 
 `fetch_semantic.py` downloads the archive named in
-`config/semantic-release.json` from the GitHub release `semantic-2026-10-20` and
+`config/semantic-release.json` from the GitHub release `semantic-2026-11-03` and
 checks its SHA-256 checksums.
 
 - **Download error:** check that the release and its file
-  (`semantic-832092.zip`) still exist on GitHub. If the file was removed,
+  (`semantic-846921.zip`) still exist on GitHub. If the file was removed,
   re-attach the same file; its checksum must match the pin.
 - **Checksum or corpus mismatch:** never edit the pin to match a different file.
   A new semantic map needs a new embedding run, a new release and a reviewed
