@@ -363,11 +363,12 @@ revision, settings, vLLM 0.28.0 and node, so the answers stand, but those two ba
 records describe a server they did not start. When the lending job finished and stopped its
 server, the borrowing batch lost the requests still in flight: 28 speeches in batch 1 and 5 in
 batch 2, recorded as connection errors. Of the 15 other speeches left unanswered across the four
-batches, 14 were refused because the answer named a referent outside the list; batch 3 counts
-one incomplete speech more than its failure log records. Each job now takes its own port
+batches, 14 were refused because the answer named a referent outside the list, and one because
+the answer held no text. Each job now takes its own port
 and refuses one already in use (`scripts/cluster/env.sh`, `submit_annotate.sh`). Gemma's top-up
 was resubmitted (job 847561), and Qwen's four batches were rerun under the same run ids (job
-847560), which asks again only the 48 speeches left unanswered.
+847560), which asks again only the 48 speeches left unanswered. The rerun answered all 48, so
+Qwen's top-up covers its 812 speeches with no gap.
 
 **The September spot review.** `tools/prior_review.py` resolves the 59 reviewed passages to
 v6.0. Four have moved to the next row of their meeting (`SC00232-01-005#1`–`#3` to
