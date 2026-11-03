@@ -354,6 +354,21 @@ with fewer than three answered; step 14 binds the whole pool. Any other invalid 
 stops the probe. `SC00211-01-007` is in Gemma's top-up and may end as a named gap, like the
 three of September.
 
+**Two jobs on one port (found 3 November 2026).** Every job's vLLM server listened on port 8000,
+and Festus placed several jobs on the same node (`s73c01`). A job that arrived second could not
+bind its own server, and its readiness check found the first job's server instead. Gemma's
+four batches (job 846944) asked Qwen's server for Gemma, were refused, and annotated nothing.
+Qwen's batch 1 was answered by batch 0's server and batch 2 by batch 3's: the same weights,
+revision, settings, vLLM 0.28.0 and node, so the answers stand, but those two batches' runtime
+records describe a server they did not start. When the lending job finished and stopped its
+server, the borrowing batch lost the requests still in flight: 28 speeches in batch 1 and 5 in
+batch 2, recorded as connection errors. Of the 15 other speeches left unanswered across the four
+batches, 14 were refused because the answer named a referent outside the list; batch 3 counts
+one incomplete speech more than its failure log records. Each job now takes its own port
+and refuses one already in use (`scripts/cluster/env.sh`, `submit_annotate.sh`). Gemma's top-up
+was resubmitted (job 847561), and Qwen's four batches were rerun under the same run ids (job
+847560), which asks again only the 48 speeches left unanswered.
+
 **The September spot review.** `tools/prior_review.py` resolves the 59 reviewed passages to
 v6.0. Four have moved to the next row of their meeting (`SC00232-01-005#1`–`#3` to
 `SC00232-01-006`, `SC01174-01-002#1` to `SC01174-01-003#1`), and two are resolved by a close
