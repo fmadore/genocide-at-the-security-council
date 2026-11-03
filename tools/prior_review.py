@@ -21,8 +21,15 @@ by its ordinal: the occurrence of the same speech whose window — the body from
 :data:`WINDOW` characters before the match to as many after, as the review cut
 it — is the record's `context`, character for character. The window holds the
 matched text at a fixed place, so one comparison checks the speech, the match
-and the context together. A record that does not resolve to exactly one
-occurrence stops the tool.
+and the context together.
+
+Sakamoto-Matsuoka v6.0 corrected the OCR inside some of those windows and cut
+some meetings into speeches differently, so a record whose speech carries its
+context nowhere is looked for in every speech of the same meeting: first word
+for word, then as the occurrence whose window is closest to the context, if that
+window agrees with it in at least :data:`CLOSE` of its characters and no other
+comes within :data:`MARGIN` of it. Each such resolution is printed, with its
+score when it is a close one. A record that resolves no way stops the tool.
 
 What is committed is identity only: the checksum-based `occurrence_id`, which
 does not move when the lexicon adds a form, the current `line_id`, the line id
@@ -36,6 +43,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from difflib import SequenceMatcher
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -50,6 +58,10 @@ DESCRIPTION = "spot review of the Qwen run's labels at its 9 September 2026 chec
 
 #: Characters of body the review kept on either side of a match.
 WINDOW = 900
+#: How alike (`difflib` ratio) a window must be to a record's context, and how
+#: far ahead of the next occurrence's, to stand for it when none is exact.
+CLOSE = 0.95
+MARGIN = 0.05
 
 
 def records(path: Path) -> list[dict[str, str]]:
@@ -69,6 +81,16 @@ def build(source: Path) -> str:
     bodies = frames.body(speeches)
     term = lexicon.load().terms[model_runs.TERM]
     by_name = {str(name): index for index, name in speeches["filename"].items()}
+    by_meeting: dict[str, list[object]] = {}
+    for index, name in speeches["filename"].items():
+        by_meeting.setdefault(str(name).split("-", 1)[0], []).append(index)
+
+    def windows(indices: list[object]) -> list[tuple[occurrences.Occurrence, str]]:
+        found = occurrences.enumerate_term(speeches.loc[indices], bodies.loc[indices], term)
+        return [
+            (item, str(bodies.loc[item.index])[max(0, item.start - WINDOW) : item.end + WINDOW])
+            for item in found
+        ]
 
     found: list[tuple[tuple[str, int], dict[str, str]]] = []
     problems: list[str] = []
@@ -78,17 +100,24 @@ def build(source: Path) -> str:
         if index is None:
             problems.append(f"{record['id']}: this corpus has no speech {stem}.txt")
             continue
-        body = str(bodies.loc[index])
-        matches = [
-            item
-            for item in occurrences.enumerate_term(
-                speeches.loc[[index]], bodies.loc[[index]], term
-            )
-            if body[max(0, item.start - WINDOW) : item.end + WINDOW] == record["context"]
-        ]
+        matches = [item for item, text in windows([index]) if text == record["context"]]
+        if not matches:
+            candidates = windows(by_meeting[stem.split("-", 1)[0]])
+            matches = [item for item, text in candidates if text == record["context"]]
+            if not matches and candidates:
+                scored = sorted(
+                    ((SequenceMatcher(None, text, record["context"], autojunk=False).ratio(), item)
+                     for item, text in candidates),
+                    key=lambda pair: -pair[0],
+                )
+                best, item = scored[0]
+                runner_up = scored[1][0] if len(scored) > 1 else 0.0
+                if best >= CLOSE and best - runner_up >= MARGIN:
+                    console.info(f"{record['id']} is {item.line_id} by a close context ({best:.3f})")
+                    matches = [item]
         if len(matches) != 1:
             problems.append(
-                f"{record['id']}: {len(matches)} occurrences of {stem} carry its context"
+                f"{record['id']}: {len(matches)} occurrences of {stem}'s meeting carry its context"
             )
             continue
         (item,) = matches

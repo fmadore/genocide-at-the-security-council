@@ -1,4 +1,4 @@
-"""Adapt the Sakamoto-Matsuoka v5 tables to the pipeline's canonical columns.
+"""Adapt the Sakamoto-Matsuoka v6 tables to the pipeline's canonical columns.
 
 Frame to frame, so the adapter's contract is tested without the raw
 distribution: textual booleans and integers are parsed and refused when
@@ -16,6 +16,8 @@ from typing import Any
 
 import pandas as pd
 
+from .paths import COW_NAMES, SOURCE_STATES
+
 INTEGER_COLUMNS = ("year", "month", "day", "meeting_num")
 BOOLEAN_COLUMNS = (
     "president",
@@ -23,7 +25,7 @@ BOOLEAN_COLUMNS = (
     "procedural",
     "permanent_member",
     "elected_member",
-    "state",
+    "cow_state",
     "igo",
     "un_org",
     "ngo",
@@ -78,11 +80,10 @@ SPEAKER_COLUMNS = (
     "affiliation",
     "position",
     "secretary_general",
-    "affiliation_cow",
     "cow_ccode",
     "permanent_member",
     "elected_member",
-    "state",
+    "cow_state",
     "igo",
     "un_org",
     "ngo",
@@ -290,8 +291,38 @@ def adapt_meetings(raw: pd.DataFrame) -> pd.DataFrame:
     return meetings
 
 
-def adapt_speeches(raw: pd.DataFrame, meetings: pd.DataFrame) -> pd.DataFrame:
+def cow_names() -> dict[int, str]:
+    """`config/cow_names.csv`: the COW state name for each COW country code."""
+    table = pd.read_csv(COW_NAMES, encoding="utf-8", comment="#")
+    return dict(zip(table["cow_ccode"].astype(int), table["name"], strict=True))
+
+
+def source_states() -> dict[str, int]:
+    """`config/source_states.csv`: affiliations counted as states, with their code."""
+    table = pd.read_csv(SOURCE_STATES, encoding="utf-8", comment="#")
+    return dict(zip(table["affiliation"], table["cow_ccode"].astype(int), strict=True))
+
+
+def adapt_speeches(
+    raw: pd.DataFrame,
+    meetings: pd.DataFrame,
+    names: Mapping[int, str] | None = None,
+    states: Mapping[str, int] | None = None,
+) -> pd.DataFrame:
+    """The speech table in the pipeline's columns.
+
+    A state speaker's `country_org` is its COW state name, looked up by
+    `cow_ccode` in `names` (by default `config/cow_names.csv`), as v5.0's
+    `affiliation_cow` gave it; everyone else keeps the source's affiliation.
+    The affiliations in `states` (by default `config/source_states.csv`) are
+    states under the code given there, whatever the source codes them as.
+    """
+    names = cow_names() if names is None else names
+    states = source_states() if states is None else states
     speeches = raw.copy()
+    counted = speeches["affiliation"].isin(list(states))
+    speeches.loc[counted, "cow_ccode"] = speeches.loc[counted, "affiliation"].map(states).astype(str)
+    speeches.loc[counted, "cow_state"] = "1"
     for column in (*INTEGER_COLUMNS, "order", "count"):
         speeches[column] = as_integer(speeches[column], column)
     for column in BOOLEAN_COLUMNS:
@@ -315,10 +346,13 @@ def adapt_speeches(raw: pd.DataFrame, meetings: pd.DataFrame) -> pd.DataFrame:
     speeches["date"] = make_date(speeches)
     speeches["speaker"] = speeches["speaker"].fillna("Unknown speaker")
     speeches["country_org"] = speeches["affiliation"].fillna("Unknown affiliation")
-    state_with_cow_name = speeches["state"] & speeches["affiliation_cow"].notna()
-    speeches.loc[state_with_cow_name, "country_org"] = speeches.loc[
-        state_with_cow_name, "affiliation_cow"
-    ]
+    codes = pd.to_numeric(speeches["cow_ccode"], errors="coerce")
+    if unknown := sorted({int(code) for code in codes[speeches["cow_state"]].dropna()} - set(names)):
+        raise ValueError(f"cow_ccode: no COW state name for {', '.join(map(str, unknown[:5]))}")
+    state_with_cow_name = speeches["cow_state"] & codes.notna()
+    speeches.loc[state_with_cow_name, "country_org"] = (
+        codes[state_with_cow_name].astype(int).map(names)
+    )
     speeches["role"] = speeches["position"]
     speeches["participanttype"] = participant_type(speeches)
     speeches["speech_number"] = speeches["order"].astype("int32")
@@ -344,11 +378,10 @@ def adapt_speeches(raw: pd.DataFrame, meetings: pd.DataFrame) -> pd.DataFrame:
         "president": "source_president",
         "secretary_general": "source_secretary_general",
         "procedural": "source_procedural",
-        "affiliation_cow": "source_affiliation_cow",
         "cow_ccode": "source_cow_ccode",
         "permanent_member": "source_permanent_member",
         "elected_member": "source_elected_member",
-        "state": "source_state",
+        "cow_state": "source_state",
         "igo": "source_igo",
         "un_org": "source_un_org",
         "ngo": "source_ngo",

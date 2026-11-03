@@ -30,30 +30,33 @@ def test_partition_is_bounded_disjoint_complete_and_stable():
         batches.select(document, speeches, -1)
 
 
-def shards(tmp_path):
-    speeches = population()
-    document = batches.plan(speeches, 3)
+SETTINGS = {"model": "test", "prompt_sha256": "p", "prompt_version": 3,
+            "referents_sha256": "r", "referents_version": "2", "schema_version": "3.1",
+            "lexicon_version": 6, "runtime": {"model_revision": "pinned"},
+            "reasoning_effort": "max", "term": "genocide"}
+
+
+def shards(tmp_path, speeches=None, document=None):
+    speeches = speeches or population()
+    document = document or batches.plan(speeches, 3)
     paths = []
-    for index in range(3):
+    for index in range(len(document["batches"])):
         selected = batches.select(document, speeches, index)
         path = tmp_path / f"batch-{index}"
         path.mkdir()
-        settings = {"model": "test", "prompt_sha256": "p", "prompt_version": 3,
-                        "referents_sha256": "r", "referents_version": "2", "schema_version": "3.1",
-                        "lexicon_version": 6, "runtime": {"model_revision": "pinned"},
-                        "reasoning_effort": "max", "term": "genocide"}
+        settings = SETTINGS
         identity = {**settings, "run_id": path.name, "probe_sha256": "probe", "population": document["population"],
                     "selected_speeches": sorted(s.custom_id for s in selected),
                     "batch": {"plan_sha256": run_store.digest(document), "index": index}}
+        rows = [{**settings, "run_id": path.name, "occurrence_id": o.occurrence_id}
+                for s in selected for o in s.occurrences]
         manifest = {**settings, "run_id": path.name, "identity_sha256": run_store.digest(identity),
                     "probe_sha256": "probe", "status": "complete", "parse_failures": 0,
                     "created": "2026-09-09", "completed": "2026-09-10", "passes": [],
                     "requests": dict.fromkeys(("planned", "sent", "returned", "complete"), len(selected)),
-                    "occurrences": {"planned": len(selected), "written": len(selected)},
+                    "occurrences": {"planned": len(rows), "written": len(rows)},
                     "usage": {"output_tokens": 10}, "evidence_invalid": 0,
                     "evidence_relocated": 0, "truncation_count": 0}
-        rows = [{**settings, "run_id": path.name, "occurrence_id": s.occurrences[0].occurrence_id}
-                for s in selected]
         (path / "manifest.json").write_text(json.dumps(manifest))
         (path / "identity.json").write_text(json.dumps(identity))
         (path / "annotations.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
@@ -171,3 +174,93 @@ def test_within_drops_only_what_a_declared_widening_added():
     moved = [Speech("s0", [occurrence("o0x")]), Speech("s1", [occurrence("o1")])]
     with pytest.raises(ValueError, match="current enumeration"):
         batches.within(document, moved, widened=True)
+
+
+def carried_run(tmp_path, covered, **change):
+    """A committed run, asked earlier, that answered the speeches in `covered`."""
+    path = tmp_path / "earlier-run"
+    path.mkdir()
+    settings = {**SETTINGS, "lexicon_version": 5,
+                "runtime": {"model_revision": "pinned", "vllm_version": "0.28.0"}, **change}
+    manifest = {**settings, "run_id": path.name, "created": "2026-09-08", "status": "in_progress"}
+    rows = [{**settings, "run_id": path.name, "occurrence_id": f"o{i}", "referent": f"label{i}"}
+            for i in covered]
+    (path / "manifest.json").write_text(json.dumps(manifest))
+    (path / "annotations.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    return path
+
+
+def top_up(tmp_path, covered=(0, 1, 2, 3), **change):
+    speeches = population()
+    carry = carried_run(tmp_path, covered, **change)
+    rows = [{"occurrence_id": f"o{i}"} for i in covered]
+    document = batches.plan(batches.uncovered(speeches, rows), 2, {"run_id": carry.name})
+    _, _, paths = shards(tmp_path, speeches, document)
+    return document, speeches, paths, carry
+
+
+def test_a_top_up_plans_only_what_the_run_does_not_cover():
+    speeches = population()
+    left = batches.uncovered(speeches, [{"occurrence_id": f"o{i}"} for i in (0, 1, 2, 3)])
+    assert [s.custom_id for s in left] == ["s4", "s5", "s6"]
+    document = batches.plan(left, 2, {"run_id": "earlier-run"})
+    assert document["population"] == ["o4", "o5", "o6"]
+    assert sorted(s.custom_id for i in range(2) for s in batches.select(document, speeches, i)) == [
+        "s4", "s5", "s6"]
+    with pytest.raises(ValueError, match="partition"):
+        batches.select(document, speeches[:5], 0)
+
+
+def test_a_top_up_merges_with_the_run_it_completes(tmp_path):
+    document, speeches, paths, carry = top_up(tmp_path)
+    merged = batches.merge(document, speeches, paths, tmp_path / "assembled", carry=carry)
+    assert merged["status"] == "complete"
+    assert merged["occurrences"] == {"planned": 7, "written": 7}
+    assert merged["requests"]["complete"] == 3
+    assert merged["created"] == "2026-09-08"
+    assert merged["carried"]["run_id"] == "earlier-run"
+    assert (merged["carried"]["rows"], merged["carried"]["superseded"]) == (4, 0)
+    assert merged["carried"]["runtime"] == {"model_revision": "pinned", "vllm_version": "0.28.0"}
+    rows = [json.loads(line) for line in
+            (tmp_path / "assembled" / "annotations.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert {row["run_id"] for row in rows} == {"assembled"}
+    assert {row["lexicon_version"] for row in rows} == {6}
+    assert {row["occurrence_id"]: row.get("referent") for row in rows}["o2"] == "label2"
+
+
+def test_a_top_up_supersedes_what_the_run_answered_in_a_speech_it_asks_again(tmp_path):
+    speeches = population()
+    speeches[4].occurrences.append(SimpleNamespace(occurrence_id="o4b"))
+    carry = carried_run(tmp_path, (0, 1, 2, 3, 4))
+    rows = [{"occurrence_id": f"o{i}"} for i in (0, 1, 2, 3, 4)]
+    document = batches.plan(batches.uncovered(speeches, rows), 2, {"run_id": carry.name})
+    assert document["batches"] == [["s4", "s6"], ["s5"]]
+    _, _, paths = shards(tmp_path, speeches, document)
+    merged = batches.merge(document, speeches, paths, tmp_path / "assembled", carry=carry)
+    assert (merged["carried"]["rows"], merged["carried"]["superseded"]) == (4, 1)
+    assert merged["occurrences"] == {"planned": 8, "written": 8}
+    rows = [json.loads(line) for line in
+            (tmp_path / "assembled" / "annotations.jsonl").read_text(encoding="utf-8").splitlines()]
+    # s4's two rows are both the top-up's, asked together; the carried o4 is gone.
+    assert {row["occurrence_id"]: row.get("referent") for row in rows}["o4"] is None
+
+
+@pytest.mark.parametrize("fault", ["no carry", "wrong run", "short", "prompt", "weights"])
+def test_a_top_up_refuses_a_run_that_does_not_complete_it(tmp_path, fault):
+    if fault == "short":
+        document, speeches, paths, carry = top_up(tmp_path)
+        (carry / "annotations.jsonl").write_text(
+            (carry / "annotations.jsonl").read_text(encoding="utf-8").splitlines()[0] + "\n")
+    elif fault == "prompt":
+        document, speeches, paths, carry = top_up(tmp_path, prompt_sha256="other")
+    elif fault == "weights":
+        document, speeches, paths, carry = top_up(tmp_path, runtime={"model_revision": "older"})
+    else:
+        document, speeches, paths, carry = top_up(tmp_path)
+    if fault == "no carry":
+        carry = None
+    elif fault == "wrong run":
+        carry = carry.rename(tmp_path / "another-run")
+    with pytest.raises(ValueError):
+        batches.merge(document, speeches, paths, tmp_path / "assembled", carry=carry)
+    assert not (tmp_path / "assembled").exists()

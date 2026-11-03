@@ -155,7 +155,7 @@ def copy_part(sources: Sequence[Path], name: str, *, root: Path | None = None) -
         # explicit waiting state when no map exists, and otherwise a map that
         # must describe this corpus, by its bytes or by what the pin vouches for.
         source = sources[0]
-        if not source.exists():
+        if not source.exists() or semantic_release.pending(semantic_release.load_pin(SEMANTIC_PIN)):
             with artifacts.atomic_directory(destination) as staged:
                 semantic_release.write_pending(staged)
             return artifacts.describe_tree(destination)

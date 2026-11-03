@@ -39,11 +39,10 @@ def row(speech_id: str, order: int, speech: str, **extra: str) -> dict[str, str]
         "procedural": "False",
         "count": str(len(speech.split())),
         "speech": speech,
-        "affiliation_cow": "Israel",
         "cow_ccode": "666",
         "permanent_member": "False",
         "elected_member": "False",
-        "state": "True",
+        "cow_state": "True",
         "igo": "False",
         "un_org": "False",
         "ngo": "False",
@@ -52,7 +51,7 @@ def row(speech_id: str, order: int, speech: str, **extra: str) -> dict[str, str]
 
 
 def source() -> pd.DataFrame:
-    mali = {"speaker": "Mr. KANTE", "affiliation": "Mali", "affiliation_cow": "Mali",
+    mali = {"speaker": "Mr. KANTE", "affiliation": "Mali",
             "cow_ccode": "432", "elected_member": "True", "president": "True", "procedural": "True"}
     return pd.DataFrame(
         [
@@ -85,19 +84,15 @@ def repairs(**changes: object) -> dict:
     }
 
 
-def test_the_committed_repairs_name_what_they_expect():
+def test_v6_needs_none_of_the_repairs_v5_needed():
     committed = yaml.safe_load(SOURCE_REPAIRS.read_text(encoding="utf-8"))
     assert committed["schema"] == 1
-    assert [item["record_id"] for item in committed["drop_records"]] == ["SC00869-01", "SC02622-01"]
-    copied = committed["drop_speeches"][0]
-    assert copied["record_id"] == "SC00906-01"
-    assert len(copied["pairs"]) == copied["speeches"] == 18
-    assert set(copied["variants"]) <= set(copied["pairs"])
-    assert committed["trim_speeches"][0]["speech_id"] == "SC00906-01-042"
-    split = committed["split_speeches"][0]
-    assert split["speech_id"] == "SC01379-01-007"
-    assert split["new"]["speech_id"] == "SC01379-01-010"
-    assert len(split["source_sha256"]) == 64
+    assert committed["source"] == "Sakamoto-Matsuoka v6.0"
+    for kind in ("drop_records", "drop_speeches", "trim_speeches", "split_speeches"):
+        assert committed[kind] == []
+    out, log = sakamoto.apply_repairs(source(), committed)
+    assert log == []
+    assert out["speech_id"].tolist() == source()["speech_id"].tolist()
 
 
 def test_a_duplicate_record_is_dropped_whole():
@@ -228,8 +223,8 @@ def test_a_split_refuses_a_source_it_was_not_written_for(change, match):
         sakamoto.apply_repairs(source(), repairs(**change))
 
 
-def test_repaired_run_rows_change_identity_and_never_labels(tmp_path):
-    table = tmp_path / "source_repairs.json"
+def test_carried_run_rows_change_identity_and_never_labels(tmp_path):
+    table = tmp_path / "carry_over.json"
     table.write_text(json.dumps({
         "schema": 1,
         "drop": {"gone": {"line_id": "SC00002-01-001#1", "because": "copy"}},
@@ -247,7 +242,7 @@ def test_repaired_run_rows_change_identity_and_never_labels(tmp_path):
         {"occurrence_id": "kept", "referent": "other"},
     ]
 
-    out = model_runs.repaired(rows, table)
+    out = model_runs.carried(rows, table)
 
     assert [row["occurrence_id"] for row in out] == ["new", "kept"]
     assert out[0]["line_id"] == "SC00003-01-004#1"

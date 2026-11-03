@@ -17,7 +17,7 @@ const assets = fixtureMode ? 'e2e/fixtures' : 'static';
  * What the service worker precaches on install, as URLs under `base`.
  *
  * Everything in the assets directory except the dashboard payload in `data/` —
- * one file per meeting record, 9,464 of them, which would otherwise be fetched
+ * one file per meeting record, 9,919 of them, which would otherwise be fetched
  * on a reader's first visit for the sake of meetings they did not ask for. The
  * data is served network-first and cached as it is read instead; see the
  * service worker. `og.png` is left out for a smaller reason: it exists for link
@@ -52,7 +52,7 @@ export default defineConfig(({ command }) => ({
 			preprocess: vitePreprocess(),
 			files: { assets },
 			// `fallback` makes the reader an SPA route. Prerendering it would mean
-			// generating 9,464 document pages to display text already fetched as JSON.
+			// generating 9,919 document pages to display text already fetched as JSON.
 			adapter: adapter({ fallback: '404.html', strict: true }),
 			// Absolute paths, as SvelteKit 2 rendered them. SvelteKit 3 renders
 			// `resolve()` and `asset()` relative to the page when this is true (the

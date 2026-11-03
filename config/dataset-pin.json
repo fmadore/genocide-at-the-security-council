@@ -1,8 +1,8 @@
 {
   "_comment": [
     "Immutable source pin for Sakamoto and Matsuoka, The UNSC Meetings and Speeches.",
-    "Checksums and file ids were read from Harvard Dataverse's published v5.0 API record",
-    "on 2026-09-03. scripts/00_fetch_data.py verifies these values offline before making",
+    "Checksums and file ids were read from Harvard Dataverse's published v6.0 API record",
+    "on 2026-11-02. scripts/00_fetch_data.py verifies these values offline before making",
     "any network request.",
     "",
     "Changing the pin means changing `version` here and DATASET_VERSION in",
@@ -10,22 +10,22 @@
   ],
   "doi": "doi:10.7910/DVN/CKPTRB",
   "server": "https://dataverse.harvard.edu",
-  "version": "5.0",
-  "released": "2026-03-31T08:40:55Z",
+  "version": "6.0",
+  "released": "2026-10-31T10:15:02Z",
   "license": "CC0-1.0",
-  "recorded": "2026-09-03",
+  "recorded": "2026-11-02",
   "files": [
     {
-      "id": 10907273,
+      "id": 14391403,
       "filename": "speeches.tsv",
-      "bytes": 591429727,
-      "md5": "5851f1249c85a1adca193d44ee6763b3"
+      "bytes": 631859757,
+      "md5": "15ddd10dd6db877cc16c3d02304f1dc8"
     },
     {
-      "id": 13638571,
+      "id": 14391402,
       "filename": "meetings.tsv",
-      "bytes": 3245339,
-      "md5": "421ac283f8b607eb59ed43a040a1c72f"
+      "bytes": 3283815,
+      "md5": "e0c045a26c52ebc2c9477939ca287fdf"
     }
   ]
 }

@@ -4,9 +4,10 @@ The website is rebuilt on every push to `main`, so a link to it points at whatev
 was built last. A citation needs something that does not move: a numbered release
 whose files are archived with a DOI. This guide explains how to make one.
 
-Nothing has been released yet. The two git tags, `semantic-2026-09-11` and
-`semantic-2026-10-20`, carry data files the build downloads (the second is the one
-`config/semantic-release.json` pins); neither is a version of the study.
+Nothing has been released yet. The three git tags `semantic-2026-09-11`,
+`semantic-2026-10-20` and `semantic-2026-11-03` carry data files the build downloads
+(the last, a map of corpus v6.0, is the one `config/semantic-release.json` pins);
+none is a version of the study.
 
 ## What the first release is
 
@@ -110,12 +111,13 @@ recreate, such as the cluster embeddings (review item B10).
    GitHub refuses a release file of 2 GiB or more; split a larger zip.
 6. **Write the release notes** (`release-notes.md`) in plain words:
    - what the release is, and that its model labels are unvalidated;
-   - the corpus: Sakamoto and Matsuoka v5.0, DOI 10.7910/DVN/CKPTRB, pinned by
+   - the corpus: Sakamoto and Matsuoka v6.0, DOI 10.7910/DVN/CKPTRB, pinned by
      the checksums in `config/dataset-pin.json`;
-   - the model run shown: `2026-09-08-qwen-131k`, partial (4,097 of 4,133
-     speeches), prompt v3, and that the Gemma comparison is not included unless
-     it has been published by then;
-   - the gold sample's state (on 8 October 2026: 0 of 469 rows coded);
+   - the model run shown: `2026-11-03-qwen-131k`, prompt v3, covering all
+     4,576 speeches (merged on 3 November 2026 from the September run carried
+     over from corpus v5.0 and a top-up), and the Gemma second opinion
+     `2026-11-03-gemma4`, which leaves out seven documented speeches;
+   - the gold sample's state (on 3 November 2026: 0 of 469 rows coded);
    - the commit, and the `analysis_hash` of the main artefacts, read from the
      `meta` block of `series/annual.json`, `kwic/genocide.json` and
      `usage/usage.json`;

@@ -330,7 +330,7 @@ What follows from that, worth knowing before you start:
 | [`lib/artifacts.py`](lib/artifacts.py) | Atomic files/directories, hashes and provenance manifests. |
 | [`lib/contract.py`](lib/contract.py) | The payload's shape, and whether it still has it. Enforced at the export seam. |
 | [`lib/frames.py`](lib/frames.py) | Parquet read/write; `body()` reconstructs a speech minus its form of address. |
-| [`lib/sakamoto.py`](lib/sakamoto.py) | Step 01's adapter from the Sakamoto-Matsuoka v5 tables to the canonical speech and meeting columns, refusing unknown booleans and integers. |
+| [`lib/sakamoto.py`](lib/sakamoto.py) | Step 01's adapter from the Sakamoto-Matsuoka v6 tables to the canonical speech and meeting columns, refusing unknown booleans and integers. |
 | [`lib/text.py`](lib/text.py) | Line endings, the opening form of address, sentence segmentation, case collisions. |
 | [`lib/entities.py`](lib/entities.py) | Source-derived affiliation types; optional legacy ISO3/centroid enrichment without renaming. |
 | [`lib/council.py`](lib/council.py) | Council membership by year; the P5 / E10 / non-member / UN / non-state split. |
@@ -386,7 +386,8 @@ machine-specific paths live in `.env` (git-ignored; copy `.env.example`).
 | [`../tools/bootstrap_entities.py`](../tools/bootstrap_entities.py) | Proposes rows for `config/entities.csv`. Downloads ISO 3166 codes and centroids once; never edits the checked-in file. Run with `--missing` when the corpus gains new speakers. |
 | [`../tools/lock_lexicon.py`](../tools/lock_lexicon.py) | Rewrites `config/lexicon.lock.json`, the digests that hold each term's `pattern_since` (or `widened_since`) to its `pattern`, and the anchor's. Run it after editing a pattern; `--check` verifies and exits non-zero. The output is committed beside the config it locks. |
 | [`../tools/lib_deps.py`](../tools/lib_deps.py) | Rewrites `scripts/deps.mk`, each step's `lib` prerequisites for the Makefile, from the imports. `--check` verifies; a test runs it. |
-| [`../tools/map_prompt_examples.py`](../tools/map_prompt_examples.py) | Finds the v5.0 occurrences behind the prompt's worked examples, which 13 keeps out of the gold frames. `--write` rewrites the committed mapping. |
+| [`../tools/map_prompt_examples.py`](../tools/map_prompt_examples.py) | Finds the corpus occurrences behind the prompt's worked examples, which 13 keeps out of the gold frames. `--write` rewrites the committed mapping. |
+| [`../tools/carry_over_runs.py`](../tools/carry_over_runs.py) | Checks `model_annotations/genocide/carry_over.json`, which carries the rows of the runs asked about corpus v5.0 to v6.0 where the text around each occurrence is unchanged. `--write` rebuilds it from the v5.0 corpus. |
 | [`../tools/coding_page.py`](../tools/coding_page.py) | Builds `data/interim/genocide_coding.html`, the offline page the coders use on the blinded packet. Serve it with the `coding-page` launch configuration. |
 
 ## Tests

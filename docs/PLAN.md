@@ -1,6 +1,6 @@
 # Project focus and release gates
 
-Updated 9 October 2026. This document holds the current position only: where the
+Updated 3 November 2026. This document holds the current position only: where the
 project stands, what comes next, the gates a release must pass, and the research
 decisions still in force with their reasons. Superseded status notes, job logs and
 dated verification snapshots were removed on 9 October 2026; they remain in git
@@ -10,15 +10,15 @@ history (`git log -p docs/PLAN.md`) and, for measurements, in
 The section numbers (§1.1, §3, §4, §5, §6, §7, §7.3, §7.5) and the item codes
 (R1, R2, R7 …) are cited from code comments, so they are kept stable.
 
-## Where the project stands — 8 October 2026
+## Where the project stands — 3 November 2026
 
 | Part | State |
 |---|---|
-| Corpus | Sakamoto and Matsuoka v5.0, 1946–2024, pinned by checksum ([CORPUS.md](CORPUS.md)). Lexicon v8 finds `g[eé]nocid*` in 4,135 speeches, 7,786 occurrences, after the source repairs of 19 October 2026. |
-| Published model layer | A **partial, unvalidated preview**: Qwen3.8-27B run `2026-09-08-qwen-131k`, prompt v3, 4,097 of 4,133 speeches and 7,694 of 7,747 occurrences (7,694 of 7,787 since lexicon v8). See [model_annotations/README.md](../model_annotations/README.md). |
-| Comparison run | Gemma 4 31B IT, prompt v3, run `2026-09-09-gemma4`: 4,130 of 4,133 speeches and 7,725 of 7,747 occurrences, merged from its 17 batches on 11 October 2026. Three speeches that failed on every pass (one truncation, two validation failures) are documented gaps ([VALIDATION.md](VALIDATION.md) §7). Published as the second opinion on 11 October 2026 (`comparison_run.txt`); the gold sample does not follow it (`gold_comparison_run.txt` is empty). |
-| Gold sample | Drawn on 24 September 2026: 469 rows over 453 occurrences, in three frames. **0 of 469 rows coded.** The evaluation rules are a proposal ([EVALUATION_PLAN.md](EVALUATION_PLAN.md)). |
-| Semantic map | Experimental. Restored at every build from the pinned release `semantic-2026-10-20` (§4). |
+| Corpus | Sakamoto and Matsuoka v6.0, 182,684 speeches from 1946-01-17 to 2026-06-23, pinned by checksum ([CORPUS.md](CORPUS.md)); it replaced v5.0 on 2 November 2026. Lexicon v8 finds `g[eé]nocid*` in 4,576 speeches, 8,611 occurrences. |
+| Published model layer | An **unvalidated preview** that covers every occurrence: Qwen3.8-27B run `2026-11-03-qwen-131k`, prompt v3, 4,576 of 4,576 speeches and 8,611 of 8,611 occurrences. Merged on 3 November 2026 from the September run `2026-09-08-qwen-131k`, whose labels carry to v6.0 where the text is unchanged (6,790 rows), and a top-up of 812 speeches asked on Festus. See [model_annotations/README.md](../model_annotations/README.md). |
+| Comparison run | Gemma 4 31B IT, prompt v3, run `2026-11-03-gemma4`: 4,569 of 4,576 speeches and 8,573 of 8,611 occurrences, merged on 3 November 2026 from the September run `2026-09-09-gemma4` (6,818 rows carried) and a top-up of 781 speeches. Seven speeches (38 occurrences) are documented gaps: five cut off at the output limit, two validation failures ([VALIDATION.md](VALIDATION.md) §7). The second opinion since 11 October 2026 (`comparison_run.txt`), read from the merged run since 3 November 2026. Referent agreement with the published run is 89.2% over 8,573 shared occurrences (kappa 0.876). The gold sample does not follow it (`gold_comparison_run.txt` is empty). |
+| Gold sample | Redrawn on 3 November 2026 from the merged Qwen run: 469 rows over 458 occurrences, in three frames of the same sizes as before. **0 of 469 rows coded**; it can now be frozen. The evaluation rules are a proposal ([EVALUATION_PLAN.md](EVALUATION_PLAN.md)). |
+| Semantic map | Experimental. Restored at every build from the pinned release `semantic-2026-11-03`, a map of corpus v6.0 (§4). |
 | Citable release | None yet. [RELEASING.md](RELEASING.md) explains how to cut one. |
 | Reviews | All code from the reviews of 19 and 24 September 2026 is in ([ROADMAP.md](ROADMAP.md)); what remains waits on a person or the cluster. The review of 8 October 2026 is being worked through ([REVIEW_2026-10-08.md](REVIEW_2026-10-08.md)). |
 
@@ -31,7 +31,7 @@ figure resting on model labels is validated.
 |---|---|---|
 | 1 | Decide the evaluation plan, starting with instrument v3 or v4 (R1; ROADMAP open item 2) | FM and JG have settled the open points in [EVALUATION_PLAN.md](EVALUATION_PLAN.md), the plan is committed with its date, and the sample is frozen. |
 | 2 | Code and adjudicate the gold sample (H1–H2, ROADMAP open item 1) | Every row double-coded, disagreements adjudicated, results reported as the plan requires. No automated replacement for human verdicts. |
-| 3 | Finish the Gemma comparison run | Merged and committed on 11 October 2026 with three documented gaps, and published as the second opinion the same day (decided by FM). Step 13 now reads its second run from `gold_comparison_run.txt`, which stays empty, so the sample is unchanged. Still to do: the run is inspected. Whether the sample's third frame becomes the disagreement frame is part of priority 1. |
+| 3 | Finish the Gemma comparison run | Merged and committed on 11 October 2026 with three documented gaps, and published as the second opinion the same day (decided by FM). Topped up for corpus v6.0 and merged again on 3 November 2026 as `2026-11-03-gemma4`, with seven documented gaps. Step 13 now reads its second run from `gold_comparison_run.txt`, which stays empty, so the sample is unchanged. Still to do: the run is inspected. Whether the sample's third frame becomes the disagreement frame is part of priority 1. |
 | 4 | Cut a citable preview, "v0.1 — unvalidated preview", if FM chooses | Released and archived as [RELEASING.md](RELEASING.md) describes. It does not close the release gate (§1.3). |
 | 5 | Human checks outside the gold sample | First events on the diffusion curves (ROADMAP open item 3), the source checks and lexicon audit in [VALIDATION.md](VALIDATION.md). |
 | 6 | R2 / R8 / R10: interpretive extensions | Wait for reviewed, validated role and referent evidence. |

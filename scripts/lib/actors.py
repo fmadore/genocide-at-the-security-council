@@ -72,7 +72,7 @@ DECADES: tuple[tuple[int, int], ...] = (
     (1990, 1999),
     (2000, 2009),
     (2010, 2019),
-    (2020, 2024),
+    (2020, 2026),
 )
 
 #: Key of the slice covering the whole corpus.

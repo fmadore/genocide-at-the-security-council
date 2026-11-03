@@ -54,10 +54,72 @@ def test_reversed_or_empty_reasoning_cannot_pass(low, high):
     assert not probes.assess_ladder([row("low", low), row("high", high)], ["low", "high"])["passed"]
 
 
+class Truncated(ValueError):
+    pass
+
+
+def probe_fixture(tmp_path, monkeypatch, speeches, cut_off):
+    """A probe over `speeches`, whose answers are cut off for the (speech, level) pairs in `cut_off`."""
+    referents = tmp_path / "referents.csv"
+    referents.write_text("list")
+    pack = SimpleNamespace(sha256="prompt", constraints=frozenset())
+    api = SimpleNamespace(responses=SimpleNamespace(create=lambda **body: SimpleNamespace(model_dump=lambda **_: body)))
+
+    def output_text(body):
+        if (body["body"], body["level"]) in cut_off:
+            raise Truncated("response incomplete (max_output_tokens)")
+        return "{}"
+
+    step = SimpleNamespace(client=lambda: api, runtime_record=lambda _: {}, ResponseTruncated=Truncated,
+                           output_text=output_text, usage_of=lambda body: {
+                               "reasoning_tokens": 1 if body["level"] == "low" else 100, "output_tokens": 120})
+    monkeypatch.setattr(probe, "PROBES", tmp_path / "probes")
+    monkeypatch.setattr(probe, "REFERENTS", referents)
+    monkeypatch.setattr(probe, "annotation_step", lambda: step)
+    monkeypatch.setattr(probe.annotate, "gather", lambda limit: (speeches, speeches[:limit], 8))
+    monkeypatch.setattr(probe.audit, "read_referent_list", lambda _: SimpleNamespace(current={"other"}))
+    monkeypatch.setattr(probe.llm, "read_referent_table", lambda _: [])
+    monkeypatch.setattr(probe.llm, "render_referents", lambda _: "table")
+    monkeypatch.setattr(probe.prompts, "load_prompt", lambda _: pack)
+    monkeypatch.setattr(probe.llm, "build_request", lambda meta, body, *rest, **kw: body)
+    monkeypatch.setattr(probe.llm, "request_body", lambda body, **kw: {"body": body, "level": kw["reasoning_effort"]})
+    monkeypatch.setattr(probe.llm, "validate_response", lambda *a, **kw: None)
+
+
+def speech_named(name):
+    return SimpleNamespace(meta={}, body=name, custom_id=name,
+                           occurrences=[SimpleNamespace(occurrence_id=name, ordinal=1)])
+
+
+def test_a_speech_cut_off_at_the_top_level_gives_way_to_a_spare(tmp_path, monkeypatch):
+    import json
+
+    pool = [speech_named(name) for name in ("first", "second", "third", "fourth")]
+    probe_fixture(tmp_path, monkeypatch, pool, cut_off={("first", "high")})
+    args = SimpleNamespace(run_id="fixture", model="m", model_revision="rev", reasoning_location="request",
+                           levels="low,high", speeches=2, spares=2, temperature=0.0, top_p=1.0)
+    probe.run(args)
+    written = json.loads((tmp_path / "probes" / "fixture" / "probe.json").read_text(encoding="utf-8"))
+    assert written["passed"]
+    assert written["speeches"] == ["second", "third"]
+    assert [(item["custom_id"], item["level"]) for item in written["skipped"]] == [("first", "high")]
+    assert {row["custom_id"] for row in written["observations"]} == {"second", "third"}
+    assert written["candidates"] == 4
+
+
+def test_a_probe_with_too_few_answered_speeches_is_refused(tmp_path, monkeypatch):
+    pool = [speech_named(name) for name in ("first", "second", "third")]
+    probe_fixture(tmp_path, monkeypatch, pool, cut_off={("first", "high"), ("second", "low")})
+    args = SimpleNamespace(run_id="fixture", model="m", model_revision="rev", reasoning_location="request",
+                           levels="low,high", speeches=2, spares=1, temperature=0.0, top_p=1.0)
+    with pytest.raises(SystemExit):
+        probe.run(args)
+
+
 @pytest.mark.parametrize("changed", ["temperature", "top_p", "prompt", "referents", "speech", "runtime"])
 def test_passed_probe_is_reused_only_for_identical_inputs(tmp_path, monkeypatch, changed):
     args = SimpleNamespace(run_id="fixture", model="m", model_revision="rev", reasoning_location="request",
-                           levels="low,high", speeches=1, temperature=0.1, top_p=0.9)
+                           levels="low,high", speeches=1, spares=0, temperature=0.1, top_p=0.9)
     referents = tmp_path / "referents.csv"
     referents.write_text("original")
     pack = SimpleNamespace(sha256="prompt-one", constraints=frozenset())
@@ -65,7 +127,7 @@ def test_passed_probe_is_reused_only_for_identical_inputs(tmp_path, monkeypatch,
                              occurrences=[SimpleNamespace(occurrence_id="one", ordinal=1)])
     runtime = {"hardware": "first"}
     api = SimpleNamespace(responses=SimpleNamespace(create=lambda **body: SimpleNamespace(model_dump=lambda **_: body)))
-    step = SimpleNamespace(client=lambda: api, runtime_record=lambda _: runtime,
+    step = SimpleNamespace(client=lambda: api, runtime_record=lambda _: runtime, ResponseTruncated=Truncated,
                            output_text=lambda _: "{}", usage_of=lambda body: {
                                "reasoning_tokens": 1 if body["level"] == "low" else 100,
                                "output_tokens": 120})

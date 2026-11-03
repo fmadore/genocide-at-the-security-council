@@ -203,7 +203,29 @@ def test_rebinding_refuses_a_map_of_other_speeches(tmp_path):
 
 def test_the_committed_pin_is_one_this_code_reads():
     pin = semantic_release.load_pin()
-    assert pin["url"].startswith(semantic_release.RELEASES)
+    assert semantic_release.pending(pin) or pin["url"].startswith(semantic_release.RELEASES)
+
+
+def test_a_pending_pin_restores_nothing_and_publishes_the_waiting_state(tmp_path, monkeypatch):
+    import export_web
+
+    archive, release_pin = release(tmp_path)
+    source = tmp_path / "source"
+    semantic_release.install(archive, source, release_pin)
+    path = tmp_path / "semantic-release.json"
+    path.write_text(json.dumps({"schema": 1, "pending": "the corpus moved to v6.0"}))
+    target = tmp_path / "restored"
+    semantic_release.restore(path, target)
+    assert not target.exists()
+    monkeypatch.setattr(export_web, "SEMANTIC_PIN", path)
+    export_web.copy_part([source], "semantic", root=tmp_path / "web")
+    published = json.loads((tmp_path / "web" / "semantic" / "map.json").read_text(encoding="utf-8"))
+    assert published == {"status": "pending", "schema": 1}
+
+
+@pytest.mark.parametrize("pin", [{"schema": 1, "pending": " "}, {"schema": 1, "pending": "x", "url": "y"}])
+def test_a_pin_is_pending_only_with_a_reason_and_no_release(pin):
+    assert not semantic_release.pending(pin)
 
 
 @pytest.mark.parametrize("change", [{"schema": 2}, {"url": "https://example.org/semantic.zip"}])

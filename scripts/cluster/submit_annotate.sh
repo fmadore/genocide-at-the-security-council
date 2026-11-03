@@ -44,6 +44,18 @@ load_python
 activate_annotator
 "$VENV/bin/python3" scripts/preflight_annotation.py
 
+# A server already listening here belongs to another job on this node, and the
+# readiness check below would take it for this job's own.
+"$VENV/bin/python3" - "$VLLM_PORT" <<'PY'
+import socket, sys
+
+with socket.socket() as probe:
+    try:
+        probe.bind(("127.0.0.1", int(sys.argv[1])))
+    except OSError:
+        raise SystemExit(f"ERROR: port {sys.argv[1]} is already in use on this node; set VLLM_PORT")
+PY
+
 SERVER_PID=""
 stop_server() {
   if [[ -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then
@@ -118,6 +130,7 @@ python scripts/probe_reasoning.py \
   --reasoning-location "$VLLM_REASONING_LOCATION" \
   --levels "$VLLM_REASONING_LEVELS" \
   --speeches "${UNSC_REASONING_PROBE_SPEECHES:-3}" \
+  --spares "${UNSC_REASONING_PROBE_SPARES:-2}" \
   --temperature "$VLLM_TEMPERATURE" \
   --top-p "$VLLM_TOP_P"
 

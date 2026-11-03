@@ -16,7 +16,7 @@ license: MIT
 abstract: >-
   Data pipeline, computational analysis and interactive dashboard studying the
   use of the word "genocide" and its semantic neighbourhood in United Nations
-  Security Council debates, 1946-2024.
+  Security Council debates, 1946-2026.
 keywords:
   - United Nations Security Council
   - genocide
@@ -33,12 +33,12 @@ keywords:
 references:
   # The corpus. The year follows Harvard Dataverse's own suggested citation,
   # which gives the year the dataset was first published (2023) followed by
-  # the version; the pinned version 5.0 (config/dataset-pin.json) was released
-  # on 31 March 2026, which is what `date-released` records.
+  # the version; the pinned version 6.0 (config/dataset-pin.json) was released
+  # on 31 October 2026, which is what `date-released` records.
   - type: database
     title: "The UNSC Meetings and Speeches"
-    version: "5.0"
-    date-released: "2026-03-31"
+    version: "6.0"
+    date-released: "2026-10-31"
     year: 2023
     doi: "10.7910/DVN/CKPTRB"
     url: "https://doi.org/10.7910/DVN/CKPTRB"
@@ -65,12 +65,12 @@ references:
         given-names: Hiroto
   # The models. Each is pinned to an immutable Hugging Face revision, given as
   # `commit`. The published annotation run records its revision in
-  # model_annotations/genocide/runs/2026-09-08-qwen-131k/manifest.json; the
+  # model_annotations/genocide/runs/2026-11-03-qwen-131k/manifest.json; the
   # comparison model's revision is its profile in scripts/cluster/env.sh; the
   # embedding model's is in config/embedding_models.yml.
   - type: software
     title: "Qwen3.8-27B"
-    notes: "Open-weights language model. The published instrument of the model annotation layer (run 2026-09-08-qwen-131k, prompt v3)."
+    notes: "Open-weights language model. The published instrument of the model annotation layer (run 2026-11-03-qwen-131k, prompt v3)."
     repository: "https://huggingface.co/Qwen/Qwen3.8-27B"
     commit: "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
     authors:

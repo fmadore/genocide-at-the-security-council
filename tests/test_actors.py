@@ -440,7 +440,7 @@ def test_the_first_and_last_year_of_the_corpus_land_where_expected() -> None:
         for window in actors.periods(1992, 2023)
         if window.key != actors.WHOLE and window.mask(pd.Series([year])).iloc[0]
     ]
-    assert labelled == ["1990-1999", "2020-2024"]
+    assert labelled == ["1990-1999", "2020-2026"]
 
 
 def test_a_year_outside_the_declared_periods_is_named_not_dropped() -> None:
@@ -449,9 +449,9 @@ def test_a_year_outside_the_declared_periods_is_named_not_dropped() -> None:
     year would count in the whole-corpus row and in none of the period rows, and
     the two would stop adding up. So it stops the run, and the message names the
     year rather than the count."""
-    problems = actors.check_coverage(pd.Series([1992, 2025]))
+    problems = actors.check_coverage(pd.Series([1992, 2027]))
     assert len(problems) == 1
-    assert "2025" in problems[0]
+    assert "2027" in problems[0]
 
 
 def test_a_year_in_two_periods_is_refused_as_well() -> None:

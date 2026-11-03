@@ -145,7 +145,7 @@ export const shortCountry = (name: string) => SHORT[name] ?? name;
  * Whether a speech's language field names a language at all.
  *
  * The corpus writes `Unknown` where the source recorded none, and that is every
- * speech in it: the field is present on all 167,642 and names a language on
+ * speech in it: the field is present on all 182,684 and names a language on
  * none. Read as "some language, and not English", `Unknown` made the reader's
  * apparatus publish "179 speeches carry a non-English language label" on a
  * meeting held in English, and printed "spoke in Unknown" under every speaker.

@@ -197,7 +197,7 @@
 	<div class="inner">
 		<a class="wordmark" href={resolve('/')}>
 			<strong><mark>Genocide</mark> at the Security Council</strong>
-			<span class="symbol">1946&ndash;2024</span>
+			<span class="symbol">1946&ndash;2026</span>
 		</a>
 		<!-- Before the list it opens, so the next Tab from it walks into the
 		     sections. Only drawn below 48rem; the word is for assistive
@@ -266,7 +266,7 @@
 	<div class="inner">
 		<p>
 			Built from <a href="https://doi.org/10.7910/DVN/CKPTRB">The UNSC Meetings and Speeches</a>
-			(Sakamoto &amp; Matsuoka, v5.0, CC0). Every figure on this site is produced by a versioned script
+			(Sakamoto &amp; Matsuoka, v6.0, CC0). Every figure on this site is produced by a versioned script
 			from a single data file; see
 			<a href={resolve('/methods')}>Methods</a>.
 		</p>

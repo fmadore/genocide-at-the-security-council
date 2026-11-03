@@ -759,7 +759,7 @@ const validateUsageReferents: Validator = (record, path) => {
  * small, and every one of them is wanted again the moment the reader goes back.
  *
  * The two families fetched by name are the ones with no ceiling of their own —
- * 29 concordances and 9,464 speech files—and a reader who opens every term
+ * 29 concordances and 9,919 speech files—and a reader who opens every term
  * held all of them at once, in the parsed form, which is several times the
  * transferred size. Those get a least-recently-used bound instead: enough to
  * make going back to the previous term or the previous speech free, not enough

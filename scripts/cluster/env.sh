@@ -184,7 +184,12 @@ configure_annotation_model() {
       ;;
     *) echo "ERROR: unknown UNSC_ANNOTATION_MODEL '$profile' (qwen, deepseek, gemma)." >&2; exit 2 ;;
   esac
-  VLLM_PORT="${VLLM_PORT:-8000}"
+  # Jobs share GPU nodes. On one fixed port a second job's server could not
+  # bind, and its readiness check found the first job's server instead: on
+  # 2 November 2026 Gemma's batches asked Qwen's server for Gemma, and two Qwen
+  # batches lost requests when the server they had borrowed shut down. Each
+  # job takes a port of its own, and submit_annotate.sh refuses one in use.
+  VLLM_PORT="${VLLM_PORT:-$((8000 + ${SLURM_JOB_ID:-0} % 1000))}"
   VLLM_MAX_MODEL_LEN="${VLLM_MAX_MODEL_LEN:-131072}"
   # Match the four-request annotation workload, rather than vLLM's 1024-slot
   # GPU default, which exceeds this hybrid model's available Mamba cache.

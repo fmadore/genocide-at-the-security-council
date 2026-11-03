@@ -30,9 +30,10 @@ decision and commit the plan before the first scored row is written.
 
 ## 1. What is evaluated
 
-**The sample.** Step 13 drew it on 24 September 2026: 469 rows over 453 distinct
-occurrences of *genocide*, in three sampling frames ([VALIDATION.md](VALIDATION.md),
-open check 6).
+**The sample.** Step 13 first drew it on 24 September 2026 and last redrew it on
+3 November 2026, from the merged Qwen run on corpus v6.0: 469 rows over 458 distinct
+occurrences of *genocide*, in three sampling frames of the same sizes
+([VALIDATION.md](VALIDATION.md), open check 6).
 
 | Frame | Rows | What it is for |
 |---|---:|---|
@@ -47,7 +48,7 @@ because their labels were dictated to the model.
 [the codebook](../annotations/lexicon/CODEBOOK.md) (codebook 3, annotation
 schema 3, referent list 2). Rows go only into
 `annotations/genocide/annotations.csv`, which holds its header row and nothing
-else on 8 October 2026: 0 of 469 rows are coded.
+else on 3 November 2026: 0 of 469 rows are coded.
 
 **Two questions, kept apart.**
 
@@ -119,13 +120,16 @@ the codebook requires.
 The sample is not stored in the repository. Step 13 redraws it on every build,
 deterministically, from three inputs: the occurrence population (the lexicon),
 the run named in `model_annotations/genocide/current_run.txt`, and the run named
-in `gold_comparison_run.txt`. Two foreseeable changes would redraw a different sample
-under the coders:
+in `gold_comparison_run.txt`. A change to any of them redraws the sample: on
+3 November 2026 the move to corpus v6.0 and the merged Qwen run did so, before any
+row was coded. Two foreseeable changes would redraw a different sample under the
+coders:
 
 - Naming the Gemma run in `gold_comparison_run.txt` makes step 13 replace the
   `model_strata` frame with a `disagreement` frame cut from where the two runs
-  differ. That frame takes every occurrence either run calls `rejects`, and the
-  sample grows from 469 to 799 rows over 775 occurrences. The file is empty.
+  differ. That frame takes every occurrence either run calls `rejects`; counted
+  against the September runs, the sample would have grown from 469 to 799 rows
+  over 775 occurrences. The file is empty.
   Until 11 October 2026 step 13 read `comparison_run.txt` instead; it was split
   off so that the Gemma run could be published on the site without redrawing the
   sample (decided by FM).
@@ -202,8 +206,10 @@ Step 15 repeats every gold figure without them in its note and in its manifest
 
 Against the sample step 13 draws on 9 October 2026 (lexicon 8, the Qwen run as
 the only published run), **5 of the 59 fall in the sample**, all in the
-`model_strata` frame. The count holds for the frozen sample only if its
-checksums match the ones recorded under section 3.
+`model_strata` frame. Against the redraw of 3 November 2026 (corpus v6.0, the
+merged run `2026-11-03-qwen-131k`), **3 of the 59** fall in the sample. The count
+holds for the frozen sample only if its checksums match the ones recorded under
+section 3.
 
 ## 5. Keeping the coders independent
 

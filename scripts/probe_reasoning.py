@@ -4,6 +4,16 @@ The probe sends the same small set of corpus speeches at every declared level,
 records latency and reported reasoning tokens, and refuses a flat ladder. Its
 artefact lives under ``data/interim``: it is operational evidence, never a
 model annotation and never input to a published figure.
+
+The speeches are the first `--speeches` genocide-bearing speeches in corpus
+order, from a pool that holds `--spares` more. A speech whose answer is cut
+off at the output limit at any level is skipped, recorded under `skipped`
+with the level, and the next in the pool takes its place; any other invalid
+answer still stops the probe. Gemma, thinking at temperature 0, can reason
+until the limit on one particular text (on v6.0's SC00211-01-007, the first in
+the corpus, it did): that says something about the speech, which the run then
+records as a failure, not about whether the ladder works. The pool, not the
+speeches that were answered, is what the probe's identity and step 14 bind.
 """
 
 from __future__ import annotations
@@ -46,6 +56,8 @@ def run(args: argparse.Namespace) -> None:
         console.fail("run-id must be a single safe directory name")
     if args.speeches < 1:
         console.fail("--speeches must be at least 1")
+    if args.spares < 0:
+        console.fail("--spares cannot be negative")
     levels = [level.strip() for level in args.levels.split(",") if level.strip()]
     if len(levels) < 2 or len(levels) != len(set(levels)):
         console.fail("The reasoning probe needs at least two distinct levels")
@@ -56,13 +68,14 @@ def run(args: argparse.Namespace) -> None:
         "reasoning_location": args.reasoning_location,
         "levels_requested": levels,
         "speeches_per_level": args.speeches,
+        "candidates": args.speeches + args.spares,
     }
     step = annotation_step()
     pack = prompts.load_prompt(PROMPT)
     referent_list = audit.read_referent_list(REFERENTS)
     referents = referent_list.current
     table = llm.render_referents(llm.read_referent_table(REFERENTS))
-    _, speeches, _ = annotate.gather(args.speeches)
+    _, speeches, _ = annotate.gather(args.speeches + args.spares)
     runtime_args = argparse.Namespace(**vars(args), reasoning_effort=levels[-1])
     identity.update({
         "prompt_sha256": pack.sha256,
@@ -93,10 +106,17 @@ def run(args: argparse.Namespace) -> None:
             return
     api = step.client()
     observations: list[dict[str, object]] = []
+    used: list[str] = []
+    skipped: list[dict[str, object]] = []
 
-    for level in levels:
-        console.step(f"Probing reasoning level {level}")
-        for speech in speeches:
+    # Speech by speech, every level in turn, so that a speech cut off at one
+    # level leaves no observation behind at the others.
+    for speech in speeches:
+        if len(used) == args.speeches:
+            break
+        console.step(f"Probing {speech.custom_id} at {', '.join(levels)}")
+        answered: list[dict[str, object]] = []
+        for level in levels:
             request = llm.build_request(
                 speech.meta, speech.body, speech.occurrences, pack, table,
                 referent_ids=sorted(referents),
@@ -113,8 +133,16 @@ def run(args: argparse.Namespace) -> None:
             started = time.perf_counter()
             response = api.responses.create(**llm.sdk_request_kwargs(body)).model_dump(mode="json")
             elapsed = time.perf_counter() - started
+            usage = step.usage_of(response)
+            try:
+                text = step.output_text(response)
+            except step.ResponseTruncated as error:
+                console.warn(f"{speech.custom_id} cut off at {level}; the next speech takes its place")
+                skipped.append({"custom_id": speech.custom_id, "level": level, "reason": str(error),
+                                "output_tokens": usage["output_tokens"]})
+                break
             llm.validate_response(
-                step.output_text(response),
+                text,
                 ordinals=[item.ordinal for item in speech.occurrences],
                 referents=referents,
                 sentences=(
@@ -123,8 +151,7 @@ def run(args: argparse.Namespace) -> None:
                     else 0
                 ),
             )
-            usage = step.usage_of(response)
-            observations.append(
+            answered.append(
                 {
                     "level": level,
                     "custom_id": speech.custom_id,
@@ -133,6 +160,14 @@ def run(args: argparse.Namespace) -> None:
                     "output_tokens": usage["output_tokens"],
                 }
             )
+        else:
+            observations.extend(answered)
+            used.append(speech.custom_id)
+    if len(used) < args.speeches:
+        console.fail(
+            f"only {len(used)} of {args.speeches} probe speeches were answered without being cut off",
+            [f"{item['custom_id']} at {item['level']}" for item in skipped],
+        )
 
     assessment = probes.assess_ladder(observations, levels)
     artefact = {
@@ -141,6 +176,8 @@ def run(args: argparse.Namespace) -> None:
         "created": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "prompt_sha256": pack.sha256,
         "sampling": {"temperature": args.temperature, "top_p": args.top_p},
+        "speeches": used,
+        "skipped": skipped,
         "observations": observations,
         **assessment,
     }
@@ -161,6 +198,8 @@ def main() -> None:
     parser.add_argument("--reasoning-location", required=True, choices=("request", "chat_template_kwargs", "enable_thinking"))
     parser.add_argument("--levels", required=True, help="comma-separated ladder, from lowest to highest")
     parser.add_argument("--speeches", type=int, default=3)
+    parser.add_argument("--spares", type=int, default=2,
+                        help="speeches beyond --speeches that may stand in for one cut off")
     parser.add_argument("--temperature", type=float, required=True)
     parser.add_argument("--top-p", type=float, required=True)
     run(parser.parse_args())

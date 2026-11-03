@@ -13,7 +13,7 @@ export const PAGE_METADATA = {
 		path: '/',
 		title: SITE_NAME,
 		description:
-			'Explore when, how and by whom the vocabulary of genocide was used in UN Security Council debates from 1946 to 2024.'
+			'Explore when, how and by whom the vocabulary of genocide was used in UN Security Council debates from 1946 to 2026.'
 	},
 	'/chronology/': {
 		path: '/chronology/',
@@ -102,7 +102,7 @@ export const STRUCTURED_DATA_JSON = JSON.stringify({
 			'@id': `${canonicalUrl('/')}#analytical-data`,
 			name: `${SITE_NAME} — analytical data`,
 			description:
-				'Derived tables supporting the site’s analysis of genocide-related vocabulary in UN Security Council debates, 1946–2024.',
+				'Derived tables supporting the site’s analysis of genocide-related vocabulary in UN Security Council debates, 1946–2026.',
 			url: canonicalUrl('/'),
 			license: 'https://creativecommons.org/licenses/by/4.0/',
 			creator,

@@ -1,4 +1,4 @@
-"""Adapt Sakamoto-Matsuoka v5 into the pipeline's canonical parquet tables.
+"""Adapt Sakamoto-Matsuoka v6 into the pipeline's canonical parquet tables.
 
 The source distribution already contains one UTF-8 TSV row per speech and one
 per Security Council meeting. This step gives those fields the stable names
@@ -22,6 +22,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import artifacts, frames, sakamoto
 from lib.paths import (
+    COW_NAMES,
     DERIVED,
     EXPECTED_SPEECHES,
     EXPECTED_TOKENS,
@@ -31,6 +32,7 @@ from lib.paths import (
     ROOT,
     SOURCE_REPAIRS,
     SOURCE_SPEECHES,
+    SOURCE_STATES,
     SOURCE_TOKENS,
     SPEECHES,
     ensure_dirs,
@@ -59,11 +61,10 @@ SPEECH_REQUIRED = {
     "procedural",
     "count",
     "speech",
-    "affiliation_cow",
     "cow_ccode",
     "permanent_member",
     "elected_member",
-    "state",
+    "cow_state",
     "igo",
     "un_org",
     "ngo",
@@ -222,7 +223,7 @@ def build() -> None:
         "01_build.md",
         "# 01 - Build\n\n"
         f"{summary}\n\n"
-        "- Source: Sakamoto-Matsuoka, *The UNSC Meetings and Speeches*, v5.0.\n"
+        "- Source: Sakamoto-Matsuoka, *The UNSC Meetings and Speeches*, v6.0.\n"
         "- The source English transcript starts at the speech body; no form of address "
         "was reconstructed.\n"
         + "".join(
@@ -235,9 +236,9 @@ def build() -> None:
     manifest = artifacts.provenance(
         ROOT,
         "01_build_parquet.py",
-        inputs=[SPEECH_FILE, MEETING_FILE, SOURCE_REPAIRS],
+        inputs=[SPEECH_FILE, MEETING_FILE, SOURCE_REPAIRS, COW_NAMES, SOURCE_STATES],
         extra={
-            "source": "Sakamoto-Matsuoka v5.0",
+            "source": "Sakamoto-Matsuoka v6.0",
             "outputs": [
                 artifacts.describe_file(SPEECHES, ROOT),
                 artifacts.describe_file(MEETINGS, ROOT),

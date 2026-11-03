@@ -30,11 +30,25 @@ RELEASES = "https://github.com/fmadore/genocide-at-the-security-council/releases
 
 
 def load_pin(path: Path = SEMANTIC_PIN) -> dict:
-    """The committed release pin, refused unless it is one this code reads."""
+    """The committed release pin, refused unless it is one this code reads.
+
+    A pin may instead say why no map describes the corpus yet, under `pending`,
+    when the corpus has changed and the cluster has not re-embedded it: the
+    restore then fetches nothing and the export publishes the waiting state.
+    """
     pin = json.loads(path.read_text(encoding="utf-8"))
-    if pin.get("schema") != 1 or not str(pin.get("url", "")).startswith(RELEASES):
+    if pin.get("schema") != 1:
+        raise ValueError("unsupported semantic release pin")
+    if pending(pin):
+        return pin
+    if not str(pin.get("url", "")).startswith(RELEASES):
         raise ValueError("unsupported semantic release pin")
     return pin
+
+
+def pending(pin: dict) -> bool:
+    """Whether a pin says no released map describes the corpus yet."""
+    return bool(str(pin.get("pending", "")).strip()) and "url" not in pin
 
 
 def corpus_fingerprint(path: Path) -> str:
@@ -306,6 +320,9 @@ def install(archive: Path, target: Path, pin: dict) -> None:
 
 def restore(pin_path: Path, target: Path) -> None:
     pin = load_pin(pin_path)
+    if pending(pin):
+        print(f"No semantic release to restore: {pin['pending']}")
+        return
     if (target / "manifest.json").is_file():
         try:
             if artifacts.sha256(target / "manifest.json") == pin["manifest_sha256"]:

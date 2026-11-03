@@ -13,7 +13,8 @@ publishes, what the figure rests on, and how far it can be trusted today. State 
 | **Validated** | Model labels whose accuracy has been measured on the coded gold sample and passed the thresholds of [EVALUATION_PLAN.md](EVALUATION_PLAN.md). | — |
 
 **No figure is validated yet.** The gold sample is uncoded (0 of 469 rows), and the
-model run behind every model-derived figure is partial: 4,097 of 4,133 speeches
+model run behind every model-derived figure, `2026-11-03-qwen-131k`, covers all 4,576
+speeches and 8,611 occurrences but has had no human check
 ([model_annotations/README.md](../model_annotations/README.md)).
 
 ## Limits that apply to every figure
@@ -35,7 +36,7 @@ Details: [CORPUS.md](CORPUS.md#limitations-that-must-remain-visible).
 
 | Figure | Rests on | Status |
 |---|---|---|
-| Occurrences and share of speeches, 1946–2024 | Lexicon matches of `g[eé]nocid*` (step 03), counted per year against all speeches held (step 04); Wilson intervals; the change-point test | Computed |
+| Occurrences and share of speeches, 1946–2026 | Lexicon matches of `g[eé]nocid*` (step 03), counted per year against all speeches held (step 04); Wilson intervals; the change-point test | Computed |
 | The vocabulary, word by word | The same, for every lexicon term | Computed |
 | The word list over time | Annual or quarterly counts and rates per term, with Wilson intervals and intervals from resampling whole meetings; an optional overlay of dated events | Computed. The events (`config/events.csv`) are hand-chosen context from primary sources, not explanations; eight legal milestones still need their dates checked ([VALIDATION.md](VALIDATION.md), "Primary-source chronology overlay"). |
 | Composition and use (drawn under the chronology) | The change in the speech rate split into agenda composition and use within agenda items | Computed |
@@ -73,8 +74,8 @@ Details: [CORPUS.md](CORPUS.md#limitations-that-must-remain-visible).
 
 ### Usage (model labels)
 
-Every figure on this page rests on the published Qwen run: prompt v3, partial, no
-human check.
+Every figure on this page rests on the published Qwen run, `2026-11-03-qwen-131k`:
+prompt v3, every occurrence covered, no human check.
 
 | Figure | Rests on | Status |
 |---|---|---|
@@ -96,8 +97,8 @@ human check.
 Every CSV download and image carries its provenance: the step that produced it,
 the analysis hash, the commit and the input checksums. Downloads of model-derived
 figures name the model and run, and carry a status line straight after the title,
-on the CSV and on the image alike, saying that the labels are unvalidated and the
-run partial (review of 8 October 2026, A1). Anyone quoting such a download should
+on the CSV and on the image alike, saying that the labels are unvalidated and, while
+a run leaves occurrences out, that it is partial (review of 8 October 2026, A1). Anyone quoting such a download should
 quote its status with it.
 
 ## When this guide changes

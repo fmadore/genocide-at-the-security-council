@@ -1,56 +1,81 @@
 # Model annotations
 
-## The published run is a stopped, partial run
+## The published run is a complete, merged run
 
-The run the site shows, `2026-09-08-qwen-131k`, is **a partial run that was stopped
-and published as a preview** on 14 September 2026. It is not finished, and no
-human has checked its labels: the gold sample is uncoded.
+The run the site shows, `2026-11-03-qwen-131k`, was assembled on 3 November 2026 from
+the September run `2026-09-08-qwen-131k` and a top-up asked on Festus. It covers every
+occurrence of the current corpus, but no human has checked its labels: the gold sample
+is uncoded, so it remains an **unvalidated preview**.
 
-- **Coverage.** Qwen3.8-27B (prompt v3) annotated 4,097 of the 4,133 speeches and
-  7,694 of the 7,747 occurrences of the population it was made against (lexicon
-  v6). Lexicon v8 later added the 40 accented *génocidaires*, which the run
-  predates, so it now covers 7,694 of 7,787 occurrences.
-- **What is missing.** 36 speeches have no accepted response: 34 because the
-  model wrote a display name where an identifier from the referent list was
-  required, 2 because the response was cut off at the output limit. The
-  manifest's `truncation_count` of 4 counts cut-off responses over both passes,
-  so it is larger than the two speeches still missing.
-- **What is excluded.** 24 evidence quotes could not be found in their speech;
-  those rows are left out of every discourse figure. Three more were found only
-  by a looser match (folding quotation marks, dashes, letter case and line-break
-  hyphens) and are marked as relocated.
-- **Why the build accepts it.** A run must cover the whole population unless its
-  gap is authorised. `allow_partial_run.txt` names this run, so the Makefile
-  passes `--allow-partial` to step 15 for it alone; any other selected run is
-  held to full coverage.
+- **Coverage.** Qwen3.8-27B (prompt v3) answered all 4,576 speeches and all 8,611
+  occurrences of corpus v6.0 (lexicon v8). Its manifest reads `"status": "complete"`
+  and lists no gaps.
+- **Where the rows come from.** 6,790 rows are carried from `2026-09-08-qwen-131k`,
+  which was asked about corpus v5.0, through `carry_over.json` (below), only where the
+  text around each occurrence is unchanged; 94 of that run's carried rows were
+  superseded by the top-up. The other 812 speeches, new in v6.0, changed near the
+  word, or never answered in September, were asked again in four top-up batches with
+  the same model, prompt and settings, and merged with the carried rows by
+  `scripts/annotation_batches.py merge --carry` ([docs/CLUSTER.md](../docs/CLUSTER.md)).
+  The manifest records the carried run under `carried` and the batches under
+  `assembly`. The batch directories are not committed.
+- **What was missing, and is no longer.** The top-up included the 36 speeches the
+  September run never answered, so the published run has no gap.
+- **What is excluded.** 24 evidence quotes could not be found in their speech; those
+  rows are left out of every discourse figure.
+- **Why the build accepts it.** A run must cover the whole population unless its gap
+  is authorised in `allow_partial_run.txt`. This one has no gap, so that file is empty
+  and the Makefile no longer passes `--allow-partial` to step 15.
 
-**Why the manifest still says `"status": "in_progress"` and `"completed": null`.**
+**The carried source, `2026-09-08-qwen-131k`, stays committed and unedited.** It was
+stopped and published as a preview on 14 September 2026, and the site showed it until
+3 November 2026. It annotated 4,097 of the 4,133 speeches and 7,694 of the 7,747
+occurrences of the population it was made against (lexicon v6, corpus v5.0). 36
+speeches had no accepted response: 34 because the model wrote a display name where an
+identifier from the referent list was required, 2 because the response was cut off at
+the output limit. Its manifest's `truncation_count` of 4 counts cut-off responses over
+both passes, so it is larger than the two speeches missing. 24 of its evidence quotes
+could not be found in their speech, and three more were found only by a looser match
+(folding quotation marks, dashes, letter case and line-break hyphens) and are marked
+as relocated.
+
+**Why the September manifest still says `"status": "in_progress"` and `"completed": null`.**
 Read these as "stopped, not finished"; no job is running. Step 14 is the only
 program that writes a manifest, and it writes `complete` only when every planned
 speech has a valid response, which 36 do not. Run files are append-only and are
 never edited by hand, so the status stays as the runner left it. Marking the run
-complete would also make step 14 refuse to resume it, closing the way to a later
-pass over the 36 speeches under the same run identity.
+complete by hand would also have made step 14 refuse to resume it. The 36 speeches
+were answered instead in the top-up, under the new run identity, and it is
+`2026-11-03-qwen-131k` whose manifest reads `complete`.
 
-**Why the commit ends in `-dirty`.** The manifest's `git_commit` is
+**Why the September commit ends in `-dirty`.** That manifest's `git_commit` is
 `98c473f2a1ae4245049ddebb308c7e8595920317-dirty`: the run was started from a
 working copy with uncommitted changes on top of commit `98c473f` (7 September
 2026). Those changes are not in git, and the exact code cannot be recovered after
-the fact. What defines the instrument is recorded separately, by checksum, in
+the fact. The 6,790 carried rows of the published run were answered by that code.
+What defines the instrument is recorded separately, by checksum, in
 `identity.json` and the manifest: the prompt, the referent list, the output
 schema (3.1), the occurrence population (lexicon 6), the exact requests sent, the
 model revision, the vLLM version, the hardware and the sampling settings
 (temperature 0). The cluster
 workspace has been pushed from a clean tree since 18 September 2026, so later
-runs cite a commit that exists.
+runs, the top-up batches included, cite a commit that exists.
 
-The comparison run, `2026-09-09-gemma4` (Gemma 4 31B IT, same prompt), is
-published as the second opinion: `comparison_run.txt` names it since 11 October
-2026. The gold sample does not follow it (see `gold_comparison_run.txt` below). It covers 4,130 of
-4,133 speeches. Its manifest reads `status: partial` and lists the three it
-leaves out under `gaps`, each with the failure its batch last recorded; why they
-were left out is in `docs/VALIDATION.md` §7. The four hosted runs of August 2026 remain
-historical provenance for the retired corpus and must not be joined to v5.
+The comparison run, `2026-11-03-gemma4` (Gemma 4 31B IT, same prompt), is
+published as the second opinion: `comparison_run.txt` names it since 3 November
+2026, in place of `2026-09-09-gemma4`, from which it was merged the same way (6,818
+carried rows, 781 speeches asked again). The gold sample does not follow it (see
+`gold_comparison_run.txt` below). It covers 4,569 of the 4,576 speeches and 8,573 of
+the 8,611 occurrences. Its manifest reads `status: partial` and lists the seven
+speeches it leaves out (38 occurrences) under `gaps`, each with the failure its batch
+last recorded: five cut off at the output limit, `SC07155-01-013` contradicting
+itself (as in September), and `SC09711-01-021` naming an unknown referent; more is in
+`docs/VALIDATION.md` §7. Two of September's three gaps, `SC03203-01-007` and
+`SC09241-02-044`, were answered this time. 33 of its evidence quotes could not be
+located. Over the 8,573 occurrences both runs answer, they agree on the referent for
+89.2% (kappa 0.876), and 3,112 occurrences are contested on at least one field. The
+four hosted runs of August 2026 remain historical provenance for the retired corpus
+and must not be joined to the current one.
 
 Files below this directory are durable, version-controlled research inputs, exactly as the
 ones under `annotations/` are. The difference is who wrote them: `scripts/14_llm_annotate.py`
@@ -84,6 +109,7 @@ genocide/
   current_run.txt              the run id the dashboard shows, or empty for none
   comparison_run.txt           the run id read against it as a second opinion, or empty
   gold_comparison_run.txt      the second run the gold sample's third frame is cut from, or empty
+  carry_over.json              how the runs asked about corpus v5.0 are read against v6.0
   runs/<run_id>/
     manifest.json              weights revision, runtime, prompt, counts, usage, status
     identity.json              checksums of everything that defines the instrument
@@ -162,7 +188,8 @@ loosen this: it lets a v1 run and a v2 run each be published, one aggregation at
 under the wording each was made with, and never lets one be laid over the other.
 
 What agreement here means is narrow, and it is the reason the file is empty by default
-and was filled only by a recorded decision (FM, 11 October 2026, for `2026-09-09-gemma4`).
+and was filled only by a recorded decision (FM, 11 October 2026, for `2026-09-09-gemma4`;
+its merged successor `2026-11-03-gemma4` took its place on 3 November 2026).
 Two models agreeing shows that a label is **stable across instruments** — the same
 questionnaire, answered twice, by two machines with overlapping training and the same blind
 spots. It is not validation and not accuracy. The human gold sample under `annotations/` is
@@ -175,6 +202,17 @@ frame is `model_strata`, read off the run in `current_run.txt` alone; naming a r
 it the `disagreement` frame, cut from where the two runs differ. It is kept apart from
 `comparison_run.txt` so that publishing a second opinion on the site does not redraw the sample
 under the coders (decided by FM, 11 October 2026). With Gemma named, the disagreement frame
-would take every occurrence either run calls `rejects` and grow the sample from 469 to 799 rows.
+would take every occurrence either run calls `rejects`; counted against the September runs, it
+would have grown the sample from 469 to 799 rows.
 Changing this file redraws the sample; see
 [`docs/EVALUATION_PLAN.md`](../docs/EVALUATION_PLAN.md), section 3.
+
+## `carry_over.json`
+
+The Qwen and Gemma runs were asked about corpus v5.0. Their files are never edited, so the
+move to v6.0 lives in this table, written by `tools/carry_over_runs.py` and applied by
+`lib.model_runs.read` to the runs it lists. A row whose speech is unchanged is read as
+written; a row whose passage is found unchanged in v6.0 is re-pointed at it; every row of a
+speech whose text near an occurrence changed is dropped, and that speech is left to a top-up
+run. Labels are never touched. Run without `--write`, the tool checks that every row of every
+committed run, read through the table, names an occurrence of the current corpus once.

@@ -1,10 +1,10 @@
 {
   "schema": 1,
-  "url": "https://github.com/fmadore/genocide-at-the-security-council/releases/download/semantic-2026-10-20/semantic-832092.zip",
-  "sha256": "3897e40f781549391bd973529206cc57428e14cdda449c3261135a0cb380e97a",
-  "manifest_sha256": "34dc39e120c05b62819ddaa9d29c0cc7ec9e34783e9319e1f62a2be056b40735",
-  "corpus_sha256": "85922af1ac7357d9cee67bd16d55acc0627da9d1482d31e82bc8c19073a9a266",
-  "corpus_content_sha256": "7da982437035ca495c501e0002c733ff677a3fae619840cebb27a6349e9e798b",
-  "corpus_geometry_sha256": "c4e974ab5bd7d7c1d6a68c1c915b9ee4b932736d42ef286813a35767605c3e68",
-  "geometry_note": "Computed 2026-10-20 from the corpus whose content fingerprint matches corpus_content_sha256, after the source repairs of 19 October 2026; binds row ids and embedded bodies only. Display attributes are re-derived at export (docs/ROADMAP.md, RV6)."
+  "url": "https://github.com/fmadore/genocide-at-the-security-council/releases/download/semantic-2026-11-03/semantic-846921.zip",
+  "sha256": "ee68bc84b238d2c65d45576b3c7f3eb9687945d92c905c6ffa50c0849664220c",
+  "manifest_sha256": "cb9caf56ec36ebe817b5361750979a56dc9031deed164fce0144439d92ee4b0e",
+  "corpus_sha256": "9c9cec367bd6b9444e8223a64e07aa9eedfe3f98646c365d86603d34af514187",
+  "corpus_content_sha256": "199c1d5a236625fe4db454ddfe21621946e26ce7ea2285bdfa246bedbc4c9fea",
+  "corpus_geometry_sha256": "de8239c7be97a027ab24e851881f5302af2255ffe4d8bd9af8ebb953ffffff86",
+  "geometry_note": "Computed 2026-11-03 from the corpus whose content fingerprint matches corpus_content_sha256, Sakamoto-Matsuoka v6.0 with no source repairs; binds row ids and embedded bodies only. Display attributes are re-derived at export (docs/ROADMAP.md, RV6)."
 }
