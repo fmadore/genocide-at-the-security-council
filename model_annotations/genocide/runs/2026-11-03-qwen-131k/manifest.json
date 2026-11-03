@@ -1,0 +1,209 @@
+{
+ "run_id": "2026-11-03-qwen-131k",
+ "term": "genocide",
+ "model": "Qwen/Qwen3.8-27B",
+ "reasoning_effort": "xhigh",
+ "prompt_version": 3,
+ "prompt_sha256": "3772c44d400f637bbbde621249748ab4717d032c962af29d41a4495d5c6bf9b0",
+ "referents_sha256": "346e7add31a34e7cfe57de1f469acbe32303bb5c20e688e25e7d371c4cb74e5f",
+ "referents_version": "2",
+ "lexicon_version": "8",
+ "schema_version": "3.1",
+ "mode": "vllm",
+ "limit": null,
+ "created": "2026-09-08T06:20:08Z",
+ "completed": "2026-11-03T07:17:43Z",
+ "batch_ids": [],
+ "requests": {
+  "planned": 812,
+  "sent": 860,
+  "returned": 779,
+  "complete": 812
+ },
+ "passes": [
+  {
+   "at": "2026-11-02T15:49:38Z",
+   "mode": "vllm",
+   "requests": 203,
+   "returned": 203,
+   "pass_id": "846945-20261102T105817Z-397"
+  },
+  {
+   "at": "2026-11-03T06:37:54Z",
+   "mode": "vllm",
+   "requests": 4,
+   "returned": 0,
+   "pass_id": "847562-20261103T062918Z-297"
+  },
+  {
+   "at": "2026-11-02T15:49:48Z",
+   "mode": "vllm",
+   "requests": 203,
+   "returned": 175,
+   "pass_id": "846948-20261102T112647Z-133"
+  },
+  {
+   "at": "2026-11-03T06:52:34Z",
+   "mode": "vllm",
+   "requests": 31,
+   "returned": 0,
+   "pass_id": "847563-20261103T062919Z-297"
+  },
+  {
+   "at": "2026-11-02T21:44:52Z",
+   "mode": "vllm",
+   "requests": 203,
+   "returned": 198,
+   "pass_id": "847358-20261102T161338Z-299"
+  },
+  {
+   "at": "2026-11-03T07:09:34Z",
+   "mode": "vllm",
+   "requests": 10,
+   "returned": 0,
+   "pass_id": "847566-20261103T065639Z-297"
+  },
+  {
+   "at": "2026-11-02T21:44:49Z",
+   "mode": "vllm",
+   "requests": 203,
+   "returned": 203,
+   "pass_id": "846943-20261102T161228Z-313"
+  },
+  {
+   "at": "2026-11-03T07:17:43Z",
+   "mode": "vllm",
+   "requests": 3,
+   "returned": 0,
+   "pass_id": "847560-20261103T071141Z-297"
+  }
+ ],
+ "occurrences": {
+  "planned": 8611,
+  "written": 8611
+ },
+ "parse_failures": 0,
+ "truncation_count": 0,
+ "evidence_invalid": 4,
+ "evidence_relocated": 0,
+ "usage": {
+  "input_tokens": 7376382,
+  "output_tokens": 7271782,
+  "reasoning_tokens": 6826429,
+  "cached_tokens": 5778864
+ },
+ "cost_usd": null,
+ "status": "complete",
+ "runtime": {
+  "route": "openai-compatible-responses",
+  "served_model": "Qwen/Qwen3.8-27B",
+  "model_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+  "quantization": "none",
+  "vllm_version": "0.28.0",
+  "environments": {
+   "annotator": "locked+llm-client-overlay",
+   "server": "vllm"
+  },
+  "hardware": {
+   "gpu_model": "NVIDIA H100 80GB HBM3",
+   "gpu_count": 1
+  },
+  "serving": {
+   "max_model_len": 131072,
+   "max_num_seqs": 4,
+   "reasoning_parser": "qwen3",
+   "tensor_parallel_size": 1,
+   "prefix_caching": true,
+   "speculative_decoding": null,
+   "moe_backend": null
+  },
+  "reasoning": {
+   "parameter": "reasoning_effort",
+   "value": "xhigh",
+   "location": "chat_template_kwargs"
+  },
+  "sampling": {
+   "temperature": 0.0,
+   "top_p": 1.0
+  },
+  "max_output_tokens": 65536
+ },
+ "gaps": [],
+ "assembly": {
+  "plan_sha256": "92b2b5d8c0a1993a0240272ac573e3ec65d71780a4d085d099acdd816f5b3855",
+  "sources": [
+   {
+    "run_id": "2026-11-02-qwen-131k-topup-batch-0",
+    "identity_sha256": "9ddc75474103f9464707d5e8fff4c1b4d1806cf143b60d05ab8e5aa9a5db46dc",
+    "manifest_sha256": "f486639b1d24f9c0d354e83961abacd490ae9f797ae1545eb8cfd0cd55303a67",
+    "annotations_sha256": "2d7948e4a161da641284cad39e56a8ec8742049292adc00fc7ea5aa5c9cb9302",
+    "probe_sha256": "33bf2b4c7c524dae3c25dfd98e778070569ae830d4c4babcd96cc0bb82569821"
+   },
+   {
+    "run_id": "2026-11-02-qwen-131k-topup-batch-1",
+    "identity_sha256": "ff53117b45fa2794f7933816717e86854efc25b8a71d091fbc05acf52f2bdb32",
+    "manifest_sha256": "8c6091c92a28d96f4752566b0e2b3be58d5330ac0cf5d142224d064cfb4a7b98",
+    "annotations_sha256": "cc117c16869bac5e85d720941d6fb7f10a2ae1140d38221b5fe8d7245e51557e",
+    "probe_sha256": "c12b7903766278d789476e6f42f3d1a72a7df821db62cb51d51f287e2355675b"
+   },
+   {
+    "run_id": "2026-11-02-qwen-131k-topup-batch-2",
+    "identity_sha256": "64bd85fc00e52b28a2d21ebd8012b7fd910975e7b465c2db5c8292c5f3b838d5",
+    "manifest_sha256": "a5b957e4280154d63af57e19103d67147d9ab804bb5d76580c2cec8daa991a93",
+    "annotations_sha256": "a7671d5baf6dbdcc7c5ee38bdcf9a5b5b3ba8f6a2f11668c8a492f87f2e4bfe4",
+    "probe_sha256": "3a8bdea941f2029f14a10681dcef685ecc5377d2c1144d6fc5296b28aff1fb16"
+   },
+   {
+    "run_id": "2026-11-02-qwen-131k-topup-batch-3",
+    "identity_sha256": "7d7be43e8263b597f67622f03dde0ff054b0aea6d4ffc009c842db6c9d05d108",
+    "manifest_sha256": "cad95a6c9c307963c96cc113308748e15bd7297672843ad2cca06726bf182a0d",
+    "annotations_sha256": "a73aa0f37e9e0eb1f47468a2670c8e7231dcf040cb1ea082a8e8a2143317d8cb",
+    "probe_sha256": "19473fc75c59afc2a56e502a010fdc13761dfd2a5846b009691d21e5c2ca170b"
+   }
+  ]
+ },
+ "carried": {
+  "run_id": "2026-09-08-qwen-131k",
+  "rows": 6790,
+  "superseded": 94,
+  "created": "2026-09-08T06:20:08Z",
+  "lexicon_version": "6",
+  "runtime": {
+   "route": "openai-compatible-responses",
+   "served_model": "Qwen/Qwen3.8-27B",
+   "model_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+   "quantization": "none",
+   "vllm_version": "0.28.0",
+   "environments": {
+    "annotator": "locked+llm-client-overlay",
+    "server": "vllm"
+   },
+   "hardware": {
+    "gpu_model": "NVIDIA H100 80GB HBM3",
+    "gpu_count": 1
+   },
+   "serving": {
+    "max_model_len": 131072,
+    "max_num_seqs": 4,
+    "reasoning_parser": "qwen3",
+    "tensor_parallel_size": 1,
+    "prefix_caching": true,
+    "speculative_decoding": null,
+    "moe_backend": null
+   },
+   "reasoning": {
+    "parameter": "reasoning_effort",
+    "value": "xhigh",
+    "location": "chat_template_kwargs"
+   },
+   "sampling": {
+    "temperature": 0.0,
+    "top_p": 1.0
+   },
+   "max_output_tokens": 65536
+  },
+  "manifest_sha256": "472dbd6f8a0eda111b99744a2e8a5d3cbab280bae5dcdb840e6cce4c4554a093",
+  "annotations_sha256": "1cc64281f9b64bc5fde9f32d6be7b1335b61413626577f4f1c8a30b0eeef3308",
+  "carry_over_sha256": "5555167fcda292c522d9542d59f834c6589b9a2d78da50271dc305f5ec532b25"
+ }
+}

@@ -113,10 +113,10 @@ document contains 36 corpus speech records. Priority: low.
 ### 6. Genocide gold sample — 0 of 469 rows coded
 
 `scripts/13_gold_sample.py` draws 469 candidates over 458 distinct `genocide` occurrences
-(redrawn on v6.0, 2 November 2026; 453 under v5.0), from every occurrence except the ten
-behind the prompt's worked examples, in three frames. The `model_strata` frame is cut from the
-published run, so the top-ups due on Festus (check 7) redraw it once more when the merged runs
-are published: the sample must not be coded before then.
+(redrawn on v6.0 from the merged Qwen run `2026-11-03-qwen-131k`, 3 November 2026; 453 under
+v5.0), from every occurrence except the ten behind the prompt's worked examples, in three
+frames. The `model_strata` frame is cut from the published run, so it is redrawn whenever
+`current_run.txt` changes; with the merged run published it is ready to be frozen and coded.
 
 | Frame | Rows | Read as |
 |---|---:|---|
@@ -206,7 +206,9 @@ runs on the current corpus:
 | Run | Model | Prompt | Coverage | Parse failures | Evidence invalid | State |
 |---|---|---|---|---:|---:|---|
 | `2026-09-08-qwen-131k` | `Qwen/Qwen3.8-27B` at revision `1d4bf0f2ff60`, effort xhigh | v3 `3772c44d400f` | 4,097 of 4,133 speeches, 7,694 of 7,747 occurrences (lexicon 6) | 36 | 24 (3 relocated) | stopped partial run, published as a preview |
-| `2026-09-09-gemma4` | `google/gemma-4-31B-it` at revision `842da3794eaa`, thinking on | v3 `3772c44d400f` | 4,130 of 4,133 speeches, 7,725 of 7,747 occurrences (lexicon 7) | 3 | 30 (5 relocated) | merged from 17 batches on 11 October 2026 with three documented gaps; published the same day as the second opinion (`comparison_run.txt`), not used by the gold sample |
+| `2026-09-09-gemma4` | `google/gemma-4-31B-it` at revision `842da3794eaa`, thinking on | v3 `3772c44d400f` | 4,130 of 4,133 speeches, 7,725 of 7,747 occurrences (lexicon 7) | 3 | 30 (5 relocated) | merged from 17 batches on 11 October 2026 with three documented gaps; the second opinion until 3 November 2026 |
+| `2026-11-03-qwen-131k` | as `2026-09-08-qwen-131k` | v3 `3772c44d400f` | 4,576 of 4,576 speeches, 8,611 of 8,611 occurrences (lexicon 8, corpus v6.0) | 0 | 24 | complete; 6,790 rows carried from `2026-09-08-qwen-131k`, 812 speeches asked again in four top-up batches; **published** (`current_run.txt`) since 3 November 2026 |
+| `2026-11-03-gemma4` | as `2026-09-09-gemma4` | v3 `3772c44d400f` | 4,569 of 4,576 speeches, 8,573 of 8,611 occurrences (lexicon 8, corpus v6.0) | 7 | 33 | seven documented gaps; 6,818 rows carried from `2026-09-09-gemma4`, 781 speeches asked again; the second opinion (`comparison_run.txt`) since 3 November 2026, not used by the gold sample |
 
 Of the Qwen run's 36 speeches without an accepted response, 34 carry a display
 name where a referent identifier was required and 2 were cut off at the output
@@ -239,8 +241,26 @@ lexicon 7 and so does not cover the 40 occurrences lexicon 8 added
 
 Both runs were asked about v5.0. Since 2 November 2026 they are read through
 `model_annotations/genocide/carry_over.json`: Qwen keeps 6,884 of its rows on v6.0 and
-Gemma 6,912, and 812 and 781 speeches await top-up runs on Festus. The rule and the counts
-are under "2 November 2026" below.
+Gemma 6,912. The other 812 and 781 speeches were asked again on Festus and merged with the
+carried rows on 3 November 2026 into `2026-11-03-qwen-131k` and `2026-11-03-gemma4`, which
+the site now reads; the September runs stay committed, unedited, as the carried source. The
+top-up covered Qwen's 36 old gaps too, so the published run is no longer partial and
+`allow_partial_run.txt` is empty. Gemma leaves out seven speeches (38 occurrences), named in
+the merge and in its manifest's `gaps`:
+
+| Speech | Batch | Occurrences | Last failure |
+|---|---:|---:|---|
+| SC01383-01-008 | 1 | 3 | cut off at the output limit |
+| SC03400-01-011 | 0 | 4 | cut off at the output limit |
+| SC07155-01-013 | 1 | 16 | contradicts itself, as in September |
+| SC07192-01-015 | 3 | 2 | cut off at the output limit |
+| SC09711-01-021 | 1 | 9 | names a referent that is not on the list ("genocide in general") |
+| SC10019-01-025 | 3 | 2 | cut off at the output limit |
+| SC10177-01-020 | 1 | 2 | cut off at the output limit |
+
+Each failed twice: in its batch and in one retry pass (job 848175). Two of September's three
+gaps, SC03203-01-007 and SC09241-02-044, were answered this time. The rule and the counts are
+under "2 November 2026" below.
 
 The records of the four hosted runs made on the retired corpus in August 2026 —
 their register, the recount of the Gemini manifest, the `cost_usd` check, the
@@ -351,8 +371,9 @@ Records of the second session of the Gen- er$l-dumbly, Resolutions"); Gemma had 
 v5.0 text in September. The probe now draws from a pool of the first three speeches and two
 spares, skips a speech cut off at any level, records it under `skipped`, and refuses to pass
 with fewer than three answered; step 14 binds the whole pool. Any other invalid answer still
-stops the probe. `SC00211-01-007` is in Gemma's top-up and may end as a named gap, like the
-three of September.
+stops the probe. `SC00211-01-007` itself was not in Gemma's top-up: its two occurrences are
+unchanged in context and keep Gemma's September labels. Gemma's resubmitted probe skipped it
+in every batch and passed on the next three speeches.
 
 **Two jobs on one port (found 3 November 2026).** Every job's vLLM server listened on port 8000,
 and Festus placed several jobs on the same node (`s73c01`). A job that arrived second could not
@@ -369,6 +390,16 @@ and refuses one already in use (`scripts/cluster/env.sh`, `submit_annotate.sh`).
 was resubmitted (job 847561), and Qwen's four batches were rerun under the same run ids (job
 847560), which asks again only the 48 speeches left unanswered. The rerun answered all 48, so
 Qwen's top-up covers its 812 speeches with no gap.
+
+**The merged runs (3 November 2026).** Gemma's four batches left 22 speeches unanswered, 19 cut
+off at the output limit and 3 invalid; one retry pass under the same run ids answered 15. The
+batches were merged with the carried September rows (`annotation_batches.py merge --carry`),
+the batch directories kept out of git as in September, and `current_run.txt` and
+`comparison_run.txt` pointed at the merged runs. Step 15 reports Qwen at 8,611 of 8,611
+occurrences (24 evidence quotes not located, excluded) and Gemma at 8,573; the two agree on the
+referent for 89.2% of the 8,573 they share (kappa 0.876), and 3,112 occurrences are contested
+on at least one field. The gold sample was redrawn from the merged Qwen run: 469 rows over
+458 occurrences, the same frame sizes as on 2 November.
 
 **The September spot review.** `tools/prior_review.py` resolves the 59 reviewed passages to
 v6.0. Four have moved to the next row of their meeting (`SC00232-01-005#1`–`#3` to

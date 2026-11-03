@@ -182,11 +182,14 @@ found 4,133 and 7,747 there with `genocid*`; v8 adds the accented *génocidaires
 
 - The LLM runs dated August 2026 were produced against the former corpus. They
   are archived and cannot be joined to the new `occurrence_id` values. The
-  published pointer names the partial `2026-09-08-qwen-131k` preview, which has
-  no human validation yet; see [CLAIMS.md](CLAIMS.md) for what each figure rests
-  on. It and the Gemma comparison run were asked about version 5.0; their labels
-  are carried to version 6.0 only where the text around each occurrence is
-  unchanged ([model_annotations/README.md](../model_annotations/README.md)).
+  published pointer names the `2026-11-03-qwen-131k` preview, which covers
+  every occurrence but has no human validation yet; see [CLAIMS.md](CLAIMS.md)
+  for what each figure rests on. It and the Gemma comparison run
+  `2026-11-03-gemma4` were merged on 3 November 2026 from the September runs,
+  which were asked about version 5.0 and whose labels carry to version 6.0 only
+  where the text around each occurrence is unchanged, and from a top-up that
+  asked the remaining speeches again on version 6.0
+  ([model_annotations/README.md](../model_annotations/README.md)).
 
 ## Government-change datasets: an evaluation, not an adoption
 

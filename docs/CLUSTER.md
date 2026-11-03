@@ -195,12 +195,17 @@ merge. The Gemma run was asked under lexicon 7 and merged under lexicon 8.
 
 ### Topping up a run carried over from v5.0
 
-The committed Qwen and Gemma runs were asked about corpus v5.0.
-`tools/carry_over_runs.py` carries their labels to v6.0 where the text around
-each occurrence is unchanged (`model_annotations/genocide/carry_over.json`):
-3,764 of the 4,576 speeches keep Qwen's labels, 3,795 keep Gemma's. The other
-speeches, 812 and 781, are asked again in a top-up: a plan over only the
-speeches the run does not cover in full.
+The September Qwen and Gemma runs (`2026-09-08-qwen-131k`, `2026-09-09-gemma4`)
+were asked about corpus v5.0. `tools/carry_over_runs.py` carries their labels to
+v6.0 where the text around each occurrence is unchanged
+(`model_annotations/genocide/carry_over.json`): 3,764 of the 4,576 speeches keep
+Qwen's labels, 3,795 keep Gemma's. The other speeches, 812 and 781, were asked
+again in a top-up: a plan over only the speeches the run does not cover in full.
+Each top-up ran as four batches on Festus, and on 3 November 2026 they were merged
+with the carried rows into `2026-11-03-qwen-131k` (complete, now published) and
+`2026-11-03-gemma4` (seven documented gaps, now the second opinion); the
+batch directories are not committed. The steps below are how it was done, and
+how a later top-up would be done.
 
 ```bash
 python scripts/annotation_batches.py plan --size 250 \

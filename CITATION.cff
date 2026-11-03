@@ -65,12 +65,12 @@ references:
         given-names: Hiroto
   # The models. Each is pinned to an immutable Hugging Face revision, given as
   # `commit`. The published annotation run records its revision in
-  # model_annotations/genocide/runs/2026-09-08-qwen-131k/manifest.json; the
+  # model_annotations/genocide/runs/2026-11-03-qwen-131k/manifest.json; the
   # comparison model's revision is its profile in scripts/cluster/env.sh; the
   # embedding model's is in config/embedding_models.yml.
   - type: software
     title: "Qwen3.8-27B"
-    notes: "Open-weights language model. The published instrument of the model annotation layer (run 2026-09-08-qwen-131k, prompt v3)."
+    notes: "Open-weights language model. The published instrument of the model annotation layer (run 2026-11-03-qwen-131k, prompt v3)."
     repository: "https://huggingface.co/Qwen/Qwen3.8-27B"
     commit: "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
     authors:

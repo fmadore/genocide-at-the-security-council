@@ -1,0 +1,311 @@
+{
+ "run_id": "2026-11-03-gemma4",
+ "term": "genocide",
+ "model": "google/gemma-4-31B-it",
+ "reasoning_effort": "high",
+ "prompt_version": 3,
+ "prompt_sha256": "3772c44d400f637bbbde621249748ab4717d032c962af29d41a4495d5c6bf9b0",
+ "referents_sha256": "346e7add31a34e7cfe57de1f469acbe32303bb5c20e688e25e7d371c4cb74e5f",
+ "referents_version": "2",
+ "lexicon_version": "8",
+ "schema_version": "3.1",
+ "mode": "vllm",
+ "limit": null,
+ "created": "2026-09-18T08:50:44Z",
+ "completed": "2026-11-03T11:40:03Z",
+ "batch_ids": [],
+ "requests": {
+  "planned": 781,
+  "sent": 803,
+  "returned": 781,
+  "complete": 774
+ },
+ "passes": [
+  {
+   "at": "2026-11-03T07:43:36Z",
+   "mode": "vllm",
+   "requests": 196,
+   "returned": 196,
+   "pass_id": "847564-20261103T065402Z-449"
+  },
+  {
+   "at": "2026-11-03T11:07:29Z",
+   "mode": "vllm",
+   "requests": 8,
+   "returned": 0,
+   "pass_id": "848650-20261103T105819Z-433"
+  },
+  {
+   "at": "2026-11-03T08:43:20Z",
+   "mode": "vllm",
+   "requests": 195,
+   "returned": 195,
+   "pass_id": "847576-20261103T075930Z-449"
+  },
+  {
+   "at": "2026-11-03T11:21:44Z",
+   "mode": "vllm",
+   "requests": 6,
+   "returned": 0,
+   "pass_id": "848651-20261103T111133Z-433"
+  },
+  {
+   "at": "2026-11-03T09:39:15Z",
+   "mode": "vllm",
+   "requests": 195,
+   "returned": 195,
+   "pass_id": "847720-20261103T085918Z-447"
+  },
+  {
+   "at": "2026-11-03T11:27:21Z",
+   "mode": "vllm",
+   "requests": 4,
+   "returned": 0,
+   "pass_id": "848654-20261103T112545Z-433"
+  },
+  {
+   "at": "2026-11-03T10:40:58Z",
+   "mode": "vllm",
+   "requests": 195,
+   "returned": 195,
+   "pass_id": "847561-20261103T095519Z-447"
+  },
+  {
+   "at": "2026-11-03T11:40:03Z",
+   "mode": "vllm",
+   "requests": 4,
+   "returned": 0,
+   "pass_id": "848175-20261103T113121Z-433"
+  }
+ ],
+ "occurrences": {
+  "planned": 8611,
+  "written": 8573
+ },
+ "parse_failures": 7,
+ "truncation_count": 24,
+ "evidence_invalid": 8,
+ "evidence_relocated": 1,
+ "usage": {
+  "input_tokens": 7300253,
+  "output_tokens": 2710797,
+  "reasoning_tokens": 2309107,
+  "cached_tokens": 5880640
+ },
+ "cost_usd": null,
+ "status": "partial",
+ "runtime": {
+  "route": "openai-compatible-responses",
+  "served_model": "google/gemma-4-31B-it",
+  "model_revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+  "quantization": "none",
+  "vllm_version": "0.28.0",
+  "environments": {
+   "annotator": "locked+llm-client-overlay",
+   "server": "vllm"
+  },
+  "hardware": {
+   "gpu_model": "NVIDIA H100 80GB HBM3",
+   "gpu_count": 2
+  },
+  "serving": {
+   "max_model_len": 131072,
+   "max_num_seqs": 4,
+   "reasoning_parser": "gemma4",
+   "tensor_parallel_size": 2,
+   "prefix_caching": true,
+   "speculative_decoding": null,
+   "moe_backend": null
+  },
+  "reasoning": {
+   "parameter": "enable_thinking",
+   "value": true,
+   "location": "chat_template_kwargs"
+  },
+  "sampling": {
+   "temperature": 0.0,
+   "top_p": 1.0
+  },
+  "max_output_tokens": 65536
+ },
+ "gaps": [
+  {
+   "custom_id": "SC01383-01-008",
+   "batch": "2026-11-02-gemma4-topup-batch-1",
+   "occurrence_ids": [
+    "0f5a11f1bc1e765252eeeb7ef48c6965106a6cc2122c1dd28edd0c7bcecca617",
+    "3b8360a032d46063a59422f8e7d186601e0b8cb30323a0590e6c84f01a3e7308",
+    "f6a4d30b5d8a1c50a17b6b39d4d3039561b2ccbdf90a523b664ec97847ed85e2"
+   ],
+   "kind": "truncation",
+   "reason": "truncated: response incomplete (max_output_tokens)",
+   "recorded_at": "2026-11-03"
+  },
+  {
+   "custom_id": "SC03400-01-011",
+   "batch": "2026-11-02-gemma4-topup-batch-0",
+   "occurrence_ids": [
+    "1b1b4e3f14c4b9cdbe3a5a688541de331c541375f1a1cf994febc7889a7c4510",
+    "59acd1938baedaf6924373abad75cee7036ece018fdde200c39e0cfcf2b2562d",
+    "9b383f05f9026368fa83d7388d8bbbba945407c0e2287fbeee536f9a6112482f",
+    "d9102dc45ffbb22dbe5aff18b5a905e321ab17e112f481789e8a60e282db4876"
+   ],
+   "kind": "truncation",
+   "reason": "truncated: response incomplete (max_output_tokens)",
+   "recorded_at": "2026-11-03"
+  },
+  {
+   "custom_id": "SC07155-01-013",
+   "batch": "2026-11-02-gemma4-topup-batch-1",
+   "occurrence_ids": [
+    "081d31aee1115103413b1bc3ef0ded3aabcfade9457ffd060cb65946babadba6",
+    "1cc5fb8cca544ebc27dafbf5129a25f4e64d0bb57762821f858f7f5b1db7cad5",
+    "2a1192d16dafb21cef605a3498818a020694102fcd641ee4a3870ec9df9c9c0a",
+    "2b03ae71f5e82fbf373328de46fa3159062477c119823f890c7381ade9973f1c",
+    "2b9e2118750966e19ef60497fa055a537634b45813bd8ebd09dae5969dd7053b",
+    "2f1cd41bf589ca50e38c3ff976b22f37ae15c9d0743cd43fe39abb6c5e73c2d5",
+    "33e7b51be1d738990e14c3a68326f620ff37a9dcaad522c103d97d72e9326531",
+    "6492b2cd7905ee013081d31215047b2d46a01efd74df8b0795e7d121cbcc0cd0",
+    "7961bcf19109700b6228a319a266be4893d614dc8bcb660c7e2d85067dcc3e05",
+    "83c9c8f90cebf829de3a96c70a8563e9cdeafcddb776f79cc5768f0c6c5d8fb6",
+    "9a721ff836670d4fb469e85f428b38059d3dbec3fb066dbd40e98ffa6bbbfc92",
+    "9c617b45d291fa554af6584f0fc02dd76004cce2a0e6a8bdb43c4fc5406d96cc",
+    "ad8c05705c8d8d9ed53a4e46101cd4c55ba6e341343358393c7957f8dcaff38c",
+    "b429335beb1a0c0a2bf65fd8d5fac1f769aa9c0825c4c7858581bd2dc38d2ce2",
+    "ce51f3eddb2b868e03016bcfe0c169d59d8d70eddc892e4b7510bbc2d21f6c5d",
+    "f2c683b21004b44d7625ff6dbdba300ff6e39b404d395dc8cbe01ce445ae230c"
+   ],
+   "kind": "validation_failure",
+   "reason": "ValueError: concrete_case 'no' and speaker_position 'no_position' are one decision: got 'no' and 'conditional'.",
+   "recorded_at": "2026-11-03"
+  },
+  {
+   "custom_id": "SC07192-01-015",
+   "batch": "2026-11-02-gemma4-topup-batch-3",
+   "occurrence_ids": [
+    "0e6c829d071c475d65d99c894c256cd8c87f103a496aded24f04ba2b2e188b50",
+    "215e4415f575cb14fe15389607e4d351155f4d3373268547e61414a5206430cd"
+   ],
+   "kind": "truncation",
+   "reason": "truncated: response incomplete (max_output_tokens)",
+   "recorded_at": "2026-11-03"
+  },
+  {
+   "custom_id": "SC09711-01-021",
+   "batch": "2026-11-02-gemma4-topup-batch-1",
+   "occurrence_ids": [
+    "100d3a36c8e1f4b434c1298d3d6d58714058993894d982ec3c903f61ac52f198",
+    "11a366f42f3f8f28aa401e346c9161194858578ba77c4e4b9f8b7d10bfa46481",
+    "2b69af42b3df1fd4fd81aa47fb529b8b86bc91fbbb5fb840f076fb2a468fbf5c",
+    "3c11cd2c7b4fd62171557afb941d16105040b1d2965eef874f2c0953e28b6fef",
+    "4917ab264ebd0729478bdc55004ef3e92959c3e6688939f822820c6b2e7ab17d",
+    "6c5236db7633c470d0e3f398eecf6a7053f2abdcb35a715a81ab4cfaccefd5c4",
+    "7906b727062d4578a54ee3d24ac7c965cee12c92331db831ca4cf296fac9f893",
+    "7c1c4e2cf2ed3429a17307e602ed81baedcf3974d1f68b2f1497974526562a25",
+    "a91132d6f6bd30be62282cbcba753ee48fff00028139c6e1d1e584e0eee81c8a"
+   ],
+   "kind": "validation_failure",
+   "reason": "ValueError: Unknown referent: genocide in general",
+   "recorded_at": "2026-11-03"
+  },
+  {
+   "custom_id": "SC10019-01-025",
+   "batch": "2026-11-02-gemma4-topup-batch-3",
+   "occurrence_ids": [
+    "cc71cef5e4aa1db778582112842dc491ce9b0f3f0bf0dfb48d885f7457cf37f8",
+    "fe7b450ac303276700057faf1ecc71b266c752d6e2e80e8b05db00c3db518cf6"
+   ],
+   "kind": "truncation",
+   "reason": "truncated: response incomplete (max_output_tokens)",
+   "recorded_at": "2026-11-03"
+  },
+  {
+   "custom_id": "SC10177-01-020",
+   "batch": "2026-11-02-gemma4-topup-batch-1",
+   "occurrence_ids": [
+    "29514a7eef50ff9b2a1089f1fa777a368f190cfe10a11a650e8ae53cd7ff95ab",
+    "4cf3baf94a2dfcab6d54c690f19f9c680a7089a8e19f9515296141f2370ac47c"
+   ],
+   "kind": "truncation",
+   "reason": "truncated: response incomplete (max_output_tokens)",
+   "recorded_at": "2026-11-03"
+  }
+ ],
+ "assembly": {
+  "plan_sha256": "87fb6aaed00d8275ace259299937727d10d28044722da5311da064969bd23459",
+  "sources": [
+   {
+    "run_id": "2026-11-02-gemma4-topup-batch-0",
+    "identity_sha256": "8328f1c83c8cc0142b756604bddb004c4ed4a398cc580b795cb66d9f5dea553c",
+    "manifest_sha256": "e014eea95ace34d2ebd3267c91891f35749bb072632536601b6c39bdec595f1e",
+    "annotations_sha256": "f55edb5223c72f8f4452582ccbcd342281a06a9e9c08147dce07bbecfa82fde1",
+    "probe_sha256": "4cf032999325fe03e0b787dde9c559e4b1003579fcb2757465ae3c0d9e9a5dff"
+   },
+   {
+    "run_id": "2026-11-02-gemma4-topup-batch-1",
+    "identity_sha256": "a132bc09e1a18e200145b5c93539d3c85841a486b0880687eca0e43aa5487eef",
+    "manifest_sha256": "821a88b09cff80f782c9f8577072987866263617c75f826db4f6924aa6f30047",
+    "annotations_sha256": "0db9562e8eec9e808c8f6684279c298c5cfd72cedcade4f8ffab96db38498c4f",
+    "probe_sha256": "989d6acfd15d6593f6ceab53e30e3a7c7e935585fb3dc905a1e5d2359099776b"
+   },
+   {
+    "run_id": "2026-11-02-gemma4-topup-batch-2",
+    "identity_sha256": "895c1a03a7440eebc2482e80344773fc1cb21b6c9f75323a7f62f7348130fae4",
+    "manifest_sha256": "7f96999765cdbf880c242ed28bfdaf56c573b81ca297f65ad682424b586e1f60",
+    "annotations_sha256": "b7409c4f93dcf489f4770db96fca2e55e83dbe6e9805e326effaf3e501810c53",
+    "probe_sha256": "9a0108acfed6d290a1a667e3eae3ef23b71f2897734643067583be3b856fbe9d"
+   },
+   {
+    "run_id": "2026-11-02-gemma4-topup-batch-3",
+    "identity_sha256": "a836581e6d7095a90ba12c5bd60f59e04e726d5b4aced4eaf5538eb8d9a9f57d",
+    "manifest_sha256": "9ac627cbc3e576b746ab8ad1bc09a304099ff930c1b8ee14d51a8d1761f6ddd3",
+    "annotations_sha256": "34f77dcb5121bf4a48aad9c3f82f6680f1d1891377e4e96d842d3a1c4369fe02",
+    "probe_sha256": "89a08ef0b1bc0b2472ccb55a373b98fa003202a4d9a0795215f0751425cd6d12"
+   }
+  ]
+ },
+ "carried": {
+  "run_id": "2026-09-09-gemma4",
+  "rows": 6818,
+  "superseded": 94,
+  "created": "2026-09-18T08:50:44Z",
+  "lexicon_version": "7",
+  "runtime": {
+   "route": "openai-compatible-responses",
+   "served_model": "google/gemma-4-31B-it",
+   "model_revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+   "quantization": "none",
+   "vllm_version": "0.28.0",
+   "environments": {
+    "annotator": "locked+llm-client-overlay",
+    "server": "vllm"
+   },
+   "hardware": {
+    "gpu_model": "NVIDIA H100 80GB HBM3",
+    "gpu_count": 2
+   },
+   "serving": {
+    "max_model_len": 131072,
+    "max_num_seqs": 4,
+    "reasoning_parser": "gemma4",
+    "tensor_parallel_size": 2,
+    "prefix_caching": true,
+    "speculative_decoding": null,
+    "moe_backend": null
+   },
+   "reasoning": {
+    "parameter": "enable_thinking",
+    "value": true,
+    "location": "chat_template_kwargs"
+   },
+   "sampling": {
+    "temperature": 0.0,
+    "top_p": 1.0
+   },
+   "max_output_tokens": 65536
+  },
+  "manifest_sha256": "42e433d4e691d93903e026d469c9e8f755cff84fd68f546e3bc88831a94aa3d3",
+  "annotations_sha256": "41e970594cb0f2b875ce06f74d60c25be832458eb25d5b128cfa869f7cc76fc4",
+  "carry_over_sha256": "5555167fcda292c522d9542d59f834c6589b9a2d78da50271dc305f5ec532b25"
+ }
+}

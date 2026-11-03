@@ -112,11 +112,11 @@ recreate, such as the cluster embeddings (review item B10).
    - what the release is, and that its model labels are unvalidated;
    - the corpus: Sakamoto and Matsuoka v6.0, DOI 10.7910/DVN/CKPTRB, pinned by
      the checksums in `config/dataset-pin.json`;
-   - the model run shown: `2026-09-08-qwen-131k`, partial (3,764 of 4,576
-     speeches carried over from corpus v5.0, until a top-up run completes it),
-     prompt v3, and that the Gemma comparison is not included unless
-     it has been published by then;
-   - the gold sample's state (on 8 October 2026: 0 of 469 rows coded);
+   - the model run shown: `2026-11-03-qwen-131k`, prompt v3, covering all
+     4,576 speeches (merged on 3 November 2026 from the September run carried
+     over from corpus v5.0 and a top-up), and the Gemma second opinion
+     `2026-11-03-gemma4`, which leaves out seven documented speeches;
+   - the gold sample's state (on 3 November 2026: 0 of 469 rows coded);
    - the commit, and the `analysis_hash` of the main artefacts, read from the
      `meta` block of `series/annual.json`, `kwic/genocide.json` and
      `usage/usage.json`;

@@ -13,8 +13,8 @@ publishes, what the figure rests on, and how far it can be trusted today. State 
 | **Validated** | Model labels whose accuracy has been measured on the coded gold sample and passed the thresholds of [EVALUATION_PLAN.md](EVALUATION_PLAN.md). | — |
 
 **No figure is validated yet.** The gold sample is uncoded (0 of 469 rows), and the
-model run behind every model-derived figure is partial: 3,764 of 4,576 speeches,
-carried over from corpus v5.0 until a top-up run completes it
+model run behind every model-derived figure, `2026-11-03-qwen-131k`, covers all 4,576
+speeches and 8,611 occurrences but has had no human check
 ([model_annotations/README.md](../model_annotations/README.md)).
 
 ## Limits that apply to every figure
@@ -74,8 +74,8 @@ Details: [CORPUS.md](CORPUS.md#limitations-that-must-remain-visible).
 
 ### Usage (model labels)
 
-Every figure on this page rests on the published Qwen run: prompt v3, partial, no
-human check.
+Every figure on this page rests on the published Qwen run, `2026-11-03-qwen-131k`:
+prompt v3, every occurrence covered, no human check.
 
 | Figure | Rests on | Status |
 |---|---|---|
@@ -97,8 +97,8 @@ human check.
 Every CSV download and image carries its provenance: the step that produced it,
 the analysis hash, the commit and the input checksums. Downloads of model-derived
 figures name the model and run, and carry a status line straight after the title,
-on the CSV and on the image alike, saying that the labels are unvalidated and the
-run partial (review of 8 October 2026, A1). Anyone quoting such a download should
+on the CSV and on the image alike, saying that the labels are unvalidated and, while
+a run leaves occurrences out, that it is partial (review of 8 October 2026, A1). Anyone quoting such a download should
 quote its status with it.
 
 ## When this guide changes

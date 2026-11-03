@@ -56,8 +56,8 @@ The committed count of every term is in
   annual, quarterly and monthly series, the concordance, collocations and
   keyness, grammatical frames, actor tables.
 - A **model-derived** layer: labels a language model assigned to each occurrence
-  of *genocide* (verdict, position, referent and so on). The published run is
-  partial and unvalidated (see [model_annotations/README.md](../model_annotations/README.md)).
+  of *genocide* (verdict, position, referent and so on). The published run
+  covers every occurrence but is unvalidated (see [model_annotations/README.md](../model_annotations/README.md)).
 - An **experimental** semantic map built from text embeddings.
 
 **What is missing.**
@@ -67,10 +67,9 @@ The committed count of every term is in
 - The language actually spoken: the text is the English record, and for speakers
   of other languages it is a UN translation.
 - Words damaged by scanning, which are not counted: every count is a minimum.
-- 812 of the 4,576 speeches carrying `g[eé]nocid*` have no labels from the
-  published model run: it was asked about corpus v5.0, and its labels carry to
-  v6.0 only where the text around each occurrence is unchanged. The rest await a
-  top-up run.
+- Seven of the 4,576 speeches carrying `g[eé]nocid*` have no labels from the
+  comparison model run, documented in [VALIDATION.md](VALIDATION.md) §7. The
+  published run labels all of them.
 
 The full list of limitations is in [CORPUS.md](CORPUS.md#limitations-that-must-remain-visible).
 
@@ -241,7 +240,7 @@ that does not apply, as for a false positive.
 | `evidence_quote` | The passage the model quoted in support. |
 | `evidence_valid` | Whether that quote was found in the speech. Rows with `false` are left out of every discourse figure. |
 | `rationale` | The model's one-sentence reason. |
-| `contested` | Fields a comparison run labelled differently; empty when there is no comparison run, as now. |
+| `contested` | Fields a comparison run labelled differently; empty when there is no comparison run. |
 | `alt` | The comparison run's labels where it differed; otherwise null. |
 
 The `meta` block names the run, model, prompt version and file, schema and

@@ -12,8 +12,9 @@ Website: <https://fmadore.github.io/genocide-at-the-security-council/>
 
 ## Start here
 
-The model labels on the site are an **unvalidated, partial preview**: the human
-gold sample is not yet coded. Read the claims guide before citing a figure.
+The model labels on the site are an **unvalidated preview**: they cover every
+occurrence of the word, but the human gold sample is not yet coded. Read the
+claims guide before citing a figure.
 
 | If you want to know… | Read |
 |---|---|
@@ -24,7 +25,7 @@ gold sample is not yet coded. Read the claims guide before citing a figure.
 | how the model labels will be checked (proposal for the two coders) | [Evaluation plan](docs/EVALUATION_PLAN.md) |
 | the proposed next version of the annotation instrument | [Instrument v4 proposal](docs/INSTRUMENT_V4_PROPOSAL.md) |
 | which checks have been made, and which need a person | [Validation register](docs/VALIDATION.md) |
-| the model runs and why the published one is partial | [Model annotations](model_annotations/README.md) |
+| the model runs, and how the published one was assembled | [Model annotations](model_annotations/README.md) |
 | how to cut a citable release | [Releasing](docs/RELEASING.md) |
 | what to do when the rebuild fails | [If the rebuild breaks](docs/RUNBOOK.md) |
 | the GPU cluster | [Cluster guide](docs/CLUSTER.md) |
@@ -137,14 +138,16 @@ npm --prefix web run build
 The four hosted 2026-08 runs under
 [`model_annotations/genocide/runs/`](model_annotations/genocide/runs/) remain
 versioned for provenance of the retired corpus. `current_run.txt` selects the
-`2026-09-08-qwen-131k` run as an explicitly partial preview;
-`comparison_run.txt` names the Gemma run `2026-09-09-gemma4`, published as a
-second opinion since 11 October 2026. Both were asked about v5.0;
+`2026-11-03-qwen-131k` run, an unvalidated preview that covers all 4,576
+speeches and 8,611 occurrences; `comparison_run.txt` names the Gemma run
+`2026-11-03-gemma4` as the second opinion, which leaves out seven documented
+speeches. Both were merged on 3 November 2026: the September runs
+(`2026-09-08-qwen-131k`, `2026-09-09-gemma4`) were asked about v5.0, and
 [`tools/carry_over_runs.py`](tools/carry_over_runs.py) carries their labels to
-v6.0 where the text around each occurrence is unchanged, and the remaining
-speeches are to be asked again in a top-up run. A run must cover every current occurrence (the
+v6.0 where the text around each occurrence is unchanged; the remaining speeches
+were asked again in top-up batches on Festus. A run must cover every current occurrence (the
 population in `config/lexicon.counts.json`) unless its coverage gap is
-authorised in `allow_partial_run.txt`;
+authorised in `allow_partial_run.txt`, which is now empty;
 see [`model_annotations/README.md`](model_annotations/README.md)
 and [`scripts/README.md`](scripts/README.md).
 The published instrument is `Qwen/Qwen3.8-27B` and the comparison instrument
