@@ -123,20 +123,17 @@ export const monthLabel = (period: string): string => {
 	return `${MONTH_NAMES[Number(month) - 1] ?? month} ${year}`;
 };
 
-/** Long official names are unreadable in a table cell or on an axis. */
+/**
+ * Long official names are unreadable in a table cell or on an axis.
+ *
+ * Keyed by the corpus's own spelling, which is matched exactly. Dataset v6.0
+ * already gives most states their short name (Russia, Syria, South Korea,
+ * United Kingdom); these are the long forms it still writes.
+ */
 const SHORT: Record<string, string> = {
-	'United Kingdom Of Great Britain And Northern Ireland': 'United Kingdom',
-	'United States Of America': 'United States',
-	'Russian Federation': 'Russia',
-	'Republic Of Korea': 'South Korea',
-	"Democratic People'S Republic Of Korea": 'North Korea',
-	'Democratic Republic Of The Congo': 'DR Congo',
-	'Bolivarian Republic Of Venezuela': 'Venezuela',
-	'Islamic Republic Of Iran': 'Iran',
-	'Syrian Arab Republic': 'Syria',
-	'United Republic Of Tanzania': 'Tanzania',
-	'Bosnia And Herzegovina': 'Bosnia and Herzegovina',
-	"Lao People'S Democratic Republic": 'Laos'
+	'United States of America': 'United States',
+	'Democratic Republic of the Congo': 'DR Congo',
+	'Federated States of Micronesia': 'Micronesia'
 };
 
 export const shortCountry = (name: string) => SHORT[name] ?? name;

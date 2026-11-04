@@ -45,8 +45,8 @@ const pairFor = (choices: LanguageChoices, kind: SliceKind): [string, string] =>
 	const available = choices.slices[kind];
 	if (kind === 'by_country') {
 		const left = available.includes('Rwanda') ? 'Rwanda' : (available[0] ?? '');
-		const right = available.includes('United States Of America')
-			? 'United States Of America'
+		const right = available.includes('United States of America')
+			? 'United States of America'
 			: (available.find((name) => name !== left) ?? left);
 		return [left, right];
 	}

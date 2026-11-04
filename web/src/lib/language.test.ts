@@ -17,7 +17,7 @@ import type { CollocateBlock, Network, Word } from './types';
 const choices: LanguageChoices = {
 	nodes: { genocide: ['5', '10'], war_crimes: ['10'] },
 	slices: {
-		by_country: ['Rwanda', 'United States Of America', 'France'],
+		by_country: ['Rwanda', 'United States of America', 'France'],
 		by_period: ['1992–2001', '2002–2011'],
 		by_speaker_group: ['Permanent member', 'Other member']
 	},
