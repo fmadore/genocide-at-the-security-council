@@ -303,7 +303,7 @@
 	let width = $state('5');
 	let sliceKind = $state<SliceKind>('by_country');
 	let sliceA = $state('Rwanda');
-	let sliceB = $state('United States Of America');
+	let sliceB = $state('United States of America');
 	let period = $state('whole');
 	let keynessView = $state<KeynessView>('matched');
 
@@ -319,7 +319,7 @@
 		// Switching the kind of slice invalidates the two chosen members.
 		const options = Object.keys(data.sliced[sliceKind]);
 		if (!options.includes(sliceA)) sliceA = options[0]!;
-		if (!options.includes(sliceB)) sliceB = options[1] ?? options[0]!;
+		if (!options.includes(sliceB)) sliceB = options.find((o) => o !== sliceA) ?? options[0]!;
 	});
 
 	/* The sliced artefact declares the fewest speeches it will stand a profile
@@ -1101,7 +1101,9 @@
 			     column, a rule down the middle. Rows do not correspond, and the
 			     finding is that the two sets of words differ. -->
 			<div class="compare">
-				{#each [{ key: sliceA, b: blockA }, { key: sliceB, b: blockB }] as side, i (side.key)}
+				<!-- Keyed by side, not by member: a reader may pick the same member in
+				     both menus, and a repeated key stops the whole page. -->
+				{#each [{ side: 'a', key: sliceA, b: blockA }, { side: 'b', key: sliceB, b: blockB }] as side, i (side.side)}
 					{#if i === 1}<div class="gutter" aria-hidden="true"></div>{/if}
 					<div class="side">
 						<h3>
@@ -1203,7 +1205,7 @@
 					>
 				</thead>
 				<tbody>
-					{#each [{ key: sliceA, b: blockA }, { key: sliceB, b: blockB }] as side (side.key)}
+					{#each [{ side: 'a', key: sliceA, b: blockA }, { side: 'b', key: sliceB, b: blockB }] as side (side.side)}
 						{#each topWords(side.b) as w (w.word)}
 							<tr>
 								<td>{sliceLabel(side.key)}</td>
