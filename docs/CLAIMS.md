@@ -90,7 +90,7 @@ prompt v3, every occurrence covered, no human check.
 
 | Figure | Rests on | Status |
 |---|---|---|
-| Semantic map | Embeddings of every speech from Qwen3-Embedding-0.6B, projected to two dimensions (steps 06 and 21) | Model-derived, experimental. Diagnostics: neighbour recall@10 0.9742 against exact search; trustworthiness 0.8000 on a 1,000-speech subsample. Distance on the map is not diplomatic alignment or shared meaning ([PLAN.md](PLAN.md#4-optional-topics-and-embeddings)). |
+| Semantic map | Embeddings of every speech from Qwen3-Embedding-0.6B, projected to two dimensions (steps 06 and 21) | Model-derived, experimental. Diagnostics for the 182,684-speech release: neighbour recall@10 0.9641 against exact search; trustworthiness 0.7907 and neighbour loss 0.69 on a 1,000-speech subsample (k = 25), which describes the broad layout, not local neighbourhoods. Distance on the map is not diplomatic alignment or shared meaning ([PLAN.md](PLAN.md#4-optional-topics-and-embeddings)). |
 
 ## Downloads
 

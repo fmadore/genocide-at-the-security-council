@@ -241,8 +241,15 @@
 	"minimum_speeches_rule": "A month is divided by only when it holds at least six speeches. Fixture value.",
 	"informative_zero_minimum": 6,
 	"corpus_speech_prevalence": 0.12,
+	"record": {
+		"first_date": "1992-01-03",
+		"last_date": "2023-11-28",
+		"first_period": "1992-01",
+		"last_period": "2023-11"
+	},
 	"coverage": {
 		"months": 36,
+		"months_outside_record": 1,
 		"months_observed": 33,
 		"months_at_minimum": 25,
 		"speeches": 294,

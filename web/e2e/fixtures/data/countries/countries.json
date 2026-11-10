@@ -111,6 +111,7 @@
 		"minimum_meetings": 30,
 		"informative_zero_minimum": 25,
 		"rule": "A meeting counts for a speaker when it took the floor and another speaker used the word.",
+		"rule_after": "The stricter reading follows the order of speaking. A meeting counts when the speaker took the floor after another speaker had already used the word.",
 		"periods": [
 			{
 				"period": "all",
@@ -118,7 +119,11 @@
 				"exposed": 27087,
 				"joined": 3120,
 				"room_share": 0.115184,
-				"speakers_at_minimum": 1
+				"speakers_at_minimum": 1,
+				"exposed_after": 17803,
+				"joined_after": 2382,
+				"room_share_after": 0.133798,
+				"speakers_at_minimum_after": 1
 			}
 		],
 		"rows": [
@@ -130,7 +135,13 @@
 				"share": 0.691589,
 				"share_low": 0.626798,
 				"share_high": 0.749611,
-				"sufficient": true
+				"sufficient": true,
+				"exposed_after": 160,
+				"joined_after": 120,
+				"share_after": 0.75,
+				"share_after_low": 0.677576,
+				"share_after_high": 0.810701,
+				"sufficient_after": true
 			},
 			{
 				"country_org": "United Nations Secretariat",
@@ -140,7 +151,13 @@
 				"share": null,
 				"share_low": null,
 				"share_high": null,
-				"sufficient": false
+				"sufficient": false,
+				"exposed_after": 5,
+				"joined_after": 1,
+				"share_after": null,
+				"share_after_low": null,
+				"share_after_high": null,
+				"sufficient_after": false
 			}
 		]
 	}

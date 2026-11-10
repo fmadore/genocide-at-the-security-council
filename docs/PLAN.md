@@ -212,10 +212,12 @@ Colour is by source affiliation, agenda category or decade; filters preserve the
 projection; related speeches come from similarity in the original vector space,
 not from the drawing.
 
-**The published release.** It covers all 167,642 speeches (167,878 chunks, 1,024
-dimensions). Neighbour recall@10 is 0.9742 over 128 exact queries; on the
-1,000-speech subsample (k = 25) trustworthiness is 0.8000 and neighbour loss
-0.6981. UMAP's spectral initialisation fell back to seeded random initialisation,
+**The published release.** It covers all 182,684 speeches of corpus v6.0 (1,024
+dimensions; `semantic-2026-11-03`). Neighbour recall@10 is 0.9641 over 128 exact
+queries; on the 1,000-speech subsample (k = 25) trustworthiness is 0.7907 and
+neighbour loss 0.69. The subsample figures describe the broad layout, not local
+neighbourhoods: neighbours are looked for only among the 1,000 sampled speeches.
+UMAP's spectral initialisation fell back to seeded random initialisation,
 which the release pin records. These support exploratory use with the visible
 projection caveat, not claims about diplomatic alignment. Five retrieval spot
 checks returned related material; that was an inspection, not a blinded relevance
