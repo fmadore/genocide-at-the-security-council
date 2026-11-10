@@ -22,8 +22,150 @@
 	"corpus_types": 1200,
 	"limit": 40,
 	"speakers_total": 2,
-	"speakers_considered": 0,
-	"speakers_published": 0,
+	"speakers_considered": 1,
+	"speakers_published": 1,
 	"speakers_withheld": 0,
-	"speakers": []
+	"speakers": [
+		{
+			"country_org": "Rwanda",
+			"pairs": 120,
+			"held": 150,
+			"coverage": 0.8,
+			"short_strata": 2,
+			"shortfall": 30,
+			"sufficient": true,
+			"withheld_because": [],
+			"target_tokens": 50000,
+			"control_tokens": 48000,
+			"tests": 900,
+			"agenda": {
+				"held": 150,
+				"items": 4,
+				"top": [
+					{
+						"item": "The situation concerning Rwanda",
+						"speeches": 90,
+						"share": 0.6
+					},
+					{
+						"item": "Children and armed conflict",
+						"speeches": 30,
+						"share": 0.2
+					}
+				],
+				"other": {
+					"speeches": 30,
+					"share": 0.2
+				},
+				"concentration": 0.8
+			},
+			"keywords": [
+				{
+					"word": "rwanda",
+					"target": 300,
+					"reference": 20,
+					"g2": 350.5,
+					"log_ratio": 3.95,
+					"lrc": 3.1,
+					"documents": 80,
+					"meetings": 60,
+					"dp": 0.31,
+					"self_reference": true
+				},
+				{
+					"word": "interahamwe",
+					"target": 40,
+					"reference": 2,
+					"g2": 52.4,
+					"log_ratio": 4.38,
+					"lrc": 1.75,
+					"documents": 25,
+					"meetings": 20,
+					"dp": 0.55,
+					"self_reference": false
+				},
+				{
+					"word": "reconciliation",
+					"target": 60,
+					"reference": 15,
+					"g2": 30.2,
+					"log_ratio": 2.06,
+					"lrc": 0.82,
+					"documents": 40,
+					"meetings": 35,
+					"dp": 0.42,
+					"self_reference": false
+				}
+			],
+			"keywords_unmatched": [
+				{
+					"word": "rwanda",
+					"target": 300,
+					"reference": 900,
+					"g2": 1400.2,
+					"log_ratio": 5.2,
+					"lrc": 4.6,
+					"documents": 80,
+					"meetings": 60,
+					"dp": 0.31,
+					"self_reference": true
+				},
+				{
+					"word": "interahamwe",
+					"target": 40,
+					"reference": 30,
+					"g2": 140.8,
+					"log_ratio": 5.9,
+					"lrc": 3.4,
+					"documents": 25,
+					"meetings": 20,
+					"dp": 0.55,
+					"self_reference": false
+				},
+				{
+					"word": "tribunal",
+					"target": 90,
+					"reference": 700,
+					"g2": 120.3,
+					"log_ratio": 2.4,
+					"lrc": 1.9,
+					"documents": 50,
+					"meetings": 45,
+					"dp": 0.38,
+					"self_reference": false
+				}
+			],
+			"stability": {
+				"repetitions": 10,
+				"coverage_min": 0.78,
+				"coverage_max": 0.82,
+				"keyword_log_ratio": [
+					{
+						"word": "rwanda",
+						"median": 3.9,
+						"low": 3.7,
+						"high": 4.1,
+						"p05": 3.75,
+						"p95": 4.05
+					},
+					{
+						"word": "interahamwe",
+						"median": 4.3,
+						"low": 3.9,
+						"high": 4.6,
+						"p05": 4.0,
+						"p95": 4.55
+					},
+					{
+						"word": "reconciliation",
+						"median": 2.0,
+						"low": 1.8,
+						"high": 2.3,
+						"p05": 1.85,
+						"p95": 2.25
+					}
+				]
+			}
+		}
+	]
 }

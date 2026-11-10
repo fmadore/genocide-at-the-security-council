@@ -364,6 +364,54 @@
 							stroke={p.ruleSoft}
 						/>
 
+						{#if !wide}
+							<!-- Narrow: the axis runs through the bars only, never the words. -->
+							{#each scaleTicks as value (value)}
+								<line
+									x1={x(value)}
+									x2={x(value)}
+									y1={row.bars - 5}
+									y2={row.bars + 2 * BAR + GAP + 5}
+									stroke={value === 0 ? p.ink : p.ruleSoft}
+								/>
+							{/each}
+						{/if}
+						<g opacity={muted ? 0.45 : 1}>
+							<rect x={comp.x} y={row.bars} width={comp.width} height={BAR} fill={p.ink} />
+							{#if within.width > 0}
+								<rect
+									x={within.x + 0.75}
+									y={row.bars + BAR + GAP + 0.75}
+									width={Math.max(0.5, within.width - 1.5)}
+									height={BAR - 1.5}
+									fill={p.paper}
+									stroke={p.ink}
+									stroke-width="1.5"
+								/>
+							{/if}
+							<line
+								x1={tickX}
+								x2={tickX}
+								y1={row.bars - 5}
+								y2={row.bars + 2 * BAR + GAP + 5}
+								stroke={p.paper}
+								stroke-width="6"
+							/>
+							<line
+								x1={tickX}
+								x2={tickX}
+								y1={row.bars - 5}
+								y2={row.bars + 2 * BAR + GAP + 5}
+								stroke={p.ink}
+								stroke-width="2.5"
+							/>
+						</g>
+					</g>
+					<!-- The words of the row, outside the button: its accessible name is the
+					     sentence `describe()` writes, and a button whose visible text is not
+					     part of its name fails WCAG 2.5.3 (axe label-content-name-mismatch).
+					     Clicks pass through to the row beneath. -->
+					<g aria-hidden="true" pointer-events="none">
 						{#if wide}
 							<text x="8" y={row.top + 20} font-size="13" font-weight="600" fill={ink}
 								>{names(pair)}</text
@@ -403,48 +451,7 @@
 									>{row.note}</text
 								>
 							{/if}
-							<!-- Narrow: the axis runs through the bars only, never the words. -->
-							{#each scaleTicks as value (value)}
-								<line
-									x1={x(value)}
-									x2={x(value)}
-									y1={row.bars - 5}
-									y2={row.bars + 2 * BAR + GAP + 5}
-									stroke={value === 0 ? p.ink : p.ruleSoft}
-								/>
-							{/each}
 						{/if}
-
-						<g opacity={muted ? 0.45 : 1}>
-							<rect x={comp.x} y={row.bars} width={comp.width} height={BAR} fill={p.ink} />
-							{#if within.width > 0}
-								<rect
-									x={within.x + 0.75}
-									y={row.bars + BAR + GAP + 0.75}
-									width={Math.max(0.5, within.width - 1.5)}
-									height={BAR - 1.5}
-									fill={p.paper}
-									stroke={p.ink}
-									stroke-width="1.5"
-								/>
-							{/if}
-							<line
-								x1={tickX}
-								x2={tickX}
-								y1={row.bars - 5}
-								y2={row.bars + 2 * BAR + GAP + 5}
-								stroke={p.paper}
-								stroke-width="6"
-							/>
-							<line
-								x1={tickX}
-								x2={tickX}
-								y1={row.bars - 5}
-								y2={row.bars + 2 * BAR + GAP + 5}
-								stroke={p.ink}
-								stroke-width="2.5"
-							/>
-						</g>
 					</g>
 				{/each}
 			</svg>

@@ -1149,15 +1149,15 @@
 			<p>
 				Each line is a selected term or measure, in the unit shown above. Add or remove terms below
 				the chart; drag the bar below the axis to zoom. Select a point to read that period's
-				passages.
+				passages. With more than two terms drawn, only the headline term keeps its band; every
+				interval stays in the tooltip.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
 				Raw counts depend on both term use and the volume of speech. Rates help compare periods, but
 				do not adjust for changes in the agenda or speakers. Combined reading sets have speech
-				counts and shares, but no occurrence total. With more than two terms drawn, only the
-				headline term keeps its band; every interval stays in the tooltip.
+				counts and shares, but no occurrence total.
 			</p>
 		{/snippet}
 		{#snippet more()}
@@ -1166,18 +1166,16 @@
 					The pipeline names <strong>{count(genocideFreeAtrocitySpeeches)} speeches</strong> as
 					<em>atrocity vocabulary without the word</em>: they use <em>ethnic cleansing</em>,
 					<em>crimes against humanity</em> or <em>war crimes</em> and contain no
-					<code>genocid*</code> match. A speech using two of the phrases enters once. This is a corpus
-					boundary for comparison, not a measure that treats the phrases as interchangeable.
+					<code>genocid*</code> match. A speech using two phrases enters once. It bounds a comparison;
+					it does not treat the phrases as interchangeable.
 				{:else}
-					This data release does not include the combined comparison set. Individual term series
-					remain available.
+					This release lacks the combined comparison set; the single-term series remain.
 				{/if}
 			</p>
 			{#if source.record && source.record.last_date.slice(5, 7) !== '12' && (unit === 'speeches' || unit === 'occurrences')}
 				<p>
 					The record ends on {isoDate(source.record.last_date)}, so the last
-					{grain === 'year' ? 'year' : 'quarter'} is incomplete: its count is of part of the period and
-					is not comparable with the ones before it.
+					{grain === 'year' ? 'year' : 'quarter'} counts only part of the period.
 				</p>
 			{/if}
 			{#if withheld && unit !== 'speeches' && unit !== 'occurrences'}
@@ -1190,22 +1188,20 @@
 						: withheld === 1
 							? 'quarter'
 							: 'quarters'} held fewer than {count(source.minimum_speeches ?? FALLBACK_MINIMUM)} speeches,
-					some of them none. Their rates are withheld and the lines break there; their counts are in the
-					table and the download.
+					some none: their rates are withheld and the lines break; the table keeps their counts.
 				</p>
 			{/if}
 			{#if unit === 'speech_rate'}
 				<p>
-					The faint <strong>band</strong> is a 95% interval: the wider of two readings, one that treats
-					every speech as independent and one that resamples whole meetings, so it widens where a year's
-					rate rests on a few debates and never closes on a period in which the word was not used. Overlapping
-					bands are not a formal test.
+					The faint <strong>band</strong> spans two 95% intervals, one treating speeches as independent,
+					one resampling whole meetings, so it widens where a rate rests on a few debates and never closes
+					on a period without the word. Overlapping bands are not a formal test.
 				</p>
 			{/if}
 			{#if showEvents && grain === 'year'}
 				<p>
-					Ticks on the rail mark <a href="#reference-dates">reference dates</a> by kind; hover a year
-					to read them.
+					Rail ticks mark <a href="#reference-dates">reference dates</a> by kind; hover a year to read
+					them.
 				</p>
 			{/if}
 		{/snippet}
@@ -1662,8 +1658,8 @@
 		{#snippet caveat()}
 			<p>
 				A share is drawn only where the category held at least {count(splitMinimum)} speeches in the year;
-				below that the line breaks, and the counts stay in the table and the tooltip. One speech out of
-				one is not a rate of 100%. Bands assume independent speeches and omit uncertainty from text errors.
+				below that the line breaks, and the table and tooltip keep the counts. One speech out of one is
+				not a rate of 100%. Bands assume independent speeches and omit uncertainty from text errors.
 			</p>
 		{/snippet}
 		{#snippet more()}

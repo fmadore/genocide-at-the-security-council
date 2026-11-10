@@ -1,7 +1,7 @@
 # Review roadmap
 
-What is still open from the repository reviews of 24 September and
-8 October 2026, the design critiques of 19 September and the design review of
+What is still open from the repository reviews of 24 September, 8 October and
+9 November 2026, the design critiques of 19 September and the design review of
 20 October, followed by a
 one-line index of every finished review item. [PLAN.md](PLAN.md) remains the
 project's priorities and release gates.
@@ -15,12 +15,15 @@ full ledger with its evidence column is in git history (this file before
 8 October 2026). The review of 8 October is
 [REVIEW_2026-10-08.md](REVIEW_2026-10-08.md); its codes (B1, C7, …) are given
 beside each item it produced, and the commit messages carry the measurements.
+The review of 9 November is [REVIEW_2026-11-09.md](REVIEW_2026-11-09.md); its
+code is done (RV65–RV75), and what is left of it waits on a person (items 15
+to 18) or on the cluster (item 8).
 
 ## Open
 
 ### Waits on a person
 
-1. **Code the gold sample.** 453 occurrences, two coders, from the blinded packet
+1. **Code the gold sample.** 458 occurrences in 469 rows, two coders, from the blinded packet
    through the offline page (`tools/coding_page.py`). The probability frame (120)
    first: the weighted accuracy and the corrected shares (RV14, RV15) are computed
    from 30 units with a reference label. `annotations/genocide/annotations.csv`
@@ -59,7 +62,9 @@ beside each item it produced, and the commit messages carry the measurements.
    what the comparison run's sampling setting costs.
 8. **Re-embed and re-pin the semantic map** when the 24 trimmed openings are
    restored (RV2), and re-run step 10 so the lemma layer carries the new
-   tokenizer (RV3).
+   tokenizer (RV3). The same run writes the map's local fidelity among every
+   point (`evaluation.local`, RV72), which needs the embeddings; the page shows
+   it once a release carries it.
 
 ### Small, found while doing the review of 8 October
 
@@ -106,9 +111,28 @@ staying open when focus left it. Still open:
     default view of 2.5% of its points; the table needs sideways scrolling on a
     phone.
 14. **Site-wide.** `/actors` carries 4.5 MB of data in its HTML; the five
-    "Model-derived · experimental" plate links are 21px tall; an `h4` under an
-    `h2` on Actors; `browsing.spec.ts:104` is flaky; a few spacing values and
+    "Model-derived · experimental" plate links are 21px tall; `browsing.spec.ts:104` is flaky; a few spacing values and
     2px rules off the scales.
+
+### From the review of 9 November 2026, waiting on a person
+
+Each is argued in [REVIEW_2026-11-09.md](REVIEW_2026-11-09.md), section B.
+
+15. **The coder packet's order** (B1). `packet()` puts the probability frame's
+    120 first and every model- or cue-selected passage after it, so position
+    reveals the frame. Shuffle with a seed of its own, or keep the order as a
+    stated choice (item 1 wants the probability frame coded first) and say in
+    the evaluation plan that position reveals the frame.
+16. **Two frames share a seed** (B2). The coverage frame's random fill ranks by
+    seed 23, the third frame's own, so `union_inclusion` overstates `pi_union`
+    for the 269 model-stratified units. Nothing is coded yet: give the fill its
+    own seed and redraw, which changes which 43 passages it holds.
+17. **The unit of the `rejects` test** (B3). `usage.position_rows` treats each
+    occurrence as a trial; 235 occurrences sit in 154 speeches. Before the
+    markers return (RV36), make the speech the unit or resample speeches.
+18. **Wording to approve** (B4). Every fix that changed a sentence, and both new
+    Chronology figures, carry text without a `Wording:` commit; the review
+    lists the places.
 
 ### Considered in the review of 8 October and not done
 
@@ -214,3 +238,17 @@ Maintainability:
 - **RV62** Dashboard structure: a `urlState` helper, a `Resource` and a `ScrollRegion` shared by the routes, decisions moved into tested modules, ragged CSV rows refused, indexed reads checked, unawaited promises a lint error. (D8, D9)
 - **RV63** Dashboard tests: Language and Methods have browser tests, every accessibility scan also runs in dark mode, every fixture is held to the payload contract, the clustered band is drawn in a test, and a flaky test fails CI. (E1, E3, E7)
 - **RV64** Cluster scripts: `fetch_results.sh` watches over one connection and fetches model runs, `push_code.sh` removes code deleted from the repository, and shellcheck runs in CI. (E6, F)
+
+### Review of 9 November 2026
+
+- **RV65** Rates and both intervals withheld below 125 speeches for a year, a quarter and a breakdown cell, as for a month; counts always, `sufficient` beside them, withheld values drawn as gaps: `lib/series_payload.py::MIN_SPEECHES_PER_PERIOD`, `web/src/lib/chronology.ts`. (A1)
+- **RV66** The quarterly series is a complete grid, 322 quarters of which 275 carry a rate: `lib/series.py::quarter_grid`. (A2)
+- **RV67** The band is the envelope of the Wilson and meeting-clustered intervals; the bootstrap's docstring says it is 0 to 0 where no meeting used the word: `web/src/lib/chronology.ts::bandBounds`. (A3)
+- **RV68** "Who stays silent" counts in speaking order (`exposed_after`, `joined_after`) and the download carries both readings: `lib/actors.py::exposure`, `web/src/lib/silence.ts::ordered`. Keeping the ordered default is FM's call. (A4)
+- **RV69** Keyword tables ranked by the conservative log ratio (`lrc`), the selection word's own rows marked (`node`): `lib/lexical.py::conservative_log_ratio`, `web/src/lib/keyness.ts`. (A5)
+- **RV70** The matching summary counts the words that left the matched table and takes a median only over words in both, withheld below five: `web/src/lib/keyness.ts::removed`. (A6)
+- **RV71** The series publish `record.first_date` and `last_date`; the overview outlines the part-year and compares the last whole year; the month grid has a `beyond` state for months outside the record: `lib/series_payload.py`, `web/src/lib/overview.ts`, `web/src/lib/heatmap.ts::beyondRecord`. (A7)
+- **RV72** The semantic map's local fidelity, among every point, written by step 21 as `evaluation.local`: `lib/projection.py::local_fidelity`. The figure waits on open item 8. (A8)
+- **RV73** Smaller: the profile table gated as its figure is, the agenda list showing the eight items its remainder excludes, "<1%" for a non-empty cell, axis decimals for rare terms, `corpus_words` for the CSV column that holds words: `web/src/routes/language`, `web/src/lib/SpeakerKeyness.svelte`, `web/src/routes/usage`, `web/src/routes/chronology`. (A9)
+- **RV74** Two new Chronology figures, *Agenda or usage?* over `series/decomposition.json` and the rate-split drawing in *Testing for a change in the rate*, both drawn in the browser tests: `web/src/lib/Decomposition.svelte`, `web/src/lib/RateSplit.svelte`, `web/e2e/tests/decomposition.spec.ts`. (C1)
+- **RV75** Eleven visual defects fixed, among them the split figure's axis, the delegation keyword figure's register hues and "darker is stronger" in dark mode; ECharts' label layout is registered, so `moveOverlap` and `hideOverlap` take effect: `web/src/lib/echarts.ts`. (C2)

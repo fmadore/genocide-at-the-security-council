@@ -107,14 +107,12 @@
 
 	{#snippet reading()}
 		<p>
-			{#if result.ordered}A meeting counts when the delegation took the floor after another speaker
-				had already used the word. The share is the part of those meetings in which it then used the
-				word too.{:else}A meeting counts when the delegation took the floor and another speaker used
-				the word. The share is the part of those meetings in which it used the word too.{/if} The bar
-			is the 95% interval, the tick the share, the dashed line the room's average{#if room !== null},
-				{percent(room)}{/if}. Every strip runs from 0 to {stripEnd(scale.end)}; an interval that
-			reaches further ends in an arrowhead{#if scale.clipped}
-				({count(scale.clipped)} here){/if}. A name opens its own uses.
+			A meeting counts if the delegation spoke {#if result.ordered}after another speaker had already
+				used the word{:else}and another speaker used the word{/if}; the share is those in which it
+			joined in. Bars are 95% intervals, ticks shares, dashes the room's average{#if room !== null},
+				{percent(room)}{/if}. Strips run from 0 to {stripEnd(scale.end)}; longer intervals end in an
+			arrowhead{#if scale.clipped}
+				({count(scale.clipped)} here){/if}. Names open their uses.
 		</p>
 	{/snippet}
 	{#snippet caveat()}

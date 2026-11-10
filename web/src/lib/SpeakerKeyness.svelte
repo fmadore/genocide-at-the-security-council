@@ -146,14 +146,11 @@
 
 	{#snippet reading()}
 		<p>
-			{#if lrc}Rows rank words by a conservative estimate: the smallest ratio of frequencies the
-				counts still support once the thousands of words tested are allowed for. Bar length and the
-				first figure show it, so +1 means at least twice as frequent; the log ratio beside it is the
-				ratio as counted. A word used only a handful of times cannot rank, however exclusive it is.{:else}Rows
-				rank words by relative frequency (log ratio), after a G² threshold. Bar length shows log
-				ratio: +1 means twice as frequent.{/if} An asterisk identifies words in the affiliation's name.
-			{#if control === 'matched'}Brackets show the range of the log ratio across {data.repetitions} random
-				selections of comparison speeches, indicating sensitivity to that choice.{/if}
+			{#if lrc}Rows rank by a conservative estimate: the smallest frequency ratio the counts
+				support, allowing for every word tested; bars and the first number show it (+1: at least
+				double).{:else}Rows and bars: log ratio after a G² threshold (+1: twice as frequent).{/if}
+			An asterisk marks words in the affiliation's name.
+			{#if control === 'matched'}Brackets: the log ratio's range over {data.repetitions} comparison draws.{/if}
 		</p>
 	{/snippet}
 
@@ -166,6 +163,10 @@
 		</p>
 	{/snippet}
 	{#snippet more()}
+		{#if lrc}<p>
+				The log ratio beside the estimate is the ratio as counted. A word used only a handful of
+				times cannot rank, however exclusive it is.
+			</p>{/if}
 		<p>
 			This table covers the affiliation's paired speeches, whether or not they mention genocide. <strong
 				>Coverage</strong
@@ -317,7 +318,7 @@
 		{/if}
 
 		<section class="agenda">
-			<h4>Most frequent agenda categories</h4>
+			<h3>Most frequent agenda categories</h3>
 			<p>
 				The comparison matches on these agenda categories. {shortCountry(speaker.country_org)} spoke on
 				{count(speaker.agenda.items)} categories; {percent(speaker.agenda.concentration)} of its speeches
@@ -473,9 +474,12 @@
 		max-width: var(--measure);
 	}
 
-	.agenda h4 {
+	/* An h3 under the figure's h2, never an h4: the level may not skip. Drawn
+	   at the weight the h4 had. */
+	.agenda h3 {
 		margin: 0 0 var(--sp-2);
 		font-size: var(--step-0);
+		font-weight: 500;
 	}
 
 	.agenda p {

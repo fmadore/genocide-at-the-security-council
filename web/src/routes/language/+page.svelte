@@ -1254,30 +1254,32 @@
 			<p>
 				{#if keynessView === 'matched'}Each speech mentioning genocide is paired with one without
 					it, sharing its {matchedOn(data.keyness.matched_on)}.{:else}Speeches mentioning genocide
-					are compared with the rest of the corpus, without matching.{/if}
-				{#if keynessLrc}Rows rank words by a conservative estimate: the smallest ratio of
-					frequencies the counts still support once the thousands of words tested are allowed for.
-					The log ratio beside it is the ratio as counted. A word used only a handful of times
-					cannot rank, however exclusive it is.{:else}Rows rank relative word frequency (log ratio),
-					after a G² threshold.{/if}
-				Speech and meeting counts show how widely each word occurs.
+					are compared with the whole corpus.{/if}
+				{#if keynessLrc}Rows rank words by a conservative estimate: the smallest frequency ratio the
+					counts support, allowing for every word tested.{:else}Rows rank words by log ratio after a
+					G² threshold.{/if}
+				Speech and meeting counts show spread.
 				<a href="{resolve('/methods')}#keyness">Matching details</a>.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
 			<p>
 				Matching reduces differences in the recorded context but cannot isolate the meaning of
-				genocide or remove all topic differences. {data.keyness.short_strata.length} groups have fewer
-				available partners than target speeches. The whole-corpus comparison is more exposed to differences
-				in agenda and period. A dagger marks the selection word itself: comparison speeches are chosen
-				because they do not contain it, so its lead is the definition of the comparison, not a finding.
+				genocide or remove all topic differences. The whole-corpus comparison is more exposed to
+				agenda and period. A dagger marks the selection word: comparison speeches lack it by
+				construction, so its lead is a definition, not a finding.
 			</p>
 		{/snippet}
 		{#snippet more()}
+			{#if keynessLrc}<p>
+					The log ratio beside the estimate is the ratio as counted. A word used only a handful of
+					times cannot rank, however exclusive it is.
+				</p>{/if}
 			<p>
-				Switch comparisons to see which words remain distinctive after matching. The partner
-				selection was repeated {data.keyness.stability.repetitions} times to assess sensitivity to the
-				draw; the source data record the resulting ranges. The
+				{data.keyness.short_strata.length} groups have fewer available partners than target speeches.
+				Switch comparisons to see which words remain distinctive after matching. The partner selection
+				was repeated {data.keyness.stability.repetitions} times to assess sensitivity to the draw; the
+				source data record the resulting ranges. The
 				<a href="{resolve('/actors')}#speaker-keyness">Actors page</a> makes a separate comparison for
 				each delegation's vocabulary.
 			</p>

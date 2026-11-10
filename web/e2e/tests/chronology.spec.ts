@@ -9,6 +9,9 @@
  * plausible reason this page accumulated a P0 and four P1s in review while
  * better-covered routes did not.
  *
+ * Since November 2026 the fixtures also carry `series/decomposition.json`, so
+ * the seventh plate, *Agenda or usage?*, is drawn and scanned with the rest.
+ *
  * The fixtures carry all three states the calendar can draw — months divided
  * by, months too thin to divide by, and months the Council did not sit in —
  * because a fixture that holds only one cannot catch the day two of them merge.
@@ -19,7 +22,7 @@ import { readFile } from 'node:fs/promises';
 import { base } from '../../playwright.config';
 
 test(
-	'the chronology draws its six plates from the artefacts',
+	'the chronology draws its seven plates from the artefacts',
 	{ tag: '@a11y' },
 	async ({ page }) => {
 		const response = await page.goto(`${base}/chronology/`);
@@ -30,6 +33,7 @@ test(
 			'The reading set, year by year',
 			'The word list over time',
 			'Testing for a change in the rate',
+			'Agenda or usage?',
 			"The vocabulary's calendar",
 			'The same twelve months, pooled',
 			'Who says it, and in what debate'
@@ -45,6 +49,7 @@ test(
 			'The reading set, year by year',
 			'The word list over time',
 			'Testing for a change in the rate',
+			'Agenda or usage?',
 			"The vocabulary's calendar",
 			'The same twelve months, pooled',
 			'Who says it, and in what debate'
@@ -244,4 +249,155 @@ test('the band is the meeting-clustered interval where the artefact carries one'
 	await plot.hover();
 	await expect(plot).toContainText('5.00%–45.00%');
 	await expect(plot).not.toContainText('8.07%–41.62%');
+});
+
+test('the rate test draws its split, and an unaccepted one says it is not a finding', async ({
+	page
+}) => {
+	// The fixture's one split, in 1994, has p = 0.31 against a per-test 0.025.
+	await page.goto(`${base}/chronology/`);
+	const figure = page.locator('figure.figure').filter({
+		has: page.getByRole('heading', { name: 'Testing for a change in the rate', level: 2 })
+	});
+	const drawing = figure.locator('.ratesplit svg');
+	await expect(drawing).toBeVisible();
+	await expect(drawing).toHaveAccessibleName(/before 1994, .* from 1994\./);
+	// Dashed, in the drawing and in words.
+	await expect(drawing.locator('path[stroke-dasharray="6 4"]').first()).toBeAttached();
+	const verdicts = figure.locator('ul.verdicts li');
+	await expect(verdicts).toHaveCount(1);
+	await expect(verdicts.first()).toContainText('does not clear the corrected threshold');
+	await expect(verdicts.first()).toContainText('Drawn dashed: a best split, not a finding.');
+});
+
+/** The chronology, or another route, with one artefact changed (served on a client navigation). */
+async function routeWith<T>(
+	page: Page,
+	file: string,
+	change: (artefact: T) => void,
+	link: RegExp = /Chronology/
+) {
+	const artefact = JSON.parse(
+		await readFile(new URL(`../fixtures/data/${file}`, import.meta.url), 'utf8')
+	) as T;
+	change(artefact);
+	await page.route(`**/data/${file}`, (route) => route.fulfill({ json: artefact }));
+	await page.goto(`${base}/concordance/`);
+	await expect(page.locator('.status')).toContainText('4 of 4 lines');
+	await page
+		.getByRole('navigation', { name: 'Sections' })
+		.getByRole('link', { name: link })
+		.click();
+}
+
+interface SplitRow {
+	period: number;
+	category: string;
+	held: number;
+	speech_rate: number | null;
+}
+
+test('a split cell too thin for a rate is withheld in the table and leaves the axis alone', async ({
+	page
+}) => {
+	// The fixture's E10 in 2023 held 4 speeches against a minimum of 20. The
+	// variant also gives it the rate a payload from before the rule would have
+	// carried, 1 in 1, which used to set the axis to 100%.
+	await routeWith<{ measures: { genocide: { speaker_group: { rows: SplitRow[] } } } }>(
+		page,
+		'series/breakdowns.json',
+		(artefact) => {
+			const row = artefact.measures.genocide.speaker_group.rows.find(
+				(r) => r.period === 2023 && r.category === 'E10'
+			)!;
+			row.speech_rate = 1;
+		}
+	);
+	const figure = page.locator('figure.figure').filter({
+		has: page.getByRole('heading', { name: 'Who says it, and in what debate', level: 2 })
+	});
+	const table = figure.locator('details.data-table');
+	await table.locator('summary').click();
+	const thin = table.locator('tbody tr').filter({ hasText: '2023' }).filter({ hasText: 'E10' });
+	await expect(thin.locator('td').nth(4)).toHaveText('withheld');
+	const kept = table.locator('tbody tr').filter({ hasText: '1994' }).filter({ hasText: 'P5' });
+	await expect(kept.locator('td').nth(4)).toHaveText('25.00%');
+
+	// The axis is scaled to the drawn rates, the largest 25%: no tick past it.
+	const svg = figure.locator('.chart svg').first();
+	await expect(svg).toBeVisible({ timeout: 15_000 });
+	const ticks = await svg.evaluate((node) =>
+		[...node.querySelectorAll('text')]
+			.map((t) => (t.textContent ?? '').trim())
+			.filter((t) => /^\d+%$/.test(t))
+			.map((t) => Number(t.slice(0, -1)))
+	);
+	expect(ticks.length).toBeGreaterThan(1);
+	expect(Math.max(...ticks)).toBeLessThanOrEqual(25);
+});
+
+test('the quarterly table says withheld for a quarter too thin for a rate', async ({ page }) => {
+	// 2023-Q4 held 10 speeches against the quarterly fixture's minimum of 25.
+	await page.goto(`${base}/chronology/`, { waitUntil: 'networkidle' });
+	await page.getByRole('combobox', { name: 'Time interval' }).selectOption('quarter');
+	const figure = page.locator('figure.figure').filter({
+		has: page.getByRole('heading', { name: 'The word list over time', level: 2 })
+	});
+	const table = figure.locator('details.data-table');
+	await table.locator('summary').click();
+	await expect(table.locator('tbody tr')).toHaveCount(12);
+	const last = table.locator('tbody tr').filter({ hasText: '2023-Q4' });
+	await expect(last.locator('td').nth(1)).toHaveText('withheld');
+	const before = table.locator('tbody tr').filter({ hasText: '2023-Q3' });
+	await expect(before.locator('td').nth(1)).toHaveText('8.00%');
+	await expect(figure).toContainText('1 quarter held fewer than 25 speeches');
+});
+
+interface AnnualFixture {
+	sufficient: boolean[];
+	terms: Record<string, Record<string, unknown>>;
+}
+
+/** The annual fixture with its last year withheld: counts kept, every rate null. */
+function withholdLastYear(annual: AnnualFixture) {
+	annual.sufficient[2] = false;
+	const term = annual.terms.genocide!;
+	for (const key of [
+		'speech_rate',
+		'speech_rate_low',
+		'speech_rate_high',
+		'speech_rate_cluster_low',
+		'speech_rate_cluster_high',
+		'token_rate'
+	]) {
+		(term[key] as (number | null)[])[2] = null;
+	}
+}
+
+test('the chronology still draws, and says withheld, with a null annual rate', async ({ page }) => {
+	await routeWith<AnnualFixture>(page, 'series/annual.json', withholdLastYear);
+	await expect(page.getByRole('heading', { name: 'Chronology', level: 1 })).toBeVisible();
+	const figure = page.locator('figure.figure').filter({
+		has: page.getByRole('heading', { name: 'The word list over time', level: 2 })
+	});
+	await expect(figure.locator('.chart svg').first()).toBeVisible({ timeout: 15_000 });
+	const table = figure.locator('details.data-table');
+	await table.locator('summary').click();
+	await expect(
+		table.locator('tbody tr').filter({ hasText: '2023' }).locator('td').nth(1)
+	).toHaveText('withheld');
+	await expect(
+		table.locator('tbody tr').filter({ hasText: '1994' }).locator('td').nth(1)
+	).toHaveText('20.00%');
+	await expect(page.locator('main')).not.toContainText('NaN');
+});
+
+test('the overview still draws with a null annual rate', async ({ page }) => {
+	await routeWith<AnnualFixture>(page, 'series/annual.json', withholdLastYear, /Overview/);
+	const figure = page.locator('figure.figure').filter({
+		has: page.getByRole('heading', { name: /Occurrences and share of speeches/, level: 2 })
+	});
+	await expect(figure.locator('.chart svg').first()).toBeVisible({ timeout: 15_000 });
+	await expect(page.locator('main')).not.toContainText('NaN');
+	await expect(page.getByText('Internal Error')).toHaveCount(0);
 });

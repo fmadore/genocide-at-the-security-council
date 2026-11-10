@@ -1,0 +1,96 @@
+{
+	"meta": {
+		"script": "04_series.py",
+		"generated": "2026-11-09T00:00:00Z",
+		"git_commit": "fixture",
+		"lexicon_version": 2
+	},
+	"term": "genocide",
+	"unit": "speech_rate",
+	"periods": "decade",
+	"method": "Fixture: a two-factor decomposition whose parts add exactly to each change.",
+	"splits": {
+		"agenda_item_manual": [
+			{
+				"from": 1990,
+				"to": 2000,
+				"rate_from": 0.02,
+				"rate_to": 0.035,
+				"change": 0.015,
+				"composition": 0.009,
+				"within": 0.006,
+				"largest": [
+					{ "group": "The situation concerning Rwanda", "contribution": 0.008 },
+					{ "group": "The situation in Bosnia and Herzegovina", "contribution": 0.004 }
+				],
+				"group_column": "agenda_item_manual"
+			},
+			{
+				"from": 2000,
+				"to": 2010,
+				"rate_from": 0.035,
+				"rate_to": 0.03,
+				"change": -0.005,
+				"composition": -0.007,
+				"within": 0.002,
+				"largest": [
+					{ "group": "Reports on the Sudan", "contribution": -0.003 },
+					{ "group": "Children and armed conflict", "contribution": 0.001 }
+				],
+				"group_column": "agenda_item_manual"
+			},
+			{
+				"from": 2010,
+				"to": 2020,
+				"rate_from": 0.03,
+				"rate_to": 0.036,
+				"change": 0.006,
+				"composition": 0.004,
+				"within": 0.002,
+				"largest": [{ "group": "The situation in the Middle East", "contribution": 0.005 }],
+				"group_column": "agenda_item_manual"
+			}
+		],
+		"speaker_group": [
+			{
+				"from": 1990,
+				"to": 2000,
+				"rate_from": 0.02,
+				"rate_to": 0.035,
+				"change": 0.015,
+				"composition": 0.002,
+				"within": 0.013,
+				"largest": [
+					{ "group": "P5", "contribution": 0.007 },
+					{ "group": "E10", "contribution": 0.005 }
+				],
+				"group_column": "speaker_group"
+			},
+			{
+				"from": 2000,
+				"to": 2010,
+				"rate_from": 0.035,
+				"rate_to": 0.03,
+				"change": -0.005,
+				"composition": -0.001,
+				"within": -0.004,
+				"largest": [{ "group": "Non-member state", "contribution": -0.003 }],
+				"group_column": "speaker_group"
+			},
+			{
+				"from": 2010,
+				"to": 2020,
+				"rate_from": 0.03,
+				"rate_to": 0.036,
+				"change": 0.006,
+				"composition": -0.001,
+				"within": 0.007,
+				"largest": [
+					{ "group": "Non-member state", "contribution": 0.006 },
+					{ "group": "Non-state", "contribution": 0.002 }
+				],
+				"group_column": "speaker_group"
+			}
+		]
+	}
+}
