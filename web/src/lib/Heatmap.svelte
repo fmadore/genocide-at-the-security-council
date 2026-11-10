@@ -332,8 +332,12 @@
 					stroke-width="0.75"
 					stroke-dasharray="1.5 2.5"
 				/>
-				<text x={bx + SWATCH + 6} y={by + 9} font-family={FONT} font-size="12" fill={$colours.inkFaint}
-					>after the record ends ({plan.beyond})</text
+				<text
+					x={bx + SWATCH + 6}
+					y={by + 9}
+					font-family={FONT}
+					font-size="12"
+					fill={$colours.inkFaint}>after the record ends ({plan.beyond})</text
 				>
 			{/if}
 		{/snippet}

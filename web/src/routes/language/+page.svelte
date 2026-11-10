@@ -38,6 +38,7 @@
 	} from '#lib/language.js';
 	import { provenanceOf } from '#lib/export.js';
 	import type { ExportRequest } from '#lib/export.js';
+	import { conservative, keywordEffect } from '#lib/keyness.js';
 	import {
 		count,
 		decimal,
@@ -183,7 +184,9 @@
 					word.target,
 					word.reference,
 					word.g2,
+					word.lrc ?? null,
 					word.log_ratio,
+					word.node ?? null,
 					word.documents,
 					word.meetings,
 					word.dp
@@ -198,7 +201,9 @@
 				'target',
 				'reference',
 				'g2',
+				'lrc',
 				'log_ratio',
+				'node',
 				'documents',
 				'meetings',
 				'dp'
@@ -414,7 +419,12 @@
 	const spread = (word: { documents: number; meetings: number | null }) =>
 		`${count(word.documents)} / ${word.meetings == null ? '—' : count(word.meetings)}`;
 
-	const matchedByWord = $derived(new Map(data.keyness.keywords.map((w) => [w.word, w.log_ratio])));
+	/* The matched figure of each word, by the measure the table is ranked by:
+	   the conservative estimate, or the log ratio for an older payload. */
+	const matchedByWord = $derived(
+		new Map(data.keyness.keywords.map((w) => [w.word, keywordEffect(w)]))
+	);
+	const keynessLrc = $derived(conservative(keywords));
 
 	/* Zoom is held here rather than left inside ECharts so that "Reset" can put it
 	   back. Assigning a fresh object rebuilds the option, and Chart.svelte applies
@@ -1244,8 +1254,13 @@
 			<p>
 				{#if keynessView === 'matched'}Each speech mentioning genocide is paired with one without
 					it, sharing its {matchedOn(data.keyness.matched_on)}.{:else}Speeches mentioning genocide
-					are compared with the rest of the corpus, without matching.{/if} Rows rank relative word frequency
-				(log ratio), after a G² threshold. Speech and meeting counts show how widely each word occurs.
+					are compared with the rest of the corpus, without matching.{/if}
+				{#if keynessLrc}Rows rank words by a conservative estimate: the smallest ratio of
+					frequencies the counts still support once the thousands of words tested are allowed for.
+					The log ratio beside it is the ratio as counted. A word used only a handful of times
+					cannot rank, however exclusive it is.{:else}Rows rank relative word frequency (log ratio),
+					after a G² threshold.{/if}
+				Speech and meeting counts show how widely each word occurs.
 				<a href="{resolve('/methods')}#keyness">Matching details</a>.
 			</p>
 		{/snippet}
@@ -1254,7 +1269,8 @@
 				Matching reduces differences in the recorded context but cannot isolate the meaning of
 				genocide or remove all topic differences. {data.keyness.short_strata.length} groups have fewer
 				available partners than target speeches. The whole-corpus comparison is more exposed to differences
-				in agenda and period.
+				in agenda and period. A dagger marks the selection word itself: comparison speeches are chosen
+				because they do not contain it, so its lead is the definition of the comparison, not a finding.
 			</p>
 		{/snippet}
 		{#snippet more()}
@@ -1278,6 +1294,13 @@
 						title="Tests a difference in word frequency; a larger value can also reflect more text."
 						>G²</th
 					>
+					{#if keynessLrc}
+						<th
+							class="num"
+							title="The smallest log ratio the counts support once every word tested is allowed for: +1 means at least twice as frequent."
+							>Conservative</th
+						>
+					{/if}
 					<th
 						class="num"
 						title="+1 means twice as frequent; +2 means four times. Negative values mean less frequent."
@@ -1296,10 +1319,17 @@
 				{#each keywords.slice(0, 30) as w, i (w.word)}
 					<tr>
 						<td class="num rank">{i + 1}</td>
-						<td><a href={concordanceHref('genocide', w.word)}>{w.word}</a></td>
+						<td
+							><a href={concordanceHref('genocide', w.word)}>{w.word}</a>{#if w.node}<abbr
+									class="node-mark"
+									title="The selection word itself: comparison speeches are chosen because they do not contain it."
+									>†</abbr
+								>{/if}</td
+						>
 						<td class="num">{count(w.target)}</td>
 						<td class="num">{count(Math.round(w.g2))}</td>
-						<td class="num">{signed(w.log_ratio)}</td>
+						{#if keynessLrc}<td class="num">{signed(keywordEffect(w))}</td>{/if}
+						<td class="num" class:point={keynessLrc}>{signed(w.log_ratio)}</td>
 						<td class="num">{spread(w)}</td>
 						<td class="num">{decimal(w.dp)}</td>
 						{#if keynessView === 'unmatched'}
@@ -1339,11 +1369,11 @@
 
 		{#snippet reading()}
 			<p>
-				Each cell compares two terms. More ink means a stronger association within speeches, measured
-				by nPMI relative to their individual frequencies; the key under the grid reads a shade back
-				as a score. Hatched cells have fewer than {data.network.min_speeches} shared speeches. Crossed
-				cells mark overlapping search patterns, such as a word within a longer phrase. Hover for counts
-				and scores.
+				Each cell compares two terms. More ink means a stronger association within speeches,
+				measured by nPMI relative to their individual frequencies; the key under the grid reads a
+				shade back as a score. Hatched cells have fewer than {data.network.min_speeches} shared speeches.
+				Crossed cells mark overlapping search patterns, such as a word within a longer phrase. Hover for
+				counts and scores.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -1685,6 +1715,19 @@
 	.gone {
 		color: var(--ink-3);
 		font-style: italic;
+	}
+
+	/* The keyness table's point estimate, second to the conservative figure. */
+	.point {
+		color: var(--ink-3);
+	}
+
+	/* The selection word's own forms, marked as a speaker's own name is. */
+	.node-mark {
+		margin-left: 0.15em;
+		text-decoration: none;
+		color: var(--ink-3);
+		cursor: help;
 	}
 
 	.onward {

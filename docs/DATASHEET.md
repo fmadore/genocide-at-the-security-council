@@ -331,7 +331,27 @@ meeting even when the speaker had finished before anyone else used the word;
 the second does not. Across the corpus 20,296 of 30,752 exposed attendances
 meet the ordered test, and the room's share is 13.4% on it against 11.3%.
 
-### 9.6 Provenance: the `meta` block and the CSV header
+### 9.6 Keyword tables: `lexical/keyness.json` and `countries/speaker_keyness.json`
+
+One row per word in `keywords` (against matched speeches) and
+`keywords_unmatched` (against the rest of the corpus). Written by step 05 for
+speeches using `genocide` and by step 12 per delegation (`scripts/lib/lexical.py`).
+
+| Field | Meaning |
+|---|---|
+| `target`, `reference` | Occurrences in the selected speeches and in the comparison speeches. |
+| `g2` | Log-likelihood. A row must reach 10.83 to be listed; it does not set the order. |
+| `log_ratio` | log2 of the ratio of the two rates, with half an occurrence standing in for a zero. The point estimate. |
+| `lrc` | The conservative log ratio, which sets the order: log2 of the end nearest 1 of an exact 95% interval for the rate ratio, divided among all the words tested (`tests`). 0 when the interval includes 1; only rows above 0 are listed. |
+| `documents`, `meetings`, `dp` | Speeches and meetings the word appears in, and Gries's DP (0 spread evenly, 1 concentrated). |
+| `node` | Step 05 only: the word is a form of the selection word itself, which the matched speeches cannot contain. Marked, not removed. |
+| `self_reference` | Step 12 only: the word is part of the delegation's own name. Marked, not removed. |
+
+At file level, `rank` names the ordering column, `lrc_alpha` the error rate
+(0.05), and `tests` the number of words tested: per table in step 05, per
+speaker in step 12. A delegation's matched table can be shorter than 40 rows.
+
+### 9.7 Provenance: the `meta` block and the CSV header
 
 Every JSON file carries a `meta` block: the script that wrote it, when
 (`generated`), the pipeline commit (`git_commit`), the lexicon version, the input

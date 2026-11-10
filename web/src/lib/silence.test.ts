@@ -15,6 +15,7 @@ import {
 	orderedSummary,
 	plan,
 	stripAt,
+	stripEnd,
 	stripScale
 } from './silence';
 import type { Countries, Silence, SilenceRow, Speaker } from './types';
@@ -261,9 +262,9 @@ describe('the order of speaking', () => {
 
 describe('the interval strip', () => {
 	it('rounds the end up to a printable figure', () => {
-		expect(niceCeil(0.339)).toBe(0.5);
+		expect(niceCeil(0.339)).toBe(0.4);
 		expect(niceCeil(0.21)).toBe(0.25);
-		expect(niceCeil(0.106)).toBe(0.2);
+		expect(niceCeil(0.106)).toBe(0.15);
 		expect(niceCeil(0.05)).toBe(0.05);
 		expect(niceCeil(0)).toBe(0);
 	});
@@ -276,8 +277,13 @@ describe('the interval strip', () => {
 	});
 
 	it('keeps the room on the strip and ignores withheld rows', () => {
-		expect(stripScale([0.01, 0.02, null, undefined], 0.3).end).toBe(0.5);
+		expect(stripScale([0.01, 0.02, null, undefined], 0.31).end).toBe(0.4);
 		expect(stripScale([]).end).toBeGreaterThan(0);
+	});
+
+	it('prints the end without trailing zeros', () => {
+		expect(stripEnd(0.4)).toBe('40%');
+		expect(stripEnd(0.025)).toBe('2.5%');
 	});
 
 	it('holds a position to the end of the strip', () => {

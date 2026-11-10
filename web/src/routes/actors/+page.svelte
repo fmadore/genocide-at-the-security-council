@@ -23,7 +23,7 @@
 		readActorState
 	} from '#lib/actors.js';
 	import type { MapPoint, Ordering } from '#lib/actors.js';
-	import { stripAt, stripScale } from '#lib/silence.js';
+	import { stripAt, stripEnd, stripScale } from '#lib/silence.js';
 	import type { CountryMeasureRow } from '#lib/types.js';
 	import { provenanceOf } from '#lib/export.js';
 	import type { ExportRequest } from '#lib/export.js';
@@ -283,7 +283,12 @@
 	   rather than at the widest one, which squeezed most intervals into ten
 	   pixels; a row reaching past the end carries an arrowhead (`#lib/silence`). */
 	const whiskerScale = $derived(
-		stripScale(result.rows.map((entry) => entry.row.speech_rate_high))
+		// The floor is the largest rate: this table opens on its highest rates,
+		// and every tick must stay on the strip; only upper bounds may overflow.
+		stripScale(
+			result.rows.map((entry) => entry.row.speech_rate_high),
+			Math.max(0, ...result.rows.map((entry) => entry.row.speech_rate ?? 0))
+		)
 	);
 	const whisker = (row: CountryMeasureRow) => {
 		if (row.speech_rate == null || row.speech_rate_low == null || row.speech_rate_high == null) {
@@ -437,7 +442,7 @@
 		{#snippet reading()}
 			<p>
 				Rows follow the selected ranking. Each 95% interval indicates precision assuming independent
-				speeches; wider intervals mean less precise estimates. Every strip runs from 0 to {percent(
+				speeches; wider intervals mean less precise estimates. Every strip runs from 0 to {stripEnd(
 					whiskerScale.end
 				)}; an interval reaching further ends in an arrowhead. Select a row to locate the
 				affiliation on the map, or a dot to find its row. An asterisk marks a shared country code.
@@ -515,7 +520,7 @@
 							<th scope="col">Speaker</th>
 							<th scope="col" class="num">Share</th>
 							<th scope="col" class="whisker-head"
-								>95% interval <span class="scale">0&ndash;{percent(whiskerScale.end)}</span></th
+								>95% interval <span class="scale">0&ndash;{stripEnd(whiskerScale.end)}</span></th
 							>
 							<th scope="col">Group</th>
 							<th scope="col" class="num">Speeches</th>
@@ -958,6 +963,16 @@
 	/* On a phone the share and its interval come straight after the name, and
 	   the printed range drops under the strip so both fit the screen. */
 	@media (max-width: 40rem) {
+		tbody th {
+			white-space: normal;
+			min-width: 7rem;
+		}
+
+		.whisker-head .scale {
+			display: block;
+			margin-inline-start: 0;
+		}
+
 		.rail {
 			display: block;
 			width: var(--sp-9);

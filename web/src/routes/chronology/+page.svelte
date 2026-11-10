@@ -1156,8 +1156,8 @@
 			<p>
 				Raw counts depend on both term use and the volume of speech. Rates help compare periods, but
 				do not adjust for changes in the agenda or speakers. Combined reading sets have speech
-				counts and shares, but no occurrence total. With more than two terms drawn, only the headline
-				term keeps its band; every interval stays in the tooltip.
+				counts and shares, but no occurrence total. With more than two terms drawn, only the
+				headline term keeps its band; every interval stays in the tooltip.
 			</p>
 		{/snippet}
 		{#snippet more()}

@@ -356,6 +356,13 @@
 			frequency, +2 four times and +3 eight times. Zero means equal rates; negative values mean a
 			lower rate. A small adjustment permits calculation when a count is zero.
 		</dd>
+		<dt>Conservative log ratio</dt>
+		<dd>
+			The smallest log ratio the counts still support once the thousands of words tested are allowed
+			for: the end nearest zero of an exact 95% interval, shared among every word tested. Zero when
+			the counts are consistent with equal rates. Keyword tables are ranked by it, so a word used
+			only a handful of times cannot rank, however exclusive it is.
+		</dd>
 		<dt>G² (log-likelihood)</dt>
 		<dd>
 			Tests departure from equal word frequencies in the two sets. Larger values can reflect a

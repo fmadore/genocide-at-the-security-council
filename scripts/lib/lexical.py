@@ -477,7 +477,10 @@ def log_ratio(a: int, b: int, target_total: int, reference_total: int) -> float:
 
     A word absent from the reference has an infinite ratio, which no chart can
     plot. Substituting half an occurrence is the standard fix and is reported as
-    what it is rather than as a measured value.
+    what it is rather than as a measured value. It is why this is printed beside
+    a keyword and no longer ranks one: the half-count gives every word absent
+    from the reference a ratio set by its own frequency alone, and the rarest
+    such words then head the table. :func:`conservative_log_ratio` ranks.
     """
     if target_total <= 0 or reference_total <= 0:
         return 0.0
@@ -568,8 +571,8 @@ def betainc(a, b, x):
     """The regularised incomplete beta function I_x(a, b), for a, b > 0.
 
     Written here rather than imported because the pipeline does not depend on
-    SciPy. It is the binomial tail the Clopper–Pearson interval inverts:
-    P(X ≥ k) for X ~ Binomial(n, p) is I_p(k, n − k + 1), which is how
+    SciPy. It is the binomial tail the Clopper-Pearson interval inverts:
+    P(X ≥ k) for X ~ Binomial(n, p) is I_p(k, n - k + 1), which is how
     `tests/test_reference_values.py` holds it to exact sums.
     """
     found = np.exp(_log_betainc(a, b, x))
@@ -584,7 +587,7 @@ def _beta_quantile(a: np.ndarray, b: np.ndarray, log_q: np.ndarray) -> np.ndarra
     right of the root one step lands on its left, and from the left every step
     approaches it without passing it, so no bracket is needed: a step that
     would leave (0, 1) is shortened, and the iteration stops when it no longer
-    moves. It starts from the mean a / (a + b), above any q this is called with.
+    moves, or when the residual is down to the precision log I is computed to. It starts from the mean a / (a + b), above any q this is called with.
     """
     a, b, log_q = (np.asarray(v, dtype=float).ravel() for v in (a, b, log_q))
     lb = _log_beta(a, b)
@@ -599,13 +602,15 @@ def _beta_quantile(a: np.ndarray, b: np.ndarray, log_q: np.ndarray) -> np.ndarra
         moved = xx - (log_i - log_q[live]) * np.exp(log_i - log_density)
         moved = np.where(moved <= 0.0, xx * 1e-3, np.minimum(moved, np.nextafter(1.0, 0.0)))
         x[live] = moved
-        settled = np.abs(moved - xx) <= 1e-14 * xx
+        # Stopped by the step or by the residual: near the root, log I is
+        # computed to about 1e-11, and a tighter test would chase that noise.
+        settled = (np.abs(moved - xx) <= 1e-12 * xx) | (np.abs(log_i - log_q[live]) < 1e-9)
         live = live[~settled]
     raise ArithmeticError(f"beta quantile did not converge for {live.size} values")
 
 
 def _cp_lower(k: np.ndarray, n: np.ndarray, log_q: np.ndarray) -> np.ndarray:
-    """The Clopper–Pearson lower bound for k of n, one tail at level q."""
+    """The Clopper-Pearson lower bound for k of n, one tail at level q."""
     k, n, log_q = np.broadcast_arrays(*(np.asarray(v, dtype=float) for v in (k, n, log_q)))
     out = np.zeros(k.shape)
     whole = (k == n) & (n > 0)
@@ -621,9 +626,9 @@ def clopper_pearson(k, n, alpha: float = 0.05):
 
     Clopper and Pearson (1934): the bounds are the shares at which the
     observed count sits in either tail with probability alpha / 2, which is
-    the Beta(k, n − k + 1) and Beta(k + 1, n − k) quantiles. The ends have
+    the Beta(k, n - k + 1) and Beta(k + 1, n - k) quantiles. The ends have
     closed forms — the lower bound of n of n is (alpha / 2)^(1/n), the upper
-    bound of 0 of n is 1 − (alpha / 2)^(1/n) — and are computed as such.
+    bound of 0 of n is 1 - (alpha / 2)^(1/n) — and are computed as such.
     Vectorised over `k` and `n`; scalars in, floats out.
     """
     k_, n_ = np.broadcast_arrays(np.asarray(k, dtype=float), np.asarray(n, dtype=float))
@@ -650,9 +655,9 @@ def conservative_log_ratio(
     Ratio (conservative estimate)". Given a word's n = a + b occurrences, the
     target's share of them is binomial, a ~ Binomial(n, p), with
     p = r·N1 / (r·N1 + N2) for N1 and N2 the two corpora's sizes and r the
-    ratio of the word's rates. The exact Clopper–Pearson interval for p, at
+    ratio of the word's rates. The exact Clopper-Pearson interval for p, at
     level alpha / `tests` — Bonferroni over every word the table tested —
-    is mapped back to an interval for r = (p / (1 − p))·(N2 / N1), and the
+    is mapped back to an interval for r = (p / (1 - p))·(N2 / N1), and the
     figure reported is log2 of its end *nearest 1*: positive when the whole
     interval is above 1, negative when below, and exactly 0.0 when it holds 1.
 
@@ -693,7 +698,7 @@ def conservative_log_ratio(
         found = np.zeros(k.shape)
         whole = j == 0
         if whole.any():
-            # (q)^(1/n) and its complement, without losing 1 − p near 1.
+            # (q)^(1/n) and its complement, without losing 1 - p near 1.
             log_low = log_q[whole] / n[whole]
             found[whole] = np.log2(
                 np.exp(log_low) / -np.expm1(log_low) * n2[whole] / n1[whole]

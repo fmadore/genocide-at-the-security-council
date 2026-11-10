@@ -14,7 +14,7 @@
 	import { provenanceOf } from '#lib/export.js';
 	import type { ExportRequest } from '#lib/export.js';
 	import { count, entityType, percent, shortCountry } from '#lib/format.js';
-	import { EXPORT_COLUMNS, exportRows, plan, stripAt, stripScale } from '#lib/silence.js';
+	import { EXPORT_COLUMNS, exportRows, plan, stripAt, stripEnd, stripScale } from '#lib/silence.js';
 	import type { Ordering, SilenceEntry } from '#lib/silence.js';
 	import type { Countries } from '#lib/types.js';
 
@@ -36,7 +36,12 @@
 
 	/* One axis for every row, ending at a printed figure near the 90th-percentile
 	   upper bound and never short of the room's average: `#lib/silence`. */
-	const scale = $derived(stripScale(result.rows.map((e) => e.row.share_high), room ?? 0));
+	const scale = $derived(
+		stripScale(
+			result.rows.map((e) => e.row.share_high),
+			room ?? 0
+		)
+	);
 	const at = (value: number) => stripAt(value, scale.end);
 	const past = (value: number | null) => (value ?? 0) > scale.end;
 
@@ -107,7 +112,7 @@
 				word too.{:else}A meeting counts when the delegation took the floor and another speaker used
 				the word. The share is the part of those meetings in which it used the word too.{/if} The bar
 			is the 95% interval, the tick the share, the dashed line the room's average{#if room !== null},
-				{percent(room)}{/if}. Every strip runs from 0 to {percent(scale.end)}; an interval that
+				{percent(room)}{/if}. Every strip runs from 0 to {stripEnd(scale.end)}; an interval that
 			reaches further ends in an arrowhead{#if scale.clipped}
 				({count(scale.clipped)} here){/if}. A name opens its own uses.
 		</p>
@@ -155,7 +160,7 @@
 						<th scope="col">Speaker</th>
 						<th scope="col" class="num">Share</th>
 						<th scope="col" class="whisker-head"
-							>95% interval <span class="scale">0&ndash;{percent(scale.end)}</span></th
+							>95% interval <span class="scale">0&ndash;{stripEnd(scale.end)}</span></th
 						>
 						<th scope="col">Group</th>
 						<th scope="col" class="num">Exposed meetings</th>
@@ -319,6 +324,15 @@
 	/* On a phone the share and its interval come straight after the name, and
 	   the printed range drops under the strip so both fit the screen. */
 	@media (max-width: 40rem) {
+		tbody th {
+			white-space: normal;
+		}
+
+		.whisker-head .scale {
+			display: block;
+			margin-inline-start: 0;
+		}
+
 		.rail {
 			display: block;
 			width: var(--sp-9);

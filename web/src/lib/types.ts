@@ -364,7 +364,8 @@ export interface Events {
  * One row of a collocate or keyword table.
  *
  * G² is a floor the row cleared, never its rank: tables are ordered by effect
- * (`log_dice` for collocates, `log_ratio` for keywords). The three dispersion
+ * (`log_dice` for collocates, `lrc` for keywords; `log_ratio` for keyword
+ * payloads written before 10 November 2026). The three dispersion
  * fields say how evenly the word is spread over the speeches the table was
  * cut from — `documents` it appears in, distinct `meetings` (null only where
  * the pipeline had no meeting to count), and Gries's DP, 0 for a word spread
@@ -376,6 +377,18 @@ export interface Word {
 	reference: number;
 	g2: number;
 	log_ratio: number;
+	/**
+	 * The conservative log ratio, keyword tables only: log2 of the end nearest 1
+	 * of an exact interval for the rate ratio, Bonferroni over every word tested,
+	 * and 0 where that interval holds 1. What keyword tables are ranked by. Absent
+	 * from collocate rows and from keyword payloads older than the ranking.
+	 */
+	lrc?: number;
+	/**
+	 * Keyword tables only: the selection word's own forms, which the matched
+	 * control cannot contain by construction. Marked, never removed.
+	 */
+	node?: boolean;
 	/** logDice (Rychlý 2008), collocate tables only; 14 is a pair never seen apart. */
 	log_dice?: number;
 	documents: number;
@@ -421,6 +434,12 @@ export interface Keyness {
 	target_tokens: number;
 	control_tokens: number;
 	short_strata: { key: string[]; wanted: number; found: number }[];
+	/** The column both tables are ranked by; absent before the conservative ranking. */
+	rank?: 'lrc';
+	/** The family-wise error rate the conservative estimate is computed at. */
+	lrc_alpha?: number;
+	/** Each table's Bonferroni family: the words its target was tested on. */
+	tests?: { keywords: number; keywords_unmatched: number };
 	keywords: Word[];
 	keywords_unmatched: Word[];
 	stability: {
@@ -433,7 +452,15 @@ export interface Keyness {
 		 * per-speaker tables, because that figure is printed next to one draw;
 		 * this one is not, and 05 has not been re-run.
 		 */
-		keyword_log_ratio: { word: string; median: number; p05: number; p95: number }[];
+		keyword_log_ratio: {
+			word: string;
+			median: number;
+			p05: number;
+			p95: number;
+			/** The conservative estimate's observed range over the same draws. */
+			lrc_low?: number;
+			lrc_high?: number;
+		}[];
 	};
 }
 
@@ -709,6 +736,11 @@ export interface Keyword {
 	reference: number;
 	g2: number;
 	log_ratio: number;
+	/**
+	 * The conservative log ratio the table is ranked by; see `Word.lrc`. Absent
+	 * from payloads written before that ranking, which are drawn by log ratio.
+	 */
+	lrc?: number;
 	/** Dispersion over the speaker's matched speeches; see `Word`. */
 	documents: number;
 	meetings: number | null;
@@ -753,6 +785,8 @@ export interface SpeakerKeynessRow {
 	 */
 	target_tokens: number | null;
 	control_tokens: number | null;
+	/** The words the speaker was tested on: the Bonferroni family of both tables. */
+	tests?: number | null;
 	keywords: Keyword[] | null;
 	/** The same target against the whole corpus: what the matching improved on. */
 	keywords_unmatched: Keyword[] | null;
@@ -791,6 +825,10 @@ export interface SpeakerKeyness {
 	unmatched_rule: string;
 	reading_rule: string;
 	self_reference_rule: string;
+	/** Absent from payloads written before the conservative ranking. */
+	rank?: 'lrc';
+	lrc_alpha?: number;
+	rank_rule?: string;
 	seed: number;
 	repetitions: number;
 	limit: number;

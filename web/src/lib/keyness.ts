@@ -28,12 +28,31 @@
  * supports. `bars()` scales within the reading it is given, and `removed()`
  * exists so the *difference* between them can be stated as a number instead of
  * being read off two pictures.
+ *
+ * **The length is the conservative estimate.** Tables are ranked by `lrc`, the
+ * smallest ratio the counts support once every word tested is allowed for, so
+ * the bar and the printed figure are that, and the log ratio — the point
+ * estimate — is printed beside it. A payload written before that ranking has no
+ * `lrc`, and `keywordEffect()` falls back to the log ratio it was ranked by.
  */
 
-import type { Keyword, SpeakerKeyness, SpeakerKeynessRow } from './types';
+import type { Keyword, SpeakerKeyness, SpeakerKeynessRow, Word } from './types';
 
 /** Which control a table was computed against. */
 export type Reading = 'matched' | 'unmatched';
+
+/**
+ * The figure a keyword row is drawn and ranked by: its conservative log ratio,
+ * or its log ratio where the payload predates the conservative ranking.
+ */
+export function keywordEffect(row: Pick<Word, 'log_ratio' | 'lrc'>): number {
+	return row.lrc ?? row.log_ratio;
+}
+
+/** Whether a table carries the conservative estimate, rather than only the point estimate. */
+export function conservative(rows: readonly Pick<Word, 'lrc'>[] | null): boolean {
+	return (rows ?? []).some((row) => row.lrc !== undefined);
+}
 
 export interface Bar {
 	word: string;
@@ -41,11 +60,15 @@ export interface Bar {
 	reference: number;
 	g2: number;
 	logRatio: number;
+	/** The conservative log ratio, or null where the payload has none. */
+	lrc: number | null;
+	/** What the bar is drawn from and the row is printed as: `keywordEffect()`. */
+	effect: number;
 	documents: number;
 	meetings: number | null;
 	dp: number;
 	selfReference: boolean;
-	/** 0–1, the row's log ratio against the widest in the same reading. */
+	/** 0–1, the row's `effect` against the widest in the same reading. */
 	weight: number;
 	/**
 	 * Where this word's log ratio landed across the artefact's draws, as the
@@ -113,18 +136,20 @@ export function bars(speaker: SpeakerKeynessRow, reading: Reading, limit = 20): 
 	const kept = source.slice(0, limit);
 	// The widest bar in this reading, never across both: the two tables have
 	// different controls, so a shared scale would compare two denominators.
-	const widest = Math.max(...kept.map((row) => Math.abs(row.log_ratio)), 1);
+	const widest = Math.max(...kept.map((row) => Math.abs(keywordEffect(row))), 1);
 	return kept.map((row) => ({
 		word: row.word,
 		target: row.target,
 		reference: row.reference,
 		g2: row.g2,
 		logRatio: row.log_ratio,
+		lrc: row.lrc ?? null,
+		effect: keywordEffect(row),
 		documents: row.documents,
 		meetings: row.meetings,
 		dp: row.dp,
 		selfReference: row.self_reference,
-		weight: Math.min(Math.abs(row.log_ratio) / widest, 1),
+		weight: Math.min(Math.abs(keywordEffect(row)) / widest, 1),
 		interval:
 			reading === 'matched' && intervals.has(row.word)
 				? {
@@ -239,6 +264,7 @@ export function exportRows(speaker: SpeakerKeynessRow): (string | number | boole
 				row.target,
 				row.reference,
 				row.g2,
+				row.lrc ?? null,
 				row.log_ratio,
 				row.self_reference,
 				interval?.low ?? null,
@@ -256,6 +282,7 @@ export const EXPORT_COLUMNS = [
 	'target_occurrences',
 	'reference_occurrences',
 	'g2',
+	'lrc',
 	'log_ratio',
 	'self_reference',
 	'log_ratio_low',

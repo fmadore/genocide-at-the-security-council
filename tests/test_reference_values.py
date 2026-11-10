@@ -20,7 +20,7 @@ rate. The values were computed with `scipy.stats.power_divergence(...,
 lambda_="log-likelihood")` on the two cells, and every case was chosen so
 that it also has a closed form, given beside it, that can be checked by hand.
 
-**Clopper–Pearson.** The exact binomial interval (Clopper and Pearson 1934),
+**Clopper-Pearson.** The exact binomial interval (Clopper and Pearson 1934),
 which :func:`lib.lexical.conservative_log_ratio` inverts. 7 of 20 at 95% is
 (0.1539, 0.5922) to four places, the interval R's `binom.test(7, 20)` reports;
 the ends of the range have closed forms, (alpha / 2)^(1/n) for n of n and its
@@ -199,7 +199,7 @@ def test_conservative_log_ratio_is_the_interval_end_mapped_to_a_ratio() -> None:
     p is (0.1539, 0.5922), wholly below p0, so the word is under-used and the
     estimate is log2 of the upper end, mapped by r = (p / (1 - p))·(N2 / N1).
     """
-    low, high = lexical.clopper_pearson(7, 20)
+    _, high = lexical.clopper_pearson(7, 20)
     found = lexical.conservative_log_ratio(7, 13, 4_000, 1_000)
     assert found == pytest.approx(math.log2(high / (1 - high) * 1_000 / 4_000), rel=1e-10)
     assert found < 0

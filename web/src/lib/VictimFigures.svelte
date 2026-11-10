@@ -224,8 +224,8 @@
 	{#snippet reading()}
 		<p>
 			Each bar is one decade of uses of the word. The fullest ink is the share that names a
-			particular people; two fainter tones name a generic group or carry a label not yet grouped, and
-			the open box names no victim at all, as when a speaker cites the Convention or a tribunal.
+			particular people; two fainter tones name a generic group or carry a label not yet grouped,
+			and the open box names no victim at all, as when a speaker cites the Convention or a tribunal.
 		</p>
 	{/snippet}
 	{#snippet caveat()}
@@ -276,8 +276,8 @@
 	{#snippet reading()}
 		<p>
 			Rows are the delegations that name a particular people most often; columns are the ten peoples
-			named most often. A stronger shade means more occurrences. Groups that name no particular people
-			are left out here.
+			named most often. A stronger shade means more occurrences. Groups that name no particular
+			people are left out here.
 		</p>
 	{/snippet}
 	{#snippet caveat()}

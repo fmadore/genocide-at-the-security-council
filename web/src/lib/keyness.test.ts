@@ -12,6 +12,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	EXPORT_COLUMNS,
 	bars,
+	conservative,
+	keywordEffect,
 	exportRows,
 	neverPaired,
 	pick,
@@ -198,6 +200,46 @@ describe('bars', () => {
 		const flat = speaker({ keywords: [word('a', 0), word('b', 0)] });
 		expect(bars(flat, 'matched').map((r) => r.weight)).toEqual([0, 0]);
 	});
+
+	it('draws the conservative estimate where the payload has one', () => {
+		// A rare word with a large point estimate and a small conservative one
+		// is drawn by the second: the length is what the counts can support.
+		const ranked = speaker({
+			keywords: [
+				{ ...word('tutsi', 3.7), lrc: 2 },
+				{ ...word('punta', 6.5), lrc: 1 }
+			]
+		});
+		const rows = bars(ranked, 'matched');
+		expect(rows.map((r) => [r.effect, r.lrc, r.logRatio])).toEqual([
+			[2, 2, 3.7],
+			[1, 1, 6.5]
+		]);
+		expect(rows.map((r) => r.weight)).toEqual([1, 0.5]);
+	});
+
+	it('falls back to the log ratio for a payload without the conservative estimate', () => {
+		const rows = bars(speaker(), 'matched');
+		expect(rows.map((r) => [r.effect, r.lrc])).toEqual([
+			[4, null],
+			[2, null],
+			[1, null]
+		]);
+	});
+});
+
+describe('keywordEffect', () => {
+	it('is the conservative estimate, or the log ratio when there is none', () => {
+		expect(keywordEffect({ log_ratio: 6.5, lrc: 0.8 })).toBe(0.8);
+		expect(keywordEffect({ log_ratio: 6.5, lrc: 0 })).toBe(0);
+		expect(keywordEffect({ log_ratio: 6.5 })).toBe(6.5);
+	});
+
+	it('knows whether a table carries it at all', () => {
+		expect(conservative([{ lrc: 1 }, {}])).toBe(true);
+		expect(conservative([{}, {}])).toBe(false);
+		expect(conservative(null)).toBe(false);
+	});
 });
 
 describe('removed', () => {
@@ -255,6 +297,14 @@ describe('exportRows', () => {
 
 	it('has a column for every field it emits', () => {
 		expect(exportRows(speaker())[0]).toHaveLength(EXPORT_COLUMNS.length);
+	});
+
+	it('writes the conservative estimate beside the log ratio, null where absent', () => {
+		const at = EXPORT_COLUMNS.indexOf('lrc');
+		expect(EXPORT_COLUMNS[at + 1]).toBe('log_ratio');
+		const ranked = speaker({ keywords: [{ ...word('tutsi', 3.7), lrc: 1.9 }] });
+		expect(exportRows(ranked)[0]![at]).toBe(1.9);
+		expect(exportRows(speaker())[0]![at]).toBeNull();
 	});
 
 	it('emits nothing for a withheld speaker', () => {

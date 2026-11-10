@@ -202,8 +202,9 @@ export function exportRows(data: Countries): (string | number | boolean | null)[
  * (review of 10 November 2026).
  *
  * So the end is the upper bound at the 90th percentile, rounded up to a figure
- * a reader can print (1, 2, 2.5 or 5 of a power of ten), and never short of
- * `floor` — the room's average, which must stay on the strip. It is one scale
+ * a reader can print (1, 1.5, 2, 2.5, 3, 4, 5, 6 or 8 of a power of ten), and never short of
+ * `floor` — the room's average, or on a table ranked by its own estimate the
+ * largest of them, so that every tick stays on the strip. It is one scale
  * for the whole table, printed in the column head, and a row reaching past it
  * is not shortened silently: `past` says whether to draw the overflow mark,
  * and `clipped` counts the rows that carry one.
@@ -213,9 +214,9 @@ export interface StripScale {
 	clipped: number;
 }
 
-const NICE = [1, 2, 2.5, 5, 10];
+const NICE = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
 
-/** The smallest of 1, 2, 2.5, 5 times a power of ten that is at least `value`. */
+/** The smallest printable step (see `NICE`) times a power of ten that is at least `value`. */
 export function niceCeil(value: number): number {
 	if (!(value > 0) || !Number.isFinite(value)) return 0;
 	const power = 10 ** Math.floor(Math.log10(value));
@@ -223,7 +224,11 @@ export function niceCeil(value: number): number {
 	return Number((step * power).toPrecision(12));
 }
 
-export function stripScale(uppers: (number | null | undefined)[], floor = 0, quantile = 0.9): StripScale {
+export function stripScale(
+	uppers: (number | null | undefined)[],
+	floor = 0,
+	quantile = 0.9
+): StripScale {
 	const values = uppers
 		.filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0)
 		.sort((a, b) => a - b);
@@ -236,4 +241,9 @@ export function stripScale(uppers: (number | null | undefined)[], floor = 0, qua
 export function stripAt(value: number, end: number): string {
 	const share = end > 0 ? Math.min(Math.max(value / end, 0), 1) : 0;
 	return `${(share * 100).toFixed(2)}%`;
+}
+
+/** The strip's end as the column head prints it: a percentage without trailing zeros. */
+export function stripEnd(end: number): string {
+	return `${Number((end * 100).toFixed(2))}%`;
 }

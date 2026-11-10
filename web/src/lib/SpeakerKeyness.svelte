@@ -19,6 +19,9 @@
 	 * 10 November 2026) — and never the accent, which is interaction only. Length carries the log ratio, which is the column a reader should
 	 * be looking at: on tens of thousands of tokens almost everything is
 	 * significant, and G² would draw a picture of how much a delegation spoke.
+	 * Since 10 November 2026 that is the *conservative* log ratio where the
+	 * payload has one (`keyness.keywordEffect`), with the point estimate printed in a
+	 * column of its own, so a word used a handful of times draws no bar at all.
 	 */
 	import { resolve } from '$app/paths';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
@@ -29,6 +32,7 @@
 	import { count, decimal, percent, shortCountry, signed } from './format';
 	import {
 		EXPORT_COLUMNS,
+		conservative,
 		exportRows,
 		neverPaired,
 		pick,
@@ -60,6 +64,13 @@
 	const speaker = $derived(plan.speaker);
 	const fell = $derived(speaker ? removed(speaker) : null);
 	const marked = $derived(selfReferenceShare(plan.rows));
+	/* Whether this table carries the conservative estimate; an older payload
+	   does not, and is drawn and printed by its log ratio alone. */
+	const lrc = $derived(
+		conservative(
+			control === 'matched' ? (speaker?.keywords ?? null) : (speaker?.keywords_unmatched ?? null)
+		)
+	);
 
 	/**
 	 * The download: both readings in full, not the twenty rows on screen.
@@ -92,7 +103,9 @@
 	title="What a delegation says that the room does not"
 	question="Which words are more frequent in this affiliation's speeches than in the comparison speeches?"
 	source="12_speaker_keyness.py → countries/speaker_keyness.json"
-	note="Bar length shows the size of the difference, not the confidence in it. A filled bar is a word the delegation uses more; an open dashed one, less."
+	note={lrc
+		? 'Bar length shows the smallest difference the counts support, so a rare word draws a short bar however exclusive it is. A filled bar is a word the delegation uses more; an open dashed one, less.'
+		: 'Bar length shows the size of the difference, not the confidence in it. A filled bar is a word the delegation uses more; an open dashed one, less.'}
 	download={{ name: ['unsc', 'keyness', speaker?.country_org ?? 'none', control], table }}
 >
 	{#snippet controls()}
@@ -133,10 +146,14 @@
 
 	{#snippet reading()}
 		<p>
-			Rows rank words by relative frequency (log ratio), after a G² threshold. Bar length shows log
-			ratio: +1 means twice as frequent. An asterisk identifies words in the affiliation's name. {#if control === 'matched'}Brackets
-				show the range across {data.repetitions} random selections of comparison speeches, indicating
-				sensitivity to that choice.{/if}
+			{#if lrc}Rows rank words by a conservative estimate: the smallest ratio of frequencies the
+				counts still support once the thousands of words tested are allowed for. Bar length and the
+				first figure show it, so +1 means at least twice as frequent; the log ratio beside it is the
+				ratio as counted. A word used only a handful of times cannot rank, however exclusive it is.{:else}Rows
+				rank words by relative frequency (log ratio), after a G² threshold. Bar length shows log
+				ratio: +1 means twice as frequent.{/if} An asterisk identifies words in the affiliation's name.
+			{#if control === 'matched'}Brackets show the range of the log ratio across {data.repetitions} random
+				selections of comparison speeches, indicating sensitivity to that choice.{/if}
 		</p>
 	{/snippet}
 
@@ -223,6 +240,14 @@
 			<thead>
 				<tr>
 					<th scope="col">Word</th>
+					{#if lrc}
+						<th
+							scope="col"
+							class="num"
+							title="The smallest log ratio the counts support once every word tested is allowed for: +1 means at least twice as frequent."
+							>Conservative</th
+						>
+					{/if}
 					<th
 						scope="col"
 						class="num"
@@ -252,7 +277,7 @@
 						<th scope="row">
 							<span
 								class="bar"
-								class:under={row.logRatio < 0}
+								class:under={row.effect < 0}
 								style="--weight: {row.weight}"
 								aria-hidden="true"
 							></span>
@@ -262,7 +287,10 @@
 									>{/if}</span
 							>
 						</th>
-						<td class="num">
+						{#if lrc}
+							<td class="num">{signed(row.effect)}</td>
+						{/if}
+						<td class="num" class:point={lrc}>
 							{signed(row.logRatio)}
 							{#if row.interval}
 								<span class="interval"
@@ -414,6 +442,12 @@
 		text-decoration: none;
 		color: var(--ink-3);
 		cursor: help;
+	}
+
+	/* The point estimate, printed after the conservative figure the bar draws:
+	   readable, but second. */
+	.point {
+		color: var(--ink-3);
 	}
 
 	.interval {

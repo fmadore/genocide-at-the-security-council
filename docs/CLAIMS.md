@@ -51,7 +51,7 @@ Details: [CORPUS.md](CORPUS.md#limitations-that-must-remain-visible).
 |---|---|---|
 | What the word is doing | Seventeen grammatical constructions found by fixed patterns around each occurrence (step 17) | Computed. No person has yet read a sample of the classifications, and occurrences that match no construction form a residue whose share drifts over time. |
 | The words that sit near a term; The profile of a term; The same word in two mouths | Collocates within a window, filtered by G² ≥ 10.83 and ranked by logDice (step 05) | Computed. The G² cut-off is a filter, not a significance test of each word. |
-| Compared with a like-for-like speech | Keyness of genocide-bearing speeches against matched speeches from the same stratum (step 05) | Computed. The matched controls are a seeded draw; the stability block shows how much the list varies between draws. |
+| Compared with a like-for-like speech | Keyness of genocide-bearing speeches against matched speeches from the same stratum, filtered by G² ≥ 10.83 and ranked by the conservative log ratio, the smallest rate ratio the counts support once every word tested is allowed for (step 05) | Computed. The matched controls are a seeded draw; the stability block shows how much the list varies between draws. The selection word's own forms are marked: the controls cannot contain them. |
 | Which terms travel together | Co-occurrence of lexicon terms in speeches; pairs linked by the lexicon's own definitions are left out | Computed |
 
 ### Actors
@@ -60,7 +60,7 @@ Details: [CORPUS.md](CORPUS.md#limitations-that-must-remain-visible).
 |---|---|---|
 | The reading set, by delegation | Step 09's reading sets per source affiliation | Computed |
 | Speakers by rate | Each affiliation's rate against its own speeches; rates withheld below 125 speeches (step 11). The map is navigation only. | Computed |
-| What a delegation says that the room does not | Keyness of a delegation's speeches against matched speeches by others (step 12) | Computed. Translation affects delegations that did not speak English. |
+| What a delegation says that the room does not | Keyness of a delegation's speeches against matched speeches by others, filtered by G² ≥ 10.83 and ranked by the conservative log ratio (step 12) | Computed. Translation affects delegations that did not speak English. A word used a handful of times cannot rank, so some tables hold fewer than 40 words. |
 | Who held a seat when they spoke | The source's permanent and elected member flags, per speech | Computed |
 | Who stays silent when others say it | For each delegation, the meetings in which it took the floor while another speaker used the word, and the share of them in which it used the word too; procedural turns by the presidency left out on both sides; Wilson intervals; shares withheld below 30 such meetings (step 11) | Computed. Not using the word is a fact about the record, not about intent: for speakers of other languages the word is the UN translator's, and a delegation may have spoken to another point of the same meeting. |
 

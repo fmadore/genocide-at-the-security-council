@@ -164,6 +164,7 @@
   "corpus_tokens": "int",
   "corpus_types": "int",
   "limit": "int",
+  "lrc_alpha": "float",
   "matched_on": [
    "str"
   ],
@@ -192,6 +193,7 @@
      "sha256": "str"
     }
    ],
+   "lrc_alpha": "float",
    "min_count": "int",
    "minimum_coverage": "float",
    "minimum_pairs": "int",
@@ -199,6 +201,7 @@
     "*": "str"
    },
    "python": "str",
+   "ranked_by": "str",
    "script": "str",
    "seed": "int",
    "stopwords": "int"
@@ -207,6 +210,8 @@
   "minimum_coverage_rule": "str",
   "minimum_pairs": "int",
   "minimum_pairs_rule": "str",
+  "rank": "str",
+  "rank_rule": "str",
   "reading_rule": "str",
   "repetitions": "int",
   "seed": "int",
@@ -255,6 +260,7 @@
     },
     "sufficient": "bool",
     "target_tokens": "int|null",
+    "tests": "int|null",
     "withheld_because": [
      "str"
     ]
@@ -1403,7 +1409,9 @@
     "dp": "float",
     "g2": "float",
     "log_ratio": "float",
+    "lrc": "float",
     "meetings": "int",
+    "node": "bool",
     "reference": "int",
     "target": "int",
     "word": "str"
@@ -1415,12 +1423,15 @@
     "dp": "float",
     "g2": "float",
     "log_ratio": "float",
+    "lrc": "float",
     "meetings": "int",
+    "node": "bool",
     "reference": "int",
     "target": "int",
     "word": "str"
    }
   ],
+  "lrc_alpha": "float",
   "matched_on": [
    "str"
   ],
@@ -1467,6 +1478,7 @@
    "stopwords": "int",
    "vocabulary": "str"
   },
+  "rank": "str",
   "seed": "int",
   "short_strata": [
    {
@@ -1482,6 +1494,8 @@
    "coverage_min": "float",
    "keyword_log_ratio": [
     {
+     "lrc_high": "float",
+     "lrc_low": "float",
      "median": "float",
      "p05": "float",
      "p95": "float",
@@ -1493,7 +1507,11 @@
   },
   "target_speeches": "int",
   "target_tokens": "int",
-  "term": "str"
+  "term": "str",
+  "tests": {
+   "keywords": "int",
+   "keywords_unmatched": "int"
+  }
  },
  "lexical/network.json": {
   "by_period": {
