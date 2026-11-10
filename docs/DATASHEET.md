@@ -268,10 +268,27 @@ One value per year, 1946–2026, for every term. Written by step 04
 | `terms.*.occurrences` | `occurrences` | Number of occurrences. |
 | `terms.*.token_rate` | `token_rate_per_100k` | Occurrences per 100,000 analytical words. |
 | `terms.*.tier` | — | How central the term is to the study: `core`, `atrocity` or `adjacent`. Documentation, not a measure. |
+| `sufficient` | — | Whether the period holds at least `minimum_speeches` speeches. |
+| `minimum_speeches` | — | 125: the speeches a period needs before its rates are published. |
+| `record.first_date`, `record.last_date` | — | The first and last speech date in the corpus (1946-01-17 and 2026-06-23), so a part-year can be read as one. |
+
+Counts are always written. Below the minimum every rate of the period is null —
+both intervals and `token_rate` included, and the comparison population's
+rates too; only 1959 (86 speeches) is withheld. `series/quarterly.json` is a
+complete grid from the first quarter of the record to the last: 322 quarters,
+8 of them without a speech (written as zeros), 275 at or above the minimum.
 
 `corpora.genocide_free_atrocity` is a comparison population: speeches that use
 *ethnic cleansing*, *crimes against humanity* or *war crimes* and do not use
 `genocid*`, with its own counts, rates and Wilson bounds.
+
+`series/monthly.json` follows the same rule on a year x month grid of whole
+years. Its `record` adds `first_period` and `last_period`, the first and last
+months with speeches, and `coverage.months_outside_record` counts grid months
+outside them (6: July to December 2026), which are unrecorded rather than
+months the Council did not meet. `series/breakdowns.json` applies the same
+`minimum_speeches` to each cell (a year's speeches from one group): each row
+carries `sufficient`, and its rates are null when `held` is below the minimum.
 
 ### 9.4 Annual actor table: `actor_year/actor_year.csv`
 
@@ -292,7 +309,49 @@ by step 20 (`scripts/lib/actors.py`).
 | `sufficient` | Whether `held` reaches the minimum of 125 speeches; rates are empty when it does not. |
 | `withheld_reason` | Why a rate is empty: `no speeches` or `below minimum`; empty when the rate is published. |
 
-### 9.5 Provenance: the `meta` block and the CSV header
+### 9.5 Who stays silent: the `silence` block of `countries/countries.json`
+
+Per speaker (`rows`) and per period (`periods`), how often a speaker used the
+word in meetings where another speaker had used it. Written by step 11
+(`scripts/lib/actors.py`). Procedural turns by the presidency are left out.
+
+| Field | Meaning |
+|---|---|
+| `exposed` | Meetings in which the speaker gave a substantive speech and another speaker used the word. |
+| `joined` | Those of them in which the speaker used it too. |
+| `share`, `share_low`, `share_high` | `joined / exposed`, with Wilson 95% bounds; null below `minimum_meetings` (30). |
+| `exposed_after` | Meetings in which the speaker gave a substantive speech *after* another speaker's first use of the word, in the source's speaking order. |
+| `joined_after` | Those of them in which one of the speaker's later speeches used the word. |
+| `share_after`, `_low`, `_high`, `sufficient_after` | The same ratio and bounds on the ordered counts, with their own minimum flag. |
+| `room_share`, `room_share_after` | Per period: joined over exposed for all speakers together, on each reading. |
+| `speakers_at_minimum`, `speakers_at_minimum_after` | Per period: speakers with a share on each reading. |
+
+`rule` and `rule_after` state the two readings in words. The first counts a
+meeting even when the speaker had finished before anyone else used the word;
+the second does not. Across the corpus 20,296 of 30,752 exposed attendances
+meet the ordered test, and the room's share is 13.4% on it against 11.3%.
+
+### 9.6 Keyword tables: `lexical/keyness.json` and `countries/speaker_keyness.json`
+
+One row per word in `keywords` (against matched speeches) and
+`keywords_unmatched` (against the rest of the corpus). Written by step 05 for
+speeches using `genocide` and by step 12 per delegation (`scripts/lib/lexical.py`).
+
+| Field | Meaning |
+|---|---|
+| `target`, `reference` | Occurrences in the selected speeches and in the comparison speeches. |
+| `g2` | Log-likelihood. A row must reach 10.83 to be listed; it does not set the order. |
+| `log_ratio` | log2 of the ratio of the two rates, with half an occurrence standing in for a zero. The point estimate. |
+| `lrc` | The conservative log ratio, which sets the order: log2 of the end nearest 1 of an exact 95% interval for the rate ratio, divided among all the words tested (`tests`). 0 when the interval includes 1; only rows above 0 are listed. |
+| `documents`, `meetings`, `dp` | Speeches and meetings the word appears in, and Gries's DP (0 spread evenly, 1 concentrated). |
+| `node` | Step 05 only: the word is a form of the selection word itself, which the matched speeches cannot contain. Marked, not removed. |
+| `self_reference` | Step 12 only: the word is part of the delegation's own name. Marked, not removed. |
+
+At file level, `rank` names the ordering column, `lrc_alpha` the error rate
+(0.05), and `tests` the number of words tested: per table in step 05, per
+speaker in step 12. A delegation's matched table can be shorter than 40 rows.
+
+### 9.7 Provenance: the `meta` block and the CSV header
 
 Every JSON file carries a `meta` block: the script that wrote it, when
 (`generated`), the pipeline commit (`git_commit`), the lexicon version, the input

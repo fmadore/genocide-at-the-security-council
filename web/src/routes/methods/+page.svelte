@@ -325,9 +325,11 @@
 	     2026, A4). The band follows `bandBounds` in `#lib/chronology`. -->
 	<p>
 		Two kinds of 95% interval accompany shares on this site. On the Chronology, the
-		share-of-speeches lines in <em>The word list over time</em> sit in a band from
-		<strong>resampling whole meetings</strong>: the speeches of one meeting are drawn together, so
-		the band widens where a year's share rests on a few debates. The other intervals are
+		share-of-speeches lines in <em>The word list over time</em> sit in a band that is the wider of a
+		Wilson interval and one from <strong>resampling whole meetings</strong>: the speeches of one
+		meeting are drawn together, so the band widens where a year's share rests on a few debates.
+		Resampling alone cannot show uncertainty about a period in which no meeting used the word, which
+		is why the Wilson interval is kept as its floor. The other intervals are
 		<strong>95% Wilson intervals</strong>: in <em>Who says it, and in what debate</em> on the
 		Chronology, <em>Speakers by rate</em> on Actors and <em>What the word is doing</em> under Words in
 		context. They treat each speech or occurrence as independent, so they ignore clustering within meetings
@@ -353,6 +355,13 @@
 			Compares a word's frequency per word of text in two sets. +1 means twice the comparison
 			frequency, +2 four times and +3 eight times. Zero means equal rates; negative values mean a
 			lower rate. A small adjustment permits calculation when a count is zero.
+		</dd>
+		<dt>Conservative log ratio</dt>
+		<dd>
+			The smallest log ratio the counts still support once the thousands of words tested are allowed
+			for: the end nearest zero of an exact 95% interval, shared among every word tested. Zero when
+			the counts are consistent with equal rates. Keyword tables are ranked by it, so a word used
+			only a handful of times cannot rank, however exclusive it is.
 		</dd>
 		<dt>G² (log-likelihood)</dt>
 		<dd>

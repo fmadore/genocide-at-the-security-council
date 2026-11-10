@@ -3,12 +3,15 @@
 Reads speeches_flagged.parquet and writes six JSON artefacts to
 data/derived/series/, plus a findings note.
 
-Three resolutions, and the third is not more of the same. A year and a quarter
-always hold thousands of speeches, so an annual series needs no minimum; a month
-need not, and 53 of the corpus's 384 hold too few to divide by. `monthly.json`
-therefore carries a withholding rule the coarser series never needed, and the
-calendar block that says what a month resolution actually recovers — which is
-substantially the Council's own reporting cycle rather than a discourse.
+Three resolutions under one withholding rule. On the 1992-2023 corpus a year and
+a quarter always held thousands of speeches and only the monthly grid needed a
+minimum; on 1946-2026 they do not — 1959 holds 86 speeches, 39 quarters fewer
+than 125, and eight quarters none at all — so every grain writes `sufficient`,
+publishes counts always and rates only above the minimum, and the quarterly
+series is a complete grid rather than the quarters that happened to be observed.
+`monthly.json` also carries the calendar block that says what a month resolution
+actually recovers — which is substantially the Council's own reporting cycle
+rather than a discourse.
 
 Every series carries three numbers for the same period — speeches, occurrences,
 and both rates — because the three tell different stories and the raw one tells
@@ -57,7 +60,7 @@ from lib.paths import (
 # still reach it here; new code imports it from where it is defined.
 from lib.series_payload import (
     BREAKDOWNS,
-    MIN_SPEECHES_PER_MONTH,
+    MIN_SPEECHES_PER_PERIOD,
     MONTH_NAMES,
     build_breakdowns,
     build_change_points,
@@ -185,7 +188,8 @@ def calendar_lines(monthly: dict) -> list[str]:
         f"{coverage['months'] - coverage['months_at_minimum']} carry counts and no rate. "
         "On a heatmap a withheld cell must be drawn as withheld: white reads as zero, "
         "and this is the same failure as reading a missing key through `?? 0`, in a form "
-        "that covers 53 cells.",
+        f"that covers {coverage['months'] - coverage['months_at_minimum']} cells, "
+        f"{coverage['months_outside_record']} of them outside the record's own dates.",
         "",
         *notes.table(
             [
@@ -435,7 +439,7 @@ def run(
     min_size: int,
     alpha: float,
     max_breaks: int,
-    minimum_month: int,
+    minimum_period: int,
 ) -> None:
     ensure_dirs()
 
@@ -445,21 +449,34 @@ def run(
     console.info(f"lexicon version {lex.version}, {len(lex.active)} active terms")
 
     console.step("Building annual series")
-    annual, computed = build_series(speeches, lex, "year")
+    annual, computed = build_series(speeches, lex, "year", minimum=minimum_period)
+    withheld = annual["sufficient"].count(False)  # type: ignore[union-attr]
+    if withheld:
+        console.info(f"{withheld} years below {minimum_period} speeches carry counts and no rate")
     console.info(
         f"{len(annual['periods'])} years x "
         f"{len(annual['terms'])} measures"
     )
 
     console.step("Building quarterly series")
-    quarterly, _ = build_series(speeches, lex, "quarter")
-    console.info(f"{len(quarterly['periods'])} quarters")
+    observed = sorted(series.period(speeches, "quarter").unique())
+    quarterly, _ = build_series(
+        speeches,
+        lex,
+        "quarter",
+        index=series.quarter_grid(observed[0], observed[-1]),
+        minimum=minimum_period,
+    )
+    console.info(
+        f"{len(quarterly['periods'])} quarters, {len(observed)} of them with speeches and "
+        f"{sum(quarterly['sufficient'])} at or above {minimum_period}"  # type: ignore[arg-type]
+    )
 
     console.step("Building the monthly grid")
-    monthly = build_monthly(speeches, lex, minimum_month)
+    monthly = build_monthly(speeches, lex, minimum_period)
 
     console.step("Building breakdowns")
-    breakdowns = build_breakdowns(speeches, "year", top_agenda)
+    breakdowns = build_breakdowns(speeches, "year", top_agenda, minimum_period)
     for label, columns in breakdowns["measures"].items():  # type: ignore[union-attr]
         console.info(
             f"{label}: " + ", ".join(f"{c} ({len(v['categories'])})" for c, v in columns.items())
@@ -573,10 +590,12 @@ def main() -> None:
     parser.add_argument("--alpha", type=float, default=0.05, help="significance threshold")
     parser.add_argument("--max-breaks", type=int, default=4, help="most breaks per series")
     parser.add_argument(
+        "--minimum-period",
         "--minimum-month",
+        dest="minimum_period",
         type=int,
-        default=MIN_SPEECHES_PER_MONTH,
-        help="speeches a month needs before its rates are published",
+        default=MIN_SPEECHES_PER_PERIOD,
+        help="speeches a year, quarter, month or breakdown cell needs before its rates are published",
     )
     args = parser.parse_args()
     run(
@@ -586,7 +605,7 @@ def main() -> None:
         args.min_size,
         args.alpha,
         args.max_breaks,
-        args.minimum_month,
+        args.minimum_period,
     )
 
 

@@ -12,12 +12,16 @@
 	 * drawn in the row's own background and the figures sit in its cells. There
 	 * is no second rendering to drift.
 	 *
-	 * Colour carries the direction of the effect and nothing else — over- and
-	 * under-representation — from the register palette rather than the accent,
-	 * because `--blue` is reserved for interaction and may never stand for a
-	 * datum. Length carries the log ratio, which is the column a reader should
+	 * The mark carries the direction of the effect and nothing else: over-use is
+	 * a filled wash of ink, under-use an open dashed box. Not the register
+	 * palette — teal and brick are claims about vocabulary shelves, and lending
+	 * them to "more" and "less" said a word was legal or contentious (review of
+	 * 10 November 2026) — and never the accent, which is interaction only. Length carries the log ratio, which is the column a reader should
 	 * be looking at: on tens of thousands of tokens almost everything is
 	 * significant, and G² would draw a picture of how much a delegation spoke.
+	 * Since 10 November 2026 that is the *conservative* log ratio where the
+	 * payload has one (`keyness.keywordEffect`), with the point estimate printed in a
+	 * column of its own, so a word used a handful of times draws no bar at all.
 	 */
 	import { resolve } from '$app/paths';
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
@@ -28,6 +32,7 @@
 	import { count, decimal, percent, shortCountry, signed } from './format';
 	import {
 		EXPORT_COLUMNS,
+		conservative,
 		exportRows,
 		neverPaired,
 		pick,
@@ -59,6 +64,13 @@
 	const speaker = $derived(plan.speaker);
 	const fell = $derived(speaker ? removed(speaker) : null);
 	const marked = $derived(selfReferenceShare(plan.rows));
+	/* Whether this table carries the conservative estimate; an older payload
+	   does not, and is drawn and printed by its log ratio alone. */
+	const lrc = $derived(
+		conservative(
+			control === 'matched' ? (speaker?.keywords ?? null) : (speaker?.keywords_unmatched ?? null)
+		)
+	);
 
 	/**
 	 * The download: both readings in full, not the twenty rows on screen.
@@ -91,7 +103,9 @@
 	title="What a delegation says that the room does not"
 	question="Which words are more frequent in this affiliation's speeches than in the comparison speeches?"
 	source="12_speaker_keyness.py → countries/speaker_keyness.json"
-	note="Bar length shows the size of the difference, not the confidence in it. Colour shows which way the difference runs."
+	note={lrc
+		? 'Bar length shows the smallest difference the counts support, so a rare word draws a short bar however exclusive it is. A filled bar is a word the delegation uses more; an open dashed one, less.'
+		: 'Bar length shows the size of the difference, not the confidence in it. A filled bar is a word the delegation uses more; an open dashed one, less.'}
 	download={{ name: ['unsc', 'keyness', speaker?.country_org ?? 'none', control], table }}
 >
 	{#snippet controls()}
@@ -132,10 +146,11 @@
 
 	{#snippet reading()}
 		<p>
-			Rows rank words by relative frequency (log ratio), after a G² threshold. Bar length shows log
-			ratio: +1 means twice as frequent. An asterisk identifies words in the affiliation's name. {#if control === 'matched'}Brackets
-				show the range across {data.repetitions} random selections of comparison speeches, indicating
-				sensitivity to that choice.{/if}
+			{#if lrc}Rows rank by a conservative estimate: the smallest frequency ratio the counts
+				support, allowing for every word tested; bars and the first number show it (+1: at least
+				double).{:else}Rows and bars: log ratio after a G² threshold (+1: twice as frequent).{/if}
+			An asterisk marks words in the affiliation's name.
+			{#if control === 'matched'}Brackets: the log ratio's range over {data.repetitions} comparison draws.{/if}
 		</p>
 	{/snippet}
 
@@ -148,6 +163,10 @@
 		</p>
 	{/snippet}
 	{#snippet more()}
+		{#if lrc}<p>
+				The log ratio beside the estimate is the ratio as counted. A word used only a handful of
+				times cannot rank, however exclusive it is.
+			</p>{/if}
 		<p>
 			This table covers the affiliation's paired speeches, whether or not they mention genocide. <strong
 				>Coverage</strong
@@ -204,7 +223,9 @@
 			{#if control === 'matched'}
 				{count(speaker.control_tokens ?? 0)} in the comparison set
 				{#if fell !== null}
-					&middot; pairing reduced the largest differences by {decimal(fell)} on the log-ratio scale
+					&middot; {fell.left} of the {fell.of} largest unpaired differences are no longer among the largest
+					once paired{#if fell.drop !== null}; the others fell by a median of {decimal(fell.drop)} on
+						the log-ratio scale{/if}
 				{/if}
 			{:else}
 				the rest of the corpus
@@ -220,6 +241,14 @@
 			<thead>
 				<tr>
 					<th scope="col">Word</th>
+					{#if lrc}
+						<th
+							scope="col"
+							class="num"
+							title="The smallest log ratio the counts support once every word tested is allowed for: +1 means at least twice as frequent."
+							>Conservative</th
+						>
+					{/if}
 					<th
 						scope="col"
 						class="num"
@@ -249,7 +278,7 @@
 						<th scope="row">
 							<span
 								class="bar"
-								class:under={row.logRatio < 0}
+								class:under={row.effect < 0}
 								style="--weight: {row.weight}"
 								aria-hidden="true"
 							></span>
@@ -259,7 +288,10 @@
 									>{/if}</span
 							>
 						</th>
-						<td class="num">
+						{#if lrc}
+							<td class="num">{signed(row.effect)}</td>
+						{/if}
+						<td class="num" class:point={lrc}>
 							{signed(row.logRatio)}
 							{#if row.interval}
 								<span class="interval"
@@ -286,14 +318,14 @@
 		{/if}
 
 		<section class="agenda">
-			<h4>Most frequent agenda categories</h4>
+			<h3>Most frequent agenda categories</h3>
 			<p>
 				The comparison matches on these agenda categories. {shortCountry(speaker.country_org)} spoke on
 				{count(speaker.agenda.items)} categories; {percent(speaker.agenda.concentration)} of its speeches
 				concerned the three most frequent.
 			</p>
 			<ul>
-				{#each speaker.agenda.top.slice(0, 5) as item (item.item)}
+				{#each speaker.agenda.top as item (item.item)}
 					<li>
 						<span>{item.item}</span>
 						<span class="share">{percent(item.share)}</span>
@@ -386,18 +418,21 @@
 	}
 
 	/* The bar is the row's own background rather than a second drawing of the
-	   same number. Colour is the register palette, never the accent: `--blue`
-	   belongs to interaction and may not stand for a datum. */
+	   same number. Direction is told by the mark, not by hue: over-use a wash of
+	   ink closed by an ink end rule, under-use an open dashed box. A wash rather
+	   than the sunk stock, which the zebra stripe already owns. */
 	.bar {
 		position: absolute;
 		inset: 2px auto 2px 0;
 		width: calc(var(--weight) * 100%);
-		background: var(--reg-legal);
-		opacity: 0.22;
+		box-sizing: border-box;
+		background: color-mix(in oklab, var(--ink) 14%, transparent);
+		border-inline-end: var(--hair) solid var(--ink);
 	}
 
 	.bar.under {
-		background: var(--reg-contentious);
+		background: transparent;
+		border: var(--hair) dashed var(--ink-3);
 	}
 
 	.word {
@@ -408,6 +443,12 @@
 		text-decoration: none;
 		color: var(--ink-3);
 		cursor: help;
+	}
+
+	/* The point estimate, printed after the conservative figure the bar draws:
+	   readable, but second. */
+	.point {
+		color: var(--ink-3);
 	}
 
 	.interval {
@@ -433,9 +474,12 @@
 		max-width: var(--measure);
 	}
 
-	.agenda h4 {
+	/* An h3 under the figure's h2, never an h4: the level may not skip. Drawn
+	   at the weight the h4 had. */
+	.agenda h3 {
 		margin: 0 0 var(--sp-2);
 		font-size: var(--step-0);
+		font-weight: 500;
 	}
 
 	.agenda p {

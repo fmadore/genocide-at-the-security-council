@@ -507,3 +507,15 @@ describe('every link the grid offers names a concordance that exists', () => {
 		expect(widening(withDerived(), 'genocide')).toBeNull();
 	});
 });
+
+describe('beyondRecord', () => {
+	it('tells a month after the record ends from a month the Council did not meet', async () => {
+		const { beyondRecord } = await import('./heatmap');
+		const record = { first_period: '1946-01', last_period: '2026-06' };
+		expect(beyondRecord('2026-06', record)).toBe(false);
+		expect(beyondRecord('2026-07', record)).toBe(true);
+		expect(beyondRecord('1953-02', record)).toBe(false);
+		// A payload written before the artefact carried its bounds.
+		expect(beyondRecord('2026-12', undefined)).toBe(false);
+	});
+});

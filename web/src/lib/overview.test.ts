@@ -58,3 +58,27 @@ describe('the two years the page names', () => {
 		expect(loudest(years, measure({ occurrences: undefined }))).toBeUndefined();
 	});
 });
+
+describe('finalYear', () => {
+	const series = (periods: number[], last_date?: string) =>
+		({ periods, record: last_date ? { first_date: '1946-01-17', last_date } : undefined }) as never;
+
+	it('takes the year before a part-year as the last whole one', async () => {
+		const { finalYear } = await import('./overview');
+		expect(finalYear(series([2024, 2025, 2026], '2026-06-23'))).toEqual({
+			complete: 1,
+			partial: 2,
+			ends: '2026-06-23'
+		});
+	});
+
+	it('treats a record that runs into December as a whole year', async () => {
+		const { finalYear } = await import('./overview');
+		expect(finalYear(series([2022, 2023], '2023-12-21')).partial).toBeNull();
+	});
+
+	it('has nothing to test on a payload that does not say where the record ends', async () => {
+		const { finalYear } = await import('./overview');
+		expect(finalYear(series([2022, 2023]))).toEqual({ complete: 1, partial: null, ends: null });
+	});
+});

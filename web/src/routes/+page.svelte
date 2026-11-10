@@ -13,7 +13,12 @@
 	import type { ExportRequest } from '#lib/export.js';
 	import { count, decimal, isoDate, measureLabel, percent } from '#lib/format.js';
 	import { headlineMeasure } from '#lib/headline.js';
-	import { densest as densestYear, loudest as loudestYear, overviewTotals } from '#lib/overview.js';
+	import {
+		densest as densestYear,
+		finalYear,
+		loudest as loudestYear,
+		overviewTotals
+	} from '#lib/overview.js';
 	import { PAGE_METADATA, STRUCTURED_DATA_JSON } from '#lib/seo.js';
 	import { axisX, axisY, colours, grid, textStyle, tooltip } from '#lib/theme.js';
 	import type { Measure } from '#lib/types.js';
@@ -57,7 +62,8 @@
 				'measure',
 				'register',
 				'corpus_speeches',
-				'corpus_tokens',
+				// Words, by this study's own tokenizer: what every per-100,000 figure divides by.
+				'corpus_words',
 				'speeches',
 				'speech_rate',
 				'occurrences',
@@ -75,6 +81,8 @@
 	/* Keep the overview consistent with the chronology, actors and concordance. */
 	const headline = $derived(headlineMeasure(Object.keys(data.series.terms)) ?? 'genocide');
 	const genocide = $derived(data.series.terms[headline]!);
+	/** The last whole year, and the part-year after it where the record stops mid-year. */
+	const final = $derived(finalYear(data.series));
 
 	const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
@@ -146,7 +154,22 @@
 				{
 					name: 'Occurrences',
 					type: 'bar',
-					data: genocide.occurrences,
+					// The record stops part-way through its last year, and a bar is read
+					// against its neighbours: the partial year is drawn as an outline,
+					// a count still open, where a solid bar would say the word fell away.
+					data: (genocide.occurrences ?? []).map((value, index) =>
+						index === final.partial
+							? {
+									value,
+									itemStyle: {
+										color: 'transparent',
+										borderColor: p.inkSoft,
+										borderWidth: 1,
+										borderType: 'dashed' as const
+									}
+								}
+							: value
+					),
 					// The headline number, drawn in a solid weight of ink. It used to
 					// sit at a third of its opacity under a full-ink line, so the eye
 					// took the derived share for the count (review of 14 September
@@ -344,10 +367,13 @@
 		<p>
 			The records contain {count(Math.max(...(genocide.occurrences ?? [])))} occurrences in {loudest},
 			compared with {count(genocide.occurrences?.[index1994] ?? 0)} in 1994. Annual speech numbers also
-			changed: the final year has {decimal(
-				corpus.speeches[corpus.speeches.length - 1]! / corpus.speeches[0]!
-			)} times the first year's total. Compare counts with the share of speeches using the term to distinguish
-			repeated mentions from wider use across speeches.
+			changed: {years[final.complete]}, the last year the record covers whole, has {decimal(
+				corpus.speeches[final.complete]! / corpus.speeches[0]!
+			)} times the first year's total.{#if final.partial !== null && final.ends}
+				The record ends on {isoDate(final.ends)}, so {years[final.partial]} is a part-year: its counts
+				are drawn as an outline and are not comparable with a full year's; its share of speeches is.{/if}
+			Compare counts with the share of speeches using the term to distinguish repeated mentions from wider
+			use across speeches.
 		</p>
 	</section>
 

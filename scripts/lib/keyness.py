@@ -225,8 +225,11 @@ def speaker_keyness(
 ) -> dict[str, object]:
     """One speaker's keywords against a matched control, and against the corpus.
 
-    Rows are ranked by log ratio among those clearing `floor` on G², and each
-    carries its dispersion over the speaker's matched speeches — documents,
+    Rows are ranked by the conservative log ratio
+    (:func:`lib.lexical.conservative_log_ratio`, Bonferroni over the `tests`
+    words the speaker used often enough to be tested) among those clearing
+    `floor` on G², only words the speaker over-uses beyond doubt are kept, and
+    each carries its dispersion over the speaker's matched speeches — documents,
     distinct meetings (when `frame` carries `meeting_symbol`) and DP — so a
     keyword that is one debate's can be told from one that is the speaker's.
 
@@ -272,6 +275,7 @@ def speaker_keyness(
             **described,
             "target_tokens": None,
             "control_tokens": None,
+            "tests": None,
             "keywords": None,
             "keywords_unmatched": None,
         }
@@ -295,6 +299,7 @@ def speaker_keyness(
         stopwords,
         limit=limit,
         floor=floor,
+        rank="lrc",
         dispersion=spread,
     )
     unmatched = lexical.compare(
@@ -305,6 +310,7 @@ def speaker_keyness(
         stopwords,
         limit=limit,
         floor=floor,
+        rank="lrc",
         dispersion=spread,
     )
     own = self_reference(name)
@@ -315,6 +321,8 @@ def speaker_keyness(
         **described,
         "target_tokens": target_total,
         "control_tokens": control_total,
+        # Both tables share the target, so both test the same words.
+        "tests": lexical.candidates(target_counts, stopwords),
         "keywords": rows,
         "keywords_unmatched": unmatched,
     }

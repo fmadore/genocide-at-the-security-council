@@ -403,7 +403,12 @@ def test_04_08_and_17_reproduce_the_golden_values(tmp_path: Path) -> None:
     synthetic_corpus().to_parquet(derived / "speeches_flagged.parquet", index=False)
     before = tree_state()
 
-    run_step("04_series.py", roots, "--trials", "200")
+    # The synthetic corpus holds 24 to 39 speeches a year, so under the
+    # published minimum of 125 every annual rate would be withheld and this
+    # file would hold nulls rather than arithmetic. A minimum below the
+    # smallest year keeps every year's rates, while the months (a handful of
+    # speeches each) stay withheld, so both sides of the rule are held.
+    run_step("04_series.py", roots, "--trials", "200", "--minimum-period", "20")
     run_step("08_kwic.py", roots, "--terms", "genocide,war_crimes")
     run_step("17_frames.py", roots, "--trials", "200", "--no-model")
 

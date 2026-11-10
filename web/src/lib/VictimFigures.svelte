@@ -15,7 +15,7 @@
 	import { provenanceOf } from '#lib/export.js';
 	import type { ExportRequest } from '#lib/export.js';
 	import { count, percent } from '#lib/format.js';
-	import { axisX, axisY, colours, neutral, textStyle, tooltip } from '#lib/theme.js';
+	import { axisX, axisY, colours, sequential, textStyle, tooltip } from '#lib/theme.js';
 	import type { Usage } from '#lib/types.js';
 	import {
 		ACTOR_COLUMNS,
@@ -59,14 +59,19 @@
 
 	const option: EChartsOption = $derived.by(() => {
 		const p = $colours;
-		// From the most specific to the least: ink for a named people, down to the
-		// page's own rule colour for a passage that names no one.
+		// From the most specific to the least: ink for a named people, two
+		// further steps of the paper-to-ink ramp, then an open box for a passage
+		// that names no one. `unspecified` and `ungrouped` used to share one grey
+		// (`inkFaint` and `neutral()` are the same token); the open box is a
+		// second code besides tone, and is not a hatch, which means "withheld".
+		const ramp = sequential(p);
 		const fills = {
 			people: p.ink,
-			unspecified: p.inkFaint,
-			ungrouped: neutral(p),
-			none: p.ruleSoft
+			unspecified: ramp(0.6),
+			ungrouped: ramp(0.3),
+			none: p.paper
 		};
+		const edges = { people: p.paper, unspecified: p.paper, ungrouped: p.paper, none: p.inkFaint };
 		return {
 			textStyle,
 			aria: { enabled: true, decal: { show: false } },
@@ -117,7 +122,7 @@
 				stack: 'kinds',
 				data: naming.map((d) => (d.shares ? d.shares[k] : null)),
 				barMaxWidth: 44,
-				itemStyle: { color: fills[k], borderColor: p.paper, borderWidth: 1 }
+				itemStyle: { color: fills[k], borderColor: edges[k], borderWidth: 1 }
 			}))
 		};
 	});
@@ -218,9 +223,9 @@
 >
 	{#snippet reading()}
 		<p>
-			Each bar is one decade of uses of the word. Black is the share that names a particular people;
-			grey shades name a generic group, carry a label not yet grouped, or name no victim at all, as
-			when a speaker cites the Convention or a tribunal.
+			Each bar is one decade of uses of the word. The fullest ink is the share that names a
+			particular people; two fainter tones name a generic group or carry a label not yet grouped,
+			and the open box names no victim at all, as when a speaker cites the Convention or a tribunal.
 		</p>
 	{/snippet}
 	{#snippet caveat()}
@@ -271,8 +276,8 @@
 	{#snippet reading()}
 		<p>
 			Rows are the delegations that name a particular people most often; columns are the ten peoples
-			named most often. Darker amber means more occurrences. Groups that name no particular people
-			are left out here.
+			named most often. A stronger shade means more occurrences. Groups that name no particular
+			people are left out here.
 		</p>
 	{/snippet}
 	{#snippet caveat()}

@@ -48,7 +48,7 @@ def run(repetitions: int, seed: int, speakers: list[str] | None, limit: int) -> 
     pairs = lexical.matched_control(corpus, "has_genocide", lexical.MATCH_ON, seed)
     target_rows, control_rows = pairs.target_index.to_numpy(), pairs.control_index.to_numpy()
     a, b = matrix.counter(target_rows), matrix.counter(control_rows)
-    primary = lexical.compare(a, a + b, sum(a.values()), sum(b.values()), stopwords, limit=limit)
+    primary = lexical.compare(a, a + b, sum(a.values()), sum(b.values()), stopwords, limit=limit, rank="lrc")  # the published keyword ranking
     words = [row["word"] for row in primary]
     analyse("matched", "genocide", primary, block_lexical.blocks(matrix, corpus, target_rows, words), block_lexical.blocks(matrix, corpus, control_rows, words))
     for node in nodes:
@@ -80,7 +80,7 @@ def run(repetitions: int, seed: int, speakers: list[str] | None, limit: int) -> 
         if not sufficient:
             continue
         a, b = matrix.counter(targets.to_numpy()), matrix.counter(controls.to_numpy())
-        primary = lexical.compare(a, a + b, sum(a.values()), sum(b.values()), stopwords, limit=limit)
+        primary = lexical.compare(a, a + b, sum(a.values()), sum(b.values()), stopwords, limit=limit, rank="lrc")  # the published keyword ranking
         words = [row["word"] for row in primary]
         analyse("speaker", str(speaker), primary, block_lexical.blocks(matrix, corpus, targets.to_numpy(), words), block_lexical.blocks(matrix, corpus, controls.to_numpy(), words))
     meta = artifacts.provenance(ROOT, "19_extended_robustness.py", inputs=[SPEECHES_FLAGGED], configs=[STOPWORDS, LEXICON], extra={

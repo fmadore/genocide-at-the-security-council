@@ -52,7 +52,9 @@
 	   at 12px needs. */
 	const LABEL = $derived(WIDTH < 560 ? Math.max(104, Math.round(WIDTH * 0.34)) : 150);
 	const SPREAD = 28;
-	const TOP = 28;
+	/* The axis title sits on its own line above the tick figures: at 28 the
+	   two shared a baseline band and "log ratio" overprinted the first ticks. */
+	const TOP = 40;
 	const track = $derived(WIDTH - LABEL - SPREAD - 24);
 
 	const scale = $derived(dotScale(rows));

@@ -12,6 +12,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	EXPORT_COLUMNS,
 	bars,
+	conservative,
+	keywordEffect,
 	exportRows,
 	neverPaired,
 	pick,
@@ -198,12 +200,71 @@ describe('bars', () => {
 		const flat = speaker({ keywords: [word('a', 0), word('b', 0)] });
 		expect(bars(flat, 'matched').map((r) => r.weight)).toEqual([0, 0]);
 	});
+
+	it('draws the conservative estimate where the payload has one', () => {
+		// A rare word with a large point estimate and a small conservative one
+		// is drawn by the second: the length is what the counts can support.
+		const ranked = speaker({
+			keywords: [
+				{ ...word('tutsi', 3.7), lrc: 2 },
+				{ ...word('punta', 6.5), lrc: 1 }
+			]
+		});
+		const rows = bars(ranked, 'matched');
+		expect(rows.map((r) => [r.effect, r.lrc, r.logRatio])).toEqual([
+			[2, 2, 3.7],
+			[1, 1, 6.5]
+		]);
+		expect(rows.map((r) => r.weight)).toEqual([1, 0.5]);
+	});
+
+	it('falls back to the log ratio for a payload without the conservative estimate', () => {
+		const rows = bars(speaker(), 'matched');
+		expect(rows.map((r) => [r.effect, r.lrc])).toEqual([
+			[4, null],
+			[2, null],
+			[1, null]
+		]);
+	});
+});
+
+describe('keywordEffect', () => {
+	it('is the conservative estimate, or the log ratio when there is none', () => {
+		expect(keywordEffect({ log_ratio: 6.5, lrc: 0.8 })).toBe(0.8);
+		expect(keywordEffect({ log_ratio: 6.5, lrc: 0 })).toBe(0);
+		expect(keywordEffect({ log_ratio: 6.5 })).toBe(6.5);
+	});
+
+	it('knows whether a table carries it at all', () => {
+		expect(conservative([{ lrc: 1 }, {}])).toBe(true);
+		expect(conservative([{}, {}])).toBe(false);
+		expect(conservative(null)).toBe(false);
+	});
 });
 
 describe('removed', () => {
-	it('is the median fall from the unmatched reading to the matched one', () => {
-		// utopia 6→4, rwanda 5→absent (counts as 0), council 2.5→2.
-		expect(removed(speaker())).toBe(2);
+	it('counts the words that left the table and withholds a median over too few', () => {
+		// utopia 6→4, rwanda 5→absent, council 2.5→2: two survive, below the minimum.
+		expect(removed(speaker())).toEqual({ of: 3, left: 1, drop: null });
+	});
+
+	it('takes the median fall over the words in both tables only', () => {
+		const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+		const both = speaker({
+			keywords_unmatched: names.map((name, index) => word(name, 9 - index)),
+			// `g` is absent from the matched table: it is unreported, not at parity.
+			keywords: names.slice(0, 6).map((name, index) => word(name, 9 - index - (index + 1)))
+		});
+		// Falls of 1, 2, 3, 4, 5 and 6 over the six survivors.
+		expect(removed(both)).toEqual({ of: 7, left: 1, drop: 3.5 });
+	});
+
+	it('does not score a word that left the table as a fall to zero', () => {
+		const gone = speaker({
+			keywords_unmatched: ['a', 'b', 'c', 'd', 'e', 'f'].map((name) => word(name, 8)),
+			keywords: [word('other', 3)]
+		});
+		expect(removed(gone)).toEqual({ of: 6, left: 6, drop: null });
 	});
 
 	it('is null rather than zero when a reading is missing', () => {
@@ -236,6 +297,14 @@ describe('exportRows', () => {
 
 	it('has a column for every field it emits', () => {
 		expect(exportRows(speaker())[0]).toHaveLength(EXPORT_COLUMNS.length);
+	});
+
+	it('writes the conservative estimate beside the log ratio, null where absent', () => {
+		const at = EXPORT_COLUMNS.indexOf('lrc');
+		expect(EXPORT_COLUMNS[at + 1]).toBe('log_ratio');
+		const ranked = speaker({ keywords: [{ ...word('tutsi', 3.7), lrc: 1.9 }] });
+		expect(exportRows(ranked)[0]![at]).toBe(1.9);
+		expect(exportRows(speaker())[0]![at]).toBeNull();
 	});
 
 	it('emits nothing for a withheld speaker', () => {

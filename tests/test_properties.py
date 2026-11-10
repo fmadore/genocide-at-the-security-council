@@ -12,6 +12,7 @@ directory rather than into the working tree.
 
 from __future__ import annotations
 
+import math
 import tempfile
 from pathlib import Path
 
@@ -108,6 +109,63 @@ def test_g2_points_the_way_the_rates_do(a, b, target, reference) -> None:
         assert statistic > 0
     elif a * reference < b * target:
         assert statistic < 0
+
+
+family = st.integers(min_value=1, max_value=200_000)
+
+
+@PROPERTY
+@given(a=counts, b=counts, target=totals, reference=totals, tests=family)
+def test_lrc_has_the_sign_of_the_log_ratio_or_is_zero(a, b, target, reference, tests) -> None:
+    """And it is never further from zero than the ratio the counts show."""
+    found = lexical.conservative_log_ratio(a, b, target, reference, tests=tests)
+    if found != 0.0:
+        assert (found > 0) == (lexical.log_ratio(a, b, target, reference) > 0)
+    if a > 0 and b > 0:
+        observed = math.log2((a / target) / (b / reference))
+        assert abs(found) <= abs(observed) + 1e-9
+
+
+@PROPERTY
+@given(a=st.integers(min_value=0, max_value=10_000), size=totals, tests=family)
+def test_lrc_is_zero_for_equal_rates(a, size, tests) -> None:
+    assert lexical.conservative_log_ratio(a, a, size, size, tests=tests) == 0.0
+    assert lexical.conservative_log_ratio(a, 3 * a, size, 3 * size, tests=tests) == 0.0
+
+
+@PROPERTY
+@given(a=counts, b=counts, target=totals, reference=totals, tests=family)
+def test_lrc_changes_sign_when_the_corpora_swap(a, b, target, reference, tests) -> None:
+    forward = lexical.conservative_log_ratio(a, b, target, reference, tests=tests)
+    backward = lexical.conservative_log_ratio(b, a, reference, target, tests=tests)
+    assert forward == -backward
+
+
+@PROPERTY
+@given(a=counts, b=counts, target=totals, reference=totals, tests=family, more=family)
+def test_more_tests_never_strengthen_the_estimate(a, b, target, reference, tests, more) -> None:
+    fewer = lexical.conservative_log_ratio(a, b, target, reference, tests=tests)
+    wider = lexical.conservative_log_ratio(a, b, target, reference, tests=tests + more)
+    assert abs(wider) <= abs(fewer) + 1e-9
+
+
+@PROPERTY
+@given(
+    a=st.integers(min_value=0, max_value=20_000),
+    b=st.integers(min_value=0, max_value=20_000),
+    target=totals,
+    reference=totals,
+    tests=family,
+    factor=st.integers(min_value=2, max_value=5),
+)
+def test_more_evidence_at_the_same_ratio_strengthens_the_estimate(
+    a, b, target, reference, tests, factor
+) -> None:
+    found = lexical.conservative_log_ratio(a, b, target, reference, tests=tests)
+    scaled = lexical.conservative_log_ratio(factor * a, factor * b, target, reference, tests=tests)
+    assert abs(scaled) >= abs(found) - 1e-9
+    if found != 0.0:
+        assert abs(scaled) > abs(found)
 
 
 @PROPERTY

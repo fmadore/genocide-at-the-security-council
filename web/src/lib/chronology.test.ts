@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	bandedTerms,
 	calendarRecovery,
 	chronologyParams,
 	readChronologyState,
@@ -178,7 +179,35 @@ describe('interval bands', () => {
 			speech_rate_cluster_low: [0.05, null],
 			speech_rate_cluster_high: [0.45, null]
 		});
-		expect(bounds).toEqual({ low: [0.05, null], high: [0.45, null], clustered: true });
+		// Wider than Wilson in the first period; no clustered bound in the second.
+		expect(bounds).toEqual({ low: [0.05, 0.1], high: [0.45, 0.3], clustered: true });
+	});
+
+	it('never draws a band narrower than the Wilson interval', async () => {
+		// A period with no hits: every bootstrap resample is zero, so the
+		// clustered interval is 0–0 while Wilson allows up to 3/n. And a period
+		// with one hit, where the bootstrap's upper bound sits under Wilson's.
+		const { bandBounds } = await import('./chronology');
+		const bounds = bandBounds({
+			speech_rate_low: [0, 0.0024],
+			speech_rate_high: [0.184, 0.0717],
+			speech_rate_cluster_low: [0, 0],
+			speech_rate_cluster_high: [0, 0.027]
+		});
+		expect(bounds.low).toEqual([0, 0]);
+		expect(bounds.high).toEqual([0.184, 0.0717]);
+	});
+
+	it('keeps a withheld rate withheld whatever the clustered arrays hold', async () => {
+		const { bandBounds } = await import('./chronology');
+		const bounds = bandBounds({
+			speech_rate_low: [null, 0.01],
+			speech_rate_high: [null, 0.03],
+			speech_rate_cluster_low: [0, 0.005],
+			speech_rate_cluster_high: [0, 0.04]
+		});
+		expect(bounds.low).toEqual([null, 0.005]);
+		expect(bounds.high).toEqual([null, 0.04]);
 	});
 
 	it('draws the Wilson interval for a payload written before the clustered one', async () => {
@@ -205,6 +234,25 @@ describe('interval bands', () => {
 		expect(isIntervalBand(undefined)).toBe(false);
 		expect(bandOwner(`Genocide${BAND_SUFFIX}`)).toBe('Genocide');
 		expect(bandOwner('Genocide')).toBe('Genocide');
+	});
+});
+
+describe('withheld rates', () => {
+	it('withholds a split cell below the minimum, whatever rate the payload carries', async () => {
+		const { splitRate } = await import('./chronology');
+		// 1993, non-state: one speech, and it used the word.
+		expect(splitRate({ held: 1, speech_rate: 1 })).toBeNull();
+		expect(splitRate({ held: 109, speech_rate: 0.303 })).toBeNull();
+		expect(splitRate({ held: 125, speech_rate: 0.04 })).toBe(0.04);
+		expect(splitRate({ held: 40, speech_rate: 0.1 }, 30)).toBe(0.1);
+		// The artefact's own flag wins over a minimum the page assumed.
+		expect(splitRate({ held: 500, speech_rate: null, sufficient: false })).toBeNull();
+	});
+
+	it('counts the periods that carry counts and no rate', async () => {
+		const { withheldPeriods } = await import('./chronology');
+		expect(withheldPeriods({ sufficient: [true, false, true, false] })).toBe(2);
+		expect(withheldPeriods({})).toBe(0);
 	});
 });
 
@@ -363,5 +411,27 @@ describe('a way out of the calendar’s refusals', () => {
 			kind: 'yearly',
 			measure: 'genocide'
 		});
+	});
+});
+
+describe('percentDecimals', () => {
+	it('gives a rare term the decimals its ticks need, and a common one a single decimal', async () => {
+		const { percentDecimals } = await import('./chronology');
+		expect(percentDecimals(0.065)).toBe(1); // genocide: ticks a point or so apart
+		expect(percentDecimals(0.002)).toBe(3); // genocidal ideology: 0.04-point steps
+		expect(percentDecimals(0.012)).toBe(2);
+		expect(percentDecimals(0)).toBe(1);
+	});
+});
+
+describe('which terms carry a band', () => {
+	it('bands every term while there are at most two', () => {
+		expect(bandedTerms(['genocide', 'atrocity'])).toEqual(['genocide', 'atrocity']);
+		expect(bandedTerms(['atrocity'])).toEqual(['atrocity']);
+	});
+
+	it('keeps only the headline band past two', () => {
+		expect(bandedTerms(['atrocity', 'genocide', 'war_crimes'])).toEqual(['genocide']);
+		expect(bandedTerms(['atrocity', 'war_crimes', 'ethnic_cleansing'])).toEqual([]);
 	});
 });

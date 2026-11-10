@@ -24,11 +24,23 @@ would otherwise dominate a graph it appears in 30 speeches of.
 **Significance is a floor, not a ranking** (review of 1 September 2026, §3.2).
 G² on pooled token counts treats every token as independent, so a collocate
 repeated fifty times in one speech ranks as if it appeared in fifty speeches.
-Tables are therefore ranked by effect — log ratio for keywords, logDice for
-collocates — among the rows that clear :data:`G2_FLOOR`, and every row carries
-its **dispersion**: the documents and distinct meetings it appears in, and
-Gries's DP, so a reader can tell a property of the register from a property of
-one debate.
+Tables are therefore ranked by effect — the conservative log ratio for keywords,
+logDice for collocates — among the rows that clear :data:`G2_FLOOR`, and every
+row carries its **dispersion**: the documents and distinct meetings it appears
+in, and Gries's DP, so a reader can tell a property of the register from a
+property of one debate.
+
+**An effect size is ranked by what the counts can support, not by its point
+estimate.** Keyword tables were ranked by log ratio until 10 November 2026, and
+the half-occurrence that stands in for a zero made that ranking promote exactly
+the words it should distrust: among sixty thousand candidates, the rare word
+that happens never to occur in the reference has the largest ratio of all. 82
+of the matched table's top 100 rows had a reference count of zero, and it was
+headed by the selection word itself and then by one debate's proper nouns.
+Keyword tables are now ranked by :func:`conservative_log_ratio` (Evert 2022),
+the end of a multiplicity-corrected interval for the ratio nearest to 1, under
+which a word seen thirteen times cannot outrank one seen two hundred times
+however exclusive it is.
 """
 
 from __future__ import annotations
@@ -95,6 +107,10 @@ MIN_COUNT = 5
 #: one degree of freedom at p < 0.001. Below it the effect size is a number
 #: about noise. It is a floor and never an ordering — see the module docstring.
 G2_FLOOR = 10.83
+
+#: The family-wise error rate of :func:`conservative_log_ratio`'s interval,
+#: before it is divided among the words a table tested.
+LRC_ALPHA = 0.05
 
 
 def load_stopwords() -> frozenset[str]:
@@ -461,13 +477,242 @@ def log_ratio(a: int, b: int, target_total: int, reference_total: int) -> float:
 
     A word absent from the reference has an infinite ratio, which no chart can
     plot. Substituting half an occurrence is the standard fix and is reported as
-    what it is rather than as a measured value.
+    what it is rather than as a measured value. It is why this is printed beside
+    a keyword and no longer ranks one: the half-count gives every word absent
+    from the reference a ratio set by its own frequency alone, and the rarest
+    such words then head the table. :func:`conservative_log_ratio` ranks.
     """
     if target_total <= 0 or reference_total <= 0:
         return 0.0
     target_rate = max(a, 0.5) / target_total
     reference_rate = max(b, 0.5) / reference_total
     return math.log2(target_rate / reference_rate)
+
+
+#: Lentz's continued fraction stops when a step changes it by less than this.
+_CF_EPSILON = 1e-15
+_CF_TINY = 1e-300
+_CF_STEPS = 50_000
+
+_log_gamma = np.vectorize(math.lgamma, otypes=[float])
+
+
+def _log_beta(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    return _log_gamma(a) + _log_gamma(b) - _log_gamma(a + b)
+
+
+def _beta_fraction(a: np.ndarray, b: np.ndarray, x: np.ndarray) -> np.ndarray:
+    """The continued fraction of I_x(a, b), by modified Lentz, vectorised.
+
+    Numerical Recipes' `betacf`, run over arrays: every element takes the same
+    steps, and an element leaves the loop as soon as its own fraction has
+    converged, so a table of easy rows does not wait for its one hard row.
+    Converges quickly for x < (a + 1) / (a + b + 2), which is the only side
+    :func:`_log_betainc` calls it on.
+    """
+    a, b, x = (np.asarray(v, dtype=float).ravel() for v in (a, b, x))
+    out = np.empty_like(x)
+    live = np.arange(x.size)
+    total, above, below = a + b, a + 1.0, a - 1.0
+    c = np.ones_like(x)
+    d = 1.0 - total * x / above
+    d = 1.0 / np.where(np.abs(d) < _CF_TINY, _CF_TINY, d)
+    h = d.copy()
+    for m in range(1, _CF_STEPS + 1):
+        if live.size == 0:
+            return out
+        aa, bb, xx = a[live], b[live], x[live]
+        m2 = 2.0 * m
+        for numerator in (
+            m * (bb - m) * xx / ((below[live] + m2) * (aa + m2)),
+            -(aa + m) * (total[live] + m) * xx / ((aa + m2) * (above[live] + m2)),
+        ):
+            d = 1.0 + numerator * d
+            d = 1.0 / np.where(np.abs(d) < _CF_TINY, _CF_TINY, d)
+            c = 1.0 + numerator / c
+            c = np.where(np.abs(c) < _CF_TINY, _CF_TINY, c)
+            step = d * c
+            h = h * step
+        done = np.abs(step - 1.0) < _CF_EPSILON
+        if done.any():
+            out[live[done]] = h[done]
+            keep = ~done
+            live, c, d, h = live[keep], c[keep], d[keep], h[keep]
+    raise ArithmeticError(f"incomplete beta did not converge for {live.size} values")
+
+
+def _log_betainc(
+    a: np.ndarray, b: np.ndarray, x: np.ndarray, log_beta: np.ndarray | None = None
+) -> np.ndarray:
+    """log I_x(a, b), kept in logs on the lower side so a tail of 1e-300 survives."""
+    a, b, x = np.broadcast_arrays(*(np.asarray(v, dtype=float) for v in (a, b, x)))
+    shape = x.shape
+    a, b, x = a.ravel(), b.ravel(), x.ravel()
+    lb = _log_beta(a, b) if log_beta is None else np.broadcast_to(log_beta, shape).ravel()
+    out = np.empty_like(x)
+    out[x <= 0.0] = -np.inf
+    out[x >= 1.0] = 0.0
+    inside = (x > 0.0) & (x < 1.0)
+    lower = inside & (x < (a + 1.0) / (a + b + 2.0))
+    upper = inside & ~lower
+    if lower.any():
+        aa, bb, xx = a[lower], b[lower], x[lower]
+        front = aa * np.log(xx) + bb * np.log1p(-xx) - lb[lower]
+        out[lower] = front + np.log(_beta_fraction(aa, bb, xx)) - np.log(aa)
+    if upper.any():
+        aa, bb, xx = a[upper], b[upper], x[upper]
+        front = aa * np.log(xx) + bb * np.log1p(-xx) - lb[upper]
+        tail = np.exp(front + np.log(_beta_fraction(bb, aa, 1.0 - xx)) - np.log(bb))
+        out[upper] = np.log1p(-np.minimum(tail, 1.0))
+    return out.reshape(shape)
+
+
+def betainc(a, b, x):
+    """The regularised incomplete beta function I_x(a, b), for a, b > 0.
+
+    Written here rather than imported because the pipeline does not depend on
+    SciPy. It is the binomial tail the Clopper-Pearson interval inverts:
+    P(X ≥ k) for X ~ Binomial(n, p) is I_p(k, n - k + 1), which is how
+    `tests/test_reference_values.py` holds it to exact sums.
+    """
+    found = np.exp(_log_betainc(a, b, x))
+    return float(found) if found.ndim == 0 else found
+
+
+def _beta_quantile(a: np.ndarray, b: np.ndarray, log_q: np.ndarray) -> np.ndarray:
+    """The x at which I_x(a, b) = q, for a, b ≥ 1 and q below the median.
+
+    Newton's method on log I_x(a, b), which is concave in x when a, b ≥ 1
+    (a log-concave density has a log-concave distribution function). From the
+    right of the root one step lands on its left, and from the left every step
+    approaches it without passing it, so no bracket is needed: a step that
+    would leave (0, 1) is shortened, and the iteration stops when it no longer
+    moves, or when the residual is down to the precision log I is computed to. It starts from the mean a / (a + b), above any q this is called with.
+    """
+    a, b, log_q = (np.asarray(v, dtype=float).ravel() for v in (a, b, log_q))
+    lb = _log_beta(a, b)
+    x = a / (a + b)
+    live = np.arange(x.size)
+    for _ in range(500):
+        if live.size == 0:
+            return x
+        aa, bb, xx = a[live], b[live], x[live]
+        log_i = _log_betainc(aa, bb, xx, lb[live])
+        log_density = (aa - 1.0) * np.log(xx) + (bb - 1.0) * np.log1p(-xx) - lb[live]
+        moved = xx - (log_i - log_q[live]) * np.exp(log_i - log_density)
+        moved = np.where(moved <= 0.0, xx * 1e-3, np.minimum(moved, np.nextafter(1.0, 0.0)))
+        x[live] = moved
+        # Stopped by the step or by the residual: near the root, log I is
+        # computed to about 1e-11, and a tighter test would chase that noise.
+        settled = (np.abs(moved - xx) <= 1e-12 * xx) | (np.abs(log_i - log_q[live]) < 1e-9)
+        live = live[~settled]
+    raise ArithmeticError(f"beta quantile did not converge for {live.size} values")
+
+
+def _cp_lower(k: np.ndarray, n: np.ndarray, log_q: np.ndarray) -> np.ndarray:
+    """The Clopper-Pearson lower bound for k of n, one tail at level q."""
+    k, n, log_q = np.broadcast_arrays(*(np.asarray(v, dtype=float) for v in (k, n, log_q)))
+    out = np.zeros(k.shape)
+    whole = (k == n) & (n > 0)
+    out[whole] = np.exp(log_q[whole] / n[whole])
+    some = (k > 0) & (k < n)
+    if some.any():
+        out[some] = _beta_quantile(k[some], n[some] - k[some] + 1.0, log_q[some])
+    return out
+
+
+def clopper_pearson(k, n, alpha: float = 0.05):
+    """The exact two-sided interval for a binomial share, k successes of n.
+
+    Clopper and Pearson (1934): the bounds are the shares at which the
+    observed count sits in either tail with probability alpha / 2, which is
+    the Beta(k, n - k + 1) and Beta(k + 1, n - k) quantiles. The ends have
+    closed forms — the lower bound of n of n is (alpha / 2)^(1/n), the upper
+    bound of 0 of n is 1 - (alpha / 2)^(1/n) — and are computed as such.
+    Vectorised over `k` and `n`; scalars in, floats out.
+    """
+    k_, n_ = np.broadcast_arrays(np.asarray(k, dtype=float), np.asarray(n, dtype=float))
+    log_q = np.full(k_.shape, math.log(alpha / 2.0))
+    low = _cp_lower(k_, n_, log_q)
+    high = np.where(n_ > 0, 1.0 - _cp_lower(n_ - k_, n_, log_q), 1.0)
+    if low.ndim == 0:
+        return float(low), float(high)
+    return low, high
+
+
+def conservative_log_ratio(
+    a,
+    b,
+    target_total,
+    reference_total,
+    *,
+    alpha: float = LRC_ALPHA,
+    tests: int = 1,
+):
+    """The log ratio a table can stand behind: the conservative estimate (LRC).
+
+    Evert, "Measuring keyness" (Digital Humanities 2022), and CQPweb's "Log
+    Ratio (conservative estimate)". Given a word's n = a + b occurrences, the
+    target's share of them is binomial, a ~ Binomial(n, p), with
+    p = r·N1 / (r·N1 + N2) for N1 and N2 the two corpora's sizes and r the
+    ratio of the word's rates. The exact Clopper-Pearson interval for p, at
+    level alpha / `tests` — Bonferroni over every word the table tested —
+    is mapped back to an interval for r = (p / (1 - p))·(N2 / N1), and the
+    figure reported is log2 of its end *nearest 1*: positive when the whole
+    interval is above 1, negative when below, and exactly 0.0 when it holds 1.
+
+    It is :func:`log_ratio` with the uncertainty taken out of it rather than
+    beside it. A zero needs no half-occurrence, because the interval is finite
+    whatever the counts; and a word absent from the reference is ranked by how
+    many times it was seen, not by the accident of its absence. Thirteen
+    occurrences against none, among 5,000 candidates, is an interval for p
+    whose lower end is (0.05 / 10,000)^(1/13) ≈ 0.39, which does not exclude
+    an even split between equal corpora: a word that rare cannot be a
+    keyword, however exclusive it is.
+
+    `a`, `b` and the totals may be arrays; scalars in, a float out. Computed
+    for the over-used side and mirrored, so swapping the corpora flips the
+    sign exactly.
+    """
+    a_, b_, t1, t2 = np.broadcast_arrays(
+        *(np.asarray(v, dtype=float) for v in (a, b, target_total, reference_total))
+    )
+    tests_ = np.broadcast_to(np.asarray(tests, dtype=float), a_.shape)
+    out = np.zeros(a_.shape)
+    valid = (t1 > 0) & (t2 > 0) & (a_ + b_ > 0)
+    over = valid & (a_ * t2 > b_ * t1)
+    under = valid & (a_ * t2 < b_ * t1)
+    for side, sign, k, j, n1, n2 in (
+        (over, 1.0, a_, b_, t1, t2),
+        (under, -1.0, b_, a_, t2, t1),
+    ):
+        if not side.any():
+            continue
+        k, j, n1, n2 = k[side], j[side], n1[side], n2[side]
+        log_q = np.log(alpha / (2.0 * tests_[side]))
+        n = k + j
+        # The share at r = 1. The bound clears 1 only where the observed
+        # count is in the tail beyond q at p0, so the quantile is solved for
+        # those rows alone: the test is one evaluation, the root forty.
+        p0 = n1 / (n1 + n2)
+        found = np.zeros(k.shape)
+        whole = j == 0
+        if whole.any():
+            # (q)^(1/n) and its complement, without losing 1 - p near 1.
+            log_low = log_q[whole] / n[whole]
+            found[whole] = np.log2(
+                np.exp(log_low) / -np.expm1(log_low) * n2[whole] / n1[whole]
+            )
+        some = ~whole
+        if some.any():
+            tail = _log_betainc(k[some], j[some] + 1.0, p0[some])
+            clear = np.flatnonzero(some)[tail < log_q[some]]
+            if clear.size:
+                low = _beta_quantile(k[clear], j[clear] + 1.0, log_q[clear])
+                found[clear] = np.log2(low / (1.0 - low) * n2[clear] / n1[clear])
+        out[side] = sign * np.maximum(found, 0.0)
+    out = out + 0.0  # no negative zero
+    return float(out) if out.ndim == 0 else out
 
 
 def log_dice(joint: int, node: int, collocate: int) -> float:
@@ -483,6 +728,19 @@ def log_dice(joint: int, node: int, collocate: int) -> float:
     return 14.0 + math.log2(2.0 * joint / (node + collocate))
 
 
+def candidates(
+    target: Mapping[str, int], stopwords: frozenset[str], min_count: int = MIN_COUNT
+) -> int:
+    """How many words a keyword table tested: its Bonferroni family, m.
+
+    Every word the target uses at least `min_count` times that is not a
+    stopword — the words :func:`compare` computes a statistic for, whether or
+    not they clear the floor. Published beside each table as `tests`, because
+    the conservative estimate of a row depends on how many others were tried.
+    """
+    return sum(1 for word, count in target.items() if count >= min_count and word not in stopwords)
+
+
 def compare(
     target: Counter[str],
     reference: Counter[str],
@@ -496,6 +754,8 @@ def compare(
     rank: str = "log_ratio",
     dispersion: Mapping[str, Mapping[str, object]] | None = None,
     extra: Callable[[str, int], dict[str, object]] | None = None,
+    lrc: bool = True,
+    alpha: float = LRC_ALPHA,
 ) -> list[dict[str, object]]:
     """Rank words by how much the target's rate differs from the reference.
 
@@ -505,13 +765,29 @@ def compare(
 
     A row must clear `floor` on |G²| to be kept at all, and the kept rows are
     ordered by `rank` (descending), then by G², then by word, so a tie settles
-    the same way on every run. `rank` names a column the row carries: `log_ratio`
+    the same way on every run. `rank` names a column the row carries: `lrc`
     for a keyword table, or a column `extra` adds — `collocates` adds `log_dice`
-    and ranks on it. `dispersion`, from :func:`dispersion`, contributes
-    `documents`, `meetings` and `dp` to every row; a caller that has
-    per-document counts should always pass it, because a table without
-    dispersion cannot tell one debate's word from the register's.
+    and ranks on it. `log_ratio` is still accepted, for a run that has to
+    reproduce the ranking keyword tables had before 10 November 2026.
+
+    Every row carries `lrc`, :func:`conservative_log_ratio` with the
+    Bonferroni family taken to be every word this call tested — the
+    :func:`candidates`, before the floor — unless `lrc` is False. Under
+    `rank="lrc"` the table is one-sided, as a keyword table here is: only rows
+    with lrc > 0, the words the target over-uses beyond doubt, are kept. The G²
+    floor still applies, and is then all but redundant: lrc > 0 is an exact
+    test at alpha / m, and with the thousands of candidates a real table has,
+    that is far stricter than p < 0.001. It is not implied for a family of a
+    few dozen words, which is why the floor stays.
+
+    `dispersion`, from :func:`dispersion`, contributes `documents`, `meetings`
+    and `dp` to every row; a caller that has per-document counts should always
+    pass it, because a table without dispersion cannot tell one debate's word
+    from the register's.
     """
+    if rank == "lrc" and not lrc:
+        raise ValueError("cannot rank on lrc without computing it")
+    tests = candidates(target, stopwords, min_count)
     rows = []
     for word, count in target.items():
         if count < min_count or word in stopwords:
@@ -527,6 +803,8 @@ def compare(
             "g2": round(g2, 3),
             "log_ratio": round(log_ratio(count, elsewhere, target_total, reference_total), 3),
         }
+        if lrc:
+            row["lrc"] = 0.0  # filled below, for every row at once
         if extra is not None:
             row |= extra(word, count)
         if dispersion is not None:
@@ -539,6 +817,19 @@ def compare(
                 "dp": spread["dp"],
             }
         rows.append(row)
+    if lrc and rows:
+        found = conservative_log_ratio(
+            np.array([row["target"] for row in rows], dtype=float),
+            np.array([row["reference"] for row in rows], dtype=float),
+            target_total,
+            reference_total,
+            alpha=alpha,
+            tests=tests,
+        )
+        for row, value in zip(rows, found.tolist(), strict=True):
+            row["lrc"] = round(value, 3) + 0.0
+    if rank == "lrc":
+        rows = [row for row in rows if float(row.get("lrc", 0.0)) > 0]  # type: ignore[arg-type]
     if rows and rank not in rows[0]:
         raise KeyError(f"cannot rank on {rank!r}: rows carry {sorted(rows[0])}")
     rows.sort(key=lambda r: (-float(r[rank]), -float(r["g2"]), str(r["word"])))  # type: ignore[arg-type]
@@ -608,6 +899,9 @@ def collocates(
         limit,
         floor=floor,
         rank="log_dice",
+        # A collocate table is ranked by logDice and its payload carries no
+        # conservative estimate: a column no figure reads is not shipped.
+        lrc=False,
         dispersion=spread,
         extra=lambda word, count: {
             "log_dice": round(

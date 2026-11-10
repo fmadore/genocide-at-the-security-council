@@ -475,7 +475,13 @@ export const legend = (p: Palette) => ({
 	itemWidth: 10,
 	itemHeight: 2,
 	itemGap: 18,
-	textStyle: { color: p.inkSoft, fontSize: 12, fontFamily: FONT }
+	textStyle: { color: p.inkSoft, fontSize: 12, fontFamily: FONT },
+	// The pager a phone needs, in the page's inks: ECharts' stock arrows are
+	// blue, and blue is the interaction layer's (review of 10 November 2026).
+	pageIconColor: p.ink,
+	pageIconInactiveColor: p.ruleSoft,
+	pageIconSize: 10,
+	pageTextStyle: { color: p.inkSoft, fontSize: 11, fontFamily: FONT }
 });
 
 /**

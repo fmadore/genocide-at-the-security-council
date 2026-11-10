@@ -29,7 +29,7 @@ claims guide before citing a figure.
 | how to cut a citable release | [Releasing](docs/RELEASING.md) |
 | what to do when the rebuild fails | [If the rebuild breaks](docs/RUNBOOK.md) |
 | the GPU cluster | [Cluster guide](docs/CLUSTER.md) |
-| open review items | [Review roadmap](docs/ROADMAP.md) and [the review of 8 October 2026](docs/REVIEW_2026-10-08.md) |
+| open review items | [Review roadmap](docs/ROADMAP.md), [the review of 8 October 2026](docs/REVIEW_2026-10-08.md) and [the review of 9 November 2026](docs/REVIEW_2026-11-09.md) |
 
 ## Corpus
 

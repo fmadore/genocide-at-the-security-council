@@ -25,6 +25,12 @@
 		"words": [1000, 2200, 3600],
 		"meetings": [2, 3, 4]
 	},
+	"sufficient": [true, true, true],
+	"minimum_speeches": 10,
+	"record": {
+		"first_date": "1992-01-03",
+		"last_date": "2023-11-28"
+	},
 	"cluster_interval": {
 		"resamples": 999,
 		"seed": 20260924,

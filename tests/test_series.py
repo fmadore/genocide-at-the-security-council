@@ -109,6 +109,43 @@ class TestMonthGrid:
         assert int(totals.loc["2000-07", "words"]) == 0
 
 
+class TestQuarterGrid:
+    def test_the_grid_is_every_quarter_between_two_labels(self):
+        grid = series.quarter_grid("1952Q4", "1954Q1")
+        assert grid == ["1952Q4", "1953Q1", "1953Q2", "1953Q3", "1953Q4", "1954Q1"]
+
+    def test_the_grid_sorts_as_text_and_agrees_with_period(self, corpus):
+        grid = series.quarter_grid("1999Q3", "2001Q2")
+        assert grid == sorted(grid)
+        assert set(series.period(corpus, "quarter")) <= set(grid)
+
+    def test_one_quarter_is_a_grid_of_one(self):
+        assert series.quarter_grid("2000Q2", "2000Q2") == ["2000Q2"]
+
+    def test_the_grid_stops_at_the_last_quarter_not_the_end_of_its_year(self):
+        """A record that ends in June has no third or fourth quarter yet."""
+        assert series.quarter_grid("2025Q4", "2026Q2")[-1] == "2026Q2"
+        assert len(series.quarter_grid("2025Q4", "2026Q2")) == 3
+
+    def test_a_backwards_range_is_refused(self):
+        with pytest.raises(ValueError, match="before"):
+            series.quarter_grid("2001Q1", "2000Q4")
+
+    @pytest.mark.parametrize("label", ["2000Q5", "2000Q0", "2000-03", "2000", "Q1", "200xQ1"])
+    def test_a_label_that_is_not_a_quarter_is_refused(self, label):
+        with pytest.raises(ValueError, match="not a quarter"):
+            series.quarter_grid(label, "2001Q1")
+        with pytest.raises(ValueError, match="not a quarter"):
+            series.quarter_grid("1999Q1", label)
+
+    def test_an_empty_quarter_becomes_a_row_of_zeros(self, corpus):
+        periods = series.period(corpus, "quarter")
+        totals = series.denominators(corpus, periods, index=series.quarter_grid("2000Q1", "2001Q2"))
+        assert len(totals) == 6
+        assert int(totals.loc["2000Q3", "speeches"]) == 0
+        assert int(totals.loc["2000Q3", "meetings"]) == 0
+
+
 class TestWithholding:
     """A rate a denominator cannot carry is withheld, and its count is not."""
 
@@ -710,6 +747,17 @@ class TestMeetingBootstrap:
         )
         np.testing.assert_array_equal(out["genocide"][0], out["war_crimes"][0])
         np.testing.assert_array_equal(out["genocide"][1], out["war_crimes"][1])
+
+    def test_a_period_in_which_no_meeting_used_the_word_is_bounded_at_zero(self):
+        """Documents a limit, not a feature: every resample of an empty period
+        is zero, so the percentile band is 0 to 0 — "certainly never" — where
+        Wilson bounds 0 of 200 at about 3/n. This is why consumers draw the
+        envelope of the two intervals rather than the bootstrap alone."""
+        silent = _meetings([0] * 20)
+        low, high = self.interval(silent)
+        assert low == 0.0 and high == 0.0
+        _, wilson_high = (float(v) for v in series.wilson_interval(0, 200))
+        assert wilson_high > 0.01
 
     def test_a_period_without_meetings_has_no_band(self):
         frame = _meetings([10, 0, 0, 0])

@@ -357,7 +357,7 @@ What follows from that, worth knowing before you start:
 | [`lib/gold_estimates.py`](lib/gold_estimates.py) | The gold block: the human reference label, agreement between the coders, the model scored against them, and the design-weighted accuracy and corrected shares. |
 | [`lib/usage_comparison.py`](lib/usage_comparison.py) | A second run read against the published one, over the overlap: agreement per field and per referent, and the contested occurrences. |
 | [`lib/usage_refusals.py`](lib/usage_refusals.py) | Step 15's refusals — lexicon, rows, codebook, referent list, prompt, comparison, coverage — and the resolutions that read an older run in today's vocabulary. |
-| [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood as a floor with log ratio and logDice as the rank, dispersion (documents, meetings, DP), matched controls, PMI with definitional pairs suppressed. |
+| [`lib/lexical.py`](lib/lexical.py) | Tokens, log-likelihood as a floor with the conservative log ratio (keywords) and logDice (collocates) as the rank, an exact Clopper–Pearson bound in plain numpy, dispersion (documents, meetings, DP), matched controls, PMI with definitional pairs suppressed. |
 | [`lib/keyness.py`](lib/keyness.py) | One speaker against the room: the corpus as a count matrix, the strata, the two gates, agenda composition. |
 | [`lib/embeddings.py`](lib/embeddings.py) | The model registry, the chunking policy for long speeches, pooling, neighbours. |
 | [`lib/topics.py`](lib/topics.py) | The frozen sample, both topic models, and the evaluation: NPMI coherence, adjusted Rand, c-TF-IDF, word intrusion. |

@@ -30,12 +30,22 @@
 	const CELL = 24;
 	const LABEL = 150;
 	const TOP = 120;
+	/* The column heads lean right at 60°, so the last one runs past the grid's
+	   edge by half its length: 8 units of margin cut "mass killing" to "mass
+	   killi". 72 holds a 13-character head at 11px. */
+	const RIGHT = 72;
+	/* The key under the grid: a row of ramp swatches and a row of refusals. */
+	const KEY = 64;
+	const STOPS = 10;
+	const SWATCH = 16;
 
 	const ordered = $derived(orderTerms(terms, REGISTER_ORDER));
 	const cells = $derived(matrixCells(ordered, edges, suppressed));
 	const size = $derived(ordered.length * CELL);
-	const width = $derived(LABEL + size + 8);
-	const height = $derived(TOP + size + 8);
+	const width = $derived(LABEL + size + RIGHT);
+	const height = $derived(TOP + size + 8 + KEY);
+	const keyTop = $derived(TOP + size + 20);
+	const refusals = $derived(keyTop + 36);
 	const index = $derived(new Map(ordered.map((term, i) => [term.name, i])));
 	const ramp = $derived(sequential($colours));
 	const registerOf = $derived(new Map(ordered.map((term) => [term.name, term.register])));
@@ -91,12 +101,14 @@
 		<defs>
 			<pattern
 				id={hatchId}
-				width="5"
-				height="5"
+				width="6"
+				height="6"
 				patternUnits="userSpaceOnUse"
 				patternTransform="rotate(45)"
 			>
-				<line x1="0" y1="0" x2="0" y2="5" stroke={$colours.rule} stroke-width="0.8" />
+				<!-- The calendar's hatch: the soft rule at a wide pitch, so a pair
+				     with too few speeches stays quieter than any drawn cell. -->
+				<line x1="0" y1="0" x2="0" y2="6" stroke={$colours.ruleSoft} stroke-width="1" />
 			</pattern>
 		</defs>
 		{#each ordered as term, i (term.name)}
@@ -145,6 +157,65 @@
 				{/if}
 			</g>
 		{/each}
+
+		<!-- The key, inside the picture so a downloaded file still says what its
+		     shades mean, drawn the way the calendar's is: swatches at even steps of
+		     the *value*, so it stays a correct lookup table under the square-root
+		     placement. It reads the same in both themes because it is the ramp. -->
+		{#each Array.from({ length: STOPS }, (_, i) => i) as stop (stop)}
+			<rect
+				x={LABEL + stop * SWATCH}
+				y={keyTop}
+				width={SWATCH}
+				height="10"
+				fill={ramp(tone((stop + 0.5) / STOPS))}
+				stroke={$colours.ruleSoft}
+				stroke-width="0.5"
+			/>
+		{/each}
+		<text x={LABEL} y={keyTop + 23} font-size="11" fill={$colours.inkFaint}>0</text>
+		<text
+			x={LABEL + STOPS * SWATCH}
+			y={keyTop + 23}
+			text-anchor="end"
+			font-size="11"
+			fill={$colours.inkFaint}>1</text
+		>
+		<text x={LABEL + STOPS * SWATCH + 14} y={keyTop + 9} font-size="12" fill={$colours.inkFaint}
+			>association (nPMI)</text
+		>
+		<rect
+			x={LABEL}
+			y={refusals}
+			width={SWATCH}
+			height="10"
+			fill="url(#{hatchId})"
+			stroke={$colours.ruleSoft}
+			stroke-width="0.5"
+		/>
+		<text x={LABEL + SWATCH + 6} y={refusals + 9} font-size="12" fill={$colours.inkFaint}
+			>fewer than {count(minimum)} speeches use both</text
+		>
+		<text
+			x={LABEL + 250 + SWATCH / 2}
+			y={refusals + 10}
+			text-anchor="middle"
+			font-size="12"
+			fill={$colours.inkFaint}>x</text
+		>
+		<text x={LABEL + 250 + SWATCH + 6} y={refusals + 9} font-size="12" fill={$colours.inkFaint}
+			>patterns overlap, not drawn</text
+		>
+		<text
+			x={LABEL + 450 + SWATCH / 2}
+			y={refusals + 10}
+			text-anchor="middle"
+			font-size="12"
+			fill={$colours.inkFaint}>-</text
+		>
+		<text x={LABEL + 450 + SWATCH + 6} y={refusals + 9} font-size="12" fill={$colours.inkFaint}
+			>below chance</text
+		>
 	</svg>
 </div>
 

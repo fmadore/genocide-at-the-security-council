@@ -18,9 +18,12 @@ LEGACY_TOKEN_RE = re.compile("[a-z][a-z'" + chr(0x2019) + "-]*")
 
 
 def ranked(target: Counter, control: Counter, stopwords: frozenset[str], limit: int = 100):
+    # The published ranking (conservative log ratio), so the diagnostics are of
+    # the lists the site shows. Their effects stay log ratios: an influence is
+    # a movement of the point estimate, not of the interval's end.
     return lexical.compare(
         target, target + control, sum(target.values()), sum(control.values()),
-        stopwords, limit=limit,
+        stopwords, limit=limit, rank="lrc",
     )
 
 

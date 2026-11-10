@@ -7,8 +7,16 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '#lib/Chart.svelte';
 	import Contents from '#lib/Contents.svelte';
+	import Decomposition from '#lib/Decomposition.svelte';
 	import Figure from '#lib/Figure.svelte';
 	import Heatmap from '#lib/Heatmap.svelte';
+	import RateSplit from '#lib/RateSplit.svelte';
+	import {
+		availableSplits as partsSplitsOf,
+		readPartsSplit,
+		writePartsSplit
+	} from '#lib/decomposition.js';
+	import { RATE_EXPORT_COLUMNS, rateExportRows } from '#lib/ratesplit.js';
 	import Icon from '#lib/Icon.svelte';
 	import { figureId } from '#lib/figures.js';
 	import PageMeta from '#lib/PageMeta.svelte';
@@ -19,6 +27,11 @@
 		type ChronologyChoices,
 		type ChronologyUnit as Unit,
 		bandBounds,
+		bandedTerms,
+		splitRate,
+		percentDecimals,
+		FALLBACK_MINIMUM,
+		withheldPeriods,
 		calendarRecovery,
 		type CalendarRecovery,
 		bandOwner,
@@ -54,8 +67,7 @@
 		isoDate,
 		measureLabel,
 		monthLabel,
-		percent,
-		points
+		percent
 	} from '#lib/format.js';
 	import { PAGE_METADATA } from '#lib/seo.js';
 	import {
@@ -64,6 +76,7 @@
 		axisY,
 		categoricalNeutral,
 		categoricalDataStrokes,
+		colourScheme,
 		colours,
 		dataZoom,
 		endLabel,
@@ -127,6 +140,8 @@
 
 	const source = $derived(grain === 'year' ? data.year : data.quarter);
 	const periods = $derived(source.periods.map(String));
+	/** Periods whose speeches are too few for a rate: counts only. */
+	const withheld = $derived(withheldPeriods(source));
 	const genocideFreeAtrocity = $derived(data.year.corpora?.genocide_free_atrocity ?? null);
 	const genocideFreeAtrocitySpeeches = $derived(
 		(genocideFreeAtrocity?.speeches ?? []).reduce((total, value) => total + value, 0)
@@ -206,10 +221,10 @@
 	let gridFigure = $state<Heatmap | null>(null);
 
 	/* --- The month resolution ---------------------------------------------
-	   A third resolution rather than more of the same. A year always holds
-	   thousands of speeches and a month need not, so this artefact is the one
-	   that can withhold a figure — and the figure it feeds is the one where a
-	   blank square would be read as a measurement. */
+	   A third resolution rather than more of the same. Nearly every year holds
+	   thousands of speeches and most months do not reach the minimum, so this is
+	   the artefact where withholding is the rule — and the figure it feeds is
+	   the one where a blank square would be read as a measurement. */
 	let gridMeasure = $state('genocide');
 	let gridUnit = $state<GridUnit>('speech_rate');
 
@@ -236,6 +251,7 @@
 	/** Every cell says which of the three things it is, rather than only a number. */
 	const cellLabel = (cell: Cell) => {
 		const where = monthLabel(cell.period);
+		if (cell.state === 'beyond') return `${where}: outside the dates this record covers`;
 		if (cell.state === 'unobserved') return `${where}: the Council held no speeches`;
 		if (cell.state === 'withheld') {
 			return (
@@ -361,7 +377,8 @@
 				'kind',
 				'register',
 				'corpus_speeches',
-				'corpus_tokens',
+				// Words, by this study's own tokenizer: what every per-100,000 figure divides by.
+				'corpus_words',
 				'speeches',
 				'speech_rate',
 				'speech_rate_wilson95_low',
@@ -386,51 +403,29 @@
 		};
 	}
 
-	/** The two-rate models, one row per unit per measure. Sets are absent by design. */
+	/** The drawn two-rate split, for the plate's image downloads. */
+	let rateSplit = $state<RateSplit | null>(null);
+
+	/**
+	 * The two-rate test the plate draws, every measure and unit, then the
+	 * exploratory method's candidates; `#lib/ratesplit` builds the rows.
+	 */
 	function breaksTable(): ExportRequest {
-		const rows: (string | number | null)[][] = [];
-		for (const [measure, units] of Object.entries(data.breaks.series)) {
-			for (const [unitName, found] of Object.entries(units)) {
-				for (const point of found) {
-					rows.push([
-						measure,
-						unitName,
-						point.label,
-						point.index,
-						point.before,
-						point.after,
-						point.ratio,
-						point.gain,
-						point.p_value,
-						point.interval_start,
-						point.interval_stop
-					]);
-				}
-			}
-		}
 		return {
 			title: 'Testing for a change in the rate',
-			columns: [
-				'measure',
-				'unit',
-				'label',
-				'index',
-				'rate_before',
-				'rate_after',
-				'ratio',
-				'gain',
-				'p_value',
-				'interval_start',
-				'interval_stop'
-			],
-			rows,
+			columns: RATE_EXPORT_COLUMNS,
+			rows: rateExportRows(data.breaks),
 			provenance: provenanceOf(data.breaks.meta, 'series/change_points.json'),
 			filters: [
 				`threshold: ${percent(data.breaks.inference.per_test_alpha)} after ${data.breaks.inference.correction}`,
 				`simulations: ${data.breaks.inference.trials}`,
+				`null: ${data.breaks.inference.null}`,
 				`minimum segment: ${data.breaks.parameters.min_size} periods`
 			],
-			scope: 'every accepted partition, for every measure and unit the artefact holds'
+			scope:
+				'method two_rate_test: the best split for every measure and unit, accepted or not, with ' +
+				'rates as the artefact writes them (a share of speeches, or occurrences per word); ' +
+				'method exploratory: every candidate of the second method'
 		};
 	}
 
@@ -636,6 +631,9 @@
 		// that is a proportion with a known denominator, so it is the one unit
 		// with a Wilson interval to draw.
 		const banded = unit === 'speech_rate';
+		const rateDecimals = percentDecimals(
+			Math.max(0, ...usable.flatMap((name) => allMeasures[name]!.speech_rate.map((v) => v ?? 0)))
+		);
 		return {
 			textStyle,
 			// When a legend is needed it lists the lines and not their bands.
@@ -738,8 +736,10 @@
 					   default face. Only the formatter belongs here. */
 					axisLabel: {
 						...axisY(p).axisLabel,
+						// As many decimals as the largest drawn share needs: a term at
+						// 0.2% of speeches used to get ticks reading 0.0%, 0.0%, 0.1%, 0.1%.
 						formatter: (v: number) =>
-							unit === 'speech_rate' ? `${(v * 100).toFixed(1)}%` : count(v)
+							unit === 'speech_rate' ? `${(v * 100).toFixed(rateDecimals)}%` : count(v)
 					}
 				},
 				{ type: 'value', gridIndex: 1, show: false, min: -1, max: 1 }
@@ -752,13 +752,17 @@
 				{ ...dataZoom(p), xAxisIndex: [0, 1] }
 			],
 			series: [
+				// A band for every term while there are two at most, past that the
+				// headline's alone (`bandedTerms`); the tooltip keeps every interval.
+				// Stronger in dark, where a 14% wash of light ink on black vanished.
 				...(banded
-					? usable.flatMap((name) =>
+					? bandedTerms(usable).flatMap((name) =>
 							intervalBand(
 								measureLabel(name),
 								strokeOf(name, p).color,
 								bandBounds(allMeasures[name]!).low,
-								bandBounds(allMeasures[name]!).high
+								bandBounds(allMeasures[name]!).high,
+								$colourScheme === 'dark' ? 0.22 : 0.14
 							)
 						)
 					: []),
@@ -829,6 +833,10 @@
 		splits: SPLITS.map(({ id }) => id)
 	}));
 
+	/* "Agenda or usage?": which grouping splits the decade-to-decade change. */
+	const partsSplits = $derived(partsSplitsOf(data.parts));
+	let partsSplit = $state<string>('agenda_item_manual');
+
 	urlState({
 		read: (params) => {
 			const state = readChronologyState(params, urlChoices);
@@ -838,31 +846,39 @@
 			gridMeasure = state.calendarMeasure;
 			gridUnit = state.calendarUnit;
 			split = state.split;
+			partsSplit = readPartsSplit(params, partsSplits);
 		},
 		/* The scope is layout state and the page owns everything else in the
 		   query, so it is merged back in here: a page that rebuilt its own URL
 		   from its own controls would silently drop the reader's reading set on
 		   the next keystroke. */
 		write: () =>
-			withScope(
-				chronologyParams(
-					{
-						unit,
-						grain,
-						series: selected,
-						calendarMeasure: gridMeasure,
-						calendarUnit: gridUnit,
-						split
-					},
-					urlChoices
+			writePartsSplit(
+				withScope(
+					chronologyParams(
+						{
+							unit,
+							grain,
+							series: selected,
+							calendarMeasure: gridMeasure,
+							calendarUnit: gridUnit,
+							split
+						},
+						urlChoices
+					),
+					scope
 				),
-				scope
+				partsSplit,
+				partsSplits
 			)
 	});
 
 	const splitBlock = $derived(
 		split === 'none' ? null : (data.splits.measures.genocide?.[split] ?? null)
 	);
+
+	/** Speeches a cell of the split needs before its share is drawn. */
+	const splitMinimum = $derived(data.splits.minimum_speeches ?? FALLBACK_MINIMUM);
 
 	const splitChart: EChartsOption | null = $derived.by(() => {
 		const block = splitBlock;
@@ -874,9 +890,18 @@
 			block.rows.find(
 				(candidate) => String(candidate.period) === year && candidate.category === category
 			) ?? null;
+		/* The cell if its rate may be drawn. A group's year of one speech is a
+		   count, not a rate: it stays in the tooltip and the table, and leaves
+		   the line, the band and the axis. */
+		const drawn = (category: string, year: string) => {
+			const row = cell(category, year);
+			return row && splitRate(row, splitMinimum) != null ? row : null;
+		};
 		return {
 			textStyle,
-			grid: grid(),
+			// Room above the plot for the legend row, so neither it nor its pager
+			// on a phone is printed over the top tick label.
+			grid: { ...grid(), top: 40 },
 			legend: { ...legend(p), data: block.categories },
 			tooltip: {
 				...tooltip(p),
@@ -898,9 +923,11 @@
 								value == null
 									? '—'
 									: percent(typeof value === 'number' ? value : (value.value ?? 0));
-							const range = row
-								? ` <span style="opacity:.65">${percent(row.speech_rate_low)}–${percent(row.speech_rate_high)} · ${count(row.held)} speeches</span>`
-								: '';
+							const range = !row
+								? ''
+								: splitRate(row, splitMinimum) == null
+									? ` <span style="opacity:.65">${count(row.speeches)} of ${count(row.held)} speeches · share withheld below ${count(splitMinimum)}</span>`
+									: ` <span style="opacity:.65">${percent(row.speech_rate_low ?? 0)}–${percent(row.speech_rate_high ?? 0)} · ${count(row.held)} speeches</span>`;
 							return `${r.marker ?? ''}${escapeHtml(r.seriesName ?? '')} <b>${shown}</b>${range}`;
 						})
 						.join('<br>');
@@ -915,7 +942,11 @@
 				   handful of speeches in a year reaches 80%, and an axis drawn to
 				   hold it pressed every line into the bottom fifth. A band that
 				   runs off the top is still read as a wide one. */
-				max: Math.min(1, Math.ceil(Math.max(0, ...block.rows.map((r) => r.speech_rate)) * 10) / 10),
+				max: Math.min(
+					1,
+					Math.ceil(Math.max(0, ...block.rows.map((r) => splitRate(r, splitMinimum) ?? 0)) * 20) /
+						20
+				),
 				axisLabel: { ...axisY(p).axisLabel, formatter: (v: number) => `${(v * 100).toFixed(0)}%` }
 			},
 			series: [
@@ -923,8 +954,8 @@
 					intervalBand(
 						category,
 						strokes[i % strokes.length]!.color,
-						years.map((y) => cell(category, y)?.speech_rate_low ?? null),
-						years.map((y) => cell(category, y)?.speech_rate_high ?? null),
+						years.map((y) => drawn(category, y)?.speech_rate_low ?? null),
+						years.map((y) => drawn(category, y)?.speech_rate_high ?? null),
 						/* Five or more bands overlap on most years; at the default
 						   opacity they stack into one ground and hide the lines. */
 						0.07
@@ -940,7 +971,7 @@
 					name: category,
 					type: 'line',
 					data: years.map((y) => {
-						const row = cell(category, y);
+						const row = drawn(category, y);
 						return row ? { value: row.speech_rate, held: row.held } : null;
 					}),
 					connectNulls: false,
@@ -970,14 +1001,17 @@
 	}
 
 	/* The figures on this page, for the contents list; the ids follow the titles. */
-	const FIGURES = [
+	/* "Agenda or usage?" is listed only where the payload carries the
+	   decomposition, so the contents never names a plate the page cannot print. */
+	const FIGURES = $derived([
 		{ title: 'The reading set, year by year' },
 		{ title: 'The word list over time' },
 		{ title: 'Testing for a change in the rate' },
+		...(partsSplits.length ? [{ title: 'Agenda or usage?' }] : []),
 		{ title: "The vocabulary's calendar" },
 		{ title: 'The same twelve months, pooled' },
 		{ title: 'Who says it, and in what debate' }
-	];
+	]);
 
 	const genocideBreaks = $derived(data.breaks.series.genocide ?? {});
 	const genocideInference = $derived(data.breaks.inference.series.genocide ?? {});
@@ -1115,7 +1149,8 @@
 			<p>
 				Each line is a selected term or measure, in the unit shown above. Add or remove terms below
 				the chart; drag the bar below the axis to zoom. Select a point to read that period's
-				passages.
+				passages. With more than two terms drawn, only the headline term keeps its band; every
+				interval stays in the tooltip.
 			</p>
 		{/snippet}
 		{#snippet caveat()}
@@ -1131,23 +1166,42 @@
 					The pipeline names <strong>{count(genocideFreeAtrocitySpeeches)} speeches</strong> as
 					<em>atrocity vocabulary without the word</em>: they use <em>ethnic cleansing</em>,
 					<em>crimes against humanity</em> or <em>war crimes</em> and contain no
-					<code>genocid*</code> match. A speech using two of the phrases enters once. This is a corpus
-					boundary for comparison, not a measure that treats the phrases as interchangeable.
+					<code>genocid*</code> match. A speech using two phrases enters once. It bounds a comparison;
+					it does not treat the phrases as interchangeable.
 				{:else}
-					This data release does not include the combined comparison set. Individual term series
-					remain available.
+					This release lacks the combined comparison set; the single-term series remain.
 				{/if}
 			</p>
+			{#if source.record && source.record.last_date.slice(5, 7) !== '12' && (unit === 'speeches' || unit === 'occurrences')}
+				<p>
+					The record ends on {isoDate(source.record.last_date)}, so the last
+					{grain === 'year' ? 'year' : 'quarter'} counts only part of the period.
+				</p>
+			{/if}
+			{#if withheld && unit !== 'speeches' && unit !== 'occurrences'}
+				<p>
+					{count(withheld)}
+					{grain === 'year'
+						? withheld === 1
+							? 'year'
+							: 'years'
+						: withheld === 1
+							? 'quarter'
+							: 'quarters'} held fewer than {count(source.minimum_speeches ?? FALLBACK_MINIMUM)} speeches,
+					some none: their rates are withheld and the lines break; the table keeps their counts.
+				</p>
+			{/if}
 			{#if unit === 'speech_rate'}
 				<p>
-					The faint <strong>band</strong> is a 95% interval from resampling whole meetings, so it widens
-					where a year's rate rests on a few debates. Overlapping bands are not a formal test.
+					The faint <strong>band</strong> spans two 95% intervals, one treating speeches as independent,
+					one resampling whole meetings, so it widens where a rate rests on a few debates and never closes
+					on a period without the word. Overlapping bands are not a formal test.
 				</p>
 			{/if}
 			{#if showEvents && grain === 'year'}
 				<p>
-					Ticks on the rail mark <a href="#reference-dates">reference dates</a> by kind; hover a year
-					to read them.
+					Rail ticks mark <a href="#reference-dates">reference dates</a> by kind; hover a year to read
+					them.
 				</p>
 			{/if}
 		{/snippet}
@@ -1227,40 +1281,6 @@
 			{/if}
 		</section>
 
-		{#if data.parts}
-			<details class="data-table">
-				<summary
-					><Icon icon={ChevronRight} />Agenda or usage? The genocide rate's change, decade by decade</summary
-				>
-				<p class="hint">
-					Each change in the share of speeches using the word, split into <em>composition</em> (more
-					speeches on agenda items where it was already common) and <em>within</em> (more use inside the
-					same items). The two parts add to the change.
-				</p>
-				<table>
-					<thead>
-						<tr
-							><th>Decades</th><th class="num">Share</th><th class="num">Change</th><th class="num"
-								>Composition</th
-							><th class="num">Within</th><th>Largest item</th></tr
-						>
-					</thead>
-					<tbody>
-						{#each data.parts.splits.agenda_item_manual ?? [] as row (row.from)}
-							<tr>
-								<td>{row.from}s → {row.to}s</td>
-								<td class="num">{percent(row.rate_from)} → {percent(row.rate_to)}</td>
-								<td class="num">{points(row.change)}</td>
-								<td class="num">{points(row.composition)}</td>
-								<td class="num">{points(row.within)}</td>
-								<td>{row.largest[0]?.group ?? '—'}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</details>
-		{/if}
-
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View the plotted values as a table</summary>
 			<table>
@@ -1273,10 +1293,13 @@
 				<tbody>
 					{#each periods as period, index (period)}
 						<tr
-							><td>{period}</td>{#each usable as name (name)}{@const value =
-									unit === 'speech_rate'
-										? percent(Number(allMeasures[name]![unit]?.[index] ?? 0))
-										: decimal(Number(allMeasures[name]![unit]?.[index] ?? 0))}<td class="num"
+							><td>{period}</td>{#each usable as name (name)}{@const plotted =
+									allMeasures[name]![unit]?.[index] ?? null}{@const value =
+									plotted == null
+										? 'withheld'
+										: unit === 'speech_rate'
+											? percent(Number(plotted))
+											: decimal(Number(plotted))}<td class="num"
 									><a href={plottedHref(name, period)}>{value}</a></td
 								>{/each}</tr
 						>
@@ -1290,7 +1313,11 @@
 		title="Testing for a change in the rate"
 		question="Is the genocide series better described by one steady rate, or by two?"
 		source="04_series.py → series/change_points.json"
-		download={{ name: ['unsc', 'rate-change'], table: breaksTable }}
+		download={{
+			name: ['unsc', 'rate-change'],
+			table: breaksTable,
+			chart: () => rateSplit?.svg() ?? null
+		}}
 	>
 		{#snippet reading()}
 			<p>
@@ -1309,6 +1336,8 @@
 				unaccepted split does not establish that usage was constant.
 			</p>
 		{/snippet}
+
+		<RateSplit bind:this={rateSplit} breaks={data.breaks} annual={data.year} />
 
 		<table>
 			<thead>
@@ -1375,6 +1404,10 @@
 			</table>
 		</details>
 	</Figure>
+
+	{#if data.parts && partsSplits.length}
+		<Decomposition data={data.parts} annual={data.year} bind:split={partsSplit} />
+	{/if}
 
 	<Figure
 		fullscreen
@@ -1568,7 +1601,13 @@
 							</th>
 							<td class="num">{count(row.held)}</td>
 							<td class="num">{count(row.speeches)}</td>
-							<td class="num rate">{showRate(row.value)}</td>
+							<td class="num rate">
+								<span class="rate-cell"
+									><span class="rate-bar" aria-hidden="true"></span><span
+										>{showRate(row.value)}</span
+									></span
+								>
+							</td>
 							<td class="num soft">{showRate(row.without)}</td>
 							<td class="item">
 								{#if row.agenda.length}
@@ -1618,9 +1657,9 @@
 		{/snippet}
 		{#snippet caveat()}
 			<p>
-				Small groups have less precise shares: one speech out of twenty is 5%. Bands assume
-				independent speeches and omit uncertainty from text errors. Lines break where a category has
-				no speeches.
+				A share is drawn only where the category held at least {count(splitMinimum)} speeches in the year;
+				below that the line breaks, and the table and tooltip keep the counts. One speech out of one is
+				not a rate of 100%. Bands assume independent speeches and omit uncertainty from text errors.
 			</p>
 		{/snippet}
 		{#snippet more()}
@@ -1655,7 +1694,9 @@
 							<tr>
 								<td>{row.period}</td><td>{row.category}</td><td class="num">{count(row.held)}</td
 								><td class="num">{count(row.speeches)}</td><td class="num"
-									>{percent(row.speech_rate)}</td
+									>{splitRate(row, splitMinimum) == null
+										? 'withheld'
+										: percent(splitRate(row, splitMinimum) ?? 0)}</td
 								><td
 									>{#if href}<a {href}>Read lines</a>{:else}—{/if}</td
 								>
@@ -1933,8 +1974,25 @@
 	   whole row, six columns of month, counts, rate, the rate without the peak
 	   years and an agenda item, and nothing said which of them it measured
 	   (review of 19 September 2026). Behind the rate it needs no key: its
-	   length is that rate against the highest month's. */
+	   length is that rate against the highest month's.
+
+	   The bar has its own track beside the number rather than under it: drawn
+	   behind the digits, its ink end struck through them and "1.80%" read
+	   ".80%" (review of 10 November 2026). */
 	.calendar td.rate {
+		min-width: 10rem;
+	}
+
+	.rate-cell {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+	}
+
+	.rate-bar {
+		flex: 1 1 auto;
+		min-width: var(--sp-8);
+		height: var(--sp-3);
 		background-image: linear-gradient(
 			to right,
 			var(--paper-sunk) 0 calc(var(--w, 0%) - 1px),

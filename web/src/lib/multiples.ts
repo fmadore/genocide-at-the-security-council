@@ -20,7 +20,8 @@ import { escapeXml } from './export';
 /** One row of the figure, with its colour already a literal. */
 export interface MultiplesRow {
 	name: string;
-	values: number[];
+	/** Null where the rate is withheld; the line breaks there. */
+	values: (number | null)[];
 	colour: string;
 	summary: string;
 }
@@ -38,18 +39,31 @@ export interface MultiplesKey {
 }
 
 /**
- * The points of one row's line, scaled to its own maximum.
+ * One row's line as SVG path data, scaled to its own maximum.
  *
  * Shared by the page and the file so the two cannot draw the same row two
  * ways. A flat-zero row would divide by zero; it is drawn on the floor.
+ *
+ * A null is a withheld rate — a year in which the Council held too few
+ * speeches to divide by — and the line breaks there rather than running
+ * straight from the year before to the year after, which would draw a value
+ * the artefact declined to publish. A lone year between two gaps has no
+ * neighbour to be joined to and is drawn as a one-unit dash so it stays
+ * visible.
  */
-export function multiplesPoints(values: number[], width: number, height: number): string {
-	const top = Math.max(...values, 0);
+export function multiplesPath(values: (number | null)[], width: number, height: number): string {
+	const top = Math.max(...values.map((v) => v ?? 0), 0);
 	const scale = top > 0 ? top : 1;
 	const x = (i: number) => (values.length < 2 ? 0 : (i / (values.length - 1)) * width);
-	return values
-		.map((v, i) => `${x(i).toFixed(1)},${(height - (v / scale) * (height - 4) - 2).toFixed(1)}`)
-		.join(' ');
+	const y = (v: number) => height - (v / scale) * (height - 4) - 2;
+	const parts: string[] = [];
+	values.forEach((v, i) => {
+		if (v == null) return;
+		const open = i === 0 || values[i - 1] == null;
+		parts.push(`${open ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`);
+		if (open && (i === values.length - 1 || values[i + 1] == null)) parts.push('h1');
+	});
+	return parts.join(' ');
 }
 
 /**
@@ -133,7 +147,7 @@ export function multiplesSvg(request: MultiplesSvgRequest): string {
 			text(L.swatch + 6, middle, row.name, `font-weight="600" fill="${escapeXml(colours.ink)}"`)
 		);
 		out.push(
-			`<polyline transform="translate(${plotX} ${top})" points="${multiplesPoints(row.values, plotWidth, L.line)}" ` +
+			`<path transform="translate(${plotX} ${top})" d="${multiplesPath(row.values, plotWidth, L.line)}" ` +
 				`fill="none" stroke="${escapeXml(row.colour)}" stroke-width="1.6" stroke-linejoin="round"/>`
 		);
 		out.push(

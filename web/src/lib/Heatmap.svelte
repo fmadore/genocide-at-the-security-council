@@ -9,8 +9,8 @@
 	 * Three things about the drawing itself.
 	 *
 	 * **A withheld cell is hatched, not left blank.** White is the colour a zero
-	 * has. The hatch is drawn in the same hairline as the rules elsewhere on the
-	 * site, so a month the Council barely sat in reads as *absent evidence* at a
+	 * has. The hatch is drawn in the soft hairline of the rules elsewhere on the
+	 * site, at a wide pitch so it stays quieter than any drawn cell, so a month the Council barely sat in reads as *absent evidence* at a
 	 * glance and as its own sentence on hover — and it survives being printed in
 	 * greyscale, which a paler fill would not.
 	 *
@@ -108,7 +108,11 @@
 	   right of a wide drawing they sat under the floating back-to-top control —
 	   and below about 420 units the unit label drops to a row of its own too. */
 	const stacked = $derived(width < 420);
-	const LEGEND = $derived(stacked ? 92 : 80);
+	/* A third refusal key, for months after the record ends, takes a row of
+	   its own wherever it would not fit beside the other two (about 600 units
+	   from the gutter). */
+	const beyondRow = $derived(plan.beyond > 0 && width < GUTTER + 480);
+	const LEGEND = $derived((stacked ? 92 : 80) + (beyondRow ? 20 : 0));
 	const height = $derived(HEADER + rows * (CELL_H + GAP) + LEGEND);
 
 	const x = $derived((month: number) => GUTTER + (month - 1) * (CELL_W + GAP));
@@ -150,14 +154,18 @@
 	>
 		<title id={captionId}>{description}</title>
 		<defs>
+			<!-- The soft rule at a 6-unit pitch. It was ink at 1.4 every 4 units,
+			     which made the withheld months the loudest marks on the grid, and
+			     louder still in dark (review of 10 November 2026); the cells that
+			     carry a rate should lead. -->
 			<pattern
 				id={hatchId}
-				width="4"
-				height="4"
+				width="6"
+				height="6"
 				patternUnits="userSpaceOnUse"
 				patternTransform="rotate(45)"
 			>
-				<line x1="0" y1="0" x2="0" y2="4" stroke={$colours.rule} stroke-width="1.4" />
+				<line x1="0" y1="0" x2="0" y2="6" stroke={$colours.ruleSoft} stroke-width="1" />
 			</pattern>
 		</defs>
 
@@ -189,9 +197,14 @@
 				y={y(cell.year)}
 				width={CELL_W}
 				height={CELL_H}
-				fill={cell.state === 'withheld' ? `url(#${hatchId})` : fillOf(cell)}
+				fill={cell.state === 'withheld'
+					? `url(#${hatchId})`
+					: cell.state === 'beyond'
+						? 'none'
+						: fillOf(cell)}
 				stroke={$colours.ruleSoft}
 				stroke-width="0.75"
+				stroke-dasharray={cell.state === 'beyond' ? '1.5 2.5' : undefined}
 			>
 				<title>{label(cell)}</title>
 			</rect>
@@ -303,6 +316,30 @@
 				font-size="12"
 				fill={$colours.inkFaint}>no sitting ({plan.unobserved})</text
 			>
+
+			<!-- Months of the grid past the end of the record: the dashed outline
+			     the cells carry, and nothing inside it. -->
+			{#if plan.beyond > 0}
+				{@const bx = beyondRow ? left : left + 300}
+				{@const by = beyondRow ? refusals + 20 : refusals}
+				<rect
+					x={bx + 0.5}
+					y={by + 0.5}
+					width={SWATCH - 1}
+					height="9"
+					fill="none"
+					stroke={$colours.ruleSoft}
+					stroke-width="0.75"
+					stroke-dasharray="1.5 2.5"
+				/>
+				<text
+					x={bx + SWATCH + 6}
+					y={by + 9}
+					font-family={FONT}
+					font-size="12"
+					fill={$colours.inkFaint}>after the record ends ({plan.beyond})</text
+				>
+			{/if}
 		{/snippet}
 
 		{@render key(GUTTER, HEADER + rows * (CELL_H + GAP) + 12)}

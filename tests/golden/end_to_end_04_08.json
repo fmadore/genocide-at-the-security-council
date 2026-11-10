@@ -3961,6 +3961,7 @@
   "months": 384,
   "months_at_minimum": 0,
   "months_observed": 192,
+  "months_outside_record": 1,
   "share_at_minimum": 0.0,
   "speeches": 947,
   "speeches_at_minimum": 0

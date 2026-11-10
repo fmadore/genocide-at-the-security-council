@@ -28,12 +28,31 @@
  * supports. `bars()` scales within the reading it is given, and `removed()`
  * exists so the *difference* between them can be stated as a number instead of
  * being read off two pictures.
+ *
+ * **The length is the conservative estimate.** Tables are ranked by `lrc`, the
+ * smallest ratio the counts support once every word tested is allowed for, so
+ * the bar and the printed figure are that, and the log ratio — the point
+ * estimate — is printed beside it. A payload written before that ranking has no
+ * `lrc`, and `keywordEffect()` falls back to the log ratio it was ranked by.
  */
 
-import type { Keyword, SpeakerKeyness, SpeakerKeynessRow } from './types';
+import type { Keyword, SpeakerKeyness, SpeakerKeynessRow, Word } from './types';
 
 /** Which control a table was computed against. */
 export type Reading = 'matched' | 'unmatched';
+
+/**
+ * The figure a keyword row is drawn and ranked by: its conservative log ratio,
+ * or its log ratio where the payload predates the conservative ranking.
+ */
+export function keywordEffect(row: Pick<Word, 'log_ratio' | 'lrc'>): number {
+	return row.lrc ?? row.log_ratio;
+}
+
+/** Whether a table carries the conservative estimate, rather than only the point estimate. */
+export function conservative(rows: readonly Pick<Word, 'lrc'>[] | null): boolean {
+	return (rows ?? []).some((row) => row.lrc !== undefined);
+}
 
 export interface Bar {
 	word: string;
@@ -41,11 +60,15 @@ export interface Bar {
 	reference: number;
 	g2: number;
 	logRatio: number;
+	/** The conservative log ratio, or null where the payload has none. */
+	lrc: number | null;
+	/** What the bar is drawn from and the row is printed as: `keywordEffect()`. */
+	effect: number;
 	documents: number;
 	meetings: number | null;
 	dp: number;
 	selfReference: boolean;
-	/** 0–1, the row's log ratio against the widest in the same reading. */
+	/** 0–1, the row's `effect` against the widest in the same reading. */
 	weight: number;
 	/**
 	 * Where this word's log ratio landed across the artefact's draws, as the
@@ -113,18 +136,20 @@ export function bars(speaker: SpeakerKeynessRow, reading: Reading, limit = 20): 
 	const kept = source.slice(0, limit);
 	// The widest bar in this reading, never across both: the two tables have
 	// different controls, so a shared scale would compare two denominators.
-	const widest = Math.max(...kept.map((row) => Math.abs(row.log_ratio)), 1);
+	const widest = Math.max(...kept.map((row) => Math.abs(keywordEffect(row))), 1);
 	return kept.map((row) => ({
 		word: row.word,
 		target: row.target,
 		reference: row.reference,
 		g2: row.g2,
 		logRatio: row.log_ratio,
+		lrc: row.lrc ?? null,
+		effect: keywordEffect(row),
 		documents: row.documents,
 		meetings: row.meetings,
 		dp: row.dp,
 		selfReference: row.self_reference,
-		weight: Math.min(Math.abs(row.log_ratio) / widest, 1),
+		weight: Math.min(Math.abs(keywordEffect(row)) / widest, 1),
 		interval:
 			reading === 'matched' && intervals.has(row.word)
 				? {
@@ -136,26 +161,52 @@ export function bars(speaker: SpeakerKeynessRow, reading: Reading, limit = 20): 
 	}));
 }
 
+/** What the pairing did to a speaker's largest unmatched differences. */
+export interface MatchingEffect {
+	/** The unmatched keywords looked at: the top of that table. */
+	of: number;
+	/** How many of them are no longer in the matched table at all. */
+	left: number;
+	/** Median fall in log ratio over the ones in both tables; null below `MIN_SURVIVORS`. */
+	drop: number | null;
+}
+
+/** Words that must be in both tables before a median fall is computed over them. */
+export const MIN_SURVIVORS = 5;
+
 /**
- * How far a speaker's top unmatched keywords fall once the occasion is held.
+ * How a speaker's top unmatched keywords fare once the occasion is held.
  *
- * The one number that says whether the matching did anything, and the reason
+ * The one summary that says whether the matching did anything, and the reason
  * both readings are published. Null when either reading is missing, rather than
  * zero: "no change" and "not computed" are different claims.
+ *
+ * Two numbers, because the matched table is cut at its largest rows and a word
+ * missing from it has no published effect size. Until November 2026 a missing
+ * word was scored as a log ratio of zero, so for a speaker whose fifteen
+ * largest unmatched keywords had all left the table — Russia, and 119 of 147
+ * published speakers for most of theirs — the "fall" printed was simply the
+ * median unmatched log ratio, as though each word had dropped to parity. A
+ * word ranked forty-first is not at parity; it is unreported. So the words
+ * that left are counted, and the fall is the median over the words whose two
+ * values are both on the page.
  */
-export function removed(speaker: SpeakerKeynessRow, top = 15): number | null {
+export function removed(speaker: SpeakerKeynessRow, top = 15): MatchingEffect | null {
 	if (!speaker.keywords || !speaker.keywords_unmatched) return null;
 	const matched = new Map(speaker.keywords.map((row) => [row.word, row.log_ratio]));
-	const drops = speaker.keywords_unmatched
-		.slice(0, top)
-		// A word the matching drops out of the table entirely counts as zero: it no
-		// longer distinguishes the speaker at all, which is the clearest case of
-		// the control having done its work.
-		.map((row) => row.log_ratio - (matched.get(row.word) ?? 0));
-	if (!drops.length) return null;
-	const sorted = [...drops].sort((a, b) => a - b);
-	const middle = Math.floor(sorted.length / 2);
-	return sorted.length % 2 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2;
+	const looked = speaker.keywords_unmatched.slice(0, top);
+	if (!looked.length) return null;
+	const drops = looked
+		.filter((row) => matched.has(row.word))
+		.map((row) => row.log_ratio - matched.get(row.word)!)
+		.sort((a, b) => a - b);
+	const middle = Math.floor(drops.length / 2);
+	const median = drops.length % 2 ? drops[middle]! : (drops[middle - 1]! + drops[middle]!) / 2;
+	return {
+		of: looked.length,
+		left: looked.length - drops.length,
+		drop: drops.length >= MIN_SURVIVORS ? median : null
+	};
 }
 
 /** How many of the drawn rows are the speaker naming itself. */
@@ -213,6 +264,7 @@ export function exportRows(speaker: SpeakerKeynessRow): (string | number | boole
 				row.target,
 				row.reference,
 				row.g2,
+				row.lrc ?? null,
 				row.log_ratio,
 				row.self_reference,
 				interval?.low ?? null,
@@ -230,6 +282,7 @@ export const EXPORT_COLUMNS = [
 	'target_occurrences',
 	'reference_occurrences',
 	'g2',
+	'lrc',
 	'log_ratio',
 	'self_reference',
 	'log_ratio_low',

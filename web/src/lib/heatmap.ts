@@ -71,7 +71,28 @@ export type Unit = 'speech_rate' | 'token_rate';
  * for as long as it stood the figure drew both refusals with one hatch and
  * counted only one of them in its key.
  */
-export type CellState = 'drawn' | 'withheld' | 'unobserved';
+export type CellState = 'drawn' | 'withheld' | 'unobserved' | 'beyond';
+
+/**
+ * Whether a month of the grid lies outside the record's own dates.
+ *
+ * The grid is whole years and the record is not: v6.0 ends on 23 June 2026, so
+ * July to December 2026 are cells in which nothing *has been recorded*, which
+ * is a different statement from the Council not having met. Until November
+ * 2026 they were drawn with the "no sitting" mark and counted among the months
+ * the Council held no speeches. A payload written before the artefact carried
+ * its bounds has none to test against, and nothing is called `beyond`.
+ */
+export function beyondRecord(
+	period: string,
+	record: { first_period?: string; last_period?: string } | undefined
+): boolean {
+	if (!record) return false;
+	return (
+		(record.first_period !== undefined && period < record.first_period) ||
+		(record.last_period !== undefined && period > record.last_period)
+	);
+}
 
 export interface Cell {
 	period: string;
@@ -107,6 +128,8 @@ export interface HeatmapPlan {
 	drawn: number;
 	withheld: number;
 	unobserved: number;
+	/** Months of the grid after the record ends (or before it begins): not drawn, not counted. */
+	beyond: number;
 	minimum: number;
 	refusal: 'no-measure' | 'none-drawable' | null;
 }
@@ -159,6 +182,7 @@ export function grid(request: HeatmapRequest): HeatmapPlan {
 			drawn: 0,
 			withheld: 0,
 			unobserved: 0,
+			beyond: 0,
 			minimum: data.minimum_speeches,
 			refusal: 'no-measure'
 		};
@@ -170,8 +194,13 @@ export function grid(request: HeatmapRequest): HeatmapPlan {
 	const cells: Cell[] = data.periods.map((period, index) => {
 		const held = data.corpus.speeches[index] ?? 0;
 		const value = data.sufficient[index] ? (values[index] ?? null) : null;
-		const state: CellState =
-			held === 0 ? 'unobserved' : data.sufficient[index] && value !== null ? 'drawn' : 'withheld';
+		const state: CellState = beyondRecord(period, data.record)
+			? 'beyond'
+			: held === 0
+				? 'unobserved'
+				: data.sufficient[index] && value !== null
+					? 'drawn'
+					: 'withheld';
 		const [year, month] = period.split('-');
 		return {
 			period,
@@ -206,6 +235,7 @@ export function grid(request: HeatmapRequest): HeatmapPlan {
 		drawn,
 		withheld: cells.filter((cell) => cell.state === 'withheld').length,
 		unobserved: cells.filter((cell) => cell.state === 'unobserved').length,
+		beyond: cells.filter((cell) => cell.state === 'beyond').length,
 		minimum: data.minimum_speeches,
 		refusal: drawn ? null : 'none-drawable'
 	};
@@ -278,7 +308,7 @@ export function widening(data: MonthlySeries, measure: string): Widening | null 
  * met again here for the same reason.
  */
 export function evidence(data: MonthlySeries, measure: string, cell: Cell): EvidenceLink[] {
-	if (cell.state === 'unobserved' || cell.speeches < 1) return [];
+	if (cell.state === 'unobserved' || cell.state === 'beyond' || cell.speeches < 1) return [];
 	return termsOf(data, measure).map((term) => ({
 		term,
 		...cellQuery(term, cell.year, cell.month)

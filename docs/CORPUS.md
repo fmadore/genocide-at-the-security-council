@@ -173,8 +173,11 @@ found 4,133 and 7,747 there with `genocid*`; v8 adds the accented *génocidaires
   collocate table only if its G² is at least 10.83, which corresponds to
   p < 0.001 for a single test (`scripts/lib/lexical.py`). Thousands of words are
   tested at once and the cut-off is not adjusted for that, so some words clear
-  it by chance. It removes noise; the tables are then ranked by effect size, and
-  a word's presence in them is not evidence that it is significant on its own.
+  it by chance. It removes noise; collocate tables are then ranked by effect
+  size, and a collocate's presence is not evidence that it is significant on its
+  own. Keyword tables are ranked by the conservative log ratio, whose interval
+  *is* divided among every word tested (Bonferroni), and list only words whose
+  counts exclude an even rate at that level.
 - `source_word_count` differs slightly from the project's tokenisation. Project
   rates use only `words`, computed once by `lib.lexical`.
 

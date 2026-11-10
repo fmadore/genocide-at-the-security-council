@@ -17,13 +17,14 @@
 	 * few hundred bytes of markup that prints. The download is a second drawing
 	 * of the same rows with the colours resolved, in `#lib/multiples`.
 	 */
-	import { multiplesKey, multiplesPoints, multiplesSvg } from './multiples';
+	import { multiplesKey, multiplesPath, multiplesSvg } from './multiples';
 	import { FONT, palette } from './theme';
 
 	interface Row {
 		/** Shown at the left in ink, behind a square of the series' colour. */
 		name: string;
-		values: number[];
+		/** Null where the rate is withheld; the line breaks there. */
+		values: (number | null)[];
 		/** Any CSS colour — normally `var(--reg-…)`. */
 		colour: string;
 		/** The one number the per-row scaling throws away. */
@@ -133,8 +134,8 @@
 				<span class="swatch" style:background={row.colour}></span>{row.name}
 			</div>
 			<svg viewBox="0 0 {W} {H}" preserveAspectRatio="none" aria-hidden="true">
-				<polyline
-					points={multiplesPoints(row.values, W, H)}
+				<path
+					d={multiplesPath(row.values, W, H)}
 					fill="none"
 					stroke={row.colour}
 					stroke-width="1.6"

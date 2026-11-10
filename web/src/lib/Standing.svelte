@@ -3,11 +3,11 @@
 	 * Who held a seat when they spoke.
 	 *
 	 * A renderer over `#lib/standing`, which settles what is drawn and why. The
-	 * one drawing decision here is the one §3 forced: **the bar is the table**.
-	 * Each row's composition is painted in the row's own background as a
-	 * multi-stop gradient, so the figure and the numbers are a single element and
-	 * there is no second rendering that could drift from the first — the same
-	 * decision the per-speaker keyness view made, for the same reason.
+	 * one drawing decision here is that the bar lives in the table: each row's
+	 * composition is a multi-stop gradient in a cell of that row, so the figure
+	 * and the numbers are one table and there is no second rendering that could
+	 * drift from the first. It used to be painted behind the whole row, which put
+	 * counts on the bands of other columns.
 	 *
 	 * One hue per position, and five of them rather than a seated family and an
 	 * unseated one. "Not seated" covers three different situations — a state that
@@ -34,6 +34,7 @@
 	import { EXPORT_COLUMNS, exemplar, exportRows, plan } from '#lib/standing.js';
 	import type { Category, Ordering, Segment } from '#lib/standing.js';
 	import type { Countries } from '#lib/types.js';
+	import { categoricalData, colours } from '#lib/theme.js';
 
 	let { data }: { data: Countries } = $props();
 
@@ -51,16 +52,26 @@
 		{ id: 'all', label: 'Every speaker', hint: 'all three records at once' }
 	];
 
+	/* One fill per position: the eight fills DESIGN.md gives a categorical split
+	   that is not a register, alternating dark and light so neighbouring bands
+	   differ in lightness as well as hue in both themes. They were five weights
+	   of ink at 6–55% painted behind the whole row: the three lightest could not
+	   be told apart, the two lightest vanished in dark, and a count could sit on
+	   another column's band (review of 10 November 2026). */
+	const fills = $derived.by(() => {
+		const ramp = categoricalData($colours);
+		return new Map(result.groups.map((group, i) => [group, ramp[i % ramp.length]!]));
+	});
+
 	/* The gradient. One `linear-gradient` with hard stops rather than five nested
-	   elements: a band is a range of the row, not a box inside it. */
+	   elements: a band is a range of the bar, not a box inside it. */
 	const bands = (segments: Segment[]) =>
 		segments
 			.map(
-				(band) => `var(--band-${slug(band.group)}) ${band.from.toFixed(3)}% ${band.to.toFixed(3)}%`
+				(band) =>
+					`${fills.get(band.group) ?? 'transparent'} ${band.from.toFixed(3)}% ${band.to.toFixed(3)}%`
 			)
 			.join(', ');
-
-	const slug = (group: string) => group.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
 	const describe = (entry: (typeof result.rows)[number]) =>
 		entry.segments
@@ -147,7 +158,7 @@
 	{:else}
 		<div class="key">
 			{#each result.groups as group (group)}
-				<span class="swatch" style:--band="var(--band-{slug(group)})">
+				<span class="swatch" style:--band={fills.get(group)}>
 					<i></i>{group}{#if result.seatedGroups.has(group)}<abbr
 							title="Holds a seat on the Council">seat</abbr
 						>{/if}
@@ -165,17 +176,27 @@
 						<th scope="col">Speaker</th>
 						<th scope="col" class="num">Speeches</th>
 						<th scope="col" class="num">From a seat</th>
+						<th scope="col" class="composition">Composition</th>
 						{#each result.groups as group (group)}
-							<th scope="col" class="num">{group}</th>
+							<th scope="col" class="num"
+								><span class="swatch" style:--band={fills.get(group)}><i></i>{group}</span></th
+							>
 						{/each}
 					</tr>
 				</thead>
 				<tbody>
 					{#each result.rows as entry (entry.row.country_org)}
-						<tr class="band" style:--bands="linear-gradient(to right, {bands(entry.segments)})">
+						<tr>
 							<th scope="row" title={describe(entry)}>{shortCountry(entry.row.country_org)}</th>
 							<td class="num">{count(entry.row.held)}</td>
 							<td class="num">{percent(entry.row.seated_share ?? 0)}</td>
+							<td class="composition" title={describe(entry)}>
+								<span
+									class="bar"
+									aria-hidden="true"
+									style:--bands="linear-gradient(to right, {bands(entry.segments)})"
+								></span>
+							</td>
 							{#each result.groups as group (group)}
 								<td class="num" class:nil={!entry.row.groups[group]}
 									>{count(entry.row.groups[group] ?? 0)}</td
@@ -200,27 +221,13 @@
 </Figure>
 
 <style>
-	/* One hue per position, tinted toward the page so the numbers can be read on
-	   top of them. Five distinct hues rather than two families, because "not
-	   seated" covers three different situations and a shared colour would say
-	   they were one.
+	/* One fill per position, set in the script from the theme. Five distinct
+	   fills rather than two families, because "not seated" covers three
+	   different situations and a shared colour would say they were one.
 
 	   What groups the two seated positions is structure, not hue: the artefact
 	   lists them first, so the seated share is always the left-hand part of a
 	   row — which is the quantity beside it. `--blue` is absent on purpose. */
-	.key,
-	table {
-		--tint: 32%;
-		/* Weights of ink, not the register hues: those mean one thing on this site,
-		   and a seat is not a register. Seated darker, unseated lighter, so the
-		   Charter's two kinds of membership read as a block. */
-		--band-p5: color-mix(in oklab, var(--ink) 55%, transparent);
-		--band-e10: color-mix(in oklab, var(--ink) 38%, transparent);
-		--band-non-member-state: color-mix(in oklab, var(--ink) 22%, transparent);
-		--band-un: color-mix(in oklab, var(--ink) 12%, transparent);
-		--band-non-state: color-mix(in oklab, var(--ink) 6%, transparent);
-	}
-
 	.key {
 		display: flex;
 		flex-wrap: wrap;
@@ -237,11 +244,13 @@
 		gap: var(--sp-1);
 	}
 
+	/* The site's colour key: a 0.625rem square before the words. */
 	.swatch i {
-		width: 1.4rem;
-		height: 0.55rem;
+		width: 0.625rem;
+		height: 0.625rem;
 		background: var(--band);
 		display: inline-block;
+		flex: none;
 	}
 
 	/* Sentence case at the key's own size: the tracked capitals this carried are
@@ -274,19 +283,23 @@
 		z-index: 1;
 	}
 
-	/* The composition, painted behind the row it describes. The gradient sits on
-	   the row itself rather than in an overlay element: a `tr::after` is not laid
-	   out reliably in table layout, and the bands are a range of the row rather
-	   than a box inside it.
+	/* The bar has a cell of its own, as the pooled months' does, so every count
+	   sits on the page's ground and not on some other column's band — and the
+	   zebra stripe, which used to show through 32%-opaque bands and draw one
+	   position in two colours, can stay on: the bar's fills are opaque. */
+	.composition {
+		min-width: 8rem;
+		width: 20%;
+	}
 
-	   The zebra striping every other table on this site gets is switched off
-	   here, and that is not a preference. `app.css` alternates a background
-	   colour down the rows; these bands are 32% opaque, so the stripe shows
-	   through and the same position is drawn in two different colours down the
-	   column. Decoration and data cannot share one channel. */
-	tbody tr.band {
-		background-color: transparent;
+	.bar {
+		display: block;
+		height: var(--sp-3);
 		background-image: var(--bands);
+	}
+
+	thead .swatch {
+		justify-content: flex-end;
 	}
 
 	tbody th {
@@ -298,9 +311,10 @@
 		color: var(--ink);
 	}
 
+	/* Faint ink at full strength: at 55% opacity a zero fell under 3:1 and
+	   vanished in dark. */
 	.nil {
 		color: var(--ink-3);
-		opacity: 0.55;
 	}
 
 	.refusal,

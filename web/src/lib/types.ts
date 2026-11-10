@@ -32,19 +32,26 @@ export interface LexiconMeta extends BaseMeta {
 
 export interface Measure {
 	speeches: number[];
-	speech_rate: number[];
+	/**
+	 * Null wherever `AnnualSeries.sufficient` is false. Since the record was
+	 * extended to 1946 a year can hold 86 speeches and a quarter none at all,
+	 * so the annual and quarterly series withhold on the monthly grid's rule.
+	 */
+	speech_rate: (number | null)[];
 	/**
 	 * Wilson 95% bounds of `speech_rate`, period by period, written by
 	 * `lib/series.py::measure` beside the rate itself. A share of 60 speeches
 	 * and a share of 6,000 are not the same number, and the band is how a
-	 * chart says so.
+	 * chart says so. Null exactly where the rate is.
 	 */
-	speech_rate_low: number[];
-	speech_rate_high: number[];
+	speech_rate_low: (number | null)[];
+	speech_rate_high: (number | null)[];
 	/**
 	 * 95% bounds from resampling whole meetings within each period, on the
 	 * annual and quarterly series. Wider than Wilson where a period's rate rests
-	 * on a few sessions; absent from the monthly grid and from older payloads.
+	 * on several uneven sessions, and narrower — 0 to 0 — where no meeting used
+	 * the term, so a figure draws the envelope of the two (`bandBounds`).
+	 * Absent from the monthly grid and from older payloads.
 	 */
 	speech_rate_cluster_low?: (number | null)[];
 	speech_rate_cluster_high?: (number | null)[];
@@ -54,7 +61,7 @@ export interface Measure {
 	 * that had no occurrence count of their own are gone — R7.
 	 */
 	occurrences?: number[];
-	token_rate?: number[];
+	token_rate?: (number | null)[];
 	tier?: string;
 	/** The shelf the term picker groups and colours by. Never a measure. */
 	register?: string;
@@ -92,11 +99,34 @@ export interface CorpusSlice {
 	speech_rate_high: (number | null)[];
 }
 
+/** Where the record begins and ends, as the series step read it off the corpus. */
+export interface SeriesRecord {
+	/** ISO dates of the first and last speech. */
+	first_date: string;
+	last_date: string;
+	/** `YYYY-MM`, on the monthly grid only. */
+	first_period?: string;
+	last_period?: string;
+}
+
 export interface AnnualSeries {
 	meta: LexiconMeta;
 	freq: 'year' | 'quarter';
+	/**
+	 * Years as numbers; quarters as `2014Q3`, a complete grid from the first
+	 * observed quarter to the last, so a quarter nobody spoke in is a position
+	 * on the axis rather than a missing label.
+	 */
 	periods: (number | string)[];
 	corpus: { speeches: number[]; words: number[]; meetings: number[] };
+	/**
+	 * Per period, whether its speeches reach `minimum_speeches`. Optional only
+	 * for a payload written before November 2026, which withheld nothing.
+	 */
+	sufficient?: boolean[];
+	minimum_speeches?: number;
+	/** Optional only for a payload written before November 2026. */
+	record?: SeriesRecord;
 	/** Present on artifacts written after R8; optional so archived payloads remain readable. */
 	corpora?: Record<string, CorpusSlice>;
 	/** One entry per lexicon term and per derived measure, and nothing else. */
@@ -196,6 +226,12 @@ export interface MonthlySeries {
 	corpora?: Record<string, CorpusSlice>;
 	/** Per period, whether its denominator clears `minimum_speeches`. */
 	sufficient: boolean[];
+	/**
+	 * The record's own first and last dates and months. The grid covers whole
+	 * years, so its last cells can lie after the record ends. Optional only
+	 * for a payload written before November 2026.
+	 */
+	record?: SeriesRecord;
 	terms: Record<string, MonthlyMeasure>;
 	years: number[];
 	months: number[];
@@ -219,17 +255,26 @@ export interface BreakdownRow {
 	category: string;
 	held: number;
 	speeches: number;
-	speech_rate: number;
+	/**
+	 * Whether `held` reaches `Breakdowns.minimum_speeches`. Optional only for a
+	 * payload written before November 2026; the figure applies the same test to
+	 * `held` itself, so an older payload is withheld from too.
+	 */
+	sufficient?: boolean;
+	/** Null where `sufficient` is false: one speech of one is not a rate of 100%. */
+	speech_rate: number | null;
 	/** Wilson 95% bounds of `speech_rate` over this row's own `held`. */
-	speech_rate_low: number;
-	speech_rate_high: number;
+	speech_rate_low: number | null;
+	speech_rate_high: number | null;
 	occurrences?: number;
-	token_rate?: number;
+	token_rate?: number | null;
 }
 
 export interface Breakdowns {
 	meta: LexiconMeta;
 	freq: string;
+	/** Speeches a cell needs before its rates are written. */
+	minimum_speeches?: number;
 	measures: Record<string, Record<string, { categories: string[]; rows: BreakdownRow[] }>>;
 }
 
@@ -319,7 +364,8 @@ export interface Events {
  * One row of a collocate or keyword table.
  *
  * G² is a floor the row cleared, never its rank: tables are ordered by effect
- * (`log_dice` for collocates, `log_ratio` for keywords). The three dispersion
+ * (`log_dice` for collocates, `lrc` for keywords; `log_ratio` for keyword
+ * payloads written before 10 November 2026). The three dispersion
  * fields say how evenly the word is spread over the speeches the table was
  * cut from — `documents` it appears in, distinct `meetings` (null only where
  * the pipeline had no meeting to count), and Gries's DP, 0 for a word spread
@@ -331,6 +377,18 @@ export interface Word {
 	reference: number;
 	g2: number;
 	log_ratio: number;
+	/**
+	 * The conservative log ratio, keyword tables only: log2 of the end nearest 1
+	 * of an exact interval for the rate ratio, Bonferroni over every word tested,
+	 * and 0 where that interval holds 1. What keyword tables are ranked by. Absent
+	 * from collocate rows and from keyword payloads older than the ranking.
+	 */
+	lrc?: number;
+	/**
+	 * Keyword tables only: the selection word's own forms, which the matched
+	 * control cannot contain by construction. Marked, never removed.
+	 */
+	node?: boolean;
 	/** logDice (Rychlý 2008), collocate tables only; 14 is a pair never seen apart. */
 	log_dice?: number;
 	documents: number;
@@ -376,6 +434,12 @@ export interface Keyness {
 	target_tokens: number;
 	control_tokens: number;
 	short_strata: { key: string[]; wanted: number; found: number }[];
+	/** The column both tables are ranked by; absent before the conservative ranking. */
+	rank?: 'lrc';
+	/** The family-wise error rate the conservative estimate is computed at. */
+	lrc_alpha?: number;
+	/** Each table's Bonferroni family: the words its target was tested on. */
+	tests?: { keywords: number; keywords_unmatched: number };
 	keywords: Word[];
 	keywords_unmatched: Word[];
 	stability: {
@@ -388,7 +452,15 @@ export interface Keyness {
 		 * per-speaker tables, because that figure is printed next to one draw;
 		 * this one is not, and 05 has not been re-run.
 		 */
-		keyword_log_ratio: { word: string; median: number; p05: number; p95: number }[];
+		keyword_log_ratio: {
+			word: string;
+			median: number;
+			p05: number;
+			p95: number;
+			/** The conservative estimate's observed range over the same draws. */
+			lrc_low?: number;
+			lrc_high?: number;
+		}[];
 	};
 }
 
@@ -664,6 +736,11 @@ export interface Keyword {
 	reference: number;
 	g2: number;
 	log_ratio: number;
+	/**
+	 * The conservative log ratio the table is ranked by; see `Word.lrc`. Absent
+	 * from payloads written before that ranking, which are drawn by log ratio.
+	 */
+	lrc?: number;
 	/** Dispersion over the speaker's matched speeches; see `Word`. */
 	documents: number;
 	meetings: number | null;
@@ -708,6 +785,8 @@ export interface SpeakerKeynessRow {
 	 */
 	target_tokens: number | null;
 	control_tokens: number | null;
+	/** The words the speaker was tested on: the Bonferroni family of both tables. */
+	tests?: number | null;
 	keywords: Keyword[] | null;
 	/** The same target against the whole corpus: what the matching improved on. */
 	keywords_unmatched: Keyword[] | null;
@@ -746,6 +825,10 @@ export interface SpeakerKeyness {
 	unmatched_rule: string;
 	reading_rule: string;
 	self_reference_rule: string;
+	/** Absent from payloads written before the conservative ranking. */
+	rank?: 'lrc';
+	lrc_alpha?: number;
+	rank_rule?: string;
 	seed: number;
 	repetitions: number;
 	limit: number;
@@ -805,6 +888,21 @@ export interface SilenceRow {
 	share_low: number | null;
 	share_high: number | null;
 	sufficient: boolean;
+	/**
+	 * The ordered reading: meetings in which the speaker took the floor *after*
+	 * another speaker's first use of the word, and those in which it then used
+	 * it. A third of `exposed` fails that test — the speaker had finished
+	 * before anyone else said the word. Optional only for a payload written
+	 * before November 2026.
+	 */
+	exposed_after?: number;
+	joined_after?: number;
+	/** Null whenever `sufficient_after` is false. */
+	share_after?: number | null;
+	share_after_low?: number | null;
+	share_after_high?: number | null;
+	/** Its own flag: the stricter denominator is smaller. */
+	sufficient_after?: boolean;
 }
 
 export interface SilencePeriod {
@@ -816,6 +914,11 @@ export interface SilencePeriod {
 	/** `joined / exposed` over every speaker: the room's own average. */
 	room_share: number | null;
 	speakers_at_minimum: number;
+	/** The same four figures on the ordered reading; see `SilenceRow.exposed_after`. */
+	exposed_after?: number;
+	joined_after?: number;
+	room_share_after?: number | null;
+	speakers_at_minimum_after?: number;
 }
 
 export interface Silence {
@@ -824,6 +927,8 @@ export interface Silence {
 	minimum_meetings: number;
 	informative_zero_minimum: number;
 	rule: string;
+	/** What the ordered reading counts, with the corpus's own figures. */
+	rule_after?: string;
 	periods: SilencePeriod[];
 	rows: SilenceRow[];
 }

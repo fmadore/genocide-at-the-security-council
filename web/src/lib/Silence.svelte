@@ -14,7 +14,7 @@
 	import { provenanceOf } from '#lib/export.js';
 	import type { ExportRequest } from '#lib/export.js';
 	import { count, entityType, percent, shortCountry } from '#lib/format.js';
-	import { EXPORT_COLUMNS, exportRows, plan } from '#lib/silence.js';
+	import { EXPORT_COLUMNS, exportRows, plan, stripAt, stripEnd, stripScale } from '#lib/silence.js';
 	import type { Ordering, SilenceEntry } from '#lib/silence.js';
 	import type { Countries } from '#lib/types.js';
 
@@ -34,11 +34,16 @@
 		{ id: 'name', label: 'Name' }
 	];
 
-	/* One axis for every row: the widest upper bound in the selection. */
+	/* One axis for every row, ending at a printed figure near the 90th-percentile
+	   upper bound and never short of the room's average: `#lib/silence`. */
 	const scale = $derived(
-		Math.max(...result.rows.map((e) => e.row.share_high ?? 0), room ?? 0, 1e-6)
+		stripScale(
+			result.rows.map((e) => e.row.share_high),
+			room ?? 0
+		)
 	);
-	const at = (value: number) => `${((value / scale) * 100).toFixed(2)}%`;
+	const at = (value: number) => stripAt(value, scale.end);
+	const past = (value: number | null) => (value ?? 0) > scale.end;
 
 	/* The delegation's own uses in the period: what it said when it did join in. */
 	function uses(entry: SilenceEntry): string | null {
@@ -102,11 +107,12 @@
 
 	{#snippet reading()}
 		<p>
-			A meeting counts when the delegation took the floor and another speaker used the word. The
-			share is the part of those meetings in which it used the word too. The bar is the 95%
-			interval, the tick the share, the dashed line the room's average{#if room !== null}, {percent(
-					room
-				)}{/if}. A name opens its own uses.
+			A meeting counts if the delegation spoke {#if result.ordered}after another speaker had already
+				used the word{:else}and another speaker used the word{/if}; the share is those in which it
+			joined in. Bars are 95% intervals, ticks shares, dashes the room's average{#if room !== null},
+				{percent(room)}{/if}. Strips run from 0 to {stripEnd(scale.end)}; longer intervals end in an
+			arrowhead{#if scale.clipped}
+				({count(scale.clipped)} here){/if}. Names open their uses.
 		</p>
 	{/snippet}
 	{#snippet caveat()}
@@ -122,6 +128,9 @@
 			Procedural turns by the presidency are left out on both sides: they read agenda titles aloud,
 			and some titles contain the word. A meeting in which a delegation was the only one to use the
 			word does not count for it, because nobody else had made the word available.
+			{#if result.ordered}Nor does a meeting in which the delegation had finished speaking before
+				anyone else used it: the order of speaking is the source's. The download carries both
+				counts.{/if}
 		</p>
 		{#if result.summary}<p>
 				In this period {count(result.summary.meetings)} meetings carried the word in a substantive speech.
@@ -147,11 +156,13 @@
 				<thead>
 					<tr>
 						<th scope="col">Speaker</th>
+						<th scope="col" class="num">Share</th>
+						<th scope="col" class="whisker-head"
+							>95% interval <span class="scale">0&ndash;{stripEnd(scale.end)}</span></th
+						>
 						<th scope="col">Group</th>
 						<th scope="col" class="num">Exposed meetings</th>
 						<th scope="col" class="num">Used the word</th>
-						<th scope="col" class="num">Share</th>
-						<th scope="col">95% interval</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -162,12 +173,6 @@
 								{#if link}<a href={link}>{shortCountry(entry.row.country_org)}</a
 									>{:else}{shortCountry(entry.row.country_org)}{/if}
 							</th>
-							<td
-								>{entry.speaker?.un_regional_group ??
-									(entry.speaker ? entityType(entry.speaker.entity_type) : '—')}</td
-							>
-							<td class="num">{count(entry.row.exposed)}</td>
-							<td class="num">{count(entry.row.joined)}</td>
 							<td class="num">{percent(entry.row.share ?? 0)}</td>
 							<td class="whisker">
 								<span
@@ -178,13 +183,20 @@
 									style:--room={at(room ?? 0)}
 									class:has-room={room !== null}
 									aria-hidden="true"
-								></span>
+									>{#if past(entry.row.share_high)}<span class="over"></span>{/if}</span
+								>
 								<span class="range"
 									>{percent(entry.row.share_low ?? 0)}&ndash;{percent(
 										entry.row.share_high ?? 0
 									)}</span
 								>
 							</td>
+							<td
+								>{entry.speaker?.un_regional_group ??
+									(entry.speaker ? entityType(entry.speaker.entity_type) : '—')}</td
+							>
+							<td class="num">{count(entry.row.exposed)}</td>
+							<td class="num">{count(entry.row.joined)}</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -195,6 +207,9 @@
 	<details class="data-table">
 		<summary><Icon icon={ChevronRight} />The rule, as the artefact states it</summary>
 		<p class="prose">{data.silence.rule}</p>
+		{#if result.ordered && data.silence.rule_after}<p class="prose">
+				{data.silence.rule_after}
+			</p>{/if}
 	</details>
 </Figure>
 
@@ -246,13 +261,15 @@
 		min-width: 9rem;
 	}
 
+	/* 8rem rather than 4.5: with the scale ending near the 90th percentile
+	   instead of at the outlier, the intervals have room to differ. */
 	.rail {
 		position: relative;
 		display: inline-block;
 		vertical-align: middle;
-		width: 4.5rem;
+		width: var(--sp-10);
 		height: 0.75rem;
-		margin-inline-end: 0.5rem;
+		margin-inline-end: var(--sp-4);
 		background: linear-gradient(
 			to right,
 			transparent var(--low),
@@ -280,6 +297,54 @@
 		bottom: -0.3rem;
 		left: var(--room);
 		border-left: 1px dashed var(--ink-3);
+	}
+
+	/* An interval that reaches past the printed end of the strip: an arrowhead
+	   in faint ink just beyond it, so it is never read as stopping there. */
+	.over {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 100%;
+		width: var(--sp-2);
+		background: var(--ink-3);
+		clip-path: polygon(0 0, 100% 50%, 0 100%);
+	}
+
+	.whisker-head .scale {
+		font-weight: 400;
+		color: var(--ink-3);
+		font-size: var(--step--2);
+		margin-inline-start: var(--sp-1);
+		font-variant-numeric: tabular-nums lining-nums;
+	}
+
+	/* On a phone the share and its interval come straight after the name, and
+	   the printed range drops under the strip so both fit the screen. */
+	@media (max-width: 40rem) {
+		tbody th {
+			white-space: normal;
+		}
+
+		.whisker-head .scale {
+			display: block;
+			margin-inline-start: 0;
+		}
+
+		.rail {
+			display: block;
+			width: var(--sp-9);
+			margin-inline-end: 0;
+		}
+
+		.range {
+			display: block;
+			margin-top: var(--sp-1);
+		}
+
+		td.whisker {
+			min-width: 0;
+		}
 	}
 
 	.range {

@@ -157,8 +157,8 @@ export function chronologyParams(
    reader with a centred grey sentence and nothing to press (critique of 19
    September 2026, heuristic 9). The way out is the nearest figure that can be
    drawn: another measure of the same calendar where the asked-for one is not in
-   the data, and otherwise the same measure by year, where no minimum applies
-   because a year always holds thousands of speeches. */
+   the data, and otherwise the same measure by year, where all but the
+   thinnest year of the record clears the minimum. */
 
 export type CalendarRecovery =
 	/** Draw the calendar for another measure the monthly artefact does carry. */
@@ -258,10 +258,24 @@ export function dashArray(stroke: {
 }
 
 /**
- * The bounds a band is drawn between: the meeting-clustered interval where the
- * artefact carries one, the Wilson interval otherwise. Wilson treats every
- * speech as independent and is too narrow in a year whose word sits in a few
- * debates; the clustered bounds resample whole meetings (RV19).
+ * The bounds a band is drawn between: the wider, point by point, of the Wilson
+ * interval and the meeting-clustered one where the artefact carries both.
+ *
+ * Wilson treats every speech as independent and is too narrow in a year whose
+ * word sits in a few debates; the clustered bounds resample whole meetings
+ * (RV19). But a percentile bootstrap can only return rates its own resamples
+ * produce. In a period where no meeting used the word every resample is zero,
+ * and the clustered interval is 0 to 0 — 73 of the 314 quarters for `genocide`,
+ * and 7 of 81 years — where Wilson correctly says the rate could be as high as
+ * 3/n. With a single hit it is narrower than Wilson again. Until November 2026
+ * the clustered bounds were drawn wherever they existed, so in about half the
+ * quarters the band the caption said "widens" was narrower than the interval
+ * it replaced, and in the emptiest periods it claimed no uncertainty at all.
+ * The clustered interval is there to add the between-meeting variance, never
+ * to remove the binomial one, so the band is the envelope of the two.
+ *
+ * `clustered` says whether the clustered reading entered at all. A bound that
+ * is null in the Wilson arrays is a withheld rate and stays null.
  */
 export function bandBounds(measure: {
 	speech_rate_low: readonly (number | null)[];
@@ -269,14 +283,52 @@ export function bandBounds(measure: {
 	speech_rate_cluster_low?: readonly (number | null)[];
 	speech_rate_cluster_high?: readonly (number | null)[];
 }): { low: readonly (number | null)[]; high: readonly (number | null)[]; clustered: boolean } {
-	if (measure.speech_rate_cluster_low && measure.speech_rate_cluster_high) {
-		return {
-			low: measure.speech_rate_cluster_low,
-			high: measure.speech_rate_cluster_high,
-			clustered: true
-		};
+	const clusterLow = measure.speech_rate_cluster_low;
+	const clusterHigh = measure.speech_rate_cluster_high;
+	if (!clusterLow || !clusterHigh) {
+		return { low: measure.speech_rate_low, high: measure.speech_rate_high, clustered: false };
 	}
-	return { low: measure.speech_rate_low, high: measure.speech_rate_high, clustered: false };
+	const wider = (
+		wilson: readonly (number | null)[],
+		cluster: readonly (number | null)[],
+		pick: (a: number, b: number) => number
+	) =>
+		wilson.map((bound, index) => {
+			if (bound == null) return null;
+			const other = cluster[index];
+			return other == null ? bound : pick(bound, other);
+		});
+	return {
+		low: wider(measure.speech_rate_low, clusterLow, Math.min),
+		high: wider(measure.speech_rate_high, clusterHigh, Math.max),
+		clustered: true
+	};
+}
+
+/* --- A rate its denominator cannot carry -------------------------------------
+   The month grid has always withheld a rate below the artefact's minimum. Since
+   the record was extended to 1946 the same is true of a year (1959 holds 86
+   speeches), of a quarter (39 hold fewer than 125) and above all of a cell of
+   the split figure, where one non-state speech in 1993 that used the word is a
+   "rate" of 100% and used to set the chart's axis. The artefact now writes
+   null and `sufficient`; these two helpers are how a figure reads them, and
+   they apply the same test to a payload written before it did. */
+
+/** The minimum the pipeline declares (`MIN_SPEECHES_PER_PERIOD`), for a payload that predates it. */
+export const FALLBACK_MINIMUM = 125;
+
+/** A breakdown cell's rate, or null where its speeches are too few to divide by. */
+export function splitRate(
+	row: { held: number; speech_rate: number | null; sufficient?: boolean },
+	minimum: number = FALLBACK_MINIMUM
+): number | null {
+	if (row.sufficient === false || row.held < minimum) return null;
+	return row.speech_rate;
+}
+
+/** How many of a series' periods are withheld: counts published, no rate. */
+export function withheldPeriods(series: { sufficient?: readonly boolean[] }): number {
+	return (series.sufficient ?? []).filter((enough) => !enough).length;
 }
 
 /* --- Uncertainty bands ------------------------------------------------------
@@ -340,4 +392,37 @@ export function intervalBand(
 			areaStyle: { color: colour, opacity }
 		}
 	];
+}
+
+/**
+ * Decimals a percentage axis needs so that neighbouring ticks read differently.
+ *
+ * An axis of shares was labelled to one decimal whatever it held. Drawn alone,
+ * a term used in 0.2% of speeches got ticks 0.025 points apart and labels
+ * reading 0.0%, 0.0%, 0.1%, 0.1%, 0.1%. ECharts places about five ticks, so
+ * the step is near a fifth of the largest drawn value; the decimals are what
+ * that step needs, between one and three.
+ */
+export function percentDecimals(largest: number): number {
+	if (!(largest > 0)) return 1;
+	const step = (largest * 100) / 5;
+	return Math.min(3, Math.max(1, Math.ceil(-Math.log10(step)) + 1));
+}
+
+/** How many terms may each carry a band before only the headline keeps one. */
+export const BANDED_TERMS = 2;
+
+/**
+ * Which of the drawn terms carry an interval band.
+ *
+ * Every term, while there are at most two. Past that only the headline term,
+ * if it is drawn: four overlapping bands at a low opacity merged into one grey
+ * mass in light and nearly vanished in dark (review of 10 November 2026), and
+ * the band is now the envelope of two intervals, so it is wider than it was.
+ * The intervals stay in the tooltip for every term either way.
+ */
+export function bandedTerms(names: readonly string[]): string[] {
+	if (names.length <= BANDED_TERMS) return [...names];
+	const headline = headlineMeasure(names);
+	return headline ? [headline] : [];
 }

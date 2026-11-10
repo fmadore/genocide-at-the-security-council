@@ -1361,7 +1361,9 @@
      "dp": -0.0,
      "g2": 140.016,
      "log_ratio": 7.658,
+     "lrc": 3.893,
      "meetings": 87,
+     "node": true,
      "reference": 0,
      "target": 101,
      "word": "genocide"
@@ -1371,7 +1373,9 @@
      "dp": -0.0,
      "g2": 140.016,
      "log_ratio": 7.658,
+     "lrc": 3.893,
      "meetings": 87,
+     "node": false,
      "reference": 0,
      "target": 101,
      "word": "tutsi"
@@ -1383,7 +1387,9 @@
      "dp": -0.0,
      "g2": 633.804,
      "log_ratio": 12.121,
+     "lrc": 8.356,
      "meetings": 87,
+     "node": true,
      "reference": 0,
      "target": 101,
      "word": "genocide"
@@ -1393,20 +1399,12 @@
      "dp": -0.0,
      "g2": 633.804,
      "log_ratio": 12.121,
+     "lrc": 8.356,
      "meetings": 87,
+     "node": false,
      "reference": 0,
      "target": 101,
      "word": "tutsi"
-    },
-    {
-     "documents": 85,
-     "dp": 0.2883,
-     "g2": -15.84,
-     "log_ratio": -0.405,
-     "meetings": 74,
-     "reference": 5548,
-     "target": 190,
-     "word": "accountability"
     }
    ],
    "short_strata": [],
@@ -1415,12 +1413,16 @@
     "coverage_min": 1.0,
     "keyword_log_ratio": [
      {
+      "lrc_high": 3.893,
+      "lrc_low": 3.893,
       "median": 7.658,
       "p05": 7.658,
       "p95": 7.658,
       "word": "genocide"
      },
      {
+      "lrc_high": 3.893,
+      "lrc_low": 3.893,
       "median": 7.658,
       "p05": 7.658,
       "p95": 7.658,
@@ -1817,6 +1819,7 @@
     },
     "sufficient": true,
     "target_tokens": 21840,
+    "tests": 20,
     "withheld_because": []
    },
    {
@@ -1858,6 +1861,7 @@
     },
     "sufficient": true,
     "target_tokens": 21440,
+    "tests": 20,
     "withheld_because": []
    },
    {
@@ -1899,6 +1903,7 @@
     },
     "sufficient": true,
     "target_tokens": 21440,
+    "tests": 20,
     "withheld_because": []
    },
    {
@@ -1940,6 +1945,7 @@
     },
     "sufficient": true,
     "target_tokens": 20960,
+    "tests": 20,
     "withheld_because": []
    }
   ],

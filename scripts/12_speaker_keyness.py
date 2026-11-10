@@ -231,7 +231,10 @@ def build_note(payload: dict, speakers: list[dict[str, object]], withheld: int) 
                 f"- Coverage across the published speakers runs from "
                 f"{coverages.min():.0%} to {coverages.max():.0%}, median {coverages.median():.0%}.",
                 f"- Seed {payload['seed']}, {payload['repetitions']} stability repetitions, "
-                f"top {payload['limit']} rows per table.",
+                f"top {payload['limit']} rows per table, ranked by the conservative log ratio "
+                f"at {payload['lrc_alpha']} over each speaker's tested words; a speaker's "
+                "table lists only words it over-uses beyond doubt, so it can be shorter than "
+                f"{payload['limit']}.",
                 "",
                 "## What the matching removes",
                 "",
@@ -401,6 +404,16 @@ def run(
             "unmarked row is not a guarantee that the word is not the speaker naming "
             "itself."
         ),
+        "rank": "lrc",
+        "lrc_alpha": lexical.LRC_ALPHA,
+        "rank_rule": (
+            "Both tables are ranked by the conservative log ratio: the smallest ratio "
+            "between the speaker's rate and the comparison's that the counts still "
+            "support once every word tested is allowed for (the `tests` figure of each "
+            "speaker). Only words whose whole interval lies above an even rate are "
+            "listed, so a word the speaker used a handful of times cannot rank, however "
+            "exclusive it is. The log ratio, the point estimate, is printed beside it."
+        ),
         "seed": seed,
         "repetitions": repetitions,
         "limit": limit,
@@ -420,6 +433,8 @@ def run(
         extra={
             "stopwords": len(stopwords),
             "min_count": lexical.MIN_COUNT,
+            "ranked_by": "lrc",
+            "lrc_alpha": lexical.LRC_ALPHA,
             "minimum_pairs": minimum,
             "minimum_coverage": min_coverage,
             "seed": seed,
