@@ -57,6 +57,8 @@ export interface RateStep {
 	alpha: number;
 	/** Whether `pBlock` is the smallest the simulations can return. */
 	atFloor: boolean;
+	/** The same, for `pIndependent`. */
+	independentAtFloor: boolean;
 	ratio: number | null;
 	/** Speeches (or occurrences) and their exposure on each side. */
 	counts: [number, number];
@@ -111,6 +113,7 @@ export function rateStep(
 		blocked: found.null === 'meeting_block_permutation',
 		alpha: found.alpha,
 		atFloor: found.p_value <= pFloor(trials) + 1e-12,
+		independentAtFloor: found.p_value_independent <= pFloor(trials) + 1e-12,
 		ratio: found.ratio,
 		counts: found.counts,
 		exposure: found.exposure
@@ -140,12 +143,11 @@ export function verdict(step: RateStep): string {
 		? 'clears the corrected threshold'
 		: 'does not clear the corrected threshold';
 	const block = `p ${step.atFloor ? '≤' : '='} ${step.pBlock.toFixed(4)}`;
+	const independent = formatP(step.pIndependent, step.independentAtFloor);
 	const lead = step.blocked
 		? `${block} with whole meetings moved between years`
 		: `${block} with speeches treated as independent`;
-	const beside = step.blocked
-		? `; ${step.pIndependent.toFixed(4)} with speeches treated as independent`
-		: '';
+	const beside = step.blocked ? `; ${independent} with speeches treated as independent` : '';
 	return `A split in ${step.split} ${clears} of ${step.alpha} (${lead}${beside}).`;
 }
 
@@ -178,6 +180,13 @@ export function annualPoints(
 /** A rate as the reader is shown it. */
 export function formatRate(unit: RateUnit, value: number): string {
 	return unit === 'speech_rate' ? `${(value * 100).toFixed(2)}%` : value.toFixed(2);
+}
+
+/** "0.59% (0.52–0.67)": the rate with its 95% interval, the unit printed once. */
+export function formatLevel(unit: RateUnit, level: RateLevel): string {
+	const bare = (value: number) =>
+		unit === 'speech_rate' ? (value * 100).toFixed(2) : value.toFixed(2);
+	return `${formatRate(unit, level.value)} (${bare(level.low)}–${bare(level.high)})`;
 }
 
 /**

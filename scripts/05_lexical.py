@@ -344,6 +344,7 @@ def build_keyness(
         control_total,
         stopwords,
         limit=limit,
+        rank="lrc",
         dispersion=spread,
     )
 
@@ -354,11 +355,25 @@ def build_keyness(
         max(reference_total - target_total, 1),
         stopwords,
         limit=limit,
+        rank="lrc",
         dispersion=spread,
     )
+    # The selection word's own forms are marked, never removed, as a speaker's
+    # own name is in 12 (`lib.keyness.self_reference`). A control is a speech
+    # the term does not match, so a word the term's pattern matches whole has a
+    # reference count of zero by construction: its row is the definition of
+    # the comparison, not a finding of it.
+    for row in (*rows, *unmatched):
+        row["node"] = term.regex.fullmatch(str(row["word"])) is not None
+    tests = lexical.candidates(target_counts, stopwords)
 
     primary_words = [str(row["word"]) for row in rows]
+    # Vocabulary ids that are not stopwords, for counting each draw's family.
+    stoppable = np.array(
+        [word not in stopwords for word in matrix.words], dtype=bool
+    )
     effects = {word: [] for word in primary_words}
+    conservative: dict[str, list[float]] = {word: [] for word in primary_words}
     # Each draw reads its keywords' counts straight from the summed arrays.
     columns = [matrix.ids.get(word) for word in primary_words]
     coverages = []
@@ -371,15 +386,30 @@ def build_keyness(
         target_size = int(sampled_targets.sum())
         control_size = int(sampled_controls.sum())
         coverages.append(sampled.coverage)
-        for word, column in zip(primary_words, columns, strict=True):
-            effects[word].append(
-                lexical.log_ratio(
-                    0 if column is None else int(sampled_targets[column]),
-                    0 if column is None else int(sampled_controls[column]),
-                    target_size,
-                    control_size,
-                )
+        drawn = [
+            (
+                0 if column is None else int(sampled_targets[column]),
+                0 if column is None else int(sampled_controls[column]),
             )
+            for column in columns
+        ]
+        for word, (a, b) in zip(primary_words, drawn, strict=True):
+            effects[word].append(lexical.log_ratio(a, b, target_size, control_size))
+        if drawn:
+            # The family is the draw's own: its candidates, counted as the
+            # published table's were.
+            family = int(
+                np.count_nonzero(sampled_targets[stoppable] >= lexical.MIN_COUNT)
+            )
+            found = lexical.conservative_log_ratio(
+                np.array([a for a, _ in drawn], dtype=float),
+                np.array([b for _, b in drawn], dtype=float),
+                target_size,
+                control_size,
+                tests=max(family, 1),
+            )
+            for word, value in zip(primary_words, found.tolist(), strict=True):
+                conservative[word].append(value)
 
     stability = [
         {
@@ -387,6 +417,16 @@ def build_keyness(
             "median": round(float(pd.Series(values).median()), 3),
             "p05": round(float(pd.Series(values).quantile(0.05)), 3),
             "p95": round(float(pd.Series(values).quantile(0.95)), 3),
+            # The conservative estimate's observed range over the same draws:
+            # how far the ranking statistic itself moves with the controls.
+            **(
+                {
+                    "lrc_low": round(min(conservative[word]), 3) + 0.0,
+                    "lrc_high": round(max(conservative[word]), 3) + 0.0,
+                }
+                if conservative[word]
+                else {}
+            ),
         }
         for word, values in effects.items()
     ]
@@ -405,6 +445,12 @@ def build_keyness(
             {"key": list(map(str, key)), "wanted": wanted, "found": found}
             for key, wanted, found in control.short_strata
         ],
+        "rank": "lrc",
+        "lrc_alpha": lexical.LRC_ALPHA,
+        # The Bonferroni family of each table: the words the target uses at
+        # least MIN_COUNT times that are not stopwords. Both tables share a
+        # target, so both test the same words.
+        "tests": {"keywords": tests, "keywords_unmatched": tests},
         "keywords": rows,
         "keywords_unmatched": unmatched,
         "stability": {
@@ -497,7 +543,10 @@ def build_note(
 ) -> str:
     def table(rows: list[dict], top: int = 15) -> list[str]:
         return [
-            f"| {i} | `{r['word']}` | {r['target']:,} | {r['g2']:,.0f} | {r['log_ratio']:+.2f} | "
+            f"| {i} | `{r['word']}`{'†' if r.get('node') else ''} | {r['target']:,} | "
+            + (f"{r['reference']:,} | " if "lrc" in r else "")
+            + f"{r['g2']:,.0f} | {r['log_ratio']:+.2f} | "
+            + (f"{r['lrc']:+.2f} | " if "lrc" in r else "")
             + (f"{r['log_dice']:.2f} | " if "log_dice" in r else "")
             + f"{r['documents']:,} / {r['meetings'] if r['meetings'] is not None else '—'} | "
             f"{r['dp']:.2f} |"
@@ -551,7 +600,9 @@ def build_note(
             f"Top {limit} rows kept per table. Every row carries **G²** (how confidently the",
             "rates differ) and **log ratio** (by how much). On 58.9 million words almost",
             "everything is significant, so the second column is the one that decides whether",
-            "a row is a finding.",
+            "a row is a finding. Keyword rows also carry the **conservative log ratio**, the",
+            "smallest ratio the counts support once every word tested is allowed for, and are",
+            "ranked by it.",
             "",
             "## Collocates of `genocide`",
             "",
@@ -604,10 +655,17 @@ def build_note(
             f"- {keyness['target_tokens']:,} target tokens against "
             f"{keyness['control_tokens']:,} control tokens.",
             f"- Stability rerun across {keyness['stability']['repetitions']:,} consecutive "
-            "seeds; the JSON reports the 5th, median and 95th percentile log ratios.",
+            "seeds; the JSON reports the 5th, median and 95th percentile log ratios, and the "
+            "range of the conservative estimate.",
+            f"- Ranked by the **conservative log ratio** (LRC): log2 of the end nearest 1 of "
+            f"an exact interval for the rate ratio at {keyness['lrc_alpha']} / "
+            f"{keyness['tests']['keywords']:,}, Bonferroni over every word tested. "
+            "Only rows whose whole interval lies above 1 are kept, so a word seen a handful "
+            "of times cannot rank however exclusive it is. † marks the selection word's own "
+            "forms, whose reference count is zero by construction.",
             "",
-            "| # | Word | In target | G² | Log ratio | Speeches / meetings | DP |",
-            "|---|---|---:|---:|---:|---:|---:|",
+            "| # | Word | In target | In control | G² | Log ratio | LRC | Speeches / meetings | DP |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|",
             *table(keyness["keywords"], 20),
             "",
             "### What the matching actually removed",
@@ -726,7 +784,7 @@ def run(
             "stopwords": len(stopwords),
             "min_count": lexical.MIN_COUNT,
             "g2_floor": lexical.G2_FLOOR,
-            "ranked_by": {"collocates": "log_dice", "keywords": "log_ratio"},
+            "ranked_by": {"collocates": "log_dice", "keywords": "lrc"},
             "limit": limit,
             "vocabulary": vocabulary,
             **(

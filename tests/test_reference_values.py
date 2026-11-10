@@ -19,6 +19,14 @@ corpora using frequency profiling", the form the UCREL calculator uses:
 rate. The values were computed with `scipy.stats.power_divergence(...,
 lambda_="log-likelihood")` on the two cells, and every case was chosen so
 that it also has a closed form, given beside it, that can be checked by hand.
+
+**Clopper–Pearson.** The exact binomial interval (Clopper and Pearson 1934),
+which :func:`lib.lexical.conservative_log_ratio` inverts. 7 of 20 at 95% is
+(0.1539, 0.5922) to four places, the interval R's `binom.test(7, 20)` reports;
+the ends of the range have closed forms, (alpha / 2)^(1/n) for n of n and its
+mirror for 0 of n. The incomplete beta beneath it, written in plain numpy
+because the pipeline does not depend on SciPy, is held to exact binomial tail
+sums, which `math.comb` computes with no approximation at all.
 """
 
 from __future__ import annotations
@@ -107,3 +115,91 @@ def test_equal_rates_carry_no_evidence() -> None:
 )
 def test_log_ratio_is_the_log2_rate_ratio_with_a_half_floor(a, b, target, reference, value) -> None:
     assert lexical.log_ratio(a, b, target, reference) == pytest.approx(value, rel=1e-12)
+
+
+#: (successes, trials, low, high) at 95%, to four places.
+CLOPPER_PEARSON = [
+    (7, 20, 0.1539, 0.5922),
+    # n of n: the lower bound is 0.025^(1/13), the upper bound 1.
+    (13, 13, 0.025 ** (1 / 13), 1.0),
+    # 0 of n: the lower bound is 0, the upper bound 1 - 0.025^(1/20).
+    (0, 20, 0.0, 1 - 0.025 ** (1 / 20)),
+]
+
+
+@pytest.mark.parametrize(("successes", "trials", "low", "high"), CLOPPER_PEARSON)
+def test_clopper_pearson_matches_published_values(successes, trials, low, high) -> None:
+    found_low, found_high = lexical.clopper_pearson(successes, trials, 0.05)
+    assert found_low == pytest.approx(low, abs=5e-5)
+    assert found_high == pytest.approx(high, abs=5e-5)
+
+
+def test_clopper_pearson_closed_ends_to_full_precision() -> None:
+    assert lexical.clopper_pearson(13, 13)[0] == pytest.approx(0.7529, abs=5e-5)
+    assert lexical.clopper_pearson(13, 13)[0] == pytest.approx(0.025 ** (1 / 13), rel=1e-12)
+    assert lexical.clopper_pearson(0, 20)[1] == pytest.approx(0.1684, abs=5e-5)
+    assert lexical.clopper_pearson(0, 20)[1] == pytest.approx(1 - 0.025 ** (1 / 20), rel=1e-12)
+
+
+def test_clopper_pearson_bounds_sit_exactly_in_the_tails() -> None:
+    """At the bounds, the observed count is in each tail with probability alpha / 2."""
+    for successes, trials in [(7, 20), (1, 29), (81, 263), (15, 148)]:
+        low, high = lexical.clopper_pearson(successes, trials, 0.05)
+        upper_tail = sum(
+            math.comb(trials, i) * low**i * (1 - low) ** (trials - i)
+            for i in range(successes, trials + 1)
+        )
+        lower_tail = sum(
+            math.comb(trials, i) * high**i * (1 - high) ** (trials - i)
+            for i in range(successes + 1)
+        )
+        assert upper_tail == pytest.approx(0.025, rel=1e-9)
+        assert lower_tail == pytest.approx(0.025, rel=1e-9)
+
+
+@pytest.mark.parametrize("trials", [1, 2, 5, 13, 20, 40])
+def test_incomplete_beta_is_the_exact_binomial_tail(trials) -> None:
+    """P(X >= k) for X ~ Binomial(n, p) is I_p(k, n - k + 1), summed exactly."""
+    for successes in range(1, trials + 1):
+        for share in (0.001, 0.05, 0.3, 0.5, 0.77, 0.999):
+            exact = sum(
+                math.comb(trials, i) * share**i * (1 - share) ** (trials - i)
+                for i in range(successes, trials + 1)
+            )
+            found = lexical.betainc(successes, trials - successes + 1, share)
+            assert found == pytest.approx(exact, rel=1e-10, abs=1e-15)
+
+
+#: (a, b, target total, reference total, tests, closed form of the LRC).
+LRC_REFERENCE = [
+    # Absent from the reference, equal corpora, one test: the share's lower
+    # bound is 0.025^(1/40) and r = p / (1 - p).
+    (40, 0, 1_000, 1_000, 1, math.log2(0.025 ** (1 / 40) / (1 - 0.025 ** (1 / 40)))),
+    # The same with 100 tests: alpha / 2m = 0.00025.
+    (40, 0, 1_000, 1_000, 100, math.log2(0.00025 ** (1 / 40) / (1 - 0.00025 ** (1 / 40)))),
+    # Unequal corpora scale r by N2 / N1 = 4.
+    (40, 0, 1_000, 4_000, 1, math.log2(4 * 0.025 ** (1 / 40) / (1 - 0.025 ** (1 / 40)))),
+    # Thirteen against none among 5,000: (0.000005)^(1/13) = 0.391 < 1/2, no evidence.
+    (13, 0, 1_000_000, 1_000_000, 5_000, 0.0),
+]
+
+
+@pytest.mark.parametrize(("a", "b", "target", "reference", "tests", "value"), LRC_REFERENCE)
+def test_conservative_log_ratio_closed_forms(a, b, target, reference, tests, value) -> None:
+    found = lexical.conservative_log_ratio(a, b, target, reference, tests=tests)
+    assert found == pytest.approx(value, rel=1e-12, abs=1e-12)
+    mirrored = lexical.conservative_log_ratio(b, a, reference, target, tests=tests)
+    assert mirrored == pytest.approx(-value, rel=1e-12, abs=1e-12)
+
+
+def test_conservative_log_ratio_is_the_interval_end_mapped_to_a_ratio() -> None:
+    """7 of 20 occurrences in a target four times the reference's size.
+
+    At an even rate the target would hold p0 = 0.8 of them; the interval for
+    p is (0.1539, 0.5922), wholly below p0, so the word is under-used and the
+    estimate is log2 of the upper end, mapped by r = (p / (1 - p))·(N2 / N1).
+    """
+    low, high = lexical.clopper_pearson(7, 20)
+    found = lexical.conservative_log_ratio(7, 13, 4_000, 1_000)
+    assert found == pytest.approx(math.log2(high / (1 - high) * 1_000 / 4_000), rel=1e-10)
+    assert found < 0

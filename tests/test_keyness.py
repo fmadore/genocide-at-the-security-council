@@ -291,13 +291,16 @@ class TestSpeakerKeyness:
         """A speaker whose own name is one of the words it is key for."""
         built = pd.DataFrame(
             {
-                # Six of each: `lexical.MIN_COUNT` drops a word under five
-                # occurrences, so a smaller fixture would test the floor instead.
-                "country_org": ["Utopia", "Elsewhere"] * 6,
-                "year": [1994] * 12,
-                "agenda_item_manual": ["Rwanda"] * 12,
-                "speaker_group": ["E10"] * 12,
-                "text": ["utopia utopia council genocide", "council report situation"] * 6,
+                # Thirty of each: `lexical.MIN_COUNT` drops a word under five
+                # occurrences, and the conservative log ratio keeps a word only
+                # when its counts exclude an even rate, which six against none
+                # in corpora this size do not; a smaller fixture would test
+                # those floors instead.
+                "country_org": ["Utopia", "Elsewhere"] * 30,
+                "year": [1994] * 60,
+                "agenda_item_manual": ["Rwanda"] * 60,
+                "speaker_group": ["E10"] * 60,
+                "text": ["utopia utopia council genocide", "council report situation"] * 30,
             }
         )
         built = built.assign(stratum=keyness.strata(built))

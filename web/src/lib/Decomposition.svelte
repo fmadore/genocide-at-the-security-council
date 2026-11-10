@@ -66,7 +66,7 @@
 	/* Geometry. Wide: decades on the left, the sum on the right, the bars
 	   between. Narrow: the words on two lines over full-width bars. */
 	const LABEL = 214;
-	const RIGHT = 156;
+	const RIGHT = 176;
 	const TOP = 52;
 	const BAR = 13;
 	const GAP = 4;
@@ -77,8 +77,7 @@
 	const hi = $derived(scaleTicks.at(-1) ?? 0);
 	const plotLeft = $derived(wide ? LABEL : 0);
 	const plotRight = $derived(wide ? W - RIGHT : W - 1);
-	const x = (value: number) =>
-		plotLeft + ((value - lo) / (hi - lo || 1)) * (plotRight - plotLeft);
+	const x = (value: number) => plotLeft + ((value - lo) / (hi - lo || 1)) * (plotRight - plotLeft);
 
 	function note(pair: PartsPair): string | null {
 		const parts: string[] = [];
@@ -101,8 +100,8 @@
 		let y = TOP;
 		return result.pairs.map((pair): RowBox => {
 			const text = note(pair);
-			const height = wide ? 62 : text ? 84 : 70;
-			const bars = wide ? y + 16 : y + (text ? 50 : 36);
+			const height = wide ? 62 : text ? 90 : 76;
+			const bars = wide ? y + 16 : y + (text ? 56 : 42);
 			const box = { pair, top: y, height, bars, note: text };
 			y += height;
 			return box;
@@ -298,7 +297,7 @@
 							x1={x(value)}
 							x2={x(value)}
 							y1={TOP - 6}
-							y2={H - 4}
+							y2={wide ? H - 4 : TOP}
 							stroke={value === 0 ? p.ink : p.ruleSoft}
 							stroke-width="1"
 						/>
@@ -404,6 +403,16 @@
 									>{row.note}</text
 								>
 							{/if}
+							<!-- Narrow: the axis runs through the bars only, never the words. -->
+							{#each scaleTicks as value (value)}
+								<line
+									x1={x(value)}
+									x2={x(value)}
+									y1={row.bars - 5}
+									y2={row.bars + 2 * BAR + GAP + 5}
+									stroke={value === 0 ? p.ink : p.ruleSoft}
+								/>
+							{/each}
 						{/if}
 
 						<g opacity={muted ? 0.45 : 1}>
@@ -455,8 +464,9 @@
 						current.within
 					)} within.
 					{#if current.baseFrom && current.baseTo}
-						{count(current.baseFrom.using)} of {count(current.baseFrom.speeches)} speeches used it in the
-						first decade, {count(current.baseTo.using)} of {count(current.baseTo.speeches)} in the second.
+						{count(current.baseFrom.using)} of {count(current.baseFrom.speeches)} speeches used it in
+						the first decade, {count(current.baseTo.using)} of {count(current.baseTo.speeches)} in the
+						second.
 					{/if}
 					{#if current.thin}<strong>Thin:</strong> a decade under {THIN_USING} such speeches, so one debate
 						can move its share.{/if}

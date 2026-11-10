@@ -408,3 +408,21 @@ export function percentDecimals(largest: number): number {
 	const step = (largest * 100) / 5;
 	return Math.min(3, Math.max(1, Math.ceil(-Math.log10(step)) + 1));
 }
+
+/** How many terms may each carry a band before only the headline keeps one. */
+export const BANDED_TERMS = 2;
+
+/**
+ * Which of the drawn terms carry an interval band.
+ *
+ * Every term, while there are at most two. Past that only the headline term,
+ * if it is drawn: four overlapping bands at a low opacity merged into one grey
+ * mass in light and nearly vanished in dark (review of 10 November 2026), and
+ * the band is now the envelope of two intervals, so it is wider than it was.
+ * The intervals stay in the tooltip for every term either way.
+ */
+export function bandedTerms(names: readonly string[]): string[] {
+	if (names.length <= BANDED_TERMS) return [...names];
+	const headline = headlineMeasure(names);
+	return headline ? [headline] : [];
+}

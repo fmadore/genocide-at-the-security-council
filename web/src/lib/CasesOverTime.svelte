@@ -17,7 +17,15 @@
 	import { provenanceOf } from '#lib/export.js';
 	import type { ExportRequest } from '#lib/export.js';
 	import { count, percent } from '#lib/format.js';
-	import { axisX, axisY, categoricalData, colours, textStyle, tooltip } from '#lib/theme.js';
+	import {
+		axisX,
+		axisY,
+		categoricalData,
+		colours,
+		legend,
+		textStyle,
+		tooltip
+	} from '#lib/theme.js';
 	import {
 		OTHER_CASES,
 		TIMELINE_COLUMNS,
@@ -40,14 +48,12 @@
 			textStyle,
 			// No hatch: on this site a hatch means a withheld value (see the overview).
 			aria: { enabled: true, decal: { show: false } },
+			// The system's legend, pager in ink, with a square key for a bar.
 			legend: {
-				type: 'scroll',
-				top: 0,
-				icon: 'rect',
+				...legend(p),
 				itemWidth: 10,
 				itemHeight: 10,
 				itemGap: 14,
-				textStyle: { color: p.inkSoft, fontSize: 12 },
 				data: plan.series.map((s) => s.label)
 			},
 			grid: [

@@ -101,12 +101,14 @@
 		<defs>
 			<pattern
 				id={hatchId}
-				width="5"
-				height="5"
+				width="6"
+				height="6"
 				patternUnits="userSpaceOnUse"
 				patternTransform="rotate(45)"
 			>
-				<line x1="0" y1="0" x2="0" y2="5" stroke={$colours.rule} stroke-width="0.8" />
+				<!-- The calendar's hatch: the soft rule at a wide pitch, so a pair
+				     with too few speeches stays quieter than any drawn cell. -->
+				<line x1="0" y1="0" x2="0" y2="6" stroke={$colours.ruleSoft} stroke-width="1" />
 			</pattern>
 		</defs>
 		{#each ordered as term, i (term.name)}

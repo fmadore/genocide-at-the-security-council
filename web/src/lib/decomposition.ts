@@ -302,7 +302,11 @@ export function incompleteEnd(
 	const decades = [...bases.values()].sort((a, b) => a.decade - b.decade);
 	const final = decades.at(-1);
 	if (!final || final.last === final.decade + 9) return null;
-	return { decade: final.decade, lastYear: final.last, lastDate: annual?.record?.last_date ?? null };
+	return {
+		decade: final.decade,
+		lastYear: final.last,
+		lastDate: annual?.record?.last_date ?? null
+	};
 }
 
 /** A share as the figure prints it: two places, because the early shares are tenths of a percent. */

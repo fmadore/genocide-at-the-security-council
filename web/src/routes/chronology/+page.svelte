@@ -27,6 +27,7 @@
 		type ChronologyChoices,
 		type ChronologyUnit as Unit,
 		bandBounds,
+		bandedTerms,
 		splitRate,
 		percentDecimals,
 		FALLBACK_MINIMUM,
@@ -66,8 +67,7 @@
 		isoDate,
 		measureLabel,
 		monthLabel,
-		percent,
-		points
+		percent
 	} from '#lib/format.js';
 	import { PAGE_METADATA } from '#lib/seo.js';
 	import {
@@ -76,6 +76,7 @@
 		axisY,
 		categoricalNeutral,
 		categoricalDataStrokes,
+		colourScheme,
 		colours,
 		dataZoom,
 		endLabel,
@@ -751,13 +752,17 @@
 				{ ...dataZoom(p), xAxisIndex: [0, 1] }
 			],
 			series: [
+				// A band for every term while there are two at most, past that the
+				// headline's alone (`bandedTerms`); the tooltip keeps every interval.
+				// Stronger in dark, where a 14% wash of light ink on black vanished.
 				...(banded
-					? usable.flatMap((name) =>
+					? bandedTerms(usable).flatMap((name) =>
 							intervalBand(
 								measureLabel(name),
 								strokeOf(name, p).color,
 								bandBounds(allMeasures[name]!).low,
-								bandBounds(allMeasures[name]!).high
+								bandBounds(allMeasures[name]!).high,
+								$colourScheme === 'dark' ? 0.22 : 0.14
 							)
 						)
 					: []),
@@ -894,7 +899,9 @@
 		};
 		return {
 			textStyle,
-			grid: grid(),
+			// Room above the plot for the legend row, so neither it nor its pager
+			// on a phone is printed over the top tick label.
+			grid: { ...grid(), top: 40 },
 			legend: { ...legend(p), data: block.categories },
 			tooltip: {
 				...tooltip(p),
@@ -1149,7 +1156,8 @@
 			<p>
 				Raw counts depend on both term use and the volume of speech. Rates help compare periods, but
 				do not adjust for changes in the agenda or speakers. Combined reading sets have speech
-				counts and shares, but no occurrence total.
+				counts and shares, but no occurrence total. With more than two terms drawn, only the headline
+				term keeps its band; every interval stays in the tooltip.
 			</p>
 		{/snippet}
 		{#snippet more()}

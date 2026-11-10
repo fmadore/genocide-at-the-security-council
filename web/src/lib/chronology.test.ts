@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	bandedTerms,
 	calendarRecovery,
 	chronologyParams,
 	readChronologyState,
@@ -420,5 +421,17 @@ describe('percentDecimals', () => {
 		expect(percentDecimals(0.002)).toBe(3); // genocidal ideology: 0.04-point steps
 		expect(percentDecimals(0.012)).toBe(2);
 		expect(percentDecimals(0)).toBe(1);
+	});
+});
+
+describe('which terms carry a band', () => {
+	it('bands every term while there are at most two', () => {
+		expect(bandedTerms(['genocide', 'atrocity'])).toEqual(['genocide', 'atrocity']);
+		expect(bandedTerms(['atrocity'])).toEqual(['atrocity']);
+	});
+
+	it('keeps only the headline band past two', () => {
+		expect(bandedTerms(['atrocity', 'genocide', 'war_crimes'])).toEqual(['genocide']);
+		expect(bandedTerms(['atrocity', 'war_crimes', 'ethnic_cleansing'])).toEqual([]);
 	});
 });

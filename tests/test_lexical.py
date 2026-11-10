@@ -224,6 +224,54 @@ class TestCompare:
         assert len(rows) == 1
         assert rows[0]["word"] == "genocide"
 
+    def test_every_row_carries_its_conservative_estimate(self, counts):
+        """Over the words the call tested: three clear five occurrences here."""
+        target, reference = counts
+        rows = lexical.compare(target, reference, 1_000, 10_000, frozenset(), floor=0.0)
+        assert lexical.candidates(target, frozenset()) == 3
+        for row in rows:
+            expected = lexical.conservative_log_ratio(
+                row["target"], row["reference"], 1_000, 10_000, tests=3
+            )
+            assert row["lrc"] == round(expected, 3)
+
+    def test_ranking_by_lrc_keeps_only_words_over_used_beyond_doubt(self, counts):
+        target, reference = counts
+        # `the` is significant but under-used (half the reference's rate), so
+        # a one-sided keyword table leaves it out; the log-ratio table kept it.
+        loose = lexical.compare(target, reference, 1_000, 10_000, frozenset())
+        assert {r["word"] for r in loose} == {"genocide", "the"}
+        assert next(r for r in loose if r["word"] == "the")["lrc"] < 0
+        rows = lexical.compare(target, reference, 1_000, 10_000, frozenset(), rank="lrc")
+        assert [r["word"] for r in rows] == ["genocide"]
+        assert all(r["lrc"] > 0 for r in rows)
+
+    def test_lrc_cannot_be_ranked_on_when_it_is_not_computed(self, counts):
+        target, reference = counts
+        with pytest.raises(ValueError, match="lrc"):
+            lexical.compare(target, reference, 1_000, 10_000, frozenset(), rank="lrc", lrc=False)
+        rows = lexical.compare(target, reference, 1_000, 10_000, frozenset(), lrc=False)
+        assert all("lrc" not in r for r in rows)
+
+    def test_a_rare_exclusive_word_is_not_a_keyword_and_a_common_one_is(self):
+        """The failure the conservative estimate exists to fix.
+
+        Thirteen occurrences against none tops a log-ratio table — the
+        half-count makes its ratio 26 — and among 5,000 tested words its
+        counts do not exclude an even rate. Two hundred against twenty does.
+        """
+        target = Counter({"punta": 13, "tutsi": 200})
+        target.update({f"filler{i}": 50 for i in range(4_998)})
+        reference = Counter({"tutsi": 20})
+        reference.update({f"filler{i}": 50 for i in range(4_998)})
+        size = 1_000_000
+        assert lexical.candidates(target, frozenset()) == 5_000
+        by_ratio = lexical.compare(target, target + reference, size, size, frozenset())
+        assert by_ratio[0]["word"] == "punta"
+        by_lrc = lexical.compare(target, target + reference, size, size, frozenset(), rank="lrc")
+        assert [r["word"] for r in by_lrc] == ["tutsi"]
+        assert by_ratio[0]["lrc"] == 0.0
+
 
 class TestMatchedControl:
     @pytest.fixture

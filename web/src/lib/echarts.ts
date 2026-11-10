@@ -10,6 +10,11 @@
  * tree-shaken: bar, line and scatter series; the grid, tooltip, legend, zoom
  * and aria components; and both renderers, since the semantic map draws to a
  * canvas and every other figure to SVG.
+ *
+ * And the label-layout feature, without which every `labelLayout` on the site
+ * (`moveOverlap` on the Chronology's end labels, `hideOverlap` on the
+ * collocate scatter) was silently ignored: "genocide" was printed over the
+ * wrapped "crimes against humanity" (review of 10 November 2026).
  */
 import { BarChart, LineChart, ScatterChart } from 'echarts/charts';
 import {
@@ -20,6 +25,7 @@ import {
 	TooltipComponent
 } from 'echarts/components';
 import { init, use } from 'echarts/core';
+import { LabelLayout } from 'echarts/features';
 import { CanvasRenderer, SVGRenderer } from 'echarts/renderers';
 
 use([
@@ -31,6 +37,7 @@ use([
 	LegendComponent,
 	DataZoomComponent,
 	AriaComponent,
+	LabelLayout,
 	SVGRenderer,
 	CanvasRenderer
 ]);

@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	RATE_EXPORT_COLUMNS,
 	annualPoints,
+	formatLevel,
 	formatP,
 	formatRate,
 	isStep,
@@ -102,13 +103,20 @@ describe('the steps', () => {
 
 	it('draws the token rate per 100,000 words, matching its axis', () => {
 		const s = step(
-			{ before: 2.9e-5, before_ci95: [2.7e-5, 3.1e-5], after: 1.2e-4, after_ci95: [1.1e-4, 1.3e-4] },
+			{
+				before: 2.9e-5,
+				before_ci95: [2.7e-5, 3.1e-5],
+				after: 1.2e-4,
+				after_ci95: [1.1e-4, 1.3e-4]
+			},
 			'token_rate'
 		);
 		expect(s.before.value).toBeCloseTo(2.9, 9);
 		expect(s.after.high).toBeCloseTo(13, 9);
 		expect(formatRate('token_rate', s.before.value)).toBe('2.90');
 		expect(formatRate('speech_rate', 0.0307)).toBe('3.07%');
+		expect(formatLevel('speech_rate', step().before)).toBe('0.59% (0.52–0.67)');
+		expect(formatLevel('token_rate', s.after)).toBe('12.00 (11.00–13.00)');
 	});
 
 	it('keeps a unit with no split as a refusal, and leaves out an absent unit', () => {
@@ -148,6 +156,7 @@ describe('the verdict', () => {
 		expect(verdict(step())).toMatch(/p ≤ 0\.0005/);
 		expect(step({ p_value: 0.004 }).atFloor).toBe(false);
 		expect(formatP(0.0005, true)).toBe('≤ 0.0005');
+		expect(verdict(step())).toMatch(/; ≤ 0\.0005 with speeches treated as independent/);
 	});
 
 	it('names the independent null alone where the artefact used no blocks', () => {
