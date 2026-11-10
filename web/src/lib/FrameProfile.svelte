@@ -61,7 +61,9 @@
 	/* The label column narrows with the drawing, never below what the longest
 	   function name needs at 12px. */
 	const LABEL = $derived(WIDTH < 560 ? Math.max(120, Math.round(WIDTH * 0.4)) : 168);
-	const TOP = 30;
+	/* The axis title sits on its own line above the tick figures: at 30 the
+	   two shared a band and the title overprinted the first ticks. */
+	const TOP = 42;
 	const RIGHT = 16;
 	const trackWidth = $derived(WIDTH - LABEL - RIGHT);
 

@@ -48,7 +48,7 @@
 		signed,
 		termLabel
 	} from '#lib/format.js';
-	import { axisX, axisY, colours, grid, textStyle, tooltip } from '#lib/theme.js';
+	import { axisX, axisY, colours, dataZoom, grid, textStyle, tooltip } from '#lib/theme.js';
 	import { PAGE_METADATA } from '#lib/seo.js';
 	import type { CollocateBlock } from '#lib/types.js';
 	import type { EChartsOption } from 'echarts';
@@ -435,7 +435,9 @@
 		const words = block.collocates;
 		return {
 			textStyle,
-			grid: { ...grid(), top: 20, right: 28, bottom: 56 },
+			// `all`, not the shared `axisLabel`: the y-axis title sits outside its
+			// labels, and with only the labels contained it was drawn off the canvas.
+			grid: { ...grid(), top: 20, right: 28, bottom: 32, outerBoundsContain: 'all' as const },
 			tooltip: {
 				...tooltip(p),
 				trigger: 'item',
@@ -473,18 +475,9 @@
 			dataZoom: [
 				{ type: 'inside', xAxisIndex: 0, filterMode: 'none', ...zoomWindow.x },
 				{ type: 'inside', yAxisIndex: 0, filterMode: 'none', ...zoomWindow.y },
-				{
-					type: 'slider',
-					xAxisIndex: 0,
-					filterMode: 'none',
-					height: 16,
-					bottom: 4,
-					borderColor: p.rule,
-					fillerColor: p.accent + '22',
-					handleStyle: { color: p.accent },
-					textStyle: { color: p.inkFaint, fontSize: 11 },
-					...zoomWindow.x
-				}
+				// The page's own slider, as the chronology's: ECharts' stock one is
+				// blue, and blue is the interaction layer, never a datum's shadow.
+				{ ...dataZoom(p), xAxisIndex: 0, filterMode: 'none', ...zoomWindow.x }
 			],
 			series: [
 				{
@@ -1346,10 +1339,11 @@
 
 		{#snippet reading()}
 			<p>
-				Each cell compares two terms. Darker shading means a stronger association within speeches,
-				measured by nPMI relative to their individual frequencies. Hatched cells have fewer than {data
-					.network.min_speeches} shared speeches. Crossed cells mark overlapping search patterns, such
-				as a word within a longer phrase. Hover for counts and scores.
+				Each cell compares two terms. More ink means a stronger association within speeches, measured
+				by nPMI relative to their individual frequencies; the key under the grid reads a shade back
+				as a score. Hatched cells have fewer than {data.network.min_speeches} shared speeches. Crossed
+				cells mark overlapping search patterns, such as a word within a longer phrase. Hover for counts
+				and scores.
 			</p>
 		{/snippet}
 		{#snippet caveat()}

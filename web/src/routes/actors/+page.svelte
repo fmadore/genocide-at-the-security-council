@@ -23,6 +23,7 @@
 		readActorState
 	} from '#lib/actors.js';
 	import type { MapPoint, Ordering } from '#lib/actors.js';
+	import { stripAt, stripScale } from '#lib/silence.js';
 	import type { CountryMeasureRow } from '#lib/types.js';
 	import { provenanceOf } from '#lib/export.js';
 	import type { ExportRequest } from '#lib/export.js';
@@ -277,20 +278,23 @@
 		};
 	}
 
-	/* The whisker column is scaled to the widest upper bound on the page, so
-	   every row's interval is drawn on one axis and the rows can be compared. */
+	/* The whisker column has one scale for every ranked row, so the rows can be
+	   compared. It ends at a printed figure near the 90th-percentile upper bound
+	   rather than at the widest one, which squeezed most intervals into ten
+	   pixels; a row reaching past the end carries an arrowhead (`#lib/silence`). */
 	const whiskerScale = $derived(
-		Math.max(...result.rows.map((entry) => entry.row.speech_rate_high ?? 0), 1e-6)
+		stripScale(result.rows.map((entry) => entry.row.speech_rate_high))
 	);
 	const whisker = (row: CountryMeasureRow) => {
 		if (row.speech_rate == null || row.speech_rate_low == null || row.speech_rate_high == null) {
 			return null;
 		}
-		const at = (value: number) => `${((value / whiskerScale) * 100).toFixed(2)}%`;
+		const at = (value: number) => stripAt(value, whiskerScale.end);
 		return {
 			low: at(row.speech_rate_low),
 			high: at(row.speech_rate_high),
-			point: at(row.speech_rate)
+			point: at(row.speech_rate),
+			past: row.speech_rate_high > whiskerScale.end
 		};
 	};
 
@@ -433,7 +437,9 @@
 		{#snippet reading()}
 			<p>
 				Rows follow the selected ranking. Each 95% interval indicates precision assuming independent
-				speeches; wider intervals mean less precise estimates. Select a row to locate the
+				speeches; wider intervals mean less precise estimates. Every strip runs from 0 to {percent(
+					whiskerScale.end
+				)}; an interval reaching further ends in an arrowhead. Select a row to locate the
 				affiliation on the map, or a dot to find its row. An asterisk marks a shared country code.
 			</p>
 		{/snippet}
@@ -507,11 +513,13 @@
 					<thead>
 						<tr>
 							<th scope="col">Speaker</th>
+							<th scope="col" class="num">Share</th>
+							<th scope="col" class="whisker-head"
+								>95% interval <span class="scale">0&ndash;{percent(whiskerScale.end)}</span></th
+							>
 							<th scope="col">Group</th>
 							<th scope="col" class="num">Speeches</th>
 							<th scope="col" class="num">Using the term</th>
-							<th scope="col" class="num">Share</th>
-							<th scope="col" class="whisker-head">95% interval</th>
 							{#if has.occurrences}
 								<th scope="col" class="num">Per {count(artefact.rate_per_tokens)} words</th>
 							{/if}
@@ -540,9 +548,6 @@
 										>
 									{/if}
 								</th>
-								<td>{entry.speaker.un_regional_group ?? entityType(entry.speaker.entity_type)}</td>
-								<td class="num">{count(entry.row.held)}</td>
-								<td class="num">{count(entry.row.speeches)}</td>
 								<td class="num">{percent(entry.row.speech_rate ?? 0)}</td>
 								<td class="whisker">
 									{#if w}
@@ -552,7 +557,8 @@
 											style:--high={w.high}
 											style:--point={w.point}
 											aria-hidden="true"
-										></span>
+											>{#if w.past}<span class="over"></span>{/if}</span
+										>
 										<span class="range"
 											>{percent(entry.row.speech_rate_low ?? 0)}&ndash;{percent(
 												entry.row.speech_rate_high ?? 0
@@ -562,6 +568,9 @@
 										<span class="nil">—</span>
 									{/if}
 								</td>
+								<td>{entry.speaker.un_regional_group ?? entityType(entry.speaker.entity_type)}</td>
+								<td class="num">{count(entry.row.held)}</td>
+								<td class="num">{count(entry.row.speeches)}</td>
 								{#if has.occurrences}
 									<td class="num">{decimal(entry.row.token_rate ?? 0)}</td>
 								{/if}
@@ -904,9 +913,9 @@
 		position: relative;
 		display: inline-block;
 		vertical-align: middle;
-		width: 4.5rem;
+		width: var(--sp-10);
 		height: 0.75rem;
-		margin-inline-end: 0.5rem;
+		margin-inline-end: var(--sp-4);
 		background: linear-gradient(
 			to right,
 			transparent var(--low),
@@ -925,6 +934,44 @@
 		width: 2px;
 		margin-left: -1px;
 		background: var(--ink);
+	}
+
+	/* An interval past the printed end of the strip: an arrowhead beyond it. */
+	.over {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 100%;
+		width: var(--sp-2);
+		background: var(--ink-3);
+		clip-path: polygon(0 0, 100% 50%, 0 100%);
+	}
+
+	.whisker-head .scale {
+		font-weight: 400;
+		color: var(--ink-3);
+		font-size: var(--step--2);
+		margin-inline-start: var(--sp-1);
+		font-variant-numeric: tabular-nums lining-nums;
+	}
+
+	/* On a phone the share and its interval come straight after the name, and
+	   the printed range drops under the strip so both fit the screen. */
+	@media (max-width: 40rem) {
+		.rail {
+			display: block;
+			width: var(--sp-9);
+			margin-inline-end: 0;
+		}
+
+		td.whisker .range {
+			display: block;
+			margin-top: var(--sp-1);
+		}
+
+		td.whisker {
+			min-width: 0;
+		}
 	}
 
 	.range,

@@ -12,10 +12,11 @@
 	 * drawn in the row's own background and the figures sit in its cells. There
 	 * is no second rendering to drift.
 	 *
-	 * Colour carries the direction of the effect and nothing else — over- and
-	 * under-representation — from the register palette rather than the accent,
-	 * because `--blue` is reserved for interaction and may never stand for a
-	 * datum. Length carries the log ratio, which is the column a reader should
+	 * The mark carries the direction of the effect and nothing else: over-use is
+	 * a filled wash of ink, under-use an open dashed box. Not the register
+	 * palette — teal and brick are claims about vocabulary shelves, and lending
+	 * them to "more" and "less" said a word was legal or contentious (review of
+	 * 10 November 2026) — and never the accent, which is interaction only. Length carries the log ratio, which is the column a reader should
 	 * be looking at: on tens of thousands of tokens almost everything is
 	 * significant, and G² would draw a picture of how much a delegation spoke.
 	 */
@@ -91,7 +92,7 @@
 	title="What a delegation says that the room does not"
 	question="Which words are more frequent in this affiliation's speeches than in the comparison speeches?"
 	source="12_speaker_keyness.py → countries/speaker_keyness.json"
-	note="Bar length shows the size of the difference, not the confidence in it. Colour shows which way the difference runs."
+	note="Bar length shows the size of the difference, not the confidence in it. A filled bar is a word the delegation uses more; an open dashed one, less."
 	download={{ name: ['unsc', 'keyness', speaker?.country_org ?? 'none', control], table }}
 >
 	{#snippet controls()}
@@ -388,18 +389,21 @@
 	}
 
 	/* The bar is the row's own background rather than a second drawing of the
-	   same number. Colour is the register palette, never the accent: `--blue`
-	   belongs to interaction and may not stand for a datum. */
+	   same number. Direction is told by the mark, not by hue: over-use a wash of
+	   ink closed by an ink end rule, under-use an open dashed box. A wash rather
+	   than the sunk stock, which the zebra stripe already owns. */
 	.bar {
 		position: absolute;
 		inset: 2px auto 2px 0;
 		width: calc(var(--weight) * 100%);
-		background: var(--reg-legal);
-		opacity: 0.22;
+		box-sizing: border-box;
+		background: color-mix(in oklab, var(--ink) 14%, transparent);
+		border-inline-end: var(--hair) solid var(--ink);
 	}
 
 	.bar.under {
-		background: var(--reg-contentious);
+		background: transparent;
+		border: var(--hair) dashed var(--ink-3);
 	}
 
 	.word {

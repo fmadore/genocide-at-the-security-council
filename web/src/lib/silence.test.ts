@@ -7,7 +7,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { EXPORT_COLUMNS, exportRows, ordered, orderedSummary, plan } from './silence';
+import {
+	EXPORT_COLUMNS,
+	exportRows,
+	niceCeil,
+	ordered,
+	orderedSummary,
+	plan,
+	stripAt,
+	stripScale
+} from './silence';
 import type { Countries, Silence, SilenceRow, Speaker } from './types';
 
 const meta = { script: '11_countries.py', generated: '2026-10-19T00:00:00Z', lexicon_version: 8 };
@@ -247,5 +256,33 @@ describe('the order of speaking', () => {
 		expect(result.rows.map((entry) => entry.row.country_org)).toEqual(['Quiet', 'Loud']);
 		expect(result.rows[0]!.row.exposed).toBe(80);
 		expect(result.withheld).toBe(0);
+	});
+});
+
+describe('the interval strip', () => {
+	it('rounds the end up to a printable figure', () => {
+		expect(niceCeil(0.339)).toBe(0.5);
+		expect(niceCeil(0.21)).toBe(0.25);
+		expect(niceCeil(0.106)).toBe(0.2);
+		expect(niceCeil(0.05)).toBe(0.05);
+		expect(niceCeil(0)).toBe(0);
+	});
+
+	it('ends at the 90th-percentile upper bound, not at the outlier', () => {
+		const uppers = [0.1, 0.12, 0.14, 0.16, 0.18, 0.2, 0.2, 0.21, 0.22, 0.76];
+		const scale = stripScale(uppers);
+		expect(scale.end).toBe(0.25);
+		expect(scale.clipped).toBe(1);
+	});
+
+	it('keeps the room on the strip and ignores withheld rows', () => {
+		expect(stripScale([0.01, 0.02, null, undefined], 0.3).end).toBe(0.5);
+		expect(stripScale([]).end).toBeGreaterThan(0);
+	});
+
+	it('holds a position to the end of the strip', () => {
+		expect(stripAt(0.1, 0.2)).toBe('50.00%');
+		expect(stripAt(0.7, 0.2)).toBe('100.00%');
+		expect(stripAt(-1, 0.2)).toBe('0.00%');
 	});
 });

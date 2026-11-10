@@ -190,3 +190,50 @@ export function exportRows(data: Countries): (string | number | boolean | null)[
 		row.sufficient_after ?? null
 	]);
 }
+
+/**
+ * The shared scale of an interval strip: one end for every row of a table.
+ *
+ * Both interval tables on the Actors page ("Who stays silent" and "Speakers by
+ * rate") used to end their strip at the table's largest upper bound. One
+ * outlier — a delegation with few meetings and a wide interval — set the scale
+ * for all of them: at 0.756 against a median upper bound of 0.207, most
+ * intervals occupied ten pixels and the room's average touched every bar
+ * (review of 10 November 2026).
+ *
+ * So the end is the upper bound at the 90th percentile, rounded up to a figure
+ * a reader can print (1, 2, 2.5 or 5 of a power of ten), and never short of
+ * `floor` — the room's average, which must stay on the strip. It is one scale
+ * for the whole table, printed in the column head, and a row reaching past it
+ * is not shortened silently: `past` says whether to draw the overflow mark,
+ * and `clipped` counts the rows that carry one.
+ */
+export interface StripScale {
+	end: number;
+	clipped: number;
+}
+
+const NICE = [1, 2, 2.5, 5, 10];
+
+/** The smallest of 1, 2, 2.5, 5 times a power of ten that is at least `value`. */
+export function niceCeil(value: number): number {
+	if (!(value > 0) || !Number.isFinite(value)) return 0;
+	const power = 10 ** Math.floor(Math.log10(value));
+	const step = NICE.find((n) => n * power >= value - 1e-12) ?? 10;
+	return Number((step * power).toPrecision(12));
+}
+
+export function stripScale(uppers: (number | null | undefined)[], floor = 0, quantile = 0.9): StripScale {
+	const values = uppers
+		.filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0)
+		.sort((a, b) => a - b);
+	const at = values.length ? values[Math.max(0, Math.ceil(quantile * values.length) - 1)]! : 0;
+	const end = niceCeil(Math.max(at, floor)) || 1e-6;
+	return { end, clipped: values.filter((v) => v > end).length };
+}
+
+/** A value's place on the strip, as a CSS percentage, held to the strip's end. */
+export function stripAt(value: number, end: number): string {
+	const share = end > 0 ? Math.min(Math.max(value / end, 0), 1) : 0;
+	return `${(share * 100).toFixed(2)}%`;
+}

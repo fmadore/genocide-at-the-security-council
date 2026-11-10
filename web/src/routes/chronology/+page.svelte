@@ -7,8 +7,16 @@
 	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import Chart from '#lib/Chart.svelte';
 	import Contents from '#lib/Contents.svelte';
+	import Decomposition from '#lib/Decomposition.svelte';
 	import Figure from '#lib/Figure.svelte';
 	import Heatmap from '#lib/Heatmap.svelte';
+	import RateSplit from '#lib/RateSplit.svelte';
+	import {
+		availableSplits as partsSplitsOf,
+		readPartsSplit,
+		writePartsSplit
+	} from '#lib/decomposition.js';
+	import { RATE_EXPORT_COLUMNS, rateExportRows } from '#lib/ratesplit.js';
 	import Icon from '#lib/Icon.svelte';
 	import { figureId } from '#lib/figures.js';
 	import PageMeta from '#lib/PageMeta.svelte';
@@ -394,51 +402,29 @@
 		};
 	}
 
-	/** The two-rate models, one row per unit per measure. Sets are absent by design. */
+	/** The drawn two-rate split, for the plate's image downloads. */
+	let rateSplit = $state<RateSplit | null>(null);
+
+	/**
+	 * The two-rate test the plate draws, every measure and unit, then the
+	 * exploratory method's candidates; `#lib/ratesplit` builds the rows.
+	 */
 	function breaksTable(): ExportRequest {
-		const rows: (string | number | null)[][] = [];
-		for (const [measure, units] of Object.entries(data.breaks.series)) {
-			for (const [unitName, found] of Object.entries(units)) {
-				for (const point of found) {
-					rows.push([
-						measure,
-						unitName,
-						point.label,
-						point.index,
-						point.before,
-						point.after,
-						point.ratio,
-						point.gain,
-						point.p_value,
-						point.interval_start,
-						point.interval_stop
-					]);
-				}
-			}
-		}
 		return {
 			title: 'Testing for a change in the rate',
-			columns: [
-				'measure',
-				'unit',
-				'label',
-				'index',
-				'rate_before',
-				'rate_after',
-				'ratio',
-				'gain',
-				'p_value',
-				'interval_start',
-				'interval_stop'
-			],
-			rows,
+			columns: RATE_EXPORT_COLUMNS,
+			rows: rateExportRows(data.breaks),
 			provenance: provenanceOf(data.breaks.meta, 'series/change_points.json'),
 			filters: [
 				`threshold: ${percent(data.breaks.inference.per_test_alpha)} after ${data.breaks.inference.correction}`,
 				`simulations: ${data.breaks.inference.trials}`,
+				`null: ${data.breaks.inference.null}`,
 				`minimum segment: ${data.breaks.parameters.min_size} periods`
 			],
-			scope: 'every accepted partition, for every measure and unit the artefact holds'
+			scope:
+				'method two_rate_test: the best split for every measure and unit, accepted or not, with ' +
+				'rates as the artefact writes them (a share of speeches, or occurrences per word); ' +
+				'method exploratory: every candidate of the second method'
 		};
 	}
 
@@ -842,6 +828,10 @@
 		splits: SPLITS.map(({ id }) => id)
 	}));
 
+	/* "Agenda or usage?": which grouping splits the decade-to-decade change. */
+	const partsSplits = $derived(partsSplitsOf(data.parts));
+	let partsSplit = $state<string>('agenda_item_manual');
+
 	urlState({
 		read: (params) => {
 			const state = readChronologyState(params, urlChoices);
@@ -851,25 +841,30 @@
 			gridMeasure = state.calendarMeasure;
 			gridUnit = state.calendarUnit;
 			split = state.split;
+			partsSplit = readPartsSplit(params, partsSplits);
 		},
 		/* The scope is layout state and the page owns everything else in the
 		   query, so it is merged back in here: a page that rebuilt its own URL
 		   from its own controls would silently drop the reader's reading set on
 		   the next keystroke. */
 		write: () =>
-			withScope(
-				chronologyParams(
-					{
-						unit,
-						grain,
-						series: selected,
-						calendarMeasure: gridMeasure,
-						calendarUnit: gridUnit,
-						split
-					},
-					urlChoices
+			writePartsSplit(
+				withScope(
+					chronologyParams(
+						{
+							unit,
+							grain,
+							series: selected,
+							calendarMeasure: gridMeasure,
+							calendarUnit: gridUnit,
+							split
+						},
+						urlChoices
+					),
+					scope
 				),
-				scope
+				partsSplit,
+				partsSplits
 			)
 	});
 
@@ -999,14 +994,17 @@
 	}
 
 	/* The figures on this page, for the contents list; the ids follow the titles. */
-	const FIGURES = [
+	/* "Agenda or usage?" is listed only where the payload carries the
+	   decomposition, so the contents never names a plate the page cannot print. */
+	const FIGURES = $derived([
 		{ title: 'The reading set, year by year' },
 		{ title: 'The word list over time' },
 		{ title: 'Testing for a change in the rate' },
+		...(partsSplits.length ? [{ title: 'Agenda or usage?' }] : []),
 		{ title: "The vocabulary's calendar" },
 		{ title: 'The same twelve months, pooled' },
 		{ title: 'Who says it, and in what debate' }
-	];
+	]);
 
 	const genocideBreaks = $derived(data.breaks.series.genocide ?? {});
 	const genocideInference = $derived(data.breaks.inference.series.genocide ?? {});
@@ -1279,40 +1277,6 @@
 			{/if}
 		</section>
 
-		{#if data.parts}
-			<details class="data-table">
-				<summary
-					><Icon icon={ChevronRight} />Agenda or usage? The genocide rate's change, decade by decade</summary
-				>
-				<p class="hint">
-					Each change in the share of speeches using the word, split into <em>composition</em> (more
-					speeches on agenda items where it was already common) and <em>within</em> (more use inside the
-					same items). The two parts add to the change.
-				</p>
-				<table>
-					<thead>
-						<tr
-							><th>Decades</th><th class="num">Share</th><th class="num">Change</th><th class="num"
-								>Composition</th
-							><th class="num">Within</th><th>Largest item</th></tr
-						>
-					</thead>
-					<tbody>
-						{#each data.parts.splits.agenda_item_manual ?? [] as row (row.from)}
-							<tr>
-								<td>{row.from}s → {row.to}s</td>
-								<td class="num">{percent(row.rate_from)} → {percent(row.rate_to)}</td>
-								<td class="num">{points(row.change)}</td>
-								<td class="num">{points(row.composition)}</td>
-								<td class="num">{points(row.within)}</td>
-								<td>{row.largest[0]?.group ?? '—'}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</details>
-		{/if}
-
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View the plotted values as a table</summary>
 			<table>
@@ -1345,7 +1309,11 @@
 		title="Testing for a change in the rate"
 		question="Is the genocide series better described by one steady rate, or by two?"
 		source="04_series.py → series/change_points.json"
-		download={{ name: ['unsc', 'rate-change'], table: breaksTable }}
+		download={{
+			name: ['unsc', 'rate-change'],
+			table: breaksTable,
+			chart: () => rateSplit?.svg() ?? null
+		}}
 	>
 		{#snippet reading()}
 			<p>
@@ -1364,6 +1332,8 @@
 				unaccepted split does not establish that usage was constant.
 			</p>
 		{/snippet}
+
+		<RateSplit bind:this={rateSplit} breaks={data.breaks} annual={data.year} />
 
 		<table>
 			<thead>
@@ -1430,6 +1400,10 @@
 			</table>
 		</details>
 	</Figure>
+
+	{#if data.parts && partsSplits.length}
+		<Decomposition data={data.parts} annual={data.year} bind:split={partsSplit} />
+	{/if}
 
 	<Figure
 		fullscreen

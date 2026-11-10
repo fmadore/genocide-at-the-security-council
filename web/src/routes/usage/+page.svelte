@@ -754,7 +754,7 @@
 
 		{#snippet reading()}
 			<p>
-				Rows are affiliations; columns are cases or concepts. Darker amber means more assigned
+				Rows are affiliations; columns are cases or concepts. A stronger shade means more assigned
 				mentions or a larger share, depending on the unit. Column labels sort the rows highest
 				counts first, and row labels sort the columns the same way; cells open passages. The final
 				columns cover general or legal discussion. Shares are withheld below {count(
