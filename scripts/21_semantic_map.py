@@ -40,6 +40,12 @@ def project(vectors: np.ndarray, seed: int, neighbours: int = 30):
         recalls.append(len(set(candidates) & set(actual)) / 10)
     evaluation = projection.projection_agreement(vectors, coordinates, seed=seed, max_points=1000)
     evaluation["measured_against"] = "original normalized speech embeddings"
+    # The figures above look for neighbours inside a 1,000-speech subsample, so
+    # they describe the map's broad layout. This block asks the question a
+    # reader of the scatter asks: of a speech's nearest among *all* speeches,
+    # how many does the map keep beside it?
+    evaluation["scale"] = "neighbours sought within the subsample: broad layout, not local detail"
+    evaluation["local"] = projection.local_fidelity(vectors, coordinates, seed=seed)
     evaluation["ann_recall_at_10"] = round(float(np.mean(recalls)), 4)
     evaluation["ann_exact_query_sample"] = len(queries)
     # Poor ANN is a failed artifact, not a plausible-looking map.

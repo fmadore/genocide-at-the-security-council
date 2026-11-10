@@ -225,6 +225,7 @@ def build_silence(
 
         substantive = subset.loc[~actors.procedural_mask(subset["source_procedural"])]
         exposed, joined = int(frame["exposed"].sum()), int(frame["joined"].sum())
+        after, joined_after = int(frame["exposed_after"].sum()), int(frame["joined_after"].sum())
         summaries.append(
             {
                 "period": window.key,
@@ -235,12 +236,18 @@ def build_silence(
                 "joined": joined,
                 "room_share": round(joined / exposed, 6) if exposed else None,
                 "speakers_at_minimum": int(frame["sufficient"].sum()),
+                # The ordered reading: only attendances with a speech after
+                # another delegation's first use of the word.
+                "exposed_after": after,
+                "joined_after": joined_after,
+                "room_share_after": round(joined_after / after, 6) if after else None,
+                "speakers_at_minimum_after": int(frame["sufficient_after"].sum()),
             }
         )
 
     whole = next(s for s in summaries if s["period"] == actors.WHOLE)
     parts = [s for s in summaries if s["period"] != actors.WHOLE]
-    for column in ("meetings", "exposed", "joined"):
+    for column in ("meetings", "exposed", "joined", "exposed_after", "joined_after"):
         got, want = sum(int(s[column]) for s in parts), int(whole[column])
         if got != want:
             console.fail(
@@ -276,6 +283,15 @@ def build_silence(
             f"available. No share is given below {minimum} meetings; across the corpus "
             f"speakers join in {room:.1%} of such meetings, and seeing none in fewer than "
             f"{required} meetings is what that average would predict."
+        ),
+        "rule_after": (
+            "The stricter reading follows the order of speaking. A meeting counts when the "
+            "speaker took the floor after another speaker had already used the word, and "
+            "the share is the part of those meetings in which the speaker then used it. "
+            f"Across the corpus {whole['exposed_after']:,} of the {whole['exposed']:,} "
+            "attendances counted above meet that test; in the rest the speaker had "
+            "finished before anyone else used the word. Under it speakers join in "
+            f"{float(whole['room_share_after'] or 0.0):.1%} of such meetings."
         ),
         "periods": summaries,
         "rows": rows,

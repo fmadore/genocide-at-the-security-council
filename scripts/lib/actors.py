@@ -36,6 +36,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from . import console, council, lexicon, series
@@ -357,31 +358,87 @@ def exposure(speeches: pd.DataFrame, has_column: str) -> pd.DataFrame:
     record, not intent: for speakers of other languages the word is the UN
     translator's, and a delegation may have spoken to another point of the same
     meeting.
+
+    **The order of speaking, and the second reading.** `exposed` asks only
+    whether the word was used by someone else *somewhere* in the meeting. A
+    delegation that spoke third, before the tenth speaker used the word, had
+    nothing to join when it held the floor, and it is in `exposed` all the
+    same: on the 1946-2026 corpus that is 10,456 of 30,752 exposed attendances,
+    a third of the denominator. So where the corpus carries `speech_number`,
+    the source's order within a meeting, a stricter pair is written beside the
+    first. `exposed_after` counts the meetings in which the delegation gave a
+    substantive speech *after* another delegation's first use of the word, and
+    `joined_after` those in which one of those later speeches used it.
+    `share_after` is their ratio, and it is the reading the sentence "took the
+    floor after the word had been used, and did not use it" describes. The
+    room's share rises from 11.3% to 13.4% under it and a delegation's can move
+    by 10 points, while the ordering of delegations barely does (Spearman
+    0.94 over the 142 with a share on both readings). The first pair is kept: it is what was published until November
+    2026, and the gap between the two is the size of the assumption.
     """
     missing = [column for column in (*EXPOSURE_COLUMNS, has_column) if column not in speeches.columns]
     if missing:
         raise KeyError(f"exposure needs {', '.join(missing)}")
 
     substantive = speeches.loc[~procedural_mask(speeches["source_procedural"])]
-    attended = (
-        substantive.assign(used=substantive[has_column].astype(bool))
-        .groupby(["meeting_symbol", "country_org"], observed=True, sort=True)["used"]
-        .any()
-        .to_frame()
-    )
+    ordered = "speech_number" in substantive.columns
+    working = substantive.assign(used=substantive[has_column].astype(bool))
+    keys = ["meeting_symbol", "country_org"]
+    attended = working.groupby(keys, observed=True, sort=True)["used"].any().to_frame()
     users = attended["used"].groupby(level="meeting_symbol").sum()
     meetings = attended.index.get_level_values("meeting_symbol")
     others = users.reindex(meetings).to_numpy() - attended["used"].astype(int).to_numpy()
-    exposed = attended.loc[others > 0]
 
-    out = exposed.groupby(level="country_org").agg(
-        exposed=("used", "size"), joined=("used", "sum")
-    )
-    out = out.astype({"exposed": "int64", "joined": "int64"})
+    if ordered:
+        position = working["speech_number"].astype("float64")
+        working = working.assign(_at=position, _use=position.where(working["used"]))
+        spoke = working.groupby(keys, observed=True, sort=True).agg(
+            last=("_at", "max"), first_use=("_use", "min"), last_use=("_use", "max")
+        )
+        # The earliest first use in each meeting, and the next one by someone
+        # else: a delegation's own first use cannot be what exposed it.
+        uses = spoke["first_use"].dropna().sort_values(kind="stable")
+        earliest = uses.groupby(level="meeting_symbol").nth(0)
+        earliest_by = pd.Series(
+            earliest.index.get_level_values("country_org"),
+            index=earliest.index.get_level_values("meeting_symbol"),
+        )
+        earliest_at = pd.Series(
+            earliest.to_numpy(), index=earliest.index.get_level_values("meeting_symbol")
+        )
+        second = uses.groupby(level="meeting_symbol").nth(1)
+        second_at = pd.Series(
+            second.to_numpy(), index=second.index.get_level_values("meeting_symbol")
+        )
+        speakers = spoke.index.get_level_values("country_org")
+        where = spoke.index.get_level_values("meeting_symbol")
+        # Compared as objects: a meeting nobody used the word in reindexes to a
+        # missing name, and a nullable string column would refuse to compare it.
+        first_user = earliest_by.reindex(where).astype(object).where(lambda v: v.notna(), None)
+        own = first_user.to_numpy() == speakers.astype(object).to_numpy()
+        other_first = np.where(
+            own, second_at.reindex(where).to_numpy(), earliest_at.reindex(where).to_numpy()
+        )
+        after = spoke["last"].to_numpy() > other_first  # False where nobody else used it
+        attended["after"] = after
+        attended["joined_after"] = after & (spoke["last_use"].to_numpy() > other_first)
+
+    exposed = attended.loc[others > 0]
+    aggregated = {"exposed": ("used", "size"), "joined": ("used", "sum")}
+    if ordered:
+        aggregated |= {"exposed_after": ("after", "sum"), "joined_after": ("joined_after", "sum")}
+    out = exposed.groupby(level="country_org").agg(**aggregated).astype("int64")
     out["share"] = out["joined"] / out["exposed"]
     low, high = series.wilson_interval(out["joined"].to_numpy(), out["exposed"].to_numpy())
     out["share_low"] = low
     out["share_high"] = high
+    if ordered:
+        out["share_after"] = out["joined_after"] / out["exposed_after"].where(out["exposed_after"] > 0)
+        low, high = series.wilson_interval(
+            out["joined_after"].to_numpy(), out["exposed_after"].to_numpy()
+        )
+        out["share_after_low"] = low
+        out["share_after_high"] = high
     return out
 
 
@@ -409,7 +466,7 @@ def reconcile_exposure(
     want_joined = int(per_meeting.loc[several, "users"].sum())
     got_exposed = int(frame["exposed"].sum()) if not frame.empty else 0
     got_joined = int(frame["joined"].sum()) if not frame.empty else 0
-    return [
+    problems = [
         f"{where}: {label} sum to {got:,} by speaker and {want:,} by meeting ({got - want:+,})"
         for label, got, want in (
             ("exposed meetings", got_exposed, want_exposed),
@@ -417,6 +474,20 @@ def reconcile_exposure(
         )
         if got != want
     ]
+    if "exposed_after" in frame.columns and not frame.empty:
+        # The ordered reading only ever removes: a meeting cannot be an
+        # exposure-after that was not an exposure, and a joining-after is a
+        # joining that also had someone to follow.
+        wrong = frame.index[
+            (frame["exposed_after"] > frame["exposed"])
+            | (frame["joined_after"] > frame["joined"])
+            | (frame["joined_after"] > frame["exposed_after"])
+        ].tolist()
+        problems += [
+            f"{where}: {name}'s ordered counts exceed the counts they are cut from"
+            for name in wrong[:8]
+        ]
+    return problems
 
 
 def withhold_exposure(frame: pd.DataFrame, minimum: int = MIN_EXPOSED_MEETINGS) -> pd.DataFrame:
@@ -425,6 +496,12 @@ def withhold_exposure(frame: pd.DataFrame, minimum: int = MIN_EXPOSED_MEETINGS) 
     out["sufficient"] = out["exposed"] >= minimum
     for column in ("share", "share_low", "share_high"):
         out.loc[~out["sufficient"], column] = float("nan")
+    if "exposed_after" in out.columns:
+        # Its own flag: the stricter denominator is smaller, and a speaker can
+        # clear the minimum on one reading and not on the other.
+        out["sufficient_after"] = out["exposed_after"] >= minimum
+        for column in ("share_after", "share_after_low", "share_after_high"):
+            out.loc[~out["sufficient_after"], column] = float("nan")
     return out
 
 
@@ -440,6 +517,18 @@ def exposure_as_rows(frame: pd.DataFrame, period_key: str) -> list[dict[str, obj
             "share_low": _rate(row["share_low"], 6),
             "share_high": _rate(row["share_high"], 6),
             "sufficient": bool(row["sufficient"]),
+            **(
+                {
+                    "exposed_after": int(row["exposed_after"]),
+                    "joined_after": int(row["joined_after"]),
+                    "share_after": _rate(row["share_after"], 6),
+                    "share_after_low": _rate(row["share_after_low"], 6),
+                    "share_after_high": _rate(row["share_after_high"], 6),
+                    "sufficient_after": bool(row["sufficient_after"]),
+                }
+                if "exposed_after" in frame.columns
+                else {}
+            ),
         }
         for name, row in frame.iterrows()
     ]
@@ -719,8 +808,10 @@ COLUMNS = [
     "source_ngo",
     "source_permanent_member",
     "source_elected_member",
-    # Read by :func:`exposure` only: procedural turns are left out of who said what.
+    # Read by :func:`exposure` only: procedural turns are left out of who said what,
+    # and the order of speaking decides who could have followed whom.
     "source_procedural",
+    "speech_number",
 ]
 
 

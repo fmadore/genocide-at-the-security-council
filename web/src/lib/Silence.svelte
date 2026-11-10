@@ -102,11 +102,12 @@
 
 	{#snippet reading()}
 		<p>
-			A meeting counts when the delegation took the floor and another speaker used the word. The
-			share is the part of those meetings in which it used the word too. The bar is the 95%
-			interval, the tick the share, the dashed line the room's average{#if room !== null}, {percent(
-					room
-				)}{/if}. A name opens its own uses.
+			{#if result.ordered}A meeting counts when the delegation took the floor after another speaker
+				had already used the word. The share is the part of those meetings in which it then used the
+				word too.{:else}A meeting counts when the delegation took the floor and another speaker used
+				the word. The share is the part of those meetings in which it used the word too.{/if} The bar
+			is the 95% interval, the tick the share, the dashed line the room's average{#if room !== null},
+				{percent(room)}{/if}. A name opens its own uses.
 		</p>
 	{/snippet}
 	{#snippet caveat()}
@@ -122,6 +123,9 @@
 			Procedural turns by the presidency are left out on both sides: they read agenda titles aloud,
 			and some titles contain the word. A meeting in which a delegation was the only one to use the
 			word does not count for it, because nobody else had made the word available.
+			{#if result.ordered}Nor does a meeting in which the delegation had finished speaking before
+				anyone else used it: the order of speaking is the source's. The download carries both
+				counts.{/if}
 		</p>
 		{#if result.summary}<p>
 				In this period {count(result.summary.meetings)} meetings carried the word in a substantive speech.
@@ -195,6 +199,9 @@
 	<details class="data-table">
 		<summary><Icon icon={ChevronRight} />The rule, as the artefact states it</summary>
 		<p class="prose">{data.silence.rule}</p>
+		{#if result.ordered && data.silence.rule_after}<p class="prose">
+				{data.silence.rule_after}
+			</p>{/if}
 	</details>
 </Figure>
 

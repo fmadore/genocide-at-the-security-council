@@ -8,7 +8,26 @@ export interface SemanticMap {
 		model_revision: string;
 		speeches: number;
 		neighbour_shards: number;
-		evaluation: { neighbours_lost_share: number; ann_recall_at_10: number; points: number };
+		evaluation: {
+			neighbours_lost_share: number;
+			ann_recall_at_10: number;
+			points: number;
+			/** Neighbours counted per speech; 25 where an older release does not say. */
+			k?: number;
+			/**
+			 * The same loss measured among every speech, for a sample of query
+			 * speeches: the neighbourhood a reader of the map looks at. Written by
+			 * releases made after November 2026; the figures above look for
+			 * neighbours inside a subsample and describe the broad layout only.
+			 */
+			local?: {
+				queries: number;
+				points: number;
+				k: number;
+				neighbours_lost_share: number | null;
+				trustworthiness: number | null;
+			};
+		};
 	};
 	countries: string[];
 	agendas: string[];

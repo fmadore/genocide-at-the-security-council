@@ -421,7 +421,7 @@ test('the word-by-word plate leaves as an image with its key', async ({ page }) 
 	expect(download.suggestedFilename()).toBe('unsc-vocabulary-word-by-word.svg');
 	expect(svg).toContain('The vocabulary, word by word');
 	expect(svg).toContain('>core</text>');
-	expect(svg).toContain('<polyline');
+	expect(svg).toContain('<path transform=');
 	expect(svg).toContain('artifact: series/annual.json');
 	// A file read with none of the site's CSS: no colour may be left as a variable.
 	expect(svg).not.toContain('var(');

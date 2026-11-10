@@ -751,6 +751,72 @@ def test_exposure_counts_only_meetings_where_someone_else_used_the_word() -> Non
     assert frame.loc["Quiet", "share"] == pytest.approx(0.5)
 
 
+def ordered_corpus() -> pd.DataFrame:
+    """One meeting, in speaking order: who could have followed whom."""
+    rows = [
+        meeting_speech("S/PV.9", "Early", term=False),  # 1: nobody has used it yet
+        meeting_speech("S/PV.9", "First", term=True),  # 2: the first use
+        meeting_speech("S/PV.9", "Silent", term=False),  # 3: after it, and silent
+        meeting_speech("S/PV.9", "Follower", term=True),  # 4: after it, and joins
+        meeting_speech("S/PV.9", "Returns", term=True),  # 5: uses it here...
+        meeting_speech("S/PV.9", "First", term=False),  # 6: the first user speaks again
+        meeting_speech("S/PV.9", "Returns", term=False),  # 7: ...and not afterwards
+    ]
+    frame = pd.DataFrame(rows)
+    frame["speech_number"] = range(1, len(frame) + 1)
+    return frame
+
+
+def test_the_ordered_reading_counts_only_speeches_after_another_first_use() -> None:
+    frame = actors.exposure(ordered_corpus(), "has_genocide")
+    # Everyone is exposed on the unordered reading: someone else used the word.
+    assert frame["exposed"].tolist() == [1, 1, 1, 1, 1]
+    after = frame[["exposed_after", "joined_after"]]
+    # Early finished before anyone had used the word: nothing to join.
+    assert after.loc["Early"].tolist() == [0, 0]
+    assert after.loc["Silent"].tolist() == [1, 0]
+    assert after.loc["Follower"].tolist() == [1, 1]
+    # First is exposed by Follower's use at 4 and speaks again at 6, without the
+    # word: its own first use is not what exposed it, and it did not follow.
+    assert after.loc["First"].tolist() == [1, 0]
+    # Returns used the word at 5, after First's use at 2: it followed.
+    assert after.loc["Returns"].tolist() == [1, 1]
+    assert actors.reconcile_exposure(frame, ordered_corpus(), "has_genocide", "all") == []
+
+
+def test_the_ordered_reading_survives_nullable_strings_and_a_meeting_without_the_word() -> None:
+    """The parquet's columns are nullable strings, and most meetings never use the word."""
+    quiet = pd.DataFrame(
+        [meeting_speech("S/PV.8", "Early", term=False), meeting_speech("S/PV.8", "Silent", term=False)]
+    )
+    quiet["speech_number"] = [1, 2]
+    corpus = pd.concat([ordered_corpus(), quiet], ignore_index=True)
+    for column in ("meeting_symbol", "country_org"):
+        corpus[column] = corpus[column].astype("string")
+    frame = actors.exposure(corpus, "has_genocide")
+    assert frame.loc["Silent", ["exposed", "exposed_after", "joined_after"]].tolist() == [1, 1, 0]
+    assert frame.loc["Early", ["exposed", "exposed_after"]].tolist() == [1, 0]
+
+
+def test_the_ordered_reading_is_absent_without_a_speaking_order() -> None:
+    frame = actors.exposure(exposure_corpus(), "has_genocide")
+    assert "exposed_after" not in frame.columns
+    rows = actors.exposure_as_rows(actors.withhold_exposure(frame, minimum=1), "all")
+    assert "share_after" not in rows[0]
+
+
+def test_the_ordered_share_is_withheld_on_its_own_denominator() -> None:
+    frame = actors.withhold_exposure(actors.exposure(ordered_corpus(), "has_genocide"), minimum=1)
+    assert bool(frame.loc["Early", "sufficient"]) is True
+    assert bool(frame.loc["Early", "sufficient_after"]) is False
+    assert pd.isna(frame.loc["Early", "share_after"])
+    assert frame.loc["Follower", "share_after"] == pytest.approx(1.0)
+    row = next(
+        r for r in actors.exposure_as_rows(frame, "all") if r["country_org"] == "Early"
+    )
+    assert row["exposed_after"] == 0 and row["share_after"] is None
+
+
 def test_a_procedural_turn_neither_exposes_nor_joins() -> None:
     frame = actors.exposure(exposure_corpus(), "has_genocide")
     assert "Chair" not in frame.index

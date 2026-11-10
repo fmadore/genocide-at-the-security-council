@@ -204,7 +204,9 @@
 			{#if control === 'matched'}
 				{count(speaker.control_tokens ?? 0)} in the comparison set
 				{#if fell !== null}
-					&middot; pairing reduced the largest differences by {decimal(fell)} on the log-ratio scale
+					&middot; {fell.left} of the {fell.of} largest unpaired differences are no longer among the largest
+					once paired{#if fell.drop !== null}; the others fell by a median of {decimal(fell.drop)} on
+						the log-ratio scale{/if}
 				{/if}
 			{:else}
 				the rest of the corpus
@@ -293,7 +295,7 @@
 				concerned the three most frequent.
 			</p>
 			<ul>
-				{#each speaker.agenda.top.slice(0, 5) as item (item.item)}
+				{#each speaker.agenda.top as item (item.item)}
 					<li>
 						<span>{item.item}</span>
 						<span class="share">{percent(item.share)}</span>

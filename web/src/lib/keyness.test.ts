@@ -201,9 +201,28 @@ describe('bars', () => {
 });
 
 describe('removed', () => {
-	it('is the median fall from the unmatched reading to the matched one', () => {
-		// utopia 6→4, rwanda 5→absent (counts as 0), council 2.5→2.
-		expect(removed(speaker())).toBe(2);
+	it('counts the words that left the table and withholds a median over too few', () => {
+		// utopia 6→4, rwanda 5→absent, council 2.5→2: two survive, below the minimum.
+		expect(removed(speaker())).toEqual({ of: 3, left: 1, drop: null });
+	});
+
+	it('takes the median fall over the words in both tables only', () => {
+		const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+		const both = speaker({
+			keywords_unmatched: names.map((name, index) => word(name, 9 - index)),
+			// `g` is absent from the matched table: it is unreported, not at parity.
+			keywords: names.slice(0, 6).map((name, index) => word(name, 9 - index - (index + 1)))
+		});
+		// Falls of 1, 2, 3, 4, 5 and 6 over the six survivors.
+		expect(removed(both)).toEqual({ of: 7, left: 1, drop: 3.5 });
+	});
+
+	it('does not score a word that left the table as a fall to zero', () => {
+		const gone = speaker({
+			keywords_unmatched: ['a', 'b', 'c', 'd', 'e', 'f'].map((name) => word(name, 8)),
+			keywords: [word('other', 3)]
+		});
+		expect(removed(gone)).toEqual({ of: 6, left: 6, drop: null });
 	});
 
 	it('is null rather than zero when a reading is missing', () => {

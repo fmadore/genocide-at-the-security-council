@@ -100,26 +100,37 @@
    "periods": [
     {
      "exposed": "int",
+     "exposed_after": "int",
      "joined": "int",
+     "joined_after": "int",
      "meetings": "int",
      "period": "str",
      "room_share": "float|null",
-     "speakers_at_minimum": "int"
+     "room_share_after": "float|null",
+     "speakers_at_minimum": "int",
+     "speakers_at_minimum_after": "int"
     }
    ],
    "rows": [
     {
      "country_org": "str",
      "exposed": "int",
+     "exposed_after": "int",
      "joined": "int",
+     "joined_after": "int",
      "period": "str",
      "share": "float|null",
+     "share_after": "float|null",
+     "share_after_high": "float|null",
+     "share_after_low": "float|null",
      "share_high": "float|null",
      "share_low": "float|null",
-     "sufficient": "bool"
+     "sufficient": "bool",
+     "sufficient_after": "bool"
     }
    ],
-   "rule": "str"
+   "rule": "str",
+   "rule_after": "str"
   },
   "standing": {
    "groups": [
@@ -1731,13 +1742,13 @@
      "str"
     ],
     "speech_rate": [
-     "float"
+     "float|null"
     ],
     "speech_rate_high": [
-     "float"
+     "float|null"
     ],
     "speech_rate_low": [
-     "float"
+     "float|null"
     ],
     "speeches": [
      "int"
@@ -1794,8 +1805,16 @@
    "speeches": "int",
    "words": "int"
   },
+  "minimum_speeches": "int",
   "periods": [
    "int"
+  ],
+  "record": {
+   "first_date": "str",
+   "last_date": "str"
+  },
+  "sufficient": [
+   "bool"
   ],
   "terms": {
    "*": {
@@ -1804,26 +1823,26 @@
     ],
     "register": "str",
     "speech_rate": [
-     "float"
+     "float|null"
     ],
     "speech_rate_cluster_high": [
-     "float"
+     "float|null"
     ],
     "speech_rate_cluster_low": [
-     "float"
+     "float|null"
     ],
     "speech_rate_high": [
-     "float"
+     "float|null"
     ],
     "speech_rate_low": [
-     "float"
+     "float|null"
     ],
     "speeches": [
      "int"
     ],
     "tier": "str",
     "token_rate": [
-     "float"
+     "float|null"
     ]
    }
   }
@@ -1842,11 +1861,12 @@
        "held": "int",
        "occurrences": "int",
        "period": "int",
-       "speech_rate": "float",
-       "speech_rate_high": "float",
-       "speech_rate_low": "float",
+       "speech_rate": "float|null",
+       "speech_rate_high": "float|null",
+       "speech_rate_low": "float|null",
        "speeches": "int",
-       "token_rate": "float"
+       "sufficient": "bool",
+       "token_rate": "float|null"
       }
      ]
     },
@@ -1860,11 +1880,12 @@
        "held": "int",
        "occurrences": "int",
        "period": "int",
-       "speech_rate": "float",
-       "speech_rate_high": "float",
-       "speech_rate_low": "float",
+       "speech_rate": "float|null",
+       "speech_rate_high": "float|null",
+       "speech_rate_low": "float|null",
        "speeches": "int",
-       "token_rate": "float"
+       "sufficient": "bool",
+       "token_rate": "float|null"
       }
      ]
     },
@@ -1878,11 +1899,12 @@
        "held": "int",
        "occurrences": "int",
        "period": "int",
-       "speech_rate": "float",
-       "speech_rate_high": "float",
-       "speech_rate_low": "float",
+       "speech_rate": "float|null",
+       "speech_rate_high": "float|null",
+       "speech_rate_low": "float|null",
        "speeches": "int",
-       "token_rate": "float"
+       "sufficient": "bool",
+       "token_rate": "float|null"
       }
      ]
     },
@@ -1896,11 +1918,12 @@
        "held": "int",
        "occurrences": "int",
        "period": "int",
-       "speech_rate": "float",
-       "speech_rate_high": "float",
-       "speech_rate_low": "float",
+       "speech_rate": "float|null",
+       "speech_rate_high": "float|null",
+       "speech_rate_low": "float|null",
        "speeches": "int",
-       "token_rate": "float"
+       "sufficient": "bool",
+       "token_rate": "float|null"
       }
      ]
     },
@@ -1914,11 +1937,12 @@
        "held": "int",
        "occurrences": "int",
        "period": "int",
-       "speech_rate": "float",
-       "speech_rate_high": "float",
-       "speech_rate_low": "float",
+       "speech_rate": "float|null",
+       "speech_rate_high": "float|null",
+       "speech_rate_low": "float|null",
        "speeches": "int",
-       "token_rate": "float"
+       "sufficient": "bool",
+       "token_rate": "float|null"
       }
      ]
     }
@@ -1961,7 +1985,8 @@
    "speakers": "int",
    "speeches": "int",
    "words": "int"
-  }
+  },
+  "minimum_speeches": "int"
  },
  "series/change_points.json": {
   "caveat": "str",
@@ -2309,6 +2334,7 @@
    "months": "int",
    "months_at_minimum": "int",
    "months_observed": "int",
+   "months_outside_record": "int",
    "share_at_minimum": "float",
    "speeches": "int",
    "speeches_at_minimum": "int"
@@ -2445,6 +2471,12 @@
   "periods": [
    "str"
   ],
+  "record": {
+   "first_date": "str",
+   "first_period": "str",
+   "last_date": "str",
+   "last_period": "str"
+  },
   "sufficient": [
    "bool"
   ],
@@ -2494,13 +2526,13 @@
      "str"
     ],
     "speech_rate": [
-     "float"
+     "float|null"
     ],
     "speech_rate_high": [
-     "float"
+     "float|null"
     ],
     "speech_rate_low": [
-     "float"
+     "float|null"
     ],
     "speeches": [
      "int"
@@ -2557,8 +2589,16 @@
    "speeches": "int",
    "words": "int"
   },
+  "minimum_speeches": "int",
   "periods": [
    "str"
+  ],
+  "record": {
+   "first_date": "str",
+   "last_date": "str"
+  },
+  "sufficient": [
+   "bool"
   ],
   "terms": {
    "*": {
@@ -2567,26 +2607,26 @@
     ],
     "register": "str",
     "speech_rate": [
-     "float"
+     "float|null"
     ],
     "speech_rate_cluster_high": [
-     "float"
+     "float|null"
     ],
     "speech_rate_cluster_low": [
-     "float"
+     "float|null"
     ],
     "speech_rate_high": [
-     "float"
+     "float|null"
     ],
     "speech_rate_low": [
-     "float"
+     "float|null"
     ],
     "speeches": [
      "int"
     ],
     "tier": "str",
     "token_rate": [
-     "float"
+     "float|null"
     ]
    }
   }

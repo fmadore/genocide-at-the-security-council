@@ -136,26 +136,52 @@ export function bars(speaker: SpeakerKeynessRow, reading: Reading, limit = 20): 
 	}));
 }
 
+/** What the pairing did to a speaker's largest unmatched differences. */
+export interface MatchingEffect {
+	/** The unmatched keywords looked at: the top of that table. */
+	of: number;
+	/** How many of them are no longer in the matched table at all. */
+	left: number;
+	/** Median fall in log ratio over the ones in both tables; null below `MIN_SURVIVORS`. */
+	drop: number | null;
+}
+
+/** Words that must be in both tables before a median fall is computed over them. */
+export const MIN_SURVIVORS = 5;
+
 /**
- * How far a speaker's top unmatched keywords fall once the occasion is held.
+ * How a speaker's top unmatched keywords fare once the occasion is held.
  *
- * The one number that says whether the matching did anything, and the reason
+ * The one summary that says whether the matching did anything, and the reason
  * both readings are published. Null when either reading is missing, rather than
  * zero: "no change" and "not computed" are different claims.
+ *
+ * Two numbers, because the matched table is cut at its largest rows and a word
+ * missing from it has no published effect size. Until November 2026 a missing
+ * word was scored as a log ratio of zero, so for a speaker whose fifteen
+ * largest unmatched keywords had all left the table — Russia, and 119 of 147
+ * published speakers for most of theirs — the "fall" printed was simply the
+ * median unmatched log ratio, as though each word had dropped to parity. A
+ * word ranked forty-first is not at parity; it is unreported. So the words
+ * that left are counted, and the fall is the median over the words whose two
+ * values are both on the page.
  */
-export function removed(speaker: SpeakerKeynessRow, top = 15): number | null {
+export function removed(speaker: SpeakerKeynessRow, top = 15): MatchingEffect | null {
 	if (!speaker.keywords || !speaker.keywords_unmatched) return null;
 	const matched = new Map(speaker.keywords.map((row) => [row.word, row.log_ratio]));
-	const drops = speaker.keywords_unmatched
-		.slice(0, top)
-		// A word the matching drops out of the table entirely counts as zero: it no
-		// longer distinguishes the speaker at all, which is the clearest case of
-		// the control having done its work.
-		.map((row) => row.log_ratio - (matched.get(row.word) ?? 0));
-	if (!drops.length) return null;
-	const sorted = [...drops].sort((a, b) => a - b);
-	const middle = Math.floor(sorted.length / 2);
-	return sorted.length % 2 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2;
+	const looked = speaker.keywords_unmatched.slice(0, top);
+	if (!looked.length) return null;
+	const drops = looked
+		.filter((row) => matched.has(row.word))
+		.map((row) => row.log_ratio - matched.get(row.word)!)
+		.sort((a, b) => a - b);
+	const middle = Math.floor(drops.length / 2);
+	const median = drops.length % 2 ? drops[middle]! : (drops[middle - 1]! + drops[middle]!) / 2;
+	return {
+		of: looked.length,
+		left: looked.length - drops.length,
+		drop: drops.length >= MIN_SURVIVORS ? median : null
+	};
 }
 
 /** How many of the drawn rows are the speaker naming itself. */

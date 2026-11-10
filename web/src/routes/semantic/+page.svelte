@@ -486,12 +486,21 @@
 					No speeches match these filters. Clear a filter or choose All years.
 				</p>{/if}
 			<p class="diagnostic">
-				In a test using {map.meta.evaluation.points.toLocaleString()} speeches, the flat map lost {(
-					100 * map.meta.evaluation.neighbours_lost_share
-				).toFixed(1)}% of the close neighbours identified within that sample. Separately, the fast
-				similarity search recovered {(100 * map.meta.evaluation.ann_recall_at_10).toFixed(1)}% of
-				the ten closest speeches found by an exact search. These checks assess the calculations, not
-				the quality of the model's interpretation. Model: {map.meta.model_repo}.
+				{#if map.meta.evaluation.local && map.meta.evaluation.local.neighbours_lost_share !== null}
+					For {map.meta.evaluation.local.queries.toLocaleString()} speeches, each one's
+					{map.meta.evaluation.local.k} closest speeches were found among all
+					{map.meta.evaluation.local.points.toLocaleString()}: the flat map does not keep {(
+						100 * map.meta.evaluation.local.neighbours_lost_share
+					).toFixed(1)}% of them beside it.
+				{/if}
+				In a coarser test on a sample of {map.meta.evaluation.points.toLocaleString()} speeches, the flat
+				map lost {(100 * map.meta.evaluation.neighbours_lost_share).toFixed(1)}% of each speech's {map
+					.meta.evaluation.k ?? 25} nearest within that sample. Neighbours within a sample this small
+				are far apart in the full map, so this figure describes the map's broad layout, not which points
+				sit side by side. Separately, the fast similarity search recovered {(
+					100 * map.meta.evaluation.ann_recall_at_10
+				).toFixed(1)}% of the ten closest speeches found by an exact search. These checks assess the
+				calculations, not the quality of the model's interpretation. Model: {map.meta.model_repo}.
 			</p>
 		</Figure>
 	{/if}

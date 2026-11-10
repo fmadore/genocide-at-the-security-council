@@ -325,9 +325,11 @@
 	     2026, A4). The band follows `bandBounds` in `#lib/chronology`. -->
 	<p>
 		Two kinds of 95% interval accompany shares on this site. On the Chronology, the
-		share-of-speeches lines in <em>The word list over time</em> sit in a band from
-		<strong>resampling whole meetings</strong>: the speeches of one meeting are drawn together, so
-		the band widens where a year's share rests on a few debates. The other intervals are
+		share-of-speeches lines in <em>The word list over time</em> sit in a band that is the wider of a
+		Wilson interval and one from <strong>resampling whole meetings</strong>: the speeches of one
+		meeting are drawn together, so the band widens where a year's share rests on a few debates.
+		Resampling alone cannot show uncertainty about a period in which no meeting used the word, which
+		is why the Wilson interval is kept as its floor. The other intervals are
 		<strong>95% Wilson intervals</strong>: in <em>Who says it, and in what debate</em> on the
 		Chronology, <em>Speakers by rate</em> on Actors and <em>What the word is doing</em> under Words in
 		context. They treat each speech or occurrence as independent, so they ignore clustering within meetings

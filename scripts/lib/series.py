@@ -116,6 +116,33 @@ def month_grid(first_year: int, last_year: int) -> list[str]:
     return [f"{year}-{month:02d}" for year in range(first_year, last_year + 1) for month in range(1, 13)]
 
 
+def quarter_grid(first: str, last: str) -> list[str]:
+    """Every quarter from `first` to `last`, as :func:`period` labels them.
+
+    The same argument as :func:`month_grid`, on the quarterly axis. Between
+    1946 and 2026 the Council went eight whole quarters without a recorded
+    speech — two of them in 1953, two in 1959 — and a series built from the
+    observed quarters alone has no place for them: a chart on those labels
+    joins 1952Q4 to 1953Q3 as if they were neighbours. Bounded by the first and
+    last observed quarters rather than by whole years, so the grid never
+    reaches past the end of the record.
+    """
+    def parse(label: str) -> tuple[int, int]:
+        year, _, quarter = str(label).partition("Q")
+        if not (year.isdigit() and quarter in {"1", "2", "3", "4"}):
+            raise ValueError(f"{label!r} is not a quarter such as 2014Q3")
+        return int(year), int(quarter)
+
+    (year, quarter), stop = parse(first), parse(last)
+    if stop < (year, quarter):
+        raise ValueError(f"{last} is before {first}")
+    out = []
+    while (year, quarter) <= stop:
+        out.append(f"{year}Q{quarter}")
+        year, quarter = (year, quarter + 1) if quarter < 4 else (year + 1, 1)
+    return out
+
+
 def month_of_year(frame: pd.DataFrame) -> pd.Series:
     """The calendar month a speech falls in, 1-12, pooled across the corpus.
 
@@ -267,8 +294,17 @@ def meeting_bootstrap(
     not twice as certain as a year with one. Here each period's meetings are
     drawn with replacement, every speech of a drawn meeting coming with it, and
     the rate is recomputed on each draw (docs/ROADMAP.md, RV19). Under this
-    scheme the band is wide exactly where a year's word depends on a few
-    sessions.
+    scheme the band is wide where a year's word depends on a few sessions.
+
+    **It is not a replacement for the Wilson interval, and can be narrower.** A
+    percentile bootstrap returns only rates its own resamples produce. Where no
+    meeting of a period used the term every resample is zero and the interval
+    is 0 to 0, which says "certainly never" about a period Wilson bounds at
+    about 3/n; with one term-bearing meeting the upper bound is whatever two or
+    three copies of it give. On the 1946-2026 corpus that is 73 of 314 quarters
+    and 7 of 81 years for `genocide` alone. A consumer therefore draws the
+    envelope of the two intervals (`bandBounds` in the dashboard), and anything
+    else that reads these bounds must do the same or say why not.
 
     `flags` maps a measure name to its boolean `has_` column. All measures of a
     period share one draw of meetings, so their intervals are comparable; the

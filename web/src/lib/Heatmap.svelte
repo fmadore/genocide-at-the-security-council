@@ -189,9 +189,14 @@
 				y={y(cell.year)}
 				width={CELL_W}
 				height={CELL_H}
-				fill={cell.state === 'withheld' ? `url(#${hatchId})` : fillOf(cell)}
+				fill={cell.state === 'withheld'
+					? `url(#${hatchId})`
+					: cell.state === 'beyond'
+						? 'none'
+						: fillOf(cell)}
 				stroke={$colours.ruleSoft}
 				stroke-width="0.75"
+				stroke-dasharray={cell.state === 'beyond' ? '1.5 2.5' : undefined}
 			>
 				<title>{label(cell)}</title>
 			</rect>

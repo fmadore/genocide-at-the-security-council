@@ -1206,7 +1206,10 @@
 				</thead>
 				<tbody>
 					{#each [{ side: 'a', key: sliceA, b: blockA }, { side: 'b', key: sliceB, b: blockB }] as side (side.side)}
-						{#each topWords(side.b) as w (w.word)}
+						<!-- The table obeys the gate the figure does: a set below the minimum
+						     is refused in the drawing, and its three rows are no more a
+						     profile here than there. -->
+						{#each (side.b?.speeches ?? 0) < minimumSpeeches ? [] : topWords(side.b) as w (w.word)}
 							<tr>
 								<td>{sliceLabel(side.key)}</td>
 								<td>{w.word}</td>

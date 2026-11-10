@@ -369,6 +369,97 @@ def projection_agreement(
     }
 
 
+#: Speeches whose own neighbourhoods :func:`local_fidelity` checks.
+LOCAL_QUERIES = 1_000
+
+
+def local_fidelity(
+    original: np.ndarray,
+    projected: np.ndarray,
+    *,
+    seed: int,
+    k: int = PROJECTION_K,
+    queries: int = LOCAL_QUERIES,
+) -> dict[str, object]:
+    """How much of a point's real neighbourhood the map keeps, among *all* points.
+
+    :func:`projection_agreement` draws a subsample and looks for neighbours
+    inside it. That is the only way to afford the full rank matrix, and it
+    changes the question: among 1,000 speeches drawn from 182,684, a speech's
+    25 "nearest" are its nearest 2.5% of the corpus — some 4,500 speeches in
+    the full map. A reader of a scatter plot looks at the handful of points
+    touching the one they chose, and a figure computed on the subsample says
+    nothing about those. It measures the map's broad layout.
+
+    This measures the neighbourhood the eye reads. For `queries` points drawn
+    from the seed, the `k` nearest of **every** point are found exactly in each
+    space, and two numbers are returned: the share of a query's `k` nearest in
+    the original space that are not among its `k` nearest on the map, and the
+    trustworthiness (Venna and Kaski) of the map's neighbourhoods, summed over
+    the queries with ranks taken against the whole set. With every point a
+    query it is :func:`trustworthiness` exactly, which the tests hold it to.
+
+    Distances are squared Euclidean in both spaces. On unit vectors that orders
+    points as cosine distance does, so embeddings must arrive L2-normalised, as
+    `21_semantic_map.py` passes them. The cost is one pass over all points per
+    query: a thousand queries against 182,684 vectors of 1,024 dimensions is
+    under a minute of matrix products.
+    """
+    high = np.asarray(original, dtype=np.float32)
+    low = np.asarray(projected, dtype=np.float64)
+    if len(high) != len(low):
+        raise ValueError(
+            f"the two spaces describe different point counts: {len(high)} vs {len(low)}"
+        )
+    n = len(high)
+    k = max(1, min(int(k), n - 2, (2 * n - 2) // 3)) if n >= 3 else 0
+    take = max(0, min(int(queries), n))
+    if k == 0 or take == 0:
+        return {
+            "measured_against": "every point, for a sample of query points",
+            "queries": take, "points": int(n), "k": k, "query_seed": None,
+            "trustworthiness": None, "neighbours_lost_share": None,
+        }
+    sampled = take < n
+    chosen = (
+        np.sort(np.random.default_rng(seed).choice(n, size=take, replace=False))
+        if sampled
+        else np.arange(n)
+    )
+    high_norms = np.einsum("ij,ij->i", high, high, dtype=np.float64)
+    low_norms = np.einsum("ij,ij->i", low, low)
+    block = max(1, 8_000_000 // max(n, 1))
+    lost = 0.0
+    penalty = 0.0
+    for start in range(0, take, block):
+        rows = chosen[start : start + block]
+        here = np.arange(len(rows))
+        far = high_norms[rows, None] + high_norms[None, :] - 2.0 * (high[rows] @ high.T)
+        near = low_norms[rows, None] + low_norms[None, :] - 2.0 * (low[rows] @ low.T)
+        far[here, rows] = np.inf
+        near[here, rows] = np.inf
+        # Stable sorts, so ties break by index as they do in `nearest_neighbours`.
+        in_original = np.argsort(far, axis=1, kind="stable")[:, :k]
+        on_map = np.argsort(near, axis=1, kind="stable")[:, :k]
+        kept = (in_original[:, :, None] == on_map[:, None, :]).any(axis=2)
+        lost += float((~kept).sum())
+        # Rank in the original space of each map neighbour: 1 for the nearest.
+        order = np.argsort(far, axis=1, kind="stable")
+        ranks = np.empty_like(order)
+        np.put_along_axis(ranks, order, np.arange(1, n + 1)[None, :], axis=1)
+        promoted = np.take_along_axis(ranks, on_map, axis=1) - k
+        penalty += float(np.clip(promoted, 0, None).sum())
+    return {
+        "measured_against": "every point, for a sample of query points",
+        "queries": int(take),
+        "points": int(n),
+        "k": int(k),
+        "query_seed": int(seed) if sampled else None,
+        "trustworthiness": round(1.0 - 2.0 * penalty / (take * k * (2 * n - 3 * k - 1)), 4),
+        "neighbours_lost_share": round(lost / (take * k), 4),
+    }
+
+
 def projection_diagnostic(
     projected: np.ndarray,
     clustered: np.ndarray,

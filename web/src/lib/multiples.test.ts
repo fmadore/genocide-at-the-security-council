@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { multiplesKey, multiplesPoints, multiplesSvg } from './multiples';
+import { multiplesKey, multiplesPath, multiplesSvg } from './multiples';
 
 const colours = { ink: '#111111', faint: '#6b6b6b', rule: '#cfcfcf' };
 
@@ -21,8 +21,18 @@ const request = {
 
 describe('the small multiples as a file', () => {
 	it('scales a row to its own maximum and draws a flat-zero row on the floor', () => {
-		expect(multiplesPoints([0, 5, 10], 600, 34)).toBe('0.0,32.0 300.0,17.0 600.0,2.0');
-		expect(multiplesPoints([0, 0], 600, 34)).toBe('0.0,32.0 600.0,32.0');
+		expect(multiplesPath([0, 5, 10], 600, 34)).toBe('M0.0,32.0 L300.0,17.0 L600.0,2.0');
+		expect(multiplesPath([0, 0], 600, 34)).toBe('M0.0,32.0 L600.0,32.0');
+	});
+
+	it('breaks the line at a withheld year instead of drawing across it', () => {
+		// 1959 held 86 speeches: its rate is null, and 1958 must not be joined to 1960.
+		expect(multiplesPath([0, 10, null, 5, 10], 400, 34)).toBe(
+			'M0.0,32.0 L100.0,2.0 M300.0,17.0 L400.0,2.0'
+		);
+		// A year alone between two gaps still leaves a mark.
+		expect(multiplesPath([null, 10, null], 200, 34)).toBe('M100.0,2.0 h1');
+		expect(multiplesPath([null, null], 200, 34)).toBe('');
 	});
 
 	it('names each register once, in the order the rows first wear it', () => {
@@ -53,7 +63,7 @@ describe('the small multiples as a file', () => {
 			expect(svg).toContain(`>${text}</text>`);
 		}
 		expect(svg).toContain('59 reference dates in 40 years');
-		expect(svg.match(/<polyline/g)).toHaveLength(2);
+		expect(svg.match(/<path /g)).toHaveLength(2);
 		expect(svg).toContain('>1946</text>');
 		expect(svg).toContain('>2024</text>');
 	});

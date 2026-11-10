@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { EXPORT_COLUMNS, exportRows, plan } from './silence';
+import { EXPORT_COLUMNS, exportRows, ordered, orderedSummary, plan } from './silence';
 import type { Countries, Silence, SilenceRow, Speaker } from './types';
 
 const meta = { script: '11_countries.py', generated: '2026-10-19T00:00:00Z', lexicon_version: 8 };
@@ -176,6 +176,76 @@ describe('the download', () => {
 		expect(rows).toHaveLength(5);
 		for (const cells of rows) expect(cells).toHaveLength(EXPORT_COLUMNS.length);
 		const gambia = rows.find((cells) => cells[0] === 'Gambia')!;
-		expect(gambia.slice(3)).toEqual([12, 0, null, null, null, false]);
+		// The ordered columns are empty on a payload that does not carry them.
+		expect(gambia.slice(3)).toEqual([
+			12,
+			0,
+			null,
+			null,
+			null,
+			false,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null
+		]);
+	});
+});
+
+/* The figure's sentence is "took the floor after the word had been used". The
+   unordered counts say only that someone used it somewhere in the meeting, and
+   a third of them are speakers who had finished first. */
+describe('the order of speaking', () => {
+	const after = (base: SilenceRow, exposed: number, joined: number, minimum = 30): SilenceRow => ({
+		...base,
+		exposed_after: exposed,
+		joined_after: joined,
+		share_after: exposed >= minimum ? joined / exposed : null,
+		share_after_low: exposed >= minimum ? 0 : null,
+		share_after_high: exposed >= minimum ? 1 : null,
+		sufficient_after: exposed >= minimum
+	});
+
+	it('reads the ordered counts where the artefact carries them', () => {
+		const read = ordered(after(row('France', 1054, 118), 599, 97));
+		expect([read.exposed, read.joined, read.sufficient]).toEqual([599, 97, true]);
+		expect(read.share).toBeCloseTo(97 / 599);
+	});
+
+	it('withholds on the ordered denominator, which is the smaller one', () => {
+		// Forty meetings where someone said the word; in twenty-five the speaker spoke after.
+		const read = ordered(after(row('Zambia', 40, 5), 25, 5));
+		expect(read.sufficient).toBe(false);
+		expect(read.share).toBeNull();
+	});
+
+	it('leaves an older payload exactly as it was', () => {
+		const old = row('France', 1054, 118);
+		expect(ordered(old)).toBe(old);
+		const summary = DATA.silence.periods[0]!;
+		expect(orderedSummary(summary)).toBe(summary);
+		expect(plan({ data: DATA, period: 'all', order: 'quietest' }).ordered).toBe(false);
+	});
+
+	it('ranks on the ordered share and drops a speaker never exposed in order', () => {
+		const data: Countries = {
+			...DATA,
+			silence: {
+				...DATA.silence,
+				rows: [
+					after(row('Loud', 100, 50), 60, 45),
+					after(row('Quiet', 100, 10), 80, 4),
+					// Always spoke before anyone used the word: nothing to rank or withhold.
+					after(row('Early', 50, 0), 0, 0)
+				]
+			}
+		};
+		const result = plan({ data, period: 'all', order: 'quietest' });
+		expect(result.ordered).toBe(true);
+		expect(result.rows.map((entry) => entry.row.country_org)).toEqual(['Quiet', 'Loud']);
+		expect(result.rows[0]!.row.exposed).toBe(80);
+		expect(result.withheld).toBe(0);
 	});
 });

@@ -9,6 +9,7 @@ artefact ships.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from . import console, lexicon, scopes, series
@@ -26,15 +27,30 @@ TRACKED = [("terms", "genocide")]
 
 #: Speeches a month must hold before its rates are published.
 #:
-#: Derived, not declared: at the corpus prevalence of about 3.1%, observing no
+#: Derived, not declared: at the corpus prevalence of about 2.5%, observing no
 #: term-bearing speech in n tries only puts a 95% ceiling below that prevalence
-#: once n reaches about 96 (`series.informative_zero_minimum`). Below it, an
+#: once n reaches about 119 (`series.informative_zero_minimum`). Below it, an
 #: empty month means "the Council barely sat" rather than "the Council was
-#: quiet" — and on a heatmap the two are the same white square. `run` recomputes
-#: the requirement against the corpus it loads and says so if 100 stops meeting
-#: it. It is the same number `lib.actors` declares for a speaker's slice, by the
-#: same argument applied to a different denominator, and not by inheritance.
+#: quiet" — and on a heatmap the two are the same white square. `build_monthly`
+#: recomputes the requirement against the corpus it loads and says so if 125
+#: stops meeting it. It is the same number `lib.actors` declares for a
+#: speaker's slice, by the same argument applied to a different denominator,
+#: and not by inheritance.
 MIN_SPEECHES_PER_MONTH = 125
+
+#: The same minimum, for a year, a quarter and a cell of a breakdown.
+#:
+#: Until November 2026 only the monthly grid withheld anything, on the grounds
+#: that "a year and a quarter always hold thousands of speeches". That was true
+#: of the 1992-2023 corpus this step was written for and stopped being true
+#: when the record was extended to 1946: 1959 holds 86 speeches in four
+#: meetings, 39 quarters hold fewer than 125 and three fewer than 30, and a
+#: split by speaker group has cells of one speech. Their rates were published
+#: and drawn like any other — `icj` peaked at 25.7% on 9 of 35 speeches, and
+#: one non-state speech in 1993 set a chart's axis to 100%. One rule now, at
+#: every grain: the counts are always written, and a rate needs the
+#: denominator at which a zero would mean something.
+MIN_SPEECHES_PER_PERIOD = MIN_SPEECHES_PER_MONTH
 
 #: Dropped in the second reading of the calendar figure. The corpus's two
 #: largest years for this vocabulary: if a calendar pattern is really the Rwanda
@@ -106,14 +122,15 @@ def build_series(
 ) -> tuple[dict, dict[str, dict[str, pd.DataFrame]]]:
     """Compute every measure at one frequency.
 
-    Returns the JSON-ready payload and the frames behind it, so the change-point
-    pass and the note can work off the same numbers the artefact ships.
+    Returns the JSON-ready payload and the frames behind it. The frames are
+    the counts and rates *before* withholding: the change-point pass tests the
+    counts, and its exploratory scan needs a series without holes, so what is
+    withheld is withheld from the artefact and not from the arithmetic.
 
     `index` declares the periods to report on, so a period nobody spoke in is a
     row of zeros rather than a gap. `minimum` withholds the rates a period's own
-    denominator cannot carry, and writes `sufficient` beside them. Both are for
-    the monthly grid: a year always holds thousands of speeches, and a month
-    need not.
+    denominator cannot carry — the Wilson and the meeting-clustered bounds with
+    them — and writes `sufficient` and `minimum_speeches` beside them.
     """
     periods = series.period(speeches, freq)
     totals = series.denominators(speeches, periods, index=index)
@@ -129,8 +146,16 @@ def build_series(
             "meetings": totals["meetings"].tolist(),
         },
     }
+    # Where the record begins and ends. A series over whole years says nothing
+    # about its last year being half a year, and v6.0 stops on 23 June 2026:
+    # a bar of 157 occurrences beside 2025's 589 reads as a collapse.
+    payload["record"] = {
+        "first_date": f"{speeches['date'].min():%Y-%m-%d}",
+        "last_date": f"{speeches['date'].max():%Y-%m-%d}",
+    }
     if minimum is not None:
         payload["sufficient"] = (totals["speeches"] >= minimum).tolist()
+        payload["minimum_speeches"] = minimum
     payload["corpora"] = scopes.comparison_corpora(
         speeches,
         periods,
@@ -162,9 +187,9 @@ def build_series(
         for name, attributes in entries.items():
             has_column, count_column = series.columns_for(kind, name)
             frame = series.measure(speeches, periods, totals, has_column, count_column)
+            computed[kind][name] = frame
             if minimum is not None:
                 frame = series.withhold_below(frame, totals["speeches"], minimum)
-            computed[kind][name] = frame
             block[name] = {
                 **attributes,
                 "speeches": frame["speeches"].tolist(),
@@ -174,6 +199,11 @@ def build_series(
             }
             if name in clustered:
                 low, high = clustered[name]
+                if minimum is not None:
+                    # One withholding rule blanks every bound of a withheld rate.
+                    enough = (totals["speeches"] >= minimum).to_numpy()
+                    low = np.where(enough, low, np.nan)
+                    high = np.where(enough, high, np.nan)
                 block[name] |= {  # type: ignore[operator]
                     "speech_rate_cluster_low": series.rates(pd.Series(low), 6),
                     "speech_rate_cluster_high": series.rates(pd.Series(high), 6),
@@ -222,12 +252,26 @@ def build_decomposition(speeches: pd.DataFrame) -> dict[str, object]:
     }
 
 
+def _held(value: float, digits: int, held: int, minimum: int) -> float | None:
+    """A cell's rate, or None where its denominator is below the minimum."""
+    return round(float(value), digits) if held >= minimum else None
+
+
 def build_breakdowns(
-    speeches: pd.DataFrame, freq: str, top_agenda: int
+    speeches: pd.DataFrame,
+    freq: str,
+    top_agenda: int,
+    minimum: int = MIN_SPEECHES_PER_PERIOD,
 ) -> dict[str, object]:
-    """Per-period splits of the tracked measures by each categorical column."""
+    """Per-period splits of the tracked measures by each categorical column.
+
+    A cell is a year's speeches from one group, and many hold a handful: one
+    non-state speech in 1993 that used the word is a rate of 100%. Below
+    `minimum` speeches the counts are written and the rates are null, with
+    `sufficient` beside them, on the rule every other rate here follows.
+    """
     periods = series.period(speeches, freq)
-    out: dict[str, object] = {"freq": freq, "measures": {}}
+    out: dict[str, object] = {"freq": freq, "minimum_speeches": minimum, "measures": {}}
 
     for kind, name in TRACKED:
         has_column, count_column = series.columns_for(kind, name)
@@ -249,15 +293,16 @@ def build_breakdowns(
                         "category": getattr(row, column),
                         "held": int(row.held),
                         "speeches": int(row.speeches),
-                        "speech_rate": round(float(row.speech_rate), 6),
-                        "speech_rate_low": round(float(row.speech_rate_low), 6),
-                        "speech_rate_high": round(float(row.speech_rate_high), 6),
+                        "sufficient": bool(row.held >= minimum),
+                        "speech_rate": _held(row.speech_rate, 6, row.held, minimum),
+                        "speech_rate_low": _held(row.speech_rate_low, 6, row.held, minimum),
+                        "speech_rate_high": _held(row.speech_rate_high, 6, row.held, minimum),
                         **(
                             {}
                             if count_column is None
                             else {
                                 "occurrences": int(row.occurrences),
-                                "token_rate": round(float(row.token_rate), 4),
+                                "token_rate": _held(row.token_rate, 4, row.held, minimum),
                             }
                         ),
                     }
@@ -441,6 +486,13 @@ def build_monthly(
     held: list[int] = payload["corpus"]["speeches"]
     sufficient: list[bool] = payload["sufficient"]
     at_minimum = sum(h for h, ok in zip(held, sufficient, strict=True) if ok)
+    # The grid runs over whole years and the record need not: v6.0 ends on 23
+    # June 2026, so the last six cells of the grid are months nobody has
+    # recorded yet rather than months the Council did not meet in. The bounds
+    # are published so a consumer can draw the difference.
+    observed = series.period(speeches, "month")
+    first_period, last_period = str(observed.min()), str(observed.max())
+    outside = sum(1 for label in grid if label < first_period or label > last_period)
 
     payload |= {
         "years": list(range(first, last + 1)),
@@ -458,8 +510,14 @@ def build_monthly(
         ),
         "informative_zero_minimum": required,
         "corpus_speech_prevalence": round(prevalence, 6),
+        "record": {
+            **payload["record"],  # type: ignore[dict-item]
+            "first_period": first_period,
+            "last_period": last_period,
+        },
         "coverage": {
             "months": len(grid),
+            "months_outside_record": outside,
             "months_observed": sum(1 for h in held if h > 0),
             "months_at_minimum": sum(sufficient),
             "speeches": sum(held),

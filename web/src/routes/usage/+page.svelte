@@ -232,7 +232,13 @@
 	   A cell is read at a glance and is 2.6rem wide, so a share is rounded to
 	   the nearest point there and stated exactly in the cell's own title. */
 	const cellFigure = (value: number) =>
-		unit === 'share' ? `${Math.round(value * 100)}%` : count(value);
+		unit === 'share'
+			? // A cell exists only where there is at least one occurrence, so a share
+				// that rounds to nothing is written as under one, never as "0%".
+				value > 0 && value < 0.005
+				? '<1%'
+				: `${Math.round(value * 100)}%`
+			: count(value);
 
 	const SORT_LABELS: Partial<Record<UsageSort, string>> = {
 		assigned: 'occurrences placed on a referent',
