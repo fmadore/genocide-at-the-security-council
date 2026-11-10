@@ -511,7 +511,7 @@ def build_monthly(
         "informative_zero_minimum": required,
         "corpus_speech_prevalence": round(prevalence, 6),
         "record": {
-            **payload["record"],  # type: ignore[dict-item]
+            **payload["record"],
             "first_period": first_period,
             "last_period": last_period,
         },
