@@ -48,13 +48,14 @@ candidate and review files, which are the key.
 
 **The offline page asks the codebook as questions.** Every field of the codebook is there
 and the exported rows are unchanged, but a coder reads plain-language questions with an
-example under each option, and sees only the questions that apply. Three things follow from
-an answer without a further question. A text error (`false_positive`) sets every discourse
-field to `not_applicable`. "No specific situation" sets `speaker_position` to `no_position`,
+example under each option, and sees only the questions that apply. `verdict` is not asked:
+the corpus text is clean enough that the highlighted match is always the word, so every row
+is written as `true_positive` (decided by FM, 11 November 2026). Two things follow from an
+answer without a further question. "No specific situation" sets `speaker_position` to `no_position`,
 offers only the three non-case referents, and records `referent_source: passage` and
 `own_state_accused: not_applicable`, which is what the published model run writes on such
-rows. "Cannot tell which situation" records `referent_source: not_applicable`. The first two
-are the codebook's rules; the two values recorded for a non-case mention are this page's
+rows. "Cannot tell which situation" records `referent_source: not_applicable`. The link
+between the case and the position is the codebook's rule; the two values recorded for a non-case mention are this page's
 convention, chosen so that a field no one was asked about cannot produce a disagreement.
 
 **Sending the page to a coder.** `python tools/coding_page.py --coder <ID>` writes

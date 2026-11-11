@@ -145,10 +145,6 @@
   <p class="lead"><strong id="title"></strong><br>Read the paragraph with the highlighted word, then answer.
     Describe what the <em>speaker</em> does with the word. You are not deciding whether a genocide took place.</p>
 
-  <section class="q" id="q-verdict"><h2>Is the highlighted word really the word “genocide”?</h2>
-    <p class="help">Almost always yes. Choose “no” only when the scanned text is damaged and the word is not actually there.</p>
-    <div class="opts inline" data-radio="verdict"></div><p class="why"></p></section>
-
   <section class="q" id="q-concrete_case"><h2>Is the word about a specific situation?</h2>
     <p class="help">Judge the highlighted word itself, not the rest of the sentence.</p>
     <div class="opts" data-radio="concrete_case"></div><p class="why"></p></section>
@@ -271,7 +267,10 @@ const DATA = /*DATA*/null;
 const $ = (id) => document.getElementById(id);
 
 /* Plain-language wording for the codebook's labels: [value, label, explanation]. The values are
-   the codebook's and are what the export writes; only the wording is this page's. */
+   the codebook's and are what the export writes; only the wording is this page's.
+   `verdict` is not asked: the corpus text is clean enough that the highlighted match is always
+   the word, so every row is written as `true_positive` (FM, 11 November 2026). The cascade for
+   the other verdicts stays so that a row restored from a file is still read correctly. */
 const OPTIONS = {
   verdict: [
     ["true_positive", "Yes", ""],
@@ -475,6 +474,7 @@ function isSet(v) { return v !== undefined && v !== ""; }
 function render() {
   const item = current();
   cur = { ...(store.load()[item.occurrence_id] || {}) };
+  cur.verdict ||= "true_positive";
   $("title").textContent = `Passage ${index + 1} of ${DATA.items.length}`;
   $("fact-speaker").textContent = item.country_org || "not recorded";
   $("fact-date").textContent = new Date(`${item.date}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
@@ -619,7 +619,6 @@ function save() {
 function problems(v, item = current()) {
   const out = []; const add = (field, text) => out.push({ field, text });
   const fns = (v.function || "").split("|").filter(Boolean);
-  if (!v.verdict) add("verdict", "Please answer this question.");
   const falsePositive = v.verdict === "false_positive";
   for (const field of ["concrete_case", "speaker_position", "quotation", "salience"]) if (!v[field]) add(field, "Please answer this question.");
   if (!v.referent) add("referent", v.concrete_case === "no" ? "Please choose one of the three." : "Please choose a situation from the list.");
@@ -722,7 +721,7 @@ function report() {
   const status = $("status"); status.className = "";
   if (!found.length) { status.className = "ok"; status.textContent = "This passage is finished. You can still change your answers."; }
   else if (showProblems) { status.className = "bad"; status.textContent = "Some questions still need an answer (marked in red). You can also skip this passage and come back later."; }
-  else status.textContent = Object.keys(cur).length ? "Draft saved. Unfinished passages stay in your list." : "";
+  else status.textContent = cur.coded_at ? "Draft saved. Unfinished passages stay in your list." : "";
 }
 
 function progress() {
