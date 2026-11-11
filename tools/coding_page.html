@@ -9,7 +9,7 @@
      in plain language; the exported rows keep the codebook's labels and column order. -->
 <style>
   :root { --ink: #1d1d1b; --ink-2: #5a5852; --paper: #fbfaf7; --card: #ffffff; --rule: #d9d5cc;
-          --mark: #ffe08a; --evidence: #d6e6ff; --bad: #a3261b; --ok: #2f6b3a; --warn: #8a5a00;
+          --mark: #ffe08a; --bad: #a3261b; --ok: #2f6b3a; --warn: #8a5a00;
           --accent: #1a56b0; font-family: system-ui, sans-serif; }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -48,7 +48,6 @@
   #body p.focus { color: var(--ink); font-size: 1.08rem; border-left: 3px solid #c99a00; padding-left: .9rem; margin-left: -1rem; }
   #body p.near { color: var(--ink-2); }
   mark { background: var(--mark); outline: 2px solid #c99a00; border-radius: 2px; color: var(--ink); }
-  .evidence { background: var(--evidence); color: var(--ink); }
   #to-word { position: sticky; top: 0; float: right; font-size: .85rem; z-index: 1; }
 
   /* Questions */
@@ -80,8 +79,6 @@
   #referent-list .group { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); margin: .5rem .3rem .2rem; }
   #referent-list .opt { border-color: transparent; padding: .25rem .45rem; }
   #referent-about { margin: .5rem 0 0; padding: .5rem .6rem; background: #f1eee6; border-radius: 6px; font-size: .88rem; line-height: 1.45; }
-  #evidence-quote { margin: .5rem 0 0; padding: .5rem .6rem; background: var(--evidence); border-radius: 6px;
-         font-family: Georgia, serif; font-size: .92rem; line-height: 1.45; }
   .row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
   .foot { position: sticky; bottom: 0; background: var(--paper); border-top: 1px solid var(--rule);
           margin: 0 -1.25rem; padding: .7rem 1.25rem; }
@@ -181,14 +178,6 @@
   <section class="q" id="q-salience"><h2>How much weight does the word carry here?</h2>
     <div class="opts" data-radio="salience"></div><p class="why"></p></section>
 
-  <section class="q" id="q-evidence"><h2>Mark the words that support your answers</h2>
-    <p class="help">The shortest stretch of text that shows why you answered as you did. It must include the highlighted word. Often the sentence is enough; to choose your own, select text in the speech with the mouse first.</p>
-    <div class="row">
-      <button type="button" id="use-sentence">Use the sentence around the word</button>
-      <button type="button" id="use-selection">Use the text I selected</button>
-    </div>
-    <p id="evidence-quote" hidden></p><p class="why"></p></section>
-
   <section class="q" id="q-rationale"><h2>Explain your reading in one sentence</h2>
     <p class="help">What in the passage decided your answers? If you hesitated between two options, name the other one.</p>
     <textarea id="rationale" data-text aria-label="Your explanation"></textarea><p class="why"></p></section>
@@ -196,9 +185,6 @@
   <section class="q" id="q-confidence"><h2>How sure are you?</h2>
     <div class="opts inline" data-radio="confidence"></div>
     <label class="field">Question or note for your supervisor (optional)<textarea id="comment" data-text></textarea></label>
-    <details style="margin-top:.6rem"><summary class="help" style="cursor:pointer">I checked the original UN record</summary>
-      <p class="help">Leave this on “no” unless you opened the official UN meeting record (the PDF) and compared it with this text. Reading this page does not count.</p>
-      <div class="opts inline" data-radio="source_checked"></div></details>
     <p class="why"></p></section>
 
   <div class="foot">
@@ -221,7 +207,7 @@
   <ol>
     <li>Read the highlighted paragraph. Scroll up or down in the speech if you need more context.</li>
     <li>Answer the questions on the right. Every option comes with a short explanation or an example.</li>
-    <li>Mark the words that support your answers, explain your reading in one sentence, and click <em>Done</em>.</li>
+    <li>Explain your reading in one sentence, and click <em>Done</em>.</li>
   </ol>
 
   <h2>Five rules to keep in mind</h2>
@@ -270,7 +256,10 @@ const $ = (id) => document.getElementById(id);
    the codebook's and are what the export writes; only the wording is this page's.
    `verdict` is not asked: the corpus text is clean enough that the highlighted match is always
    the word, so every row is written as `true_positive` (FM, 11 November 2026). The cascade for
-   the other verdicts stays so that a row restored from a file is still read correctly. */
+   the other verdicts stays so that a row restored from a file is still read correctly.
+   `source_checked` is not asked either: coders work from this transcript and are not sent to the
+   UN record, so every row is written as `no`. The evidence span is not asked: every row records
+   the sentence around the highlighted word. */
 const OPTIONS = {
   verdict: [
     ["true_positive", "Yes", ""],
@@ -427,8 +416,6 @@ function setup() {
   $("prev").addEventListener("click", () => go(index - 1));
   $("skip").addEventListener("click", () => go(index + 1));
   $("done").addEventListener("click", finish);
-  $("use-selection").addEventListener("click", useSelection);
-  $("use-sentence").addEventListener("click", useSentence);
   $("to-word").addEventListener("click", () => $("body").querySelector("mark")?.scrollIntoView({ block: "center", behavior: "smooth" }));
   $("backup").addEventListener("click", () => exportCsv(true));
   $("export").addEventListener("click", () => exportCsv(false));
@@ -490,8 +477,6 @@ function render() {
 function drawBody(scroll) {
   const item = current(), text = DATA.bodies[item.filename];
   const start = Number(item.start), end = Number(item.end);
-  const marked = isSet(cur.evidence_start);
-  const from = marked ? Number(cur.evidence_start) : -1, to = marked ? Number(cur.evidence_end) : -1;
   const body = $("body"); body.textContent = "";
   let offset = 0, focus = null; const paragraphs = [];
   for (const paragraph of text.split("\n")) {
@@ -499,11 +484,10 @@ function drawBody(scroll) {
     if (!paragraph.length) continue;
     const p = document.createElement("p");
     if (start >= a && start < b) { p.className = "focus"; focus = paragraphs.length; }
-    const cuts = [...new Set([a, b, ...[start, end, from, to].filter(x => x > a && x < b)])].sort((x, y) => x - y);
+    const cuts = [...new Set([a, b, ...[start, end].filter(x => x > a && x < b)])].sort((x, y) => x - y);
     for (let i = 0; i < cuts.length - 1; i++) {
       const [x, y] = [cuts[i], cuts[i + 1]];
       const span = document.createElement("span"); span.dataset.start = x;
-      if (marked && x >= from && y <= to) span.className = "evidence";
       if (x >= start && y <= end) { const mark = document.createElement("mark"); mark.textContent = text.slice(x, y); span.append(mark); }
       else span.textContent = text.slice(x, y);
       p.append(span);
@@ -514,53 +498,14 @@ function drawBody(scroll) {
   if (scroll) body.querySelector("mark")?.scrollIntoView({ block: "center" });
 }
 
-/* The character offset, in the speech, of one end of a text selection. */
-function pointOffset(node, offset) {
-  if (node.nodeType === Node.TEXT_NODE) {
-    const span = node.parentElement.closest("span[data-start]");
-    return span ? Number(span.dataset.start) + offset : null;
-  }
-  const child = node.childNodes[offset];
-  if (child?.nodeType === Node.ELEMENT_NODE) {
-    const first = child.matches("span[data-start]") ? child : child.querySelector("span[data-start]");
-    if (first) return Number(first.dataset.start);
-  }
-  const last = [...node.querySelectorAll?.("span[data-start]") ?? []].at(-1);
-  return last ? Number(last.dataset.start) + last.textContent.length : null;
-}
-
-function setEvidence(start, end) {
-  const item = current(), text = DATA.bodies[item.filename];
-  while (start < end && /\s/.test(text[start])) start++;
-  while (end > start && /\s/.test(text[end - 1])) end--;
-  if (start > Number(item.start) || end < Number(item.end)) {
-    setWhy("evidence", "Your selection must include the highlighted word. Select a little more text and try again.");
-    $("q-evidence").classList.add("missing"); return;
-  }
-  cur.evidence_start = String(start); cur.evidence_end = String(end);
-  save(); drawBody(false); refresh();
-}
-
-function useSelection() {
-  const selection = window.getSelection(); const body = $("body");
-  if (!selection.rangeCount || selection.isCollapsed) {
-    setWhy("evidence", "First select text in the speech with the mouse, then click this button."); return;
-  }
-  const range = selection.getRangeAt(0);
-  if (!body.contains(range.startContainer) || !body.contains(range.endContainer)) {
-    setWhy("evidence", "Select text inside the speech on the left."); return;
-  }
-  const start = pointOffset(range.startContainer, range.startOffset);
-  const end = pointOffset(range.endContainer, range.endOffset);
-  if (start !== null && end !== null && end > start) { setEvidence(start, end); selection.removeAllRanges(); }
-}
-
-function useSentence() {
-  const item = current(); const text = DATA.bodies[item.filename];
+/* The sentence around the highlighted word: the evidence span every row records. */
+function sentenceSpan(item) {
+  const text = DATA.bodies[item.filename];
   let start = Number(item.start), end = Number(item.end);
   while (start > 0 && text[start - 1] !== "\n" && !/[.!?]\s/.test(text.slice(start - 2, start))) start--;
   while (end < text.length && text[end] !== "\n" && !/[.!?]/.test(text[end - 1] || "")) end++;
-  setEvidence(start, end);
+  while (start < Number(item.start) && /\s/.test(text[start])) start++;
+  return [start, end];
 }
 
 /* ---------- Answers. `cur` is the passage's row; the rules below are the codebook's cascade. */
@@ -607,6 +552,8 @@ function derive() {
 function save() {
   const item = current(); const all = store.load();
   cur.source_checked ||= "no";
+  if (!isSet(cur.evidence_start) || Number(cur.evidence_start) > Number(item.start) || Number(cur.evidence_end) < Number(item.end))
+    [cur.evidence_start, cur.evidence_end] = sentenceSpan(item).map(String);
   cur.coded_at = new Date().toISOString().slice(0, 10);
   cur.complete = problems(cur, item).length === 0;
   all[item.occurrence_id] = { ...cur }; store.save(all);
@@ -656,7 +603,7 @@ function refresh() {
     referent: decided && !falsePositive, speaker_position: decided && !falsePositive && !noCase,
     quotation: decided && !falsePositive, function: decided && !falsePositive,
     own_state_accused: decided && !falsePositive && !noCase, salience: decided && !falsePositive,
-    evidence: decided, rationale: decided, confidence: decided,
+    rationale: decided, confidence: decided,
   };
   for (const [question, visible] of Object.entries(show)) $(`q-${question}`).hidden = !visible;
 
@@ -668,12 +615,6 @@ function refresh() {
   $("source-block").hidden = noCase || !cur.referent || cur.referent === "unclear";
   drawReferents();
 
-  const marked = isSet(cur.evidence_start);
-  $("evidence-quote").hidden = !marked;
-  if (marked) {
-    const quote = DATA.bodies[current().filename].slice(Number(cur.evidence_start), Number(cur.evidence_end)).replace(/\s+/g, " ");
-    $("evidence-quote").textContent = `“${quote.length > 320 ? `${quote.slice(0, 320)}…` : quote}”`;
-  }
   report(); progress(); saveMessage();
 }
 
@@ -715,7 +656,7 @@ function report() {
   document.querySelectorAll(".q").forEach(q => q.classList.toggle("answered", !open.has(q.id.slice(2))));
   if (showProblems) for (const p of found) {
     const question = QUESTION_OF[p.field] || p.field; const node = $(`q-${question}`);
-    if (node.hidden) continue;
+    if (!node || node.hidden) continue;
     node.classList.add("missing"); if (!node.querySelector(".why").textContent) setWhy(question, p.text);
   }
   const status = $("status"); status.className = "";

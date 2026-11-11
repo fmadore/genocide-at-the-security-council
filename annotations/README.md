@@ -50,7 +50,12 @@ candidate and review files, which are the key.
 and the exported rows are unchanged, but a coder reads plain-language questions with an
 example under each option, and sees only the questions that apply. `verdict` is not asked:
 the corpus text is clean enough that the highlighted match is always the word, so every row
-is written as `true_positive` (decided by FM, 11 November 2026). Two things follow from an
+is written as `true_positive`. `source_checked` is not asked either: coders work from the
+transcript and are not sent to the UN record, so every row is written as `no`. The evidence
+span is not asked: marking it by hand was too slow for what it buys, so every row records
+the sentence around the highlighted word, which always contains the match. It is therefore
+a location and no longer a coder's judgement, and must not be read as one (all three decided
+by FM, 11 November 2026). Two things follow from an
 answer without a further question. "No specific situation" sets `speaker_position` to `no_position`,
 offers only the three non-case referents, and records `referent_source: passage` and
 `own_state_accused: not_applicable`, which is what the published model run writes on such
