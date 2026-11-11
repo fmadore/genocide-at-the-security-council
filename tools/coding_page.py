@@ -6,8 +6,8 @@
 The coders' work was a 22-column CSV edited by hand, with evidence recorded as
 character offsets typed from a count. This writes one self-contained HTML file
 from the blinded packet (`13_gold_sample.py`) that shows each passage inside its
-whole speech, asks the codebook's fields as plain-language questions, takes the
-evidence as a text selection, applies the codebook's cascade as the coder goes,
+whole speech, asks the codebook's fields as plain-language questions, records the
+sentence around the match as evidence, applies the codebook's cascade as the coder goes,
 keeps progress in the browser, and exports rows in the exact column order of
 `annotations/genocide/annotations.csv` (docs/ROADMAP.md, RV16).
 

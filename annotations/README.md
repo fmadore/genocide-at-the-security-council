@@ -42,7 +42,7 @@ rate over the union would estimate nothing; a weighted one is design-unbiased.
 occurrence once, in a seeded shuffle, with no frame, cue, stratum or probability — a stratum
 named `rejects` is the model's answer printed beside the question. `python
 tools/coding_page.py` turns it into `data/interim/genocide_coding.html`, an offline page that
-shows each passage in its speech, takes the evidence span as a text selection, applies the
+shows each passage in its speech, records the sentence around the match as evidence, applies the
 codebook's cascade and exports rows in this file's column order. The frames stay in the
 candidate and review files, which are the key.
 
