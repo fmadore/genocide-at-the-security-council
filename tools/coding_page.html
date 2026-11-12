@@ -3,322 +3,735 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gold sample coding</title>
+<title>Speech annotation</title>
 <!-- Built by tools/coding_page.py from the blinded packet. Offline; nothing leaves this browser
-     except the CSV you export. See annotations/lexicon/CODEBOOK.md for every label. -->
+     except the files you download. The questions are the fields of annotations/lexicon/CODEBOOK.md
+     in plain language; the exported rows keep the codebook's labels and column order. -->
 <style>
-  :root { --ink: #1d1d1b; --ink-2: #55534e; --paper: #fbfaf7; --rule: #d9d5cc; --mark: #ffe08a;
-          --evidence: #cfe3ff; --bad: #a3261b; --ok: #2f6b3a; font-family: system-ui, sans-serif; }
+  :root { --ink: #1d1d1b; --ink-2: #5a5852; --paper: #fbfaf7; --card: #ffffff; --rule: #d9d5cc;
+          --mark: #ffe08a; --bad: #a3261b; --ok: #2f6b3a; --warn: #8a5a00;
+          --accent: #1a56b0; font-family: system-ui, sans-serif; }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--paper); color: var(--ink); display: grid;
-         grid-template-columns: 14rem 1fr 26rem; height: 100vh; }
-  nav, main, form { overflow: auto; padding: 1rem; }
-  nav { border-right: 1px solid var(--rule); }
-  form { border-left: 1px solid var(--rule); }
-  nav ol { list-style: none; margin: 0; padding: 0; }
-  nav button { width: 100%; text-align: left; border: 0; background: none; padding: .25rem .4rem;
-               font: inherit; cursor: pointer; border-radius: 4px; }
-  nav button[aria-current="true"] { background: var(--rule); }
-  nav .done::after { content: " ✓"; color: var(--ok); }
-  nav .partial::after { content: " …"; color: var(--ink-2); }
-  h1 { font-size: 1rem; margin: 0 0 .5rem; }
-  .meta { color: var(--ink-2); font-size: .85rem; margin-bottom: 1rem; }
-  #body { white-space: pre-wrap; line-height: 1.6; max-width: 48rem; font-family: Georgia, serif; }
-  mark { background: var(--mark); outline: 2px solid #c99a00; }
-  .evidence { background: var(--evidence); }
-  label { display: block; font-size: .8rem; color: var(--ink-2); margin: .6rem 0 .15rem; }
-  select, input[type=text], textarea { width: 100%; font: inherit; padding: .25rem; }
-  textarea { min-height: 3.5rem; }
-  fieldset { border: 1px solid var(--rule); margin: .6rem 0; padding: .4rem .6rem; }
-  fieldset label { display: inline-flex; gap: .25rem; margin: .1rem .6rem .1rem 0; color: var(--ink); }
-  .row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
-  .problems { color: var(--bad); font-size: .85rem; padding-left: 1.1rem; }
-  .status { font-size: .85rem; color: var(--ok); }
-  button.primary { font: inherit; padding: .35rem .7rem; }
-  @media (max-width: 70rem) { body { grid-template-columns: 1fr; height: auto; } nav { max-height: 12rem; } }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--paper); color: var(--ink); display: grid; height: 100vh;
+         grid-template-columns: minmax(0, 1fr) minmax(24rem, 34rem); grid-template-rows: auto minmax(0, 1fr); }
+  button { cursor: pointer; padding: .5rem .8rem; border: 1px solid var(--rule); border-radius: 6px;
+           background: var(--card); color: var(--ink); font: inherit; }
+  button:hover { background: #eeeae2; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+  button.primary:hover { background: #3a3935; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  ::selection { background: #b9d4ff; }
+  small, .help { font-size: .85rem; color: var(--ink-2); line-height: 1.45; }
+  .help { margin: .25rem 0 .6rem; }
+
+  /* Top bar */
+  .bar { grid-column: 1 / -1; display: flex; gap: 1rem; align-items: center; justify-content: space-between;
+         flex-wrap: wrap; padding: .6rem 1.25rem; border-bottom: 1px solid var(--rule); background: var(--card); }
+  .bar > div { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+  .track { width: 10rem; height: .5rem; background: var(--rule); border-radius: 1rem; overflow: hidden; }
+  #progress-fill { height: 100%; width: 0; background: var(--ok); }
+  #save-status { font-size: .85rem; color: var(--ink-2); max-width: 26rem; }
+  #save-status.warn { color: var(--warn); font-weight: 600; }
+  #save-status.bad { color: var(--bad); font-weight: 600; }
+
+  /* Speech */
+  main { overflow: auto; padding: 1.25rem 1.5rem 3rem; }
+  .facts { display: flex; flex-wrap: wrap; gap: .35rem 1.5rem; margin: 0 0 1rem; padding: .75rem 1rem;
+           background: var(--card); border: 1px solid var(--rule); border-radius: 8px; max-width: 48rem; }
+  .facts div { font-size: .95rem; }
+  .facts dt { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); }
+  .facts dd { margin: 0; font-weight: 600; }
+  #body { max-width: 48rem; font-family: Georgia, serif; line-height: 1.6; }
+  #body p { margin: 0 0 .8rem; color: #8b877e; white-space: pre-wrap; }
+  #body p.focus { color: var(--ink); font-size: 1.08rem; border-left: 3px solid #c99a00; padding-left: .9rem; margin-left: -1rem; }
+  #body p.near { color: var(--ink-2); }
+  mark { background: var(--mark); outline: 2px solid #c99a00; border-radius: 2px; color: var(--ink); }
+  #to-word { position: sticky; top: 0; float: right; font-size: .85rem; z-index: 1; }
+
+  /* Questions */
+  form { overflow: auto; border-left: 1px solid var(--rule); padding: 1rem 1.25rem 0; counter-reset: q; }
+  .lead { margin: 0 0 .75rem; font-size: .95rem; line-height: 1.45; }
+  .q { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: .8rem .9rem;
+       margin: 0 0 .75rem; counter-increment: q; border-left-width: 4px; }
+  .q.missing { border-left-color: var(--bad); }
+  .q.answered { border-left-color: var(--ok); }
+  .q h2 { font-size: 1rem; margin: 0 0 .15rem; line-height: 1.35; }
+  .q h2::before { content: counter(q) ". "; color: var(--ink-2); font-weight: 400; }
+  .q .why { color: var(--bad); font-size: .85rem; margin: .4rem 0 0; }
+  .q .why:empty { display: none; }
+  .opts { display: grid; gap: .3rem; }
+  .opt { display: flex; gap: .55rem; align-items: flex-start; padding: .4rem .55rem; border: 1px solid var(--rule);
+         border-radius: 6px; cursor: pointer; }
+  .opt:hover { background: #f4f1ea; }
+  .opt:has(input:checked) { border-color: var(--ink); background: #f1eee6; }
+  .opt input { margin: .25rem 0 0; flex: none; }
+  .opt b { display: block; font-weight: 600; font-size: .95rem; }
+  .opt small { display: block; }
+  .inline { display: flex; flex-wrap: wrap; gap: .3rem; }
+  .inline .opt { flex: 1 1 8rem; }
+  .field { display: block; margin: .6rem 0 0; font-size: .9rem; font-weight: 600; }
+  input[type=text], textarea { width: 100%; font: inherit; padding: .4rem .5rem; border: 1px solid var(--rule);
+         border-radius: 6px; margin-top: .25rem; font-weight: 400; }
+  textarea { min-height: 3.6rem; resize: vertical; }
+  #referent-list { max-height: 15rem; overflow: auto; border: 1px solid var(--rule); border-radius: 6px; padding: .3rem; margin-top: .4rem; }
+  #referent-list .group { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); margin: .5rem .3rem .2rem; }
+  #referent-list .opt { border-color: transparent; padding: .25rem .45rem; }
+  #referent-about { margin: .5rem 0 0; padding: .5rem .6rem; background: #f1eee6; border-radius: 6px; font-size: .88rem; line-height: 1.45; }
+  .row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+  .foot { position: sticky; bottom: 0; background: var(--paper); border-top: 1px solid var(--rule);
+          margin: 0 -1.25rem; padding: .7rem 1.25rem; }
+  .foot .row { justify-content: space-between; }
+  #status { font-size: .85rem; margin: .4rem 0 0; color: var(--ink-2); }
+  #status.ok { color: var(--ok); } #status.bad { color: var(--bad); }
+
+  /* Dialogs */
+  dialog { border: 1px solid var(--rule); border-radius: 10px; padding: 1.5rem; max-width: 44rem; width: calc(100% - 2rem);
+           max-height: calc(100vh - 2rem); color: var(--ink); background: var(--card); line-height: 1.5; }
+  dialog::backdrop { background: rgb(29 29 27 / .45); }
+  dialog h1 { font-size: 1.35rem; margin: 0 0 .5rem; }
+  dialog h2 { font-size: 1rem; margin: 1.1rem 0 .3rem; }
+  dialog ol, dialog ul { margin: .3rem 0; padding-left: 1.3rem; }
+  dialog li { margin: .25rem 0; }
+  dialog select { font: inherit; padding: .3rem; }
+  .note { background: #f1eee6; border-radius: 8px; padding: .7rem .9rem; margin: .8rem 0; font-size: .92rem; }
+  #list { list-style: none; margin: .5rem 0; padding: 0; columns: 2; }
+  #list button { width: 100%; text-align: left; border: 0; background: none; padding: .2rem .4rem; }
+  #list button:hover { background: #eeeae2; }
+  #list .done::before { content: "✓ "; color: var(--ok); }
+  #list .partial::before { content: "… "; color: var(--warn); }
+  #list .todo::before { content: "○ "; color: var(--ink-2); }
+  #list [aria-current="true"] { font-weight: 700; }
+
+  @media (max-width: 62rem) {
+    body { grid-template-columns: 1fr; height: auto; display: block; }
+    main { max-height: 55vh; border-bottom: 1px solid var(--rule); }
+    form { border-left: 0; }
+    #list { columns: 1; }
+  }
 </style>
 </head>
 <body>
-<nav aria-label="Occurrences">
-  <label for="coder">Coder</label>
-  <select id="coder"></select>
-  <p class="meta" id="progress"></p>
-  <ol id="list"></ol>
-</nav>
+<header class="bar">
+  <div>
+    <strong>Speech annotation</strong>
+    <div class="track" aria-hidden="true"><div id="progress-fill"></div></div>
+    <span id="progress-text"></span>
+  </div>
+  <div>
+    <span id="save-status" role="status"></span>
+    <button type="button" id="open-guide">Guide</button>
+    <button type="button" id="open-list">All passages</button>
+    <button type="button" id="backup" class="primary">Save a copy to file</button>
+  </div>
+</header>
+
 <main>
-  <h1 id="title"></h1>
-  <p class="meta" id="context"></p>
+  <button type="button" id="to-word">↧ Back to the highlighted word</button>
+  <dl class="facts">
+    <div><dt>Speaker</dt><dd id="fact-speaker"></dd></div>
+    <div><dt>Date</dt><dd id="fact-date"></dd></div>
+    <div><dt>Meeting topic</dt><dd id="fact-agenda"></dd></div>
+    <div><dt>Meeting record</dt><dd id="fact-meeting"></dd></div>
+  </dl>
   <div id="body" aria-label="Speech text"></div>
 </main>
+
 <form id="form" autocomplete="off">
-  <div class="row">
-    <button type="button" id="prev">← Previous</button>
-    <button type="button" id="next">Next →</button>
-  </div>
-  <label for="verdict">Verdict</label><select id="verdict"></select>
-  <label for="source_checked">Source checked (original UN record)</label><select id="source_checked"></select>
-  <label for="quotation">Quotation</label><select id="quotation"></select>
-  <label for="concrete_case">Concrete case</label><select id="concrete_case"></select>
-  <label for="speaker_position">Speaker position</label><select id="speaker_position"></select>
-  <fieldset id="function"><legend>Function (one or more)</legend></fieldset>
-  <label for="referent">Referent</label><select id="referent"></select>
-  <label for="referent_source">Referent source</label><select id="referent_source"></select>
-  <label for="accused_actor">Accused actor</label><input type="text" id="accused_actor">
-  <label for="victim_group">Victim group</label><input type="text" id="victim_group">
-  <label for="own_state_accused">Own state accused</label><select id="own_state_accused"></select>
-  <label for="salience">Salience</label><select id="salience"></select>
-  <label>Evidence span (select text in the speech)</label>
-  <div class="row">
-    <button type="button" id="use-selection">Use selection</button>
-    <button type="button" id="use-sentence">Use the sentence</button>
-    <span class="meta" id="evidence-range"></span>
-  </div>
-  <label for="rationale">Rationale (required, one sentence)</label><textarea id="rationale"></textarea>
-  <label for="confidence">Confidence</label><select id="confidence"></select>
-  <label for="comment">Comment</label><textarea id="comment"></textarea>
-  <ul class="problems" id="problems"></ul>
-  <p class="status" id="status" aria-live="polite"></p>
-  <div class="row">
-    <button type="button" class="primary" id="export">Export completed rows (CSV)</button>
-    <label class="row" style="margin:0"><span>Import CSV</span><input type="file" id="import" accept=".csv"></label>
+  <p class="lead"><strong id="title"></strong><br>Read the paragraph with the highlighted word, then answer.
+    Describe what the <em>speaker</em> does with the word. You are not deciding whether a genocide took place.</p>
+
+  <section class="q" id="q-concrete_case"><h2>Is the word about a specific situation?</h2>
+    <p class="help">Judge the highlighted word itself, not the rest of the sentence.</p>
+    <div class="opts" data-radio="concrete_case"></div><p class="why"></p></section>
+
+  <section class="q" id="q-referent"><h2 id="referent-title">Which situation?</h2>
+    <p class="help" id="referent-help"></p>
+    <input type="text" id="referent-search" placeholder="Search: a country, a people, a year…" aria-label="Search the list of situations">
+    <div id="referent-list" role="radiogroup" aria-labelledby="referent-title"></div>
+    <p id="referent-about" hidden></p>
+    <div id="source-block">
+      <span class="field">How did you know which situation it is?</span>
+      <div class="opts" data-radio="referent_source"></div>
+    </div>
+    <p class="why"></p></section>
+
+  <section class="q" id="q-speaker_position"><h2>What does the speaker do with the label “genocide”?</h2>
+    <div class="opts" data-radio="speaker_position"></div><p class="why"></p></section>
+
+  <section class="q" id="q-quotation"><h2>Whose word is it?</h2>
+    <p class="help">Separate from the question above: a speaker can quote a claim to agree with it, to reject it, or neither.</p>
+    <div class="opts" data-radio="quotation"></div><p class="why"></p></section>
+
+  <section class="q" id="q-function"><h2>What is the mention doing?</h2>
+    <p class="help">Tick what clearly applies. One is usually enough; do not guess at purposes the text does not show.</p>
+    <div class="opts" id="function"></div><p class="why"></p></section>
+
+  <section class="q" id="q-own_state_accused"><h2>Who is accused, and who are the victims?</h2>
+    <p class="help">Copy the words the passage uses. Leave a box empty when the passage does not name them — do not fill it in from what you know.</p>
+    <label class="field">Accused, as named in the passage<input type="text" id="accused_actor" data-text></label>
+    <label class="field">Victims, as named in the passage<input type="text" id="victim_group" data-text></label>
+    <span class="field">Is the speaker’s own country or organisation the one accused?</span>
+    <div class="opts" data-radio="own_state_accused"></div><p class="why"></p></section>
+
+  <section class="q" id="q-salience"><h2>How much weight does the word carry here?</h2>
+    <div class="opts" data-radio="salience"></div><p class="why"></p></section>
+
+  <section class="q" id="q-rationale"><h2>Explain your reading in one sentence</h2>
+    <p class="help">What in the passage decided your answers? If you hesitated between two options, name the other one.</p>
+    <textarea id="rationale" data-text aria-label="Your explanation"></textarea><p class="why"></p></section>
+
+  <section class="q" id="q-confidence"><h2>How sure are you?</h2>
+    <div class="opts inline" data-radio="confidence"></div>
+    <label class="field">Question or note for your supervisor (optional)<textarea id="comment" data-text></textarea></label>
+    <p class="why"></p></section>
+
+  <div class="foot">
+    <div class="row">
+      <div class="row"><button type="button" id="prev">← Previous</button><button type="button" id="skip">Skip for now</button></div>
+      <button type="button" class="primary" id="done">Done — next passage →</button>
+    </div>
+    <p id="status" aria-live="polite"></p>
   </div>
 </form>
+
+<dialog id="guide" aria-labelledby="guide-title">
+  <h1 id="guide-title">Annotating the word “genocide” in Security Council speeches</h1>
+  <p>You will read <span id="guide-total"></span> passages from speeches at the UN Security Council. In each one the word
+    “genocide” is highlighted. Your job is to describe <strong>how the speaker uses the word</strong>.
+    You are never asked whether a genocide really took place.</p>
+  <p id="coder-row"><label for="coder"><strong>Your coder ID</strong> (given by your supervisor): </label><select id="coder"></select></p>
+
+  <h2>For each passage</h2>
+  <ol>
+    <li>Read the highlighted paragraph. Scroll up or down in the speech if you need more context.</li>
+    <li>Answer the questions on the right. Every option comes with a short explanation or an example.</li>
+    <li>Explain your reading in one sentence, and click <em>Done</em>.</li>
+  </ol>
+
+  <h2>Five rules to keep in mind</h2>
+  <ul>
+    <li><strong>Describe, do not judge.</strong> Record what the speaker says, whatever you think of it.</li>
+    <li><strong>Look at the highlighted word only.</strong> A speech may discuss a real massacre while the highlighted word sits in a treaty’s name.</li>
+    <li><strong>Keeping the word at a distance is rejecting it.</strong> “So-called genocide”, “allegations of genocide” and scare quotes count as rejecting the label.</li>
+    <li><strong>Remembering is asserting.</strong> A commemoration (“we honour the victims of the genocide”) treats the genocide as a fact.</li>
+    <li><strong>When unsure, say so.</strong> Choose “cannot tell” or low confidence instead of guessing, and leave a note for your supervisor.</li>
+  </ul>
+  <p class="note"><strong>Work on your own.</strong> Your answers are compared with another reader’s, so please do not discuss
+    individual passages with other coders, and do not look the passages up on the project’s website while you are coding.</p>
+
+  <h2>Saving and picking up where you stopped</h2>
+  <ul>
+    <li>Your answers are <strong>saved automatically</strong> in this browser, on this computer. To continue, open this same file
+      in the same browser: it returns to the passage you were on.</li>
+    <li>At the <strong>end of each session</strong>, click <em>Save a copy to file</em> and keep the downloaded file. It is your safety copy.</li>
+    <li>To continue on another computer, or if your answers ever disappear, open this page and restore your latest copy below.</li>
+  </ul>
+  <div class="row" style="margin-top:.8rem">
+    <button type="button" id="restore">Restore from a saved copy…</button>
+    <button type="button" id="export">Download finished passages for your supervisor</button>
+    <input type="file" id="import" accept=".csv" hidden>
+  </div>
+  <p class="help" id="guide-status" role="status"></p>
+  <div class="row" style="justify-content:flex-end;margin-top:1rem">
+    <button type="button" class="primary" id="start">Start</button>
+  </div>
+</dialog>
+
+<dialog id="list-dialog" aria-labelledby="list-title">
+  <h1 id="list-title">All passages</h1>
+  <p class="help">✓ finished · … started · ○ not started. Click a passage to open it.</p>
+  <label class="help"><input type="checkbox" id="list-open-only"> Show only unfinished passages</label>
+  <ol id="list"></ol>
+  <div class="row" style="justify-content:flex-end"><button type="button" id="close-list">Close</button></div>
+</dialog>
+
 <script>
 "use strict";
 const DATA = /*DATA*/null;
-const SELECTS = ["verdict", "source_checked", "quotation", "concrete_case", "speaker_position",
-  "referent_source", "own_state_accused", "salience", "confidence"];
-const TEXTS = ["accused_actor", "victim_group", "rationale", "comment"];
-const NA_WHEN_FALSE = ["quotation", "concrete_case", "speaker_position", "referent", "referent_source",
-  "own_state_accused", "salience"];
-const NEVER_NA = ["quotation", "concrete_case", "speaker_position", "referent"];
 const $ = (id) => document.getElementById(id);
-let index = 0;
 
+/* Plain-language wording for the codebook's labels: [value, label, explanation]. The values are
+   the codebook's and are what the export writes; only the wording is this page's.
+   `verdict` is not asked: the corpus text is clean enough that the highlighted match is always
+   the word, so every row is written as `true_positive` (FM, 11 November 2026). The cascade for
+   the other verdicts stays so that a row restored from a file is still read correctly.
+   `source_checked` is not asked either: coders work from this transcript and are not sent to the
+   UN record, so every row is written as `no`. The evidence span is not asked: every row records
+   the sentence around the highlighted word. */
+const OPTIONS = {
+  verdict: [
+    ["true_positive", "Yes", ""],
+    ["false_positive", "No — a text error", ""],
+    ["uncertain", "Cannot tell", "The text is too damaged to decide."]],
+  concrete_case: [
+    ["yes", "Yes — a specific situation", "An event, a people or a place that could be named, even if it is named elsewhere in the speech: “the genocide in Rwanda”, “what is happening there is genocide”."],
+    ["no", "No — genocide in general, the law, or a title", "“The Genocide Convention”, “the Special Adviser on the Prevention of Genocide”, “genocide, war crimes and crimes against humanity”, “we must prevent genocide”."],
+    ["unclear", "Cannot tell", ""]],
+  speaker_position: [
+    ["asserts", "Says or accepts that it is genocide", "“This is genocide.” Also when the speaker treats it as established: commemorations, “those convicted of genocide”, “accused of genocide” (the charge is unproven, but the speaker accepts that there was a genocide)."],
+    ["rejects", "Denies it, or keeps the word at a distance", "“There was no genocide.” Also “so-called genocide”, “allegations of genocide”, “what they call genocide”, or the word in scare quotes."],
+    ["conditional", "Presents it as a possibility, a risk or a warning", "“This could become genocide”, “to stop a genocide from happening there”."],
+    ["reports_without_position", "Reports someone else’s claim without taking a side", "Only when the passage names who made the claim and the speaker neither agrees nor disagrees: “the Commission described the acts as genocide”."],
+    ["unclear", "Cannot tell", ""]],
+  quotation: [
+    ["not_quoted", "The speaker’s own words", "“We consider these acts genocide.”"],
+    ["direct_quotation", "Inside a word-for-word quotation", "“The witness called it ‘genocide’.”"],
+    ["attributed_or_reported", "The speaker reports someone else’s wording", "“The Commission described the acts as genocide.”"],
+    ["unclear", "Cannot tell", ""]],
+  function: [
+    ["accusation_or_qualification", "Accuses, or labels acts as genocide", "Names what was done, or says what it legally amounts to."],
+    ["warning_or_prevention", "Warns, or calls for prevention or protection", ""],
+    ["commemoration", "Remembers", "Victims, an anniversary, a historical event."],
+    ["accountability", "Justice and accountability", "An investigation, a trial, a sentence, a fugitive, impunity. Not just because a court is mentioned."],
+    ["institutional_title_or_mandate", "Part of a name or a mandate", "Of an office, a treaty, a tribunal or an adviser."],
+    ["other", "Something else", "Say what in your note to the supervisor."],
+    ["unclear", "Cannot tell", ""]],
+  referent_source: [
+    ["passage", "From the sentences around the word", ""],
+    ["speech", "From elsewhere in the speech", ""],
+    ["header", "Only from the speaker or the meeting topic", "The facts shown above the speech."]],
+  own_state_accused: [
+    ["yes", "Yes", "Includes a country denying an accusation made against itself."],
+    ["no", "No — someone else is accused", ""],
+    ["not_applicable", "Nobody is accused in this passage", ""]],
+  salience: [
+    ["passing", "In passing", "In a list, a set phrase or an aside the passage does not argue about."],
+    ["substantive", "It is the point of the passage", "Calling it genocide, or refusing to, is what the passage is doing."]],
+  confidence: [["high", "Sure", ""], ["medium", "Fairly sure", ""], ["low", "Not sure", ""]],
+  source_checked: [["no", "No", ""], ["yes", "Yes, I compared it with the UN record", ""]],
+};
+/* Values the page writes by rule and never offers as a choice. */
+const DERIVED = { speaker_position: ["no_position", "not_applicable"], quotation: ["not_applicable"],
+  concrete_case: ["not_applicable"], function: ["not_applicable"], referent_source: ["not_applicable"],
+  salience: ["not_applicable"] };
+const RADIOS = ["verdict", "concrete_case", "speaker_position", "quotation", "referent_source",
+  "own_state_accused", "salience", "confidence", "source_checked"];
+const TEXTS = ["accused_actor", "victim_group", "rationale", "comment"];
+const CASCADE = ["quotation", "concrete_case", "speaker_position", "referent", "referent_source",
+  "own_state_accused", "salience", "function"];
+const NEVER_NA = ["quotation", "concrete_case", "speaker_position", "referent"];
+const NO_CASE = ["institutional_mandate", "genocide_convention_law", "genocide_in_general"];
+const NO_CASE_TEXT = {
+  institutional_mandate: ["The name or the mandate of an office or a body", "“The Special Adviser on the Prevention of Genocide”, the full name of a tribunal."],
+  genocide_convention_law: ["The Genocide Convention or the legal definition of the crime", "The 1948 Convention, the definition, a court’s jurisdiction over the crime."],
+  genocide_in_general: ["Genocide in general", "Prevention, atrocity crimes as a group, no single case in view."],
+};
+const KIND_TITLES = { case: "Situations debated at the Council", historical: "Historical cases", meta: "No specific situation" };
+const QUESTION_OF = { referent_source: "referent", accused_actor: "own_state_accused", victim_group: "own_state_accused",
+  comment: "confidence", source_checked: "confidence" };
+
+let index = 0, cur = {}, showProblems = false, storageError = false;
+const drafts = {}, metas = {};
+
+/* ---------- Storage: answers and bookkeeping live in this browser; files are the safety copy. */
 const store = {
   key: () => `genocide-coding:${$("coder").value}`,
-  load() { try { return JSON.parse(localStorage.getItem(this.key()) || "{}"); } catch { return {}; } },
-  save(all) { try { localStorage.setItem(this.key(), JSON.stringify(all)); } catch { /* private mode */ } },
+  load() {
+    const key = this.key();
+    if (drafts[key]) return drafts[key];
+    try { drafts[key] = JSON.parse(localStorage.getItem(key) || "{}"); }
+    catch { drafts[key] = {}; storageError = true; }
+    return drafts[key];
+  },
+  save(all) {
+    drafts[this.key()] = all;
+    try { localStorage.setItem(this.key(), JSON.stringify(all)); storageError = false; }
+    catch { storageError = true; }
+  },
+  meta() {
+    const key = `genocide-coding-meta:${$("coder").value}`;
+    if (!metas[key]) {
+      try { metas[key] = JSON.parse(localStorage.getItem(key) || "{}"); } catch { metas[key] = {}; }
+      metas[key].unsaved ??= [];
+    }
+    return metas[key];
+  },
+  saveMeta() {
+    try { localStorage.setItem(`genocide-coding-meta:${$("coder").value}`, JSON.stringify(this.meta())); } catch { /* reported by save() */ }
+  },
 };
 
-function option(select, value, text) {
-  const node = document.createElement("option");
-  node.value = value; node.textContent = text ?? value; select.append(node);
+function saveMessage() {
+  const node = $("save-status"), meta = store.meta(), n = meta.unsaved.length;
+  node.className = "";
+  if (storageError) {
+    node.className = "bad";
+    node.textContent = "This browser cannot save your answers. Click “Save a copy to file” before closing the page.";
+  } else if (n >= 10) {
+    node.className = "warn";
+    node.textContent = `Saved in this browser. ${n} passages changed since your last copy to file.`;
+  } else {
+    const when = meta.copiedAt ? new Date(meta.copiedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "none yet";
+    node.textContent = `Saved automatically in this browser. Last copy to file: ${when}.`;
+  }
+}
+
+/* ---------- Building the form */
+function optionNode(type, name, [value, label, hint]) {
+  const node = document.createElement("label"); node.className = "opt";
+  const input = document.createElement("input"); input.type = type; input.name = name; input.value = value;
+  const text = document.createElement("span"); const b = document.createElement("b"); b.textContent = label; text.append(b);
+  if (hint) { const s = document.createElement("small"); s.textContent = hint; text.append(s); }
+  node.append(input, text); return node;
+}
+
+function checkWording() {
+  const missing = [];
+  for (const [field, values] of Object.entries({ ...DATA.vocabularies, function: DATA.functions })) {
+    const offered = new Set([...(OPTIONS[field] || []).map(o => o[0]), ...(DERIVED[field] || [])]);
+    for (const v of values) if (!offered.has(v)) missing.push(`${field}: ${v}`);
+    for (const v of offered) if (!values.includes(v)) missing.push(`${field}: ${v} (not in the codebook)`);
+  }
+  for (const id of NO_CASE) if (!DATA.referents.some(r => r.id === id)) missing.push(`referent: ${id}`);
+  if (missing.length) {
+    $("save-status").className = "bad";
+    window.alert(`This page does not match the codebook and must be rebuilt before coding:\n${missing.join("\n")}`);
+  }
 }
 
 function setup() {
-  for (const coder of DATA.coders) option($("coder"), coder);
-  for (const field of SELECTS) { option($(field), "", "—"); for (const v of DATA.vocabularies[field]) option($(field), v); }
-  option($("referent"), "", "—");
-  const kinds = [...new Set(DATA.referents.map((r) => r.kind))];
-  for (const kind of kinds) {
-    const group = document.createElement("optgroup"); group.label = kind;
-    for (const r of DATA.referents.filter((x) => x.kind === kind)) {
-      const node = document.createElement("option");
-      node.value = r.id; node.textContent = `${r.id} — ${r.label}${r.years ? ` (${r.years})` : ""}`;
-      node.title = r.description || ""; group.append(node);
-    }
-    $("referent").append(group);
-  }
-  for (const f of DATA.functions) {
-    const label = document.createElement("label");
-    label.innerHTML = `<input type="checkbox" value="${f}"> ${f}`;
-    $("function").append(label);
-  }
-  $("form").addEventListener("change", (event) => { cascade(event.target.id); persist(); });
-  $("form").addEventListener("input", persist);
-  $("coder").addEventListener("change", () => render());
+  for (const coder of DATA.coders) { const o = document.createElement("option"); o.value = o.textContent = coder; $("coder").append(o); }
+  $("coder-row").hidden = DATA.coders.length === 1;
+  try { const last = localStorage.getItem("genocide-coding-coder"); if (DATA.coders.includes(last)) $("coder").value = last; } catch { /* first visit */ }
+  $("guide-total").textContent = DATA.items.length;
+  document.querySelectorAll("[data-radio]").forEach(box => {
+    for (const opt of OPTIONS[box.dataset.radio]) box.append(optionNode("radio", box.dataset.radio, opt));
+  });
+  for (const opt of OPTIONS.function) $("function").append(optionNode("checkbox", "function", opt));
+  checkWording();
+
+  $("form").addEventListener("change", (event) => {
+    const t = event.target;
+    if (t.type === "radio") setField(t.name, t.value);
+    else if (t.type === "checkbox") setFunction(t);
+  });
+  $("form").addEventListener("input", (event) => {
+    const t = event.target;
+    if (t.id === "referent-search") { drawReferents(); return; }
+    if (t.matches("[data-text]")) { cur[t.id] = t.value.trim(); save(); report(); }
+  });
+  $("form").addEventListener("submit", event => event.preventDefault());
   $("prev").addEventListener("click", () => go(index - 1));
-  $("next").addEventListener("click", () => go(index + 1));
-  $("use-selection").addEventListener("click", useSelection);
-  $("use-sentence").addEventListener("click", useSentence);
-  $("export").addEventListener("click", exportCsv);
+  $("skip").addEventListener("click", () => go(index + 1));
+  $("done").addEventListener("click", finish);
+  $("to-word").addEventListener("click", () => $("body").querySelector("mark")?.scrollIntoView({ block: "center", behavior: "smooth" }));
+  $("backup").addEventListener("click", () => exportCsv(true));
+  $("export").addEventListener("click", () => exportCsv(false));
+  $("restore").addEventListener("click", () => $("import").click());
   $("import").addEventListener("change", importCsv);
-  render();
+  $("coder").addEventListener("change", () => { resume(); guideStatus(); });
+  $("open-guide").addEventListener("click", openGuide);
+  $("start").addEventListener("click", () => {
+    try { localStorage.setItem("genocide-coding-coder", $("coder").value); } catch { /* reported elsewhere */ }
+    $("guide").close();
+  });
+  $("open-list").addEventListener("click", () => { drawList(); $("list-dialog").showModal(); });
+  $("close-list").addEventListener("click", () => $("list-dialog").close());
+  $("list-open-only").addEventListener("change", drawList);
+  window.addEventListener("beforeunload", event => {
+    if (storageError && Object.keys(store.load()).length) { event.preventDefault(); event.returnValue = ""; }
+  });
+  resume(); openGuide();
 }
 
-function current() { return DATA.items[index]; }
+function openGuide() { guideStatus(); if (!$("guide").open) $("guide").showModal(); }
 
-function answer(all = store.load()) { return all[current().occurrence_id] || {}; }
+function guideStatus(message) {
+  const all = store.load(); const started = Object.keys(all).length;
+  const done = DATA.items.filter(item => all[item.occurrence_id]?.complete).length;
+  $("start").textContent = started ? `Continue at passage ${index + 1}` : "Start";
+  $("guide-status").textContent = message
+    || (started ? `${done} of ${DATA.items.length} passages finished so far on this computer.` : "");
+}
+
+/* Go back to where this coder stopped: the passage last open, else the first unfinished one. */
+function resume() {
+  const all = store.load(); const last = store.meta().last;
+  const firstOpen = DATA.items.findIndex(item => !all[item.occurrence_id]?.complete);
+  index = Number.isInteger(last) && last >= 0 && last < DATA.items.length ? last : Math.max(0, firstOpen);
+  showProblems = false; render();
+}
+
+/* ---------- One passage */
+function current() { return DATA.items[index]; }
+function isSet(v) { return v !== undefined && v !== ""; }
 
 function render() {
   const item = current();
-  const saved = answer();
-  $("title").textContent = `${item.position} of ${DATA.items.length} · ${item.line_id}`;
-  $("context").textContent = `${item.meeting_symbol} · ${item.date} · ${item.country_org} · ${item.agenda}`;
-  for (const field of SELECTS) $(field).value = saved[field] ?? "";
-  $("referent").value = saved.referent ?? "";
-  for (const field of TEXTS) $(field).value = saved[field] ?? "";
-  const chosen = new Set((saved.function || "").split("|").filter(Boolean));
-  for (const box of $("function").querySelectorAll("input")) box.checked = chosen.has(box.value);
-  drawBody(saved.evidence_start, saved.evidence_end);
-  cascade(); report(saved); list();
+  cur = { ...(store.load()[item.occurrence_id] || {}) };
+  cur.verdict ||= "true_positive";
+  $("title").textContent = `Passage ${index + 1} of ${DATA.items.length}`;
+  $("fact-speaker").textContent = item.country_org || "not recorded";
+  $("fact-date").textContent = new Date(`${item.date}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+  $("fact-agenda").textContent = item.agenda || "not recorded";
+  $("fact-meeting").textContent = item.meeting_symbol;
+  for (const field of TEXTS) $(field).value = cur[field] ?? "";
+  $("referent-search").value = "";
+  $("prev").disabled = index === 0;
+  $("skip").disabled = index === DATA.items.length - 1;
+  drawBody(true); refresh(); $("form").scrollTop = 0;
 }
 
-function drawBody(evidenceStart, evidenceEnd) {
-  const item = current(); const text = DATA.bodies[item.filename];
+function drawBody(scroll) {
+  const item = current(), text = DATA.bodies[item.filename];
   const start = Number(item.start), end = Number(item.end);
-  const cuts = [...new Set([0, start, end, text.length,
-    ...(evidenceStart !== undefined && evidenceStart !== "" ? [Number(evidenceStart), Number(evidenceEnd)] : [])])]
-    .sort((a, b) => a - b);
   const body = $("body"); body.textContent = "";
-  for (let i = 0; i < cuts.length - 1; i++) {
-    const [a, b] = [cuts[i], cuts[i + 1]];
-    let node = document.createTextNode(text.slice(a, b));
-    const inEvidence = evidenceStart !== undefined && evidenceStart !== "" && a >= Number(evidenceStart) && b <= Number(evidenceEnd);
-    if (a >= start && b <= end) { const mark = document.createElement("mark"); mark.append(node); node = mark; }
-    if (inEvidence) { const span = document.createElement("span"); span.className = "evidence"; span.append(node); node = span; }
-    body.append(node);
+  let offset = 0, focus = null; const paragraphs = [];
+  for (const paragraph of text.split("\n")) {
+    const a = offset, b = offset + paragraph.length; offset = b + 1;
+    if (!paragraph.length) continue;
+    const p = document.createElement("p");
+    if (start >= a && start < b) { p.className = "focus"; focus = paragraphs.length; }
+    const cuts = [...new Set([a, b, ...[start, end].filter(x => x > a && x < b)])].sort((x, y) => x - y);
+    for (let i = 0; i < cuts.length - 1; i++) {
+      const [x, y] = [cuts[i], cuts[i + 1]];
+      const span = document.createElement("span"); span.dataset.start = x;
+      if (x >= start && y <= end) { const mark = document.createElement("mark"); mark.textContent = text.slice(x, y); span.append(mark); }
+      else span.textContent = text.slice(x, y);
+      p.append(span);
+    }
+    paragraphs.push(p); body.append(p);
   }
-  body.querySelector("mark")?.scrollIntoView({ block: "center" });
-  $("evidence-range").textContent = evidenceStart !== undefined && evidenceStart !== ""
-    ? `characters ${evidenceStart}–${evidenceEnd}` : "none yet";
+  if (focus !== null) for (const i of [focus - 1, focus + 1]) if (paragraphs[i]) paragraphs[i].className = "near";
+  if (scroll) body.querySelector("mark")?.scrollIntoView({ block: "center" });
 }
 
-function offsetWithin(container, node, offset) {
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-  let total = 0;
-  while (walker.nextNode()) {
-    if (walker.currentNode === node) return total + offset;
-    total += walker.currentNode.textContent.length;
-  }
-  return null;
-}
-
-function setEvidence(start, end) {
-  const all = store.load(); const id = current().occurrence_id;
-  const saved = { ...answer(all), ...values(), evidence_start: String(start), evidence_end: String(end),
-    coded_at: new Date().toISOString().slice(0, 10) };
-  saved.complete = problems(saved).length === 0;
-  all[id] = saved; store.save(all); drawBody(start, end); report(saved); list();
-}
-
-function useSelection() {
-  const selection = window.getSelection();
-  if (!selection.rangeCount) return;
-  const range = selection.getRangeAt(0); const body = $("body");
-  if (!body.contains(range.startContainer) || !body.contains(range.endContainer)) return;
-  const start = offsetWithin(body, range.startContainer, range.startOffset);
-  const end = offsetWithin(body, range.endContainer, range.endOffset);
-  if (start !== null && end !== null && end > start) setEvidence(start, end);
-}
-
-function useSentence() {
-  const item = current(); const text = DATA.bodies[item.filename];
+/* The sentence around the highlighted word: the evidence span every row records. */
+function sentenceSpan(item) {
+  const text = DATA.bodies[item.filename];
   let start = Number(item.start), end = Number(item.end);
-  while (start > 0 && !/[.!?]\s/.test(text.slice(start - 2, start))) start--;
-  while (end < text.length && !/[.!?]/.test(text[end - 1] || "")) end++;
-  setEvidence(start, end);
+  while (start > 0 && text[start - 1] !== "\n" && !/[.!?]\s/.test(text.slice(start - 2, start))) start--;
+  while (end < text.length && text[end] !== "\n" && !/[.!?]/.test(text[end - 1] || "")) end++;
+  while (start < Number(item.start) && /\s/.test(text[start])) start++;
+  return [start, end];
 }
 
-function values() {
-  const out = {};
-  for (const field of SELECTS) out[field] = $(field).value;
-  out.referent = $("referent").value;
-  for (const field of TEXTS) out[field] = $(field).value.trim();
-  out.function = [...$("function").querySelectorAll("input:checked")].map((b) => b.value).join("|");
-  return out;
+/* ---------- Answers. `cur` is the passage's row; the rules below are the codebook's cascade. */
+function setField(field, value) {
+  const before = cur[field]; cur[field] = value;
+  if (field === "verdict" && before === "false_positive" && value !== "false_positive") {
+    for (const f of CASCADE) cur[f] = "";
+  }
+  if (field === "concrete_case" && before !== value) {
+    if (before === "no") for (const f of ["speaker_position", "referent_source", "own_state_accused", "referent"]) cur[f] = "";
+    if (value === "no" && !NO_CASE.includes(cur.referent)) cur.referent = "";
+    if (value === "yes" && NO_CASE.includes(cur.referent)) cur.referent = "";
+  }
+  if (field === "referent" && value !== "unclear" && cur.referent_source === "not_applicable") cur.referent_source = "";
+  derive(); save(); refresh();
 }
 
-/* `changed` is the field the coder just set. The case/position link follows
-   it: setting one side fills the other, and leaving `no` / `no_position`
-   clears the other side rather than snapping back to it. */
-function cascade(changed) {
-  const falsePositive = $("verdict").value === "false_positive";
-  for (const field of NA_WHEN_FALSE) {
-    const node = $(field);
-    if (falsePositive) node.value = "not_applicable";
-    node.disabled = falsePositive;
-  }
-  for (const box of $("function").querySelectorAll("input")) {
-    if (falsePositive) box.checked = box.value === "not_applicable";
-    box.disabled = falsePositive;
-  }
-  for (const field of ["accused_actor", "victim_group"]) {
-    if (falsePositive) $(field).value = "";
-    $(field).disabled = falsePositive;
-  }
-  if (falsePositive) return;
-  const caseNode = $("concrete_case"), position = $("speaker_position");
-  if (changed === "concrete_case") {
-    if (caseNode.value === "no") position.value = "no_position";
-    else if (position.value === "no_position") position.value = "";
-  } else if (changed === "speaker_position") {
-    if (position.value === "no_position") caseNode.value = "no";
-    else if (caseNode.value === "no") caseNode.value = "";
-  }
+function setFunction(box) {
+  let chosen = (cur.function || "").split("|").filter(v => v && v !== "not_applicable");
+  if (box.checked) chosen = box.value === "unclear" ? ["unclear"] : [...chosen.filter(v => v !== "unclear"), box.value];
+  else chosen = chosen.filter(v => v !== box.value);
+  cur.function = OPTIONS.function.map(o => o[0]).filter(v => chosen.includes(v)).join("|");
+  save(); refresh();
 }
 
-function problems(saved) {
-  const v = { ...saved };
-  const out = [];
-  for (const field of [...SELECTS, "referent"]) if (!v[field]) out.push(`${field} is not set`);
-  if (!v.function) out.push("choose at least one function");
-  if (!v.rationale) out.push("the rationale is required");
+/* What follows from an answer without a further question (CODEBOOK: Verdict, Concrete case,
+   Who, whom, and how much). */
+function derive() {
+  if (cur.verdict === "false_positive") {
+    for (const f of CASCADE) cur[f] = "not_applicable";
+    cur.accused_actor = ""; cur.victim_group = "";
+    $("accused_actor").value = ""; $("victim_group").value = "";
+    return;
+  }
+  if (cur.concrete_case === "no") {
+    // One decision under two names; a title or a general formula is read in the passage and accuses no one.
+    cur.speaker_position = "no_position"; cur.referent_source = "passage"; cur.own_state_accused = "not_applicable";
+    cur.accused_actor = ""; cur.victim_group = "";
+    $("accused_actor").value = ""; $("victim_group").value = "";
+  } else if (cur.speaker_position === "no_position") cur.speaker_position = "";
+  if (cur.concrete_case !== "no" && cur.referent === "unclear") cur.referent_source = "not_applicable";
+}
+
+function save() {
+  const item = current(); const all = store.load();
+  cur.source_checked ||= "no";
+  if (!isSet(cur.evidence_start) || Number(cur.evidence_start) > Number(item.start) || Number(cur.evidence_end) < Number(item.end))
+    [cur.evidence_start, cur.evidence_end] = sentenceSpan(item).map(String);
+  cur.coded_at = new Date().toISOString().slice(0, 10);
+  cur.complete = problems(cur, item).length === 0;
+  all[item.occurrence_id] = { ...cur }; store.save(all);
+  const meta = store.meta(); meta.last = index;
+  if (!meta.unsaved.includes(item.occurrence_id)) meta.unsaved.push(item.occurrence_id);
+  store.saveMeta();
+}
+
+/* Each problem names the question it belongs to, so the page can point at it. */
+function problems(v, item = current()) {
+  const out = []; const add = (field, text) => out.push({ field, text });
   const fns = (v.function || "").split("|").filter(Boolean);
-  if (fns.length > 1 && fns.some((f) => f === "unclear" || f === "not_applicable")) out.push("unclear and not_applicable stand alone in function");
-  if (v.verdict && v.verdict !== "false_positive") {
-    for (const field of NEVER_NA) if (v[field] === "not_applicable") out.push(`${field} cannot be not_applicable unless the match is a false positive`);
-    if (fns.includes("not_applicable")) out.push("function cannot be not_applicable unless the match is a false positive");
+  const falsePositive = v.verdict === "false_positive";
+  for (const field of ["concrete_case", "speaker_position", "quotation", "salience"]) if (!v[field]) add(field, "Please answer this question.");
+  if (!v.referent) add("referent", v.concrete_case === "no" ? "Please choose one of the three." : "Please choose a situation from the list.");
+  if (!v.referent_source) add("referent", "Please say how you knew which situation it is.");
+  if (!v.own_state_accused) add("own_state_accused", "Please say whether the speaker’s own country or organisation is the one accused.");
+  if (!fns.length) add("function", "Please tick at least one.");
+  if (fns.length > 1 && fns.some(f => f === "unclear" || f === "not_applicable")) add("function", "“Cannot tell” cannot be combined with another choice.");
+  if (v.verdict && !falsePositive) {
+    for (const field of NEVER_NA) if (v[field] === "not_applicable") add(field, "Please answer this question.");
+    if (fns.includes("not_applicable")) add("function", "Please tick at least one.");
   }
-  if ((v.concrete_case === "no") !== (v.speaker_position === "no_position") && v.verdict !== "false_positive") out.push("concrete_case no and speaker_position no_position go together");
-  const item = current();
-  if (v.evidence_start === undefined || v.evidence_start === "") out.push("record an evidence span");
-  else if (Number(v.evidence_start) > Number(item.start) || Number(v.evidence_end) < Number(item.end)) out.push("the evidence span must contain the highlighted match");
+  if (!falsePositive && (v.concrete_case === "no") !== (v.speaker_position === "no_position") && v.concrete_case && v.speaker_position)
+    add("speaker_position", "This answer does not fit your answer about the specific situation.");
+  if (!isSet(v.evidence_start)) add("evidence", "Please mark the supporting words.");
+  else if (Number(v.evidence_start) > Number(item.start) || Number(v.evidence_end) < Number(item.end)) add("evidence", "The marked words must include the highlighted word.");
+  if (!v.rationale) add("rationale", "Please write one sentence.");
+  if (!v.confidence) add("confidence", "Please say how sure you are.");
+  if (!v.source_checked) add("confidence", "Please say whether you checked the UN record.");
   return out;
 }
 
-function persist() {
-  const all = store.load(); const id = current().occurrence_id;
-  const saved = { ...answer(all), ...values(), coded_at: new Date().toISOString().slice(0, 10) };
-  saved.complete = problems(saved).length === 0;
-  all[id] = saved; store.save(all); report(saved); list();
+function setWhy(question, text) { document.querySelector(`#q-${question} .why`).textContent = text; }
+
+function refresh() {
+  for (const field of RADIOS) for (const input of document.querySelectorAll(`input[name="${field}"]`))
+    input.checked = input.value === (cur[field] || (field === "source_checked" ? "no" : ""));
+  const chosen = (cur.function || "").split("|");
+  for (const box of $("function").querySelectorAll("input")) box.checked = chosen.includes(box.value);
+
+  const falsePositive = cur.verdict === "false_positive";
+  const decided = Boolean(cur.verdict) && (falsePositive || Boolean(cur.concrete_case));
+  const noCase = cur.concrete_case === "no";
+  const show = {
+    concrete_case: Boolean(cur.verdict) && !falsePositive,
+    referent: decided && !falsePositive, speaker_position: decided && !falsePositive && !noCase,
+    quotation: decided && !falsePositive, function: decided && !falsePositive,
+    own_state_accused: decided && !falsePositive && !noCase, salience: decided && !falsePositive,
+    rationale: decided, confidence: decided,
+  };
+  for (const [question, visible] of Object.entries(show)) $(`q-${question}`).hidden = !visible;
+
+  $("referent-title").textContent = noCase ? "What is the word part of?" : "Which situation?";
+  $("referent-help").textContent = noCase
+    ? "Take the first one that fits, from top to bottom."
+    : "If the passage names two, choose the first one named and write the pair in your note. Choose the most specific entry that fits.";
+  $("referent-search").hidden = noCase;
+  $("source-block").hidden = noCase || !cur.referent || cur.referent === "unclear";
+  drawReferents();
+
+  report(); progress(); saveMessage();
 }
 
-function report(saved) {
-  const found = problems(saved);
-  $("problems").innerHTML = "";
-  for (const text of found) { const li = document.createElement("li"); li.textContent = text; $("problems").append(li); }
-  $("status").textContent = found.length ? "" : "Complete — saved in this browser.";
+function drawReferents() {
+  const list = $("referent-list"); list.replaceChildren();
+  const noCase = cur.concrete_case === "no";
+  const add = (id, label, hint) => {
+    const node = optionNode("radio", "referent", [id, label, hint]);
+    node.querySelector("input").checked = cur.referent === id; list.append(node);
+  };
+  if (noCase) {
+    for (const id of NO_CASE) add(id, ...NO_CASE_TEXT[id]);
+  } else {
+    const normalize = text => String(text).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replaceAll("_", " ");
+    const words = normalize($("referent-search").value).trim().split(/\s+/).filter(Boolean);
+    const kinds = cur.concrete_case === "unclear" ? ["case", "historical", "meta"] : ["case", "historical"];
+    let shown = 0;
+    for (const kind of kinds) {
+      const rows = DATA.referents.filter(r => r.kind === kind && (r.id === cur.referent
+        || words.every(word => normalize(`${r.label} ${r.id} ${r.years || ""} ${r.description || ""}`).includes(word))));
+      if (!rows.length) continue;
+      const title = document.createElement("div"); title.className = "group"; title.textContent = KIND_TITLES[kind]; list.append(title);
+      for (const r of rows) { add(r.id, `${r.label}${r.years ? ` (${r.years})` : ""}`, ""); shown++; }
+    }
+    if (!shown) { const none = document.createElement("p"); none.className = "help"; none.textContent = "Nothing matches. Try another word, or use one of the two choices below."; list.append(none); }
+    const title = document.createElement("div"); title.className = "group"; title.textContent = "Not in the list"; list.append(title);
+    add("other", "Another situation, not in this list", "Name it in your note to the supervisor.");
+    add("unclear", "Cannot tell which situation", "");
+  }
+  const picked = DATA.referents.find(r => r.id === cur.referent && ["case", "historical"].includes(r.kind));
+  $("referent-about").hidden = !picked || noCase;
+  if (picked) $("referent-about").textContent = `${picked.label}: ${picked.description} This entry says what speeches refer to, not that it was a genocide.`;
 }
 
-function list() {
+function report() {
+  const found = problems(cur);
+  document.querySelectorAll(".q").forEach(q => { q.classList.remove("missing"); q.querySelector(".why").textContent = ""; });
+  const open = new Set(found.map(p => QUESTION_OF[p.field] || p.field));
+  document.querySelectorAll(".q").forEach(q => q.classList.toggle("answered", !open.has(q.id.slice(2))));
+  if (showProblems) for (const p of found) {
+    const question = QUESTION_OF[p.field] || p.field; const node = $(`q-${question}`);
+    if (!node || node.hidden) continue;
+    node.classList.add("missing"); if (!node.querySelector(".why").textContent) setWhy(question, p.text);
+  }
+  const status = $("status"); status.className = "";
+  if (!found.length) { status.className = "ok"; status.textContent = "This passage is finished. You can still change your answers."; }
+  else if (showProblems) { status.className = "bad"; status.textContent = "Some questions still need an answer (marked in red). You can also skip this passage and come back later."; }
+  else status.textContent = cur.coded_at ? "Draft saved. Unfinished passages stay in your list." : "";
+}
+
+function progress() {
+  const all = store.load();
+  const done = DATA.items.filter(item => all[item.occurrence_id]?.complete).length;
+  $("progress-fill").style.width = `${100 * done / DATA.items.length}%`;
+  $("progress-text").textContent = done === DATA.items.length
+    ? `All ${done} passages finished — open the Guide to download them for your supervisor.`
+    : `${done} of ${DATA.items.length} finished`;
+}
+
+function finish() {
+  showProblems = true; save(); report();
+  if (problems(cur).length) { document.querySelector(".q.missing")?.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
+  if (index < DATA.items.length - 1) go(index + 1);
+  else { progress(); openGuide(); guideStatus("You reached the last passage. Check “All passages” for any left unfinished, then download the finished passages for your supervisor."); }
+}
+
+function go(i) {
+  if (i < 0 || i >= DATA.items.length) return;
+  index = i; showProblems = false;
+  const meta = store.meta(); meta.last = index; store.saveMeta();
+  render();
+}
+
+function drawList() {
   const all = store.load(); const node = $("list"); node.textContent = "";
-  let done = 0;
+  const openOnly = $("list-open-only").checked;
   DATA.items.forEach((item, i) => {
     const saved = all[item.occurrence_id];
+    if (openOnly && saved?.complete) return;
     const li = document.createElement("li"); const button = document.createElement("button");
-    button.type = "button"; button.textContent = `${item.position}. ${item.line_id}`;
-    if (saved?.complete) { button.className = "done"; done++; } else if (saved) button.className = "partial";
+    button.type = "button"; button.textContent = `Passage ${i + 1} — ${item.country_org || "speaker not recorded"}, ${item.date.slice(0, 4)}`;
+    button.className = saved?.complete ? "done" : saved ? "partial" : "todo";
     button.setAttribute("aria-current", String(i === index));
-    button.addEventListener("click", () => go(i));
+    button.addEventListener("click", () => { $("list-dialog").close(); go(i); });
     li.append(button); node.append(li);
   });
-  $("progress").textContent = `${done} of ${DATA.items.length} complete`;
 }
 
-function go(i) { if (i >= 0 && i < DATA.items.length) { index = i; render(); } }
-
+/* ---------- Files: the rows are the annotation file's, column for column. */
 function quote(value) {
   const text = String(value ?? "");
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-function exportCsv() {
+function exportCsv(includeDrafts) {
   const all = store.load(); const coder = $("coder").value;
   const rows = [DATA.columns.join(",")];
   for (const item of DATA.items) {
     const saved = all[item.occurrence_id];
-    if (!saved?.complete) continue;
+    if (!saved || (!includeDrafts && problems(saved, item).length)) continue;
     const row = { ...saved, occurrence_id: item.occurrence_id, schema_version: item.schema_version,
       lexicon_version: item.lexicon_version, coder };
     rows.push(DATA.columns.map((c) => quote(row[c])).join(","));
   }
+  const say = (text) => { if ($("guide").open) guideStatus(text); else { $("save-status").className = ""; $("save-status").textContent = text; } };
+  if (rows.length === 1) { say(includeDrafts ? "There are no answers to save yet." : "No passage is finished yet."); return; }
   const blob = new Blob([rows.join("\n") + "\n"], { type: "text/csv" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = `genocide-gold-${coder}-${new Date().toISOString().slice(0, 10)}.csv`;
-  link.click(); URL.revokeObjectURL(link.href);
+  const now = new Date(), two = (n) => String(n).padStart(2, "0");
+  const stamp = `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}_${two(now.getHours())}h${two(now.getMinutes())}`;
+  link.download = `genocide-${includeDrafts ? "my-work" : "finished"}-${coder}-${stamp}.csv`;
+  link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  if (includeDrafts) { const meta = store.meta(); meta.unsaved = []; meta.copiedAt = new Date().toISOString(); store.saveMeta(); saveMessage(); }
+  say(includeDrafts
+    ? `A copy of your work (${rows.length - 1} passages, finished or not) was downloaded. Look in your Downloads folder and keep the file.`
+    : `${rows.length - 1} finished passages were downloaded. Send that file from your Downloads folder to your supervisor; nothing was sent automatically.`);
 }
 
 function parseCsv(text) {
@@ -337,16 +750,21 @@ function parseCsv(text) {
 
 async function importCsv(event) {
   const file = event.target.files[0]; if (!file) return;
-  const [header, ...rows] = parseCsv(await file.text());
-  const all = store.load(); let restored = 0;
+  const [header, ...rows] = parseCsv(await file.text()); event.target.value = "";
+  if (!header || !DATA.columns.every(c => header.includes(c))) {
+    guideStatus("This is not a copy saved from this page. Choose a file named genocide-my-work-….csv."); return;
+  }
+  const all = store.load(); let restored = 0, skipped = 0;
+  if (Object.keys(all).length && !window.confirm("Restoring replaces the answers on this computer for every passage that is in the file. Continue?")) return;
   for (const cells of rows) {
     const record = Object.fromEntries(header.map((h, i) => [h, cells[i] ?? ""]));
-    if (record.coder && record.coder !== $("coder").value) continue;
-    if (!DATA.items.some((item) => item.occurrence_id === record.occurrence_id)) continue;
-    all[record.occurrence_id] = { ...record, complete: true }; restored++;
+    const item = DATA.items.find(item => item.occurrence_id === record.occurrence_id);
+    if ((record.coder && record.coder !== $("coder").value) || !item
+      || String(item.schema_version) !== record.schema_version || String(item.lexicon_version) !== record.lexicon_version) { skipped++; continue; }
+    all[record.occurrence_id] = { ...record, complete: problems(record, item).length === 0 }; restored++;
   }
-  store.save(all); render();
-  $("status").textContent = `${restored} rows restored for ${$("coder").value}.`;
+  store.save(all); delete store.meta().last; store.saveMeta(); resume();
+  guideStatus(`${restored} passages restored.${skipped ? ` ${skipped} rows were left out because they belong to another coder or another sample.` : ""}`);
 }
 
 setup();

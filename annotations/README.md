@@ -42,9 +42,46 @@ rate over the union would estimate nothing; a weighted one is design-unbiased.
 occurrence once, in a seeded shuffle, with no frame, cue, stratum or probability — a stratum
 named `rejects` is the model's answer printed beside the question. `python
 tools/coding_page.py` turns it into `data/interim/genocide_coding.html`, an offline page that
-shows each passage in its speech, takes the evidence span as a text selection, applies the
+shows each passage in its speech, records the sentence around the match as evidence, applies the
 codebook's cascade and exports rows in this file's column order. The frames stay in the
 candidate and review files, which are the key.
+
+**The offline page asks the codebook as questions.** Every field of the codebook is there
+and the exported rows are unchanged, but a coder reads plain-language questions with an
+example under each option, and sees only the questions that apply. `verdict` is not asked:
+the corpus text is clean enough that the highlighted match is always the word, so every row
+is written as `true_positive`. `source_checked` is not asked either: coders work from the
+transcript and are not sent to the UN record, so every row is written as `no`. The evidence
+span is not asked: marking it by hand was too slow for what it buys, so every row records
+the sentence around the highlighted word, which always contains the match. It is therefore
+a location and no longer a coder's judgement, and must not be read as one (all three decided
+by FM, 11 November 2026). Two things follow from an
+answer without a further question. "No specific situation" sets `speaker_position` to `no_position`,
+offers only the three non-case referents, and records `referent_source: passage` and
+`own_state_accused: not_applicable`, which is what the published model run writes on such
+rows. "Cannot tell which situation" records `referent_source: not_applicable`. The link
+between the case and the position is the codebook's rule; the two values recorded for a non-case mention are this page's
+convention, chosen so that a field no one was asked about cannot produce a disagreement.
+
+**Sending the page to a coder.** `python tools/coding_page.py --coder <ID>` writes
+`data/interim/genocide_coding_<ID>.html` with that identifier fixed in the page. It is one
+file of about 5 MB that opens with a double click and needs no connection: send it by e-mail
+or a shared folder. Without `--coder` the page offers FM, JG and the adjudicator. The
+research assistant codes as `RA1`. Step 15 compares whichever two coders the annotation
+file holds (`gold_estimates.coder_pair`), so `RA1` beside FM or beside JG is read as the
+pair. A file holding three coders is refused: which two are compared is a decision to take,
+not something the pipeline picks.
+
+**Saving and resuming.** Answers autosave in the coder's browser, not into the HTML file or
+the repository, and the page reopens on the passage the coder left. At the end of every
+session, **Save a copy to file** downloads every answer, finished or not; the page reminds
+the coder once ten passages have changed since the last copy. **Restore from a saved copy**
+(in the Guide) loads that CSV on another computer or after browser data were cleared; it
+warns before replacing answers and recalculates completeness rather than treating drafts as
+finished. **Download finished passages for your supervisor** writes the file that is
+validated and then added to `annotations/genocide/annotations.csv`. No file is sent
+automatically. If browser saving fails, the page warns and keeps the session in memory so a
+copy can still be downloaded before closing it.
 
 **Passages already read against a model's labels are flagged, not dropped.**
 `genocide/prior_review.csv` lists the 59 occurrences read against the Qwen run's labels on

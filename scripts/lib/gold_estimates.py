@@ -43,10 +43,45 @@ ABSTENTIONS: Final[dict[str, str]] = {
     "referent": "unclear",
 }
 
-#: The two coders of `annotations/genocide/annotations.csv`, and the coder name
-#: an adjudicated row carries. Initials rather than names, as the file uses.
+#: The two coders the protocol was written for, and the coder name an adjudicated
+#: row carries. Initials rather than names, as the file uses. `CODERS` is the
+#: pair assumed while fewer than two coders have written a row; the pair that is
+#: actually compared is read off the file by :func:`coder_pair`.
 CODERS: Final[tuple[str, str]] = ("FM", "JG")
 ADJUDICATOR: Final = "adjudicated"
+
+
+def coder_pair(annotations: pd.DataFrame) -> tuple[str, str]:
+    """The two coders whose rows are compared, read off the annotation file.
+
+    The design is two independent readers of every occurrence, and nothing in
+    it depends on who they are: a research assistant coding under `RA1` beside
+    either of the protocol's coders is the same design. So the pair is whoever
+    the file holds, in alphabetical order, and falls back on :data:`CODERS`
+    until two coders have written a row.
+
+    Three coders are refused rather than reduced to a pair by a rule. Which two
+    are compared decides every agreement figure and the reference the model is
+    scored against, and that is a decision for the people running the
+    evaluation, not for the order of a sort.
+    """
+    names: set[str] = set()
+    if not annotations.empty and "coder" in annotations:
+        names = {_text(name) for name in nonempty(annotations)["coder"]} - {"", ADJUDICATOR}
+    if len(names) > 2:
+        raise ValueError(
+            "The gold sample is compared between two coders, and the annotation file holds "
+            f"{len(names)}: {', '.join(sorted(names))}. Decide which two are compared."
+        )
+    if len(names) == 2:
+        first, second = sorted(names)
+        return first, second
+    if len(names) == 1:
+        (only,) = names
+        other = next(name for name in CODERS if name != only)
+        first, second = sorted((only, other))
+        return first, second
+    return CODERS
 
 
 # --- The gold sample ---------------------------------------------------------
@@ -91,11 +126,12 @@ def reference_labels(annotations: pd.DataFrame) -> dict[str, dict[str, str]]:
             }
 
     reference: dict[str, dict[str, str]] = {}
+    pair = coder_pair(annotations)
     for occurrence, coders in by_occurrence.items():
         if ADJUDICATOR in coders:
             reference[occurrence] = dict(coders[ADJUDICATOR])
             continue
-        first, second = (coders.get(name) for name in CODERS)
+        first, second = (coders.get(name) for name in pair)
         if not first or not second:
             continue
         agreed = {
@@ -137,10 +173,11 @@ def reference_coverage(annotations: pd.DataFrame) -> dict[str, dict[str, Any]]:
                 field: _text(row.get(field)) for field in SINGLE_LABEL_FIELDS
             }
     reference = reference_labels(annotations)
+    pair = coder_pair(annotations)
     available = [
         occurrence
         for occurrence, coders in by_occurrence.items()
-        if ADJUDICATOR in coders or all(name in coders for name in CODERS)
+        if ADJUDICATOR in coders or all(name in coders for name in pair)
     ]
     out: dict[str, dict[str, object]] = {}
     for field in SINGLE_LABEL_FIELDS:
@@ -167,7 +204,7 @@ def human_agreement(annotations: pd.DataFrame) -> list[dict[str, object]]:
     coded = nonempty(annotations)
     if coded.empty:
         return []
-    first_coder, second_coder = CODERS
+    first_coder, second_coder = coder_pair(annotations)
     first = {
         _text(row["occurrence_id"]): row
         for row in coded.to_dict(orient="records")
@@ -211,7 +248,7 @@ def human_function_agreement(annotations: pd.DataFrame) -> dict[str, object]:
     coded = nonempty(annotations)
     if coded.empty:
         return {"n": 0, "jaccard": None, "alpha_masi": None, "labels": []}
-    first_coder, second_coder = CODERS
+    first_coder, second_coder = coder_pair(annotations)
     sides: list[dict[str, str]] = []
     for name in (first_coder, second_coder):
         sides.append(
@@ -311,13 +348,14 @@ def function_jaccard(annotations: pd.DataFrame, model: pd.DataFrame) -> float | 
                  model.to_dict(orient="records")}
 
     left, right = [], []
+    pair = coder_pair(annotations)
     for occurrence, coders in sorted(by_occurrence.items()):
         if occurrence not in predicted:
             continue
         if ADJUDICATOR in coders:
             agreed = coders[ADJUDICATOR]
         else:
-            first, second = (coders.get(name) for name in CODERS)
+            first, second = (coders.get(name) for name in pair)
             if first is None or second is None or not _same(MULTI_LABEL_FIELD, first, second):
                 continue
             agreed = first
@@ -522,7 +560,8 @@ def gold_block(
     by_coder = {
         name: set(identifiers[names == name]) for name in sorted(set(names)) if name
     }
-    double = len(by_coder.get(CODERS[0], set()) & by_coder.get(CODERS[1], set()))
+    pair = coder_pair(annotations)
+    double = len(by_coder.get(pair[0], set()) & by_coder.get(pair[1], set()))
 
     if coded.empty:
         state = "not_started"

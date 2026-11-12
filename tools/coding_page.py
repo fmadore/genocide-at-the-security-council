@@ -1,14 +1,19 @@
 """Build the offline coding page for the genocide gold sample.
 
     python tools/coding_page.py            # writes data/interim/genocide_coding.html
+    python tools/coding_page.py --coder RA1  # one coder's page: genocide_coding_RA1.html
 
 The coders' work was a 22-column CSV edited by hand, with evidence recorded as
 character offsets typed from a count. This writes one self-contained HTML file
 from the blinded packet (`13_gold_sample.py`) that shows each passage inside its
-whole speech, takes the evidence as a text selection, applies the codebook's
-cascade as the coder goes, keeps progress in the browser, and exports rows in
-the exact column order of `annotations/genocide/annotations.csv`
-(docs/ROADMAP.md, RV16).
+whole speech, asks the codebook's fields as plain-language questions, records the
+sentence around the match as evidence, applies the codebook's cascade as the coder goes,
+keeps progress in the browser, and exports rows in the exact column order of
+`annotations/genocide/annotations.csv` (docs/ROADMAP.md, RV16).
+
+`--coder` builds the page for one coder: the identifier is fixed in the page, so
+the person it is sent to cannot pick somebody else's. Without it the page offers
+the protocol's coders and the adjudicator.
 
 Nothing here decides a label. The page carries no model output, no frame, no
 stratum and no cue, because the packet carries none; it is the packet made
@@ -18,7 +23,9 @@ validated there by `lib.audit`, exactly as hand-typed rows are.
 
 from __future__ import annotations
 
+import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -62,7 +69,7 @@ def check_vocabularies() -> None:
             console.fail(f"the page's {field} list differs from lib.schema", [str(sorted(values))])
 
 
-def data() -> dict[str, object]:
+def data(coder: str | None = None) -> dict[str, object]:
     if not PACKET.is_file():
         console.fail(f"{rel(PACKET)} is missing", ["run scripts/13_gold_sample.py first"])
     packet = pd.read_csv(PACKET, dtype="string", keep_default_na=False)
@@ -74,12 +81,15 @@ def data() -> dict[str, object]:
         if body is None or body[int(row.start):int(row.end)].lower() != row.keyword.lower():
             console.fail(f"{row.occurrence_id} does not sit where the packet says in {row.filename}")
     referents = [
-        {"id": item.id, "label": item.label, "kind": item.kind, "years": item.years}
+        {
+            "id": item.id, "label": item.label, "kind": item.kind, "years": item.years,
+            "description": item.description,
+        }
         for item in llm.read_referent_table(model_runs.REFERENTS)
     ]
     return {
         "columns": list(schema.ANNOTATION_FIELDS),
-        "coders": [*gold_estimates.CODERS, gold_estimates.ADJUDICATOR],
+        "coders": [coder] if coder else [*gold_estimates.CODERS, gold_estimates.ADJUDICATOR],
         "vocabularies": VOCABULARIES,
         "functions": sorted(schema.FUNCTIONS),
         "referents": referents,
@@ -89,11 +99,17 @@ def data() -> dict[str, object]:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--coder", help="build the page for this coder identifier only")
+    args = parser.parse_args()
+    if args.coder and not re.fullmatch(r"[A-Za-z0-9_-]{1,20}", args.coder):
+        console.fail("a coder identifier is 1 to 20 letters, digits, hyphens or underscores")
     check_vocabularies()
-    payload = json.dumps(data(), ensure_ascii=False).replace("</", "<\\/")
+    payload = json.dumps(data(args.coder), ensure_ascii=False).replace("</", "<\\/")
     template = (Path(__file__).with_name("coding_page.html")).read_text(encoding="utf-8")
-    artifacts.atomic_write_text(OUTPUT, template.replace("/*DATA*/null", payload, 1))
-    console.info(f"wrote {rel(OUTPUT)}; open it in a browser, code, then export the CSV")
+    output = OUTPUT.with_name(f"genocide_coding_{args.coder}.html") if args.coder else OUTPUT
+    artifacts.atomic_write_text(output, template.replace("/*DATA*/null", payload, 1))
+    console.info(f"wrote {rel(output)}; open it in a browser, code, then save a copy to file")
 
 
 if __name__ == "__main__":

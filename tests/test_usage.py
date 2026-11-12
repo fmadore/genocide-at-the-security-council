@@ -766,6 +766,29 @@ def test_the_gold_state_moves_from_not_started_to_complete() -> None:
     assert done["coders"] == [{"coder": "FM", "rows": 2}, {"coder": "JG", "rows": 2}]
 
 
+def test_the_compared_pair_is_whoever_coded_and_a_third_coder_is_refused() -> None:
+    assert gold_estimates.coder_pair(annotations()) == ("FM", "JG")
+    assert gold_estimates.coder_pair(annotations(annotation("occ-000", "RA1"))) == ("FM", "RA1")
+
+    assistant = annotations(
+        annotation("occ-000", "FM"),
+        annotation("occ-000", "RA1"),
+        annotation("occ-001", "FM", speaker_position="rejects"),
+        annotation("occ-001", "RA1", speaker_position="asserts"),
+        annotation("occ-001", "adjudicated", speaker_position="rejects"),
+    )
+    assert gold_estimates.coder_pair(assistant) == ("FM", "RA1")
+    block = gold_estimates.gold_block(assistant, rows(), sample_size=200, unique_occurrences=2)
+    assert (block["state"], block["double_coded"], block["adjudicated"]) == ("complete", 2, 1)
+    position = next(r for r in block["human_agreement"] if r["field"] == "speaker_position")
+    assert (position["n"], position["observed"]) == (2, 0.5)
+    assert gold_estimates.reference_labels(assistant)["occ-001"]["speaker_position"] == "rejects"
+
+    three = annotations(*(annotation("occ-000", name) for name in ("FM", "JG", "RA1")))
+    with pytest.raises(ValueError, match="FM, JG, RA1"):
+        gold_estimates.gold_block(three, rows(), sample_size=200, unique_occurrences=2)
+
+
 def test_a_file_of_blank_rows_is_still_not_started() -> None:
     blank = annotations(dict.fromkeys(schema.ANNOTATION_FIELDS, ""))
     assert gold_estimates.gold_block(
