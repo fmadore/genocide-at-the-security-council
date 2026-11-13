@@ -63,6 +63,14 @@ rows. "Cannot tell which situation" records `referent_source: not_applicable`. T
 between the case and the position is the codebook's rule; the two values recorded for a non-case mention are this page's
 convention, chosen so that a field no one was asked about cannot produce a disagreement.
 
+**Coders may look things up.** The guide no longer asks coders to work alone. Many passages
+can only be read with their historical context, so the guide encourages reading the whole speech,
+checking the events or the government concerned, and asking someone, and asks the coder to say in
+the note when something looked up decided an answer (JG's feedback, decided by FM, 13 November 2026).
+Independence here means that each coder records their own reading, not that they read without help.
+The one exception is the project's own website: its usage view prints the model's labels beside
+these passages, and the gold sample is what that model is scored against.
+
 **Sending the page to a coder.** `python tools/coding_page.py --coder <ID>` writes
 `data/interim/genocide_coding_<ID>.html` with that identifier fixed in the page. It is one
 file of about 5 MB that opens with a double click and needs no connection: send it by e-mail
