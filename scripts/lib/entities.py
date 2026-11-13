@@ -168,6 +168,10 @@ def enrich_geography(source: pd.DataFrame, geography: pd.DataFrame | None = None
     is_state = out["entity_type"] == "state"
     for column in columns:
         values = keys.map(lookup[column])
+        if column in out.columns:
+            # pandas 3.1 maps an Arrow-backed key series to Arrow values, which
+            # it refuses to write into an existing float64 column.
+            values = values.astype(out[column].dtype)
         out.loc[is_state, column] = values[is_state]
     return out
 
