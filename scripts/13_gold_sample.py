@@ -272,19 +272,26 @@ def prior_review_ids(found: Sequence[occurrences.Occurrence]) -> set[str]:
     return listed
 
 
-def stratum_rows(candidates: pd.DataFrame, sample: pd.DataFrame) -> list[str]:
-    """The disagreement frame's own table: what it holds and at what probability."""
-    drawn = sample.loc[sample["sampling_frame"] == DISAGREEMENT]
+def stratum_rows(
+    candidates: pd.DataFrame, sample: pd.DataFrame, third: str = DISAGREEMENT
+) -> list[str]:
+    """The third frame's own table: what it holds and at what probability.
+
+    `third` is the frame `run` drew: the disagreement frame over two runs, or
+    the model-stratified frame over the published one alone.
+    """
+    drawn = sample.loc[sample["sampling_frame"] == third]
     if drawn.empty:
         return [
-            "No committed run pair, so no disagreement frame. `current_run.txt` and",
-            "`gold_comparison_run.txt` name the two runs it is cut from; both must exist.",
+            "No committed run, so no third frame. `current_run.txt` names the run the",
+            "model-stratified frame is cut from, and `gold_comparison_run.txt` the second",
+            "run the disagreement frame needs beside it.",
         ]
     rows = [
         "| Stratum | In the corpus | Drawn | Inclusion probability |",
         "|---|---:|---:|---:|",
     ]
-    for name in DISAGREEMENT_SIZES:
+    for name in DISAGREEMENT_SIZES if third == DISAGREEMENT else MODEL_STRATA_SIZES:
         part = drawn.loc[drawn["stratum"] == name]
         if part.empty:
             rows.append(f"| `{name}` | 0 | 0 | — |")
@@ -304,13 +311,32 @@ def build_note(
     annotated: int,
     *,
     reviewed: int = 0,
+    third: str = DISAGREEMENT,
 ) -> str:
     population = len(candidates)
     flagged = int(sample.drop_duplicates("occurrence_id")[PRIOR_REVIEW_FLAG].sum())
+    # The third frame is whichever one was drawn: counting only `disagreement`
+    # reported 0 rows for it beside the 269 the model-stratified frame drew, and
+    # the table no longer added up to the candidate rows under it.
     frames_seen = {
         name: sample.loc[sample["sampling_frame"] == name]
-        for name in (sampling.PROBABILITY, sampling.COVERAGE, DISAGREEMENT)
+        for name in (sampling.PROBABILITY, sampling.COVERAGE, third)
     }
+    two_runs = third == DISAGREEMENT
+    third_text = (
+        [
+            "## The disagreement frame",
+            "",
+            "Cut from the two committed model runs, over the occurrences both reached. A",
+        ]
+        if two_runs
+        else [
+            "## The model-stratified frame",
+            "",
+            "Cut from the published run's labels alone, since no comparison run is named;",
+            "nothing is contested because nothing disagrees. A",
+        ]
+    )
     unique = int(sample["occurrence_id"].nunique())
 
     cue_rows = []
@@ -351,8 +377,7 @@ def build_note(
             "|---|---:|---:|---:|",
             f"| probability | {len(frames_seen[sampling.PROBABILITY])} | {probability} | {seed} |",
             f"| coverage | {len(frames_seen[sampling.COVERAGE])} | {coverage} | {seed + 1} |",
-            f"| disagreement | {len(frames_seen[DISAGREEMENT])} | per stratum, below | "
-            f"{seed + 2} |",
+            f"| {third} | {len(frames_seen[third])} | per stratum, below | {seed + 2} |",
             "",
             f"{len(sample)} candidate rows over **{unique} distinct occurrences**: the "
             f"frames overlap by {len(sample) - unique}, and every row is kept because each "
@@ -360,9 +385,7 @@ def build_note(
             f"The coverage frame is stratified by period and cue, {strata} strata in all, one "
             "occurrence drawn from each before the random fill.",
             "",
-            "## The disagreement frame",
-            "",
-            "Cut from the two committed model runs, over the occurrences both reached. A",
+            *third_text,
             "model label is a sampling stratum here in exactly the sense the cue is: it says",
             "this occurrence is worth a coder's time, never what the coder should write. The",
             "strata are disjoint and assigned in the order below, rarest first, so every row",
@@ -373,7 +396,7 @@ def build_note(
             "this one is a deliberate over-sample of the rare and the contested, and the",
             "per-class recall it buys is read unweighted. Pooled they would be neither.",
             "",
-            *stratum_rows(candidates, sample),
+            *stratum_rows(candidates, sample, third),
             "",
             "## Cues",
             "",
@@ -516,10 +539,18 @@ def run(probability: int, coverage: int, seed: int) -> None:
     console.info(f"wrote {rel(GOLD_PACKET)}: {len(coder_packet)} occurrences, blinded")
 
     console.step("Writing")
+    third_sizes = DISAGREEMENT_SIZES if third == DISAGREEMENT else MODEL_STRATA_SIZES
     note = write_note(
         "13_gold_sample.md",
         build_note(
-            candidates, sample, probability, coverage, seed, annotated, reviewed=len(reviewed)
+            candidates,
+            sample,
+            probability,
+            coverage,
+            seed,
+            annotated,
+            reviewed=len(reviewed),
+            third=third,
         ),
     )
     console.info(f"wrote {note.name}")
@@ -566,19 +597,24 @@ def run(probability: int, coverage: int, seed: int) -> None:
                 "annotated": annotated,
                 "probability": {"size": probability, "seed": seed},
                 "coverage": {"size": coverage, "seed": seed + 1, "strata": ["period", "cue"]},
-                "disagreement": {
+                # Keyed by the frame actually drawn, with its own sizes: the
+                # block was always `disagreement` and reported 0 drawn while the
+                # model-stratified frame held 269 rows.
+                third: {
                     "seed": seed + 2,
                     "published_run": published_run,
                     "comparison_run": comparison_run,
                     "sizes": {
                         name: ("all" if size is None else size)
-                        for name, size in DISAGREEMENT_SIZES.items()
+                        for name, size in third_sizes.items()
                     },
                     "strata": {
                         name: int((candidates["stratum"] == name).sum())
-                        for name in DISAGREEMENT_SIZES
-                    },
-                    "drawn": int((sample["sampling_frame"] == DISAGREEMENT).sum()),
+                        for name in third_sizes
+                    }
+                    if "stratum" in candidates
+                    else {},
+                    "drawn": int((sample["sampling_frame"] == third).sum()),
                 },
                 "cues": {cue: int((sample["cue"] == cue).sum()) for cue in CUES},
             },

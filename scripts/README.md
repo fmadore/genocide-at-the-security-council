@@ -388,7 +388,7 @@ machine-specific paths live in `.env` (git-ignored; copy `.env.example`).
 | [`../tools/lib_deps.py`](../tools/lib_deps.py) | Rewrites `scripts/deps.mk`, each step's `lib` prerequisites for the Makefile, from the imports. `--check` verifies; a test runs it. |
 | [`../tools/map_prompt_examples.py`](../tools/map_prompt_examples.py) | Finds the corpus occurrences behind the prompt's worked examples, which 13 keeps out of the gold frames. `--write` rewrites the committed mapping. |
 | [`../tools/carry_over_runs.py`](../tools/carry_over_runs.py) | Checks `model_annotations/genocide/carry_over.json`, which carries the rows of the runs asked about corpus v5.0 to v6.0 where the text around each occurrence is unchanged. `--write` rebuilds it from the v5.0 corpus. |
-| [`../tools/coding_page.py`](../tools/coding_page.py) | Builds `data/interim/genocide_coding.html`, the offline page the coders use on the blinded packet. Serve it with the `coding-page` launch configuration. |
+| [`../tools/coding_page.py`](../tools/coding_page.py) | Builds `data/interim/genocide_coding.html`, the offline page the coders use on the blinded packet. Serve it with the `coding-page` launch configuration. `--import <csv>` checks a coder's export with `lib.audit.merge`, and `--write` folds it into `annotations/genocide/annotations.csv`. |
 
 ## Tests
 

@@ -1525,6 +1525,8 @@ def run(args: argparse.Namespace) -> None:
         reviewed=reviewed,
         comparison=pd.DataFrame(comparison_raw),
         design=design,
+        # Which frame drew each unit, so the weights follow the coding done so far.
+        candidates=candidates,
     )
     console.info(
         f"{len(reviewed):,} sampled occurrences were read against a model's labels before "

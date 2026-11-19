@@ -557,3 +557,40 @@ def test_the_coding_page_offers_exactly_the_codebook_vocabularies() -> None:
     assert template.count("/*DATA*/null") == 1
     for leak in ("sampling_frame", "stratum", "cue", "inclusion_probability"):
         assert leak not in template
+
+
+def test_the_note_counts_the_model_stratified_frame_it_drew() -> None:
+    """With one run published the third frame is `model_strata`, and the note's
+    frame table has to carry its rows, or it no longer adds up to the candidate
+    rows written under it (review of 19 November 2026)."""
+    spec = importlib.util.spec_from_file_location(
+        "gold_sample_step", Path(__file__).resolve().parents[1] / "scripts" / "13_gold_sample.py"
+    )
+    step = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(step)
+    candidates = pd.DataFrame(
+        {
+            "occurrence_id": [f"o{i}" for i in range(6)],
+            "filename": ["a", "a", "b", "b", "c", "c"],
+            "cue": [gold.CUES[0]] * 6,
+            "period": ["1990s"] * 6,
+        }
+    )
+    sample = pd.DataFrame(
+        {
+            "occurrence_id": ["o0", "o1", "o2", "o3", "o4"],
+            "sampling_frame": ["probability", "coverage", "model_strata", "model_strata", "model_strata"],
+            "cue": [gold.CUES[0]] * 5,
+            "period": ["1990s"] * 5,
+            "strata_total": [1] * 5,
+            "stratum": ["", "", "rejects", "rejects", "conditional"],
+            "stratum_size": [0, 0, 2, 2, 1],
+            "inclusion_probability": [0.1, 0.1, 1.0, 1.0, 1.0],
+            step.PRIOR_REVIEW_FLAG: [False] * 5,
+        }
+    )
+    note = step.build_note(candidates, sample, 1, 1, 21, 0, third=gold.MODEL_STRATA)
+    assert "| model_strata | 3 | per stratum, below | 23 |" in note
+    assert "## The model-stratified frame" in note
+    assert "| `rejects` | 2 | 2 | 1.000 |" in note
+    assert "disagreement |" not in note
