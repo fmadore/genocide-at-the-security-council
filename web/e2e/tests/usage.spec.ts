@@ -499,12 +499,32 @@ test('a copied URL restores the contested filter', async ({ page }) => {
 	await expect(page).toHaveURL(/\/usage\/\?actor=Rwanda&referent=rwanda_1994&contested=1$/);
 });
 
+test('opening the page does not fetch the annotations or the concordance', async ({ page }) => {
+	// Together 15 MB on the real payload, and needed only by a drill-down or the
+	// contested list near the foot of the page (audit of 19 November 2026).
+	const heavy: string[] = [];
+	page.on('request', (request) => {
+		const url = request.url();
+		if (url.includes('/data/usage/occurrences.json') || url.includes('/data/kwic/genocide.json'))
+			heavy.push(url);
+	});
+	await openUsage(page);
+	await expect(matrixOf(page)).toBeVisible();
+	await page.waitForLoadState('networkidle');
+	expect(heavy).toEqual([]);
+
+	await contestedOf(page).scrollIntoViewIfNeeded();
+	await expect.poll(() => heavy.length).toBe(2);
+});
+
 test(
 	'the reading list ranks the contested passages hardest first',
 	{ tag: '@a11y' },
 	async ({ page }) => {
 		await openUsage(page);
 		const figure = contestedOf(page);
+		// The list's two files load when the reader reaches it, not on open.
+		await figure.scrollIntoViewIfNeeded();
 		const rows = figure.locator('table.contested-table tbody tr');
 		await expect(rows).toHaveCount(2);
 

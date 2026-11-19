@@ -1,9 +1,10 @@
-import { countries, speakerKeyness } from '#lib/data.js';
+import { countries } from '#lib/data.js';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {
-	// Two artefacts, both from 11 and 12, fetched together rather than in
-	// sequence: they are independent files and the second is 1.4 MB.
-	const [table, keyness] = await Promise.all([countries(fetch), speakerKeyness(fetch)]);
-	return { countries: table, keyness };
+	// One artefact up front. `countries/speaker_keyness.json` (2.3 MB) is fetched
+	// in the browser once the page is drawn, for the last plate only: loaded
+	// here it was inlined into the prerendered HTML, which the service worker
+	// refetches on every visit (audit of 19 November 2026).
+	return { countries: await countries(fetch) };
 };

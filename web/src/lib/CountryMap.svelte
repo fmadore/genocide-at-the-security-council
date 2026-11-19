@@ -59,6 +59,7 @@
 	 * verbatim and the sibling import would 404 in its place.
 	 */
 	import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+	import { onReached } from './reached';
 
 	interface Props {
 		points: MapPoint[];
@@ -326,55 +327,8 @@
 				});
 		}
 
-		/**
-		 * Two mechanisms, because neither is enough on its own.
-		 *
-		 * The observer is the right primitive for "the plate came into view": it
-		 * fires when the content above the map grows or shrinks, which no scroll
-		 * event reports. Its one hole is the instant jump — a deep link to an
-		 * anchor below the map, or `scrollTo(0, scrollHeight)` — where the
-		 * element goes from below the window to above it between two frames and
-		 * the ratio never leaves zero, so no second callback is delivered. The
-		 * passive listener closes that hole by asking where the plate is rather
-		 * than waiting to be told. Whichever wins, `boot()` runs once, and a
-		 * browser with no observer at all is left with the listener and the
-		 * first-frame check below.
-		 *
-		 * Reached, not visible: a reader who jumped past the plate has reached it
-		 * just as surely as one who scrolled onto it, and a map that refused to
-		 * load because the reader arrived too fast would be the worse bug.
-		 */
-		function reached() {
-			return container.getBoundingClientRect().top < window.innerHeight + MARGIN;
-		}
-		function check() {
-			if (started || !reached()) return;
-			stopWatching();
-			boot();
-		}
-		const watcher =
-			typeof IntersectionObserver === 'function'
-				? new IntersectionObserver(
-						(entries) => {
-							if (!entries.some((entry) => entry.isIntersecting)) return;
-							stopWatching();
-							boot();
-						},
-						{ rootMargin: `${MARGIN}px` }
-					)
-				: null;
-		function stopWatching() {
-			watcher?.disconnect();
-			window.removeEventListener('scroll', check);
-			window.removeEventListener('resize', check);
-		}
-
-		watcher?.observe(container);
-		window.addEventListener('scroll', check, { passive: true });
-		window.addEventListener('resize', check);
-		// A window tall enough, or a link deep enough, and the plate is already
-		// here on the first frame.
-		check();
+		// MapLibre is fetched only once the plate is reached: see `lib/reached.ts`.
+		const stopWatching = onReached(container, MARGIN, boot);
 
 		return () => {
 			dead = true;
