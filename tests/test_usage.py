@@ -1733,6 +1733,115 @@ def test_a_corrected_share_removes_a_bias_the_gold_sample_measures() -> None:
     assert position["rejects"]["low"] < position["rejects"]["corrected_share"] < position["rejects"]["high"]
 
 
+def test_weights_follow_the_frames_coded_so_far() -> None:
+    """Only the probability frame is coded: every unit weighs the same.
+
+    `o0`-`o9` were drawn by the probability frame at 0.1; `o5`-`o9` also by a
+    purposive frame at 0.9, whose other two draws nobody has coded yet. Under
+    `pi_union` those five would weigh about nine times less than the others
+    although the coded set holds them at exactly the probability frame's rate.
+    That they are also the purposive frame's draws does not make that frame
+    partly coded in any random sense, so it is left out until it is done.
+    """
+    identifiers = [f"o{i}" for i in range(10)]
+    design = pd.DataFrame(
+        {
+            "occurrence_id": identifiers,
+            "pi_probability": 0.1,
+            "pi_model_strata": [0.0] * 5 + [0.9] * 5,
+            "pi_union": [0.1] * 5 + [1 - 0.9 * 0.1] * 5,
+        }
+    )
+    candidates = pd.DataFrame(
+        {
+            "occurrence_id": identifiers + identifiers[5:] + ["x1", "x2"],
+            "sampling_frame": ["probability"] * 10 + ["model_strata"] * 7,
+        }
+    )
+    only_probability = gold_estimates.effective_inclusion(design, candidates, identifiers)
+    assert only_probability["pi"].tolist() == pytest.approx([0.1] * 10)
+    assert only_probability["in_scope"].all()
+    # A unit coded only from the unfinished frame waits for it.
+    early = gold_estimates.effective_inclusion(design, candidates, [*identifiers, "x1"])
+    assert early["pi"].tolist() == pytest.approx([0.1] * 10)
+    # Every frame coded: the union probability again.
+    everything = gold_estimates.effective_inclusion(design, candidates, [*identifiers, "x1", "x2"])
+    assert everything["pi"].tolist() == pytest.approx(design["pi_union"].tolist())
+    # Without the candidates the frames cannot be told apart.
+    unknown = gold_estimates.effective_inclusion(design, None, identifiers)
+    assert unknown["pi"].tolist() == pytest.approx(design["pi_union"].tolist())
+
+
+def test_a_design_missing_a_frame_the_candidates_name_is_refused() -> None:
+    design = pd.DataFrame({"occurrence_id": ["o1"], "pi_probability": [0.1], "pi_union": [0.1]})
+    candidates = pd.DataFrame({"occurrence_id": ["o1"], "sampling_frame": ["coverage"]})
+    with pytest.raises(ValueError, match="pi_coverage"):
+        gold_estimates.effective_inclusion(design, candidates, ["o1"])
+
+
+def test_a_corrected_share_counts_only_eligible_occurrences() -> None:
+    """False positives and unlocated evidence are not in the figures' population,
+    so they are not in the model share the correction starts from."""
+    model = pd.DataFrame(
+        {
+            "occurrence_id": [f"o{i}" for i in range(100)],
+            "speaker_position": ["rejects"] * 30 + ["asserts"] * 70,
+            "concrete_case": ["yes"] * 100,
+            "verdict": ["false_positive"] * 20 + ["true_positive"] * 80,
+            "evidence_valid": [True] * 90 + [False] * 10,
+        }
+    )
+    sample = [f"o{i}" for i in range(20, 90)]
+    annotations = pd.DataFrame(
+        [
+            row
+            for occurrence in sample
+            for row in coded(
+                occurrence,
+                speaker_position="rejects" if int(occurrence[1:]) < 30 else "asserts",
+            )
+        ]
+    )
+    design = pd.DataFrame({"occurrence_id": model["occurrence_id"], "pi_union": 0.7})
+    shares = {
+        block["field"]: block for block in gold_estimates.corrected_shares(annotations, model, design)
+    }
+    block = shares["speaker_position"]
+    assert block["occurrences"] == 70
+    rejects = next(row for row in block["categories"] if row["category"] == "rejects")
+    # 10 of the 70 eligible are `rejects`; the coders agree, so nothing moves.
+    assert rejects["model_share"] == pytest.approx(10 / 70)
+    assert rejects["corrected_share"] == pytest.approx(10 / 70)
+    # No superpopulation term: a model the coders never contradict has no spread.
+    assert rejects["low"] == rejects["high"] == pytest.approx(10 / 70)
+
+
+def test_an_unadjudicated_disagreement_holds_the_weighted_figures() -> None:
+    model = pd.DataFrame(
+        {
+            "occurrence_id": [f"o{i:02d}" for i in range(40)],
+            "speaker_position": ["asserts"] * 40,
+            "concrete_case": ["yes"] * 40,
+        }
+    )
+    records = [row for i in range(40) for row in coded(f"o{i:02d}")]
+    records[1] = {**records[1], "speaker_position": "rejects"}  # JG on o00
+    design = pd.DataFrame({"occurrence_id": model["occurrence_id"], "pi_union": 0.5})
+    annotations = pd.DataFrame(records)
+    assert gold_estimates.pending_adjudication(annotations, "speaker_position") == 1
+    held = {row["field"]: row for row in gold_estimates.weighted_accuracy(annotations, model, design)}
+    assert held["speaker_position"]["state"] == "waiting"
+    assert held["concrete_case"]["state"] == "computed"
+    adjudicated = pd.DataFrame(
+        [*records, {**records[0], "coder": gold_estimates.ADJUDICATOR}]
+    )
+    assert gold_estimates.pending_adjudication(adjudicated, "speaker_position") == 0
+    resolved = {
+        row["field"]: row for row in gold_estimates.weighted_accuracy(adjudicated, model, design)
+    }
+    assert resolved["speaker_position"]["state"] == "computed"
+
+
 def test_too_few_coded_units_leave_the_blocks_waiting() -> None:
     model = pd.DataFrame(
         {"occurrence_id": ["o1"], "speaker_position": ["asserts"], "concrete_case": ["yes"]}
@@ -1796,8 +1905,11 @@ def test_every_gold_figure_is_reported_again_without_the_reviewed_passages() -> 
     # so it is scored on 38 with 32 right, and on 32 with all right.
     assert position(every["model_vs_human"])["accuracy"] == pytest.approx(32 / 38)
     assert position(split["model_vs_human"])["accuracy"] == 1.0
+    # Over every coded occurrence two disagreements wait for adjudication, so
+    # the weighted figure waits too rather than scoring the easy 38.
+    assert position(every["weighted_accuracy"])["state"] == "waiting"
+    assert position(every["weighted_accuracy"])["pending_adjudication"] == 2
     # Weighted to the corpus at one probability, the Hajek mean is the plain one.
-    assert position(every["weighted_accuracy"])["estimate"] == pytest.approx(32 / 38)
     assert position(split["weighted_accuracy"])["estimate"] == 1.0
     assert position(split["weighted_accuracy"])["units"] == 32
     shares = {block["field"]: block for block in split["corrected_shares"]}

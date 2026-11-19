@@ -425,10 +425,140 @@ def _hajek(values: np.ndarray, probabilities: np.ndarray) -> tuple[float, float]
     return mean, math.sqrt(max(variance, 0.0))
 
 
-def _gold_units(
-    annotations: pd.DataFrame, model: pd.DataFrame, design: pd.DataFrame, field: str
+def pending_adjudication(annotations: pd.DataFrame, field: str) -> int:
+    """Occurrences both coders read, disagreeing on `field`, with no adjudication yet.
+
+    :func:`reference_labels` leaves such a field out, which is right for the
+    label but not for an estimate: the units the coders disagree on are the hard
+    ones, so an estimate over the rest is an estimate over the easy subset. The
+    weighted figures wait while any are pending (review of 19 November 2026).
+    """
+    coded = nonempty(annotations)
+    if coded.empty or field not in coded:
+        return 0
+    pair = coder_pair(annotations)
+    by_occurrence: dict[str, dict[str, str]] = {}
+    for row in coded.to_dict(orient="records"):
+        occurrence, coder = _text(row.get("occurrence_id")), _text(row.get("coder"))
+        if occurrence and coder:
+            by_occurrence.setdefault(occurrence, {})[coder] = _text(row.get(field))
+    return sum(
+        1
+        for coders in by_occurrence.values()
+        if ADJUDICATOR not in coders
+        and all(name in coders for name in pair)
+        and coders[pair[0]] != coders[pair[1]]
+    )
+
+
+def effective_inclusion(
+    design: pd.DataFrame, candidates: pd.DataFrame | None, done: Collection[str]
 ) -> pd.DataFrame:
-    """Coded units with a reference label, a model label and a design weight."""
+    """Each unit's inclusion probability over the frames coded so far.
+
+    `pi_union` is the probability of being drawn by any of the three frames, and
+    it is the right weight only once every drawn unit is coded. Coding runs frame
+    by frame (the probability frame first, docs/ROADMAP.md item 1), and while it
+    does, the coded set is not a sample from the union: weighting it by
+    `pi_union` under-weights the rare classes the purposive frame over-sampled,
+    by the factor that frame raised their probability, and gives a census
+    stratum no variance though only part of it is coded (review of 19 November
+    2026).
+
+    So the weight counts only the frames whose whole draw is coded (`done`
+    holds every unit drawn by them), combined as the draws are,
+    `1 - prod(1 - p_f)`, and `in_scope` marks the units those frames drew: the
+    only coded units the weight describes. A unit coded from a frame still in
+    progress waits for its frame. Scaling each frame by the share of it coded
+    so far would be wrong, not just rough: a unit drawn by two frames counts as
+    coded in both the moment one of them reaches it, so a partly coded frame is
+    not a random part of its draw. With every frame coded this is `pi_union`
+    over every unit; without `candidates` the frames cannot be told apart and
+    `pi_union` stands over every unit, as before.
+    """
+    weights = design.copy()
+    weights["occurrence_id"] = weights["occurrence_id"].map(_text)
+    union = pd.to_numeric(weights["pi_union"], errors="coerce")
+    if candidates is None or candidates.empty or "sampling_frame" not in candidates:
+        return pd.DataFrame(
+            {"occurrence_id": weights["occurrence_id"], "pi": union, "in_scope": True}
+        )
+    coded = {str(identifier) for identifier in done}
+    frames = candidates.assign(
+        occurrence_id=candidates["occurrence_id"].map(_text),
+        sampling_frame=candidates["sampling_frame"].map(_text),
+    )
+    missed = pd.Series(1.0, index=weights.index)
+    scope: set[str] = set()
+    for name, part in frames.groupby("sampling_frame", sort=True):
+        column = f"pi_{name}"
+        if column not in weights:
+            raise ValueError(
+                f"The design file has no {column} column for the {name!r} frame the candidates "
+                "name; rerun 13_gold_sample.py so the two files describe one draw."
+            )
+        drawn = set(part["occurrence_id"])
+        if not drawn or not drawn <= coded:
+            continue
+        scope |= drawn
+        missed *= 1 - pd.to_numeric(weights[column], errors="coerce").fillna(0.0)
+    return pd.DataFrame(
+        {
+            "occurrence_id": weights["occurrence_id"],
+            "pi": 1 - missed,
+            "in_scope": weights["occurrence_id"].isin(scope),
+        }
+    )
+
+
+def resolved_units(annotations: pd.DataFrame) -> set[str]:
+    """Occurrences read by both coders of the pair, or adjudicated: the coded set."""
+    coded = nonempty(annotations)
+    if coded.empty:
+        return set()
+    pair = set(coder_pair(annotations))
+    readers: dict[str, set[str]] = {}
+    for occurrence, coder in zip(
+        coded["occurrence_id"].map(_text), coded["coder"].map(_text), strict=True
+    ):
+        readers.setdefault(occurrence, set()).add(coder)
+    return {
+        occurrence
+        for occurrence, names in readers.items()
+        if ADJUDICATOR in names or pair <= names
+    }
+
+
+def _eligible_ids(model: pd.DataFrame) -> set[str] | None:
+    """The run's occurrences the published figures count, or None if it cannot tell.
+
+    The usage layer's rule (`lib.usage.eligible_mask`, not imported: it imports
+    this module): a `true_positive` verdict whose evidence was located.
+    """
+    if model.empty or "verdict" not in model:
+        return None
+    keep = model["verdict"].map(_text) == "true_positive"
+    if "evidence_valid" in model:
+        keep &= model["evidence_valid"].map(bool)
+    return set(model.loc[keep, "occurrence_id"].map(_text))
+
+
+def _gold_units(
+    annotations: pd.DataFrame,
+    model: pd.DataFrame,
+    design: pd.DataFrame,
+    field: str,
+    candidates: pd.DataFrame | None = None,
+    population: Collection[str] | None = None,
+) -> pd.DataFrame:
+    """Coded units with a reference label, a model label and a design weight.
+
+    `pi` is :func:`effective_inclusion`'s over the occurrences both coders have
+    read, so all fields share one coded set, and a unit outside the frames
+    coded so far is left out until its frame is done. `population`, when given,
+    keeps only units inside it: the corrected shares are shares of the eligible
+    occurrences, and their correction has to be measured over the same ones.
+    """
     reference = reference_labels(annotations)
     rows = [
         {"occurrence_id": occurrence, "human": labels[field]}
@@ -436,39 +566,48 @@ def _gold_units(
         if field in labels
     ]
     if not rows or model.empty or design.empty or field not in model:
-        return pd.DataFrame(columns=["occurrence_id", "human", "model", "pi_union"])
+        return pd.DataFrame(columns=["occurrence_id", "human", "model", "pi"])
     units = pd.DataFrame(rows)
     labels = model[["occurrence_id", field]].rename(columns={field: "model"})
     labels["occurrence_id"] = labels["occurrence_id"].map(_text)
     labels["model"] = labels["model"].map(_text)
     units = units.merge(labels, on="occurrence_id", how="inner")
-    weights = design[["occurrence_id", "pi_union"]].copy()
-    weights["occurrence_id"] = weights["occurrence_id"].map(_text)
-    weights["pi_union"] = pd.to_numeric(weights["pi_union"], errors="coerce")
-    units = units.merge(weights, on="occurrence_id", how="inner")
-    return units.loc[units["pi_union"] > 0]
+    units = units.merge(
+        effective_inclusion(design, candidates, resolved_units(annotations)),
+        on="occurrence_id",
+        how="inner",
+    )
+    units = units.loc[units["in_scope"].astype(bool)].drop(columns="in_scope")
+    if population is not None:
+        units = units.loc[units["occurrence_id"].isin(set(population))]
+    return units.loc[units["pi"] > 0].reset_index(drop=True)
 
 
 def weighted_accuracy(
-    annotations: pd.DataFrame, model: pd.DataFrame, design: pd.DataFrame
+    annotations: pd.DataFrame,
+    model: pd.DataFrame,
+    design: pd.DataFrame,
+    candidates: pd.DataFrame | None = None,
 ) -> list[dict[str, object]]:
     """Model accuracy per field, over every coded unit, weighted to the corpus.
 
     The per-frame tables say how the model does on each design's units; this
     says what share of the corpus it labels as the coders would, using every
-    coded unit at the weight its union inclusion probability gives it. Withheld
-    below :data:`MINIMUM_GOLD` units.
+    coded unit at the weight :func:`effective_inclusion` gives it. Withheld
+    below :data:`MINIMUM_GOLD` units, and while any disagreement on the field
+    waits for adjudication (:func:`pending_adjudication`).
     """
     out = []
     for field in (*SINGLE_LABEL_FIELDS,):
-        units = _gold_units(annotations, model, design, field)
+        units = _gold_units(annotations, model, design, field, candidates)
         n = len(units)
-        entry: dict[str, object] = {"field": field, "units": n}
-        if n < MINIMUM_GOLD:
+        pending = pending_adjudication(annotations, field)
+        entry: dict[str, object] = {"field": field, "units": n, "pending_adjudication": pending}
+        if n < MINIMUM_GOLD or pending:
             out.append({**entry, "state": "waiting", "estimate": None, "low": None, "high": None})
             continue
         correct = (units["human"] == units["model"]).to_numpy(dtype=float)
-        mean, error = _hajek(correct, units["pi_union"].to_numpy(dtype=float))
+        mean, error = _hajek(correct, units["pi"].to_numpy(dtype=float))
         out.append(
             {
                 **entry,
@@ -482,30 +621,50 @@ def weighted_accuracy(
 
 
 def corrected_shares(
-    annotations: pd.DataFrame, model: pd.DataFrame, design: pd.DataFrame
+    annotations: pd.DataFrame,
+    model: pd.DataFrame,
+    design: pd.DataFrame,
+    candidates: pd.DataFrame | None = None,
 ) -> list[dict[str, object]]:
     """Corpus shares of each label, the model's corrected by the gold sample.
 
     Prediction-powered inference (Angelopoulos et al., 2023): the model's share
-    over every annotated occurrence, plus the design-weighted mean of
-    `human - model` over the coded units, which removes the model's bias as far
-    as the sample can measure it. The interval adds the two variances. Where
-    the model is right the correction is near zero and the interval narrow;
-    where it is wrong the correction says by how much. The published matrix
-    and profiles stay the model's own; this block is what may be *cited* about
-    the corpus once enough units are coded.
+    over the population, plus the design-weighted mean of `human - model` over
+    the coded units in it, which removes the model's bias as far as the sample
+    can measure it. Where the model is right the correction is near zero and the
+    interval narrow; where it is wrong the correction says by how much. The
+    published matrix and profiles stay the model's own; this block is what may
+    be *cited* about the corpus once enough units are coded.
+
+    The population is the one the figures count: eligible occurrences (a
+    `true_positive` verdict with located evidence) inside the sampling design,
+    which leaves out false positives, invalid evidence and the prompt's worked
+    examples. Both terms are taken over it. The model's share is that
+    population's exact mean, not an estimate, so it adds no variance: the
+    interval is the rectifier's alone. Withheld below :data:`MINIMUM_GOLD`
+    units and while any disagreement on the field waits for adjudication.
     """
+    eligible = _eligible_ids(model)
+    in_design = set(design["occurrence_id"].map(_text)) if not design.empty else set()
+    population = in_design if eligible is None else in_design & eligible
+    counted = model.loc[model["occurrence_id"].map(_text).isin(population)] if not model.empty else model
     out = []
     for field in CORRECTED_FIELDS:
-        units = _gold_units(annotations, model, design, field)
-        labels = model[field].map(_text) if field in model else pd.Series(dtype=object)
+        units = _gold_units(annotations, model, design, field, candidates, population)
+        labels = counted[field].map(_text) if field in counted else pd.Series(dtype=object)
         total = len(labels)
+        pending = pending_adjudication(annotations, field)
         categories = sorted(set(labels) | set(units["human"]))
-        block: dict[str, object] = {"field": field, "units": len(units), "occurrences": total}
-        if len(units) < MINIMUM_GOLD or not total:
+        block: dict[str, object] = {
+            "field": field,
+            "units": len(units),
+            "occurrences": total,
+            "pending_adjudication": pending,
+        }
+        if len(units) < MINIMUM_GOLD or not total or pending:
             out.append({**block, "state": "waiting", "categories": []})
             continue
-        probabilities = units["pi_union"].to_numpy(dtype=float)
+        probabilities = units["pi"].to_numpy(dtype=float)
         rows = []
         for category in categories:
             share = float((labels == category).mean())
@@ -514,7 +673,7 @@ def corrected_shares(
             ).to_numpy(dtype=float)
             rectifier, error = _hajek(difference, probabilities)
             corrected = share + rectifier
-            spread = 1.96 * math.sqrt(error**2 + share * (1 - share) / total)
+            spread = 1.96 * error
             rows.append(
                 {
                     "category": category,
@@ -586,10 +745,10 @@ def gold_block(
             [] if comparison is None else model_vs_human(annotations, comparison)
         ),
         "weighted_accuracy": (
-            [] if design is None else weighted_accuracy(annotations, model, design)
+            [] if design is None else weighted_accuracy(annotations, model, design, candidates)
         ),
         "corrected_shares": (
-            [] if design is None else corrected_shares(annotations, model, design)
+            [] if design is None else corrected_shares(annotations, model, design, candidates)
         ),
         "minimum_gold": MINIMUM_GOLD,
         "state": state,
@@ -625,6 +784,7 @@ def without_prior_review(
     reviewed: Collection[str],
     comparison: pd.DataFrame | None = None,
     design: pd.DataFrame | None = None,
+    candidates: pd.DataFrame | None = None,
 ) -> dict[str, object]:
     """Every gold figure again, without the passages read against a model's labels.
 
@@ -659,7 +819,11 @@ def without_prior_review(
         "model_vs_human_comparison": (
             [] if comparison is None else model_vs_human(kept, comparison)
         ),
-        "weighted_accuracy": [] if design is None else weighted_accuracy(kept, model, design),
-        "corrected_shares": [] if design is None else corrected_shares(kept, model, design),
+        "weighted_accuracy": (
+            [] if design is None else weighted_accuracy(kept, model, design, candidates)
+        ),
+        "corrected_shares": (
+            [] if design is None else corrected_shares(kept, model, design, candidates)
+        ),
         "function_jaccard": function_jaccard(kept, model),
     }

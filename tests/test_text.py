@@ -96,3 +96,32 @@ class TestWindow:
 class TestNormaliseLineEndings:
     def test_converts_crlf_and_lone_cr(self):
         assert text.normalise_line_endings("a\r\nb\rc\nd") == "a\nb\nc\nd"
+
+
+class TestSentenceBounds:
+    """The evidence span the coding page records around a match."""
+
+    def test_an_abbreviation_does_not_cut_the_sentence(self) -> None:
+        body = "First point. Mr. Smith said the U.N. saw genocide in S/PV.3137 there. Next one."
+        start = body.index("genocide")
+        left, right = text.sentence_bounds(body, start, start + len("genocide"))
+        assert body[left:right] == "Mr. Smith said the U.N. saw genocide in S/PV.3137 there."
+
+    def test_the_span_stops_at_a_line_break(self) -> None:
+        body = "A heading without a stop\nThe genocide was planned. Then more."
+        start = body.index("genocide")
+        left, right = text.sentence_bounds(body, start, start + 8)
+        assert body[left:right] == "The genocide was planned."
+
+    def test_a_match_across_two_sentences_takes_both(self) -> None:
+        body = "One. It was a geno. Cide indeed. Three."
+        start = body.index("geno")
+        end = body.index("Cide") + 4
+        left, right = text.sentence_bounds(body, start, end)
+        assert body[left:right] == "It was a geno. Cide indeed."
+
+    def test_the_span_always_holds_the_match(self) -> None:
+        body = "genocide"
+        assert text.sentence_bounds(body, 0, 8) == (0, 8)
+        body = "Last words: genocide"
+        assert text.sentence_bounds(body, 12, 20) == (0, 20)
