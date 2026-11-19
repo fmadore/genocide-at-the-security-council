@@ -17,7 +17,7 @@
 	 */
 	import Download from '@lucide/svelte/icons/download';
 	import Icon from './Icon.svelte';
-	import { captionSvg, filename, save, saveCsv, svgToPng, toCsv } from './export';
+	import { captionSvg, filename, save, saveCsv, svgHeight, svgToPng, toCsv } from './export';
 	import type { ExportRequest } from './export';
 	import { palette } from './theme';
 
@@ -110,8 +110,10 @@
 	const png = () =>
 		run('png', async () => {
 			const { markup, width, height } = picture();
-			const caption = 120; // room the caption added; over-allocating only pads.
-			save(await svgToPng(markup, width, height + caption), filename(spec.name, 'png'));
+			// The captioned document's own height, so a long caption is neither
+			// cropped nor squeezed: its height grows with every line it carries.
+			const total = svgHeight(markup) ?? height;
+			save(await svgToPng(markup, width, total), filename(spec.name, 'png'));
 		});
 </script>
 

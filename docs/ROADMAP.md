@@ -17,7 +17,9 @@ full ledger with its evidence column is in git history (this file before
 beside each item it produced, and the commit messages carry the measurements.
 The review of 9 November is [REVIEW_2026-11-09.md](REVIEW_2026-11-09.md); its
 code is done (RV65–RV75), and what is left of it waits on a person (items 15
-to 18) or on the cluster (item 8).
+to 18) or on the cluster (item 8). The audit of 19 November 2026 was not
+committed as a file; what it found and nothing above already tracks is items
+19 to 72, each re-checked in the code unless it says "the audit measured".
 
 ## Open
 
@@ -48,11 +50,6 @@ to 18) or on the cluster (item 8).
 5. **Cut the first citable release** ([RELEASING.md](RELEASING.md)): switch on the
    Zenodo integration in the owner's own account, then release "v0.1 —
    unvalidated preview" with the derived tables and the built site (RV33).
-6. **Two colour-contrast findings** that need a design decision rather than a
-   restyle, found when the accessibility scans began to run in dark mode as
-   well (RV63): the Methods page's "Automatic checks" state colour on the zebra
-   row (4.36:1, light mode) and the Actors table's selected row (3.45:1, dark
-   mode). The scans exclude those two elements, with a comment, until then.
 
 ### Waits on the cluster
 
@@ -133,6 +130,224 @@ Each is argued in [REVIEW_2026-11-09.md](REVIEW_2026-11-09.md), section B.
 18. **Wording to approve** (B4). Every fix that changed a sentence, and both new
     Chronology figures, carry text without a `Wording:` commit; the review
     lists the places.
+
+### From the audit of 19 November 2026
+
+An outside audit of `main` at `cfed32e`. Its quick fixes to the live site (1959
+drawn as 0.00%, the v5.0 figures on Methods, Language Plate 3's export, v6.0
+meeting symbols, the service worker's cache writes, two wheel traps, the two
+contrast findings that were item 6, `TermMatrix`'s random id, the PNG caption,
+printing from dark mode, three charts without a table) are done: RV76 to RV79
+below. What items 12, 13, 14 and 17 already hold is not repeated.
+
+#### Pipeline correctness: published numbers change, one rerun
+
+19. **Hyphenated compounds count as their own collocate.** `TOKEN_RE` keeps the
+    hyphen, so `post-genocide` starts before the match, and `bisect_left` in
+    `lib/lexical.py` skips the token holding the node: `post-genocide` is Rwanda's
+    seventh collocate in `notes/05_lexical.md`. Test tokens by interval overlap.
+20. **Sliced collocations divide by the whole corpus.** `by_period`, `by_country`
+    and `by_speaker_group` give `log_dice` a slice's counts and a reference
+    frequency from all 92.5 M words (`lib/lexical.py:908`). Take the reference
+    from the slice.
+21. **Unmatched keyness leaves the unmatched targets in the reference.** The
+    numerator counts matched targets only and subtracts them from the whole
+    corpus, so unmatched `genocide` speeches (212, the audit measured) sit in the
+    control arm: `genocide` scores +7.45 unmatched against +13.06 matched.
+    Compare every target with its exact complement, in 05 and 12.
+22. **Steps 05 and 12 keep procedural turns in the matching pools**, unlike step
+    11's exposure. The audit measured 1,224 words per target speech against 742
+    per matched control.
+23. **The co-occurrence network keeps pairs that can only meet inside
+    `genocide` speeches.** `definitional_pairs` drops (anchored term, `genocide`)
+    but keeps two anchored or nested terms (`commemoration`–`survivors`), whose
+    nPMI over every speech gains about 5.3 bits by selection alone. Drop them,
+    or publish PMI given `has_genocide`.
+24. **The Python notes still take medians over made-up zeros**, which RV70
+    removed from the site: `notes/05_lexical.md` gives `tutsis` +0.00 matched,
+    and `notes/12_speaker_keyness.md` its median drops the same way.
+25. **Smaller keyness points.** Step 12's `_stability` follows `log_ratio`, not
+    `lrc`, the ranking statistic; `self_reference` misses possessives
+    (`france's`); bursts of a few meetings and OCR noise (`wlilch`, `cted`) reach
+    the top of some rankings, which a ranking by dispersion over meetings
+    (Egbert and Biber) would expose.
+26. **Frames: explicit negation counts as assertion.** In `lib/node_frames.py`,
+    `qualification` accepts `not\s+` (*this is not genocide*) and `occurrence`
+    accepts `no\s+` (*there was no genocide*). Take them out and add a
+    `negation` frame ahead of both.
+27. **Frames: `génocidaires` falls into `other`.** `_MORPHOLOGY`'s
+    `^genocid(?:es?|aires?)$` has no `é`; the audit counted 44 of the 45 `other`
+    rows in `frames.json` as `génocidaires`.
+28. **Frames, smaller.** The `distancing` quote pair takes any opening quote with
+    any closing one, apostrophe included, up to 25 characters on; `annual_block`
+    omits the seven years without an occurrence (the gap RV66 closed for
+    quarters); `slices.period` cuts eight-year blocks off the site's decades.
+29. **"Who stays silent" can count the delegation that introduced the word.**
+    If A uses it at turn 2, B at turn 5, and A speaks again at turn 8 without it,
+    `lib/actors.py::exposure` counts A as exposed after and silent
+    (`other_first` is 5, `last_use` 2). Treat a delegation's own earlier use as
+    joining; check the `*_after` totals in `reconcile_exposure`.
+30. **The calendar control drops 1994 and 1995 as "the two largest years"**; on
+    v6.0, 2024 (1,096 occurrences) and 2014 (659) are larger, the audit
+    measured. Derive the years from the data:
+    `lib/series_payload.py::CALENDAR_CONTROL_YEARS`.
+31. **The rate split's intervals.** `before_ci95` and `after_ci95`, drawn by
+    `RateSplit.svelte`, treat speeches as independent while the test resamples
+    meetings; a zero Poisson count takes `-log(0.05)/exposure`, a one-sided
+    bound, where two-sided 95% wants `-log(0.025)` (`lib/series.py:852`).
+32. **`share_rejects` divides by occurrences that cannot reject.**
+    `usage.position_rows` keeps `no_position` rows (`concrete_case == "no"`) in
+    the denominator. Filter to concrete cases, with item 17.
+33. **Diffusion risk sets keep procedural turns and trust one pre-onset label.**
+    `usage.exposure_rows` does not drop `source_procedural`, and a single
+    `pre_onset_referent` puts a whole meeting at risk decades early.
+
+#### Gold sample and coding tool: before coding starts (item 1)
+
+34. **Done on branch `gold-prep` (RV80).** Weighted estimates under partial
+    coding.
+35. **Done on branch `gold-prep` (RV81).** `corrected_shares` over one
+    population.
+36. **Done on branch `gold-prep` (RV82).** Step 13's note and manifest report
+    the model-stratified frame.
+37. **Decided by FM on 19 November 2026 (RV84).** `DENSE_MEETINGS` kept as
+    drawn.
+38. **The coding page, what is left.** The evidence span, the BOM, the import
+    command and the Digital Library link are done (RV83). Still to do: tests for
+    the page's own script, keyboard shortcuts, "next uncoded" and a search of
+    the passages.
+39. **Prompt v4, evidence, agreement.** `PROMPT.md` still says 1946-2024, and
+    worked example 4 puts deniers in `accused_actor`; `locate_evidence` stops at
+    the first pass matching anywhere in the speech, even away from the
+    occurrence (the audit's reading); `per_label_kappa` lacks the minority floor
+    and PABAK that the field-level figures carry.
+
+#### Site and figures
+
+40. **`DotPlot` and `FrameProfile`.** `dotRadius` floors a square-root scale, so a
+    word at 1% of the largest count draws 12% of its area; both are 720 units
+    wide drawn at 100%, so a desktop scales them to about 1,376 px with 23 px
+    labels, the audit measured. Scale area from zero and cap the width.
+41. **Exported SVGs lose their font.** `DotPlot`, `FrameProfile` and
+    `TermMatrix` write `var(--sans)`, which nothing resolves outside the page.
+    (The caption's long lines now wrap: RV76.)
+42. **Back does not undo a filter** on Chronology, Actors, Language and Usage:
+    they call `urlState` without `step` and `restore`, which only the
+    Concordance passes (the Semantic map is item 13).
+43. **Figure defects.** `Decomposition.svelte`'s legend and right-hand notes
+    leave its 720-unit `viewBox`; `RateSplit.svelte` has no label collision
+    handling and no `<title>` on its points; the Chronology legend hides the
+    dashed lines, and a series turned off leaves its band.
+44. **The Concordance's "show more" window** ignores the referent and regex
+    filters when it resets (`concordance/+page.svelte:159`).
+45. **Text that no longer matches its figure.** Language's "A blue mark flags"
+    over a `FrameProfile` drawn in ink; `VictimFigures.svelte`'s "the figure
+    beside this one" for one below; the Reader's register key without
+    `descriptive`; `config/events.csv:49`'s "Two days before the corpus ends";
+    `VictimGrid.svelte` shaded in a register hue with no scale key; the
+    Methods step register, which leaves out steps 00, 18, 19 and 20 and
+    `export_web.py`. Wording waits on FM.
+46. **Wide tables outside `ScrollRegion`** cannot be scrolled from the keyboard
+    (the audit named none individually; find them with the phone-width scan).
+47. **Additions within DESIGN.md.** A dashed mark at the accepted break year on
+    Overview Plate 1; each small multiple's peak year and value; heatmap
+    months linking to the concordance; one delegation followed across Actors
+    Plates 2 to 5; Semantic map neighbours that open on click; the
+    `DiffusionChart` axis read against the risk set.
+
+#### Payload and performance
+
+48. **`/usage` downloads 15.1 MB on open.** `wanted = $derived(selected ||
+    comparison.computed)` holds as soon as the comparison is published, so
+    `usage/occurrences.json` (8.55 MB) and `kwic/genocide.json` (6.89 MB) load at
+    mount, against `usage/+page.ts`'s comment. Ship a small contested preview and
+    load the rest on first use.
+49. **Prerendered pages of several MB**, refetched network-first: beyond
+    `/actors` (item 14), `usage/index.html` (2.87 MB, 1.18 MB of it the matrix
+    table) and `chronology/index.html` (2.63 MB, inlining monthly, quarterly and
+    breakdown series the first view does not draw), the audit measured.
+50. **The concordance files, 71 MB of a 354 MB payload** (400 MB budget). Every
+    line of `kwic/genocide.json` carries `"iso3": null` (8,611 of 8,611);
+    country, agenda, group and type repeat as strings; `sent` repeats the
+    window's text. Drop `iso3`, index repeated strings as `map.json` does.
+51. **The Semantic map page** rebuilds a 182,684-key `Set` on every click and
+    re-sorts the years on every render (`semantic/+page.svelte:253`, `:334`);
+    splitting `map.json` is item 13.
+52. **MapLibre is 1.6 MB of JavaScript** for uniform points on the Actors map:
+    load it when the map scrolls into view, or draw on an SVG base.
+53. **The offline cache keeps the two largest files** (`map.json`,
+    `occurrences.json`) in `OFFLINE_KEEP` with no bound of their own; Safari's
+    quota is the likely limit.
+
+#### Build, CI and release
+
+54. **The Makefile does not declare `config/council_membership.csv` or
+    `config/country_aliases.csv`**, so editing either leaves the payload as it is.
+55. **`tools/carry_over_runs.py --write` fails today**: `run_rows()` globs every
+    run under `runs/`, the v6.0 runs of 3 November included, whose rows v5.0
+    lacks.
+56. **`export_web.py` copies about 9,900 meeting files (197 MB) into staging on
+    every export**; hard links with a copy fallback keep the swap atomic.
+57. **`word-budget.mjs` finds figures with `indexOf`**; parse with
+    `svelte/compiler` as `figure-provenance.mjs` does, which in turn skips
+    nested routes such as `reader/[meeting]`.
+58. **CI.** A push to `main` that deploys runs Checks twice (its own trigger and
+    the deploy's `workflow_call`); Playwright downloads Chromium every run;
+    actions float on major tags while pip and shellcheck are pinned by hash.
+59. **What the checks cover.** `contract.py` leaves out `semantic/map.json` and
+    `actor_year.csv`; mypy covers `scripts/lib` only, not `export_web.py` or
+    `tools/`.
+60. **Repository hygiene.** Ignore `.claude/worktrees/`; decide whether the 14
+    `.impeccable/` files stay versioned; drop `docs/reference/**` from
+    `.gitattributes`.
+61. **Before release v0.1 (item 5).** `CITATION.cff` says Gemma's run "is not
+    yet published"; check it with `cffconvert` in CI; `RELEASING.md`'s warning
+    about `make clean` predates RV48; an `export_web.py --release` flag for the
+    footer's `release`; `tools/package_release.py` for archives and
+    `SHA256SUMS.txt`.
+
+#### Research decisions, not bugs
+
+62. **Lexicon v9.** `prevention_of_genocide` wants `of` after `preventing` and
+    misses "prevent genocide" and "preventing genocide" (118 sentences against
+    262 matches, the audit measured); `genocide_convention`'s second branch and
+    `special adviser on the prevention` do not require `genocide`, though
+    nested under it, and step 03 does not check nesting; `early_warning` (2,169,
+    20 beside `genocid*`) and `impunity` (15,547) are council-wide vocabulary:
+    anchor them or say so, as for `massacre`. With item 2.
+63. **The sentence splitter's abbreviations.** `lib/text.py::ABBREVIATIONS` lacks
+    `u.s.s.r`, `res`, `doc`, `rev`, `add`, `corr` and ranks such as `col`; the
+    one-capital rule blocks a sentence end after `I.` It drives the seven
+    anchored terms and v4's sentence evidence: decide before the gold freeze.
+64. **More than one change point.** With one break over 81 years, `speech_rate`
+    splits at 1978 and `token_rate` at 1992; a penalised multiple-break
+    segmentation calibrated on meeting blocks would read the regimes better.
+65. **The decomposition and new agendas.** Setting `r1 = r2` for an item present
+    in one decade gives every new conflict, and every renamed item, wholly to
+    composition (`lib/series.py:389`). Show both agenda codings, the share off
+    common support, and meeting-block intervals.
+66. **The retention floor in meetings.** The 125-speech rule assumes independent
+    speeches and serves terms a hundred times rarer than `genocide`; add a
+    minimum number of meetings.
+67. **Silence against the same meetings.** Raw `share_after` sets a permanent
+    member's thousand meetings beside a delegation heard in dedicated debates;
+    an observed-to-expected ratio at the room's rate in the same meetings
+    compares like with like.
+68. **Embeddings.** Near-identical procedural turns crowd the UMAP graph:
+    project substantive speeches; `recall@10` draws 128 unstratified queries;
+    `local_fidelity` measures trustworthiness, not continuity;
+    `embeddings.pool` averages unnormalised chunk vectors. With item 8.
+69. **Names across regimes.** COW codes put the USSR under Russia and the ROC
+    under China; `broad_agenda` keeps the first Repertoire category only. Show
+    the period's name in evidence rows and the crosswalk in exports.
+70. **The meeting unit.** Numbered meetings with several records (9,919 records,
+    9,467 numbers): test scope, exposure and clustering by meeting number too.
+71. **Procedural turns in the denominator.** Prevalence is 2.505% over all turns
+    and 4.061% without the source's procedural ones: publish both where the
+    choice matters.
+72. **New figures from what is built**: concentration by meeting, atrocity
+    vocabulary without `genocide` (`genocide_free_atrocity` in `lib/scopes.py`),
+    and Qwen–Gemma agreement case by case once gold labels exist.
 
 ### Considered in the review of 8 October and not done
 
@@ -252,3 +467,15 @@ Maintainability:
 - **RV73** Smaller: the profile table gated as its figure is, the agenda list showing the eight items its remainder excludes, "<1%" for a non-empty cell, axis decimals for rare terms, `corpus_words` for the CSV column that holds words: `web/src/routes/language`, `web/src/lib/SpeakerKeyness.svelte`, `web/src/routes/usage`, `web/src/routes/chronology`. (A9)
 - **RV74** Two new Chronology figures, *Agenda or usage?* over `series/decomposition.json` and the rate-split drawing in *Testing for a change in the rate*, both drawn in the browser tests: `web/src/lib/Decomposition.svelte`, `web/src/lib/RateSplit.svelte`, `web/e2e/tests/decomposition.spec.ts`. (C1)
 - **RV75** Eleven visual defects fixed, among them the split figure's axis, the delegation keyword figure's register hues and "darker is stronger" in dark mode; ECharts' label layout is registered, so `moveOverlap` and `hideOverlap` take effect: `web/src/lib/echarts.ts`. (C2)
+
+### Audit of 19 November 2026
+
+- **RV76** Figures and exports: a withheld rate reads "withheld", never `0.00%`, in the Overview's tables and tooltip (`web/src/lib/format.ts::rateCell`); Methods' meeting-record figures are v6.0's (10,636 records, 717 without speeches, 690 closed); Language Plate 3 exports its own slice from the artefact it draws (`profileTable`); the PNG takes the captioned SVG's own height and long caption lines wrap (`web/src/lib/export.ts::wrapCaption`, `svgHeight`).
+- **RV77** v6.0 meeting symbols (`S/PV.3336(Resumption2)`, `(PartII)`, `(communiqué)`) print as the record is titled and search the Digital Library by their base symbol: `web/src/lib/format.ts::meetingLabel`, `meetingBase`.
+- **RV78** Accessibility: the two contrast findings that were open item 6 are fixed and both scans run without exclusions (Methods' "Automatic checks" in `--state-ok`, as DESIGN.md's Quarantine Rule asks, 5.5:1 on the zebra row; the Actors selected row's button in ink); the plain wheel scrolls the page over every chart, Ctrl with the wheel zooms (`web/src/lib/Chart.svelte`); *Cases over time*, *Naming a people, or not* and *The reading set, year by year* have tables, the first with each count linking to its concordance view; `TermMatrix`'s pattern id comes from `$props.id()`.
+- **RV79** Robustness: the service worker writes its cache under `waitUntil` after answering, and a full cache no longer fails a good network response (`web/src/service-worker/index.ts::keep`); a page printed from the dark theme prints in light tokens, its charts redrawn light before the snapshot (`web/src/app.css`, `web/src/lib/theme.ts::printInLight`), and the figure contents band prints.
+- **RV80** The gold sample's weighted figures follow the coding done so far: only frames whose whole draw is coded count, combined as the draws are, and only the units they drew are scored, so coding the probability frame first no longer under-weights the rare classes and a census stratum is not given zero variance while partly coded. Scaling each frame by its coded share was tried and rejected: a unit drawn by two frames counts as coded in both. `lib/gold_estimates.py::effective_inclusion`, `resolved_units`. (Branch `gold-prep`.)
+- **RV81** The corrected shares are shares of the eligible occurrences inside the sampling design (a `true_positive` verdict with located evidence; no prompt examples), with the rectifier measured over the same units and no superpopulation variance added to a population mean; both weighted figures wait while any disagreement on the field is unadjudicated and say how many (`pending_adjudication`). `lib/gold_estimates.py::corrected_shares`, `pending_adjudication`. (Branch `gold-prep`.)
+- **RV82** Step 13's frame table, third-frame section and manifest block name the frame actually drawn, so `model_strata`'s 269 rows are counted and the table adds up to the 469 candidate rows. `scripts/13_gold_sample.py::build_note`, `stratum_rows`. (Branch `gold-prep`.)
+- **RV83** The coding page records the evidence sentence from `lib.text.sentence_bounds` (39 of the 458 packet passages had been cut at `Mr.` or the like), drops Excel's byte-order mark on restore, and links the meeting symbol to the UN Digital Library; `tools/coding_page.py --import` checks a coder's export with `lib.audit.merge` and, with `--write`, folds it into `annotations/genocide/annotations.csv` in one atomic write, refusing a silent revision without `--replace`. (Branch `gold-prep`.)
+- **RV84** `DENSE_MEETINGS` kept as drawn (decided by FM on 19 November 2026): it is the `dense_meeting` coverage stratum, so changing it would redraw the 469-row sample, and on v6.0 the seven still hold 661 of 8,611 occurrences (7.7%) with five of them the five densest; S/PV.9540 (77) and S/PV.9651 (58) now outrank S/PV.3453 and S/PV.9069 (55 each), and no meeting before 1992 is among the twelve densest. The comment says so and no longer cites the missing `CORPUS.md` §8.6. `lib/gold_sample.py`. (Branch `gold-prep`.)

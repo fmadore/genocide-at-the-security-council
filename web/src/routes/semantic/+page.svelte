@@ -159,7 +159,7 @@
 		/* The map must not take the page's own scrolling. On a touch screen the
 		   plot takes no gestures at all, so a swipe over it scrolls the page and
 		   the slider beneath is the zoom. On a desk a drag pans, and the wheel
-		   reaches the plot only with Ctrl held: see `wheel` below. */
+		   reaches the plot only with Ctrl held: see `wheel` in Chart.svelte. */
 		dataZoom: [
 			...(touch
 				? []
@@ -185,13 +185,6 @@
 			}
 		]
 	});
-	/* ECharts' inside zoom cancels every wheel event over the plot, whatever its
-	   `zoomOnMouseWheel` says, so a reader scrolling down the page stopped dead
-	   on the map. A plain wheel is stopped here, before the chart sees it, and
-	   scrolls the page; Ctrl with the wheel goes through and zooms. */
-	function wheel(event: WheelEvent) {
-		if (!event.ctrlKey) event.stopPropagation();
-	}
 	function update(key: string, value: string) {
 		const url = new URL(window.location.href);
 		if (value) url.searchParams.set(key, value);
@@ -470,7 +463,7 @@
 			     made square and fill the width and stay inside a screen at once, so
 			     the box tracks the width and the caveat keeps saying that the flat
 			     map distorts distances. -->
-			{#if rows.length}<div onwheelcapture={wheel}>
+			{#if rows.length}<div>
 					<Chart
 						{option}
 						renderer="canvas"

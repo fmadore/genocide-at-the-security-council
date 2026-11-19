@@ -51,7 +51,10 @@
 	const registerOf = $derived(new Map(ordered.map((term) => [term.name, term.register])));
 
 	/* One pattern per instance, so two matrices on one page do not share an id. */
-	const hatchId = `hatch-${Math.random().toString(36).slice(2, 8)}`;
+	// `$props.id()`, not a random string: the server and the browser must agree
+	// on the id, or hydration finds a pattern the cells no longer point at.
+	const uid = $props.id();
+	const hatchId = `hatch-${uid}`;
 
 	const explain = (cell: MatrixCell) => {
 		const pair = `${termLabel(cell.row)} & ${termLabel(cell.col)}`;

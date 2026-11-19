@@ -11,7 +11,7 @@
 	import UnitField from '#lib/UnitField.svelte';
 	import { provenanceOf } from '#lib/export.js';
 	import type { ExportRequest } from '#lib/export.js';
-	import { count, decimal, isoDate, measureLabel, percent } from '#lib/format.js';
+	import { count, decimal, isoDate, measureLabel, percent, rateCell } from '#lib/format.js';
 	import { headlineMeasure } from '#lib/headline.js';
 	import {
 		densest as densestYear,
@@ -190,7 +190,7 @@
 					symbolSize: 5,
 					lineStyle: { color: p.ink, width: 2 },
 					itemStyle: { color: p.ink },
-					tooltip: { valueFormatter: (v) => percent(v as number) }
+					tooltip: { valueFormatter: (v) => (v == null ? 'withheld' : percent(v as number)) }
 				}
 			]
 		};
@@ -431,7 +431,7 @@
 									>{year}</a
 								></td
 							><td class="num">{count(genocide.occurrences?.[index] ?? 0)}</td><td class="num"
-								>{percent(genocide.speech_rate[index]!)}</td
+								>{rateCell(genocide.speech_rate[index])}</td
 							></tr
 						>{/each}</tbody
 				>
@@ -502,7 +502,7 @@
 				><tbody
 					>{#each years as year, index (year)}<tr
 							><td>{year}</td>{#each termRows as row (row.name)}<td class="num"
-									>{percent(row.values[index]!)}</td
+									>{rateCell(row.values[index])}</td
 								>{/each}</tr
 						>{/each}</tbody
 				>

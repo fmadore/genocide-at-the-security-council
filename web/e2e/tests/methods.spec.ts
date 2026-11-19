@@ -36,12 +36,6 @@ test('methods renders from its artefacts and passes a scan', { tag: '@a11y' }, a
 	await expect(intervals).toContainText('The word list over time');
 	await expect(intervals).toContainText('Speakers by rate');
 
-	const { violations } = await new AxeBuilder({ page })
-		// A known finding, left to the design system rather than to a test: the
-		// ledger's "Automatic checks" state is set in the preventive register
-		// colour, which is 4.36:1 on the zebra row, short of the 4.5:1 that
-		// body text needs. Every other element on the page is scanned.
-		.exclude('.state[data-state="verified"]')
-		.analyze();
+	const { violations } = await new AxeBuilder({ page }).analyze();
 	expect(violations).toEqual([]);
 });

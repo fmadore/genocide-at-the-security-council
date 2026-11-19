@@ -1096,6 +1096,23 @@
 			height="260px"
 			description="Line chart of the selected reading set as a share of each year's speeches."
 		/>
+		<details class="data-table">
+			<summary><Icon icon={ChevronRight} />View the reading set as a table</summary>
+			<table>
+				<thead
+					><tr
+						><th>Year</th><th class="num">In the reading set</th><th class="num">Speeches held</th
+						><th class="num">Share</th></tr
+					></thead
+				><tbody
+					>{#each scopeYears as row (row.year)}<tr
+							><td>{row.year}</td><td class="num">{count(row.speeches)}</td><td class="num"
+								>{count(row.held)}</td
+							><td class="num">{row.share === null ? '—' : percent(row.share)}</td></tr
+						>{/each}</tbody
+				>
+			</table>
+		</details>
 	</Figure>
 
 	<Figure

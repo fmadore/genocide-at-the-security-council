@@ -5,6 +5,7 @@ import {
 	meetingBase,
 	meetingLabel,
 	namedLanguage,
+	rateCell,
 	termLabel,
 	unSearch
 } from './format';
@@ -15,10 +16,33 @@ describe('meeting symbols', () => {
 		expect(meetingLabel('S/PV.7155')).toBe('S/PV.7155');
 	});
 
+	it('reads the bracketed suffixes corpus v6.0 writes', () => {
+		expect(meetingLabel('S/PV.3336(Resumption2)')).toBe('S/PV.3336 (Resumption 2)');
+		expect(meetingLabel('S/PV.2970(PartII)')).toBe('S/PV.2970 (Part II)');
+		expect(meetingLabel('S/PV.2977(PartII)(closed-resumption1)')).toBe(
+			'S/PV.2977 (Part II) (closed-resumption 1)'
+		);
+		expect(meetingLabel('S/PV.618(communiqué)')).toBe('S/PV.618 (communiqué)');
+		expect(meetingLabel('S/PV.1000 (Resumption 1)')).toBe('S/PV.1000 (Resumption 1)');
+		expect(meetingLabel('S/PV.1000(Resumption)')).toBe('S/PV.1000 (Resumption)');
+	});
+
 	it('searches the Digital Library by the base symbol', () => {
 		expect(meetingBase('S/PV.3745Resumption2')).toBe('S/PV.3745');
 		expect(unSearch('S/PV.3745Resumption2')).toContain(encodeURIComponent('S/PV.3745'));
 		expect(unSearch('S/PV.3745Resumption2')).not.toContain('Resumption');
+		expect(meetingBase('S/PV.3336(Resumption2)')).toBe('S/PV.3336');
+		expect(meetingBase('S/PV.2977(PartII)(closed-resumption1)')).toBe('S/PV.2977');
+		expect(meetingBase('S/PV.618(communiqué)')).toBe('S/PV.618');
+		expect(meetingBase('S/PV.7155')).toBe('S/PV.7155');
+	});
+});
+
+describe('withheld rates', () => {
+	it('never prints a withheld rate as zero', () => {
+		expect(rateCell(null)).toBe('withheld');
+		expect(rateCell(undefined)).toBe('withheld');
+		expect(rateCell(0)).toBe('0.00%');
 	});
 });
 

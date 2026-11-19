@@ -333,11 +333,7 @@ test(
 			'href',
 			`${base}/concordance?term=genocide&country=Rwanda&from=1992&to=2023`
 		);
-		// A known finding in the dark scheme, left to the design system rather
-		// than to a test: the picked row's tint under a speaker's name is 3.45:1,
-		// short of 4.5:1. Every other element is scanned in both schemes.
-		const dark = test.info().project.name === 'chromium-dark';
-		await expectNoAxeViolations(page, dark ? ['section.table-wrap tr.picked button'] : []);
+		await expectNoAxeViolations(page);
 	}
 );
 

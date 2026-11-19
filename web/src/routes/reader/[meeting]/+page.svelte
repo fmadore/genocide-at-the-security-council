@@ -363,10 +363,10 @@
 	const readerMetadata = $derived<PageMetadata>({
 		path: `/reader/${encodeURIComponent(basename)}/`,
 		title: record
-			? `${record.spv} — ${record.topic} — ${SITE_NAME}`
+			? `${meetingLabel(record.spv)} — ${record.topic} — ${SITE_NAME}`
 			: `Meeting record — ${SITE_NAME}`,
 		description: record
-			? `Read ${record.spv}, ${record.topic}, with every matched occurrence highlighted in its full UN Security Council speech.`
+			? `Read ${meetingLabel(record.spv)}, ${record.topic}, with every matched occurrence highlighted in its full UN Security Council speech.`
 			: 'Read a UN Security Council meeting record and its matched genocide-related vocabulary in full speech context.'
 	});
 </script>

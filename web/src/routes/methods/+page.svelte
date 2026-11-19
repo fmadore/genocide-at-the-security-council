@@ -162,7 +162,7 @@
 			does: 'Asks a language model which case a mention refers to and what position the speaker expresses.',
 			checks:
 				'Requires valid categories and a quotation present in the speech. Records the model and instructions. These checks cannot establish that a label is correct.',
-			artefact: 'model_annotations/*.csv',
+			artefact: 'model_annotations/genocide/runs/*/annotations.jsonl',
 			state: 'experimental',
 			says: 'Model-based'
 		},
@@ -233,8 +233,8 @@
 	</p>
 	<p>
 		<strong>Not every meeting.</strong> Informal consultations are not meetings of the Council and leave
-		no verbatim record, so nothing said in them is counted. Of the 10,294 meeting records in the source,
-		830 hold no speeches; 663 of them are closed meetings. Only meetings with speeches enter the counts.
+		no verbatim record, so nothing said in them is counted. Of the 10,636 meeting records in the source,
+		717 hold no speeches; 690 of them are closed meetings. Only meetings with speeches enter the counts.
 	</p>
 	<p>
 		<strong>Not a complete count.</strong> The text comes from scanned records. Scanning can damage a
@@ -586,8 +586,11 @@
 		white-space: nowrap;
 	}
 
+	/* Automatic checks are a computed fact, so they take the computed state
+	   colour rather than a register hue (DESIGN.md's Quarantine Rule): 5.5:1 on
+	   the zebra row, where the preventive register was 4.36:1. */
 	.state[data-state='verified'] {
-		color: var(--reg-preventive);
+		color: var(--state-ok);
 	}
 
 	.state[data-state='open'] {

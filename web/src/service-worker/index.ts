@@ -133,10 +133,33 @@ worker.addEventListener('fetch', (event) => {
 	const url = new URL(request.url);
 	if (url.origin !== worker.location.origin) return;
 
-	event.respondWith(respond(request, url));
+	event.respondWith(respond(event, request, url));
 });
 
-async function respond(request: Request, url: URL): Promise<Response> {
+/**
+ * Store a response once it has been handed to the page, never before.
+ *
+ * A full cache (`QuotaExceededError`, likely on a phone holding the semantic
+ * map and the occurrences table) must not turn a good network answer into a
+ * failed request, and writing the cache must not hold the reader's response
+ * back. So the write runs under `waitUntil`, after `respond` has returned, and
+ * any failure is swallowed: the page already has what it asked for, and the
+ * next visit simply fetches it again.
+ */
+function keep(event: FetchEvent, cache: Cache, request: Request, copy: Response, url?: URL) {
+	event.waitUntil(
+		(async () => {
+			try {
+				await cache.put(request, copy);
+				if (url) await trim(cache, url);
+			} catch {
+				// Out of quota, or the entry was refused: an offline copy is a bonus.
+			}
+		})()
+	);
+}
+
+async function respond(event: FetchEvent, request: Request, url: URL): Promise<Response> {
 	const cache = await caches.open(CACHE);
 
 	if (CACHE_FIRST.has(url.pathname)) {
@@ -144,7 +167,7 @@ async function respond(request: Request, url: URL): Promise<Response> {
 		if (hit) return hit;
 
 		const response = await fetch(request);
-		if (response.ok) await cache.put(request, response.clone());
+		if (response.ok) keep(event, cache, request, response.clone());
 		return response;
 	}
 
@@ -156,8 +179,7 @@ async function respond(request: Request, url: URL): Promise<Response> {
 		// and caching that under the reader's own URL would pin an error page to a
 		// document that exists. The fallback is cached once, by name, above.
 		if (response.ok && !response.headers.get('cache-control')?.includes('no-store')) {
-			await cache.put(request, response.clone());
-			await trim(cache, url);
+			keep(event, cache, request, response.clone(), url);
 		}
 
 		return response;

@@ -60,6 +60,15 @@ test(
 	}
 );
 
+/**
+ * The word list's table, picked out by its own summary rather than by position:
+ * the reading-set plate above it has carried a table too since November 2026.
+ */
+const plottedTable = (page: Page) =>
+	page.locator('details.data-table').filter({
+		has: page.locator('summary', { hasText: 'View the plotted values as a table' })
+	});
+
 test('a term the artefact does not carry is dropped, not fatal', async ({ page }) => {
 	// The page opens on four named terms and the fixture lexicon carries one.
 	// The chart had always filtered on "is this measure in the payload"; the
@@ -68,7 +77,7 @@ test('a term the artefact does not carry is dropped, not fatal', async ({ page }
 	// that had nothing to do with it.
 	await page.goto(`${base}/chronology/`);
 
-	const table = page.locator('details.data-table').first();
+	const table = plottedTable(page);
 	await table.locator('summary').click();
 	const headers = table.locator('thead th');
 	await expect(headers).toHaveText(['Period', 'genocide']);
@@ -80,7 +89,7 @@ test('every plotted value opens the passages behind it', async ({ page }) => {
 	// click was the only way to it, on a page where the grid, the pooled months
 	// and the split all carry links in their own tables.
 	await page.goto(`${base}/chronology/`);
-	const table = page.locator('details.data-table').first();
+	const table = plottedTable(page);
 	await table.locator('summary').click();
 
 	const row = table.locator('tbody tr').filter({ hasText: '1994' }).first();

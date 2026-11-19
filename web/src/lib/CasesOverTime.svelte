@@ -10,10 +10,13 @@
 	 * concordance.
 	 */
 	import type { BarSeriesOption, EChartsOption, LineSeriesOption } from 'echarts';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import Chart from '#lib/Chart.svelte';
 	import Figure from '#lib/Figure.svelte';
+	import Icon from '#lib/Icon.svelte';
+	import ScrollRegion from '#lib/ScrollRegion.svelte';
 	import { provenanceOf } from '#lib/export.js';
 	import type { ExportRequest } from '#lib/export.js';
 	import { count, percent } from '#lib/format.js';
@@ -152,6 +155,12 @@
 		};
 	});
 
+	/** A case in a year, in the concordance; the pooled remainder has no single page. */
+	const href = (id: string, year: number) => {
+		const query = timelineLink(id, year);
+		return query ? `${resolve('/concordance')}?${query}` : null;
+	};
+
 	function open(params: { seriesName?: string; name?: string }) {
 		const series = plan.series.find((s) => s.label === params.seriesName);
 		const year = Number(params.name);
@@ -235,6 +244,34 @@
 			description="Stacked bars of occurrences per year by case, and a line of the share applied to no case."
 			onclick={open}
 		/>
+		<!-- The chart's drill-down answers a pointer only; the table gives every
+		     bar to the keyboard and to a screen reader, each count a link to the
+		     same concordance view a click on the bar opens. -->
+		<details class="data-table">
+			<summary><Icon icon={ChevronRight} />View the stacked counts as a table</summary>
+			<ScrollRegion label="Cases over time table">
+				<table>
+					<thead
+						><tr
+							><th>Year</th>{#each plan.series as s (s.id)}<th class="num">{s.label}</th>{/each}<th
+								class="num">Applied to no case</th
+							></tr
+						></thead
+					><tbody
+						>{#each plan.years as year, at (year)}<tr
+								><td>{year}</td>{#each plan.series as s (s.id)}{@const n =
+										s.counts[at] ?? 0}{@const to = n ? href(s.id, year) : null}<td class="num"
+										>{#if to}<a href={to}>{count(n)}</a>{:else}{count(n)}{/if}</td
+									>{/each}<td class="num"
+									>{plan.noCaseShare[at] == null
+										? `withheld (${count(plan.noCase[at] ?? 0)} of ${count(plan.eligible[at] ?? 0)})`
+										: percent(plan.noCaseShare[at]!)}</td
+								></tr
+							>{/each}</tbody
+					>
+				</table>
+			</ScrollRegion>
+		</details>
 	{/if}
 </Figure>
 
