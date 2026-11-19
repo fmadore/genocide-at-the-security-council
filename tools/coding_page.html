@@ -468,7 +468,17 @@ function render() {
   $("fact-speaker").textContent = item.country_org || "not recorded";
   $("fact-date").textContent = new Date(`${item.date}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
   $("fact-agenda").textContent = item.agenda || "not recorded";
-  $("fact-meeting").textContent = item.meeting_symbol;
+  // The symbol opens the record in the UN Digital Library, which indexes the base
+  // symbol: `S/PV.3336(Resumption2)` is searched as `S/PV.3336`.
+  const meeting = $("fact-meeting"); meeting.textContent = "";
+  const base = (/^S\/PV\.\d+/i.exec(item.meeting_symbol || "") || [""])[0];
+  if (base) {
+    const link = document.createElement("a");
+    link.href = `https://digitallibrary.un.org/search?ln=en&p=${encodeURIComponent(base)}`;
+    link.target = "_blank"; link.rel = "noopener noreferrer";
+    link.textContent = item.meeting_symbol;
+    meeting.append(link);
+  } else meeting.textContent = item.meeting_symbol;
   for (const field of TEXTS) $(field).value = cur[field] ?? "";
   $("referent-search").value = "";
   $("prev").disabled = index === 0;
@@ -500,8 +510,11 @@ function drawBody(scroll) {
   if (scroll) body.querySelector("mark")?.scrollIntoView({ block: "center" });
 }
 
-/* The sentence around the highlighted word: the evidence span every row records. */
+/* The sentence around the highlighted word: the evidence span every row records.
+   Computed in Python by lib.text.sentence_bounds, which knows `Mr.`, `U.N.` and a
+   symbol like `S/PV.3137`; the scan below is only for a page built before that. */
 function sentenceSpan(item) {
+  if (isSet(item.sentence_start) && isSet(item.sentence_end)) return [Number(item.sentence_start), Number(item.sentence_end)];
   const text = DATA.bodies[item.filename];
   let start = Number(item.start), end = Number(item.end);
   while (start > 0 && text[start - 1] !== "\n" && !/[.!?]\s/.test(text.slice(start - 2, start))) start--;
@@ -737,6 +750,9 @@ function exportCsv(includeDrafts) {
 }
 
 function parseCsv(text) {
+  // Excel saves "CSV UTF-8" with a byte-order mark, which would otherwise stick to
+  // the first header and fail the column check on a file that is perfectly good.
+  text = text.replace(/^﻿/, "");
   const rows = []; let row = [], field = "", quoted = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];

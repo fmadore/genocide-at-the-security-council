@@ -238,6 +238,36 @@ def sentence_at(source: str, position: int, spans: list[tuple[int, int]] | None 
     return re.sub(r"\s+", " ", found).strip()
 
 
+def sentence_bounds(
+    source: str, start: int, end: int, spans: list[tuple[int, int]] | None = None
+) -> tuple[int, int]:
+    """Offsets of the sentence or sentences holding ``source[start:end]``.
+
+    The evidence span a coder records. Sentences are those of
+    :func:`sentence_spans`, so ``Mr.``, ``U.N.`` and an initial do not end one,
+    and the span never crosses a line break, which in a verbatim record
+    separates paragraphs and headings that carry no full stop. A match that
+    straddles two sentences takes both. The result always contains
+    ``[start, end]``.
+    """
+    if spans is None:
+        spans = sentence_spans(source)
+    left, right = start, end
+    for first, last in spans:
+        if last <= start:
+            continue
+        if first >= end:
+            break
+        left, right = min(left, first), max(right, last)
+    line_start = source.rfind("\n", 0, start) + 1
+    line_end = source.find("\n", end)
+    left = max(left, line_start)
+    right = min(right, len(source) if line_end == -1 else line_end)
+    while left < start and source[left].isspace():
+        left += 1
+    return min(left, start), max(right, end)
+
+
 # --- 4. Case collisions in categorical fields -----------------------------
 
 

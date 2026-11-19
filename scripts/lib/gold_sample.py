@@ -20,10 +20,16 @@ import pandas as pd
 
 from . import lexicon, llm, model_runs, occurrences, sampling, schema, text
 
-#: The seven densest meetings, docs/CORPUS.md §8.6. Together they hold a tenth of
-#: the occurrences, and they are where the word is argued over at length rather
-#: than mentioned in passing — the Srebrenica veto, the two Rwanda anniversaries,
-#: the tribunals. A sample that missed them would miss the sustained arguments.
+#: The seven densest meetings of the retired 1992-2023 corpus, where the word is
+#: argued over at length rather than mentioned in passing — the Srebrenica veto,
+#: the two Rwanda anniversaries, the tribunals. A sample that missed them would
+#: miss the sustained arguments. The list is a coverage stratum (the
+#: `dense_meeting` cue), so changing it redraws the gold sample, and it is kept
+#: as drawn. Checked on corpus v6.0 on 19 November 2026: they hold 661 of the
+#: 8,611 occurrences (7.7%); five are still the five densest; S/PV.9540 (77) and
+#: S/PV.9651 (58) now outrank S/PV.3453 and S/PV.9069 (55 each); and no meeting
+#: before 1992 is among the twelve densest. Kept as drawn, decided by FM on 19
+#: November 2026 (docs/ROADMAP.md RV84).
 DENSE_MEETINGS: frozenset[str] = frozenset(
     {"S/PV.7155", "S/PV.4127", "S/PV.7481", "S/PV.8576", "S/PV.7192", "S/PV.3453", "S/PV.9069"}
 )
