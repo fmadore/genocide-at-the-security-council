@@ -257,54 +257,59 @@ below. What items 12, 13, 14 and 17 already hold is not repeated.
 
 #### Payload and performance
 
-48. **`/usage` downloads 15.1 MB on open.** `wanted = $derived(selected ||
-    comparison.computed)` holds as soon as the comparison is published, so
-    `usage/occurrences.json` (8.55 MB) and `kwic/genocide.json` (6.89 MB) load at
-    mount, against `usage/+page.ts`'s comment. Ship a small contested preview and
-    load the rest on first use.
-49. **Prerendered pages of several MB**, refetched network-first: beyond
-    `/actors` (item 14), `usage/index.html` (2.87 MB, 1.18 MB of it the matrix
-    table) and `chronology/index.html` (2.63 MB, inlining monthly, quarterly and
-    breakdown series the first view does not draw), the audit measured.
-50. **The concordance files, 71 MB of a 354 MB payload** (400 MB budget). Every
-    line of `kwic/genocide.json` carries `"iso3": null` (8,611 of 8,611);
-    country, agenda, group and type repeat as strings; `sent` repeats the
-    window's text. Drop `iso3`, index repeated strings as `map.json` does.
-51. **The Semantic map page** rebuilds a 182,684-key `Set` on every click and
-    re-sorts the years on every render (`semantic/+page.svelte:253`, `:334`);
-    splitting `map.json` is item 13.
-52. **MapLibre is 1.6 MB of JavaScript** for uniform points on the Actors map:
-    load it when the map scrolls into view, or draw on an SVG base.
-53. **The offline cache keeps the two largest files** (`map.json`,
-    `occurrences.json`) in `OFFLINE_KEEP` with no bound of their own; Safari's
-    quota is the likely limit.
+48. **Done (RV85).** `/usage` no longer downloads 15 MB on open.
+49. **Prerendered pages of several MB, what is left.** `/actors` is done (RV85,
+    4.57 to 2.15 MB; the rest is `countries.json`, which its first plate
+    draws). `chronology/index.html` (2.68 MB) inlines the monthly, quarterly and
+    breakdown series, and the URL state is validated against the monthly
+    measures when the page opens, so moving them to a later fetch means
+    restructuring that state first. `usage/index.html` (2.92 MB) holds a 1.18 MB
+    server-rendered matrix table.
+50. **The concordance files, measured and left.** 71.2 MB on disk, 13.0 MB
+    gzipped, which is what a reader downloads. On `kwic/genocide.json`
+    (6.89 MB, 1.27 MB gzipped), dropping the always-null `iso3` saves 0.3% of
+    the gzipped size, and indexing country, group, type and agenda saves 3%
+    (10% on disk): a format change through step 08, the contract, the
+    validators, the concordance and the usage drill-down for little transfer.
+    Only dropping `sent`, which the concordance shows, would matter (21%).
+    Worth doing only if the 400 MB budget tightens.
+51. **Done (RV85), the per-click costs.** Splitting `map.json` (9.68 MB, 2.1 MB
+    gzipped, item 13) is not a split of one file: the neighbour shards are
+    keyed by each speech's position in the full list, and the related-speech
+    list labels its neighbours from it, so choosing a speech needs the full
+    points anyway; and `map.json` is restored from the pinned semantic release.
+    It needs a format change made with the next re-embedding (item 8).
+52. **Already the case.** `CountryMap.svelte` loaded MapLibre only once the map
+    is reached; that logic is now `lib/reached.ts`, shared with `/usage`.
+53. **Covered by RV79.** `map.json` and `occurrences.json` are one file each,
+    bounded by the release; a cache over quota no longer fails the response.
 
 #### Build, CI and release
 
-54. **The Makefile does not declare `config/council_membership.csv` or
-    `config/country_aliases.csv`**, so editing either leaves the payload as it is.
-55. **`tools/carry_over_runs.py --write` fails today**: `run_rows()` globs every
-    run under `runs/`, the v6.0 runs of 3 November included, whose rows v5.0
-    lacks.
-56. **`export_web.py` copies about 9,900 meeting files (197 MB) into staging on
-    every export**; hard links with a copy fallback keep the swap atomic.
-57. **`word-budget.mjs` finds figures with `indexOf`**; parse with
-    `svelte/compiler` as `figure-provenance.mjs` does, which in turn skips
-    nested routes such as `reader/[meeting]`.
-58. **CI.** A push to `main` that deploys runs Checks twice (its own trigger and
-    the deploy's `workflow_call`); Playwright downloads Chromium every run;
-    actions float on major tags while pip and shellcheck are pinned by hash.
-59. **What the checks cover.** `contract.py` leaves out `semantic/map.json` and
-    `actor_year.csv`; mypy covers `scripts/lib` only, not `export_web.py` or
-    `tools/`.
-60. **Repository hygiene.** Ignore `.claude/worktrees/`; decide whether the 14
-    `.impeccable/` files stay versioned; drop `docs/reference/**` from
-    `.gitattributes`.
-61. **Before release v0.1 (item 5).** `CITATION.cff` says Gemma's run "is not
-    yet published"; check it with `cffconvert` in CI; `RELEASING.md`'s warning
-    about `make clean` predates RV48; an `export_web.py --release` flag for the
-    footer's `release`; `tools/package_release.py` for archives and
-    `SHA256SUMS.txt`.
+54. **Done (RV86).** `config/council_membership.csv` is declared on steps 02, 11
+    and 12. `config/country_aliases.csv` is not a payload input: no step reads
+    it, only `tools/bootstrap_entities.py` and the tests.
+55. **Done (RV86).** `carry_over_runs.py --write` rebuilds the runs the table
+    lists.
+56. **Done (RV86).** `export_web.py` stages the meeting files by hard link.
+57. **Done (RV86).** Both lint scripts read the Svelte parser's tree.
+58. **CI, what is left.** Actions are pinned by commit and Chromium is cached
+    (RV86). The deploy still runs Checks a second time for a push to `main`:
+    `deploy.yml` records that as a choice (it keeps the deploy's path filter, at
+    about six runner-minutes), so it stays unless that choice changes.
+59. **What the checks cover, what is left.** mypy covers `export_web.py` and
+    `tools/` (RV86). `semantic/map.json` is still outside the payload contract:
+    the dashboard half needs a typed accessor in `data.ts` and `SemanticMap` in
+    `types.ts`, whose points are tuples the types audit does not read yet; the
+    export would also have to read the pipeline's `pending` placeholder as
+    absent. `actor_year.csv` is a CSV, and the contract reads JSON only.
+60. **Repository hygiene, what is left.** `.claude/worktrees/` is ignored and
+    `docs/reference/**` is gone from `.gitattributes` (RV86). Whether the 14
+    `.impeccable/` files stay versioned waits on FM.
+61. **Before release v0.1, what is left.** `CITATION.cff`, `RELEASING.md`, the
+    `--release` stamp and `tools/package_release.py` are done (RV86); a test
+    holds the citation file to CFF's required keys in place of `cffconvert`,
+    which would add a package to the hash-pinned lock. What remains is item 5.
 
 #### Research decisions, not bugs
 
@@ -479,3 +484,5 @@ Maintainability:
 - **RV82** Step 13's frame table, third-frame section and manifest block name the frame actually drawn, so `model_strata`'s 269 rows are counted and the table adds up to the 469 candidate rows. `scripts/13_gold_sample.py::build_note`, `stratum_rows`. (Branch `gold-prep`.)
 - **RV83** The coding page records the evidence sentence from `lib.text.sentence_bounds` (39 of the 458 packet passages had been cut at `Mr.` or the like), drops Excel's byte-order mark on restore, and links the meeting symbol to the UN Digital Library; `tools/coding_page.py --import` checks a coder's export with `lib.audit.merge` and, with `--write`, folds it into `annotations/genocide/annotations.csv` in one atomic write, refusing a silent revision without `--replace`. (Branch `gold-prep`.)
 - **RV84** `DENSE_MEETINGS` kept as drawn (decided by FM on 19 November 2026): it is the `dense_meeting` coverage stratum, so changing it would redraw the 469-row sample, and on v6.0 the seven still hold 661 of 8,611 occurrences (7.7%) with five of them the five densest; S/PV.9540 (77) and S/PV.9651 (58) now outrank S/PV.3453 and S/PV.9069 (55 each), and no meeting before 1992 is among the twelve densest. The comment says so and no longer cites the missing `CORPUS.md` §8.6. `lib/gold_sample.py`. (Branch `gold-prep`.)
+- **RV85** Payload: `/usage` fetches `usage/occurrences.json` and `kwic/genocide.json` (15 MB) when a reader opens a cell or comes within a screen of the contested passages, not on open; `/actors` fetches `speaker_keyness.json` (2.3 MB) after the page is drawn, out of its HTML (4.57 to 2.15 MB); the Semantic map no longer copies 182,684 ids into a Set on every click or re-sorts the years on every render. `web/src/lib/reached.ts` (shared with the Actors map), `web/src/routes/usage`, `web/src/routes/actors`, `web/src/routes/semantic`, `web/e2e/tests/usage.spec.ts`.
+- **RV86** Build, CI and release: `config/council_membership.csv` declared on steps 02, 11 and 12 (`Makefile`); `tools/carry_over_runs.py --write` rebuilds only the runs the committed table carries, not the v6.0 runs; `export_web.py` stages the meeting files by hard link, falling back to a copy (`link_or_copy`); `word-budget.mjs` finds figures with `svelte/compiler`, which counted six questions it had read as empty (all within budget), and `figure-provenance.mjs` walks nested routes and resolves any `source={name}`; actions pinned by commit with their release in a comment, Chromium cached by Playwright version; mypy over `scripts/lib`, `export_web.py` and `tools/`; `.claude/worktrees/` and `/dist/` ignored; `CITATION.cff` says the Gemma run is published, with `tests/test_citation.py`; `RELEASING.md` brought up to RV48 and to the new tools; `export_web.py --release` stamps the footer's release; `tools/package_release.py` writes the archives, `SHA256SUMS.txt` and the cited `analysis_hash` values.

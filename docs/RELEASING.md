@@ -24,9 +24,9 @@ Whether and when to cut it is FM's decision.
 | File | What it holds | How it is made |
 |---|---|---|
 | Source archive | The repository at the tagged commit: code, configuration, documentation, the committed human and model annotations | Made by GitHub from the tag |
-| `derived-tables-v0.1.zip` | The analytical tables and their manifests, as `make payload` writes them under `data/derived/` | Built from a clean checkout (below) |
-| `site-v0.1.zip` | The complete built website, data included, as it was on the release date | `web/build/` after the build |
-| `gold-sample-v0.1.zip` (proposed) | The drawn gold sample: `data/interim/genocide_gold_*.csv`, including the blinded packet and the design | Written by step 13 during `make payload` |
+| `derived-tables-v0.1.0.zip` | The analytical tables and their manifests, as `make payload` writes them under `data/derived/` | Built from a clean checkout (below) |
+| `site-v0.1.0.zip` | The complete built website, data included, as it was on the release date | `web/build/` after the build |
+| `gold-sample-v0.1.0.zip` (proposed) | The drawn gold sample: `data/interim/genocide_gold_*.csv`, including the blinded packet and the design | Written by step 13 during `make payload` |
 
 The derived tables are not in git (they are rebuilt from the corpus), so the
 source archive alone does not contain them. That is why they are attached as a
@@ -73,9 +73,10 @@ identifier.
 
 ## Cutting the release, step by step
 
-Work in a fresh clone, not in your working copy. A clean build starts from an
-empty `data/`, and `make clean` in a working copy deletes files the build cannot
-recreate, such as the cluster embeddings (review item B10).
+Work in a fresh clone, not in your working copy: a release is the claim that
+the repository and the DOI rebuild it, and only a build that starts from an
+empty `data/` shows that. (`make clean` is safe in a working copy since RV48: it
+removes only what `make payload` rebuilds, and `make wipe-data` asks first.)
 
 1. **Check that `main` is healthy.** The Checks workflow passed on the commit to
    be released, and the deploy of that commit succeeded.
@@ -87,14 +88,24 @@ recreate, such as the cluster embeddings (review item B10).
    python -m pip install --require-hashes -r requirements.lock
    python scripts/fetch_semantic.py
    make payload
+   python scripts/export_web.py --release v0.1.0
    python scripts/export_web.py --check
    npm --prefix web ci
    npm --prefix web run build
    ```
 
-3. **Package the files** listed above: zip `data/derived/` (with or without the
-   speech parquets, as decided), `web/build/`, and, if adopted, the gold sample
-   files.
+   `--release` re-exports the payload with the tag in its manifest, so the
+   site's footer names the release it was built for.
+
+3. **Package the files** listed above:
+
+   ```bash
+   python tools/package_release.py v0.1.0            # add --with-speeches, --gold as decided
+   ```
+
+   It writes `derived-tables-v0.1.0.zip`, `site-v0.1.0.zip` and, with `--gold`,
+   `gold-sample-v0.1.0.zip` into `dist/`, with `SHA256SUMS.txt` beside them,
+   and prints the `analysis_hash` values step 6 asks for.
 4. **Update the citation file.** In [`CITATION.cff`](../CITATION.cff), add
    `version: "0.1.0"` and `date-released:` with the release date. Commit this
    to `main` before tagging, so the archived copy carries it.
@@ -105,7 +116,8 @@ recreate, such as the cluster embeddings (review item B10).
    git push origin v0.1.0
    gh release create v0.1.0 --title "v0.1 — unvalidated preview" \
      --notes-file release-notes.md \
-     derived-tables-v0.1.zip site-v0.1.zip gold-sample-v0.1.zip
+     dist/derived-tables-v0.1.0.zip dist/site-v0.1.0.zip dist/gold-sample-v0.1.0.zip \
+     dist/SHA256SUMS.txt
    ```
 
    GitHub refuses a release file of 2 GiB or more; split a larger zip.

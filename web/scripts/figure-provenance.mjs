@@ -25,9 +25,12 @@ function sources(path, seen = new Set()) {
 		const declaration = figure.attributes.find((attr) => attr.name === 'source');
 		if (!declaration) throw new Error(`Figure has no source: ${path}`);
 		let expression = source.slice(declaration.start, declaration.end).replace(/^source=/, '');
-		expression = expression.replace(/^\{profileSource\}$/, 'profileSource');
-		if (expression === 'profileSource') {
-			expression = source.match(/const profileSource = \$derived\(([\s\S]*?)\);/)?.[1] ?? '';
+		// `source={name}`: read the `$derived` that defines `name` in the same file,
+		// whatever it is called (it used to be `profileSource` by name only).
+		const named = expression.match(/^\{(\w+)\}$/)?.[1];
+		if (named) {
+			const definition = new RegExp(String.raw`const ${named} = \$derived\(([\s\S]*?)\);`);
+			expression = source.match(definition)?.[1] ?? '';
 		}
 		provenance(expression); // refuse an unclassifiable source
 		steps.push(expression);
@@ -42,13 +45,19 @@ function sources(path, seen = new Set()) {
 	}
 	return steps;
 }
+/** Every route directory, nested ones such as `reader/[meeting]` included. */
+function routes(directory = join(root, 'routes'), prefix = '') {
+	const out = [prefix];
+	for (const entry of readdirSync(directory, { withFileTypes: true })) {
+		if (entry.isDirectory())
+			out.push(
+				...routes(join(directory, entry.name), `${prefix}${prefix ? '/' : ''}${entry.name}`)
+			);
+	}
+	return out;
+}
 const inventory = {};
-for (const name of [
-	'',
-	...readdirSync(join(root, 'routes'), { withFileTypes: true })
-		.filter((x) => x.isDirectory())
-		.map((x) => x.name)
-]) {
+for (const name of routes()) {
 	const path = join(root, 'routes', name, '+page.svelte');
 	if (!existsSync(path)) continue;
 	const found = sources(path);

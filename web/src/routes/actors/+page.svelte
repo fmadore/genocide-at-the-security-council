@@ -39,8 +39,21 @@
 	import { PAGE_METADATA } from '#lib/seo.js';
 	import type { PageData } from './$types';
 	import { urlState } from '#lib/url-state.svelte.js';
+	import { speakerKeyness } from '#lib/data.js';
+	import { Resource } from '#lib/resource.svelte.js';
+	import { figureId } from '#lib/figures.js';
+	import type { SpeakerKeyness as SpeakerKeynessFile } from '#lib/types.js';
 
 	let { data }: { data: PageData } = $props();
+
+	/* The last plate's artefact, fetched after the page is drawn rather than in
+	   `+page.ts`, so its 2.3 MB stay out of the HTML. Once, on mount. */
+	const keyness = new Resource<SpeakerKeynessFile>({ loading: true });
+	/** The plate's title, as `SpeakerKeyness.svelte` sets it on its figure. */
+	const KEYNESS_TITLE = 'What a delegation says that the room does not';
+	$effect(() => {
+		void keyness.load(() => speakerKeyness());
+	});
 	const artefact = $derived(data.countries);
 
 	let measure = $state('genocide');
@@ -337,7 +350,7 @@
 			{ title: 'Speakers by rate' },
 			{ title: 'Who held a seat when they spoke' },
 			{ title: 'Who stays silent when others say it' },
-			{ title: 'What a delegation says that the room does not' }
+			{ title: KEYNESS_TITLE }
 		]}
 	/>
 
@@ -682,11 +695,58 @@
 	     wrapper rather than inside the component so that the component stays
 	     placeable more than once on a page without minting a duplicate id. -->
 	<div id="speaker-keyness">
-		<SpeakerKeyness data={data.keyness} />
+		{#if keyness.value}
+			<SpeakerKeyness data={keyness.value} />
+		{:else if keyness.failure}
+			<p class="error">{keyness.failure}</p>
+			<button type="button" class="ghost" onclick={() => void keyness.retry()}>Try again</button>
+		{:else}
+			<!-- The heading carries the anchor the contents band links to, so a
+			     jump to this plate lands even while its file is on its way. -->
+			<h2 id={figureId({ title: KEYNESS_TITLE })} class="pending-title">{KEYNESS_TITLE}</h2>
+			<p class="quiet">Loading the words each delegation uses more than the room…</p>
+		{/if}
 	</div>
 </article>
 
 <style>
+	/* While the last plate's file is on its way: its title in the plate's own
+	   place, and a line saying what is coming. */
+	.pending-title {
+		margin: var(--sp-6) 0 var(--sp-3);
+	}
+
+	.quiet {
+		max-width: var(--measure);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink-3);
+	}
+
+	.error {
+		max-width: var(--measure);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--state-bad);
+	}
+
+	.ghost {
+		display: inline-flex;
+		align-items: center;
+		min-height: 2rem;
+		padding: 0 var(--sp-3);
+		background: var(--paper);
+		border: var(--hair) solid var(--ink);
+		font-family: var(--sans);
+		font-size: var(--step--1);
+		color: var(--ink);
+		cursor: pointer;
+	}
+
+	.ghost:hover {
+		background: var(--paper-sunk);
+	}
+
 	.table-wrap > label,
 	.map-coverage {
 		font-family: var(--sans);

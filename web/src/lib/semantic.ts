@@ -80,7 +80,9 @@ export function validateMap(value: unknown): SemanticMap {
 export function validateNeighbours(
 	value: unknown,
 	selected: string,
-	known: Set<string>
+	// Anything that answers `has`: the page passes its id-to-position map as it
+	// is, rather than copying 182,684 keys into a Set on every click.
+	known: { has(id: string): boolean }
 ): [string, number][] {
 	const rows = (value as Record<string, unknown>)?.[selected];
 	if (!Array.isArray(rows) || rows.length > 10)

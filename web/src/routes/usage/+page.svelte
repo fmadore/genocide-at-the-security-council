@@ -77,6 +77,7 @@
 	} from '#lib/types.js';
 	import { urlState } from '#lib/url-state.svelte.js';
 	import { Resource } from '#lib/resource.svelte.js';
+	import { onReached } from '#lib/reached.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -146,14 +147,13 @@
 	   the state — a guard that was itself a dependency would run the effect a
 	   second time to discover that it had already run.
 
-	   A build carrying a second opinion asks for the same two files on load
-	   rather than on a click, because the reading list of contested passages is a
-	   figure on this page and it needs both: the annotations carry which
-	   occurrences the two runs read differently, and the concordance carries the
-	   date, the delegation and the sentence they are read back to. It stays a
-	   browser fetch after render, so nothing about the page's first paint changes
-	   — and on a build with no comparison run, which is the published state,
-	   nothing is fetched until a reader opens a cell. */
+	   A build carrying a second opinion also needs them for the reading list of
+	   contested passages, a figure near the foot of the page: the annotations
+	   carry which occurrences the two runs read differently, and the concordance
+	   carries the date, the delegation and the sentence they are read back to.
+	   It asked for both on load, 15 MB on every visit, until the audit of 19
+	   November 2026; now they come when a reader opens a cell or comes within a
+	   screen of that figure (`lib/reached.ts`), whichever is first. */
 	const evidenceFiles = new Resource<[UsageOccurrences, KwicFile]>();
 	const annotations = $derived(evidenceFiles.value?.[0] ?? null);
 	const lines = $derived<KwicLine[]>(evidenceFiles.value?.[1].lines ?? []);
@@ -161,7 +161,14 @@
 	const failure = $derived(evidenceFiles.failure);
 	let fetched = false;
 
-	const wanted = $derived(selected || comparison.computed);
+	let contestedMark = $state<HTMLElement | null>(null);
+	let contestedNear = $state(false);
+	$effect(() => {
+		if (!contestedMark) return;
+		return onReached(contestedMark, 800, () => (contestedNear = true));
+	});
+
+	const wanted = $derived(selected || contestedNear);
 
 	$effect(() => {
 		if (!wanted || fetched) return;
@@ -1130,6 +1137,8 @@
 				</p>
 			{/snippet}
 
+			<!-- Where the figure starts: reaching it fetches the two files it reads. -->
+			<span bind:this={contestedMark}></span>
 			{#if failure}
 				<p class="error">{failure}</p>
 				<button type="button" class="ghost" onclick={again}>Try again</button>

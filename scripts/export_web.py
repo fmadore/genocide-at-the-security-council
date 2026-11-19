@@ -32,6 +32,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import shutil
 import sys
 from collections.abc import Sequence
@@ -240,6 +242,13 @@ def check_budget(root: Path) -> None:
     )
 
 
+def count(value: object) -> int:
+    """A file or byte count out of a described tree, which types its values loosely."""
+    if not isinstance(value, int):
+        raise TypeError(f"expected a count, found {value!r}")
+    return value
+
+
 def measure(path: Path) -> dict[str, object]:
     if not path.exists():
         return {"files": 0, "bytes": 0, "sha256": None}
@@ -343,23 +352,41 @@ def update_contract() -> None:
     console.info(f"wrote {rel(CONTRACT)}  ({len(shapes)} artefacts) — review the diff")
 
 
-def run() -> None:
+def link_or_copy(source: str, destination: str) -> str:
+    """Hard-link a file into staging, or copy it where links are refused.
+
+    The staging directory sits beside `WEB_DATA` (`atomic_directory` makes it
+    there), so a link is one more name for the same bytes rather than a second
+    copy of them: the 9,919 meeting records, about 197 MB, cost nothing to
+    stage. Nothing here writes into a staged file, and the old directory's
+    names are removed after the swap, so the bytes are never shared by two
+    live payloads. A file system without links (or a link across devices)
+    falls back to the copy it always made.
+    """
+    try:
+        os.link(source, destination)
+    except OSError:
+        shutil.copy2(source, destination)
+    return destination
+
+
+def run(release: str | None = None) -> None:
     ensure_dirs()
     with artifacts.atomic_directory(WEB_DATA) as staged:
-        # 09 owns these artifacts. Copy them into the candidate release before
+        # 09 owns these artifacts. Stage them in the candidate release before
         # validation; no live directory is changed until the entire candidate passes.
         for name, _ in IN_PLACE:
             source = WEB_DATA / name
             if not source.exists():
                 console.fail(f"{rel(source)} is missing; run 09_export_speeches.py")
             if source.is_dir():
-                shutil.copytree(source, staged / name)
+                shutil.copytree(source, staged / name, copy_function=link_or_copy)
             else:
-                shutil.copy2(source, staged / name)
-        assemble(staged)
+                link_or_copy(str(source), str(staged / name))
+        assemble(staged, release)
 
 
-def assemble(destination: Path) -> None:
+def assemble(destination: Path, release: str | None = None) -> None:
     # `parts` gets its own name and its own type. Built inside an untyped
     # `dict[str, object]`, every write to it needed a `type: ignore[index]`,
     # which silences the checker by asserting something the code did not know.
@@ -372,7 +399,7 @@ def assemble(destination: Path) -> None:
     console.step("Copying analysis artefacts into the payload")
     for sources, name, producer in PARTS:
         measured = copy_part(sources, name, root=destination)
-        files, size = int(measured["files"]), int(measured["bytes"])
+        files, size = count(measured["files"]), count(measured["bytes"])
         parts[name] = {**measured, "produced_by": producer}
         total_files += files
         total_bytes += size
@@ -381,7 +408,7 @@ def assemble(destination: Path) -> None:
     console.step("Measuring what 09 wrote in place")
     for name, producer in IN_PLACE:
         measured = measure(destination / name)
-        files, size = int(measured["files"]), int(measured["bytes"])
+        files, size = count(measured["files"]), count(measured["bytes"])
         if not files:
             console.warn(f"{name} is missing — run {producer}; the reader view will 404")
         parts[name] = {**measured, "produced_by": producer}
@@ -403,6 +430,10 @@ def assemble(destination: Path) -> None:
         "files": total_files,
         "bytes": total_bytes,
     }
+    if release:
+        # The footer shows it first (`web/src/lib/build.ts`): the site built for
+        # a release says which one it is (docs/RELEASING.md).
+        manifest["release"] = release
     artifacts.atomic_write_json(destination / "manifest.json", manifest, indent=1)
     console.step("Done")
     console.info(f"{total_files:,} files, {total_bytes / 1e6:.0f} MB in {rel(WEB_DATA)}")
@@ -421,7 +452,16 @@ def main() -> None:
             "instead of exporting. Use when a shape change is intended, and read the diff."
         ),
     )
+    parser.add_argument(
+        "--release",
+        metavar="TAG",
+        help="stamp the payload manifest with a release tag such as v0.1.0, for the site footer",
+    )
     args = parser.parse_args()
+    if args.release and not re.fullmatch(r"v\d+\.\d+(?:\.\d+)?", args.release):
+        console.fail(f"{args.release!r} is not a release tag such as v0.1.0")
+    if args.release and (args.check or args.update_contract):
+        console.fail("--release stamps an export; it does not combine with --check or --update-contract")
     if args.check:
         check_contract()
         check_no_aggregates()
@@ -443,7 +483,7 @@ def main() -> None:
     if args.update_contract:
         update_contract()
         return
-    run()
+    run(args.release)
 
 
 if __name__ == "__main__":

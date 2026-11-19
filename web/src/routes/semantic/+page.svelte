@@ -50,6 +50,8 @@
 	const year = $derived(params.get('year') ?? '');
 	const all = $derived(params.get('corpus') === 'all');
 	const selected = $derived(params.get('speech') ?? '');
+	/* The years the control offers, read once per map rather than on every render. */
+	const years = $derived([...new Set(map?.points.map((p) => p[3]) ?? [])].sort());
 	const positions = $derived(new Map(map?.points.map((p, i) => [p[0], i]) ?? []));
 	const rows = $derived(
 		map?.points.filter(
@@ -243,7 +245,6 @@
 	$effect(() => {
 		const speech = selected;
 		const position = positions.get(speech);
-		const known = new Set(positions.keys());
 		if (position === undefined) {
 			neighbours.reset();
 			return;
@@ -255,7 +256,7 @@
 					.then(async (response) => {
 						if (!response.ok)
 							throw new Error('Related speeches could not be loaded. Reload the page to retry.');
-						return validateNeighbours(await response.json(), speech, known);
+						return validateNeighbours(await response.json(), speech, positions);
 					})
 					.catch((error: unknown) => {
 						throw error instanceof TypeError ? new Error(unreachable(shard)) : error;
@@ -323,9 +324,8 @@
 				/>
 				<label
 					>Year <select value={year} onchange={(e) => update('year', e.currentTarget.value)}
-						><option value="">All years</option
-						>{#each [...new Set(map.points.map((p) => p[3]))].sort() as y (y)}<option
-								value={String(y)}>{y}</option
+						><option value="">All years</option>{#each years as y (y)}<option value={String(y)}
+								>{y}</option
 							>{/each}</select
 					></label
 				>
