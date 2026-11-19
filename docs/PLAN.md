@@ -229,7 +229,7 @@ equivalent Parquet file written by another Arrow version is accepted; only a pin
 matching the artifact's manifest may authorise it. Clean deployments restore and
 verify the release before exporting, so the map survives cache eviction without
 another GPU run. Re-embedding waits on the 24 trimmed openings (ROADMAP open
-item 6).
+item 8).
 
 Topic labels remain deferred. UMAP distance is not diplomatic position or shared
 meaning. Compare clustering in the source embedding space and the reduced space;

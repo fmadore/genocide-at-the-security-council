@@ -15,6 +15,7 @@
 	import { PROVENANCE_LABELS, type ProvenanceKind } from '#lib/figures.js';
 	import { basket } from '#lib/basket.svelte.js';
 	import { buildLine } from '#lib/build.js';
+	import { printInLight } from '#lib/theme.js';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 
@@ -131,6 +132,9 @@
 		observer.observe(masthead);
 		return () => observer.disconnect();
 	});
+
+	/* Charts print in the light theme even when the screen is dark. */
+	$effect(() => printInLight());
 
 	/* Native fragment scrolling can precede the measured sticky bands and fonts.
 	   Align once after layout settles, unless the reader has already intervened. */

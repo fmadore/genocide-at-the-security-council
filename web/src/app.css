@@ -638,7 +638,14 @@ hr {
 /* ---- print. The figures are the thing most likely to leave the site. ---- */
 
 @media print {
-	:root {
+	/* Every root, whatever theme the screen is in. `:is()` lifts the selector to
+	   the specificity of `:root[data-theme='dark']` and of the dark media block,
+	   and this block comes after both, so a page printed from the dark theme
+	   prints on white: before, a plain `:root` lost to them and the print kept
+	   the dark ground, a brown mark under black text and pale register hues.
+	   The non-ink tokens take their light-theme values. */
+	:root:is([data-theme], :not([data-theme])) {
+		color-scheme: light;
 		--paper: #fff;
 		--paper-sunk: #fff;
 		--paper-raised: #fff;
@@ -647,6 +654,19 @@ hr {
 		--ink-3: #444;
 		--rule: #bbb;
 		--rule-strong: #000;
+		--blue: #1a56b0;
+		--blue-mid: #2f6fd0;
+		--blue-flag: #5b92e5;
+		--mark: #f5d98a;
+		--reg-legal: #2c7069;
+		--reg-preventive: #5c7a3a;
+		--reg-commemorative: #6b5b95;
+		--reg-contentious: #a63d40;
+		--reg-accountability: #b07817;
+		--reg-descriptive: #8e3f77;
+		--state-ok: #4a6b2e;
+		--state-warn: #8a6410;
+		--state-bad: #98333a;
 	}
 
 	body {
@@ -654,8 +674,10 @@ hr {
 		border-top: 0;
 	}
 
+	/* The figure contents band stays: it prints as a list of the plates,
+	   which is what its own print rules in Contents.svelte lay out. */
 	.masthead,
-	nav,
+	nav:not(.contents),
 	.skip,
 	.no-print {
 		display: none !important;

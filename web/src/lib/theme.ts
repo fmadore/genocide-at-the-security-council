@@ -22,6 +22,7 @@
  * on purpose, not overlooked.
  */
 
+import { flushSync } from 'svelte';
 import { derived, readable } from 'svelte/store';
 
 export type Scheme = 'light' | 'dark';
@@ -43,6 +44,7 @@ export const colourScheme = readable<Scheme>('light', (set) => {
 	if (typeof window === 'undefined') return;
 	const update = () => set(current());
 	update();
+	rescan = update;
 
 	const observer = new MutationObserver(update);
 	observer.observe(document.documentElement, {
@@ -56,8 +58,51 @@ export const colourScheme = readable<Scheme>('light', (set) => {
 	return () => {
 		observer.disconnect();
 		query.removeEventListener('change', update);
+		if (rescan === update) rescan = null;
 	};
 });
+
+/* Re-read the scheme now, not when the observer's microtask gets to it. */
+let rescan: (() => void) | null = null;
+let printing = false;
+
+/** True between `beforeprint` and `afterprint`; charts drop their animation then. */
+export const isPrinting = () => printing;
+
+/**
+ * Print in the light theme, whatever the screen shows.
+ *
+ * The print stylesheet resets the CSS tokens, but a chart's colours are
+ * literals ECharts wrote from the palette when it last drew, so a chart drawn
+ * in the dark theme printed pale strokes on white paper. Before the print
+ * snapshot the root is switched to light, the scheme is re-read at once and
+ * Svelte is flushed, so every chart redraws (ECharts paints synchronously on
+ * `setOption`) before the browser lays the page out for print. The screen's
+ * theme comes back afterwards; nothing is written to storage.
+ */
+export function printInLight(): () => void {
+	let held: string | undefined;
+	const before = () => {
+		printing = true;
+		held = document.documentElement.dataset.theme;
+		document.documentElement.dataset.theme = 'light';
+		rescan?.();
+		flushSync();
+	};
+	const after = () => {
+		printing = false;
+		if (held === undefined) delete document.documentElement.dataset.theme;
+		else document.documentElement.dataset.theme = held;
+		held = undefined;
+		rescan?.();
+	};
+	window.addEventListener('beforeprint', before);
+	window.addEventListener('afterprint', after);
+	return () => {
+		window.removeEventListener('beforeprint', before);
+		window.removeEventListener('afterprint', after);
+	};
+}
 
 /**
  * The registers in the order every figure lists them. Exported so a matrix

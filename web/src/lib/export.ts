@@ -242,6 +242,45 @@ export interface CaptionRequest {
 const CAPTION = { pad: 16, titleSize: 15, lineSize: 10.5, lineGap: 13.5, rule: 1 };
 
 /**
+ * Break one caption line so it stays inside the image.
+ *
+ * SVG text does not wrap, and a filter list or an input path with its hash runs
+ * well past a narrow figure's edge. The width is estimated, not measured — the
+ * file has no layout engine to ask — at a generous 0.6 em per character, so a
+ * line errs on breaking early. Breaks fall at spaces; a run with none (a hash)
+ * is cut where it must be.
+ */
+export function wrapCaption(line: string, width: number): string[] {
+	const room = Math.max(20, Math.floor((width - CAPTION.pad * 2) / (CAPTION.lineSize * 0.6)));
+	const out: string[] = [];
+	let current = '';
+	for (const word of line.split(' ')) {
+		let piece = word;
+		while (piece.length > room) {
+			if (current) {
+				out.push(current);
+				current = '';
+			}
+			out.push(piece.slice(0, room));
+			piece = piece.slice(room);
+		}
+		const next = current ? `${current} ${piece}` : piece;
+		if (next.length > room && current) {
+			out.push(current);
+			current = piece;
+		} else current = next;
+	}
+	if (current) out.push(current);
+	return out.length ? out : [''];
+}
+
+/** The height a captioned document declares on its root, for rasterising it whole. */
+export function svgHeight(markup: string): number | null {
+	const value = Number(/^<svg\b[^>]*\sheight="(\d+(?:\.\d+)?)"/.exec(markup)?.[1]);
+	return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/**
  * Wrap a chart's SVG in a captioned frame.
  *
  * The chart is nested unchanged as an inner `<svg>` rather than reparented, so
@@ -290,7 +329,7 @@ export function captionSvg(request: CaptionRequest): string {
 		...(request.status ? [request.status] : []),
 		...(request.filters?.length ? [request.filters.join('  ·  ')] : []),
 		...provenanceLines(provenance)
-	];
+	].flatMap((line) => wrapCaption(line, width));
 	const captionHeight =
 		CAPTION.pad * 2 + CAPTION.titleSize + CAPTION.lineGap * lines.length + CAPTION.rule;
 	const total = height + captionHeight;

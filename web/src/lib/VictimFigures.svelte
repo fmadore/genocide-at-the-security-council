@@ -8,9 +8,11 @@
 	 * every caveat carries `tableStatus`: the labels are a model's and their
 	 * grouping an AI draft, and a reader is told how much of it a person has read.
 	 */
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
 	import type { BarSeriesOption, EChartsOption } from 'echarts';
 	import Chart from '#lib/Chart.svelte';
 	import Figure from '#lib/Figure.svelte';
+	import Icon from '#lib/Icon.svelte';
 	import VictimGrid from '#lib/VictimGrid.svelte';
 	import { provenanceOf } from '#lib/export.js';
 	import type { ExportRequest } from '#lib/export.js';
@@ -251,6 +253,28 @@
 			height="380px"
 			description="Stacked bars, one per decade, of the share of occurrences that name a people, a generic group, an ungrouped label or no victim."
 		/>
+		<details class="data-table">
+			<summary><Icon icon={ChevronRight} />View the decades as a table</summary>
+			<table>
+				<thead
+					><tr
+						><th>Decade</th><th class="num">Occurrences</th>{#each KINDS as k (k)}<th class="num"
+								>{KIND_LABELS[k]}</th
+							>{/each}</tr
+					></thead
+				><tbody
+					>{#each naming as d (d.label)}<tr
+							><td>{d.label}</td><td class="num">{count(d.eligible)}</td>{#each KINDS as k (k)}<td
+									class="num">{count(d.counts[k])}{d.shares ? ` (${percent(d.shares[k])})` : ''}</td
+								>{/each}</tr
+						>{/each}</tbody
+				>
+			</table>
+			{#if naming.some((d) => !d.shares)}<p class="disclosure">
+					Shares are withheld for a decade under {count(data.minimum_occurrences)} occurrences; its counts
+					are shown.
+				</p>{/if}
+		</details>
 	{/if}
 </Figure>
 

@@ -873,6 +873,7 @@
 	   the code use are 4.0:1 over it, under the AA floor the suite enforces. */
 	tr.picked th,
 	tr.picked td,
+	tr.picked button,
 	tr.picked .range,
 	tr.picked abbr,
 	tr.picked th::after {

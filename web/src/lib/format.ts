@@ -13,6 +13,11 @@ const decimals = new Intl.NumberFormat('en-GB', {
 
 export const count = (n: number) => counts.format(n);
 export const percent = (n: number) => percents.format(n);
+/**
+ * A share that may be withheld. `Intl` formats `null` as 0, so a rate the
+ * retention rule withheld would print as `0.00%`: a measured zero it is not.
+ */
+export const rateCell = (n: number | null | undefined) => (n == null ? 'withheld' : percent(n));
 export const decimal = (n: number) => decimals.format(n);
 export const signed = (n: number) => (n >= 0 ? `+${decimals.format(n)}` : decimals.format(n));
 
@@ -166,22 +171,34 @@ export function isoDate(value: string): string {
 		: date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-/** The UN Digital Library record for an `S/PV.####` symbol. */
 /**
  * A meeting symbol as the UN prints it.
  *
- * The corpus writes a resumed sitting as `S/PV.3745Resumption1`; the record
- * itself is `S/PV.3745 (Resumption 1)`, and a citation that carries the
- * corpus form names a document that does not exist under that name. The base
- * symbol is kept beside it for the search, which is by document symbol.
+ * Corpus v6.0 writes a record's suffixes run together in brackets:
+ * `S/PV.3336(Resumption2)`, `S/PV.2970(PartII)`,
+ * `S/PV.2977(PartII)(closed-resumption1)`, `S/PV.618(communiqué)`. The older
+ * corpus wrote `S/PV.3745Resumption1` with no brackets. Both print with a space
+ * before each bracket and between a word and its number, as the record is
+ * titled: `S/PV.3336 (Resumption 2)`, `S/PV.2970 (Part II)`.
  */
 export function meetingLabel(spv: string): string {
-	const match = /^(.*?)Resumption(\d+)$/i.exec(spv);
-	return match ? `${match[1]} (Resumption ${match[2]})` : spv;
+	const match = /^(S\/PV\.\d+)\s*(.*)$/i.exec(spv.trim());
+	if (!match || !match[2]) return spv;
+	const rest = match[2].replace(/^Resumption(\d+)$/i, '(Resumption$1)');
+	const parts = rest.match(/\([^)]*\)/g);
+	if (!parts || parts.join('') !== rest.replace(/\s+/g, '')) return spv;
+	const spaced = parts.map((part) =>
+		part
+			.replace(/\s+/g, '')
+			.replace(/([a-zé])(\d+)/gi, '$1 $2')
+			.replace(/^\(Part(I+)\)$/i, '(Part $1)')
+	);
+	return `${match[1]} ${spaced.join(' ')}`;
 }
 
-/** The symbol without its resumption suffix: what the Digital Library indexes. */
-export const meetingBase = (spv: string): string => spv.replace(/Resumption\d+$/i, '');
+/** The symbol without its suffixes: what the Digital Library search indexes. */
+export const meetingBase = (spv: string): string => /^S\/PV\.\d+/i.exec(spv.trim())?.[0] ?? spv;
 
+/** The UN Digital Library record for an `S/PV.####` symbol. */
 export const unSearch = (spv: string) =>
 	`https://digitallibrary.un.org/search?ln=en&p=${encodeURIComponent(meetingBase(spv))}`;

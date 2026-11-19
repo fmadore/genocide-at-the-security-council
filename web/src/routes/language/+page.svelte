@@ -114,6 +114,58 @@
 		};
 	}
 
+	/**
+	 * The profile plate's own population: every collocate the artefact holds for
+	 * the slice on screen, with `drawn` marking the rows the cloud shows. It reads
+	 * from whichever artefact the plate draws from, so the file, its title and its
+	 * filters match the figure rather than the plate above it.
+	 */
+	function profileTable(): ExportRequest {
+		const drawn = new Set(profileSelection.rows.map((word) => word.word));
+		const rows: (string | number | boolean | null)[][] = (profileBlock?.collocates ?? []).map(
+			(word) => [
+				word.word,
+				word.target,
+				word.reference,
+				word.g2,
+				word.log_ratio,
+				word.log_dice ?? null,
+				word.documents,
+				word.meetings,
+				word.dp,
+				drawn.has(word.word)
+			]
+		);
+		const whole = profileFacet === 'whole';
+		return {
+			title: 'The profile of a term',
+			columns: [
+				'word',
+				'target',
+				'reference',
+				'g2',
+				'log_ratio',
+				'log_dice',
+				'documents',
+				'meetings',
+				'dp',
+				'drawn'
+			],
+			rows,
+			provenance: whole
+				? provenanceOf(data.collocates.meta, 'lexical/collocates.json')
+				: provenanceOf(data.sliced.meta, 'lexical/collocates_sliced.json'),
+			filters: [
+				`drawn from: ${profileScope}`,
+				`node: ${termLabel(profileTerm)}`,
+				`window: ±${whole ? profileWidth : data.sliced.width}`,
+				`limit: ${profileLimit}`,
+				`floor: ${profileFloor}`
+			],
+			scope: `every collocate the artefact holds for ${profileScope}; drawn marks the rows the figure shows`
+		};
+	}
+
 	/** Every slice of every facet, with the speeches behind each so the minimum is checkable. */
 	function slicedTable(): ExportRequest {
 		const rows: (string | number | boolean | null)[][] = [];
@@ -864,7 +916,7 @@
 		source={profileSource}
 		download={{
 			name: ['unsc', 'collocates', 'profile', profileFacet],
-			table: collocateTable,
+			table: profileTable,
 			chart: () => dotFigure?.svg() ?? null
 		}}
 	>

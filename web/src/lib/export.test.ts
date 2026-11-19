@@ -13,6 +13,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	captionSvg,
+	svgHeight,
+	wrapCaption,
 	csvField,
 	csvHeader,
 	escapeXml,
@@ -235,6 +237,32 @@ describe('captioning an image', () => {
 		expect(height).toBeGreaterThan(300);
 		// The chart keeps its own box, unscaled and uncropped.
 		expect(out).toContain('<svg x="0" y="0" width="600" height="300"');
+	});
+
+	it('wraps a long line so it stays inside a narrow image', () => {
+		const filters = Array.from({ length: 12 }, (_, i) => `filter ${i}: a long value`);
+		const out = captionSvg({
+			svg,
+			width: 320,
+			height: 300,
+			title: 'Rate over time',
+			filters,
+			provenance: provenance(),
+			colours
+		});
+		const room = Math.floor((320 - 32) / (10.5 * 0.6));
+		const lines = [...out.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map((match) => match[1]!);
+		for (const line of lines.slice(1)) expect(line.length).toBeLessThanOrEqual(room);
+		expect(lines.join(' ')).toContain('filter 11: a long value');
+		// The declared height counts every wrapped line, so the PNG keeps them all.
+		expect(svgHeight(out)).toBeGreaterThan(300 + 16 * 2 + 15 + 13.5 * lines.length - 13.5);
+	});
+
+	it('cuts a run with no spaces, such as a hash, where it must', () => {
+		const hash = 'a'.repeat(120);
+		const pieces = wrapCaption(`input: data/raw/speeches.parquet sha256:${hash}`, 320);
+		expect(pieces.join('').replaceAll(' ', '')).toContain(hash);
+		for (const piece of pieces) expect(piece.length).toBeLessThanOrEqual(45);
 	});
 
 	it('writes literal colours, because the file is read without the page CSS', () => {

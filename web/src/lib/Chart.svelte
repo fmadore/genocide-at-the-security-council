@@ -16,6 +16,7 @@
 	import { onMount } from 'svelte';
 	import type { EChartsOption } from 'echarts';
 	import type { EChartsType } from 'echarts/core';
+	import { isPrinting } from './theme';
 
 	interface Props {
 		option: EChartsOption;
@@ -87,7 +88,8 @@
 	 */
 	function framed(built: EChartsOption): EChartsOption {
 		return {
-			animation: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+			// No tween while printing: the snapshot would catch it halfway.
+			animation: !isPrinting() && !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
 			aria: { enabled: true, decal: { show: true } },
 			...built
 		};
@@ -169,10 +171,19 @@
 		chart.setOption(next, { notMerge: true });
 		ready = true;
 	});
+
+	/* ECharts' inside zoom cancels every wheel event over the plot, whatever its
+	   `zoomOnMouseWheel` says, so a reader scrolling down the page stopped dead
+	   on any chart that can zoom. A plain wheel is stopped here, before the chart
+	   sees it, and scrolls the page; Ctrl with the wheel goes through and zooms.
+	   On every chart, so no new zoomable figure can bring the trap back. */
+	function wheel(event: WheelEvent) {
+		if (!event.ctrlKey) event.stopPropagation();
+	}
 </script>
 
 <figure class="chart" style:height role="img" aria-label={description}>
-	<div bind:this={element} class="plot"></div>
+	<div bind:this={element} class="plot" onwheelcapture={wheel}></div>
 	{#if !ready}
 		<p class="loading">Drawing…</p>
 	{/if}
