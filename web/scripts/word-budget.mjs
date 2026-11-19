@@ -25,6 +25,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse } from 'svelte/compiler';
 
 // Through `fileURLToPath`, not `URL.pathname`: on Windows the latter yields
 // `/C:/…`, which `readdirSync` tolerates and `join` does not, so the walk
@@ -58,39 +59,54 @@ export function words(markup) {
 	return text.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
 }
 
-/** The `question="…"` or `question={…}` prop of one Figure's opening tag. */
-function question(openTag) {
-	const quoted = openTag.match(/\bquestion="((?:[^"\\]|\\.)*)"/);
-	if (quoted) return quoted[1];
-	const braced = openTag.match(/\bquestion=\{((?:[^{}]|\{[^{}]*\})*)\}/);
-	return braced ? `{${braced[1]}}` : '';
+/** The source text of an attribute's value: quoted text as written, an expression in braces. */
+function attributeText(source, attribute) {
+	if (!attribute || attribute.value === true) return '';
+	const parts = Array.isArray(attribute.value) ? attribute.value : [attribute.value];
+	return parts
+		.map((part) => (part.type === 'Text' ? part.data : source.slice(part.start, part.end)))
+		.join('');
 }
 
-function snippet(block, name) {
-	const open = block.indexOf(`{#snippet ${name}()}`);
-	if (open < 0) return null;
-	const close = block.indexOf('{/snippet}', open);
-	return block.slice(open + `{#snippet ${name}()}`.length, close);
+/** The markup inside one `{#snippet name()}` of a Figure, or null. */
+function snippet(source, figure, name) {
+	const block = figure.fragment.nodes.find(
+		(node) => node.type === 'SnippetBlock' && node.expression?.name === name
+	);
+	if (!block) return null;
+	const nodes = block.body.nodes;
+	return nodes.length ? source.slice(nodes[0].start, nodes.at(-1).end) : '';
 }
 
+/**
+ * Every `<Figure>` in one file, found by the Svelte parser rather than by
+ * string search: `indexOf('>')` ended an opening tag at the first `=>` in a
+ * prop such as `download={{ chart: () => … }}` (audit of 19 November 2026).
+ */
 export function figures(source, file) {
-	const out = [];
-	const re = /<Figure\b/g;
-	let match;
-	while ((match = re.exec(source))) {
-		const openEnd = source.indexOf('>', match.index);
-		const closeAt = source.indexOf('</Figure>', openEnd);
-		const openTag = source.slice(match.index, openEnd + 1);
-		const block = source.slice(openEnd + 1, closeAt);
-		const title = (openTag.match(/\btitle="([^"]*)"/) ?? [null, '(untitled)'])[1];
-		const counts = { question: words(question(openTag)) };
+	const found = [];
+	(function walk(node) {
+		if (!node || typeof node !== 'object') return;
+		if (node.type === 'Component' && node.name === 'Figure') found.push(node);
+		for (const value of Object.values(node)) {
+			if (Array.isArray(value)) value.forEach(walk);
+			else if (value && typeof value === 'object') walk(value);
+		}
+	})(parse(source, { modern: true }));
+	return found.map((figure) => {
+		const attribute = (name) => figure.attributes.find((attr) => attr.name === name);
+		const titled = attribute('title');
+		const title =
+			titled && Array.isArray(titled.value) && titled.value.every((part) => part.type === 'Text')
+				? attributeText(source, titled)
+				: '(untitled)';
+		const counts = { question: words(attributeText(source, attribute('question'))) };
 		for (const name of ['reading', 'caveat', 'more']) {
-			const body = snippet(block, name);
+			const body = snippet(source, figure, name);
 			if (body !== null) counts[name] = words(body);
 		}
-		out.push({ file, title, counts, line: source.slice(0, match.index).split('\n').length });
-	}
-	return out;
+		return { file, title, counts, line: source.slice(0, figure.start).split('\n').length };
+	});
 }
 
 const found = [];

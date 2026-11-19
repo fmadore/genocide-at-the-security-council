@@ -29,7 +29,8 @@ it, unchanged, and that speech has no other occurrence. Anything else — the
 text near the word changed, the speech was split across two, v6.0 found a new
 occurrence in it — drops the speech's rows. Labels are never touched.
 
-Only the runs asked about v5.0 are carried, and the table lists them. The
+Only the runs asked about v5.0 are carried, and the table lists them; a rebuild
+carries the runs the committed table lists, never the runs asked about v6.0. The
 August 2026 runs were asked about the corpus before v5.0 was pinned on 3
 September, name no v5.0 occurrence either, and stay as they are, unread.
 
@@ -118,11 +119,13 @@ def carry_speech(
         low, high = spans.get(item.occurrence_id, (item.start, item.end))
         low, high = max(0, min(low, item.start) - CONTEXT), max(high, item.end) + CONTEXT
         window = body[low:high]
-        hits = [(name, at) for name in candidates for at in find_all(bodies6[name], window)]
+        hits = [
+            (name, offset) for name in candidates for offset in find_all(bodies6[name], window)
+        ]
         if len(hits) != 1:
             return {}, "the text around it changed in v6.0"
-        name, at = hits[0]
-        moved[item.occurrence_id] = (name, at - low)
+        name, offset = hits[0]
+        moved[item.occurrence_id] = (name, offset - low)
     targets = {name for name, _ in moved.values()}
     if len(targets) != 1:
         return {}, "its speech is split across v6.0 speeches"
@@ -140,9 +143,22 @@ def carry_speech(
     return out, ""
 
 
-def build(v5_corpus: Path, v5_table: Path) -> str:
+def carried_runs() -> list[str] | None:
+    """The runs the committed table carries, or None before there is a table.
+
+    A rebuild carries the same runs. Reading every run under `runs/`, as it
+    did, took in the runs asked about v6.0 itself from 3 November 2026 on,
+    whose rows name occurrences v5.0 never had, and the rebuild refused them as
+    strays (review of 19 November 2026).
+    """
+    if not OUTPUT.is_file():
+        return None
+    return list(json.loads(OUTPUT.read_text(encoding="utf-8"))["runs"])
+
+
+def build(v5_corpus: Path, v5_table: Path, names: list[str] | None = None) -> str:
     old = json.loads(v5_table.read_text(encoding="utf-8"))
-    runs = run_rows()
+    runs = run_rows(carried_runs() if names is None else names)
 
     # The rows as the v5.0 corpus read them: through the v5.0 repair table.
     repaired = {run: model_runs.carried(rows, v5_table) for run, rows in runs.items()}

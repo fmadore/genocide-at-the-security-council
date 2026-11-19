@@ -203,7 +203,7 @@ def test_late_export_failure_keeps_the_previous_release(tmp_path, monkeypatch):
     monkeypatch.setattr(export_web, "IN_PLACE", [("meeting.json", "09")])
     monkeypatch.setattr(export_web, "ensure_dirs", lambda: None)
 
-    def fail(staged):
+    def fail(staged, release=None):
         (staged / "new.json").write_text("new")
         raise ValueError("late validation failure")
 
@@ -243,3 +243,17 @@ def test_restored_cache_is_checked_against_its_manifest(tmp_path, monkeypatch, d
         path.write_text(json.dumps(manifest))
     with pytest.raises(SystemExit):
         export_web.main()
+
+
+def test_a_release_tag_reaches_the_manifest(tmp_path, monkeypatch):
+    web = tmp_path / "web"
+    web.mkdir()
+    (web / "meeting.json").write_text("meeting")
+    monkeypatch.setattr(export_web, "WEB_DATA", web)
+    monkeypatch.setattr(export_web, "IN_PLACE", [("meeting.json", "09")])
+    monkeypatch.setattr(export_web, "PARTS", [])
+    monkeypatch.setattr(export_web, "ensure_dirs", lambda: None)
+    for check in ("check_contract", "check_no_aggregates", "check_budget"):
+        monkeypatch.setattr(export_web, check, lambda *args, **kwargs: None)
+    export_web.run("v0.1.0")
+    assert json.loads((web / "manifest.json").read_text())["release"] == "v0.1.0"

@@ -21,3 +21,26 @@ def test_partial_semantic_data_is_an_error_not_a_waiting_state(tmp_path, monkeyp
     (source / "manifest.json").write_text(json.dumps({"files": {"map.json": "wrong"}}))
     with pytest.raises(ValueError, match="incomplete"):
         export_web.copy_part([source], "semantic", root=tmp_path / "web")
+
+
+def test_staging_links_a_file_rather_than_copying_it(tmp_path):
+    source = tmp_path / "speech.json.gz"
+    source.write_bytes(b"one meeting")
+    staged = tmp_path / "staged.json.gz"
+    export_web.link_or_copy(str(source), str(staged))
+    assert staged.read_bytes() == b"one meeting"
+    assert staged.stat().st_ino == source.stat().st_ino
+
+
+def test_staging_copies_where_links_are_refused(tmp_path, monkeypatch):
+    source = tmp_path / "speech.json.gz"
+    source.write_bytes(b"one meeting")
+    staged = tmp_path / "staged.json.gz"
+
+    def refuse(*args, **kwargs):
+        raise OSError("links not supported")
+
+    monkeypatch.setattr(export_web.os, "link", refuse)
+    export_web.link_or_copy(str(source), str(staged))
+    assert staged.read_bytes() == b"one meeting"
+    assert staged.stat().st_ino != source.stat().st_ino

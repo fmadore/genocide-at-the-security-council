@@ -21,11 +21,11 @@ ignore = [
 "scripts/[0-9]*.py" = ["E402"]
 "tools/*.py" = ["E402"]
 
-# Run with `python -m mypy`. scripts/lib only for now; the numbered scripts and
-# tools are the next step.
+# Run with `python -m mypy`. The library, the export and the tools; the numbered
+# scripts are the next step.
 [tool.mypy]
 python_version = "3.12"
-files = ["scripts/lib"]
+files = ["scripts/lib", "scripts/export_web.py", "tools"]
 # The scripts import the library as `lib`, with scripts/ on the path.
 mypy_path = "scripts"
 explicit_package_bases = true
@@ -47,6 +47,9 @@ module = [
     "spacy",
     "torch",
     "umap",
+    # Pillow, for tools/build_icons.py only, run by hand when the icon changes.
+    "PIL",
+    "PIL.*",
 ]
 ignore_missing_imports = true
 

@@ -77,7 +77,7 @@ references:
       - name: "Qwen"
   - type: software
     title: "Gemma 4 31B IT"
-    notes: "Open-weights language model (google/gemma-4-31B-it). The comparison instrument of the model annotation layer, prompt v3; its run is not yet published."
+    notes: "Open-weights language model (google/gemma-4-31B-it). The comparison instrument of the model annotation layer (run 2026-11-03-gemma4, prompt v3), published as a second opinion beside the Qwen run since 11 October 2026; it leaves out seven documented speeches."
     repository: "https://huggingface.co/google/gemma-4-31B-it"
     commit: "842da3794eaa0b77d5f08bae87a17459d91ff475"
     authors:

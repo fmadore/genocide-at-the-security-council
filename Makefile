@@ -86,7 +86,7 @@ MEETINGS  := data/derived/meetings.parquet
 $(SPEECHES) $(MEETINGS) &: $(RAW_FILES) scripts/01_build_parquet.py $(LIB_01_BUILD_PARQUET) config/dataset-pin.json config/source_repairs.yml config/cow_names.csv config/source_states.csv
 	$(PY) scripts/01_build_parquet.py
 
-$(NORM): $(SPEECHES) scripts/02_normalise.py $(LIB_02_NORMALISE)
+$(NORM): $(SPEECHES) scripts/02_normalise.py $(LIB_02_NORMALISE) config/council_membership.csv
 	$(PY) scripts/02_normalise.py
 
 $(FLAGGED): $(NORM) scripts/03_lexicon.py $(LIB_03_LEXICON) config/lexicon.yml config/lexicon.lock.json config/lexicon.counts.json annotations/lexicon/annotations.csv $(REFERENTS)
@@ -105,11 +105,11 @@ $(KWIC): $(FLAGGED) scripts/08_kwic.py $(LIB_08_KWIC)
 $(SPEECHES_WEB) $(SCOPES_WEB) &: $(FLAGGED) $(MEETINGS) scripts/09_export_speeches.py $(LIB_09_EXPORT_SPEECHES)
 	$(PY) scripts/09_export_speeches.py
 
-$(COUNTRIES): $(FLAGGED) scripts/11_countries.py $(LIB_11_COUNTRIES) config/entities.csv
+$(COUNTRIES): $(FLAGGED) scripts/11_countries.py $(LIB_11_COUNTRIES) config/entities.csv config/council_membership.csv
 	$(PY) scripts/11_countries.py
 
 # 12 owns derived/speaker_keyness/; export merges it into countries/ for the web.
-$(SPEAKER_KEYNESS): $(FLAGGED) scripts/12_speaker_keyness.py $(LIB_12_SPEAKER_KEYNESS) config/stopwords.txt
+$(SPEAKER_KEYNESS): $(FLAGGED) scripts/12_speaker_keyness.py $(LIB_12_SPEAKER_KEYNESS) config/stopwords.txt config/council_membership.csv
 	$(PY) scripts/12_speaker_keyness.py
 
 # Deterministic — same corpus, same seed, byte-identical CSVs. 15 refuses to run

@@ -73,3 +73,9 @@ model_annotations/**/.writer.lock
 .impeccable/hook.cache.json
 .impeccable/questions/
 .impeccable/review/
+
+# Claude Code's per-session worktrees: full checkouts of this repository.
+.claude/worktrees/
+
+# Release archives, written by tools/package_release.py and attached to a GitHub release.
+/dist/
