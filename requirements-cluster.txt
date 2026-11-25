@@ -22,7 +22,7 @@
 
 # --- Embedding (step 06) ---------------------------------------------------
 torch>=2.15.0,<3
-transformers>=5.22.2,<6
+transformers>=5.24.0,<6
 # 6.0 fixes, in its own words, a class of silent scoring bugs caused by half
 # precision, and 06 encodes in bfloat16, so the major was held below 6 until a run
 # showed whether it moves the vectors. It does not. Slurm job 824308 (11 October
@@ -31,8 +31,8 @@ transformers>=5.22.2,<6
 # 6.1.0 as the only change (torch 2.13.0, transformers 5.14.1). All 2,000 vectors
 # came out bit-identical in each comparison, so their nearest neighbours were too.
 # The sample is short early speeches, and only one of them needed chunking.
-sentence-transformers>=6.2.0,<7
-accelerate>=1.15.0,<2
+sentence-transformers>=6.3.0,<7
+accelerate>=1.16.0,<2
 # Used directly by scripts/lib/download_models.py, not only via transformers.
 # Held below 2: sentence-transformers 6.1.0, the latest on 11 October 2026,
 # requires huggingface_hub<2. Lift it when sentence-transformers allows 2.
@@ -42,7 +42,7 @@ huggingface_hub>=1.33.0,<2
 # scikit-learn provides NMF, TF-IDF and — since 1.3 — HDBSCAN, so the separate
 # `hdbscan` package with its compiled extension is not needed.
 scikit-learn>=1.9.1,<2
-umap-learn>=0.5.12,<0.6
+umap-learn>=0.6.0,<0.7
 # Only for 07's 2D projection diagnostic — the PNGs that show what a thematic
 # map would look like, so that the purity numbers beside them can refuse it. It
 # belongs in this file rather than the lock for the same reason as the rest: 07
