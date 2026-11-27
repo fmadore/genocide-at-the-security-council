@@ -577,8 +577,10 @@
 							type="button"
 							title={option.hint}
 							aria-pressed={sort === option.value}
-							onclick={() => (sort = option.value)}>{option.label}</button
+							onclick={() => (sort = option.value)}
 						>
+							{option.label}
+						</button>
 					{/each}
 				</div>
 			</div>
@@ -671,11 +673,11 @@
 							<option value={option.id}>{option.label} ({count(option.count)})</option>
 						{/each}
 					</select>
-					<span class="model-derived"
-						>{referentsFailed
+					<span class="model-derived">
+						{referentsFailed
 							? 'unavailable: the model run did not load'
-							: 'model-derived, experimental'}</span
-					>
+							: 'model-derived, experimental'}
+					</span>
 				</label>
 			{/if}
 			<button class="ghost" onclick={reset}>Reset filters</button>
@@ -723,10 +725,10 @@
 					Export {count(filtered.length)} to CSV
 				</button>
 			{/if}
-			{#if badRegex}<span id="regex-error" class="error"
-					>This search pattern is invalid. Correct it or turn off Pattern search to search for
-					ordinary text.</span
-				>{/if}
+			{#if badRegex}<span id="regex-error" class="error">
+					This search pattern is invalid. Correct it or turn off Pattern search to search for
+					ordinary text.
+				</span>{/if}
 		</div>
 
 		<!-- The header and the lines read one template, declared on this wrapper,
@@ -755,25 +757,31 @@
 								<span class="spv">{meetingLabel(line.spv)}</span>
 								<span class="who">{shortCountry(line.country)}</span>
 							</span>
-							<span class="left"
-								><span class="ltr"
-									>{#each segments(line.left, searched, regex) as part, i (i)}{#if part.hit}<mark
-												class="hit">{part.text}</mark
-											>{:else}{part.text}{/if}{/each}</span
-								></span
-							>
-							<span class="kw"
-								><mark
-									>{#each segments(line.kw, searched, regex) as part, i (i)}{#if part.hit}<mark
-												class="hit">{part.text}</mark
-											>{:else}{part.text}{/if}{/each}</mark
-								></span
-							>
-							<span class="right"
-								>{#each segments(line.right, searched, regex) as part, i (i)}{#if part.hit}<mark
-											class="hit">{part.text}</mark
-										>{:else}{part.text}{/if}{/each}</span
-							>
+							<span class="left">
+								<span class="ltr">
+									{#each segments(line.left, searched, regex) as part, i (i)}{#if part.hit}<mark
+												class="hit"
+											>
+												{part.text}
+											</mark>{:else}{part.text}{/if}{/each}
+								</span>
+							</span>
+							<span class="kw">
+								<mark>
+									{#each segments(line.kw, searched, regex) as part, i (i)}{#if part.hit}<mark
+												class="hit"
+											>
+												{part.text}
+											</mark>{:else}{part.text}{/if}{/each}
+								</mark>
+							</span>
+							<span class="right">
+								{#each segments(line.right, searched, regex) as part, i (i)}{#if part.hit}<mark
+											class="hit"
+										>
+											{part.text}
+										</mark>{:else}{part.text}{/if}{/each}
+							</span>
 						</button>
 
 						{#if expanded === line.id}
@@ -783,13 +791,17 @@
 							     Segmented in that order so a query that matches the node is
 							     drawn as both rather than losing one to the other. -->
 								<blockquote>
-									{#each segments(line.sent, line.kw) as part, i (i)}{#if part.hit}<mark
-												>{#each segments(part.text, searched, regex) as bit, j (j)}{#if bit.hit}<mark
-															class="hit">{bit.text}</mark
-														>{:else}{bit.text}{/if}{/each}</mark
-											>{:else}{#each segments(part.text, searched, regex) as bit, j (j)}{#if bit.hit}<mark
-														class="hit">{bit.text}</mark
-													>{:else}{bit.text}{/if}{/each}{/if}{/each}
+									{#each segments(line.sent, line.kw) as part, i (i)}{#if part.hit}<mark>
+												{#each segments(part.text, searched, regex) as bit, j (j)}{#if bit.hit}<mark
+															class="hit"
+														>
+															{bit.text}
+														</mark>{:else}{bit.text}{/if}{/each}
+											</mark>{:else}{#each segments(part.text, searched, regex) as bit, j (j)}{#if bit.hit}<mark
+														class="hit"
+													>
+														{bit.text}
+													</mark>{:else}{bit.text}{/if}{/each}{/if}{/each}
 								</blockquote>
 								<dl>
 									<div>
@@ -813,9 +825,9 @@
 									<div>
 										<dt>Record</dt>
 										<dd>
-											<a class="symbol" href={unSearch(line.spv)}
-												>{meetingLabel(line.spv)}<Icon icon={ExternalLink} /></a
-											>
+											<a class="symbol" href={unSearch(line.spv)}>
+												{meetingLabel(line.spv)}<Icon icon={ExternalLink} />
+											</a>
 										</dd>
 									</div>
 								</dl>
@@ -872,10 +884,9 @@
 				<tbody>
 					{#each entries as e (e.term)}
 						<tr class:current={e.term === term}>
-							<td
-								><button class="link" onclick={() => (term = e.term)}>{termLabel(e.term)}</button
-								></td
-							>
+							<td>
+								<button class="link" onclick={() => (term = e.term)}>{termLabel(e.term)}</button>
+							</td>
 							<td>{e.register}</td>
 							<td class="num">{count(e.count)}</td>
 							<td class="num">{count(e.speeches)}</td>

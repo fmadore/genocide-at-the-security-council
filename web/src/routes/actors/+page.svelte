@@ -378,10 +378,10 @@
 		{/snippet}
 		{#snippet more()}
 			<p>
-				<a href={dataUrl('actor_year/actor_year.csv')} download
-					>Download annual speaker counts and rates</a
-				>. Each affiliation keeps its own annual denominator. Rates below 125 speeches are withheld;
-				the CSV retains counts and labels its Wilson intervals.
+				<a href={dataUrl('actor_year/actor_year.csv')} download>
+					Download annual speaker counts and rates
+				</a>. Each affiliation keeps its own annual denominator. Rates below 125 speeches are
+				withheld; the CSV retains counts and labels its Wilson intervals.
 			</p>
 			<p>
 				The period ranking requires at least {count(artefact.minimum_speeches)} speeches per affiliation.
@@ -393,10 +393,10 @@
 			<h3 class="sr-only">The reading set, by delegation</h3>
 			<div class="scroll">
 				<table>
-					<caption class="sr-only"
-						>Delegations ranked by the share of their own speeches that {chosenScope.label.toLowerCase()}
-						holds</caption
-					>
+					<caption class="sr-only">
+						Delegations ranked by the share of their own speeches that {chosenScope.label.toLowerCase()}
+						holds
+					</caption>
 					<thead>
 						<tr>
 							<th scope="col">Speaker</th>
@@ -506,18 +506,18 @@
 			{/if}
 			<label>Find a ranked speaker <input type="search" bind:value={speakerSearch} /></label>
 			<nav class="ranking-pages" aria-label="Speaker ranking pages">
-				<button type="button" disabled={rankingPage === 1} onclick={() => rankingPage--}
-					>Previous</button
-				>
-				<span role="status"
-					>{matchingRows.length ? (rankingPage - 1) * pageSize + 1 : 0}–{Math.min(
+				<button type="button" disabled={rankingPage === 1} onclick={() => rankingPage--}>
+					Previous
+				</button>
+				<span role="status">
+					{matchingRows.length ? (rankingPage - 1) * pageSize + 1 : 0}–{Math.min(
 						rankingPage * pageSize,
 						matchingRows.length
-					)} of {matchingRows.length} speakers · Page {rankingPage} of {pageCount}</span
-				>
-				<button type="button" disabled={rankingPage >= pageCount} onclick={() => rankingPage++}
-					>Next</button
-				>
+					)} of {matchingRows.length} speakers · Page {rankingPage} of {pageCount}
+				</span>
+				<button type="button" disabled={rankingPage >= pageCount} onclick={() => rankingPage++}>
+					Next
+				</button>
 			</nav>
 			{#if !matchingRows.length}<p>
 					No ranked speakers match this search. Clear or shorten the name.
@@ -532,9 +532,9 @@
 						<tr>
 							<th scope="col">Speaker</th>
 							<th scope="col" class="num">Share</th>
-							<th scope="col" class="whisker-head"
-								>95% interval <span class="scale">0&ndash;{stripEnd(whiskerScale.end)}</span></th
-							>
+							<th scope="col" class="whisker-head">
+								95% interval <span class="scale">0&ndash;{stripEnd(whiskerScale.end)}</span>
+							</th>
 							<th scope="col">Group</th>
 							<th scope="col" class="num">Speeches</th>
 							<th scope="col" class="num">Using the term</th>
@@ -562,8 +562,9 @@
 									{#if entry.speaker.iso3 && shared.has(entry.speaker.iso3)}
 										<abbr
 											title="This three-letter country code is held by more than one speaker in the corpus."
-											>{entry.speaker.iso3}*</abbr
 										>
+											{entry.speaker.iso3}*
+										</abbr>
 									{/if}
 								</th>
 								<td class="num">{percent(entry.row.speech_rate ?? 0)}</td>
@@ -575,13 +576,14 @@
 											style:--high={w.high}
 											style:--point={w.point}
 											aria-hidden="true"
-											>{#if w.past}<span class="over"></span>{/if}</span
 										>
-										<span class="range"
-											>{percent(entry.row.speech_rate_low ?? 0)}&ndash;{percent(
+											{#if w.past}<span class="over"></span>{/if}
+										</span>
+										<span class="range">
+											{percent(entry.row.speech_rate_low ?? 0)}&ndash;{percent(
 												entry.row.speech_rate_high ?? 0
-											)}</span
-										>
+											)}
+										</span>
 									{:else}
 										<span class="nil">—</span>
 									{/if}
@@ -640,11 +642,11 @@
 						<dd>
 							{percent(entry.row.speech_rate ?? 0)} of {count(entry.row.held)} speeches
 							{#if entry.row.speech_rate_low != null && entry.row.speech_rate_high != null}
-								<span class="interval"
-									>(95% interval {percent(entry.row.speech_rate_low)}&ndash;{percent(
+								<span class="interval">
+									(95% interval {percent(entry.row.speech_rate_low)}&ndash;{percent(
 										entry.row.speech_rate_high
-									)})</span
-								>
+									)})
+								</span>
 							{/if}
 							{#if has.occurrences}&middot; {count(entry.row.occurrences ?? 0)} occurrences{/if}
 							&middot; {entry.speaker.first_year}&ndash;{entry.speaker.last_year}

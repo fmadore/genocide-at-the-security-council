@@ -302,14 +302,14 @@
 		<p role="status" class:quiet={!status}>{status}</p>
 		{#if map}
 			<div class="filters">
-				<label
-					>Speeches <select
+				<label>
+					Speeches <select
 						value={all ? 'all' : ''}
 						onchange={(e) => update('corpus', e.currentTarget.value)}
-						><option value="">Mentioning genocide</option><option value="all">Full corpus</option
-						></select
-					></label
-				>
+					>
+						<option value="">Mentioning genocide</option><option value="all">Full corpus</option>
+					</select>
+				</label>
 				<SearchSelect
 					label="Affiliation"
 					options={map.countries.map((s) => ({ value: s, label: s }))}
@@ -322,13 +322,13 @@
 					value={agenda}
 					onchange={(v) => update('agenda', v)}
 				/>
-				<label
-					>Year <select value={year} onchange={(e) => update('year', e.currentTarget.value)}
-						><option value="">All years</option>{#each years as y (y)}<option value={String(y)}
-								>{y}</option
-							>{/each}</select
-					></label
-				>
+				<label>
+					Year <select value={year} onchange={(e) => update('year', e.currentTarget.value)}>
+						<option value="">All years</option>{#each years as y (y)}<option value={String(y)}>
+								{y}
+							</option>{/each}
+					</select>
+				</label>
 			</div>
 			<!-- The chosen speech first, the list it is chosen from beside it: from
 			     64rem the two stand side by side, the speech sets the height and the
@@ -373,31 +373,30 @@
 						bind:this={tableBox}
 					>
 						<table>
-							<caption
-								>Plotted speeches · page {offset + 1} of {Math.max(
-									1,
-									Math.ceil(rows.length / 20)
-								)}</caption
-							><thead
-								><tr><th>Speech</th><th>Affiliation</th><th>Year</th><th>Agenda</th></tr></thead
-							><tbody
-								>{#each visible as p (p[0])}<tr
-										><td
-											><button onclick={() => void choose(p[0])} aria-pressed={selected === p[0]}
-												>{p[0]}</button
-											></td
-										><td>{map.countries[p[4]]}</td><td>{p[3]}</td><td>{map.agendas[p[5]]}</td></tr
-									>{/each}</tbody
-							>
+							<caption>
+								Plotted speeches · page {offset + 1} of {Math.max(1, Math.ceil(rows.length / 20))}
+							</caption><thead>
+								<tr><th>Speech</th><th>Affiliation</th><th>Year</th><th>Agenda</th></tr>
+							</thead><tbody>
+								{#each visible as p (p[0])}<tr>
+										<td>
+											<button onclick={() => void choose(p[0])} aria-pressed={selected === p[0]}>
+												{p[0]}
+											</button>
+										</td><td>{map.countries[p[4]]}</td><td>{p[3]}</td><td>{map.agendas[p[5]]}</td>
+									</tr>{/each}
+							</tbody>
 						</table>
 					</div>
 					<nav aria-label="Speech table pages">
-						<button disabled={offset === 0} onclick={() => update('p', String(offset - 1))}
-							>Previous</button
-						><button
+						<button disabled={offset === 0} onclick={() => update('p', String(offset - 1))}>
+							Previous
+						</button><button
 							disabled={(offset + 1) * 20 >= rows.length}
-							onclick={() => update('p', String(offset + 1))}>Next</button
+							onclick={() => update('p', String(offset + 1))}
 						>
+							Next
+						</button>
 					</nav>
 				</div>
 			</div>
@@ -430,20 +429,22 @@
 			{#snippet caveat()}
 				<p>
 					Fitting the comparisons onto a flat map distorts distances. The related-speech list uses
-					the original embeddings. <a href="{resolve('/methods')}#embeddings">How the map is made</a
-					>.
+					the original embeddings. <a href="{resolve('/methods')}#embeddings">
+						How the map is made
+					</a>.
 				</p>
 			{/snippet}
 			{#snippet controls()}
-				<label
-					>Colour by <select
+				<label>
+					Colour by <select
 						value={colour}
 						onchange={(e) => update('colour', e.currentTarget.value)}
-						><option value="country">Affiliation</option><option value="agenda"
-							>Meeting agenda</option
-						><option value="year">Decade</option></select
-					></label
-				>
+					>
+						<option value="country">Affiliation</option><option value="agenda">
+							Meeting agenda
+						</option><option value="year">Decade</option>
+					</select>
+				</label>
 			{/snippet}
 			<p aria-live="polite">
 				{rows.length.toLocaleString()} speeches shown. Colours stay fixed when affiliation, agenda or

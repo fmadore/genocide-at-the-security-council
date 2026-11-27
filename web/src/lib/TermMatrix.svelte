@@ -121,8 +121,10 @@
 					y={TOP + i * CELL + CELL / 2 + 4}
 					text-anchor="end"
 					font-size="11"
-					fill={registerColour(term.register, $colours)}>{termLabel(term.name)}</text
+					fill={registerColour(term.register, $colours)}
 				>
+					{termLabel(term.name)}
+				</text>
 			</a>
 			<a href={href(term.name)}>
 				<text
@@ -130,8 +132,10 @@
 					x={LABEL + i * CELL + CELL / 2}
 					y={TOP - 8}
 					font-size="11"
-					fill={registerColour(term.register, $colours)}>{termLabel(term.name)}</text
+					fill={registerColour(term.register, $colours)}
 				>
+					{termLabel(term.name)}
+				</text>
 			</a>
 		{/each}
 		{#each cells as cell (cell.row + ' ' + cell.col)}
@@ -155,8 +159,10 @@
 						y={cy + CELL / 2 + 4}
 						text-anchor="middle"
 						font-size="12"
-						fill={$colours.inkFaint}>{cell.state === 'definitional' ? 'x' : '-'}</text
+						fill={$colours.inkFaint}
 					>
+						{cell.state === 'definitional' ? 'x' : '-'}
+					</text>
 				{/if}
 			</g>
 		{/each}
@@ -182,11 +188,13 @@
 			y={keyTop + 23}
 			text-anchor="end"
 			font-size="11"
-			fill={$colours.inkFaint}>1</text
+			fill={$colours.inkFaint}
 		>
-		<text x={LABEL + STOPS * SWATCH + 14} y={keyTop + 9} font-size="12" fill={$colours.inkFaint}
-			>association (nPMI)</text
-		>
+			1
+		</text>
+		<text x={LABEL + STOPS * SWATCH + 14} y={keyTop + 9} font-size="12" fill={$colours.inkFaint}>
+			association (nPMI)
+		</text>
 		<rect
 			x={LABEL}
 			y={refusals}
@@ -196,29 +204,33 @@
 			stroke={$colours.ruleSoft}
 			stroke-width="0.5"
 		/>
-		<text x={LABEL + SWATCH + 6} y={refusals + 9} font-size="12" fill={$colours.inkFaint}
-			>fewer than {count(minimum)} speeches use both</text
-		>
+		<text x={LABEL + SWATCH + 6} y={refusals + 9} font-size="12" fill={$colours.inkFaint}>
+			fewer than {count(minimum)} speeches use both
+		</text>
 		<text
 			x={LABEL + 250 + SWATCH / 2}
 			y={refusals + 10}
 			text-anchor="middle"
 			font-size="12"
-			fill={$colours.inkFaint}>x</text
+			fill={$colours.inkFaint}
 		>
-		<text x={LABEL + 250 + SWATCH + 6} y={refusals + 9} font-size="12" fill={$colours.inkFaint}
-			>patterns overlap, not drawn</text
-		>
+			x
+		</text>
+		<text x={LABEL + 250 + SWATCH + 6} y={refusals + 9} font-size="12" fill={$colours.inkFaint}>
+			patterns overlap, not drawn
+		</text>
 		<text
 			x={LABEL + 450 + SWATCH / 2}
 			y={refusals + 10}
 			text-anchor="middle"
 			font-size="12"
-			fill={$colours.inkFaint}>-</text
+			fill={$colours.inkFaint}
 		>
-		<text x={LABEL + 450 + SWATCH + 6} y={refusals + 9} font-size="12" fill={$colours.inkFaint}
-			>below chance</text
-		>
+			-
+		</text>
+		<text x={LABEL + 450 + SWATCH + 6} y={refusals + 9} font-size="12" fill={$colours.inkFaint}>
+			below chance
+		</text>
 	</svg>
 </div>
 

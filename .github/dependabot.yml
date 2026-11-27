@@ -19,6 +19,12 @@ updates:
       # Dependabot names it in normalised form, as its pull requests do.
       - dependency-name: huggingface-hub
         versions: ['>=2']
+      # umap-learn 0.6 replaced the init and optimizer pipelines and dropped
+      # fastmath from the layout code, so the published semantic map and topic
+      # projections would not reproduce. Lift this deliberately, alongside a
+      # rerun of 21_semantic_map.py and the topic step on the cluster.
+      - dependency-name: umap-learn
+        versions: ['>=0.6']
   - package-ecosystem: npm
     directory: /web
     schedule:

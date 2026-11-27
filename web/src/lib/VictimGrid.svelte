@@ -53,8 +53,9 @@
 							class:drawn={value > 0}
 							style:--fill={fill(value)}
 							title="{row.label}, {plan.columns[c]!.label}: {count(value)} {unit}"
-							>{value > 0 ? count(value) : ''}</td
 						>
+							{value > 0 ? count(value) : ''}
+						</td>
 					{/each}
 					<td class="total">{count(row.total)}</td>
 				</tr>

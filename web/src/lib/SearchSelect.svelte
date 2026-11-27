@@ -108,8 +108,10 @@
 								choose(option.value);
 								input.focus();
 								open = false;
-							}}>{option.label}</button
+							}}
 						>
+							{option.label}
+						</button>
 					</li>
 				{/each}
 			</ul>

@@ -213,8 +213,10 @@
 				<button
 					type="button"
 					aria-pressed={result.split === option.id}
-					onclick={() => (split = option.id)}>{option.label}</button
+					onclick={() => (split = option.id)}
 				>
+					{option.label}
+				</button>
 			{/each}
 		</div>
 	{/snippet}
@@ -311,8 +313,9 @@
 									: 'middle'}
 							font-weight={value === 0 ? 600 : 400}
 							fill={value === 0 ? p.ink : p.inkSoft}
-							>{tickText(value)}{index === scaleTicks.length - 1 ? ' pts' : ''}</text
 						>
+							{tickText(value)}{index === scaleTicks.length - 1 ? ' pts' : ''}
+						</text>
 					{/each}
 				</g>
 
@@ -413,43 +416,45 @@
 					     Clicks pass through to the row beneath. -->
 					<g aria-hidden="true" pointer-events="none">
 						{#if wide}
-							<text x="8" y={row.top + 20} font-size="13" font-weight="600" fill={ink}
-								>{names(pair)}</text
-							>
-							<text x="8" y={row.top + 36} font-size="12" fill={p.inkSoft}
-								>{shareText(pair.rateFrom)} → {shareText(pair.rateTo)}</text
-							>
+							<text x="8" y={row.top + 20} font-size="13" font-weight="600" fill={ink}>
+								{names(pair)}
+							</text>
+							<text x="8" y={row.top + 36} font-size="12" fill={p.inkSoft}>
+								{shareText(pair.rateFrom)} → {shareText(pair.rateTo)}
+							</text>
 							<text x="8" y={row.top + 51} font-size="11" fill={p.inkFaint}>{speeches(pair)}</text>
-							<text x={W - RIGHT + 14} y={row.top + 22} font-size="13" font-weight="600" fill={ink}
-								>{pp(pair.change)} pts</text
-							>
-							<text x={W - RIGHT + 14} y={row.top + 37} font-size="12" fill={p.inkSoft}
-								>= {sum(pair)}</text
-							>
+							<text x={W - RIGHT + 14} y={row.top + 22} font-size="13" font-weight="600" fill={ink}>
+								{pp(pair.change)} pts
+							</text>
+							<text x={W - RIGHT + 14} y={row.top + 37} font-size="12" fill={p.inkSoft}>
+								= {sum(pair)}
+							</text>
 							{#if row.note}
-								<text x={W - RIGHT + 14} y={row.top + 52} font-size="11" fill={p.inkFaint}
-									>{row.note}</text
-								>
+								<text x={W - RIGHT + 14} y={row.top + 52} font-size="11" fill={p.inkFaint}>
+									{row.note}
+								</text>
 							{/if}
 						{:else}
-							<text x="0" y={row.top + 17} font-size="13" font-weight="600" fill={ink}
-								>{names(pair)}</text
-							>
+							<text x="0" y={row.top + 17} font-size="13" font-weight="600" fill={ink}>
+								{names(pair)}
+							</text>
 							<text
 								x={W - 1}
 								y={row.top + 17}
 								font-size="12"
 								font-weight="600"
 								fill={ink}
-								text-anchor="end">{equation(pair)}</text
+								text-anchor="end"
 							>
-							<text x="0" y={row.top + 32} font-size="11" fill={p.inkFaint}
-								>{shareText(pair.rateFrom)} → {shareText(pair.rateTo)} · {speeches(pair)}</text
-							>
+								{equation(pair)}
+							</text>
+							<text x="0" y={row.top + 32} font-size="11" fill={p.inkFaint}>
+								{shareText(pair.rateFrom)} → {shareText(pair.rateTo)} · {speeches(pair)}
+							</text>
 							{#if row.note}
-								<text x="0" y={row.top + 32 + NOTE} font-size="11" fill={p.inkFaint}
-									>{row.note}</text
-								>
+								<text x="0" y={row.top + 32 + NOTE} font-size="11" fill={p.inkFaint}>
+									{row.note}
+								</text>
 							{/if}
 						{/if}
 					</g>
@@ -519,24 +524,24 @@
 						<tr>
 							<th scope="row">{names(pair)}{pair.thin ? ' (thin)' : ''}</th>
 							<td class="num">{shareText(pair.rateFrom)} → {shareText(pair.rateTo)}</td>
-							<td class="num"
-								>{pair.baseFrom && pair.baseTo
+							<td class="num">
+								{pair.baseFrom && pair.baseTo
 									? `${count(pair.baseFrom.speeches)} → ${count(pair.baseTo.speeches)}`
-									: '—'}</td
-							>
-							<td class="num"
-								>{pair.baseFrom && pair.baseTo
+									: '—'}
+							</td>
+							<td class="num">
+								{pair.baseFrom && pair.baseTo
 									? `${count(pair.baseFrom.using)} → ${count(pair.baseTo.using)}`
-									: '—'}</td
-							>
+									: '—'}
+							</td>
 							<td class="num">{points(pair.change)}</td>
 							<td class="num">{points(pair.composition)}</td>
 							<td class="num">{points(pair.within)}</td>
-							<td
-								>{pair.largest[0]
+							<td>
+								{pair.largest[0]
 									? `${pair.largest[0].group} (${points(pair.largest[0].contribution)})`
-									: '—'}</td
-							>
+									: '—'}
+							</td>
 						</tr>
 					{/each}
 				</tbody>

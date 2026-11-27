@@ -138,8 +138,10 @@
 				<a
 					href="#{figureId(figure)}"
 					data-figure={figureId(figure)}
-					aria-current={figureId(figure) === current ? 'location' : undefined}>{figure.title}</a
+					aria-current={figureId(figure) === current ? 'location' : undefined}
 				>
+					{figure.title}
+				</a>
 			</li>
 		{/each}
 	</ol>

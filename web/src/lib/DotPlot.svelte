@@ -104,23 +104,25 @@
 						y={TOP - 10}
 						text-anchor="middle"
 						font-size="10"
-						fill={$colours.inkFaint}>{tick === 0 ? '0' : signed(tick)}</text
+						fill={$colours.inkFaint}
 					>
+						{tick === 0 ? '0' : signed(tick)}
+					</text>
 				{/if}
 			{/each}
 			<text x={LABEL} y={10} font-size="10" fill={$colours.inkFaint}>log ratio</text>
-			<text x={WIDTH - 24} y={10} font-size="10" fill={$colours.inkFaint} text-anchor="end"
-				>spread</text
-			>
+			<text x={WIDTH - 24} y={10} font-size="10" fill={$colours.inkFaint} text-anchor="end">
+				spread
+			</text>
 		</g>
 		{#each rows as word, index (word.word)}
 			{@const cy = TOP + index * ROW + ROW / 2}
 			<g class="row">
 				<title>{title(word)}</title>
 				<a href={href(word)}>
-					<text x={LABEL - 10} y={cy + 4} text-anchor="end" font-size="12" fill={$colours.ink}
-						>{word.word}</text
-					>
+					<text x={LABEL - 10} y={cy + 4} text-anchor="end" font-size="12" fill={$colours.ink}>
+						{word.word}
+					</text>
 				</a>
 				<line
 					x1={x(0)}

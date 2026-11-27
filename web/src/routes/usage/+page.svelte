@@ -627,9 +627,9 @@
 					{#if retest.length}
 						<p class="quiet">
 							<strong>Same model, twice</strong> compares repeated runs using identical
-							instructions. This shows whether classifications change even without changing models. {#each retest as run (run.which)}<code
-									>{run.model}</code
-								>
+							instructions. This shows whether classifications change even without changing models. {#each retest as run (run.which)}<code>
+									{run.model}
+								</code>
 								returned identical labels across all compared fields for {count(run.identical)} of {count(
 									run.overlap
 								)} occurrences.
@@ -678,9 +678,9 @@
 				{/if}
 
 				<p class="quiet">
-					<strong
-						>{count(comparison.contestedAny)} of {count(comparison.overlap)} compared occurrences</strong
-					>
+					<strong>
+						{count(comparison.contestedAny)} of {count(comparison.overlap)} compared occurrences
+					</strong>
 					{#if comparison.contestedShare !== null}({percent(comparison.contestedShare)}){/if}
 					are read differently on at least one compared field. They are listed under
 					<em>The contested passages</em> below, and marked wherever they appear in the quotations.
@@ -717,21 +717,25 @@
 						type="button"
 						title="Mentions assigned to this case or concept by the model. Counts are shown even below the threshold for shares."
 						aria-pressed={unit === 'count'}
-						onclick={() => (unit = 'count')}>Occurrences</button
+						onclick={() => (unit = 'count')}
 					>
+						Occurrences
+					</button>
 					<button
 						type="button"
 						title="The same cell as a share of that delegation's own placed occurrences. Withheld below the minimum."
 						aria-pressed={unit === 'share'}
-						onclick={() => (unit = 'share')}>Share of its own</button
+						onclick={() => (unit = 'share')}
 					>
+						Share of its own
+					</button>
 				</div>
 			</div>
-			<span class="unit-note"
-				>{unit === 'count'
+			<span class="unit-note">
+				{unit === 'count'
 					? 'occurrences placed on a referent, published for every delegation'
-					: "a share of the delegation's own placed occurrences, withheld below the minimum"}</span
-			>
+					: "a share of the delegation's own placed occurrences, withheld below the minimum"}
+			</span>
 			<label>
 				Ordered by
 				<select bind:value={sort}>
@@ -788,9 +792,9 @@
 				display threshold.
 			</p>
 			<p>
-				The list includes contested characterisations raised in Council debates. <em
-					>Other known referent</em
-				> covers a case outside the named list. Counts below the minimum remain visible, but may rest
+				The list includes contested characterisations raised in Council debates. <em>
+					Other known referent
+				</em> covers a case outside the named list. Counts below the minimum remain visible, but may rest
 				on very few passages.
 			</p>
 		{/snippet}
@@ -900,21 +904,21 @@
 							<span class="when">{isoDate(row.date)}</span>
 						</p>
 						<blockquote>
-							{#each segments(row.sentence, row.keyword) as part, i (i)}{#if part.hit}<mark
-										>{part.text}</mark
-									>{:else}{part.text}{/if}{/each}
+							{#each segments(row.sentence, row.keyword) as part, i (i)}{#if part.hit}<mark>
+										{part.text}
+									</mark>{:else}{part.text}{/if}{/each}
 						</blockquote>
 						<p class="labels">
-							<span class="speaker_position" data-speaker_position={row.speaker_position}
-								>{row.positionLabel}</span
-							>
+							<span class="speaker_position" data-speaker_position={row.speaker_position}>
+								{row.positionLabel}
+							</span>
 							{#if row.caseLabel}<span class="fn">{row.caseLabel}</span>{/if}
 							{#each row.functions as name (name)}<span class="fn">{termLabel(name)}</span>{/each}
 							{#if !referent}<span class="fn">{referentLabel(row.referent)}</span>{/if}
 							{#if row.contested.length}
-								<span class="contested"
-									>Contested: {row.contested.map((entry) => entry.label).join(', ')}</span
-								>
+								<span class="contested">
+									Contested: {row.contested.map((entry) => entry.label).join(', ')}
+								</span>
 							{/if}
 						</p>
 						{#if row.contested.length}
@@ -1081,11 +1085,11 @@
 								<td>
 									<span class="milestone" data-milestone={row.milestone}>{row.milestoneLabel}</span>
 								</td>
-								<td
-									><span class="speaker_position" data-speaker_position={row.speaker_position}
-										>{row.positionLabel}</span
-									></td
-								>
+								<td>
+									<span class="speaker_position" data-speaker_position={row.speaker_position}>
+										{row.positionLabel}
+									</span>
+								</td>
 								<td class="num">{count(row.ordinal)}</td>
 								<td class="where">
 									<a
@@ -1269,14 +1273,15 @@
 
 		<div class="key">
 			{#each profileKey as speaker_position (speaker_position)}
-				<span class="swatch"
-					><i style:--band="var(--position-{slug(speaker_position)})"></i>{positionLabel(
+				<span class="swatch">
+					<i style:--band="var(--position-{slug(speaker_position)})"></i>{positionLabel(
 						speaker_position
 					)}{#if isInstrumentDependent(speaker_position)}<abbr
 							title="Model-sensitive category: reporting a claim can be classified differently from asserting it."
-							>&nbsp;&dagger;</abbr
-						>{/if}</span
-				>
+						>
+							&nbsp;&dagger;
+						</abbr>{/if}
+				</span>
 			{/each}
 		</div>
 		<p class="quiet">
@@ -1337,9 +1342,9 @@
 		{/if}
 
 		<details class="data-table">
-			<summary
-				><Icon icon={ChevronRight} />All position counts, withheld delegations included</summary
-			>
+			<summary>
+				<Icon icon={ChevronRight} />All position counts, withheld delegations included
+			</summary>
 			<ScrollRegion label="All position counts" tall>
 				<table class="counts">
 					<thead>
@@ -1397,15 +1402,16 @@
 			identifier let you distinguish this run from later revisions.
 		</p>
 		<details class="data-table">
-			<summary><Icon icon={ChevronRight} />Show the prompt (<code>sha256:{shortSha}</code>)</summary
-			>
+			<summary>
+				<Icon icon={ChevronRight} />Show the prompt (<code>sha256:{shortSha}</code>)
+			</summary>
 			<pre>{artefact.prompt}</pre>
 		</details>
 		<details class="data-table referent-codebook">
-			<summary
-				><Icon icon={ChevronRight} />Show the controlled referent list (version {listVersion},
-				{count(offered.length)} identifiers)</summary
-			>
+			<summary>
+				<Icon icon={ChevronRight} />Show the controlled referent list (version {listVersion},
+				{count(offered.length)} identifiers)
+			</summary>
 			<ScrollRegion label="Controlled referent list">
 				<table>
 					<thead>
@@ -1421,11 +1427,11 @@
 								<th scope="row">
 									{entry.label}<br /><code>{entry.id}</code>
 									{#if entry.retired}
-										<br /><span class="quiet"
-											>Retired in version {entry.retired_in}{entry.superseded_by
+										<br /><span class="quiet">
+											Retired in version {entry.retired_in}{entry.superseded_by
 												? `; succeeded by ${referentLabel(entry.superseded_by)}`
-												: ''}</span
-										>
+												: ''}
+										</span>
 									{/if}
 								</th>
 								<td>{entry.description}</td>
@@ -1516,9 +1522,9 @@
 									<td class="num">{percent(row.accuracy)}</td>
 									<td class="num">{row.macro_f1 === null ? '—' : decimal(row.macro_f1)}</td>
 									<td class="num">{row.weighted_f1 === null ? '—' : decimal(row.weighted_f1)}</td>
-									<td class="num"
-										>{row.excluded_share === null ? '—' : percent(row.excluded_share)}</td
-									>
+									<td class="num">
+										{row.excluded_share === null ? '—' : percent(row.excluded_share)}
+									</td>
 									<td class="num">{percent(row.abstention_rate)}</td>
 								</tr>
 							{/each}
@@ -1589,9 +1595,9 @@
 									<td class="num">{percent(row.accuracy)}</td>
 									<td class="num">{row.macro_f1 === null ? '—' : decimal(row.macro_f1)}</td>
 									<td class="num">{row.weighted_f1 === null ? '—' : decimal(row.weighted_f1)}</td>
-									<td class="num"
-										>{row.excluded_share === null ? '—' : percent(row.excluded_share)}</td
-									>
+									<td class="num">
+										{row.excluded_share === null ? '—' : percent(row.excluded_share)}
+									</td>
 									<td class="num">{percent(row.abstention_rate)}</td>
 								</tr>
 							{/each}

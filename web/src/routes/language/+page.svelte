@@ -735,9 +735,9 @@
 		{/snippet}
 		{#snippet more()}
 			<p>
-				Rules are tested in a fixed order; the first matching pattern receives the occurrence. <em
-					>Matched</em
-				>
+				Rules are tested in a fixed order; the first matching pattern receives the occurrence. <em>
+					Matched
+				</em>
 				counts matches before that priority rule. <em>No pattern matched</em> contains occurrences that
 				no pattern captures, so changes in that category can affect the others' shares.
 			</p>
@@ -763,28 +763,25 @@
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />Phrase patterns, explanations and examples</summary>
 			<table>
-				<thead
-					><tr
-						><th>Phrase pattern</th><th class="num">Assigned occurrences</th><th class="num"
-							>Pattern matches</th
-						><th>How to interpret it</th><th>Example</th></tr
-					></thead
-				>
+				<thead>
+					<tr>
+						<th>Phrase pattern</th><th class="num">Assigned occurrences</th><th class="num">
+							Pattern matches
+						</th><th>How to interpret it</th><th>Example</th>
+					</tr>
+				</thead>
 				<tbody>
 					{#each frameRows as row (row.frame)}
 						<tr>
 							<td>{frameLabel(row.frame)}</td>
 							<td class="num">{count(row.overallOccurrences)}</td>
-							<td class="num"
-								>{count(
-									data.frames.totals.frames.find((f) => f.frame === row.frame)?.matched ?? 0
-								)}</td
-							>
+							<td class="num">
+								{count(data.frames.totals.frames.find((f) => f.frame === row.frame)?.matched ?? 0)}
+							</td>
 							<td>{frameDescription(row.frame, row.gloss)}</td>
-							<td class="quote"
-								>{data.frames.codebook.find((entry) => entry.frame === row.frame)?.example ??
-									'—'}</td
-							>
+							<td class="quote">
+								{data.frames.codebook.find((entry) => entry.frame === row.frame)?.example ?? '—'}
+							</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -794,13 +791,13 @@
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View word forms: nouns and adjectives</summary>
 			<table>
-				<thead
-					><tr
-						><th>Form</th><th class="num">Occurrences</th><th class="num">Share</th><th
-							>Spellings in the corpus</th
-						></tr
-					></thead
-				>
+				<thead>
+					<tr>
+						<th>Form</th><th class="num">Occurrences</th><th class="num">Share</th><th>
+							Spellings in the corpus
+						</th>
+					</tr>
+				</thead>
 				<tbody>
 					{#each frameForms as row (row.category)}
 						<tr>
@@ -841,9 +838,9 @@
 				</select>
 			</label>
 			<button type="button" class="ghost" onclick={resetZoom}>Reset zoom</button>
-			<span class="unit-note"
-				>{count(block.occurrences)} occurrences, {count(block.window_tokens)} words in window</span
-			>
+			<span class="unit-note">
+				{count(block.occurrences)} occurrences, {count(block.window_tokens)} words in window
+			</span>
 		{/snippet}
 
 		{#snippet reading()}
@@ -872,27 +869,31 @@
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View the leading collocates as a table</summary>
 			<table>
-				<thead
-					><tr
-						><th>Word</th><th class="num">Near</th><th
+				<thead>
+					<tr>
+						<th>Word</th><th class="num">Near</th><th
 							class="num"
 							title="Tests a difference in word frequency; a larger value can also reflect more text."
-							>G²</th
-						><th
+						>
+							G²
+						</th><th
 							class="num"
 							title="+1 means twice as frequent; +2 means four times. Negative values mean less frequent."
-							>Log ratio</th
-						><th
+						>
+							Log ratio
+						</th><th
 							class="num"
 							title="Association score adjusted for term and word frequencies. Higher means a stronger association."
-							>logDice</th
-						><th class="num">Speeches / meetings</th><th
+						>
+							logDice
+						</th><th class="num">Speeches / meetings</th><th
 							class="num"
 							title="Dispersion: near 0 is broadly distributed relative to speech length; near 1 is concentrated."
-							>Spread (DP)</th
-						></tr
-					></thead
-				>
+						>
+							Spread (DP)
+						</th>
+					</tr>
+				</thead>
 				<tbody>
 					{#each block.collocates.slice(0, 30) as word (word.word)}
 						<tr>
@@ -947,14 +948,15 @@
 				<label>
 					Which
 					<select bind:value={profileMember}>
-						{#each profileMembers as m (m)}<option value={m}>{memberLabel(profileFacet, m)}</option
-							>{/each}
+						{#each profileMembers as m (m)}<option value={m}>
+								{memberLabel(profileFacet, m)}
+							</option>{/each}
 					</select>
 				</label>
-				<span class="fixed"
-					>{termLabel(data.sliced.term)} at &plusmn;{data.sliced.width} words, the only term and window
-					these breakdowns were counted at</span
-				>
+				<span class="fixed">
+					{termLabel(data.sliced.term)} at &plusmn;{data.sliced.width} words, the only term and window
+					these breakdowns were counted at
+				</span>
 			{/if}
 			<label>
 				Words
@@ -974,9 +976,9 @@
 					<option value="50">50 beside the term</option>
 				</select>
 			</label>
-			<span class="unit-note"
-				>nothing is drawn for a set of fewer than {count(minimumSpeeches)} speeches</span
-			>
+			<span class="unit-note">
+				nothing is drawn for a set of fewer than {count(minimumSpeeches)} speeches
+			</span>
 		{/snippet}
 
 		{#snippet reading()}
@@ -1001,9 +1003,9 @@
 				remain. A word needs at least {count(data.collocates.meta.min_count as number)} occurrences near
 				the term and G² above {decimal(data.collocates.meta.g2_floor as number)} to enter the published
 				list.
-				<a href="{resolve('/methods')}#lexical-measures"
-					>Definitions of G², log ratio, logDice and spread (DP)</a
-				>.
+				<a href="{resolve('/methods')}#lexical-measures">
+					Definitions of G², log ratio, logDice and spread (DP)
+				</a>.
 			</p>
 		{/snippet}
 
@@ -1039,27 +1041,31 @@
 			<details class="data-table">
 				<summary><Icon icon={ChevronRight} />View the same words as a table</summary>
 				<table>
-					<thead
-						><tr
-							><th>Word</th><th class="num">Near</th><th
+					<thead>
+						<tr>
+							<th>Word</th><th class="num">Near</th><th
 								class="num"
 								title="Tests a difference in word frequency; a larger value can also reflect more text."
-								>G²</th
-							><th
+							>
+								G²
+							</th><th
 								class="num"
 								title="+1 means twice as frequent; +2 means four times. Negative values mean less frequent."
-								>Log ratio</th
-							><th
+							>
+								Log ratio
+							</th><th
 								class="num"
 								title="Association score adjusted for term and word frequencies. Higher means a stronger association."
-								>logDice</th
-							><th class="num">Speeches / meetings</th><th
+							>
+								logDice
+							</th><th class="num">Speeches / meetings</th><th
 								class="num"
 								title="Dispersion: near 0 is broadly distributed relative to speech length; near 1 is concentrated."
-								>Spread (DP)</th
-							></tr
-						></thead
-					>
+							>
+								Spread (DP)
+							</th>
+						</tr>
+					</thead>
 					<tbody>
 						{#each profileSelection.rows as word (word.word)}
 							<tr>
@@ -1112,19 +1118,23 @@
 						type="button"
 						aria-pressed={align === 'rank'}
 						title="Each column's own strongest collocates, in its own order"
-						onclick={() => (align = 'rank')}>By rank</button
+						onclick={() => (align = 'rank')}
 					>
+						By rank
+					</button>
 					<button
 						type="button"
 						aria-pressed={align === 'word'}
 						title="One word per row, with both sides' figures for it"
-						onclick={() => (align = 'word')}>By word</button
+						onclick={() => (align = 'word')}
 					>
+						By word
+					</button>
 				</div>
 			</div>
-			<span class="unit-note"
-				>nothing is drawn for a set of fewer than {count(minimumSpeeches)} speeches</span
-			>
+			<span class="unit-note">
+				nothing is drawn for a set of fewer than {count(minimumSpeeches)} speeches
+			</span>
 		{/snippet}
 
 		{#snippet reading()}
@@ -1163,9 +1173,9 @@
 					<div class="side">
 						<h3>
 							<span class="who">{sliceLabel(side.key)}</span>
-							<span class="num"
-								>{count(side.b?.speeches ?? 0)} speeches · {count(side.b?.occurrences ?? 0)} occurrences</span
-							>
+							<span class="num">
+								{count(side.b?.speeches ?? 0)} speeches · {count(side.b?.occurrences ?? 0)} occurrences
+							</span>
 						</h3>
 						{#if (side.b?.speeches ?? 0) < minimumSpeeches}
 							<p class="withheld">
@@ -1239,25 +1249,29 @@
 			<summary><Icon icon={ChevronRight} />View both profiles as a table</summary>
 			<table>
 				<thead>
-					<tr
-						><th>Profile</th><th>Word</th><th class="num">Near</th><th
+					<tr>
+						<th>Profile</th><th>Word</th><th class="num">Near</th><th
 							class="num"
 							title="Tests a difference in word frequency; a larger value can also reflect more text."
-							>G²</th
-						><th
+						>
+							G²
+						</th><th
 							class="num"
 							title="+1 means twice as frequent; +2 means four times. Negative values mean less frequent."
-							>Log ratio</th
-						><th
+						>
+							Log ratio
+						</th><th
 							class="num"
 							title="Association score adjusted for term and word frequencies. Higher means a stronger association."
-							>logDice</th
-						><th class="num">Speeches / meetings</th><th
+						>
+							logDice
+						</th><th class="num">Speeches / meetings</th><th
 							class="num"
 							title="Dispersion: near 0 is broadly distributed relative to speech length; near 1 is concentrated."
-							>Spread (DP)</th
-						></tr
-					>
+						>
+							Spread (DP)
+						</th>
+					</tr>
 				</thead>
 				<tbody>
 					{#each [{ side: 'a', key: sliceA, b: blockA }, { side: 'b', key: sliceB, b: blockB }] as side (side.side)}
@@ -1346,26 +1360,30 @@
 					<th
 						class="num"
 						title="Tests a difference in word frequency; a larger value can also reflect more text."
-						>G²</th
 					>
+						G²
+					</th>
 					{#if keynessLrc}
 						<th
 							class="num"
 							title="The smallest log ratio the counts support once every word tested is allowed for: +1 means at least twice as frequent."
-							>Conservative</th
 						>
+							Conservative
+						</th>
 					{/if}
 					<th
 						class="num"
 						title="+1 means twice as frequent; +2 means four times. Negative values mean less frequent."
-						>Log ratio</th
 					>
+						Log ratio
+					</th>
 					<th class="num">Speeches / meetings</th>
 					<th
 						class="num"
 						title="Dispersion: near 0 is broadly distributed relative to speech length; near 1 is concentrated."
-						>Spread (DP)</th
 					>
+						Spread (DP)
+					</th>
 					{#if keynessView === 'unmatched'}<th class="num">Like-for-like</th>{/if}
 				</tr>
 			</thead>
@@ -1373,13 +1391,14 @@
 				{#each keywords.slice(0, 30) as w, i (w.word)}
 					<tr>
 						<td class="num rank">{i + 1}</td>
-						<td
-							><a href={concordanceHref('genocide', w.word)}>{w.word}</a>{#if w.node}<abbr
+						<td>
+							<a href={concordanceHref('genocide', w.word)}>{w.word}</a>{#if w.node}<abbr
 									class="node-mark"
 									title="The selection word itself: comparison speeches are chosen because they do not contain it."
-									>†</abbr
-								>{/if}</td
-						>
+								>
+									†
+								</abbr>{/if}
+						</td>
 						<td class="num">{count(w.target)}</td>
 						<td class="num">{count(Math.round(w.g2))}</td>
 						{#if keynessLrc}<td class="num">{signed(keywordEffect(w))}</td>{/if}
@@ -1450,13 +1469,13 @@
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View the strongest term associations as a table</summary>
 			<table>
-				<thead
-					><tr
-						><th>Source</th><th>Target</th><th class="num">Shared speeches</th><th class="num"
-							>nPMI</th
-						></tr
-					></thead
-				>
+				<thead>
+					<tr>
+						<th>Source</th><th>Target</th><th class="num">Shared speeches</th><th class="num">
+							nPMI
+						</th>
+					</tr>
+				</thead>
 				<tbody>
 					{#each (period === 'whole' ? data.network.edges : (data.network.by_period[period]?.edges ?? [])).slice(0, 30) as edge (edge.source + edge.target)}
 						<tr>

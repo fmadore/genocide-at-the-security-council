@@ -251,24 +251,26 @@
 			<summary><Icon icon={ChevronRight} />View the stacked counts as a table</summary>
 			<ScrollRegion label="Cases over time table">
 				<table>
-					<thead
-						><tr
-							><th>Year</th>{#each plan.series as s (s.id)}<th class="num">{s.label}</th>{/each}<th
-								class="num">Applied to no case</th
-							></tr
-						></thead
-					><tbody
-						>{#each plan.years as year, at (year)}<tr
-								><td>{year}</td>{#each plan.series as s (s.id)}{@const n =
-										s.counts[at] ?? 0}{@const to = n ? href(s.id, year) : null}<td class="num"
-										>{#if to}<a href={to}>{count(n)}</a>{:else}{count(n)}{/if}</td
-									>{/each}<td class="num"
-									>{plan.noCaseShare[at] == null
+					<thead>
+						<tr>
+							<th>Year</th>{#each plan.series as s (s.id)}<th class="num">{s.label}</th>{/each}<th
+								class="num"
+							>
+								Applied to no case
+							</th>
+						</tr>
+					</thead><tbody>
+						{#each plan.years as year, at (year)}<tr>
+								<td>{year}</td>{#each plan.series as s (s.id)}{@const n =
+										s.counts[at] ?? 0}{@const to = n ? href(s.id, year) : null}<td class="num">
+										{#if to}<a href={to}>{count(n)}</a>{:else}{count(n)}{/if}
+									</td>{/each}<td class="num">
+									{plan.noCaseShare[at] == null
 										? `withheld (${count(plan.noCase[at] ?? 0)} of ${count(plan.eligible[at] ?? 0)})`
-										: percent(plan.noCaseShare[at]!)}</td
-								></tr
-							>{/each}</tbody
-					>
+										: percent(plan.noCaseShare[at]!)}
+								</td>
+							</tr>{/each}
+					</tbody>
 				</table>
 			</ScrollRegion>
 		</details>

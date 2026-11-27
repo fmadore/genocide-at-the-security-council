@@ -29,6 +29,6 @@
 	<meta name="twitter:description" content={meta.description} />
 	<meta name="twitter:image" content={`${PUBLIC_ORIGIN}/og.png`} />
 	{#if structuredData}
-		<svelte:element this={"script"} type="application/ld+json">{structuredData}</svelte:element>
+		<svelte:element this={'script'} type="application/ld+json">{structuredData}</svelte:element>
 	{/if}
 </svelte:head>

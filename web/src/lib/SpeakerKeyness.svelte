@@ -116,9 +116,9 @@
 			     drawing Russia is a control that is lying about its own state. -->
 			<select value={name} onchange={(event) => (chosen = event.currentTarget.value)}>
 				{#each drawable as row (row.country_org)}
-					<option value={row.country_org}
-						>{shortCountry(row.country_org)} ({count(row.pairs)})</option
-					>
+					<option value={row.country_org}>
+						{shortCountry(row.country_org)} ({count(row.pairs)})
+					</option>
 				{/each}
 				{#if refused.length}
 					<optgroup label="No table available">
@@ -168,9 +168,9 @@
 				times cannot rank, however exclusive it is.
 			</p>{/if}
 		<p>
-			This table covers the affiliation's paired speeches, whether or not they mention genocide. <strong
-				>Coverage</strong
-			>
+			This table covers the affiliation's paired speeches, whether or not they mention genocide. <strong>
+				Coverage
+			</strong>
 			is the share of its speech record with a suitable partner. The speech and meeting columns count
 			where a word occurs; <strong>DP</strong> measures concentration, from broadly distributed near
 			0 to concentrated near 1.
@@ -246,30 +246,34 @@
 							scope="col"
 							class="num"
 							title="The smallest log ratio the counts support once every word tested is allowed for: +1 means at least twice as frequent."
-							>Conservative</th
 						>
+							Conservative
+						</th>
 					{/if}
 					<th
 						scope="col"
 						class="num"
 						title="+1 means twice as frequent; +2 means four times. Negative values mean less frequent."
-						>Log ratio</th
 					>
+						Log ratio
+					</th>
 					<th scope="col" class="num">This speaker</th>
 					<th scope="col" class="num">Compared with</th>
 					<th
 						scope="col"
 						class="num"
 						title="Tests a difference in word frequency; a larger value can also reflect more text."
-						>G²</th
 					>
+						G²
+					</th>
 					<th scope="col" class="num">Speeches / meetings</th>
 					<th
 						scope="col"
 						class="num"
 						title="Dispersion: near 0 is broadly distributed relative to speech length; near 1 is concentrated."
-						>Spread (DP)</th
 					>
+						Spread (DP)
+					</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -282,11 +286,11 @@
 								style="--weight: {row.weight}"
 								aria-hidden="true"
 							></span>
-							<span class="word"
-								>{row.word}{#if row.selfReference}<abbr title="A word from this speaker's own name."
-										>*</abbr
-									>{/if}</span
-							>
+							<span class="word">
+								{row.word}{#if row.selfReference}<abbr title="A word from this speaker's own name.">
+										*
+									</abbr>{/if}
+							</span>
 						</th>
 						{#if lrc}
 							<td class="num">{signed(row.effect)}</td>
@@ -294,17 +298,17 @@
 						<td class="num" class:point={lrc}>
 							{signed(row.logRatio)}
 							{#if row.interval}
-								<span class="interval"
-									>[{signed(row.interval.low)}, {signed(row.interval.high)}]</span
-								>
+								<span class="interval">
+									[{signed(row.interval.low)}, {signed(row.interval.high)}]
+								</span>
 							{/if}
 						</td>
 						<td class="num">{count(row.target)}</td>
 						<td class="num">{count(row.reference)}</td>
 						<td class="num">{count(Math.round(row.g2))}</td>
-						<td class="num"
-							>{count(row.documents)} / {row.meetings == null ? '—' : count(row.meetings)}</td
-						>
+						<td class="num">
+							{count(row.documents)} / {row.meetings == null ? '—' : count(row.meetings)}
+						</td>
 						<td class="num">{decimal(row.dp)}</td>
 					</tr>
 				{/each}

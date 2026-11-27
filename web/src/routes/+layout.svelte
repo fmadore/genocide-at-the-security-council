@@ -227,17 +227,19 @@
 							class:active={isCurrent(section.href) ||
 								(isReader && section.href === '/concordance')}
 							onclick={() => (menuOpen = false)}
-							><span class="name">{section.label}</span>{#if originOf(section.href)}<small
+						>
+							<span class="name">{section.label}</span>{#if originOf(section.href)}<small
 									class="nav-origin"
 									data-provenance={originOf(section.href)}
 									aria-hidden="true"
-									>{originOf(section.href) === 'model'
+								>
+									{originOf(section.href) === 'model'
 										? 'Model'
 										: originOf(section.href) === 'mixed'
 											? 'Mixed'
-											: 'Computed'}</small
-								>{/if}</a
-						>
+											: 'Computed'}
+								</small>{/if}
+						</a>
 					</li>
 				{/each}
 			</ul>
@@ -292,9 +294,9 @@
 		     name leads the line once one exists (`#lib/build`). -->
 		{#if build}
 			<p class="quiet" id="build">
-				{build.before}{#if build.commit}{#if build.commit.href}<a href={build.commit.href}
-							><code>{build.commit.short}</code></a
-						>{:else}<code>{build.commit.short}</code>{/if}{/if}{build.after}
+				{build.before}{#if build.commit}{#if build.commit.href}<a href={build.commit.href}>
+							<code>{build.commit.short}</code>
+						</a>{:else}<code>{build.commit.short}</code>{/if}{/if}{build.after}
 			</p>
 		{/if}
 	</div>

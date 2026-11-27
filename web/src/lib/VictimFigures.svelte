@@ -256,19 +256,21 @@
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View the decades as a table</summary>
 			<table>
-				<thead
-					><tr
-						><th>Decade</th><th class="num">Occurrences</th>{#each KINDS as k (k)}<th class="num"
-								>{KIND_LABELS[k]}</th
-							>{/each}</tr
-					></thead
-				><tbody
-					>{#each naming as d (d.label)}<tr
-							><td>{d.label}</td><td class="num">{count(d.eligible)}</td>{#each KINDS as k (k)}<td
-									class="num">{count(d.counts[k])}{d.shares ? ` (${percent(d.shares[k])})` : ''}</td
-								>{/each}</tr
-						>{/each}</tbody
-				>
+				<thead>
+					<tr>
+						<th>Decade</th><th class="num">Occurrences</th>{#each KINDS as k (k)}<th class="num">
+								{KIND_LABELS[k]}
+							</th>{/each}
+					</tr>
+				</thead><tbody>
+					{#each naming as d (d.label)}<tr>
+							<td>{d.label}</td><td class="num">{count(d.eligible)}</td>{#each KINDS as k (k)}<td
+									class="num"
+								>
+									{count(d.counts[k])}{d.shares ? ` (${percent(d.shares[k])})` : ''}
+								</td>{/each}
+						</tr>{/each}
+				</tbody>
 			</table>
 			{#if naming.some((d) => !d.shares)}<p class="disclosure">
 					Shares are withheld for a decade under {count(data.minimum_occurrences)} occurrences; its counts
