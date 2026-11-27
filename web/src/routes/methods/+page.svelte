@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { count, matchedOn, percent } from '#lib/format.js';
 	import PageMeta from '#lib/PageMeta.svelte';
-	import { PAGE_METADATA } from '#lib/seo.js';
+	import { PAGE_METADATA, PUBLIC_ORIGIN } from '#lib/seo.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -516,6 +516,18 @@
 		using the festus-cluster of the Bayreuth Centre for High Performance Computing (<a
 			href="https://www.bzhpc.uni-bayreuth.de">https://www.bzhpc.uni-bayreuth.de</a
 		>), funded by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) - 523317330.
+	</p>
+	<h3 id="machine-readable">Machine-readable data and MCP</h3>
+	<p>
+		Every table and verbatim meeting file this dashboard loads is published as static files under
+		<code>data/</code>. Agents, scripts and custom Model Context Protocol (MCP) servers can discover
+		endpoints, schemas, join keys and epistemic status through
+		<a href={resolve('/llms.txt')}><code>llms.txt</code></a>,
+		<a href={resolve('/data-catalog.json')}><code>data-catalog.json</code></a> and the build
+		<a href="{PUBLIC_ORIGIN}/data/manifest.json"><code>data/manifest.json</code></a>. A starter
+		Python MCP server and accompanying <code>SKILL.md</code> live in the repository under
+		<a href="{REPO}/blob/main/docs/MCP.md"><code>docs/MCP.md</code></a> and
+		<a href="{REPO}/tree/main/examples/mcp-starter"><code>examples/mcp-starter/</code></a>.
 	</p>
 	<p class="quiet">
 		Word-list version {data.series.meta.lexicon_version}. Data generated {data.series.meta

@@ -21,6 +21,7 @@ claims guide before citing a figure.
 | where the project stands, what comes next, and the release gates | [Project focus and release gates](docs/PLAN.md) |
 | what each published figure rests on, and whether it is validated | [Claims and their status](docs/CLAIMS.md) |
 | what the derived data contain, and what each field means | [Data sheet](docs/DATASHEET.md) |
+| how to query the static data or build an MCP server | [Machine-readable access and MCP](docs/MCP.md) |
 | the source corpus, its schema and its limits | [Canonical corpus](docs/CORPUS.md) |
 | how the model labels will be checked (proposal for the two coders) | [Evaluation plan](docs/EVALUATION_PLAN.md) |
 | the proposed next version of the annotation instrument | [Instrument v4 proposal](docs/INSTRUMENT_V4_PROPOSAL.md) |

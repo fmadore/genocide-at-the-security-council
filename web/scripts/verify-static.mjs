@@ -16,6 +16,8 @@ const expected = [
 	...publicPages,
 	'sitemap.xml',
 	'robots.txt',
+	'llms.txt',
+	'data-catalog.json',
 	'404.html',
 	// The PWA layer, and the same argument. Both fail silently: a missing worker
 	// means the site simply stops working offline, and a missing manifest means
@@ -71,6 +73,14 @@ for (const path of publicPages) {
 const home = readFileSync(resolve('build', 'index.html'), 'utf8');
 for (const marker of ['"@type":"SoftwareApplication"', '"@type":"Dataset"', '10.7910/DVN/CKPTRB']) {
 	if (!home.includes(marker)) metadataProblems.push(`index.html JSON-LD: ${marker}`);
+}
+const catalog = JSON.parse(readFileSync(resolve('build', 'data-catalog.json'), 'utf8'));
+if (catalog.corpus?.doi !== '10.7910/DVN/CKPTRB' || !Array.isArray(catalog.endpoints)) {
+	metadataProblems.push('data-catalog.json: corpus DOI or endpoints');
+}
+const llms = readFileSync(resolve('build', 'llms.txt'), 'utf8');
+if (!llms.includes(`${origin}/data-catalog.json`)) {
+	metadataProblems.push('llms.txt: data-catalog.json link');
 }
 if (metadataProblems.length) {
 	throw new Error(`Static discovery metadata is missing: ${metadataProblems.join(', ')}`);

@@ -1,0 +1,12 @@
+[project]
+name = "unsc-genocide-mcp-starter"
+version = "0.1.0"
+description = "Starter Model Context Protocol (MCP) server for Genocide at the Security Council static data"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "mcp>=2.3.0,<3",
+]
+
+[project.scripts]
+unsc-genocide-mcp = "server:main"

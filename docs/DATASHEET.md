@@ -164,7 +164,10 @@ state should quote its status with it.
 
 - **Where:** the website,
   <https://fmadore.github.io/genocide-at-the-security-council/>, ships the
-  derived files and offers CSV downloads of each figure. The code and committed
+  derived files, offers CSV downloads of each figure, and publishes machine-readable
+  discovery documents (`/llms.txt`, `/data-catalog.json`, and `/data/manifest.json`)
+  for scripted clients and Model Context Protocol (MCP) servers (see [MCP.md](MCP.md)
+  and [`examples/mcp-starter/`](../examples/mcp-starter/README.md)). The code and committed
   annotations are on GitHub. A citable release is not yet published;
   [RELEASING.md](RELEASING.md) describes it.
 - **Licence:** derived artefacts and the project's prose are CC BY 4.0; the code

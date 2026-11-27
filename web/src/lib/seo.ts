@@ -110,7 +110,7 @@ export const STRUCTURED_DATA_JSON = JSON.stringify({
 				'@type': 'Dataset',
 				name: 'The UNSC Meetings and Speeches',
 				'@id': 'https://doi.org/10.7910/DVN/CKPTRB',
-				version: '5.0',
+				version: '6.0',
 				license: 'https://creativecommons.org/publicdomain/zero/1.0/'
 			}
 		}

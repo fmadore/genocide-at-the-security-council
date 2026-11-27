@@ -45,5 +45,6 @@ describe('discovery documents', () => {
 			'Dataset'
 		]);
 		expect(graph[1].isBasedOn['@id']).toBe('https://doi.org/10.7910/DVN/CKPTRB');
+		expect(graph[1].isBasedOn.version).toBe('6.0');
 	});
 });
