@@ -176,8 +176,10 @@
 				text-anchor="middle"
 				font-family={FONT}
 				font-size="12"
-				fill={$colours.inkFaint}>{initial(month)}</text
+				fill={$colours.inkFaint}
 			>
+				{initial(month)}
+			</text>
 		{/each}
 
 		{#each plan.years as year (year)}
@@ -187,8 +189,10 @@
 				text-anchor="end"
 				font-family={FONT}
 				font-size="12"
-				fill={$colours.inkFaint}>{year}</text
+				fill={$colours.inkFaint}
 			>
+				{year}
+			</text>
 		{/each}
 
 		{#each plan.cells as cell (cell.period)}
@@ -242,25 +246,29 @@
 					stroke-width="0.5"
 				/>
 			{/each}
-			<text x={left} y={base + 23} font-family={FONT} font-size="11" fill={$colours.inkFaint}
-				>0</text
-			>
+			<text x={left} y={base + 23} font-family={FONT} font-size="11" fill={$colours.inkFaint}>
+				0
+			</text>
 			<text
 				x={left + (STOPS * SWATCH) / 2}
 				y={base + 23}
 				text-anchor="middle"
 				font-family={FONT}
 				font-size="11"
-				fill={$colours.inkFaint}>{format(plan.high / 2)}</text
+				fill={$colours.inkFaint}
 			>
+				{format(plan.high / 2)}
+			</text>
 			<text
 				x={left + STOPS * SWATCH}
 				y={base + 23}
 				text-anchor="end"
 				font-family={FONT}
 				font-size="11"
-				fill={$colours.inkFaint}>{format(plan.high)}</text
+				fill={$colours.inkFaint}
 			>
+				{format(plan.high)}
+			</text>
 			<!-- Beside the ramp where there is room for it, under the ramp where
 		     there is not. -->
 			<text
@@ -268,8 +276,10 @@
 				y={stacked ? base + 42 : base + 9}
 				font-family={FONT}
 				font-size="12"
-				fill={$colours.inkFaint}>{unit}</text
+				fill={$colours.inkFaint}
 			>
+				{unit}
+			</text>
 
 			<!-- Two refusals, two keys, on a row of their own. The hatch is a rate
 		     this figure declines to publish; the mark is a month in which the
@@ -290,8 +300,10 @@
 				y={refusals + 9}
 				font-family={FONT}
 				font-size="12"
-				fill={$colours.inkFaint}>no rate ({plan.withheld})</text
+				fill={$colours.inkFaint}
 			>
+				no rate ({plan.withheld})
+			</text>
 
 			<rect
 				x={left + 150}
@@ -314,8 +326,10 @@
 				y={refusals + 9}
 				font-family={FONT}
 				font-size="12"
-				fill={$colours.inkFaint}>no sitting ({plan.unobserved})</text
+				fill={$colours.inkFaint}
 			>
+				no sitting ({plan.unobserved})
+			</text>
 
 			<!-- Months of the grid past the end of the record: the dashed outline
 			     the cells carry, and nothing inside it. -->
@@ -337,8 +351,10 @@
 					y={by + 9}
 					font-family={FONT}
 					font-size="12"
-					fill={$colours.inkFaint}>after the record ends ({plan.beyond})</text
+					fill={$colours.inkFaint}
 				>
+					after the record ends ({plan.beyond})
+				</text>
 			{/if}
 		{/snippet}
 

@@ -475,24 +475,27 @@
 
 	<h2>Analysis steps and checks</h2>
 	<p>
-		The following scripts produce the displayed analyses or related optional outputs. <strong
-			>Automatic checks</strong
-		> cover data consistency and implementation; they do not mean a researcher has verified every passage.
-		Model-based results require separate interpretation and validation.
+		The following scripts produce the displayed analyses or related optional outputs. <strong>
+			Automatic checks
+		</strong> cover data consistency and implementation; they do not mean a researcher has verified every
+		passage. Model-based results require separate interpretation and validation.
 	</p>
 	<ScrollRegion label="Analysis steps">
 		<table class="ledger">
-			<thead><tr><th>Step</th><th>Purpose and checks</th><th>Output</th><th>Status</th></tr></thead
-			><tbody
-				>{#each steps as step (step.id)}<tr
-						><td class="step"><code>{step.id}</code></td><td
-							>{step.does}<span class="checks">{step.checks}</span></td
-						><td><code class="artefact">{step.artefact}</code></td><td
+			<thead>
+				<tr><th>Step</th><th>Purpose and checks</th><th>Output</th><th>Status</th></tr>
+			</thead><tbody>
+				{#each steps as step (step.id)}<tr>
+						<td class="step"><code>{step.id}</code></td><td>
+							{step.does}<span class="checks">{step.checks}</span>
+						</td><td><code class="artefact">{step.artefact}</code></td><td
 							class="state"
-							data-state={step.state}>{step.says}</td
-						></tr
-					>{/each}</tbody
-			>
+							data-state={step.state}
+						>
+							{step.says}
+						</td>
+					</tr>{/each}
+			</tbody>
 		</table>
 	</ScrollRegion>
 
@@ -504,9 +507,9 @@
 		Retain that identifier and the filters when saving or citing a result.
 	</p>
 	<p>
-		The source corpus is released under CC0. The code uses the <a href="{REPO}/blob/main/LICENSE"
-			>MIT licence</a
-		>; project-generated tables and figures use
+		The source corpus is released under CC0. The code uses the <a href="{REPO}/blob/main/LICENSE">
+			MIT licence
+		</a>; project-generated tables and figures use
 		<a href="{REPO}/blob/main/LICENSE-DATA.md">CC BY 4.0</a>. Cite the project using
 		<a href="{REPO}/blob/main/CITATION.cff">CITATION.cff</a> and cite the source corpus as well.
 	</p>
@@ -514,8 +517,11 @@
 		The steps that need GPUs — embeddings, the topic comparison, lemmatisation and the model
 		classifications — ran on <em>festus</em>, the university cluster. Calculations were performed
 		using the festus-cluster of the Bayreuth Centre for High Performance Computing (<a
-			href="https://www.bzhpc.uni-bayreuth.de">https://www.bzhpc.uni-bayreuth.de</a
-		>), funded by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) - 523317330.
+			href="https://www.bzhpc.uni-bayreuth.de"
+		>
+			https://www.bzhpc.uni-bayreuth.de
+		</a>), funded by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation) -
+		523317330.
 	</p>
 	<h3 id="machine-readable">Machine-readable data and MCP</h3>
 	<p>

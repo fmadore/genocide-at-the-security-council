@@ -401,9 +401,9 @@
 				</div>
 				<p class="jump">
 					<a href={unSearch(record.spv)}>UN Digital Library<Icon icon={ExternalLink} /></a>
-					<a href="{resolve('/concordance')}?spv={encodeURIComponent(record.spv)}"
-						>Concordance for this meeting</a
-					>
+					<a href="{resolve('/concordance')}?spv={encodeURIComponent(record.spv)}">
+						Concordance for this meeting
+					</a>
 				</p>
 			</div>
 		</header>
@@ -449,11 +449,11 @@
 						<li>
 							<span class="name">{shortCountry(delegation.country)}</span>
 							<span class="n">{count(delegation.speeches)}</span>
-							<span class="said"
-								>{delegation.terms.length
+							<span class="said">
+								{delegation.terms.length
 									? delegation.terms.map(termLabel).join(', ')
-									: 'no term on the list'}</span
-							>
+									: 'no term on the list'}
+							</span>
 						</li>
 					{/each}
 				</ul>
@@ -570,9 +570,9 @@
 								{#if marked}
 									<span class="count">{marked}</span>
 								{/if}
-								<span class="chev" class:down={open.has(speech.id)}
-									><Icon icon={ChevronRight} /></span
-								>
+								<span class="chev" class:down={open.has(speech.id)}>
+									<Icon icon={ChevronRight} />
+								</span>
 							</span>
 						</button>
 					</h2>
@@ -588,8 +588,9 @@
 										title={segment.exact
 											? `Selected occurrence ${wantedOccurrence}`
 											: `${segment.terms.map(termLabel).join(', ')} · ${registerFor(segment.terms)}`}
-										>{segment.text}</mark
 									>
+										{segment.text}
+									</mark>
 								{:else}{#each paragraphs(segment.text) as piece, k (k)}{#if k}<span class="pause"
 											></span>{/if}{piece}{/each}{/if}
 							{/each}

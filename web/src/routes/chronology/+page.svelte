@@ -1099,18 +1099,19 @@
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View the reading set as a table</summary>
 			<table>
-				<thead
-					><tr
-						><th>Year</th><th class="num">In the reading set</th><th class="num">Speeches held</th
-						><th class="num">Share</th></tr
-					></thead
-				><tbody
-					>{#each scopeYears as row (row.year)}<tr
-							><td>{row.year}</td><td class="num">{count(row.speeches)}</td><td class="num"
-								>{count(row.held)}</td
-							><td class="num">{row.share === null ? '—' : percent(row.share)}</td></tr
-						>{/each}</tbody
-				>
+				<thead>
+					<tr>
+						<th>Year</th><th class="num">In the reading set</th><th class="num">
+							Speeches held
+						</th><th class="num">Share</th>
+					</tr>
+				</thead><tbody>
+					{#each scopeYears as row (row.year)}<tr>
+							<td>{row.year}</td><td class="num">{count(row.speeches)}</td><td class="num">
+								{count(row.held)}
+							</td><td class="num">{row.share === null ? '—' : percent(row.share)}</td>
+						</tr>{/each}
+				</tbody>
 			</table>
 		</details>
 	</Figure>
@@ -1154,8 +1155,10 @@
 							class:on={eventKinds.includes(kind)}
 							style:--chip={kindStroke(kind)}
 							aria-pressed={eventKinds.includes(kind)}
-							onclick={() => toggleKind(kind)}>{kind}</button
+							onclick={() => toggleKind(kind)}
 						>
+							{kind}
+						</button>
 					{/each}
 				</span>
 			{/if}
@@ -1301,25 +1304,26 @@
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View the plotted values as a table</summary>
 			<table>
-				<thead
-					><tr
-						><th>Period</th>{#each usable as name (name)}<th class="num">{measureLabel(name)}</th
-							>{/each}</tr
-					></thead
-				>
+				<thead>
+					<tr>
+						<th>Period</th>{#each usable as name (name)}<th class="num">
+								{measureLabel(name)}
+							</th>{/each}
+					</tr>
+				</thead>
 				<tbody>
 					{#each periods as period, index (period)}
-						<tr
-							><td>{period}</td>{#each usable as name (name)}{@const plotted =
+						<tr>
+							<td>{period}</td>{#each usable as name (name)}{@const plotted =
 									allMeasures[name]![unit]?.[index] ?? null}{@const value =
 									plotted == null
 										? 'withheld'
 										: unit === 'speech_rate'
 											? percent(Number(plotted))
-											: decimal(Number(plotted))}<td class="num"
-									><a href={plottedHref(name, period)}>{value}</a></td
-								>{/each}</tr
-						>
+											: decimal(Number(plotted))}<td class="num">
+									<a href={plottedHref(name, period)}>{value}</a>
+								</td>{/each}
+						</tr>
 					{/each}
 				</tbody>
 			</table>
@@ -1382,16 +1386,12 @@
 								{#if result.accepted}<strong>{result.label}</strong>{:else}{result.label}
 									<span class="verdict">best split; not accepted</span>{/if}
 							</td>
-							<td class="num"
-								>{name === 'speech_rate'
-									? percent(result.before)
-									: decimal(result.before * 100000)}</td
-							>
-							<td class="num"
-								>{name === 'speech_rate'
-									? percent(result.after)
-									: decimal(result.after * 100000)}</td
-							>
+							<td class="num">
+								{name === 'speech_rate' ? percent(result.before) : decimal(result.before * 100000)}
+							</td>
+							<td class="num">
+								{name === 'speech_rate' ? percent(result.after) : decimal(result.after * 100000)}
+							</td>
 							<!-- The ratio is set in ink whichever way it points. A rise in
 							     genocide vocabulary is not a good or a bad thing, and painting it
 							     red-up / green-down asked the reader to hear a verdict the study
@@ -1405,19 +1405,21 @@
 			</tbody>
 		</table>
 		<details class="data-table">
-			<summary><Icon icon={ChevronRight} />View the second, exploratory change-point method</summary
-			>
+			<summary>
+				<Icon icon={ChevronRight} />View the second, exploratory change-point method
+			</summary>
 			<p>{data.breaks.caveat}</p>
 			<table>
-				<thead><tr><th>Unit</th><th>Candidate year</th><th class="num">Diagnostic p</th></tr></thead
-				>
-				<tbody
-					>{#each Object.entries(genocideBreaks) as [name, breaks] (name)}{#each breaks as item (item.index)}<tr
-								><td>{UNITS.find((unit) => unit.id === name)?.label ?? name}</td><td
-									>{item.label}</td
-								><td class="num">{item.p_value.toFixed(4)}</td></tr
-							>{/each}{/each}</tbody
-				>
+				<thead>
+					<tr><th>Unit</th><th>Candidate year</th><th class="num">Diagnostic p</th></tr>
+				</thead>
+				<tbody>
+					{#each Object.entries(genocideBreaks) as [name, breaks] (name)}{#each breaks as item (item.index)}<tr>
+								<td>{UNITS.find((unit) => unit.id === name)?.label ?? name}</td><td>
+									{item.label}
+								</td><td class="num">{item.p_value.toFixed(4)}</td>
+							</tr>{/each}{/each}
+				</tbody>
 			</table>
 		</details>
 	</Figure>
@@ -1442,17 +1444,18 @@
 			<label>
 				Measure
 				<select bind:value={gridMeasure}>
-					{#each gridMeasures as name (name)}<option value={name}>{measureLabel(name)}</option
-						>{/each}
+					{#each gridMeasures as name (name)}<option value={name}>
+							{measureLabel(name)}
+						</option>{/each}
 				</select>
 			</label>
 			<label>
 				Unit
 				<select bind:value={gridUnit}>
 					{#each gridUnits as u (u)}
-						<option value={u}
-							>{u === 'speech_rate' ? 'Share of speeches' : 'Per 100,000 words'}</option
-						>
+						<option value={u}>
+							{u === 'speech_rate' ? 'Share of speeches' : 'Per 100,000 words'}
+						</option>
 					{/each}
 				</select>
 			</label>
@@ -1473,9 +1476,9 @@
 		{#snippet caveat()}
 			<p>
 				The agenda varies by month, so recurring peaks may reflect scheduled debates or reporting
-				cycles. {#if column.shared}The two highest pooled months share the leading agenda item <em
-						>{column.shared}</em
-					>.{/if} This association alone does not explain the pattern.
+				cycles. {#if column.shared}The two highest pooled months share the leading agenda item <em>
+						{column.shared}
+					</em>.{/if} This association alone does not explain the pattern.
 			</p>
 		{/snippet}
 		{#snippet more()}
@@ -1532,9 +1535,9 @@
 						<tr>
 							<th>Year</th>
 							{#each heat.months as month (month)}
-								<th class="num"
-									>{monthLabel(`2000-${String(month).padStart(2, '0')}`).slice(0, 3)}</th
-								>
+								<th class="num">
+									{monthLabel(`2000-${String(month).padStart(2, '0')}`).slice(0, 3)}
+								</th>
 							{/each}
 						</tr>
 					</thead>
@@ -1550,9 +1553,9 @@
 									{@const link = cell ? cellLink(cell) : null}
 									<td class="num" title={cell ? cellLabel(cell) : ''}>
 										{#if cell && link}
-											<a href="{resolve('/concordance')}?{link.query}"
-												>{cell.state === 'drawn' ? showRate(cell.value) : '—'}</a
-											>
+											<a href="{resolve('/concordance')}?{link.query}">
+												{cell.state === 'drawn' ? showRate(cell.value) : '—'}
+											</a>
 										{:else}
 											{cell && cell.state === 'drawn' ? showRate(cell.value) : '—'}
 										{/if}
@@ -1613,25 +1616,26 @@
 							<!-- Every year's June, which is what this row pools — so the link
 							     carries the month and no year bound at all. -->
 							<th scope="row">
-								{#if link}<a href="{resolve('/concordance')}?{link.query}">{row.name}</a
-									>{:else}{row.name}{/if}
+								{#if link}<a href="{resolve('/concordance')}?{link.query}">
+										{row.name}
+									</a>{:else}{row.name}{/if}
 							</th>
 							<td class="num">{count(row.held)}</td>
 							<td class="num">{count(row.speeches)}</td>
 							<td class="num rate">
-								<span class="rate-cell"
-									><span class="rate-bar" aria-hidden="true"></span><span
-										>{showRate(row.value)}</span
-									></span
-								>
+								<span class="rate-cell">
+									<span class="rate-bar" aria-hidden="true"></span><span>
+										{showRate(row.value)}
+									</span>
+								</span>
 							</td>
 							<td class="num soft">{showRate(row.without)}</td>
 							<td class="item">
 								{#if row.agenda.length}
 									{row.agenda[0]!.item}
-									<span class="soft"
-										>{count(row.agenda[0]!.speeches)} · {percent(row.agenda[0]!.share)}</span
-									>
+									<span class="soft">
+										{count(row.agenda[0]!.speeches)} · {percent(row.agenda[0]!.share)}
+									</span>
 								{:else}
 									—
 								{/if}
@@ -1700,23 +1704,24 @@
 				<table>
 					<thead>
 						<tr>
-							<th>Period</th><th>Category</th><th class="num">Speeches held</th><th class="num"
-								>Using genocide</th
-							><th class="num">Share</th><th>Evidence</th>
+							<th>Period</th><th>Category</th><th class="num">Speeches held</th><th class="num">
+								Using genocide
+							</th><th class="num">Share</th><th>Evidence</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each splitBlock?.rows ?? [] as row (row.period + row.category)}
 							{@const href = splitHref(row)}
 							<tr>
-								<td>{row.period}</td><td>{row.category}</td><td class="num">{count(row.held)}</td
-								><td class="num">{count(row.speeches)}</td><td class="num"
-									>{splitRate(row, splitMinimum) == null
+								<td>{row.period}</td><td>{row.category}</td><td class="num">
+									{count(row.held)}
+								</td><td class="num">{count(row.speeches)}</td><td class="num">
+									{splitRate(row, splitMinimum) == null
 										? 'withheld'
-										: percent(splitRate(row, splitMinimum) ?? 0)}</td
-								><td
-									>{#if href}<a {href}>Read lines</a>{:else}—{/if}</td
-								>
+										: percent(splitRate(row, splitMinimum) ?? 0)}
+								</td><td>
+									{#if href}<a {href}>Read lines</a>{:else}—{/if}
+								</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -1743,9 +1748,9 @@
 					{#each data.overlay.events as e (e.date + e.label)}
 						<tr>
 							<td class="date">{isoDate(e.date)}</td>
-							<td
-								>{e.label}{#if e.note}<span class="note"> — {e.note}</span>{/if}</td
-							>
+							<td>
+								{e.label}{#if e.note}<span class="note"> — {e.note}</span>{/if}
+							</td>
 							<td><span class="kind" style:--chip={kindStroke(e.kind)}>{e.kind}</span></td>
 							<td><a href={e.source_url}>{e.source}</a></td>
 						</tr>

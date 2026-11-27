@@ -340,8 +340,10 @@
 					{percent(totals.bearing / totals.speeches)}<a
 						class="note-ref"
 						href="#english-record"
-						aria-describedby="english-record">†</a
+						aria-describedby="english-record"
 					>
+						†
+					</a>
 					of all speeches. Forms such as
 					<em>genocide</em>
 					and <em>genocidal</em> count together.
@@ -420,21 +422,21 @@
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View annual values as a table</summary>
 			<table>
-				<thead
-					><tr
-						><th>Year</th><th class="num">Occurrences</th><th class="num">Share of speeches</th></tr
-					></thead
-				><tbody
-					>{#each years as year, index (year)}<tr
-							><td
-								><a href={`${resolve('/concordance')}?term=genocide&from=${year}&to=${year}`}
-									>{year}</a
-								></td
-							><td class="num">{count(genocide.occurrences?.[index] ?? 0)}</td><td class="num"
-								>{rateCell(genocide.speech_rate[index])}</td
-							></tr
-						>{/each}</tbody
-				>
+				<thead>
+					<tr>
+						<th>Year</th><th class="num">Occurrences</th><th class="num">Share of speeches</th>
+					</tr>
+				</thead><tbody>
+					{#each years as year, index (year)}<tr>
+							<td>
+								<a href={`${resolve('/concordance')}?term=genocide&from=${year}&to=${year}`}>
+									{year}
+								</a>
+							</td><td class="num">{count(genocide.occurrences?.[index] ?? 0)}</td><td class="num">
+								{rateCell(genocide.speech_rate[index])}
+							</td>
+						</tr>{/each}
+				</tbody>
 			</table>
 		</details>
 	</Figure>
@@ -491,21 +493,21 @@
 		<details class="data-table">
 			<summary><Icon icon={ChevronRight} />View the drawn shares as a table</summary>
 			<table>
-				<thead
-					><tr
-						><th>Year</th>{#each termRows as row (row.name)}<th class="num">{row.name}</th
-							>{/each}</tr
-					><tr class="register"
-						><th>Register</th>{#each termRows as row (row.name)}<th class="num">{row.register}</th
-							>{/each}</tr
-					></thead
-				><tbody
-					>{#each years as year, index (year)}<tr
-							><td>{year}</td>{#each termRows as row (row.name)}<td class="num"
-									>{rateCell(row.values[index])}</td
-								>{/each}</tr
-						>{/each}</tbody
-				>
+				<thead>
+					<tr>
+						<th>Year</th>{#each termRows as row (row.name)}<th class="num">{row.name}</th>{/each}
+					</tr><tr class="register">
+						<th>Register</th>{#each termRows as row (row.name)}<th class="num">
+								{row.register}
+							</th>{/each}
+					</tr>
+				</thead><tbody>
+					{#each years as year, index (year)}<tr>
+							<td>{year}</td>{#each termRows as row (row.name)}<td class="num">
+									{rateCell(row.values[index])}
+								</td>{/each}
+						</tr>{/each}
+				</tbody>
 			</table>
 		</details>
 	</Figure>
@@ -521,28 +523,28 @@
 			<li>
 				<a href={resolve('/chronology')}>
 					<strong>Chronology</strong>
-					<span
-						>When the word was used. Set it beside related terms and {data.overlay.events.length}
+					<span>
+						When the word was used. Set it beside related terms and {data.overlay.events.length}
 						{data.overlay.events.length === 1 ? 'reference date' : 'reference dates'}, year by year
-						or month by month.</span
-					>
+						or month by month.
+					</span>
 				</a>
 			</li>
 			<li>
 				<a href={resolve('/actors')}>
 					<strong>Actors</strong>
-					<span
-						>Who used it, measured against each speaker’s own speeches, with Council membership.</span
-					>
+					<span>
+						Who used it, measured against each speaker’s own speeches, with Council membership.
+					</span>
 				</a>
 			</li>
 			<li>
 				<a href={resolve('/concordance')}>
 					<strong>Concordance</strong>
-					<span
-						>What was said. All {count(sum(data.series.terms.genocide!.occurrences ?? []))} matches for
-						<code>genocid*</code>, each with its sentence and the meeting symbol to cite.</span
-					>
+					<span>
+						What was said. All {count(sum(data.series.terms.genocide!.occurrences ?? []))} matches for
+						<code>genocid*</code>, each with its sentence and the meeting symbol to cite.
+					</span>
 				</a>
 			</li>
 		</ol>

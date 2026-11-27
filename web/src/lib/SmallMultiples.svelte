@@ -121,9 +121,9 @@
 {#if key.length}
 	<p class="key">
 		{#each key as entry (entry.register)}
-			<span class="entry"
-				><span class="swatch" style:background={entry.colour}></span>{entry.register}</span
-			>
+			<span class="entry">
+				<span class="swatch" style:background={entry.colour}></span>{entry.register}
+			</span>
 		{/each}
 	</p>
 {/if}

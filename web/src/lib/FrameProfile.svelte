@@ -111,21 +111,21 @@
 					stroke={tick === 0 ? $colours.rule : $colours.ruleSoft}
 					stroke-width={tick === 0 ? 1.2 : 0.8}
 				/>
-				<text x={x(tick)} y={TOP - 10} text-anchor="middle" font-size="10" fill={$colours.inkFaint}
-					>{tickLabel(tick)}</text
-				>
+				<text x={x(tick)} y={TOP - 10} text-anchor="middle" font-size="10" fill={$colours.inkFaint}>
+					{tickLabel(tick)}
+				</text>
 			{/each}
-			<text x={LABEL} y={12} font-size="10" fill={$colours.inkFaint}
-				>share of the word's occurrences</text
-			>
+			<text x={LABEL} y={12} font-size="10" fill={$colours.inkFaint}>
+				share of the word's occurrences
+			</text>
 		</g>
 		{#each rows as row, index (row.frame)}
 			{@const cy = TOP + index * ROW + ROW / 2}
 			<g class="row">
 				<title>{title(row)}</title>
-				<text x={LABEL - 10} y={cy + 4} text-anchor="end" font-size="12" fill={$colours.ink}
-					>{label(row.frame)}</text
-				>
+				<text x={LABEL - 10} y={cy + 4} text-anchor="end" font-size="12" fill={$colours.ink}>
+					{label(row.frame)}
+				</text>
 				{#if row.share !== null && row.low !== null && row.high !== null}
 					<line
 						x1={x(row.low)}

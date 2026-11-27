@@ -160,8 +160,10 @@
 			{#each result.groups as group (group)}
 				<span class="swatch" style:--band={fills.get(group)}>
 					<i></i>{group}{#if result.seatedGroups.has(group)}<abbr
-							title="Holds a seat on the Council">seat</abbr
-						>{/if}
+							title="Holds a seat on the Council"
+						>
+							seat
+						</abbr>{/if}
 				</span>
 			{/each}
 		</div>
@@ -178,9 +180,9 @@
 						<th scope="col" class="num">From a seat</th>
 						<th scope="col" class="composition">Composition</th>
 						{#each result.groups as group (group)}
-							<th scope="col" class="num"
-								><span class="swatch" style:--band={fills.get(group)}><i></i>{group}</span></th
-							>
+							<th scope="col" class="num">
+								<span class="swatch" style:--band={fills.get(group)}><i></i>{group}</span>
+							</th>
 						{/each}
 					</tr>
 				</thead>
@@ -198,9 +200,9 @@
 								></span>
 							</td>
 							{#each result.groups as group (group)}
-								<td class="num" class:nil={!entry.row.groups[group]}
-									>{count(entry.row.groups[group] ?? 0)}</td
-								>
+								<td class="num" class:nil={!entry.row.groups[group]}>
+									{count(entry.row.groups[group] ?? 0)}
+								</td>
 							{/each}
 						</tr>
 					{/each}

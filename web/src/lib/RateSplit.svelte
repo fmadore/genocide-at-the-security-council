@@ -94,9 +94,9 @@
 						{@const dash = strong ? undefined : '6 4'}
 						{@const bottom = g.top + plotHeight}
 						<g>
-							<text x="0" y={index * PANEL + 14} font-size="13" font-weight="600" fill={p.ink}
-								>{step.label}</text
-							>
+							<text x="0" y={index * PANEL + 14} font-size="13" font-weight="600" fill={p.ink}>
+								{step.label}
+							</text>
 							<!-- value grid -->
 							{#each g.ticks as value (value)}
 								<line
@@ -111,8 +111,10 @@
 									y={g.y(value) + 4}
 									font-size="11"
 									text-anchor="end"
-									fill={p.inkSoft}>{axisLabel(step, value)}</text
+									fill={p.inkSoft}
 								>
+									{axisLabel(step, value)}
+								</text>
 							{/each}
 							<!-- years -->
 							{#each yearTicks(step.start, step.end, narrow ? 20 : 10) as year (year)}
@@ -121,8 +123,10 @@
 									y={bottom + 16}
 									font-size="11"
 									text-anchor="middle"
-									fill={p.inkSoft}>{year}</text
+									fill={p.inkSoft}
 								>
+									{year}
+								</text>
 								<line x1={g.x(year)} x2={g.x(year)} y1={bottom} y2={bottom + 4} stroke={p.ink} />
 							{/each}
 							<!-- each year's own rate, faint; a withheld year is left undrawn -->
@@ -169,8 +173,10 @@
 								font-size="11"
 								font-weight="600"
 								text-anchor="end"
-								fill={p.inkSoft}>split {step.split}</text
+								fill={p.inkSoft}
 							>
+								split {step.split}
+							</text>
 							<!-- the two rates as one step -->
 							<path
 								d="M{g.x(step.start)},{g.y(step.before.value)} H{g.x(step.split)} V{g.y(
@@ -189,8 +195,10 @@
 								fill={stroke}
 								stroke={p.paper}
 								stroke-width="3"
-								paint-order="stroke">{formatLevel(step.unit, step.before)}</text
+								paint-order="stroke"
 							>
+								{formatLevel(step.unit, step.before)}
+							</text>
 							<text
 								x={g.x(step.end) - 6}
 								y={g.y(step.after.high) - 6}
@@ -200,8 +208,10 @@
 								fill={stroke}
 								stroke={p.paper}
 								stroke-width="3"
-								paint-order="stroke">{formatLevel(step.unit, step.after)}</text
+								paint-order="stroke"
 							>
+								{formatLevel(step.unit, step.after)}
+							</text>
 						</g>
 					{/each}
 				</svg>

@@ -157,9 +157,9 @@
 					<tr>
 						<th scope="col">Speaker</th>
 						<th scope="col" class="num">Share</th>
-						<th scope="col" class="whisker-head"
-							>95% interval <span class="scale">0&ndash;{stripEnd(scale.end)}</span></th
-						>
+						<th scope="col" class="whisker-head">
+							95% interval <span class="scale">0&ndash;{stripEnd(scale.end)}</span>
+						</th>
 						<th scope="col">Group</th>
 						<th scope="col" class="num">Exposed meetings</th>
 						<th scope="col" class="num">Used the word</th>
@@ -170,8 +170,9 @@
 						{@const link = uses(entry)}
 						<tr>
 							<th scope="row">
-								{#if link}<a href={link}>{shortCountry(entry.row.country_org)}</a
-									>{:else}{shortCountry(entry.row.country_org)}{/if}
+								{#if link}<a href={link}>
+										{shortCountry(entry.row.country_org)}
+									</a>{:else}{shortCountry(entry.row.country_org)}{/if}
 							</th>
 							<td class="num">{percent(entry.row.share ?? 0)}</td>
 							<td class="whisker">
@@ -183,18 +184,17 @@
 									style:--room={at(room ?? 0)}
 									class:has-room={room !== null}
 									aria-hidden="true"
-									>{#if past(entry.row.share_high)}<span class="over"></span>{/if}</span
 								>
-								<span class="range"
-									>{percent(entry.row.share_low ?? 0)}&ndash;{percent(
-										entry.row.share_high ?? 0
-									)}</span
-								>
+									{#if past(entry.row.share_high)}<span class="over"></span>{/if}
+								</span>
+								<span class="range">
+									{percent(entry.row.share_low ?? 0)}&ndash;{percent(entry.row.share_high ?? 0)}
+								</span>
 							</td>
-							<td
-								>{entry.speaker?.un_regional_group ??
-									(entry.speaker ? entityType(entry.speaker.entity_type) : '—')}</td
-							>
+							<td>
+								{entry.speaker?.un_regional_group ??
+									(entry.speaker ? entityType(entry.speaker.entity_type) : '—')}
+							</td>
 							<td class="num">{count(entry.row.exposed)}</td>
 							<td class="num">{count(entry.row.joined)}</td>
 						</tr>
